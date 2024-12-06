@@ -73,7 +73,15 @@ func WithEphemeralPersistentVolumeClaim(diskName, pvcName string) Option {
 func WithDataVolume(diskName, pvcName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDisk(vmi, newDisk(diskName, v1.DiskBusVirtio))
-		addVolume(vmi, newDataVolume(diskName, pvcName))
+		addVolume(vmi, newDataVolume(diskName, pvcName, false))
+	}
+}
+
+// WithHotplugDataVolume specifies the name of the hotpluggable DataVolume to be used.
+func WithHotplugDataVolume(diskName, pvcName string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDisk(vmi, newDisk(diskName, v1.DiskBusSCSI))
+		addVolume(vmi, newDataVolume(diskName, pvcName, true))
 	}
 }
 
@@ -118,7 +126,7 @@ func WithFilesystemPVC(claimName string) Option {
 func WithFilesystemDV(dataVolumeName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addFilesystem(vmi, newVirtiofsFilesystem(dataVolumeName))
-		addVolume(vmi, newDataVolume(dataVolumeName, dataVolumeName))
+		addVolume(vmi, newDataVolume(dataVolumeName, dataVolumeName, false))
 	}
 }
 
@@ -293,12 +301,13 @@ func newEphemeralPersistentVolumeClaimVolume(name, claimName string) v1.Volume {
 	}
 }
 
-func newDataVolume(name, dataVolumeName string) v1.Volume {
+func newDataVolume(name, dataVolumeName string, hotpluggable bool) v1.Volume {
 	return v1.Volume{
 		Name: name,
 		VolumeSource: v1.VolumeSource{
 			DataVolume: &v1.DataVolumeSource{
-				Name: dataVolumeName,
+				Name:         dataVolumeName,
+				Hotpluggable: hotpluggable,
 			},
 		},
 	}

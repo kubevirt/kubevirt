@@ -674,6 +674,11 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 	case vmi.IsScheduled():
 		if !vmiPodExists {
 			vmiCopy.Status.Phase = virtv1.Failed
+			break
+		}
+
+		if err := c.updateVolumeStatus(vmiCopy, pod); err != nil {
+			return err
 		}
 	default:
 		return fmt.Errorf("unknown vmi phase %v", vmi.Status.Phase)
@@ -1120,7 +1125,8 @@ func (c *Controller) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance, d
 
 	for _, volume := range vmi.Spec.Volumes {
 		// Check both DVs and PVCs
-		if volume.VolumeSource.DataVolume != nil || volume.VolumeSource.PersistentVolumeClaim != nil {
+		if (volume.VolumeSource.DataVolume != nil && !volume.VolumeSource.DataVolume.Hotpluggable) ||
+			(volume.VolumeSource.PersistentVolumeClaim != nil && !volume.VolumeSource.PersistentVolumeClaim.Hotpluggable) {
 			volumeReady, volumeWffc, err := storagetypes.VolumeReadyToAttachToNode(vmi.Namespace, volume, dataVolumes, c.dataVolumeIndexer, c.pvcIndexer)
 			if err != nil {
 				if _, ok := err.(storagetypes.PvcNotFoundError); ok {

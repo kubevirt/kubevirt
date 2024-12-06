@@ -105,7 +105,6 @@ func (v *VirtTail) watchFS() error {
 	socketFile := strings.TrimSuffix(v.logFile, "-log")
 	termFile := v.logFile + "-sigTerm"
 	termFileDone := termFile + "-done"
-	socketExists := v.checkFile(socketFile)
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -136,13 +135,6 @@ func (v *VirtTail) watchFS() error {
 		return err
 	}
 
-	// initial timeout for serial console socket creation
-	const initialSocketTimeout = time.Second * 20
-	socketCheckCh := make(chan int)
-	time.AfterFunc(initialSocketTimeout, func() {
-		socketCheckCh <- 1
-	})
-
 	if v.checkFile(termFileDone) {
 		log.Log.V(3).Infof("watchFS error: termFileDone was already there")
 		return &TermFileError{}
@@ -151,23 +143,11 @@ func (v *VirtTail) watchFS() error {
 	// Start listening for events.
 	for {
 		select {
-		case <-socketCheckCh:
-			if !socketExists {
-				if socketExists = v.checkFile(socketFile); !socketExists {
-					rerr := errors.New("socketFile is still not ready")
-					log.Log.V(3).Infof("watchFS error: %v", rerr)
-					return rerr
-				}
-			}
-			if v.checkFile(termFileDone) {
-				log.Log.V(3).Infof("watchFS error: termFileDone was already there")
-				return &TermFileError{}
-			}
 		case event := <-watcher.Events:
 			if event.Has(fsnotify.Create) {
-				if event.Name == socketFile {
-					// socket file got created
-					socketExists = true
+				if event.Name == termFileDone {
+					log.Log.V(3).Infof("watchFS error: termFileDone was already there")
+					return &TermFileError{}
 				}
 			} else if event.Has(fsnotify.Remove) {
 				if event.Name == socketFile {

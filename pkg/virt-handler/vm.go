@@ -95,6 +95,7 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
@@ -1025,48 +1026,49 @@ func (d *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 	// used by unit test
 	hasHotplug := false
 
-	if domain == nil {
+	if len(vmi.Status.VolumeStatus) == 0 {
 		return hasHotplug
 	}
 
-	if len(vmi.Status.VolumeStatus) > 0 {
-		diskDeviceMap := make(map[string]string)
+	diskDeviceMap := make(map[string]string)
+	if domain != nil {
 		for _, disk := range domain.Spec.Devices.Disks {
 			diskDeviceMap[disk.Alias.GetName()] = disk.Target.Device
 		}
-		specVolumeMap := make(map[string]v1.Volume)
-		for _, volume := range vmi.Spec.Volumes {
-			specVolumeMap[volume.Name] = volume
-		}
-		newStatusMap := make(map[string]v1.VolumeStatus)
-		newStatuses := make([]v1.VolumeStatus, 0)
-		needsRefresh := false
-		for _, volumeStatus := range vmi.Status.VolumeStatus {
-			tmpNeedsRefresh := false
-			if _, ok := diskDeviceMap[volumeStatus.Name]; ok {
-				volumeStatus.Target = diskDeviceMap[volumeStatus.Name]
-			}
-			if volumeStatus.HotplugVolume != nil {
-				hasHotplug = true
-				volumeStatus, tmpNeedsRefresh = d.updateHotplugVolumeStatus(vmi, volumeStatus, specVolumeMap)
-				needsRefresh = needsRefresh || tmpNeedsRefresh
-			}
-			if volumeStatus.MemoryDumpVolume != nil {
-				volumeStatus, tmpNeedsRefresh = d.updateMemoryDumpInfo(vmi, volumeStatus, domain)
-				needsRefresh = needsRefresh || tmpNeedsRefresh
-			}
-			newStatuses = append(newStatuses, volumeStatus)
-			newStatusMap[volumeStatus.Name] = volumeStatus
-		}
-		sort.SliceStable(newStatuses, func(i, j int) bool {
-			return strings.Compare(newStatuses[i].Name, newStatuses[j].Name) == -1
-		})
-		if needsRefresh {
-			d.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second)
-		}
-		d.generateEventsForVolumeStatusChange(vmi, newStatusMap)
-		vmi.Status.VolumeStatus = newStatuses
 	}
+	specVolumeMap := make(map[string]v1.Volume)
+	for _, volume := range vmi.Spec.Volumes {
+		specVolumeMap[volume.Name] = volume
+	}
+	newStatusMap := make(map[string]v1.VolumeStatus)
+	var newStatuses []v1.VolumeStatus
+	needsRefresh := false
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		tmpNeedsRefresh := false
+		if _, ok := diskDeviceMap[volumeStatus.Name]; ok {
+			volumeStatus.Target = diskDeviceMap[volumeStatus.Name]
+		}
+		if volumeStatus.HotplugVolume != nil {
+			hasHotplug = true
+			volumeStatus, tmpNeedsRefresh = d.updateHotplugVolumeStatus(vmi, volumeStatus, specVolumeMap)
+			needsRefresh = needsRefresh || tmpNeedsRefresh
+		}
+		if volumeStatus.MemoryDumpVolume != nil {
+			volumeStatus, tmpNeedsRefresh = d.updateMemoryDumpInfo(vmi, volumeStatus, domain)
+			needsRefresh = needsRefresh || tmpNeedsRefresh
+		}
+		newStatuses = append(newStatuses, volumeStatus)
+		newStatusMap[volumeStatus.Name] = volumeStatus
+	}
+	sort.SliceStable(newStatuses, func(i, j int) bool {
+		return strings.Compare(newStatuses[i].Name, newStatuses[j].Name) == -1
+	})
+	if needsRefresh {
+		d.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second)
+	}
+	d.generateEventsForVolumeStatusChange(vmi, newStatusMap)
+	vmi.Status.VolumeStatus = newStatuses
+
 	return hasHotplug
 }
 
@@ -1262,7 +1264,10 @@ func (d *VirtualMachineController) updateMemoryDumpInfo(vmi *v1.VirtualMachineIn
 		volumeStatus.Reason = VolumeMountedToPodReason
 		volumeStatus.MemoryDumpVolume.TargetFileName = dumpTargetFile(vmi.Name, volumeStatus.Name)
 	case v1.MemoryDumpVolumeInProgress:
-		memoryDumpMetadata := domain.Spec.Metadata.KubeVirt.MemoryDump
+		var memoryDumpMetadata *api.MemoryDumpMetadata
+		if domain != nil {
+			memoryDumpMetadata = domain.Spec.Metadata.KubeVirt.MemoryDump
+		}
 		if memoryDumpMetadata == nil || memoryDumpMetadata.FileName != volumeStatus.MemoryDumpVolume.TargetFileName {
 			// memory dump wasnt triggered yet
 			return volumeStatus, needsRefresh
@@ -2348,8 +2353,9 @@ func (d *VirtualMachineController) isLauncherClientUnresponsive(vmi *v1.VirtualM
 					// no pod meanst that waiting for it to initialize makes no sense
 					return true, true, nil
 				}
+
 				// pod is still there, if there is no socket let's wait for it to become ready
-				if clientInfo.NotInitializedSince.Before(time.Now().Add(-3 * time.Minute)) {
+				if d.hotplugVolumesReady(vmi) && clientInfo.NotInitializedSince.Before(time.Now().Add(-3*time.Minute)) {
 					return true, true, nil
 				}
 				return false, false, nil
@@ -3135,6 +3141,11 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return err
 		}
 
+		if !d.hotplugVolumesReady(vmi) {
+			d.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+			return nil
+		}
+
 		nonAbsentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
 			return iface.State != v1.InterfaceStateAbsent
 		})
@@ -3371,6 +3382,29 @@ func (d *VirtualMachineController) getMemoryDump(vmi *v1.VirtualMachineInstance)
 	}
 
 	return nil
+}
+
+func (d *VirtualMachineController) hotplugVolumesReady(vmi *v1.VirtualMachineInstance) bool {
+	hasHotplugVolume := false
+	for _, v := range vmi.Spec.Volumes {
+		if storagetypes.IsHotplugVolume(&v) {
+			hasHotplugVolume = true
+			break
+		}
+	}
+	if !hasHotplugVolume {
+		return true
+	}
+	if len(vmi.Status.VolumeStatus) == 0 {
+		return false
+	}
+	for _, vs := range vmi.Status.VolumeStatus {
+		if vs.HotplugVolume != nil && !(vs.Phase == v1.VolumeReady || vs.Phase == v1.HotplugVolumeMounted) {
+			// wait for volume to be mounted
+			return false
+		}
+	}
+	return true
 }
 
 func (d *VirtualMachineController) processVmUpdate(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
