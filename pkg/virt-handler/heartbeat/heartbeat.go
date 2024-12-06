@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	k8scli "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/util/retry"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -51,8 +52,7 @@ func (h *HeartBeat) Run(heartBeatInterval time.Duration, stopCh chan struct{}) (
 	go func() {
 		h.heartBeat(heartBeatInterval, stopCh)
 		//ensure that the node is getting marked as unschedulable when removed
-		labelNodeDone := h.labelNodeUnschedulable()
-		<-labelNodeDone
+		h.labelNodeUnschedulable()
 		close(done)
 	}()
 	return done
@@ -75,20 +75,16 @@ func (h *HeartBeat) heartBeat(heartBeatInterval time.Duration, stopCh chan struc
 	wait.JitterUntil(h.do, heartBeatInterval, 1.2, true, stopCh)
 }
 
-func (h *HeartBeat) labelNodeUnschedulable() (done chan struct{}) {
-	done = make(chan struct{})
-	go func() {
+func (h *HeartBeat) labelNodeUnschedulable() {
+	retry.OnError(retry.DefaultBackoff, func(err error) bool { return err != nil }, func() error {
 		now, err := json.Marshal(metav1.Now())
 		if err != nil {
 			log.DefaultLogger().Reason(err).Errorf("Can't determine date")
-			return
+			return err
 		}
-		var data []byte
-		cpuManagerEnabled := false
-		if h.clusterConfig.CPUManagerEnabled() {
-			cpuManagerEnabled = h.isCPUManagerEnabled(h.cpuManagerPaths)
-		}
-		data = []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s", "%s": "%t"}, "annotations": {"%s": %s}}}`,
+
+		cpuManagerEnabled := h.clusterConfig.CPUManagerEnabled() && h.isCPUManagerEnabled(h.cpuManagerPaths)
+		data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s", "%s": "%t"}, "annotations": {"%s": %s}}}`,
 			v1.NodeSchedulable, "false",
 			v1.CPUManager, cpuManagerEnabled,
 			v1.VirtHandlerHeartbeat, string(now),
@@ -96,11 +92,10 @@ func (h *HeartBeat) labelNodeUnschedulable() (done chan struct{}) {
 		_, err = h.clientset.Nodes().Patch(context.Background(), h.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 		if err != nil {
 			log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", h.host)
-			return
+			return err
 		}
-		close(done)
-	}()
-	return done
+		return nil
+	})
 }
 
 // waitForDevicePlugins gives the device plugins additional time to successfully connect to the kubelet.

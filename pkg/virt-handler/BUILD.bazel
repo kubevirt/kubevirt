@@ -4,6 +4,7 @@ load("@kubevirt//tools/ginkgo:ginkgo.bzl", "ginkgo_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "guestagent.go",
         "migration.go",
         "non-root.go",
         "options.go",
