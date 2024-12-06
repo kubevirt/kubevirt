@@ -3758,7 +3758,11 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				DescribeTable("Should set a appropriate status when DataVolume exists but not bound", func(running bool, phase cdiv1.DataVolumePhase, status v1.VirtualMachinePrintableStatus) {
-					vm.Spec.Running = &running
+					if running {
+						vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+					} else {
+						vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
+					}
 
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 					Expect(err).To(Succeed())
