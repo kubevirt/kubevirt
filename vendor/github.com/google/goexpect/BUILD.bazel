@@ -10,5 +10,6 @@ go_library(
         "//vendor/github.com/google/goterm/term:go_default_library",
         "//vendor/golang.org/x/crypto/ssh:go_default_library",
         "@org_golang_google_grpc//codes:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
     ],
 )
