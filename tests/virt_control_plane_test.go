@@ -39,7 +39,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -149,11 +148,6 @@ var _ = Describe("[ref_id:2717][sig-compute]KubeVirt control plane resilience", 
 		})
 
 		DescribeTable("evicting pods of control plane", func(podName string, isMultiReplica bool, msg string) {
-			if isMultiReplica {
-				checks.SkipIfSingleReplica(virtCli)
-			} else {
-				checks.SkipIfMultiReplica(virtCli)
-			}
 			By(fmt.Sprintf("Try to evict all pods %s\n", podName))
 			podList, err := getPodList()
 			Expect(err).ToNot(HaveOccurred())
@@ -172,13 +166,13 @@ var _ = Describe("[ref_id:2717][sig-compute]KubeVirt control plane resilience", 
 				}
 			}
 		},
-			Entry("[test_id:2830]last eviction should fail for multi-replica virt-controller pods",
+			Entry("[test_id:2830]last eviction should fail for multi-replica virt-controller pods", decorators.MultiReplica,
 				"virt-controller", multiReplica, "no error occurred on evict of last virt-controller pod"),
-			Entry("[test_id:2799]last eviction should fail for multi-replica virt-api pods",
+			Entry("[test_id:2799]last eviction should fail for multi-replica virt-api pods", decorators.MultiReplica,
 				"virt-api", multiReplica, "no error occurred on evict of last virt-api pod"),
 			Entry("eviction of single-replica virt-controller pod should succeed",
-				"virt-controller", singleReplica, "error occurred on eviction of single-replica virt-controller pod"),
-			Entry("eviction of multi-replica virt-api pod should succeed",
+				"virt-controller", singleReplica, "error occurred on eviction of single-replica virt-controller pod"), decorators.SingleReplica,
+			Entry("eviction of multi-replica virt-api pod should succeed", decorators.SingleReplica,
 				"virt-api", singleReplica, "error occurred on eviction of single-replica virt-api pod"),
 		)
 	})
@@ -187,10 +181,7 @@ var _ = Describe("[ref_id:2717][sig-compute]KubeVirt control plane resilience", 
 
 		When("control plane pods are running", func() {
 
-			It("[test_id:2806]virt-controller and virt-api pods have a pod disruption budget", func() {
-				// Single replica deployments do not create PDBs
-				checks.SkipIfSingleReplica(virtCli)
-
+			It("[test_id:2806]virt-controller and virt-api pods have a pod disruption budget", decorators.MultiReplica, func() {
 				deploymentsClient := virtCli.AppsV1().Deployments(flags.KubeVirtInstallNamespace)
 				By("check deployments")
 				deployments, err := deploymentsClient.List(context.Background(), metav1.ListOptions{})
