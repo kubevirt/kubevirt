@@ -728,6 +728,12 @@ var _ = Describe("Converter", func() {
 			Expect(strings.Contains(xml, `<memory unit="b">2222222</memory>`)).To(BeTrue(), xml)
 		})
 
+		It("should use panic devices if requested", func() {
+			vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: kubevirtpointer.P(v1.Hyperv)}}
+			xml := vmiToDomainXML(vmi, c)
+			Expect(strings.Contains(xml, `<panic model="hyperv"></panic>`)).To(BeTrue(), xml)
+		})
+
 		DescribeTable("should be converted to a libvirt Domain with vmi defaults set", func(arch string, domain string) {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}

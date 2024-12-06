@@ -485,6 +485,34 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 		})
 
+		Context("when guest crashes", decorators.VMIlifecycle, func() {
+			It("should be stopped and have Failed phase when a PanicDevice is provided", func() {
+				vmi := libvmifact.NewFedora()
+				vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: pointer.P(v1.Isa)}}
+				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
+				libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
+
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+
+				By("Crashing the vm guest")
+				out := libpod.QemuAgentCommand(vmi, `{"execute": "guest-exec", "arguments": {"path": "/bin/sh", "arg": ["-c", "echo c > /proc/sysrq-trigger"], "capture-output": true}}`)
+				Expect(out.Return.Pid).ShouldNot(BeZero(), "PID should not be empty")
+
+				By("Waiting for the vm to be stopped")
+				event := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(15*time.Second).WaitFor(ctx, watcher.WarningEvent, v1.Stopped)
+				Expect(event.Message).To(ContainSubstring(`The VirtualMachineInstance crashed`), "VMI should be stopped because of a guest crash")
+
+				By("Checking that VirtualMachineInstance has 'Failed' phase")
+				Eventually(func() v1.VirtualMachineInstancePhase {
+					vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred(), "Should get VMI successfully")
+					return vmi.Status.Phase
+				}, 10, 1).Should(Equal(v1.Failed), "VMI should be failed")
+			})
+		})
+
 		Context("when virt-launcher crashes", decorators.WgS390x, func() {
 			It("[test_id:1631]should be stopped and have Failed phase", Serial, func() {
 				vmi := libvmifact.NewAlpine()
