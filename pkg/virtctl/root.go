@@ -13,6 +13,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/config"
 	"kubevirt.io/kubevirt/pkg/virtctl/adm"
 	"kubevirt.io/kubevirt/pkg/virtctl/configuration"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
@@ -81,6 +82,7 @@ func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
 	rootCmd.SetUsageTemplate(templates.MainUsageTemplate())
 	rootCmd.SetOut(os.Stdout)
 	rootCmd.AddCommand(
+		config.NewConfigCommand(clientConfig),
 		configuration.NewListPermittedDevices(clientConfig),
 		console.NewCommand(clientConfig),
 		usbredir.NewCommand(clientConfig),
