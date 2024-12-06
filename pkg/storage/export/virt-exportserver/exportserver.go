@@ -356,8 +356,6 @@ var getCdiHeaderSecret = func(token, name string) *corev1.Secret {
 
 var getDataVolumes = func(vm *virtv1.VirtualMachine) ([]*cdiv1.DataVolume, error) {
 	res := make([]*cdiv1.DataVolume, 0)
-	// TODO: Currently unable to access the backend storage here.
-	// Need to find some workaround.
 	volumes, err := storageutils.GetVolumes(vm, nil)
 	if err != nil {
 		return nil, err
