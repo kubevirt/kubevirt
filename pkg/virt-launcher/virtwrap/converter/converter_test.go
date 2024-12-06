@@ -1502,9 +1502,9 @@ var _ = Describe("Converter", func() {
 			c.Architecture = NewArchConverter(arch)
 			domain := vmiToDomain(vmi, c)
 			switch arch {
-			case amd64, ppc64le, s390x:
+			case amd64, ppc64le:
 				Expect(domain.Spec.Features.VMPort.State).To(Equal("off"))
-			case arm64:
+			case arm64, s390x:
 				Expect(domain.Spec.Features.VMPort).To(BeNil())
 			}
 		},

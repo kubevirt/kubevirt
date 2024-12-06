@@ -84,5 +84,5 @@ func (archConverterS390X) shouldVerboseLogsBeEnabled() bool {
 }
 
 func (archConverterS390X) hasVMPort() bool {
-	return true
+	return false
 }
