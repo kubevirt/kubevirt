@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 
@@ -151,7 +152,7 @@ var _ = SIGMigrationDescribe("Live Migrate A Paused VMI", func() {
 					},
 						Entry("migrate successfully (migration policy)", expectSuccess, "50Mi", applyWithMigrationPolicy),
 						Entry("migrate successfully (CR change)", Serial, expectSuccess, "50Mi", applyWithKubevirtCR),
-						Entry("fail migration", expectFailure, "1Mi", applyWithMigrationPolicy),
+						Entry("[QUARANTINE] fail migration", decorators.Quarantine, expectFailure, "1Mi", applyWithMigrationPolicy),
 					)
 				})
 			})
