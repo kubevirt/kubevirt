@@ -29,9 +29,11 @@ digraph component {
 		"NetworkAddonsConfig/cluster" [label="NetworkAddonsConfig/cluster"]
 		"daemonset/bridge-marker" [label="daemonset/bridge-marker"]
 		"daemonset/kube-cni-linux-bridge-plugin" [label="daemonset/kube-cni-linux-bridge-plugin"]
+		"daemonset/passt-binding-cni" [label="daemonset/passt-binding-cni"]
 		"deployment/cluster-network-addons-operator" [label="deployment/cluster-network-addons-operator"]
 		"deployment/kubemacpool-cert-manager" [label="deployment/kubemacpool-cert-manager"]
 		"deployment/kubemacpool-mac-controller-manager" [label="deployment/kubemacpool-mac-controller-manager"]
+		"deployment/kubevirt-ipam-controller-manager" [label="deployment/kubevirt-ipam-controller-manager"]
 	}
 	subgraph "cluster_quota-management" {
 		fontname="Courier-Bold" fontsize=42 group="quota-management" label="quota-management" rank=same style=dashed

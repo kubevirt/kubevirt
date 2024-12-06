@@ -60,6 +60,9 @@ digraph "managed-by" {
 	"deployment/kubevirt-console-plugin" [label="deployment/kubevirt-console-plugin"]
 	"deployment/hco-operator" [label="deployment/hco-operator"]
 	"deployment/hco-operator" -> "deployment/kubevirt-console-plugin"
+	"deployment/kubevirt-ipam-controller-manager" [label="deployment/kubevirt-ipam-controller-manager"]
+	"deployment/cluster-network-addons-operator" [label="deployment/cluster-network-addons-operator"]
+	"deployment/cluster-network-addons-operator" -> "deployment/kubevirt-ipam-controller-manager"
 	"deployment/ssp-operator" [label="deployment/ssp-operator"]
 	olm [label=olm]
 	olm -> "deployment/ssp-operator"
@@ -84,6 +87,9 @@ digraph "managed-by" {
 	"daemonset/kube-cni-linux-bridge-plugin" [label="daemonset/kube-cni-linux-bridge-plugin"]
 	"deployment/cluster-network-addons-operator" [label="deployment/cluster-network-addons-operator"]
 	"deployment/cluster-network-addons-operator" -> "daemonset/kube-cni-linux-bridge-plugin"
+	"daemonset/passt-binding-cni" [label="daemonset/passt-binding-cni"]
+	"deployment/cluster-network-addons-operator" [label="deployment/cluster-network-addons-operator"]
+	"deployment/cluster-network-addons-operator" -> "daemonset/passt-binding-cni"
 	"daemonset/virt-handler" [label="daemonset/virt-handler"]
 	"deployment/virt-operator" [label="deployment/virt-operator"]
 	"deployment/virt-operator" -> "daemonset/virt-handler"
