@@ -112,12 +112,12 @@ var _ = Describe("[sig-compute][virtctl]SSH", decorators.SigCompute, func() {
 		By("ssh into the VM")
 		cmdFn(vmi.Name)
 	},
-		Entry("using the native ssh method", decorators.NativeSsh, cmdNative),
-		Entry("using the local ssh method with --local-ssh flag", decorators.NativeSsh, cmdLocal(true)),
-		Entry("using the local ssh method without --local-ssh flag", decorators.ExcludeNativeSsh, cmdLocal(false)),
+		Entry("using the native ssh method", decorators.NativeSSH, cmdNative),
+		Entry("using the local ssh method with --local-ssh flag", decorators.NativeSSH, cmdLocal(true)),
+		Entry("using the local ssh method without --local-ssh flag", decorators.ExcludeNativeSSH, cmdLocal(false)),
 	)
 
-	It("local-ssh flag should be unavailable in virtctl", decorators.ExcludeNativeSsh, func() {
+	It("local-ssh flag should be unavailable in virtctl", decorators.ExcludeNativeSSH, func() {
 		// The built virtctl binary should be tested here, therefore clientcmd.CreateCommandWithNS needs to be used.
 		// Running the command through NewRepeatableVirtctlCommand would test the test binary instead.
 		_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.NamespaceTestDefault, "virtctl", "ssh", "--local-ssh=false")
