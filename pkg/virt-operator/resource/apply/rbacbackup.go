@@ -92,7 +92,7 @@ func (r *Reconciler) backupRBAC(obj runtime.Object, name, UID, imageTag, imageRe
 	*meta = metav1.ObjectMeta{
 		GenerateName: name,
 	}
-	injectOperatorMetadata(r.kv, meta, imageTag, imageRegistry, id, true)
+	injectOperatorMetadata(r.kv, meta, imageTag, imageRegistry, id)
 	meta.Annotations[v1.EphemeralBackupObject] = UID
 
 	// Create backup

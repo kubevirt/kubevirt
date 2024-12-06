@@ -176,7 +176,7 @@ var _ = Describe("Apply Apps", func() {
 
 			SetGeneration(&kv.Status.Generations, cachedPodDisruptionBudget)
 			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
-			injectOperatorMetadata(kv, &cachedPodDisruptionBudget.ObjectMeta, Version, Registry, Id, true)
+			injectOperatorMetadata(kv, &cachedPodDisruptionBudget.ObjectMeta, Version, Registry, Id)
 			r := &Reconciler{
 				clientset:    clientset,
 				kv:           kv,
@@ -708,7 +708,7 @@ var _ = Describe("Apply Apps", func() {
 			kv.Status.TargetDeploymentID = Id
 
 			deployment := appsv1.Deployment{}
-			injectOperatorMetadata(kv, &deployment.ObjectMeta, "fakeversion", "fakeregistry", "fakeid", false)
+			injectOperatorMetadata(kv, &deployment.ObjectMeta, "fakeversion", "fakeregistry", "fakeid")
 
 			// NOTE we are purposfully not using the defined constant values
 			// in types.go here. This test is explicitly verifying that those
@@ -1246,6 +1246,7 @@ var _ = Describe("Apply Apps", func() {
 			Expect(updatedDeploy.Annotations).ToNot(BeNil())
 			Expect(updatedDeploy.Annotations).To(HaveKeyWithValue(revisionAnnotation, "4"))
 			Expect(updatedDeploy.Annotations).ToNot(HaveKey(fakeAnnotation))
+			Expect(updatedDeploy.Spec.Template.Annotations).ToNot(HaveKey(v1.InstallStrategyIdentifierAnnotation))
 		})
 	})
 })
