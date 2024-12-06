@@ -18,20 +18,21 @@ go_binary(
     visibility = ["//visibility:public"],
 )
 
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_image",
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("@rules_oci//oci:defs.bzl", "oci_image")
+
+pkg_tar(
+    name = "defineDomain-tar",
+    srcs = [":onDefineDomain"],
+    package_dir = "/usr/bin",
 )
 
-container_image(
+oci_image(
     name = "example-hook-sidecar-image",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "//conditions:default": "amd64",
-    }),
     base = "//cmd/sidecars:sidecar-shim-image",
-    directory = "/usr/bin/",
     entrypoint = ["/sidecar-shim"],
-    files = [":onDefineDomain"],
+    tars = [
+        ":defineDomain-tar",
+    ],
     visibility = ["//visibility:public"],
 )
