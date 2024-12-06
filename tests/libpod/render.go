@@ -32,21 +32,31 @@ import (
 )
 
 func RenderPrivilegedPod(name string, cmd, args []string) *v1.Pod {
-	pod := RenderPod(name, cmd, args)
-	pod.Namespace = testsuite.NamespacePrivileged
-	pod.Spec.HostPID = true
-	pod.Spec.SecurityContext = &v1.PodSecurityContext{
-		RunAsUser: new(int64),
-	}
-	pod.Spec.Containers = []v1.Container{
-		renderPrivilegedContainerSpec(
-			libregistry.GetUtilityImageFromRegistry("vm-killer"),
-			name,
-			cmd,
-			args),
+	pod := v1.Pod{
+		ObjectMeta: v12.ObjectMeta{
+			Namespace:    testsuite.NamespacePrivileged,
+			GenerateName: name,
+			Labels: map[string]string{
+				v13.AppLabel: "test",
+			},
+		},
+		Spec: v1.PodSpec{
+			RestartPolicy: v1.RestartPolicyNever,
+			HostPID:       true,
+			SecurityContext: &v1.PodSecurityContext{
+				RunAsUser: pointer.P(int64(0)),
+			},
+			Containers: []v1.Container{
+				renderPrivilegedContainerSpec(
+					libregistry.GetUtilityImageFromRegistry("vm-killer"),
+					"container",
+					cmd,
+					args),
+			},
+		},
 	}
 
-	return pod
+	return &pod
 }
 
 func RenderPod(name string, cmd, args []string) *v1.Pod {
@@ -62,7 +72,7 @@ func RenderPod(name string, cmd, args []string) *v1.Pod {
 			Containers: []v1.Container{
 				renderContainerSpec(
 					libregistry.GetUtilityImageFromRegistry("vm-killer"),
-					name,
+					"container",
 					cmd,
 					args),
 			},
