@@ -210,10 +210,10 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			nadName          = "simple-bridge"
 		)
 		BeforeEach(func() {
-			const linuxBridgeNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"plugins\": [{\"type\": \"bridge\", \"bridge\": \"%s\"}]}"}}`
+			const linuxBridgeNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"plugins\": [{\"type\": \"bridge\", \"bridge\": \"br02\"}]}"}}`
 			ns := testsuite.GetTestNamespace(nil)
 			Expect(libnet.CreateNetworkAttachmentDefinition(nadName, ns,
-				fmt.Sprintf(linuxBridgeNAD, nadName, ns, nadName, secondaryNetName),
+				fmt.Sprintf(linuxBridgeNAD, nadName, ns, nadName),
 			)).To(Succeed())
 		})
 		It("[test_id:1770]should expose the right device type to the guest", func() {
