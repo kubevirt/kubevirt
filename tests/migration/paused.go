@@ -149,7 +149,6 @@ var _ = SIGMigrationDescribe("Live Migrate A Paused VMI", decorators.RequiresTwo
 					},
 						Entry("migrate successfully (migration policy)", expectSuccess, "10Mi", applyWithMigrationPolicy),
 						Entry("migrate successfully (CR change)", Serial, expectSuccess, "10Mi", applyWithKubevirtCR),
-						Entry("[QUARANTINE] fail migration", decorators.Quarantine, expectFailure, "1Mi", applyWithMigrationPolicy),
 					)
 				})
 			})
