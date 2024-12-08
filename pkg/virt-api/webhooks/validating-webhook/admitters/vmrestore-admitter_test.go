@@ -22,7 +22,6 @@ package admitters
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -38,8 +37,8 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
-	kubevirtfake "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
+	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -153,7 +152,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target.apiGroup"))
 		})
 
-		It("should reject when snapshot does not exist", func() {
+		It("should accept when snapshot does not exist", func() {
 			restore := &snapshotv1.VirtualMachineRestore{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "restore",
@@ -171,9 +170,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 
 			ar := createRestoreAdmissionReview(restore)
 			resp := createTestVMRestoreAdmitter(config, nil).Admit(context.Background(), ar)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.virtualMachineSnapshotName"))
+			Expect(resp.Allowed).To(BeTrue())
 		})
 
 		It("should reject spec update", func() {
@@ -261,7 +258,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				}
 			})
 
-			It("should reject when VM is running", func() {
+			It("should allow when VM is running", func() {
 				restore := &snapshotv1.VirtualMachineRestore{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "restore",
@@ -281,12 +278,10 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
-				Expect(resp.Allowed).To(BeFalse())
-				Expect(resp.Result.Details.Causes).To(HaveLen(1))
-				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target"))
+				Expect(resp.Allowed).To(BeTrue())
 			})
 
-			It("should reject when VM run strategy is not halted", func() {
+			It("should allow when VM run strategy is not halted", func() {
 				restore := &snapshotv1.VirtualMachineRestore{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "restore",
@@ -306,89 +301,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
-				Expect(resp.Allowed).To(BeFalse())
-				Expect(resp.Result.Details.Causes).To(HaveLen(1))
-				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.target"))
-				Expect(resp.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf("VirtualMachine %q run strategy has to be %s", vmName, v1.RunStrategyHalted)))
-			})
-
-			It("should reject when snapshot does not exist", func() {
-				restore := &snapshotv1.VirtualMachineRestore{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "restore",
-						Namespace: "default",
-					},
-					Spec: snapshotv1.VirtualMachineRestoreSpec{
-						Target: corev1.TypedLocalObjectReference{
-							APIGroup: &apiGroup,
-							Kind:     "VirtualMachine",
-							Name:     vmName,
-						},
-						VirtualMachineSnapshotName: vmSnapshotName,
-					},
-				}
-
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
-
-				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm).Admit(context.Background(), ar)
-				Expect(resp.Allowed).To(BeFalse())
-				Expect(resp.Result.Details.Causes).To(HaveLen(1))
-				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.virtualMachineSnapshotName"))
-			})
-
-			It("should reject when snapshot has failed", func() {
-				restore := &snapshotv1.VirtualMachineRestore{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "restore",
-						Namespace: "default",
-					},
-					Spec: snapshotv1.VirtualMachineRestoreSpec{
-						Target: corev1.TypedLocalObjectReference{
-							APIGroup: &apiGroup,
-							Kind:     "VirtualMachine",
-							Name:     vmName,
-						},
-						VirtualMachineSnapshotName: vmSnapshotName,
-					},
-				}
-
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
-				s := snapshot.DeepCopy()
-				s.Status.Phase = snapshotv1.Failed
-
-				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, s).Admit(context.Background(), ar)
-				Expect(resp.Allowed).To(BeFalse())
-				Expect(resp.Result.Details.Causes).To(HaveLen(1))
-				Expect(resp.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf("VirtualMachineSnapshot %q has failed and is invalid to use", vmSnapshotName)))
-			})
-
-			It("should reject when snapshot not ready", func() {
-				restore := &snapshotv1.VirtualMachineRestore{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "restore",
-						Namespace: "default",
-					},
-					Spec: snapshotv1.VirtualMachineRestoreSpec{
-						Target: corev1.TypedLocalObjectReference{
-							APIGroup: &apiGroup,
-							Kind:     "VirtualMachine",
-							Name:     vmName,
-						},
-						VirtualMachineSnapshotName: vmSnapshotName,
-					},
-				}
-
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
-				s := snapshot.DeepCopy()
-				s.Status.ReadyToUse = pointer.P(false)
-
-				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, vm, s).Admit(context.Background(), ar)
-				Expect(resp.Allowed).To(BeFalse())
-				Expect(resp.Result.Details.Causes).To(HaveLen(1))
-				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.virtualMachineSnapshotName"))
+				Expect(resp.Allowed).To(BeTrue())
 			})
 
 			It("should reject invalid kind", func() {
@@ -500,43 +413,6 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				resp := createTestVMRestoreAdmitter(config, vm, snapshot).Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeTrue())
 			})
-
-			DescribeTable("when target VM is different from source VM", func(doesTargetExist bool) {
-				const targetVMName = "new-test-vm"
-
-				var targetVM *v1.VirtualMachine
-				if doesTargetExist {
-					targetVM = vm.DeepCopy()
-					targetVM.Name = targetVMName
-					targetVM.UID = "new-uid"
-				}
-
-				restore := &snapshotv1.VirtualMachineRestore{
-					Spec: snapshotv1.VirtualMachineRestoreSpec{
-						Target: corev1.TypedLocalObjectReference{
-							APIGroup: &apiGroup,
-							Kind:     "VirtualMachine",
-							Name:     targetVMName,
-						},
-						VirtualMachineSnapshotName: vmSnapshotName,
-					},
-				}
-
-				ar := createRestoreAdmissionReview(restore)
-				resp := createTestVMRestoreAdmitter(config, targetVM, snapshot).Admit(context.Background(), ar)
-
-				if doesTargetExist {
-					Expect(resp.Allowed).To(BeFalse())
-					Expect(resp.Result.Details.Causes).To(HaveLen(1))
-					Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.virtualMachineSnapshotName"))
-					Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring("target VM must not exist"))
-				} else {
-					Expect(resp.Allowed).To(BeTrue())
-				}
-			},
-				Entry("should allow if target doesn't exist", false),
-				Entry("should reject if target exists", true),
-			)
 
 			Context("when using Patches", func() {
 

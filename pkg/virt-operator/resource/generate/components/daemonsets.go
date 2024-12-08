@@ -8,12 +8,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	virtv1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	"kubevirt.io/kubevirt/pkg/util"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -21,7 +21,8 @@ import (
 
 const (
 	VirtHandlerName = "virt-handler"
-	kubeletPodsPath = "/var/lib/kubelet/pods"
+	kubeletPodsPath = util.KubeletRoot + "/pods"
+	runtimesPath    = "/var/run/kubevirt-libvirt-runtimes"
 	PrHelperName    = "pr-helper"
 	prVolumeName    = "pr-helper-socket-vol"
 	SidecarShimName = "sidecar-shim"
@@ -45,8 +46,8 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 			},
 		},
 		SecurityContext: &corev1.SecurityContext{
-			RunAsUser:  pointer.Int64(util.RootUser),
-			Privileged: pointer.Bool(true),
+			RunAsUser:  pointer.P(int64(util.RootUser)),
+			Privileged: pointer.P(true),
 		},
 	}
 }
@@ -126,7 +127,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 				"node-labeller.sh",
 			},
 			SecurityContext: &corev1.SecurityContext{
-				Privileged: pointer.Bool(true),
+				Privileged: pointer.P(true),
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
@@ -196,7 +197,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		},
 	}
 	container.SecurityContext = &corev1.SecurityContext{
-		Privileged: pointer.Bool(true),
+		Privileged: pointer.P(true),
 		SELinuxOptions: &corev1.SELinuxOptions{
 			Level: "s0",
 		},
@@ -265,19 +266,18 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 	attachProfileVolume(pod)
 
 	bidi := corev1.MountPropagationBidirectional
-	// NOTE: the 'kubelet-pods-shortened' volume mounts the same host path as 'kubelet-pods'
-	// This is because that path holds unix domain sockets. Domain sockets fail when they're over
-	// ~ 100 characters, so that shortened volume path is to allow domain socket connections.
+	// NOTE: the 'kubelet-pods' volume mount exists because that path holds unix socket files.
+	// Socket files fail when their path is longer than 108 characters,
+	//   so that shortened volume path is to allow domain socket connections.
 	// It's ridiculous to have to account for that, but that's the situation we're in.
 	volumes := []volume{
-		{"libvirt-runtimes", "/var/run/kubevirt-libvirt-runtimes", "/var/run/kubevirt-libvirt-runtimes", nil},
-		{"virt-share-dir", "/var/run/kubevirt", "/var/run/kubevirt", &bidi},
-		{"virt-lib-dir", "/var/lib/kubevirt", "/var/lib/kubevirt", nil},
-		{"virt-private-dir", "/var/run/kubevirt-private", "/var/run/kubevirt-private", nil},
-		{"device-plugin", "/var/lib/kubelet/device-plugins", "/var/lib/kubelet/device-plugins", nil},
-		{"kubelet-pods-shortened", kubeletPodsPath, "/pods", nil},
-		{"kubelet-pods", kubeletPodsPath, kubeletPodsPath, &bidi},
-		{"node-labeller", "/var/lib/kubevirt-node-labeller", "/var/lib/kubevirt-node-labeller", nil},
+		{"libvirt-runtimes", runtimesPath, runtimesPath, nil},
+		{"virt-share-dir", util.VirtShareDir, util.VirtShareDir, &bidi},
+		{"virt-lib-dir", util.VirtLibDir, util.VirtLibDir, nil},
+		{"virt-private-dir", util.VirtPrivateDir, util.VirtPrivateDir, nil},
+		{"kubelet-pods", kubeletPodsPath, "/pods", nil},
+		{"kubelet", util.KubeletRoot, util.KubeletRoot, &bidi},
+		{"node-labeller", nodeLabellerVolumePath, nodeLabellerVolumePath, nil},
 	}
 
 	for _, volume := range volumes {

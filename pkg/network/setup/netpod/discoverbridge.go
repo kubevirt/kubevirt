@@ -121,6 +121,13 @@ func translateNmstateToNetlinkRoutes(otherRoutes []nmstate.Route) ([]vishnetlink
 // filterRoutesByNonLocalDestination filters out local routes (the destination is of the local link).
 // Default routes should not be filter out.
 func filterRoutesByNonLocalDestination(linkRoutes []nmstate.Route, addr *vishnetlink.Addr) ([]nmstate.Route, error) {
+	_, localNetwork, err := net.ParseCIDR(addr.String())
+	if err != nil {
+		return nil, err
+	}
+
+	localNetworkStr := localNetwork.String()
+
 	var otherRoutes []nmstate.Route
 	for _, route := range linkRoutes {
 		_, dstIPNet, perr := net.ParseCIDR(route.Destination)
@@ -128,7 +135,7 @@ func filterRoutesByNonLocalDestination(linkRoutes []nmstate.Route, addr *vishnet
 			return nil, perr
 		}
 		isDefaultRoute := route.Destination == nmstate.DefaultDestinationRoute(vishnetlink.FAMILY_V4).String()
-		localDestination := !isDefaultRoute && dstIPNet.Contains(addr.IP)
+		localDestination := !isDefaultRoute && dstIPNet.String() == localNetworkStr
 		if !localDestination {
 			otherRoutes = append(otherRoutes, route)
 		}

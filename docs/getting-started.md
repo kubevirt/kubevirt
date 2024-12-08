@@ -155,7 +155,7 @@ If not, try to adjust them to be the same.
 See [issue 2667](https://github.com/kubevirt/kubevirt/issues/2667)
 for more detailed info.
 ```
-# ./cluster-up/kubectl.sh get pods --all-namespaces
+# ./kubevirtci/cluster-up/kubectl.sh get pods --all-namespaces
 NAMESPACE     NAME                                      READY   STATUS             RESTARTS   AGE
 cdi           cdi-operator-5db567b486-grtk9             0/1     ImagePullBackOff   0          42m
 
@@ -200,14 +200,14 @@ Based on the used cluster, node names might be different.
 You can get the names from following command:
 
 ```bash
-# cluster-up/kubectl.sh get nodes
+# kubevirtci/cluster-up/kubectl.sh get nodes
 NAME     STATUS   ROLES                   AGE   VERSION
 node01   Ready    control-plane,worker    13s   v1.18.3
 ```
 
 Then you can execute the following command to access the node:
 ```
-# ./cluster-up/ssh.sh node01
+# ./kubevirtci/cluster-up/ssh.sh node01
 [vagrant@node01 ~]$
 ```
 
@@ -253,8 +253,12 @@ If you would like to run specific functional tests only, you can leverage `ginkg
 command line options as follows (run a specified suite):
 
 ```
-    FUNC_TEST_ARGS='-focus-file=vmi_networking_test' make functest
+    FUNC_TEST_ARGS='--focus-file=vmi_networking' make functest
 ```
+
+> [!NOTE]
+> Ginkgo's [Location-Based Filtering](https://onsi.github.io/ginkgo/#location-based-filtering) and [Description-Based Filtering](https://onsi.github.io/ginkgo/#description-based-filtering) documentation 
+> describe additional helpful options for focused execution that do not require recompilation.
 
 In addition, if you want to run a specific test or tests you can prepend any `Describe`,
 `Context` and `It` statements of your test with an `F` and Ginkgo will only run items
@@ -277,20 +281,20 @@ Finally start a VMI called `vmi-ephemeral`:
     # This can be done from your GIT repo, no need to log into a VMI
 
     # Create a VMI
-    ./cluster-up/kubectl.sh create -f examples/vmi-ephemeral.yaml
+    ./kubevirtci/cluster-up/kubectl.sh create -f examples/vmi-ephemeral.yaml
 
     # Sure? Let's list all created VMIs
-    ./cluster-up/kubectl.sh get vmis
+    ./kubevirtci/cluster-up/kubectl.sh get vmis
 
     # Enough, let's get rid of it
-    ./cluster-up/kubectl.sh delete -f examples/vmi-ephemeral.yaml
+    ./kubevirtci/cluster-up/kubectl.sh delete -f examples/vmi-ephemeral.yaml
 
 
     # You can actually use kubelet.sh to introspect the cluster in general
-    ./cluster-up/kubectl.sh get pods
+    ./kubevirtci/cluster-up/kubectl.sh get pods
 
     # To check the running kubevirt services you need to introspect the `kubevirt` namespace:
-    ./cluster-up/kubectl.sh -n kubevirt get pods
+    ./kubevirtci/cluster-up/kubectl.sh -n kubevirt get pods
 ```
 
 This will start a VMI on control-plane or one of the running nodes with a macvtap and a
@@ -299,18 +303,18 @@ tap networking device attached.
 #### Example
 
 ```bash
-$ ./cluster-up/kubectl.sh create -f examples/vmi-ephemeral.yaml
+$ ./kubevirtci/cluster-up/kubectl.sh create -f examples/vmi-ephemeral.yaml
 vm "vmi-ephemeral" created
 
-$ ./cluster-up/kubectl.sh get pods
+$ ./kubevirtci/cluster-up/kubectl.sh get pods
 NAME                              READY     STATUS    RESTARTS   AGE
 virt-launcher-vmi-ephemeral9q7es  1/1       Running   0          10s
 
-$ ./cluster-up/kubectl.sh get vmis
+$ ./kubevirtci/cluster-up/kubectl.sh get vmis
 NAME            AGE   PHASE     IP              NODENAME
 vmi-ephemeral   11s   Running   10.244.140.77   node02
 
-$ ./cluster-up/kubectl.sh get vmis -o json
+$ ./kubevirtci/cluster-up/kubectl.sh get vmis -o json
 {
     "kind": "List",
     "apiVersion": "v1",
@@ -348,12 +352,12 @@ to add virt-viewer installation folder to their `PATH`.
 Then, after you made sure that the VMI `vmi-ephemeral` is running, type:
 
 ```
-cluster-up/virtctl.sh vnc vmi-ephemeral
+hack/virtctl.sh vnc vmi-ephemeral
 ```
 
 This will start a remote session with `remote-viewer`.
 
-`cluster-up/virtctl.sh` is a wrapper around `virtctl`. `virtctl` brings all
+`hack/virtctl.sh` is a wrapper around `virtctl`. `virtctl` brings all
 virtual machine specific commands with it and is a supplement to `kubectl`.
 
 **Note:** If accessing your cluster through ssh, be sure to forward your X11 session in order to launch `virtctl vnc`.

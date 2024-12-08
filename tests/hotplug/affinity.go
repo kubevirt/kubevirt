@@ -30,7 +30,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateFeaturesGate, Serial, func() {
+var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateRolloutStrategy, Serial, func() {
 	var (
 		virtClient kubecli.KubevirtClient
 	)
@@ -101,7 +101,7 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 			By("Creating a running VM")
 			vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(), libvmi.WithCPUCount(1, 2, 1))
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -156,7 +156,7 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 			By("Creating a running VM")
 			vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())

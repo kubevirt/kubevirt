@@ -33,6 +33,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "cluster_test.go",
+        "controller_test.go",
         "operator_test.go",
         "rbac_suite_test.go",
     ],
@@ -49,6 +50,7 @@ go_test(
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/onsi/gomega/gstruct:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/api/rbac/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1/unstructured:go_default_library",

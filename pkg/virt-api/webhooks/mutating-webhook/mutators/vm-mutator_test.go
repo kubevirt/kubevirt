@@ -41,13 +41,13 @@ import (
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
 
-	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
-	fakeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
-	instancetypeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1beta1"
+	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
+	fakeclientset "kubevirt.io/client-go/kubevirt/fake"
+	instancetypeclientset "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -407,7 +407,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			}
 
 			vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{{
-				Spec: v1beta1.DataVolumeSpec{},
+				Spec: cdiv1.DataVolumeSpec{},
 			}}
 		})
 
@@ -428,14 +428,14 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		})
 
 		It("should apply PreferredStorageClassName to Storage", func() {
-			vm.Spec.DataVolumeTemplates[0].Spec.Storage = &v1beta1.StorageSpec{}
+			vm.Spec.DataVolumeTemplates[0].Spec.Storage = &cdiv1.StorageSpec{}
 			vmSpec, _ := getVMSpecMetaFromResponse(rt.GOARCH)
 			assertStorageStorageClassName(vmSpec.DataVolumeTemplates, preference.Spec.Volumes.PreferredStorageClassName)
 		})
 
 		It("should not fail if DataVolumeSpec PersistentVolumeClaimSpec is nil - bug #9868", func() {
 			vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{{
-				Spec: v1beta1.DataVolumeSpec{},
+				Spec: cdiv1.DataVolumeSpec{},
 			}}
 			resp := admitVM(rt.GOARCH)
 			Expect(resp.Allowed).To(BeTrue())
@@ -444,7 +444,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		It("should not overwrite storageclass already defined in PVC of DataVolumeTemplate", func() {
 			storageClass := "local"
 			vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{{
-				Spec: v1beta1.DataVolumeSpec{
+				Spec: cdiv1.DataVolumeSpec{
 					PVC: &k8sv1.PersistentVolumeClaimSpec{
 						StorageClassName: &storageClass,
 					},
@@ -457,8 +457,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		It("should not overwrite storageclass already defined in Storage of DataVolumeTemplate", func() {
 			storageClass := "local"
 			vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{{
-				Spec: v1beta1.DataVolumeSpec{
-					Storage: &v1beta1.StorageSpec{
+				Spec: cdiv1.DataVolumeSpec{
+					Storage: &cdiv1.StorageSpec{
 						StorageClassName: &storageClass,
 					},
 				},
@@ -691,10 +691,10 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 		var (
 			pvc               *k8sv1.PersistentVolumeClaim
-			dvWithSourcePVC   *v1beta1.DataVolume
-			dvWithAnnotations *v1beta1.DataVolume
-			dsWithSourcePVC   *v1beta1.DataSource
-			dsWithAnnotations *v1beta1.DataSource
+			dvWithSourcePVC   *cdiv1.DataVolume
+			dvWithAnnotations *cdiv1.DataVolume
+			dsWithSourcePVC   *cdiv1.DataSource
+			dsWithAnnotations *cdiv1.DataSource
 		)
 
 		const (
@@ -729,14 +729,14 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Create(context.Background(), pvc, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			dvWithSourcePVC = &v1beta1.DataVolume{
+			dvWithSourcePVC = &cdiv1.DataVolume{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:      dvWithSourcePVCName,
 					Namespace: vm.Namespace,
 				},
-				Spec: v1beta1.DataVolumeSpec{
-					Source: &v1beta1.DataVolumeSource{
-						PVC: &v1beta1.DataVolumeSourcePVC{
+				Spec: cdiv1.DataVolumeSpec{
+					Source: &cdiv1.DataVolumeSource{
+						PVC: &cdiv1.DataVolumeSourcePVC{
 							Name:      pvc.Name,
 							Namespace: pvc.Namespace,
 						},
@@ -746,14 +746,14 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			dvWithSourcePVC, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dvWithSourcePVC, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			dsWithSourcePVC = &v1beta1.DataSource{
+			dsWithSourcePVC = &cdiv1.DataSource{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:      dsWithSourcePVCName,
 					Namespace: vm.Namespace,
 				},
-				Spec: v1beta1.DataSourceSpec{
-					Source: v1beta1.DataSourceSource{
-						PVC: &v1beta1.DataVolumeSourcePVC{
+				Spec: cdiv1.DataSourceSpec{
+					Source: cdiv1.DataSourceSource{
+						PVC: &cdiv1.DataVolumeSourcePVC{
 							Name:      pvc.Name,
 							Namespace: pvc.Namespace,
 						},
@@ -763,7 +763,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			dsWithSourcePVC, err = virtClient.CdiClient().CdiV1beta1().DataSources(vm.Namespace).Create(context.Background(), dsWithSourcePVC, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			dsWithAnnotations = &v1beta1.DataSource{
+			dsWithAnnotations = &cdiv1.DataSource{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:      dsWithAnnotationsName,
 					Namespace: vm.Namespace,
@@ -774,9 +774,9 @@ var _ = Describe("VirtualMachine Mutator", func() {
 						apiinstancetype.DefaultPreferenceKindLabel:   defaultInferedKindFromDS,
 					},
 				},
-				Spec: v1beta1.DataSourceSpec{
-					Source: v1beta1.DataSourceSource{
-						PVC: &v1beta1.DataVolumeSourcePVC{
+				Spec: cdiv1.DataSourceSpec{
+					Source: cdiv1.DataSourceSource{
+						PVC: &cdiv1.DataVolumeSourcePVC{
 							Name:      pvc.Name,
 							Namespace: pvc.Namespace,
 						},
@@ -877,9 +877,9 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name: "dataVolume",
 				},
-				Spec: v1beta1.DataVolumeSpec{
-					Source: &v1beta1.DataVolumeSource{
-						PVC: &v1beta1.DataVolumeSourcePVC{
+				Spec: cdiv1.DataVolumeSpec{
+					Source: &cdiv1.DataVolumeSource{
+						PVC: &cdiv1.DataVolumeSourcePVC{
 							Name:      pvc.Name,
 							Namespace: pvc.Namespace,
 						},
@@ -914,7 +914,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		DescribeTable("should infer defaults from DataVolume with labels", func(instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher) {
 			vm.Spec.Instancetype = instancetypeMatcher
 			vm.Spec.Preference = preferenceMatcher
-			dvWithAnnotations = &v1beta1.DataVolume{
+			dvWithAnnotations = &cdiv1.DataVolume{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:      "dvWithAnnotations",
 					Namespace: vm.Namespace,
@@ -925,9 +925,9 @@ var _ = Describe("VirtualMachine Mutator", func() {
 						apiinstancetype.DefaultPreferenceKindLabel:   defaultInferedKindFromDV,
 					},
 				},
-				Spec: v1beta1.DataVolumeSpec{
-					Source: &v1beta1.DataVolumeSource{
-						PVC: &v1beta1.DataVolumeSourcePVC{
+				Spec: cdiv1.DataVolumeSpec{
+					Source: &cdiv1.DataVolumeSource{
+						PVC: &cdiv1.DataVolumeSourcePVC{
 							Name:      pvc.Name,
 							Namespace: pvc.Namespace,
 						},
@@ -978,13 +978,13 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			if sourceRefNamespace != "" {
 				sourceRefNamespacePointer = &sourceRefNamespace
 			}
-			dvWithSourceRef := &v1beta1.DataVolume{
+			dvWithSourceRef := &cdiv1.DataVolume{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:      "dvWithSourceRef",
 					Namespace: vm.Namespace,
 				},
-				Spec: v1beta1.DataVolumeSpec{
-					SourceRef: &v1beta1.DataVolumeSourceRef{
+				Spec: cdiv1.DataVolumeSpec{
+					SourceRef: &cdiv1.DataVolumeSourceRef{
 						Name:      sourceRefName,
 						Kind:      sourceRefKind,
 						Namespace: sourceRefNamespacePointer,
@@ -1100,8 +1100,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name: "dataVolume",
 				},
-				Spec: v1beta1.DataVolumeSpec{
-					SourceRef: &v1beta1.DataVolumeSourceRef{
+				Spec: cdiv1.DataVolumeSpec{
+					SourceRef: &cdiv1.DataVolumeSourceRef{
 						Name:      sourceRefName,
 						Kind:      "DataSource",
 						Namespace: &sourceRefNamespace,
@@ -1449,14 +1449,14 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		DescribeTable("should fail to infer defaults from DataVolume with an unsupported DataVolumeSource", func(instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher, allowed bool) {
 			vm.Spec.Instancetype = instancetypeMatcher
 			vm.Spec.Preference = preferenceMatcher
-			dvWithUnsupportedSource := &v1beta1.DataVolume{
+			dvWithUnsupportedSource := &cdiv1.DataVolume{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:      "dvWithSourceRef",
 					Namespace: vm.Namespace,
 				},
-				Spec: v1beta1.DataVolumeSpec{
-					Source: &v1beta1.DataVolumeSource{
-						VDDK: &v1beta1.DataVolumeSourceVDDK{},
+				Spec: cdiv1.DataVolumeSpec{
+					Source: &cdiv1.DataVolumeSource{
+						VDDK: &cdiv1.DataVolumeSourceVDDK{},
 					},
 				},
 			}
@@ -1524,13 +1524,13 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		DescribeTable("should fail to infer defaults from DataVolume with an unknown DataVolumeSourceRef Kind", func(instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher, allowed bool) {
 			vm.Spec.Instancetype = instancetypeMatcher
 			vm.Spec.Preference = preferenceMatcher
-			dvWithUnknownSourceRefKind := &v1beta1.DataVolume{
+			dvWithUnknownSourceRefKind := &cdiv1.DataVolume{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:      "dvWithSourceRef",
 					Namespace: vm.Namespace,
 				},
-				Spec: v1beta1.DataVolumeSpec{
-					SourceRef: &v1beta1.DataVolumeSourceRef{
+				Spec: cdiv1.DataVolumeSpec{
+					SourceRef: &cdiv1.DataVolumeSourceRef{
 						Kind: "foo",
 					},
 				},
@@ -1599,13 +1599,13 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		DescribeTable("should fail to infer defaults from DataSource missing DataVolumeSourcePVC", func(instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher, allowed bool) {
 			vm.Spec.Instancetype = instancetypeMatcher
 			vm.Spec.Preference = preferenceMatcher
-			dsWithoutSourcePVC := &v1beta1.DataSource{
+			dsWithoutSourcePVC := &cdiv1.DataSource{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:      "dsWithoutSourcePVC",
 					Namespace: vm.Namespace,
 				},
-				Spec: v1beta1.DataSourceSpec{
-					Source: v1beta1.DataSourceSource{},
+				Spec: cdiv1.DataSourceSpec{
+					Source: cdiv1.DataSourceSource{},
 				},
 			}
 			_, err := virtClient.CdiClient().CdiV1beta1().DataSources(vm.Namespace).Create(context.Background(), dsWithoutSourcePVC, k8smetav1.CreateOptions{})
@@ -1615,8 +1615,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name: "dataVolume",
 				},
-				Spec: v1beta1.DataVolumeSpec{
-					SourceRef: &v1beta1.DataVolumeSourceRef{
+				Spec: cdiv1.DataVolumeSpec{
+					SourceRef: &cdiv1.DataVolumeSourceRef{
 						Kind:      "DataSource",
 						Name:      dsWithoutSourcePVC.Name,
 						Namespace: &dsWithoutSourcePVC.Namespace,

@@ -27,6 +27,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmops"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -37,7 +38,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -58,9 +58,12 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.SigMonitoring, func() {
-	var err error
-	var virtClient kubecli.KubevirtClient
+var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitoring, func() {
+	var (
+		err        error
+		virtClient kubecli.KubevirtClient
+		vm         *v1.VirtualMachine
+	)
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -102,7 +105,6 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 	})
 
 	Context("VM status metrics", func() {
-		var vm *v1.VirtualMachine
 		var cpuMetrics = []string{
 			"kubevirt_vmi_cpu_system_usage_seconds_total",
 			"kubevirt_vmi_cpu_usage_seconds_total",
@@ -268,6 +270,31 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 				libmonitoring.WaitForMetricValue(virtClient, bytesMetric, float64(quantity.Value())*i)
 			}
 		})
+
+		It("Snapshot succeeded timestamp metric values should be correct", func() {
+			virtClient = kubevirt.Client()
+			By("Creating a Virtual Machine")
+			vmi := libvmifact.NewGuestless()
+			vm = libvmi.NewVirtualMachine(vmi)
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Starting the Virtual Machine")
+			libvmops.StartVirtualMachine(vm)
+
+			By("Creating a snapshot of the Virtual Machine")
+			snapshot := libstorage.NewSnapshot(vm.Name, vm.Namespace)
+			_, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libstorage.WaitSnapshotSucceeded(virtClient, vm.Namespace, snapshot.Name)
+
+			labels := map[string]string{
+				"name":          snapshot.Spec.Source.Name,
+				"snapshot_name": snapshot.Name,
+				"namespace":     snapshot.Namespace,
+			}
+			libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_vmsnapshot_succeeded_timestamp_seconds", labels, 0, ">", 0)
+		})
 	})
 
 	Context("VM metrics that are based on the guest agent", func() {
@@ -277,10 +304,12 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			Expect(agentVMI.Status.GuestOSInfo.Machine).ToNot(BeEmpty())
 			Expect(agentVMI.Status.GuestOSInfo.Name).ToNot(BeEmpty())
 			Expect(agentVMI.Status.GuestOSInfo.VersionID).ToNot(BeEmpty())
+			Expect(agentVMI.Status.Machine.Type).ToNot(BeEmpty())
 
 			labels := map[string]string{
 				"guest_os_kernel_release": agentVMI.Status.GuestOSInfo.KernelRelease,
-				"guest_os_machine":        agentVMI.Status.GuestOSInfo.Machine,
+				"guest_os_arch":           agentVMI.Status.GuestOSInfo.Machine,
+				"guest_os_machine":        agentVMI.Status.Machine.Type,
 				"guest_os_name":           agentVMI.Status.GuestOSInfo.Name,
 				"guest_os_version_id":     agentVMI.Status.GuestOSInfo.VersionID,
 			}
@@ -331,7 +360,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			scales.RestoreAllScales()
 		})
 
-		It("should fire KubevirtVmHighMemoryUsage alert", func() {
+		It("[QUARANTINE] should fire KubevirtVmHighMemoryUsage alert", decorators.Quarantine, func() {
 			By("starting VMI")
 			vmi := libvmifact.NewGuestless()
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)

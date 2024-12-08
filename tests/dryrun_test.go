@@ -43,10 +43,10 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -481,7 +481,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 			kv = libkubevirt.GetCurrentKv(virtClient)
 		})
 
-		It("[Serial][test_id:7648]delete a KubeVirt CR", Serial, func() {
+		It("[test_id:7648]delete a KubeVirt CR", Serial, func() {
 			By("Make a Dry-Run request to delete a KubeVirt CR")
 			deletePolicy := metav1.DeletePropagationForeground
 			opts := metav1.DeleteOptions{
@@ -534,7 +534,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 		var snap *snapshotv1.VirtualMachineSnapshot
 
 		BeforeEach(func() {
-			tests.EnableFeatureGate(virtconfig.SnapshotGate)
+			config.EnableFeatureGate(virtconfig.SnapshotGate)
 			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -613,7 +613,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 		var restore *snapshotv1.VirtualMachineRestore
 
 		BeforeEach(func() {
-			tests.EnableFeatureGate(virtconfig.SnapshotGate)
+			config.EnableFeatureGate(virtconfig.SnapshotGate)
 
 			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})

@@ -19,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/utils/ptr"
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
@@ -28,6 +27,9 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	instancetypeErrors "kubevirt.io/kubevirt/pkg/instancetype/errors"
+	"kubevirt.io/kubevirt/pkg/instancetype/preference/requirements"
+	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 
@@ -35,8 +37,8 @@ import (
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	fakeclientset "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
-	instancetypeclientv1beta1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1beta1"
+	fakeclientset "kubevirt.io/client-go/kubevirt/fake"
+	instancetypeclientv1beta1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
 )
 
 const (
@@ -234,7 +236,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				clusterInstancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(clusterInstancetypeControllerRevision, nil)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(clusterInstancetypeControllerRevision, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -276,7 +278,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(instancetypeControllerRevision, nil)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(instancetypeControllerRevision, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -302,16 +304,16 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 				}
-				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(ContainSubstring("VM field conflicts with selected Instancetype")))
+				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(Equal(fmt.Sprintf(instancetypeErrors.VMFieldsConflictsErrorFmt, "spec.template.spec.domain.cpu.cores"))))
 			})
 
 			It("find successfully decodes v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
 				clusterInstancetype.Spec.CPU = instancetypev1beta1.CPUInstancetype{
 					Guest: uint32(2),
 					// Set the following values to be compatible with objects converted from v1alpha1
-					Model:                 ptr.To(""),
-					DedicatedCPUPlacement: ptr.To(false),
-					IsolateEmulatorThread: ptr.To(false),
+					Model:                 pointer.P(""),
+					DedicatedCPUPlacement: pointer.P(false),
+					IsolateEmulatorThread: pointer.P(false),
 				}
 
 				specData, err := json.Marshal(clusterInstancetype.Spec)
@@ -423,7 +425,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, fakeInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(instancetypeControllerRevision, nil)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(instancetypeControllerRevision, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -465,7 +467,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(instancetypeControllerRevision, nil)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(instancetypeControllerRevision, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -491,16 +493,16 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 				}
-				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(ContainSubstring("VM field conflicts with selected Instancetype")))
+				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(Equal(fmt.Sprintf(instancetypeErrors.VMFieldsConflictsErrorFmt, "spec.template.spec.domain.cpu.cores"))))
 			})
 
 			It("find successfully decodes v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
 				fakeInstancetype.Spec.CPU = instancetypev1beta1.CPUInstancetype{
 					Guest: uint32(2),
 					// Set the following values to be compatible with objects converted from v1alpha1
-					Model:                 ptr.To(""),
-					DedicatedCPUPlacement: ptr.To(false),
-					IsolateEmulatorThread: ptr.To(false),
+					Model:                 pointer.P(""),
+					DedicatedCPUPlacement: pointer.P(false),
+					IsolateEmulatorThread: pointer.P(false),
 				}
 
 				specData, err := json.Marshal(fakeInstancetype.Spec)
@@ -687,7 +689,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				clusterPreferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterPreference)
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, clusterPreferenceControllerRevision)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(nil, clusterPreferenceControllerRevision)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -725,7 +727,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), clusterPreferenceControllerRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, clusterPreferenceControllerRevision)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(nil, clusterPreferenceControllerRevision)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -821,7 +823,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				preferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, preference)
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, preferenceControllerRevision)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(nil, preferenceControllerRevision)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -859,7 +861,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceControllerRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := instancetype.GenerateRevisionNamePatch(nil, preferenceControllerRevision)
+				expectedRevisionNamePatch, err := revision.GeneratePatch(nil, preferenceControllerRevision)
 				Expect(err).ToNot(HaveOccurred())
 
 				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
@@ -1008,9 +1010,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 				instancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{
 					CPU: instancetypev1beta1.CPUInstancetype{
 						Guest:                 uint32(2),
-						Model:                 ptr.To("host-passthrough"),
-						DedicatedCPUPlacement: ptr.To(true),
-						IsolateEmulatorThread: ptr.To(true),
+						Model:                 pointer.P("host-passthrough"),
+						DedicatedCPUPlacement: pointer.P(true),
+						IsolateEmulatorThread: pointer.P(true),
 						NUMA: &v1.NUMA{
 							GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{},
 						},
@@ -1803,8 +1805,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 						Physical: 512,
 					},
 				}
-				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = ptr.To(false)
-				vmi.Spec.Domain.Devices.AutoattachMemBalloon = ptr.To(false)
+				vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.P(false)
+				vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.P(false)
 				vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 					{
 						Cache:     v1.CacheWriteBack,
@@ -1866,16 +1868,16 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Devices: &instancetypev1beta1.DevicePreferences{
-						PreferredAutoattachGraphicsDevice:   ptr.To(true),
-						PreferredAutoattachMemBalloon:       ptr.To(true),
-						PreferredAutoattachPodInterface:     ptr.To(true),
-						PreferredAutoattachSerialConsole:    ptr.To(true),
-						PreferredAutoattachInputDevice:      ptr.To(true),
-						PreferredDiskDedicatedIoThread:      ptr.To(true),
-						PreferredDisableHotplug:             ptr.To(true),
-						PreferredUseVirtioTransitional:      ptr.To(true),
-						PreferredNetworkInterfaceMultiQueue: ptr.To(true),
-						PreferredBlockMultiQueue:            ptr.To(true),
+						PreferredAutoattachGraphicsDevice:   pointer.P(true),
+						PreferredAutoattachMemBalloon:       pointer.P(true),
+						PreferredAutoattachPodInterface:     pointer.P(true),
+						PreferredAutoattachSerialConsole:    pointer.P(true),
+						PreferredAutoattachInputDevice:      pointer.P(true),
+						PreferredDiskDedicatedIoThread:      pointer.P(true),
+						PreferredDisableHotplug:             pointer.P(true),
+						PreferredUseVirtioTransitional:      pointer.P(true),
+						PreferredNetworkInterfaceMultiQueue: pointer.P(true),
+						PreferredBlockMultiQueue:            pointer.P(true),
 						PreferredDiskBlockSize: &v1.BlockSize{
 							Custom: &v1.CustomBlockSize{
 								Logical:  4096,
@@ -2027,26 +2029,26 @@ var _ = Describe("Instancetype and Preferences", func() {
 					Features: &instancetypev1beta1.FeaturePreferences{
 						PreferredAcpi: &v1.FeatureState{},
 						PreferredApic: &v1.FeatureAPIC{
-							Enabled:        ptr.To(true),
+							Enabled:        pointer.P(true),
 							EndOfInterrupt: false,
 						},
 						PreferredHyperv: &v1.FeatureHyperv{
 							Relaxed: &v1.FeatureState{},
 							VAPIC:   &v1.FeatureState{},
 							Spinlocks: &v1.FeatureSpinlocks{
-								Enabled: ptr.To(true),
+								Enabled: pointer.P(true),
 								Retries: &spinLockRetries,
 							},
 							VPIndex: &v1.FeatureState{},
 							Runtime: &v1.FeatureState{},
 							SyNIC:   &v1.FeatureState{},
 							SyNICTimer: &v1.SyNICTimer{
-								Enabled: ptr.To(true),
+								Enabled: pointer.P(true),
 								Direct:  &v1.FeatureState{},
 							},
 							Reset: &v1.FeatureState{},
 							VendorID: &v1.FeatureVendorID{
-								Enabled:  ptr.To(true),
+								Enabled:  pointer.P(true),
 								VendorID: "1234",
 							},
 							Frequencies:     &v1.FeatureState{},
@@ -2080,7 +2082,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vmi.Spec.Domain.Features = &v1.Features{
 					Hyperv: &v1.FeatureHyperv{
 						EVMCS: &v1.FeatureState{
-							Enabled: ptr.To(false),
+							Enabled: pointer.P(false),
 						},
 					},
 				}
@@ -2096,10 +2098,10 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("should apply BIOS preferences full to VMI", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Firmware: &instancetypev1beta1.FirmwarePreferences{
-						PreferredUseBios:       ptr.To(true),
-						PreferredUseBiosSerial: ptr.To(true),
-						PreferredUseEfi:        ptr.To(false),
-						PreferredUseSecureBoot: ptr.To(false),
+						PreferredUseBios:                 pointer.P(true),
+						PreferredUseBiosSerial:           pointer.P(true),
+						DeprecatedPreferredUseEfi:        pointer.P(false),
+						DeprecatedPreferredUseSecureBoot: pointer.P(false),
 					},
 				}
 
@@ -2112,30 +2114,30 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("should apply SecureBoot preferences full to VMI", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Firmware: &instancetypev1beta1.FirmwarePreferences{
-						PreferredUseBios:       ptr.To(false),
-						PreferredUseBiosSerial: ptr.To(false),
-						PreferredUseEfi:        ptr.To(true),
-						PreferredUseSecureBoot: ptr.To(true),
+						PreferredUseBios:                 pointer.P(false),
+						PreferredUseBiosSerial:           pointer.P(false),
+						DeprecatedPreferredUseEfi:        pointer.P(true),
+						DeprecatedPreferredUseSecureBoot: pointer.P(true),
 					},
 				}
 
 				conflicts := instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
 				Expect(conflicts).To(BeEmpty())
 
-				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(Equal(*preferenceSpec.Firmware.PreferredUseSecureBoot))
+				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(Equal(*preferenceSpec.Firmware.DeprecatedPreferredUseSecureBoot))
 			})
 
-			It("should not overwrite user defined Bootloader.BIOS with PreferredUseEfi - bug #10313", func() {
+			It("should not overwrite user defined Bootloader.BIOS with DeprecatedPreferredUseEfi - bug #10313", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Firmware: &instancetypev1beta1.FirmwarePreferences{
-						PreferredUseEfi:        ptr.To(true),
-						PreferredUseSecureBoot: ptr.To(true),
+						DeprecatedPreferredUseEfi:        pointer.P(true),
+						DeprecatedPreferredUseSecureBoot: pointer.P(true),
 					},
 				}
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
 					Bootloader: &v1.Bootloader{
 						BIOS: &v1.BIOS{
-							UseSerial: ptr.To(false),
+							UseSerial: pointer.P(false),
 						},
 					},
 				}
@@ -2147,14 +2149,14 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("should not overwrite user defined value with PreferredUseBiosSerial - bug #10313", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Firmware: &instancetypev1beta1.FirmwarePreferences{
-						PreferredUseBios:       ptr.To(true),
-						PreferredUseBiosSerial: ptr.To(true),
+						PreferredUseBios:       pointer.P(true),
+						PreferredUseBiosSerial: pointer.P(true),
 					},
 				}
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
 					Bootloader: &v1.Bootloader{
 						BIOS: &v1.BIOS{
-							UseSerial: ptr.To(false),
+							UseSerial: pointer.P(false),
 						},
 					},
 				}
@@ -2165,14 +2167,14 @@ var _ = Describe("Instancetype and Preferences", func() {
 			It("should not overwrite user defined Bootloader.EFI with PreferredUseBios - bug #10313", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Firmware: &instancetypev1beta1.FirmwarePreferences{
-						PreferredUseBios:       ptr.To(true),
-						PreferredUseBiosSerial: ptr.To(true),
+						PreferredUseBios:       pointer.P(true),
+						PreferredUseBiosSerial: pointer.P(true),
 					},
 				}
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
 					Bootloader: &v1.Bootloader{
 						EFI: &v1.EFI{
-							SecureBoot: ptr.To(false),
+							SecureBoot: pointer.P(false),
 						},
 					},
 				}
@@ -2181,22 +2183,92 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(BeFalse())
 			})
 
-			It("should not overwrite user defined value with PreferredUseSecureBoot - bug #10313", func() {
+			It("should not overwrite user defined value with DeprecatedPreferredUseSecureBoot - bug #10313", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
 					Firmware: &instancetypev1beta1.FirmwarePreferences{
-						PreferredUseEfi:        ptr.To(true),
-						PreferredUseSecureBoot: ptr.To(true),
+						DeprecatedPreferredUseEfi:        pointer.P(true),
+						DeprecatedPreferredUseSecureBoot: pointer.P(true),
 					},
 				}
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
 					Bootloader: &v1.Bootloader{
 						EFI: &v1.EFI{
-							SecureBoot: ptr.To(false),
+							SecureBoot: pointer.P(false),
 						},
 					},
 				}
 				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
 				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(BeFalse())
+			})
+
+			It("should apply PreferredEfi", func() {
+				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Firmware: &instancetypev1beta1.FirmwarePreferences{
+						PreferredEfi: &v1.EFI{
+							Persistent: pointer.P(true),
+							SecureBoot: pointer.P(true),
+						},
+					},
+				}
+				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
+				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
+				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent).To(BeTrue())
+				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(BeTrue())
+			})
+
+			It("should ignore DeprecatedPreferredUseEfi and DeprecatedPreferredUseSecureBoot when using PreferredEfi", func() {
+				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Firmware: &instancetypev1beta1.FirmwarePreferences{
+						PreferredEfi: &v1.EFI{
+							Persistent: pointer.P(true),
+						},
+						DeprecatedPreferredUseEfi:        pointer.P(false),
+						DeprecatedPreferredUseSecureBoot: pointer.P(false),
+					},
+				}
+				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
+				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
+				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent).To(BeTrue())
+				Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(BeNil())
+			})
+
+			It("should not overwrite EFI when using PreferredEfi - bug #12985", func() {
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						EFI: &v1.EFI{
+							SecureBoot: pointer.P(false),
+						},
+					},
+				}
+				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Firmware: &instancetypev1beta1.FirmwarePreferences{
+						PreferredEfi: &v1.EFI{
+							SecureBoot: pointer.P(true),
+							Persistent: pointer.P(true),
+						},
+					},
+				}
+				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
+				Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
+				Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).ToNot(BeNil())
+				Expect(*vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(BeFalse())
+				Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent).To(BeNil())
+			})
+
+			It("should not apply PreferredEfi when VM already using BIOS - bug #12985", func() {
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						BIOS: &v1.BIOS{},
+					},
+				}
+				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
+					Firmware: &instancetypev1beta1.FirmwarePreferences{
+						PreferredEfi: &v1.EFI{},
+					},
+				}
+				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
+				Expect(vmi.Spec.Domain.Firmware.Bootloader.BIOS).ToNot(BeNil())
+				Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI).To(BeNil())
 			})
 		})
 
@@ -2220,7 +2292,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					Clock: &instancetypev1beta1.ClockPreferences{
 						PreferredClockOffset: &v1.ClockOffset{
 							UTC: &v1.ClockOffsetUTC{
-								OffsetSeconds: ptr.To(30),
+								OffsetSeconds: pointer.P(30),
 							},
 						},
 						PreferredTimer: &v1.Timer{
@@ -2240,7 +2312,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 		Context("Preference.PreferredSubdomain", func() {
 			It("should apply to VMI", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
-					PreferredSubdomain: ptr.To("kubevirt.io"),
+					PreferredSubdomain: pointer.P("kubevirt.io"),
 				}
 				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
 				Expect(vmi.Spec.Subdomain).To(Equal(*preferenceSpec.PreferredSubdomain))
@@ -2250,7 +2322,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				const userDefinedValue = "foo.com"
 				vmi.Spec.Subdomain = userDefinedValue
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
-					PreferredSubdomain: ptr.To("kubevirt.io"),
+					PreferredSubdomain: pointer.P("kubevirt.io"),
 				}
 				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
 				Expect(vmi.Spec.Subdomain).To(Equal(userDefinedValue))
@@ -2260,7 +2332,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 		Context("Preference.PreferredTerminationGracePeriodSeconds", func() {
 			It("should apply to VMI", func() {
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
-					PreferredTerminationGracePeriodSeconds: ptr.To(int64(180)),
+					PreferredTerminationGracePeriodSeconds: pointer.P(int64(180)),
 				}
 				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
 				Expect(*vmi.Spec.TerminationGracePeriodSeconds).To(Equal(*preferenceSpec.PreferredTerminationGracePeriodSeconds))
@@ -2268,9 +2340,9 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 			It("should not overwrite user defined value", func() {
 				const userDefinedValue = int64(100)
-				vmi.Spec.TerminationGracePeriodSeconds = ptr.To(userDefinedValue)
+				vmi.Spec.TerminationGracePeriodSeconds = pointer.P(userDefinedValue)
 				preferenceSpec = &instancetypev1beta1.VirtualMachinePreferenceSpec{
-					PreferredTerminationGracePeriodSeconds: ptr.To(int64(180)),
+					PreferredTerminationGracePeriodSeconds: pointer.P(int64(180)),
 				}
 				Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
 				Expect(*vmi.Spec.TerminationGracePeriodSeconds).To(Equal(userDefinedValue))
@@ -2297,7 +2369,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						},
 					},
 				},
-				nil,
+				&v1.VirtualMachineInstanceSpec{},
 			),
 			Entry("by an instance type for Memory",
 				&instancetypev1beta1.VirtualMachineInstancetypeSpec{
@@ -2312,7 +2384,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						},
 					},
 				},
-				nil,
+				&v1.VirtualMachineInstanceSpec{},
 			),
 			Entry("by a VM for vCPUs using PreferSockets (default)",
 				nil,
@@ -2506,7 +2578,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				},
 				nil,
 				instancetype.Conflicts{k8sfield.NewPath("spec", "instancetype")},
-				fmt.Sprintf(instancetype.InsufficientInstanceTypeCPUResourcesErrorFmt, uint32(1), uint32(2)),
+				fmt.Sprintf(requirements.InsufficientInstanceTypeCPUResourcesErrorFmt, uint32(1), uint32(2)),
 			),
 			Entry("by an instance type for Memory",
 				&instancetypev1beta1.VirtualMachineInstancetypeSpec{
@@ -2523,7 +2595,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				},
 				nil,
 				instancetype.Conflicts{k8sfield.NewPath("spec", "instancetype")},
-				fmt.Sprintf(instancetype.InsufficientInstanceTypeMemoryResourcesErrorFmt, "1Gi", "2Gi"),
+				fmt.Sprintf(requirements.InsufficientInstanceTypeMemoryResourcesErrorFmt, "1Gi", "2Gi"),
 			),
 			Entry("by a VM for vCPUs using PreferSockets (default)",
 				nil,
@@ -2545,7 +2617,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					},
 				},
 				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "sockets")},
-				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(2), "sockets"),
+				fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(2), "sockets"),
 			),
 			Entry("by a VM for vCPUs using PreferCores",
 				nil,
@@ -2567,7 +2639,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					},
 				},
 				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores")},
-				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(2), "cores"),
+				fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(2), "cores"),
 			),
 			Entry("by a VM for vCPUs using PreferThreads",
 				nil,
@@ -2589,7 +2661,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					},
 				},
 				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "threads")},
-				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(2), "threads"),
+				fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(2), "threads"),
 			),
 			Entry("by a VM for vCPUs using PreferSpread by default across SocketsCores",
 				nil,
@@ -2612,7 +2684,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					},
 				},
 				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "sockets"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores")},
-				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1beta1.SpreadAcrossSocketsCores),
+				fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1beta1.SpreadAcrossSocketsCores),
 			),
 			Entry("by a VM for vCPUs using PreferSpread across CoresThreads",
 				nil,
@@ -2638,7 +2710,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					},
 				},
 				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "threads")},
-				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1beta1.SpreadAcrossCoresThreads),
+				fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1beta1.SpreadAcrossCoresThreads),
 			),
 			Entry("by a VM for vCPUs using PreferSpread across SocketsCoresThreads",
 				nil,
@@ -2665,7 +2737,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					},
 				},
 				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "sockets"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "threads")},
-				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
+				fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
 			),
 			Entry("by a VM for vCPUs using PreferAny",
 				nil,
@@ -2693,7 +2765,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "sockets"),
 					k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "threads"),
 				},
-				fmt.Sprintf(instancetype.InsufficientVMCPUResourcesErrorFmt, uint32(2), uint32(4), "cores, sockets and threads"),
+				fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(2), uint32(4), "cores, sockets and threads"),
 			),
 			Entry("by a VM for Memory",
 				nil,
@@ -2712,7 +2784,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					},
 				},
 				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "memory")},
-				fmt.Sprintf(instancetype.InsufficientVMMemoryResourcesErrorFmt, "1Gi", "2Gi"),
+				fmt.Sprintf(requirements.InsufficientVMMemoryResourcesErrorFmt, "1Gi", "2Gi"),
 			))
 	})
 })

@@ -110,20 +110,27 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 
 	if vmCopy.Status.SnapshotInProgress == nil {
 		vmCopy.Status.SnapshotInProgress = &s.snapshot.Name
-		// unfortunately, status updater does not return the updated resource
-		// but the controller is watching VMs so will get notified
-		// returning here because following Update will always block
-		return false, s.controller.vmStatusUpdater.UpdateStatus(vmCopy)
+		vmCopy, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
+		if err != nil {
+			return false, err
+		}
 	}
 
 	if !controller.HasFinalizer(vmCopy, sourceFinalizer) {
 		log.Log.Infof("Adding VM snapshot finalizer to %s", s.vm.Name)
 		controller.AddFinalizer(vmCopy, sourceFinalizer)
-		_, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
+		patch, err := generateFinalizerPatch(s.vm.Finalizers, vmCopy.Finalizers)
+		if err != nil {
+			return false, err
+		}
+
+		vmCopy, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Patch(context.Background(), vmCopy.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 		if err != nil {
 			return false, err
 		}
 	}
+
+	s.vm = vmCopy
 
 	return true, nil
 }
@@ -138,17 +145,24 @@ func (s *vmSnapshotSource) Unlock() (bool, error) {
 
 	if controller.HasFinalizer(vmCopy, sourceFinalizer) {
 		controller.RemoveFinalizer(vmCopy, sourceFinalizer)
-		vmCopy, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
+		patch, err := generateFinalizerPatch(s.vm.Finalizers, vmCopy.Finalizers)
+		if err != nil {
+			return false, err
+		}
+
+		vmCopy, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).Patch(context.Background(), vmCopy.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 		if err != nil {
 			return false, err
 		}
 	}
 
 	vmCopy.Status.SnapshotInProgress = nil
-	err = s.controller.vmStatusUpdater.UpdateStatus(vmCopy)
+	vmCopy, err = s.controller.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
 	if err != nil {
-		return true, err
+		return false, err
 	}
+
+	s.vm = vmCopy
 
 	return true, nil
 }
@@ -286,17 +300,12 @@ func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
 }
 
 func (s *vmSnapshotSource) Online() (bool, error) {
-	vmRunning, err := checkVMRunning(s.vm)
-	if err != nil {
-		return false, err
-	}
-
 	exists, err := s.controller.checkVMIRunning(s.vm)
 	if err != nil {
 		return false, err
 	}
 
-	return (vmRunning || exists), nil
+	return exists, nil
 }
 
 func (s *vmSnapshotSource) GuestAgent() (bool, error) {
@@ -334,6 +343,7 @@ func (s *vmSnapshotSource) Freeze() error {
 	err = s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Freeze(context.Background(), s.vm.Name, getFailureDeadline(s.snapshot))
 	timeTrack(startTime, fmt.Sprintf("Freezing vmi %s", s.vm.Name))
 	if err != nil {
+		log.Log.Errorf("Freezing vm %s failed: %v", s.vm.Name, err.Error())
 		return err
 	}
 

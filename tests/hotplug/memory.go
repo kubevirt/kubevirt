@@ -24,6 +24,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -33,7 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateFeaturesGate, Serial, func() {
+var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateRolloutStrategy, Serial, func() {
 	var (
 		virtClient kubecli.KubevirtClient
 	)
@@ -47,10 +48,10 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 		patchWorkloadUpdateMethodAndRolloutStrategy(originalKv.Name, virtClient, updateStrategy, rolloutStrategy)
 
 		currentKv := libkubevirt.GetCurrentKv(virtClient)
-		tests.WaitForConfigToBePropagatedToComponent(
+		config.WaitForConfigToBePropagatedToComponent(
 			"kubevirt.io=virt-controller",
 			currentKv.ResourceVersion,
-			tests.ExpectResourceVersionToBeLessEqualThanConfigVersion,
+			config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
 			time.Minute)
 
 	})
@@ -75,7 +76,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 				}
 			}
 
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 			if maxSockets != 0 {
 				vm.Spec.Template.Spec.Domain.CPU.MaxSockets = maxSockets
 			}
@@ -201,28 +202,12 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 
 			By("Hotplug Memory and CPU")
 			newGuestMemory := resource.MustParse("1042Mi")
-			patchData, err := patch.GeneratePatchPayload(
-				patch.PatchOperation{
-					Op:    patch.PatchTestOp,
-					Path:  "/spec/template/spec/domain/memory/guest",
-					Value: guest.String(),
-				},
-				patch.PatchOperation{
-					Op:    patch.PatchReplaceOp,
-					Path:  "/spec/template/spec/domain/memory/guest",
-					Value: newGuestMemory.String(),
-				},
-				patch.PatchOperation{
-					Op:    patch.PatchTestOp,
-					Path:  "/spec/template/spec/domain/cpu/sockets",
-					Value: vmi.Spec.Domain.CPU.Sockets,
-				},
-				patch.PatchOperation{
-					Op:    patch.PatchReplaceOp,
-					Path:  "/spec/template/spec/domain/cpu/sockets",
-					Value: newSockets,
-				},
-			)
+			patchData, err := patch.New(
+				patch.WithTest("/spec/template/spec/domain/memory/guest", guest.String()),
+				patch.WithReplace("/spec/template/spec/domain/memory/guest", newGuestMemory.String()),
+				patch.WithTest("/spec/template/spec/domain/cpu/sockets", vmi.Spec.Domain.CPU.Sockets),
+				patch.WithReplace("/spec/template/spec/domain/cpu/sockets", newSockets),
+			).GeneratePayload()
 			Expect(err).NotTo(HaveOccurred())
 			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -254,7 +239,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.Memory = &v1.Memory{}
 
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -384,7 +369,7 @@ var _ = Describe("[sig-compute][Serial]Memory Hotplug", decorators.SigCompute, d
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guest}
 
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())

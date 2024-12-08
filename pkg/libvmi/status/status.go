@@ -126,3 +126,42 @@ func WithMigrationState(migrationState v1.VirtualMachineInstanceMigrationState) 
 		vmiStatus.MigrationState = &migrationState
 	}
 }
+
+// WithInterfaceStatus adds an interface status
+func WithInterfaceStatus(interfaceStatus v1.VirtualMachineInstanceNetworkInterface) Option {
+	return func(vmiStatus *v1.VirtualMachineInstanceStatus) {
+		vmiStatus.Interfaces = append(vmiStatus.Interfaces, interfaceStatus)
+	}
+}
+
+type VMOption func(vmiStatus *v1.VirtualMachineStatus)
+
+// WithStatus sets the status with specified value
+func WithVMStatus(status v1.VirtualMachineStatus) libvmi.VMOption {
+	return func(vm *v1.VirtualMachine) {
+		vm.Status = status
+	}
+}
+
+// New instantiates a new VM status configuration,
+// building its properties based on the specified With* options.
+func NewVMStatus(opts ...VMOption) v1.VirtualMachineStatus {
+	vmStatus := &v1.VirtualMachineStatus{}
+	for _, f := range opts {
+		f(vmStatus)
+	}
+
+	return *vmStatus
+}
+
+func WithVMVolumeUpdateState(volumeUpdateState *v1.VolumeUpdateState) VMOption {
+	return func(vmStatus *v1.VirtualMachineStatus) {
+		vmStatus.VolumeUpdateState = volumeUpdateState
+	}
+}
+
+func WithVMCondition(cond v1.VirtualMachineCondition) VMOption {
+	return func(vmStatus *v1.VirtualMachineStatus) {
+		vmStatus.Conditions = append(vmStatus.Conditions, cond)
+	}
+}

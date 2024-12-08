@@ -37,11 +37,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -66,10 +63,6 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 		nadName   = "skynet"
 	)
 
-	BeforeEach(func() {
-		Expect(checks.HasFeature(virtconfig.HotplugNetworkIfacesGate)).To(BeTrue())
-	})
-
 	Context("a running VM", func() {
 		const guestSecondaryIfaceName = "eth1"
 
@@ -82,7 +75,7 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 				libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
-			hotPluggedVM = libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+			hotPluggedVM = libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 			var err error
 			hotPluggedVM, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), hotPluggedVM, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -239,10 +232,6 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 		nadName = "skynet"
 	)
 
-	BeforeEach(func() {
-		Expect(checks.HasFeature(virtconfig.HotplugNetworkIfacesGate)).To(BeTrue())
-	})
-
 	Context("a running VM", func() {
 		var vm *v1.VirtualMachine
 		var vmi *v1.VirtualMachineInstance
@@ -258,7 +247,7 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 				libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeNetworkName2, nadName)),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName1)),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName2)))
-			vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+			vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 			var err error
 			vm, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -307,7 +296,7 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 	})
 })
 
-func createBridgeNetworkAttachmentDefinition(namespace, networkName string, bridgeName string) error {
+func createBridgeNetworkAttachmentDefinition(namespace, networkName, bridgeName string) error {
 	const (
 		bridgeCNIType  = "bridge"
 		linuxBridgeNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"%s\", \"bridge\": \"%s\"}]}"}}`

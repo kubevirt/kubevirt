@@ -31,16 +31,16 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/record"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/safepath"
-
-	"kubevirt.io/client-go/api"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
@@ -52,30 +52,6 @@ var _ = Describe("HostDisk", func() {
 		hostDiskCreator            DiskImgCreator
 		hostDiskCreatorWithReserve DiskImgCreator
 	)
-	addHostDisk := func(vmi *v1.VirtualMachineInstance, volumeName string, hostDiskType v1.HostDiskType, capacity string) {
-		var quantity resource.Quantity
-
-		err := os.Mkdir(path.Join(tempDir, volumeName), 0755)
-		if !os.IsExist(err) {
-			Expect(err).NotTo(HaveOccurred())
-		}
-
-		if capacity != "" {
-			quantity, err = resource.ParseQuantity(capacity)
-			Expect(err).NotTo(HaveOccurred())
-		}
-
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: volumeName,
-			VolumeSource: v1.VolumeSource{
-				HostDisk: &v1.HostDisk{
-					Path:     path.Join(tempDir, volumeName, "disk.img"),
-					Type:     hostDiskType,
-					Capacity: quantity,
-				},
-			},
-		})
-	}
 
 	createTempDiskImg := func(volumeName string) os.FileInfo {
 		imgPath := path.Join(tempDir, volumeName, "disk.img")
@@ -106,17 +82,22 @@ var _ = Describe("HostDisk", func() {
 		hostDiskCreatorWithReserve = NewHostDiskCreator(recorder, 10, 1048576, root)
 
 	})
+	createHostDisk := func(volumeName string) string {
+		if err := os.Mkdir(path.Join(tempDir, volumeName), 0755); err != nil {
+			Expect(err).To(MatchError(os.ErrExist))
+		}
+		return path.Join(tempDir, volumeName, "disk.img")
+	}
 
 	Describe("HostDisk with 'Disk' type", func() {
 		It("Should not create a disk.img when it exists", func() {
 			By("Creating a disk.img before adding a HostDisk volume")
 			tmpDiskImg := createTempDiskImg("volume1")
 
-			By("Creating a new minimal vmi")
-			vmi := api.NewMinimalVMI("fake-vmi")
-
-			By("Adding a HostDisk volume for existing disk.img")
-			addHostDisk(vmi, "volume1", v1.HostDiskExists, "")
+			By("Creating a new VMI with HostDisk volume")
+			vmi := libvmi.New(
+				libvmi.WithHostDisk("volume1", createHostDisk("volume1"), v1.HostDiskExists),
+			)
 
 			By("Executing CreateHostDisks which should not create a disk.img")
 			err := hostDiskCreator.Create(vmi)
@@ -128,11 +109,10 @@ var _ = Describe("HostDisk", func() {
 			Expect(tmpDiskImg.ModTime()).To(Equal(hostDiskImg.ModTime()))
 		})
 		It("Should not create a disk.img when it does not exist", func() {
-			By("Creating a new minimal vmi")
-			vmi := api.NewMinimalVMI("fake-vmi")
-
-			By("Adding a HostDisk volume")
-			addHostDisk(vmi, "volume1", v1.HostDiskExists, "")
+			By("Creating a new VMI with HostDisk volumes")
+			vmi := libvmi.New(
+				libvmi.WithHostDisk("volume1", createHostDisk("volume1"), v1.HostDiskExists),
+			)
 
 			By("Executing CreateHostDisks which should not create disk.img")
 			err := hostDiskCreator.Create(vmi)
@@ -148,19 +128,18 @@ var _ = Describe("HostDisk", func() {
 		Context("With multiple HostDisk volumes", func() {
 			Context("With non existing disk.img", func() {
 				It("Should create disk.img if there is enough space", func() {
-					By("Creating a new minimal vmi")
-					vmi := api.NewMinimalVMI("fake-vmi")
-
-					By("Adding a HostDisk volumes")
-					addHostDisk(vmi, "volume1", v1.HostDiskExistsOrCreate, "64Mi")
-					addHostDisk(vmi, "volume2", v1.HostDiskExistsOrCreate, "128Mi")
-					addHostDisk(vmi, "volume3", v1.HostDiskExistsOrCreate, "80Mi")
+					By("Creating a new VMI with HostDisk volumes")
+					vmi := libvmi.New(
+						libvmi.WithHostDiskAndCapacity("volume1", createHostDisk("volume1"), v1.HostDiskExistsOrCreate, "64Mi"),
+						libvmi.WithHostDiskAndCapacity("volume2", createHostDisk("volume2"), v1.HostDiskExistsOrCreate, "128Mi"),
+						libvmi.WithHostDiskAndCapacity("volume3", createHostDisk("volume3"), v1.HostDiskExistsOrCreate, "80Mi"),
+					)
 
 					By("Executing CreateHostDisks which should create disk.img")
 					err := hostDiskCreator.Create(vmi)
 					Expect(err).NotTo(HaveOccurred())
 
-					// check if images exist and the size is adequate to requirements
+					// Check if images exist and the size is adequate to requirements
 					img1, err := os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(img1.Size()).To(Equal(int64(67108864))) // 64Mi
@@ -174,13 +153,12 @@ var _ = Describe("HostDisk", func() {
 					Expect(img3.Size()).To(Equal(int64(83886080))) // 80Mi
 				})
 				It("Should stop creating disk images if there is not enough space and should return err", func() {
-					By("Creating a new minimal vmi")
-					vmi := api.NewMinimalVMI("fake-vmi")
-
-					By("Adding a HostDisk volumes")
-					addHostDisk(vmi, "volume1", v1.HostDiskExistsOrCreate, "64Mi")
-					addHostDisk(vmi, "volume2", v1.HostDiskExistsOrCreate, "1E")
-					addHostDisk(vmi, "volume3", v1.HostDiskExistsOrCreate, "128Mi")
+					By("Creating a new VMI with HostDisk volumes")
+					vmi := libvmi.New(
+						libvmi.WithHostDiskAndCapacity("volume1", createHostDisk("volume1"), v1.HostDiskExistsOrCreate, "64Mi"),
+						libvmi.WithHostDiskAndCapacity("volume2", createHostDisk("volume2"), v1.HostDiskExistsOrCreate, "1E"),
+						libvmi.WithHostDiskAndCapacity("volume3", createHostDisk("volume3"), v1.HostDiskExistsOrCreate, "128Mi"),
+					)
 
 					By("Executing CreateHostDisks func which should not create a disk.img")
 					err := hostDiskCreator.Create(vmi)
@@ -199,13 +177,11 @@ var _ = Describe("HostDisk", func() {
 					_, err = os.Stat(vmi.Spec.Volumes[2].HostDisk.Path)
 					Expect(true).To(Equal(errors.Is(err, os.ErrNotExist)))
 				})
-
 				It("Should NOT subtract reserve if there is enough space on storage for requested size", func() {
-					By("Creating a new minimal vmi")
-					vmi := api.NewMinimalVMI("fake-vmi")
-
-					By("Adding HostDisk volumes")
-					addHostDisk(vmi, "volume1", v1.HostDiskExistsOrCreate, "64Mi")
+					By("Creating a new VMI with HostDisk volumes")
+					vmi := libvmi.New(
+						libvmi.WithHostDiskAndCapacity("volume1", createHostDisk("volume1"), v1.HostDiskExistsOrCreate, "64Mi"),
+					)
 
 					By("Executing CreateHostDisks func which should create a full-size disk.img")
 					err := hostDiskCreatorWithReserve.Create(vmi)
@@ -215,20 +191,19 @@ var _ = Describe("HostDisk", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(img1.Size()).To(Equal(int64(67108864))) // 64Mi
 				})
-
 				It("Should subtract reserve if there is NOT enough space on storage for requested size", func() {
-					By("Creating a new minimal vmi")
-					vmi := api.NewMinimalVMI("fake-vmi")
+					By("Creating a new VMI with a HostDisk volume")
+					vmi := libvmi.New(
+						libvmi.WithHostDiskAndCapacity("volume1", createHostDisk("volume1"), v1.HostDiskExistsOrCreate, "64Mi"),
+					)
+
 					dirAvailable := uint64(64 << 20)
 
 					hostDiskCreatorWithReserve.dirBytesAvailableFunc = func(path string, reserve uint64) (uint64, error) {
 						return dirAvailable - reserve, nil
 					}
 
-					By("Adding HostDisk volume that is slightly too large for available bytes when reserve is accounted for")
-					addHostDisk(vmi, "volume1", v1.HostDiskExistsOrCreate, "64Mi")
-
-					By("Executing CreateHostDisks func which should create disk.img minus reserve")
+					By("Executing CreateHostDisks function which should create disk.img minus reserve")
 					err := hostDiskCreatorWithReserve.Create(vmi)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -236,19 +211,18 @@ var _ = Describe("HostDisk", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(img1.Size()).To(BeNumerically("==", dirAvailable-hostDiskCreatorWithReserve.minimumPVCReserveBytes)) // 64Mi minus reserve
 				})
-
 				It("Should refuse to create disk image if reserve causes image to exceed lessPVCSpaceToleration", func() {
-					By("Creating a new minimal vmi")
-					vmi := api.NewMinimalVMI("fake-vmi")
+					By("Creating a new VMI with a HostDisk volume")
+					vmi := libvmi.New(
+						libvmi.WithHostDiskAndCapacity("volume1", createHostDisk("volume1"), v1.HostDiskExistsOrCreate, "64Mi"),
+					)
+
 					dirAvailable := uint64(64 << 20)
 
 					hostDiskCreatorWithReserve.dirBytesAvailableFunc = func(path string, reserve uint64) (uint64, error) {
 						return dirAvailable - reserve, nil
 					}
 					hostDiskCreatorWithReserve.setlessPVCSpaceToleration(1) // 1% of 64Mi, tolerate up to 671088 bytes lost
-
-					By("Adding HostDisk volume that is slightly too large for available bytes when reserve is accounted for")
-					addHostDisk(vmi, "volume1", v1.HostDiskExistsOrCreate, "64Mi")
 
 					By("Executing CreateHostDisks func which should NOT create disk.img minus reserve")
 					err := hostDiskCreatorWithReserve.Create(vmi)
@@ -258,10 +232,13 @@ var _ = Describe("HostDisk", func() {
 					_, err = os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
 					Expect(true).To(Equal(errors.Is(err, os.ErrNotExist)))
 				})
-
 				It("Should take lessPVCSpaceToleration into account when creating disk images", func() {
-					By("Creating a new minimal vmi")
-					vmi := api.NewMinimalVMI("fake-vmi")
+					By("Creating a new VMI with a HostDisk volumes")
+					vmi := libvmi.New(
+						libvmi.WithHostDiskAndCapacity("volume1", createHostDisk("volume1"), v1.HostDiskExistsOrCreate, "64Mi"),
+						libvmi.WithHostDiskAndCapacity("volume2", createHostDisk("volume2"), v1.HostDiskExistsOrCreate, "64Mi"),
+						libvmi.WithHostDiskAndCapacity("volume3", createHostDisk("volume3"), v1.HostDiskExistsOrCreate, "64Mi"),
+					)
 
 					toleration := 5
 					hostDiskCreator.setlessPVCSpaceToleration(5)
@@ -286,10 +263,7 @@ var _ = Describe("HostDisk", func() {
 						}
 					}
 
-					By("Adding HostDisk volumes")
-					addHostDisk(vmi, "volume1", v1.HostDiskExistsOrCreate, "64Mi")
-					addHostDisk(vmi, "volume2", v1.HostDiskExistsOrCreate, "64Mi")
-					addHostDisk(vmi, "volume3", v1.HostDiskExistsOrCreate, "64Mi")
+					By("Setting the capacity for each HostDisk volume")
 
 					By("Executing CreateHostDisks func which should not create a disk.img")
 					hostDiskCreator.dirBytesAvailableFunc = fakeDirBytesAvailable
@@ -318,12 +292,10 @@ var _ = Describe("HostDisk", func() {
 			It("Should not re-create disk.img", func() {
 				By("Creating a disk.img before adding a HostDisk volume")
 				tmpDiskImg := createTempDiskImg("volume1")
-
-				By("Creating a new minimal vmi")
-				vmi := api.NewMinimalVMI("fake-vmi")
-
-				By("Adding a HostDisk volume")
-				addHostDisk(vmi, "volume1", v1.HostDiskExistsOrCreate, "128Mi")
+				By("Creating a new VMI with a HostDisk volumes")
+				vmi := libvmi.New(
+					libvmi.WithHostDiskAndCapacity("volume1", createHostDisk("volume1"), v1.HostDiskExistsOrCreate, "128Mi"),
+				)
 
 				By("Executing CreateHostDisks which should not create a disk.img")
 				err := hostDiskCreator.Create(vmi)
@@ -344,11 +316,10 @@ var _ = Describe("HostDisk", func() {
 
 	Describe("HostDisk with unknown type", func() {
 		It("Should not create a disk.img", func() {
-			By("Creating a new minimal vmi")
-			vmi := api.NewMinimalVMI("fake-vmi")
-
-			By("Adding a HostDisk volume with unknown type")
-			addHostDisk(vmi, "volume1", "UnknownType", "")
+			By("Creating a new VMI with a HostDisk volume and unknown type")
+			vmi := libvmi.New(
+				libvmi.WithHostDisk("volume1", createHostDisk("volume1"), "UnknownType"),
+			)
 
 			By("Executing CreateHostDisks which should not create a disk.img")
 			err := hostDiskCreator.Create(vmi)
@@ -379,34 +350,15 @@ var _ = Describe("HostDisk", func() {
 			virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
 			By("Creating a VMI with PVC volume")
-			vmi = &v1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "testvmi",
-				},
-				Spec: v1.VirtualMachineInstanceSpec{
-					Volumes: []v1.Volume{
-						{
-							Name: volumeName,
-							VolumeSource: v1.VolumeSource{
-								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-									PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-										ClaimName: pvcName,
-									},
-								},
-							},
-						},
-					},
-					Domain: v1.DomainSpec{},
-				},
-				Status: v1.VirtualMachineInstanceStatus{
-					VolumeStatus: []v1.VolumeStatus{
-						{
-							Name:                      volumeName,
-							PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{},
-						},
-					},
-				},
-			}
+			vmi = libvmi.New(
+				libvmi.WithPersistentVolumeClaim(volumeName, pvcName),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithVolumeStatus(v1.VolumeStatus{
+						Name:                      volumeName,
+						PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{},
+					}),
+				)),
+			)
 		})
 
 		assertHostDiskWithSize := func(expectedSize resource.Quantity) {

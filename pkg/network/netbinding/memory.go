@@ -29,7 +29,10 @@ import (
 
 type MemoryCalculator struct{}
 
-func (mc MemoryCalculator) Calculate(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) resource.Quantity {
+func (mc MemoryCalculator) Calculate(
+	vmi *v1.VirtualMachineInstance,
+	registeredPlugins map[string]v1.InterfaceBindingPlugin,
+) resource.Quantity {
 	return sumPluginsMemoryRequests(
 		filterUniquePlugins(vmi.Spec.Domain.Devices.Interfaces, registeredPlugins),
 	)

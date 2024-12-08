@@ -57,7 +57,7 @@ func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface 
 		return nil, err
 	}
 
-	ifaceLink, err := link.DiscoverByNetwork(podnic.handler, podnic.vmi.Spec.Networks, *podnic.vmiSpecNetwork)
+	ifaceLink, err := link.DiscoverByNetwork(podnic.handler, podnic.vmi.Spec.Networks, *podnic.vmiSpecNetwork, vmi.Status.Interfaces)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func (l *podNIC) newDHCPConfigurator() dhcpconfigurator.Configurator {
 
 func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain, domainAttachment string) domainspec.LibvirtSpecGenerator {
 	if domainAttachment == string(v1.Tap) {
-		return domainspec.NewTapLibvirtSpecGenerator(l.vmiSpecIface, domain, l.podInterfaceName, l.handler)
+		return domainspec.NewTapLibvirtSpecGenerator(l.vmiSpecIface, *l.vmiSpecNetwork, domain, l.podInterfaceName, l.handler)
 	}
 	return nil
 }

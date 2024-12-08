@@ -28,10 +28,10 @@ import (
 	"k8s.io/client-go/rest"
 
 	v1 "kubevirt.io/api/core/v1"
-	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
+	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 )
 
-func (k *kubevirt) VirtualMachine(namespace string) VirtualMachineInterface {
+func (k *kubevirtClient) VirtualMachine(namespace string) VirtualMachineInterface {
 	return &vm{
 		VirtualMachineInterface: k.GeneratedKubeVirtClient().KubevirtV1().VirtualMachines(namespace),
 		restClient:              k.restClient,

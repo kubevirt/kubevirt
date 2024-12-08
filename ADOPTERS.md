@@ -1,7 +1,8 @@
 
 > **Note**
 > Do you want to add yourself to this list? Simply fork the repository and open a PR with the required change.
-> We have a short description of the adopter types at the bottom of this page. Each type is in alphabetical order. 
+> We have a short description of the adopter types at the bottom of this page. Each adopter type is in alphabetical order. 
+> Once your PR is merged, see our [website repo](https://github.com/kubevirt/kubevirt.github.io?tab=readme-ov-file#adopters) to add your logo to our website.
 
 # KubeVirt Adopters
 
@@ -27,6 +28,7 @@
 | Integration | PITS Global Data Recovery Services | 2023 | [link](https://www.pitsdatarecovery.net/) | KubeVirt allows us to manage highly-loaded VMs and containers from one place. |
 | Integration | Trilio | 2021 | [link](https://trilio.io/) | TrilioVault has been cloud-native since day one and protects the most demanding environments to maximize stability across all tenants. Our platform is built for flexibility across deployments, integrating seamlessly with Kubernetes, OpenStack and Red Hat Virtualization. That means we can equally backup and restore stateful and stateless applications based on VMs, Containers or VMs in Containers based on KubeVirt.  |
 | Vendor | Ænix | 2023 | [link](https://aenix.io/) | Ænix uses KubeVirt in free PaaS platform [Cozystack](https://cozystack.io) for running virtual machines and Kubernetes-as-a-Service. |
+| Vendor | Alauda | 2021 | [link](https://www.alauda.io/) | As a distributor we provide KubeVirt-based VM management in Alauda Container Platform. |
 | Vendor | Deckhouse | 2022 | [link](https://deckhouse.io/) | Deckhouse is a No-Ops Kubernetes Platform by [Flant](https://flant.com/) which provides out-of-box solution to run any type of production-grade workloads. It includes monitoring, storage, and virtual machines based on KubeVirt. |
 | Vendor | EQUINIX | | [link](https://metal.equinix.com/) | |
 | Vendor | H3C | 2019 | [link](https://www.h3c.com/en/Products_Technology/Enterprise_Products/Cloud_Computing/Cloud_Computing_Products/H3C_CloudOS/H3C_CloudOS_full-stack/) | We distribute KubeVirt as part of CloudOS to enable VM workloads on Kubernetes at customer sites. |
@@ -36,7 +38,7 @@
 | Vendor | NCR Voyix | 2024 | [link](https://www.ncrvoyix.com/) | NCR Voyix is leveraging KubeVirt to unify management of virtualized and containerized applications at the edge. |
 | Vendor | Oracle | 2023 | [link](https://www.oracle.com) | As a distributor we are leveraging KubeVirt to enable VM workload on [Oracle Cloud Native Environment](https://www.oracle.com/linux/cloud-native-environment/), the Oracle multicloud and on-premises Kubernetes distribution. |
 | Vendor | PLATFORM9 | | [link](https://platform9.com/managed-kubevirt/) | Run Legacy and Cloud-Native Applications on Platform9 |
-| Vendor | Puzl | 2022 | [link](https://puzl.ee/) | As a cloud-native computing platform we want to provide users with seamless experience. Many users are familiar with cloud VMs, but not yet with Kubernetes, and with Kubevirt we are giving them a bridge to a cloud-native world to make their migration easier. |
+| Vendor | Puzl | 2022 | [link](https://puzl.cloud/) | As a cloud-native computing platform we want to provide users with seamless experience. Many users are familiar with cloud VMs, but not yet with Kubernetes, and with Kubevirt we are giving them a bridge to a cloud-native world to make their migration easier. |
 | Vendor | Red Hat, Inc. | 2016 | [link](https://www.redhat.com) | As a distributor we are building OpenShift Virtualization on KubeVirt in order to enable VM workloads and -flows on Kubernetes. |
 | Vendor | Spectro Cloud | 2022 | [link](https://www.spectrocloud.com/solutions/vms-on-kubernetes) | Spectro Cloud Palette's Virtual Machine Orchestrator (VMO) feature builds on KubeVirt. It gives enterprises an easy yet powerful way to bring their VM workloads into their Kubernetes clusters, on bare metal and at the edge — with full lifecycle management and unified policies and governance. |
 | Vendor | SUSE | 2020 | [link](https://www.suse.com/) | SUSE believes KubeVirt is the best open source way to handle Virtual Machines on Kubernetes today. We offer this additional possibility to our customers by leveraging KubeVirt in our products. |

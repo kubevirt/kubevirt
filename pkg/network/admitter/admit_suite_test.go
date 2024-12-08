@@ -52,7 +52,3 @@ func (s stubClusterConfigChecker) MacvtapEnabled() bool {
 func (s stubClusterConfigChecker) PasstEnabled() bool {
 	return s.passtFeatureGateEnabled
 }
-
-func (s stubClusterConfigChecker) NetworkBindingPlugingsEnabled() bool {
-	return s.bindingPluginFGEnabled
-}

@@ -32,24 +32,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
 
-	"kubevirt.io/kubevirt/pkg/storage/reservation"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
-
 	"golang.org/x/sys/unix"
 
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
-
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-
 	k8sv1 "k8s.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -57,7 +47,6 @@ import (
 
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
-
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
@@ -65,17 +54,22 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 )
 
 const deviceTypeNotCompatibleFmt = "device %s is of type lun. Not compatible with a file based disk"
 
 // The location of uefi boot loader on ARM64 is different from that on x86
-const (
-	defaultIOThread = uint(1)
-	resolvConf      = "/etc/resolv.conf"
-)
+const defaultIOThread = uint(1)
 
 const (
 	multiQueueMaxQueues  = uint32(256)
@@ -98,7 +92,7 @@ type EFIConfiguration struct {
 }
 
 type ConverterContext struct {
-	Architecture                    string
+	Architecture                    ArchConverter
 	AllowEmulation                  bool
 	Secrets                         map[string]*k8sv1.Secret
 	VirtualMachine                  *v1.VirtualMachineInstance
@@ -125,31 +119,6 @@ type ConverterContext struct {
 	BochsForEFIGuests               bool
 	SerialConsoleLog                bool
 	DomainAttachmentByInterfaceName map[string]string
-}
-
-func contains(volumes []string, name string) bool {
-	for _, v := range volumes {
-		if name == v {
-			return true
-		}
-	}
-	return false
-}
-
-func isAMD64(arch string) bool {
-	return arch == "amd64"
-}
-
-func isARM64(arch string) bool {
-	return arch == "arm64"
-}
-
-func isPPC64(arch string) bool {
-	return arch == "ppc64le"
-}
-
-func isS390X(arch string) bool {
-	return arch == "s390x"
 }
 
 func assignDiskToSCSIController(disk *api.Disk, unit int) {
@@ -184,7 +153,7 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 			disk.Address = addr
 		}
 		if diskDevice.Disk.Bus == v1.DiskBusVirtio {
-			disk.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture)
+			disk.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
 		}
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
 		disk.Serial = diskDevice.Serial
@@ -228,7 +197,7 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 		IO:    diskDevice.IO,
 	}
 	if diskDevice.Disk != nil || diskDevice.LUN != nil {
-		if !contains(c.VolumesDiscardIgnore, diskDevice.Name) {
+		if !slices.Contains(c.VolumesDiscardIgnore, diskDevice.Name) {
 			disk.Driver.Discard = "unmap"
 		}
 		volumeStatus, ok := volumeStatusMap[diskDevice.Name]
@@ -726,7 +695,7 @@ func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
 	disk.Source.File = GetFilesystemVolumePath(volumeName)
-	if !contains(volumesDiscardIgnore, volumeName) {
+	if !slices.Contains(volumesDiscardIgnore, volumeName) {
 		disk.Driver.Discard = "unmap"
 	}
 	return nil
@@ -737,7 +706,7 @@ func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, di
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
-	if !contains(volumesDiscardIgnore, volumeName) {
+	if !slices.Contains(volumesDiscardIgnore, volumeName) {
 		disk.Driver.Discard = "unmap"
 	}
 	disk.Source.File = GetHotplugFilesystemVolumePath(volumeName)
@@ -748,7 +717,7 @@ func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk,
 	disk.Type = "block"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
-	if !contains(volumesDiscardIgnore, volumeName) {
+	if !slices.Contains(volumesDiscardIgnore, volumeName) {
 		disk.Driver.Discard = "unmap"
 	}
 	disk.Source.Name = volumeName
@@ -761,7 +730,7 @@ func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *a
 	disk.Type = "block"
 	disk.Driver.Type = "raw"
 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
-	if !contains(volumesDiscardIgnore, volumeName) {
+	if !slices.Contains(volumesDiscardIgnore, volumeName) {
 		disk.Driver.Discard = "unmap"
 	}
 	disk.Source.Dev = GetHotplugBlockDeviceVolumePath(volumeName)
@@ -816,7 +785,7 @@ func Convert_v1_DownwardMetricSource_To_api_Disk(disk *api.Disk, c *ConverterCon
 		Name: "qemu",
 	}
 	// This disk always needs `virtio`. Validation ensures that bus is unset or is already virtio
-	disk.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture)
+	disk.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
 	disk.Source = api.DiskSource{
 		File: config.DownwardMetricDisk,
 	}
@@ -904,7 +873,7 @@ func Convert_v1_Watchdog_To_api_Watchdog(source *v1.Watchdog, watchdog *api.Watc
 func Convert_v1_Rng_To_api_Rng(_ *v1.Rng, rng *api.Rng, c *ConverterContext) error {
 
 	// default rng model for KVM/QEMU virtualization
-	rng.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture)
+	rng.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
 
 	// default backend model, random
 	rng.Backend = &api.RngBackend{
@@ -1143,7 +1112,7 @@ func ConvertV1ToAPIBalloning(source *v1.Devices, ballooning *api.MemBalloon, c *
 		ballooning.Model = "none"
 		ballooning.Stats = nil
 	} else {
-		ballooning.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture)
+		ballooning.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
 		if c.MemBalloonStatsPeriod != 0 {
 			ballooning.Stats = &api.Stats{Period: c.MemBalloonStatsPeriod}
 		}
@@ -1280,6 +1249,119 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 	return nil
 }
 
+func hasIOThreads(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Domain.IOThreadsPolicy != nil {
+		return true
+	}
+	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
+		if diskDevice.DedicatedIOThread != nil && *diskDevice.DedicatedIOThread {
+			return true
+		}
+	}
+	return false
+}
+
+func getIOThreadsCountType(vmi *v1.VirtualMachineInstance) (ioThreadCount, autoThreads int) {
+	dedicatedThreads := 0
+
+	var threadPoolLimit int
+	switch {
+	case vmi.Spec.Domain.IOThreadsPolicy == nil:
+		threadPoolLimit = 1
+	case *vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicyShared:
+		threadPoolLimit = 1
+	case *vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicyAuto:
+		// When IOThreads policy is set to auto and we've allocated a dedicated
+		// pCPU for the emulator thread, we can place IOThread and Emulator thread in the same pCPU
+		if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+			threadPoolLimit = 1
+		} else {
+			numCPUs := 1
+			// Requested CPU's is guaranteed to be no greater than the limit
+			if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
+				numCPUs = int(cpuRequests.Value())
+			} else if cpuLimit, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
+				numCPUs = int(cpuLimit.Value())
+			}
+
+			threadPoolLimit = numCPUs * 2
+		}
+	}
+
+	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
+		if diskDevice.DedicatedIOThread != nil && *diskDevice.DedicatedIOThread {
+			dedicatedThreads += 1
+		} else {
+			autoThreads += 1
+		}
+	}
+
+	if (autoThreads + dedicatedThreads) > threadPoolLimit {
+		autoThreads = threadPoolLimit - dedicatedThreads
+		// We need at least one shared thread
+		if autoThreads < 1 {
+			autoThreads = 1
+		}
+	}
+
+	ioThreadCount = (autoThreads + dedicatedThreads)
+	return
+}
+
+func setIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus uint) {
+	if !hasIOThreads(vmi) {
+		return
+	}
+	ioThreadCount, autoThreads := getIOThreadsCountType(vmi)
+	if ioThreadCount != 0 {
+		if domain.Spec.IOThreads == nil {
+			domain.Spec.IOThreads = &api.IOThreads{}
+		}
+		domain.Spec.IOThreads.IOThreads = uint(ioThreadCount)
+	}
+
+	currentAutoThread := defaultIOThread
+	currentDedicatedThread := uint(autoThreads + 1)
+	for i, disk := range domain.Spec.Devices.Disks {
+		// Only disks with virtio bus support IOThreads
+		if disk.Target.Bus == v1.DiskBusVirtio {
+			if vmi.Spec.Domain.Devices.Disks[i].DedicatedIOThread != nil && *vmi.Spec.Domain.Devices.Disks[i].DedicatedIOThread {
+				domain.Spec.Devices.Disks[i].Driver.IOThread = pointer.P(currentDedicatedThread)
+				currentDedicatedThread += 1
+			} else {
+				domain.Spec.Devices.Disks[i].Driver.IOThread = pointer.P(currentAutoThread)
+				// increment the threadId to be used next but wrap around at the thread limit
+				// the odd math here is because thread ID's start at 1, not 0
+				currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1
+			}
+		}
+	}
+
+	// Virtio-scsi doesn't support IO threads yet, only the SCSI controller supports.
+	setIOThreadSCSIController := false
+	for i, disk := range domain.Spec.Devices.Disks {
+		// Only disks with virtio bus support IOThreads
+		if disk.Target.Bus == v1.DiskBusSCSI {
+			if vmi.Spec.Domain.Devices.Disks[i].DedicatedIOThread != nil && *vmi.Spec.Domain.Devices.Disks[i].DedicatedIOThread {
+				setIOThreadSCSIController = true
+				break
+			}
+		}
+	}
+	if !setIOThreadSCSIController {
+		return
+	}
+	for i, controller := range domain.Spec.Devices.Controllers {
+		if controller.Type == "scsi" {
+			if controller.Driver == nil {
+				domain.Spec.Devices.Controllers[i].Driver = &api.ControllerDriver{}
+			}
+			domain.Spec.Devices.Controllers[i].Driver.IOThread = pointer.P(currentAutoThread)
+			domain.Spec.Devices.Controllers[i].Driver.Queues = pointer.P(vcpus)
+		}
+	}
+}
+
 func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) (err error) {
 	var controllerDriver *api.ControllerDriver
 
@@ -1304,7 +1386,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		CPUs:      cpuCount,
 	}
 	// set the maximum number of sockets here to allow hot-plug CPUs
-	if vmiCPU := vmi.Spec.Domain.CPU; vmiCPU != nil && vmiCPU.MaxSockets != 0 {
+	if vmiCPU := vmi.Spec.Domain.CPU; vmiCPU != nil && vmiCPU.MaxSockets != 0 && c.Architecture.supportCPUHotplug() {
 		domainVCPUTopologyForHotplug(vmi, domain)
 	}
 
@@ -1376,10 +1458,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	// Take SMBios values from the VirtualMachineOptions
-	// SMBios option does not work in Power, attempting to set it will result in the following error message:
-	// "Option not supported for this target" issued by qemu-system-ppc64, so don't set it in case GOARCH is ppc64le
-	// ARM64 use UEFI boot by default, set SMBios is unnecessory.
-	if isAMD64(c.Architecture) {
+	if c.Architecture.isSMBiosNeeded() {
 		domain.Spec.OS.SMBios = &api.SMBios{
 			Mode: "sysinfo",
 		}
@@ -1461,64 +1540,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		volumeIndices[volume.Name] = i
 	}
 
-	dedicatedThreads := 0
-	autoThreads := 0
-	useIOThreads := false
-	threadPoolLimit := 1
-
-	if vmi.Spec.Domain.IOThreadsPolicy != nil {
-		useIOThreads = true
-
-		if (*vmi.Spec.Domain.IOThreadsPolicy) == v1.IOThreadsPolicyAuto {
-			// When IOThreads policy is set to auto and we've allocated a dedicated
-			// pCPU for the emulator thread, we can place IOThread and Emulator thread in the same pCPU
-			if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-				threadPoolLimit = 1
-			} else {
-				numCPUs := 1
-				// Requested CPU's is guaranteed to be no greater than the limit
-				if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
-					numCPUs = int(cpuRequests.Value())
-				} else if cpuLimit, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
-					numCPUs = int(cpuLimit.Value())
-				}
-
-				threadPoolLimit = numCPUs * 2
-			}
-		}
-	}
-	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
-		dedicatedThread := false
-		if diskDevice.DedicatedIOThread != nil {
-			dedicatedThread = *diskDevice.DedicatedIOThread
-		}
-		if dedicatedThread {
-			useIOThreads = true
-			dedicatedThreads += 1
-		} else {
-			autoThreads += 1
-		}
-	}
-
-	if (autoThreads + dedicatedThreads) > threadPoolLimit {
-		autoThreads = threadPoolLimit - dedicatedThreads
-		// We need at least one shared thread
-		if autoThreads < 1 {
-			autoThreads = 1
-		}
-	}
-
-	ioThreadCount := (autoThreads + dedicatedThreads)
-	if ioThreadCount != 0 {
-		if domain.Spec.IOThreads == nil {
-			domain.Spec.IOThreads = &api.IOThreads{}
-		}
-		domain.Spec.IOThreads.IOThreads = uint(ioThreadCount)
-	}
-
-	currentAutoThread := defaultIOThread
-	currentDedicatedThread := uint(autoThreads + 1)
-
 	var numBlkQueues *uint
 	virtioBlkMQRequested := (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue)
 	vcpus := uint(cpuCount)
@@ -1535,7 +1556,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		volumeStatusMap[volumeStatus.Name] = volumeStatus
 	}
 
-	setIOThreadSCSIController := false
 	prefixMap := newDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := api.Disk{}
@@ -1560,38 +1580,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 		if err := Convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk); err != nil {
 			return err
-		}
-
-		if useIOThreads {
-			bus := getBusFromDisk(disk)
-			switch bus {
-			// Only disks with virtio bus support IOThreads
-			case v1.DiskBusVirtio:
-				ioThreadId := defaultIOThread
-				dedicatedThread := false
-				if disk.DedicatedIOThread != nil {
-					dedicatedThread = *disk.DedicatedIOThread
-				}
-
-				if dedicatedThread {
-					ioThreadId = currentDedicatedThread
-					currentDedicatedThread += 1
-				} else {
-					ioThreadId = currentAutoThread
-					// increment the threadId to be used next but wrap around at the thread limit
-					// the odd math here is because thread ID's start at 1, not 0
-					currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1
-				}
-				newDisk.Driver.IOThread = &ioThreadId
-
-			// We can find a workaround by adding IOThreads to the SCSI controller
-			case v1.DiskBusSCSI:
-				setIOThreadSCSIController = true
-
-			default:
-				// TODO: if possible, find a workaround for SATA and USB buses.
-				log.Log.Infof("IOthreads not available for disk %s: Bus %s not supported", disk.Name, bus)
-			}
 		}
 
 		hpStatus, hpOk := c.HotplugVolumes[disk.Name]
@@ -1653,20 +1641,13 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		Index: "0",
 		Model: "none",
 	}
-	if newArchConverter(c.Architecture).isUSBNeeded(vmi) {
+	if c.Architecture.isUSBNeeded(vmi) {
 		usbController.Model = "qemu-xhci"
 	}
 	domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, usbController)
 
 	if needsSCSIController(vmi) {
-		scsiController := newArchConverter(c.Architecture).scsiController(c, controllerDriver)
-		if setIOThreadSCSIController {
-			if scsiController.Driver == nil {
-				scsiController.Driver = &api.ControllerDriver{}
-			}
-			scsiController.Driver.IOThread = &currentAutoThread
-			scsiController.Driver.Queues = &vcpus
-		}
+		scsiController := c.Architecture.scsiController(c, controllerDriver)
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, scsiController)
 	}
 
@@ -1727,7 +1708,9 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 						Issue in Libvirt: https://gitlab.com/libvirt/libvirt/-/issues/608
 						once the issue is resolved we can remove mpx disablement
 		*/
-		if _, exists := existingFeatures["mpx"]; !exists && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
+
+		_, exists := existingFeatures["mpx"]
+		if c.Architecture.requiresMPXCPUValidation() && !exists && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
 			domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
 				Name:   "mpx",
 				Policy: "disable",
@@ -1736,7 +1719,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 		// Adjust guest vcpu config. Currently will handle vCPUs to pCPUs pinning
 		if vmi.IsCPUDedicated() {
-			err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, c.Topology, c.CPUSet, useIOThreads)
+			err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, c.Topology, c.CPUSet, hasIOThreads(vmi))
 			if err != nil {
 				return err
 			}
@@ -1766,7 +1749,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
 			Type:   "virtio-serial",
 			Index:  "0",
-			Model:  InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture),
+			Model:  InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()),
 			Driver: controllerDriver,
 		})
 
@@ -1806,7 +1789,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == nil || *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {
-		newArchConverter(c.Architecture).addGraphicsDevice(vmi, domain, c)
+		c.Architecture.addGraphicsDevice(vmi, domain, c)
 		domain.Spec.Devices.Graphics = []api.Graphics{
 			{
 				Listen: &api.GraphicsListen{
@@ -1840,7 +1823,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	if isAMD64(c.Architecture) {
+	if c.Architecture.shouldVerboseLogsBeEnabled() {
 		virtLauncherLogVerbosity, err := strconv.Atoi(os.Getenv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY))
 		if err == nil && virtLauncherLogVerbosity > services.EXT_LOG_VERBOSITY_THRESHOLD {
 			// isa-debugcon device is only for x86_64
@@ -1893,6 +1876,8 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			Timeout: &BootMenuTimeoutMS,
 		}
 	}
+
+	setIOThreads(vmi, domain, vcpus)
 
 	return nil
 }
@@ -2029,15 +2014,8 @@ func GracePeriodSeconds(vmi *v1.VirtualMachineInstance) int64 {
 }
 
 func InterpretTransitionalModelType(useVirtioTransitional *bool, archString string) string {
-	// "virtio-non-transitional" and "virtio-transitional" are both PCI devices, so they don't work on s390x.
-	// "virtio" is a generic model that can be either PCI or CCW depending on the machine type
-	if isS390X(archString) {
-		return "virtio"
-	}
-	if useVirtioTransitional != nil && *useVirtioTransitional {
-		return "virtio-transitional"
-	}
-	return "virtio-non-transitional"
+	vtenabled := useVirtioTransitional != nil && *useVirtioTransitional
+	return NewArchConverter(archString).transitionalModelType(vtenabled)
 }
 
 func domainVCPUTopologyForHotplug(vmi *v1.VirtualMachineInstance, domain *api.Domain) {

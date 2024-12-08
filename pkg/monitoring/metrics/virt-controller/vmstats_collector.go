@@ -21,14 +21,18 @@ package virt_controller
 
 import (
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
-	"kubevirt.io/client-go/log"
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	k6tv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/controller"
 )
 
 var (
 	vmStatsCollector = operatormetrics.Collector{
-		Metrics:         timestampMetrics,
+		Metrics:         append(timestampMetrics, vmResourceRequests, vmResourceLimits, vmInfo, vmDiskAllocatedSize),
 		CollectCallback: vmStatsCollectorCallback,
 	}
 
@@ -112,6 +116,55 @@ var (
 		k6tv1.VirtualMachineStatusPvcNotFound,
 		k6tv1.VirtualMachineStatusDataVolumeError,
 	}
+
+	vmResourceRequests = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_resource_requests",
+			Help: "Resources requested by Virtual Machine. Reports memory and CPU requests.",
+		},
+		[]string{"name", "namespace", "resource", "unit", "source"},
+	)
+
+	vmResourceLimits = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_resource_limits",
+			Help: "Resources limits by Virtual Machine. Reports memory and CPU limits.",
+		},
+		[]string{"name", "namespace", "resource", "unit"},
+	)
+
+	vmInfo = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_info",
+			Help: "Information about Virtual Machines.",
+		},
+		[]string{
+			// Basic info
+			"name", "namespace",
+
+			// VM annotations
+			"os", "workload", "flavor",
+
+			// VM Machine Type
+			"machine_type",
+
+			// Instance type
+			"instance_type", "preference",
+
+			// Status
+			"status", "status_group",
+		},
+	)
+
+	vmDiskAllocatedSize = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_disk_allocated_size_bytes",
+			Help: "Allocated disk size of a Virtual Machine in bytes, based on its PersistentVolumeClaim. " +
+				"Includes persistentvolumeclaim (PVC name), volume_mode (disk presentation mode: Filesystem or Block), " +
+				"and device (disk name).",
+		},
+		[]string{"name", "namespace", "persistentvolumeclaim", "volume_mode", "device"},
+	)
 )
 
 func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
@@ -127,7 +180,246 @@ func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
 		vms[i] = obj.(*k6tv1.VirtualMachine)
 	}
 
-	return reportVmsStats(vms)
+	var results []operatormetrics.CollectorResult
+	results = append(results, CollectDiskAllocatedSize(vms)...)
+	results = append(results, CollectVMsInfo(vms)...)
+	results = append(results, CollectResourceRequestsAndLimits(vms)...)
+	results = append(results, reportVmsStats(vms)...)
+	return results
+}
+
+func CollectVMsInfo(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var results []operatormetrics.CollectorResult
+
+	for _, vm := range vms {
+		os, workload, flavor, machineType := none, none, none, none
+		if vm.Spec.Template != nil {
+			os, workload, flavor = getSystemInfoFromAnnotations(vm.Spec.Template.ObjectMeta.Annotations)
+
+			if vm.Spec.Template.Spec.Domain.Machine != nil {
+				machineType = vm.Spec.Template.Spec.Domain.Machine.Type
+			}
+		}
+
+		instanceType := getVMInstancetype(vm)
+		preference := getVMPreference(vm)
+
+		results = append(results, operatormetrics.CollectorResult{
+			Metric: vmInfo,
+			Labels: []string{
+				vm.Name, vm.Namespace,
+				os, workload, flavor, machineType,
+				instanceType, preference,
+				string(vm.Status.PrintableStatus), getVMStatusGroup(vm.Status.PrintableStatus),
+			},
+			Value: 1.0,
+		})
+	}
+
+	return results
+}
+
+func getVMInstancetype(vm *k6tv1.VirtualMachine) string {
+	instancetype := vm.Spec.Instancetype
+
+	if instancetype == nil {
+		return none
+	}
+
+	if instancetype.Kind == "VirtualMachineInstancetype" {
+		return fetchResourceName(instancetype.Name, instanceTypeInformer.GetIndexer())
+	}
+
+	if instancetype.Kind == "VirtualMachineClusterInstancetype" {
+		return fetchResourceName(instancetype.Name, clusterInstanceTypeInformer.GetIndexer())
+	}
+
+	return none
+}
+
+func getVMPreference(vm *k6tv1.VirtualMachine) string {
+	preference := vm.Spec.Preference
+
+	if preference == nil {
+		return none
+	}
+
+	if preference.Kind == "VirtualMachinePreference" {
+		return fetchResourceName(preference.Name, preferenceInformer.GetIndexer())
+	}
+
+	if preference.Kind == "VirtualMachineClusterPreference" {
+		return fetchResourceName(preference.Name, clusterPreferenceInformer.GetIndexer())
+	}
+
+	return none
+}
+
+func getVMStatusGroup(status k6tv1.VirtualMachinePrintableStatus) string {
+	switch {
+	case containsStatus(status, startingStatuses):
+		return "starting"
+	case containsStatus(status, runningStatuses):
+		return "running"
+	case containsStatus(status, migratingStatuses):
+		return "migrating"
+	case containsStatus(status, nonRunningStatuses):
+		return "non_running"
+	case containsStatus(status, errorStatuses):
+		return "error"
+	}
+
+	return "<unknown>"
+}
+
+func CollectResourceRequestsAndLimits(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var results []operatormetrics.CollectorResult
+
+	for _, vm := range vms {
+		// Memory requests and limits from domain resources
+		results = append(results, collectMemoryResourceRequestsFromDomainResources(vm)...)
+		results = append(results, collectMemoryResourceLimitsFromDomainResources(vm)...)
+
+		// CPU requests from domain CPU
+		results = append(results, collectCpuResourceRequestsFromDomainCpu(vm)...)
+
+		// CPU requests and limits from domain resources
+		results = append(results, collectCpuResourceRequestsFromDomainResources(vm)...)
+		results = append(results, collectCpuResourceLimitsFromDomainResources(vm)...)
+	}
+
+	return results
+}
+
+func collectMemoryResourceRequestsFromDomainResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	if vm.Spec.Template == nil {
+		return cr
+	}
+
+	memoryRequested := vm.Spec.Template.Spec.Domain.Resources.Requests.Memory()
+	if !memoryRequested.IsZero() {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  float64(memoryRequested.Value()),
+			Labels: []string{vm.Name, vm.Namespace, "memory", "bytes", "domain"},
+		})
+	}
+
+	if vm.Spec.Template.Spec.Domain.Memory == nil {
+		return cr
+	}
+
+	guestMemory := vm.Spec.Template.Spec.Domain.Memory.Guest
+	if guestMemory != nil && !guestMemory.IsZero() {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  float64(guestMemory.Value()),
+			Labels: []string{vm.Name, vm.Namespace, "memory", "bytes", "guest"},
+		})
+	}
+
+	hugepagesMemory := vm.Spec.Template.Spec.Domain.Memory.Hugepages
+	if hugepagesMemory != nil {
+		quantity, err := resource.ParseQuantity(hugepagesMemory.PageSize)
+		if err == nil {
+			cr = append(cr, operatormetrics.CollectorResult{
+				Metric: vmResourceRequests,
+				Value:  float64(quantity.Value()),
+				Labels: []string{vm.Name, vm.Namespace, "memory", "bytes", "hugepages"},
+			})
+		}
+	}
+
+	return cr
+}
+
+func collectMemoryResourceLimitsFromDomainResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	if vm.Spec.Template == nil {
+		return []operatormetrics.CollectorResult{}
+	}
+
+	memoryLimit := vm.Spec.Template.Spec.Domain.Resources.Limits.Memory()
+	if memoryLimit.IsZero() {
+		return []operatormetrics.CollectorResult{}
+	}
+
+	return []operatormetrics.CollectorResult{{
+		Metric: vmResourceLimits,
+		Value:  float64(memoryLimit.Value()),
+		Labels: []string{vm.Name, vm.Namespace, "memory", "bytes"},
+	}}
+}
+
+func collectCpuResourceRequestsFromDomainCpu(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	if vm.Spec.Template.Spec.Domain.CPU == nil {
+		return cr
+	}
+
+	if vm.Spec.Template.Spec.Domain.CPU.Cores != 0 {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  float64(vm.Spec.Template.Spec.Domain.CPU.Cores),
+			Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "domain"},
+		})
+	}
+
+	if vm.Spec.Template.Spec.Domain.CPU.Threads != 0 {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  float64(vm.Spec.Template.Spec.Domain.CPU.Threads),
+			Labels: []string{vm.Name, vm.Namespace, "cpu", "threads", "domain"},
+		})
+	}
+
+	if vm.Spec.Template.Spec.Domain.CPU.Sockets != 0 {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  float64(vm.Spec.Template.Spec.Domain.CPU.Sockets),
+			Labels: []string{vm.Name, vm.Namespace, "cpu", "sockets", "domain"},
+		})
+	}
+
+	return cr
+}
+
+func collectCpuResourceRequestsFromDomainResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	cpuRequests := vm.Spec.Template.Spec.Domain.Resources.Requests.Cpu()
+
+	if cpuRequests == nil || cpuRequests.IsZero() {
+		return cr
+	}
+
+	cr = append(cr, operatormetrics.CollectorResult{
+		Metric: vmResourceRequests,
+		Value:  float64(cpuRequests.ScaledValue(resource.Milli)) / 1000,
+		Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "requests"},
+	})
+
+	return cr
+}
+
+func collectCpuResourceLimitsFromDomainResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	cpuLimits := vm.Spec.Template.Spec.Domain.Resources.Limits.Cpu()
+
+	if cpuLimits == nil || cpuLimits.IsZero() {
+		return cr
+	}
+
+	cr = append(cr, operatormetrics.CollectorResult{
+		Metric: vmResourceLimits,
+		Value:  float64(cpuLimits.ScaledValue(resource.Milli)) / 1000,
+		Labels: []string{vm.Name, vm.Namespace, "cpu", "cores"},
+	})
+
+	return cr
 }
 
 func reportVmsStats(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
@@ -215,4 +507,56 @@ func containsCondition(target k6tv1.VirtualMachineConditionType, elems []k6tv1.V
 		}
 	}
 	return false
+}
+
+func CollectDiskAllocatedSize(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	for _, vm := range vms {
+		if vm.Spec.Template != nil {
+			cr = append(cr, collectDiskMetricsFromPVC(vm)...)
+		}
+	}
+
+	return cr
+}
+
+func collectDiskMetricsFromPVC(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	for _, vol := range vm.Spec.Template.Spec.Volumes {
+		if vol.PersistentVolumeClaim != nil {
+			diskName := vol.Name
+			pvcName := vol.PersistentVolumeClaim.ClaimName
+
+			key := controller.NamespacedKey(vm.Namespace, pvcName)
+			obj, exists, err := persistentVolumeClaimInformer.GetStore().GetByKey(key)
+			if err != nil {
+				log.Log.Errorf("Error retrieving PVC %s in namespace %s: %v", pvcName, vm.Namespace, err)
+				continue
+			}
+			if !exists {
+				log.Log.Warningf("PVC %s in namespace %s does not exist", pvcName, vm.Namespace)
+				continue
+			}
+			pvc, ok := obj.(*k8sv1.PersistentVolumeClaim)
+			if !ok {
+				log.Log.Warningf("Object for PVC %s in namespace %s is not of expected type", pvcName, vm.Namespace)
+				continue
+			}
+
+			pvcSize := pvc.Spec.Resources.Requests.Storage()
+			volumeMode := "null"
+			if pvc.Spec.VolumeMode != nil {
+				volumeMode = string(*pvc.Spec.VolumeMode)
+			}
+			cr = append(cr, operatormetrics.CollectorResult{
+				Metric: vmDiskAllocatedSize,
+				Value:  float64(pvcSize.Value()),
+				Labels: []string{vm.Name, vm.Namespace, pvcName, volumeMode, diskName},
+			})
+		}
+	}
+
+	return cr
 }

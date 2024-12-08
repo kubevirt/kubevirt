@@ -68,8 +68,6 @@ const StandardLauncherSocketFileName = "launcher-sock"
 const StandardInitLauncherSocketFileName = "launcher-init-sock"
 const StandardLauncherUnresponsiveFileName = "launcher-unresponsive"
 
-const MultiThreadedQemuMigrationAnnotation = "kubevirt.io/multiThreadedQemuMigration"
-
 type MigrationOptions struct {
 	Bandwidth                resource.Quantity
 	ProgressTimeout          int64
@@ -78,6 +76,7 @@ type MigrationOptions struct {
 	AllowAutoConverge        bool
 	AllowPostCopy            bool
 	ParallelMigrationThreads *uint
+	AllowWorkloadDisruption  bool
 }
 
 type LauncherClient interface {
@@ -362,7 +361,6 @@ func IsDisconnected(err error) bool {
 	if grpcStatus, ok := status.FromError(err); ok {
 
 		// see https://github.com/grpc/grpc-go/blob/master/codes/codes.go
-		// TODO which other codes might be related to disconnection...?
 		switch grpcStatus.Code() {
 		case codes.Canceled:
 			// e.g. v1client connection closing

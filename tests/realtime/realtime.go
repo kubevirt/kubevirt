@@ -68,7 +68,7 @@ func byStartingTheVMI(vmi *v1.VirtualMachineInstance, virtClient kubecli.Kubevir
 	return libwait.WaitForSuccessfulVMIStart(vmi)
 }
 
-var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.SigComputeRealtime, func() {
+var _ = Describe("[sig-compute-realtime]Realtime", Serial, decorators.SigComputeRealtime, func() {
 
 	var virtClient kubecli.KubevirtClient
 
@@ -78,7 +78,6 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 
 	Context("should start the realtime VM", func() {
 		BeforeEach(func() {
-			checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 			checks.SkipTestIfNoFeatureGate(virtconfig.CPUManager)
 			checks.SkipTestIfNotRealtimeCapable()
 		})
@@ -89,13 +88,13 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 			By("Validating VCPU scheduler placement information")
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).ToNot(HaveOccurred())
-			emulator, err := tests.GetRunningVMIEmulator(vmi)
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			emulator = filepath.Base(emulator)
+			emulator := filepath.Base(domSpec.Devices.Emulator)
 			psOutput, err := exec.ExecuteCommandOnPod(
 				pod,
 				"compute",
-				[]string{tests.BinBash, "-c", "ps -LC " + emulator + " -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
+				[]string{"/bin/bash", "-c", "ps -LC " + emulator + " -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			slice := strings.Split(strings.TrimSpace(psOutput), "\n")
@@ -107,7 +106,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 			psOutput, err = exec.ExecuteCommandOnPod(
 				pod,
 				"compute",
-				[]string{tests.BinBash, "-c", "grep 'locked memory' /proc/$(ps -C " + emulator + " -o pid --noheader|xargs)/limits |tr -s ' '| awk '{print $4\" \"$5}'"},
+				[]string{"/bin/bash", "-c", "grep 'locked memory' /proc/$(ps -C " + emulator + " -o pid --noheader|xargs)/limits |tr -s ' '| awk '{print $4\" \"$5}'"},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			limits := strings.Split(strings.TrimSpace(psOutput), " ")
@@ -132,13 +131,13 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).ToNot(HaveOccurred())
 			By("Validating VCPU scheduler placement information")
-			emulator, err := tests.GetRunningVMIEmulator(vmi)
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			emulator = filepath.Base(emulator)
+			emulator := filepath.Base(domSpec.Devices.Emulator)
 			psOutput, err := exec.ExecuteCommandOnPod(
 				pod,
 				"compute",
-				[]string{tests.BinBash, "-c", "ps -LC " + emulator + " -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
+				[]string{"/bin/bash", "-c", "ps -LC " + emulator + " -o policy,rtprio,psr|grep FF| awk '{print $2}'"},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			slice := strings.Split(strings.TrimSpace(psOutput), "\n")
@@ -149,7 +148,7 @@ var _ = Describe("[sig-compute-realtime][Serial]Realtime", Serial, decorators.Si
 			psOutput, err = exec.ExecuteCommandOnPod(
 				pod,
 				"compute",
-				[]string{tests.BinBash, "-c", "ps -TcC " + emulator + " |grep CPU |awk '{print $3\" \" $8}'"},
+				[]string{"/bin/bash", "-c", "ps -TcC " + emulator + " |grep CPU |awk '{print $3\" \" $8}'"},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			slice = strings.Split(strings.TrimSpace(psOutput), "\n")

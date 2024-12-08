@@ -20,163 +20,200 @@ package instancetype_test
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/runtime"
-	v1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/api/instancetype"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
+
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
+	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/instancetype"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 )
 
-const (
-	create     = "create"
-	namespaced = "--namespaced"
-)
+var _ = Describe("create instancetype", func() {
+	Context("should fail", func() {
+		const (
+			ioThreadErr   = "IOThread must be of value auto or shared"
+			nameErr       = "name must be specified"
+			deviceNameErr = "deviceName must be specified"
+		)
 
-var _ = Describe("create", func() {
-	Context("instancetype without arguments", func() {
-		DescribeTable("should fail because of required cpu and memory", func(namespacedFlag string) {
-			err := clientcmd.NewRepeatableVirtctlCommand(create, Instancetype, namespacedFlag)()
-
-			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError("required flag(s) \"cpu\", \"memory\" not set"))
+		DescribeTable("because of required cpu and memory", func(extraArgs ...string) {
+			_, err := runCmd(extraArgs...)
+			Expect(err).To(MatchError(`required flag(s) "cpu", "memory" not set`))
 		},
-			Entry("VirtualMachineInstancetype", namespaced),
-			Entry("VirtualMachineClusterInstancetype", ""),
+			Entry("VirtualMachineInstancetype", setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineClusterInstancetype"),
+		)
+
+		DescribeTable("invalid cpu and memory", func(cpu, memory, errMsg string, extraArgs ...string) {
+			args := append([]string{
+				setFlag(CPUFlag, cpu),
+				setFlag(MemoryFlag, memory),
+			}, extraArgs...)
+			_, err := runCmd(args...)
+			Expect(err).To(MatchError(ContainSubstring(errMsg)))
+		},
+			Entry("VirtualMachineInstancetype invalid cpu string value", "two", "256Mi", `parsing "two": invalid syntax`, setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineInstancetype invalid cpu negative value", "-2", "256Mi", `parsing "-2": invalid syntax`, setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineInstancetype invalid memory value", "2", "256My", "quantities must match the regular expression", setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineClusterInstancetype invalid cpu string value", "two", "256Mi", `parsing "two": invalid syntax`),
+			Entry("VirtualMachineClusterInstancetype invalid cpu negative value", "-2", "256Mi", `parsing "-2": invalid syntax`),
+			Entry("VirtualMachineClusterInstancetype invalid memory value", "2", "256My", "quantities must match the regular expression"),
+		)
+
+		DescribeTable("with invalid arguments", func(errMsg string, extraArgs ...string) {
+			args := append([]string{
+				setFlag(CPUFlag, "1"),
+				setFlag(MemoryFlag, "128Mi"),
+			}, extraArgs...)
+			_, err := runCmd(args...)
+			Expect(err).To(MatchError(ContainSubstring(errMsg)))
+		},
+			Entry("VirtualMachineInstancetype gpu missing name", nameErr, setFlag(GPUFlag, "devicename:nvidia"), setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineInstancetype gpu missing deviceName", deviceNameErr, setFlag(GPUFlag, "name:gpu1"), setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineInstancetype hostdevice missing name", nameErr, setFlag(HostDeviceFlag, "devicename:intel"), setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineInstancetype hostdevice missing deviceName", deviceNameErr, setFlag(HostDeviceFlag, "name:device1"), setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineInstancetype invalid IOThreadsPolicy", ioThreadErr, setFlag(IOThreadsPolicyFlag, "invalid-policy"), setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineClusterInstancetype gpu missing name", nameErr, setFlag(GPUFlag, "devicename:nvidia")),
+			Entry("VirtualMachineClusterInstancetype gpu missing deviceName", deviceNameErr, setFlag(GPUFlag, "name:gpu1")),
+			Entry("VirtualMachineClusterInstancetype hostdevice missing name", nameErr, setFlag(HostDeviceFlag, "devicename:intel")),
+			Entry("VirtualMachineClusterInstancetype hostdevice missing deviceName", deviceNameErr, setFlag(HostDeviceFlag, "name:device1")),
+			Entry("VirtualMachineClusterInstancetype invalid IOThreadsPolicy", ioThreadErr, setFlag(IOThreadsPolicyFlag, "invalid-policy")),
 		)
 	})
 
-	Context("instancetype with arguments", func() {
-		var instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec
-
-		DescribeTable("should succeed with defined cpu and memory", func(namespacedFlag string, namespaced bool) {
-			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Instancetype, namespacedFlag,
+	Context("should succeed", func() {
+		DescribeTable("with defined cpu and memory", func(extraArgs ...string) {
+			args := append([]string{
 				setFlag(CPUFlag, "2"),
 				setFlag(MemoryFlag, "256Mi"),
-			)()
+			}, extraArgs...)
+			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 
-			instancetypeSpec, err = getInstancetypeSpec(bytes, namespaced)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(instancetypeSpec.CPU.Guest).To(Equal(uint32(2)))
-			Expect(instancetypeSpec.Memory.Guest).To(Equal(resource.MustParse("256Mi")))
+			spec := getInstancetypeSpec(out)
+			Expect(spec.CPU.Guest).To(Equal(uint32(2)))
+			Expect(spec.Memory.Guest).To(Equal(resource.MustParse("256Mi")))
+			Expect(validateInstancetypeSpec(spec)).To(BeEmpty())
 		},
-			Entry("VirtualMachineInstancetype", namespaced, true),
-			Entry("VirtualMachineClusterInstancetype", "", false),
+			Entry("VirtualMachineInstancetype", setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineClusterInstancetype"),
 		)
 
-		DescribeTable("should succeed with defined gpus", func(namespacedFlag string, namespaced bool) {
-			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Instancetype, namespacedFlag,
+		DescribeTable("with namespaced flag", func(namespaced bool) {
+			out, err := runCmd(
+				setFlag(CPUFlag, "2"),
+				setFlag(MemoryFlag, "256Mi"),
+				setFlag(NamespacedFlag, strconv.FormatBool(namespaced)),
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), out)
+			Expect(err).ToNot(HaveOccurred())
+
+			var spec *instancetypev1beta1.VirtualMachineInstancetypeSpec
+			if namespaced {
+				instancetype, ok := decodedObj.(*instancetypev1beta1.VirtualMachineInstancetype)
+				Expect(ok).To(BeTrue())
+				spec = &instancetype.Spec
+			} else {
+				clusterInstancetype, ok := decodedObj.(*instancetypev1beta1.VirtualMachineClusterInstancetype)
+				Expect(ok).To(BeTrue())
+				spec = &clusterInstancetype.Spec
+			}
+
+			Expect(validateInstancetypeSpec(spec)).To(BeEmpty())
+		},
+			Entry("VirtualMachinePreference", true),
+			Entry("VirtualMachineClusterPreference", false),
+		)
+
+		DescribeTable("with defined gpus", func(extraArgs ...string) {
+			args := append([]string{
 				setFlag(CPUFlag, "1"),
 				setFlag(MemoryFlag, "128Mi"),
 				setFlag(GPUFlag, "name:gpu1,devicename:nvidia"),
-			)()
+			}, extraArgs...)
+			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 
-			instancetypeSpec, err = getInstancetypeSpec(bytes, namespaced)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(instancetypeSpec.GPUs).To(HaveLen(1))
-			Expect(instancetypeSpec.GPUs[0].Name).To(Equal("gpu1"))
-			Expect(instancetypeSpec.GPUs[0].DeviceName).To(Equal("nvidia"))
+			spec := getInstancetypeSpec(out)
+			Expect(spec.GPUs).To(HaveLen(1))
+			Expect(spec.GPUs[0].Name).To(Equal("gpu1"))
+			Expect(spec.GPUs[0].DeviceName).To(Equal("nvidia"))
+			Expect(validateInstancetypeSpec(spec)).To(BeEmpty())
 		},
-			Entry("VirtualMachineInstancetype", namespaced, true),
-			Entry("VirtualMachineClusterInstancetype", "", false),
+			Entry("VirtualMachineInstancetype", setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineClusterInstancetype"),
 		)
 
-		DescribeTable("should succeed with defined hostDevices", func(namespacedFlag string, namespaced bool) {
-			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Instancetype, namespacedFlag,
+		DescribeTable("with defined hostDevices", func(extraArgs ...string) {
+			args := append([]string{
 				setFlag(CPUFlag, "1"),
 				setFlag(MemoryFlag, "128Mi"),
 				setFlag(HostDeviceFlag, "name:device1,devicename:intel"),
-			)()
+			}, extraArgs...)
+			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 
-			instancetypeSpec, err = getInstancetypeSpec(bytes, namespaced)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(instancetypeSpec.HostDevices).To(HaveLen(1))
-			Expect(instancetypeSpec.HostDevices[0].Name).To(Equal("device1"))
-			Expect(instancetypeSpec.HostDevices[0].DeviceName).To(Equal("intel"))
+			spec := getInstancetypeSpec(out)
+			Expect(spec.HostDevices).To(HaveLen(1))
+			Expect(spec.HostDevices[0].Name).To(Equal("device1"))
+			Expect(spec.HostDevices[0].DeviceName).To(Equal("intel"))
+			Expect(validateInstancetypeSpec(spec)).To(BeEmpty())
 		},
-			Entry("VirtualMachineInstancetype", namespaced, true),
-			Entry("VirtualMachineClusterInstancetype", "", false),
+			Entry("VirtualMachineInstancetype", setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineClusterInstancetype"),
 		)
 
-		DescribeTable("should succeed with valid IOThreadsPolicy", func(namespacedFlag, param string, namespaced bool, policy v1.IOThreadsPolicy) {
-			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Instancetype, namespacedFlag,
+		DescribeTable("with valid IOThreadsPolicy", func(policy v1.IOThreadsPolicy, extraArgs ...string) {
+			args := append([]string{
 				setFlag(CPUFlag, "1"),
 				setFlag(MemoryFlag, "128Mi"),
-				setFlag(IOThreadsPolicyFlag, param),
-			)()
+				setFlag(IOThreadsPolicyFlag, string(policy)),
+			}, extraArgs...)
+			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 
-			instancetypeSpec, err := getInstancetypeSpec(bytes, namespaced)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(*instancetypeSpec.IOThreadsPolicy).To(Equal(policy))
-
+			spec := getInstancetypeSpec(out)
+			Expect(*spec.IOThreadsPolicy).To(Equal(policy))
+			Expect(validateInstancetypeSpec(spec)).To(BeEmpty())
 		},
-			Entry("VirtualMachineInstacetype set to auto", namespaced, "auto", true, v1.IOThreadsPolicyAuto),
-			Entry("VirtualMachineInstacetype set to shared", namespaced, "shared", true, v1.IOThreadsPolicyShared),
-			Entry("VirtualMachineClusterInstacetype set to auto", "", "auto", false, v1.IOThreadsPolicyAuto),
-			Entry("VirtualMachineClusterInstacetype set to shared", "", "shared", false, v1.IOThreadsPolicyShared),
+			Entry("VirtualMachineInstacetype set to auto", v1.IOThreadsPolicyAuto, setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineInstacetype set to shared", v1.IOThreadsPolicyShared, setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineClusterInstacetype set to auto", v1.IOThreadsPolicyAuto),
+			Entry("VirtualMachineClusterInstacetype set to shared", v1.IOThreadsPolicyShared),
 		)
+	})
 
-		It("should create namespaced object and apply namespace when namespace is specified", func() {
-			const namespace = "my-namespace"
-			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Instancetype,
-				setFlag(CPUFlag, "1"),
-				setFlag(MemoryFlag, "128Mi"),
-				setFlag("namespace", namespace),
-			)()
-			Expect(err).ToNot(HaveOccurred())
-
-			decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), bytes)
-			Expect(err).ToNot(HaveOccurred())
-
-			instancetype, ok := decodedObj.(*instancetypev1beta1.VirtualMachineInstancetype)
-			Expect(ok).To(BeTrue())
-			Expect(instancetype.Namespace).To(Equal(namespace))
-		})
-
-		DescribeTable("invalid cpu and memory", func(cpu, memory, errMsg string) {
-			err := clientcmd.NewRepeatableVirtctlCommand(create, Instancetype, namespaced,
-				setFlag(CPUFlag, cpu),
-				setFlag(MemoryFlag, memory),
-			)()
-
-			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(errMsg))
-		},
-			Entry("Invalid cpu string value", "two", "256Mi", "invalid argument \"two\" for \"--cpu\" flag: strconv.ParseUint: parsing \"two\": invalid syntax"),
-			Entry("Invalid cpu negative value", "-2", "256Mi", "invalid argument \"-2\" for \"--cpu\" flag: strconv.ParseUint: parsing \"-2\": invalid syntax"),
-			Entry("Invalid memory value", "2", "256My", "quantities must match the regular expression '^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$'"),
+	It("should create namespaced object and apply namespace when namespace is specified", func() {
+		const namespace = "my-namespace"
+		out, err := runCmd(
+			setFlag(CPUFlag, "1"),
+			setFlag(MemoryFlag, "128Mi"),
+			setFlag("namespace", namespace),
 		)
+		Expect(err).ToNot(HaveOccurred())
 
-		DescribeTable("Invalid arguments", func(namespacedFlag, flag, params, errMsg string) {
-			err := clientcmd.NewRepeatableVirtctlCommand(create, Instancetype, namespacedFlag,
-				setFlag(CPUFlag, "1"),
-				setFlag(MemoryFlag, "128Mi"),
-				setFlag(flag, params),
-			)()
+		decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), out)
+		Expect(err).ToNot(HaveOccurred())
 
-			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(errMsg))
-		},
-			Entry("VirtualMachineInstacetype gpu missing name", namespaced, GPUFlag, "devicename:nvidia", fmt.Sprintf("failed to parse \"--gpu\" flag: %+s", NameErr)),
-			Entry("VirtualMachineInstacetype gpu missing deviceName", namespaced, GPUFlag, "name:gpu1", fmt.Sprintf("failed to parse \"--gpu\" flag: %+s", DeviceNameErr)),
-			Entry("VirtualMachineInstacetype hostdevice missing name", namespaced, HostDeviceFlag, "devicename:intel", fmt.Sprintf("failed to parse \"--hostdevice\" flag: %+s", NameErr)),
-			Entry("VirtualMachineInstacetype hostdevice missing deviceName", namespaced, HostDeviceFlag, "name:device1", fmt.Sprintf("failed to parse \"--hostdevice\" flag: %+s", DeviceNameErr)),
-			Entry("VirtualMachineInstacetype to IOThreadsPolicy", namespaced, IOThreadsPolicyFlag, "invalid-policy", fmt.Sprintf("failed to parse \"--iothreadspolicy\" flag: %+s", IOThreadErr)),
-			Entry("VirtualMachineClusterInstacetype gpu missing name", "", GPUFlag, "devicename:nvidia", fmt.Sprintf("failed to parse \"--gpu\" flag: %+s", NameErr)),
-			Entry("VirtualMachineClusterInstacetype gpu missing deviceName", "", GPUFlag, "name:gpu1", fmt.Sprintf("failed to parse \"--gpu\" flag: %+s", DeviceNameErr)),
-			Entry("VirtualMachineClusterInstacetype hostdevice missing name", "", HostDeviceFlag, "devicename:intel", fmt.Sprintf("failed to parse \"--hostdevice\" flag: %+s", NameErr)),
-			Entry("VirtualMachineClusterInstacetype hostdevice missing deviceName", "", HostDeviceFlag, "name:device1", fmt.Sprintf("failed to parse \"--hostdevice\" flag: %+s", DeviceNameErr)),
-			Entry("VirtualMachineClusterInstacetype to IOThreadsPolicy", "", IOThreadsPolicyFlag, "invalid-policy", fmt.Sprintf("failed to parse \"--iothreadspolicy\" flag: %+s", IOThreadErr)),
-		)
+		instancetype, ok := decodedObj.(*instancetypev1beta1.VirtualMachineInstancetype)
+		Expect(ok).To(BeTrue())
+		Expect(instancetype.Namespace).To(Equal(namespace))
 	})
 })
 
@@ -184,20 +221,28 @@ func setFlag(flag, parameter string) string {
 	return fmt.Sprintf("--%s=%s", flag, parameter)
 }
 
-func getInstancetypeSpec(bytes []byte, namespaced bool) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
+func runCmd(extraArgs ...string) ([]byte, error) {
+	args := append([]string{create.CREATE, "instancetype"}, extraArgs...)
+	return clientcmd.NewRepeatableVirtctlCommandWithOut(args...)()
+}
+
+func getInstancetypeSpec(bytes []byte) *instancetypev1beta1.VirtualMachineInstancetypeSpec {
 	decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), bytes)
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred())
 
 	switch obj := decodedObj.(type) {
 	case *instancetypev1beta1.VirtualMachineInstancetype:
-		ExpectWithOffset(1, namespaced).To(BeTrue(), "expected VirtualMachineInstancetype to be created")
-		ExpectWithOffset(1, obj.Kind).To(Equal("VirtualMachineInstancetype"))
-		return &obj.Spec, nil
+		Expect(strings.ToLower(obj.Kind)).To(Equal(instancetype.SingularResourceName))
+		return &obj.Spec
 	case *instancetypev1beta1.VirtualMachineClusterInstancetype:
-		ExpectWithOffset(1, namespaced).To(BeFalse(), "expected VirtualMachineClusterInstancetype to be created")
-		ExpectWithOffset(1, obj.Kind).To(Equal("VirtualMachineClusterInstancetype"))
-		return &obj.Spec, nil
+		Expect(strings.ToLower(obj.Kind)).To(Equal(instancetype.ClusterSingularResourceName))
+		return &obj.Spec
 	default:
-		return nil, fmt.Errorf("object must be VirtualMachineInstance or VirtualMachineClusterInstancetype")
+		Fail("object must be VirtualMachineInstance or VirtualMachineClusterInstancetype")
+		return nil
 	}
+}
+
+func validateInstancetypeSpec(spec *instancetypev1beta1.VirtualMachineInstancetypeSpec) []k8sv1.StatusCause {
+	return admitters.ValidateInstanceTypeSpec(field.NewPath("spec"), spec)
 }

@@ -29,6 +29,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
+	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 )
 
 type MigrationUpdateAdmitter struct {
@@ -89,7 +90,5 @@ func (admitter *MigrationUpdateAdmitter) Admit(_ context.Context, ar *admissionv
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	reviewResponse := admissionv1.AdmissionResponse{}
-	reviewResponse.Allowed = true
-	return &reviewResponse
+	return validating_webhooks.NewPassingAdmissionResponse()
 }

@@ -20,6 +20,8 @@
 package v1alpha2
 
 import (
+	unsafe "unsafe"
+
 	conversion "k8s.io/apimachinery/pkg/conversion"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 )
@@ -40,6 +42,15 @@ func Convert_v1alpha2_CPUPreferences_To_v1beta1_CPUPreferences(in *CPUPreference
 	}
 
 	return autoConvert_v1alpha2_CPUPreferences_To_v1beta1_CPUPreferences(in, out, s)
+}
+
+// Manually defined function to convert to deprecated fields
+func Convert_v1alpha2_FirmwarePreferences_To_v1beta1_FirmwarePreferences(in *FirmwarePreferences, out *v1beta1.FirmwarePreferences, s conversion.Scope) error {
+	out.PreferredUseBios = (*bool)(unsafe.Pointer(in.PreferredUseBios))
+	out.PreferredUseBiosSerial = (*bool)(unsafe.Pointer(in.PreferredUseBiosSerial))
+	out.DeprecatedPreferredUseEfi = (*bool)(unsafe.Pointer(in.PreferredUseEfi))
+	out.DeprecatedPreferredUseSecureBoot = (*bool)(unsafe.Pointer(in.PreferredUseSecureBoot))
+	return nil
 }
 
 /*
@@ -70,4 +81,8 @@ func Convert_v1beta1_VirtualMachineInstancetypeSpec_To_v1alpha2_VirtualMachineIn
 
 func Convert_v1beta1_CPUInstancetype_To_v1alpha2_CPUInstancetype(in *v1beta1.CPUInstancetype, out *CPUInstancetype, s conversion.Scope) error {
 	return autoConvert_v1beta1_CPUInstancetype_To_v1alpha2_CPUInstancetype(in, out, s)
+}
+
+func Convert_v1beta1_FirmwarePreferences_To_v1alpha2_FirmwarePreferences(in *v1beta1.FirmwarePreferences, out *FirmwarePreferences, s conversion.Scope) error {
+	return autoConvert_v1beta1_FirmwarePreferences_To_v1alpha2_FirmwarePreferences(in, out, s)
 }

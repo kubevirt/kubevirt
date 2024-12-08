@@ -136,6 +136,11 @@ func (in *MigrationPolicySpec) DeepCopyInto(out *MigrationPolicySpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.AllowWorkloadDisruption != nil {
+		in, out := &in.AllowWorkloadDisruption, &out.AllowWorkloadDisruption
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

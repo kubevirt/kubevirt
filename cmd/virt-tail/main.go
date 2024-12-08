@@ -35,8 +35,11 @@ import (
 	"github.com/nxadm/tail"
 	"github.com/spf13/pflag"
 	"golang.org/x/sync/errgroup"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"kubevirt.io/client-go/log"
+
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 )
 
 type TermFileError struct{}
@@ -113,24 +116,24 @@ func (v *VirtTail) watchFS() error {
 
 	// Add a path.
 	dirPath := filepath.Dir(v.logFile)
-	found := false
-	i := 0
-	for i < 30 && !found {
-		i = i + 1
+	err = virtwait.PollImmediately(100*time.Millisecond, 3*time.Second, func(_ context.Context) (bool, error) {
 		if _, derr := os.Stat(dirPath); derr == nil {
-			found = true
 			if err = watcher.Add(dirPath); err != nil {
 				log.Log.V(3).Infof("watcher error: %v - %s", err, dirPath)
-				return err
+				return false, err
 			}
-		} else {
-			time.Sleep(100 * time.Millisecond)
+			return true, nil
 		}
-	}
-	if !found {
-		rerr := errors.New("expected directory is still not ready")
-		log.Log.V(3).Infof("watchFS error: %v", rerr)
-		return rerr
+		return false, nil
+	})
+
+	if err != nil {
+		if wait.Interrupted(err) {
+			rerr := errors.New("expected directory is still not ready")
+			log.Log.V(3).Infof("watchFS error: %v", rerr)
+			return rerr
+		}
+		return err
 	}
 
 	// initial timeout for serial console socket creation

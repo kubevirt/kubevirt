@@ -27,23 +27,34 @@ import (
 const (
 	graphicsDeviceDefaultHeads uint = 1
 	graphicsDeviceDefaultVRAM  uint = 16384
+	amd64                           = "amd64"
+	arm64                           = "arm64"
+	ppc64le                         = "ppc64le"
+	s390x                           = "s390x"
 )
 
-type archConverter interface {
+type ArchConverter interface {
+	GetArchitecture() string
 	addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext)
 	scsiController(c *ConverterContext, driver *api.ControllerDriver) api.Controller
 	isUSBNeeded(vmi *v1.VirtualMachineInstance) bool
+	supportCPUHotplug() bool
+	isSMBiosNeeded() bool
+	transitionalModelType(useVirtioTransitional bool) string
+	isROMTuningSupported() bool
+	requiresMPXCPUValidation() bool
+	shouldVerboseLogsBeEnabled() bool
 }
 
-func newArchConverter(arch string) archConverter {
-	switch {
-	case isARM64(arch):
+func NewArchConverter(arch string) ArchConverter {
+	switch arch {
+	case arm64:
 		return archConverterARM64{}
-	case isPPC64(arch):
+	case ppc64le:
 		return archConverterPPC64{}
-	case isS390X(arch):
+	case s390x:
 		return archConverterS390X{}
-	case isAMD64(arch):
+	case amd64:
 		return archConverterAMD64{}
 	default:
 		log.Log.Warning("Trying to create an arch converter from an unknown arch: " + arch + ". Falling back to AMD64")
@@ -55,7 +66,14 @@ func defaultSCSIController(c *ConverterContext, driver *api.ControllerDriver) ap
 	return api.Controller{
 		Type:   "scsi",
 		Index:  "0",
-		Model:  InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture),
+		Model:  InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()),
 		Driver: driver,
 	}
+}
+
+func defaultTransitionalModelType(useVirtioTransitional bool) string {
+	if useVirtioTransitional {
+		return "virtio-transitional"
+	}
+	return "virtio-non-transitional"
 }

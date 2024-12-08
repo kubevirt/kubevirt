@@ -95,8 +95,7 @@ const (
 	bridge10MacSpoofCheck = false
 )
 
-var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
-
+var _ = SIGDescribe("Multus", Serial, decorators.Multus, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -148,7 +147,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 		},
 	}
 
-	createBridgeNetworkAttachmentDefinition := func(namespace, networkName string, bridgeCNIType string, bridgeName string, vlan int, ipam string, macSpoofCheck bool) error {
+	createBridgeNetworkAttachmentDefinition := func(namespace, networkName, bridgeCNIType, bridgeName string, vlan int, ipam string, macSpoofCheck bool) error {
 		bridgeNad := fmt.Sprintf(linuxBridgeConfNAD, networkName, namespace, bridgeCNIType, bridgeName, vlan, ipam, macSpoofCheck)
 		return libnet.CreateNetworkAttachmentDefinition(networkName, namespace, bridgeNad)
 	}
@@ -250,7 +249,8 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					defaultInterface,
-					{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+					{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+				}
 				detachedVMI.Spec.Networks = []v1.Network{
 					defaultNetwork,
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
@@ -300,7 +300,8 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 						Multus: &v1.MultusNetwork{
 							NetworkName: fmt.Sprintf("%s/%s", testsuite.GetTestNamespace(nil), ptpConf1),
 							Default:     true,
-						}}},
+						},
+					}},
 				}
 
 				detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), detachedVMI, metav1.CreateOptions{})
@@ -396,7 +397,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 				return "", fmt.Errorf("couldn't find iface %s on vmi %s", networkName, vmiName)
 			}
 
-			generateIPAMConfig := func(ipamType string, subnet string) string {
+			generateIPAMConfig := func(ipamType, subnet string) string {
 				return fmt.Sprintf("\\\"type\\\": \\\"%s\\\", \\\"subnet\\\": \\\"%s\\\"", ipamType, subnet)
 			}
 
@@ -559,7 +560,6 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 					re := regexp.MustCompile("\r\n[0-9]+\r\n")
 					mtu := strings.TrimSpace(re.FindString(res[0].Match[0]))
 					return mtu
-
 				}
 
 				vmi := libvmifact.NewFedora(
@@ -576,7 +576,6 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 		})
 
 		Context("VirtualMachineInstance with invalid MAC address", func() {
-
 			It("[test_id:1713]should failed to start with invalid MAC address", func() {
 				By("Start VMI")
 				linuxBridgeIfIdx := 1
@@ -675,7 +674,6 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 
 	Describe("[rfe_id:1758][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance definition", func() {
 		Context("with qemu guest agent", func() {
-
 			It("[test_id:1757] should report guest interfaces in VMI status", func() {
 				interfaces := []v1.Interface{
 					defaultInterface,
@@ -756,7 +754,7 @@ var _ = SIGDescribe("[Serial]Multus", Serial, decorators.Multus, func() {
 	})
 })
 
-func changeInterfaceMACAddress(vmi *v1.VirtualMachineInstance, interfaceName string, newMACAddress string) error {
+func changeInterfaceMACAddress(vmi *v1.VirtualMachineInstance, interfaceName, newMACAddress string) error {
 	const maxCommandTimeout = 5 * time.Second
 
 	commands := []string{
@@ -770,24 +768,6 @@ func changeInterfaceMACAddress(vmi *v1.VirtualMachineInstance, interfaceName str
 		if err != nil {
 			return fmt.Errorf("failed to run command: %q on VMI %s, error: %v", cmd, vmi.Name, err)
 		}
-	}
-
-	return nil
-}
-
-func checkMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress string) error {
-	cmdCheck := fmt.Sprintf("ip link show %s\n", interfaceName)
-	err := console.SafeExpectBatch(vmi, []expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: cmdCheck},
-		&expect.BExp{R: macAddress},
-		&expect.BSnd{S: console.EchoLastReturnValue},
-		&expect.BExp{R: console.RetValue("0")},
-	}, 15)
-
-	if err != nil {
-		return fmt.Errorf("could not check mac address of interface %s: MAC %s was not found in the VMI %s: %w", interfaceName, macAddress, vmi.Name, err)
 	}
 
 	return nil

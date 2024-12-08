@@ -21,7 +21,6 @@ package tests_test
 
 import (
 	"context"
-	"encoding/xml"
 	"fmt"
 	"strconv"
 
@@ -75,10 +74,8 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			domSpec := &api.DomainSpec{}
-			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
 
 			expectedIOThreads := 1
 			Expect(int(domSpec.IOThreads.IOThreads)).To(Equal(expectedIOThreads))
@@ -109,10 +106,8 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			domSpec := &api.DomainSpec{}
-			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
 
 			By("Verifying the total number of ioThreads")
 			expectedIOThreads := 2
@@ -167,10 +162,8 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, newVMI)
+			domSpec, err := tests.GetRunningVMIDomainSpec(newVMI)
 			Expect(err).ToNot(HaveOccurred())
-			domSpec := &api.DomainSpec{}
-			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
 
 			By("Verifying the total number of ioThreads")
 			Expect(int(domSpec.IOThreads.IOThreads)).To(Equal(expectedIOThreads))
@@ -249,10 +242,8 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")
-			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			domSpec := &api.DomainSpec{}
-			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
 
 			By("Verifying the total number of ioThreads")
 			// This will create 1 thread for all disks w/o dedicated iothread and 1 for a disk with a dedicated iothread

@@ -18,7 +18,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -55,7 +54,6 @@ var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", 
 	BeforeEach(func() {
 		skipIfNoRealtimePerformanceTests()
 		virtClient = kubevirt.Client()
-		checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 		checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(1)
 	})
 
@@ -103,14 +101,4 @@ var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", 
 type psOutput struct {
 	priority    int64
 	processorID int64
-}
-
-func newPs(psLine string) psOutput {
-	s := strings.Split(psLine, " ")
-	Expect(len(s)).To(BeNumerically(">", 1))
-	prio, err := strconv.ParseInt(s[0], 10, 8)
-	Expect(err).NotTo(HaveOccurred())
-	procID, err := strconv.ParseInt(s[1], 10, 8)
-	Expect(err).NotTo(HaveOccurred())
-	return psOutput{priority: prio, processorID: procID}
 }

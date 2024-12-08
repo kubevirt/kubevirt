@@ -6,7 +6,7 @@ metadata:
     kubevirt.io/vm: vm-alpine-multipvc
   name: vm-alpine-multipvc
 spec:
-  running: false
+  runStrategy: Halted
   template:
     metadata:
       labels:

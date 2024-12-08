@@ -33,9 +33,10 @@ go_test(
         "disruptionbudget_suite_test.go",
         "disruptionbudget_test.go",
     ],
+    embed = [":go_default_library"],
     deps = [
-        ":go_default_library",
         "//pkg/apimachinery/patch:go_default_library",
+        "//pkg/controller/testing:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",

@@ -10,11 +10,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/libdv"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -36,7 +37,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -49,14 +49,14 @@ const (
 	vmAPIGroup = "kubevirt.io"
 )
 
-var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
+var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		tests.EnableFeatureGate(virtconfig.SnapshotGate)
+		config.EnableFeatureGate(virtconfig.SnapshotGate)
 
 		format.MaxLength = 0
 	})
@@ -537,9 +537,9 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 				dv := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 					libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
-					libdv.WithPVC(
-						libdv.PVCWithStorageClass(storageClass),
-						libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine))),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(storageClass),
+						libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine))),
 					),
 				)
 				vm := libstorage.RenderVMWithDataVolumeTemplate(dv)
@@ -682,13 +682,12 @@ var _ = Describe("[Serial]VirtualMachineClone Tests", Serial, func() {
 						dv := libdv.NewDataVolume(
 							libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 							libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
-							libdv.WithPVC(
-								libdv.PVCWithStorageClass(snapshotStorageClass),
-								libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine))),
+							libdv.WithStorage(
+								libdv.StorageWithStorageClass(snapshotStorageClass),
+								libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine))),
 							),
 						)
 						sourceVM = libstorage.RenderVMWithDataVolumeTemplate(dv)
-						sourceVM.Spec.Running = nil
 						sourceVM.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{}
 						sourceVM.Spec.Instancetype = &virtv1.InstancetypeMatcher{
 							Name: instancetype.Name,

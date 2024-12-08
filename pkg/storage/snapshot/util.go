@@ -75,6 +75,15 @@ func newFailureCondition(status corev1.ConditionStatus, reason string) snapshotv
 	}
 }
 
+func hasConditionType(conditions []snapshotv1.Condition, condType snapshotv1.ConditionType) bool {
+	for _, cond := range conditions {
+		if cond.Type == condType {
+			return true
+		}
+	}
+	return false
+}
+
 func updateCondition(conditions []snapshotv1.Condition, c snapshotv1.Condition, includeReason bool) []snapshotv1.Condition {
 	found := false
 	for i := range conditions {

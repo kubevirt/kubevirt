@@ -30,7 +30,7 @@ import (
 
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 
-	clonev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1"
+	clonev1alpha1 "kubevirt.io/client-go/kubevirt/typed/clone/v1alpha1"
 
 	secv1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -40,17 +40,17 @@ import (
 	"k8s.io/client-go/rest"
 
 	v1 "kubevirt.io/api/core/v1"
-	cdiclient "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
-	k8ssnapshotclient "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
-	generatedclient "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
-	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
-	exportv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/export/v1beta1"
-	instancetypev1beta1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/instancetype/v1beta1"
-	migrationsv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
-	poolv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/pool/v1alpha1"
-	snapshotv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/snapshot/v1beta1"
-	networkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
-	promclient "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned"
+	cdiclient "kubevirt.io/client-go/containerizeddataimporter"
+	k8ssnapshotclient "kubevirt.io/client-go/externalsnapshotter"
+	generatedclient "kubevirt.io/client-go/kubevirt"
+	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
+	exportv1 "kubevirt.io/client-go/kubevirt/typed/export/v1beta1"
+	instancetypev1beta1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
+	migrationsv1 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
+	poolv1 "kubevirt.io/client-go/kubevirt/typed/pool/v1alpha1"
+	snapshotv1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1beta1"
+	networkclient "kubevirt.io/client-go/networkattachmentdefinitionclient"
+	promclient "kubevirt.io/client-go/prometheusoperator"
 	"kubevirt.io/client-go/version"
 )
 
@@ -93,7 +93,7 @@ type KubevirtClient interface {
 	SetRestTimeout(timeout time.Duration) (KubevirtClient, error)
 }
 
-type kubevirt struct {
+type kubevirtClient struct {
 	master                  string
 	kubeconfig              string
 	restClient              *rest.RESTClient
@@ -113,7 +113,7 @@ type kubevirt struct {
 	*kubernetes.Clientset
 }
 
-func (k kubevirt) SetRestTimeout(timeout time.Duration) (KubevirtClient, error) {
+func (k kubevirtClient) SetRestTimeout(timeout time.Duration) (KubevirtClient, error) {
 	config := rest.CopyConfig(k.config)
 	config.Timeout = timeout
 	k.config = config
@@ -127,103 +127,103 @@ func (k kubevirt) SetRestTimeout(timeout time.Duration) (KubevirtClient, error) 
 	return &k, nil
 }
 
-func (k kubevirt) Config() *rest.Config {
+func (k kubevirtClient) Config() *rest.Config {
 	return k.config
 }
 
-func (k kubevirt) CdiClient() cdiclient.Interface {
+func (k kubevirtClient) CdiClient() cdiclient.Interface {
 	return k.cdiClient
 }
 
-func (k kubevirt) NetworkClient() networkclient.Interface {
+func (k kubevirtClient) NetworkClient() networkclient.Interface {
 	return k.networkClient
 }
 
-func (k kubevirt) ExtensionsClient() extclient.Interface {
+func (k kubevirtClient) ExtensionsClient() extclient.Interface {
 	return k.extensionsClient
 }
 
-func (k kubevirt) SecClient() secv1.SecurityV1Interface {
+func (k kubevirtClient) SecClient() secv1.SecurityV1Interface {
 	return k.secClient
 }
 
-func (k kubevirt) RouteClient() routev1.RouteV1Interface {
+func (k kubevirtClient) RouteClient() routev1.RouteV1Interface {
 	return k.routeClient
 }
 
-func (k kubevirt) DiscoveryClient() discovery.DiscoveryInterface {
+func (k kubevirtClient) DiscoveryClient() discovery.DiscoveryInterface {
 	return k.discoveryClient
 }
 
-func (k kubevirt) PrometheusClient() promclient.Interface {
+func (k kubevirtClient) PrometheusClient() promclient.Interface {
 	return k.prometheusClient
 }
 
-func (k kubevirt) RestClient() *rest.RESTClient {
+func (k kubevirtClient) RestClient() *rest.RESTClient {
 	return k.restClient
 }
 
-func (k kubevirt) GeneratedKubeVirtClient() generatedclient.Interface {
+func (k kubevirtClient) GeneratedKubeVirtClient() generatedclient.Interface {
 	return k.generatedKubeVirtClient
 }
 
-func (k kubevirt) VirtualMachinePool(namespace string) poolv1.VirtualMachinePoolInterface {
+func (k kubevirtClient) VirtualMachinePool(namespace string) poolv1.VirtualMachinePoolInterface {
 	return k.generatedKubeVirtClient.PoolV1alpha1().VirtualMachinePools(namespace)
 }
 
-func (k kubevirt) VirtualMachineSnapshot(namespace string) snapshotv1.VirtualMachineSnapshotInterface {
+func (k kubevirtClient) VirtualMachineSnapshot(namespace string) snapshotv1.VirtualMachineSnapshotInterface {
 	return k.generatedKubeVirtClient.SnapshotV1beta1().VirtualMachineSnapshots(namespace)
 }
 
-func (k kubevirt) VirtualMachineSnapshotContent(namespace string) snapshotv1.VirtualMachineSnapshotContentInterface {
+func (k kubevirtClient) VirtualMachineSnapshotContent(namespace string) snapshotv1.VirtualMachineSnapshotContentInterface {
 	return k.generatedKubeVirtClient.SnapshotV1beta1().VirtualMachineSnapshotContents(namespace)
 }
 
-func (k kubevirt) VirtualMachineRestore(namespace string) snapshotv1.VirtualMachineRestoreInterface {
+func (k kubevirtClient) VirtualMachineRestore(namespace string) snapshotv1.VirtualMachineRestoreInterface {
 	return k.generatedKubeVirtClient.SnapshotV1beta1().VirtualMachineRestores(namespace)
 }
 
-func (k kubevirt) VirtualMachineExport(namespace string) exportv1.VirtualMachineExportInterface {
+func (k kubevirtClient) VirtualMachineExport(namespace string) exportv1.VirtualMachineExportInterface {
 	return k.generatedKubeVirtClient.ExportV1beta1().VirtualMachineExports(namespace)
 }
 
-func (k kubevirt) VirtualMachineInstancetype(namespace string) instancetypev1beta1.VirtualMachineInstancetypeInterface {
+func (k kubevirtClient) VirtualMachineInstancetype(namespace string) instancetypev1beta1.VirtualMachineInstancetypeInterface {
 	return k.generatedKubeVirtClient.InstancetypeV1beta1().VirtualMachineInstancetypes(namespace)
 }
 
-func (k kubevirt) VirtualMachineClusterInstancetype() instancetypev1beta1.VirtualMachineClusterInstancetypeInterface {
+func (k kubevirtClient) VirtualMachineClusterInstancetype() instancetypev1beta1.VirtualMachineClusterInstancetypeInterface {
 	return k.generatedKubeVirtClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()
 }
 
-func (k kubevirt) VirtualMachinePreference(namespace string) instancetypev1beta1.VirtualMachinePreferenceInterface {
+func (k kubevirtClient) VirtualMachinePreference(namespace string) instancetypev1beta1.VirtualMachinePreferenceInterface {
 	return k.generatedKubeVirtClient.InstancetypeV1beta1().VirtualMachinePreferences(namespace)
 }
 
-func (k kubevirt) VirtualMachineClusterPreference() instancetypev1beta1.VirtualMachineClusterPreferenceInterface {
+func (k kubevirtClient) VirtualMachineClusterPreference() instancetypev1beta1.VirtualMachineClusterPreferenceInterface {
 	return k.generatedKubeVirtClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()
 }
 
-func (k kubevirt) KubernetesSnapshotClient() k8ssnapshotclient.Interface {
+func (k kubevirtClient) KubernetesSnapshotClient() k8ssnapshotclient.Interface {
 	return k.snapshotClient
 }
 
-func (k kubevirt) DynamicClient() dynamic.Interface {
+func (k kubevirtClient) DynamicClient() dynamic.Interface {
 	return k.dynamicClient
 }
 
-func (k kubevirt) MigrationPolicy() migrationsv1.MigrationPolicyInterface {
+func (k kubevirtClient) MigrationPolicy() migrationsv1.MigrationPolicyInterface {
 	return k.generatedKubeVirtClient.MigrationsV1alpha1().MigrationPolicies()
 }
 
-func (k kubevirt) MigrationPolicyClient() *migrationsv1.MigrationsV1alpha1Client {
+func (k kubevirtClient) MigrationPolicyClient() *migrationsv1.MigrationsV1alpha1Client {
 	return k.migrationsClient
 }
 
-func (k kubevirt) VirtualMachineClone(namespace string) clonev1alpha1.VirtualMachineCloneInterface {
+func (k kubevirtClient) VirtualMachineClone(namespace string) clonev1alpha1.VirtualMachineCloneInterface {
 	return k.generatedKubeVirtClient.CloneV1alpha1().VirtualMachineClones(namespace)
 }
 
-func (k kubevirt) VirtualMachineCloneClient() *clonev1alpha1.CloneV1alpha1Client {
+func (k kubevirtClient) VirtualMachineCloneClient() *clonev1alpha1.CloneV1alpha1Client {
 	return k.cloneClient // TODO ihol3 delete function? who's using it?
 }
 

@@ -30,7 +30,7 @@ readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluste
 # Skip if it's docs changes only
 # Only if we are in CI, and this is a non-batch change
 if [[ ${CI} == "true" && -n "$PULL_BASE_SHA" && -n "$PULL_PULL_SHA" && "$JOB_NAME" != *"rehearsal"* ]]; then
-    SKIP_PATTERN="^(docs/)|(OWNERS|OWNERS_ALIASES|.*\.(md|txt))$"
+    SKIP_PATTERN="^(docs/|\.github/)|(OWNERS|OWNERS_ALIASES|.*\.(md|txt))$"
     CI_GIT_ALL_CHANGES=$(git diff --name-only ${PULL_BASE_SHA}...${PULL_PULL_SHA})
     CI_GIT_NO_DOCS_CHANGES=$(cat <<<$CI_GIT_ALL_CHANGES | grep -vE "$SKIP_PATTERN" || :)
     if [[ -z "$CI_GIT_NO_DOCS_CHANGES" ]]; then
@@ -88,6 +88,8 @@ elif [[ $TARGET =~ sig-compute-serial ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-serial/}
 elif [[ $TARGET =~ sig-compute-parallel ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-parallel/}
+elif [[ $TARGET =~ sig-compute-conformance ]]; then
+  export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-conformance/}
 elif [[ $TARGET =~ sig-compute ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute/}
 elif [[ $TARGET =~ sig-operator ]]; then
@@ -97,6 +99,8 @@ elif [[ $TARGET =~ sig-operator ]]; then
 elif [[ $TARGET =~ sig-monitoring ]]; then
     export KUBEVIRT_PROVIDER=${TARGET/-sig-monitoring/}
     export KUBEVIRT_DEPLOY_PROMETHEUS=true
+elif [[ $TARGET =~ wg-s390x ]]; then
+    export KUBEVIRT_PROVIDER=${TARGET/-wg-s390x}
 else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
@@ -106,7 +110,7 @@ if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
   export KUBEVIRT_DEPLOY_NFS_CSI=true
 fi
 
-if [ ! -d "cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
+if [ ! -d "kubevirtci/cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
   echo "The cluster provider $KUBEVIRT_PROVIDER does not exist"
   exit 1
 fi
@@ -212,8 +216,8 @@ elif [[ $TARGET =~ windows.* ]]; then
   safe_download "$WINDOWS_LOCK_PATH" "$win_image_url" "$win_image" || exit 1
 fi
 
-kubectl() { KUBEVIRTCI_VERBOSE=false cluster-up/kubectl.sh "$@"; }
-cli() { cluster-up/cli.sh "$@"; }
+kubectl() { KUBEVIRTCI_VERBOSE=false kubevirtci/cluster-up/kubectl.sh "$@"; }
+cli() { kubevirtci/cluster-up/cli.sh "$@"; }
 
 determine_cri_bin() {
     if [ "${KUBEVIRTCI_RUNTIME}" = "podman" ]; then
@@ -267,10 +271,11 @@ if [ "$CI" != "true" ]; then
   make cluster-down
 fi
 
-# Create .bazelrc to use remote cache
+# Create .bazelrc to use 4 jobs, remote cache and disable progress output
 cat >ci.bazelrc <<EOF
 build --jobs=4
 build --remote_download_toplevel
+build --noshow_progress
 EOF
 
 # Build and test images with a custom image name prefix
@@ -421,6 +426,8 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     fi
   elif [[ $TARGET =~ sig-storage ]]; then
     label_filter='(sig-storage)'
+  elif [[ $TARGET =~ wg-s390x ]]; then
+    label_filter='(wg-s390x)'
   elif [[ $TARGET =~ vgpu.* ]]; then
     label_filter='(VGPU)'
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
@@ -429,11 +436,11 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(sig-compute-migrations && !(GPU,VGPU))'
   elif [[ $TARGET =~ sig-compute-serial ]]; then
     export KUBEVIRT_E2E_PARALLEL=false
-    ginko_params="${ginko_params} --focus=\\[Serial\\]"
-    label_filter='((sig-compute) && !(GPU,VGPU,sig-compute-migrations))'
+    label_filter='((sig-compute && Serial) && !(GPU,VGPU,sig-compute-migrations))'
   elif [[ $TARGET =~ sig-compute-parallel ]]; then
-    ginko_params="${ginko_params} --skip=\\[Serial\\]"
-    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations))'
+    label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations))'
+  elif [[ $TARGET =~ sig-compute-conformance ]]; then
+    label_filter='(sig-compute && conformance)'
   elif [[ $TARGET =~ sig-compute ]]; then
     label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations))'
   elif [[ $TARGET =~ sig-monitoring ]]; then
@@ -459,6 +466,17 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
   if [[ ! $TARGET =~ k8s-1\.3[0-9].* ]]; then
     add_to_label_filter "(!kubernetes130)" "&&"
   fi
+
+  # execute tests labelled as PERIODIC only on periodic test lanes (according to lane name)
+  if [[ ! $JOB_NAME =~ .*periodic.* ]]; then
+    add_to_label_filter "(!PERIODIC)" "&&"
+  fi
+
+  if [[ ! $TARGET =~ windows.* ]]; then
+    add_to_label_filter "(!Windows)" "&&"
+    add_to_label_filter "(!Sysprep)" "&&"
+  fi
+
 fi
 
 # No lane currently supports loading a custom policy
@@ -486,6 +504,11 @@ fi
 
 if [ -z "$KUBEVIRT_HUGEPAGES_2M" ]; then
   add_to_label_filter '(!requireHugepages2Mi)' '&&'
+fi
+
+# Always override as we want to fail if anything is requiring special handling
+if [[ $TARGET =~ sig-compute-conformance ]]; then
+    label_filter='(sig-compute && conformance)'
 fi
 
 # Prepare RHEL PV for Template testing

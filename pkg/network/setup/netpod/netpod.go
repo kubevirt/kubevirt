@@ -64,18 +64,21 @@ type NSExecutor interface {
 }
 
 type NetPod struct {
-	vmiSpecIfaces []v1.Interface
-	vmiSpecNets   []v1.Network
-	vmiUID        string
-	podPID        int
-	ownerID       int
-	queuesCap     int
+	vmiSpecIfaces    []v1.Interface
+	vmiSpecNets      []v1.Network
+	vmiIfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
+	vmiUID           string
+	podPID           int
+	ownerID          int
+	queuesCap        int
 
 	nmstateAdapter    nmstateAdapter
 	masqueradeAdapter masqueradeAdapter
 
 	cacheCreator cacheCreator
 	state        *State
+
+	bindingPluginsByName map[string]v1.InterfaceBindingPlugin
 
 	log *log.FilteredLogger
 }
@@ -95,7 +98,8 @@ func NewNetPod(vmiNetworks []v1.Network, vmiIfaces []v1.Interface, vmiUID string
 		nmstateAdapter:    nmstate.New(),
 		masqueradeAdapter: masquerade.New(),
 
-		cacheCreator: cache.CacheCreator{},
+		cacheCreator:         cache.CacheCreator{},
+		bindingPluginsByName: map[string]v1.InterfaceBindingPlugin{},
 
 		log: log.Log,
 	}
@@ -123,9 +127,21 @@ func WithCacheCreator(c cacheCreator) option {
 	}
 }
 
+func WithBindingPlugins(bindings map[string]v1.InterfaceBindingPlugin) option {
+	return func(n *NetPod) {
+		n.bindingPluginsByName = bindings
+	}
+}
+
 func WithLogger(logger *log.FilteredLogger) option {
 	return func(n *NetPod) {
 		n.log = logger
+	}
+}
+
+func WithVMIIfaceStatuses(vmiIfaceStatuses []v1.VirtualMachineInstanceNetworkInterface) option {
+	return func(n *NetPod) {
+		n.vmiIfaceStatuses = vmiIfaceStatuses
 	}
 }
 
@@ -237,7 +253,7 @@ func (n NetPod) config(currentStatus *nmstate.Status) error {
 func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec, error) {
 	podIfaceStatusByName := ifaceStatusByName(currentStatus.Interfaces)
 
-	podIfaceNameByVMINetwork := createNetworkNameScheme(n.vmiSpecNets, currentStatus.Interfaces)
+	podIfaceNameByVMINetwork := createNetworkNameScheme(n.vmiSpecNets, n.vmiIfaceStatuses, currentStatus.Interfaces)
 
 	spec := nmstate.Spec{Interfaces: []nmstate.Interface{}}
 
@@ -286,6 +302,17 @@ func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec
 			}
 		case iface.SRIOV != nil:
 		case iface.Binding != nil:
+			bindingPlugin, exists := n.bindingPluginsByName[iface.Binding.Name]
+			if exists && bindingPlugin.DomainAttachmentType == v1.ManagedTap {
+				if _, exists := podIfaceStatusByName[podIfaceName]; !exists {
+					return nil, fmt.Errorf("pod link (%s) is missing", podIfaceName)
+				}
+				ifacesSpec, err = n.managedTapSpec(podIfaceName, ifIndex, podIfaceStatusByName)
+				if nmstate.AnyInterface(ifacesSpec, hasIP4GlobalUnicast) {
+					spec.LinuxStack.IPv4.ArpIgnore = pointer.P(procsys.ARPReplyMode1)
+				}
+			}
+
 		// Passt is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
 		case iface.DeprecatedPasst != nil:
 			spec.LinuxStack.IPv4.PingGroupRange = []int{107, 107}
@@ -313,6 +340,7 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 	)
 
 	vmiNetworkName := n.vmiSpecIfaces[vmiIfaceIndex].Name
+	vmiNetwork := vmispec.LookupNetworkByName(n.vmiSpecNets, vmiNetworkName)
 
 	bridgeIface := nmstate.Interface{
 		Name:     link.GenerateBridgeName(podIfaceName),
@@ -353,7 +381,7 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 	}
 
 	tapIface := nmstate.Interface{
-		Name:       link.GenerateTapDeviceName(podIfaceName),
+		Name:       link.GenerateTapDeviceName(podIfaceName, *vmiNetwork),
 		TypeName:   nmstate.TypeTap,
 		State:      nmstate.IfaceStateUp,
 		MTU:        podStatusIface.MTU,
@@ -380,15 +408,10 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 }
 
 func (n NetPod) networkQueues(vmiIfaceIndex int) int {
-	ifaceModel := n.vmiSpecIfaces[vmiIfaceIndex].Model
-	if ifaceModel == "" {
-		ifaceModel = v1.VirtIO
+	if ifaceModel := n.vmiSpecIfaces[vmiIfaceIndex].Model; ifaceModel == "" || ifaceModel == v1.VirtIO {
+		return n.queuesCap
 	}
-	var queues int
-	if ifaceModel == v1.VirtIO {
-		queues = n.queuesCap
-	}
-	return queues
+	return 0
 }
 
 func (n NetPod) masqueradeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceStatusByName map[string]nmstate.Interface) ([]nmstate.Interface, error) {
@@ -433,7 +456,7 @@ func (n NetPod) masqueradeBindingSpec(podIfaceName string, vmiIfaceIndex int, if
 	}
 
 	tapIface := nmstate.Interface{
-		Name:       link.GenerateTapDeviceName(podIfaceName),
+		Name:       link.GenerateTapDeviceName(podIfaceName, *vmiNetwork),
 		TypeName:   nmstate.TypeTap,
 		State:      nmstate.IfaceStateUp,
 		MTU:        podIface.MTU,
@@ -449,12 +472,70 @@ func (n NetPod) masqueradeBindingSpec(podIfaceName string, vmiIfaceIndex int, if
 	return []nmstate.Interface{bridgeIface, tapIface}, nil
 }
 
+func (n NetPod) managedTapSpec(podIfaceName string, vmiIfaceIndex int, ifaceStatusByName map[string]nmstate.Interface) ([]nmstate.Interface, error) {
+
+	vmiNetworkName := n.vmiSpecIfaces[vmiIfaceIndex].Name
+	vmiNetwork := vmispec.LookupNetworkByName(n.vmiSpecNets, vmiNetworkName)
+
+	podIfaceAlternativeName := link.GenerateNewBridgedVmiInterfaceName(podIfaceName)
+	podStatusIface, exist := ifaceStatusByName[podIfaceAlternativeName]
+	if !exist {
+		podStatusIface = ifaceStatusByName[podIfaceName]
+	}
+
+	bridgeIface := nmstate.Interface{
+		Name:     link.GenerateBridgeName(podIfaceName),
+		TypeName: nmstate.TypeBridge,
+		State:    nmstate.IfaceStateUp,
+		Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
+		Metadata: &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
+	}
+
+	podIface := nmstate.Interface{
+		Index:       podStatusIface.Index,
+		Name:        podIfaceAlternativeName,
+		State:       nmstate.IfaceStateUp,
+		CopyMacFrom: bridgeIface.Name,
+		Controller:  bridgeIface.Name,
+		IPv4:        nmstate.IP{Enabled: pointer.P(false)},
+		IPv6:        nmstate.IP{Enabled: pointer.P(false)},
+		LinuxStack:  nmstate.LinuxIfaceStack{PortLearning: pointer.P(false)},
+		Metadata:    &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
+	}
+
+	tapIface := nmstate.Interface{
+		Name:       link.GenerateTapDeviceName(podIfaceName, *vmiNetwork),
+		TypeName:   nmstate.TypeTap,
+		State:      nmstate.IfaceStateUp,
+		MTU:        podStatusIface.MTU,
+		Controller: bridgeIface.Name,
+		Tap: &nmstate.TapDevice{
+			Queues: n.networkQueues(vmiIfaceIndex),
+			UID:    n.ownerID,
+			GID:    n.ownerID,
+		},
+		Metadata: &nmstate.IfaceMetadata{Pid: n.podPID, NetworkName: vmiNetworkName},
+	}
+
+	dummyIface := nmstate.Interface{
+		Name:       podIfaceName,
+		TypeName:   nmstate.TypeDummy,
+		MacAddress: podStatusIface.MacAddress,
+		MTU:        podStatusIface.MTU,
+		IPv4:       podStatusIface.IPv4,
+		IPv6:       podStatusIface.IPv6,
+		Metadata:   &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
+	}
+
+	return []nmstate.Interface{bridgeIface, podIface, tapIface, dummyIface}, nil
+}
+
 func (n NetPod) setupNAT(desiredSpec *nmstate.Spec, currentStatus *nmstate.Status) error {
 	bridgeIfaceSpec := n.lookupMasquradeBridge(desiredSpec.Interfaces)
 	if bridgeIfaceSpec == nil {
 		return nil
 	}
-	podIfaceNameByVMINetwork := createNetworkNameScheme(n.vmiSpecNets, currentStatus.Interfaces)
+	podIfaceNameByVMINetwork := createNetworkNameScheme(n.vmiSpecNets, n.vmiIfaceStatuses, currentStatus.Interfaces)
 	podIfaceName := podIfaceNameByVMINetwork[bridgeIfaceSpec.Metadata.NetworkName]
 	podIfaceSpec := nmstate.LookupInterface(currentStatus.Interfaces, func(i nmstate.Interface) bool {
 		return i.Name == podIfaceName
@@ -538,11 +619,16 @@ func firstIPGlobalUnicast(ip nmstate.IP) *nmstate.IPAddress {
 	return nil
 }
 
-func createNetworkNameScheme(networks []v1.Network, currentIfaces []nmstate.Interface) map[string]string {
+func createNetworkNameScheme(networks []v1.Network, ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface, currentIfaces []nmstate.Interface) map[string]string {
+	var podIfaceNamesByNetworkName map[string]string
+
 	if includesOrdinalNames(currentIfaces) {
-		return namescheme.CreateOrdinalNetworkNameScheme(networks)
+		podIfaceNamesByNetworkName = namescheme.CreateOrdinalNetworkNameScheme(networks)
+	} else {
+		podIfaceNamesByNetworkName = namescheme.CreateHashedNetworkNameScheme(networks)
 	}
-	return namescheme.CreateHashedNetworkNameScheme(networks)
+
+	return namescheme.UpdatePrimaryPodIfaceNameFromVMIStatus(podIfaceNamesByNetworkName, networks, ifaceStatuses)
 }
 
 func includesOrdinalNames(ifaces []nmstate.Interface) bool {
@@ -591,7 +677,7 @@ func (n NetPod) clearCache(nets []v1.Network) error {
 			unplugErrors = append(unplugErrors, err)
 		}
 
-		podInterfaceName := namescheme.HashedPodInterfaceName(net)
+		podInterfaceName := namescheme.HashedPodInterfaceName(net, n.vmiIfaceStatuses)
 		err = cache.DeleteDHCPInterfaceCache(n.cacheCreator, strconv.Itoa(n.podPID), podInterfaceName)
 		if err != nil {
 			unplugErrors = append(unplugErrors, err)

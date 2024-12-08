@@ -12,7 +12,7 @@ fi
 
 fail_if_cri_bin_missing
 
-kubevirt_builder_version="2408131026-dbaea2561"
+kubevirt_builder_version="2410110922-18d7a3186d"
 default_kubevirt_builder_image="quay.io/kubevirt/builder:${kubevirt_builder_version}"
 kubevirt_cross_compile_image="quay.io/kubevirt/builder-cross:${kubevirt_builder_version}"
 
@@ -39,7 +39,7 @@ SYNC_VENDOR=${SYNC_VENDOR:-false}
 
 TEMPFILE=".rsynctemp"
 
-CONTAINER_ENV="--env HTTP_PROXY=${HTTP_PROXY} --env HTTPS_PROXY=${HTTP_PROXY} --env NO_PROXY=${NO_PROXY}"
+CONTAINER_ENV="--env HTTP_PROXY=${HTTP_PROXY} --env HTTPS_PROXY=${HTTP_PROXY} --env NO_PROXY=${NO_PROXY} --env KUBEVIRT_NO_BAZEL=${KUBEVIRT_NO_BAZEL}"
 
 # Create the persistent container volume
 if [ -z "$($KUBEVIRT_CRI volume list | grep ${BUILDER})" ]; then
@@ -100,9 +100,9 @@ _rsync \
     --exclude 'bazel-kubevirt' \
     --exclude 'bazel-out' \
     --exclude 'bazel-testlogs' \
-    --exclude 'cluster-up/cluster/**/.kubectl' \
-    --exclude 'cluster-up/cluster/**/.oc' \
-    --exclude 'cluster-up/cluster/**/.kubeconfig' \
+    --exclude 'kubevirtci/cluster-up/cluster/**/.kubectl' \
+    --exclude 'kubevirtci/cluster-up/cluster/**/.oc' \
+    --exclude 'kubevirtci/cluster-up/cluster/**/.kubeconfig' \
     --exclude "_out" \
     --exclude ".vagrant" \
     --exclude ".bazeldnf" \
@@ -176,9 +176,9 @@ _rsync \
     --exclude 'bazel-kubevirt' \
     --exclude 'bazel-out' \
     --exclude 'bazel-testlogs' \
-    --exclude 'cluster-up/cluster/**/.kubectl' \
-    --exclude 'cluster-up/cluster/**/.oc' \
-    --exclude 'cluster-up/cluster/**/.kubeconfig' \
+    --exclude 'kubevirtci/cluster-up/cluster/**/.kubectl' \
+    --exclude 'kubevirtci/cluster-up/cluster/**/.oc' \
+    --exclude 'kubevirtci/cluster-up/cluster/**/.kubeconfig' \
     --exclude "_out" \
     --exclude "vendor" \
     --exclude ".vagrant" \
@@ -188,7 +188,11 @@ _rsync \
     ${KUBEVIRT_DIR}/
 
 _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/manifests/generated/" "${KUBEVIRT_DIR}/manifests/generated"
-_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/staging/src/kubevirt.io/client-go/generated/" "${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go/generated"
+_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/staging/src/kubevirt.io/client-go/containerizeddataimporter/" "${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go/containerizeddataimporter"
+_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/staging/src/kubevirt.io/client-go/externalsnapshotter/" "${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go/externalsnapshotter"
+_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/staging/src/kubevirt.io/client-go/kubevirt/" "${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go/kubevirt"
+_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/staging/src/kubevirt.io/client-go/networkattachmentdefinitionclient/" "${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go/networkattachmentdefinitionclient"
+_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/staging/src/kubevirt.io/client-go/prometheusoperator/" "${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go/prometheusoperator"
 _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/examples/" "${KUBEVIRT_DIR}/examples"
 if [ "$SYNC_VENDOR" = "true" ]; then
     _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/vendor" "${VENDOR_DIR}/"

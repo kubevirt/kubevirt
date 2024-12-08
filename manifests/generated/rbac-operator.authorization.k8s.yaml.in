@@ -577,15 +577,36 @@ rules:
 - apiGroups:
   - snapshot.kubevirt.io
   resources:
-  - '*'
+  - virtualmachinesnapshots
+  - virtualmachinesnapshots/status
+  - virtualmachinesnapshots/finalizers
+  - virtualmachinesnapshotcontents
+  - virtualmachinesnapshotcontents/status
+  - virtualmachinesnapshotcontents/finalizers
+  - virtualmachinerestores
+  - virtualmachinerestores/status
   verbs:
-  - '*'
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+  - patch
 - apiGroups:
   - export.kubevirt.io
   resources:
-  - '*'
+  - virtualmachineexports
+  - virtualmachineexports/status
+  - virtualmachineexports/finalizers
   verbs:
-  - '*'
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+  - patch
 - apiGroups:
   - pool.kubevirt.io
   resources:
@@ -608,8 +629,16 @@ rules:
   verbs:
   - '*'
 - apiGroups:
+  - kubevirt.io
+  resources:
+  - virtualmachines/finalizers
+  - virtualmachineinstances/finalizers
+  verbs:
+  - update
+- apiGroups:
   - subresources.kubevirt.io
   resources:
+  - virtualmachines/stop
   - virtualmachineinstances/addvolume
   - virtualmachineinstances/removevolume
   - virtualmachineinstances/freeze

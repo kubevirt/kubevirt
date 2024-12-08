@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	v1 "kubevirt.io/api/core/v1"
-	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
+	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 	"kubevirt.io/client-go/log"
 )
 
@@ -26,7 +26,7 @@ const (
 	KubeletPodsDir                            = KubeletRoot + "/pods"
 	HostRootMount                             = "/proc/1/root/"
 	CPUManagerOS3Path                         = HostRootMount + "var/lib/origin/openshift.local.volumes/cpu_manager_state"
-	CPUManagerPath                            = HostRootMount + "var/lib/kubelet/cpu_manager_state"
+	CPUManagerPath                            = KubeletRoot + "/cpu_manager_state"
 
 	// Alphanums is the list of alphanumeric characters used to create a securely generated random string
 	Alphanums = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -292,4 +292,25 @@ func GenerateKubeVirtGroupVersionKind(obj runtime.Object) (runtime.Object, error
 	objCopy.GetObjectKind().SetGroupVersionKind(gvks[0])
 
 	return objCopy, nil
+}
+
+/*
+TranslateBuildArch translates the build_arch to arch
+
+	case1:
+	  build_arch is crossbuild-s390x, which will be translated to s390x arch
+	case2:
+	  build_arch is s390x, which will be translated to s390x arch
+*/
+func TranslateBuildArch() string {
+	buildArch := os.Getenv("BUILD_ARCH")
+
+	if buildArch == "" {
+		return ""
+	}
+	archElements := strings.Split(buildArch, "-")
+	if len(archElements) == 2 {
+		return archElements[1]
+	}
+	return archElements[0]
 }

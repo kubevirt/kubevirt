@@ -125,6 +125,7 @@
         "progressTimeout": -15,
         "unsafeMigrationOverride": true,
         "allowPostCopy": true,
+        "allowWorkloadDisruption": true,
         "disableTLS": true,
         "network": "networkValue",
         "matchSELinuxLevelOnMigration": true
@@ -149,12 +150,7 @@
               },
               "requests": {
                 "requestsKey": "0"
-              },
-              "claims": [
-                {
-                  "name": "nameValue"
-                }
-              ]
+              }
             }
           }
         }
@@ -204,12 +200,7 @@
             },
             "requests": {
               "requestsKey": "0"
-            },
-            "claims": [
-              {
-                "name": "nameValue"
-              }
-            ]
+            }
           }
         }
       ],
@@ -365,7 +356,13 @@
         "maxCpuSockets": 4294967283,
         "maxGuest": "0"
       },
-      "vmRolloutStrategy": "vmRolloutStrategyValue"
+      "vmRolloutStrategy": "vmRolloutStrategyValue",
+      "commonInstancetypesDeployment": {
+        "enabled": true
+      },
+      "instancetype": {
+        "referencePolicy": "referencePolicyValue"
+      }
     },
     "infra": {
       "nodePlacement": {

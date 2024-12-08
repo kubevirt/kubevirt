@@ -38,7 +38,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -46,18 +47,16 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	virtctl "kubevirt.io/kubevirt/pkg/virtctl/vm"
-	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -77,9 +76,6 @@ const (
 	removingVolumeFromVM    = "removing volume from VM"
 	verifyingVolumeNotExist = "Verifying the volume no longer exists in VM"
 
-	virtCtlNamespace       = "--namespace"
-	virtCtlVolumeName      = "--volume-name=%s"
-	virtCtlCache           = "--cache=%s"
 	verifyCannotAccessDisk = "ls: %s: No such file or directory"
 
 	testNewVolume1 = "some-new-volume1"
@@ -135,6 +131,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		}
 		return opts
 	}
+
 	addVolumeVMIWithSource := func(name, namespace string, volumeOptions *v1.AddVolumeOptions) {
 		Eventually(func() error {
 			return virtClient.VirtualMachineInstance(namespace).AddVolume(context.Background(), name, volumeOptions)
@@ -189,23 +186,6 @@ var _ = SIGDescribe("Hotplug", func() {
 		}, dryRun, false, cache))
 	}
 
-	addVolumeVirtctl := func(name, namespace, volumeName, claimName string, bus v1.DiskBus, dryRun bool, cache v1.DriverCache) {
-		By("Invoking virtlctl addvolume")
-		commandAndArgs := []string{virtctl.COMMAND_ADDVOLUME, name, fmt.Sprintf(virtCtlVolumeName, claimName), virtCtlNamespace, namespace}
-		if dryRun {
-			commandAndArgs = append(commandAndArgs, "--dry-run")
-		}
-		if cache == v1.CacheNone ||
-			cache == v1.CacheWriteThrough ||
-			cache == v1.CacheWriteBack {
-			commandAndArgs = append(commandAndArgs, fmt.Sprintf(virtCtlCache, cache))
-		}
-		addvolumeCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
-		Eventually(func() error {
-			return addvolumeCommand()
-		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-	}
-
 	removeVolumeVMI := func(name, namespace, volumeName string, dryRun bool) {
 		Eventually(func() error {
 			return virtClient.VirtualMachineInstance(namespace).RemoveVolume(context.Background(), name, &v1.RemoveVolumeOptions{
@@ -221,18 +201,6 @@ var _ = SIGDescribe("Hotplug", func() {
 				Name:   volumeName,
 				DryRun: getDryRunOption(dryRun),
 			})
-		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-	}
-
-	removeVolumeVirtctl := func(name, namespace, volumeName string, dryRun bool) {
-		By("Invoking virtlctl removevolume")
-		commandAndArgs := []string{virtctl.COMMAND_REMOVEVOLUME, name, fmt.Sprintf(virtCtlVolumeName, volumeName), virtCtlNamespace, namespace}
-		if dryRun {
-			commandAndArgs = append(commandAndArgs, "--dry-run")
-		}
-		removeVolumeCommand := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
-		Eventually(func() error {
-			return removeVolumeCommand()
 		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
@@ -502,11 +470,11 @@ var _ = SIGDescribe("Hotplug", func() {
 		By("Creating DataVolume")
 		dvBlock := libdv.NewDataVolume(
 			libdv.WithBlankImageSource(),
-			libdv.WithPVC(
-				libdv.PVCWithStorageClass(sc),
-				libdv.PVCWithVolumeSize(cd.BlankVolumeSize),
-				libdv.PVCWithAccessMode(accessMode),
-				libdv.PVCWithVolumeMode(volumeMode),
+			libdv.WithStorage(
+				libdv.StorageWithStorageClass(sc),
+				libdv.StorageWithVolumeSize(cd.BlankVolumeSize),
+				libdv.StorageWithAccessMode(accessMode),
+				libdv.StorageWithVolumeMode(volumeMode),
 			),
 			libdv.WithForceBindAnnotation(),
 		)
@@ -597,11 +565,11 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			dv := libdv.NewDataVolume(
 				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
-				libdv.WithPVC(
-					libdv.PVCWithStorageClass(sc),
-					libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros))),
-					libdv.PVCWithAccessMode(k8sv1.ReadWriteMany),
-					libdv.PVCWithVolumeMode(k8sv1.PersistentVolumeBlock),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros))),
+					libdv.StorageWithAccessMode(k8sv1.ReadWriteMany),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
 				),
 			)
 			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
@@ -639,7 +607,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			Entry("PersistentVolume", addPVCVolumeVM),
 		)
 
-		It("[Serial]Should preserve access to block devices if virt-handler crashes", Serial, func() {
+		It("Should preserve access to block devices if virt-handler crashes", Serial, func() {
 			blockDevices := []string{"/dev/disk0"}
 
 			By("Adding a hotplug block volume")
@@ -721,7 +689,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			vm = createAndStartWFFCStorageHotplugVM()
 		})
 
-		DescribeTable("Should be able to add and use WFFC local storage", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction) {
+		It("Should be able to add and use WFFC local storage", func() {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi,
@@ -731,7 +699,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			for i := 0; i < numPVs; i++ {
 				dv := libdv.NewDataVolume(
 					libdv.WithBlankImageSource(),
-					libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
+					libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.BlankVolumeSize)),
 				)
 
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(vm)).Create(context.TODO(), dv, metav1.CreateOptions{})
@@ -741,7 +709,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			for i := 0; i < numPVs; i++ {
 				By("Adding volume " + strconv.Itoa(i) + " to running VM, dv name:" + dvNames[i])
-				addVolumeFunc(vm.Name, vm.Namespace, dvNames[i], dvNames[i], v1.DiskBusSCSI, false, "")
+				addDVVolumeVMI(vm.Name, vm.Namespace, dvNames[i], dvNames[i], v1.DiskBusSCSI, false, "")
 			}
 
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -753,15 +721,12 @@ var _ = SIGDescribe("Hotplug", func() {
 			verifySingleAttachmentPod(vmi)
 			for _, volumeName := range dvNames {
 				By("removing volume " + volumeName + " from VM")
-				removeVolumeFunc(vm.Name, vm.Namespace, volumeName, false)
+				removeVolumeVMI(vm.Name, vm.Namespace, volumeName, false)
 			}
 			for _, volumeName := range dvNames {
 				verifyVolumeNolongerAccessible(vmi, volumeName)
 			}
-		},
-			Entry("calling endpoints directly", addDVVolumeVMI, removeVolumeVMI),
-			Entry("using virtctl", addVolumeVirtctl, removeVolumeVirtctl),
-		)
+		})
 	})
 
 	Context("[storage-req]", decorators.StorageReq, func() {
@@ -798,7 +763,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				node := findCPUManagerWorkerNode()
 				opts := []libvmi.Option{}
 				if node != "" {
-					opts = append(opts, libvmi.WithNodeSelectorFor(&k8sv1.Node{ObjectMeta: metav1.ObjectMeta{Name: node}}))
+					opts = append(opts, libvmi.WithNodeSelectorFor(node))
 				}
 				vmi := libvmifact.NewCirros(opts...)
 
@@ -817,6 +782,25 @@ var _ = SIGDescribe("Hotplug", func() {
 				Entry("with DataVolume immediate attach, VMI directly", addDVVolumeVMI, removeVolumeVMI, k8sv1.PersistentVolumeFilesystem, true, false),
 				Entry("with PersistentVolume immediate attach, VMI directly", addPVCVolumeVMI, removeVolumeVMI, k8sv1.PersistentVolumeFilesystem, true, false),
 				Entry("with Block DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, false, false),
+			)
+
+			DescribeTable("should not add/remove volume with dry run", func(addVolumeFunc addVolumeFunction, volumeMode k8sv1.PersistentVolumeMode) {
+				dv := createDataVolumeAndWaitForImport(sc, volumeMode)
+
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				libwait.WaitForSuccessfulVMIStart(vmi,
+					libwait.WithTimeout(240),
+				)
+
+				addVolumeFunc(vm.Name, vm.Namespace, "testvolume", dv.Name, v1.DiskBusSCSI, true, "")
+				verifyNoVolumeAttached(vmi, "testvolume")
+			},
+				Entry("with DataVolume immediate attach", addDVVolumeVM, k8sv1.PersistentVolumeFilesystem),
+				Entry("with PersistentVolume immediate attach", addPVCVolumeVM, k8sv1.PersistentVolumeFilesystem),
+				Entry("with DataVolume immediate attach, VMI directly", addDVVolumeVMI, k8sv1.PersistentVolumeFilesystem),
+				Entry("with PersistentVolume immediate attach, VMI directly", addPVCVolumeVMI, k8sv1.PersistentVolumeFilesystem),
+				Entry("with Block DataVolume immediate attach", addDVVolumeVM, k8sv1.PersistentVolumeBlock),
 			)
 
 			DescribeTable("Should be able to add and remove multiple volumes", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode, vmiOnly bool) {
@@ -947,7 +931,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			},
 				Entry("with VMs", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, false),
 				Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, k8sv1.PersistentVolumeFilesystem, true),
-				Entry("[Serial] with VMs and block", Serial, addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, false),
+				Entry(" with VMs and block", Serial, addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, false),
 			)
 
 			It("should allow to hotplug 75 volumes simultaneously", func() {
@@ -1150,11 +1134,11 @@ var _ = SIGDescribe("Hotplug", func() {
 			persistentDiskVMIFunc := func() *v1.VirtualMachineInstance {
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-					libdv.WithPVC(
-						libdv.PVCWithStorageClass(sc),
-						libdv.PVCWithVolumeSize(cd.CirrosVolumeSize),
-						libdv.PVCWithReadWriteManyAccessMode(),
-						libdv.PVCWithBlockVolumeMode(),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(sc),
+						libdv.StorageWithVolumeSize(cd.CirrosVolumeSize),
+						libdv.StorageWithReadWriteManyAccessMode(),
+						libdv.StorageWithBlockVolumeMode(),
 					),
 				)
 				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
@@ -1295,9 +1279,9 @@ var _ = SIGDescribe("Hotplug", func() {
 				dv = libdv.NewDataVolume(
 					libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
 					libdv.WithRegistryURLSource(url),
-					libdv.WithPVC(
-						libdv.PVCWithStorageClass(storageClass),
-						libdv.PVCWithVolumeSize("256Mi"),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(storageClass),
+						libdv.StorageWithVolumeSize("256Mi"),
 					),
 					libdv.WithForceBindAnnotation(),
 				)
@@ -1332,7 +1316,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			},
 				Entry("with DataVolume and running VM", addDVVolumeVM, removeVolumeVM, libstorage.GetRWOBlockStorageClass, k8sv1.PersistentVolumeFilesystem, false),
 				Entry("with DataVolume and VMI directly", addDVVolumeVMI, removeVolumeVMI, libstorage.GetRWOBlockStorageClass, k8sv1.PersistentVolumeFilesystem, true),
-				Entry("[Serial] with Block DataVolume immediate attach", Serial, addDVVolumeVM, removeVolumeVM, libstorage.GetRWOBlockStorageClass, k8sv1.PersistentVolumeBlock, false),
+				Entry(" with Block DataVolume immediate attach", Serial, addDVVolumeVM, removeVolumeVM, libstorage.GetRWOBlockStorageClass, k8sv1.PersistentVolumeBlock, false),
 			)
 		})
 	})
@@ -1372,7 +1356,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			Expect(podName).ToNot(BeEmpty())
 			foreGround := metav1.DeletePropagationForeground
 			err := virtClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), podName, metav1.DeleteOptions{
-				GracePeriodSeconds: pointer.Int64(0),
+				GracePeriodSeconds: pointer.P(int64(0)),
 				PropagationPolicy:  &foreGround,
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -1393,11 +1377,11 @@ var _ = SIGDescribe("Hotplug", func() {
 				return libdv.NewDataVolume(
 					libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
 					libdv.WithBlankImageSource(),
-					libdv.WithPVC(
-						libdv.PVCWithStorageClass(storageClass),
-						libdv.PVCWithVolumeSize(cd.BlankVolumeSize),
-						libdv.PVCWithReadWriteManyAccessMode(),
-						libdv.PVCWithVolumeMode(volumeMode),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(storageClass),
+						libdv.StorageWithVolumeSize(cd.BlankVolumeSize),
+						libdv.StorageWithReadWriteManyAccessMode(),
+						libdv.StorageWithVolumeMode(volumeMode),
 					),
 					libdv.WithForceBindAnnotation(),
 				)
@@ -1532,7 +1516,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			cpuRequest := int64(math.Ceil(float64(cpuLimit) / cpuRatio))
 			cpuRequestQuantity := resource.NewScaledQuantity(cpuRequest, resource.Milli)
 			By("Updating hotplug and container disks ratio to the specified ratio")
-			resources := k8sv1.ResourceRequirements{
+			resources := v1.ResourceRequirementsWithoutClaims{
 				Requests: k8sv1.ResourceList{
 					k8sv1.ResourceCPU:    *cpuRequestQuantity,
 					k8sv1.ResourceMemory: *memRequestQuantity,
@@ -1557,7 +1541,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					Resources: resources,
 				},
 			}
-			tests.UpdateKubeVirtConfigValueAndWait(*config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
 		}
 
 		createLimitRangeInNamespace := func(namespace string, memRatio, cpuRatio float64) {
@@ -1615,7 +1599,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			}
 			updateCDIResourceRequirements(orgCdiResourceRequirements)
 			orgCdiResourceRequirements = nil
-			tests.UpdateKubeVirtConfigValueAndWait(originalConfig)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(originalConfig)
 		})
 
 		// Needs to be serial since I am putting limit range on namespace
@@ -1696,10 +1680,10 @@ var _ = SIGDescribe("Hotplug", func() {
 			_, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		},
-			Entry("[test_id:10002][Serial]1 to 1 cpu and mem ratio", Serial, float64(1), float64(1)),
-			Entry("[test_id:10003]Serial]1 to 1 mem ratio, 4 to 1 cpu ratio", Serial, float64(1), float64(4)),
-			Entry("[test_id:10004][Serial]2 to 1 mem ratio, 4 to 1 cpu ratio", Serial, float64(2), float64(4)),
-			Entry("[test_id:10005][Serial]2.25 to 1 mem ratio, 5.75 to 1 cpu ratio", Serial, float64(2.25), float64(5.75)),
+			Entry("[test_id:10002]1 to 1 cpu and mem ratio", Serial, float64(1), float64(1)),
+			Entry("[test_id:10003]1 to 1 mem ratio, 4 to 1 cpu ratio", Serial, float64(1), float64(4)),
+			Entry("[test_id:10004]2 to 1 mem ratio, 4 to 1 cpu ratio", Serial, float64(2), float64(4)),
+			Entry("[test_id:10005]2.25 to 1 mem ratio, 5.75 to 1 cpu ratio", Serial, float64(2.25), float64(5.75)),
 		)
 	})
 
@@ -1717,12 +1701,12 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		BeforeEach(func() {
 			libstorage.CreateStorageClass(storageClassHostPath, &immediateBinding)
-			pvNode := libstorage.CreateHostPathPvWithSizeAndStorageClass(tests.CustomHostPath, testsuite.GetTestNamespace(nil), hotplugPvPath, "1Gi", storageClassHostPath)
-			libstorage.CreatePVC(tests.CustomHostPath, testsuite.GetTestNamespace(nil), "1Gi", storageClassHostPath, false)
+			pvNode := libstorage.CreateHostPathPvWithSizeAndStorageClass(customHostPath, testsuite.GetTestNamespace(nil), hotplugPvPath, "1Gi", storageClassHostPath)
+			libstorage.CreatePVC(customHostPath, testsuite.GetTestNamespace(nil), "1Gi", storageClassHostPath, false)
 
 			opts := []libvmi.Option{}
 			if pvNode != "" {
-				opts = append(opts, libvmi.WithNodeSelectorFor(&k8sv1.Node{ObjectMeta: metav1.ObjectMeta{Name: pvNode}}))
+				opts = append(opts, libvmi.WithNodeSelectorFor(pvNode))
 			}
 			vmi := libvmifact.NewCirros(opts...)
 
@@ -1732,7 +1716,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		})
 
 		AfterEach(func() {
-			deletePvAndPvc(fmt.Sprintf("%s-disk-for-tests", tests.CustomHostPath))
+			deletePvAndPvc(fmt.Sprintf("%s-disk-for-tests", customHostPath))
 			libstorage.DeleteStorageClass(storageClassHostPath)
 		})
 
@@ -1744,7 +1728,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			)
 
 			By(addingVolumeRunningVM)
-			name := fmt.Sprintf("disk-%s", tests.CustomHostPath)
+			name := fmt.Sprintf("disk-%s", customHostPath)
 			addPVCVolumeVMI(vm.Name, vm.Namespace, "testvolume", name, v1.DiskBusSCSI, false, "")
 
 			By(verifyingVolumeDiskInVM)
@@ -1785,7 +1769,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			dv := libdv.NewDataVolume(
 				libdv.WithBlankImageSource(),
-				libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
+				libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.BlankVolumeSize)),
 			)
 
 			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(dv)).Create(context.TODO(), dv, metav1.CreateOptions{})
@@ -1822,7 +1806,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 
 		BeforeEach(func() {
-			libstorage.CreateAllSeparateDeviceHostPathPvs(tests.CustomHostPath, testsuite.GetTestNamespace(nil))
+			libstorage.CreateAllSeparateDeviceHostPathPvs(customHostPath, testsuite.GetTestNamespace(nil))
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
@@ -1835,9 +1819,9 @@ var _ = SIGDescribe("Hotplug", func() {
 		It("should attach a hostpath based volume to running VM", func() {
 			dv := libdv.NewDataVolume(
 				libdv.WithBlankImageSource(),
-				libdv.WithPVC(
-					libdv.PVCWithStorageClass(libstorage.StorageClassHostPathSeparateDevice),
-					libdv.PVCWithVolumeSize(cd.BlankVolumeSize),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(libstorage.StorageClassHostPathSeparateDevice),
+					libdv.StorageWithVolumeSize(cd.BlankVolumeSize),
 				),
 			)
 
@@ -1872,7 +1856,7 @@ var _ = SIGDescribe("Hotplug", func() {
 	// Some of the functions used here don't behave well in parallel (CreateSCSIDisk).
 	// The device is created directly on the node and the addition and removal
 	// of the scsi_debug kernel module could create flakiness in parallel.
-	Context("[Serial]Hotplug LUN disk", Serial, func() {
+	Context("Hotplug LUN disk", Serial, func() {
 		var (
 			nodeName, address, device string
 			pvc                       *k8sv1.PersistentVolumeClaim
@@ -1881,16 +1865,16 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 
 		BeforeEach(func() {
-			nodeName = tests.NodeNameWithHandler()
-			address, device = tests.CreateSCSIDisk(nodeName, []string{})
+			nodeName = libnode.GetNodeNameWithHandler()
+			address, device = CreateSCSIDisk(nodeName, []string{})
 			By(fmt.Sprintf("Create PVC with SCSI disk %s", device))
-			pv, pvc, err = tests.CreatePVandPVCwithSCSIDisk(nodeName, device, testsuite.NamespaceTestDefault, "scsi-disks", "scsipv", "scsipvc")
+			pv, pvc, err = CreatePVandPVCwithSCSIDisk(nodeName, device, testsuite.NamespaceTestDefault, "scsi-disks", "scsipv", "scsipvc")
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		AfterEach(func() {
 			// Delete the scsi disk
-			tests.RemoveSCSIDisk(nodeName, address)
+			RemoveSCSIDisk(nodeName, address)
 			Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
 			err := deleteVirtualMachine(vm)
 			Expect(err).ToNot(HaveOccurred())
@@ -1901,7 +1885,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			vm, err = virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), libvmi.NewVirtualMachine(libvmifact.NewCirros()), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			By("Adding test volumes")
-			pv2, pvc2, err := tests.CreatePVandPVCwithSCSIDisk(nodeName, device, testsuite.NamespaceTestDefault, "scsi-disks-test2", "scsipv2", "scsipvc2")
+			pv2, pvc2, err := CreatePVandPVCwithSCSIDisk(nodeName, device, testsuite.NamespaceTestDefault, "scsi-disks-test2", "scsipv2", "scsipvc2")
 			Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for scsi disk")
 
 			addVolumeVMWithSource(vm.Name, vm.Namespace, getAddVolumeOptions(testNewVolume1, v1.DiskBusSCSI, &v1.HotplugVolumeSource{
@@ -1927,11 +1911,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		})
 
 		It("on an online VM", func() {
-			vmi := libvmifact.NewCirros(libvmi.WithNodeSelectorFor(&k8sv1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: nodeName,
-				},
-			}))
+			vmi := libvmifact.NewCirros(libvmi.WithNodeSelectorFor(nodeName))
 
 			vm, err = virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1959,105 +1939,6 @@ var _ = SIGDescribe("Hotplug", func() {
 			verifyVolumeAndDiskVMRemoved(vm, "testvolume")
 			verifyVolumeNolongerAccessible(vmi, targets[0])
 		})
-	})
-
-	Context("virtctl", func() {
-		var (
-			vm *v1.VirtualMachine
-			sc string
-		)
-
-		BeforeEach(func() {
-			var exists bool
-			sc, exists = libstorage.GetRWOFileSystemStorageClass()
-			if !exists || !libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
-				Skip("Skip no wffc storage class available")
-			}
-			vm = createAndStartWFFCStorageHotplugVM()
-		})
-
-		DescribeTable("should add volume according to options", func(dryRun bool) {
-			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStart(vmi,
-				libwait.WithTimeout(240),
-			)
-
-			dv := libdv.NewDataVolume(
-				libdv.WithBlankImageSource(),
-				libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
-			)
-
-			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(vmi)).Create(context.TODO(), dv, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() error {
-				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(vmi)).Get(context.TODO(), dv.Name, metav1.GetOptions{})
-				return err
-			}, 40*time.Second, 2*time.Second).Should(Succeed())
-
-			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			addVolumeVirtctl(vmi.Name, vmi.Namespace, "", dv.Name, "", dryRun, v1.CacheWriteBack)
-			if dryRun {
-				verifyNoVolumeAttached(vmi, dv.Name)
-			} else {
-				verifyVolumeStatus(vmi, v1.VolumeReady, v1.CacheWriteBack, dv.Name)
-				getVmiConsoleAndLogin(vmi)
-				targets := getTargetsFromVolumeStatus(vmi, dv.Name)
-				verifyVolumeAccessible(vmi, targets[0])
-				verifySingleAttachmentPod(vmi)
-			}
-		},
-			Entry("with default", false),
-			Entry("[test_id:7803]with dry-run", true),
-		)
-
-		DescribeTable("should remove volume according to options", func(dryRun bool) {
-			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStart(vmi,
-				libwait.WithTimeout(240),
-			)
-			dv := libdv.NewDataVolume(
-				libdv.WithBlankImageSource(),
-				libdv.WithPVC(libdv.PVCWithStorageClass(sc), libdv.PVCWithVolumeSize(cd.BlankVolumeSize)),
-			)
-
-			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(vmi)).Create(context.TODO(), dv, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() error {
-				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(vmi)).Get(context.TODO(), dv.Name, metav1.GetOptions{})
-				return err
-			}, 40*time.Second, 2*time.Second).Should(Succeed())
-
-			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			addVolumeVirtctl(vmi.Name, vmi.Namespace, "", dv.Name, "", false, "")
-			verifyVolumeStatus(vmi, v1.VolumeReady, "", dv.Name)
-
-			getVmiConsoleAndLogin(vmi)
-			targets := getTargetsFromVolumeStatus(vmi, dv.Name)
-			verifyVolumeAccessible(vmi, targets[0])
-			verifySingleAttachmentPod(vmi)
-
-			removeVolumeVirtctl(vmi.Name, vmi.Namespace, dv.Name, dryRun)
-			if dryRun {
-				Consistently(func() error {
-					verifyVolumeStatus(vmi, v1.VolumeReady, "", dv.Name)
-					getVmiConsoleAndLogin(vmi)
-					targets := getTargetsFromVolumeStatus(vmi, dv.Name)
-					verifyVolumeAccessible(vmi, targets[0])
-					verifySingleAttachmentPod(vmi)
-					return nil
-				}, 60*time.Second, 1*time.Second).Should(BeNil())
-			} else {
-				verifyVolumeNolongerAccessible(vmi, targets[0])
-			}
-		},
-			Entry("with default", false),
-			Entry("[test_id:7829]with dry-run", true),
-		)
 	})
 })
 

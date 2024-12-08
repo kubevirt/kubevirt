@@ -34,8 +34,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
@@ -81,11 +81,11 @@ var _ = Describe("Volume Migration", func() {
 			), libvmi.NewVirtualMachine(libvmi.New(
 				libvmi.WithPersistentVolumeClaim("disk0", "vol2"), withFilesystemVolume("disk1", "vol4"),
 			)), fmt.Errorf("invalid volumes to update with migration: filesystems: [disk1]")),
-			Entry("with an invalid hotplugged volume", libvmi.New(
-				libvmi.WithPersistentVolumeClaim("disk0", "vol0"), withFilesystemVolume("disk1", "vol1"),
+			Entry("with valid hotplugged volume", libvmi.New(
+				libvmi.WithPersistentVolumeClaim("disk0", "vol0"), withHotpluggedVolume("disk1", "vol1"),
 			), libvmi.NewVirtualMachine(libvmi.New(
 				libvmi.WithPersistentVolumeClaim("disk0", "vol2"), withHotpluggedVolume("disk1", "vol4"),
-			)), fmt.Errorf("invalid volumes to update with migration: hotplugged: [disk1]")),
+			)), nil),
 		)
 	})
 
@@ -241,7 +241,7 @@ var _ = Describe("Volume Migration", func() {
 			volMig, err := volumemigration.GenerateMigratedVolumes(pvcStore, vmi, vm)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(volumemigration.PatchVMIStatusWithMigratedVolumes(virtClient, vmi, volMig)).ToNot(HaveOccurred())
+			Expect(volumemigration.PatchVMIStatusWithMigratedVolumes(virtClient, volMig, vmi)).ToNot(HaveOccurred())
 
 			if len(expectedMigVols) > 0 {
 				updatedVMI, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Get(context.TODO(), vmi.Name, metav1.GetOptions{})

@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"time"
 
-	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -32,10 +31,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -74,10 +73,10 @@ func RenderPodWithPVC(name string, cmd []string, args []string, pvc *k8sv1.Persi
 						Capabilities: &k8sv1.Capabilities{
 							Drop: []k8sv1.Capability{"ALL"},
 						},
-						Privileged:               pointer.Bool(false),
+						Privileged:               pointer.P(false),
 						RunAsUser:                &nonRootUser,
-						RunAsNonRoot:             pointer.Bool(true),
-						AllowPrivilegeEscalation: pointer.Bool(false),
+						RunAsNonRoot:             pointer.P(true),
+						AllowPrivilegeEscalation: pointer.P(false),
 						SeccompProfile: &k8sv1.SeccompProfile{
 							Type: k8sv1.SeccompProfileTypeRuntimeDefault,
 						},
@@ -163,10 +162,7 @@ func createPVC(pvc *k8sv1.PersistentVolumeClaim, namespace string) *k8sv1.Persis
 }
 
 func CreateFSPVC(name, namespace, size string, labels map[string]string) *k8sv1.PersistentVolumeClaim {
-	sc, exists := GetRWOFileSystemStorageClass()
-	if !exists {
-		Skip("Skip test when RWOFileSystem storage class is not present")
-	}
+	sc, _ := GetRWOFileSystemStorageClass()
 	pvc := NewPVC(name, size, sc)
 	volumeMode := k8sv1.PersistentVolumeFilesystem
 	pvc.Spec.VolumeMode = &volumeMode
@@ -182,10 +178,7 @@ func CreateFSPVC(name, namespace, size string, labels map[string]string) *k8sv1.
 }
 
 func CreateBlockPVC(name, namespace, size string) *k8sv1.PersistentVolumeClaim {
-	sc, exists := GetRWOBlockStorageClass()
-	if !exists {
-		Skip("Skip test when RWOBlock storage class is not present")
-	}
+	sc, _ := GetRWOBlockStorageClass()
 	pvc := NewPVC(name, size, sc)
 	volumeMode := k8sv1.PersistentVolumeBlock
 	pvc.Spec.VolumeMode = &volumeMode
@@ -394,10 +387,7 @@ func CreateNFSPvAndPvc(name string, namespace string, size string, nfsTargetIP s
 func newNFSPV(name string, namespace string, size string, nfsTargetIP string, os string) *k8sv1.PersistentVolume {
 	quantity := resource.MustParse(size)
 
-	storageClass, exists := GetRWOFileSystemStorageClass()
-	if !exists {
-		Skip("Skip test when Filesystem storage is not present")
-	}
+	storageClass, _ := GetRWOFileSystemStorageClass()
 	volumeMode := k8sv1.PersistentVolumeFilesystem
 
 	nfsTargetIP = ip.NormalizeIPAddress(nfsTargetIP)
@@ -431,10 +421,7 @@ func newNFSPVC(name string, namespace string, size string, os string) *k8sv1.Per
 	quantity, err := resource.ParseQuantity(size)
 	util.PanicOnError(err)
 
-	storageClass, exists := GetRWOFileSystemStorageClass()
-	if !exists {
-		Skip("Skip test when Filesystem storage is not present")
-	}
+	storageClass, _ := GetRWOFileSystemStorageClass()
 	volumeMode := k8sv1.PersistentVolumeFilesystem
 
 	return &k8sv1.PersistentVolumeClaim{

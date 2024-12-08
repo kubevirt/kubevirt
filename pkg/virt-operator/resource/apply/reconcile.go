@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/blang/semver"
+	"github.com/coreos/go-semver/semver"
 	secv1 "github.com/openshift/api/security/v1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -315,11 +315,11 @@ func shouldTakeUpdatePath(targetVersion, currentVersion string) bool {
 	// adhere to the semver spec, we assume by default the
 	// update path is the correct path.
 	shouldTakeUpdatePath := true
-	target, err := semver.Make(targetVersion)
+	target, err := semver.NewVersion(targetVersion)
 	if err == nil {
-		current, err := semver.Make(currentVersion)
+		current, err := semver.NewVersion(currentVersion)
 		if err == nil {
-			if target.Compare(current) <= 0 {
+			if target.Compare(*current) <= 0 {
 				shouldTakeUpdatePath = false
 			}
 		}
@@ -522,7 +522,7 @@ func NewReconciler(kv *v1.KubeVirt, targetStrategy install.StrategyInterface, st
 	}, nil
 }
 
-func (r *Reconciler) Sync(queue workqueue.RateLimitingInterface) (bool, error) {
+func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (bool, error) {
 	// Avoid log spam by logging this issue once early instead of for once each object created
 	if !util.IsValidLabel(r.kv.Spec.ProductVersion) {
 		log.Log.Errorf("invalid kubevirt.spec.productVersion: labels must be 63 characters or less, begin and end with alphanumeric characters, and contain only dot, hyphen or underscore")
@@ -1364,7 +1364,11 @@ func (r *Reconciler) exportProxyEnabled() bool {
 }
 
 func (r *Reconciler) commonInstancetypesDeploymentEnabled() bool {
-	return r.isFeatureGateEnabled(virtconfig.CommonInstancetypesDeploymentGate)
+	config := r.kv.Spec.Configuration.CommonInstancetypesDeployment
+	if config != nil && config.Enabled != nil {
+		return *config.Enabled
+	}
+	return true
 }
 
 func getInstallStrategyAnnotations(meta *metav1.ObjectMeta) (imageTag, imageRegistry, id string, ok bool) {

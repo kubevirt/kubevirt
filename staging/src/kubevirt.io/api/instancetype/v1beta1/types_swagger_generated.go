@@ -181,8 +181,9 @@ func (FirmwarePreferences) SwaggerDoc() map[string]string {
 		"":                       "FirmwarePreferences contains various optional defaults for Firmware.",
 		"preferredUseBios":       "PreferredUseBios optionally enables BIOS\n\n+optional",
 		"preferredUseBiosSerial": "PreferredUseBiosSerial optionally transmitts BIOS output over the serial.\n\nRequires PreferredUseBios to be enabled.\n\n+optional",
-		"preferredUseEfi":        "PreferredUseEfi optionally enables EFI\n\n+optional",
-		"preferredUseSecureBoot": "PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.\n\nRequires PreferredUseEfi and PreferredSmm to be enabled.\n\n+optional",
+		"preferredUseEfi":        "PreferredUseEfi optionally enables EFI\n\n+optional\nDeprecated: Will be removed with v1beta2 or v1",
+		"preferredUseSecureBoot": "PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.\n\nRequires PreferredUseEfi and PreferredSmm to be enabled.\n\n+optional\nDeprecated: Will be removed with v1beta2 or v1",
+		"preferredEfi":           "PreferredEfi optionally enables EFI\n\n+optional",
 	}
 }
 

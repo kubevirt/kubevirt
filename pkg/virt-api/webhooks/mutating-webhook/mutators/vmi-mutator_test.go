@@ -25,8 +25,6 @@ import (
 	"net/http"
 	rt "runtime"
 
-	"k8s.io/utils/pointer"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -44,7 +42,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -262,6 +260,30 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 		Expect(vmiSpec.Volumes).To(Equal(expected))
 	},
+		Entry("set the ImagePullPolicy to IfNotPresent if sha256",
+			[]v1.Volume{
+				{
+					Name: "a",
+					VolumeSource: v1.VolumeSource{
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image: "test@sha256:9c2b78e11c25b3fd0b24b0ed684a112052dff03eee4ca4bdcc4f3168f9a14396",
+						},
+					},
+				},
+			},
+			[]v1.Volume{
+				{
+					Name: "a",
+					VolumeSource: v1.VolumeSource{
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image:           "test@sha256:9c2b78e11c25b3fd0b24b0ed684a112052dff03eee4ca4bdcc4f3168f9a14396",
+							ImagePullPolicy: k8sv1.PullIfNotPresent,
+						},
+					},
+				},
+			},
+		),
+
 		Entry("set the ImagePullPolicy to Always if :latest is specified",
 			[]v1.Volume{
 				{
@@ -451,7 +473,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				Configuration: v1.KubeVirtConfiguration{
 					NetworkConfiguration: &v1.NetworkConfiguration{
 						NetworkInterface:               string(v1.DeprecatedSlirpInterface),
-						DeprecatedPermitSlirpInterface: kvpointer.P(true),
+						DeprecatedPermitSlirpInterface: pointer.P(true),
 					},
 				},
 			},
@@ -707,7 +729,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 			},
 		}
@@ -747,13 +769,13 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 				Runtime: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 				Reset: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 			},
 		}
@@ -762,13 +784,13 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		hyperv := v1.FeatureHyperv{
 			Relaxed: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 			Runtime: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 			Reset: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 		}
 
@@ -786,10 +808,10 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 			},
 		}
@@ -798,16 +820,16 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		hyperv := v1.FeatureHyperv{
 			Relaxed: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 			VPIndex: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 			SyNIC: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 			SyNICTimer: &v1.SyNICTimer{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 		}
 
@@ -825,14 +847,14 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				VPIndex: &v1.FeatureState{
-					Enabled: pointer.Bool(false),
+					Enabled: pointer.P(false),
 				},
 				// should enable SyNIC
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 				EVMCS: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 			},
 		}
@@ -844,19 +866,19 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		hyperv := v1.FeatureHyperv{
 			VPIndex: &v1.FeatureState{
-				Enabled: pointer.Bool(false),
+				Enabled: pointer.P(false),
 			},
 			SyNIC: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 			SyNICTimer: &v1.SyNICTimer{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 			EVMCS: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 			VAPIC: &v1.FeatureState{
-				Enabled: pointer.Bool(true),
+				Enabled: pointer.P(true),
 			},
 		}
 
@@ -985,13 +1007,13 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Entry("if hyperV doesn't contain EVMCS", api.NewMinimalVMI("testvmi"),
 			&v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
-					Enabled: pointer.Bool(true),
+					Enabled: pointer.P(true),
 				},
 			}, nil),
 
 		Entry("if EVMCS is explicitly false ", api.NewMinimalVMI("testvmi"),
 			&v1.FeatureHyperv{
-				EVMCS: &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
+				EVMCS: &v1.FeatureState{Enabled: pointer.P(false)},
 			},
 			nil,
 		),
@@ -1005,7 +1027,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 		Entry("if EVMCS is explicitly true ", api.NewMinimalVMI("testvmi"),
 			&v1.FeatureHyperv{
-				EVMCS: &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
+				EVMCS: &v1.FeatureState{Enabled: pointer.P(true)},
 			}, &v1.CPU{
 				Features: cpuFeatures,
 			}),
@@ -1131,113 +1153,6 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(status.RuntimeUser).NotTo(BeZero())
 	})
 
-	It("should add realtime node label selector with realtime workload", func() {
-		vmi.Spec.Domain.CPU = &v1.CPU{Realtime: &v1.Realtime{}}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
-		Expect(vmiSpec.NodeSelector).NotTo(BeNil())
-		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.RealtimeLabel: ""}))
-	})
-	It("should not add realtime node label selector when no realtime workload", func() {
-		vmi.Spec.Domain.CPU = &v1.CPU{Realtime: nil}
-		vmi.Spec.NodeSelector = map[string]string{v1.NodeSchedulable: "true"}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
-		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true"}))
-	})
-	It("should not overwrite existing node label selectors with realtime workload", func() {
-		vmi.Spec.Domain.CPU = &v1.CPU{Realtime: &v1.Realtime{}}
-		vmi.Spec.NodeSelector = map[string]string{v1.NodeSchedulable: "true"}
-		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
-		Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(map[string]string{v1.NodeSchedulable: "true", v1.RealtimeLabel: ""}))
-	})
-
-	DescribeTable("When scheduling SEV workloads",
-		func(nodeSelectorBefore map[string]string,
-			nodeSelectorAfter map[string]string,
-			launchSec *v1.LaunchSecurity) {
-			vmi.Spec.NodeSelector = nodeSelectorBefore
-			vmi.Spec.Domain.LaunchSecurity = launchSec
-			_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
-			Expect(vmiSpec.NodeSelector).NotTo(BeNil())
-			Expect(vmiSpec.NodeSelector).To(BeEquivalentTo(nodeSelectorAfter))
-		},
-		Entry("It should add SEV node label selector with SEV workload",
-			map[string]string{},
-			map[string]string{v1.SEVLabel: ""},
-			&v1.LaunchSecurity{SEV: &v1.SEV{}}),
-		Entry("It should not add SEV node label selector when no SEV workload",
-			map[string]string{v1.NodeSchedulable: "true"},
-			map[string]string{v1.NodeSchedulable: "true"},
-			&v1.LaunchSecurity{}),
-		Entry("It should not overwrite existing node label selectors with SEV workload",
-			map[string]string{v1.NodeSchedulable: "true"},
-			map[string]string{v1.NodeSchedulable: "true", v1.SEVLabel: ""},
-			&v1.LaunchSecurity{SEV: &v1.SEV{}}),
-		Entry("It should add SEV and SEV-ES node label selector with SEV-ES workload",
-			map[string]string{},
-			map[string]string{
-				v1.SEVLabel:   "",
-				v1.SEVESLabel: "",
-			},
-			&v1.LaunchSecurity{
-				SEV: &v1.SEV{
-					Policy: &v1.SEVPolicy{
-						EncryptedState: pointer.Bool(true),
-					},
-				},
-			}),
-		Entry("It should not add SEV-ES node label selector when no SEV policy is set",
-			map[string]string{v1.NodeSchedulable: "true"},
-			map[string]string{
-				v1.NodeSchedulable: "true",
-				v1.SEVLabel:        "",
-			},
-			&v1.LaunchSecurity{
-				SEV: &v1.SEV{
-					Policy: &v1.SEVPolicy{},
-				},
-			}),
-		Entry("It should not add SEV-ES node label selector when no SEV-ES policy bit is set",
-			map[string]string{v1.NodeSchedulable: "true"},
-			map[string]string{
-				v1.NodeSchedulable: "true",
-				v1.SEVLabel:        "",
-			},
-			&v1.LaunchSecurity{
-				SEV: &v1.SEV{
-					Policy: &v1.SEVPolicy{
-						EncryptedState: nil,
-					},
-				},
-			}),
-		Entry("It should not add SEV-ES node label selector when SEV-ES policy bit is set to false",
-			map[string]string{v1.NodeSchedulable: "true"},
-			map[string]string{
-				v1.NodeSchedulable: "true",
-				v1.SEVLabel:        "",
-			},
-			&v1.LaunchSecurity{
-				SEV: &v1.SEV{
-					Policy: &v1.SEVPolicy{
-						EncryptedState: pointer.Bool(false),
-					},
-				},
-			}),
-		Entry("It should not overwrite existing node label selectors with SEV-ES workload",
-			map[string]string{v1.NodeSchedulable: "true"},
-			map[string]string{
-				v1.NodeSchedulable: "true",
-				v1.SEVLabel:        "",
-				v1.SEVESLabel:      "",
-			},
-			&v1.LaunchSecurity{
-				SEV: &v1.SEV{
-					Policy: &v1.SEVPolicy{
-						EncryptedState: pointer.Bool(true),
-					},
-				},
-			}),
-	)
-
 	DescribeTable("evictionStrategy should match the", func(f func(*v1.VirtualMachineInstanceSpec) v1.EvictionStrategy) {
 		expected := f(&vmi.Spec)
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
@@ -1340,14 +1255,11 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		})
 	})
 
-	Context("when LiveUpdate and VMLiveUpdateFeatures is enabled", func() {
+	Context("when vmRolloutStrategy LiveUpdate is enabled", func() {
 		BeforeEach(func() {
 			kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
 			rolloutStrategy := v1.VMRolloutStrategyLiveUpdate
 			kvCR.Spec.Configuration.VMRolloutStrategy = &rolloutStrategy
-			kvCR.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-				FeatureGates: []string{virtconfig.VMLiveUpdateFeaturesGate},
-			}
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvCR)
 		})
 		Context("configure CPU hotplug", func() {
@@ -1404,6 +1316,21 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			It("to calculate max sockets to be 4x times the default sockets when default CPU topology used", func() {
 				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 				Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(4)))
+			})
+
+			It("to set MaxSockets to number of sockets when MaxCpuSockets is lower", func() {
+				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
+				kvCR.Spec.Configuration.LiveUpdateConfiguration = &v1.LiveUpdateConfiguration{
+					MaxCpuSockets: pointer.P(uint32(2)),
+				}
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvCR)
+
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Sockets: 3,
+				}
+
+				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(3)))
 			})
 		})
 		Context("configure Memory hotplug", func() {
@@ -1495,7 +1422,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 
 			DescribeTable("should leave MaxGuest empty when memory hotplug is incompatible", func(vmiSetup func(*v1.VirtualMachineInstanceSpec)) {
 				vmi := api.NewMinimalVMI("testvm")
-				vmi.Spec.Domain.Memory = &v1.Memory{Guest: kvpointer.P(resource.MustParse("128Mi"))}
+				vmi.Spec.Domain.Memory = &v1.Memory{Guest: pointer.P(resource.MustParse("128Mi"))}
 				vmiSetup(&vmi.Spec)
 
 				_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
@@ -1545,12 +1472,15 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					vmiSpec.Domain.Memory.Guest = &unAlignedMemory
 				}),
 				Entry("guest memory with hugepages is not properly aligned", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
-					vmiSpec.Domain.Memory.Guest = kvpointer.P(resource.MustParse("2G"))
-					vmiSpec.Domain.Memory.MaxGuest = kvpointer.P(resource.MustParse("16Gi"))
+					vmiSpec.Domain.Memory.Guest = pointer.P(resource.MustParse("2G"))
+					vmiSpec.Domain.Memory.MaxGuest = pointer.P(resource.MustParse("16Gi"))
 					vmiSpec.Domain.Memory.Hugepages = &v1.Hugepages{PageSize: "1Gi"}
 				}),
 				Entry("architecture is not amd64 or arm64", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
 					vmiSpec.Architecture = "risc-v"
+				}),
+				Entry("guest memory is less than 1Gi", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
+					vmiSpec.Domain.Memory.Guest = pointer.P(resource.MustParse("512Mi"))
 				}),
 			)
 		})

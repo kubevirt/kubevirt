@@ -29,7 +29,7 @@ func (f *ClusterPreferenceAdmitter) Admit(_ context.Context, ar *admissionv1.Adm
 	return admitPreference(ar.Request, instancetypeapi.ClusterPluralPreferenceResourceName)
 }
 
-func validatePreferenceSpec(field *k8sfield.Path, spec *instancetypeapiv1beta1.VirtualMachinePreferenceSpec) []metav1.StatusCause {
+func ValidatePreferenceSpec(field *k8sfield.Path, spec *instancetypeapiv1beta1.VirtualMachinePreferenceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	causes = append(causes, validatePreferredCPUTopology(field, spec)...)
@@ -134,7 +134,7 @@ func admitPreference(request *admissionv1.AdmissionRequest, resource string) *ad
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
-	causes := validatePreferenceSpec(k8sfield.NewPath("spec"), preferenceSpec)
+	causes := ValidatePreferenceSpec(k8sfield.NewPath("spec"), preferenceSpec)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}

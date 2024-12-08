@@ -135,22 +135,4 @@ var _ = Describe("Validating core binding", func() {
 			Field:   "fake.domain.devices.interfaces[0].name",
 		}))
 	})
-
-	It("should reject networks with a binding plugin interface when network-binding-plugin feature gate disabled", func() {
-		spec := &v1.VirtualMachineInstanceSpec{}
-		spec.Domain.Devices.Interfaces = []v1.Interface{{
-			Name:    "default",
-			Binding: &v1.PluginBinding{Name: "testplugin"},
-		}}
-		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
-		causes := validator.Validate()
-
-		Expect(causes).To(ConsistOf(metav1.StatusCause{
-			Type:    "FieldValueInvalid",
-			Message: "Binding plugins feature gate is not enabled",
-			Field:   "fake.domain.devices.interfaces[0].name",
-		}))
-	})
 })

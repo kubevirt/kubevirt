@@ -27,7 +27,7 @@ import (
 
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 
-	clonev1alpha1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/clone/v1alpha1"
+	clonev1alpha1 "kubevirt.io/client-go/kubevirt/typed/clone/v1alpha1"
 
 	secv1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	"github.com/spf13/pflag"
@@ -45,12 +45,12 @@ import (
 
 	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
-	cdiclient "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned"
-	k8ssnapshotclient "kubevirt.io/client-go/generated/external-snapshotter/clientset/versioned"
-	generatedclient "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
-	migrationsv1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/migrations/v1alpha1"
-	networkclient "kubevirt.io/client-go/generated/network-attachment-definition-client/clientset/versioned"
-	promclient "kubevirt.io/client-go/generated/prometheus-operator/clientset/versioned"
+	cdiclient "kubevirt.io/client-go/containerizeddataimporter"
+	k8ssnapshotclient "kubevirt.io/client-go/externalsnapshotter"
+	generatedclient "kubevirt.io/client-go/kubevirt"
+	migrationsv1 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
+	networkclient "kubevirt.io/client-go/networkattachmentdefinitionclient"
+	promclient "kubevirt.io/client-go/prometheusoperator"
 )
 
 var (
@@ -210,7 +210,7 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 		return nil, err
 	}
 
-	return &kubevirt{
+	return &kubevirtClient{
 		master,
 		kubeconfig,
 		restClient,
@@ -406,7 +406,7 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		return nil, err
 	}
 
-	return &kubevirt{
+	return &kubevirtClient{
 		master,
 		kubeconfig,
 		restClient,

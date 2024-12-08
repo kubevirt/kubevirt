@@ -32,7 +32,7 @@ import (
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
-	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
+	"kubevirt.io/client-go/kubevirt/fake"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -43,12 +43,12 @@ import (
 
 var _ = Describe("VM Network Controller", func() {
 	It("sync does nothing when the hotplug FG is unset", func() {
-		c := network.NewVMNetController(fake.NewSimpleClientset(), stubClusterConfig{}, stubPodGetter{})
+		c := network.NewVMNetController(fake.NewSimpleClientset(), stubPodGetter{})
 		Expect(c.Sync(newEmptyVM(), libvmi.New())).To(Equal(newEmptyVM()))
 	})
 
 	DescribeTable("sync does nothing when", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, podGetter stubPodGetter) {
-		c := network.NewVMNetController(fake.NewSimpleClientset(), stubClusterConfig{netHotplugEnabled: true}, podGetter)
+		c := network.NewVMNetController(fake.NewSimpleClientset(), podGetter)
 		originalVM := vm.DeepCopy()
 		Expect(c.Sync(vm, vmi)).To(Equal(originalVM))
 	},
@@ -83,7 +83,6 @@ var _ = Describe("VM Network Controller", func() {
 	It("sync fails when pod fetching returns an error", func() {
 		c := network.NewVMNetController(
 			fake.NewSimpleClientset(),
-			stubClusterConfig{netHotplugEnabled: true},
 			stubPodGetter{err: errors.New("test")},
 		)
 		updatedVM, err := c.Sync(newEmptyVM(), libvmi.New())
@@ -95,7 +94,6 @@ var _ = Describe("VM Network Controller", func() {
 		clientset := fake.NewSimpleClientset()
 		c := network.NewVMNetController(
 			clientset,
-			stubClusterConfig{netHotplugEnabled: true},
 			stubPodGetter{pod: &k8sv1.Pod{}},
 		)
 
@@ -128,7 +126,6 @@ var _ = Describe("VM Network Controller", func() {
 		clientset := fake.NewSimpleClientset()
 		c := network.NewVMNetController(
 			clientset,
-			stubClusterConfig{netHotplugEnabled: true},
 			stubPodGetter{pod: &k8sv1.Pod{}},
 		)
 		vmi := libvmi.New(
@@ -161,7 +158,6 @@ var _ = Describe("VM Network Controller", func() {
 		clientset := fake.NewSimpleClientset()
 		c := network.NewVMNetController(
 			clientset,
-			stubClusterConfig{netHotplugEnabled: true},
 			stubPodGetter{pod: &k8sv1.Pod{}},
 		)
 		unpluggedIface := libvmi.InterfaceDeviceWithBridgeBinding("foonet")
@@ -199,7 +195,6 @@ var _ = Describe("VM Network Controller", func() {
 		clientset := fake.NewSimpleClientset()
 		c := network.NewVMNetController(
 			clientset,
-			stubClusterConfig{netHotplugEnabled: true},
 			stubPodGetter{pod: nil},
 		)
 		vmi := libvmi.New(
@@ -252,7 +247,6 @@ var _ = Describe("VM Network Controller", func() {
 		}
 		c := network.NewVMNetController(
 			clientset,
-			stubClusterConfig{netHotplugEnabled: true},
 			stubPodGetter{pod: pod},
 		)
 		vmi := libvmi.New(
@@ -292,14 +286,6 @@ var _ = Describe("VM Network Controller", func() {
 		Expect(iface.State).NotTo(Equal(v1.InterfaceStateAbsent))
 	})
 })
-
-type stubClusterConfig struct {
-	netHotplugEnabled bool
-}
-
-func (s stubClusterConfig) HotplugNetworkInterfacesEnabled() bool {
-	return s.netHotplugEnabled
-}
 
 type stubPodGetter struct {
 	pod *k8sv1.Pod

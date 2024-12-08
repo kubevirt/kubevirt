@@ -38,35 +38,42 @@ var (
 		migrationMetrics,
 		perfscaleMetrics,
 		vmiMetrics,
+		vmSnapshotMetrics,
 	}
 
-	vmInformer                  cache.SharedIndexInformer
-	vmiInformer                 cache.SharedIndexInformer
-	clusterInstanceTypeInformer cache.SharedIndexInformer
-	instanceTypeInformer        cache.SharedIndexInformer
-	clusterPreferenceInformer   cache.SharedIndexInformer
-	preferenceInformer          cache.SharedIndexInformer
-	vmiMigrationInformer        cache.SharedIndexInformer
-	clusterConfig               *virtconfig.ClusterConfig
+	vmInformer                    cache.SharedIndexInformer
+	vmiInformer                   cache.SharedIndexInformer
+	persistentVolumeClaimInformer cache.SharedIndexInformer
+	clusterInstanceTypeInformer   cache.SharedIndexInformer
+	instanceTypeInformer          cache.SharedIndexInformer
+	clusterPreferenceInformer     cache.SharedIndexInformer
+	preferenceInformer            cache.SharedIndexInformer
+	vmiMigrationInformer          cache.SharedIndexInformer
+	kvPodInformer                 cache.SharedIndexInformer
+	clusterConfig                 *virtconfig.ClusterConfig
 )
 
 func SetupMetrics(
 	vm cache.SharedIndexInformer,
 	vmi cache.SharedIndexInformer,
+	pvc cache.SharedIndexInformer,
 	clusterInstanceType cache.SharedIndexInformer,
 	instanceType cache.SharedIndexInformer,
 	clusterPreference cache.SharedIndexInformer,
 	preference cache.SharedIndexInformer,
 	vmiMigration cache.SharedIndexInformer,
+	pod cache.SharedIndexInformer,
 	virtClusterConfig *virtconfig.ClusterConfig,
 ) error {
 	vmInformer = vm
 	vmiInformer = vmi
+	persistentVolumeClaimInformer = pvc
 	clusterInstanceTypeInformer = clusterInstanceType
 	instanceTypeInformer = instanceType
 	clusterPreferenceInformer = clusterPreference
 	preferenceInformer = preference
 	vmiMigrationInformer = vmiMigration
+	kvPodInformer = pod
 	clusterConfig = virtClusterConfig
 
 	if err := client.SetupMetrics(); err != nil {

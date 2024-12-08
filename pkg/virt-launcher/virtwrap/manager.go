@@ -39,11 +39,12 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	virtcache "kubevirt.io/kubevirt/tools/cache"
 
-	"k8s.io/utils/pointer"
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
@@ -883,11 +884,11 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 		log.DefaultLogger().Error("No disk capacity")
 		return 0, false
 	}
-	preferredSize := *disk.Capacity
 	if disk.FilesystemOverhead == nil {
 		log.DefaultLogger().Errorf("No filesystem overhead found for disk %v", disk)
 		return 0, false
 	}
+
 	filesystemOverhead, err := strconv.ParseFloat(string(*disk.FilesystemOverhead), 64)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Error("Failed to parse filesystem overhead as float")
@@ -898,12 +899,40 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 		return 0, false
 	}
 
+	preferredSize := *disk.Capacity
+	if isBlock := disk.Source.Dev != ""; !isBlock {
+		usableSize, err := getUsableDiskSize(getSourceFile(disk))
+		if err != nil {
+			log.DefaultLogger().Reason(err).Error("Failed to get total usable space, using disk capacity instead")
+			usableSize = preferredSize
+		}
+		preferredSize = min(usableSize, preferredSize)
+	}
+
 	size := int64((1 - filesystemOverhead) * float64(preferredSize))
 	size = kutil.AlignImageSizeTo1MiB(size, log.DefaultLogger())
 	if size == 0 {
 		return 0, false
 	}
 	return size, true
+}
+
+func getUsableDiskSize(path string) (int64, error) {
+	var statfs syscall.Statfs_t
+	err := syscall.Statfs(path, &statfs)
+	if err != nil {
+		return int64(-1), err
+	}
+	availableSize := int64(statfs.Bavail) * int64(statfs.Bsize)
+
+	var stat syscall.Stat_t
+	err = syscall.Stat(path, &stat)
+	if err != nil {
+		return int64(-1), err
+	}
+	actualSize := int64(stat.Size)
+
+	return actualSize + availableSize, nil
 }
 
 func shouldExpandOffline(disk api.Disk) bool {
@@ -988,7 +1017,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 
 	// Map the VirtualMachineInstance to the Domain
 	c := &converter.ConverterContext{
-		Architecture:          runtime.GOARCH,
+		Architecture:          converter.NewArchConverter(runtime.GOARCH),
 		VirtualMachine:        vmi,
 		AllowEmulation:        allowEmulation,
 		CPUSet:                podCPUSet,
@@ -1090,7 +1119,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	}
 
 	// Set defaults which are not coming from the cluster
-	api.NewDefaulter(c.Architecture).SetObjectDefaults_Domain(domain)
+	api.NewDefaulter(c.Architecture.GetArchitecture()).SetObjectDefaults_Domain(domain)
 
 	dom, err := l.lookupOrCreateVirDomain(domain, vmi, options)
 	if err != nil {
@@ -1769,7 +1798,7 @@ func (l *LibvirtDomainManager) SoftRebootVMI(vmi *v1.VirtualMachineInstance) err
 
 func (l *LibvirtDomainManager) MarkGracefulShutdownVMI() {
 	l.metadataCache.GracePeriod.WithSafeBlock(func(gracePeriodMetadata *api.GracePeriodMetadata, _ bool) {
-		gracePeriodMetadata.MarkedForGracefulShutdown = pointer.Bool(true)
+		gracePeriodMetadata.MarkedForGracefulShutdown = pointer.P(true)
 	})
 	log.Log.V(4).Infof("Marked for graceful shutdown in metadata: %s", l.metadataCache.GracePeriod.String())
 }
@@ -1798,7 +1827,7 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 	}
 
 	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED {
-		err = dom.ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_ACPI_POWER_BTN)
+		err = dom.ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_DEFAULT)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("Signalling graceful shutdown failed.")
 			return err

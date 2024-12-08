@@ -8,17 +8,18 @@ import (
 
 	"github.com/golang/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
-	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/api"
-	"kubevirt.io/client-go/kubecli"
 
-	pointer "kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/client-go/kubecli"
+	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 )
 
@@ -27,36 +28,36 @@ var _ = Describe("Credentials set-password", func() {
 		vmName     = "test-vm"
 		secretName = "test-secret"
 		userName   = "test-user"
+		testPass   = "test-pass"
 	)
 
 	var (
 		kubeClient *fake.Clientset
+		virtClient *kubevirtfake.Clientset
 
 		vm *v1.VirtualMachine
 	)
 
 	BeforeEach(func() {
 		kubeClient = fake.NewSimpleClientset()
+		virtClient = kubevirtfake.NewSimpleClientset()
 
-		vmi := api.NewMinimalVMI(vmName)
-		vmi.Spec.AccessCredentials = []v1.AccessCredential{{
-			UserPassword: &v1.UserPasswordAccessCredential{
-				Source: v1.UserPasswordAccessCredentialSource{
-					Secret: &v1.AccessCredentialSecretSource{
-						SecretName: secretName,
-					},
-				},
-				PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
-					QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
-				},
-			},
-		}}
+		ctrl := gomock.NewController(GinkgoT())
+		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
+		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
+		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(metav1.NamespaceDefault).
+			Return(virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
+		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
-		vm = kubecli.NewMinimalVM(vmName)
-		vm.Namespace = metav1.NamespaceDefault
-		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
-			Spec: vmi.Spec,
-		}
+		vmi := libvmi.New(
+			libvmi.WithNamespace(metav1.NamespaceDefault),
+			libvmi.WithName(vmName),
+			libvmi.WithAccessCredentialUserPassword(secretName),
+		)
+		var err error
+		vm, err = virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault).
+			Create(context.Background(), libvmi.NewVirtualMachine(vmi), metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -71,29 +72,8 @@ var _ = Describe("Credentials set-password", func() {
 				}},
 			},
 		}
-
-		_, err := kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
+		_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-
-		ctrl := gomock.NewController(GinkgoT())
-		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
-		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
-
-		vmInterface := kubecli.NewMockVirtualMachineInterface(ctrl)
-
-		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
-		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-
-		vmInterface.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).
-			DoAndReturn(func(_ any, name string, _ any) (*v1.VirtualMachine, error) {
-				if name == vmName && vm != nil {
-					return vm, nil
-				}
-				return nil, errors.NewNotFound(schema.GroupResource{
-					Group:    core.GroupName,
-					Resource: "VirtualMachine",
-				}, name)
-			}).AnyTimes()
 	})
 
 	It("should fail if no password is specified", func() {
@@ -118,12 +98,17 @@ var _ = Describe("Credentials set-password", func() {
 			"--password", "test-pass",
 			vmName,
 		)
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring("required flag(s) \"user\" not set")))
 	})
 
 	It("should fail if no secret is specified", func() {
-		vm.Spec.Template.Spec.AccessCredentials = nil
-		err := runSetPasswordCommand(
+		payload, err := patch.New(patch.WithRemove("/spec/template/spec/accessCredentials")).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+		_, err = virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault).
+			Patch(context.Background(), vm.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		err = runSetPasswordCommand(
 			"--user", userName,
 			"--password", "test-password",
 			vmName,
@@ -132,19 +117,18 @@ var _ = Describe("Credentials set-password", func() {
 	})
 
 	It("should fail if multiple secrets are specified and --secret parameter is not set ", func() {
-		vm.Spec.Template.Spec.AccessCredentials = append(vm.Spec.Template.Spec.AccessCredentials,
-			v1.AccessCredential{
-				UserPassword: &v1.UserPasswordAccessCredential{
-					Source: v1.UserPasswordAccessCredentialSource{
-						Secret: &v1.AccessCredentialSecretSource{
-							SecretName: "secret-2",
-						},
-					},
-					PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
-						QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
+		appendToAccessCredentials(virtClient, vm, v1.AccessCredential{
+			UserPassword: &v1.UserPasswordAccessCredential{
+				Source: v1.UserPasswordAccessCredentialSource{
+					Secret: &v1.AccessCredentialSecretSource{
+						SecretName: "secret-2",
 					},
 				},
-			})
+				PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
+					QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
+				},
+			},
+		})
 
 		err := runSetPasswordCommand(
 			"--user", userName,
@@ -155,7 +139,6 @@ var _ = Describe("Credentials set-password", func() {
 	})
 
 	It("should patch secret", func() {
-		const testPass = "test-pass"
 		err := runSetPasswordCommand(
 			"--user", userName,
 			"--password", testPass,
@@ -168,7 +151,6 @@ var _ = Describe("Credentials set-password", func() {
 
 	It("should patch the secret specified by parameter", func() {
 		const secondSecretName = "second-secret"
-
 		secondSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      secondSecretName,
@@ -182,25 +164,22 @@ var _ = Describe("Credentials set-password", func() {
 				}},
 			},
 		}
-
 		_, err := kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secondSecret, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		vm.Spec.Template.Spec.AccessCredentials = append(vm.Spec.Template.Spec.AccessCredentials,
-			v1.AccessCredential{
-				UserPassword: &v1.UserPasswordAccessCredential{
-					Source: v1.UserPasswordAccessCredentialSource{
-						Secret: &v1.AccessCredentialSecretSource{
-							SecretName: secondSecretName,
-						},
-					},
-					PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
-						QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
+		appendToAccessCredentials(virtClient, vm, v1.AccessCredential{
+			UserPassword: &v1.UserPasswordAccessCredential{
+				Source: v1.UserPasswordAccessCredentialSource{
+					Secret: &v1.AccessCredentialSecretSource{
+						SecretName: secondSecretName,
 					},
 				},
-			})
+				PropagationMethod: v1.UserPasswordAccessCredentialPropagationMethod{
+					QemuGuestAgent: &v1.QemuGuestAgentUserPasswordAccessCredentialPropagation{},
+				},
+			},
+		})
 
-		const testPass = "test-pass"
 		err = runSetPasswordCommand(
 			"--user", userName,
 			"--secret", secondSecretName,
@@ -213,12 +192,22 @@ var _ = Describe("Credentials set-password", func() {
 	})
 })
 
-func expectSecretToContainUserWithPassword(cli kubernetes.Interface, secretName, user, password string) {
-	secret, err := cli.CoreV1().Secrets(metav1.NamespaceDefault).Get(context.Background(), secretName, metav1.GetOptions{})
+func appendToAccessCredentials(virtClient *kubevirtfake.Clientset, vm *v1.VirtualMachine, accessCredential v1.AccessCredential) {
+	vm.Spec.Template.Spec.AccessCredentials = append(vm.Spec.Template.Spec.AccessCredentials, accessCredential)
+	payload, err := patch.New(
+		patch.WithReplace("/spec/template/spec/accessCredentials", vm.Spec.Template.Spec.AccessCredentials),
+	).GeneratePayload()
 	Expect(err).ToNot(HaveOccurred())
+	_, err = virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault).
+		Patch(context.Background(), vm.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
+	Expect(err).ToNot(HaveOccurred())
+}
 
-	ExpectWithOffset(1, secret.Data).To(HaveLen(1))
-	ExpectWithOffset(1, secret.Data).To(HaveKeyWithValue(user, []byte(password)))
+func expectSecretToContainUserWithPassword(kubeClient kubernetes.Interface, secretName, user, password string) {
+	secret, err := kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Get(context.Background(), secretName, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(secret.Data).To(HaveLen(1))
+	Expect(secret.Data).To(HaveKeyWithValue(user, []byte(password)))
 }
 
 func runSetPasswordCommand(args ...string) error {

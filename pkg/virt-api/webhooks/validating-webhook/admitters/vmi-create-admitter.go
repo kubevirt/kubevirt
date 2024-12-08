@@ -27,12 +27,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
-
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -205,7 +202,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 	causes = append(causes, validatePodDNSConfig(spec.DNSConfig, &spec.DNSPolicy, field.Child("dnsConfig"))...)
 	causes = append(causes, validateLiveMigration(field, spec, config)...)
-	causes = append(causes, validateGPUsWithPassthroughEnabled(field, spec, config)...)
+	causes = append(causes, validateMDEVRamFB(field, spec)...)
 	causes = append(causes, validateHostDevicesWithPassthroughEnabled(field, spec, config)...)
 	causes = append(causes, validateSoundDevices(field, spec)...)
 	causes = append(causes, validateLaunchSecurity(field, spec, config)...)
@@ -439,15 +436,8 @@ func countConfiguredMDEVRamFBs(spec *v1.VirtualMachineInstanceSpec) int {
 	return count
 }
 
-func validateGPUsWithPassthroughEnabled(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+func validateMDEVRamFB(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	if spec.Domain.Devices.GPUs != nil && !config.GPUPassthroughEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "GPU feature gate is not enabled in kubevirt-config",
-			Field:   field.Child("GPUs").String(),
-		})
-	}
 	if countConfiguredMDEVRamFBs(spec) > 1 {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -1253,28 +1243,6 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, metadata *meta
 			Message: fmt.Sprintf("sidecar feature gate is not enabled in kubevirt-config, invalid entry %s",
 				field.Child("annotations", hooks.HookSidecarListAnnotationName).String()),
 			Field: field.Child("annotations").String(),
-		})
-	}
-
-	threadCountStr, exists := metadata.Annotations[cmdclient.MultiThreadedQemuMigrationAnnotation]
-	if !exists {
-		return causes
-	}
-
-	threadCount, err := strconv.Atoi(threadCountStr)
-	invalidEntry := field.Child("annotations", cmdclient.MultiThreadedQemuMigrationAnnotation).String()
-
-	if err != nil {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("cannot parse %s to int: %s, invalid entry %s", threadCountStr, err.Error(), invalidEntry),
-			Field:   field.Child("annotations").String(),
-		})
-	} else if threadCount <= 1 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("thread count (%s) must be larger than 1. invalid entry %s", threadCountStr, invalidEntry),
-			Field:   field.Child("annotations").String(),
 		})
 	}
 

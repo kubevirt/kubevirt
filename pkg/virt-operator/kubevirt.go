@@ -42,7 +42,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/util/status"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	install "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -62,8 +61,8 @@ type strategyCacheEntry struct {
 
 type KubeVirtController struct {
 	clientset            kubecli.KubevirtClient
-	queue                workqueue.RateLimitingInterface
-	delayedQueueAdder    func(key interface{}, queue workqueue.RateLimitingInterface)
+	queue                workqueue.TypedRateLimitingInterface[string]
+	delayedQueueAdder    func(key string, queue workqueue.TypedRateLimitingInterface[string])
 	recorder             record.EventRecorder
 	config               util.OperatorConfig
 	stores               util.Stores
@@ -71,7 +70,6 @@ type KubeVirtController struct {
 	latestStrategy       atomic.Value
 	operatorNamespace    string
 	aggregatorClient     install.APIServiceInterface
-	statusUpdater        *status.KVStatusUpdater
 	hasSynced            func() bool
 }
 
@@ -84,9 +82,9 @@ func NewKubeVirtController(
 	operatorNamespace string,
 ) (*KubeVirtController, error) {
 
-	rl := workqueue.NewMaxOfRateLimiter(
-		workqueue.NewItemExponentialFailureRateLimiter(5*time.Second, 1000*time.Second),
-		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Every(5*time.Second), 1)},
+	rl := workqueue.NewTypedMaxOfRateLimiter[string](
+		workqueue.NewTypedItemExponentialFailureRateLimiter[string](5*time.Second, 1000*time.Second),
+		&workqueue.TypedBucketRateLimiter[string]{Limiter: rate.NewLimiter(rate.Every(5*time.Second), 1)},
 	)
 	stores := util.Stores{
 		KubeVirtCache:                         informers.KubeVirt.GetStore(),
@@ -122,10 +120,13 @@ func NewKubeVirtController(
 	c := KubeVirtController{
 		clientset:        clientset,
 		aggregatorClient: aggregatorClient,
-		queue:            workqueue.NewNamedRateLimitingQueue(rl, VirtOperator),
-		recorder:         recorder,
-		config:           config,
-		stores:           stores,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			rl,
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: VirtOperator},
+		),
+		recorder: recorder,
+		config:   config,
+		stores:   stores,
 		kubeVirtExpectations: util.Expectations{
 			ServiceAccount:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ServiceAccount")),
 			ClusterRole:                      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRole")),
@@ -153,8 +154,7 @@ func NewKubeVirtController(
 		},
 
 		operatorNamespace: operatorNamespace,
-		statusUpdater:     status.NewKubeVirtStatusUpdater(clientset),
-		delayedQueueAdder: func(key interface{}, queue workqueue.RateLimitingInterface) {
+		delayedQueueAdder: func(key string, queue workqueue.TypedRateLimitingInterface[string]) {
 			queue.AddAfter(key, defaultAddDelay)
 		},
 	}
@@ -768,7 +768,7 @@ func (c *KubeVirtController) Execute() bool {
 		return false
 	}
 	defer c.queue.Done(key)
-	err := c.execute(key.(string))
+	err := c.execute(key)
 
 	if err != nil {
 		log.Log.Reason(err).Errorf("reenqueuing KubeVirt %v", key)
@@ -845,7 +845,7 @@ func (c *KubeVirtController) execute(key string) error {
 
 	// If we detect a change on KubeVirt we update it
 	if !equality.Semantic.DeepEqual(kv.Status, kvCopy.Status) {
-		if err := c.statusUpdater.UpdateStatus(kvCopy); err != nil {
+		if _, err := c.clientset.KubeVirt(kv.Namespace).UpdateStatus(context.Background(), kvCopy, metav1.UpdateOptions{}); err != nil {
 			logger.Reason(err).Errorf("Could not update the KubeVirt resource status.")
 			return err
 		}

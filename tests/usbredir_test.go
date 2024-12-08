@@ -35,8 +35,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
-	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
@@ -84,7 +84,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 	})
 
-	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with usbredir support", func() {
+	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][QUARANTINE] A VirtualMachineInstance with usbredir support", decorators.Quarantine, func() {
 
 		var vmi *v1.VirtualMachineInstance
 		var name, namespace string
@@ -109,16 +109,17 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				time.Sleep(100 * time.Millisecond)
 			}
 
+			numOfErrors := 0
 			for i := 0; i <= v1.UsbClientPassthroughMaxNumberOf; i++ {
 				select {
 				case err := <-errors[i]:
 					Expect(err).To(MatchError(ContainSubstring("websocket: bad handshake")))
-					Expect(i).To(Equal(v1.UsbClientPassthroughMaxNumberOf))
+					numOfErrors++
 				case <-time.After(time.Second):
 					cancelFns[i]()
-					Expect(i).ToNot(Equal(v1.UsbClientPassthroughMaxNumberOf))
 				}
 			}
+			Expect(numOfErrors).To(Equal(1), "Only one connection should fail")
 		})
 
 		It("Should work in parallel", func() {
@@ -168,6 +169,8 @@ func runConnectGoroutine(
 	ctx context.Context,
 	errch chan error,
 ) {
+	defer GinkgoRecover()
+
 	usbredirStream, err := virtClient.VirtualMachineInstance(namespace).USBRedir(name)
 	if err != nil {
 		errch <- err
@@ -185,6 +188,7 @@ func usbredirConnect(
 	Expect(err).ToNot(HaveOccurred())
 
 	usbredirClient.ClientConnect = func(inCtx context.Context, device, address string) error {
+		defer GinkgoRecover()
 		conn, err := net.Dial("tcp", address)
 		Expect(err).ToNot(HaveOccurred())
 		defer conn.Close()
@@ -209,6 +213,7 @@ func usbredirConnect(
 
 	run := make(chan error)
 	go func() {
+		defer GinkgoRecover()
 		run <- usbredirClient.Redirect("dead:beef")
 	}()
 

@@ -238,6 +238,8 @@ func getPPid(pid int) (int, error) {
 	if err != nil {
 		return -1, err
 	}
-
+	if process == nil {
+		return -1, fmt.Errorf("failed to find process with pid: %d", pid)
+	}
 	return process.PPid(), nil
 }

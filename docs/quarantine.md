@@ -37,7 +37,7 @@ would lead to a terrible 41.81% passing rate of the whole suite (0.95 ** 17 = 0.
 
 In order to remove as much as possible the influence of changes in PRs to
 determine the stability of the suite, we will take into account only results
-from the periodics that run e2e tests from main (hese jobs can be checked
+from the periodics that run e2e tests from main (hence jobs can be checked
 [on testgrid]) and presubmits that are executed on merged code (on tide merge
 batches as reported by flakefinder).
 
@@ -102,3 +102,32 @@ After merging this PR the test will be out of quarantine.
 [2]: https://www.thoughtworks.com/en-us/insights/blog/no-more-flaky-tests-go-team
 [3]: https://docs.gitlab.com/ee/development/testing_guide/flaky_tests.html#quarantined-tests
 [on testgrid]: https://testgrid.k8s.io/kubevirt-periodics
+
+# Test Lane Quarantine
+
+There can be cases where required test lanes are flaking in a clustered manner with a large
+number of tests failing each time. This can cause major delays to merging important pull
+requests and overload CI. Individual test case quarantining does not make sense in this case.
+
+A required test lane should be made optional if the following criteria are met:
+* The required test lane has a failure rate higher than 25% in the last 7 days
+* More than ten individual test cases are causing the required test lane to fail
+* The SIG responsible for the required test lane is unable to deliver a fix for the
+flake within 7 days
+
+The percentage impact of a flaky test lane can be measured by searching for a relevant
+error on the [CI search page](https://search.ci.kubevirt.io/).
+The failure rate of a test lane can be checked by going to the 
+[top failed lane list](https://github.com/kubevirt/ci-health?tab=readme-ov-file#failures-per-sig-against-last-code-push-for-merged-prs) in the ci-health repository.
+
+Following a required test lane being made optional a number of actions must happen:
+* Create github issue with a comment `/release-blocker main` to ensure that
+the issue is addressed before a new release is cut.
+* Ensure that the github issue is assigned to a member of the responsible SIG who
+will own bringing the blocker to completion within a quick time frame.
+* The SIG should stop all feature and refactoring work until a fix for the flake
+has been identified and a pull request has been created. If the quarantined test lane is 
+not receiving the required attention from the responsible SIG, SIG CI can take a 
+decision to hold merge queue PRs from the responsible SIG that are not related to a fix.
+* Once the fix is merged and the test lane returns to an acceptable failure
+rate, the test lane should be set back to required as soon as possible

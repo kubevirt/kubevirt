@@ -38,6 +38,12 @@ import (
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/migration"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/node"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/pool"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/replicaset"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
 
@@ -89,6 +95,9 @@ import (
 	workloadupdater "kubevirt.io/kubevirt/pkg/virt-controller/watch/workload-updater"
 
 	"kubevirt.io/kubevirt/pkg/network/netbinding"
+	netannotations "kubevirt.io/kubevirt/pkg/network/pod/annotations"
+	netvmicontroller "kubevirt.io/kubevirt/pkg/network/vmicontroller"
+	storageannotations "kubevirt.io/kubevirt/pkg/storage/pod/annotations"
 )
 
 const (
@@ -137,10 +146,10 @@ type VirtControllerApp struct {
 	kvPodInformer   cache.SharedIndexInformer
 
 	nodeInformer   cache.SharedIndexInformer
-	nodeController *NodeController
+	nodeController *node.Controller
 
 	vmiCache      cache.Store
-	vmiController *VMIController
+	vmiController *vmi.Controller
 	vmiInformer   cache.SharedIndexInformer
 	vmiRecorder   record.EventRecorder
 
@@ -156,13 +165,13 @@ type VirtControllerApp struct {
 	persistentVolumeClaimCache    cache.Store
 	persistentVolumeClaimInformer cache.SharedIndexInformer
 
-	rsController *VMIReplicaSet
+	rsController *replicaset.Controller
 	rsInformer   cache.SharedIndexInformer
 
-	poolController *PoolController
+	poolController *pool.Controller
 	poolInformer   cache.SharedIndexInformer
 
-	vmController *VMController
+	vmController *vm.Controller
 	vmInformer   cache.SharedIndexInformer
 
 	controllerRevisionInformer cache.SharedIndexInformer
@@ -173,7 +182,7 @@ type VirtControllerApp struct {
 	cdiInformer            cache.SharedIndexInformer
 	cdiConfigInformer      cache.SharedIndexInformer
 
-	migrationController *MigrationController
+	migrationController *migration.Controller
 	migrationInformer   cache.SharedIndexInformer
 
 	workloadUpdateController *workloadupdater.WorkloadUpdateController
@@ -426,11 +435,13 @@ func Execute() {
 	if err := metrics.SetupMetrics(
 		app.vmInformer,
 		app.vmiInformer,
+		app.persistentVolumeClaimInformer,
 		app.clusterInstancetypeInformer,
 		app.instancetypeInformer,
 		app.clusterPreferenceInformer,
 		app.preferenceInformer,
 		app.migrationInformer,
+		app.kvPodInformer,
 		app.clusterConfig,
 	); err != nil {
 		golog.Fatal(err)
@@ -601,6 +612,9 @@ func (vca *VirtControllerApp) initCommon() {
 	}
 
 	containerdisk.SetLocalDirectoryOnly(filepath.Join(vca.ephemeralDiskDir, "container-disk-data"))
+
+	netAnnotationsGenerator := netannotations.NewGenerator(vca.clusterConfig)
+
 	vca.templateService = services.NewTemplateService(vca.launcherImage,
 		vca.launcherQemuTimeout,
 		vca.virtShareDir,
@@ -622,11 +636,13 @@ func (vca *VirtControllerApp) initCommon() {
 			}),
 		services.WithSidecarCreator(netbinding.NetBindingPluginSidecarList),
 		services.WithNetBindingPluginMemoryCalculator(netbinding.MemoryCalculator{}),
+		services.WithAnnotationsGenerators(netAnnotationsGenerator, storageannotations.Generator{}),
+		services.WithNetTargetAnnotationsGenerator(netAnnotationsGenerator),
 	)
 
 	topologyHinter := topology.NewTopologyHinter(vca.nodeInformer.GetStore(), vca.vmiInformer.GetStore(), vca.clusterConfig)
 
-	vca.vmiController, err = NewVMIController(vca.templateService,
+	vca.vmiController, err = vmi.NewController(vca.templateService,
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.kvPodInformer,
@@ -640,13 +656,15 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.cdiConfigInformer,
 		vca.clusterConfig,
 		topologyHinter,
+		netAnnotationsGenerator,
+		netvmicontroller.UpdateStatus,
 	)
 	if err != nil {
 		panic(err)
 	}
 
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "node-controller")
-	vca.nodeController, err = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
+	vca.nodeController, err = node.NewController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
 	if err != nil {
 		panic(err)
 	}
@@ -655,13 +673,15 @@ func (vca *VirtControllerApp) initCommon() {
 	if err != nil {
 		panic(err)
 	}
-	vca.migrationController, err = NewMigrationController(
+	vca.migrationController, err = migration.NewController(
 		vca.templateService,
 		vca.vmiInformer,
 		vca.kvPodInformer,
 		vca.migrationInformer,
 		vca.nodeInformer,
 		vca.persistentVolumeClaimInformer,
+		vca.storageClassInformer,
+		vca.storageProfileInformer,
 		vca.pdbInformer,
 		vca.migrationPolicyInformer,
 		vca.resourceQuotaInformer,
@@ -679,7 +699,7 @@ func (vca *VirtControllerApp) initCommon() {
 func (vca *VirtControllerApp) initReplicaSet() {
 	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachinereplicaset-controller")
-	vca.rsController, err = NewVMIReplicaSet(vca.vmiInformer, vca.rsInformer, recorder, vca.clientSet, controller.BurstReplicas)
+	vca.rsController, err = replicaset.NewController(vca.vmiInformer, vca.rsInformer, recorder, vca.clientSet, controller.BurstReplicas)
 	if err != nil {
 		panic(err)
 	}
@@ -688,7 +708,7 @@ func (vca *VirtControllerApp) initReplicaSet() {
 func (vca *VirtControllerApp) initPool() {
 	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachinepool-controller")
-	vca.poolController, err = NewPoolController(vca.clientSet,
+	vca.poolController, err = pool.NewController(vca.clientSet,
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.poolInformer,
@@ -713,7 +733,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		Clientset:                vca.clientSet,
 	}
 
-	vca.vmController, err = NewVMController(
+	vca.vmController, err = vm.NewController(
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.dataVolumeInformer,
@@ -728,7 +748,6 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.clusterConfig,
 		network.NewVMNetController(
 			vca.clientSet.GeneratedKubeVirtClient(),
-			vca.clusterConfig,
 			controller.NewPodCacheStore(vca.kvPodInformer.GetIndexer()),
 		),
 	)

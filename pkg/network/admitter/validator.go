@@ -33,7 +33,6 @@ type clusterConfigChecker interface {
 	IsBridgeInterfaceOnPodNetworkEnabled() bool
 	MacvtapEnabled() bool
 	PasstEnabled() bool
-	NetworkBindingPlugingsEnabled() bool
 }
 
 type Validator struct {

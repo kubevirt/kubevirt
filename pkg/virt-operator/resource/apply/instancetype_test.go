@@ -12,8 +12,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	"kubevirt.io/client-go/generated/kubevirt/clientset/versioned/fake"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"

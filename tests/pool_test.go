@@ -41,13 +41,13 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -86,12 +86,12 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 	}
 
 	doScale := func(name string, scale int32) {
-
 		By(fmt.Sprintf("Scaling to %d", scale))
 		pool, err := virtClient.VirtualMachinePool(testsuite.NamespaceTestDefault).Patch(context.Background(), name, types.JSONPatchType, []byte(fmt.Sprintf("[{ \"op\": \"replace\", \"path\": \"/spec/replicas\", \"value\": %v }]", scale)), metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		running := *pool.Spec.VirtualMachineTemplate.Spec.Running
+		runStrategy := pool.Spec.VirtualMachineTemplate.Spec.RunStrategy
+		running := runStrategy != nil && *runStrategy == v1.RunStrategyAlways
 		By("Checking the number of replicas")
 		Eventually(func() int32 {
 			pool, err = virtClient.VirtualMachinePool(testsuite.NamespaceTestDefault).Get(context.Background(), name, metav1.GetOptions{})
@@ -122,7 +122,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		dataVolume := libdv.NewDataVolume(
 			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-			libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+			libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
 		)
 
 		vm := libvmi.NewVirtualMachine(
@@ -138,8 +138,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			Spec:       vm.Spec.Template.Spec,
 		})
 		newPool.Spec.VirtualMachineTemplate.Spec.DataVolumeTemplates = vm.Spec.DataVolumeTemplates
-		running := true
-		newPool.Spec.VirtualMachineTemplate.Spec.Running = &running
+		newPool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 		newPool, err = virtClient.VirtualMachinePool(testsuite.NamespaceTestDefault).Create(context.Background(), newPool, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
@@ -149,8 +148,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 	newVirtualMachinePool := func() *poolv1.VirtualMachinePool {
 		By("Create a new VirtualMachinePool")
 		pool := newPoolFromVMI(libvmi.New(libvmi.WithResourceMemory("2Mi")))
-		running := true
-		pool.Spec.VirtualMachineTemplate.Spec.Running = &running
+		pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 		return createVirtualMachinePool(pool)
 	}
 
@@ -159,7 +157,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		return createVirtualMachinePool(newPoolFromVMI(libvmifact.NewCirros()))
 	}
 
-	DescribeTable("[Serial]pool should scale", Serial, func(startScale int, stopScale int) {
+	DescribeTable("pool should scale", func(startScale int, stopScale int) {
 		newPool := newVirtualMachinePool()
 		doScale(newPool.ObjectMeta.Name, int32(startScale))
 		doScale(newPool.ObjectMeta.Name, int32(stopScale))
@@ -177,7 +175,6 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}
 
 		newPool.Spec.VirtualMachineTemplate.Spec.RunStrategy = nil
-		newPool.Spec.VirtualMachineTemplate.Spec.Running = nil
 		newPool.Spec.VirtualMachineTemplate.ObjectMeta.Labels = map[string]string{}
 		_, err = virtClient.VirtualMachinePool(testsuite.NamespaceTestDefault).Create(context.Background(), newPool, metav1.CreateOptions{})
 		Expect(err.Error()).To(ContainSubstring("selector does not match labels"))
@@ -399,11 +396,9 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		newPool, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Get(context.Background(), newPool.ObjectMeta.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		patchData, err := patch.GeneratePatchPayload(patch.PatchOperation{
-			Op:    patch.PatchAddOp,
-			Path:  fmt.Sprintf("/spec/virtualMachineTemplate/metadata/labels/%s", newLabelKey),
-			Value: newLabelValue,
-		})
+		patchData, err := patch.New(patch.WithAdd(
+			fmt.Sprintf("/spec/virtualMachineTemplate/metadata/labels/%s", newLabelKey), newLabelValue),
+		).GeneratePayload()
 		Expect(err).ToNot(HaveOccurred())
 		newPool, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Patch(context.Background(), newPool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -458,11 +453,9 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		Expect(err).ToNot(HaveOccurred())
 
 		// Make a VMI template change
-		patchData, err := patch.GeneratePatchPayload(patch.PatchOperation{
-			Op:    patch.PatchAddOp,
-			Path:  fmt.Sprintf("/spec/virtualMachineTemplate/spec/template/metadata/labels/%s", newLabelKey),
-			Value: newLabelValue,
-		})
+		patchData, err := patch.New(patch.WithAdd(
+			fmt.Sprintf("/spec/virtualMachineTemplate/spec/template/metadata/labels/%s", newLabelKey), newLabelValue),
+		).GeneratePayload()
 		Expect(err).ToNot(HaveOccurred())
 		newPool, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Patch(context.Background(), newPool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -590,7 +583,6 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 func newPoolFromVMI(vmi *v1.VirtualMachineInstance) *poolv1.VirtualMachinePool {
 	selector := "pool" + rand.String(5)
-	running := false
 	replicas := int32(0)
 	pool := &poolv1.VirtualMachinePool{
 		ObjectMeta: metav1.ObjectMeta{Name: "pool" + rand.String(5)},
@@ -604,7 +596,7 @@ func newPoolFromVMI(vmi *v1.VirtualMachineInstance) *poolv1.VirtualMachinePool {
 					Labels: map[string]string{"select": selector},
 				},
 				Spec: v1.VirtualMachineSpec{
-					Running: &running,
+					RunStrategy: pointer.P(v1.RunStrategyManual),
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{"select": selector},

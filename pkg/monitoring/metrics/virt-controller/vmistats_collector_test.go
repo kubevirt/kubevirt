@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	"github.com/prometheus/client_golang/prometheus"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,11 +38,13 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("VMI Stats Collector", func() {
+	clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKV(&k6tv1.KubeVirt{})
+
 	Context("VMI info", func() {
-		setupTestVMICollector()
+		setupTestCollector()
 
 		It("should handle no VMIs", func() {
-			cr := collectVMIInfo([]*k6tv1.VirtualMachineInstance{})
+			cr := reportVmisStats([]*k6tv1.VirtualMachineInstance{})
 			Expect(cr).To(BeEmpty())
 		})
 
@@ -122,21 +125,124 @@ var _ = Describe("VMI Stats Collector", func() {
 				},
 			}
 
-			crs := collectVMIInfo(vmis)
+			var crs []operatormetrics.CollectorResult
+			for _, vmi := range vmis {
+				crs = append(crs, collectVMIInfo(vmi))
+			}
+
 			Expect(crs).To(HaveLen(5))
 
 			for i, cr := range crs {
 				Expect(cr).ToNot(BeNil())
 				Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 				Expect(cr.Value).To(BeEquivalentTo(1))
-				Expect(cr.Labels).To(HaveLen(13))
+				Expect(cr.Labels).To(HaveLen(17))
 
 				Expect(cr.Labels[3]).To(Equal(getVMIPhase(vmis[i])))
-				os, workload, flavor := getVMISystemInfo(vmis[i])
+				os, workload, flavor := getSystemInfoFromAnnotations(vmis[i].Annotations)
 				Expect(cr.Labels[4]).To(Equal(os))
 				Expect(cr.Labels[5]).To(Equal(workload))
 				Expect(cr.Labels[6]).To(Equal(flavor))
+				Expect(cr.Labels[16]).To(Equal(getVMIPod(vmis[i])))
 			}
+		})
+
+		It("should update the vmi_pod label correctly after migration", func() {
+			originalPod := &k8sv1.Pod{
+				ObjectMeta: newPodMetaForInformer("virt-launcher-originalpod", "test-ns", "test-vmi-uid"),
+				Spec: k8sv1.PodSpec{
+					NodeName: "initial-node",
+				},
+				Status: k8sv1.PodStatus{
+					Phase: k8sv1.PodRunning,
+				},
+			}
+			targetPod := &k8sv1.Pod{
+				ObjectMeta: newPodMetaForInformer("virt-launcher-targetpod", "test-ns", "test-vmi-uid"),
+				Spec: k8sv1.PodSpec{
+					NodeName: "target-node",
+				},
+				Status: k8sv1.PodStatus{
+					Phase: k8sv1.PodRunning,
+				},
+			}
+
+			_ = kvPodInformer.GetStore().Add(originalPod)
+			_ = kvPodInformer.GetStore().Add(targetPod)
+
+			vmi := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vmi",
+					Namespace: "test-ns",
+					UID:       "test-vmi-uid",
+				},
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase:    "Running",
+					NodeName: "target-node",
+					MigrationState: &k6tv1.VirtualMachineInstanceMigrationState{
+						TargetPod: "virt-launcher-targetpod",
+						Completed: true,
+						Failed:    false,
+					},
+				},
+			}
+
+			cr := collectVMIInfo(vmi)
+
+			Expect(cr).ToNot(BeNil())
+			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
+			Expect(cr.Value).To(BeEquivalentTo(1))
+			Expect(cr.Labels).To(HaveLen(17))
+			Expect(cr.Labels[16]).To(Equal("virt-launcher-targetpod"))
+		})
+
+		It("should return the original pod when migration failed", func() {
+			originalPod := &k8sv1.Pod{
+				ObjectMeta: newPodMetaForInformer("virt-launcher-originalpod", "test-ns", "test-vmi-uid"),
+				Spec: k8sv1.PodSpec{
+					NodeName: "initial-node",
+				},
+				Status: k8sv1.PodStatus{
+					Phase: k8sv1.PodRunning,
+				},
+			}
+			targetPod := &k8sv1.Pod{
+				ObjectMeta: newPodMetaForInformer("virt-launcher-targetpod", "test-ns", "test-vmi-uid"),
+				Spec: k8sv1.PodSpec{
+					NodeName: "target-node",
+				},
+				Status: k8sv1.PodStatus{
+					Phase: k8sv1.PodRunning,
+				},
+			}
+
+			_ = kvPodInformer.GetStore().Add(originalPod)
+			_ = kvPodInformer.GetStore().Add(targetPod)
+
+			vmi := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vmi",
+					Namespace: "test-ns",
+					UID:       "test-vmi-uid",
+				},
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					Phase:    "Running",
+					NodeName: "initial-node",
+					MigrationState: &k6tv1.VirtualMachineInstanceMigrationState{
+						TargetPod: "virt-launcher-targetpod",
+						Completed: true,
+						Failed:    true,
+					},
+				},
+			}
+
+			cr := collectVMIInfo(vmi)
+
+			Expect(cr).ToNot(BeNil())
+			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
+			Expect(cr.Value).To(BeEquivalentTo(1))
+			Expect(cr.Labels).To(HaveLen(17))
+			Expect(cr.Labels[16]).To(Equal("virt-launcher-originalpod"))
 		})
 
 		DescribeTable("should show instance type value correctly", func(instanceTypeAnnotationKey string, instanceType string, expected string) {
@@ -154,14 +260,17 @@ var _ = Describe("VMI Stats Collector", func() {
 				},
 			}
 
-			crs := collectVMIInfo(vmis)
+			var crs []operatormetrics.CollectorResult
+			for _, vmi := range vmis {
+				crs = append(crs, collectVMIInfo(vmi))
+			}
 			Expect(crs).To(HaveLen(1), "Expected 1 metric")
 
 			cr := crs[0]
 			Expect(cr).ToNot(BeNil())
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(13))
+			Expect(cr.Labels).To(HaveLen(17))
 			Expect(cr.Labels[7]).To(Equal(expected))
 		},
 			Entry("with no instance type expect <none>", k6tv1.InstancetypeAnnotation, "", "<none>"),
@@ -187,14 +296,17 @@ var _ = Describe("VMI Stats Collector", func() {
 				},
 			}
 
-			crs := collectVMIInfo(vmis)
+			var crs []operatormetrics.CollectorResult
+			for _, vmi := range vmis {
+				crs = append(crs, collectVMIInfo(vmi))
+			}
 			Expect(crs).To(HaveLen(1), "Expected 1 metric")
 
 			cr := crs[0]
 
 			Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_info"))
 			Expect(cr.Value).To(BeEquivalentTo(1))
-			Expect(cr.Labels).To(HaveLen(13))
+			Expect(cr.Labels).To(HaveLen(17))
 			Expect(cr.Labels[8]).To(Equal(expected))
 		},
 			Entry("with no preference expect <none>", k6tv1.PreferenceAnnotation, "", "<none>"),
@@ -211,17 +323,13 @@ var _ = Describe("VMI Stats Collector", func() {
 		liveMigrateEvictPolicy := k6tv1.EvictionStrategyLiveMigrate
 		DescribeTable("Add eviction alert metrics", func(evictionPolicy *k6tv1.EvictionStrategy, migrateCondStatus k8sv1.ConditionStatus, expectedVal float64) {
 			vmiInformer, _ = testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstance{})
-			clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKV(&k6tv1.KubeVirt{})
 
 			ch := make(chan prometheus.Metric, 1)
 			defer close(ch)
 
-			vmis := createVMISForEviction(evictionPolicy, migrateCondStatus)
+			vmi := createVMIForEviction(evictionPolicy, migrateCondStatus)
 
-			evictionBlockerResults := getEvictionBlocker(vmis)
-			Expect(evictionBlockerResults).To(HaveLen(1), "Expected 1 metric")
-
-			evictionBlockerResultMetric := evictionBlockerResults[0]
+			evictionBlockerResultMetric := getEvictionBlocker(vmi)
 			Expect(evictionBlockerResultMetric).ToNot(BeNil())
 			Expect(evictionBlockerResultMetric.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_non_evictable"))
 			Expect(evictionBlockerResultMetric.Value).To(BeEquivalentTo(expectedVal))
@@ -234,24 +342,61 @@ var _ = Describe("VMI Stats Collector", func() {
 			Entry("VMI Eviction policy is not set and vm migratable status is not known", nil, k8sv1.ConditionUnknown, 0.0),
 		)
 	})
+
+	Context("VMI Interfaces info", func() {
+		DescribeTable("kubevirt_vmi_status_addresses metrics", func(ifaceValues [][]string) {
+			vmi := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "testvmi",
+				},
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					NodeName:   "testNode",
+					Interfaces: interfacesFor(ifaceValues),
+				},
+			}
+
+			metrics := collectVMIInterfacesInfo(vmi)
+			Expect(metrics).To(HaveLen(len(ifaceValues)))
+
+			for i, labelValues := range ifaceValues {
+				values := append([]string{"testNode", "test-ns", "testvmi"}, labelValues...)
+				Expect(metrics[i].Labels).To(Equal(values))
+			}
+		},
+			Entry("no interfaces", [][]string{}),
+			Entry("one interface", [][]string{{"192.168.1.2", "InternalIP"}}),
+			Entry("two interfaces", [][]string{
+				{"170.170.170.170", "InternalIP"},
+				{"180.180.180.180", "InternalIP"},
+			}),
+		)
+	})
 })
 
-func createVMISForEviction(evictionStrategy *k6tv1.EvictionStrategy, migratableCondStatus k8sv1.ConditionStatus) []*k6tv1.VirtualMachineInstance {
+func interfacesFor(values [][]string) []k6tv1.VirtualMachineInstanceNetworkInterface {
+	interfaces := make([]k6tv1.VirtualMachineInstanceNetworkInterface, len(values))
+	for i, v := range values {
+		interfaces[i] = k6tv1.VirtualMachineInstanceNetworkInterface{
+			IP: v[0],
+		}
+	}
+	return interfaces
+}
 
-	vmis := []*k6tv1.VirtualMachineInstance{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "test-ns",
-				Name:      "testvmi",
-			},
-			Status: k6tv1.VirtualMachineInstanceStatus{
-				NodeName: "testNode",
-			},
+func createVMIForEviction(evictionStrategy *k6tv1.EvictionStrategy, migratableCondStatus k8sv1.ConditionStatus) *k6tv1.VirtualMachineInstance {
+	vmi := &k6tv1.VirtualMachineInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test-ns",
+			Name:      "testvmi",
+		},
+		Status: k6tv1.VirtualMachineInstanceStatus{
+			NodeName: "testNode",
 		},
 	}
 
 	if migratableCondStatus != k8sv1.ConditionUnknown {
-		vmis[0].Status.Conditions = []k6tv1.VirtualMachineInstanceCondition{
+		vmi.Status.Conditions = []k6tv1.VirtualMachineInstanceCondition{
 			{
 				Type:   k6tv1.VirtualMachineInstanceIsMigratable,
 				Status: migratableCondStatus,
@@ -259,16 +404,17 @@ func createVMISForEviction(evictionStrategy *k6tv1.EvictionStrategy, migratableC
 		}
 	}
 
-	vmis[0].Spec.EvictionStrategy = evictionStrategy
+	vmi.Spec.EvictionStrategy = evictionStrategy
 
-	return vmis
+	return vmi
 }
 
-func setupTestVMICollector() {
+func setupTestCollector() {
 	instanceTypeInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
 	clusterInstanceTypeInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
 	preferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
 	clusterPreferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
+	kvPodInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 
 	_ = instanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineInstancetype{
 		ObjectMeta: newObjectMetaForInstancetypes("i-managed", "kubevirt.io"),
@@ -294,11 +440,23 @@ func setupTestVMICollector() {
 	_ = clusterPreferenceInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineClusterPreference{
 		ObjectMeta: newObjectMetaForInstancetypes("cp-managed", "kubevirt.io"),
 	})
+
+	_ = kvPodInformer.GetStore().Add(&k8sv1.Pod{
+		ObjectMeta: newPodMetaForInformer("virt-launcher-testpod", "test-ns", "test-vmi-uid"),
+	})
 }
 
 func newObjectMetaForInstancetypes(name, vendor string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name:   name,
 		Labels: map[string]string{instancetypeVendorLabel: vendor},
+	}
+}
+
+func newPodMetaForInformer(name, namespace, createdByUID string) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:      name,
+		Namespace: namespace,
+		Labels:    map[string]string{"kubevirt.io/created-by": createdByUID},
 	}
 }

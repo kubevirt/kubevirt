@@ -27,13 +27,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/utils/pointer"
-
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1beta1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
+	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
@@ -147,7 +147,11 @@ func (ctrl *VMExportController) isSourceInUseVM(vmExport *exportv1.VirtualMachin
 		return false, "", err
 	}
 	if exists {
-		return exists, fmt.Sprintf("Virtual Machine %s/%s is running", vmi.Namespace, vmi.Name), nil
+		// Only if the VMI is running, the source VM is in use
+		if vmi.Status.Phase != virtv1.Succeeded && vmi.Status.Phase != virtv1.Failed {
+			return exists, fmt.Sprintf("Virtual Machine %s/%s is running", vmi.Namespace, vmi.Name), nil
+		}
+		return false, "", nil
 	}
 	return exists, "", nil
 }
@@ -186,7 +190,13 @@ func (ctrl *VMExportController) getPVCsFromVM(vmNamespace, vmName string) ([]*co
 		return nil, false, nil
 	}
 	allPopulated := true
-	for _, volume := range vm.Spec.Template.Spec.Volumes {
+
+	volumes, err := storageutils.GetVolumes(vm, ctrl.Client, storageutils.WithBackendVolume)
+	if err != nil {
+		return nil, false, err
+	}
+
+	for _, volume := range volumes {
 		pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
 		if pvcName == "" {
 			continue
@@ -220,7 +230,7 @@ func (ctrl *VMExportController) updateVMExportVMStatus(vmExport *exportv1.Virtua
 	var requeue time.Duration
 
 	vmExportCopy := vmExport.DeepCopy()
-	vmExportCopy.Status.VirtualMachineName = pointer.StringPtr(vmExport.Spec.Source.Name)
+	vmExportCopy.Status.VirtualMachineName = pointer.P(vmExport.Spec.Source.Name)
 	if err := ctrl.updateCommonVMExportStatusFields(vmExport, vmExportCopy, exporterPod, service, sourceVolumes, getVolumeName); err != nil {
 		return requeue, err
 	}

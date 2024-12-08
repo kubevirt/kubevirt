@@ -44,7 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnode"
 )
 
-var _ = Describe("[Serial][sig-compute] virt-handler node restrictions via validatingAdmissionPolicy", decorators.SigCompute, decorators.Kubernetes130, Serial, func() {
+var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdmissionPolicy", decorators.SigCompute, decorators.Kubernetes130, Serial, func() {
 	const (
 		notAllowedLabelPath      = "/metadata/labels/other.io~1notAllowedLabel"
 		notAllowedAnnotationPath = "/metadata/annotations/other.io~1notAllowedAnnotation"

@@ -29,8 +29,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	ginkgo_reporters "github.com/onsi/ginkgo/v2/reporters"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/reporter"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -43,6 +43,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	_ "kubevirt.io/kubevirt/tests/compute"
+	_ "kubevirt.io/kubevirt/tests/compute/subresources"
 	_ "kubevirt.io/kubevirt/tests/guestlog"
 	_ "kubevirt.io/kubevirt/tests/hotplug"
 	_ "kubevirt.io/kubevirt/tests/infrastructure"
@@ -79,7 +80,6 @@ func TestTests(t *testing.T) {
 	suiteConfig, _ := GinkgoConfiguration()
 	if suiteConfig.ParallelTotal > 1 {
 		artifactsPath = filepath.Join(artifactsPath, strconv.Itoa(GinkgoParallelProcess()))
-		junitOutput = filepath.Join(flags.ArtifactsDir, fmt.Sprintf("partial.junit.functest.%d.xml", GinkgoParallelProcess()))
 	}
 
 	outputEnricherReporter := reporter.NewCapturedOutputEnricher(
@@ -88,9 +88,6 @@ func TestTests(t *testing.T) {
 	afterSuiteReporters = append(afterSuiteReporters, outputEnricherReporter)
 
 	if qe_reporters.Polarion.Run {
-		if suiteConfig.ParallelTotal > 1 {
-			qe_reporters.Polarion.Filename = filepath.Join(flags.ArtifactsDir, fmt.Sprintf("partial.polarion.functest.%d.xml", GinkgoParallelProcess()))
-		}
 		afterSuiteReporters = append(afterSuiteReporters, &qe_reporters.Polarion)
 	}
 
@@ -145,6 +142,9 @@ var _ = ReportBeforeSuite(func(report Report) {
 })
 
 var _ = JustAfterEach(func() {
+	if flags.DeployFakeKWOKNodesFlag {
+		return
+	}
 	k8sReporter.ReportSpec(CurrentSpecReport())
 })
 
@@ -166,5 +166,5 @@ func resetToDefaultConfig() {
 		// we can just skip the restore step.
 		return
 	}
-	tests.UpdateKubeVirtConfigValueAndWait(testsuite.KubeVirtDefaultConfig)
+	config.UpdateKubeVirtConfigValueAndWait(testsuite.KubeVirtDefaultConfig)
 }

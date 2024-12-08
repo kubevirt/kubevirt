@@ -21,26 +21,23 @@ package infrastructure
 
 import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-
-	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = DescribeInfra("cluster profiler for pprof data aggregation", func() {
-	var (
-		virtClient kubecli.KubevirtClient
-	)
+var _ = DescribeSerialInfra("cluster profiler for pprof data aggregation", func() {
+	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
 
 	Context("when ClusterProfiler feature gate", func() {
 		It("is disabled it should prevent subresource access", func() {
-			tests.DisableFeatureGate("ClusterProfiler")
+			config.DisableFeatureGate("ClusterProfiler")
 
 			err := virtClient.ClusterProfiler().Start()
 			Expect(err).To(HaveOccurred())
@@ -52,7 +49,7 @@ var _ = DescribeInfra("cluster profiler for pprof data aggregation", func() {
 			Expect(err).To(HaveOccurred())
 		})
 		It("is enabled it should allow subresource access", func() {
-			tests.EnableFeatureGate("ClusterProfiler")
+			config.EnableFeatureGate("ClusterProfiler")
 
 			err := virtClient.ClusterProfiler().Start()
 			Expect(err).ToNot(HaveOccurred())

@@ -5,7 +5,6 @@ aliases:
     - rmohr
     - stu-gott
     - fabiand
-    - AlonaKaplan
     - jean-edouard
     - mhenriks
     - enp0s3
@@ -25,17 +24,16 @@ aliases:
     - ashleyschuett
     - zcahana
     - dhiller # 2024-03-15
+    - AlonaKaplan
   code-reviewers:
     - stu-gott
     - vladikr
     - enp0s3
     - jean-edouard
-    - AlonaKaplan
     - mhenriks
     - EdDev
     - acardace
     - xpivarc
-    - vasiliy-ul
     - iholder101
     - alicefr
     - 0xFelix
@@ -55,6 +53,8 @@ aliases:
     - xpivarc
     - acardace
     - dhiller
+    - 0xFelix
+  sig-test-emeritus_approvers:
     - AlonaKaplan
 
   #
@@ -62,13 +62,14 @@ aliases:
   # Owns anything related to networking.
   #
   sig-network-reviewers:
-    - AlonaKaplan
     - EdDev
     - RamLavi
     - ormergi
+    - orelmisan
   sig-network-approvers:
-    - AlonaKaplan
     - EdDev
+  sig-network-emeritus_approvers:
+    - AlonaKaplan
 
   #
   # SIG Scale
@@ -86,6 +87,8 @@ aliases:
   sig-storage-approvers:
     - mhenriks
     - alicefr
+    - akalenyu
+    - ShellyKa13
   sig-storage-reviewers:
     - awels
     - akalenyu
@@ -108,8 +111,13 @@ aliases:
   sig-compute-approvers:
     - jean-edouard
     - iholder101
+    - fossedihelm
+    - 0xFelix
   sig-compute-reviewers:
     - victortoso
+    - fossedihelm
+    - lyarwood
+    - 0xFelix
 
   # SIG Compute Instance types sub project
   # Responsible the overall instance type feature set within SIG Compute
@@ -130,7 +138,6 @@ aliases:
   sig-observability-reviewers:
     - machadovilaca
     - avlitman
-    - assafad
 
   #
   # SIG Release

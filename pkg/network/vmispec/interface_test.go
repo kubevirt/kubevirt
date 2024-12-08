@@ -308,11 +308,3 @@ func vmiStatusInterfaces(names ...string) []v1.VirtualMachineInstanceNetworkInte
 	}
 	return statusInterfaces
 }
-
-func vmiSpecInterfaces(names ...string) []v1.Interface {
-	var specInterfaces []v1.Interface
-	for _, name := range names {
-		specInterfaces = append(specInterfaces, v1.Interface{Name: name})
-	}
-	return specInterfaces
-}

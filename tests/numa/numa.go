@@ -19,8 +19,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -33,7 +31,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-compute][Serial]NUMA", Serial, decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]NUMA", Serial, decorators.SigCompute, func() {
 
 	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
@@ -42,7 +40,6 @@ var _ = Describe("[sig-compute][Serial]NUMA", Serial, decorators.SigCompute, fun
 	})
 
 	It("[test_id:7299] topology should be mapped to the guest and hugepages should be allocated", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
-		checks.SkipTestIfNoFeatureGate(virtconfig.NUMAFeatureGate)
 		checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(1)
 		var err error
 		cpuVMI := libvmifact.NewCirros()
@@ -121,7 +118,7 @@ func getQEMUPID(handlerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance) string {
 				fmt.Sprintf("grep -l '[g]uest=%s_%s' /proc/*/cmdline", vmi.Namespace, vmi.Name),
 			})
 		return err
-	}, 3*time.Second, 500*time.Millisecond).Should(Succeed(), stderr)
+	}, 3*time.Second, 500*time.Millisecond).Should(Succeed(), stderr, stdout)
 
 	strs := strings.Split(stdout, "\n")
 	Expect(strs).To(HaveLen(2), "more (or less?) than one matching process was found")

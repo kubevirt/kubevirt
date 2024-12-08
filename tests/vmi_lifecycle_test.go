@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,18 +46,17 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -64,6 +65,8 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
@@ -91,8 +94,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		testsuite.EnsureKVMPresent()
 	})
 
-	Context("when virt-handler is deleted", Serial, func() {
-		It("[Serial][test_id:4716]should label the node with kubevirt.io/schedulable=false", func() {
+	Context("when virt-handler is deleted", Serial, decorators.WgS390x, func() {
+		It("[test_id:4716]should label the node with kubevirt.io/schedulable=false", func() {
 			pods, err := kubevirt.Client().CoreV1().Pods("").List(context.Background(), metav1.ListOptions{
 				LabelSelector: fmt.Sprintf("%s=%s", v1.AppLabel, "virt-handler"),
 			})
@@ -121,28 +124,28 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 	})
 
 	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Creating a VirtualMachineInstance", func() {
-		It("[test_id:1619]should success", func() {
+		It("[test_id:1619]should success", decorators.WgS390x, func() {
 			vmi := libvmifact.NewAlpine()
 			_, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred(), "Create VMI successfully")
 		})
 
-		It("[test_id:1620]should start it", func() {
+		It("[test_id:1620]should start it", decorators.WgS390x, func() {
 			libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
 		})
 
-		It("[test_id:6095]should start in paused state if start strategy set to paused", func() {
+		It("[test_id:6095]should start in paused state if start strategy set to paused", decorators.WgS390x, decorators.Conformance, func() {
 			vmi := libvmifact.NewAlpine(libvmi.WithStartStrategy(v1.StartStrategyPaused))
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
 
 			By("Unpausing VMI")
-			command := clientcmd.NewRepeatableVirtctlCommand("unpause", "vmi", "--namespace", testsuite.GetTestNamespace(vmi), vmi.Name)
-			Expect(command()).To(Succeed())
+			err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Unpause(context.Background(), vmi.Name, &v1.UnpauseOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 		})
 
-		It("[test_id:1621]should attach virt-launcher to it", func() {
+		It("[test_id:1621]should attach virt-launcher to it", decorators.WgS390x, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
 
 			By("Getting virt-launcher logs")
@@ -153,21 +156,11 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Should(ContainSubstring("Found PID for"))
 		})
 
-		It("[test_id:3195]should carry annotations to pod", func() {
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(
-				libvmi.WithAnnotation("testannotation", "annotation from vmi")),
-				startupTimeout)
-
-			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(pod.Annotations).To(HaveKeyWithValue("testannotation", "annotation from vmi"), "annotation should be carried to the pod")
-		})
-
-		It("[test_id:3196]should carry kubernetes and kubevirt annotations to pod", func() {
+		It("[test_id:3196]should carry kubernetes and kubevirt annotations to pod", decorators.WgS390x, decorators.Conformance, func() {
 			vmi = libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(
 				libvmi.WithAnnotation("kubevirt.io/test", "test"),
-				libvmi.WithAnnotation("kubernetes.io/test", "test")),
+				libvmi.WithAnnotation("kubernetes.io/test", "test"),
+				libvmi.WithAnnotation("testannotation", "annotation from vmi")),
 				startupTimeout)
 
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -175,9 +168,11 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			Expect(pod.Annotations).To(HaveKey("kubevirt.io/test"), "kubevirt annotation should not be carried to the pod")
 			Expect(pod.Annotations).To(HaveKey("kubernetes.io/test"), "kubernetes annotation should not be carried to the pod")
+			Expect(pod.Annotations).To(HaveKeyWithValue("testannotation", "annotation from vmi"), "annotation should be carried to the pod")
+
 		})
 
-		It("Should prevent eviction when EvictionStratgy: External", func() {
+		It("Should prevent eviction when EvictionStratgy: External", decorators.WgS390x, decorators.Conformance, func() {
 			vmi := libvmifact.NewAlpine(libvmi.WithEvictionStrategy(v1.EvictionStrategyExternal))
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
 
@@ -188,24 +183,23 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			err = kubevirt.Client().CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(), &policyv1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 			// The "too many requests" err is what get's returned when an
 			// eviction would invalidate a pdb. This is what we want to see here.
-			Expect(k8serrors.IsTooManyRequests(err)).To(BeTrue())
+			Expect(err).To(MatchError(k8serrors.IsTooManyRequests, "too many requests should be returned as way of blocking eviction"))
+			Expect(err).To(MatchError(ContainSubstring("Eviction triggered evacuation of VMI")))
 
 			By("should have evacuation node name set on vmi status")
-			Consistently(func() error {
+			vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmi.Status.EvacuationNodeName).To(Equal(pod.Spec.NodeName), "Should have evacuation node name set to where the Pod is running")
 
+			By("should not delete the Pod")
+			Consistently(func() *metav1.Time {
 				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(pod.DeletionTimestamp).To(BeNil())
-
-				vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(vmi.Status.EvacuationNodeName).ToNot(Equal(""))
-				return nil
-			}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+				return pod.DeletionTimestamp
+			}, 10*time.Second, 1*time.Second).Should(BeNil(), "Should not delete the Pod")
 		})
 
-		It("[test_id:1622]should log libvirtd logs", func() {
+		It("[test_id:1622]should log libvirtd logs", decorators.WgS390x, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
 
 			By("Getting virt-launcher logs")
@@ -263,7 +257,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			Entry("[test_id:8533]disabled when log verbosity, debug logs and customLogFilters are not defined", nil, nil, false),
 		)
 
-		It("[test_id:1623]should reject POST if validation webhook deems the spec invalid", func() {
+		It("[test_id:1623]should reject POST if validation webhook deems the spec invalid", decorators.WgS390x, func() {
 			vmi := libvmifact.NewAlpine()
 			// Add a disk that doesn't map to a volume.
 			// This should get rejected which tells us the webhook validator is working.
@@ -291,7 +285,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			Expect(reviewResponse.Details.Causes[1].Field).To(Equal("spec.domain.devices.disks[2].name"))
 		})
 
-		It("[test_id:1624]should reject PATCH if schema is invalid", func() {
+		It("[test_id:1624]should reject PATCH if schema is invalid", decorators.WgS390x, func() {
 			vmi := libvmifact.NewAlpine()
 			err := kubevirt.Client().RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Error()
 			Expect(err).ToNot(HaveOccurred(), "Send POST successfully")
@@ -307,7 +301,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity), "The entity should be unprocessable")
 		})
 
-		Context("when name is longer than 63 characters", func() {
+		Context("when name is longer than 63 characters", decorators.WgS390x, func() {
 			BeforeEach(func() {
 				vmi = libvmifact.NewAlpine()
 				vmi.Name = "testvmi" + rand.String(63)
@@ -328,7 +322,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 		})
 
-		Context("when it already exist", func() {
+		Context("when it already exist", decorators.WgS390x, func() {
 			It("[test_id:1626]should be rejected", func() {
 				By("Creating a VirtualMachineInstance")
 				vmi := libvmifact.NewAlpine()
@@ -491,8 +485,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 		})
 
-		Context("when virt-launcher crashes", func() {
-			It("[Serial][test_id:1631]should be stopped and have Failed phase", Serial, func() {
+		Context("when virt-launcher crashes", decorators.WgS390x, func() {
+			It("[test_id:1631]should be stopped and have Failed phase", Serial, func() {
 				vmi := libvmifact.NewAlpine()
 				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
@@ -519,7 +513,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 		})
 
-		Context("[Serial]when virt-handler crashes", Serial, func() {
+		Context("when virt-handler crashes", Serial, func() {
 			// FIXME: This test has the issues that it tests a lot of different timing scenarios in an intransparent way:
 			// e.g. virt-handler can die before or after virt-launcher. If we wait until virt-handler is dead before we
 			// kill virt-launcher then we don't know if virt-handler already restarted.
@@ -566,8 +560,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 		})
 
-		Context("[Serial]when virt-handler is responsive", Serial, func() {
-			It("[test_id:1633]should indicate that a node is ready for vmis", func() {
+		Context("when virt-handler is responsive", Serial, func() {
+			It("[test_id:1633]should indicate that a node is ready for vmis", decorators.WgS390x, func() {
 
 				By("adding a heartbeat annotation and a schedulable label to the node")
 				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
@@ -653,7 +647,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 		})
 
-		Context("[Serial]when virt-handler is not responsive", Serial, func() {
+		Context("when virt-handler is not responsive", Serial, func() {
 
 			var vmi *v1.VirtualMachineInstance
 			var nodeName string
@@ -746,7 +740,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				failedVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get vmi successfully")
-				Expect(failedVMI.Status.Reason).To(Equal(watch.NodeUnresponsiveReason))
+				Expect(failedVMI.Status.Reason).To(Equal("NodeUnresponsive"))
 
 				err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -769,7 +763,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 		})
 
-		Context("[Serial]with node tainted", Serial, func() {
+		Context("with node tainted", Serial, func() {
 			var nodes *k8sv1.NodeList
 			var err error
 			BeforeEach(func() {
@@ -817,37 +811,40 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 
 		Context("with affinity", func() {
-			var nodes *k8sv1.NodeList
+			var node *k8sv1.Node
 
 			BeforeEach(func() {
-				nodes = libnode.GetAllSchedulableNodes(kubevirt.Client())
+				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
+				node = nodes.Items[0].DeepCopy()
 			})
 
-			It("[test_id:1637]the vmi with node affinity and no conflicts should be scheduled", func() {
-				vmi := libvmifact.NewCirros(libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
-				curVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-				Expect(curVMI.Status.NodeName).To(Equal(nodes.Items[0].Name), "Updated VMI name run on the same node")
+			It("[test_id:1637]the vmi with node affinity and no conflicts should be scheduled", decorators.Conformance, func() {
+				vmi := libvmifact.NewCirros(libvmi.WithNodeAffinityFor(node.Name))
+
+				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).To(Not(HaveOccurred()))
+				vmi = libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Scheduled, v1.Running}, libwait.WithTimeout(startupTimeout))
+
+				By("Asserting that VMI is scheduled on the pre-picked node")
+				Expect(vmi.Status.NodeName).To(Equal(node.Name), "Updated VMI name run on the same node")
 
 			})
 
-			It("[test_id:1638]the vmi with node affinity and anti-pod affinity should not be scheduled", func() {
-				vmi := libvmifact.NewCirros(libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
-				curVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
-				Expect(curVMI.Status.NodeName).To(Equal(nodes.Items[0].Name), "VMI should run on the same node")
+			It("[test_id:1638]the vmi with node affinity and anti-pod affinity should not be scheduled", decorators.Conformance, func() {
+				vmi := libvmifact.NewCirros(libvmi.WithNodeAffinityFor(node.Name))
+				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).To(Not(HaveOccurred()))
+				vmi = libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Scheduled, v1.Running}, libwait.WithTimeout(startupTimeout))
 
-				vmiB := libvmifact.NewCirros(libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
+				secondVMI := libvmifact.NewCirros(libvmi.WithNodeAffinityFor(node.Name))
 
-				vmiB.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
+				secondVMI.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{
 						{
 							LabelSelector: &metav1.LabelSelector{
 								MatchExpressions: []metav1.LabelSelectorRequirement{
-									{Key: v1.CreatedByLabel, Operator: metav1.LabelSelectorOpIn, Values: []string{string(curVMI.GetUID())}},
+									{Key: v1.CreatedByLabel, Operator: metav1.LabelSelectorOpIn, Values: []string{string(vmi.GetUID())}},
 								},
 							},
 							TopologyKey: k8sv1.LabelHostname,
@@ -855,12 +852,12 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					},
 				}
 
-				vmiB, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmiB)).Create(context.Background(), vmiB, metav1.CreateOptions{})
+				secondVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(secondVMI)).Create(context.Background(), secondVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should create VMIB")
 
 				By("Waiting for the VirtualMachineInstance to be unschedulable")
 				Eventually(func() string {
-					curVmiB, err := kubevirt.Client().VirtualMachineInstance(vmiB.Namespace).Get(context.Background(), vmiB.Name, metav1.GetOptions{})
+					curVmiB, err := kubevirt.Client().VirtualMachineInstance(secondVMI.Namespace).Get(context.Background(), secondVMI.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get VMIB")
 					scheduledCond := controller.NewVirtualMachineInstanceConditionManager().
 						GetCondition(curVmiB, v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
@@ -874,7 +871,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 		})
 
-		Context("[Serial]with default cpu model", Serial, func() {
+		Context("with default cpu model", Serial, decorators.WgS390x, func() {
 			var originalConfig v1.KubeVirtConfiguration
 			var supportedCpuModels []string
 			var defaultCPUModel string
@@ -898,15 +895,15 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			//replace new kubevirt-config with old config
 			AfterEach(func() {
-				tests.UpdateKubeVirtConfigValueAndWait(originalConfig)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(originalConfig)
 			})
 
 			It("[test_id:3199]should set default cpu model when vmi doesn't have it set", func() {
 				config := originalConfig.DeepCopy()
 				config.CPUModel = defaultCPUModel
-				tests.UpdateKubeVirtConfigValueAndWait(*config)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
 
-				vmi := libvmifact.NewCirros()
+				vmi := libvmifact.NewAlpine()
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
 				curVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
@@ -917,9 +914,9 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			It("[test_id:3200]should not set default cpu model when vmi has it set", func() {
 				config := originalConfig.DeepCopy()
 				config.CPUModel = defaultCPUModel
-				tests.UpdateKubeVirtConfigValueAndWait(*config)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
 
-				vmi := libvmifact.NewCirros()
+				vmi := libvmifact.NewAlpine()
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Model: vmiCPUModel,
 				}
@@ -932,7 +929,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 
 			It("[sig-compute][test_id:3201]should set cpu model to default when vmi does not have it set and default cpu model is not set", func() {
-				vmi := libvmifact.NewCirros()
+				vmi := libvmifact.NewAlpine()
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
 
 				curVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -948,9 +945,9 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				defaultCPUModel := supportedCpuModels[0]
 				config := originalConfig.DeepCopy()
 				config.CPUModel = defaultCPUModel
-				tests.UpdateKubeVirtConfigValueAndWait(*config)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
 
-				newVMI := libvmifact.NewCirros()
+				newVMI := libvmifact.NewAlpine()
 				newVMI = libvmops.RunVMIAndExpectLaunch(newVMI, 90)
 				By("Fetching virt-launcher pod")
 				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(newVMI, newVMI.Namespace)
@@ -967,9 +964,9 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				defaultCPUModel := supportedCpuModels[0]
 				config := originalConfig.DeepCopy()
 				config.CPUModel = defaultCPUModel
-				tests.UpdateKubeVirtConfigValueAndWait(*config)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
 
-				newVMI := libvmifact.NewCirros()
+				newVMI := libvmifact.NewAlpine()
 				newVMI.Spec.Domain.CPU = &v1.CPU{
 					Model: vmiCPUModel,
 				}
@@ -982,7 +979,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 		})
 
-		Context("[Serial]with node feature discovery", Serial, func() {
+		Context("with node feature discovery", Serial, func() {
 			var node *k8sv1.Node
 			var supportedCPU string
 			var supportedCPUs []string
@@ -1015,7 +1012,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 				}
 
-				tests.EnableFeatureGate(virtconfig.HypervStrictCheckGate)
+				kvconfig.EnableFeatureGate(virtconfig.HypervStrictCheckGate)
 			})
 
 			It("[test_id:1639]the vmi with cpu.model matching a nfd label on a node should be scheduled", func() {
@@ -1288,7 +1285,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			)
 		})
 
-		Context("VirtualMachineInstance Emulation Mode", func() {
+		Context("VirtualMachineInstance Emulation Mode", decorators.WgS390x, func() {
 			BeforeEach(func() {
 				// allowEmulation won't change in a test suite run, so cache it
 				if allowEmulation == nil {
@@ -1361,7 +1358,8 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 					VirtualMachine: newVMI,
 					AllowEmulation: true,
 				}
-				converter.Convert_v1_VirtualMachineInstance_To_api_Domain(newVMI, domain, context)
+				err = converter.Convert_v1_VirtualMachineInstance_To_api_Domain(newVMI, domain, context)
+				Expect(err).ToNot(HaveOccurred())
 
 				expectedType := ""
 				if _, err := os.Stat("/dev/kvm"); errors.Is(err, os.ErrNotExist) {
@@ -1397,7 +1395,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 		})
 
-		Context("VM Accelerated Mode", func() {
+		Context("VM Accelerated Mode", decorators.WgS390x, func() {
 			BeforeEach(func() {
 				// allowEmulation won't change in a test suite run, so cache it
 				if allowEmulation == nil {
@@ -1470,7 +1468,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 	})
 
-	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Get a VirtualMachineInstance", func() {
+	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Get a VirtualMachineInstance", decorators.WgS390x, func() {
 		Context("when that not exist", func() {
 			It("[test_id:1649]should return 404", func() {
 				vmi := libvmifact.NewAlpine()
@@ -1484,64 +1482,288 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 	})
 
-	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Delete a VirtualMachineInstance's Pod", func() {
-		It("[test_id:1650]should result in the VirtualMachineInstance moving to a finalized state", func() {
+	Describe("Freeze/Unfreeze a VirtualMachineInstance", func() {
+		It("[test_id:7476][test_id:7477]should fail without guest agent", func() {
+			vmi := libvmifact.NewCirros()
+			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(180))
+
+			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Freeze(context.Background(), vmi.Name, 0)
+			Expect(err).To(MatchError(MatchRegexp("Internal error occurred:.*command Freeze failed:.*QEMU guest agent is not connected")))
+			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Unfreeze(context.Background(), vmi.Name)
+			Expect(err).To(MatchError(MatchRegexp("Internal error occurred:.*command Unfreeze failed:.*QEMU guest agent is not connected")))
+		})
+
+		waitVMIFSFreezeStatus := func(ns, name, expectedStatus string) {
+			Eventually(func() string {
+				vmi, err := kubevirt.Client().VirtualMachineInstance(ns).Get(context.Background(), name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vmi.Status.FSFreezeStatus
+			}, 30*time.Second, 2*time.Second).Should(Equal(expectedStatus))
+		}
+
+		It("[test_id:7479] should succeed", func() {
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(180))
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			By("Freezing VMI")
+			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Freeze(context.Background(), vmi.Name, 0)
+			Expect(err).ToNot(HaveOccurred())
+
+			waitVMIFSFreezeStatus(vmi.Namespace, vmi.Name, "frozen")
+
+			By("Unfreezing VMI")
+			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Unfreeze(context.Background(), vmi.Name)
+			Expect(err).ToNot(HaveOccurred())
+
+			waitVMIFSFreezeStatus(vmi.Namespace, vmi.Name, "")
+		})
+
+		It("[test_id:7480] should succeed multiple times", decorators.Conformance, func() {
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(180))
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			By("Freezing VMI")
+			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Freeze(context.Background(), vmi.Name, 0)
+			Expect(err).ToNot(HaveOccurred())
+
+			for i := 0; i < 5; i++ {
+				By("Freezing VMI")
+				err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Freeze(context.Background(), vmi.Name, 0)
+				Expect(err).ToNot(HaveOccurred())
+
+				waitVMIFSFreezeStatus(vmi.Namespace, vmi.Name, "frozen")
+			}
+
+			By("Unfreezing VMI")
+			for i := 0; i < 5; i++ {
+				err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Unfreeze(context.Background(), vmi.Name)
+				Expect(err).ToNot(HaveOccurred())
+
+				waitVMIFSFreezeStatus(vmi.Namespace, vmi.Name, "")
+			}
+		})
+
+		It("Freeze without Unfreeze should trigger unfreeze after timeout", decorators.Conformance, func() {
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libwait.WaitForSuccessfulVMIStart(vmi, libwait.WithTimeout(180))
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+			By("Freezing VMI")
+			unfreezeTimeout := 10 * time.Second
+			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Freeze(context.Background(), vmi.Name, unfreezeTimeout)
+			Expect(err).ToNot(HaveOccurred())
+
+			waitVMIFSFreezeStatus(vmi.Namespace, vmi.Name, "frozen")
+
+			By("Wait Unfreeze VMI to be triggered")
+			waitVMIFSFreezeStatus(vmi.Namespace, vmi.Name, "")
+		})
+	})
+
+	Describe("Softreboot a VirtualMachineInstance", func() {
+		const vmiLaunchTimeout = 360
+
+		It("soft reboot vmi with agent connected should succeed", decorators.Conformance, func() {
+			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(withoutACPI()), vmiLaunchTimeout)
+
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+			err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).SoftReboot(context.Background(), vmi.Name)
+			Expect(err).ToNot(HaveOccurred())
+
+			waitForVMIRebooted(vmi, console.LoginToFedora)
+		})
+
+		It("soft reboot vmi with ACPI feature enabled should succeed", decorators.Conformance, func() {
+			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(), vmiLaunchTimeout)
+
+			Expect(console.LoginToCirros(vmi)).To(Succeed())
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
+
+			err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).SoftReboot(context.Background(), vmi.Name)
+			Expect(err).ToNot(HaveOccurred())
+
+			waitForVMIRebooted(vmi, console.LoginToCirros)
+		})
+
+		It("soft reboot vmi neither have the agent connected nor the ACPI feature enabled should fail", decorators.Conformance, func() {
+			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(withoutACPI()), vmiLaunchTimeout)
+
+			Expect(console.LoginToCirros(vmi)).To(Succeed())
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
+
+			err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).SoftReboot(context.Background(), vmi.Name)
+			Expect(err).To(MatchError(ContainSubstring("VMI neither have the agent connected nor the ACPI feature enabled")))
+		})
+
+		It("soft reboot vmi should fail to soft reboot a paused vmi", func() {
+			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(), vmiLaunchTimeout)
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+			err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
+
+			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).SoftReboot(context.Background(), vmi.Name)
+			Expect(err).To(MatchError(ContainSubstring("VMI is paused")))
+
+			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Unpause(context.Background(), vmi.Name, &v1.UnpauseOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
+
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).SoftReboot(context.Background(), vmi.Name)
+			Expect(err).ToNot(HaveOccurred())
+
+			waitForVMIRebooted(vmi, console.LoginToFedora)
+		})
+	})
+
+	Describe("Pausing/Unpausing a VirtualMachineInstance", func() {
+		It("[test_id:4597]should signal paused state with condition", decorators.Conformance, func() {
+			vmi = libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(), 90)
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
+
+			By("Pausing VMI")
+			err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
+
+			By("Unpausing VMI")
+			err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Unpause(context.Background(), vmi.Name, &v1.UnpauseOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
+		})
+
+		It("[test_id:3083][test_id:3084]should be able to connect to serial console and VNC", func() {
+			vmi = libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(), 90)
+
+			By("Pausing the VMI")
+			err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
+
+			By("Trying to console into the VMI")
+			_, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Trying to vnc into the VMI")
+			_, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).VNC(vmi.Name)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("[test_id:3090]should result in a difference in the uptime after pause", func() {
+			const (
+				sleepTimeSeconds = 10
+				deviation        = 4
+			)
+
+			grepGuestUptime := func(vmi *v1.VirtualMachineInstance) float64 {
+				res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
+					&expect.BSnd{S: `cat /proc/uptime | awk '{print $1;}'` + "\n"},
+					&expect.BExp{R: console.RetValue("[0-9\\.]+")}, // guest uptime
+				}, 15)
+				Expect(err).ToNot(HaveOccurred())
+				re := regexp.MustCompile("\r\n[0-9\\.]+\r\n")
+				guestUptime, err := strconv.ParseFloat(strings.TrimSpace(re.FindString(res[0].Match[0])), 64)
+				Expect(err).ToNot(HaveOccurred(), "should be able to parse uptime to float")
+				return guestUptime
+			}
+
+			hostUptime := func(startTime time.Time) float64 {
+				return time.Since(startTime).Seconds()
+			}
+			startTime := time.Now()
+			By("Starting a Cirros VMI")
+			vmi = libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(), 90)
+
+			By("Checking that the VirtualMachineInstance console has expected output")
+			Expect(console.LoginToCirros(vmi)).To(Succeed())
+
+			By("checking uptime difference between guest and host")
+			uptimeDiffBeforePausing := hostUptime(startTime) - grepGuestUptime(vmi)
+
+			By("Pausing the VMI")
+			err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused))
+			time.Sleep(sleepTimeSeconds * time.Second) // sleep to increase uptime diff
+
+			By("Unpausing the VMI")
+			err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Unpause(context.Background(), vmi.Name, &v1.UnpauseOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
+
+			By("Verifying VMI was indeed Paused")
+			uptimeDiffAfterPausing := hostUptime(startTime) - grepGuestUptime(vmi)
+
+			// We subtract from the sleep time the deviation due to the low resolution of `uptime` (seconds).
+			// If you capture the uptime when it is at the beginning of that second or at the end of that second,
+			// the value comes out the same even though in fact a whole second has almost passed.
+			// In extreme cases, as we take 4 readings (2 initially and 2 after the unpause), the deviation could be up to just under 4 seconds.
+			// This fact does not invalidate the purpose of the test, which is to prove that during the pause the vmi is actually paused.
+			Expect(uptimeDiffAfterPausing-uptimeDiffBeforePausing).To(BeNumerically(">=", sleepTimeSeconds-deviation), fmt.Sprintf("guest should be paused for at least %d seconds", sleepTimeSeconds-deviation))
+		})
+	})
+
+	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Delete a VirtualMachineInstance's Pod (API)", decorators.WgS390x, func() {
+		It("[test_id:1650]should result in the VirtualMachineInstance moving to a finalized state", decorators.Conformance, func() {
 			By("Creating the VirtualMachineInstance")
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
 
 			By("Verifying VirtualMachineInstance's pod is active")
-			pods, err := kubevirt.Client().CoreV1().Pods(vmi.Namespace).List(context.Background(), tests.UnfinishedVMIPodSelector(vmi))
-			Expect(err).ToNot(HaveOccurred(), "Should list pods")
-			Expect(pods.Items).To(HaveLen(1), "There should be only one pod")
-			pod := pods.Items[0]
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+			Expect(err).ToNot(HaveOccurred())
 
 			// Delete the Pod
 			By("Deleting the VirtualMachineInstance's pod")
-			Eventually(func() error {
-				return kubevirt.Client().CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
-			}, 10*time.Second, 1*time.Second).Should(Succeed(), "Should delete VMI pod")
+			err = kubevirt.Client().CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			// TODD By("Verifying VirtualMachineInstance's pod terminates")
 
 			// Wait for VirtualMachineInstance to finalize
 			By("Waiting for the VirtualMachineInstance to move to a finalized state")
-			Eventually(func() error {
-				curVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				if err != nil {
-					return err
-				} else if !curVMI.IsFinal() {
-					return fmt.Errorf("VirtualMachineInstance has not reached a finalized state yet")
-				}
-				return nil
-			}, 60*time.Second, 1*time.Second).Should(Succeed(), "VMI reached finalized state")
+			Eventually(matcher.ThisVMI(vmi)).WithTimeout(time.Minute).WithPolling(time.Second).
+				Should(Or(matcher.BeInPhase(v1.Succeeded), matcher.BeInPhase(v1.Failed)))
 		})
 	})
 	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Delete a VirtualMachineInstance", func() {
-		Context("with an active pod.", func() {
+		Context("with an active pod.", decorators.WgS390x, func() {
 			It("[test_id:1651]should result in pod being terminated", func() {
-
 				By("Creating the VirtualMachineInstance")
 				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
 
-				podSelector := tests.UnfinishedVMIPodSelector(vmi)
 				By("Verifying VirtualMachineInstance's pod is active")
-				pods, err := kubevirt.Client().CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), podSelector)
-				Expect(err).ToNot(HaveOccurred(), "Should list pods")
-				Expect(pods.Items).To(HaveLen(1), "There should be only one pod")
+				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Deleting the VirtualMachineInstance")
 				Expect(kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
 
 				By("Verifying VirtualMachineInstance's pod terminates")
-				Eventually(func() int {
-					pods, err := kubevirt.Client().CoreV1().Pods(vmi.Namespace).List(context.Background(), podSelector)
-					Expect(err).ToNot(HaveOccurred(), "Should list pods")
-					return len(pods.Items)
-				}, 75, 0.5).Should(Equal(0), "There should be no pods")
-
+				Eventually(func() error {
+					_, err := kubevirt.Client().CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+					return err
+				}, 60*time.Second, 5*time.Second).Should(MatchError(k8serrors.IsNotFound, "k8serrors.IsNotFound"))
 			})
 		})
-		Context("with ACPI and some grace period seconds", func() {
+		Context("with ACPI and some grace period seconds", decorators.WgS390x, func() {
 			DescribeTable("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]should result in vmi status succeeded", func(gracePeriod int64) {
-				vmi := libvmifact.NewCirros()
+				vmi := libvmifact.NewFedora()
 
 				if gracePeriod >= 0 {
 					vmi.Spec.TerminationGracePeriodSeconds = &gracePeriod
@@ -1555,7 +1777,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 				// wait until booted
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 				By("Deleting the VirtualMachineInstance")
 				Expect(kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
@@ -1572,27 +1794,10 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			)
 		})
 		Context("with grace period greater than 0", func() {
-			It("[test_id:1655]should run graceful shutdown", func() {
-				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
-				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
-				node := nodes.Items[0].Name
-
-				virtHandlerPod, err := libnode.GetVirtHandlerPod(kubevirt.Client(), node)
-				Expect(err).ToNot(HaveOccurred(), "Should get virthandler for node")
-
-				handlerName := virtHandlerPod.GetObjectMeta().GetName()
-				handlerNamespace := virtHandlerPod.GetObjectMeta().GetNamespace()
-				seconds := int64(120)
-				logsQuery := kubevirt.Client().CoreV1().Pods(handlerNamespace).GetLogs(handlerName, &k8sv1.PodLogOptions{SinceSeconds: &seconds, Container: "virt-handler"})
-
+			It("[test_id:1655]should run graceful shutdown", decorators.Conformance, func() {
 				By("Setting a VirtualMachineInstance termination grace period to 5")
-				var gracePeriod int64
-				gracePeriod = int64(5)
-				vmi := libvmifact.NewAlpine()
 				// Give the VirtualMachineInstance a custom grace period
-				vmi.Spec.TerminationGracePeriodSeconds = &gracePeriod
-				// Make sure we schedule the VirtualMachineInstance to master
-				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: node}
+				vmi := libvmifact.NewAlpine(libvmi.WithTerminationGracePeriod(5))
 
 				By("Creating the VirtualMachineInstance")
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
@@ -1600,31 +1805,27 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				// Delete the VirtualMachineInstance and wait for the confirmation of the delete
 				By("Deleting the VirtualMachineInstance")
 				Expect(kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI gracefully")
+
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
-				event := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(75*time.Second).WaitFor(ctx, watcher.NormalEvent, v1.Deleted)
-				Expect(event).ToNot(BeNil(), "There should be a delete event")
 
 				// Check if the graceful shutdown was logged
 				By("Checking that virt-handler logs VirtualMachineInstance graceful shutdown")
-				Eventually(func() string {
-					data, err := logsQuery.DoRaw(context.Background())
-					Expect(err).ToNot(HaveOccurred(), "Should get the logs")
-					return string(data)
-				}, 30, 0.5).Should(ContainSubstring(fmt.Sprintf("Signaled graceful shutdown for %s", vmi.GetObjectMeta().GetName())), "Should log graceful shutdown")
+				event := watcher.New(vmi).Timeout(30*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.NormalEvent, "ShuttingDown")
+				Expect(event).ToNot(BeNil(), "There should be a graceful shutdown")
 
 				// Verify VirtualMachineInstance is killed after grace period expires
+				// 5 seconds is grace period, doubling to prevent flakiness
 				By("Checking that the VirtualMachineInstance does not exist after grace period")
-				Eventually(func() string {
-					data, err := logsQuery.DoRaw(context.Background())
-					Expect(err).ToNot(HaveOccurred(), "Should get logs")
-					return string(data)
-				}, 30, 0.5).Should(ContainSubstring(fmt.Sprintf("Grace period expired, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())), "Should log graceful kill")
+				event = watcher.New(vmi).Timeout(10*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.NormalEvent, "Deleted")
+				Expect(event).ToNot(BeNil(), "There should be a graceful shutdown")
+
+				Eventually(matcher.ThisVMI(vmi)).WithTimeout(15 * time.Second).WithPolling(time.Second).Should(matcher.BeGone())
 			})
 		})
 	})
 
-	Describe("[Serial][rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Killed VirtualMachineInstance", Serial, func() {
+	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Killed VirtualMachineInstance", Serial, decorators.WgS390x, func() {
 		It("[test_id:1656]should be in Failed phase", func() {
 			By("Starting a VirtualMachineInstance")
 			vmi := libvmifact.NewAlpine()
@@ -1680,7 +1881,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 	})
 
-	Context("replicaset with topology spread constraints", func() {
+	Context("replicaset with topology spread constraints", decorators.WgS390x, func() {
 		It("Replicas should be spread across nodes", func() {
 			nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
 			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some schedulable nodes")
@@ -1819,15 +2020,6 @@ func pkillAllVMIs(virtCli kubecli.KubevirtClient, node string) error {
 	return err
 }
 
-func nowAsJSONWithOffset(offset time.Duration) string {
-	now := metav1.Now()
-	now = metav1.NewTime(now.Add(offset))
-
-	data, err := json.Marshal(now)
-	Expect(err).ToNot(HaveOccurred(), "Should marshal to json")
-	return strings.Trim(string(data), `"`)
-}
-
 func addBootOrderToDisk(vmi *v1.VirtualMachineInstance, diskName string, bootorder *uint) *v1.VirtualMachineInstance {
 	for i, d := range vmi.Spec.Domain.Devices.Disks {
 		if d.Name == diskName {
@@ -1836,4 +2028,21 @@ func addBootOrderToDisk(vmi *v1.VirtualMachineInstance, diskName string, bootord
 		}
 	}
 	return vmi
+}
+
+func waitForVMIRebooted(vmi *v1.VirtualMachineInstance, login console.LoginToFunction) {
+	By(fmt.Sprintf("Waiting for vmi %s rebooted", vmi.Name))
+	Expect(login(vmi)).To(Succeed())
+	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: "last reboot | grep reboot | wc -l\n"},
+		&expect.BExp{R: "2"},
+	}, 300)).To(Succeed(), "expected reboot record")
+}
+
+func withoutACPI() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Features = &v1.Features{
+			ACPI: v1.FeatureState{Enabled: pointer.P(false)},
+		}
+	}
 }

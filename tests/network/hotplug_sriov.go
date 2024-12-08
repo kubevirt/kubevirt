@@ -35,11 +35,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -47,15 +44,8 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("[Serial] SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
-
+var _ = SIGDescribe(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 	sriovResourceName := readSRIOVResourceName()
-
-	BeforeEach(func() {
-		if !checks.HasFeature(virtconfig.HotplugNetworkIfacesGate) {
-			Skip("HotplugNICs feature gate is disabled.")
-		}
-	})
 
 	BeforeEach(func() {
 		// Check if the hardware supports SRIOV
@@ -79,7 +69,7 @@ var _ = SIGDescribe("[Serial] SRIOV nic-hotplug", Serial, decorators.SRIOV, func
 				libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
-			hotPluggedVM = libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+			hotPluggedVM = libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 			var err error
 			hotPluggedVM, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), hotPluggedVM, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -129,7 +119,7 @@ var _ = SIGDescribe("[Serial] SRIOV nic-hotplug", Serial, decorators.SRIOV, func
 	})
 })
 
-func createSRIOVNetworkAttachmentDefinition(namespace, networkName string, sriovResourceName string) error {
+func createSRIOVNetworkAttachmentDefinition(namespace, networkName, sriovResourceName string) error {
 	return libnet.CreateNetworkAttachmentDefinition(
 		networkName,
 		namespace,

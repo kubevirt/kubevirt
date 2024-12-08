@@ -33,10 +33,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -63,7 +63,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			VirtualMachineInstanceProfile: &v1.VirtualMachineInstanceProfile{
 				CustomProfile: &v1.CustomProfile{
 					RuntimeDefaultProfile: true,
-					LocalhostProfile:      pointer.String("somethingNotImportant"),
+					LocalhostProfile:      pointer.P("somethingNotImportant"),
 				},
 			},
 		}, []string{vmProfileField.Child("customProfile", "runtimeDefaultProfile").String(), vmProfileField.Child("customProfile", "localhostProfile").String()}),
@@ -311,6 +311,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Entry("with NonRoot", deprecation.NonRoot, fmt.Sprintf(deprecation.WarningPattern, deprecation.NonRoot, deprecation.GA)),
 			Entry("with PSA", deprecation.PSA, fmt.Sprintf(deprecation.WarningPattern, deprecation.PSA, deprecation.GA)),
 			Entry("with CPUNodeDiscoveryGate", deprecation.CPUNodeDiscoveryGate, fmt.Sprintf(deprecation.WarningPattern, deprecation.CPUNodeDiscoveryGate, deprecation.GA)),
+			Entry("with HotplugNICs", deprecation.HotplugNetworkIfacesGate, fmt.Sprintf(deprecation.WarningPattern, deprecation.HotplugNetworkIfacesGate, deprecation.GA)),
 			Entry("with Passt", deprecation.PasstGate, deprecation.PasstDiscontinueMessage),
 			Entry("with MacvtapGate", deprecation.MacvtapGate, deprecation.MacvtapDiscontinueMessage),
 		)

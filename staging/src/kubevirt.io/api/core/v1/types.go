@@ -468,6 +468,11 @@ func (v *VirtualMachineInstance) IsMigratable() bool {
 	return false
 }
 
+func (v *VirtualMachineInstance) IsBlockMigration() bool {
+	return v.Status.MigrationMethod == BlockMigration ||
+		len(v.Status.MigratedVolumes) > 0
+}
+
 func (v *VirtualMachineInstance) IsFinal() bool {
 	return v.Status.Phase == Failed || v.Status.Phase == Succeeded
 }
@@ -603,9 +608,10 @@ const (
 	VirtualMachineInstanceReasonNotAllDVsReady = "NotAllDVsReady"
 	// Reason means that all of the VMI's DVs are bound and not running
 	VirtualMachineInstanceReasonAllDVsReady = "AllDVsReady"
-
 	// Indicates a generic reason that the VMI isn't migratable and more details are spiecified in the condition message.
 	VirtualMachineInstanceReasonNotMigratable = "NotMigratable"
+	// Reason means that the volume update change was cancelled
+	VirtualMachineInstanceReasonVolumesChangeCancellation = "VolumesChangeCancellation"
 )
 
 const (
@@ -690,6 +696,8 @@ type VirtualMachineInstanceNetworkInterface struct {
 	Name string `json:"name,omitempty"`
 	// List of all IP addresses of a Virtual Machine interface
 	IPs []string `json:"ipAddresses,omitempty"`
+	// PodInterfaceName represents the name of the pod network interface
+	PodInterfaceName string `json:"podInterfaceName,omitempty"`
 	// The interface name inside the Virtual Machine
 	InterfaceName string `json:"interfaceName,omitempty"`
 	// Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status.
@@ -775,6 +783,11 @@ type VirtualMachineInstanceMigrationState struct {
 	// If the VMI requires dedicated CPUs, this field will
 	// hold the numa topology on the target node
 	TargetNodeTopology string `json:"targetNodeTopology,omitempty"`
+
+	// If the VMI being migrated uses persistent features (backend-storage), its source PVC name is saved here
+	SourcePersistentStatePVCName string `json:"sourcePersistentStatePVCName,omitempty"`
+	// If the VMI being migrated uses persistent features (backend-storage), its target PVC name is saved here
+	TargetPersistentStatePVCName string `json:"targetPersistentStatePVCName,omitempty"`
 }
 
 type MigrationAbortStatus string
@@ -795,6 +808,8 @@ const (
 	MigrationPreCopy MigrationMode = "PreCopy"
 	// MigrationPostCopy means the VMI migrations that is currently running is in post copy mode
 	MigrationPostCopy MigrationMode = "PostCopy"
+	// MigrationPaused means that the VMI is currently paused and being migrated
+	MigrationPaused MigrationMode = "Paused"
 )
 
 type VirtualMachineInstanceMigrationTransport string
@@ -839,6 +854,11 @@ const (
 	Unknown VirtualMachineInstancePhase = "Unknown"
 )
 
+// Annotations in the KubeVirt custom resource are used to modify KubeVirt's behavior, often serving as workarounds for bugs in other layers.
+const (
+	// VGADisplayForEFIGuestsX86Annotation when set, x86 EFI guests will be started with VGA display instead of Bochs
+	VGADisplayForEFIGuestsX86Annotation string = "kubevirt.io/vga-display-efi-x86"
+)
 const (
 	// AppLabel and AppName labels marks resources that belong to KubeVirt. An optional value
 	// may indicate which specific KubeVirt component a resource belongs to.
@@ -1535,6 +1555,7 @@ const (
 type VirtualMachineSpec struct {
 	// Running controls whether the associatied VirtualMachineInstance is created or not
 	// Mutually exclusive with RunStrategy
+	// Deprecated: VirtualMachineInstance field "Running" is now deprecated, please use RunStrategy instead.
 	Running *bool `json:"running,omitempty" optional:"true"`
 
 	// Running state indicates the requested running state of the VirtualMachineInstance
@@ -1678,6 +1699,22 @@ type VirtualMachineStatus struct {
 	// RunStrategy tracks the last recorded RunStrategy used by the VM.
 	// This is needed to correctly process the next strategy (for now only the RerunOnFailure)
 	RunStrategy VirtualMachineRunStrategy `json:"runStrategy,omitempty" optional:"true"`
+
+	// VolumeUpdateState contains the information about the volumes set
+	// updates related to the volumeUpdateStrategy
+	VolumeUpdateState *VolumeUpdateState `json:"volumeUpdateState,omitempty" optional:"true"`
+}
+
+type VolumeUpdateState struct {
+	// VolumeMigrationState tracks the information related to the volume migration
+	VolumeMigrationState *VolumeMigrationState `json:"volumeMigrationState,omitempty" optional:"true"`
+}
+
+type VolumeMigrationState struct {
+	// MigratedVolumes lists the source and destination volumes during the volume migration
+	// +listType=atomic
+	// +optional
+	MigratedVolumes []StorageMigratedVolumeInfo `json:"migratedVolumes,omitempty"`
 }
 
 type VolumeSnapshotStatus struct {
@@ -1736,6 +1773,9 @@ const (
 
 	// VirtualMachineRestartRequired is added when changes made to the VM can't be live-propagated to the VMI
 	VirtualMachineRestartRequired VirtualMachineConditionType = "RestartRequired"
+
+	// VirtualMachineManualRecoveryRequired is added when the VM spec needs to be manually recovered by the user
+	VirtualMachineManualRecoveryRequired VirtualMachineConditionType = "ManualRecoveryRequired"
 )
 
 type HostDiskType string
@@ -2502,6 +2542,41 @@ type KubeVirtConfiguration struct {
 	// +nullable
 	// +kubebuilder:validation:Enum=Stage;LiveUpdate
 	VMRolloutStrategy *VMRolloutStrategy `json:"vmRolloutStrategy,omitempty"`
+
+	// CommonInstancetypesDeployment controls the deployment of common-instancetypes resources
+	// +nullable
+	CommonInstancetypesDeployment *CommonInstancetypesDeployment `json:"commonInstancetypesDeployment,omitempty"`
+
+	// Instancetype configuration
+	// +nullable
+	Instancetype *InstancetypeConfiguration `json:"instancetype,omitempty"`
+}
+
+type InstancetypeConfiguration struct {
+	// ReferencePolicy defines how an instance type or preference should be referenced by the VM after submission, supported values are:
+	// reference (default) - Where a copy of the original object is stashed in a ControllerRevision and referenced by the VM.
+	// expand - Where the instance type or preference are expanded into the VM if no revisionNames have been populated.
+	// expandAll - Where the instance type or preference are expanded into the VM regardless of revisionNames previously being populated.
+	// +nullable
+	// +kubebuilder:validation:Enum=reference;expand;expandAll
+	ReferencePolicy *InstancetypeReferencePolicy `json:"referencePolicy,omitempty"`
+}
+
+type InstancetypeReferencePolicy string
+
+const (
+	// Copy any instance type or preference and reference from the VirtualMachine
+	Reference InstancetypeReferencePolicy = "reference"
+	// Expand any instance type or preference into VirtualMachines without a revisionName already captured
+	Expand InstancetypeReferencePolicy = "expand"
+	// Expand any instance type or preferences into all VirtualMachines
+	ExpandAll InstancetypeReferencePolicy = "expandAll"
+)
+
+type CommonInstancetypesDeployment struct {
+	// Enabled controls the deployment of common-instancetypes resources, defaults to True.
+	// +nullable
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 type VMRolloutStrategy string
@@ -2554,8 +2629,8 @@ const (
 
 // SupportContainerResources are used to specify the cpu/memory request and limits for the containers that support various features of Virtual Machines. These containers are usually idle and don't require a lot of memory or cpu.
 type SupportContainerResources struct {
-	Type      SupportContainerType       `json:"type"`
-	Resources k8sv1.ResourceRequirements `json:"resources"`
+	Type      SupportContainerType              `json:"type"`
+	Resources ResourceRequirementsWithoutClaims `json:"resources"`
 }
 
 type TLSProtocolVersion string
@@ -2640,8 +2715,8 @@ type MigrationConfiguration struct {
 	// The value is in quantity per second. Defaults to 0 (no limit)
 	BandwidthPerMigration *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
 	// CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
-	// If a live-migration takes longer to migrate than this value multiplied by the size of the VMI,
-	// the migration will be cancelled, unless AllowPostCopy is true. Defaults to 800
+	// If the timeout is reached, the migration will be either paused, switched
+	// to post-copy or cancelled depending on other settings. Defaults to 150
 	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
 	// ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress.
 	// Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is
@@ -2655,6 +2730,11 @@ type MigrationConfiguration struct {
 	// If set to true, migrations will still start in pre-copy, but switch to post-copy when
 	// CompletionTimeoutPerGiB triggers. Defaults to false
 	AllowPostCopy *bool `json:"allowPostCopy,omitempty"`
+	// AllowWorkloadDisruption indicates that the migration shouldn't be
+	// canceled after acceptableCompletionTime is exceeded. Instead, if
+	// permitted, migration will be switched to post-copy or the VMI will be
+	// paused to allow the migration to complete
+	AllowWorkloadDisruption *bool `json:"allowWorkloadDisruption,omitempty"`
 	// When set to true, DisableTLS will disable the additional layer of live migration encryption
 	// provided by KubeVirt. This is usually a bad idea. Defaults to false
 	DisableTLS *bool `json:"disableTLS,omitempty"`
@@ -2834,7 +2914,7 @@ type InterfaceBindingPlugin struct {
 	// version: 1alphav1
 	NetworkAttachmentDefinition string `json:"networkAttachmentDefinition,omitempty"`
 	// DomainAttachmentType is a standard domain network attachment method kubevirt supports.
-	// Supported values: "tap".
+	// Supported values: "tap", "managedTap" (since v1.4).
 	// The standard domain attachment can be used instead or in addition to the sidecarImage.
 	// version: 1alphav1
 	DomainAttachmentType DomainAttachmentType `json:"domainAttachmentType,omitempty"`
@@ -2850,7 +2930,22 @@ type InterfaceBindingPlugin struct {
 	// ComputeResourceOverhead specifies the resource overhead that should be added to the compute container when using the binding.
 	// version: v1alphav1
 	// +optional
-	ComputeResourceOverhead *k8sv1.ResourceRequirements `json:"computeResourceOverhead,omitempty"`
+	ComputeResourceOverhead *ResourceRequirementsWithoutClaims `json:"computeResourceOverhead,omitempty"`
+}
+
+// ResourceRequirementsWithoutClaims describes the compute resource requirements.
+// This struct was taken from the k8s.ResourceRequirements and cleaned up the `Claims` field.
+type ResourceRequirementsWithoutClaims struct {
+	// Limits describes the maximum amount of compute resources allowed.
+	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	// +optional
+	Limits k8sv1.ResourceList `json:"limits,omitempty" protobuf:"bytes,1,rep,name=limits,casttype=ResourceList,castkey=ResourceName"`
+	// Requests describes the minimum amount of compute resources required.
+	// If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+	// otherwise to an implementation-defined value. Requests cannot exceed Limits.
+	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	// +optional
+	Requests k8sv1.ResourceList `json:"requests,omitempty" protobuf:"bytes,2,rep,name=requests,casttype=ResourceList,castkey=ResourceName"`
 }
 
 type DomainAttachmentType string
@@ -2859,6 +2954,9 @@ const (
 	// Tap domain attachment type is a generic way to bind ethernet connection into guests using tap device
 	// https://libvirt.org/formatdomain.html#generic-ethernet-connection.
 	Tap DomainAttachmentType = "tap"
+	// ManagedTap domain attachment type is binding an ethernet connection into guests using a tap device.
+	// The tap device is created (unless already present) on the network pod interface with a Linux bridge.
+	ManagedTap DomainAttachmentType = "managedTap"
 )
 
 type NetworkBindingDownwardAPIType string
@@ -3010,7 +3108,8 @@ type LiveUpdateConfiguration struct {
 	// defined and MaxHotplugRatio is 2 then MaxGuest = 1Gi
 	// defaults to 4
 	MaxHotplugRatio uint32 `json:"maxHotplugRatio,omitempty"`
-	// MaxCpuSockets holds the maximum amount of sockets that can be hotplugged
+	// MaxCpuSockets provides a MaxSockets value for VMs that do not provide their own.
+	// For VMs with more sockets than maximum the MaxSockets will be set to equal number of sockets.
 	MaxCpuSockets *uint32 `json:"maxCpuSockets,omitempty"`
 	// MaxGuest defines the maximum amount memory that can be allocated
 	// to the guest using hotplug.

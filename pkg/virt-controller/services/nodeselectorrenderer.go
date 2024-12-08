@@ -19,6 +19,9 @@ type NodeSelectorRenderer struct {
 	podNodeSelectors map[string]string
 	tscFrequency     *int64
 	vmiFeatures      *v1.Features
+	realtimeEnabled  bool
+	sevEnabled       bool
+	sevESEnabled     bool
 }
 
 type NodeSelectorRendererOption func(renderer *NodeSelectorRenderer)
@@ -61,6 +64,15 @@ func (nsr *NodeSelectorRenderer) Render() map[string]string {
 	if nsr.isManualTSCFrequencyRequired() {
 		nsr.enableSelectorLabel(topology.ToTSCSchedulableLabel(*nsr.tscFrequency))
 	}
+	if nsr.realtimeEnabled {
+		nsr.enableSelectorLabel(v1.RealtimeLabel)
+	}
+	if nsr.sevEnabled {
+		nsr.enableSelectorLabel(v1.SEVLabel)
+	}
+	if nsr.sevESEnabled {
+		nsr.enableSelectorLabel(v1.SEVESLabel)
+	}
 
 	return nsr.podNodeSelectors
 }
@@ -71,6 +83,22 @@ func (nsr *NodeSelectorRenderer) enableSelectorLabel(label string) {
 
 func (nsr *NodeSelectorRenderer) isManualTSCFrequencyRequired() bool {
 	return nsr.tscFrequency != nil
+}
+
+func WithRealtime() NodeSelectorRendererOption {
+	return func(renderer *NodeSelectorRenderer) {
+		renderer.realtimeEnabled = true
+	}
+}
+func WithSEVSelector() NodeSelectorRendererOption {
+	return func(renderer *NodeSelectorRenderer) {
+		renderer.sevEnabled = true
+	}
+}
+func WithSEVESSelector() NodeSelectorRendererOption {
+	return func(renderer *NodeSelectorRenderer) {
+		renderer.sevESEnabled = true
+	}
 }
 
 func WithDedicatedCPU() NodeSelectorRendererOption {

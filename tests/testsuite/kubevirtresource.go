@@ -32,11 +32,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
-	"k8s.io/utils/pointer"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+	putil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -87,12 +87,17 @@ func AdjustKubeVirtResource() {
 	kv.Spec.Configuration.SeccompConfiguration = &v1.SeccompConfiguration{
 		VirtualMachineInstanceProfile: &v1.VirtualMachineInstanceProfile{
 			CustomProfile: &v1.CustomProfile{
-				LocalhostProfile: pointer.String("kubevirt/kubevirt.json"),
+				LocalhostProfile: pointer.P("kubevirt/kubevirt.json"),
 			},
 		},
 	}
+	// Disable CPUManager Featuregate for s390x as it is not supported.
+	if putil.TranslateBuildArch() != "s390x" {
+		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
+			virtconfig.CPUManager,
+		)
+	}
 	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-		virtconfig.CPUManager,
 		virtconfig.IgnitionGate,
 		virtconfig.SidecarGate,
 		virtconfig.SnapshotGate,
@@ -100,14 +105,11 @@ func AdjustKubeVirtResource() {
 		virtconfig.VirtIOFSGate,
 		virtconfig.HotplugVolumesGate,
 		virtconfig.DownwardMetricsFeatureGate,
-		virtconfig.NUMAFeatureGate,
 		virtconfig.ExpandDisksGate,
 		virtconfig.WorkloadEncryptionSEV,
 		virtconfig.VMExportGate,
 		virtconfig.KubevirtSeccompProfile,
-		virtconfig.HotplugNetworkIfacesGate,
 		virtconfig.VMPersistentState,
-		virtconfig.VMLiveUpdateFeaturesGate,
 		virtconfig.AutoResourceLimitsGate,
 	)
 	if flags.DisableCustomSELinuxPolicy {

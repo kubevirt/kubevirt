@@ -39,18 +39,17 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libdv"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -71,20 +70,6 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 		checks.SkipIfMigrationIsNotPossible()
 		virtClient = kubevirt.Client()
 	})
-
-	waitUntilMigrationMode := func(vmi *v1.VirtualMachineInstance, expectedMode v1.MigrationMode, timeout int) *v1.VirtualMachineInstance {
-		By("Waiting until migration status")
-		EventuallyWithOffset(2, func() v1.MigrationMode {
-			By("Retrieving the VMI post migration")
-			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			if vmi.Status.MigrationState != nil {
-				return vmi.Status.MigrationState.Mode
-			}
-			return v1.MigrationPreCopy
-		}, timeout, 1*time.Second).Should(Equal(expectedMode), fmt.Sprintf("migration should be in %s after %d s", expectedMode, timeout))
-		return vmi
-	}
 
 	Describe("Starting a VirtualMachineInstance ", func() {
 
@@ -112,10 +97,10 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 
 					dv = libdv.NewDataVolume(
 						libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling), cdiv1.RegistryPullNode),
-						libdv.WithPVC(
-							libdv.PVCWithStorageClass(sc),
-							libdv.PVCWithVolumeSize(cd.FedoraVolumeSize),
-							libdv.PVCWithReadWriteManyAccessMode(),
+						libdv.WithStorage(
+							libdv.StorageWithStorageClass(sc),
+							libdv.StorageWithVolumeSize(cd.FedoraVolumeSize),
+							libdv.StorageWithReadWriteManyAccessMode(),
 						),
 					)
 
@@ -145,7 +130,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 					config.MigrationConfiguration.AllowPostCopy = migrationPolicy.Spec.AllowPostCopy
 					config.MigrationConfiguration.CompletionTimeoutPerGiB = migrationPolicy.Spec.CompletionTimeoutPerGiB
 					config.MigrationConfiguration.BandwidthPerMigration = migrationPolicy.Spec.BandwidthPerMigration
-					tests.UpdateKubeVirtConfigValueAndWait(config)
+					kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 				}
 
 				type applySettingsType string
@@ -188,10 +173,10 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 					libmigration.ConfirmMigrationMode(virtClient, vmi, v1.MigrationPostCopy)
 				},
 					Entry("a migration policy", applyWithMigrationPolicy),
-					Entry("[Serial] Kubevirt CR", Serial, applyWithKubevirtCR),
+					Entry(" Kubevirt CR", Serial, applyWithKubevirtCR),
 				)
 
-				Context("[Serial] and fail", Serial, func() {
+				Context(" and fail", Serial, func() {
 					var createdPods []string
 					BeforeEach(func() {
 						createdPods = []string{}
@@ -270,20 +255,20 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 						migration = libmigration.RunMigration(virtClient, migration)
 
 						// check VMI, confirm migration state
-						waitUntilMigrationMode(vmi, v1.MigrationPostCopy, 300)
+						libmigration.WaitUntilMigrationMode(virtClient, vmi, v1.MigrationPostCopy, 300)
 
 						// launch a migration killer pod on the node
 						By("Starting migration killer pods")
 						runMigrationKillerPod(vmi.Status.NodeName)
 
 						By("Making sure that post-copy migration failed")
-						Eventually(matcher.ThisMigration(migration), 150, 1*time.Second).Should(BeInPhase(v1.MigrationFailed))
+						Eventually(matcher.ThisMigration(migration), 150, 1*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed))
 
 						By("Removing migration killer pods")
 						removeMigrationKillerPod()
 
 						By("Ensuring the VirtualMachineInstance is restarted")
-						Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(matcher.BeRestarted(vmi.UID))
+						Eventually(matcher.ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(matcher.BeRestarted(vmi.UID))
 					})
 				})
 			})

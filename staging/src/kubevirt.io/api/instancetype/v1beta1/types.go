@@ -573,14 +573,21 @@ type FirmwarePreferences struct {
 	// PreferredUseEfi optionally enables EFI
 	//
 	// +optional
-	PreferredUseEfi *bool `json:"preferredUseEfi,omitempty"`
+	// Deprecated: Will be removed with v1beta2 or v1
+	DeprecatedPreferredUseEfi *bool `json:"preferredUseEfi,omitempty"`
 
 	// PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.
 	//
 	// Requires PreferredUseEfi and PreferredSmm to be enabled.
 	//
 	// +optional
-	PreferredUseSecureBoot *bool `json:"preferredUseSecureBoot,omitempty"`
+	// Deprecated: Will be removed with v1beta2 or v1
+	DeprecatedPreferredUseSecureBoot *bool `json:"preferredUseSecureBoot,omitempty"`
+
+	// PreferredEfi optionally enables EFI
+	//
+	// +optional
+	PreferredEfi *v1.EFI `json:"preferredEfi,omitempty"`
 }
 
 // MachinePreferences contains various optional defaults for Machine.

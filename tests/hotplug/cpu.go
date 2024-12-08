@@ -8,7 +8,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +28,8 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -38,7 +39,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateFeaturesGate, Serial, func() {
+var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateRolloutStrategy, Serial, func() {
 	var (
 		virtClient kubecli.KubevirtClient
 	)
@@ -52,11 +53,51 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 		patchWorkloadUpdateMethodAndRolloutStrategy(originalKv.Name, virtClient, updateStrategy, rolloutStrategy)
 
 		currentKv := libkubevirt.GetCurrentKv(virtClient)
-		tests.WaitForConfigToBePropagatedToComponent(
+		config.WaitForConfigToBePropagatedToComponent(
 			"kubevirt.io=virt-controller",
 			currentKv.ResourceVersion,
-			tests.ExpectResourceVersionToBeLessEqualThanConfigVersion,
+			config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
 			time.Minute)
+
+	})
+
+	Context("with requests without topology", func() {
+
+		It("should be able to start", func() {
+			By("Kubevirt CR with default MaxHotplugRatio set to 4")
+
+			By("Run VM with 5 sockets without topology")
+			vmi := libvmifact.NewAlpine(libvmi.WithResourceCPU("5000m"))
+
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+
+			By("Expecting to see VMI that is starting")
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, k8smetav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 10*time.Second, 1*time.Second).Should(Exist())
+		})
+	})
+
+	Context("with Kubevirt CR declaring MaxCpuSockets", func() {
+
+		It("should be able to start", func() {
+			By("Kubevirt CR with MaxCpuSockets set to 2")
+			kubevirt := libkubevirt.GetCurrentKv(virtClient)
+			if kubevirt.Spec.Configuration.LiveUpdateConfiguration == nil {
+				kubevirt.Spec.Configuration.LiveUpdateConfiguration = &v1.LiveUpdateConfiguration{}
+			}
+			kubevirt.Spec.Configuration.LiveUpdateConfiguration.MaxCpuSockets = pointer.P(uint32(2))
+			kvconfig.UpdateKubeVirtConfigValueAndWait(kubevirt.Spec.Configuration)
+
+			By("Run VM with 3 sockets")
+			vmi := libvmifact.NewAlpine(libvmi.WithCPUCount(1, 1, 3))
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+
+			By("Expecting to see VMI that is starting")
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, k8smetav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 10*time.Second, 1*time.Second).Should(Exist())
+		})
 
 	})
 
@@ -92,7 +133,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 				Threads:    1,
 				MaxSockets: maxSockets,
 			}
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -200,7 +241,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 				DedicatedCPUPlacement: true,
 				MaxSockets:            maxSockets,
 			}
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -294,7 +335,7 @@ var _ = Describe("[sig-compute][Serial]CPU Hotplug", decorators.SigCompute, deco
 				return policy
 			}, 30*time.Second, time.Second).ShouldNot(BeNil())
 
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())

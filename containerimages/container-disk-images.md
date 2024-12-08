@@ -99,10 +99,10 @@ container_image(
 )
 ```
 
-Then add new line for the container_bundle rule at the pojects`BUILD.bazel` file
+Then add new line for the container_bundle rules for each architecture at the pojects`BUILD.bazel` file
 ```bash
 container_bundle(
-    name = "build-other-images",
+    name = "build-other-images_<arch>",
     images = {
         ...
         "$(container_prefix)/$(image_prefix)fedora-sriov-lane-container-disk:$(container_tag)": "//containerimages:fedora-extended-container-disk-image",

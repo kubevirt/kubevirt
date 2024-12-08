@@ -144,7 +144,7 @@ deploy from KubeVirt sources though.
 
 In the following example, we configure the cluster using `local` provider which
 is part of kubevirt/kubevirt repo. Please consult
-[documentation](https://github.com/kubevirt/kubevirt/blob/main/cluster-up/cluster/local/README.md)
+[documentation](https://github.com/kubevirt/kubevirt/blob/main/kubevirtci/cluster-up/cluster/local/README.md)
 for general information on setting up a host using the `local` provider.
 
 The `local` provider does not install default CNI plugins like `loopback`. So
@@ -216,8 +216,8 @@ $ go get -u -d github.com/intel/multus-cni
 $ cd $GOPATH/src/github.com/intel/multus-cni/
 $ mkdir -p /etc/cni/net.d
 $ cp images/70-multus.conf /etc/cni/net.d/
-$ ./cluster-up/kubectl.sh create -f $GOPATH/src/github.com/intel/multus-cni/images/multus-daemonset.yml
-$ ./cluster-up/kubectl.sh create -f $GOPATH/src/github.com/intel/multus-cni/images/flannel-daemonset.yml
+$ ./kubevirtci/cluster-up/kubectl.sh create -f $GOPATH/src/github.com/intel/multus-cni/images/multus-daemonset.yml
+$ ./kubevirtci/cluster-up/kubectl.sh create -f $GOPATH/src/github.com/intel/multus-cni/images/flannel-daemonset.yml
 ```
 
 Now, deploy SR-IOV device plugin. Adjust config.json file for your particular
@@ -239,20 +239,20 @@ $ cat <<EOF > /etc/pcidp/config.json
     ]
 }
 EOF
-$ ./cluster-up/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-network-device-plugin/images/sriovdp-daemonset.yaml
+$ ./kubevirtci/cluster-up/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-network-device-plugin/images/sriovdp-daemonset.yaml
 ```
 
 Deploy SR-IOV CNI plugin.
 
 ```
 $ go get -u -d github.com/intel/sriov-cni/
-$ ./cluster-up/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-cni/images/sriov-cni-daemonset.yaml
+$ ./kubevirtci/cluster-up/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-cni/images/sriov-cni-daemonset.yaml
 ```
 
 Finally, create a new SR-IOV network CRD that will use SR-IOV device plugin to allocate devices.
 
 ```
-./cluster-up/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-network-device-plugin/deployments/sriov-crd.yaml
+./kubevirtci/cluster-up/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-network-device-plugin/deployments/sriov-crd.yaml
 ```
 
 Just make sure that the network spec refers to the right resource name for

@@ -3,9 +3,11 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "accesscredentials.go",
         "cloudinit.go",
         "config.go",
         "cpu.go",
+        "devices.go",
         "memory.go",
         "network.go",
         "selector.go",

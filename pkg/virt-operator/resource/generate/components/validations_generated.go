@@ -245,7 +245,7 @@ var CRDsValidation map[string]string = map[string]string{
                 set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                 exists.
                 More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.
+                (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
               type: string
             volumeMode:
               description: |-
@@ -531,10 +531,8 @@ var CRDsValidation map[string]string = map[string]string{
                     Claims lists the names of resources, defined in spec.resourceClaims,
                     that are used by this container.
 
-
                     This is an alpha field and requires enabling the
                     DynamicResourceAllocation feature gate.
-
 
                     This field is immutable. It can only be set for containers.
                   items:
@@ -545,6 +543,12 @@ var CRDsValidation map[string]string = map[string]string{
                           Name must match the name of one entry in pod.spec.resourceClaims of
                           the Pod where this field is used. It makes that resource available
                           inside a container.
+                        type: string
+                      request:
+                        description: |-
+                          Request is the name chosen for a request in the referenced claim.
+                          If empty, everything from the claim is made available, otherwise
+                          only the result of this request.
                         type: string
                     required:
                     - name
@@ -854,6 +858,17 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
               type: object
               x-kubernetes-map-type: atomic
+            commonInstancetypesDeployment:
+              description: CommonInstancetypesDeployment controls the deployment of
+                common-instancetypes resources
+              nullable: true
+              properties:
+                enabled:
+                  description: Enabled controls the deployment of common-instancetypes
+                    resources, defaults to True.
+                  nullable: true
+                  type: boolean
+              type: object
             controllerConfiguration:
               description: |-
                 ReloadableComponentConfiguration holds all generic k8s configuration options which can
@@ -1034,6 +1049,23 @@ var CRDsValidation map[string]string = map[string]string{
               description: PullPolicy describes a policy for if/when to pull a container
                 image
               type: string
+            instancetype:
+              description: Instancetype configuration
+              nullable: true
+              properties:
+                referencePolicy:
+                  description: |-
+                    ReferencePolicy defines how an instance type or preference should be referenced by the VM after submission, supported values are:
+                    reference (default) - Where a copy of the original object is stashed in a ControllerRevision and referenced by the VM.
+                    expand - Where the instance type or preference are expanded into the VM if no revisionNames have been populated.
+                    expandAll - Where the instance type or preference are expanded into the VM regardless of revisionNames previously being populated.
+                  enum:
+                  - reference
+                  - expand
+                  - expandAll
+                  nullable: true
+                  type: string
+              type: object
             ksmConfiguration:
               description: KSMConfiguration holds the information regarding the enabling
                 the KSM in the nodes (if available).
@@ -1092,8 +1124,9 @@ var CRDsValidation map[string]string = map[string]string{
                 features
               properties:
                 maxCpuSockets:
-                  description: MaxCpuSockets holds the maximum amount of sockets that
-                    can be hotplugged
+                  description: |-
+                    MaxCpuSockets provides a MaxSockets value for VMs that do not provide their own.
+                    For VMs with more sockets than maximum the MaxSockets will be set to equal number of sockets.
                   format: int32
                   type: integer
                 maxGuest:
@@ -1186,6 +1219,13 @@ var CRDsValidation map[string]string = map[string]string{
                     If set to true, migrations will still start in pre-copy, but switch to post-copy when
                     CompletionTimeoutPerGiB triggers. Defaults to false
                   type: boolean
+                allowWorkloadDisruption:
+                  description: |-
+                    AllowWorkloadDisruption indicates that the migration shouldn't be
+                    canceled after acceptableCompletionTime is exceeded. Instead, if
+                    permitted, migration will be switched to post-copy or the VMI will be
+                    paused to allow the migration to complete
+                  type: boolean
                 bandwidthPerMigration:
                   anyOf:
                   - type: integer
@@ -1198,8 +1238,8 @@ var CRDsValidation map[string]string = map[string]string{
                 completionTimeoutPerGiB:
                   description: |-
                     CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
-                    If a live-migration takes longer to migrate than this value multiplied by the size of the VMI,
-                    the migration will be cancelled, unless AllowPostCopy is true. Defaults to 800
+                    If the timeout is reached, the migration will be either paused, switched
+                    to post-copy or cancelled depending on other settings. Defaults to 150
                   format: int64
                   type: integer
                 disableTLS:
@@ -1262,33 +1302,6 @@ var CRDsValidation map[string]string = map[string]string{
                           ComputeResourceOverhead specifies the resource overhead that should be added to the compute container when using the binding.
                           version: v1alphav1
                         properties:
-                          claims:
-                            description: |-
-                              Claims lists the names of resources, defined in spec.resourceClaims,
-                              that are used by this container.
-
-
-                              This is an alpha field and requires enabling the
-                              DynamicResourceAllocation feature gate.
-
-
-                              This field is immutable. It can only be set for containers.
-                            items:
-                              description: ResourceClaim references one entry in PodSpec.ResourceClaims.
-                              properties:
-                                name:
-                                  description: |-
-                                    Name must match the name of one entry in pod.spec.resourceClaims of
-                                    the Pod where this field is used. It makes that resource available
-                                    inside a container.
-                                  type: string
-                              required:
-                              - name
-                              type: object
-                            type: array
-                            x-kubernetes-list-map-keys:
-                            - name
-                            x-kubernetes-list-type: map
                           limits:
                             additionalProperties:
                               anyOf:
@@ -1317,7 +1330,7 @@ var CRDsValidation map[string]string = map[string]string{
                       domainAttachmentType:
                         description: |-
                           DomainAttachmentType is a standard domain network attachment method kubevirt supports.
-                          Supported values: "tap".
+                          Supported values: "tap", "managedTap" (since v1.4).
                           The standard domain attachment can be used instead or in addition to the sidecarImage.
                           version: 1alphav1
                         type: string
@@ -1494,36 +1507,10 @@ var CRDsValidation map[string]string = map[string]string{
                   require a lot of memory or cpu.
                 properties:
                   resources:
-                    description: ResourceRequirements describes the compute resource
-                      requirements.
+                    description: |-
+                      ResourceRequirementsWithoutClaims describes the compute resource requirements.
+                      This struct was taken from the k8s.ResourceRequirements and cleaned up the 'Claims' field.
                     properties:
-                      claims:
-                        description: |-
-                          Claims lists the names of resources, defined in spec.resourceClaims,
-                          that are used by this container.
-
-
-                          This is an alpha field and requires enabling the
-                          DynamicResourceAllocation feature gate.
-
-
-                          This field is immutable. It can only be set for containers.
-                        items:
-                          description: ResourceClaim references one entry in PodSpec.ResourceClaims.
-                          properties:
-                            name:
-                              description: |-
-                                Name must match the name of one entry in pod.spec.resourceClaims of
-                                the Pod where this field is used. It makes that resource available
-                                inside a container.
-                              type: string
-                          required:
-                          - name
-                          type: object
-                        type: array
-                        x-kubernetes-list-map-keys:
-                        - name
-                        x-kubernetes-list-type: map
                       limits:
                         additionalProperties:
                           anyOf:
@@ -1577,9 +1564,7 @@ var CRDsValidation map[string]string = map[string]string{
                     MinTLSVersion is a way to specify the minimum protocol version that is acceptable for TLS connections.
                     Protocol versions are based on the following most common TLS configurations:
 
-
                       https://ssl-config.mozilla.org/
-
 
                     Note that SSLv3.0 is not a supported protocol version due to well known
                     vulnerabilities such as POODLE: https://en.wikipedia.org/wiki/POODLE
@@ -1709,10 +1694,13 @@ var CRDsValidation map[string]string = map[string]string{
               referenced object inside the same namespace.
             properties:
               name:
+                default: ""
                 description: |-
                   Name of the referent.
+                  This field is effectively required, but due to backwards compatibility is
+                  allowed to be empty. Instances of this type with an empty value here are
+                  almost certainly wrong.
                   More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                  TODO: Add other useful fields. apiVersion, kind, uid?
                 type: string
             type: object
             x-kubernetes-map-type: atomic
@@ -2026,7 +2014,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                       Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -2041,7 +2029,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                       Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -2208,7 +2196,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                   Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -2223,7 +2211,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                   Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -2388,7 +2376,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                       Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -2403,7 +2391,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                       Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -2570,7 +2558,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                   Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -2585,7 +2573,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                   Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -2776,14 +2764,12 @@ var CRDsValidation map[string]string = map[string]string{
                 BatchEvictionInterval Represents the interval to wait before issuing the next
                 batch of shutdowns
 
-
                 Defaults to 1 minute
               type: string
             batchEvictionSize:
               description: |-
                 BatchEvictionSize Represents the number of VMIs that can be forced updated per
                 the BatchShutdownInteral interval
-
 
                 Defaults to 10
               type: integer
@@ -2794,7 +2780,6 @@ var CRDsValidation map[string]string = map[string]string{
                 When multiple methods are present, the least disruptive method takes
                 precedence over more disruptive methods. For example if both LiveMigrate and Shutdown
                 methods are listed, only VMs which are not live migratable will be restarted/shutdown
-
 
                 An empty list defaults to no automated workload updating
               items:
@@ -3099,7 +3084,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                       Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -3114,7 +3099,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                       Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -3281,7 +3266,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                   Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -3296,7 +3281,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                   Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -3461,7 +3446,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                       Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -3476,7 +3461,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                       Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -3643,7 +3628,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                   Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -3658,7 +3643,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                   Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -3924,6 +3909,8 @@ var CRDsValidation map[string]string = map[string]string{
         allowAutoConverge:
           type: boolean
         allowPostCopy:
+          type: boolean
+        allowWorkloadDisruption:
           type: boolean
         bandwidthPerMigration:
           anyOf:
@@ -4235,7 +4222,7 @@ var CRDsValidation map[string]string = map[string]string{
                           set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                           exists.
                           More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                          (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.
+                          (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                         type: string
                       volumeMode:
                         description: |-
@@ -4525,10 +4512,8 @@ var CRDsValidation map[string]string = map[string]string{
                               Claims lists the names of resources, defined in spec.resourceClaims,
                               that are used by this container.
 
-
                               This is an alpha field and requires enabling the
                               DynamicResourceAllocation feature gate.
-
 
                               This field is immutable. It can only be set for containers.
                             items:
@@ -4539,6 +4524,12 @@ var CRDsValidation map[string]string = map[string]string{
                                     Name must match the name of one entry in pod.spec.resourceClaims of
                                     the Pod where this field is used. It makes that resource available
                                     inside a container.
+                                  type: string
+                                request:
+                                  description: |-
+                                    Request is the name chosen for a request in the referenced claim.
+                                    If empty, everything from the claim is made available, otherwise
+                                    only the result of this request.
                                   type: string
                               required:
                               - name
@@ -4717,6 +4708,7 @@ var CRDsValidation map[string]string = map[string]string{
           description: |-
             Running controls whether the associatied VirtualMachineInstance is created or not
             Mutually exclusive with RunStrategy
+            Deprecated: VirtualMachineInstance field "Running" is now deprecated, please use RunStrategy instead.
           type: boolean
         template:
           description: Template is the direct specification of VirtualMachineInstance
@@ -5120,7 +5112,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                       Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -5135,7 +5127,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                       Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -5302,7 +5294,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                   Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -5317,7 +5309,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                   Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -5482,7 +5474,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                       Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -5497,7 +5489,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                       Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -5664,7 +5656,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                   Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -5679,7 +5671,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                   Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -6410,7 +6402,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   Interface model.
                                   One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                                   Defaults to virtio.
-                                  TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
                                 type: string
                               name:
                                 description: |-
@@ -7120,7 +7111,6 @@ var CRDsValidation map[string]string = map[string]string{
                       description: |-
                         TCPSocket specifies an action involving a TCP port.
                         TCP hooks not yet supported
-                        TODO: implement a realistic TCP lifecycle hook
                       properties:
                         host:
                           description: 'Optional: Host name to connect to, defaults
@@ -7319,7 +7309,6 @@ var CRDsValidation map[string]string = map[string]string{
                       description: |-
                         TCPSocket specifies an action involving a TCP port.
                         TCP hooks not yet supported
-                        TODO: implement a realistic TCP lifecycle hook
                       properties:
                         host:
                           description: 'Optional: Host name to connect to, defaults
@@ -7477,7 +7466,6 @@ var CRDsValidation map[string]string = map[string]string{
                           Keys that don't exist in the incoming pod labels will
                           be ignored. A null or empty list means only match against labelSelector.
 
-
                           This is a beta field and requires the MatchLabelKeysInPodTopologySpread feature gate to be enabled (enabled by default).
                         items:
                           type: string
@@ -7517,7 +7505,6 @@ var CRDsValidation map[string]string = map[string]string{
                           Valid values are integers greater than 0.
                           When value is not nil, WhenUnsatisfiable must be DoNotSchedule.
 
-
                           For example, in a 3-zone cluster, MaxSkew is set to 2, MinDomains is set to 5 and pods with the same
                           labelSelector spread as 2/2/2:
                           | zone1 | zone2 | zone3 |
@@ -7535,7 +7522,6 @@ var CRDsValidation map[string]string = map[string]string{
                           - Honor: only nodes matching nodeAffinity/nodeSelector are included in the calculations.
                           - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
 
-
                           If this value is nil, the behavior is equivalent to the Honor policy.
                           This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                         type: string
@@ -7546,7 +7532,6 @@ var CRDsValidation map[string]string = map[string]string{
                           - Honor: nodes without taints, along with tainted nodes for which the incoming pod
                           has a toleration, are included.
                           - Ignore: node taints are ignored. All nodes are included.
-
 
                           If this value is nil, the behavior is equivalent to the Ignore policy.
                           This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
@@ -7620,10 +7605,13 @@ var CRDsValidation map[string]string = map[string]string{
                               that contains config drive networkdata.
                             properties:
                               name:
+                                default: ""
                                 description: |-
                                   Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
                                   More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  TODO: Add other useful fields. apiVersion, kind, uid?
                                 type: string
                             type: object
                             x-kubernetes-map-type: atomic
@@ -7632,10 +7620,13 @@ var CRDsValidation map[string]string = map[string]string{
                               that contains config drive userdata.
                             properties:
                               name:
+                                default: ""
                                 description: |-
                                   Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
                                   More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  TODO: Add other useful fields. apiVersion, kind, uid?
                                 type: string
                             type: object
                             x-kubernetes-map-type: atomic
@@ -7667,10 +7658,13 @@ var CRDsValidation map[string]string = map[string]string{
                               that contains NoCloud networkdata.
                             properties:
                               name:
+                                default: ""
                                 description: |-
                                   Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
                                   More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  TODO: Add other useful fields. apiVersion, kind, uid?
                                 type: string
                             type: object
                             x-kubernetes-map-type: atomic
@@ -7679,10 +7673,13 @@ var CRDsValidation map[string]string = map[string]string{
                               that contains NoCloud userdata.
                             properties:
                               name:
+                                default: ""
                                 description: |-
                                   Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
                                   More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  TODO: Add other useful fields. apiVersion, kind, uid?
                                 type: string
                             type: object
                             x-kubernetes-map-type: atomic
@@ -7701,10 +7698,13 @@ var CRDsValidation map[string]string = map[string]string{
                           More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
                         properties:
                           name:
+                            default: ""
                             description: |-
                               Name of the referent.
+                              This field is effectively required, but due to backwards compatibility is
+                              allowed to be empty. Instances of this type with an empty value here are
+                              almost certainly wrong.
                               More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              TODO: Add other useful fields. apiVersion, kind, uid?
                             type: string
                           optional:
                             description: Specify whether the ConfigMap or it's keys
@@ -8008,10 +8008,13 @@ var CRDsValidation map[string]string = map[string]string{
                               be attached as disk of CDROM type.
                             properties:
                               name:
+                                default: ""
                                 description: |-
                                   Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
                                   More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  TODO: Add other useful fields. apiVersion, kind, uid?
                                 type: string
                             type: object
                             x-kubernetes-map-type: atomic
@@ -8021,10 +8024,13 @@ var CRDsValidation map[string]string = map[string]string{
                               be attached as disk of CDROM type.
                             properties:
                               name:
+                                default: ""
                                 description: |-
                                   Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
                                   More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  TODO: Add other useful fields. apiVersion, kind, uid?
                                 type: string
                             type: object
                             x-kubernetes-map-type: atomic
@@ -8448,6 +8454,133 @@ var CRDsValidation map[string]string = map[string]string{
             - name
             type: object
           type: array
+        volumeUpdateState:
+          description: |-
+            VolumeUpdateState contains the information about the volumes set
+            updates related to the volumeUpdateStrategy
+          properties:
+            volumeMigrationState:
+              description: VolumeMigrationState tracks the information related to
+                the volume migration
+              properties:
+                migratedVolumes:
+                  description: MigratedVolumes lists the source and destination volumes
+                    during the volume migration
+                  items:
+                    description: StorageMigratedVolumeInfo tracks the information
+                      about the source and destination volumes during the volume migration
+                    properties:
+                      destinationPVCInfo:
+                        description: DestinationPVCInfo contains the information about
+                          the destination PVC
+                        properties:
+                          accessModes:
+                            description: |-
+                              AccessModes contains the desired access modes the volume should have.
+                              More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                          capacity:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            description: Capacity represents the capacity set on the
+                              corresponding PVC status
+                            type: object
+                          claimName:
+                            description: ClaimName is the name of the PVC
+                            type: string
+                          filesystemOverhead:
+                            description: Percentage of filesystem's size to be reserved
+                              when resizing the PVC
+                            pattern: ^(0(?:\.\d{1,3})?|1)$
+                            type: string
+                          preallocated:
+                            description: Preallocated indicates if the PVC's storage
+                              is preallocated or not
+                            type: boolean
+                          requests:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            description: Requests represents the resources requested
+                              by the corresponding PVC spec
+                            type: object
+                          volumeMode:
+                            description: |-
+                              VolumeMode defines what type of volume is required by the claim.
+                              Value of Filesystem is implied when not included in claim spec.
+                            type: string
+                        type: object
+                      sourcePVCInfo:
+                        description: SourcePVCInfo contains the information about
+                          the source PVC
+                        properties:
+                          accessModes:
+                            description: |-
+                              AccessModes contains the desired access modes the volume should have.
+                              More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                          capacity:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            description: Capacity represents the capacity set on the
+                              corresponding PVC status
+                            type: object
+                          claimName:
+                            description: ClaimName is the name of the PVC
+                            type: string
+                          filesystemOverhead:
+                            description: Percentage of filesystem's size to be reserved
+                              when resizing the PVC
+                            pattern: ^(0(?:\.\d{1,3})?|1)$
+                            type: string
+                          preallocated:
+                            description: Preallocated indicates if the PVC's storage
+                              is preallocated or not
+                            type: boolean
+                          requests:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            description: Requests represents the resources requested
+                              by the corresponding PVC spec
+                            type: object
+                          volumeMode:
+                            description: |-
+                              VolumeMode defines what type of volume is required by the claim.
+                              Value of Filesystem is implied when not included in claim spec.
+                            type: string
+                        type: object
+                      volumeName:
+                        description: VolumeName is the name of the volume that is
+                          being migrated
+                        type: string
+                    required:
+                    - volumeName
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: atomic
+              type: object
+          type: object
       type: object
   required:
   - spec
@@ -8668,7 +8801,6 @@ var CRDsValidation map[string]string = map[string]string{
               description: |-
                 Required number of vCPUs to expose to the guest.
 
-
                 The resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferSockets.
               format: int32
               type: integer
@@ -8854,14 +8986,12 @@ var CRDsValidation map[string]string = map[string]string{
             Selector which must match a node's labels for the vmi to be scheduled on that node.
             More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
 
-
             NodeSelector is the name of the custom node selector for the instancetype.
           type: object
         schedulerName:
           description: |-
             If specified, the VMI will be dispatched by specified scheduler.
             If not specified, the VMI will be dispatched by default scheduler.
-
 
             SchedulerName is the name of the custom K8s scheduler for the instancetype.
           type: string
@@ -9043,11 +9173,9 @@ var CRDsValidation map[string]string = map[string]string{
                   description: |-
                     Ratio optionally defines the ratio to spread vCPUs across the guest visible topology:
 
-
                     CoresThreads        - 1:2   - Controls the ratio of cores to threads. Only a ratio of 2 is currently accepted.
                     SocketsCores        - 1:N   - Controls the ratio of socket to cores.
                     SocketsCoresThreads - 1:N:2 - Controls the ratio of socket to cores. Each core providing 2 threads.
-
 
                     Default: 2
                   format: int32
@@ -9438,6 +9566,22 @@ var CRDsValidation map[string]string = map[string]string{
           description: Firmware optionally defines preferences associated with the
             Firmware attribute of a VirtualMachineInstance DomainSpec
           properties:
+            preferredEfi:
+              description: PreferredEfi optionally enables EFI
+              properties:
+                persistent:
+                  description: |-
+                    If set to true, Persistent will persist the EFI NVRAM across reboots.
+                    Defaults to false
+                  type: boolean
+                secureBoot:
+                  description: |-
+                    If set, SecureBoot will be enabled and the OVMF roms will be swapped for
+                    SecureBoot-enabled ones.
+                    Requires SMM to be enabled.
+                    Defaults to true
+                  type: boolean
+              type: object
             preferredUseBios:
               description: PreferredUseBios optionally enables BIOS
               type: boolean
@@ -9445,18 +9589,21 @@ var CRDsValidation map[string]string = map[string]string{
               description: |-
                 PreferredUseBiosSerial optionally transmitts BIOS output over the serial.
 
-
                 Requires PreferredUseBios to be enabled.
               type: boolean
             preferredUseEfi:
-              description: PreferredUseEfi optionally enables EFI
+              description: |-
+                PreferredUseEfi optionally enables EFI
+
+                Deprecated: Will be removed with v1beta2 or v1
               type: boolean
             preferredUseSecureBoot:
               description: |-
                 PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.
 
-
                 Requires PreferredUseEfi and PreferredSmm to be enabled.
+
+                Deprecated: Will be removed with v1beta2 or v1
               type: boolean
           type: object
         machine:
@@ -10198,7 +10345,7 @@ var CRDsValidation map[string]string = map[string]string{
                               pod labels will be ignored. The default value is empty.
                               The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                               Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                             items:
                               type: string
                             type: array
@@ -10213,7 +10360,7 @@ var CRDsValidation map[string]string = map[string]string{
                               pod labels will be ignored. The default value is empty.
                               The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                               Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                             items:
                               type: string
                             type: array
@@ -10378,7 +10525,7 @@ var CRDsValidation map[string]string = map[string]string{
                           pod labels will be ignored. The default value is empty.
                           The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                           Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                          This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                          This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                         items:
                           type: string
                         type: array
@@ -10393,7 +10540,7 @@ var CRDsValidation map[string]string = map[string]string{
                           pod labels will be ignored. The default value is empty.
                           The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                           Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                          This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                          This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                         items:
                           type: string
                         type: array
@@ -10554,7 +10701,7 @@ var CRDsValidation map[string]string = map[string]string{
                               pod labels will be ignored. The default value is empty.
                               The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                               Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                             items:
                               type: string
                             type: array
@@ -10569,7 +10716,7 @@ var CRDsValidation map[string]string = map[string]string{
                               pod labels will be ignored. The default value is empty.
                               The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                               Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                             items:
                               type: string
                             type: array
@@ -10734,7 +10881,7 @@ var CRDsValidation map[string]string = map[string]string{
                           pod labels will be ignored. The default value is empty.
                           The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                           Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                          This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                          This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                         items:
                           type: string
                         type: array
@@ -10749,7 +10896,7 @@ var CRDsValidation map[string]string = map[string]string{
                           pod labels will be ignored. The default value is empty.
                           The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                           Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                          This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                          This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                         items:
                           type: string
                         type: array
@@ -11468,7 +11615,6 @@ var CRDsValidation map[string]string = map[string]string{
                           Interface model.
                           One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                           Defaults to virtio.
-                          TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
                         type: string
                       name:
                         description: |-
@@ -12169,7 +12315,6 @@ var CRDsValidation map[string]string = map[string]string{
               description: |-
                 TCPSocket specifies an action involving a TCP port.
                 TCP hooks not yet supported
-                TODO: implement a realistic TCP lifecycle hook
               properties:
                 host:
                   description: 'Optional: Host name to connect to, defaults to the
@@ -12367,7 +12512,6 @@ var CRDsValidation map[string]string = map[string]string{
               description: |-
                 TCPSocket specifies an action involving a TCP port.
                 TCP hooks not yet supported
-                TODO: implement a realistic TCP lifecycle hook
               properties:
                 host:
                   description: 'Optional: Host name to connect to, defaults to the
@@ -12524,7 +12668,6 @@ var CRDsValidation map[string]string = map[string]string{
                   Keys that don't exist in the incoming pod labels will
                   be ignored. A null or empty list means only match against labelSelector.
 
-
                   This is a beta field and requires the MatchLabelKeysInPodTopologySpread feature gate to be enabled (enabled by default).
                 items:
                   type: string
@@ -12564,7 +12707,6 @@ var CRDsValidation map[string]string = map[string]string{
                   Valid values are integers greater than 0.
                   When value is not nil, WhenUnsatisfiable must be DoNotSchedule.
 
-
                   For example, in a 3-zone cluster, MaxSkew is set to 2, MinDomains is set to 5 and pods with the same
                   labelSelector spread as 2/2/2:
                   | zone1 | zone2 | zone3 |
@@ -12582,7 +12724,6 @@ var CRDsValidation map[string]string = map[string]string{
                   - Honor: only nodes matching nodeAffinity/nodeSelector are included in the calculations.
                   - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
 
-
                   If this value is nil, the behavior is equivalent to the Honor policy.
                   This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                 type: string
@@ -12593,7 +12734,6 @@ var CRDsValidation map[string]string = map[string]string{
                   - Honor: nodes without taints, along with tainted nodes for which the incoming pod
                   has a toleration, are included.
                   - Ignore: node taints are ignored. All nodes are included.
-
 
                   If this value is nil, the behavior is equivalent to the Ignore policy.
                   This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
@@ -12667,10 +12807,13 @@ var CRDsValidation map[string]string = map[string]string{
                       contains config drive networkdata.
                     properties:
                       name:
+                        default: ""
                         description: |-
                           Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          TODO: Add other useful fields. apiVersion, kind, uid?
                         type: string
                     type: object
                     x-kubernetes-map-type: atomic
@@ -12679,10 +12822,13 @@ var CRDsValidation map[string]string = map[string]string{
                       config drive userdata.
                     properties:
                       name:
+                        default: ""
                         description: |-
                           Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          TODO: Add other useful fields. apiVersion, kind, uid?
                         type: string
                     type: object
                     x-kubernetes-map-type: atomic
@@ -12713,10 +12859,13 @@ var CRDsValidation map[string]string = map[string]string{
                       contains NoCloud networkdata.
                     properties:
                       name:
+                        default: ""
                         description: |-
                           Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          TODO: Add other useful fields. apiVersion, kind, uid?
                         type: string
                     type: object
                     x-kubernetes-map-type: atomic
@@ -12725,10 +12874,13 @@ var CRDsValidation map[string]string = map[string]string{
                       NoCloud userdata.
                     properties:
                       name:
+                        default: ""
                         description: |-
                           Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          TODO: Add other useful fields. apiVersion, kind, uid?
                         type: string
                     type: object
                     x-kubernetes-map-type: atomic
@@ -12746,10 +12898,13 @@ var CRDsValidation map[string]string = map[string]string{
                   More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
                 properties:
                   name:
+                    default: ""
                     description: |-
                       Name of the referent.
+                      This field is effectively required, but due to backwards compatibility is
+                      allowed to be empty. Instances of this type with an empty value here are
+                      almost certainly wrong.
                       More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      TODO: Add other useful fields. apiVersion, kind, uid?
                     type: string
                   optional:
                     description: Specify whether the ConfigMap or it's keys must be
@@ -13045,10 +13200,13 @@ var CRDsValidation map[string]string = map[string]string{
                       disk of CDROM type.
                     properties:
                       name:
+                        default: ""
                         description: |-
                           Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          TODO: Add other useful fields. apiVersion, kind, uid?
                         type: string
                     type: object
                     x-kubernetes-map-type: atomic
@@ -13058,10 +13216,13 @@ var CRDsValidation map[string]string = map[string]string{
                       disk of CDROM type.
                     properties:
                       name:
+                        default: ""
                         description: |-
                           Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                          TODO: Add other useful fields. apiVersion, kind, uid?
                         type: string
                     type: object
                     x-kubernetes-map-type: atomic
@@ -13205,6 +13366,10 @@ var CRDsValidation map[string]string = map[string]string{
               name:
                 description: Name of the interface, corresponds to name of the network
                   assigned to the interface
+                type: string
+              podInterfaceName:
+                description: PodInterfaceName represents the name of the pod network
+                  interface
                 type: string
               queueCount:
                 description: Specifies how many queues are allocated by MultiQueue
@@ -13431,6 +13596,13 @@ var CRDsValidation map[string]string = map[string]string{
                     If set to true, migrations will still start in pre-copy, but switch to post-copy when
                     CompletionTimeoutPerGiB triggers. Defaults to false
                   type: boolean
+                allowWorkloadDisruption:
+                  description: |-
+                    AllowWorkloadDisruption indicates that the migration shouldn't be
+                    canceled after acceptableCompletionTime is exceeded. Instead, if
+                    permitted, migration will be switched to post-copy or the VMI will be
+                    paused to allow the migration to complete
+                  type: boolean
                 bandwidthPerMigration:
                   anyOf:
                   - type: integer
@@ -13443,8 +13615,8 @@ var CRDsValidation map[string]string = map[string]string{
                 completionTimeoutPerGiB:
                   description: |-
                     CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
-                    If a live-migration takes longer to migrate than this value multiplied by the size of the VMI,
-                    the migration will be cancelled, unless AllowPostCopy is true. Defaults to 800
+                    If the timeout is reached, the migration will be either paused, switched
+                    to post-copy or cancelled depending on other settings. Defaults to 150
                   format: int64
                   type: integer
                 disableTLS:
@@ -13509,6 +13681,10 @@ var CRDsValidation map[string]string = map[string]string{
             sourceNode:
               description: The source node that the VMI originated on
               type: string
+            sourcePersistentStatePVCName:
+              description: If the VMI being migrated uses persistent features (backend-storage),
+                its source PVC name is saved here
+              type: string
             sourcePod:
               type: string
             startTimestamp:
@@ -13551,6 +13727,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: |-
                 If the VMI requires dedicated CPUs, this field will
                 hold the numa topology on the target node
+              type: string
+            targetPersistentStatePVCName:
+              description: If the VMI being migrated uses persistent features (backend-storage),
+                its target PVC name is saved here
               type: string
             targetPod:
               description: The target pod that the VMI is moving to
@@ -13845,6 +14025,13 @@ var CRDsValidation map[string]string = map[string]string{
                     If set to true, migrations will still start in pre-copy, but switch to post-copy when
                     CompletionTimeoutPerGiB triggers. Defaults to false
                   type: boolean
+                allowWorkloadDisruption:
+                  description: |-
+                    AllowWorkloadDisruption indicates that the migration shouldn't be
+                    canceled after acceptableCompletionTime is exceeded. Instead, if
+                    permitted, migration will be switched to post-copy or the VMI will be
+                    paused to allow the migration to complete
+                  type: boolean
                 bandwidthPerMigration:
                   anyOf:
                   - type: integer
@@ -13857,8 +14044,8 @@ var CRDsValidation map[string]string = map[string]string{
                 completionTimeoutPerGiB:
                   description: |-
                     CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
-                    If a live-migration takes longer to migrate than this value multiplied by the size of the VMI,
-                    the migration will be cancelled, unless AllowPostCopy is true. Defaults to 800
+                    If the timeout is reached, the migration will be either paused, switched
+                    to post-copy or cancelled depending on other settings. Defaults to 150
                   format: int64
                   type: integer
                 disableTLS:
@@ -13923,6 +14110,10 @@ var CRDsValidation map[string]string = map[string]string{
             sourceNode:
               description: The source node that the VMI originated on
               type: string
+            sourcePersistentStatePVCName:
+              description: If the VMI being migrated uses persistent features (backend-storage),
+                its source PVC name is saved here
+              type: string
             sourcePod:
               type: string
             startTimestamp:
@@ -13966,6 +14157,10 @@ var CRDsValidation map[string]string = map[string]string{
                 If the VMI requires dedicated CPUs, this field will
                 hold the numa topology on the target node
               type: string
+            targetPersistentStatePVCName:
+              description: If the VMI being migrated uses persistent features (backend-storage),
+                its target PVC name is saved here
+              type: string
             targetPod:
               description: The target pod that the VMI is moving to
               type: string
@@ -14002,7 +14197,6 @@ var CRDsValidation map[string]string = map[string]string{
 	"virtualmachineinstancepreset": `openAPIV3Schema:
   description: |-
     Deprecated for removal in v2, please use VirtualMachineInstanceType and VirtualMachinePreference instead.
-
 
     VirtualMachineInstancePreset defines a VMI spec.domain to be applied to all VMIs that match the provided label selector
     More info: https://kubevirt.io/user-guide/virtual_machines/presets/#overrides
@@ -14609,7 +14803,6 @@ var CRDsValidation map[string]string = map[string]string{
                           Interface model.
                           One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                           Defaults to virtio.
-                          TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
                         type: string
                       name:
                         description: |-
@@ -15725,7 +15918,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                       Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -15740,7 +15933,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                       Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -15907,7 +16100,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                   Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -15922,7 +16115,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                   Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -16087,7 +16280,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                       Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -16102,7 +16295,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                       Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -16269,7 +16462,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                   Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -16284,7 +16477,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                   Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -17015,7 +17208,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   Interface model.
                                   One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                                   Defaults to virtio.
-                                  TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
                                 type: string
                               name:
                                 description: |-
@@ -17725,7 +17917,6 @@ var CRDsValidation map[string]string = map[string]string{
                       description: |-
                         TCPSocket specifies an action involving a TCP port.
                         TCP hooks not yet supported
-                        TODO: implement a realistic TCP lifecycle hook
                       properties:
                         host:
                           description: 'Optional: Host name to connect to, defaults
@@ -17924,7 +18115,6 @@ var CRDsValidation map[string]string = map[string]string{
                       description: |-
                         TCPSocket specifies an action involving a TCP port.
                         TCP hooks not yet supported
-                        TODO: implement a realistic TCP lifecycle hook
                       properties:
                         host:
                           description: 'Optional: Host name to connect to, defaults
@@ -18082,7 +18272,6 @@ var CRDsValidation map[string]string = map[string]string{
                           Keys that don't exist in the incoming pod labels will
                           be ignored. A null or empty list means only match against labelSelector.
 
-
                           This is a beta field and requires the MatchLabelKeysInPodTopologySpread feature gate to be enabled (enabled by default).
                         items:
                           type: string
@@ -18122,7 +18311,6 @@ var CRDsValidation map[string]string = map[string]string{
                           Valid values are integers greater than 0.
                           When value is not nil, WhenUnsatisfiable must be DoNotSchedule.
 
-
                           For example, in a 3-zone cluster, MaxSkew is set to 2, MinDomains is set to 5 and pods with the same
                           labelSelector spread as 2/2/2:
                           | zone1 | zone2 | zone3 |
@@ -18140,7 +18328,6 @@ var CRDsValidation map[string]string = map[string]string{
                           - Honor: only nodes matching nodeAffinity/nodeSelector are included in the calculations.
                           - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
 
-
                           If this value is nil, the behavior is equivalent to the Honor policy.
                           This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                         type: string
@@ -18151,7 +18338,6 @@ var CRDsValidation map[string]string = map[string]string{
                           - Honor: nodes without taints, along with tainted nodes for which the incoming pod
                           has a toleration, are included.
                           - Ignore: node taints are ignored. All nodes are included.
-
 
                           If this value is nil, the behavior is equivalent to the Ignore policy.
                           This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
@@ -18225,10 +18411,13 @@ var CRDsValidation map[string]string = map[string]string{
                               that contains config drive networkdata.
                             properties:
                               name:
+                                default: ""
                                 description: |-
                                   Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
                                   More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  TODO: Add other useful fields. apiVersion, kind, uid?
                                 type: string
                             type: object
                             x-kubernetes-map-type: atomic
@@ -18237,10 +18426,13 @@ var CRDsValidation map[string]string = map[string]string{
                               that contains config drive userdata.
                             properties:
                               name:
+                                default: ""
                                 description: |-
                                   Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
                                   More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  TODO: Add other useful fields. apiVersion, kind, uid?
                                 type: string
                             type: object
                             x-kubernetes-map-type: atomic
@@ -18272,10 +18464,13 @@ var CRDsValidation map[string]string = map[string]string{
                               that contains NoCloud networkdata.
                             properties:
                               name:
+                                default: ""
                                 description: |-
                                   Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
                                   More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  TODO: Add other useful fields. apiVersion, kind, uid?
                                 type: string
                             type: object
                             x-kubernetes-map-type: atomic
@@ -18284,10 +18479,13 @@ var CRDsValidation map[string]string = map[string]string{
                               that contains NoCloud userdata.
                             properties:
                               name:
+                                default: ""
                                 description: |-
                                   Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
                                   More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  TODO: Add other useful fields. apiVersion, kind, uid?
                                 type: string
                             type: object
                             x-kubernetes-map-type: atomic
@@ -18306,10 +18504,13 @@ var CRDsValidation map[string]string = map[string]string{
                           More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
                         properties:
                           name:
+                            default: ""
                             description: |-
                               Name of the referent.
+                              This field is effectively required, but due to backwards compatibility is
+                              allowed to be empty. Instances of this type with an empty value here are
+                              almost certainly wrong.
                               More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                              TODO: Add other useful fields. apiVersion, kind, uid?
                             type: string
                           optional:
                             description: Specify whether the ConfigMap or it's keys
@@ -18613,10 +18814,13 @@ var CRDsValidation map[string]string = map[string]string{
                               be attached as disk of CDROM type.
                             properties:
                               name:
+                                default: ""
                                 description: |-
                                   Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
                                   More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  TODO: Add other useful fields. apiVersion, kind, uid?
                                 type: string
                             type: object
                             x-kubernetes-map-type: atomic
@@ -18626,10 +18830,13 @@ var CRDsValidation map[string]string = map[string]string{
                               be attached as disk of CDROM type.
                             properties:
                               name:
+                                default: ""
                                 description: |-
                                   Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
                                   More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  TODO: Add other useful fields. apiVersion, kind, uid?
                                 type: string
                             type: object
                             x-kubernetes-map-type: atomic
@@ -18736,7 +18943,6 @@ var CRDsValidation map[string]string = map[string]string{
             guest:
               description: |-
                 Required number of vCPUs to expose to the guest.
-
 
                 The resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferSockets.
               format: int32
@@ -18923,14 +19129,12 @@ var CRDsValidation map[string]string = map[string]string{
             Selector which must match a node's labels for the vmi to be scheduled on that node.
             More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
 
-
             NodeSelector is the name of the custom node selector for the instancetype.
           type: object
         schedulerName:
           description: |-
             If specified, the VMI will be dispatched by specified scheduler.
             If not specified, the VMI will be dispatched by default scheduler.
-
 
             SchedulerName is the name of the custom K8s scheduler for the instancetype.
           type: string
@@ -19290,7 +19494,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                                   exists.
                                   More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                                  (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.
+                                  (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                                 type: string
                               volumeMode:
                                 description: |-
@@ -19592,10 +19796,8 @@ var CRDsValidation map[string]string = map[string]string{
                                       Claims lists the names of resources, defined in spec.resourceClaims,
                                       that are used by this container.
 
-
                                       This is an alpha field and requires enabling the
                                       DynamicResourceAllocation feature gate.
-
 
                                       This field is immutable. It can only be set for containers.
                                     items:
@@ -19607,6 +19809,12 @@ var CRDsValidation map[string]string = map[string]string{
                                             Name must match the name of one entry in pod.spec.resourceClaims of
                                             the Pod where this field is used. It makes that resource available
                                             inside a container.
+                                          type: string
+                                        request:
+                                          description: |-
+                                            Request is the name chosen for a request in the referenced claim.
+                                            If empty, everything from the claim is made available, otherwise
+                                            only the result of this request.
                                           type: string
                                       required:
                                       - name
@@ -19789,6 +19997,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: |-
                     Running controls whether the associatied VirtualMachineInstance is created or not
                     Mutually exclusive with RunStrategy
+                    Deprecated: VirtualMachineInstance field "Running" is now deprecated, please use RunStrategy instead.
                   type: boolean
                 template:
                   description: Template is the direct specification of VirtualMachineInstance
@@ -20197,7 +20406,7 @@ var CRDsValidation map[string]string = map[string]string{
                                               pod labels will be ignored. The default value is empty.
                                               The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                               Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                             items:
                                               type: string
                                             type: array
@@ -20212,7 +20421,7 @@ var CRDsValidation map[string]string = map[string]string{
                                               pod labels will be ignored. The default value is empty.
                                               The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                               Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                             items:
                                               type: string
                                             type: array
@@ -20380,7 +20589,7 @@ var CRDsValidation map[string]string = map[string]string{
                                           pod labels will be ignored. The default value is empty.
                                           The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                           Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                          This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                          This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                         items:
                                           type: string
                                         type: array
@@ -20395,7 +20604,7 @@ var CRDsValidation map[string]string = map[string]string{
                                           pod labels will be ignored. The default value is empty.
                                           The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                           Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                          This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                          This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                         items:
                                           type: string
                                         type: array
@@ -20561,7 +20770,7 @@ var CRDsValidation map[string]string = map[string]string{
                                               pod labels will be ignored. The default value is empty.
                                               The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                               Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                             items:
                                               type: string
                                             type: array
@@ -20576,7 +20785,7 @@ var CRDsValidation map[string]string = map[string]string{
                                               pod labels will be ignored. The default value is empty.
                                               The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                               Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                             items:
                                               type: string
                                             type: array
@@ -20744,7 +20953,7 @@ var CRDsValidation map[string]string = map[string]string{
                                           pod labels will be ignored. The default value is empty.
                                           The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                           Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                          This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                          This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                         items:
                                           type: string
                                         type: array
@@ -20759,7 +20968,7 @@ var CRDsValidation map[string]string = map[string]string{
                                           pod labels will be ignored. The default value is empty.
                                           The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                           Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                          This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                          This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                         items:
                                           type: string
                                         type: array
@@ -21507,7 +21716,6 @@ var CRDsValidation map[string]string = map[string]string{
                                           Interface model.
                                           One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                                           Defaults to virtio.
-                                          TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
                                         type: string
                                       name:
                                         description: |-
@@ -22229,7 +22437,6 @@ var CRDsValidation map[string]string = map[string]string{
                               description: |-
                                 TCPSocket specifies an action involving a TCP port.
                                 TCP hooks not yet supported
-                                TODO: implement a realistic TCP lifecycle hook
                               properties:
                                 host:
                                   description: 'Optional: Host name to connect to,
@@ -22428,7 +22635,6 @@ var CRDsValidation map[string]string = map[string]string{
                               description: |-
                                 TCPSocket specifies an action involving a TCP port.
                                 TCP hooks not yet supported
-                                TODO: implement a realistic TCP lifecycle hook
                               properties:
                                 host:
                                   description: 'Optional: Host name to connect to,
@@ -22588,7 +22794,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   Keys that don't exist in the incoming pod labels will
                                   be ignored. A null or empty list means only match against labelSelector.
 
-
                                   This is a beta field and requires the MatchLabelKeysInPodTopologySpread feature gate to be enabled (enabled by default).
                                 items:
                                   type: string
@@ -22628,7 +22833,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   Valid values are integers greater than 0.
                                   When value is not nil, WhenUnsatisfiable must be DoNotSchedule.
 
-
                                   For example, in a 3-zone cluster, MaxSkew is set to 2, MinDomains is set to 5 and pods with the same
                                   labelSelector spread as 2/2/2:
                                   | zone1 | zone2 | zone3 |
@@ -22646,7 +22850,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   - Honor: only nodes matching nodeAffinity/nodeSelector are included in the calculations.
                                   - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
 
-
                                   If this value is nil, the behavior is equivalent to the Honor policy.
                                   This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                                 type: string
@@ -22657,7 +22860,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   - Honor: nodes without taints, along with tainted nodes for which the incoming pod
                                   has a toleration, are included.
                                   - Ignore: node taints are ignored. All nodes are included.
-
 
                                   If this value is nil, the behavior is equivalent to the Ignore policy.
                                   This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
@@ -22732,10 +22934,13 @@ var CRDsValidation map[string]string = map[string]string{
                                       k8s secret that contains config drive networkdata.
                                     properties:
                                       name:
+                                        default: ""
                                         description: |-
                                           Name of the referent.
+                                          This field is effectively required, but due to backwards compatibility is
+                                          allowed to be empty. Instances of this type with an empty value here are
+                                          almost certainly wrong.
                                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                          TODO: Add other useful fields. apiVersion, kind, uid?
                                         type: string
                                     type: object
                                     x-kubernetes-map-type: atomic
@@ -22744,10 +22949,13 @@ var CRDsValidation map[string]string = map[string]string{
                                       secret that contains config drive userdata.
                                     properties:
                                       name:
+                                        default: ""
                                         description: |-
                                           Name of the referent.
+                                          This field is effectively required, but due to backwards compatibility is
+                                          allowed to be empty. Instances of this type with an empty value here are
+                                          almost certainly wrong.
                                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                          TODO: Add other useful fields. apiVersion, kind, uid?
                                         type: string
                                     type: object
                                     x-kubernetes-map-type: atomic
@@ -22779,10 +22987,13 @@ var CRDsValidation map[string]string = map[string]string{
                                       k8s secret that contains NoCloud networkdata.
                                     properties:
                                       name:
+                                        default: ""
                                         description: |-
                                           Name of the referent.
+                                          This field is effectively required, but due to backwards compatibility is
+                                          allowed to be empty. Instances of this type with an empty value here are
+                                          almost certainly wrong.
                                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                          TODO: Add other useful fields. apiVersion, kind, uid?
                                         type: string
                                     type: object
                                     x-kubernetes-map-type: atomic
@@ -22791,10 +23002,13 @@ var CRDsValidation map[string]string = map[string]string{
                                       secret that contains NoCloud userdata.
                                     properties:
                                       name:
+                                        default: ""
                                         description: |-
                                           Name of the referent.
+                                          This field is effectively required, but due to backwards compatibility is
+                                          allowed to be empty. Instances of this type with an empty value here are
+                                          almost certainly wrong.
                                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                          TODO: Add other useful fields. apiVersion, kind, uid?
                                         type: string
                                     type: object
                                     x-kubernetes-map-type: atomic
@@ -22813,10 +23027,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
                                 properties:
                                   name:
+                                    default: ""
                                     description: |-
                                       Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
                                       More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                      TODO: Add other useful fields. apiVersion, kind, uid?
                                     type: string
                                   optional:
                                     description: Specify whether the ConfigMap or
@@ -23126,10 +23343,13 @@ var CRDsValidation map[string]string = map[string]string{
                                       that should be attached as disk of CDROM type.
                                     properties:
                                       name:
+                                        default: ""
                                         description: |-
                                           Name of the referent.
+                                          This field is effectively required, but due to backwards compatibility is
+                                          allowed to be empty. Instances of this type with an empty value here are
+                                          almost certainly wrong.
                                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                          TODO: Add other useful fields. apiVersion, kind, uid?
                                         type: string
                                     type: object
                                     x-kubernetes-map-type: atomic
@@ -23139,10 +23359,13 @@ var CRDsValidation map[string]string = map[string]string{
                                       that should be attached as disk of CDROM type.
                                     properties:
                                       name:
+                                        default: ""
                                         description: |-
                                           Name of the referent.
+                                          This field is effectively required, but due to backwards compatibility is
+                                          allowed to be empty. Instances of this type with an empty value here are
+                                          almost certainly wrong.
                                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                          TODO: Add other useful fields. apiVersion, kind, uid?
                                         type: string
                                     type: object
                                     x-kubernetes-map-type: atomic
@@ -23380,11 +23603,9 @@ var CRDsValidation map[string]string = map[string]string{
                   description: |-
                     Ratio optionally defines the ratio to spread vCPUs across the guest visible topology:
 
-
                     CoresThreads        - 1:2   - Controls the ratio of cores to threads. Only a ratio of 2 is currently accepted.
                     SocketsCores        - 1:N   - Controls the ratio of socket to cores.
                     SocketsCoresThreads - 1:N:2 - Controls the ratio of socket to cores. Each core providing 2 threads.
-
 
                     Default: 2
                   format: int32
@@ -23775,6 +23996,22 @@ var CRDsValidation map[string]string = map[string]string{
           description: Firmware optionally defines preferences associated with the
             Firmware attribute of a VirtualMachineInstance DomainSpec
           properties:
+            preferredEfi:
+              description: PreferredEfi optionally enables EFI
+              properties:
+                persistent:
+                  description: |-
+                    If set to true, Persistent will persist the EFI NVRAM across reboots.
+                    Defaults to false
+                  type: boolean
+                secureBoot:
+                  description: |-
+                    If set, SecureBoot will be enabled and the OVMF roms will be swapped for
+                    SecureBoot-enabled ones.
+                    Requires SMM to be enabled.
+                    Defaults to true
+                  type: boolean
+              type: object
             preferredUseBios:
               description: PreferredUseBios optionally enables BIOS
               type: boolean
@@ -23782,18 +24019,21 @@ var CRDsValidation map[string]string = map[string]string{
               description: |-
                 PreferredUseBiosSerial optionally transmitts BIOS output over the serial.
 
-
                 Requires PreferredUseBios to be enabled.
               type: boolean
             preferredUseEfi:
-              description: PreferredUseEfi optionally enables EFI
+              description: |-
+                PreferredUseEfi optionally enables EFI
+
+                Deprecated: Will be removed with v1beta2 or v1
               type: boolean
             preferredUseSecureBoot:
               description: |-
                 PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.
 
-
                 Requires PreferredUseEfi and PreferredSmm to be enabled.
+
+                Deprecated: Will be removed with v1beta2 or v1
               type: boolean
           type: object
         machine:
@@ -23888,7 +24128,6 @@ var CRDsValidation map[string]string = map[string]string{
             If the target for the restore does not exist, it will be created. Patches holds JSON patches that would be
             applied to the target manifest before it's created. Patches should fit the target's Kind.
 
-
             Example for a patch: {"op": "replace", "path": "/metadata/name", "value": "new-vm-name"}
           items:
             type: string
@@ -23914,6 +24153,11 @@ var CRDsValidation map[string]string = map[string]string{
           - name
           type: object
           x-kubernetes-map-type: atomic
+        targetReadinessPolicy:
+          description: |-
+            TargetReadinessPolicy defines how to handle the restore in case
+            the target is not ready
+          type: string
         virtualMachineSnapshotName:
           type: string
       required:
@@ -24424,7 +24668,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                                       exists.
                                       More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                                      (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.
+                                      (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                                     type: string
                                   volumeMode:
                                     description: |-
@@ -24737,10 +24981,8 @@ var CRDsValidation map[string]string = map[string]string{
                                           Claims lists the names of resources, defined in spec.resourceClaims,
                                           that are used by this container.
 
-
                                           This is an alpha field and requires enabling the
                                           DynamicResourceAllocation feature gate.
-
 
                                           This field is immutable. It can only be set for containers.
                                         items:
@@ -24752,6 +24994,12 @@ var CRDsValidation map[string]string = map[string]string{
                                                 Name must match the name of one entry in pod.spec.resourceClaims of
                                                 the Pod where this field is used. It makes that resource available
                                                 inside a container.
+                                              type: string
+                                            request:
+                                              description: |-
+                                                Request is the name chosen for a request in the referenced claim.
+                                                If empty, everything from the claim is made available, otherwise
+                                                only the result of this request.
                                               type: string
                                           required:
                                           - name
@@ -24934,6 +25182,7 @@ var CRDsValidation map[string]string = map[string]string{
                       description: |-
                         Running controls whether the associatied VirtualMachineInstance is created or not
                         Mutually exclusive with RunStrategy
+                        Deprecated: VirtualMachineInstance field "Running" is now deprecated, please use RunStrategy instead.
                       type: boolean
                     template:
                       description: Template is the direct specification of VirtualMachineInstance
@@ -25349,7 +25598,7 @@ var CRDsValidation map[string]string = map[string]string{
                                                   pod labels will be ignored. The default value is empty.
                                                   The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                                   Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                                 items:
                                                   type: string
                                                 type: array
@@ -25364,7 +25613,7 @@ var CRDsValidation map[string]string = map[string]string{
                                                   pod labels will be ignored. The default value is empty.
                                                   The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                                   Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                                 items:
                                                   type: string
                                                 type: array
@@ -25534,7 +25783,7 @@ var CRDsValidation map[string]string = map[string]string{
                                               pod labels will be ignored. The default value is empty.
                                               The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                               Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                             items:
                                               type: string
                                             type: array
@@ -25549,7 +25798,7 @@ var CRDsValidation map[string]string = map[string]string{
                                               pod labels will be ignored. The default value is empty.
                                               The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                               Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                             items:
                                               type: string
                                             type: array
@@ -25718,7 +25967,7 @@ var CRDsValidation map[string]string = map[string]string{
                                                   pod labels will be ignored. The default value is empty.
                                                   The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                                   Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                                 items:
                                                   type: string
                                                 type: array
@@ -25733,7 +25982,7 @@ var CRDsValidation map[string]string = map[string]string{
                                                   pod labels will be ignored. The default value is empty.
                                                   The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                                   Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                                  This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                                 items:
                                                   type: string
                                                 type: array
@@ -25903,7 +26152,7 @@ var CRDsValidation map[string]string = map[string]string{
                                               pod labels will be ignored. The default value is empty.
                                               The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                               Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                             items:
                                               type: string
                                             type: array
@@ -25918,7 +26167,7 @@ var CRDsValidation map[string]string = map[string]string{
                                               pod labels will be ignored. The default value is empty.
                                               The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                               Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                              This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                             items:
                                               type: string
                                             type: array
@@ -26676,7 +26925,6 @@ var CRDsValidation map[string]string = map[string]string{
                                               Interface model.
                                               One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                                               Defaults to virtio.
-                                              TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
                                             type: string
                                           name:
                                             description: |-
@@ -27401,7 +27649,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   description: |-
                                     TCPSocket specifies an action involving a TCP port.
                                     TCP hooks not yet supported
-                                    TODO: implement a realistic TCP lifecycle hook
                                   properties:
                                     host:
                                       description: 'Optional: Host name to connect
@@ -27602,7 +27849,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   description: |-
                                     TCPSocket specifies an action involving a TCP port.
                                     TCP hooks not yet supported
-                                    TODO: implement a realistic TCP lifecycle hook
                                   properties:
                                     host:
                                       description: 'Optional: Host name to connect
@@ -27762,7 +28008,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       Keys that don't exist in the incoming pod labels will
                                       be ignored. A null or empty list means only match against labelSelector.
 
-
                                       This is a beta field and requires the MatchLabelKeysInPodTopologySpread feature gate to be enabled (enabled by default).
                                     items:
                                       type: string
@@ -27802,7 +28047,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       Valid values are integers greater than 0.
                                       When value is not nil, WhenUnsatisfiable must be DoNotSchedule.
 
-
                                       For example, in a 3-zone cluster, MaxSkew is set to 2, MinDomains is set to 5 and pods with the same
                                       labelSelector spread as 2/2/2:
                                       | zone1 | zone2 | zone3 |
@@ -27820,7 +28064,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       - Honor: only nodes matching nodeAffinity/nodeSelector are included in the calculations.
                                       - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
 
-
                                       If this value is nil, the behavior is equivalent to the Honor policy.
                                       This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                                     type: string
@@ -27831,7 +28074,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       - Honor: nodes without taints, along with tainted nodes for which the incoming pod
                                       has a toleration, are included.
                                       - Ignore: node taints are ignored. All nodes are included.
-
 
                                       If this value is nil, the behavior is equivalent to the Ignore policy.
                                       This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
@@ -27908,10 +28150,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           networkdata.
                                         properties:
                                           name:
+                                            default: ""
                                             description: |-
                                               Name of the referent.
+                                              This field is effectively required, but due to backwards compatibility is
+                                              allowed to be empty. Instances of this type with an empty value here are
+                                              almost certainly wrong.
                                               More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                              TODO: Add other useful fields. apiVersion, kind, uid?
                                             type: string
                                         type: object
                                         x-kubernetes-map-type: atomic
@@ -27921,10 +28166,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           userdata.
                                         properties:
                                           name:
+                                            default: ""
                                             description: |-
                                               Name of the referent.
+                                              This field is effectively required, but due to backwards compatibility is
+                                              allowed to be empty. Instances of this type with an empty value here are
+                                              almost certainly wrong.
                                               More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                              TODO: Add other useful fields. apiVersion, kind, uid?
                                             type: string
                                         type: object
                                         x-kubernetes-map-type: atomic
@@ -27958,10 +28206,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           a k8s secret that contains NoCloud networkdata.
                                         properties:
                                           name:
+                                            default: ""
                                             description: |-
                                               Name of the referent.
+                                              This field is effectively required, but due to backwards compatibility is
+                                              allowed to be empty. Instances of this type with an empty value here are
+                                              almost certainly wrong.
                                               More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                              TODO: Add other useful fields. apiVersion, kind, uid?
                                             type: string
                                         type: object
                                         x-kubernetes-map-type: atomic
@@ -27970,10 +28221,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           a k8s secret that contains NoCloud userdata.
                                         properties:
                                           name:
+                                            default: ""
                                             description: |-
                                               Name of the referent.
+                                              This field is effectively required, but due to backwards compatibility is
+                                              allowed to be empty. Instances of this type with an empty value here are
+                                              almost certainly wrong.
                                               More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                              TODO: Add other useful fields. apiVersion, kind, uid?
                                             type: string
                                         type: object
                                         x-kubernetes-map-type: atomic
@@ -27993,10 +28247,13 @@ var CRDsValidation map[string]string = map[string]string{
                                       More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
                                     properties:
                                       name:
+                                        default: ""
                                         description: |-
                                           Name of the referent.
+                                          This field is effectively required, but due to backwards compatibility is
+                                          allowed to be empty. Instances of this type with an empty value here are
+                                          almost certainly wrong.
                                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                          TODO: Add other useful fields. apiVersion, kind, uid?
                                         type: string
                                       optional:
                                         description: Specify whether the ConfigMap
@@ -28309,10 +28566,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           as disk of CDROM type.
                                         properties:
                                           name:
+                                            default: ""
                                             description: |-
                                               Name of the referent.
+                                              This field is effectively required, but due to backwards compatibility is
+                                              allowed to be empty. Instances of this type with an empty value here are
+                                              almost certainly wrong.
                                               More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                              TODO: Add other useful fields. apiVersion, kind, uid?
                                             type: string
                                         type: object
                                         x-kubernetes-map-type: atomic
@@ -28323,10 +28583,13 @@ var CRDsValidation map[string]string = map[string]string{
                                           as disk of CDROM type.
                                         properties:
                                           name:
+                                            default: ""
                                             description: |-
                                               Name of the referent.
+                                              This field is effectively required, but due to backwards compatibility is
+                                              allowed to be empty. Instances of this type with an empty value here are
+                                              almost certainly wrong.
                                               More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                              TODO: Add other useful fields. apiVersion, kind, uid?
                                             type: string
                                         type: object
                                         x-kubernetes-map-type: atomic
@@ -28767,6 +29030,136 @@ var CRDsValidation map[string]string = map[string]string{
                         - name
                         type: object
                       type: array
+                    volumeUpdateState:
+                      description: |-
+                        VolumeUpdateState contains the information about the volumes set
+                        updates related to the volumeUpdateStrategy
+                      properties:
+                        volumeMigrationState:
+                          description: VolumeMigrationState tracks the information
+                            related to the volume migration
+                          properties:
+                            migratedVolumes:
+                              description: MigratedVolumes lists the source and destination
+                                volumes during the volume migration
+                              items:
+                                description: StorageMigratedVolumeInfo tracks the
+                                  information about the source and destination volumes
+                                  during the volume migration
+                                properties:
+                                  destinationPVCInfo:
+                                    description: DestinationPVCInfo contains the information
+                                      about the destination PVC
+                                    properties:
+                                      accessModes:
+                                        description: |-
+                                          AccessModes contains the desired access modes the volume should have.
+                                          More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      capacity:
+                                        additionalProperties:
+                                          anyOf:
+                                          - type: integer
+                                          - type: string
+                                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                          x-kubernetes-int-or-string: true
+                                        description: Capacity represents the capacity
+                                          set on the corresponding PVC status
+                                        type: object
+                                      claimName:
+                                        description: ClaimName is the name of the
+                                          PVC
+                                        type: string
+                                      filesystemOverhead:
+                                        description: Percentage of filesystem's size
+                                          to be reserved when resizing the PVC
+                                        pattern: ^(0(?:\.\d{1,3})?|1)$
+                                        type: string
+                                      preallocated:
+                                        description: Preallocated indicates if the
+                                          PVC's storage is preallocated or not
+                                        type: boolean
+                                      requests:
+                                        additionalProperties:
+                                          anyOf:
+                                          - type: integer
+                                          - type: string
+                                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                          x-kubernetes-int-or-string: true
+                                        description: Requests represents the resources
+                                          requested by the corresponding PVC spec
+                                        type: object
+                                      volumeMode:
+                                        description: |-
+                                          VolumeMode defines what type of volume is required by the claim.
+                                          Value of Filesystem is implied when not included in claim spec.
+                                        type: string
+                                    type: object
+                                  sourcePVCInfo:
+                                    description: SourcePVCInfo contains the information
+                                      about the source PVC
+                                    properties:
+                                      accessModes:
+                                        description: |-
+                                          AccessModes contains the desired access modes the volume should have.
+                                          More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      capacity:
+                                        additionalProperties:
+                                          anyOf:
+                                          - type: integer
+                                          - type: string
+                                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                          x-kubernetes-int-or-string: true
+                                        description: Capacity represents the capacity
+                                          set on the corresponding PVC status
+                                        type: object
+                                      claimName:
+                                        description: ClaimName is the name of the
+                                          PVC
+                                        type: string
+                                      filesystemOverhead:
+                                        description: Percentage of filesystem's size
+                                          to be reserved when resizing the PVC
+                                        pattern: ^(0(?:\.\d{1,3})?|1)$
+                                        type: string
+                                      preallocated:
+                                        description: Preallocated indicates if the
+                                          PVC's storage is preallocated or not
+                                        type: boolean
+                                      requests:
+                                        additionalProperties:
+                                          anyOf:
+                                          - type: integer
+                                          - type: string
+                                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                          x-kubernetes-int-or-string: true
+                                        description: Requests represents the resources
+                                          requested by the corresponding PVC spec
+                                        type: object
+                                      volumeMode:
+                                        description: |-
+                                          VolumeMode defines what type of volume is required by the claim.
+                                          Value of Filesystem is implied when not included in claim spec.
+                                        type: string
+                                    type: object
+                                  volumeName:
+                                    description: VolumeName is the name of the volume
+                                      that is being migrated
+                                    type: string
+                                required:
+                                - volumeName
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
+                          type: object
+                      type: object
                   type: object
               type: object
           type: object
@@ -28971,7 +29364,7 @@ var CRDsValidation map[string]string = map[string]string{
                           set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                           exists.
                           More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                          (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.
+                          (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                         type: string
                       volumeMode:
                         description: |-

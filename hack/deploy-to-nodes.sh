@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 source hack/common.sh
-source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
+source kubevirtci/cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 
 set -e
 

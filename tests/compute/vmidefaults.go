@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -145,11 +146,11 @@ var _ = SIGDescribe("VMIDefaults", func() {
 			Expect(*domain.Devices.Ballooning).To(Equal(expected), "Default to virtio model and 10 seconds pooling")
 		})
 
-		DescribeTable("[Serial]Should override period in domain if present in virt-config ", Serial, func(period uint32, expected api.MemBalloon) {
+		DescribeTable("Should override period in domain if present in virt-config ", Serial, func(period uint32, expected api.MemBalloon) {
 			By("Adding period to virt-config")
 			kvConfigurationCopy := kvConfiguration.DeepCopy()
 			kvConfigurationCopy.MemBalloonStatsPeriod = &period
-			tests.UpdateKubeVirtConfigValueAndWait(*kvConfigurationCopy)
+			config.UpdateKubeVirtConfigValueAndWait(*kvConfigurationCopy)
 			if kvConfiguration.VirtualMachineOptions != nil && kvConfiguration.VirtualMachineOptions.DisableFreePageReporting != nil {
 				expected.FreePageReporting = "off"
 			} else {
@@ -239,7 +240,7 @@ var _ = SIGDescribe("VMIDefaults", func() {
 
 		It("[test_id:TODO]Should be applied to a device added by AutoattachInputDevice", func() {
 			By("Creating a VirtualMachine with AutoattachInputDevice enabled")
-			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunning())
+			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 			vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.P(true)
 			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())

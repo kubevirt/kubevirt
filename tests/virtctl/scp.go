@@ -1,3 +1,22 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors
+ *
+ */
+
 package virtctl
 
 import (
@@ -8,15 +27,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"golang.org/x/crypto/ssh"
 
+	"golang.org/x/crypto/ssh"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -36,7 +54,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 		args := []string{
 			"scp",
 			"--local-ssh=false",
-			"--namespace", testsuite.NamespaceTestDefault,
+			"--namespace", testsuite.GetTestNamespace(nil),
 			"--username", "root",
 			"--identity-file", keyFile,
 			"--known-hosts=",
@@ -45,7 +63,6 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 			args = append(args, "--recursive")
 		}
 		args = append(args, src, dst)
-
 		Expect(clientcmd.NewRepeatableVirtctlCommand(args...)()).To(Succeed())
 	}
 
@@ -53,7 +70,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 		return func(src, dst string, recursive bool) {
 			args := []string{
 				"scp",
-				"--namespace", testsuite.NamespaceTestDefault,
+				"--namespace", testsuite.GetTestNamespace(nil),
 				"--username", "root",
 				"--identity-file", keyFile,
 				"-t", "-o StrictHostKeyChecking=no",
@@ -67,11 +84,12 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 			}
 			args = append(args, src, dst)
 
-			_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.NamespaceTestDefault, "virtctl", args...)
+			// The virtctl binary needs to run here because of the way local SCP client wrapping works.
+			// Running the command through NewRepeatableVirtctlCommand does not suffice.
+			_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.GetTestNamespace(nil), "virtctl", args...)
 			Expect(err).ToNot(HaveOccurred())
-
 			out, err := cmd.CombinedOutput()
-			Expect(err).ToNot(HaveOccurred(), "out[%s]", string(out))
+			Expect(err).ToNot(HaveOccurred())
 			Expect(out).ToNot(BeEmpty())
 		}
 	}
@@ -91,8 +109,9 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 	DescribeTable("should copy a local file back and forth", func(copyFn func(string, string, bool)) {
 		By("injecting a SSH public key into a VMI")
 		vmi := libvmifact.NewAlpineWithTestTooling(
-			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(libssh.RenderUserDataWithKey(pub))))
-		vmi, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(libssh.RenderUserDataWithKey(pub))),
+		)
+		vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
@@ -115,8 +134,9 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 	DescribeTable("should copy a local directory back and forth", func(copyFn func(string, string, bool)) {
 		By("injecting a SSH public key into a VMI")
 		vmi := libvmifact.NewAlpineWithTestTooling(
-			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(libssh.RenderUserDataWithKey(pub))))
-		vmi, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(libssh.RenderUserDataWithKey(pub))),
+		)
+		vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
@@ -144,7 +164,9 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 		Entry("using the local scp method without --local-ssh flag", decorators.ExcludeNativeSsh, copyLocal(false)),
 	)
 
-	It("local-ssh flag should be unavailable in virtctl binary", decorators.ExcludeNativeSsh, func() {
+	It("local-ssh flag should be unavailable in virtctl", decorators.ExcludeNativeSsh, func() {
+		// The built virtctl binary should be tested here, therefore clientcmd.CreateCommandWithNS needs to be used.
+		// Running the command through NewRepeatableVirtctlCommand would test the test binary instead.
 		_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.NamespaceTestDefault, "virtctl", "scp", "--local-ssh=false")
 		Expect(err).ToNot(HaveOccurred())
 		out, err := cmd.CombinedOutput()

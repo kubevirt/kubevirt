@@ -38,10 +38,10 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -49,8 +49,8 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -84,11 +84,11 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			ExpectWithOffset(1, err).NotTo(HaveOccurred())
 		}
 
-		DescribeTable("[Serial] should be successfully started and accessible", Serial, func(namespace string) {
+		DescribeTable(" should be successfully started and accessible", Serial, func(namespace string) {
 			if namespace == testsuite.NamespacePrivileged {
-				tests.EnableFeatureGate(virtconfig.VirtIOFSGate)
+				kvconfig.EnableFeatureGate(virtconfig.VirtIOFSGate)
 			} else {
-				tests.DisableFeatureGate(virtconfig.VirtIOFSGate)
+				kvconfig.DisableFeatureGate(virtconfig.VirtIOFSGate)
 			}
 
 			createPVC(namespace, pvc1)
@@ -131,7 +131,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			podVirtioFsFileExist, err := exec.ExecuteCommandOnPod(
 				pod,
 				"compute",
-				[]string{tests.BinBash, "-c", virtioFsFileTestCmd},
+				[]string{"/bin/bash", "-c", virtioFsFileTestCmd},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
@@ -143,7 +143,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			podVirtioFsFileExist, err = exec.ExecuteCommandOnPod(
 				pod,
 				"compute",
-				[]string{tests.BinBash, "-c", virtioFsFileTestCmd},
+				[]string{"/bin/bash", "-c", virtioFsFileTestCmd},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
@@ -164,7 +164,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 		})
 
 		AfterEach(func() {
-			tests.UpdateKubeVirtConfigValueAndWait(originalConfig)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(originalConfig)
 		})
 
 		createHostPathPV := func(pvc, namespace string) {
@@ -182,7 +182,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			Eventually(ThisPod(pod), 120).Should(BeInPhase(k8sv1.PodSucceeded))
 		}
 
-		DescribeTable("[Serial] should be successfully started and virtiofs could be accessed", Serial, func(namespace string) {
+		DescribeTable(" should be successfully started and virtiofs could be accessed", Serial, func(namespace string) {
 			createHostPathPV(pvc, namespace)
 			libstorage.CreateHostPathPVC(pvc, namespace, "1G")
 			defer func() {
@@ -190,7 +190,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 				libstorage.DeletePV(pvc)
 			}()
 
-			resources := k8sv1.ResourceRequirements{
+			resources := v1.ResourceRequirementsWithoutClaims{
 				Requests: k8sv1.ResourceList{
 					k8sv1.ResourceCPU:    resource.MustParse("2m"),
 					k8sv1.ResourceMemory: resource.MustParse("14M"),
@@ -207,11 +207,11 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 					Resources: resources,
 				},
 			}
-			tests.UpdateKubeVirtConfigValueAndWait(*config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
 			if namespace == testsuite.NamespacePrivileged {
-				tests.EnableFeatureGate(virtconfig.VirtIOFSGate)
+				kvconfig.EnableFeatureGate(virtconfig.VirtIOFSGate)
 			} else {
-				tests.DisableFeatureGate(virtconfig.VirtIOFSGate)
+				kvconfig.DisableFeatureGate(virtconfig.VirtIOFSGate)
 			}
 
 			pvcName := fmt.Sprintf("disk-%s", pvc)
@@ -243,7 +243,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			podVirtioFsFileExist, err := exec.ExecuteCommandOnPod(
 				pod,
 				"compute",
-				[]string{tests.BinBash, "-c", virtioFsFileTestCmd},
+				[]string{"/bin/bash", "-c", virtioFsFileTestCmd},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
@@ -283,16 +283,19 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			}
 		})
 
-		DescribeTable("[Serial] should be successfully started and virtiofs could be accessed", Serial, func(namespace string) {
+		DescribeTable(" should be successfully started and virtiofs could be accessed", Serial, func(namespace string) {
 			if namespace == testsuite.NamespacePrivileged {
-				tests.EnableFeatureGate(virtconfig.VirtIOFSGate)
+				kvconfig.EnableFeatureGate(virtconfig.VirtIOFSGate)
 			} else {
-				tests.DisableFeatureGate(virtconfig.VirtIOFSGate)
+				kvconfig.DisableFeatureGate(virtconfig.VirtIOFSGate)
 			}
 
 			dataVolume := libdv.NewDataVolume(
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-				libdv.WithPVC(libdv.PVCWithStorageClass(sc)),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
+				),
 				libdv.WithNamespace(namespace),
 			)
 			defer libstorage.DeleteDataVolume(&dataVolume)
@@ -347,7 +350,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			podVirtioFsFileExist, err := exec.ExecuteCommandOnPod(
 				pod,
 				"compute",
-				[]string{tests.BinBash, "-c", virtioFsFileTestCmd},
+				[]string{"/bin/bash", "-c", virtioFsFileTestCmd},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))

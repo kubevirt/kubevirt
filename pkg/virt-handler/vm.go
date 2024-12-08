@@ -36,7 +36,7 @@ import (
 	"strings"
 	"time"
 
-	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
+	"libvirt.org/go/libvirtxml"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	pvctypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -58,8 +58,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
 	"github.com/opencontainers/runc/libcontainer/cgroups"
-
-	nodelabellerapi "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/api"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -127,6 +125,8 @@ type downwardMetricsManager interface {
 const (
 	failedDetectIsolationFmt              = "failed to detect isolation for launcher pod: %v"
 	unableCreateVirtLauncherConnectionFmt = "unable to create virt-launcher client connection: %v"
+	// This value was determined after consulting with libvirt developers and performing extensive testing.
+	parallelMultifdMigrationThreads = uint(8)
 )
 
 const (
@@ -215,14 +215,17 @@ func NewController(
 	podIsolationDetector isolation.PodIsolationDetector,
 	migrationProxy migrationproxy.ProxyManager,
 	downwardMetricsManager downwardMetricsManager,
-	capabilities *nodelabellerapi.Capabilities,
+	capabilities *libvirtxml.Caps,
 	hostCpuModel string,
 	netConf netconf,
 	netStat netstat,
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator,
 ) (*VirtualMachineController, error) {
 
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-handler-vm")
+	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
+		workqueue.DefaultTypedControllerRateLimiter[string](),
+		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-vm"},
+	)
 
 	containerDiskState := filepath.Join(virtPrivateDir, "container-disk-mount-state")
 	if err := os.MkdirAll(containerDiskState, 0700); err != nil {
@@ -333,7 +336,7 @@ type VirtualMachineController struct {
 	migrationIpAddress       string
 	virtShareDir             string
 	virtPrivateDir           string
-	queue                    workqueue.RateLimitingInterface
+	queue                    workqueue.TypedRateLimitingInterface[string]
 	vmiSourceStore           cache.Store
 	vmiTargetStore           cache.Store
 	domainStore              cache.Store
@@ -355,7 +358,7 @@ type VirtualMachineController struct {
 	domainNotifyPipes           map[string]string
 	virtLauncherFSRunDirPattern string
 	heartBeat                   *heartbeat.HeartBeat
-	capabilities                *nodelabellerapi.Capabilities
+	capabilities                *libvirtxml.Caps
 	hostCpuModel                string
 	vmiExpectations             *controller.UIDTrackingControllerExpectations
 	ioErrorRetryManager         *FailRetryManager
@@ -1231,7 +1234,11 @@ func (d *VirtualMachineController) updatePausedConditions(vmi *v1.VirtualMachine
 	// Update paused condition in case VMI was paused / unpaused
 	if domain != nil && domain.Status.Status == api.Paused {
 		if !condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
-			calculatePausedCondition(vmi, domain.Status.Reason)
+			reason := domain.Status.Reason
+			if d.isVMIPausedDuringMigration(vmi) {
+				reason = api.ReasonPausedMigration
+			}
+			calculatePausedCondition(vmi, reason)
 		}
 	} else if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
 		log.Log.Object(vmi).V(3).Info("Removing paused condition")
@@ -1583,10 +1590,20 @@ func sshRelatedCommandsSupported(commands []v1.GuestAgentCommandInfo) bool {
 }
 
 func calculatePausedCondition(vmi *v1.VirtualMachineInstance, reason api.StateChangeReason) {
+	now := metav1.NewTime(time.Now())
 	switch reason {
+	case api.ReasonPausedMigration:
+		log.Log.Object(vmi).V(3).Info("Adding paused condition")
+		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+			Type:               v1.VirtualMachineInstancePaused,
+			Status:             k8sv1.ConditionTrue,
+			LastProbeTime:      now,
+			LastTransitionTime: now,
+			Reason:             "PausedByMigrationMonitor",
+			Message:            "VMI was paused by the migration monitor",
+		})
 	case api.ReasonPausedUser:
 		log.Log.Object(vmi).V(3).Info("Adding paused condition")
-		now := metav1.NewTime(time.Now())
 		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
 			Type:               v1.VirtualMachineInstancePaused,
 			Status:             k8sv1.ConditionTrue,
@@ -1597,7 +1614,6 @@ func calculatePausedCondition(vmi *v1.VirtualMachineInstance, reason api.StateCh
 		})
 	case api.ReasonPausedIOError:
 		log.Log.Object(vmi).V(3).Info("Adding paused condition")
-		now := metav1.NewTime(time.Now())
 		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
 			Type:               v1.VirtualMachineInstancePaused,
 			Status:             k8sv1.ConditionTrue,
@@ -1805,7 +1821,7 @@ func (c *VirtualMachineController) Execute() bool {
 		return false
 	}
 	defer c.queue.Done(key)
-	if err := c.execute(key.(string)); err != nil {
+	if err := c.execute(key); err != nil {
 		log.Log.Reason(err).Infof("re-enqueuing VirtualMachineInstance %v", key)
 		c.queue.AddRateLimited(key)
 	} else {
@@ -2425,14 +2441,13 @@ func (d *VirtualMachineController) helperVmShutdown(vmi *v1.VirtualMachineInstan
 		return err
 	}
 
-	// Only attempt to gracefully shutdown if the domain has the ACPI feature enabled
-	if isACPIEnabled(vmi, domain) && tryGracefully {
+	if domainHasGracePeriod(domain) && tryGracefully {
 		if expired, timeLeft := d.hasGracePeriodExpired(domain); !expired {
 			return d.handleVMIShutdown(vmi, domain, client, timeLeft)
 		}
 		log.Log.Object(vmi).Infof("Grace period expired, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())
 	} else {
-		log.Log.Object(vmi).Infof("ACPI feature not available, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())
+		log.Log.Object(vmi).Infof("Graceful shutdown not set, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())
 	}
 
 	err = client.KillVirtualMachine(vmi)
@@ -2581,11 +2596,11 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 	volumeStatusMap := make(map[string]v1.VolumeStatus)
 
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
-		if volumeStatus.Name == backendstorage.PVCForVMI(vmi) && volumeStatus.PersistentVolumeClaimInfo != nil &&
-			!pvctypes.HasSharedAccessMode(volumeStatus.PersistentVolumeClaimInfo.AccessModes) {
-			return true, fmt.Errorf("cannot migrate VMI: Backend storage PVC is not RWX")
-		}
 		volumeStatusMap[volumeStatus.Name] = volumeStatus
+	}
+
+	if len(vmi.Status.MigratedVolumes) > 0 {
+		blockMigrate = true
 	}
 
 	// Check if all VMI volumes can be shared between the source and the destination
@@ -2639,6 +2654,12 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 	return
 }
 
+func (d *VirtualMachineController) isVMIPausedDuringMigration(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Status.MigrationState != nil &&
+		vmi.Status.MigrationState.Mode == v1.MigrationPaused &&
+		!vmi.Status.MigrationState.Completed
+}
+
 func (d *VirtualMachineController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool {
 
 	if vmi.Status.MigrationState != nil &&
@@ -2667,8 +2688,7 @@ func (d *VirtualMachineController) handleTargetMigrationProxy(vmi *v1.VirtualMac
 	baseDir := fmt.Sprintf(filepath.Join(d.virtLauncherFSRunDirPattern, "kubevirt"), res.Pid())
 	migrationTargetSockets = append(migrationTargetSockets, socketFile)
 
-	isBlockMigration := vmi.Status.MigrationMethod == v1.BlockMigration
-	migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration)
+	migrationPortsRange := migrationproxy.GetMigrationPortsList(vmi.IsBlockMigration())
 	for _, port := range migrationPortsRange {
 		key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
 		// a proxy between the target direct qemu channel and the connector in the destination pod
@@ -2777,17 +2797,10 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 			UnsafeMigration:         *migrationConfiguration.UnsafeMigrationOverride,
 			AllowAutoConverge:       *migrationConfiguration.AllowAutoConverge,
 			AllowPostCopy:           *migrationConfiguration.AllowPostCopy,
+			AllowWorkloadDisruption: *migrationConfiguration.AllowWorkloadDisruption,
 		}
 
-		if threadCountStr, exists := origVMI.Annotations[cmdclient.MultiThreadedQemuMigrationAnnotation]; exists {
-			threadCount, err := strconv.Atoi(threadCountStr)
-
-			if err != nil {
-				log.Log.Object(origVMI).Reason(err).Infof("cannot parse %s to int", threadCountStr)
-			} else {
-				options.ParallelMigrationThreads = pointer.P(uint(threadCount))
-			}
-		}
+		configureParallelMigrationThreads(options, origVMI)
 
 		marshalledOptions, err := json.Marshal(options)
 		if err != nil {
@@ -2843,6 +2856,8 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		}
 		log.Log.Object(vmi).Infof("Signaled target pod for failed migration to clean up")
 		// nothing left to do here if the migration failed.
+		// Re-enqueue to trigger handler final cleanup
+		d.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second)
 		return nil
 	} else if migrations.IsMigrating(vmi) {
 		// If the migration has already started,
@@ -3051,6 +3066,9 @@ func (d *VirtualMachineController) configureHousekeepingCgroup(vmi *v1.VirtualMa
 			log.Log.Object(vmi).Errorf("Failure to find process: %s", err.Error())
 			return err
 		}
+		if proc == nil {
+			return fmt.Errorf("failed to find process with tid: %d", tid)
+		}
 		comm := proc.Executable()
 		if strings.Contains(comm, "CPU ") && strings.Contains(comm, "KVM") {
 			continue
@@ -3215,24 +3233,22 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return err
 		}
 
-		if d.clusterConfig.HotplugNetworkInterfacesEnabled() {
-			netsToHotplug := netvmispec.NetworksToHotplugWhosePodIfacesAreReady(vmi)
-			nonAbsentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-				return iface.State != v1.InterfaceStateAbsent
-			})
-			netsToHotplug = netvmispec.FilterNetworksByInterfaces(netsToHotplug, nonAbsentIfaces)
+		netsToHotplug := netvmispec.NetworksToHotplugWhosePodIfacesAreReady(vmi)
+		nonAbsentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+			return iface.State != v1.InterfaceStateAbsent
+		})
+		netsToHotplug = netvmispec.FilterNetworksByInterfaces(netsToHotplug, nonAbsentIfaces)
 
-			ifacesToHotunplug := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-				return iface.State == v1.InterfaceStateAbsent
-			})
-			netsToHotunplug := netvmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, ifacesToHotunplug)
+		ifacesToHotunplug := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+			return iface.State == v1.InterfaceStateAbsent
+		})
+		netsToHotunplug := netvmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, ifacesToHotunplug)
 
-			setupNets := append(netsToHotplug, netsToHotunplug...)
-			if err := d.setupNetwork(vmi, setupNets); err != nil {
-				log.Log.Object(vmi).Error(err.Error())
-				d.recorder.Event(vmi, k8sv1.EventTypeWarning, "NicHotplug", err.Error())
-				errorTolerantFeaturesError = append(errorTolerantFeaturesError, err)
-			}
+		setupNets := append(netsToHotplug, netsToHotunplug...)
+		if err := d.setupNetwork(vmi, setupNets); err != nil {
+			log.Log.Object(vmi).Error(err.Error())
+			d.recorder.Event(vmi, k8sv1.EventTypeWarning, "NicHotplug", err.Error())
+			errorTolerantFeaturesError = append(errorTolerantFeaturesError, err)
 		}
 	}
 
@@ -3786,4 +3802,14 @@ func (d *VirtualMachineController) updateMemoryInfo(vmi *v1.VirtualMachineInstan
 	currentGuest := parseLibvirtQuantity(int64(domain.Spec.CurrentMemory.Value), domain.Spec.CurrentMemory.Unit)
 	vmi.Status.Memory.GuestCurrent = currentGuest
 	return nil
+}
+
+func configureParallelMigrationThreads(options *cmdclient.MigrationOptions, vm *v1.VirtualMachineInstance) {
+	// When the CPU is limited, there's a risk of the migration threads choking the CPU resources on the compute container.
+	// For this reason, we will avoid configuring migration threads in such scenarios.
+	if cpuLimit, cpuLimitExists := vm.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; cpuLimitExists && !cpuLimit.IsZero() {
+		return
+	}
+
+	options.ParallelMigrationThreads = pointer.P(parallelMultifdMigrationThreads)
 }

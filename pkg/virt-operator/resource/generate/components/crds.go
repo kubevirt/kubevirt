@@ -36,8 +36,6 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/utils/pointer"
-
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1alpha1 "kubevirt.io/api/export/v1alpha1"
 	exportv1beta1 "kubevirt.io/api/export/v1beta1"
@@ -47,13 +45,14 @@ import (
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
 	snapshotv1beta1 "kubevirt.io/api/snapshot/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
-	creationTimestampJSONPath  = ".metadata.creationTimestamp"
-	errorMessageJSONPath       = ".status.error.message"
-	phaseJSONPath              = ".status.phase"
-	preserveUnknownFieldsFalse = false
+	creationTimestampJSONPath = ".metadata.creationTimestamp"
+	errorMessageJSONPath      = ".status.error.message"
+	phaseJSONPath             = ".status.phase"
 )
 
 var (
@@ -69,7 +68,6 @@ var (
 	VIRTUALMACHINEEXPORT             = "virtualmachineexports." + exportv1beta1.SchemeGroupVersion.Group
 	MIGRATIONPOLICY                  = "migrationpolicies." + migrationsv1.MigrationPolicyKind.Group
 	VIRTUALMACHINECLONE              = "virtualmachineclones." + clonev1alpha1.VirtualMachineCloneKind.Group
-	PreserveUnknownFieldsFalse       = false
 )
 
 func addFieldsToVersion(version *extv1.CustomResourceDefinitionVersion, fields ...interface{}) error {
@@ -99,8 +97,6 @@ func addFieldsToAllVersions(crd *extv1.CustomResourceDefinition, fields ...inter
 
 func patchValidation(crd *extv1.CustomResourceDefinition, version *extv1.CustomResourceDefinitionVersion) error {
 	name := crd.Spec.Names.Singular
-
-	crd.Spec.PreserveUnknownFields = preserveUnknownFieldsFalse
 	validation, ok := CRDsValidation[name]
 	if !ok {
 		return nil
@@ -230,14 +226,14 @@ func NewPresetCrd() (*extv1.CustomResourceDefinition, error) {
 				Served:             true,
 				Storage:            false,
 				Deprecated:         true,
-				DeprecationWarning: pointer.String("kubevirt.io/v1 VirtualMachineInstancePresets is now deprecated and will be removed in v2."),
+				DeprecationWarning: pointer.P("kubevirt.io/v1 VirtualMachineInstancePresets is now deprecated and will be removed in v2."),
 			},
 			{
 				Name:               "v1alpha3",
 				Served:             true,
 				Storage:            true,
 				Deprecated:         true,
-				DeprecationWarning: pointer.String("kubevirt.io/v1alpha3 VirtualMachineInstancePresets is now deprecated and will be removed in v2."),
+				DeprecationWarning: pointer.P("kubevirt.io/v1alpha3 VirtualMachineInstancePresets is now deprecated and will be removed in v2."),
 			},
 		},
 		Scope: "Namespaced",
@@ -458,11 +454,17 @@ func NewVirtualMachineSnapshotCrd() (*extv1.CustomResourceDefinition, error) {
 				Name:    snapshotv1alpha1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: false,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
 			},
 			{
 				Name:    snapshotv1beta1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: true,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
 			},
 		},
 		Scope: "Namespaced",
@@ -508,11 +510,17 @@ func NewVirtualMachineSnapshotContentCrd() (*extv1.CustomResourceDefinition, err
 				Name:    snapshotv1alpha1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: false,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
 			},
 			{
 				Name:    snapshotv1beta1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: true,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
 			},
 		},
 		Scope: "Namespaced",
@@ -555,11 +563,17 @@ func NewVirtualMachineRestoreCrd() (*extv1.CustomResourceDefinition, error) {
 				Name:    snapshotv1alpha1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: false,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
 			},
 			{
 				Name:    snapshotv1beta1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: true,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
 			},
 		},
 		Scope: "Namespaced",
@@ -604,11 +618,17 @@ func NewVirtualMachineExportCrd() (*extv1.CustomResourceDefinition, error) {
 				Name:    exportv1alpha1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: false,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
 			},
 			{
 				Name:    exportv1beta1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: true,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
 			},
 		},
 		Scope: "Namespaced",
@@ -662,13 +682,13 @@ func NewVirtualMachineInstancetypeCrd() (*extv1.CustomResourceDefinition, error)
 			Served:             true,
 			Storage:            false,
 			Deprecated:         true,
-			DeprecationWarning: pointer.String("instancetype.kubevirt.io/v1alpha1 VirtualMachineInstancetypes is now deprecated and will be removed in v1."),
+			DeprecationWarning: pointer.P("instancetype.kubevirt.io/v1alpha1 VirtualMachineInstancetypes is now deprecated and will be removed in v1."),
 		}, {
 			Name:               instancetypev1alpha2.SchemeGroupVersion.Version,
 			Served:             true,
 			Storage:            false,
 			Deprecated:         true,
-			DeprecationWarning: pointer.String("instancetype.kubevirt.io/v1alpha2 VirtualMachineInstancetypes is now deprecated and will be removed in v1."),
+			DeprecationWarning: pointer.P("instancetype.kubevirt.io/v1alpha2 VirtualMachineInstancetypes is now deprecated and will be removed in v1."),
 		}, {
 			Name:    instancetypev1beta1.SchemeGroupVersion.Version,
 			Served:  true,
@@ -703,13 +723,13 @@ func NewVirtualMachineClusterInstancetypeCrd() (*extv1.CustomResourceDefinition,
 			Served:             true,
 			Storage:            false,
 			Deprecated:         true,
-			DeprecationWarning: pointer.String("instancetype.kubevirt.io/v1alpha1 VirtualMachineClusterInstanceTypes is now deprecated and will be removed in v1."),
+			DeprecationWarning: pointer.P("instancetype.kubevirt.io/v1alpha1 VirtualMachineClusterInstanceTypes is now deprecated and will be removed in v1."),
 		}, {
 			Name:               instancetypev1alpha2.SchemeGroupVersion.Version,
 			Served:             true,
 			Storage:            false,
 			Deprecated:         true,
-			DeprecationWarning: pointer.String("instancetype.kubevirt.io/v1alpha2 VirtualMachineClusterInstanceTypes is now deprecated and will be removed in v1."),
+			DeprecationWarning: pointer.P("instancetype.kubevirt.io/v1alpha2 VirtualMachineClusterInstanceTypes is now deprecated and will be removed in v1."),
 		}, {
 			Name:    instancetypev1beta1.SchemeGroupVersion.Version,
 			Served:  true,
@@ -745,13 +765,13 @@ func NewVirtualMachinePreferenceCrd() (*extv1.CustomResourceDefinition, error) {
 			Served:             true,
 			Storage:            false,
 			Deprecated:         true,
-			DeprecationWarning: pointer.String("instancetype.kubevirt.io/v1alpha1 VirtualMachinePreferences is now deprecated and will be removed in v1."),
+			DeprecationWarning: pointer.P("instancetype.kubevirt.io/v1alpha1 VirtualMachinePreferences is now deprecated and will be removed in v1."),
 		}, {
 			Name:               instancetypev1alpha2.SchemeGroupVersion.Version,
 			Served:             true,
 			Storage:            false,
 			Deprecated:         true,
-			DeprecationWarning: pointer.String("instancetype.kubevirt.io/v1alpha2 VirtualMachinePreferences is now deprecated and will be removed in v1."),
+			DeprecationWarning: pointer.P("instancetype.kubevirt.io/v1alpha2 VirtualMachinePreferences is now deprecated and will be removed in v1."),
 		}, {
 			Name:    instancetypev1beta1.SchemeGroupVersion.Version,
 			Served:  true,
@@ -786,13 +806,13 @@ func NewVirtualMachineClusterPreferenceCrd() (*extv1.CustomResourceDefinition, e
 			Served:             true,
 			Storage:            false,
 			Deprecated:         true,
-			DeprecationWarning: pointer.String("instancetype.kubevirt.io/v1alpha1 VirtualMachineClusterPreferences is now deprecated and will be removed in v1."),
+			DeprecationWarning: pointer.P("instancetype.kubevirt.io/v1alpha1 VirtualMachineClusterPreferences is now deprecated and will be removed in v1."),
 		}, {
 			Name:               instancetypev1alpha2.SchemeGroupVersion.Version,
 			Served:             true,
 			Storage:            false,
 			Deprecated:         true,
-			DeprecationWarning: pointer.String("instancetype.kubevirt.io/v1alpha2 VirtualMachineClusterPreferences is now deprecated and will be removed in v1."),
+			DeprecationWarning: pointer.P("instancetype.kubevirt.io/v1alpha2 VirtualMachineClusterPreferences is now deprecated and will be removed in v1."),
 		}, {
 			Name:    instancetypev1beta1.SchemeGroupVersion.Version,
 			Served:  true,

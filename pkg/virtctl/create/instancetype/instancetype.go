@@ -28,15 +28,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/clientcmd"
 	v1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"sigs.k8s.io/yaml"
+
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/create/params"
 )
 
 const (
-	Instancetype = "instancetype"
-
 	CPUFlag             = "cpu"
 	MemoryFlag          = "memory"
 	GPUFlag             = "gpu"
@@ -45,10 +44,8 @@ const (
 	NameFlag            = "name"
 	NamespacedFlag      = "namespaced"
 
-	IOThreadErr   = "IOThread must be of value auto or shared"
-	NameErr       = "name must be specified"
-	DeviceNameErr = "deviceName must be specified"
-	CPUErr        = "cpu value must be greater than zero"
+	nameErr       = "name must be specified"
+	deviceNameErr = "deviceName must be specified"
 )
 
 type createInstancetype struct {
@@ -64,22 +61,14 @@ type createInstancetype struct {
 	clientConfig clientcmd.ClientConfig
 }
 
-type GPU struct {
+type gpu struct {
 	Name       string `param:"name"`
 	DeviceName string `param:"devicename"`
 }
 
-type HostDevice struct {
+type hostDevice struct {
 	Name       string `param:"name"`
 	DeviceName string `param:"devicename"`
-}
-
-type optionFn func(*createInstancetype, *instancetypev1beta1.VirtualMachineInstancetypeSpec) error
-
-var optFns = map[string]optionFn{
-	GPUFlag:             withGPUs,
-	HostDeviceFlag:      withHostDevices,
-	IOThreadsPolicyFlag: withIOThreadsPolicy,
 }
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -87,12 +76,10 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		clientConfig: clientConfig,
 	}
 	cmd := &cobra.Command{
-		Use:     Instancetype,
+		Use:     "instancetype",
 		Short:   "Create VirtualMachineInstancetype or VirtualMachineClusterInstancetype manifest.",
 		Example: c.usage(),
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return c.run(cmd)
-		},
+		RunE:    c.run,
 	}
 	cmd.Flags().StringVar(&c.name, NameFlag, c.name, "Specify the name of the Instancetype.")
 	cmd.Flags().Uint32Var(&c.cpu, CPUFlag, c.cpu, "Specify the count of CPUs of the Instancetype.")
@@ -105,7 +92,6 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	if err := cmd.MarkFlagRequired(CPUFlag); err != nil {
 		panic(err)
 	}
-
 	if err := cmd.MarkFlagRequired(MemoryFlag); err != nil {
 		panic(err)
 	}
@@ -136,63 +122,66 @@ func (c *createInstancetype) setDefaults(cmd *cobra.Command) error {
 	return nil
 }
 
-func withGPUs(c *createInstancetype, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
+func (c *createInstancetype) optFns() map[string]func(*instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
+	return map[string]func(*instancetypev1beta1.VirtualMachineInstancetypeSpec) error{
+		GPUFlag:             c.withGPUs,
+		HostDeviceFlag:      c.withHostDevices,
+		IOThreadsPolicyFlag: c.withIOThreadsPolicy,
+	}
+}
+
+func (c *createInstancetype) withGPUs(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
 	for _, param := range c.gpus {
-		gpu := GPU{}
-
-		if err := params.Map(GPUFlag, param, &gpu); err != nil {
+		obj := gpu{}
+		if err := params.Map(GPUFlag, param, &obj); err != nil {
 			return err
 		}
 
-		if gpu.Name == "" {
-			return params.FlagErr(GPUFlag, NameErr)
+		if obj.Name == "" {
+			return params.FlagErr(GPUFlag, nameErr)
+		}
+		if obj.DeviceName == "" {
+			return params.FlagErr(GPUFlag, deviceNameErr)
 		}
 
-		if gpu.DeviceName == "" {
-			return params.FlagErr(GPUFlag, DeviceNameErr)
-		}
-
-		instancetypeSpec.GPUs = append(instancetypeSpec.GPUs, v1.GPU{Name: gpu.Name, DeviceName: gpu.DeviceName})
+		instancetypeSpec.GPUs = append(instancetypeSpec.GPUs, v1.GPU{Name: obj.Name, DeviceName: obj.DeviceName})
 	}
 
 	return nil
 }
 
-func withHostDevices(c *createInstancetype, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
+func (c *createInstancetype) withHostDevices(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
 	for _, param := range c.hostDevices {
-		hostDevice := HostDevice{}
-
-		if err := params.Map(HostDeviceFlag, param, &hostDevice); err != nil {
+		obj := hostDevice{}
+		if err := params.Map(HostDeviceFlag, param, &obj); err != nil {
 			return err
 		}
 
-		if hostDevice.Name == "" {
-			return params.FlagErr(HostDeviceFlag, NameErr)
+		if obj.Name == "" {
+			return params.FlagErr(HostDeviceFlag, nameErr)
+		}
+		if obj.DeviceName == "" {
+			return params.FlagErr(HostDeviceFlag, deviceNameErr)
 		}
 
-		if hostDevice.DeviceName == "" {
-			return params.FlagErr(HostDeviceFlag, DeviceNameErr)
-		}
-
-		instancetypeSpec.HostDevices = append(instancetypeSpec.HostDevices, v1.HostDevice{Name: hostDevice.Name, DeviceName: hostDevice.DeviceName})
+		instancetypeSpec.HostDevices = append(instancetypeSpec.HostDevices, v1.HostDevice{Name: obj.Name, DeviceName: obj.DeviceName})
 	}
 
 	return nil
 }
 
-func withIOThreadsPolicy(c *createInstancetype, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
+func (c *createInstancetype) withIOThreadsPolicy(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
 	var policy v1.IOThreadsPolicy
-
 	switch c.ioThreadsPolicy {
 	case string(v1.IOThreadsPolicyAuto):
 		policy = v1.IOThreadsPolicyAuto
 	case string(v1.IOThreadsPolicyShared):
 		policy = v1.IOThreadsPolicyShared
 	default:
-		return params.FlagErr(IOThreadsPolicyFlag, IOThreadErr)
+		return params.FlagErr(IOThreadsPolicyFlag, "IOThread must be of value auto or shared")
 	}
-
 	instancetypeSpec.IOThreadsPolicy = &policy
+
 	return nil
 }
 
@@ -213,7 +202,7 @@ func (c *createInstancetype) usage() string {
   {{ProgramName}} create instancetype --cpu 2 --memory 256Mi | kubectl create -f -`
 }
 
-func (c *createInstancetype) newInstancetype(_ *cobra.Command) *instancetypev1beta1.VirtualMachineInstancetype {
+func (c *createInstancetype) newInstancetype() *instancetypev1beta1.VirtualMachineInstancetype {
 	instancetype := &instancetypev1beta1.VirtualMachineInstancetype{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "VirtualMachineInstancetype",
@@ -239,7 +228,7 @@ func (c *createInstancetype) newInstancetype(_ *cobra.Command) *instancetypev1be
 	return instancetype
 }
 
-func (c *createInstancetype) newClusterInstancetype(_ *cobra.Command) *instancetypev1beta1.VirtualMachineClusterInstancetype {
+func (c *createInstancetype) newClusterInstancetype() *instancetypev1beta1.VirtualMachineClusterInstancetype {
 	return &instancetypev1beta1.VirtualMachineClusterInstancetype{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "VirtualMachineClusterInstancetype",
@@ -260,9 +249,9 @@ func (c *createInstancetype) newClusterInstancetype(_ *cobra.Command) *instancet
 }
 
 func (c *createInstancetype) applyFlags(cmd *cobra.Command, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
-	for flag := range optFns {
+	for flag := range c.optFns() {
 		if cmd.Flags().Changed(flag) {
-			if err := optFns[flag](c, instancetypeSpec); err != nil {
+			if err := c.optFns()[flag](instancetypeSpec); err != nil {
 				return err
 			}
 		}
@@ -277,16 +266,13 @@ func (c *createInstancetype) validateFlags() error {
 	}
 
 	if c.cpu <= 0 {
-		return fmt.Errorf(CPUErr)
+		return fmt.Errorf("cpu value must be greater than zero")
 	}
 
 	return nil
 }
 
-func (c *createInstancetype) run(cmd *cobra.Command) error {
-	var out []byte
-	var err error
-
+func (c *createInstancetype) run(cmd *cobra.Command, _ []string) error {
 	if err := c.setDefaults(cmd); err != nil {
 		return err
 	}
@@ -295,8 +281,10 @@ func (c *createInstancetype) run(cmd *cobra.Command) error {
 		return err
 	}
 
+	var out []byte
+	var err error
 	if c.namespaced {
-		instancetype := c.newInstancetype(cmd)
+		instancetype := c.newInstancetype()
 
 		if err = c.applyFlags(cmd, &instancetype.Spec); err != nil {
 			return err
@@ -307,7 +295,7 @@ func (c *createInstancetype) run(cmd *cobra.Command) error {
 			return err
 		}
 	} else {
-		clusterInstancetype := c.newClusterInstancetype(cmd)
+		clusterInstancetype := c.newClusterInstancetype()
 
 		if err = c.applyFlags(cmd, &clusterInstancetype.Spec); err != nil {
 			return err

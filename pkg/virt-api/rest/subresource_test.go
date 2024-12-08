@@ -39,29 +39,31 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+	gomegatypes "github.com/onsi/gomega/types"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
-	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
-	cdifake "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
+	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/util/status"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -100,7 +102,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	var vmiClient *kubecli.MockVirtualMachineInstanceInterface
 	var migrateClient *kubecli.MockVirtualMachineInstanceMigrationInterface
 
-	gracePeriodZero := pointer.Int64(0)
+	gracePeriodZero := pointer.P(int64(0))
 
 	kv := &v1.KubeVirt{
 		ObjectMeta: k8smetav1.ObjectMeta{
@@ -143,7 +145,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		app.consoleServerPort = backendPort
 		flag.Set("kubeconfig", "")
 		app.virtCli = virtClient
-		app.statusUpdater = status.NewVMStatusUpdater(app.virtCli)
 		app.credentialsLock = &sync.Mutex{}
 		app.handlerTLSConfiguration = &tls.Config{InsecureSkipVerify: true}
 		app.clusterConfig = config
@@ -349,6 +350,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				app.VNCRequestHandler(request, response)
 
 				ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+				if !autoattachGraphicsDevice {
+					ExpectMessage(recorder, Equal("No graphics devices are present."))
+				}
 			},
 				Entry("should fail if there is no graphics device", false, v1.Running),
 				Entry("should fail if vmi is not running", true, v1.Scheduling),
@@ -442,24 +446,31 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				ExpectStatusErrorWithCode(recorder, http.StatusNotFound)
 			})
 
-			It("should fail if VirtualMachine is not in running state", func() {
+			DescribeTable("should return an error when VM is not running", func(errMsg string, running *bool, runStrategy *v1.VirtualMachineRunStrategy) {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
 				vm := v1.VirtualMachine{
 					Spec: v1.VirtualMachineSpec{
-						Running: pointer.Bool(NotRunning),
+						Running:     running,
+						RunStrategy: runStrategy,
 					},
 				}
 
 				vmClient.EXPECT().Get(context.Background(), testVMName, k8smetav1.GetOptions{}).Return(&vm, nil)
 
+				if runStrategy != nil && *runStrategy == v1.RunStrategyManual {
+					vmiClient.EXPECT().Get(context.Background(), testVMName, k8smetav1.GetOptions{}).Return(nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), vm.Name))
+				}
 				app.RestartVMRequestHandler(request, response)
 
 				status := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
-				// check the msg string that would be presented to virtctl output
-				Expect(status.Error()).To(ContainSubstring("Halted does not support manual restart requests"))
-			})
+				Expect(status.Error()).To(ContainSubstring(errMsg))
+			},
+				Entry("with Running field", "RunStategy Halted does not support manual restart requests", pointer.P(NotRunning), nil),
+				Entry("with RunStrategyHalted", "RunStategy Halted does not support manual restart requests", nil, pointer.P(v1.RunStrategyHalted)),
+				Entry("with RunStrategyManual", "VM is not running: Halted", nil, pointer.P(v1.RunStrategyManual)),
+			)
 
 			DescribeTable("should ForceRestart VirtualMachine according to options", func(restartOptions *v1.RestartOptions) {
 				request.PathParameters()["name"] = testVMName
@@ -468,7 +479,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				bytesRepresentation, _ := json.Marshal(restartOptions)
 				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
-				vm := newVirtualMachineWithRunning(pointer.Bool(Running))
+				vm := newVirtualMachineWithRunning(pointer.P(Running))
 				vmi := v1.VirtualMachineInstance{
 					Spec: v1.VirtualMachineInstanceSpec{},
 				}
@@ -525,7 +536,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				bytesRepresentation, _ := json.Marshal(body)
 				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
-				vm := newVirtualMachineWithRunning(pointer.Bool(Running))
+				vm := newVirtualMachineWithRunning(pointer.P(Running))
 				vmi := v1.VirtualMachineInstance{
 					Spec: v1.VirtualMachineInstanceSpec{},
 				}
@@ -551,7 +562,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
-				vm := newVirtualMachineWithRunning(pointer.Bool(Running))
+				vm := newVirtualMachineWithRunning(pointer.P(Running))
 
 				vmi := v1.VirtualMachineInstance{
 					Spec: v1.VirtualMachineInstanceSpec{},
@@ -572,7 +583,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				request.PathParameters()["name"] = testVMName
 				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
-				vm := newVirtualMachineWithRunning(pointer.Bool(Running))
+				vm := newVirtualMachineWithRunning(pointer.P(Running))
 				vmi := newVirtualMachineInstanceInPhase(v1.Running)
 
 				vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
@@ -582,6 +593,22 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				app.RestartVMRequestHandler(request, response)
 				Expect(response.Error()).NotTo(HaveOccurred())
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
+			})
+
+			It("should fail when the volume migration in ongoing", func() {
+				vmi := libvmi.New()
+				vm := libvmi.NewVirtualMachine(vmi)
+				controller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{
+					Type:   v1.VirtualMachineConditionType(v1.VirtualMachineInstanceVolumesChange),
+					Status: k8sv1.ConditionTrue,
+				})
+				request.PathParameters()["name"] = vm.Name
+				vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
+
+				app.RestartVMRequestHandler(request, response)
+
+				statusErr := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+				Expect(statusErr.Error()).To(ContainSubstring("VM recovery required"))
 			})
 		})
 
@@ -594,7 +621,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				bytesRepresentation, _ := json.Marshal(stopOptions)
 				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
-				vm := newVirtualMachineWithRunning(pointer.Bool(Running))
+				vm := newVirtualMachineWithRunning(pointer.P(Running))
 
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: k8smetav1.ObjectMeta{
@@ -1280,16 +1307,16 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			return pvc
 		}
 
-		cdiConfigInit := func() (cdiConfig *v1beta1.CDIConfig) {
-			cdiConfig = &v1beta1.CDIConfig{
+		cdiConfigInit := func() (cdiConfig *cdiv1.CDIConfig) {
+			cdiConfig = &cdiv1.CDIConfig{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name: storagetypes.ConfigName,
 				},
-				Spec: v1beta1.CDIConfigSpec{
+				Spec: cdiv1.CDIConfigSpec{
 					UploadProxyURLOverride: nil,
 				},
-				Status: v1beta1.CDIConfigStatus{
-					FilesystemOverhead: &v1beta1.FilesystemOverhead{
+				Status: cdiv1.CDIConfigStatus{
+					FilesystemOverhead: &cdiv1.FilesystemOverhead{
 						Global: cdiv1.Percent(storagetypes.DefaultFSOverhead),
 					},
 				},
@@ -1654,6 +1681,23 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Entry("Manual with VMI in state Succeeded", v1.RunStrategyManual, v1.Succeeded, http.StatusOK),
 			Entry("Manual with VMI in state Failed", v1.RunStrategyManual, v1.Failed, http.StatusOK),
 		)
+
+		It("should fail when the volume migration in ongoing", func() {
+			vmi := libvmi.New()
+			vm := libvmi.NewVirtualMachine(vmi)
+			controller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{
+				Type:   v1.VirtualMachineManualRecoveryRequired,
+				Status: k8sv1.ConditionTrue,
+			})
+			request.PathParameters()["name"] = vm.Name
+			vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
+			vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vmi, nil)
+
+			app.StartVMRequestHandler(request, response)
+
+			statusErr := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+			Expect(statusErr.Error()).To(ContainSubstring("VM recovery required"))
+		})
 	})
 
 	Context("Subresource api - error handling for StopVMRequestHandler", func() {
@@ -1755,11 +1799,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			}
 		},
-			Entry("fail with nil graceperiod", pointer.Int64(int64(1800)), nil, true),
-			Entry("fail with equal graceperiod", pointer.Int64(int64(1800)), pointer.Int64(int64(1800)), true),
-			Entry("fail with greater graceperiod", pointer.Int64(int64(1800)), pointer.Int64(int64(2400)), true),
-			Entry("not fail with non-nil graceperiod and nil termination graceperiod", nil, pointer.Int64(int64(1800)), false),
-			Entry("not fail with shorter graceperiod and non-nil termination graceperiod", pointer.Int64(int64(1800)), pointer.Int64(int64(800)), false),
+			Entry("fail with nil graceperiod", pointer.P(int64(1800)), nil, true),
+			Entry("fail with equal graceperiod", pointer.P(int64(1800)), pointer.P(int64(1800)), true),
+			Entry("fail with greater graceperiod", pointer.P(int64(1800)), pointer.P(int64(2400)), true),
+			Entry("not fail with non-nil graceperiod and nil termination graceperiod", nil, pointer.P(int64(1800)), false),
+			Entry("not fail with shorter graceperiod and non-nil termination graceperiod", pointer.P(int64(1800)), pointer.P(int64(800)), false),
 		)
 
 		DescribeTable("should not fail on VM with RunStrategy", func(runStrategy v1.VirtualMachineRunStrategy) {
@@ -2219,7 +2263,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	})
 
 	Context("Pausing", func() {
-		DescribeTable("Should pause a running, not paused VMI according to options", func(pauseOptions *v1.PauseOptions) {
+		DescribeTable("Should pause a running, not paused VMI according to options", func(pauseOptions *v1.PauseOptions, matchExpectation gomegatypes.GomegaMatcher) {
 
 			backend.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -2235,31 +2279,49 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.PauseVMIRequestHandler(request, response)
 
 			Expect(response.StatusCode()).To(Equal(http.StatusOK))
-
+			//In case of dry-run the request is not propagated to the handler
+			Expect(backend.ReceivedRequests()).To(matchExpectation)
 		},
-			Entry("with default", &v1.PauseOptions{}),
-			Entry("with dry-run option", &v1.PauseOptions{DryRun: getDryRunOption()}),
+			Entry("with default", &v1.PauseOptions{}, HaveLen(1)),
+			Entry("with dry-run option", &v1.PauseOptions{DryRun: getDryRunOption()}, BeNil()),
 		)
 
-		DescribeTable("Should fail pausing", func(running bool, paused bool, pauseOptions *v1.PauseOptions) {
+		withLivenessProbe := func(vmi *v1.VirtualMachineInstance) {
+			vmi.Spec.LivenessProbe = &v1.Probe{
+				Handler:             v1.Handler{},
+				InitialDelaySeconds: 120,
+				TimeoutSeconds:      120,
+				PeriodSeconds:       120,
+				SuccessThreshold:    1,
+				FailureThreshold:    1,
+			}
+		}
+		nilAdditionalOps := func(vmi *v1.VirtualMachineInstance) {
+			return
+		}
 
-			expectVMI(running, paused)
+		DescribeTable("Should fail pausing", func(running bool, paused bool, additionalOpts func(vmi *v1.VirtualMachineInstance), pauseOptions *v1.PauseOptions, expectedCode int, expectedError string) {
+			expectVMI(running, paused, additionalOpts)
 
 			bytesRepresentation, _ := json.Marshal(pauseOptions)
 			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
 			app.PauseVMIRequestHandler(request, response)
 
-			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+			ExpectStatusErrorWithCode(recorder, expectedCode)
+			ExpectMessage(recorder, ContainSubstring(expectedError))
 		},
-			Entry("a not running VMI", NotRunning, UnPaused, &v1.PauseOptions{}),
-			Entry("a not running VMI with dry-run option", NotRunning, UnPaused, &v1.PauseOptions{DryRun: getDryRunOption()}),
+			Entry("a not running VMI", NotRunning, UnPaused, nilAdditionalOps, &v1.PauseOptions{}, http.StatusConflict, "VM is not running"),
+			Entry("a not running VMI with dry-run option", NotRunning, UnPaused, nilAdditionalOps, &v1.PauseOptions{DryRun: getDryRunOption()}, http.StatusConflict, "VM is not running"),
 
-			Entry("a running but paused VMI", Running, Paused, &v1.PauseOptions{}),
-			Entry("a running but paused VMI with dry-run option", Running, Paused, &v1.PauseOptions{DryRun: getDryRunOption()}),
+			Entry("a running but paused VMI", Running, Paused, nilAdditionalOps, &v1.PauseOptions{}, http.StatusConflict, "VMI is already paused"),
+			Entry("a running but paused VMI with dry-run option", Running, Paused, nilAdditionalOps, &v1.PauseOptions{DryRun: getDryRunOption()}, http.StatusConflict, "VMI is already paused"),
+
+			Entry("a running VMI with LivenessProbe", Running, UnPaused, withLivenessProbe, &v1.PauseOptions{}, http.StatusForbidden, "Pausing VMIs with LivenessProbe is currently not supported"),
+			Entry("a running VMI with LivenessProbe with dry-run option", Running, UnPaused, withLivenessProbe, &v1.PauseOptions{DryRun: getDryRunOption()}, http.StatusForbidden, "Pausing VMIs with LivenessProbe is currently not supported"),
 		)
 
-		DescribeTable("Should fail unpausing", func(running bool, paused bool, unpauseOptions *v1.UnpauseOptions) {
+		DescribeTable("Should fail unpausing", func(running bool, paused bool, unpauseOptions *v1.UnpauseOptions, expectedError string) {
 
 			expectVMI(running, paused)
 
@@ -2269,15 +2331,16 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.UnpauseVMIRequestHandler(request, response)
 
 			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+			ExpectMessage(recorder, ContainSubstring(expectedError))
 		},
-			Entry("a running, not paused VMI", Running, UnPaused, &v1.UnpauseOptions{}),
-			Entry("a running, not paused VMI with dry-run option", Running, UnPaused, &v1.UnpauseOptions{DryRun: getDryRunOption()}),
+			Entry("a running, not paused VMI", Running, UnPaused, &v1.UnpauseOptions{}, "VMI is not paused"),
+			Entry("a running, not paused VMI with dry-run option", Running, UnPaused, &v1.UnpauseOptions{DryRun: getDryRunOption()}, "VMI is not paused"),
 
-			Entry("a not running VMI", NotRunning, UnPaused, &v1.UnpauseOptions{}),
-			Entry("a not running VMI with dry-run option", NotRunning, UnPaused, &v1.UnpauseOptions{DryRun: getDryRunOption()}),
+			Entry("a not running VMI", NotRunning, UnPaused, &v1.UnpauseOptions{}, "VMI is not running"),
+			Entry("a not running VMI with dry-run option", NotRunning, UnPaused, &v1.UnpauseOptions{DryRun: getDryRunOption()}, "VMI is not running"),
 		)
 
-		DescribeTable("Should unpause a running, paused VMI according to options", func(unpauseOptions *v1.UnpauseOptions) {
+		DescribeTable("Should unpause a running, paused VMI according to options", func(unpauseOptions *v1.UnpauseOptions, matchExpectation gomegatypes.GomegaMatcher) {
 
 			backend.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -2293,10 +2356,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.UnpauseVMIRequestHandler(request, response)
 
 			Expect(response.StatusCode()).To(Equal(http.StatusOK))
-
+			//In case of dry-run the request is not propagated to the handler
+			Expect(backend.ReceivedRequests()).To(matchExpectation)
 		},
-			Entry("with default", &v1.UnpauseOptions{}),
-			Entry("with dry-run option", &v1.UnpauseOptions{DryRun: getDryRunOption()}),
+			Entry("with default", &v1.UnpauseOptions{}, HaveLen(1)),
+			Entry("with dry-run option", &v1.UnpauseOptions{DryRun: getDryRunOption()}, BeNil()),
 		)
 	})
 
@@ -2316,7 +2380,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 					Namespace: k8smetav1.NamespaceDefault,
 				},
 				Spec: v1.VirtualMachineSpec{
-					Running:  pointer.Bool(NotRunning),
+					Running:  pointer.P(NotRunning),
 					Template: &v1.VirtualMachineInstanceTemplateSpec{},
 				},
 			}
@@ -2540,4 +2604,12 @@ func ExpectStatusErrorWithCode(recorder *httptest.ResponseRecorder, code int) *e
 	ExpectWithOffset(1, status.Code).To(BeNumerically("==", code))
 	ExpectWithOffset(1, recorder.Code).To(BeNumerically("==", code))
 	return &errors.StatusError{ErrStatus: status}
+}
+
+func ExpectMessage(recorder *httptest.ResponseRecorder, expected gomegatypes.GomegaMatcher) {
+	status := k8smetav1.Status{}
+	err := json.Unmarshal(recorder.Body.Bytes(), &status)
+
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, status.Message).To(expected)
 }

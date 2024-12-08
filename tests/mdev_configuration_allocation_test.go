@@ -20,6 +20,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -28,6 +29,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -36,7 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU, decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decorators.SigCompute, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -79,7 +81,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 			var latestPod k8sv1.Pod
-			err := wait.PollImmediate(5*time.Second, 3*time.Minute, waitForPod(&latestPod, ThisPod(testPod)))
+			err := virtwait.PollImmediately(5*time.Second, 1*time.Minute, waitForPod(&latestPod, ThisPod(testPod)).WithContext())
 			return &latestPod, err
 		}
 
@@ -98,7 +100,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		var latestPod k8sv1.Pod
-		err := wait.PollImmediate(time.Second, 2*time.Minute, waitForPod(&latestPod, ThisPod(testPod)))
+		err := virtwait.PollImmediately(time.Second, 1*time.Minute, waitForPod(&latestPod, ThisPod(testPod)).WithContext())
 		return &latestPod, err
 	}
 
@@ -134,11 +136,10 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			config = kv.Spec.Configuration
 			originalFeatureGates = append(originalFeatureGates, config.DeveloperConfiguration.FeatureGates...)
-			config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, virtconfig.GPUGate)
 			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{
 				MediatedDeviceTypes: []string{desiredMdevTypeName},
 			}
-			tests.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 		}
 
 		cleanupConfiguredMdevs := func() {
@@ -147,7 +148,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			By("Removing the configuration of mediated devices")
 			config.PermittedHostDevices = &v1.PermittedHostDevices{}
 			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{}
-			tests.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 			By("Verifying that an expected amount of devices has been created")
 			noGPUDevicesAreAvailable()
 		}
@@ -173,11 +174,11 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 					},
 				},
 			}
-			tests.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 			By("Removing the mediated devices configuration and expecting no devices being removed")
 			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{}
-			tests.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 			Eventually(checkAllMDEVCreated(desiredMdevTypeName, expectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 		})
 
@@ -186,12 +187,12 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			By("Adding feature gate to disable mdevs handling")
 
 			config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, virtconfig.DisableMediatedDevicesHandling)
-			tests.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 			By("Removing the mediated devices configuration and expecting no devices being removed")
 			config.PermittedHostDevices = &v1.PermittedHostDevices{}
 			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{}
-			tests.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 			Eventually(checkAllMDEVCreated(desiredMdevTypeName, expectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 		})
 	})
@@ -213,7 +214,6 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 
 			By("Creating a configuration for mediated devices")
 			config = kv.Spec.Configuration
-			config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, virtconfig.GPUGate)
 			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{
 				MediatedDeviceTypes: []string{desiredMdevTypeName},
 			}
@@ -229,7 +229,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 					},
 				},
 			}
-			tests.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 			By("Verifying that an expected amount of devices has been created")
 			Eventually(checkAllMDEVCreated(desiredMdevTypeName, expectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
@@ -240,7 +240,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			ExpectWithOffset(1, virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")
 			By("Creating a configuration for mediated devices")
 			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{}
-			tests.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 			By("Verifying that an expected amount of devices has been created")
 			noGPUDevicesAreAvailable()
 		}
@@ -323,7 +323,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 					},
 				},
 			}
-			tests.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 			By("Verify that the default mdev configuration didn't change")
 			Eventually(checkAllMDEVCreated(desiredMdevTypeName, expectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
 
@@ -395,7 +395,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 			var latestPod k8sv1.Pod
-			err := wait.PollImmediate(time.Second, 2*time.Minute, waitForPod(&latestPod, ThisPod(testPod)))
+			err := virtwait.PollImmediately(time.Second, 2*time.Minute, waitForPod(&latestPod, ThisPod(testPod)).WithContext())
 			return err
 		}
 
@@ -453,7 +453,6 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			resourceName := filepath.Base(driverPath) + ".com/" + strings.ReplaceAll(deviceName, " ", "_")
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			config := kv.Spec.Configuration
-			config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, virtconfig.GPUGate)
 			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{
 				MediatedDevicesTypes: []string{mdevType},
 			}
@@ -465,7 +464,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 					},
 				},
 			}
-			tests.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 			By("re-binding the device to its driver")
 			err = runBashCmdRw(fmt.Sprintf(bindCmdFmt, rootPCIId, driverPath))

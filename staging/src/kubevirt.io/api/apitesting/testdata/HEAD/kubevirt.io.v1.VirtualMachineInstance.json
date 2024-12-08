@@ -896,6 +896,7 @@
         "ipAddresses": [
           "ipAddressesValue"
         ],
+        "podInterfaceName": "podInterfaceNameValue",
         "interfaceName": "interfaceNameValue",
         "infoSource": "infoSourceValue",
         "queueCount": -10
@@ -943,6 +944,7 @@
         "progressTimeout": -15,
         "unsafeMigrationOverride": true,
         "allowPostCopy": true,
+        "allowWorkloadDisruption": true,
         "disableTLS": true,
         "network": "networkValue",
         "matchSELinuxLevelOnMigration": true
@@ -950,7 +952,9 @@
       "targetCPUSet": [
         -12
       ],
-      "targetNodeTopology": "targetNodeTopologyValue"
+      "targetNodeTopology": "targetNodeTopologyValue",
+      "sourcePersistentStatePVCName": "sourcePersistentStatePVCNameValue",
+      "targetPersistentStatePVCName": "targetPersistentStatePVCNameValue"
     },
     "migrationMethod": "migrationMethodValue",
     "migrationTransport": "migrationTransportValue",

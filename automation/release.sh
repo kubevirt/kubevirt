@@ -2,6 +2,8 @@
 
 set -exuo pipefail
 
+source automation/github-source-tarball-signature.sh
+
 function cleanup_gh_install() {
     [ -n "${gh_cli_dir}" ] && [ -d "${gh_cli_dir}" ] && rm -rf "${gh_cli_dir:?}/"
 }
@@ -110,6 +112,7 @@ function main() {
 
     build_release_artifacts
     update_github_release
+    update_github_source_tarball_signature
     upload_testing_manifests
     generate_stable_version_file
 

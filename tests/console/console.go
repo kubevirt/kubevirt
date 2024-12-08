@@ -35,8 +35,8 @@ import (
 	"google.golang.org/grpc/codes"
 
 	v1 "kubevirt.io/api/core/v1"
-	kvcorev1 "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/typed/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 )
 
@@ -208,28 +208,6 @@ func NetBootExpecter(vmi *v1.VirtualMachineInstance) error {
 	res, err := expecter.ExpectBatch(b, expectBatchTimeout)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("BIOS: %+v", res)
-	}
-
-	return err
-}
-
-// LinuxExpecter should be called early in the VMI boot process.
-// It will catch the first logs printed by the Linux kernel.
-// If this function succeeds, the VMI is guaranteed to be post-firmware (BIOS/EFI).
-func LinuxExpecter(vmi *v1.VirtualMachineInstance) error {
-	virtClient := kubevirt.Client()
-	expecter, _, err := NewExpecter(virtClient, vmi, consoleConnectionTimeout)
-	if err != nil {
-		return err
-	}
-	defer expecter.Close()
-
-	b := []expect.Batcher{
-		&expect.BExp{R: `\[    0.000000\] Linux version`},
-	}
-	res, err := expecter.ExpectBatch(b, time.Minute)
-	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("Failed to find Linux boot logs in: %+v", res)
 	}
 
 	return err

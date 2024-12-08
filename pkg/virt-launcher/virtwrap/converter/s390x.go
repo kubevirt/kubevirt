@@ -24,11 +24,15 @@ import (
 )
 
 // Ensure that there is a compile error should the struct not implement the archConverter interface anymore.
-var _ = archConverter(&archConverterS390X{})
+var _ = ArchConverter(&archConverterS390X{})
 
 type archConverterS390X struct{}
 
-func (archConverterS390X) addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, _ *ConverterContext) {
+func (archConverterS390X) GetArchitecture() string {
+	return "s390x"
+}
+
+func (archConverterS390X) addGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ *ConverterContext) {
 	domain.Spec.Devices.Video = []api.Video{
 		{
 			Model: api.VideoModel{
@@ -39,7 +43,7 @@ func (archConverterS390X) addGraphicsDevice(vmi *v1.VirtualMachineInstance, doma
 	}
 }
 
-func (archConverterS390X) scsiController(c *ConverterContext, driver *api.ControllerDriver) api.Controller {
+func (archConverterS390X) scsiController(_ *ConverterContext, driver *api.ControllerDriver) api.Controller {
 	return api.Controller{
 		Type:   "scsi",
 		Index:  "0",
@@ -49,5 +53,32 @@ func (archConverterS390X) scsiController(c *ConverterContext, driver *api.Contro
 }
 
 func (archConverterS390X) isUSBNeeded(_ *v1.VirtualMachineInstance) bool {
+	return false
+}
+
+func (archConverterS390X) supportCPUHotplug() bool {
+	return true
+}
+
+func (archConverterS390X) isSMBiosNeeded() bool {
+	return false
+}
+
+func (archConverterS390X) transitionalModelType(_ bool) string {
+	// "virtio-non-transitional" and "virtio-transitional" are both PCI devices, so they don't work on s390x.
+	// "virtio" is a generic model that can be either PCI or CCW depending on the machine type
+	return "virtio"
+}
+
+func (archConverterS390X) isROMTuningSupported() bool {
+	return false
+}
+
+func (archConverterS390X) requiresMPXCPUValidation() bool {
+	// skip the mpx CPU feature validation for anything that is not x86 as it is not supported.
+	return false
+}
+
+func (archConverterS390X) shouldVerboseLogsBeEnabled() bool {
 	return false
 }

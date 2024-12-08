@@ -5,7 +5,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"k8s.io/utils/pointer"
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -64,10 +64,6 @@ func generateRestoreName(vmCloneUID types.UID) string {
 	return fmt.Sprintf("tmp-restore-%s", string(vmCloneUID))
 }
 
-func generateVolumeName(volumeName string) string {
-	return generateNameWithRandomSuffix("clone", "volume", volumeName)
-}
-
 func generateVMName(oldVMName string) string {
 	return generateNameWithRandomSuffix(oldVMName, "clone")
 }
@@ -89,7 +85,7 @@ func generateSnapshot(vmClone *clonev1alpha1.VirtualMachineClone, sourceVM *v1.V
 			Source: corev1.TypedLocalObjectReference{
 				Kind:     vmKind,
 				Name:     sourceVM.Name,
-				APIGroup: pointer.String(kubevirtApiGroup),
+				APIGroup: pointer.P(kubevirtApiGroup),
 			},
 		},
 	}
@@ -123,8 +119,8 @@ func getCloneOwnerReference(cloneName string, cloneUID types.UID) metav1.OwnerRe
 		Kind:               clonev1alpha1.VirtualMachineCloneKind.Kind,
 		Name:               cloneName,
 		UID:                cloneUID,
-		Controller:         pointer.Bool(true),
-		BlockOwnerDeletion: pointer.Bool(true),
+		Controller:         pointer.P(true),
+		BlockOwnerDeletion: pointer.P(true),
 	}
 }
 

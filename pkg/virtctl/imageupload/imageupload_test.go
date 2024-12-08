@@ -13,17 +13,18 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/cobra"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	fakek8sclient "k8s.io/client-go/kubernetes/fake"
-
 	"k8s.io/client-go/testing"
 
 	instancetypeapi "kubevirt.io/api/instancetype"
-	fakecdiclient "kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake"
+	fakecdiclient "kubevirt.io/client-go/containerizeddataimporter/fake"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -49,6 +50,7 @@ const (
 	targetNamespace         = "default"
 	targetName              = "test-volume"
 	pvcSize                 = "500Mi"
+	dvSize                  = "500Mi"
 	configName              = "config"
 	defaultInstancetypeName = "instancetype"
 	defaultInstancetypeKind = "VirtualMachineInstancetype"
@@ -436,7 +438,7 @@ var _ = Describe("ImageUpload", func() {
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	waitProcessingComplete := func(client kubernetes.Interface, namespace, name string, interval, timeout time.Duration) error {
+	waitProcessingComplete := func(client kubernetes.Interface, cmd *cobra.Command, namespace, name string, interval, timeout time.Duration) error {
 		return nil
 	}
 
@@ -472,9 +474,9 @@ var _ = Describe("ImageUpload", func() {
 		updateCDIConfig(config)
 
 		imageupload.UploadProcessingCompleteFunc = waitProcessingComplete
-		imageupload.SetHTTPClientCreator(func(bool) *http.Client {
+		imageupload.GetHTTPClientFn = func(bool) *http.Client {
 			return server.Client()
-		})
+		}
 	}
 
 	testInitAsync := func(statusCode int, async bool, kubeobjects ...runtime.Object) {
@@ -486,7 +488,7 @@ var _ = Describe("ImageUpload", func() {
 	}
 
 	testDone := func() {
-		imageupload.SetDefaultHTTPClientCreator()
+		imageupload.GetHTTPClientFn = imageupload.GetHTTPClient
 		server.Close()
 	}
 
@@ -700,6 +702,105 @@ var _ = Describe("ImageUpload", func() {
 			validatePVCDefaultInstancetypeLabels()
 		})
 
+		It("Should create DataSource pointing to the PVC", func() {
+			testInit(http.StatusOK)
+			cmd := clientcmd.NewRepeatableVirtctlCommand(
+				commandName, "dv", targetName,
+				"--size", dvSize,
+				"--uploadproxy-url", server.URL,
+				"--insecure",
+				"--force-bind",
+				"--datasource",
+				"--image-path", imagePath,
+				"--default-instancetype", "fake.large",
+				"--default-instancetype-kind", "fake.large",
+				"--default-preference", "fake.centos",
+				"--default-preference-kind", "fake.centos",
+			)
+			Expect(cmd()).To(Succeed())
+			Expect(pvcCreateCalled.IsTrue()).To(BeTrue())
+
+			ds, err := cdiClient.CdiV1beta1().DataSources(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			assertDataSource(ds, targetName, targetNamespace)
+		})
+
+		It("Should patch DataSource pointing to the PVC", func() {
+			testInit(http.StatusOK)
+
+			ds := &cdiv1.DataSource{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      targetName,
+					Namespace: targetNamespace,
+					Labels:    map[string]string{},
+				},
+				Spec: cdiv1.DataSourceSpec{
+					Source: cdiv1.DataSourceSource{
+						PVC: &cdiv1.DataVolumeSourcePVC{
+							Name:      "",
+							Namespace: "",
+						},
+					},
+				},
+			}
+			_, err := cdiClient.CdiV1beta1().DataSources(targetNamespace).Create(context.Background(), ds, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			cmd := clientcmd.NewRepeatableVirtctlCommand(
+				commandName, "dv", targetName,
+				"--size", dvSize,
+				"--uploadproxy-url", server.URL,
+				"--insecure",
+				"--force-bind",
+				"--datasource",
+				"--image-path", imagePath,
+				"--default-instancetype", "fake.large",
+				"--default-instancetype-kind", "fake.large",
+				"--default-preference", "fake.centos",
+				"--default-preference-kind", "fake.centos",
+			)
+			Expect(cmd()).To(Succeed())
+			Expect(pvcCreateCalled.IsTrue()).To(BeTrue())
+
+			ds, err = cdiClient.CdiV1beta1().DataSources(targetNamespace).Get(context.Background(), targetName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			assertDataSource(ds, targetName, targetNamespace)
+		})
+
+		DescribeTable("Should retry on server returning error code", func(expected int, extraArgs ...string) {
+			testInit(http.StatusOK)
+
+			attempts := 1
+			server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if attempts < expected {
+					w.WriteHeader(http.StatusBadGateway)
+					attempts++
+				} else {
+					w.WriteHeader(http.StatusOK)
+				}
+			}))
+
+			args := append([]string{
+				commandName,
+				"--pvc-name", targetName,
+				"--pvc-size", pvcSize,
+				"--uploadproxy-url", server.URL,
+				"--insecure",
+				"--image-path", imagePath,
+			}, extraArgs...)
+			cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
+			Expect(cmd()).To(Succeed())
+			Expect(pvcCreateCalled.IsTrue()).To(BeTrue())
+			validatePVC()
+
+			Expect(attempts).To(Equal(expected))
+		},
+			Entry("with default configuration", 6),
+			Entry("with explicit amount of retries", 11, "--retry=10"),
+		)
+
 		AfterEach(func() {
 			testDone()
 		})
@@ -831,19 +932,32 @@ var _ = Describe("ImageUpload", func() {
 			Expect(cmd()).NotTo(Succeed())
 		})
 
-		It("Upload fails when using a nonexistent storageClass", func() {
+		DescribeTable("Upload fails when using a nonexistent storageClass", func(resource string) {
+			const (
+				errFmt              = "storageclasses.storage.k8s.io \"%s\" not found"
+				invalidStorageClass = "no-sc"
+			)
+
 			testInit(http.StatusInternalServerError)
-			invalidStorageClass := "no-sc"
 			kubeClient.Fake.PrependReactor("get", "storageclasses", func(action testing.Action) (bool, runtime.Object, error) {
 				_, ok := action.(testing.GetAction)
 				Expect(ok).To(BeTrue())
-				return false, nil, nil
+				return true, nil, fmt.Errorf(errFmt, invalidStorageClass)
 			})
 
-			cmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "dv", targetName, "--size", pvcSize,
-				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath, "--storage-class", invalidStorageClass)
-			Expect(cmd()).NotTo(Succeed())
-		})
+			err := clientcmd.NewRepeatableVirtctlCommand(commandName,
+				resource, targetName,
+				"--size", pvcSize,
+				"--uploadproxy-url", server.URL,
+				"--insecure",
+				"--image-path", imagePath,
+				"--storage-class", invalidStorageClass,
+			)()
+			Expect(err).To(MatchError(ContainSubstring(errFmt, invalidStorageClass)))
+		},
+			Entry("DataVolume", "dv"),
+			Entry("PVC", "pvc"),
+		)
 
 		DescribeTable("Bad args", func(errString string, args []string) {
 			testInit(http.StatusOK)
@@ -935,4 +1049,14 @@ func getVolumeMode(dvSpec cdiv1.DataVolumeSpec) *v1.PersistentVolumeMode {
 		return dvSpec.PVC.VolumeMode
 	}
 	return dvSpec.Storage.VolumeMode
+}
+
+func assertDataSource(ds *cdiv1.DataSource, targetName, targetNamespace string) {
+	Expect(ds.Labels).To(HaveKeyWithValue(instancetypeapi.DefaultInstancetypeLabel, "fake.large"))
+	Expect(ds.Labels).To(HaveKeyWithValue(instancetypeapi.DefaultInstancetypeKindLabel, "fake.large"))
+	Expect(ds.Labels).To(HaveKeyWithValue(instancetypeapi.DefaultPreferenceLabel, "fake.centos"))
+	Expect(ds.Labels).To(HaveKeyWithValue(instancetypeapi.DefaultPreferenceKindLabel, "fake.centos"))
+	Expect(ds.Spec.Source.PVC).ToNot(BeNil())
+	Expect(ds.Spec.Source.PVC.Name).To(Equal(targetName))
+	Expect(ds.Spec.Source.PVC.Namespace).To(Equal(targetNamespace))
 }

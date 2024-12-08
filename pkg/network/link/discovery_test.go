@@ -59,13 +59,13 @@ var _ = Describe("DiscoverByNetwork", func() {
 	})
 
 	It("should fail when the given no networks", func() {
-		_, err := DiscoverByNetwork(mockNetworkHandler, nil, v1.Network{Name: "ensp1f2"})
+		_, err := DiscoverByNetwork(mockNetworkHandler, nil, v1.Network{Name: "ensp1f2"}, nil)
 
 		Expect(err).To(HaveOccurred())
 	})
 
 	It("should fail given a network name that not exist in networks slice", func() {
-		_, err := DiscoverByNetwork(mockNetworkHandler, testNetworks(), v1.Network{Name: "ensp1f2"})
+		_, err := DiscoverByNetwork(mockNetworkHandler, testNetworks(), v1.Network{Name: "ensp1f2"}, nil)
 
 		Expect(err).To(HaveOccurred())
 	})
@@ -74,7 +74,7 @@ var _ = Describe("DiscoverByNetwork", func() {
 		mockNetworkHandler.EXPECT().LinkByName(testNetIfaceName).Return(nil, errors.New("test fail"))
 		mockNetworkHandler.EXPECT().LinkByName(testNetOrdinalIfaceName).Return(nil, errors.New("test fail"))
 
-		_, err := DiscoverByNetwork(mockNetworkHandler, testNetworks(), multusNetwork(testNetworkName))
+		_, err := DiscoverByNetwork(mockNetworkHandler, testNetworks(), multusNetwork(testNetworkName), nil)
 
 		Expect(err).To(HaveOccurred())
 	})
@@ -82,16 +82,32 @@ var _ = Describe("DiscoverByNetwork", func() {
 	It("should get default network iface link", func() {
 		mockNetworkHandler.EXPECT().LinkByName("eth0").Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: "eth0"}}, nil)
 
-		actualLink, err := DiscoverByNetwork(mockNetworkHandler, testNetworks(), *v1.DefaultPodNetwork())
+		actualLink, err := DiscoverByNetwork(mockNetworkHandler, testNetworks(), *v1.DefaultPodNetwork(), nil)
 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(actualLink.Attrs().Name).To(Equal("eth0"))
 	})
 
+	It("should get the custom primary iface link", func() {
+		const customPodIfaceName = "custom-iface"
+
+		mockNetworkHandler.EXPECT().LinkByName(customPodIfaceName).Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: customPodIfaceName}}, nil)
+
+		actualLink, err := DiscoverByNetwork(
+			mockNetworkHandler,
+			testNetworks(),
+			*v1.DefaultPodNetwork(),
+			[]v1.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: customPodIfaceName}},
+		)
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(actualLink.Attrs().Name).To(Equal(customPodIfaceName))
+	})
+
 	It("should get network iface link", func() {
 		mockNetworkHandler.EXPECT().LinkByName(testNetIfaceName).Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: testNetIfaceName}}, nil)
 
-		actualLink, err := DiscoverByNetwork(mockNetworkHandler, testNetworks(), multusNetwork(testNetworkName))
+		actualLink, err := DiscoverByNetwork(mockNetworkHandler, testNetworks(), multusNetwork(testNetworkName), nil)
 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(actualLink.Attrs().Name).To(Equal(testNetIfaceName))
@@ -101,7 +117,7 @@ var _ = Describe("DiscoverByNetwork", func() {
 		mockNetworkHandler.EXPECT().LinkByName(testNetIfaceName).Return(nil, errors.New("test fail"))
 		mockNetworkHandler.EXPECT().LinkByName(testNetOrdinalIfaceName).Return(&netlink.Bridge{LinkAttrs: netlink.LinkAttrs{Name: testNetOrdinalIfaceName}}, nil)
 
-		actualLink, err := DiscoverByNetwork(mockNetworkHandler, testNetworks(), multusNetwork(testNetworkName))
+		actualLink, err := DiscoverByNetwork(mockNetworkHandler, testNetworks(), multusNetwork(testNetworkName), nil)
 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(actualLink.Attrs().Name).To(Equal(testNetOrdinalIfaceName))

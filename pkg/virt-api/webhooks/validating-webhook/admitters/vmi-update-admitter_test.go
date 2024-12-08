@@ -34,13 +34,13 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/pointer"
 
 	"kubevirt.io/client-go/api"
 
 	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -66,7 +66,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		},
 	}
 	config, _, kvStore := testutils.NewFakeClusterConfigUsingKV(kv)
-	vmiUpdateAdmitter := &VMIUpdateAdmitter{ClusterConfig: config, KubeVirtServiceAccounts: webhooks.KubeVirtServiceAccounts(kubeVirtNamespace)}
+	vmiUpdateAdmitter := NewVMIUpdateAdmitter(config, webhooks.KubeVirtServiceAccounts(kubeVirtNamespace))
 
 	enableFeatureGate := func(featureGate string) {
 		kvConfig := kv.DeepCopy()
@@ -592,7 +592,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		res := makeDisks(indexes...)
 		for i, index := range indexes {
 			if i == len(indexes)-1 {
-				res[index].DedicatedIOThread = pointer.BoolPtr(true)
+				res[index].DedicatedIOThread = pointer.P(true)
 			}
 		}
 		return res
@@ -685,7 +685,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		newVMI.Spec.Domain.Devices.Disks = newDisks
 		newVMI.Spec.Domain.Devices.Filesystems = filesystems
 
-		result := admitStorageUpdate(newVolumes, oldVolumes, newDisks, oldDisks, volumeStatuses, newVMI, vmiUpdateAdmitter.ClusterConfig)
+		result := admitStorageUpdate(newVolumes, oldVolumes, newDisks, oldDisks, volumeStatuses, newVMI, vmiUpdateAdmitter.clusterConfig)
 		Expect(equality.Semantic.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
 	}
 
@@ -944,7 +944,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		Expect(resp.Allowed).To(BeFalse())
 	})
 
-	It("should allow change for a persistent volume if it is a migrated volume", func() {
+	DescribeTable("should allow change for a persistent volume if it is a migrated volume", func(hotpluggable bool) {
 		disks := []v1.Disk{
 			{
 				Name:       "vol0",
@@ -961,6 +961,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				VolumeSource: v1.VolumeSource{
 					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc0"},
+						Hotpluggable:                      hotpluggable,
 					},
 				},
 			},
@@ -969,6 +970,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				VolumeSource: v1.VolumeSource{
 					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc1"},
+						Hotpluggable:                      hotpluggable,
 					},
 				},
 			},
@@ -979,6 +981,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				VolumeSource: v1.VolumeSource{
 					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc0"},
+						Hotpluggable:                      hotpluggable,
 					},
 				},
 			},
@@ -987,6 +990,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				VolumeSource: v1.VolumeSource{
 					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc2"},
+						Hotpluggable:                      hotpluggable,
 					},
 				},
 			},
@@ -1003,6 +1007,9 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "pvc1"},
 			},
 		}
-		Expect(admitStorageUpdate(newVols, oldVols, disks, disks, volumeStatuses, vmi, vmiUpdateAdmitter.ClusterConfig)).To(BeNil())
-	})
+		Expect(admitStorageUpdate(newVols, oldVols, disks, disks, volumeStatuses, vmi, vmiUpdateAdmitter.clusterConfig)).To(BeNil())
+	},
+		Entry("and not hotpluggable", false),
+		Entry("and hotpluggable", true),
+	)
 })

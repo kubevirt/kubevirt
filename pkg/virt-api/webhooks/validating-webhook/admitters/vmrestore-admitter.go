@@ -27,15 +27,12 @@ import (
 
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/api/core"
 
-	v1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -78,11 +75,9 @@ func (admitter *VMRestoreAdmitter) Admit(ctx context.Context, ar *admissionv1.Ad
 	}
 
 	var causes []metav1.StatusCause
-	var targetVMExists bool
 
 	switch ar.Request.Operation {
 	case admissionv1.Create:
-		var targetUID *types.UID
 		targetField := k8sfield.NewPath("spec", "target")
 
 		if vmRestore.Spec.Target.APIGroup == nil {
@@ -98,10 +93,7 @@ func (admitter *VMRestoreAdmitter) Admit(ctx context.Context, ar *admissionv1.Ad
 			case core.GroupName:
 				switch vmRestore.Spec.Target.Kind {
 				case "VirtualMachine":
-					causes, targetUID, targetVMExists, err = admitter.validateCreateVM(ctx, k8sfield.NewPath("spec"), vmRestore)
-					if err != nil {
-						return webhookutils.ToAdmissionResponseError(err)
-					}
+					causes = admitter.validatePatches(vmRestore.Spec.Patches, k8sfield.NewPath("spec", "patches"))
 				default:
 					causes = []metav1.StatusCause{
 						{
@@ -122,18 +114,6 @@ func (admitter *VMRestoreAdmitter) Admit(ctx context.Context, ar *admissionv1.Ad
 			}
 		}
 
-		snapshotCauses, err := admitter.validateSnapshot(
-			ctx,
-			k8sfield.NewPath("spec", "virtualMachineSnapshotName"),
-			ar.Request.Namespace,
-			vmRestore.Spec.VirtualMachineSnapshotName,
-			targetUID,
-			targetVMExists,
-		)
-		if err != nil {
-			return webhookutils.ToAdmissionResponseError(err)
-		}
-
 		objects, err := admitter.VMRestoreInformer.GetIndexer().ByIndex(cache.NamespaceIndex, ar.Request.Namespace)
 		if err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
@@ -151,8 +131,6 @@ func (admitter *VMRestoreAdmitter) Admit(ctx context.Context, ar *admissionv1.Ad
 				causes = append(causes, cause)
 			}
 		}
-
-		causes = append(causes, snapshotCauses...)
 
 	case admissionv1.Update:
 		prevObj := &snapshotv1.VirtualMachineRestore{}
@@ -182,49 +160,6 @@ func (admitter *VMRestoreAdmitter) Admit(ctx context.Context, ar *admissionv1.Ad
 		Allowed: true,
 	}
 	return &reviewResponse
-}
-
-func (admitter *VMRestoreAdmitter) validateCreateVM(ctx context.Context, field *k8sfield.Path, vmRestore *snapshotv1.VirtualMachineRestore) (causes []metav1.StatusCause, uid *types.UID, targetVMExists bool, err error) {
-	vmName := vmRestore.Spec.Target.Name
-	namespace := vmRestore.Namespace
-
-	causes = admitter.validatePatches(vmRestore.Spec.Patches, field.Child("patches"))
-
-	vm, err := admitter.Client.VirtualMachine(namespace).Get(ctx, vmName, metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		// If the target VM does not exist it would be automatically created by the restore controller
-		return nil, nil, false, nil
-	}
-
-	if err != nil {
-		return nil, nil, false, err
-	}
-
-	rs, err := vm.RunStrategy()
-	if err != nil {
-		return nil, nil, true, err
-	}
-
-	if rs != v1.RunStrategyHalted {
-		var cause metav1.StatusCause
-		targetField := field.Child("target")
-		if vm.Spec.Running != nil && *vm.Spec.Running {
-			cause = metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("VirtualMachine %q is not stopped", vmName),
-				Field:   targetField.String(),
-			}
-		} else {
-			cause = metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("VirtualMachine %q run strategy has to be %s", vmName, v1.RunStrategyHalted),
-				Field:   targetField.String(),
-			}
-		}
-		causes = append(causes, cause)
-	}
-
-	return causes, &vm.UID, true, nil
 }
 
 func (admitter *VMRestoreAdmitter) validatePatches(patches []string, field *k8sfield.Path) (causes []metav1.StatusCause) {
@@ -262,53 +197,4 @@ func (admitter *VMRestoreAdmitter) validatePatches(patches []string, field *k8sf
 	}
 
 	return causes
-}
-
-func (admitter *VMRestoreAdmitter) validateSnapshot(ctx context.Context, field *k8sfield.Path, namespace, name string, targetUID *types.UID, targetVMExists bool) ([]metav1.StatusCause, error) {
-	snapshot, err := admitter.Client.VirtualMachineSnapshot(namespace).Get(ctx, name, metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		return []metav1.StatusCause{
-			{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("VirtualMachineSnapshot %q does not exist", name),
-				Field:   field.String(),
-			},
-		}, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	var causes []metav1.StatusCause
-
-	if snapshot.Status != nil && snapshot.Status.Phase == snapshotv1.Failed {
-		cause := metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("VirtualMachineSnapshot %q has failed and is invalid to use", name),
-			Field:   field.String(),
-		}
-		causes = append(causes, cause)
-	}
-
-	if snapshot.Status == nil || snapshot.Status.ReadyToUse == nil || !*snapshot.Status.ReadyToUse {
-		cause := metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("VirtualMachineSnapshot %q is not ready to use", name),
-			Field:   field.String(),
-		}
-		causes = append(causes, cause)
-	}
-
-	sourceTargetVmsAreDifferent := targetUID != nil && snapshot.Status != nil && snapshot.Status.SourceUID != nil && *targetUID != *snapshot.Status.SourceUID
-	if sourceTargetVmsAreDifferent && targetVMExists {
-		cause := metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("when snapshot source and restore target VMs are different - target VM must not exist"),
-			Field:   field.String(),
-		}
-		causes = append(causes, cause)
-	}
-
-	return causes, nil
 }

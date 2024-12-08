@@ -3,61 +3,71 @@ package decorators
 import . "github.com/onsi/ginkgo/v2"
 
 var (
-	//
-	Quarantine = []interface{}{Label("QUARANTINE")}
+	Quarantine  = Label("QUARANTINE")
+	Periodic    = Label("PERIODIC")
+	Conformance = Label("conformance")
 
 	// SIGs
-	SigCompute           = []interface{}{Label("sig-compute")}
-	SigOperator          = []interface{}{Label("sig-operator")}
-	SigNetwork           = []interface{}{Label("sig-network")}
-	SigStorage           = []interface{}{Label("sig-storage")}
-	SigComputeRealtime   = []interface{}{Label("sig-compute-realtime")}
-	SigComputeMigrations = []interface{}{Label("sig-compute-migrations")}
-	SigMonitoring        = []interface{}{Label("sig-monitoring")}
+	SigCompute           = Label("sig-compute")
+	SigOperator          = Label("sig-operator")
+	SigNetwork           = Label("sig-network")
+	SigStorage           = Label("sig-storage")
+	SigComputeRealtime   = Label("sig-compute-realtime")
+	SigComputeMigrations = Label("sig-compute-migrations")
+	SigMonitoring        = Label("sig-monitoring")
+	SigPerformance       = Label("sig-performance")
 
 	// HW
-	GPU         = []interface{}{Label("GPU")}
-	VGPU        = []interface{}{Label("VGPU")}
-	SEV         = []interface{}{Label("SEV")}
-	SRIOV       = []interface{}{Label("SRIOV")}
-	StorageReq  = []interface{}{Label("storage-req")}
-	Multus      = []interface{}{Label("Multus")}
-	Macvtap     = []interface{}{Label("Macvtap")}
-	Invtsc      = []interface{}{Label("Invtsc")}
-	KSMRequired = []interface{}{Label("KSM-required")}
+	GPU         = Label("GPU")
+	VGPU        = Label("VGPU")
+	SEV         = Label("SEV")
+	SRIOV       = Label("SRIOV")
+	StorageReq  = Label("storage-req")
+	Multus      = Label("Multus")
+	Macvtap     = Label("Macvtap")
+	Invtsc      = Label("Invtsc")
+	KSMRequired = Label("KSM-required")
 
 	// Features
-	Sysprep                              = []interface{}{Label("Sysprep")}
-	Windows                              = []interface{}{Label("Windows")}
-	Networking                           = []interface{}{Label("Networking")}
-	VMIlifecycle                         = []interface{}{Label("VMIlifecycle")}
-	Expose                               = []interface{}{Label("Expose")}
-	NativeSsh                            = []interface{}{Label("native-ssh")}
-	ExcludeNativeSsh                     = []interface{}{Label("exclude-native-ssh")}
-	Reenlightenment                      = []interface{}{Label("Reenlightenment")}
-	TscFrequencies                       = []interface{}{Label("TscFrequencies")}
-	PasstGate                            = []interface{}{Label("PasstGate")}
-	VMX                                  = []interface{}{Label("VMX")}
-	Upgrade                              = []interface{}{Label("Upgrade")}
-	CustomSELinux                        = []interface{}{Label("CustomSELinux")}
-	Istio                                = []interface{}{Label("Istio")}
-	InPlaceHotplugNICs                   = []interface{}{Label("in-place-hotplug-NICs")}
-	MigrationBasedHotplugNICs            = []interface{}{Label("migration-based-hotplug-NICs")}
-	NetCustomBindingPlugins              = []interface{}{Label("netCustomBindingPlugins")}
-	RequiresTwoSchedulableNodes          = []interface{}{Label("requires-two-schedulable-nodes")}
-	VMLiveUpdateFeaturesGate             = []interface{}{Label("VMLiveUpdateFeaturesGate")}
-	RequiresRWXFilesystemStorage         = []interface{}{Label("rwxfs")}
-	USB                                  = []interface{}{Label("USB")}
-	AutoResourceLimitsGate               = []interface{}{Label("AutoResourceLimitsGate")}
-	RequiresTwoWorkerNodesWithCPUManager = []interface{}{Label("requires-two-worker-nodes-with-cpu-manager")}
-	RequiresDualStackCluster             = []interface{}{Label("requires-dual-stack-cluster")}
-	RequiresHugepages2Mi                 = []interface{}{Label("requireHugepages2Mi")}
+	Sysprep                              = Label("Sysprep")
+	Windows                              = Label("Windows")
+	Networking                           = Label("Networking")
+	VMIlifecycle                         = Label("VMIlifecycle")
+	Expose                               = Label("Expose")
+	NativeSsh                            = Label("native-ssh")
+	ExcludeNativeSsh                     = Label("exclude-native-ssh")
+	Reenlightenment                      = Label("Reenlightenment")
+	TscFrequencies                       = Label("TscFrequencies")
+	VMX                                  = Label("VMX")
+	Upgrade                              = Label("Upgrade")
+	CustomSELinux                        = Label("CustomSELinux")
+	Istio                                = Label("Istio")
+	InPlaceHotplugNICs                   = Label("in-place-hotplug-NICs")
+	MigrationBasedHotplugNICs            = Label("migration-based-hotplug-NICs")
+	NetCustomBindingPlugins              = Label("netCustomBindingPlugins")
+	RequiresTwoSchedulableNodes          = Label("requires-two-schedulable-nodes")
+	VMLiveUpdateRolloutStrategy          = Label("VMLiveUpdateRolloutStrategy")
+	USB                                  = Label("USB")
+	AutoResourceLimitsGate               = Label("AutoResourceLimitsGate")
+	RequiresTwoWorkerNodesWithCPUManager = Label("requires-two-worker-nodes-with-cpu-manager")
+	RequiresDualStackCluster             = Label("requires-dual-stack-cluster")
+	RequiresHugepages2Mi                 = Label("requireHugepages2Mi")
 
 	// Storage classes
-	RequiresSnapshotStorageClass = []interface{}{Label("RequiresSnapshotStorageClass")}
+	// Requires a storage class with support for snapshots
+	RequiresSnapshotStorageClass = Label("RequiresSnapshotStorageClass")
 	// Requires a storage class without support for snapshots
-	RequiresNoSnapshotStorageClass = []interface{}{Label("RequiresNoSnapshotStorageClass")}
-
+	RequiresNoSnapshotStorageClass = Label("RequiresNoSnapshotStorageClass")
+	// Requires a storage class with ReadWriteMany Block support
+	RequiresRWXBlock = Label("RequiresRWXBlock")
+	// Requires a storage class with Block storage support
+	RequiresBlockStorage = Label("RequiresBlockStorage")
 	// Kubernetes versions
-	Kubernetes130 = []interface{}{Label("kubernetes130")}
+	Kubernetes130 = Label("kubernetes130")
+	// WG archs
+	WgS390x = Label("wg-s390x")
+
+	// NoFlakeChecker decorates tests that are not compatible with the check-tests-for-flakes test lane.
+	// This should only be used for legitimate purposes, like on tests that have a flake-checker-friendly clone.
+	NoFlakeCheck = Label("no-flake-check")
 )

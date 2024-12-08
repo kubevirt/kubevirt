@@ -41,7 +41,7 @@ const (
 	MigrationAllowAutoConverge               bool   = false
 	MigrationAllowPostCopy                   bool   = false
 	MigrationProgressTimeout                 int64  = 150
-	MigrationCompletionTimeoutPerGiB         int64  = 800
+	MigrationCompletionTimeoutPerGiB         int64  = 150
 	DefaultAMD64MachineType                         = "q35"
 	DefaultPPC64LEMachineType                       = "pseries"
 	DefaultAARCH64MachineType                       = "virt"
@@ -116,7 +116,17 @@ func (c *ClusterConfig) AllowEmulation() bool {
 }
 
 func (c *ClusterConfig) GetMigrationConfiguration() *v1.MigrationConfiguration {
-	return c.GetConfig().MigrationConfiguration
+	migrationConfig := c.GetConfig().MigrationConfiguration
+	// For backward compatibility, AllowWorkloadDisruption will follow the
+	// value of AllowPostCopy, if not explicitly set
+	if migrationConfig.AllowWorkloadDisruption == nil {
+		allowPostCopy := false
+		if migrationConfig.AllowPostCopy != nil {
+			allowPostCopy = *migrationConfig.AllowPostCopy
+		}
+		migrationConfig.AllowWorkloadDisruption = &allowPostCopy
+	}
+	return migrationConfig
 }
 
 func (c *ClusterConfig) GetImagePullPolicy() (policy k8sv1.PullPolicy) {
@@ -453,11 +463,7 @@ func (c *ClusterConfig) GetMaxHotplugRatio() uint32 {
 }
 
 func (c *ClusterConfig) IsVMRolloutStrategyLiveUpdate() bool {
-	if !c.VMLiveUpdateFeaturesEnabled() {
-		return false
-	}
 	liveConfig := c.GetConfig().VMRolloutStrategy
-
 	return liveConfig != nil && *liveConfig == v1.VMRolloutStrategyLiveUpdate
 }
 
@@ -467,4 +473,23 @@ func (c *ClusterConfig) GetNetworkBindings() map[string]v1.InterfaceBindingPlugi
 		return networkConfig.Binding
 	}
 	return nil
+}
+
+func (config *ClusterConfig) VGADisplayForEFIGuestsEnabled() bool {
+	VGADisplayForEFIGuestsAnnotationExists := false
+	kv := config.GetConfigFromKubeVirtCR()
+	if kv != nil {
+		_, VGADisplayForEFIGuestsAnnotationExists = kv.Annotations[v1.VGADisplayForEFIGuestsX86Annotation]
+	}
+	return VGADisplayForEFIGuestsAnnotationExists
+}
+
+func (c *ClusterConfig) GetInstancetypeReferencePolicy() v1.InstancetypeReferencePolicy {
+	// Default to the Reference InstancetypeReferencePolicy
+	policy := v1.Reference
+	instancetypeConfig := c.GetConfig().Instancetype
+	if c.isFeatureGateEnabled(InstancetypeReferencePolicy) && instancetypeConfig != nil && instancetypeConfig.ReferencePolicy != nil {
+		policy = *instancetypeConfig.ReferencePolicy
+	}
+	return policy
 }

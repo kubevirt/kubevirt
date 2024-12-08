@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
-	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
@@ -59,26 +59,13 @@ func NewVirtualMachine(vmi *v1.VirtualMachineInstance, opts ...VMOption) *v1.Vir
 	return vm
 }
 
-// Deprecated: WithRunning is deprecated.
-// While the running field itself is not deprecated, it is discouraged;
-// We try to steer users towards using RunStrategy which allow for greater variation of user states
-// To keep this option functional, we nil out RunStrategy to avoid conflict
-func WithRunning() VMOption {
-	return func(vm *v1.VirtualMachine) {
-		// RunStrategy and running are mutually exclusive, because they can be contradictory
-		// The API server will reject VirtualMachine resources that define both
-		vm.Spec.RunStrategy = nil
-		vm.Spec.Running = pointer.P(true)
-	}
-}
-
 func WithRunStrategy(strategy v1.VirtualMachineRunStrategy) VMOption {
 	return func(vm *v1.VirtualMachine) {
 		vm.Spec.RunStrategy = &strategy
 	}
 }
 
-func WithDataVolumeTemplate(datavolume *v1beta1.DataVolume) VMOption {
+func WithDataVolumeTemplate(datavolume *cdiv1.DataVolume) VMOption {
 	return func(vm *v1.VirtualMachine) {
 		vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates,
 			v1.DataVolumeTemplateSpec{

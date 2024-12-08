@@ -34,6 +34,9 @@ function podman_push_manifest() {
     ${KUBEVIRT_CRI} manifest create ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}
     for ARCH in ${BUILD_ARCH//,/ }; do
         FORMATED_ARCH=$(format_archname ${ARCH})
+        if [ ! -f ${DIGESTS_DIR}/${FORMATED_ARCH}/bazel-bin/push-$image.digest ]; then
+            continue
+        fi
         digest=$(cat ${DIGESTS_DIR}/${FORMATED_ARCH}/bazel-bin/push-$image.digest)
         ${KUBEVIRT_CRI} manifest add ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${DOCKER_PREFIX}/${image}@${digest}
     done
@@ -45,6 +48,9 @@ function docker_push_manifest() {
     MANIFEST_IMAGES=""
     for ARCH in ${BUILD_ARCH//,/ }; do
         FORMATED_ARCH=$(format_archname ${ARCH})
+        if [ ! -f ${DIGESTS_DIR}/${FORMATED_ARCH}/bazel-bin/push-$image.digest ]; then
+            continue
+        fi
         digest=$(cat ${DIGESTS_DIR}/${FORMATED_ARCH}/bazel-bin/push-$image.digest)
         MANIFEST_IMAGES="${MANIFEST_IMAGES} --amend ${DOCKER_PREFIX}/${image}@${digest}"
     done

@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/defaults"
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -81,21 +82,8 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 
 		// Set VirtualMachineInstance defaults
 		log.Log.Object(newVMI).V(4).Info("Apply defaults")
-		if err = webhooks.SetDefaultVirtualMachineInstance(mutator.ClusterConfig, newVMI); err != nil {
+		if err = defaults.SetDefaultVirtualMachineInstance(mutator.ClusterConfig, newVMI); err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
-		}
-
-		if newVMI.IsRealtimeEnabled() {
-			log.Log.V(4).Info("Add realtime node label selector")
-			addNodeSelector(newVMI, v1.RealtimeLabel)
-		}
-		if util.IsSEVVMI(newVMI) {
-			log.Log.V(4).Info("Add SEV node label selector")
-			addNodeSelector(newVMI, v1.SEVLabel)
-		}
-		if util.IsSEVESVMI(newVMI) {
-			log.Log.V(4).Info("Add SEV-ES node label selector")
-			addNodeSelector(newVMI, v1.SEVESLabel)
 		}
 
 		if newVMI.Spec.Domain.CPU.IsolateEmulatorThread {
@@ -169,11 +157,4 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 	}
 
 	return response
-}
-
-func addNodeSelector(vmi *v1.VirtualMachineInstance, label string) {
-	if vmi.Spec.NodeSelector == nil {
-		vmi.Spec.NodeSelector = map[string]string{}
-	}
-	vmi.Spec.NodeSelector[label] = ""
 }

@@ -1,5 +1,5 @@
 # Network Binding Plugin
-[v1.1.0, Alpha feature]
+[v1.4.0, Beta feature]
 
 A modular plugin framework which integrates with Kubevirt to implement a
 network binding.
@@ -95,7 +95,7 @@ spec:
     network:
       binding:
         my-zero-code-binding:
-          domainAttachment: tap
+          domainAttachmentType: tap
 ```
 
 The VM interface/network spec will include a ref to the binding plugin

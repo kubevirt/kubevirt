@@ -31,28 +31,36 @@ default_targets="
     virt-launcher
     virt-exportserver
     virt-exportproxy
-    conformance
-    libguestfs-tools
-    pr-helper
-    example-hook-sidecar
-    example-disk-mutation-hook-sidecar
-    example-cloudinit-hook-sidecar
     alpine-container-disk-demo
-    cirros-container-disk-demo
-    cirros-custom-container-disk-demo
-    virtio-container-disk
-    alpine-ext-kernel-boot-demo
     fedora-with-test-tooling-container-disk
-    alpine-with-test-tooling-container-disk
-    fedora-realtime-container-disk
-    disks-images-provider
-    nfs-server
     vm-killer
-    winrmcli
     sidecar-shim
-    network-slirp-binding
-    network-passt-binding
 "
+
+case ${ARCHITECTURE} in
+"s390x" | "crossbuild-s390x") ;;
+*)
+    default_targets+="
+        conformance
+        libguestfs-tools
+        pr-helper
+        example-hook-sidecar
+        example-disk-mutation-hook-sidecar
+        example-cloudinit-hook-sidecar
+        cirros-container-disk-demo
+        cirros-custom-container-disk-demo
+        virtio-container-disk
+        alpine-ext-kernel-boot-demo
+        alpine-with-test-tooling-container-disk
+        fedora-realtime-container-disk
+        disks-images-provider
+        nfs-server
+        winrmcli
+        network-slirp-binding
+        network-passt-binding
+    "
+    ;;
+esac
 
 PUSH_TARGETS=(${PUSH_TARGETS:-${default_targets}})
 

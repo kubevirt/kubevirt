@@ -209,7 +209,7 @@ func deleteService(service *corev1.Service, kvKey string, expectations *util.Exp
 	return nil
 }
 
-func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.RateLimitingInterface, ca *tls.Certificate, secret *corev1.Secret, duration *metav1.Duration, renewBefore *metav1.Duration, caRenewBefore *metav1.Duration) (*tls.Certificate, error) {
+func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.TypedRateLimitingInterface[string], ca *tls.Certificate, secret *corev1.Secret, duration *metav1.Duration, renewBefore *metav1.Duration, caRenewBefore *metav1.Duration) (*tls.Certificate, error) {
 	var cachedSecret *corev1.Secret
 	var err error
 
@@ -289,7 +289,7 @@ func createSecretPatch(secret *corev1.Secret) ([]byte, error) {
 	return patch.New(ops...).GeneratePayload()
 }
 
-func (r *Reconciler) createOrUpdateCertificateSecrets(queue workqueue.RateLimitingInterface, caCert *tls.Certificate, duration *metav1.Duration, renewBefore *metav1.Duration, caRenewBefore *metav1.Duration) error {
+func (r *Reconciler) createOrUpdateCertificateSecrets(queue workqueue.TypedRateLimitingInterface[string], caCert *tls.Certificate, duration *metav1.Duration, renewBefore *metav1.Duration, caRenewBefore *metav1.Duration) error {
 
 	for _, secret := range r.targetStrategy.CertificateSecrets() {
 
@@ -306,7 +306,7 @@ func (r *Reconciler) createOrUpdateCertificateSecrets(queue workqueue.RateLimiti
 	return nil
 }
 
-func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.RateLimitingInterface) error {
+func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.TypedRateLimitingInterface[string]) error {
 	caDuration := GetCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 	caExportDuration := GetCADuration(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
 	caRenewBefore := GetCARenewBefore(r.kv.Spec.CertificateRotationStrategy.SelfSigned)
@@ -529,7 +529,7 @@ func findRequiredCAConfigMap(name string, configmaps []*corev1.ConfigMap) *corev
 	return nil
 }
 
-func shouldUpdateBundle(required, existing *corev1.ConfigMap, key string, queue workqueue.RateLimitingInterface, caCert *tls.Certificate, overlapInterval *metav1.Duration) (bool, error) {
+func shouldUpdateBundle(required, existing *corev1.ConfigMap, key string, queue workqueue.TypedRateLimitingInterface[string], caCert *tls.Certificate, overlapInterval *metav1.Duration) (bool, error) {
 	bundle, certCount, err := components.MergeCABundle(caCert, []byte(existing.Data[components.CABundleKey]), overlapInterval.Duration)
 	if err != nil {
 		// the only error that can be returned form MergeCABundle is if the CA caBundle
@@ -551,7 +551,7 @@ func shouldUpdateBundle(required, existing *corev1.ConfigMap, key string, queue 
 	return updateBundle, nil
 }
 
-func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.RateLimitingInterface, caCert *tls.Certificate, overlapInterval *metav1.Duration, configMap *corev1.ConfigMap) (caBundle []byte, err error) {
+func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.TypedRateLimitingInterface[string], caCert *tls.Certificate, overlapInterval *metav1.Duration, configMap *corev1.ConfigMap) (caBundle []byte, err error) {
 	if configMap == nil {
 		return nil, nil
 	}
@@ -618,7 +618,7 @@ func createConfigMapPatch(configMap *corev1.ConfigMap) ([]byte, error) {
 	return patch.New(ops...).GeneratePayload()
 }
 
-func (r *Reconciler) createOrUpdateCACertificateSecret(queue workqueue.RateLimitingInterface, name string, duration *metav1.Duration, renewBefore *metav1.Duration) (caCert *tls.Certificate, err error) {
+func (r *Reconciler) createOrUpdateCACertificateSecret(queue workqueue.TypedRateLimitingInterface[string], name string, duration *metav1.Duration, renewBefore *metav1.Duration) (caCert *tls.Certificate, err error) {
 	for _, secret := range r.targetStrategy.CertificateSecrets() {
 		// Only work on the ca secrets
 		if secret.Name != name {

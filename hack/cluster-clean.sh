@@ -22,7 +22,7 @@ set -ex
 DOCKER_TAG=${DOCKER_TAG:-devel}
 
 source hack/common.sh
-source cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
+source kubevirtci/cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 source hack/config.sh
 
 function patch_remove_finalizers() {
@@ -44,6 +44,13 @@ function remove_finalizers() {
         local name="${arr[0]}"
         local ns="${arr[1]}"
         patch_remove_finalizers -n $ns vmsnapshots $name
+    done
+
+    _kubectl get vmrestores --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep vmrestore-protection | while read p; do
+        local arr=($p)
+        local name="${arr[0]}"
+        local ns="${arr[1]}"
+        patch_remove_finalizers -n $ns vmrestores $name
     done
 
     _kubectl get vmsnapshotcontents --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep vmsnapshotcontent-protection | while read p; do
@@ -93,6 +100,8 @@ function delete_resources() {
         done
         _kubectl delete apiservices,clusterroles,clusterrolebinding,customresourcedefinitions,pv,validatingwebhookconfiguration -l ${label}
     done
+
+    _kubectl delete priorityclass kubevirt-cluster-critical --ignore-not-found
 }
 
 function delete_namespaces() {

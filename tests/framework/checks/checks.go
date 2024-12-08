@@ -84,10 +84,6 @@ func IsS390X(arch string) bool {
 	return arch == "s390x"
 }
 
-func HasLiveMigration() bool {
-	return HasFeature("LiveMigration")
-}
-
 func HasAtLeastTwoNodes() bool {
 	var nodes *k8sv1.NodeList
 	virtClient := kubevirt.Client()

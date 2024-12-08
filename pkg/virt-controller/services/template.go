@@ -28,20 +28,22 @@ import (
 	"strconv"
 	"strings"
 
-	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	"github.com/openshift/library-go/pkg/build/naming"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/kubectl/pkg/cmd/util/podcmd"
-	"k8s.io/utils/pointer"
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
@@ -49,15 +51,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/multus"
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	"kubevirt.io/kubevirt/pkg/storage/types"
-	"kubevirt.io/kubevirt/pkg/storage/velero"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -117,14 +117,24 @@ const (
 	QemuOverhead                = "30Mi"  // The `ps` RSS for qemu, minus the RAM of its (stressed) guest, minus the virtual page table
 	// Default: limits.memory = 2*requests.memory
 	DefaultMemoryLimitOverheadRatio = float64(2.0)
+
+	FailedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
 )
 
 type netBindingPluginMemoryCalculator interface {
 	Calculate(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) resource.Quantity
 }
 
+type annotationsGenerator interface {
+	Generate(vmi *v1.VirtualMachineInstance) (map[string]string, error)
+}
+
+type targetAnnotationsGenerator interface {
+	GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (map[string]string, error)
+}
+
 type TemplateService interface {
-	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
+	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
 	RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 	RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error)
 	RenderHotplugAttachmentTriggerPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error)
@@ -155,6 +165,8 @@ type templateService struct {
 
 	sidecarCreators                  []SidecarCreatorFunc
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
+	annotationsGenerators            []annotationsGenerator
+	netTargetAnnotationsGenerator    targetAnnotationsGenerator
 }
 
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
@@ -250,31 +262,54 @@ func (t *templateService) GetLauncherImage() string {
 }
 
 func (t *templateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
-	return t.renderLaunchManifest(vmi, nil, true)
+	backendStoragePVCName := ""
+	if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
+		backendStoragePVC := backendstorage.PVCForVMI(t.persistentVolumeClaimStore, vmi)
+		backendStoragePVCName = backendStoragePVC.Name
+		if backendStoragePVCName == "" {
+			return nil, fmt.Errorf("can't generate manifest without backend-storage PVC, waiting for the PVC to be created")
+		}
+	}
+	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, true)
 }
 
-func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) (*k8sv1.Pod, error) {
-	imageIDs := containerdisk.ExtractImageIDsFromSourcePod(vmi, pod)
-	podManifest, err := t.renderLaunchManifest(vmi, imageIDs, false)
+func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error) {
+	imageIDs := containerdisk.ExtractImageIDsFromSourcePod(vmi, sourcePod)
+	backendStoragePVCName := ""
+	if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
+		backendStoragePVC := backendstorage.PVCForMigrationTarget(t.persistentVolumeClaimStore, migration)
+		if backendStoragePVC == nil {
+			return nil, fmt.Errorf("can't generate manifest without backend-storage PVC, waiting for the PVC to be created")
+		}
+		backendStoragePVCName = backendStoragePVC.Name
+	}
+	targetPod, err := t.renderLaunchManifest(vmi, imageIDs, backendStoragePVCName, false)
 	if err != nil {
 		return nil, err
 	}
 
-	if namescheme.PodHasOrdinalInterfaceName(network.NonDefaultMultusNetworksIndexedByIfaceName(pod)) {
-		ordinalNameScheme := namescheme.CreateOrdinalNetworkNameScheme(vmi.Spec.Networks)
-		multusNetworksAnnotation, err := multus.GenerateCNIAnnotationFromNameScheme(
-			vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, ordinalNameScheme, t.clusterConfig)
+	if t.netTargetAnnotationsGenerator != nil {
+		netAnnotations, err := t.netTargetAnnotationsGenerator.GenerateFromSource(vmi, sourcePod)
 		if err != nil {
 			return nil, err
 		}
-		podManifest.Annotations[networkv1.NetworkAttachmentAnnot] = multusNetworksAnnotation
+
+		maps.Copy(targetPod.Annotations, netAnnotations)
 	}
 
-	return podManifest, err
+	return targetPod, err
 }
 
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
-	return t.renderLaunchManifest(vmi, nil, false)
+	backendStoragePVCName := ""
+	if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
+		backendStoragePVC := backendstorage.PVCForVMI(t.persistentVolumeClaimStore, vmi)
+		if backendStoragePVC == nil {
+			return nil, fmt.Errorf("can't generate manifest without backend-storage PVC, waiting for the PVC to be created")
+		}
+		backendStoragePVCName = backendStoragePVC.Name
+	}
+	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, false)
 }
 
 func (t *templateService) IsPPC64() bool {
@@ -302,7 +337,7 @@ func computePodSecurityContext(vmi *v1.VirtualMachineInstance, seccomp *k8sv1.Se
 		nonRootUser := int64(util.NonRootUID)
 		psc.RunAsUser = &nonRootUser
 		psc.RunAsGroup = &nonRootUser
-		psc.RunAsNonRoot = pointer.Bool(true)
+		psc.RunAsNonRoot = pointer.P(true)
 		psc.FSGroup = &nonRootUser
 	} else {
 		rootUser := int64(util.RootUser)
@@ -313,7 +348,7 @@ func computePodSecurityContext(vmi *v1.VirtualMachineInstance, seccomp *k8sv1.Se
 	return psc
 }
 
-func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, tempPod bool) (*k8sv1.Pod, error) {
+func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, imageIDs map[string]string, backendStoragePVCName string, tempPod bool) (*k8sv1.Pod, error) {
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
@@ -341,7 +376,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	gracePeriodSeconds = gracePeriodSeconds + int64(15)
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
-	networkToResourceMap, err := network.GetNetworkToResourceMap(t.virtClient, vmi)
+	networkToResourceMap, err := multus.NetworkToResource(t.virtClient, vmi)
 	if err != nil {
 		return nil, err
 	}
@@ -404,7 +439,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		command = append(command, "--simulate-crash")
 	}
 
-	volumeRenderer, err := t.newVolumeRenderer(vmi, namespace, requestedHookSidecarList)
+	volumeRenderer, err := t.newVolumeRenderer(vmi, namespace, requestedHookSidecarList, backendStoragePVCName)
 	if err != nil {
 		return nil, err
 	}
@@ -485,7 +520,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			volumeSource := k8sv1.VolumeSource{
 				ConfigMap: &k8sv1.ConfigMapVolumeSource{
 					LocalObjectReference: k8sv1.LocalObjectReference{Name: cm.Name},
-					DefaultMode:          pointer.Int32(0755),
+					DefaultMode:          pointer.P(int32(0755)),
 				},
 			}
 			vol := k8sv1.Volume{
@@ -516,7 +551,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		containers = append(containers, sidecarContainer)
 	}
 
-	podAnnotations, err := generatePodAnnotations(vmi, t.clusterConfig)
+	podAnnotations, err := t.generatePodAnnotations(vmi)
 	if err != nil {
 		return nil, err
 	}
@@ -655,6 +690,19 @@ func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		opts = append(opts, WithTSCTimer(vmi.Status.TopologyHints.TSCFrequency))
 	}
 
+	if vmi.IsRealtimeEnabled() {
+		log.Log.V(4).Info("Add realtime node label selector")
+		opts = append(opts, WithRealtime())
+	}
+	if util.IsSEVVMI(vmi) {
+		log.Log.V(4).Info("Add SEV node label selector")
+		opts = append(opts, WithSEVSelector())
+	}
+	if util.IsSEVESVMI(vmi) {
+		log.Log.V(4).Info("Add SEV-ES node label selector")
+		opts = append(opts, WithSEVESSelector())
+	}
+
 	return NewNodeSelectorRenderer(
 		vmi.Spec.NodeSelector,
 		t.clusterConfig.GetNodeSelectors(),
@@ -751,12 +799,12 @@ func (t *templateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 	return containerRenderer
 }
 
-func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, namespace string, requestedHookSidecarList hooks.HookSidecarList) (*VolumeRenderer, error) {
+func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, namespace string, requestedHookSidecarList hooks.HookSidecarList, backendStoragePVCName string) (*VolumeRenderer, error) {
 	volumeOpts := []VolumeRendererOption{
 		withVMIConfigVolumes(vmi.Spec.Domain.Devices.Disks, vmi.Spec.Volumes),
 		withVMIVolumes(t.persistentVolumeClaimStore, vmi.Spec.Volumes, vmi.Status.VolumeStatus),
 		withAccessCredentials(vmi.Spec.AccessCredentials),
-		withBackendStorage(vmi),
+		withBackendStorage(vmi, backendStoragePVCName),
 	}
 	if len(requestedHookSidecarList) != 0 {
 		volumeOpts = append(volumeOpts, withSidecarVolumes(requestedHookSidecarList))
@@ -875,8 +923,8 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 					Command:   command,
 					Resources: hotplugContainerResourceRequirementsForVMI(vmi, t.clusterConfig),
 					SecurityContext: &k8sv1.SecurityContext{
-						AllowPrivilegeEscalation: pointer.Bool(false),
-						RunAsNonRoot:             pointer.Bool(true),
+						AllowPrivilegeEscalation: pointer.P(false),
+						RunAsNonRoot:             pointer.P(true),
 						RunAsUser:                &runUser,
 						SeccompProfile: &k8sv1.SeccompProfile{
 							Type: k8sv1.SeccompProfileTypeRuntimeDefault,
@@ -1018,8 +1066,8 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 					Command:   command,
 					Resources: hotplugContainerResourceRequirementsForVMI(vmi, t.clusterConfig),
 					SecurityContext: &k8sv1.SecurityContext{
-						AllowPrivilegeEscalation: pointer.Bool(false),
-						RunAsNonRoot:             pointer.Bool(true),
+						AllowPrivilegeEscalation: pointer.P(false),
+						RunAsNonRoot:             pointer.P(true),
 						RunAsUser:                &runUser,
 						SeccompProfile: &k8sv1.SeccompProfile{
 							Type: k8sv1.SeccompProfileTypeRuntimeDefault,
@@ -1096,7 +1144,9 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 func (t *templateService) RenderExporterManifest(vmExport *exportv1.VirtualMachineExport, namePrefix string) *k8sv1.Pod {
 	exporterPod := &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", namePrefix, vmExport.Name),
+			// Use of DNS1035LabelMaxLength here to align with
+			// VMExportController{}.getExportPodName
+			Name:      naming.GetName(namePrefix, vmExport.Name, validation.DNS1035LabelMaxLength),
 			Namespace: vmExport.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(vmExport, schema.GroupVersionKind{
@@ -1113,7 +1163,7 @@ func (t *templateService) RenderExporterManifest(vmExport *exportv1.VirtualMachi
 			RestartPolicy: k8sv1.RestartPolicyNever,
 			Containers: []k8sv1.Container{
 				{
-					Name:            vmExport.Name,
+					Name:            naming.GetName(namePrefix, vmExport.Name, validation.DNS1035LabelMaxLength),
 					Image:           t.exporterImage,
 					ImagePullPolicy: t.clusterConfig.GetImagePullPolicy(),
 					Env: []k8sv1.EnvVar{
@@ -1127,7 +1177,7 @@ func (t *templateService) RenderExporterManifest(vmExport *exportv1.VirtualMachi
 						},
 					},
 					SecurityContext: &k8sv1.SecurityContext{
-						AllowPrivilegeEscalation: pointer.Bool(false),
+						AllowPrivilegeEscalation: pointer.P(false),
 						Capabilities:             &k8sv1.Capabilities{Drop: []k8sv1.Capability{"ALL"}},
 					},
 					Resources: vmExportContainerResourceRequirements(t.clusterConfig),
@@ -1170,16 +1220,6 @@ func addProbeOverhead(probe *v1.Probe, to *resource.Quantity) bool {
 		to.Add(virtProbeOverhead)
 		return true
 	}
-	return false
-}
-
-func HaveMasqueradeInterface(interfaces []v1.Interface) bool {
-	for _, iface := range interfaces {
-		if iface.Masquerade != nil {
-			return true
-		}
-	}
-
 	return false
 }
 
@@ -1324,7 +1364,7 @@ func generateContainerSecurityContext(selinuxType string, container *k8sv1.Conta
 	container.SecurityContext.SELinuxOptions.Level = "s0"
 }
 
-func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) (map[string]string, error) {
+func (t *templateService) generatePodAnnotations(vmi *v1.VirtualMachineInstance) (map[string]string, error) {
 	annotationsSet := map[string]string{
 		v1.DomainAnnotation: vmi.GetObjectMeta().GetName(),
 	}
@@ -1332,51 +1372,21 @@ func generatePodAnnotations(vmi *v1.VirtualMachineInstance, config *virtconfig.C
 
 	annotationsSet[podcmd.DefaultContainerAnnotationName] = "compute"
 
-	nonAbsentIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-		return iface.State != v1.InterfaceStateAbsent
-	})
-	nonAbsentNets := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
-	multusAnnotation, err := multus.GenerateCNIAnnotation(vmi.Namespace, nonAbsentIfaces, nonAbsentNets, config)
-	if err != nil {
-		return nil, err
-	}
-	if multusAnnotation != "" {
-		annotationsSet[networkv1.NetworkAttachmentAnnot] = multusAnnotation
-	}
-
-	if multusDefaultNetwork := lookupMultusDefaultNetworkName(vmi.Spec.Networks); multusDefaultNetwork != "" {
-		annotationsSet[multus.DefaultNetworkCNIAnnotation] = multusDefaultNetwork
-	}
-
-	if HaveMasqueradeInterface(vmi.Spec.Domain.Devices.Interfaces) {
-		annotationsSet[istio.KubeVirtTrafficAnnotation] = "k6t-eth0"
-	}
-	annotationsSet[velero.PreBackupHookContainerAnnotation] = "compute"
-	annotationsSet[velero.PreBackupHookCommandAnnotation] = fmt.Sprintf(
-		"[\"/usr/bin/virt-freezer\", \"--freeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",
-		vmi.GetObjectMeta().GetName(),
-		vmi.GetObjectMeta().GetNamespace())
-	annotationsSet[velero.PostBackupHookContainerAnnotation] = "compute"
-	annotationsSet[velero.PostBackupHookCommandAnnotation] = fmt.Sprintf(
-		"[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", \"%s\", \"--namespace\", \"%s\"]",
-		vmi.GetObjectMeta().GetName(),
-		vmi.GetObjectMeta().GetNamespace())
-
 	// Set this annotation now to indicate that the newly created virt-launchers will use
 	// unix sockets as a transport for migration
 	annotationsSet[v1.MigrationTransportUnixAnnotation] = "true"
 	annotationsSet[descheduler.EvictOnlyAnnotation] = ""
 
-	return annotationsSet, nil
-}
-
-func lookupMultusDefaultNetworkName(networks []v1.Network) string {
-	for _, network := range networks {
-		if network.Multus != nil && network.Multus.Default {
-			return network.Multus.NetworkName
+	for _, generator := range t.annotationsGenerators {
+		annotations, err := generator.Generate(vmi)
+		if err != nil {
+			return nil, err
 		}
+
+		maps.Copy(annotationsSet, annotations)
 	}
-	return ""
+
+	return annotationsSet, nil
 }
 
 func filterVMIAnnotationsForPod(vmiAnnotations map[string]string) map[string]string {
@@ -1539,5 +1549,17 @@ func readinessGates() []k8sv1.PodReadinessGate {
 func WithNetBindingPluginMemoryCalculator(netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator) templateServiceOption {
 	return func(service *templateService) {
 		service.netBindingPluginMemoryCalculator = netBindingPluginMemoryCalculator
+	}
+}
+
+func WithAnnotationsGenerators(generators ...annotationsGenerator) templateServiceOption {
+	return func(service *templateService) {
+		service.annotationsGenerators = append(service.annotationsGenerators, generators...)
+	}
+}
+
+func WithNetTargetAnnotationsGenerator(generator targetAnnotationsGenerator) templateServiceOption {
+	return func(service *templateService) {
+		service.netTargetAnnotationsGenerator = generator
 	}
 }

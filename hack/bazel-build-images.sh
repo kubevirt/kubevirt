@@ -25,13 +25,34 @@ source hack/config.sh
 
 # vars are uninteresting for the build step, they are interesting for the push step only
 
+case ${ARCHITECTURE} in
+"s390x" | "crossbuild-s390x")
+    other_images="
+        //:build-other-images_s390x
+    "
+    ;;
+"aarch64" | "crossbuild-aarch64")
+    other_images="
+        //:build-other-images_aarch64
+        //tests:conformance_image
+    "
+    ;;
+*)
+    other_images="
+        //:build-other-images_x86_64
+        //tests:conformance_image
+    "
+    ;;
+esac
+
 bazel build \
     --config=${ARCHITECTURE} \
     --define container_prefix= \
     --define image_prefix= \
     --define container_tag= \
-    //:build-other-images //cmd/virt-operator:virt-operator-image //cmd/virt-api:virt-api-image \
-    //cmd/virt-controller:virt-controller-image //cmd/virt-handler:virt-handler-image //cmd/virt-launcher:virt-launcher-image //cmd/libguestfs:libguestfs-tools-image //cmd/pr-helper:pr-helper //tests:conformance_image
+    //cmd/virt-operator:virt-operator-image //cmd/virt-api:virt-api-image //cmd/virt-controller:virt-controller-image \
+    //cmd/virt-handler:virt-handler-image //cmd/virt-launcher:virt-launcher-image //cmd/virt-exportproxy:virt-exportproxy-image \
+    //cmd/virt-exportserver:virt-exportserver-image ${other_images[@]}
 
 rm -rf ${DIGESTS_DIR}/${ARCHITECTURE}
 mkdir -p ${DIGESTS_DIR}/${ARCHITECTURE}

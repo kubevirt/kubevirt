@@ -30,22 +30,18 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	kubevirt "kubevirt.io/client-go/generated/kubevirt/clientset/versioned"
+	kubevirt "kubevirt.io/client-go/kubevirt"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-type clusterConfigChecker interface {
-	HotplugNetworkInterfacesEnabled() bool
-}
-
 type VMNetController struct {
-	clientset     kubevirt.Interface
-	clusterConfig clusterConfigChecker
-	podGetter     podFromVMIGetter
+	clientset kubevirt.Interface
+	podGetter podFromVMIGetter
 }
 
 type podFromVMIGetter interface {
@@ -73,18 +69,14 @@ const (
 	hotPlugNetworkInterfaceErrorReason = "HotPlugNetworkInterfaceError"
 )
 
-func NewVMNetController(clientset kubevirt.Interface, clusterConfig clusterConfigChecker, podGetter podFromVMIGetter) *VMNetController {
+func NewVMNetController(clientset kubevirt.Interface, podGetter podFromVMIGetter) *VMNetController {
 	return &VMNetController{
-		clientset:     clientset,
-		clusterConfig: clusterConfig,
-		podGetter:     podGetter,
+		clientset: clientset,
+		podGetter: podGetter,
 	}
 }
 
 func (v *VMNetController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) (*v1.VirtualMachine, error) {
-	if !v.clusterConfig.HotplugNetworkInterfacesEnabled() {
-		return vm, nil
-	}
 	if vmi == nil || vmi.DeletionTimestamp != nil {
 		return vm, nil
 	}
@@ -138,7 +130,7 @@ func (v *VMNetController) hasOrdinalNetworkInterfaces(vmi *v1.VirtualMachineInst
 		// This is an old virt-launcher that uses ordinal network interface names.
 		return true, nil
 	}
-	hasOrdinalIfaces := namescheme.PodHasOrdinalInterfaceName(NonDefaultMultusNetworksIndexedByIfaceName(pod))
+	hasOrdinalIfaces := namescheme.PodHasOrdinalInterfaceName(multus.NetworkStatusesFromPod(pod))
 	return hasOrdinalIfaces, nil
 }
 

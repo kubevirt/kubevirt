@@ -26,10 +26,10 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 )
 
 func CreateNamespaceIfNotExist(virtCli kubecli.KubevirtClient, name, scenarioLabel, uuid string) error {
@@ -73,8 +73,8 @@ func CleanupNamespaces(virtCli kubecli.KubevirtClient, timeout time.Duration, li
 
 // WaitForDeleteNamespaces waits to all namespaces with the given selector be deleted
 func WaitForDeleteNamespaces(virtCli kubecli.KubevirtClient, timeout time.Duration, listOpts metav1.ListOptions) error {
-	return wait.PollImmediate(10*time.Second, timeout, func() (bool, error) {
-		ns, err := virtCli.CoreV1().Namespaces().List(context.TODO(), listOpts)
+	return virtwait.PollImmediately(10*time.Second, timeout, func(ctx context.Context) (bool, error) {
+		ns, err := virtCli.CoreV1().Namespaces().List(ctx, listOpts)
 		if err != nil {
 			return false, err
 		}

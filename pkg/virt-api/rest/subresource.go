@@ -41,9 +41,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/utils/pointer"
-
-	"kubevirt.io/kubevirt/pkg/util/status"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -54,29 +51,31 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
-	unmarshalRequestErrFmt       = "Can not unmarshal Request body to struct, error: %s"
-	vmNotRunning                 = "VM is not running"
-	patchingVMFmt                = "Patching VM: %s"
-	jsonpatchTestErr             = "jsonpatch test operation does not apply"
-	patchingVMStatusFmt          = "Patching VM status: %s"
-	vmiNotRunning                = "VMI is not running"
-	vmiNotPaused                 = "VMI is not paused"
-	vmiGuestAgentErr             = "VMI does not have guest agent connected"
-	vmiNoAttestationErr          = "Attestation not requested for VMI"
-	prepConnectionErrFmt         = "Cannot prepare connection %s"
-	getRequestErrFmt             = "Cannot GET request %s"
-	pvcVolumeModeErr             = "pvc should be filesystem pvc"
-	pvcAccessModeErr             = "pvc access mode can't be read only"
-	pvcSizeErrFmt                = "pvc size [%s] should be bigger then [%s]"
-	memoryDumpNameConflictErr    = "can't request memory dump for pvc [%s] while pvc [%s] is still associated as the memory dump pvc"
-	featureGateDisabledErrFmt    = "'%s' feature gate is not enabled"
-	defaultProfilerComponentPort = 8443
+	unmarshalRequestErrFmt                   = "Can not unmarshal Request body to struct, error: %s"
+	vmNotRunning                             = "VM is not running"
+	patchingVMFmt                            = "Patching VM: %s"
+	jsonpatchTestErr                         = "jsonpatch test operation does not apply"
+	patchingVMStatusFmt                      = "Patching VM status: %s"
+	vmiNotRunning                            = "VMI is not running"
+	vmiNotPaused                             = "VMI is not paused"
+	vmiGuestAgentErr                         = "VMI does not have guest agent connected"
+	vmiNoAttestationErr                      = "Attestation not requested for VMI"
+	prepConnectionErrFmt                     = "Cannot prepare connection %s"
+	getRequestErrFmt                         = "Cannot GET request %s"
+	pvcVolumeModeErr                         = "pvc should be filesystem pvc"
+	pvcAccessModeErr                         = "pvc access mode can't be read only"
+	pvcSizeErrFmt                            = "pvc size [%s] should be bigger then [%s]"
+	memoryDumpNameConflictErr                = "can't request memory dump for pvc [%s] while pvc [%s] is still associated as the memory dump pvc"
+	featureGateDisabledErrFmt                = "'%s' feature gate is not enabled"
+	defaultProfilerComponentPort             = 8443
+	volumeMigrationManualRecoveryRequiredErr = "VM recovery required: Volume migration failed, leaving some volumes pointing to non-consistent targets; manual intervention is needed to reassign them to their original volumes."
 )
 
 type SubresourceAPIApp struct {
@@ -85,7 +84,6 @@ type SubresourceAPIApp struct {
 	profilerComponentPort   int
 	handlerTLSConfiguration *tls.Config
 	credentialsLock         *sync.Mutex
-	statusUpdater           *status.VMStatusUpdater
 	clusterConfig           *virtconfig.ClusterConfig
 	instancetypeMethods     instancetype.Methods
 	handlerHttpClient       *http.Client
@@ -112,7 +110,6 @@ func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int,
 		profilerComponentPort:   defaultProfilerComponentPort,
 		credentialsLock:         &sync.Mutex{},
 		handlerTLSConfiguration: tlsConfiguration,
-		statusUpdater:           status.NewVMStatusUpdater(virtCli),
 		clusterConfig:           clusterConfig,
 		instancetypeMethods:     instancetypeMethods,
 		handlerHttpClient:       httpClient,
@@ -262,7 +259,8 @@ func (app *SubresourceAPIApp) patchVMStatusStopped(vmi *v1.VirtualMachineInstanc
 		return nil, err
 	}
 	log.Log.Object(vm).V(4).Infof(patchingVMStatusFmt, string(patchBytes))
-	return app.statusUpdater.PatchStatus(vm, types.JSONPatchType, patchBytes, &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun}), nil
+	_, err = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
+	return err, nil
 }
 
 func (app *SubresourceAPIApp) MigrateVMRequestHandler(request *restful.Request, response *restful.Response) {
@@ -356,6 +354,11 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		writeError(statusErr, response)
 		return
 	}
+	if controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm,
+		v1.VirtualMachineConditionType(v1.VirtualMachineInstanceVolumesChange), v12.ConditionTrue) {
+		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf(volumeMigrationManualRecoveryRequiredErr)), response)
+		return
+	}
 
 	runStrategy, err := vm.RunStrategy()
 	if err != nil {
@@ -386,7 +389,7 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 	}
 
 	log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
-	err = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, patchBytes, &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
+	_, err = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 	if err != nil {
 		if strings.Contains(err.Error(), jsonpatchTestErr) {
 			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, err), response)
@@ -410,7 +413,7 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 				return
 			}
 			// set terminationGracePeriod to 1 (which is the shorted safe restart period) and delete the VMI pod to trigger a swift restart.
-			err = app.virtCli.CoreV1().Pods(namespace).Delete(context.Background(), vmiPodname, k8smetav1.DeleteOptions{GracePeriodSeconds: pointer.Int64(1)})
+			err = app.virtCli.CoreV1().Pods(namespace).Delete(context.Background(), vmiPodname, k8smetav1.DeleteOptions{GracePeriodSeconds: pointer.P(int64(1))})
 			if err != nil {
 				if !errors.IsNotFound(err) {
 					writeError(errors.NewInternalError(err), response)
@@ -475,6 +478,10 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("VM is already running")), response)
 		return
 	}
+	if controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm, v1.VirtualMachineManualRecoveryRequired, v12.ConditionTrue) {
+		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf(volumeMigrationManualRecoveryRequiredErr)), response)
+		return
+	}
 
 	startPaused := false
 	startChangeRequestData := make(map[string]string)
@@ -521,7 +528,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 				return
 			}
 			log.Log.Object(vm).V(4).Infof(patchingVMStatusFmt, string(patchBytes))
-			patchErr = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, patchBytes, &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
+			_, patchErr = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 		} else {
 			patchString := getRunningJson(vm, true)
 			log.Log.Object(vm).V(4).Infof(patchingVMFmt, patchString)
@@ -552,7 +559,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 			return
 		}
 		log.Log.Object(vm).V(4).Infof(patchingVMStatusFmt, string(patchBytes))
-		patchErr = app.statusUpdater.PatchStatus(vm, types.JSONPatchType, patchBytes, &k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
+		_, patchErr = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{DryRun: bodyStruct.DryRun})
 	case v1.RunStrategyAlways, v1.RunStrategyOnce:
 		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("%v does not support manual start requests", runStrategy)), response)
 		return
@@ -1246,7 +1253,7 @@ func (app *SubresourceAPIApp) vmVolumePatchStatus(name, namespace string, volume
 
 	dryRunOption := app.getDryRunOption(volumeRequest)
 	log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
-	if err := app.statusUpdater.PatchStatus(vm, types.JSONPatchType, patchBytes, &k8smetav1.PatchOptions{DryRun: dryRunOption}); err != nil {
+	if _, err = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{DryRun: dryRunOption}); err != nil {
 		log.Log.Object(vm).Errorf("unable to patch vm status: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {
@@ -1446,7 +1453,7 @@ func (app *SubresourceAPIApp) vmMemoryDumpRequestPatchStatus(name, namespace str
 	}
 
 	log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
-	if err := app.statusUpdater.PatchStatus(vm, types.JSONPatchType, patchBytes, &k8smetav1.PatchOptions{}); err != nil {
+	if _, err = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{}); err != nil {
 		log.Log.Object(vm).Errorf("unable to patch vm status: %v", err)
 		if errors.IsInvalid(err) {
 			if statErr, ok := err.(*errors.StatusError); ok {

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libvmops"
 
@@ -13,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 
 	expect "github.com/google/goexpect"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -36,14 +38,15 @@ import (
 	"kubevirt.io/kubevirt/tests/libinstancetype"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	typesStorage "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -63,8 +66,10 @@ const (
 	macAddressCloningPatchPattern   = `{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "%s"}`
 	firmwareUUIDCloningPatchPattern = `{"op": "replace", "path": "/spec/template/spec/domain/firmware/uuid", "value": "%s"}`
 
-	onlineSnapshot = true
-	offlineSnaphot = false
+	onlineSnapshot      = true
+	offlineSnaphot      = false
+	stopVMBeforeRestore = true
+	stopVMAfterRestore  = false
 )
 
 var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
@@ -203,6 +208,10 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			err = nil
 		}
 		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() error {
+			_, err = virtClient.VirtualMachineRestore(r.Namespace).Get(context.Background(), r.Name, metav1.GetOptions{})
+			return err
+		}, 30*time.Second, 2*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 	}
 
 	deleteWebhook := func(wh *admissionregistrationv1.ValidatingWebhookConfiguration) {
@@ -255,9 +264,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 		dv := libdv.NewDataVolume(
 			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(containerDisk)),
 			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
-			libdv.WithPVC(
-				libdv.PVCWithStorageClass(storageClass),
-				libdv.PVCWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(containerDisk))),
+			libdv.WithStorage(
+				libdv.StorageWithStorageClass(storageClass),
+				libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(containerDisk))),
 			),
 		)
 		return libvmi.NewVirtualMachine(
@@ -293,14 +302,16 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 		})
 
 		Context("and no snapshot", func() {
-			It("[test_id:5255]should reject restore", func() {
+			It("should wait for snapshot to exist and be ready", func() {
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				restore := createRestoreDef(vm.Name, "foobar")
+				restore := createRestoreDef(vm.Name, fmt.Sprintf("snapshot-%s", vm.Name))
 
-				_, err := virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("VirtualMachineSnapshot \"foobar\" does not exist"))
+				restore, err := virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				events.ExpectEvent(restore, corev1.EventTypeWarning, "VirtualMachineRestoreError")
+				createSnapshot(vm)
+				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
 			})
 		})
 
@@ -315,7 +326,6 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			})
 
 			It("should successfully restore", func() {
-				vm.Spec.Running = nil
 				vm.Spec.RunStrategy = &runStrategyHalted
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -389,16 +399,6 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(vm.Spec).To(Equal(*origSpec))
 
 				deleteRestore(restore)
-			})
-
-			It("[test_id:5257]should reject restore if VM running", func() {
-				Expect(virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})).To(Succeed())
-
-				restore := createRestoreDef(vm.Name, snapshot.Name)
-
-				_, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachine %q run strategy has to be %s", vm.Name, v1.RunStrategyHalted)))
 			})
 
 			It("[test_id:5258]should reject restore if another in progress", func() {
@@ -493,8 +493,26 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				By("Creating a VM restore")
 				restore := createRestoreDef(newVM.Name, snapshot.Name)
-				_, err = virtClient.VirtualMachineRestore(newVM.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred(), "Admission webhooks should reject this restore since target VM is different then source and already exists")
+				restore, err = virtClient.VirtualMachineRestore(newVM.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				events.ExpectEvent(restore, corev1.EventTypeWarning, "VirtualMachineRestoreError")
+				Eventually(func() *snapshotv1.VirtualMachineRestoreStatus {
+					restore, err = virtClient.VirtualMachineRestore(restore.Namespace).Get(context.Background(), restore.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					return restore.Status
+				}, 30*time.Second, 2*time.Second).Should(gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Conditions": ContainElements(
+						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+							"Type":   Equal(snapshotv1.ConditionReady),
+							"Status": Equal(corev1.ConditionFalse),
+							"Reason": Equal("restore source and restore target are different but restore target already exists")}),
+						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+							"Type":   Equal(snapshotv1.ConditionProgressing),
+							"Status": Equal(corev1.ConditionFalse),
+							"Reason": Equal("restore source and restore target are different but restore target already exists")}),
+					),
+				})))
 			})
 
 			Context("restore to a new VM that does not exist", func() {
@@ -922,7 +940,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(newVM.Spec.DataVolumeTemplates).To(HaveLen(len(vm.Spec.DataVolumeTemplates)))
 			}
 
-			doRestoreNoVMStart := func(device string, login console.LoginToFunction, onlineSnapshot bool, targetVMName string) {
+			createSnapshotAndRestore := func(device string, login console.LoginToFunction, onlineSnapshot bool, targetVMName string, stopVMBeforeRestore bool) {
 				isRestoreToDifferentVM := targetVMName != vm.Name
 
 				var targetUID *types.UID
@@ -953,8 +971,10 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					updateMessage(device, onlineSnapshot, vmi)
 				}
 
-				By(stoppingVM)
-				vm = libvmops.StopVirtualMachine(vm)
+				if stopVMBeforeRestore {
+					By(stoppingVM)
+					vm = libvmops.StopVirtualMachine(vm)
+				}
 
 				By("Restoring VM")
 				restore = createRestoreDefWithMacAddressPatch(vm, targetVMName, snapshot.Name)
@@ -965,7 +985,21 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
+				if !stopVMBeforeRestore {
+					events.ExpectEvent(restore, corev1.EventTypeNormal, "RestoreTargetNotReady")
+					By(stoppingVM)
+					vm = libvmops.StopVirtualMachine(vm)
+				}
+
 				restore = waitRestoreComplete(restore, targetVMName, targetUID)
+			}
+
+			doRestoreNoVMStart := func(device string, login console.LoginToFunction, onlineSnapshot bool, targetVMName string) {
+				createSnapshotAndRestore(device, login, onlineSnapshot, targetVMName, stopVMBeforeRestore)
+			}
+
+			doRestoreStopVMAfterRestoreCreate := func(device string, login console.LoginToFunction, onlineSnapshot bool, targetVMName string) {
+				createSnapshotAndRestore(device, login, onlineSnapshot, targetVMName, stopVMAfterRestore)
 			}
 
 			startVMAfterRestore := func(targetVMName, device string, login console.LoginToFunction) {
@@ -1100,6 +1134,43 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				}
 			})
 
+			It("restore should allow grace period for the target to be ready", func() {
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
+
+				By(creatingSnapshot)
+				snapshot = createSnapshot(vm)
+				restore = createRestoreDefWithMacAddressPatch(vm, vm.Name, snapshot.Name)
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				events.ExpectEvent(restore, corev1.EventTypeNormal, "RestoreTargetNotReady")
+				By(stoppingVM)
+				vm = libvmops.StopVirtualMachine(vm)
+
+				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
+				Expect(restore.Status.Restores).To(HaveLen(1))
+			})
+
+			It("restore should stop target if targetReadinessPolicy is StopTarget", func() {
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
+
+				By(creatingSnapshot)
+				snapshot = createSnapshot(vm)
+				restore = createRestoreDefWithMacAddressPatch(vm, vm.Name, snapshot.Name)
+				restore.Spec.TargetReadinessPolicy = pointer.P(snapshotv1.VirtualMachineRestoreStopTarget)
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
+				Expect(restore.Status.Restores).To(HaveLen(1))
+
+				By("Making sure VM was stopped in the restore")
+				Consistently(ThisVM(vm), 60*time.Second, 5*time.Second).Should(Not(BeReady()))
+
+				By("Making sure restored VM is runnable")
+				libvmops.StartVirtualMachine(vm)
+			})
+
 			// This test is relevant to provisioner which round up the recieved size of
 			// the PVC. Currently we only test vmsnapshot tests which ceph which has this
 			// behavior. In case of running this test with other provisioner or if ceph
@@ -1108,7 +1179,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				vm = createVMWithCloudInit(cd.ContainerDiskCirros, snapshotStorageClass)
 				quantity, err := resource.ParseQuantity("1528Mi")
 				Expect(err).ToNot(HaveOccurred())
-				vm.Spec.DataVolumeTemplates[0].Spec.PVC.Resources.Requests["storage"] = quantity
+				vm.Spec.DataVolumeTemplates[0].Spec.Storage.Resources.Requests["storage"] = quantity
 				vm, vmi = createAndStartVM(vm)
 				expectedCapacity, err := resource.ParseQuantity("2Gi")
 				Expect(err).ToNot(HaveOccurred())
@@ -1121,7 +1192,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), *snapshot.Status.VirtualMachineSnapshotContentName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(content.Spec.VolumeBackups[0].PersistentVolumeClaim.Spec.Resources.Requests["storage"]).To(Equal(quantity))
+				resQuantity := content.Spec.VolumeBackups[0].PersistentVolumeClaim.Spec.Resources.Requests["storage"]
+				Expect(resQuantity.Value()).To(Equal(quantity.Value()))
 				vs, err := virtClient.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshots(vm.Namespace).Get(context.Background(), *content.Spec.VolumeBackups[0].VolumeSnapshotName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(*vs.Status.RestoreSize).To(Equal(expectedCapacity))
@@ -1188,7 +1260,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				dv := libdv.NewDataVolume(
 					libdv.WithName("restore-pvc-"+rand.String(12)),
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
-					libdv.WithPVC(libdv.PVCWithStorageClass(snapshotStorageClass)),
+					libdv.WithStorage(libdv.StorageWithStorageClass(snapshotStorageClass)),
 				)
 
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
@@ -1305,7 +1377,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Entry("to a new VM", true),
 			)
 
-			It("should reject vm start if restore in progress", func() {
+			DescribeTable("should reject vm start if restore in progress", func(deleteFunc string) {
 				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
 
 				By(stoppingVM)
@@ -1380,10 +1452,17 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
 				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("Cannot start VM until restore %q completes", restore.Name)))
 
-				deleteWebhook(webhook)
-				webhook = nil
+				switch deleteFunc {
+				case "deleteWebhook":
+					deleteWebhook(webhook)
+					webhook = nil
 
-				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
+					restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
+				case "deleteRestore":
+					deleteRestore(restore)
+				default:
+					Fail("Delete function not valid")
+				}
 
 				Eventually(func() bool {
 					updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -1393,21 +1472,35 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				vm = libvmops.StartVirtualMachine(vm)
 				deleteRestore(restore)
-			})
+			},
+				Entry("and allow it to start after completion", "deleteWebhook"),
+				Entry("and allow it to start after vmrestore deletion", "deleteRestore"),
+			)
 
 			DescribeTable("should restore a vm from an online snapshot", func(restoreToNewVM bool) {
 				vm = createVMWithCloudInit(cd.ContainerDiskCirros, snapshotStorageClass)
 				vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{}
 				vm, vmi = createAndStartVM(vm)
+				targetVMName := getTargetVMName(restoreToNewVM, newVmName)
+				login := console.LoginToCirros
 
-				doRestore("", console.LoginToCirros, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
+				if !restoreToNewVM {
+					// Expect to get event in case we stop
+					// the VM after we created the restore.
+					// Once VM is stopped the VMRestore will
+					// continue and complete successfully
+					doRestoreStopVMAfterRestoreCreate("", login, onlineSnapshot, targetVMName)
+				} else {
+					doRestoreNoVMStart("", login, onlineSnapshot, targetVMName)
+				}
+				startVMAfterRestore(targetVMName, "", login)
 				Expect(restore.Status.Restores).To(HaveLen(1))
 				if restoreToNewVM {
 					checkNewVMEquality()
 				}
 
 			},
-				Entry("[test_id:6053] to the same VM", false),
+				Entry("[test_id:6053] to the same VM, stop VM after create restore", false),
 				Entry("to a new VM", true),
 			)
 
@@ -1690,10 +1783,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 					source := libdv.NewDataVolume(
 						libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
-						libdv.WithPVC(libdv.PVCWithStorageClass(sourceSC)),
+						libdv.WithStorage(libdv.StorageWithStorageClass(sourceSC)),
 						libdv.WithForceBindAnnotation(),
 					)
-
 					source, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespaceTestAlternative).Create(context.Background(), source, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					sourceDV = source
@@ -1709,6 +1801,12 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				})
 
 				AfterEach(func() {
+					// Make sure we recreate the alternative namespace when completing the tests
+					_, err := virtClient.CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testsuite.NamespaceTestAlternative}}, metav1.CreateOptions{})
+					if err != nil && !errors.IsAlreadyExists(err) {
+						Expect(err).ToNot(HaveOccurred())
+					}
+
 					if sourceDV != nil {
 						libstorage.DeleteDataVolume(&sourceDV)
 					}
@@ -1748,30 +1846,42 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					// TODO: consider ensuring network clone gets done here using StorageProfile CloneStrategy
 					dataVolume := libdv.NewDataVolume(
 						libdv.WithPVCSource(sourceDV.Namespace, sourceDV.Name),
-						libdv.WithPVC(libdv.PVCWithStorageClass(snapshotStorageClass), libdv.PVCWithVolumeSize("1Gi")),
+						libdv.WithStorage(libdv.StorageWithStorageClass(snapshotStorageClass), libdv.StorageWithVolumeSize("1Gi")),
 					)
 
 					return libvmi.NewVirtualMachine(
-						libstorage.RenderVMIWithDataVolume(dataVolume.Name, sourceDV.Namespace, libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot())),
+						libstorage.RenderVMIWithDataVolume(dataVolume.Name, testsuite.GetTestNamespace(nil), libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot())),
 						libvmi.WithDataVolumeTemplate(dataVolume),
 					)
 				}
 
-				DescribeTable("should restore a vm that boots from a network cloned datavolumetemplate", func(restoreToNewVM, deleteSourcePVC bool) {
+				DescribeTable("should restore a vm that boots from a network cloned datavolumetemplate", func(restoreToNewVM, deleteSourcePVC, deleteSourceNamespace bool) {
 					vm, vmi = createAndStartVM(createNetworkCloneVMFromSource())
 
 					checkCloneAnnotations(vm, true)
-					if deleteSourcePVC {
+					if deleteSourceNamespace {
+						err = virtClient.CoreV1().Namespaces().Delete(context.Background(), testsuite.NamespaceTestAlternative, metav1.DeleteOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						Eventually(func() error {
+							_, err := virtClient.CoreV1().Namespaces().Get(context.Background(), testsuite.NamespaceTestAlternative, metav1.GetOptions{})
+							return err
+						}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+						sourceDV = nil
+						cloneRole = nil
+						cloneRoleBinding = nil
+					} else if deleteSourcePVC {
 						libstorage.DeleteDataVolume(&sourceDV)
 					}
 
 					doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
 					checkCloneAnnotations(getTargetVM(restoreToNewVM), false)
 				},
-					Entry("to the same VM", false, false),
-					Entry("to a new VM", true, false),
-					Entry("to the same VM, no source pvc", false, true),
-					Entry("to a new VM, no source pvc", true, true),
+					Entry("to the same VM", false, false, false),
+					Entry("to a new VM", true, false, false),
+					Entry("to the same VM, no source pvc", false, true, false),
+					Entry("to a new VM, no source pvc", true, true, false),
+					Entry("to the same VM, no source namespace", false, false, true),
+					Entry("to a new VM, no source namespace", true, false, true),
 				)
 
 				DescribeTable("should restore a vm that boots from a network cloned datavolume (not template)", func(restoreToNewVM, deleteSourcePVC bool) {

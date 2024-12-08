@@ -41,12 +41,13 @@ var _ = Describe("Network Binding plugin compute resource overhead", func() {
 		plugin2name = "plugin2"
 	)
 
-	DescribeTable("Memory overhead should be zero", func(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) {
-		memoryCalculator := netbinding.MemoryCalculator{}
+	DescribeTable("Memory overhead should be zero",
+		func(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) {
+			memoryCalculator := netbinding.MemoryCalculator{}
 
-		actualResult := memoryCalculator.Calculate(vmi, registeredPlugins)
-		Expect(actualResult.Value()).To(BeZero())
-	},
+			actualResult := memoryCalculator.Calculate(vmi, registeredPlugins)
+			Expect(actualResult.Value()).To(BeZero())
+		},
 		Entry("when the VMI does not have NICs and there aren't any registered plugins", libvmi.New(), nil),
 		Entry("when no binding plugin is used on the VMI and there aren't any registered plugins",
 			libvmi.New(
@@ -78,7 +79,7 @@ var _ = Describe("Network Binding plugin compute resource overhead", func() {
 			),
 			map[string]v1.InterfaceBindingPlugin{
 				plugin1name: newPlugin(
-					&k8scorev1.ResourceRequirements{
+					&v1.ResourceRequirementsWithoutClaims{
 						Requests: map[k8scorev1.ResourceName]resource.Quantity{
 							k8scorev1.ResourceCPU: resource.MustParse("100m"),
 						},
@@ -88,12 +89,13 @@ var _ = Describe("Network Binding plugin compute resource overhead", func() {
 		),
 	)
 
-	DescribeTable("It should calculate memory overhead", func(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin, expectedValue resource.Quantity) {
-		memoryCalculator := netbinding.MemoryCalculator{}
+	DescribeTable("It should calculate memory overhead",
+		func(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin, expectedValue resource.Quantity) {
+			memoryCalculator := netbinding.MemoryCalculator{}
 
-		actualResult := memoryCalculator.Calculate(vmi, registeredPlugins)
-		Expect(actualResult.Value()).To(Equal(expectedValue.Value()))
-	},
+			actualResult := memoryCalculator.Calculate(vmi, registeredPlugins)
+			Expect(actualResult.Value()).To(Equal(expectedValue.Value()))
+		},
 		Entry("when there is a single interface using a binding plugin",
 			libvmi.New(
 				libvmi.WithInterface(v1.Interface{Name: iface1name, Binding: &v1.PluginBinding{Name: plugin1name}}),
@@ -101,7 +103,7 @@ var _ = Describe("Network Binding plugin compute resource overhead", func() {
 			),
 			map[string]v1.InterfaceBindingPlugin{
 				plugin1name: newPlugin(
-					&k8scorev1.ResourceRequirements{
+					&v1.ResourceRequirementsWithoutClaims{
 						Requests: map[k8scorev1.ResourceName]resource.Quantity{
 							k8scorev1.ResourceMemory: resource.MustParse("500Mi"),
 						},
@@ -119,7 +121,7 @@ var _ = Describe("Network Binding plugin compute resource overhead", func() {
 			),
 			map[string]v1.InterfaceBindingPlugin{
 				plugin1name: newPlugin(
-					&k8scorev1.ResourceRequirements{
+					&v1.ResourceRequirementsWithoutClaims{
 						Requests: map[k8scorev1.ResourceName]resource.Quantity{
 							k8scorev1.ResourceMemory: resource.MustParse("500Mi"),
 						},
@@ -137,14 +139,14 @@ var _ = Describe("Network Binding plugin compute resource overhead", func() {
 			),
 			map[string]v1.InterfaceBindingPlugin{
 				plugin1name: newPlugin(
-					&k8scorev1.ResourceRequirements{
+					&v1.ResourceRequirementsWithoutClaims{
 						Requests: map[k8scorev1.ResourceName]resource.Quantity{
 							k8scorev1.ResourceMemory: resource.MustParse("500Mi"),
 						},
 					},
 				),
 				plugin2name: newPlugin(
-					&k8scorev1.ResourceRequirements{
+					&v1.ResourceRequirementsWithoutClaims{
 						Requests: map[k8scorev1.ResourceName]resource.Quantity{
 							k8scorev1.ResourceMemory: resource.MustParse("600Mi"),
 						},
@@ -162,14 +164,14 @@ var _ = Describe("Network Binding plugin compute resource overhead", func() {
 			),
 			map[string]v1.InterfaceBindingPlugin{
 				plugin1name: newPlugin(
-					&k8scorev1.ResourceRequirements{
+					&v1.ResourceRequirementsWithoutClaims{
 						Requests: map[k8scorev1.ResourceName]resource.Quantity{
 							k8scorev1.ResourceMemory: resource.MustParse("500Mi"),
 						},
 					},
 				),
 				plugin2name: newPlugin(
-					&k8scorev1.ResourceRequirements{
+					&v1.ResourceRequirementsWithoutClaims{
 						Requests: map[k8scorev1.ResourceName]resource.Quantity{
 							k8scorev1.ResourceMemory: resource.MustParse("600Mi"),
 						},
@@ -187,7 +189,7 @@ var _ = Describe("Network Binding plugin compute resource overhead", func() {
 			),
 			map[string]v1.InterfaceBindingPlugin{
 				plugin1name: newPlugin(
-					&k8scorev1.ResourceRequirements{
+					&v1.ResourceRequirementsWithoutClaims{
 						Requests: map[k8scorev1.ResourceName]resource.Quantity{
 							k8scorev1.ResourceMemory: resource.MustParse("500Mi"),
 						},
@@ -199,6 +201,6 @@ var _ = Describe("Network Binding plugin compute resource overhead", func() {
 	)
 })
 
-func newPlugin(computeResourceOverhead *k8scorev1.ResourceRequirements) v1.InterfaceBindingPlugin {
+func newPlugin(computeResourceOverhead *v1.ResourceRequirementsWithoutClaims) v1.InterfaceBindingPlugin {
 	return v1.InterfaceBindingPlugin{ComputeResourceOverhead: computeResourceOverhead}
 }

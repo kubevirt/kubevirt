@@ -2,449 +2,441 @@ package expose_test
 
 import (
 	"context"
-	"errors"
-	"strings"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/golang/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/version"
-	fakediscovery "k8s.io/client-go/discovery/fake"
-	fakedynamic "k8s.io/client-go/dynamic/fake"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/testing"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
-
 	"kubevirt.io/kubevirt/tests/clientcmd"
 )
 
 var _ = Describe("Expose", func() {
-
-	const vmName = "my-vm"
-	const vmNoLabelName = "vm-no-label"
-	const unknownVM = "unknown-vm"
-	var vmi *v1.VirtualMachineInstance
-	var vmNoLabel *v1.VirtualMachineInstance
-	var vm *v1.VirtualMachine
-	var vmrs *v1.VirtualMachineInstanceReplicaSet
-	var kubeclient *fake.Clientset
-	var discovery *fakediscovery.FakeDiscovery
-	var dynamic *fakedynamic.FakeDynamicClient
-	var obtainedService *k8sv1.Service
+	var (
+		kubeClient *fake.Clientset
+		virtClient *kubevirtfake.Clientset
+	)
 
 	BeforeEach(func() {
-		vmi = libvmi.New(libvmi.WithLabel("key", "value"))
-		vmi.Name = vmName
-		vmNoLabel = libvmi.New()
-		vmNoLabel.Name = vmNoLabelName
-		vm = libvmi.NewVirtualMachine(vmi)
-		vmrs = kubecli.NewMinimalVirtualMachineInstanceReplicaSet(vmName)
+		kubeClient = fake.NewSimpleClientset()
+		virtClient = kubevirtfake.NewSimpleClientset()
 
-		// create the wrapping environment that would retur the mock virt client
-		// to the code being unit tested
 		ctrl := gomock.NewController(GinkgoT())
 		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
 		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
-		// create mock interfaces
-		vmiInterface := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-		vmInterface := kubecli.NewMockVirtualMachineInterface(ctrl)
-		vmrsInterface := kubecli.NewMockReplicaSetInterface(ctrl)
-		kubeclient = fake.NewSimpleClientset()
-		discovery = &fakediscovery.FakeDiscovery{Fake: &kubeclient.Fake}
 
-		scheme := runtime.NewScheme()
-		fake.AddToScheme(scheme)
-		dynamic = fakedynamic.NewSimpleDynamicClient(scheme)
-
-		// set up mock client behavior
-		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).AnyTimes()
-		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).AnyTimes()
-		kubecli.MockKubevirtClientInstance.EXPECT().ReplicaSet(k8smetav1.NamespaceDefault).Return(vmrsInterface).AnyTimes()
-		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeclient.CoreV1()).AnyTimes()
-		kubecli.MockKubevirtClientInstance.EXPECT().DiscoveryClient().Return(discovery).AnyTimes()
-		kubecli.MockKubevirtClientInstance.EXPECT().DynamicClient().Return(dynamic).AnyTimes()
-		// set vmrs
-		vmrs.Spec = v1.VirtualMachineInstanceReplicaSetSpec{Selector: &k8smetav1.LabelSelector{MatchLabels: vmi.ObjectMeta.Labels}, Template: &v1.VirtualMachineInstanceTemplateSpec{}}
-		// set up mock interface behavior
-		vmiInterface.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vmi, nil).AnyTimes()
-		vmiInterface.EXPECT().Get(context.Background(), vmNoLabel.Name, gomock.Any()).Return(vmNoLabel, nil).AnyTimes()
-		vmiInterface.EXPECT().Get(context.Background(), unknownVM, gomock.Any()).Return(nil, errors.New("unknown VM")).AnyTimes()
-		vmInterface.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vm, nil).AnyTimes()
-		vmInterface.EXPECT().Get(context.Background(), unknownVM, gomock.Any()).Return(nil, errors.New("unknown VM")).AnyTimes()
-		vmrsInterface.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vmrs, nil).AnyTimes()
-		vmrsInterface.EXPECT().Get(context.Background(), unknownVM, gomock.Any()).Return(nil, errors.New("unknonw VMRS")).AnyTimes()
-
-		// Make sure that all unexpected calls to kubeClient will fail
-		// this should be called first
-		kubeclient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			Expect(action).To(BeNil())
-			return true, nil, errors.New("kubeclient command not mocked")
-		})
-		// Mock handler for service creation
-		kubeclient.Fake.PrependReactor("create", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			update, ok := action.(testing.CreateAction)
-			Expect(ok).To(BeTrue())
-			obtainedService = update.GetObject().(*k8sv1.Service)
-			return true, obtainedService, nil
-		})
+		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).
+			Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
+		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(metav1.NamespaceDefault).
+			Return(virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
+		kubecli.MockKubevirtClientInstance.EXPECT().ReplicaSet(metav1.NamespaceDefault).
+			Return(virtClient.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault)).AnyTimes()
+		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 	})
 
-	Describe("Create an 'expose' command", func() {
-		Context("With empty set of flags", func() {
-			It("should succeed", func() {
-				cmd := clientcmd.NewVirtctlCommand(expose.COMMAND_EXPOSE)
-				Expect(cmd).ToNot(BeNil())
+	Context("should fail", func() {
+		DescribeTable("with invalid argument count", func(args ...string) {
+			err := runCommand(args...)
+			Expect(err).To(MatchError(ContainSubstring("accepts 2 arg(s), received")))
+		},
+			Entry("no arguments"),
+			Entry("single argument", "vmi"),
+			Entry("three arguments", "vmi", "test", "invalid"),
+		)
+
+		It("with invalid resource type", func() {
+			err := runCommand("kaboom", "my-vm", "--name", "my-service")
+			Expect(err).To(MatchError("unsupported resource type: kaboom"))
+		})
+
+		It("with unknown flag", func() {
+			err := runCommand("vmi", "my-vm", "--name", "my-service", "--kaboom")
+			Expect(err).To(MatchError("unknown flag: --kaboom"))
+		})
+
+		It("missing --name flag", func() {
+			err := runCommand("vmi", "my-vm")
+			Expect(err).To(MatchError("required flag(s) \"name\" not set"))
+		})
+
+		DescribeTable("invalid flag value", func(arg, errMsg string) {
+			err := runCommand("vmi", "my-vm", "--name", "my-service", arg)
+			Expect(err).To(MatchError(errMsg))
+		},
+			Entry("invalid protocol", "--protocol=madeup", "unknown protocol: madeup"),
+			Entry("invalid service type", "--type=madeup", "unknown service type: madeup"),
+			Entry("service type externalname", "--type=externalname", "type: externalname not supported"),
+			Entry("invalid ip family", "--ip-family=madeup", "unknown IPFamily/s: madeup"),
+			Entry("invalid ip family policy", "--ip-family-policy=madeup", "unknown IPFamilyPolicy/s: madeup"),
+		)
+
+		It("when client has an error", func() {
+			kubecli.GetKubevirtClientFromClientConfig = kubecli.GetInvalidKubevirtClientFromClientConfig
+			err := runCommand("vmi", "my-vm", "--name", "my-service")
+			Expect(err).To(MatchError(ContainSubstring("cannot obtain KubeVirt client")))
+		})
+
+		DescribeTable("with missing resource", func(resource, errMsg string) {
+			err := runCommand(resource, "unknown", "--name", "my-service")
+			Expect(err).To(MatchError(ContainSubstring(errMsg)))
+		},
+			Entry("vmi", "vmi", "virtualmachineinstances.kubevirt.io \"unknown\" not found"),
+			Entry("vm", "vm", "virtualmachines.kubevirt.io \"unknown\" not found"),
+			Entry("vmirs", "vmirs", "virtualmachineinstancereplicasets.kubevirt.io \"unknown\" not found"),
+		)
+
+		It("with missing port and missing pod network ports", func() {
+			vmi := libvmi.New(libvmi.WithLabel("key", "value"))
+			vmi, err := virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = runCommand("vmi", vmi.Name, "--name", "my-service")
+			Expect(err).To(MatchError("couldn't find port via --port flag or introspection"))
+		})
+
+		Context("when labels are missing", func() {
+			It("with VirtualMachineInstance", func() {
+				vmi := libvmi.New()
+				vmi, err := virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				err = runCommand("vmi", vmi.Name, "--name", "my-service")
+				Expect(err).To(MatchError(ContainSubstring("cannot expose vmi without any label")))
+			})
+
+			It("with VirtualMachineInstance and unwanted labels", func() {
+				vmi := libvmi.New(
+					libvmi.WithLabel(v1.NodeNameLabel, "value"),
+					libvmi.WithLabel(v1.VirtualMachinePoolRevisionName, "value"),
+					libvmi.WithLabel(v1.MigrationTargetNodeNameLabel, "value"),
+				)
+				vmi, err := virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				err = runCommand("vmi", vmi.Name, "--name", "my-service")
+				Expect(err).To(MatchError(ContainSubstring("cannot expose vmi without any label")))
+			})
+
+			It("with VirtualMachine", func() {
+				vm := libvmi.NewVirtualMachine(libvmi.New())
+				vm, err := virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				err = runCommand("vm", vm.Name, "--name", "my-service")
+				Expect(err).To(MatchError(ContainSubstring("cannot expose vm without any label")))
+			})
+
+			It("with VirtualMachine and unwanted labels", func() {
+				vm := libvmi.NewVirtualMachine(libvmi.New(
+					libvmi.WithLabel(v1.VirtualMachinePoolRevisionName, "value"),
+				))
+				vm, err := virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				err = runCommand("vm", vm.Name, "--name", "my-service")
+				Expect(err).To(MatchError(ContainSubstring("cannot expose vm without any label")))
+			})
+
+			It("with VirtualMachineInstanceReplicaSet", func() {
+				vmirs := kubecli.NewMinimalVirtualMachineInstanceReplicaSet("vmirs")
+				vmirs, err := virtClient.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Create(context.Background(), vmirs, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				err = runCommand("vmirs", vmirs.Name, "--name", "my-service")
+				Expect(err).To(MatchError(ContainSubstring("cannot expose vmirs without any label")))
 			})
 		})
-	})
 
-	Describe("Run an 'expose' command", func() {
-		Context("with k8s > 1.19", func() {
-			BeforeEach(func() {
-				// Mock handler for service creation
-				kubeclient.Fake.PrependReactor("get", "version", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-					return true, nil, nil
-				})
-				discovery.FakedServerVersion = &version.Info{Major: "1", Minor: "20"}
-			})
-			Context("When client has an error", func() {
-				BeforeEach(func() {
-					// only in this test the client call should fail
-					kubecli.GetKubevirtClientFromClientConfig = kubecli.GetInvalidKubevirtClientFromClientConfig
-				})
-				It("should fail", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999")
-					// not executing the command
-					Expect(cmd).NotTo(BeNil())
-				})
-				AfterEach(func() {
-					// set back the value so that other tests won't fail on client
-					kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
-				})
-			})
-			Context("With missing input parameters", func() {
-				It("should fail", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE)
-					Expect(cmd()).NotTo(Succeed())
-				})
-			})
-			Context("With missing resource", func() {
-				It("should fail", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", "--name", "my-service",
-						"--port", "9999")
-					Expect(cmd()).NotTo(Succeed())
-				})
-			})
-			Context("With missing port and missing pod network ports", func() {
-				It("should fail", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service")
-					Expect(cmd()).NotTo(Succeed())
-				})
-			})
-			Context("With missing port but existing pod network ports ", func() {
-				It("should succeed on vmis", func() {
-					addPodNetworkWithPorts(&vmi.Spec)
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service")
-					prependServicePortReactor(kubeclient)
-					Expect(cmd()).To(Succeed())
-				})
-				It("should succeed on vms", func() {
-					addPodNetworkWithPorts(&vm.Spec.Template.Spec)
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", vmName, "--name", "my-service")
-					prependServicePortReactor(kubeclient)
-					Expect(cmd()).To(Succeed())
-				})
-				It("should succeed on vmirs", func() {
-					addPodNetworkWithPorts(&vmrs.Spec.Template.Spec)
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmirs", vmName, "--name", "my-service")
-					prependServicePortReactor(kubeclient)
-					Expect(cmd()).To(Succeed())
-				})
-			})
-			Context("With missing service name", func() {
-				It("should fail", func() {
-					err := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--port", "9999")
-					Expect(err()).NotTo(Succeed())
-				})
-			})
-			Context("With invalid type", func() {
-				It("should fail", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999", "--type", "kaboom")
-					Expect(cmd()).NotTo(Succeed())
-				})
-			})
-			Context("With a invalid protocol", func() {
-				It("should fail", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999", "--protocol", "http")
-					Expect(cmd()).NotTo(Succeed())
-				})
-			})
-			Context("With unknown resource type", func() {
-				It("should fail", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "kaboom", vmName, "--name", "my-service",
-						"--port", "9999")
-					Expect(cmd()).NotTo(Succeed())
-				})
-			})
-			Context("With unknown flag", func() {
-				It("should fail", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999", "--kaboom")
-					Expect(cmd()).NotTo(Succeed())
-				})
-			})
-			Context("With cluster-ip on a vm", func() {
-				It("should succeed", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999")
-					Expect(cmd()).To(Succeed())
-				})
-			})
-			Context("With cluster-ip on a vm that has no label", func() {
-				It("should fail", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmNoLabelName, "--name", "my-service",
-						"--port", "9999")
-					Expect(cmd()).NotTo(Succeed())
-				})
-			})
-			Context("With cluster-ip on an unknown vm", func() {
-				It("should fail on a vmi", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", unknownVM, "--name", "my-service",
-						"--port", "9999")
-					Expect(cmd()).NotTo(Succeed())
-				})
-				It("should fail on a vm", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", unknownVM, "--name", "my-service",
-						"--port", "9999")
-					Expect(cmd()).NotTo(Succeed())
-				})
-			})
-			Context("With node-port service on a vm", func() {
-				It("should succeed", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999", "--type", "NodePort")
-					Expect(cmd()).To(Succeed())
-				})
-			})
-			Context("With cluster-ip on an vm", func() {
-				It("should succeed", func() {
-					err := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", vmName, "--name", "my-service",
-						"--port", "9999")
-					Expect(err()).To(Succeed())
-				})
-			})
-			Context("With cluster-ip on an vm replica set", func() {
-				It("should succeed", func() {
-					err := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmirs", vmName, "--name", "my-service",
-						"--port", "9999")
-					Expect(err()).To(Succeed())
-				})
-			})
-			Context("With cluster-ip on an unknown vm replica set", func() {
-				It("should fail", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmirs", unknownVM, "--name", "my-service",
-						"--port", "9999")
-					Expect(cmd()).NotTo(Succeed())
-				})
-			})
-			Context("With string target-port", func() {
-				It("should succeed", func() {
-					err := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999", "--target-port", "http")
-					Expect(err()).To(Succeed())
-				})
-			})
-			Context("With parametrized IPFamily", func() {
-				var dualStack = k8sv1.IPFamilyPolicyPreferDualStack
-
-				It("should succeed with IPv4", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999", "--target-port", "http", "--ip-family", "ipv4")
-					Expect(cmd()).To(Succeed(), "should succeed on an valid IP family - ipv4 is valid")
-					Expect(obtainedService).ToNot(BeNil())
-					Expect(obtainedService.Spec.IPFamilies).To(ConsistOf(k8sv1.IPv4Protocol))
-
-				})
-
-				It("should succeed with IPv6", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999", "--target-port", "http", "--ip-family", "ipv6")
-					Expect(cmd()).To(Succeed(), "should succeed on an valid IP family - ipv6 is valid")
-					Expect(obtainedService).ToNot(BeNil())
-					Expect(obtainedService.Spec.IPFamilies).To(ConsistOf(k8sv1.IPv6Protocol))
-				})
-
-				It("should succeed with IPv4, IPv6", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999", "--target-port", "http", "--ip-family", "ipv4,ipv6")
-					Expect(cmd()).To(Succeed(), "should succeed on an valid IP family - ipv4,ipv6 is valid")
-					Expect(obtainedService).ToNot(BeNil())
-					Expect(obtainedService.Spec.IPFamilies).Should(HaveLen(2))
-					Expect(obtainedService.Spec.IPFamilies[0]).To(Equal(k8sv1.IPv4Protocol))
-					Expect(obtainedService.Spec.IPFamilies[1]).To(Equal(k8sv1.IPv6Protocol))
-				})
-
-				It("should succeed with IPv6, IPv4", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999", "--target-port", "http", "--ip-family", "ipv6,ipv4")
-					Expect(cmd()).To(Succeed(), "should succeed on an valid IP family - ipv6,ipv4 is valid")
-					Expect(obtainedService).ToNot(BeNil())
-					Expect(obtainedService.Spec.IPFamilies).Should(HaveLen(2))
-					Expect(obtainedService.Spec.IPFamilies[0]).To(Equal(k8sv1.IPv6Protocol))
-					Expect(obtainedService.Spec.IPFamilies[1]).To(Equal(k8sv1.IPv4Protocol))
-				})
-
-				It("should succeed with no IPFamily", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999", "--target-port", "http")
-					Expect(cmd()).To(Succeed(), "should succeed when no IP family is provided")
-					Expect(obtainedService).ToNot(BeNil())
-					Expect(obtainedService.Spec.IPFamilies).To(BeEmpty())
-				})
-
-				It("should fail with an invalid IPFamily", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999", "--target-port", "http", "--ip-family", "ipv14")
-					Expect(cmd()).To(HaveOccurred(), "should fail on an invalid IP family")
-
-				})
-
-				DescribeTable("should select a valid default for the IPFamilyPolicy attribute, based on the provided IPFamilies", func(expectedIPFamilyPolicy *k8sv1.IPFamilyPolicyType, ipFamilies ...string) {
-					ipFamilyStr := strings.Join(ipFamilies, ",")
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999", "--target-port", "http", "--ip-family", ipFamilyStr)
-					Expect(cmd()).To(Succeed(), "should succeed with the default IP family policy")
-					Expect(obtainedService).NotTo(BeNil())
-
-					Expect(obtainedService.Spec.IPFamilyPolicy).To(Equal(expectedIPFamilyPolicy))
+		It("when VirtualMachineInstanceReplicaSet has MatchExpressions", func() {
+			vmirs := kubecli.NewMinimalVirtualMachineInstanceReplicaSet("vmirs")
+			vmirs.Spec.Selector = &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{Key: "test"},
 				},
-					Entry("a single IPv4 IPFamily", nil, "ipv4"),
-					Entry("a single IPv6 IPFamily", nil, "ipv6"),
-					Entry("a list of IPv4, IPv6 IPFamilies", &dualStack, "ipv4", "ipv6"),
-					Entry("a list of IPv6, IPv4 IPFamilies", &dualStack, "ipv6", "ipv4"))
-			})
-			Context("With parametrized IPFamilyPolicy", func() {
-				It("should succeed with singlestack", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999", "--target-port", "http", "--ip-family-policy", "singlestack")
-					Expect(cmd()).To(Succeed(), "should succeed on a valid IP family policy - singlestack is valid")
-					Expect(obtainedService).ToNot(BeNil())
-					Expect(*obtainedService.Spec.IPFamilyPolicy).To(Equal(k8sv1.IPFamilyPolicySingleStack))
-
-				})
-
-				It("should succeed with PreferDualStack", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999", "--target-port", "http", "--ip-family-policy", "PreferDualStack")
-					Expect(cmd()).To(Succeed(), "should succeed on a valid IP family policy - PreferDualStack is valid")
-					Expect(obtainedService).ToNot(BeNil())
-					Expect(*obtainedService.Spec.IPFamilyPolicy).To(Equal(k8sv1.IPFamilyPolicyPreferDualStack))
-				})
-
-				It("should succeed with RequiredualStack", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999", "--target-port", "http", "--ip-family-policy", "RequiredualStack")
-					Expect(cmd()).To(Succeed(), "should succeed on a valid IP family policy - RequiredualStack is valid")
-					Expect(obtainedService).ToNot(BeNil())
-					Expect(*obtainedService.Spec.IPFamilyPolicy).To(Equal(k8sv1.IPFamilyPolicyRequireDualStack))
-				})
-
-				It("should fail with an invalid IPFamilyPolicy", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999", "--target-port", "http", "--ip-family-policy", "non-valid-policy")
-					Expect(cmd()).To(HaveOccurred(), "should fail on an invalid IP family policy")
-
-				})
-			})
+			}
+			vmirs, err := virtClient.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Create(context.Background(), vmirs, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = runCommand("vmirs", vmirs.Name, "--name", "my-service")
+			Expect(err).To(MatchError(ContainSubstring("cannot expose VirtualMachineInstanceReplicaSet with match expressions")))
 		})
-		Context("with k8s <= 1.19", func() {
-			var obtainedUnstructured *unstructured.Unstructured
+	})
+
+	Context("should succeed", func() {
+		const (
+			labelKey   = "my-key"
+			labelValue = "my-value"
+
+			serviceName    = "my-service"
+			servicePort    = int32(9999)
+			servicePortStr = "9999"
+		)
+
+		var (
+			vmi   *v1.VirtualMachineInstance
+			vm    *v1.VirtualMachine
+			vmirs *v1.VirtualMachineInstanceReplicaSet
+		)
+
+		getResName := func(resType string) string {
+			switch resType {
+			case "vmi":
+				return vmi.Name
+			case "vm":
+				return vm.Name
+			case "vmirs":
+				return vmirs.Name
+			default:
+				Fail("unknown resource type")
+				return ""
+			}
+		}
+
+		BeforeEach(func() {
+			vmi = libvmi.New(libvmi.WithLabel(labelKey, labelValue))
+			vmi, err := virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vm, err = virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault).Create(context.Background(), libvmi.NewVirtualMachine(vmi), metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vmirs = kubecli.NewMinimalVirtualMachineInstanceReplicaSet("vmirs")
+			vmirs.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
+			vmirs.Spec.Selector = &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					labelKey: labelValue,
+				},
+			}
+			vmirs, err = virtClient.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Create(context.Background(), vmirs, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		DescribeTable("creating a service with default settings", func(resType string) {
+			err := runCommand(resType, getResName(resType), "--name", serviceName, "--port", servicePortStr)
+			Expect(err).ToNot(HaveOccurred())
+
+			service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(service.Spec.Selector).To(HaveLen(1))
+			Expect(service.Spec.Selector).To(HaveKeyWithValue(labelKey, labelValue))
+			Expect(service.Spec.Ports).To(HaveLen(1))
+			Expect(service.Spec.Ports[0].Port).To(Equal(servicePort))
+			Expect(service.Spec.Ports[0].Protocol).To(Equal(k8sv1.ProtocolTCP))
+			Expect(service.Spec.ClusterIP).To(BeEmpty())
+			Expect(service.Spec.Type).To(Equal(k8sv1.ServiceTypeClusterIP))
+			Expect(service.Spec.IPFamilies).To(BeEmpty())
+			Expect(service.Spec.ExternalIPs).To(BeEmpty())
+			Expect(service.Spec.IPFamilyPolicy).To(BeNil())
+		},
+			Entry("with VirtualMachineInstance", "vmi"),
+			Entry("with VirtualMachine", "vm"),
+			Entry("with VirtualMachineInstanceReplicaSet", "vmirs"),
+		)
+
+		Context("with missing port but existing pod network ports", func() {
 			BeforeEach(func() {
-				// Mock handler for service creation
-				kubeclient.Fake.PrependReactor("get", "version", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-					return true, nil, nil
-				})
-				discovery.FakedServerVersion = &version.Info{Major: "1", Minor: "19"}
-				// Mock handler for service creation
-				dynamic.Fake.PrependReactor("create", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-					create, ok := action.(testing.CreateAction)
-					Expect(ok).To(BeTrue())
-					obtainedUnstructured = create.GetObject().(*unstructured.Unstructured)
-					return true, obtainedUnstructured, nil
-				})
+				addPodNetworkWithPorts := func(spec *v1.VirtualMachineInstanceSpec) {
+					ports := []v1.Port{{Name: "a", Protocol: "TCP", Port: 80}, {Name: "b", Protocol: "UDP", Port: 81}}
+					spec.Networks = append(spec.Networks, v1.Network{Name: "pod", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}})
+					spec.Domain.Devices.Interfaces = append(spec.Domain.Devices.Interfaces, v1.Interface{Name: "pod", Ports: ports})
+				}
 
+				var err error
+				addPodNetworkWithPorts(&vmi.Spec)
+				vmi, err = virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Update(context.Background(), vmi, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				addPodNetworkWithPorts(&vm.Spec.Template.Spec)
+				vm, err = virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault).Update(context.Background(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				addPodNetworkWithPorts(&vmirs.Spec.Template.Spec)
+				vmirs, err = virtClient.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Update(context.Background(), vmirs, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 			})
-			Context("With parametrized IPFamily", func() {
-				It("should succeed with IPv4", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999", "--target-port", "http", "--ip-family", "ipv4")
-					Expect(cmd()).To(Succeed(), "should succeed on an valid IP family - ipv4 is valid")
-					Expect(obtainedUnstructured).ToNot(BeNil())
-					ipFamily, found, err := unstructured.NestedString(obtainedUnstructured.Object, "spec", "ipFamily")
-					Expect(err).ToNot(HaveOccurred())
-					Expect(found).To(BeTrue())
-					Expect(ipFamily).To(Equal(string(k8sv1.IPv4Protocol)))
-				})
 
-				It("should succeed with IPv6", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999", "--target-port", "http", "--ip-family", "ipv6")
-					Expect(cmd()).To(Succeed(), "should succeed on an valid IP family - ipv6 is valid")
-					ipFamily, found, err := unstructured.NestedString(obtainedUnstructured.Object, "spec", "ipFamily")
-					Expect(err).ToNot(HaveOccurred())
-					Expect(found).To(BeTrue())
-					Expect(ipFamily).To(Equal(string(k8sv1.IPv6Protocol)))
+			DescribeTable("to create a service", func(resType string) {
+				err := runCommand(resType, getResName(resType), "--name", serviceName)
+				Expect(err).ToNot(HaveOccurred())
 
-				})
-
-				It("should fail with IPv4,IPv6", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999", "--target-port", "http", "--ip-family", "ipv4,ipv6")
-					Expect(cmd()).ToNot(Succeed(), "should fail on an invalid IP family - ipv4,ipv6 is invalid")
-				})
-
-				It("should fail with IPv6,IPv4", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999", "--target-port", "http", "--ip-family", "ipv6,ipv4")
-					Expect(cmd()).ToNot(Succeed(), "should fail on an invalid IP family - ipv6,ipv4 is invalid")
-				})
-			})
-			Context("With IPFamilyPolicy", func() {
-				It("should fail with non-empty IPFamilyPolicy", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-						"--port", "9999", "--target-port", "http", "--ip-family-policy", "PreferDualStack")
-					Expect(cmd()).ToNot(Succeed(), "should fail on non empty IP family policy")
-				})
-			})
+				service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(service.Spec.Selector).To(HaveLen(1))
+				Expect(service.Spec.Selector).To(HaveKeyWithValue(labelKey, labelValue))
+				Expect(service.Spec.Ports).To(ConsistOf(
+					k8sv1.ServicePort{Name: "port-1", Protocol: "TCP", Port: 80},
+					k8sv1.ServicePort{Name: "port-2", Protocol: "UDP", Port: 81},
+				))
+			},
+				Entry("with VirtualMachineInstance", "vmi"),
+				Entry("with VirtualMachine", "vm"),
+				Entry("with VirtualMachineInstanceReplicaSet", "vmirs"),
+			)
 		})
+
+		DescribeTable("creating a service with cluster-ip", func(resType string) {
+			const clusterIP = "1.2.3.4"
+			err := runCommand(resType, getResName(resType), "--name", serviceName, "--port", servicePortStr, "--cluster-ip", clusterIP)
+			Expect(err).ToNot(HaveOccurred())
+
+			service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(service.Spec.Selector).To(HaveLen(1))
+			Expect(service.Spec.Selector).To(HaveKeyWithValue(labelKey, labelValue))
+			Expect(service.Spec.ClusterIP).To(Equal(clusterIP))
+		},
+			Entry("with VirtualMachineInstance", "vmi"),
+			Entry("with VirtualMachine", "vm"),
+			Entry("with VirtualMachineInstanceReplicaSet", "vmirs"),
+		)
+
+		DescribeTable("creating a service with external-ip", func(resType string) {
+			const externalIP = "1.2.3.4"
+			err := runCommand(resType, getResName(resType), "--name", serviceName, "--port", servicePortStr, "--external-ip", externalIP)
+			Expect(err).ToNot(HaveOccurred())
+
+			service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(service.Spec.Selector).To(HaveLen(1))
+			Expect(service.Spec.Selector).To(HaveKeyWithValue(labelKey, labelValue))
+			Expect(service.Spec.ExternalIPs).To(ConsistOf(externalIP))
+		},
+			Entry("with VirtualMachineInstance", "vmi"),
+			Entry("with VirtualMachine", "vm"),
+			Entry("with VirtualMachineInstanceReplicaSet", "vmirs"),
+		)
+
+		DescribeTable("creating a service", func(resType string, protocol k8sv1.Protocol) {
+			err := runCommand(resType, getResName(resType), "--name", serviceName, "--port", servicePortStr, "--protocol", string(protocol))
+			Expect(err).ToNot(HaveOccurred())
+
+			service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(service.Spec.Selector).To(HaveLen(1))
+			Expect(service.Spec.Selector).To(HaveKeyWithValue(labelKey, labelValue))
+			Expect(service.Spec.Ports).To(HaveLen(1))
+			Expect(service.Spec.Ports[0].Protocol).To(Equal(protocol))
+		},
+			Entry("with VirtualMachineInstance and protocol TCP", "vmi", k8sv1.ProtocolTCP),
+			Entry("with VirtualMachineInstance and protocol UDP", "vmi", k8sv1.ProtocolUDP),
+			Entry("with VirtualMachine and protocol TCP", "vm", k8sv1.ProtocolTCP),
+			Entry("with VirtualMachine and protocol UDP", "vm", k8sv1.ProtocolUDP),
+			Entry("with VirtualMachineInstanceReplicaSet and protocol TCP", "vmirs", k8sv1.ProtocolTCP),
+			Entry("with VirtualMachineInstanceReplicaSet and protocol UDP", "vmirs", k8sv1.ProtocolUDP),
+		)
+
+		DescribeTable("creating a service", func(resType string, targetPort string, expected intstr.IntOrString) {
+			err := runCommand(resType, getResName(resType), "--name", serviceName, "--port", servicePortStr, "--target-port", targetPort)
+			Expect(err).ToNot(HaveOccurred())
+
+			service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(service.Spec.Selector).To(HaveLen(1))
+			Expect(service.Spec.Selector).To(HaveKeyWithValue(labelKey, labelValue))
+			Expect(service.Spec.Ports).To(HaveLen(1))
+			Expect(service.Spec.Ports[0].TargetPort).To(Equal(expected))
+		},
+			Entry("with VirtualMachineInstance and target-port", "vmi", "8000", intstr.IntOrString{Type: intstr.Int, IntVal: 8000}),
+			Entry("with VirtualMachineInstance and string target-port", "vmi", "http", intstr.IntOrString{Type: intstr.String, StrVal: "http"}),
+			Entry("with VirtualMachine and target-port", "vm", "8000", intstr.IntOrString{Type: intstr.Int, IntVal: 8000}),
+			Entry("with VirtualMachine and string target-port", "vm", "http", intstr.IntOrString{Type: intstr.String, StrVal: "http"}),
+			Entry("with VirtualMachineInstanceReplicaSet and target-port", "vmirs", "8000", intstr.IntOrString{Type: intstr.Int, IntVal: 8000}),
+			Entry("with VirtualMachineInstanceReplicaSet and string target-port", "vmirs", "http", intstr.IntOrString{Type: intstr.String, StrVal: "http"}),
+		)
+
+		DescribeTable("creating a service", func(resType string, serviceType k8sv1.ServiceType) {
+			err := runCommand(resType, getResName(resType), "--name", serviceName, "--port", servicePortStr, "--type", string(serviceType))
+			Expect(err).ToNot(HaveOccurred())
+
+			service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(service.Spec.Selector).To(HaveLen(1))
+			Expect(service.Spec.Selector).To(HaveKeyWithValue(labelKey, labelValue))
+			Expect(service.Spec.Ports).To(HaveLen(1))
+			Expect(service.Spec.Ports[0].Port).To(Equal(servicePort))
+		},
+			Entry("with VirtualMachineInstance and type ClusterIP", "vmi", k8sv1.ServiceTypeClusterIP),
+			Entry("with VirtualMachineInstance and type NodePort", "vmi", k8sv1.ServiceTypeNodePort),
+			Entry("with VirtualMachineInstance and type LoadBalancer", "vmi", k8sv1.ServiceTypeLoadBalancer),
+			Entry("with VirtualMachine and type ClusterIP", "vm", k8sv1.ServiceTypeClusterIP),
+			Entry("with VirtualMachine and type NodePort", "vm", k8sv1.ServiceTypeNodePort),
+			Entry("with VirtualMachine and type LoadBalancer", "vm", k8sv1.ServiceTypeLoadBalancer),
+			Entry("with VirtualMachineInstanceReplicaSet and type ClusterIP", "vmirs", k8sv1.ServiceTypeClusterIP),
+			Entry("with VirtualMachineInstanceReplicaSet and type NodePort", "vmirs", k8sv1.ServiceTypeNodePort),
+			Entry("with VirtualMachineInstanceReplicaSet and type LoadBalancer", "vmirs", k8sv1.ServiceTypeLoadBalancer),
+		)
+
+		DescribeTable("creating a service with named port", func(resType string) {
+			const portName = "test-port"
+			err := runCommand(resType, getResName(resType), "--name", serviceName, "--port", servicePortStr, "--port-name", portName)
+			Expect(err).ToNot(HaveOccurred())
+
+			service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(service.Spec.Selector).To(HaveLen(1))
+			Expect(service.Spec.Selector).To(HaveKeyWithValue(labelKey, labelValue))
+			Expect(service.Spec.Ports).To(HaveLen(1))
+			Expect(service.Spec.Ports[0].Name).To(Equal(portName))
+		},
+			Entry("with VirtualMachineInstance", "vmi"),
+			Entry("with VirtualMachine", "vm"),
+			Entry("with VirtualMachineInstanceReplicaSet", "vmirs"),
+		)
+
+		DescribeTable("creating a service selecting a suitable default IPFamilyPolicy", func(resType, ipFamily string, ipFamilyPolicy *k8sv1.IPFamilyPolicy, expected ...k8sv1.IPFamily) {
+			err := runCommand(resType, getResName(resType), "--name", serviceName, "--port", servicePortStr, "--ip-family", ipFamily)
+			Expect(err).ToNot(HaveOccurred())
+
+			service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(service.Spec.Selector).To(HaveLen(1))
+			Expect(service.Spec.Selector).To(HaveKeyWithValue(labelKey, labelValue))
+			Expect(service.Spec.IPFamilies).To(ConsistOf(expected))
+			if ipFamilyPolicy != nil {
+				Expect(*service.Spec.IPFamilyPolicy).To(Equal(*ipFamilyPolicy))
+			} else {
+				Expect(service.Spec.IPFamilyPolicy).To(BeNil())
+			}
+		},
+			Entry("with VirtualMachineInstance and IPFamily IPv4", "vmi", "ipv4", nil, k8sv1.IPv4Protocol),
+			Entry("with VirtualMachineInstance and IPFamily IPv6", "vmi", "ipv6", nil, k8sv1.IPv6Protocol),
+			Entry("with VirtualMachineInstance and IPFamily IPv4,IPv6", "vmi", "ipv4,ipv6", pointer.P(k8sv1.IPFamilyPolicyPreferDualStack), k8sv1.IPv4Protocol, k8sv1.IPv6Protocol),
+			Entry("with VirtualMachineInstance and IPFamily IPv6,IPv4", "vmi", "ipv6,ipv4", pointer.P(k8sv1.IPFamilyPolicyPreferDualStack), k8sv1.IPv6Protocol, k8sv1.IPv4Protocol),
+			Entry("with VirtualMachine and IPFamily IPv4", "vm", "ipv4", nil, k8sv1.IPv4Protocol),
+			Entry("with VirtualMachine and IPFamily IPv6", "vm", "ipv6", nil, k8sv1.IPv6Protocol),
+			Entry("with VirtualMachine and IPFamily IPv4,IPv6", "vm", "ipv4,ipv6", pointer.P(k8sv1.IPFamilyPolicyPreferDualStack), k8sv1.IPv4Protocol, k8sv1.IPv6Protocol),
+			Entry("with VirtualMachine and IPFamily IPv6,IPv4", "vm", "ipv6,ipv4", pointer.P(k8sv1.IPFamilyPolicyPreferDualStack), k8sv1.IPv6Protocol, k8sv1.IPv4Protocol),
+			Entry("with VirtualMachineInstanceReplicaSet and IPFamily IPv4", "vmirs", "ipv4", nil, k8sv1.IPv4Protocol),
+			Entry("with VirtualMachineInstanceReplicaSet and IPFamily IPv6", "vmirs", "ipv6", nil, k8sv1.IPv6Protocol),
+			Entry("with VirtualMachineInstanceReplicaSet and IPFamily IPv4,IPv6", "vmirs", "ipv4,ipv6", pointer.P(k8sv1.IPFamilyPolicyPreferDualStack), k8sv1.IPv4Protocol, k8sv1.IPv6Protocol),
+			Entry("with VirtualMachineInstanceReplicaSet and IPFamily IPv6,IPv4", "vmirs", "ipv6,ipv4", pointer.P(k8sv1.IPFamilyPolicyPreferDualStack), k8sv1.IPv6Protocol, k8sv1.IPv4Protocol),
+		)
+
+		DescribeTable("creating a service", func(resType string, ipFamilyPolicy k8sv1.IPFamilyPolicy) {
+			err := runCommand(resType, getResName(resType), "--name", serviceName, "--port", servicePortStr, "--ip-family-policy", string(ipFamilyPolicy))
+			Expect(err).ToNot(HaveOccurred())
+
+			service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(service.Spec.Selector).To(HaveLen(1))
+			Expect(service.Spec.Selector).To(HaveKeyWithValue(labelKey, labelValue))
+			Expect(*service.Spec.IPFamilyPolicy).To(Equal(ipFamilyPolicy))
+
+		},
+			Entry("with VirtualMachineInstance and IPFamilyPolicy SingleStack", "vmi", k8sv1.IPFamilyPolicySingleStack),
+			Entry("with VirtualMachineInstance and IPFamilyPolicy PreferDualStack", "vmi", k8sv1.IPFamilyPolicyPreferDualStack),
+			Entry("with VirtualMachineInstance and IPFamilyPolicy RequireDualStack", "vmi", k8sv1.IPFamilyPolicyRequireDualStack),
+			Entry("with VirtualMachine and IPFamilyPolicy SingleStack", "vm", k8sv1.IPFamilyPolicySingleStack),
+			Entry("with VirtualMachine and IPFamilyPolicy PreferDualStack", "vm", k8sv1.IPFamilyPolicyPreferDualStack),
+			Entry("with VirtualMachine and IPFamilyPolicy RequireDualStack", "vm", k8sv1.IPFamilyPolicyRequireDualStack),
+			Entry("with VirtualMachineInstanceReplicaSet and IPFamilyPolicy SingleStack", "vmirs", k8sv1.IPFamilyPolicySingleStack),
+			Entry("with VirtualMachineInstanceReplicaSet and IPFamilyPolicy PreferDualStack", "vmirs", k8sv1.IPFamilyPolicyPreferDualStack),
+			Entry("with VirtualMachineInstanceReplicaSet and IPFamilyPolicy RequireDualStack", "vmirs", k8sv1.IPFamilyPolicyRequireDualStack),
+		)
 	})
 })
 
-func addPodNetworkWithPorts(spec *v1.VirtualMachineInstanceSpec) {
-	ports := []v1.Port{{Name: "a", Protocol: "TCP", Port: 80}, {Name: "b", Protocol: "UDP", Port: 81}}
-	spec.Networks = append(spec.Networks, v1.Network{Name: "pod", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}})
-	spec.Domain.Devices.Interfaces = append(spec.Domain.Devices.Interfaces, v1.Interface{Name: "pod", Ports: ports})
-}
-
-func prependServicePortReactor(kubeclient *fake.Clientset) {
-	kubeclient.Fake.PrependReactor("create", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-		update, ok := action.(testing.CreateAction)
-		Expect(ok).To(BeTrue())
-		Expect(update.GetObject().(*k8sv1.Service).Spec.Ports[0]).To(Equal(k8sv1.ServicePort{Name: "port-1", Protocol: "TCP", Port: 80}))
-		Expect(update.GetObject().(*k8sv1.Service).Spec.Ports[1]).To(Equal(k8sv1.ServicePort{Name: "port-2", Protocol: "UDP", Port: 81}))
-		return false, nil, nil
-	})
+func runCommand(args ...string) error {
+	return clientcmd.NewRepeatableVirtctlCommand(append([]string{expose.COMMAND_EXPOSE}, args...)...)()
 }

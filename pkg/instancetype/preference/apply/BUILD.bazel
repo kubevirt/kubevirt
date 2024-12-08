@@ -1,0 +1,27 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "annotations.go",
+        "clock.go",
+        "cpu.go",
+        "device.go",
+        "disk.go",
+        "features.go",
+        "firmware.go",
+        "interface.go",
+        "machine.go",
+        "subdomain.go",
+        "termination.go",
+        "vmi.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/instancetype/preference/apply",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/pointer:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+    ],
+)

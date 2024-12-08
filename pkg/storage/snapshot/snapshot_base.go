@@ -40,7 +40,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/util/status"
+	"kubevirt.io/kubevirt/pkg/storage/status"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
 
@@ -84,27 +84,43 @@ type VMSnapshotController struct {
 
 	ResyncPeriod time.Duration
 
-	vmSnapshotQueue        workqueue.RateLimitingInterface
-	vmSnapshotContentQueue workqueue.RateLimitingInterface
-	crdQueue               workqueue.RateLimitingInterface
-	vmSnapshotStatusQueue  workqueue.RateLimitingInterface
-	vmQueue                workqueue.RateLimitingInterface
+	vmSnapshotQueue        workqueue.TypedRateLimitingInterface[string]
+	vmSnapshotContentQueue workqueue.TypedRateLimitingInterface[string]
+	crdQueue               workqueue.TypedRateLimitingInterface[string]
+	vmSnapshotStatusQueue  workqueue.TypedRateLimitingInterface[string]
+	vmQueue                workqueue.TypedRateLimitingInterface[string]
 
 	dynamicInformerMap map[string]*dynamicInformer
 	eventHandlerMap    map[string]cache.ResourceEventHandlerFuncs
 
-	vmStatusUpdater *status.VMStatusUpdater
+	vmSnapshotStatusUpdater        *status.VMSnapshotStatusUpdater
+	vmSnapshotContentStatusUpdater *status.VMSnapshotContentStatusUpdater
 }
 
 var supportedCRDVersions = []string{"v1"}
 
 // Init initializes the snapshot controller
 func (ctrl *VMSnapshotController) Init() error {
-	ctrl.vmSnapshotQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-snapshot-vmsnapshot")
-	ctrl.vmSnapshotContentQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-snapshot-vmsnapshotcontent")
-	ctrl.crdQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-snapshot-crd")
-	ctrl.vmSnapshotStatusQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-snapshot-vmsnashotstatus")
-	ctrl.vmQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-snapshot-vm")
+	ctrl.vmSnapshotQueue = workqueue.NewTypedRateLimitingQueueWithConfig[string](
+		workqueue.DefaultTypedControllerRateLimiter[string](),
+		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-snapshot-vmsnapshot"},
+	)
+	ctrl.vmSnapshotContentQueue = workqueue.NewTypedRateLimitingQueueWithConfig[string](
+		workqueue.DefaultTypedControllerRateLimiter[string](),
+		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-snapshot-vmsnapshotcontent"},
+	)
+	ctrl.crdQueue = workqueue.NewTypedRateLimitingQueueWithConfig[string](
+		workqueue.DefaultTypedControllerRateLimiter[string](),
+		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-snapshot-crd"},
+	)
+	ctrl.vmSnapshotStatusQueue = workqueue.NewTypedRateLimitingQueueWithConfig[string](
+		workqueue.DefaultTypedControllerRateLimiter[string](),
+		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-snapshot-vmsnashotstatus"},
+	)
+	ctrl.vmQueue = workqueue.NewTypedRateLimitingQueueWithConfig[string](
+		workqueue.DefaultTypedControllerRateLimiter[string](),
+		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-snapshot-vm"},
+	)
 
 	ctrl.dynamicInformerMap = map[string]*dynamicInformer{
 		volumeSnapshotCRD:      {informerFunc: controller.VolumeSnapshotInformer},
@@ -207,7 +223,8 @@ func (ctrl *VMSnapshotController) Init() error {
 		return err
 	}
 
-	ctrl.vmStatusUpdater = status.NewVMStatusUpdater(ctrl.Client)
+	ctrl.vmSnapshotStatusUpdater = status.NewVMSnapshotStatusUpdater(ctrl.Client)
+	ctrl.vmSnapshotContentStatusUpdater = status.NewVMSnapshotContentStatusUpdater(ctrl.Client)
 	return nil
 }
 
@@ -561,7 +578,6 @@ func (ctrl *VMSnapshotController) handleDV(obj interface{}) {
 	if dv, ok := obj.(*cdiv1.DataVolume); ok {
 		key, _ := cache.MetaNamespaceKeyFunc(dv)
 		log.Log.V(3).Infof("Processing DV %s", key)
-		// TODO come back when DV/PVC name may differ
 		for _, idx := range []string{"dv", "pvc"} {
 			keys, err := ctrl.VMInformer.GetIndexer().IndexKeys(idx, key)
 			if err != nil {

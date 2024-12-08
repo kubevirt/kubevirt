@@ -64,14 +64,11 @@ import (
 )
 
 const (
-	remoteCmdErrPattern = "failed running `%s` with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
+	remoteCmdErrPattern = "failed running `%s` with stdout:\n %v \n stderr:\n %v \n err: \n %v "
 )
 
-var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus scraped metrics", func() {
-
-	var (
-		virtClient kubecli.KubevirtClient
-	)
+var _ = DescribeSerialInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus scraped metrics", func() {
+	var virtClient kubecli.KubevirtClient
 
 	// start a VMI, wait for it to run and return the node it runs on
 	startVMI := func(vmi *v1.VirtualMachineInstance) string {
@@ -108,7 +105,6 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 	*/
 
 	It("[test_id:4135]should find VMI namespace on namespace label of the metric", func() {
-
 		/*
 			This test is required because in cases of misconfigurations on
 			monitoring objects (such for the ServiceMonitor), our rules will
@@ -121,7 +117,9 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		startVMI(vmi)
 
 		By("finding virt-operator pod")
-		ops, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=virt-operator"})
+		ops, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
+			context.Background(),
+			metav1.ListOptions{LabelSelector: "kubevirt.io=virt-operator"})
 		Expect(err).ToNot(HaveOccurred(), "failed to list virt-operators")
 		Expect(ops.Size()).ToNot(Equal(0), "no virt-operators found")
 		op := ops.Items[0]
@@ -149,15 +147,11 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		}
 		Expect(promPort).ToNot(BeEquivalentTo(0), "could not get Prometheus port from endpoint")
 
-		// We need a token from a service account that can view all namespaces in the cluster
-		By("extracting virt-operator sa token")
-		cmd := []string{"cat", "/var/run/secrets/kubernetes.io/serviceaccount/token"}
-		token, stderr, err := exec.ExecuteCommandOnPodWithResults(&op, "virt-operator", cmd)
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, strings.Join(cmd, " "), token, stderr, err))
-		Expect(token).ToNot(BeEmpty(), "virt-operator sa token returned empty")
+		// the Service Account needs to have access to the Prometheus subresource api
+		token := kubevirt.Client().Config().BearerToken
 
 		By("querying Prometheus API endpoint for a VMI exported metric")
-		cmd = []string{
+		cmd := []string{
 			"curl",
 			"-L",
 			"-k",
@@ -166,10 +160,11 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 			fmt.Sprintf("Authorization: Bearer %s", token),
 			"--data-urlencode",
 			fmt.Sprintf(
-				`query=kubevirt_vmi_memory_resident_bytes{namespace="%s",name="%s"}`,
+				`query=kubevirt_vmi_memory_resident_bytes{namespace=%q,name=%q}`,
 				vmi.Namespace,
 				vmi.Name,
-			)}
+			),
+		}
 
 		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(&op, "virt-operator", cmd)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, strings.Join(cmd, " "), stdout, stderr, err))
@@ -180,7 +175,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		var queryResult map[string]json.RawMessage
 
 		err = json.Unmarshal([]byte(stdout), &queryResult)
-		Expect(err).ToNot(HaveOccurred(), "failed to unmarshal query result")
+		Expect(err).ToNot(HaveOccurred(), "failed to unmarshal query result: %s", stdout)
 
 		var status string
 		err = json.Unmarshal(queryResult["status"], &status)
@@ -189,8 +184,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 	})
 })
 
-var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus Endpoints", func() {
-
+var _ = DescribeSerialInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus Endpoints", func() {
 	var (
 		virtClient kubecli.KubevirtClient
 		err        error
@@ -235,24 +229,25 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		vmi := libvmifact.NewAlpine(libvmi.WithEmptyDisk("testdisk", v1.VirtIO, resource.MustParse("1G")))
 		if preferredNodeName != "" {
 			vmi = libvmifact.NewAlpine(libvmi.WithEmptyDisk("testdisk", v1.VirtIO, resource.MustParse("1G")),
-				libvmi.WithNodeSelectorFor(&k8sv1.Node{ObjectMeta: metav1.ObjectMeta{Name: preferredNodeName}}))
+				libvmi.WithNodeSelectorFor(preferredNodeName))
 		}
+		const vmiStartTimeout = 30
 
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, vmiStartTimeout)
 		nodeName := vmi.Status.NodeName
 
 		By("Expecting the VirtualMachineInstance console")
 		// This also serves as a sync point to make sure the VM completed the boot
 		// (and reduce the risk of false negatives)
 		Expect(console.LoginToAlpine(vmi)).To(Succeed())
-
+		const expectTimeout = 10
 		By("Writing some data to the disk")
 		Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "dd if=/dev/zero of=/dev/vdb bs=1M count=1\n"},
 			&expect.BExp{R: console.PromptExpression},
 			&expect.BSnd{S: "sync\n"},
 			&expect.BExp{R: console.PromptExpression},
-		}, 10)).To(Succeed())
+		}, expectTimeout)).To(Succeed())
 
 		preparedVMIs = append(preparedVMIs, vmi)
 		return nodeName
@@ -268,7 +263,8 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 
 		By("Finding the virt-controller prometheus endpoint")
 		virtControllerLeaderPodName := libinfra.GetLeader()
-		leaderPod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(context.Background(), virtControllerLeaderPodName, metav1.GetOptions{})
+		leaderPod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(
+			context.Background(), virtControllerLeaderPodName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred(), "Should find the virt-controller pod")
 
 		for _, ip := range leaderPod.Status.PodIPs {
@@ -296,35 +292,41 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 	It("[test_id:4136] should find one leading virt-controller and two ready", func() {
 		By("scraping the metrics endpoint on virt-controller pods")
 		results, err := countReadyAndLeaderPods(pod, "controller")
+		const expectedReady = 2
 		Expect(err).ToNot(HaveOccurred())
-		Expect(results["ready"]).To(Equal(2), "expected 2 ready virt-controllers")
+		Expect(results["ready"]).To(Equal(expectedReady), "expected 2 ready virt-controllers")
 		Expect(results["leading"]).To(Equal(1), "expected 1 leading virt-controller")
 	})
 
 	It("[test_id:4137]should find one leading virt-operator and two ready", func() {
 		By("scraping the metrics endpoint on virt-operator pods")
 		results, err := countReadyAndLeaderPods(pod, "operator")
+		const expectedReady = 2
 		Expect(err).ToNot(HaveOccurred())
-		Expect(results["ready"]).To(Equal(2), "expected 2 ready virt-operators")
+		Expect(results["ready"]).To(Equal(expectedReady), "expected 2 ready virt-operators")
 		Expect(results["leading"]).To(Equal(1), "expected 1 leading virt-operator")
 	})
 
 	It("[test_id:4138]should be exposed and registered on the metrics endpoint", func() {
-		endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
+		endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(
+			context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		l, err := labels.Parse("prometheus.kubevirt.io=true")
 		Expect(err).ToNot(HaveOccurred())
-		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: l.String()})
+		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
+			context.Background(), metav1.ListOptions{LabelSelector: l.String()})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(endpoint.Subsets).To(HaveLen(1))
 
 		By("checking if the endpoint contains the metrics port and only one matching subset")
+		const metricsPort = 8443
 		Expect(endpoint.Subsets[0].Ports).To(HaveLen(1))
 		Expect(endpoint.Subsets[0].Ports[0].Name).To(Equal("metrics"))
-		Expect(endpoint.Subsets[0].Ports[0].Port).To(Equal(int32(8443)))
+		Expect(endpoint.Subsets[0].Ports[0].Port).To(Equal(int32(metricsPort)))
 
 		By("checking if  the IPs in the subset match the KubeVirt system Pod count")
-		Expect(len(pods.Items)).To(BeNumerically(">=", 3), "At least one api, controller and handler need to be present")
+		const minVirtPods = 3
+		Expect(len(pods.Items)).To(BeNumerically(">=", minVirtPods), "At least one api, controller and handler need to be present")
 		Expect(endpoint.Subsets[0].Addresses).To(HaveLen(len(pods.Items)))
 
 		ips := map[string]string{}
@@ -336,7 +338,8 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		}
 	})
 	It("[test_id:4139]should return Prometheus metrics", func() {
-		endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
+		endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(
+			context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		for _, ep := range endpoint.Subsets[0].Addresses {
 			cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", libnet.FormatIPForURL(ep.IP))
@@ -360,21 +363,23 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		tr := &http.Transport{
 			MaxIdleConnsPerHost: concurrency,
 			TLSClientConfig: &tls.Config{
+				//nolint:gosec
 				InsecureSkipVerify: true,
 			},
 		}
 
 		client := http.Client{
-			Timeout:   time.Duration(1 * time.Second),
+			Timeout:   time.Duration(1),
 			Transport: tr,
 		}
 
 		errorsChan := make(chan error)
 		By("Scraping the Prometheus endpoint")
-		metricsURL := libmonitoring.PrepareMetricsURL(ip, 8443)
+		const metricsPort = 8443
+		metricsURL := libmonitoring.PrepareMetricsURL(ip, metricsPort)
 		for ix := 0; ix < concurrency; ix++ {
 			go func(ix int) {
-				req, _ := http.NewRequest("GET", metricsURL, nil)
+				req, _ := http.NewRequest("GET", metricsURL, http.NoBody)
 				resp, err := client.Do(req)
 				if err != nil {
 					_, fprintfErr := fmt.Fprintf(GinkgoWriter, "client: request: %v #%d: %v\n", req, ix, err) // troubleshooting helper
@@ -430,22 +435,34 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 			}
 		}
 	},
-		Entry("[test_id:4142] storage flush requests metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
-		Entry("[test_id:6228] storage flush requests metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
-		Entry("[test_id:4142] time spent on cache flushing metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_times_seconds_total", ">="),
-		Entry("[test_id:6229] time spent on cache flushing metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_times_seconds_total", ">="),
+		Entry("[test_id:4142] storage flush requests metric by using IPv4",
+			k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
+		Entry("[test_id:6228] storage flush requests metric by using IPv6",
+			k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
+		Entry("[test_id:4142] time spent on cache flushing metric by using IPv4",
+			k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_times_seconds_total", ">="),
+		Entry("[test_id:6229] time spent on cache flushing metric by using IPv6",
+			k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_times_seconds_total", ">="),
 		Entry("[test_id:4142] I/O read operations metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_iops_read_total", ">="),
 		Entry("[test_id:6230] I/O read operations metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_iops_read_total", ">="),
 		Entry("[test_id:4142] I/O write operations metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_iops_write_total", ">="),
 		Entry("[test_id:6231] I/O write operations metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_iops_write_total", ">="),
-		Entry("[test_id:4142] storage read operation time metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_times_seconds_total", ">="),
-		Entry("[test_id:6232] storage read operation time metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_times_seconds_total", ">="),
-		Entry("[test_id:4142] storage read traffic in bytes metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
-		Entry("[test_id:6233] storage read traffic in bytes metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
-		Entry("[test_id:4142] storage write operation time metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_times_seconds_total", ">="),
-		Entry("[test_id:6234] storage write operation time metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_times_seconds_total", ">="),
-		Entry("[test_id:4142] storage write traffic in bytes metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
-		Entry("[test_id:6235] storage write traffic in bytes metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
+		Entry("[test_id:4142] storage read operation time metric by using IPv4",
+			k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_times_seconds_total", ">="),
+		Entry("[test_id:6232] storage read operation time metric by using IPv6",
+			k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_times_seconds_total", ">="),
+		Entry("[test_id:4142] storage read traffic in bytes metric by using IPv4",
+			k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
+		Entry("[test_id:6233] storage read traffic in bytes metric by using IPv6",
+			k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
+		Entry("[test_id:4142] storage write operation time metric by using IPv4",
+			k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_times_seconds_total", ">="),
+		Entry("[test_id:6234] storage write operation time metric by using IPv6",
+			k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_times_seconds_total", ">="),
+		Entry("[test_id:4142] storage write traffic in bytes metric by using IPv4",
+			k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
+		Entry("[test_id:6235] storage write traffic in bytes metric by using IPv6",
+			k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
 	)
 
 	DescribeTable("should include metrics for a running VM", func(family k8sv1.IPFamily, metricSubstring, operator string) {
@@ -603,7 +620,10 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 func countReadyAndLeaderPods(pod *k8sv1.Pod, component string) (foundMetrics map[string]int, err error) {
 	virtClient := kubevirt.Client()
 	target := fmt.Sprintf("virt-%s", component)
-	endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
+	leadingMetric := fmt.Sprintf("kubevirt_virt_%s_leading_status 1", component)
+	readyMetric := fmt.Sprintf("kubevirt_virt_%s_ready_status 1", component)
+	endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(
+		context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -617,23 +637,13 @@ func countReadyAndLeaderPods(pod *k8sv1.Pod, component string) (foundMetrics map
 		}
 
 		cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", libnet.FormatIPForURL(ep.IP))
-		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "virt-handler", strings.Fields(cmd))
+		var stdout, stderr string
+		stdout, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, "virt-handler", strings.Fields(cmd))
 		if err != nil {
 			return nil, fmt.Errorf(remoteCmdErrPattern, cmd, stdout, stderr, err)
 		}
-
-		scrapedData := strings.Split(stdout, "\n")
-		for _, data := range scrapedData {
-			if strings.HasPrefix(data, "#") {
-				continue
-			}
-			switch data {
-			case fmt.Sprintf("kubevirt_virt_%s_leading_status 1", component):
-				foundMetrics["leading"]++
-			case fmt.Sprintf("kubevirt_virt_%s_ready_status 1", component):
-				foundMetrics["ready"]++
-			}
-		}
+		foundMetrics["leading"] += strings.Count(stdout, leadingMetric)
+		foundMetrics["ready"] += strings.Count(stdout, readyMetric)
 	}
 
 	return foundMetrics, err

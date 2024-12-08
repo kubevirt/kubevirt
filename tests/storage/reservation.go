@@ -21,11 +21,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -38,7 +38,7 @@ import (
 // feature gate PersistentReservation. The enablement/disablement of this
 // feature gate redeploys virt-handler pod, and this might interfer with other
 // tests.
-var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
+var _ = SIGDescribe("SCSI persistent reservation", Serial, func() {
 	const randLen = 8
 	var (
 		naa          string
@@ -187,13 +187,13 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 		Expect(err).ToNot(HaveOccurred())
 		fgDisabled = !checks.HasFeature(virtconfig.PersistentReservation)
 		if fgDisabled {
-			tests.EnableFeatureGate(virtconfig.PersistentReservation)
+			config.EnableFeatureGate(virtconfig.PersistentReservation)
 		}
 
 	})
 	AfterEach(func() {
 		if fgDisabled {
-			tests.DisableFeatureGate(virtconfig.PersistentReservation)
+			config.DisableFeatureGate(virtconfig.PersistentReservation)
 		}
 	})
 
@@ -211,7 +211,7 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 			device = findSCSIdisk(targetCliPod, backendDisk)
 			Expect(device).ToNot(BeEmpty())
 			By(fmt.Sprintf("Create PVC with SCSI disk %s", device))
-			pv, pvc, err = tests.CreatePVandPVCwithSCSIDisk(node, device, testsuite.NamespaceTestDefault, "scsi-disks", "scsipv", "scsipvc")
+			pv, pvc, err = CreatePVandPVCwithSCSIDisk(node, device, testsuite.NamespaceTestDefault, "scsi-disks", "scsipv", "scsipvc")
 			Expect(err).ToNot(HaveOccurred())
 			waitForVirtHandlerWithPrHelperReadyOnNode(node)
 			// Switching the PersistentReservation feature gate on/off
@@ -313,7 +313,7 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 
 	Context("with PersistentReservation feature gate toggled", func() {
 		It("should delete and recreate virt-handler", func() {
-			tests.DisableFeatureGate(virtconfig.PersistentReservation)
+			config.DisableFeatureGate(virtconfig.PersistentReservation)
 
 			Eventually(func() bool {
 				ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
@@ -330,10 +330,10 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 
 			nodes := libnode.GetAllSchedulableNodes(virtClient)
 			for _, node := range nodes.Items {
-				output, err := tests.ExecuteCommandInVirtHandlerPod(node.Name, []string{"mount"})
+				output, err := libnode.ExecuteCommandInVirtHandlerPod(node.Name, []string{"mount"})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(output).ToNot(ContainSubstring("kubevirt/daemons/pr"))
-				output, err = tests.ExecuteCommandInVirtHandlerPod(node.Name, []string{"ls", reservation.GetPrHelperSocketDir()})
+				output, err = libnode.ExecuteCommandInVirtHandlerPod(node.Name, []string{"ls", reservation.GetPrHelperSocketDir()})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(output).To(BeEmpty())
 			}

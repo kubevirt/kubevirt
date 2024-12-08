@@ -22,6 +22,8 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -32,7 +34,7 @@ const (
 	cmdNumberUSBs   = "dmesg | grep -c idVendor=46f4"
 )
 
-var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, decorators.SigCompute, decorators.USB, func() {
+var _ = Describe("[sig-compute][USB] host USB Passthrough", Serial, decorators.SigCompute, decorators.USB, func() {
 	var virtClient kubecli.KubevirtClient
 	var config v1.KubeVirtConfiguration
 	var vmi *v1.VirtualMachineInstance
@@ -42,13 +44,13 @@ var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, deco
 		kv := libkubevirt.GetCurrentKv(virtClient)
 		config = kv.Spec.Configuration
 
-		nodeName := tests.NodeNameWithHandler()
+		nodeName := libnode.GetNodeNameWithHandler()
 		Expect(nodeName).ToNot(BeEmpty())
 
 		// Emulated USB devices only on c9s providers. Remove this when sig-compute 1.26 is the
 		// oldest sig-compute with test with.
 		// See: https://github.com/kubevirt/project-infra/pull/2922
-		stdout, err := tests.ExecuteCommandInVirtHandlerPod(nodeName, []string{"dmesg"})
+		stdout, err := libnode.ExecuteCommandInVirtHandlerPod(nodeName, []string{"dmesg"})
 		Expect(err).ToNot(HaveOccurred())
 		if strings.Count(stdout, "idVendor=46f4") == 0 {
 			Skip("No emulated USB devices present for functional test.")
@@ -83,7 +85,7 @@ var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, deco
 							}},
 					}},
 			}
-			tests.UpdateKubeVirtConfigValueAndWait(config)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 			By("Creating a Fedora VMI with the usb host device")
 			hostDevs := []v1.HostDevice{}
@@ -118,7 +120,7 @@ var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, deco
 				addr := hostDevice.Source.Address
 				path := fmt.Sprintf("%sdev/bus/usb/00%s/00%s", pkgUtil.HostRootMount, addr.Bus, addr.Device)
 				cmd := []string{"stat", "--printf", `"%u %g"`, path}
-				stdout, err := tests.ExecuteCommandInVirtHandlerPod(vmi.Status.NodeName, cmd)
+				stdout, err := libnode.ExecuteCommandInVirtHandlerPod(vmi.Status.NodeName, cmd)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(stdout).Should(Equal(`"107 107"`))
 			}

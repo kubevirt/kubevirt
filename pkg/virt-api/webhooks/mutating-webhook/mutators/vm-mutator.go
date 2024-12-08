@@ -29,11 +29,10 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
-	apiinstancetype "kubevirt.io/api/instancetype"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -117,25 +116,14 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		}
 	}
 
-	mutator.setDefaultInstancetypeKind(&vm)
-	mutator.setDefaultPreferenceKind(&vm)
-	preferenceSpec := mutator.getPreferenceSpec(&vm)
-	mutator.setDefaultArchitecture(&vm)
-	mutator.setDefaultMachineType(&vm, preferenceSpec)
-	mutator.setPreferenceStorageClassName(&vm, preferenceSpec)
+	// FIXME(lyarwood): Handle err here
+	preferenceSpec, _ := mutator.InstancetypeMethods.FindPreferenceSpec(&vm)
+	defaults.SetVirtualMachineDefaults(&vm, mutator.ClusterConfig, preferenceSpec)
 
-	patchBytes, err := patch.GeneratePatchPayload(
-		patch.PatchOperation{
-			Op:    patch.PatchReplaceOp,
-			Path:  "/spec",
-			Value: vm.Spec,
-		},
-		patch.PatchOperation{
-			Op:    patch.PatchReplaceOp,
-			Path:  "/metadata",
-			Value: vm.ObjectMeta,
-		},
-	)
+	patchBytes, err := patch.New(
+		patch.WithReplace("/spec", vm.Spec),
+		patch.WithReplace("/metadata", vm.ObjectMeta),
+	).GeneratePayload()
 
 	if err != nil {
 		log.Log.Reason(err).Error("admission failed to marshall patch to JSON")
@@ -152,79 +140,6 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		Allowed:   true,
 		Patch:     patchBytes,
 		PatchType: &jsonPatchType,
-	}
-}
-
-func (mutator *VMsMutator) getPreferenceSpec(vm *v1.VirtualMachine) *instancetypev1beta1.VirtualMachinePreferenceSpec {
-	preferenceSpec, err := mutator.InstancetypeMethods.FindPreferenceSpec(vm)
-	if err != nil {
-		// Log but ultimately swallow any preference lookup errors here and let the validating webhook handle them
-		log.Log.Reason(err).Error("Ignoring error attempting to lookup PreferredMachineType.")
-		return nil
-	}
-
-	return preferenceSpec
-}
-
-func (mutator *VMsMutator) setDefaultMachineType(vm *v1.VirtualMachine, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) {
-	// Nothing to do, let's the validating webhook fail later
-	if vm.Spec.Template == nil {
-		return
-	}
-
-	if machine := vm.Spec.Template.Spec.Domain.Machine; machine != nil && machine.Type != "" {
-		return
-	}
-
-	if vm.Spec.Template.Spec.Domain.Machine == nil {
-		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{}
-	}
-
-	if preferenceSpec != nil && preferenceSpec.Machine != nil {
-		vm.Spec.Template.Spec.Domain.Machine.Type = preferenceSpec.Machine.PreferredMachineType
-	}
-
-	// Only use the cluster default if the user hasn't provided a machine type or referenced a preference with PreferredMachineType
-	if vm.Spec.Template.Spec.Domain.Machine.Type == "" {
-		vm.Spec.Template.Spec.Domain.Machine.Type = mutator.ClusterConfig.GetMachineType(vm.Spec.Template.Spec.Architecture)
-	}
-}
-
-func (mutator *VMsMutator) setPreferenceStorageClassName(vm *v1.VirtualMachine, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) {
-	// Nothing to do, let's the validating webhook fail later
-	if vm.Spec.Template == nil {
-		return
-	}
-
-	if preferenceSpec != nil && preferenceSpec.Volumes != nil && preferenceSpec.Volumes.PreferredStorageClassName != "" {
-		for _, dv := range vm.Spec.DataVolumeTemplates {
-			if dv.Spec.PVC != nil && dv.Spec.PVC.StorageClassName == nil {
-				dv.Spec.PVC.StorageClassName = &preferenceSpec.Volumes.PreferredStorageClassName
-			}
-			if dv.Spec.Storage != nil && dv.Spec.Storage.StorageClassName == nil {
-				dv.Spec.Storage.StorageClassName = &preferenceSpec.Volumes.PreferredStorageClassName
-			}
-		}
-	}
-}
-
-func (mutator *VMsMutator) setDefaultInstancetypeKind(vm *v1.VirtualMachine) {
-	if vm.Spec.Instancetype == nil {
-		return
-	}
-
-	if vm.Spec.Instancetype.Kind == "" {
-		vm.Spec.Instancetype.Kind = apiinstancetype.ClusterSingularResourceName
-	}
-}
-
-func (mutator *VMsMutator) setDefaultPreferenceKind(vm *v1.VirtualMachine) {
-	if vm.Spec.Preference == nil {
-		return
-	}
-
-	if vm.Spec.Preference.Kind == "" {
-		vm.Spec.Preference.Kind = apiinstancetype.ClusterSingularPreferenceResourceName
 	}
 }
 
@@ -270,12 +185,6 @@ func validateMatcherUpdate(oldMatcher, newMatcher v1.Matcher) error {
 		}
 	}
 	return nil
-}
-
-func (mutator *VMsMutator) setDefaultArchitecture(vm *v1.VirtualMachine) {
-	if vm.Spec.Template.Spec.Architecture == "" {
-		vm.Spec.Template.Spec.Architecture = mutator.ClusterConfig.GetDefaultArchitecture()
-	}
 }
 
 func validateInstancetypeMatcher(vm *v1.VirtualMachine) []metav1.StatusCause {

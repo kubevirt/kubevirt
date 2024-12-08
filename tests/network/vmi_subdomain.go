@@ -73,7 +73,7 @@ var _ = SIGDescribe("Subdomain", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		DescribeTable("VMI should have the expected FQDN", func(f func() *v1.VirtualMachineInstance, subdom string, hostname string) {
+		DescribeTable("VMI should have the expected FQDN", func(f func() *v1.VirtualMachineInstance, subdom, hostname string) {
 			vmiSpec := f()
 			var expectedFQDN, domain string
 			if subdom != "" {
@@ -114,8 +114,10 @@ var _ = SIGDescribe("Subdomain", func() {
 			vmiSpec.Spec.DNSPolicy = "None"
 			vmiSpec.Spec.DNSConfig = &k8sv1.PodDNSConfig{
 				Nameservers: []string{dnsServerIP},
-				Searches: []string{testsuite.NamespaceTestDefault + ".svc.cluster.local",
-					"svc.cluster.local", "cluster.local", testsuite.NamespaceTestDefault + ".this.is.just.a.very.long.dummy"},
+				Searches: []string{
+					testsuite.NamespaceTestDefault + ".svc.cluster.local",
+					"svc.cluster.local", "cluster.local", testsuite.NamespaceTestDefault + ".this.is.just.a.very.long.dummy",
+				},
 			}
 
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmiSpec, metav1.CreateOptions{})
