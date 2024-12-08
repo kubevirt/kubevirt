@@ -149,6 +149,12 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
+	for _, validator := range admitter.Validators {
+		if causes = validator.Validate(k8sfield.NewPath("spec", "template", "spec"), &vmCopy.Spec.Template.Spec); len(causes) > 0 {
+			return webhookutils.ToAdmissionResponse(causes)
+		}
+	}
+
 	causes, err = admitter.validateVirtualMachineDataVolumeTemplateNamespace(ar.Request, &vm)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
