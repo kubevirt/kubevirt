@@ -1596,8 +1596,9 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
               type: object
             vmRolloutStrategy:
-              description: VMRolloutStrategy defines how changes to a VM object propagate
-                to its VMI
+              description: VMRolloutStrategy defines how changes to liveUpdate-able
+                fields, including Domain's memory and sockets, as well as tolerations
+                and affinity, are propagated from a VM object to its VMI.
               enum:
               - Stage
               - LiveUpdate

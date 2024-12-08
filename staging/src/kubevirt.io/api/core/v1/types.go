@@ -2538,7 +2538,7 @@ type KubeVirtConfiguration struct {
 	// LiveUpdateConfiguration holds defaults for live update features
 	LiveUpdateConfiguration *LiveUpdateConfiguration `json:"liveUpdateConfiguration,omitempty"`
 
-	// VMRolloutStrategy defines how changes to a VM object propagate to its VMI
+	// VMRolloutStrategy defines how changes to liveUpdate-able fields, including Domain's memory and sockets, as well as tolerations and affinity, are propagated from a VM object to its VMI.
 	// +nullable
 	// +kubebuilder:validation:Enum=Stage;LiveUpdate
 	VMRolloutStrategy *VMRolloutStrategy `json:"vmRolloutStrategy,omitempty"`
