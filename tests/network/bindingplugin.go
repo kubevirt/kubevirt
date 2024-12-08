@@ -102,9 +102,9 @@ var _ = SIGDescribe("network binding plugin", Serial, decorators.NetCustomBindin
 		)
 
 		BeforeEach(func() {
-			namespace := testsuite.GetTestNamespace(nil)
-			Expect(libnet.CreateMacvtapNetworkAttachmentDefinition(namespace, macvtapNetworkName, macvtapLowerDevice)).
-				To(Succeed(), "A macvtap network named %s should be provisioned", macvtapNetworkName)
+			netAttachDef := libnet.NewMacvtapNetAttachDef(macvtapNetworkName, macvtapLowerDevice)
+			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(nil), netAttachDef)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		BeforeEach(func() {

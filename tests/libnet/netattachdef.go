@@ -37,6 +37,13 @@ func NewPasstNetAttachDef(name string) *nadv1.NetworkAttachmentDefinition {
 	return NewNetAttachDef(name, NewNetConfig(name, NewNetPluginConfig(pluginType, nil)))
 }
 
+func NewMacvtapNetAttachDef(name, lowerDevice string) *nadv1.NetworkAttachmentDefinition {
+	const pluginType = "macvtap"
+	netAttachDef := NewNetAttachDef(name, NewNetConfig(name, NewNetPluginConfig(pluginType, nil)))
+	netAttachDef.Annotations = map[string]string{ResourceNameAnnotation: "macvtap.network.kubevirt.io/" + lowerDevice}
+	return netAttachDef
+}
+
 func NewNetAttachDef(name, config string) *nadv1.NetworkAttachmentDefinition {
 	return &nadv1.NetworkAttachmentDefinition{
 		ObjectMeta: metav1.ObjectMeta{Name: name},

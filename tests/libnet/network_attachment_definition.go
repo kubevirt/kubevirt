@@ -19,22 +19,8 @@
 
 package libnet
 
-import (
-	"context"
-)
-
 const (
 	// ResourceNameAnnotation represents a resource name that is associated with the network.
 	// It could be found on NetworkAttachmentDefinition objects.
 	ResourceNameAnnotation = "k8s.v1.cni.cncf.io/resourceName"
 )
-
-func CreateMacvtapNetworkAttachmentDefinition(namespace, networkName, macvtapLowerDevice string) error {
-	const pluginType = "macvtap"
-	netAttachDef := NewNetAttachDef(networkName, NewNetConfig(networkName, NewNetPluginConfig(pluginType, nil)))
-	netAttachDef.Annotations = map[string]string{
-		ResourceNameAnnotation: "macvtap.network.kubevirt.io/" + macvtapLowerDevice,
-	}
-	_, err := CreateNetAttachDef(context.Background(), namespace, netAttachDef)
-	return err
-}
