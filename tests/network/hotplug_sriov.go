@@ -120,16 +120,7 @@ func createSRIOVNetworkAttachmentDefinition(namespace, networkName, sriovResourc
 	const pluginType = "sriov"
 	netAttachDef := libnet.NewNetAttachDef(
 		networkName,
-		libnet.NewNetConfig("sriov", libnet.NewNetPluginConfig(
-			pluginType,
-			map[string]interface{}{
-				"vlan": 0,
-				"ipam": map[string]string{
-					"type":   "host-local",
-					"subnet": "10.1.1.0/24",
-				},
-			},
-		)),
+		libnet.NewNetConfig("sriov", libnet.NewNetPluginConfig(pluginType, map[string]interface{}{"vlan": 0})),
 	)
 	netAttachDef.Annotations = map[string]string{libnet.ResourceNameAnnotation: sriovResourceName}
 	_, err := libnet.CreateNetAttachDef(context.Background(), namespace, netAttachDef)
