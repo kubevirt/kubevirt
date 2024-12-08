@@ -113,7 +113,8 @@ make cluster-up
 
 export KUBECONFIG=$(_kubevirtci/cluster-up/kubeconfig.sh)
 
-export KUBEVIRTCI_TAG=$(curl -L -Ss https://storage.googleapis.com/kubevirt-prow/release/kubevirt/kubevirtci/latest)
+# export KUBEVIRTCI_TAG=$(curl -L -Ss https://storage.googleapis.com/kubevirt-prow/release/kubevirt/kubevirtci/latest)
+export KUBEVIRTCI_TAG=2412041602-733e595f
 export KUBECTL=$(pwd)/_kubevirtci/cluster-up/kubectl.sh
 
 # install OLM on the cluster
