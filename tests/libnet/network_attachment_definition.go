@@ -27,16 +27,7 @@ const (
 	// ResourceNameAnnotation represents a resource name that is associated with the network.
 	// It could be found on NetworkAttachmentDefinition objects.
 	ResourceNameAnnotation = "k8s.v1.cni.cncf.io/resourceName"
-
-	PasstNetAttDef = "netbindingpasst"
 )
-
-func CreatePasstNetworkAttachmentDefinition(namespace string) error {
-	const pluginType = "kubevirt-passt-binding" // #nosec G101
-	netAttachDef := NewNetAttachDef(PasstNetAttDef, NewNetConfig(PasstNetAttDef, NewNetPluginConfig(pluginType, nil)))
-	_, err := CreateNetAttachDef(context.Background(), namespace, netAttachDef)
-	return err
-}
 
 func CreateMacvtapNetworkAttachmentDefinition(namespace, networkName, macvtapLowerDevice string) error {
 	const pluginType = "macvtap"
