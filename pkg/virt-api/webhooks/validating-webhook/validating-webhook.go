@@ -42,8 +42,8 @@ func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtco
 	validating_webhooks.Serve(resp, req, admitters.NewVMsAdmitter(clusterConfig, virtCli, informers, validators...))
 }
 
-func ServeVMIRS(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
-	validating_webhooks.Serve(resp, req, &admitters.VMIRSAdmitter{ClusterConfig: clusterConfig})
+func ServeVMIRS(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, validators ...admitters.Validator) {
+	validating_webhooks.Serve(resp, req, &admitters.VMIRSAdmitter{ClusterConfig: clusterConfig, Validators: validators})
 }
 
 func ServeVMPool(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {

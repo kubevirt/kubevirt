@@ -40,6 +40,7 @@ import (
 
 type VMIRSAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
+	Validators    []Validator
 }
 
 func (admitter *VMIRSAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -61,6 +62,10 @@ func (admitter *VMIRSAdmitter) Admit(_ context.Context, ar *admissionv1.Admissio
 	}
 
 	causes := ValidateVMIRSSpec(k8sfield.NewPath("spec"), &vmirs.Spec, admitter.ClusterConfig)
+
+	for _, validator := range admitter.Validators {
+		causes = append(causes, validator.Validate(k8sfield.NewPath("spec", "template", "spec"), &vmirs.Spec.Template.Spec)...)
+	}
 
 	if ar.Request.Operation == admissionv1.Create {
 		clusterCfg := admitter.ClusterConfig.GetConfig()
