@@ -391,4 +391,13 @@ var _ = Describe("Validating VMI network spec", func() {
 			),
 		)
 	})
+
+	It("should accept a single interface and network", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+		spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+		validator := admitter.NewValidator(stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true})
+		Expect(validator.Validate(k8sfield.NewPath("fake"), spec)).To(BeEmpty())
+	})
 })
