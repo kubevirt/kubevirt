@@ -117,11 +117,7 @@ var _ = SIGDescribe(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 })
 
 func createSRIOVNetworkAttachmentDefinition(namespace, networkName, sriovResourceName string) error {
-	const pluginType = "sriov"
-	netAttachDef := libnet.NewNetAttachDef(
-		networkName,
-		libnet.NewNetConfig("sriov", libnet.NewNetPluginConfig(pluginType, map[string]interface{}{"vlan": 0})),
-	)
+	netAttachDef := libnet.NewSriovNetAttachDef(networkName, 0)
 	netAttachDef.Annotations = map[string]string{libnet.ResourceNameAnnotation: sriovResourceName}
 	_, err := libnet.CreateNetAttachDef(context.Background(), namespace, netAttachDef)
 	return err

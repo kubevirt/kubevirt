@@ -53,6 +53,15 @@ func NewBridgeNetAttachDef(name, bridgeName string, opts ...pluginConfOption) *n
 	return NewNetAttachDef(name, NewNetConfig(name, pluginConfig))
 }
 
+func NewSriovNetAttachDef(name string, vlanID int, opts ...pluginConfOption) *nadv1.NetworkAttachmentDefinition {
+	const pluginType = "sriov"
+	pluginConf := map[string]interface{}{"vlan": vlanID}
+	for _, f := range opts {
+		f(pluginConf)
+	}
+	return NewNetAttachDef(name, NewNetConfig("sriov", NewNetPluginConfig(pluginType, pluginConf)))
+}
+
 func NewPasstNetAttachDef(name string) *nadv1.NetworkAttachmentDefinition {
 	const pluginType = "kubevirt-passt-binding"
 	return NewNetAttachDef(name, NewNetConfig(name, NewNetPluginConfig(pluginType, nil)))
@@ -125,6 +134,12 @@ func WithMacSpoofChk(enabled bool) pluginConfOption {
 func WithIPAM(ipam map[string]string) pluginConfOption {
 	return func(conf map[string]interface{}) {
 		conf["ipam"] = ipam
+	}
+}
+
+func WithLinkState() pluginConfOption {
+	return func(conf map[string]interface{}) {
+		conf["link_state"] = "enable"
 	}
 }
 
