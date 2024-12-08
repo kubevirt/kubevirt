@@ -42,6 +42,7 @@ import (
 
 type VMPoolAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
+	Validators    []Validator
 }
 
 func (admitter *VMPoolAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -79,6 +80,13 @@ func (admitter *VMPoolAdmitter) Admit(_ context.Context, ar *admissionv1.Admissi
 	}
 
 	causes := ValidateVMPoolSpec(ar, k8sfield.NewPath("spec"), &pool, admitter.ClusterConfig)
+
+	for _, validator := range admitter.Validators {
+		causes = append(causes, validator.Validate(
+			k8sfield.NewPath("spec", "virtualMachineTemplate", "spec", "template", "spec"),
+			&pool.Spec.VirtualMachineTemplate.Spec.Template.Spec)...,
+		)
+	}
 
 	if ar.Request.Operation == admissionv1.Create {
 		clusterCfg := admitter.ClusterConfig.GetConfig()
