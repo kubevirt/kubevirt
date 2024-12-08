@@ -11,6 +11,7 @@ go_library(
         "preference-admitter.go",
         "status-admitter.go",
         "validate-k8s-utils.go",
+        "validators.go",
         "vmclone-admitter.go",
         "vmexport-admitter.go",
         "vmi-create-admitter.go",

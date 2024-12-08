@@ -87,7 +87,6 @@ var restrictedVmiLabels = map[string]bool{
 
 const (
 	nameOfTypeNotFoundMessagePattern  = "%s '%s' not found."
-	listExceedsLimitMessagePattern    = "%s list exceeds the %d element limit in length"
 	valueMustBePositiveMessagePattern = "%s '%s': must be greater than or equal to 0."
 )
 
@@ -95,6 +94,7 @@ var isValidExpression = regexp.MustCompile(`^[A-Za-z0-9_.+-]+$`).MatchString
 
 type VMICreateAdmitter struct {
 	ClusterConfig *virtconfig.ClusterConfig
+	Validators    []Validator
 }
 
 func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -114,8 +114,9 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 		causes = append(causes, deprecation.ValidateFeatureGates(devCfg.FeatureGates, &vmi.Spec)...)
 	}
 
-	netValidator := netadmitter.NewValidator(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)
-	causes = append(causes, netValidator.ValidateCreation()...)
+	for _, validator := range admitter.Validators {
+		causes = append(causes, validator.ValidateCreation(k8sfield.NewPath("spec"), &vmi.Spec)...)
+	}
 
 	causes = append(causes, ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)...)
 	// We only want to validate that volumes are mapped to disks or filesystems during VMI admittance, thus this logic is seperated from the above call that is shared with the VM admitter.
@@ -176,8 +177,8 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateSpecTopologySpreadConstraints(field, spec)...)
 	causes = append(causes, validateArchitecture(field, spec, config)...)
 
-	netValidator := netadmitter.NewValidator(field, spec, config)
-	causes = append(causes, netValidator.Validate()...)
+	netValidator := netadmitter.NewValidator(config)
+	causes = append(causes, netValidator.Validate(field, spec)...)
 
 	causes = append(causes, validateBootOrder(field, spec, volumeNameMap)...)
 
