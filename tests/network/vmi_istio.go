@@ -460,20 +460,24 @@ var istioTestsWithMasqueradeBinding = func() {
 }
 
 var istioTestsWithPasstBinding = func() {
+	const passtNetAttDefName = "netbindingpasst"
+
 	BeforeEach(func() {
 		const passtBindingName = "passt"
 		passtSidecarImage := libregistry.GetUtilityImageFromRegistry("network-passt-binding")
 
 		err := config.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
 			SidecarImage:                passtSidecarImage,
-			NetworkAttachmentDefinition: libnet.PasstNetAttDef,
+			NetworkAttachmentDefinition: passtNetAttDefName,
 			Migration:                   &v1.InterfaceBindingMigration{Method: v1.LinkRefresh},
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	BeforeEach(func() {
-		Expect(libnet.CreatePasstNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil))).To(Succeed())
+		netAttachDef := libnet.NewPasstNetAttachDef(passtNetAttDefName)
+		_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(nil), netAttachDef)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	istioTests(Passt)

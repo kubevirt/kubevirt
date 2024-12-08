@@ -32,6 +32,11 @@ import (
 	nadv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 )
 
+func NewPasstNetAttachDef(name string) *nadv1.NetworkAttachmentDefinition {
+	const pluginType = "kubevirt-passt-binding"
+	return NewNetAttachDef(name, NewNetConfig(name, NewNetPluginConfig(pluginType, nil)))
+}
+
 func NewNetAttachDef(name, config string) *nadv1.NetworkAttachmentDefinition {
 	return &nadv1.NetworkAttachmentDefinition{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
