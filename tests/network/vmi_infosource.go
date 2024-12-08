@@ -76,7 +76,18 @@ var _ = SIGDescribe("Infosource", func() {
 
 		BeforeEach(func() {
 			By("Create NetworkAttachmentDefinition")
-			Expect(libnet.CreateNAD(testsuite.NamespaceTestDefault, nadName)).To(Succeed())
+			const cniPluginType = "cnv-bridge"
+			netAttachDef := libnet.NewNetAttachDef(
+				nadName,
+				libnet.NewNetConfig(nadName, libnet.NewNetPluginConfig(
+					cniPluginType,
+					map[string]interface{}{
+						"bridge": nadName,
+					},
+				)),
+			)
+			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.NamespaceTestDefault, netAttachDef)
+			Expect(err).NotTo(HaveOccurred())
 
 			defaultBridgeInterface := libvmi.InterfaceDeviceWithBridgeBinding(primaryNetwork)
 			secondaryLinuxBridgeInterface1 := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetwork1.Name)
@@ -90,7 +101,6 @@ var _ = SIGDescribe("Infosource", func() {
 				libvmi.WithNetwork(secondaryNetwork2),
 				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(manipulateGuestLinksScript(primaryInterfaceNewMac, dummyInterfaceMac))))
 
-			var err error
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmiSpec, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)

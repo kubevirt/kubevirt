@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
+// Deprecated: Use `CreateNetAttachDef` instead.
 func CreateNAD(namespace, nadName string) error {
 	nadSpec := newNetworkAttachmentDefinitionUsingBridgeCNI(nadName)
 	kubevirtClient, err := kubecli.GetKubevirtClient()
