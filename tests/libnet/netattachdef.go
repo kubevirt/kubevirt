@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -38,33 +39,36 @@ func NewNetAttachDef(name, config string) *nadv1.NetworkAttachmentDefinition {
 	}
 }
 
-func NewNetConfig(name, pluginConfig string) string {
+func NewNetConfig(name string, pluginsConfigs ...map[string]interface{}) string {
 	const cniVersion = "0.3.1"
-	netConfig := fmt.Sprintf(`{
-      "cniVersion": %q,
-      "name": %q,
-      "plugins": [%s]
-	}`,
-		cniVersion, name, pluginConfig,
-	)
-	var nc map[string]interface{}
-	if err := json.Unmarshal([]byte(netConfig), &nc); err != nil {
-		panic(fmt.Sprintf("failed to unmarshal:\n%s\nerror: %v", netConfig, err))
+	netConfig := map[string]interface{}{
+		"cniVersion": cniVersion,
+		"name":       name,
 	}
-	return netConfig
+	switch len(pluginsConfigs) {
+	case 0:
+		panic("network configuration requires at least one plugin")
+	case 1:
+		// The SR-IOV CNI used at the moment is (for unknown reason) no supporting the new specification
+		// with `plugins`. Therefore, the older format is kept until this is resolved.
+		maps.Copy(netConfig, pluginsConfigs[0])
+	default:
+		netConfig["plugins"] = pluginsConfigs
+	}
+
+	rawNetConfig, err := json.Marshal(netConfig)
+	if err != nil {
+		panic(fmt.Sprintf("failed to marshal:\n%s\nerror: %v", netConfig, err))
+	}
+	return string(rawNetConfig)
 }
 
-func NewNetPluginConfig(cniType string, conf map[string]interface{}) string {
+func NewNetPluginConfig(cniType string, conf map[string]interface{}) map[string]interface{} {
 	if conf == nil {
 		conf = map[string]interface{}{}
 	}
 	conf["type"] = cniType
-
-	pluginConfig, err := json.Marshal(conf)
-	if err != nil {
-		panic(fmt.Sprintf("failed to marshal:\n%s\nerror: %v", conf, err))
-	}
-	return string(pluginConfig)
+	return conf
 }
 
 func CreateNetAttachDef(
