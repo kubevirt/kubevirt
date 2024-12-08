@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/network/link"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -57,7 +58,12 @@ func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface 
 		return nil, err
 	}
 
-	ifaceLink, err := link.DiscoverByNetwork(podnic.handler, podnic.vmi.Spec.Networks, *podnic.vmiSpecNetwork, vmi.Status.Interfaces)
+	ifaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, network.Name)
+	if ifaceStatus == nil {
+		return nil, fmt.Errorf("could not find interface status for %s", network.Name)
+	}
+
+	ifaceLink, err := podnic.handler.LinkByName(ifaceStatus.PodInterfaceName)
 	if err != nil {
 		return nil, err
 	}
