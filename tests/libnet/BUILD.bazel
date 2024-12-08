@@ -9,7 +9,6 @@ go_library(
         "mac.go",
         "namespace.go",
         "netattachdef.go",
-        "network_attachment_definition.go",
         "ping.go",
         "plumbing.go",
         "skips.go",
