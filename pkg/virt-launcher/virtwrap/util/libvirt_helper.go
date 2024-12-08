@@ -6,7 +6,6 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"github.com/nxadm/tail"
 	"io"
 	"os"
 	"os/exec"
@@ -299,20 +298,25 @@ func startVirtlogdLogging(stopChan chan struct{}, domainName string, nonRoot boo
 				time.Sleep(time.Second)
 			}
 			// #nosec No risk for path injection. logfile has a static basedir
-			t, err1 := tail.TailFile(logfile, tail.Config{Follow: true, ReOpen: true})
-			if err1 != nil {
-				log.Log.Reason(err1).Error("failed to tail logfile at path: \"%s\"", logfile)
+			file, err := os.Open(logfile)
+			if err != nil {
+				errMsg := fmt.Sprintf("failed to open logfile in path: \"%s\"", logfile)
+				log.Log.Reason(err).Error(errMsg)
 				return
 			}
+			defer util.CloseIOAndCheckErr(file, nil)
 
-			defer t.Stop()
-
-			for line := range t.Lines {
-				if line.Err != nil {
-					log.Log.Reason(line.Err).Error("error while reading line from tailed file")
-					continue
+			scanner := bufio.NewScanner(file)
+			scanner.Buffer(make([]byte, 1024), 512*1024)
+			for {
+				for scanner.Scan() {
+					log.LogQemuLogLine(log.Log, scanner.Text())
 				}
-				log.LogQemuLogLine(log.Log, line.Text)
+				if err := scanner.Err(); err != nil {
+					log.Log.Reason(err).Error("failed to read virtlogd logs")
+					break
+				}
+				time.Sleep(100 * time.Millisecond)
 			}
 		}()
 
