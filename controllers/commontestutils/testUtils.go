@@ -297,6 +297,9 @@ func (ClusterInfoMock) IsControlPlaneHighlyAvailable() bool {
 func (ClusterInfoMock) IsInfrastructureHighlyAvailable() bool {
 	return true
 }
+func (ClusterInfoMock) SetHighAvailabilityMode(_ context.Context, _ client.Client) error {
+	return nil
+}
 func (ClusterInfoMock) GetDomain() string {
 	return "domain"
 }
@@ -366,6 +369,9 @@ func (ClusterInfoSNOMock) IsControlPlaneHighlyAvailable() bool {
 func (ClusterInfoSNOMock) IsInfrastructureHighlyAvailable() bool {
 	return false
 }
+func (ClusterInfoSNOMock) SetHighAvailabilityMode(_ context.Context, _ client.Client) error {
+	return nil
+}
 func (ClusterInfoSNOMock) GetDomain() string {
 	return "domain"
 }
@@ -434,6 +440,9 @@ func (ClusterInfoSRCPHAIMock) IsControlPlaneHighlyAvailable() bool {
 }
 func (ClusterInfoSRCPHAIMock) IsInfrastructureHighlyAvailable() bool {
 	return true
+}
+func (ClusterInfoSRCPHAIMock) SetHighAvailabilityMode(_ context.Context, _ client.Client) error {
+	return nil
 }
 func (ClusterInfoSRCPHAIMock) GetPod() *corev1.Pod {
 	return pod

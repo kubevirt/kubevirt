@@ -726,6 +726,11 @@ type HyperConvergedStatus struct {
 	// SystemHealthStatus reflects the health of HCO and its secondary resources, based on the aggregated conditions.
 	// +optional
 	SystemHealthStatus string `json:"systemHealthStatus,omitempty"`
+
+	// InfrastructureHighlyAvailable describes whether the cluster has only one worker node
+	// (false) or more (true).
+	// +optional
+	InfrastructureHighlyAvailable bool `json:"infrastructureHighlyAvailable,omitempty"`
 }
 
 type Version struct {

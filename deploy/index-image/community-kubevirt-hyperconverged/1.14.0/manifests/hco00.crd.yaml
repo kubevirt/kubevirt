@@ -4873,6 +4873,11 @@ spec:
                   DataImportSchedule is the cron expression that is used in for the hard-coded data import cron templates. HCO
                   generates the value of this field once and stored in the status field, so will survive restart.
                 type: string
+              infrastructureHighlyAvailable:
+                description: |-
+                  InfrastructureHighlyAvailable describes whether the cluster has only one worker node
+                  (false) or more (true).
+                type: boolean
               observedGeneration:
                 description: |-
                   ObservedGeneration reflects the HyperConverged resource generation. If the ObservedGeneration is less than the

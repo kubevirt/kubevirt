@@ -736,6 +736,13 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedS
 							Format:      "",
 						},
 					},
+					"infrastructureHighlyAvailable": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InfrastructureHighlyAvailable describes whether the cluster has only one worker node (false) or more (true).",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

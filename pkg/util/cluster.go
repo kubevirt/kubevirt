@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"slices"
+	"sync/atomic"
 
 	"github.com/go-logr/logr"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
@@ -16,8 +17,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/client-go/discovery"
 	"k8s.io/utils/net"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,6 +33,7 @@ type ClusterInfo interface {
 	IsManagedByOLM() bool
 	IsControlPlaneHighlyAvailable() bool
 	IsInfrastructureHighlyAvailable() bool
+	SetHighAvailabilityMode(ctx context.Context, cl client.Client) error
 	IsConsolePluginImageProvided() bool
 	IsMonitoringAvailable() bool
 	IsDeschedulerAvailable() bool
@@ -52,8 +52,8 @@ type ClusterInfoImp struct {
 	runningInOpenshift            bool
 	managedByOLM                  bool
 	runningLocally                bool
-	controlPlaneHighlyAvailable   bool
-	infrastructureHighlyAvailable bool
+	controlPlaneHighlyAvailable   atomic.Bool
+	infrastructureHighlyAvailable atomic.Bool
 	consolePluginImageProvided    bool
 	monitoringAvailable           bool
 	deschedulerAvailable          bool
@@ -89,7 +89,7 @@ func (c *ClusterInfoImp) Init(ctx context.Context, cl client.Client, logger logr
 	if c.runningInOpenshift {
 		err = c.initOpenshift(ctx, cl)
 	} else {
-		err = c.initKubernetes(cl)
+		err = c.initKubernetes(ctx, cl)
 	}
 	if err != nil {
 		return err
@@ -123,34 +123,8 @@ func (c *ClusterInfoImp) Init(ctx context.Context, cl client.Client, logger logr
 	return nil
 }
 
-func (c *ClusterInfoImp) initKubernetes(cl client.Client) error {
-	masterNodeList := &corev1.NodeList{}
-	masterReq, err := labels.NewRequirement("node-role.kubernetes.io/master", selection.Exists, nil)
-	if err != nil {
-		return err
-	}
-	masterSelector := labels.NewSelector().Add(*masterReq)
-	masterLabelSelector := client.MatchingLabelsSelector{Selector: masterSelector}
-	err = cl.List(context.TODO(), masterNodeList, masterLabelSelector)
-	if err != nil {
-		return err
-	}
-
-	workerNodeList := &corev1.NodeList{}
-	workerReq, err := labels.NewRequirement("node-role.kubernetes.io/worker", selection.Exists, nil)
-	if err != nil {
-		return err
-	}
-	workerSelector := labels.NewSelector().Add(*workerReq)
-	workerLabelSelector := client.MatchingLabelsSelector{Selector: workerSelector}
-	err = cl.List(context.TODO(), workerNodeList, workerLabelSelector)
-	if err != nil {
-		return err
-	}
-
-	c.controlPlaneHighlyAvailable = len(masterNodeList.Items) >= 3
-	c.infrastructureHighlyAvailable = len(workerNodeList.Items) >= 2
-	return nil
+func (c *ClusterInfoImp) initKubernetes(ctx context.Context, cl client.Client) error {
+	return c.SetHighAvailabilityMode(ctx, cl)
 }
 
 func (c *ClusterInfoImp) initOpenshift(ctx context.Context, cl client.Client) error {
@@ -170,8 +144,10 @@ func (c *ClusterInfoImp) initOpenshift(ctx context.Context, cl client.Client) er
 		"infrastructureTopology", clusterInfrastructure.Status.InfrastructureTopology,
 	)
 
-	c.controlPlaneHighlyAvailable = clusterInfrastructure.Status.ControlPlaneTopology == openshiftconfigv1.HighlyAvailableTopologyMode
-	c.infrastructureHighlyAvailable = clusterInfrastructure.Status.InfrastructureTopology == openshiftconfigv1.HighlyAvailableTopologyMode
+	err = c.SetHighAvailabilityMode(ctx, cl)
+	if err != nil {
+		return err
+	}
 
 	clusterNetwork := &openshiftconfigv1.Network{
 		ObjectMeta: metav1.ObjectMeta{
@@ -226,11 +202,23 @@ func (c *ClusterInfoImp) IsSingleStackIPv6() bool {
 }
 
 func (c *ClusterInfoImp) IsControlPlaneHighlyAvailable() bool {
-	return c.controlPlaneHighlyAvailable
+	return c.controlPlaneHighlyAvailable.Load()
 }
 
 func (c *ClusterInfoImp) IsInfrastructureHighlyAvailable() bool {
-	return c.infrastructureHighlyAvailable
+	return c.infrastructureHighlyAvailable.Load()
+}
+
+func (c *ClusterInfoImp) SetHighAvailabilityMode(ctx context.Context, cl client.Client) error {
+	var err error
+	masterNodeCount, workerNodeCount, err := getNodesCount(ctx, cl)
+	if err != nil {
+		return err
+	}
+
+	c.controlPlaneHighlyAvailable.Store(masterNodeCount >= 3)
+	c.infrastructureHighlyAvailable.Store(workerNodeCount >= 2)
+	return nil
 }
 
 func (c *ClusterInfoImp) GetDomain() string {
@@ -425,4 +413,27 @@ func isValidCipherName(str string) bool {
 	return slices.Contains(openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileOldType].Ciphers, str) ||
 		slices.Contains(openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileIntermediateType].Ciphers, str) ||
 		slices.Contains(openshiftconfigv1.TLSProfiles[openshiftconfigv1.TLSProfileModernType].Ciphers, str)
+}
+
+func getNodesCount(ctx context.Context, cl client.Client) (int, int, error) {
+	nodesList := &corev1.NodeList{}
+	err := cl.List(ctx, nodesList)
+	if err != nil {
+		return 0, 0, err
+	}
+	workerNodeCount := 0
+	masterNodeCount := 0
+
+	for _, node := range nodesList.Items {
+		_, workerLabelExists := node.Labels["node-role.kubernetes.io/worker"]
+		if workerLabelExists {
+			workerNodeCount++
+		}
+		_, masterLabelExists := node.Labels["node-role.kubernetes.io/master"]
+		_, cpLabelExists := node.Labels["node-role.kubernetes.io/control-plane"]
+		if masterLabelExists || cpLabelExists {
+			masterNodeCount++
+		}
+	}
+	return masterNodeCount, workerNodeCount, nil
 }
