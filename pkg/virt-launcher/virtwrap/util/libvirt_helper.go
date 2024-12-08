@@ -308,12 +308,15 @@ func startVirtlogdLogging(stopChan chan struct{}, domainName string, nonRoot boo
 
 			scanner := bufio.NewScanner(file)
 			scanner.Buffer(make([]byte, 1024), 512*1024)
-			for scanner.Scan() {
-				log.LogQemuLogLine(log.Log, scanner.Text())
-			}
-
-			if err := scanner.Err(); err != nil {
-				log.Log.Reason(err).Error("failed to read virtlogd logs")
+			for {
+				for scanner.Scan() {
+					log.LogQemuLogLine(log.Log, scanner.Text())
+				}
+				if err := scanner.Err(); err != nil {
+					log.Log.Reason(err).Error("failed to read virtlogd logs")
+					break
+				}
+				time.Sleep(100 * time.Millisecond)
 			}
 		}()
 
