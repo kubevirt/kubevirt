@@ -86,7 +86,9 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 			libwait.WaitUntilVMIReady(hotPluggedVMI, console.LoginToAlpine)
 
 			By("Creating a NAD")
-			Expect(createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), nadName, linuxBridgeName)).To(Succeed())
+			netAttachDef := libnet.NewBridgeNetAttachDef(nadName, linuxBridgeName)
+			_, err = libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(nil), netAttachDef)
+			Expect(err).NotTo(HaveOccurred())
 
 			By("Hotplugging an interface to the VM")
 			Expect(addBridgeInterface(hotPluggedVM, ifaceName, nadName)).To(Succeed())
@@ -237,8 +239,9 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 
 		BeforeEach(func() {
 			By("creating a NAD")
-			Expect(createBridgeNetworkAttachmentDefinition(
-				testsuite.GetTestNamespace(nil), nadName, linuxBridgeName)).To(Succeed())
+			netAttachDef := libnet.NewBridgeNetAttachDef(nadName, linuxBridgeName)
+			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(nil), netAttachDef)
+			Expect(err).NotTo(HaveOccurred())
 
 			By("running a VM")
 			vmi = libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(),
@@ -248,7 +251,6 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeNetworkName2)))
 			vm = libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
-			var err error
 			vm, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() error {
@@ -294,19 +296,6 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 		)
 	})
 })
-
-func createBridgeNetworkAttachmentDefinition(namespace, networkName, bridgeName string) error {
-	const pluginType = "bridge"
-	netAttachDef := libnet.NewNetAttachDef(
-		networkName,
-		libnet.NewNetConfig("mynet", libnet.NewNetPluginConfig(
-			pluginType,
-			map[string]interface{}{"bridge": bridgeName},
-		)),
-	)
-	_, err := libnet.CreateNetAttachDef(context.Background(), namespace, netAttachDef)
-	return err
-}
 
 func newBridgeNetworkInterface(name, netAttachDefName string) (v1.Network, v1.Interface) {
 	network := v1.Network{
