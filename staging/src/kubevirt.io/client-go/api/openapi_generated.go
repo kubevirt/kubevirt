@@ -21003,7 +21003,7 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 					},
 					"vmRolloutStrategy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VMRolloutStrategy defines how changes to a VM object propagate to its VMI",
+							Description: "VMRolloutStrategy defines how memory and CPU hotplug changes to a VM object are propagated to its VMI.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
