@@ -29,4 +29,6 @@ import (
 type Validator interface {
 	// ValidateCreation validate the given spec on creation flow
 	ValidateCreation(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause
+	// Validate validate the given spec
+	Validate(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause
 }

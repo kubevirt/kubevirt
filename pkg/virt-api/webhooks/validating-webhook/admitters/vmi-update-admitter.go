@@ -42,12 +42,18 @@ const nodeNameExtraInfo = "authentication.kubernetes.io/node-name"
 type VMIUpdateAdmitter struct {
 	clusterConfig           *virtconfig.ClusterConfig
 	kubeVirtServiceAccounts map[string]struct{}
+	validators              []Validator
 }
 
-func NewVMIUpdateAdmitter(config *virtconfig.ClusterConfig, kubeVirtServiceAccounts map[string]struct{}) *VMIUpdateAdmitter {
+func NewVMIUpdateAdmitter(
+	config *virtconfig.ClusterConfig,
+	kubeVirtServiceAccounts map[string]struct{},
+	validators ...Validator,
+) *VMIUpdateAdmitter {
 	return &VMIUpdateAdmitter{
 		clusterConfig:           config,
 		kubeVirtServiceAccounts: kubeVirtServiceAccounts,
+		validators:              validators,
 	}
 }
 
@@ -107,6 +113,13 @@ func (admitter *VMIUpdateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 			hotplugResponse := admitHotplug(oldVMI, newVMI, admitter.clusterConfig)
 			if hotplugResponse != nil {
 				return hotplugResponse
+			}
+
+			var causes []metav1.StatusCause
+			for _, validator := range admitter.validators {
+				if causes = append(causes, validator.Validate(k8sfield.NewPath("spec"), &newVMI.Spec)...); len(causes) > 0 {
+					return webhookutils.ToAdmissionResponse(causes)
+				}
 			}
 		} else {
 			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{

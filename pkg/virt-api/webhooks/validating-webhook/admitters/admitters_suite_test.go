@@ -22,3 +22,7 @@ type validatorStub struct {
 func (n validatorStub) ValidateCreation(_ *k8sfield.Path, _ *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	return n.statusCauses
 }
+
+func (n validatorStub) Validate(_ *k8sfield.Path, _ *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	return n.statusCauses
+}
