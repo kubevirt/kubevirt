@@ -44,6 +44,8 @@ import (
 )
 
 var _ = SIGDescribe("network binding plugin", Serial, decorators.NetCustomBindingPlugins, func() {
+	const passtNetAttDefName = "netbindingpasst"
+
 	Context("with CNI and Sidecar", func() {
 		BeforeEach(func() {
 			const passtBindingName = "passt"
@@ -51,13 +53,15 @@ var _ = SIGDescribe("network binding plugin", Serial, decorators.NetCustomBindin
 
 			err := config.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
 				SidecarImage:                passtSidecarImage,
-				NetworkAttachmentDefinition: libnet.PasstNetAttDef,
+				NetworkAttachmentDefinition: passtNetAttDefName,
 			})
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		BeforeEach(func() {
-			Expect(libnet.CreatePasstNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil))).To(Succeed())
+			netAttachDef := libnet.NewPasstNetAttachDef(passtNetAttDefName)
+			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(nil), netAttachDef)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("can be used by a VMI as its primary network", func() {
