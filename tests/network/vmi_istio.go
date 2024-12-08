@@ -30,8 +30,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	expect "github.com/google/goexpect"
-	k8snetworkplumbingwgv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
-
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -136,17 +134,16 @@ var istioTests = func(vmType VmType) {
 			)
 		}
 		BeforeEach(func() {
-			virtClient = kubevirt.Client()
-
 			libnet.SkipWhenClusterNotSupportIpv4()
 
 			By("Create NetworkAttachmentDefinition")
-			nad := generateIstioCNINetworkAttachmentDefinition()
-			_, err = virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Create(context.TODO(), nad, metav1.CreateOptions{})
+			nad := libnet.NewNetAttachDef("istio-cni", "")
+			_, err = libnet.CreateNetAttachDef(context.Background(), namespace, nad)
 			Expect(err).ShouldNot(HaveOccurred())
 
 			By("Creating k8s service for the VMI")
 
+			virtClient = kubevirt.Client()
 			serviceName := fmt.Sprintf("%s-service", vmiAppSelectorValue)
 			service := netservice.BuildSpec(serviceName, svcDeclaredTestPort, svcDeclaredTestPort, vmiAppSelectorKey, vmiAppSelectorValue)
 			_, err = virtClient.CoreV1().Services(namespace).Create(context.Background(), service, metav1.CreateOptions{})
@@ -527,15 +524,6 @@ func createPasstVm(ports []v1.Port) *v1.VirtualMachineInstance {
 		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(enablePasswordAuth)),
 	)
 	return vmi
-}
-
-func generateIstioCNINetworkAttachmentDefinition() *k8snetworkplumbingwgv1.NetworkAttachmentDefinition {
-	return &k8snetworkplumbingwgv1.NetworkAttachmentDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "istio-cni",
-		},
-		Spec: k8snetworkplumbingwgv1.NetworkAttachmentDefinitionSpec{},
-	}
 }
 
 func generateStrictPeerAuthentication() *unstructured.Unstructured {
