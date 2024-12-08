@@ -14556,7 +14556,7 @@
       "$ref": "#/definitions/v1.VirtualMachineOptions"
      },
      "vmRolloutStrategy": {
-      "description": "VMRolloutStrategy defines how changes to a VM object propagate to its VMI",
+      "description": "VMRolloutStrategy defines how memory and CPU hotplug changes to a VM object are propagated to its VMI.",
       "type": "string"
      },
      "vmStateStorageClass": {

@@ -1596,8 +1596,8 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
               type: object
             vmRolloutStrategy:
-              description: VMRolloutStrategy defines how changes to a VM object propagate
-                to its VMI
+              description: VMRolloutStrategy defines how memory and CPU hotplug changes
+                to a VM object are propagated to its VMI.
               enum:
               - Stage
               - LiveUpdate
