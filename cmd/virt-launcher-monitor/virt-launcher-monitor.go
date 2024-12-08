@@ -142,6 +142,7 @@ func main() {
 		log.Log.Reason(err).Error("monitoring virt-launcher failed")
 		os.Exit(1)
 	}
+	log.Log.Info("virt-launcher-monitor: Exiting...")
 
 	os.Exit(exitCode)
 }
@@ -197,11 +198,12 @@ func RunAndMonitor(containerDiskDir, uid string) (int, error) {
 
 				log.Log.Infof("Reaped pid %d with status %d", wpid, int(wstatus))
 				if wpid == cmd.Process.Pid {
+					log.Log.Infof("Reaped Launcher main pid")
 					exitStatus <- wstatus.ExitStatus()
 				}
 
 			default:
-				log.Log.V(3).Log("signalling virt-launcher to shut down")
+				log.Log.Infof("signalling virt-launcher to shut down")
 				err := cmd.Process.Signal(syscall.SIGTERM)
 				sig.Signal()
 				if err != nil {
@@ -230,6 +232,7 @@ func RunAndMonitor(containerDiskDir, uid string) (int, error) {
 	}
 
 	if pid > 0 {
+		log.Log.Infof("Killing QEMU gracefully.")
 		p, err := os.FindProcess(pid)
 		if err != nil {
 			return 1, err
