@@ -32,6 +32,12 @@ import (
 	nadv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 )
 
+const (
+	// ResourceNameAnnotation represents a resource name that is associated with the network.
+	// It could be found on NetworkAttachmentDefinition objects.
+	ResourceNameAnnotation = "k8s.v1.cni.cncf.io/resourceName"
+)
+
 func NewPasstNetAttachDef(name string) *nadv1.NetworkAttachmentDefinition {
 	const pluginType = "kubevirt-passt-binding"
 	return NewNetAttachDef(name, NewNetConfig(name, NewNetPluginConfig(pluginType, nil)))
