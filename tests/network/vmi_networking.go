@@ -202,15 +202,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		const nadName = "simple-bridge"
 
 		BeforeEach(func() {
-			const pluginType = "bridge"
 			const bridgeName = "br10"
-			netAttachDef := libnet.NewNetAttachDef(
-				nadName,
-				libnet.NewNetConfig("mynet", libnet.NewNetPluginConfig(
-					pluginType,
-					map[string]interface{}{"bridge": bridgeName},
-				)),
-			)
+			netAttachDef := libnet.NewBridgeNetAttachDef(nadName, bridgeName)
 			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(nil), netAttachDef)
 			Expect(err).ToNot(HaveOccurred())
 		})

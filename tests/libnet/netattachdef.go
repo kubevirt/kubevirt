@@ -38,6 +38,21 @@ const (
 	ResourceNameAnnotation = "k8s.v1.cni.cncf.io/resourceName"
 )
 
+type pluginConfOption func(map[string]interface{})
+
+func NewBridgeNetAttachDef(name, bridgeName string, opts ...pluginConfOption) *nadv1.NetworkAttachmentDefinition {
+	const cniPluginType = "bridge"
+
+	pluginConfig := NewNetPluginConfig(
+		cniPluginType,
+		map[string]interface{}{"bridge": bridgeName},
+	)
+	for _, f := range opts {
+		f(pluginConfig)
+	}
+	return NewNetAttachDef(name, NewNetConfig(name, pluginConfig))
+}
+
 func NewPasstNetAttachDef(name string) *nadv1.NetworkAttachmentDefinition {
 	const pluginType = "kubevirt-passt-binding"
 	return NewNetAttachDef(name, NewNetConfig(name, NewNetPluginConfig(pluginType, nil)))
@@ -87,6 +102,30 @@ func NewNetPluginConfig(cniType string, conf map[string]interface{}) map[string]
 	}
 	conf["type"] = cniType
 	return conf
+}
+
+func WithMTU(mtu int) pluginConfOption {
+	return func(conf map[string]interface{}) {
+		conf["mtu"] = mtu
+	}
+}
+
+func WithVLAN(vlanID int) pluginConfOption {
+	return func(conf map[string]interface{}) {
+		conf["vlan"] = vlanID
+	}
+}
+
+func WithMacSpoofChk(enabled bool) pluginConfOption {
+	return func(conf map[string]interface{}) {
+		conf["macspoofchk"] = enabled
+	}
+}
+
+func WithIPAM(ipam map[string]string) pluginConfOption {
+	return func(conf map[string]interface{}) {
+		conf["ipam"] = ipam
+	}
 }
 
 func CreateNetAttachDef(

@@ -144,19 +144,13 @@ var _ = SIGDescribe("Multus", Serial, decorators.Multus, func() {
 	createBridgeNetworkAttachmentDefinition := func(
 		namespace, networkName string, bridgeName string, vlan int, ipam map[string]string, macSpoofCheck bool,
 	) error {
-		const pluginType = "bridge"
-		netAttachDef := libnet.NewNetAttachDef(
+		netAttachDef := libnet.NewBridgeNetAttachDef(
 			networkName,
-			libnet.NewNetConfig("mynet", libnet.NewNetPluginConfig(
-				pluginType,
-				map[string]interface{}{
-					"bridge":      bridgeName,
-					"vlan":        vlan,
-					"macspoofchk": macSpoofCheck,
-					"mtu":         1400,
-					"ipam":        ipam,
-				},
-			)),
+			bridgeName,
+			libnet.WithMTU(1400),
+			libnet.WithVLAN(vlan),
+			libnet.WithIPAM(ipam),
+			libnet.WithMacSpoofChk(macSpoofCheck),
 		)
 		_, err := libnet.CreateNetAttachDef(context.Background(), namespace, netAttachDef)
 		return err

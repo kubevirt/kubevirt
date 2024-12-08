@@ -76,16 +76,7 @@ var _ = SIGDescribe("Infosource", func() {
 
 		BeforeEach(func() {
 			By("Create NetworkAttachmentDefinition")
-			const cniPluginType = "cnv-bridge"
-			netAttachDef := libnet.NewNetAttachDef(
-				nadName,
-				libnet.NewNetConfig(nadName, libnet.NewNetPluginConfig(
-					cniPluginType,
-					map[string]interface{}{
-						"bridge": nadName,
-					},
-				)),
-			)
+			netAttachDef := libnet.NewBridgeNetAttachDef(nadName, nadName)
 			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.NamespaceTestDefault, netAttachDef)
 			Expect(err).NotTo(HaveOccurred())
 

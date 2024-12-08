@@ -181,23 +181,15 @@ var _ = SIGDescribe("network binding plugin", Serial, decorators.NetCustomBindin
 			Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
 			nodeName := nodeList.Items[0].Name
 
-			const (
-				pluginType         = "bridge"
-				linuxBridgeNADName = "bridge0"
-			)
+			const linuxBridgeNADName = "bridge0"
 			namespace := testsuite.GetTestNamespace(nil)
-			netAttachDef := libnet.NewNetAttachDef(
+			netAttachDef := libnet.NewBridgeNetAttachDef(
 				linuxBridgeNADName,
-				libnet.NewNetConfig("mynet", libnet.NewNetPluginConfig(
-					pluginType,
-					map[string]interface{}{
-						"bridge": "br10",
-						"ipam": map[string]string{
-							"type":   "host-local",
-							"subnet": "10.1.1.0/24",
-						},
-					},
-				)),
+				"br10",
+				libnet.WithIPAM(map[string]string{
+					"type":   "host-local",
+					"subnet": "10.1.1.0/24",
+				}),
 			)
 			_, err := libnet.CreateNetAttachDef(context.Background(), namespace, netAttachDef)
 			Expect(err).ToNot(HaveOccurred())
