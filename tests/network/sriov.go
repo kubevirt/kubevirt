@@ -69,12 +69,8 @@ const (
 	linkStateKey       = "link_state"
 	linkStateEnableVal = "enable"
 
-	ipamKey = "ipam"
-
 	defaultVLAN  = 0
 	specificVLAN = 200
-
-	ipamEnabled = true
 )
 
 const (
@@ -91,18 +87,12 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 	sriovResourceName := readSRIOVResourceName()
 
 	createSriovNetworkAttachmentDefinition := func(
-		networkName, namespace string, vlanID int, enableLinkState bool, withIPAM bool,
+		networkName, namespace string, vlanID int, enableLinkState bool,
 	) error {
 		const pluginType = "sriov"
 		pluginConf := map[string]interface{}{"vlan": vlanID}
 		if enableLinkState {
 			pluginConf[linkStateKey] = linkStateEnableVal
-		}
-		if withIPAM {
-			pluginConf[ipamKey] = map[string]string{
-				"type":   "host-local",
-				"subnet": "10.1.1.0/24",
-			}
 		}
 		netAttachDef := libnet.NewNetAttachDef(
 			networkName,
@@ -128,7 +118,7 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 	Context("VMI connected to single SRIOV network", func() {
 		BeforeEach(func() {
 			Expect(createSriovNetworkAttachmentDefinition(
-				sriovnet1, testsuite.NamespaceTestDefault, defaultVLAN, !linkStateEnabled, ipamEnabled,
+				sriovnet1, testsuite.NamespaceTestDefault, defaultVLAN, !linkStateEnabled,
 			)).To(Succeed(), shouldCreateNetwork)
 		})
 
@@ -385,10 +375,10 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 	Context("VMI connected to two SRIOV networks", func() {
 		BeforeEach(func() {
 			Expect(createSriovNetworkAttachmentDefinition(
-				sriovnet1, testsuite.NamespaceTestDefault, defaultVLAN, !linkStateEnabled, ipamEnabled,
+				sriovnet1, testsuite.NamespaceTestDefault, defaultVLAN, !linkStateEnabled,
 			)).To(Succeed(), shouldCreateNetwork)
 			Expect(createSriovNetworkAttachmentDefinition(
-				sriovnet2, testsuite.NamespaceTestDefault, defaultVLAN, !linkStateEnabled, ipamEnabled,
+				sriovnet2, testsuite.NamespaceTestDefault, defaultVLAN, !linkStateEnabled,
 			)).To(Succeed(), shouldCreateNetwork)
 		})
 
@@ -422,7 +412,7 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 		BeforeEach(func() {
 			for _, sriovNetwork := range sriovNetworks {
 				Expect(createSriovNetworkAttachmentDefinition(
-					sriovNetwork, testsuite.NamespaceTestDefault, defaultVLAN, !linkStateEnabled, ipamEnabled,
+					sriovNetwork, testsuite.NamespaceTestDefault, defaultVLAN, !linkStateEnabled,
 				)).To(Succeed(), shouldCreateNetwork)
 			}
 		})
@@ -462,7 +452,7 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 
 		BeforeEach(func() {
 			Expect(createSriovNetworkAttachmentDefinition(
-				sriovnetLinkEnabled, testsuite.NamespaceTestDefault, defaultVLAN, linkStateEnabled, ipamEnabled,
+				sriovnetLinkEnabled, testsuite.NamespaceTestDefault, defaultVLAN, linkStateEnabled,
 			)).To(Succeed(), shouldCreateNetwork)
 		})
 
@@ -507,7 +497,7 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 				ipVlaned1, err = libnet.CidrToIP(cidrVlaned1)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(createSriovNetworkAttachmentDefinition(
-					sriovnetVlanned, testsuite.NamespaceTestDefault, specificVLAN, linkStateEnabled, !ipamEnabled,
+					sriovnetVlanned, testsuite.NamespaceTestDefault, specificVLAN, linkStateEnabled,
 				)).To(Succeed())
 			})
 
