@@ -1015,10 +1015,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				createVMSuccess()
 
 				dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.TODO(), dvt.Name, metav1.GetOptions{})
-				if libstorage.IsDataVolumeGC(virtClient) {
-					Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
-					return
-				}
 				Expect(err).ToNot(HaveOccurred())
 				Expect(dv.Spec.SourceRef).To(BeNil())
 				switch {
@@ -1139,56 +1135,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				createVMSuccess()
 			})
 		})
-	})
-
-	Describe("[rfe_id:8400][crit:high][vendor:cnv-qe@redhat.com][level:system] Garbage collection of succeeded DV", Serial, func() {
-		var originalTTL *int32
-
-		BeforeEach(func() {
-			cdi := libstorage.GetCDI(virtClient)
-			originalTTL = cdi.Spec.Config.DataVolumeTTLSeconds
-		})
-
-		AfterEach(func() {
-			libstorage.SetDataVolumeGC(virtClient, originalTTL)
-		})
-
-		DescribeTable("Verify DV of VM with DataVolumeTemplates is garbage collected when", func(ttlBefore, ttlAfter *int32, gcAnnotation string) {
-			libstorage.SetDataVolumeGC(virtClient, ttlBefore)
-
-			sc, exists := libstorage.GetRWOFileSystemStorageClass()
-			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
-			}
-
-			vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
-			vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
-
-			By(checkingVMInstanceConsoleExpectedOut)
-			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(console.LoginToAlpine(vmi)).To(Succeed())
-
-			libstorage.SetDataVolumeGC(virtClient, ttlAfter)
-
-			dvName := vm.Spec.DataVolumeTemplates[0].Name
-
-			if gcAnnotation != "" {
-				ann := map[string]string{"cdi.kubevirt.io/storage.deleteAfterCompletion": gcAnnotation}
-				p, err := patch.New(patch.WithAdd("/metadata/annotations", ann)).GeneratePayload()
-				Expect(err).ToNot(HaveOccurred())
-				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Patch(context.TODO(), dvName, types.JSONPatchType, p, metav1.PatchOptions{})
-				Expect(err).ToNot(HaveOccurred())
-			}
-
-			libstorage.EventuallyDVWith(vm.Namespace, dvName, 100, BeNil())
-		},
-			Entry("[test_id:8567]GC is enabled", pointer.P(int32(0)), pointer.P(int32(0)), ""),
-			Entry("[test_id:8571]GC is disabled, and after VM creation, GC is enabled and DV is annotated", pointer.P(int32(-1)), pointer.P(int32(0)), "true"),
-		)
 	})
 
 	Context("Fedora VMI tests", func() {

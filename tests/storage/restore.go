@@ -1050,15 +1050,6 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				targetVM := getTargetVM(restoreToNewVM)
 
-				if libstorage.IsDataVolumeGC(virtClient) {
-					Eventually(func() error {
-						_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), *dvName, metav1.GetOptions{})
-						return err
-					}, 30*time.Second, time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
-					verifyOwnerRef(pvc, targetVM.APIVersion, targetVM.Kind, targetVM.Name, targetVM.UID)
-					return
-				}
-
 				dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), *dvName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				verifyOwnerRef(dv, targetVM.APIVersion, targetVM.Kind, targetVM.Name, targetVM.UID)
@@ -1215,10 +1206,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				}
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 
-				if !libstorage.IsDataVolumeGC(virtClient) {
-					_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-				}
+				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
