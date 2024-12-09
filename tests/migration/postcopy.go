@@ -69,7 +69,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		By("Allowing post-copy and limit migration bandwidth")
+		By("Allowing post-copy and limiting migration bandwidth")
 		policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
 		migrationPolicy = kubecli.NewMinimalMigrationPolicy(policyName)
 		migrationPolicy.Spec.AllowPostCopy = kvpointer.P(true)
@@ -99,13 +99,13 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("[test_id:5004] should be migrated successfully, using guest agent on VM with postcopy", func() {
+		It("[test_id:5004] should be migrated successfully, using guest agent on VM with post-copy", func() {
 			VMIMigrationWithGuestAgent(virtClient, dv.Name, "1Gi", migrationPolicy)
 		})
 
 	})
 
-	Context("should migrate using for postcopy", func() {
+	Context("should migrate using post-copy", func() {
 
 		applyMigrationPolicy := func(vmi *v1.VirtualMachineInstance) {
 			AlignPolicyAndVmi(vmi, migrationPolicy)
@@ -160,10 +160,10 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 			libmigration.ConfirmMigrationMode(virtClient, vmi, v1.MigrationPostCopy)
 		},
 			Entry("a migration policy", applyWithMigrationPolicy),
-			Entry(" Kubevirt CR", Serial, applyWithKubevirtCR),
+			Entry("the Kubevirt CR", Serial, applyWithKubevirtCR),
 		)
 
-		Context(" and fail", Serial, func() {
+		Context("and fail", Serial, func() {
 			var createdPods []string
 			BeforeEach(func() {
 				createdPods = []string{}
@@ -192,7 +192,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 					Eventually(func() error {
 						_, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Get(context.Background(), podName, metav1.GetOptions{})
 						return err
-					}, 300*time.Second, 1*time.Second).Should(
+					}, 5*time.Minute, 1*time.Second).Should(
 						SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())),
 						"The killer pod should be gone within the given timeout",
 					)
@@ -209,9 +209,9 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 						return nil
 					}
 					return fmt.Errorf("waiting for virt-handler pod to come back online")
-				}, 120*time.Second, 1*time.Second).Should(Succeed(), "Virt handler should come online")
+				}, 2*time.Minute, 1*time.Second).Should(Succeed(), "Virt handler should come online")
 			}
-			It("should make sure that VM restarts after failure", func() {
+			It("and make sure VMs restart after failure", func() {
 				By("creating a large VM with RunStrategyRerunOnFailure")
 				vmi := libvmifact.NewFedora(
 					libnet.WithMasqueradeNetworking(),
@@ -224,7 +224,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				// update the migration policy to ensure slow pre-copy migration progress instead of an immidiate cancelation.
+				// update the migration policy to ensure slow pre-copy migration progress instead of an immediate cancellation.
 				migrationPolicy.Spec.CompletionTimeoutPerGiB = kvpointer.P(int64(20))
 				migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("1Mi"))
 				applyKubevirtCR()
@@ -244,18 +244,17 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 				// check VMI, confirm migration state
 				libmigration.WaitUntilMigrationMode(virtClient, vmi, v1.MigrationPostCopy, 5*time.Minute)
 
-				// launch a migration killer pod on the node
-				By("Starting migration killer pods")
+				By("Starting virt-handler killer pod")
 				runMigrationKillerPod(vmi.Status.NodeName)
 
 				By("Making sure that post-copy migration failed")
 				Eventually(matcher.ThisMigration(migration), 150, 1*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed))
 
-				By("Removing migration killer pods")
+				By("Removing virt-handler killer pod")
 				removeMigrationKillerPod()
 
 				By("Ensuring the VirtualMachineInstance is restarted")
-				Eventually(matcher.ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(matcher.BeRestarted(vmi.UID))
+				Eventually(matcher.ThisVMI(vmi), 4*time.Minute, 1*time.Second).Should(matcher.BeRestarted(vmi.UID))
 			})
 		})
 	})
