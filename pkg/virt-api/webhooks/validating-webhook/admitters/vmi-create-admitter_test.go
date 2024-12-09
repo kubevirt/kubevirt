@@ -1293,17 +1293,19 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Result).To(BeNil())
 		})
 		It("should reject host devices when feature gate is disabled", func() {
-			vmi := api.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
-				{
-					Name:       "hostdev1",
-					DeviceName: "vendor.com/hostdev_name",
-				},
-			}
+			vmi := newBaseVmi(withHostDevice(v1.HostDevice{
+				Name:       "hostdev1",
+				DeviceName: "vendor.com/hostdev_name",
+			}))
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.HostDevices"))
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.HostDevices"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("Host Devices feature gate is not enabled in kubevirt-config"))
 		})
 		It("should accept host devices that are not permitted in the hostdev config", func() {
 			kvConfig := kv.DeepCopy()
@@ -1317,15 +1319,17 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
-			vmi := api.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
-				{
-					Name:       "hostdev1",
-					DeviceName: "example.org/deadbeef1",
-				},
-			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(BeEmpty())
+			vmi := newBaseVmi(withHostDevice(v1.HostDevice{
+				Name:       "hostdev1",
+				DeviceName: "example.org/deadbeef1",
+			}))
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue())
+			Expect(resp.Result).To(BeNil())
 		})
 		It("should accept permitted host devices", func() {
 			kvConfig := kv.DeepCopy()
@@ -1339,15 +1343,17 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
-			vmi := api.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
-				{
-					Name:       "hostdev1",
-					DeviceName: "example.org/deadbeef",
-				},
-			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(BeEmpty())
+			vmi := newBaseVmi(withHostDevice(v1.HostDevice{
+				Name:       "hostdev1",
+				DeviceName: "example.org/deadbeef",
+			}))
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue())
+			Expect(resp.Result).To(BeNil())
 		})
 		DescribeTable("Should accept valid DNSPolicy and DNSConfig",
 			func(dnsPolicy k8sv1.DNSPolicy, dnsConfig *k8sv1.PodDNSConfig) {
@@ -4348,5 +4354,11 @@ func withBlockMultiQueue(enabled bool) libvmi.Option {
 func withGPU(gpu v1.GPU) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.GPUs = append(vmi.Spec.Domain.Devices.GPUs, gpu)
+	}
+}
+
+func withHostDevice(hostDevice v1.HostDevice) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.HostDevices = append(vmi.Spec.Domain.Devices.HostDevices, hostDevice)
 	}
 }
