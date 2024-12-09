@@ -251,7 +251,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 						migration = libmigration.RunMigration(virtClient, migration)
 
 						// check VMI, confirm migration state
-						libmigration.WaitUntilMigrationMode(virtClient, vmi, v1.MigrationPostCopy, 300)
+						libmigration.WaitUntilMigrationMode(virtClient, vmi, v1.MigrationPostCopy, 5*time.Minute)
 
 						// launch a migration killer pod on the node
 						By("Starting migration killer pods")
