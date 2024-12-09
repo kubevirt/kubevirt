@@ -1,6 +1,7 @@
 package virtctl_test
 
 import (
+	"context"
 	"fmt"
 	"runtime"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"kubevirt.io/client-go/version"
 
 	"kubevirt.io/kubevirt/pkg/virtctl"
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 )
 
 var _ = Describe("virtctl", func() {
@@ -43,7 +45,7 @@ var _ = Describe("virtctl", func() {
 		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
 		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
 		kubecli.MockKubevirtClientInstance.EXPECT().ServerVersion().Return(serverVersionInterface).AnyTimes()
-		clientConfig := kubecli.DefaultClientConfig(&pflag.FlagSet{})
-		Expect(virtctl.CheckClientServerVersion(clientConfig)).To(MatchError(ContainSubstring("You are using a client virtctl version that is different from the KubeVirt version running in the cluster")))
+		ctx := clientconfig.NewContext(context.Background(), kubecli.DefaultClientConfig(&pflag.FlagSet{}))
+		Expect(virtctl.CheckClientServerVersion(ctx)).To(MatchError(ContainSubstring("You are using a client virtctl version that is different from the KubeVirt version running in the cluster")))
 	})
 })

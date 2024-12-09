@@ -20,13 +20,14 @@
 package vm
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
-
 	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 )
 
 const (
@@ -52,8 +53,7 @@ var (
 )
 
 type Command struct {
-	clientConfig clientcmd.ClientConfig
-	command      string
+	command string
 }
 
 func usage(cmd string) string {
@@ -64,7 +64,12 @@ func usage(cmd string) string {
 	return fmt.Sprintf("  # %s a virtual machine called 'myvm':\n  {{ProgramName}} %s myvm", strings.Title(cmd), cmd)
 }
 
-func GetNamespaceAndClient(clientConfig clientcmd.ClientConfig) (kubecli.KubevirtClient, string, error) {
+func GetNamespaceAndClient(ctx context.Context) (kubecli.KubevirtClient, string, error) {
+	clientConfig, err := clientconfig.FromContext(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+
 	namespace, _, err := clientConfig.Namespace()
 	if err != nil {
 		return nil, "", err

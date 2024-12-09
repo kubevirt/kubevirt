@@ -21,30 +21,22 @@ package usbredir
 
 import (
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const usbredirClient = "usbredirect"
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "usbredir (vendor:product)|(bus-device) (VMI)",
 		Short:   "Redirect an USB device to a virtual machine instance.",
 		Example: usage(),
 		Args:    cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := usbredirCommand{clientConfig: clientConfig}
-			return c.Run(cmd, args)
-		},
+		RunE:    Run,
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
-}
-
-type usbredirCommand struct {
-	clientConfig clientcmd.ClientConfig
 }
 
 func usage() string {
