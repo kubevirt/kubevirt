@@ -8539,7 +8539,7 @@
    },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/reset": {
     "put": {
-     "description": "Soft reboot a VirtualMachineInstance object.",
+     "description": "Reset a VirtualMachineInstance object.",
      "operationId": "v1Reset",
      "responses": {
       "200": {
@@ -10043,7 +10043,7 @@
    },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/reset": {
     "put": {
-     "description": "Soft reboot a VirtualMachineInstance object.",
+     "description": "Reset a VirtualMachineInstance object.",
      "operationId": "v1alpha3Reset",
      "responses": {
       "200": {

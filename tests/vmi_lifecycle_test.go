@@ -1427,6 +1427,37 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 	})
 
+	Describe("Reset a VirtualMachineInstance", func() {
+		const vmiLaunchTimeout = 360
+
+		It("should succeed", func() {
+			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpineWithTestTooling(), vmiLaunchTimeout)
+
+			By("Checking that the VirtualMachineInstance console has expected output")
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+			errChan := make(chan error)
+			go func() {
+				time.Sleep(5)
+				errChan <- kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Reset(context.Background(), vmi.Name)
+			}()
+
+			start := time.Now().UTC().Unix()
+			err := waitForVMIReset(vmi)
+			end := time.Now().UTC().Unix()
+
+			if err != nil {
+				err = fmt.Errorf("start [%d] end [%d] err: %v", start, end, err)
+			}
+			Expect(err).ToNot(HaveOccurred())
+
+			select {
+			case err := <-errChan:
+				Expect(err).ToNot(HaveOccurred())
+			}
+		})
+	})
+
 	Describe("Pausing/Unpausing a VirtualMachineInstance", func() {
 		It("[test_id:4597]should signal paused state with condition", decorators.Conformance, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(), 90)
@@ -1739,6 +1770,17 @@ func waitForVMIRebooted(vmi *v1.VirtualMachineInstance, login console.LoginToFun
 		&expect.BSnd{S: "last reboot | grep reboot | wc -l\n"},
 		&expect.BExp{R: "2"},
 	}, 300)).To(Succeed(), "expected reboot record")
+}
+
+func waitForVMIReset(vmi *v1.VirtualMachineInstance) error {
+	By(fmt.Sprintf("Waiting for vmi %s reset", vmi.Name))
+	if vmi.Namespace == "" {
+		vmi.Namespace = testsuite.GetTestNamespace(vmi)
+	}
+	return console.SafeExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: ".*Hypervisor detected.*KVM.*"},
+	}, 300)
 }
 
 func withoutACPI() libvmi.Option {
