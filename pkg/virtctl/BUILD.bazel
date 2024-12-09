@@ -35,7 +35,6 @@ go_library(
         "//vendor/github.com/coreos/go-semver/semver:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
-        "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
     ],
 )
 
@@ -58,6 +57,5 @@ go_test(
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
-        "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
     ],
 )

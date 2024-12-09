@@ -11,7 +11,6 @@ import (
 	"github.com/coreos/go-semver/semver"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -60,7 +59,7 @@ func GetProgramName(binary string) string {
 	return "virtctl"
 }
 
-func NewVirtctlCommandFn() (*cobra.Command, clientcmd.ClientConfig) {
+func NewVirtctlCommandFn() *cobra.Command {
 	// used in cobra templates to display either `kubectl virt` or `virtctl`
 	cobra.AddTemplateFunc(
 		"ProgramName", func() string {
@@ -96,9 +95,9 @@ func NewVirtctlCommandFn() (*cobra.Command, clientcmd.ClientConfig) {
 	addGLogVerbosityFlag(rootCmd.PersistentFlags())
 	rootCmd.SetUsageTemplate(templates.MainUsageTemplate())
 	rootCmd.SetOut(os.Stdout)
-
-	clientConfig := kubecli.DefaultClientConfig(rootCmd.PersistentFlags())
-	rootCmd.SetContext(clientconfig.NewContext(context.Background(), clientConfig))
+	rootCmd.SetContext(clientconfig.NewContext(
+		context.Background(), kubecli.DefaultClientConfig(rootCmd.PersistentFlags()),
+	))
 
 	rootCmd.AddCommand(
 		configuration.NewListPermittedDevices(),
@@ -134,7 +133,7 @@ func NewVirtctlCommandFn() (*cobra.Command, clientcmd.ClientConfig) {
 		optionsCmd,
 	)
 
-	return rootCmd, clientConfig
+	return rootCmd
 }
 
 func addGLogVerbosityFlag(fs *pflag.FlagSet) {
@@ -150,7 +149,7 @@ func addGLogVerbosityFlag(fs *pflag.FlagSet) {
 
 func Execute() int {
 	log.InitializeLogging(programName)
-	cmd, _ := NewVirtctlCommand()
+	cmd := NewVirtctlCommand()
 	if err := cmd.Execute(); err != nil {
 		if versionErr := checkClientServerVersion(cmd.Context()); versionErr != nil {
 			cmd.PrintErrln(versionErr)
