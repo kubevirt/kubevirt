@@ -138,7 +138,7 @@ var _ = SIGMigrationDescribe("Live Migrate A Paused VMI", func() {
 						migration = libmigration.RunMigration(virtClient, migration)
 
 						// check VMI, confirm migration state
-						libmigration.WaitUntilMigrationMode(virtClient, vmi, v1.MigrationPaused, 300)
+						libmigration.WaitUntilMigrationMode(virtClient, vmi, v1.MigrationPaused, 5*time.Minute)
 
 						if expectSuccess {
 							libmigration.ExpectMigrationToSucceed(virtClient, migration, 100)
