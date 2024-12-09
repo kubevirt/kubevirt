@@ -441,7 +441,7 @@ func validateMDEVRamFB(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec
 	if countConfiguredMDEVRamFBs(spec) > 1 {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "configuring multiple displays with ramfb is not valid ",
+			Message: "configuring multiple displays with ramfb is not valid",
 			Field:   field.Child("GPUs").String(),
 		})
 

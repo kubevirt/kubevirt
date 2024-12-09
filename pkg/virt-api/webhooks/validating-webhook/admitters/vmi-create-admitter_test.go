@@ -1225,9 +1225,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject multiple configurations of vGPU displays with ramfb", func() {
-			vmi := api.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
-				{
+			vmi := newBaseVmi(
+				withGPU(v1.GPU{
 					Name:       "gpu1",
 					DeviceName: "vendor.com/gpu_name",
 					VirtualGPUOptions: &v1.VGPUOptions{
@@ -1235,8 +1234,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 							Enabled: pointer.P(true),
 						},
 					},
-				},
-				{
+				}),
+				withGPU(v1.GPU{
 					Name:       "gpu2",
 					DeviceName: "vendor.com/gpu_name1",
 					VirtualGPUOptions: &v1.VGPUOptions{
@@ -1244,24 +1243,30 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 							Enabled: pointer.P(true),
 						},
 					},
-				},
-			}
+				}),
+			)
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.GPUs"))
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.GPUs"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("configuring multiple displays with ramfb is not valid"))
 		})
 		It("should accept legacy GPU devices if PermittedHostDevices aren't set", func() {
+			vmi := newBaseVmi(withGPU(v1.GPU{
+				Name:       "gpu1",
+				DeviceName: "example.org/deadbeef",
+			}))
 
-			vmi := api.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
-				{
-					Name:       "gpu1",
-					DeviceName: "example.org/deadbeef",
-				},
-			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(BeEmpty())
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue())
+			Expect(resp.Result).To(BeNil())
 		})
 		It("should accept permitted GPU devices", func() {
 			kvConfig := kv.DeepCopy()
@@ -1275,15 +1280,17 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 
-			vmi := api.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
-				{
-					Name:       "gpu1",
-					DeviceName: "example.org/deadbeef",
-				},
-			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(BeEmpty())
+			vmi := newBaseVmi(withGPU(v1.GPU{
+				Name:       "gpu1",
+				DeviceName: "example.org/deadbeef",
+			}))
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue())
+			Expect(resp.Result).To(BeNil())
 		})
 		It("should reject host devices when feature gate is disabled", func() {
 			vmi := api.NewMinimalVMI("testvm")
@@ -4335,5 +4342,11 @@ func withInputDevice(input v1.Input) libvmi.Option {
 func withBlockMultiQueue(enabled bool) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.BlockMultiQueue = &enabled
+	}
+}
+
+func withGPU(gpu v1.GPU) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.GPUs = append(vmi.Spec.Domain.Devices.GPUs, gpu)
 	}
 }
