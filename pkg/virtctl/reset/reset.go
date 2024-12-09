@@ -38,7 +38,6 @@ func NewResetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "reset (VMI)",
 		Short:   "Reset a virtual machine instance",
-		Long:    `Reset a virtual machine instance`,
 		Args:    cobra.ExactArgs(1),
 		Example: usage(COMMAND_RESET),
 		RunE:    Run,
