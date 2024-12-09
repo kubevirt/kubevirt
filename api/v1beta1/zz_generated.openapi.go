@@ -836,7 +836,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_LiveMigrationCo
 					"completionTimeoutPerGiB": {
 						SchemaProps: spec.SchemaProps{
 							Description: "If a migrating VM is big and busy, while the connection to the destination node is slow, migration may never converge. The completion timeout is calculated based on completionTimeoutPerGiB times the size of the guest (both RAM and migrated disks, if any). For example, with completionTimeoutPerGiB set to 800, a virtual machine instance with 6GiB memory will timeout if it has not completed migration in 1h20m. Use a lower completionTimeoutPerGiB to induce quicker failure, so that another destination or post-copy is attempted. Use a higher completionTimeoutPerGiB to let workload with spikes in its memory dirty rate to converge. The format is a number.",
-							Default:     800,
+							Default:     150,
 							Type:        []string{"integer"},
 							Format:      "int64",
 						},

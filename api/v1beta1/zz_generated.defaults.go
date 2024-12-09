@@ -89,7 +89,7 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 		in.Spec.LiveMigrationConfig.ParallelOutboundMigrationsPerNode = &ptrVar1
 	}
 	if in.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB == nil {
-		var ptrVar1 int64 = 800
+		var ptrVar1 int64 = 150
 		in.Spec.LiveMigrationConfig.CompletionTimeoutPerGiB = &ptrVar1
 	}
 	if in.Spec.LiveMigrationConfig.ProgressTimeout == nil {

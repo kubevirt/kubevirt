@@ -106,7 +106,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 		defaultLiveMigrationConfig := v1beta1.LiveMigrationConfigurations{
 			AllowAutoConverge:                 ptr.To(false),
 			AllowPostCopy:                     ptr.To(false),
-			CompletionTimeoutPerGiB:           ptr.To(int64(800)),
+			CompletionTimeoutPerGiB:           ptr.To(int64(150)),
 			ParallelMigrationsPerCluster:      ptr.To(uint32(5)),
 			ParallelOutboundMigrationsPerNode: ptr.To(uint32(2)),
 			ProgressTimeout:                   ptr.To(int64(150)),
