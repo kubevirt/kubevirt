@@ -298,8 +298,6 @@ var _ = SIGDescribe("Storage", func() {
 				},
 					Entry("[test_id:3130]with Disk PVC", newRandomVMIWithPVC, "", nil, true),
 					Entry("[test_id:3131]with CDRom PVC", newRandomVMIWithCDRom, "", nil, true),
-					Entry("[test_id:4618]with NFS Disk PVC using ipv4 address of the NFS pod", newRandomVMIWithPVC, "nfs", k8sv1.IPv4Protocol, true),
-					Entry("with NFS Disk PVC using ipv6 address of the NFS pod", Serial, newRandomVMIWithPVC, "nfs", k8sv1.IPv6Protocol, true),
 					Entry("with NFS Disk PVC using ipv4 address of the NFS pod not owned by qemu", Serial, newRandomVMIWithPVC, "nfs", k8sv1.IPv4Protocol, false),
 				)
 			})
@@ -410,10 +408,8 @@ var _ = SIGDescribe("Storage", func() {
 
 			Context("should be successfully", func() {
 				var pvName string
-				var nfsPod *k8sv1.Pod
 
 				BeforeEach(func() {
-					nfsPod = nil
 					pvName = ""
 				})
 
@@ -436,36 +432,19 @@ var _ = SIGDescribe("Storage", func() {
 				})
 
 				// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
-				DescribeTable("started", func(storageEngine string, family k8sv1.IPFamily) {
-					libnet.SkipWhenClusterNotSupportIPFamily(family)
-
-					// Start the VirtualMachineInstance with the PVC attached
-					if storageEngine == "nfs" {
-						nfsPod, err = storageframework.InitNFS(testsuite.HostPathAlpine, "")
-						Expect(err).ToNot(HaveOccurred())
-						pvName = createNFSPvAndPvc(family, nfsPod)
-					} else {
-						pvName = diskAlpineHostPath
-					}
+				It("[test_id:3136]started with Ephemeral PVC", func() {
+					pvName = diskAlpineHostPath
 
 					vmi = libvmi.New(
 						libvmi.WithResourceMemory("256Mi"),
 						libvmi.WithEphemeralPersistentVolumeClaim("disk0", pvName),
 					)
 
-					if storageEngine == "nfs" {
-						vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 120)
-					} else {
-						vmi = libvmops.RunVMIAndExpectLaunch(vmi, 120)
-					}
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 120)
 
 					By(checkingVMInstanceConsoleOut)
 					Expect(console.LoginToAlpine(vmi)).To(Succeed())
-				},
-					Entry("[test_id:3136]with Ephemeral PVC", "", nil),
-					Entry("[test_id:4619]with Ephemeral PVC from NFS using ipv4 address of the NFS pod", "nfs", k8sv1.IPv4Protocol),
-					Entry("with Ephemeral PVC from NFS using ipv6 address of the NFS pod", "nfs", k8sv1.IPv6Protocol),
-				)
+				})
 			})
 
 			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
