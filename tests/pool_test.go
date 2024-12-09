@@ -27,7 +27,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -221,7 +220,6 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			err       error
 			vms       *v1.VirtualMachineList
 			dvs       *cdiv1.DataVolumeList
-			pvcs      *corev1.PersistentVolumeClaimList
 			dvOrigUID types.UID
 		)
 
@@ -242,30 +240,13 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		dvName1 := vms.Items[1].Spec.DataVolumeTemplates[0].ObjectMeta.Name
 		Expect(dvName).ToNot(Equal(dvName1))
 
-		isGC := libstorage.IsDataVolumeGC(virtClient)
-		if isGC {
-			By("Ensure PVCs are created")
-			pvcs, err = virtClient.CoreV1().PersistentVolumeClaims(newPool.Namespace).List(context.Background(), metav1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			pvcCount := 0
-			for _, pvc := range pvcs.Items {
-				if pvc.Name == dvName || pvc.Name == dvName1 {
-					pvcCount++
-					if pvc.Name == dvName {
-						dvOrigUID = pvc.UID
-					}
-				}
-			}
-			Expect(pvcCount).To(Equal(2))
-		} else {
-			By("Ensure DataVolumes are created")
-			dvs, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(newPool.Namespace).List(context.Background(), metav1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(dvs.Items).To(HaveLen(2))
-			for _, dv := range dvs.Items {
-				if dv.Name == dvName {
-					dvOrigUID = dv.UID
-				}
+		By("Ensure DataVolumes are created")
+		dvs, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(newPool.Namespace).List(context.Background(), metav1.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(dvs.Items).To(HaveLen(2))
+		for _, dv := range dvs.Items {
+			if dv.Name == dvName {
+				dvOrigUID = dv.UID
 			}
 		}
 
@@ -303,29 +284,13 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		By("Waiting until all VMIs are created and online again")
 		waitForVMIs(newPool.Namespace, 2)
 
-		if isGC {
-			pvcs, err = virtClient.CoreV1().PersistentVolumeClaims(newPool.Namespace).List(context.Background(), metav1.ListOptions{})
-			Expect(err).ToNot(HaveOccurred())
+		By("Verify datavolume count after VM replacement")
+		dvs, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(newPool.Namespace).List(context.Background(), metav1.ListOptions{})
+		Expect(dvs.Items).To(HaveLen(2))
 
-			By("Verify pvc for deleted VM is replaced")
-			pvcCount := 0
-			for _, pvc := range pvcs.Items {
-				if pvc.Name == dvName || pvc.Name == dvName1 {
-					Expect(pvc.UID).ToNot(Equal(dvOrigUID))
-					pvcCount++
-				}
-			}
-			By("Verify pvc count after VM replacement")
-			Expect(pvcCount).To(Equal(2))
-		} else {
-			By("Verify datavolume count after VM replacement")
-			dvs, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(newPool.Namespace).List(context.Background(), metav1.ListOptions{})
-			Expect(dvs.Items).To(HaveLen(2))
-
-			By("Verify datavolume for deleted VM is replaced")
-			for _, dv := range dvs.Items {
-				Expect(dv.UID).ToNot(Equal(dvOrigUID))
-			}
+		By("Verify datavolume for deleted VM is replaced")
+		for _, dv := range dvs.Items {
+			Expect(dv.UID).ToNot(Equal(dvOrigUID))
 		}
 	})
 
