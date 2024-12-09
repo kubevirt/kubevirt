@@ -55,7 +55,7 @@ func GetProgramName(binary string) string {
 
 func Execute() {
 	log.InitializeLogging(programName)
-	cmd, clientConfig := NewVirtctlCommand()
+	cmd := NewVirtctlCommand()
 	if err := cmd.Execute(); err != nil {
 		if err := CheckClientServerVersion(cmd.Context()); err != nil {
 			cmd.PrintErrln(err)
@@ -65,7 +65,7 @@ func Execute() {
 	}
 }
 
-func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
+func NewVirtctlCommand() *cobra.Command {
 	// used in cobra templates to display either `kubectl virt` or `virtctl`
 	cobra.AddTemplateFunc(
 		"ProgramName", func() string {
@@ -100,9 +100,9 @@ func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
 	}
 	rootCmd.SetUsageTemplate(templates.MainUsageTemplate())
 	rootCmd.SetOut(os.Stdout)
-
-	clientConfig := kubecli.DefaultClientConfig(rootCmd.PersistentFlags())
-	rootCmd.SetContext(clientconfig.NewContext(context.Background(), clientConfig))
+	rootCmd.SetContext(clientconfig.NewContext(
+		context.Background(), kubecli.DefaultClientConfig(rootCmd.PersistentFlags()),
+	))
 
 	rootCmd.AddCommand(
 		configuration.NewListPermittedDevices(),
@@ -138,7 +138,7 @@ func NewVirtctlCommand() (*cobra.Command, clientcmd.ClientConfig) {
 		optionsCmd,
 	)
 
-	return rootCmd, clientConfig
+	return rootCmd
 }
 
 func CheckClientServerVersion(ctx context.Context) error {
