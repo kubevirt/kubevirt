@@ -1,3 +1,5 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_test")
+
 cc_binary(
     name = "virtiofs-dispatcher",
     srcs = ["main.c"],
@@ -5,4 +7,22 @@ cc_binary(
         "-static",
     ],
     visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "main_test.go",
+        "virtiofs-dispatcher_suite_test.go",
+    ],
+    args = [
+        "--dispatcher-binary",
+        "$(location //cmd/virtiofs-dispatcher:virtiofs-dispatcher)",
+    ],
+    data = ["//cmd/virtiofs-dispatcher"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
 )
