@@ -395,13 +395,13 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			})
 
 			It("[test_id:5257]should reject restore if VM running", func() {
-				Expect(virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})).To(Succeed())
+				vm = libvmops.StartVirtualMachine(vm)
 
 				restore := createRestoreDef(vm.Name, snapshot.Name)
 
 				_, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachine %q run strategy has to be %s", vm.Name, v1.RunStrategyHalted)))
+				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachineInstance %q exists, VM must be stopped before restore", vm.Name)))
 			})
 
 			It("[test_id:5258]should reject restore if another in progress", func() {
