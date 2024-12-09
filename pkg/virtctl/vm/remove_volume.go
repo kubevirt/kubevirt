@@ -26,24 +26,21 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
+
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
-const COMMAND_REMOVEVOLUME = "removevolume"
-
-func NewRemoveVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewRemoveVolumeCommand() *cobra.Command {
+	c := Command{}
 	cmd := &cobra.Command{
 		Use:     "removevolume VMI",
 		Short:   "remove a volume from a running VM",
 		Example: usageRemoveVolume(),
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Command{clientConfig: clientConfig}
-			return c.removeVolumeRun(args)
-		},
+		RunE:    c.removeVolumeRun,
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().StringVar(&volumeName, volumeNameArg, "", "name used in volumes section of spec")
@@ -62,11 +59,11 @@ func usageRemoveVolume() string {
   `
 }
 
-func (o *Command) removeVolumeRun(args []string) error {
+func (o *Command) removeVolumeRun(cmd *cobra.Command, args []string) error {
 	var err error
 	vmiName := args[0]
 
-	virtClient, namespace, err := GetNamespaceAndClient(o.clientConfig)
+	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

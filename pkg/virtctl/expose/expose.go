@@ -10,11 +10,11 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/tools/clientcmd"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
@@ -35,8 +35,6 @@ type command struct {
 	strIPFamily       string
 	strIPFamilyPolicy string
 
-	clientConfig clientcmd.ClientConfig
-
 	targetPort     intstr.IntOrString
 	protocol       k8sv1.Protocol
 	serviceType    k8sv1.ServiceType
@@ -47,8 +45,8 @@ type command struct {
 	client    kubecli.KubevirtClient
 }
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	c := command{clientConfig: clientConfig}
+func NewCommand() *cobra.Command {
+	c := command{}
 	cmd := &cobra.Command{
 		Use:   "expose (TYPE NAME)",
 		Short: "Expose a virtual machine instance, virtual machine, or virtual machine instance replica set as a new service.",
@@ -106,10 +104,7 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 	}
 
 	var err error
-	if c.namespace, _, err = c.clientConfig.Namespace(); err != nil {
-		return err
-	}
-	if c.client, err = kubecli.GetKubevirtClientFromClientConfig(c.clientConfig); err != nil {
+	if c.client, c.namespace, _, err = clientconfig.ClientAndNamespaceFromContext(cmd.Context()); err != nil {
 		return fmt.Errorf("cannot obtain KubeVirt client: %v", err)
 	}
 

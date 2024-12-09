@@ -32,7 +32,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/validation"
-	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/yaml"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -40,6 +39,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/create/params"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -147,9 +147,8 @@ type createVM struct {
 	explicitPreferenceInference   bool
 	memoryChanged                 bool
 
-	clientConfig clientcmd.ClientConfig
-	cmd          *cobra.Command
-	bootOrders   map[uint]string
+	cmd        *cobra.Command
+	bootOrders map[uint]string
 }
 
 // Unless the boot order is specified by the user volumes have the following fixed boot order:
@@ -191,8 +190,8 @@ var volumeImportSizeOptional = map[string]bool{
 	ds:       true,
 }
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	c := defaultCreateVM(clientConfig)
+func NewCommand() *cobra.Command {
+	c := defaultCreateVM()
 	cmd := &cobra.Command{
 		Use:     "vm",
 		Short:   "Create a VirtualMachine manifest.",
@@ -259,7 +258,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	return cmd
 }
 
-func defaultCreateVM(clientConfig clientcmd.ClientConfig) createVM {
+func defaultCreateVM() createVM {
 	return createVM{
 		runStrategy:            string(v1.RunStrategyAlways),
 		terminationGracePeriod: 180,
@@ -267,7 +266,6 @@ func defaultCreateVM(clientConfig clientcmd.ClientConfig) createVM {
 		inferInstancetype:      true,
 		inferPreference:        true,
 		cloudInit:              cloudInitNoCloud,
-		clientConfig:           clientConfig,
 		bootOrders:             map[uint]string{},
 	}
 }
@@ -370,7 +368,7 @@ func (c *createVM) run(cmd *cobra.Command, _ []string) error {
 func (c *createVM) setDefaults(cmd *cobra.Command) error {
 	c.cmd = cmd
 
-	namespace, overridden, err := c.clientConfig.Namespace()
+	_, namespace, overridden, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

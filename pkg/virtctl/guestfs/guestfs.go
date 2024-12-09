@@ -17,12 +17,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
 
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -48,15 +48,14 @@ const (
 )
 
 type guestfsCommand struct {
-	clientConfig clientcmd.ClientConfig
-	pvc          string
-	image        string
-	kvm          bool
-	root         bool
-	fsGroup      string
-	uid          string
-	gid          string
-	pullPolicy   string
+	pvc        string
+	image      string
+	kvm        bool
+	root       bool
+	fsGroup    string
+	uid        string
+	gid        string
+	pullPolicy string
 }
 
 // Following variables allow overriding the default functions (useful for unit testing)
@@ -66,8 +65,8 @@ var ImageSetFunc = SetImage
 var ImageInfoGetFunc = GetImageInfo
 
 // NewGuestfsShellCommand returns a cobra.Command for starting libguestfs-tool pod and attach it to a pvc
-func NewGuestfsShellCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	c := guestfsCommand{clientConfig: clientConfig}
+func NewGuestfsShellCommand() *cobra.Command {
+	c := guestfsCommand{}
 	cmd := &cobra.Command{
 		Use:     "guestfs",
 		Short:   "Start a shell into the libguestfs pod",
@@ -94,9 +93,10 @@ func usage() string {
 	return usage
 }
 
-func (c *guestfsCommand) run(_ *cobra.Command, args []string) error {
+func (c *guestfsCommand) run(cmd *cobra.Command, args []string) error {
 	c.pvc = args[0]
-	namespace, _, err := c.clientConfig.Namespace()
+
+	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}
@@ -107,11 +107,7 @@ func (c *guestfsCommand) run(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("Invalid pull policy: %s", c.pullPolicy)
 	}
 	var inUse bool
-	conf, err := c.clientConfig.ClientConfig()
-	if err != nil {
-		return err
-	}
-	client, err := CreateClientFunc(conf, c.clientConfig)
+	client, err := CreateClientFunc(virtClient)
 	if err != nil {
 		return err
 	}
@@ -189,18 +185,14 @@ func GetImageInfo(virtClient kubecli.KubevirtClient) (*kubecli.GuestfsInfo, erro
 	return info, nil
 }
 
-func CreateClient(config *rest.Config, virtClientConfig clientcmd.ClientConfig) (*K8sClient, error) {
-	client, err := kubernetes.NewForConfig(config)
+func CreateClient(virtClient kubecli.KubevirtClient) (*K8sClient, error) {
+	client, err := kubernetes.NewForConfig(virtClient.Config())
 	if err != nil {
 		return &K8sClient{}, err
 	}
-	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(virtClientConfig)
-	if err != nil {
-		return &K8sClient{}, fmt.Errorf("cannot obtain KubeVirt client: %v", err)
-	}
 	return &K8sClient{
 		Client:     client,
-		config:     config,
+		config:     virtClient.Config(),
 		VirtClient: virtClient,
 	}, nil
 }

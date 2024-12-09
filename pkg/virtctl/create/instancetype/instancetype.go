@@ -26,12 +26,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/client-go/tools/clientcmd"
 	v1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/yaml"
 
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/create/params"
 )
 
@@ -57,8 +57,6 @@ type createInstancetype struct {
 	hostDevices     []string
 	ioThreadsPolicy string
 	namespaced      bool
-
-	clientConfig clientcmd.ClientConfig
 }
 
 type gpu struct {
@@ -71,10 +69,8 @@ type hostDevice struct {
 	DeviceName string `param:"devicename"`
 }
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	c := createInstancetype{
-		clientConfig: clientConfig,
-	}
+func NewCommand() *cobra.Command {
+	c := createInstancetype{}
 	cmd := &cobra.Command{
 		Use:     "instancetype",
 		Short:   "Create VirtualMachineInstancetype or VirtualMachineClusterInstancetype manifest.",
@@ -100,7 +96,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 }
 
 func (c *createInstancetype) setDefaults(cmd *cobra.Command) error {
-	namespace, overridden, err := c.clientConfig.Namespace()
+	_, namespace, overridden, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

@@ -5,27 +5,22 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	v1 "kubevirt.io/api/core/v1"
 
-	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
-
-	"kubevirt.io/client-go/kubecli"
-
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
-func NewScreenshotCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	s := Screenshot{clientConfig: clientConfig}
+func NewScreenshotCommand() *cobra.Command {
+	s := Screenshot{}
 	cmd := &cobra.Command{
 		Use:     "screenshot (VMI)",
 		Short:   "Create a VNC screenshot of a virtual machine instance.",
 		Example: usage(),
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := s
-			return c.Run(cmd, args)
-		},
+		RunE:    s.Run,
 	}
 	cmd.Flags().StringVarP(&s.fileName, "file", "f", "", "where to store the VNC screenshot in PNG format. User '-' for stdout")
 	cmd.Flags().BoolVarP(&s.moveCursor, "move-cursor", "m", false, "move the cursor to wake up the screen in case of screensavers")
@@ -46,18 +41,12 @@ func usage() string {
 }
 
 type Screenshot struct {
-	clientConfig clientcmd.ClientConfig
-	fileName     string
-	moveCursor   bool
+	fileName   string
+	moveCursor bool
 }
 
-func (s *Screenshot) Run(_ *cobra.Command, args []string) error {
-	namespace, _, err := s.clientConfig.Namespace()
-	if err != nil {
-		return err
-	}
-
-	virtCli, err := kubecli.GetKubevirtClientFromClientConfig(s.clientConfig)
+func (s *Screenshot) Run(cmd *cobra.Command, args []string) error {
+	virtCli, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

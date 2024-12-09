@@ -25,8 +25,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"k8s.io/client-go/tools/clientcmd"
-
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/ssh"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -36,10 +35,9 @@ const (
 	preserveFlag                      = "preserve"
 )
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewCommand() *cobra.Command {
 	c := &SCP{
-		clientConfig: clientConfig,
-		options:      ssh.DefaultSSHOptions(),
+		options: ssh.DefaultSSHOptions(),
 	}
 	c.options.LocalClientName = "scp"
 
@@ -48,9 +46,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Short:   "SCP files from/to a virtual machine instance.",
 		Example: usage(),
 		Args:    cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return c.Run(cmd, args)
-		},
+		RunE:    c.Run,
 	}
 
 	ssh.AddCommandlineArgs(cmd.Flags(), &c.options)
@@ -63,14 +59,18 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 }
 
 type SCP struct {
-	clientConfig clientcmd.ClientConfig
-	options      ssh.SSHOptions
-	recursive    bool
-	preserve     bool
+	options   ssh.SSHOptions
+	recursive bool
+	preserve  bool
 }
 
 func (o *SCP) Run(cmd *cobra.Command, args []string) error {
-	local, remote, toRemote, err := PrepareCommand(cmd, o.clientConfig, &o.options, args)
+	client, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	if err != nil {
+		return err
+	}
+
+	local, remote, toRemote, err := PrepareCommand(cmd, namespace, &o.options, args)
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func (o *SCP) Run(cmd *cobra.Command, args []string) error {
 		return ssh.RunLocalClient(remote.Kind, remote.Namespace, remote.Name, &o.options, clientArgs)
 	}
 
-	return o.nativeSCP(local, remote, toRemote)
+	return o.nativeSCP(local, remote, toRemote, client)
 }
 
 type LocalArgument struct {
@@ -95,7 +95,7 @@ type RemoteArgument struct {
 	Path      string
 }
 
-func PrepareCommand(cmd *cobra.Command, clientConfig clientcmd.ClientConfig, opts *ssh.SSHOptions, args []string) (*LocalArgument, *RemoteArgument, bool, error) {
+func PrepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *ssh.SSHOptions, args []string) (*LocalArgument, *RemoteArgument, bool, error) {
 	opts.IdentityFilePathProvided = cmd.Flags().Changed(ssh.IdentityFilePathFlag)
 
 	local, remote, toRemote, err := ParseTarget(args[0], args[1])
@@ -104,10 +104,7 @@ func PrepareCommand(cmd *cobra.Command, clientConfig clientcmd.ClientConfig, opt
 	}
 
 	if len(remote.Namespace) < 1 {
-		remote.Namespace, _, err = clientConfig.Namespace()
-		if err != nil {
-			return nil, nil, false, err
-		}
+		remote.Namespace = fallbackNamespace
 	}
 
 	if len(remote.Username) > 0 {

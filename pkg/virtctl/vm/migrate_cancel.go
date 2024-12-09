@@ -25,33 +25,30 @@ import (
 
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const COMMAND_MIGRATE_CANCEL = "migrate-cancel"
 
-func NewMigrateCancelCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewMigrateCancelCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "migrate-cancel (VM)",
 		Short:   "Cancel migration of a virtual machine.",
 		Example: usage(COMMAND_MIGRATE_CANCEL),
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Command{command: COMMAND_MIGRATE_CANCEL, clientConfig: clientConfig}
-			return c.migrateCancelRun(args)
-		},
+		RunE:    migrateCancelRun,
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 
-func (o *Command) migrateCancelRun(args []string) error {
+func migrateCancelRun(cmd *cobra.Command, args []string) error {
 	vmiName := args[0]
 
-	virtClient, namespace, err := GetNamespaceAndClient(o.clientConfig)
+	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}
@@ -85,7 +82,7 @@ func (o *Command) migrateCancelRun(args []string) error {
 		return fmt.Errorf("Found no migration to cancel for %s", vmiName)
 	}
 
-	fmt.Printf("VM %s was scheduled to %s\n", vmiName, o.command)
+	fmt.Printf("VM %s was scheduled to %s\n", vmiName, COMMAND_MIGRATE_CANCEL)
 
 	return nil
 }

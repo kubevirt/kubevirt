@@ -1,6 +1,7 @@
 package virtctl
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -17,6 +18,7 @@ import (
 	client_version "kubevirt.io/client-go/version"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/adm"
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/configuration"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
 	"kubevirt.io/kubevirt/pkg/virtctl/create"
@@ -95,39 +97,40 @@ func NewVirtctlCommandFn() (*cobra.Command, clientcmd.ClientConfig) {
 	rootCmd.SetUsageTemplate(templates.MainUsageTemplate())
 	rootCmd.SetOut(os.Stdout)
 
-	//TODO: Add a ClientConfigFactory which allows substituting the KubeVirt client with a mock for unit testing
 	clientConfig := kubecli.DefaultClientConfig(rootCmd.PersistentFlags())
+	rootCmd.SetContext(clientconfig.NewContext(context.Background(), clientConfig))
+
 	rootCmd.AddCommand(
-		configuration.NewListPermittedDevices(clientConfig),
-		console.NewCommand(clientConfig),
-		usbredir.NewCommand(clientConfig),
-		vnc.NewCommand(clientConfig),
-		scp.NewCommand(clientConfig),
-		ssh.NewCommand(clientConfig),
-		portforward.NewCommand(clientConfig),
-		vm.NewStartCommand(clientConfig),
-		vm.NewStopCommand(clientConfig),
-		vm.NewRestartCommand(clientConfig),
-		vm.NewMigrateCommand(clientConfig),
-		vm.NewMigrateCancelCommand(clientConfig),
-		vm.NewGuestOsInfoCommand(clientConfig),
-		vm.NewUserListCommand(clientConfig),
-		vm.NewFSListCommand(clientConfig),
-		vm.NewAddVolumeCommand(clientConfig),
-		vm.NewRemoveVolumeCommand(clientConfig),
-		vm.NewExpandCommand(clientConfig),
-		memorydump.NewMemoryDumpCommand(clientConfig),
-		pause.NewCommand(clientConfig),
-		unpause.NewCommand(clientConfig),
-		softreboot.NewSoftRebootCommand(clientConfig),
-		expose.NewCommand(clientConfig),
-		version.VersionCommand(clientConfig),
-		imageupload.NewImageUploadCommand(clientConfig),
-		guestfs.NewGuestfsShellCommand(clientConfig),
-		vmexport.NewVirtualMachineExportCommand(clientConfig),
-		create.NewCommand(clientConfig),
-		credentials.NewCommand(clientConfig),
-		adm.NewCommand(clientConfig),
+		configuration.NewListPermittedDevices(),
+		console.NewCommand(),
+		usbredir.NewCommand(),
+		vnc.NewCommand(),
+		scp.NewCommand(),
+		ssh.NewCommand(),
+		portforward.NewCommand(),
+		vm.NewStartCommand(),
+		vm.NewStopCommand(),
+		vm.NewRestartCommand(),
+		vm.NewMigrateCommand(),
+		vm.NewMigrateCancelCommand(),
+		vm.NewGuestOsInfoCommand(),
+		vm.NewUserListCommand(),
+		vm.NewFSListCommand(),
+		vm.NewAddVolumeCommand(),
+		vm.NewRemoveVolumeCommand(),
+		vm.NewExpandCommand(),
+		memorydump.NewMemoryDumpCommand(),
+		pause.NewCommand(),
+		unpause.NewCommand(),
+		softreboot.NewSoftRebootCommand(),
+		expose.NewCommand(),
+		version.VersionCommand(),
+		imageupload.NewImageUploadCommand(),
+		guestfs.NewGuestfsShellCommand(),
+		vmexport.NewVirtualMachineExportCommand(),
+		create.NewCommand(),
+		credentials.NewCommand(),
+		adm.NewCommand(),
 		optionsCmd,
 	)
 
@@ -147,9 +150,9 @@ func addGLogVerbosityFlag(fs *pflag.FlagSet) {
 
 func Execute() int {
 	log.InitializeLogging(programName)
-	cmd, clientConfig := NewVirtctlCommand()
+	cmd, _ := NewVirtctlCommand()
 	if err := cmd.Execute(); err != nil {
-		if versionErr := checkClientServerVersion(clientConfig); versionErr != nil {
+		if versionErr := checkClientServerVersion(cmd.Context()); versionErr != nil {
 			cmd.PrintErrln(versionErr)
 		}
 		cmd.PrintErrln(err)
@@ -158,13 +161,13 @@ func Execute() int {
 	return 0
 }
 
-func checkClientServerVersion(clientConfig clientcmd.ClientConfig) error {
+func checkClientServerVersion(ctx context.Context) error {
 	clientSemVer, err := semver.NewVersion(strings.TrimPrefix(client_version.Get().GitVersion, "v"))
 	if err != nil {
 		return err
 	}
 
-	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(clientConfig)
+	virtClient, _, _, err := clientconfig.ClientAndNamespaceFromContext(ctx)
 	if err != nil {
 		return err
 	}

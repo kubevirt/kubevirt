@@ -24,24 +24,23 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
+
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const COMMAND_RESTART = "restart"
 
-func NewRestartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewRestartCommand() *cobra.Command {
+	c := Command{command: COMMAND_RESTART}
 	cmd := &cobra.Command{
 		Use:     "restart (VM)",
 		Short:   "Restart a virtual machine.",
 		Example: usage(COMMAND_RESTART),
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Command{command: COMMAND_RESTART, clientConfig: clientConfig}
-			return c.restartRun(args, cmd)
-		},
+		RunE:    c.restartRun,
 	}
 	cmd.Flags().BoolVar(&forceRestart, forceArg, false, "--force=false: Only used when grace-period=0. If true, immediately remove VMI pod from API and bypass graceful deletion. Note that immediate deletion of some resources may result in inconsistency or data loss and requires confirmation.")
 	cmd.Flags().Int64Var(&gracePeriod, gracePeriodArg, -1, "--grace-period=-1: Period of time in seconds given to the VMI to terminate gracefully. Can only be set to 0 when --force is true (force deletion). Currently only setting 0 is supported.")
@@ -50,11 +49,11 @@ func NewRestartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	return cmd
 }
 
-func (o *Command) restartRun(args []string, cmd *cobra.Command) error {
+func (o *Command) restartRun(cmd *cobra.Command, args []string) error {
 	vmiName := args[0]
 	errorFmt := "error restarting VirtualMachine: %v"
 
-	virtClient, namespace, err := GetNamespaceAndClient(o.clientConfig)
+	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

@@ -6,25 +6,23 @@ import (
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/clientcmd"
+
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/credentials/common"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
-func SetPasswordCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func SetPasswordCommand() *cobra.Command {
 	cmdFlags := &passwordCommandFlags{}
 	cmd := &cobra.Command{
 		Use:     "set-password",
 		Short:   "Set password for a user",
 		Args:    cobra.ExactArgs(1),
 		Example: exampleUsage,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSetPasswordCommand(clientConfig, cmdFlags, cmd, args)
-		},
+		RunE:    cmdFlags.runSetPasswordCommand,
 	}
 	cmdFlags.AddToCommand(cmd)
 
@@ -60,17 +58,12 @@ func (p *passwordCommandFlags) AddToCommand(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&p.Force, "force", false, "Force update of secret, even if it's not owned by the VM.")
 }
 
-func runSetPasswordCommand(clientConfig clientcmd.ClientConfig, cmdFlags *passwordCommandFlags, cmd *cobra.Command, args []string) error {
+func (p *passwordCommandFlags) runSetPasswordCommand(cmd *cobra.Command, args []string) error {
 	vmName := args[0]
 
-	vmNamespace, _, err := clientConfig.Namespace()
+	cli, vmNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
-		return fmt.Errorf("error getting namespace: %w", err)
-	}
-
-	cli, err := kubecli.GetKubevirtClientFromClientConfig(clientConfig)
-	if err != nil {
-		return fmt.Errorf("error getting kubevirt client: %w", err)
+		return fmt.Errorf("error getting kubevirt client or namespace: %w", err)
 	}
 
 	vm, err := cli.VirtualMachine(vmNamespace).Get(cmd.Context(), vmName, metav1.GetOptions{})
@@ -83,12 +76,12 @@ func runSetPasswordCommand(clientConfig clientcmd.ClientConfig, cmdFlags *passwo
 		return fmt.Errorf("no secrets assigned to UserPassword AccessCredentials")
 	}
 
-	secretName, err := common.FindSecretOrGetFirst(cmdFlags.Secret, secrets)
+	secretName, err := common.FindSecretOrGetFirst(p.Secret, secrets)
 	if err != nil {
 		return err
 	}
 
-	if !cmdFlags.Force {
+	if !p.Force {
 		secret, errSecret := cli.CoreV1().Secrets(vm.Namespace).Get(cmd.Context(), secretName, metav1.GetOptions{})
 		if errSecret != nil {
 			return fmt.Errorf("error getting secret \"%s\": %w", secretName, errSecret)
@@ -99,8 +92,8 @@ func runSetPasswordCommand(clientConfig clientcmd.ClientConfig, cmdFlags *passwo
 			return fmt.Errorf("secret %s does not have an owner reference pointing to VM %s", secretName, vm.Name)
 		}
 	}
-	passwordPath := fmt.Sprintf("/data/%s", cmdFlags.User)
-	addKeyPatch, err := patch.New(patch.WithAdd(passwordPath, []byte(cmdFlags.Password))).GeneratePayload()
+	passwordPath := fmt.Sprintf("/data/%s", p.User)
+	addKeyPatch, err := patch.New(patch.WithAdd(passwordPath, []byte(p.Password))).GeneratePayload()
 	if err != nil {
 		return err
 	}
@@ -116,7 +109,7 @@ func runSetPasswordCommand(clientConfig clientcmd.ClientConfig, cmdFlags *passwo
 		fullPatch, err := patch.New(
 			patch.WithTest("/data", nil),
 			patch.WithAdd("/data", map[string][]byte{}),
-			patch.WithAdd(passwordPath, []byte(cmdFlags.Password)),
+			patch.WithAdd(passwordPath, []byte(p.Password)),
 		).GeneratePayload()
 		if err != nil {
 			return err

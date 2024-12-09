@@ -29,24 +29,20 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/client-go/kubecli"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 type consoleCommand struct {
-	timeout      int
-	namespace    string
-	virtCli      kubecli.KubevirtClient
-	clientConfig clientcmd.ClientConfig
+	timeout int
 }
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	c := consoleCommand{clientConfig: clientConfig}
-
+func NewCommand() *cobra.Command {
+	c := consoleCommand{}
 	cmd := &cobra.Command{
 		Use:     "console (VMI)",
 		Short:   "Connect to a console of a virtual machine instance.",
@@ -54,7 +50,6 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		RunE:    c.run,
 	}
-
 	cmd.Flags().IntVar(&c.timeout, "timeout", 5, "The number of minutes to wait for the virtual machine instance to be ready.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
@@ -70,23 +65,17 @@ func usage() string {
 }
 
 func (c *consoleCommand) run(cmd *cobra.Command, args []string) error {
-
 	vmi := args[0]
 
-	var err error
-
-	if c.namespace, _, err = c.clientConfig.Namespace(); err != nil {
-		return err
-	}
-
-	if c.virtCli, err = kubecli.GetKubevirtClientFromClientConfig(c.clientConfig); err != nil {
+	client, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	if err != nil {
 		return fmt.Errorf("cannot obtain KubeVirt client: %v", err)
 	}
 
-	return c.handleConsoleConnection(vmi)
+	return c.handleConsoleConnection(client, namespace, vmi)
 }
 
-func (c *consoleCommand) handleConsoleConnection(vmi string) error {
+func (c *consoleCommand) handleConsoleConnection(client kubecli.KubevirtClient, namespace, vmi string) error {
 	// in -> stdinWriter | stdinReader -> console
 	// out <- stdoutReader | stdoutWriter <- console
 	// Wait until the virtual machine is in running phase, user interrupt or timeout
@@ -99,7 +88,7 @@ func (c *consoleCommand) handleConsoleConnection(vmi string) error {
 	signal.Notify(waitInterrupt, os.Interrupt)
 
 	go func() {
-		con, err := c.virtCli.VirtualMachineInstance(c.namespace).SerialConsole(vmi, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: time.Duration(c.timeout) * time.Minute})
+		con, err := client.VirtualMachineInstance(namespace).SerialConsole(vmi, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: time.Duration(c.timeout) * time.Minute})
 		runningChan <- err
 
 		if err != nil {

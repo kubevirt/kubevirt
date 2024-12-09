@@ -24,6 +24,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func (usbredirCmd *usbredirCommand) Run(command *cobra.Command, args []string) error {
+func Run(_ *cobra.Command, _ []string) error {
 	return fmt.Errorf("there is no usb support on s390x, this command is disabled")
 }
