@@ -143,15 +143,15 @@ var _ = SIGMigrationDescribe("Live Migrate A Paused VMI", func() {
 						if expectSuccess {
 							libmigration.ExpectMigrationToSucceed(virtClient, migration, 100)
 						} else {
-							Eventually(matcher.ThisMigration(migration), 150, 1*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed))
+							Eventually(matcher.ThisMigration(migration), 150*time.Second, 1*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed))
 						}
 
 						By("Making sure that the VMI is unpaused")
 						Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 
 					},
-						Entry("[QUARANTINE] migrate successfully (migration policy)", decorators.Quarantine, expectSuccess, "50Mi", applyWithMigrationPolicy),
-						Entry("[QUARANTINE] migrate successfully (CR change)", Serial, decorators.Quarantine, expectSuccess, "50Mi", applyWithKubevirtCR),
+						Entry("migrate successfully (migration policy)", expectSuccess, "10Mi", applyWithMigrationPolicy),
+						Entry("migrate successfully (CR change)", Serial, expectSuccess, "10Mi", applyWithKubevirtCR),
 						Entry("[QUARANTINE] fail migration", decorators.Quarantine, expectFailure, "1Mi", applyWithMigrationPolicy),
 					)
 				})
