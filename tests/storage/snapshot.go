@@ -1363,10 +1363,6 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 		Context("with independent DataVolume", func() {
 			var dv *cdiv1.DataVolume
 
-			AfterEach(func() {
-				libstorage.DeleteDataVolume(&dv)
-			})
-
 			DescribeTable("should accurately report DataVolume provisioning", func(storageOptFun func(string, string) libvmi.Option, memory string) {
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),

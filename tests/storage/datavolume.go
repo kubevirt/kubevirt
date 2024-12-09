@@ -401,7 +401,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					Expect(err).ToNot(HaveOccurred())
 					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				}
-				libstorage.DeleteDataVolume(&dataVolume)
 			})
 
 			It("[test_id:6686]should successfully start multiple concurrent VMIs", func() {
@@ -445,7 +444,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 					err := virtClient.VirtualMachineInstance(vmis[idx].Namespace).Delete(context.Background(), vmis[idx].Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					libstorage.DeleteDataVolume(&dvs[idx])
 				}
 			})
 
@@ -478,7 +476,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
-				libstorage.DeleteDataVolume(&dataVolume)
 			})
 
 			It("should accurately aggregate DataVolume conditions from many DVs", func() {
@@ -555,7 +552,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					err := virtClient.StorageV1().StorageClasses().Delete(context.Background(), storageClass.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}
-				libstorage.DeleteDataVolume(&dv)
 			})
 
 			It("[test_id:4643]should NOT be rejected when VM template lists a DataVolume, but VM lists PVC VolumeSource", func() {
@@ -653,8 +649,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullPod),
 					libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
 				)
-
-				defer libstorage.DeleteDataVolume(&dataVolume)
 
 				By("Creating DataVolume with invalid URL")
 				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})

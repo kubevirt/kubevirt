@@ -298,7 +298,6 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 				),
 				libdv.WithNamespace(namespace),
 			)
-			defer libstorage.DeleteDataVolume(&dataVolume)
 
 			dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())

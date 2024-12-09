@@ -25,7 +25,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
-	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
 
@@ -80,18 +79,6 @@ func EventuallyDVWith(namespace, name string, timeoutSec int, matcher gomegatype
 	Eventually(ThisDVWith(namespace, name), timeoutSec, time.Second).Should(matcher)
 }
 
-func DeleteDataVolume(dv **v1beta1.DataVolume) {
-	Expect(dv).ToNot(BeNil())
-	if *dv == nil {
-		return
-	}
-	ginkgo.By("Deleting DataVolume")
-	virtCli := kubevirt.Client()
-	err := virtCli.CdiClient().CdiV1beta1().DataVolumes((*dv).Namespace).Delete(context.Background(), (*dv).Name, v12.DeleteOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	*dv = nil
-}
-
 func GetCDI(virtCli kubecli.KubevirtClient) *v1beta1.CDI {
 	cdiList, err := virtCli.CdiClient().CdiV1beta1().CDIs().List(context.Background(), v12.ListOptions{})
 	Expect(err).ToNot(HaveOccurred())
@@ -111,10 +98,7 @@ func HasDataVolumeCRD() bool {
 
 	_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "datavolumes.cdi.kubevirt.io", v12.GetOptions{})
 
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 func HasCDI() bool {
