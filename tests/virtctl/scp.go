@@ -126,9 +126,9 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 		By("comparing the two files")
 		compareFile(keyFile, copyBackFile)
 	},
-		Entry("using the native scp method", decorators.NativeSsh, copyNative),
-		Entry("using the local scp method with --local-ssh flag", decorators.NativeSsh, copyLocal(true)),
-		Entry("using the local scp method without --local-ssh flag", decorators.ExcludeNativeSsh, copyLocal(false)),
+		Entry("using the native scp method", decorators.NativeSSH, copyNative),
+		Entry("using the local scp method with --local-ssh flag", decorators.NativeSSH, copyLocal(true)),
+		Entry("using the local scp method without --local-ssh flag", decorators.ExcludeNativeSSH, copyLocal(false)),
 	)
 
 	DescribeTable("should copy a local directory back and forth", func(copyFn func(string, string, bool)) {
@@ -159,12 +159,12 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 		compareFile(filepath.Join(copyFromDir, "file1"), filepath.Join(copyToDir, "file1"))
 		compareFile(filepath.Join(copyFromDir, "file2"), filepath.Join(copyToDir, "file2"))
 	},
-		Entry("using the native scp method", decorators.NativeSsh, copyNative),
-		Entry("using the local scp method with --local-ssh flag", decorators.NativeSsh, copyLocal(true)),
-		Entry("using the local scp method without --local-ssh flag", decorators.ExcludeNativeSsh, copyLocal(false)),
+		Entry("using the native scp method", decorators.NativeSSH, copyNative),
+		Entry("using the local scp method with --local-ssh flag", decorators.NativeSSH, copyLocal(true)),
+		Entry("using the local scp method without --local-ssh flag", decorators.ExcludeNativeSSH, copyLocal(false)),
 	)
 
-	It("local-ssh flag should be unavailable in virtctl", decorators.ExcludeNativeSsh, func() {
+	It("local-ssh flag should be unavailable in virtctl", decorators.ExcludeNativeSSH, func() {
 		// The built virtctl binary should be tested here, therefore clientcmd.CreateCommandWithNS needs to be used.
 		// Running the command through NewRepeatableVirtctlCommand would test the test binary instead.
 		_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.NamespaceTestDefault, "virtctl", "scp", "--local-ssh=false")
