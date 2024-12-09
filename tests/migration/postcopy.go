@@ -170,7 +170,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 				podName := "migration-killer-pod-"
 
 				// kill the handler
-				pod := libpod.RenderPrivilegedPod(podName, []string{"/bin/bash", "-c"}, []string{fmt.Sprintf("while true; do pkill -9 virt-handler && sleep 5; done")})
+				pod := libpod.RenderPrivilegedPod(podName, []string{"/bin/bash", "-c"}, []string{"date; pkill -e -9 virt-handler || echo not found"})
 
 				pod.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 				createdPod, err := virtClient.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
