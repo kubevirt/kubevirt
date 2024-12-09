@@ -204,6 +204,12 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 					return fmt.Errorf("waiting for virt-handler pod to come back online")
 				}, 2*time.Minute, 1*time.Second).Should(Succeed(), "Virt handler should come online")
 			}
+
+			AfterEach(func() {
+				By("Ensuring the virt-handler killer pod is removed")
+				removeVirtHandlerKillerPod()
+			})
+
 			It("and make sure VMs restart after failure", func() {
 				By("creating a large VM with RunStrategyRerunOnFailure")
 				vmi := libvmifact.NewFedora(
