@@ -620,57 +620,101 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[1].Field).To(Equal("fake.domain.devices.disks[0]"))
 		})
 
-		DescribeTable("should verify input device",
-			func(input v1.Input, expectedErrors int, expectedErrorTypes []string, expectMessage string) {
-				vmi := api.NewMinimalVMI("testvmi")
-				vmi.Spec.Domain.Devices.Inputs = append(vmi.Spec.Domain.Devices.Inputs, input)
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-				Expect(causes).To(HaveLen(expectedErrors), fmt.Sprintf("Expect %d errors", expectedErrors))
-				for i, errorType := range expectedErrorTypes {
-					Expect(causes[i].Field).To(Equal(errorType), expectMessage)
-				}
+		DescribeTable("should accept input device",
+			func(input v1.Input) {
+				vmi := newBaseVmi(withInputDevice(input))
+
+				ar, err := newAdmissionReviewForVMICreation(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+				Expect(resp.Allowed).To(BeTrue())
+				Expect(resp.Result).To(BeNil())
 			},
-			Entry("and accept input with virtio bus",
+			Entry("with virtio bus",
 				v1.Input{
 					Type: v1.InputTypeTablet,
 					Name: "tablet0",
 					Bus:  v1.InputBusVirtio,
-				}, 0, []string{}, "Expect no errors"),
-			Entry("and accept input with usb bus",
+				}),
+			Entry("with usb bus",
 				v1.Input{
 					Type: v1.InputTypeTablet,
 					Name: "tablet0",
 					Bus:  v1.InputBusUSB,
-				}, 0, []string{}, "Expect no errors"),
-			Entry("and accept input without bus",
+				}),
+			Entry("without bus",
 				v1.Input{
 					Type: v1.InputTypeTablet,
 					Name: "tablet0",
-				}, 0, []string{}, "Expect no errors"),
+				}),
+		)
+		DescribeTable("should reject input device",
+			func(input v1.Input, expectedCauses []metav1.StatusCause) {
+				vmi := newBaseVmi(withInputDevice(input))
+
+				ar, err := newAdmissionReviewForVMICreation(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(resp.Result.Details.Causes).To(ContainElements(expectedCauses))
+			},
 			Entry("and reject input with ps2 bus",
 				v1.Input{
 					Type: v1.InputTypeTablet,
 					Name: "tablet0",
 					Bus:  v1.InputBus("ps2"),
-				}, 1, []string{"fake.domain.devices.inputs[0].bus"}, "Expect bus error"),
+				},
+				[]metav1.StatusCause{{
+					Type:    "FieldValueInvalid",
+					Message: "Input device can have only virtio or usb bus.",
+					Field:   "spec.domain.devices.inputs[0].bus",
+				}},
+			),
 			Entry("and reject input with keyboard type and virtio bus",
 				v1.Input{
 					Type: v1.InputTypeKeyboard,
 					Name: "tablet0",
 					Bus:  v1.InputBusVirtio,
-				}, 1, []string{"fake.domain.devices.inputs[0].type"}, "Expect type error"),
+				},
+				[]metav1.StatusCause{{
+					Type:    "FieldValueInvalid",
+					Message: "Input device can have only tablet type.",
+					Field:   "spec.domain.devices.inputs[0].type",
+				}},
+			),
 			Entry("and reject input with keyboard type and usb bus",
 				v1.Input{
 					Type: v1.InputTypeKeyboard,
 					Name: "tablet0",
 					Bus:  v1.InputBusUSB,
-				}, 1, []string{"fake.domain.devices.inputs[0].type"}, "Expect type error"),
+				},
+				[]metav1.StatusCause{{
+					Type:    "FieldValueInvalid",
+					Message: "Input device can have only tablet type.",
+					Field:   "spec.domain.devices.inputs[0].type",
+				}},
+			),
 			Entry("and reject input with wrong type and wrong bus",
 				v1.Input{
 					Type: v1.InputTypeKeyboard,
 					Name: "tablet0",
 					Bus:  v1.InputBus("ps2"),
-				}, 2, []string{"fake.domain.devices.inputs[0].bus", "fake.domain.devices.inputs[0].type"}, "Expect type error"),
+				},
+				[]metav1.StatusCause{
+					{
+						Type:    "FieldValueInvalid",
+						Message: "Input device can have only virtio or usb bus.",
+						Field:   "spec.domain.devices.inputs[0].bus",
+					},
+					{
+						Type:    "FieldValueInvalid",
+						Message: "Input device can have only tablet type.",
+						Field:   "spec.domain.devices.inputs[0].type",
+					},
+				},
+			),
 		)
 
 		It("should reject negative requests.cpu value", func() {
@@ -4272,5 +4316,11 @@ func withMachine(machine *v1.Machine) libvmi.Option {
 func withSoundDevice(soundDevice *v1.SoundDevice) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.Sound = soundDevice
+	}
+}
+
+func withInputDevice(input v1.Input) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.Inputs = append(vmi.Spec.Domain.Devices.Inputs, input)
 	}
 }
