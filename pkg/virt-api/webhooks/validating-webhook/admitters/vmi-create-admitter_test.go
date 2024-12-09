@@ -472,8 +472,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("when arch is amd64", "amd64", "q35"),
 		)
 		It("should reject invalid machine type", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Machine = &v1.Machine{Type: "test"}
+			vmi := newBaseVmi(withMachine(&v1.Machine{Type: "test"}))
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
@@ -483,15 +482,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should accept valid hostname", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			vmi.Spec.Hostname = "test"
+			vmi := newBaseVmi(libvmi.WithHostname("test"))
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
 		It("should reject invalid hostname", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			vmi.Spec.Hostname = "test+bad"
+			vmi := newBaseVmi(libvmi.WithHostname("test+bad"))
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
@@ -500,23 +497,20 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Message).To(ContainSubstring("does not conform to the kubernetes DNS_LABEL rules : "))
 		})
 		It("should accept valid subdomain name", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			vmi.Spec.Subdomain = "testsubdomain"
+			vmi := newBaseVmi(libvmi.WithSubdomain("testsubdomain"))
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
 		It("should reject invalid subdomain name", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			vmi.Spec.Subdomain = "bad+domain"
+			vmi := newBaseVmi(libvmi.WithSubdomain("bad+domain"))
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.subdomain"))
 		})
 		It("should reject disk with missing volume", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-
+			vmi := newBaseVmi()
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk",
 			})
@@ -566,7 +560,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			),
 		)
 		It("should reject volume with missing disk / file system", func() {
-			vmi := api.NewMinimalVMI("testvmi")
+			vmi := newBaseVmi()
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
 				VolumeSource: v1.VolumeSource{
@@ -580,7 +574,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject multiple disks referencing same volume", func() {
-			vmi := api.NewMinimalVMI("testvmi")
+			vmi := newBaseVmi()
 
 			// verify two disks referencing the same volume are rejected
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
@@ -601,7 +595,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[1].name"))
 		})
 		It("should generate multiple causes", func() {
-			vmi := api.NewMinimalVMI("testvmi")
+			vmi := newBaseVmi()
 
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk",
@@ -619,7 +613,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].name"))
 			Expect(causes[1].Field).To(Equal("fake.domain.devices.disks[0]"))
 		})
-
 		DescribeTable("should accept input device",
 			func(input v1.Input) {
 				vmi := newBaseVmi(withInputDevice(input))
@@ -718,161 +711,107 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		)
 
 		It("should reject negative requests.cpu value", func() {
-			vm := api.NewMinimalVMI("testvm")
+			vmi := newBaseVmi(libvmi.WithResourceCPU("-200m"))
 
-			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceCPU: resource.MustParse("-200m"),
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.cpu"))
 		})
 		It("should reject negative limits.cpu size value", func() {
-			vm := api.NewMinimalVMI("testvm")
+			vmi := newBaseVmi(libvmi.WithLimitCPU("-3"))
 
-			vm.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
-				k8sv1.ResourceCPU: resource.MustParse("-3"),
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.limits.cpu"))
 		})
 		It("should reject greater requests.cpu than limits.cpu", func() {
-			vm := api.NewMinimalVMI("testvm")
+			vmi := newBaseVmi(
+				libvmi.WithResourceCPU("2500m"),
+				libvmi.WithLimitCPU("500m"),
+			)
 
-			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceCPU: resource.MustParse("2500m"),
-			}
-			vm.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
-				k8sv1.ResourceCPU: resource.MustParse("500m"),
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.cpu"))
 		})
 		It("should accept correct cpu size values", func() {
-			vm := api.NewMinimalVMI("testvm")
+			vmi := newBaseVmi(
+				libvmi.WithResourceCPU("1500m"),
+				libvmi.WithLimitCPU("2"),
+			)
 
-			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceCPU: resource.MustParse("1500m"),
-			}
-			vm.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
-				k8sv1.ResourceCPU: resource.MustParse("2"),
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
 
 		It("should reject negative requests.memory size value", func() {
-			vm := api.NewMinimalVMI("testvm")
+			vmi := libvmi.New(libvmi.WithResourceMemory("-64Mi"))
 
-			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("-64Mi"),
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 		})
 		It("should reject small requests.memory size value", func() {
-			vm := api.NewMinimalVMI("testvm")
+			vmi := libvmi.New(libvmi.WithResourceMemory("64m"))
 
-			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("64m"),
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 		})
 		It("should reject negative limits.memory size value", func() {
-			vm := api.NewMinimalVMI("testvm")
+			vmi := libvmi.New(libvmi.WithLimitMemory("-65Mi"))
 
-			vm.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("-65Mi"),
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.limits.memory"))
 		})
 		It("should reject greater requests.memory than limits.memory", func() {
-			vm := api.NewMinimalVMI("testvm")
+			vmi := libvmi.New(
+				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithLimitMemory("64Mi"),
+			)
 
-			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("128Mi"),
-			}
-			vm.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 		})
 		It("should accept correct memory size values", func() {
-			vm := api.NewMinimalVMI("testvm")
+			vmi := libvmi.New(
+				libvmi.WithResourceMemory("64Mi"),
+				libvmi.WithLimitMemory("65Mi"),
+			)
 
-			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
-			}
-			vm.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("65Mi"),
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
 		It("should reject incorrect hugepages size format", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-
-			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
-			}
-			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
-			vmi.Spec.Domain.Memory.Hugepages.PageSize = "2ab"
+			vmi := newBaseVmi(libvmi.WithHugepages("2ab"))
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.hugepages.size"))
 		})
 		It("should reject greater hugepages.size than requests.memory", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-
-			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
-			}
-			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
-			vmi.Spec.Domain.Memory.Hugepages.PageSize = "1Gi"
+			vmi := newBaseVmi(libvmi.WithHugepages("1Gi"))
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 		})
 		It("should allow smaller guest memory than requested memory", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			guestMemory := resource.MustParse("1Mi")
-
-			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
-			}
-			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+			vmi := libvmi.New(
+				libvmi.WithResourceMemory("64Mi"),
+				libvmi.WithGuestMemory("1Mi"),
+			)
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
 		It("should reject bigger guest memory than the memory limit", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			guestMemory := resource.MustParse("128Mi")
-
-			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
-			}
-			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+			vmi := libvmi.New(
+				libvmi.WithLimitMemory("64Mi"),
+				libvmi.WithGuestMemory("128Mi"),
+			)
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
@@ -883,77 +822,57 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			kvConfig.Spec.Configuration.VMRolloutStrategy = ptr.To(v1.VMRolloutStrategyLiveUpdate)
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 
-			vmi := api.NewMinimalVMI("testvmi")
-			guestMemory := resource.MustParse("128Mi")
-
-			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
-			}
-			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+			vmi := libvmi.New(
+				libvmi.WithLimitMemory("64Mi"),
+				libvmi.WithGuestMemory("128Mi"),
+			)
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
 		It("should allow guest memory which is between requests and limits", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			guestMemory := resource.MustParse("100Mi")
-
-			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("128Mi"),
-			}
-			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
-			}
-			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+			vmi := libvmi.New(
+				libvmi.WithResourceMemory("64Mi"),
+				libvmi.WithLimitMemory("128Mi"),
+				libvmi.WithGuestMemory("100Mi"),
+			)
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
 		It("should allow setting guest memory when no limit is set", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			guestMemory := resource.MustParse("100Mi")
-
-			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
-			}
-			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+			vmi := libvmi.New(
+				libvmi.WithResourceMemory("64Mi"),
+				libvmi.WithGuestMemory("100Mi"),
+			)
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
 		It("should reject not divisable by hugepages.size requests.memory", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-
-			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("65Mi"),
-			}
-			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
-			vmi.Spec.Domain.Memory.Hugepages.PageSize = "2Gi"
+			vmi := libvmi.New(
+				libvmi.WithResourceMemory("65Mi"),
+				libvmi.WithHugepages("2Gi"),
+			)
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 		})
 		It("should accept correct memory and hugepages size values", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-
-			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
-			}
-			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
-			vmi.Spec.Domain.Memory.Hugepages.PageSize = "2Mi"
+			vmi := libvmi.New(
+				libvmi.WithResourceMemory("64Mi"),
+				libvmi.WithHugepages("2Mi"),
+			)
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
 		It("should reject incorrect memory and hugepages size values", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-
-			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
-			}
-			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
-			vmi.Spec.Domain.Memory.Hugepages.PageSize = "10Mi"
+			vmi := libvmi.New(
+				libvmi.WithResourceMemory("64Mi"),
+				libvmi.WithHugepages("10Mi"),
+			)
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
@@ -963,18 +882,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				"is not a multiple of the page size fake.domain.hugepages.size '10Mi'"))
 		})
 		It("should allow setting guest memory and hugepages", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			guestMemory := resource.MustParse("64Mi")
-
-			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
-			}
-			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
-			vmi.Spec.Domain.Memory = &v1.Memory{
-				Hugepages: &v1.Hugepages{},
-				Guest:     &guestMemory,
-			}
-			vmi.Spec.Domain.Memory.Hugepages.PageSize = "2Mi"
+			vmi := libvmi.New(
+				libvmi.WithResourceMemory("64Mi"),
+				libvmi.WithGuestMemory("64Mi"),
+				libvmi.WithHugepages("2Mi"),
+			)
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
@@ -1036,7 +948,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject disks with the same boot order", func() {
-			vmi := api.NewMinimalVMI("testvmi")
+			vmi := newBaseVmi()
 			order := uint(1)
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, []v1.Disk{
 				{Name: "testvolume1", BootOrder: &order, DiskDevice: v1.DiskDevice{
@@ -1170,8 +1082,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			})
 			DeferCleanup(deprecation.UnregisterFeatureGate, testsFGName)
 			enableFeatureGate(testsFGName)
-
-			vmi := api.NewMinimalVMI("testvmi")
+			vmi := newBaseVmi()
 
 			ar, err := newAdmissionReviewForVMICreation(vmi)
 			Expect(err).NotTo(HaveOccurred())
@@ -1215,22 +1126,17 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should allow valid ioThreadsPolicy", func() {
-			vmi := api.NewMinimalVMI("testvm")
-			var ioThreadPolicy v1.IOThreadsPolicy
-			ioThreadPolicy = "auto"
-			vmi.Spec.Domain.IOThreadsPolicy = &ioThreadPolicy
+			vmi := newBaseVmi(libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyAuto))
+
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
 
 		It("should reject invalid ioThreadsPolicy", func() {
-			vmi := api.NewMinimalVMI("testvm")
-			var ioThreadPolicy v1.IOThreadsPolicy
-			ioThreadPolicy = "bad"
-			vmi.Spec.Domain.IOThreadsPolicy = &ioThreadPolicy
+			vmi := newBaseVmi(libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicy("bad")))
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Message).To(Equal(fmt.Sprintf("Invalid IOThreadsPolicy (%s)", ioThreadPolicy)))
+			Expect(causes[0].Message).To(Equal(fmt.Sprintf("Invalid IOThreadsPolicy (%s)", *vmi.Spec.Domain.IOThreadsPolicy)))
 		})
 
 		It("should reject multiple configurations of vGPU displays with ramfb", func() {
@@ -1332,7 +1238,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Name:       "hostdev1",
 				DeviceName: "example.org/deadbeef1",
 			}))
-
 			ar, err := newAdmissionReviewForVMICreation(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1356,7 +1261,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Name:       "hostdev1",
 				DeviceName: "example.org/deadbeef",
 			}))
-
 			ar, err := newAdmissionReviewForVMICreation(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1441,17 +1345,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				[]string{fmt.Sprintf("must provide `dnsConfig` when `dnsPolicy` is %s", k8sv1.DNSNone)}),
 		)
 		It("should accept valid start strategy", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			strategy := v1.StartStrategyPaused
-			vmi.Spec.StartStrategy = &strategy
+			vmi := newBaseVmi(libvmi.WithStartStrategy(v1.StartStrategyPaused))
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
 		It("should reject invalid start strategy", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			strategy := v1.StartStrategy("invalid")
-			vmi.Spec.StartStrategy = &strategy
+			vmi := newBaseVmi(libvmi.WithStartStrategy("invalid"))
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
@@ -1460,17 +1360,17 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Message).To(Equal("fake.startStrategy is set with an unrecognized option: invalid"))
 		})
 		It("should reject spec with paused start strategy and LivenessProbe", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			strategy := v1.StartStrategyPaused
-			vmi.Spec.StartStrategy = &strategy
-			vmi.Spec.LivenessProbe = &v1.Probe{
-				InitialDelaySeconds: 2,
-				Handler: v1.Handler{
-					HTTPGet: &k8sv1.HTTPGetAction{Host: "test", Port: intstr.Parse("80")},
-				},
-			}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			vmi := newBaseVmi(
+				libvmi.WithStartStrategy(v1.StartStrategyPaused),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				withLivenessProbe(&v1.Probe{
+					InitialDelaySeconds: 2,
+					Handler: v1.Handler{
+						HTTPGet: &k8sv1.HTTPGetAction{Host: "test", Port: intstr.Parse("80")},
+					},
+				}),
+			)
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
