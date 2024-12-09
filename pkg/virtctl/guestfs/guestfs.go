@@ -23,6 +23,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -48,15 +49,14 @@ const (
 )
 
 type guestfsCommand struct {
-	clientConfig clientcmd.ClientConfig
-	pvc          string
-	image        string
-	kvm          bool
-	root         bool
-	fsGroup      string
-	uid          string
-	gid          string
-	pullPolicy   string
+	pvc        string
+	image      string
+	kvm        bool
+	root       bool
+	fsGroup    string
+	uid        string
+	gid        string
+	pullPolicy string
 }
 
 // Following variables allow overriding the default functions (useful for unit testing)
@@ -66,8 +66,8 @@ var ImageSetFunc = SetImage
 var ImageInfoGetFunc = GetImageInfo
 
 // NewGuestfsShellCommand returns a cobra.Command for starting libguestfs-tool pod and attach it to a pvc
-func NewGuestfsShellCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	c := guestfsCommand{clientConfig: clientConfig}
+func NewGuestfsShellCommand() *cobra.Command {
+	c := guestfsCommand{}
 	cmd := &cobra.Command{
 		Use:     "guestfs",
 		Short:   "Start a shell into the libguestfs pod",
@@ -94,9 +94,14 @@ func usage() string {
 	return usage
 }
 
-func (c *guestfsCommand) run(_ *cobra.Command, args []string) error {
+func (c *guestfsCommand) run(cmd *cobra.Command, args []string) error {
 	c.pvc = args[0]
-	namespace, _, err := c.clientConfig.Namespace()
+
+	clientConfig, err := clientconfig.FromContext(cmd.Context())
+	if err != nil {
+		return err
+	}
+	namespace, _, err := clientConfig.Namespace()
 	if err != nil {
 		return err
 	}
@@ -107,11 +112,11 @@ func (c *guestfsCommand) run(_ *cobra.Command, args []string) error {
 		return fmt.Errorf("Invalid pull policy: %s", c.pullPolicy)
 	}
 	var inUse bool
-	conf, err := c.clientConfig.ClientConfig()
+	conf, err := clientConfig.ClientConfig()
 	if err != nil {
 		return err
 	}
-	client, err := CreateClientFunc(conf, c.clientConfig)
+	client, err := CreateClientFunc(conf, clientConfig)
 	if err != nil {
 		return err
 	}

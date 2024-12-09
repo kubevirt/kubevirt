@@ -8,6 +8,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/virtctl/adm:go_default_library",
+        "//pkg/virtctl/clientconfig:go_default_library",
         "//pkg/virtctl/configuration:go_default_library",
         "//pkg/virtctl/console:go_default_library",
         "//pkg/virtctl/create:go_default_library",
@@ -47,6 +48,7 @@ go_test(
     x_defs = version_x_defs(),
     deps = [
         ":go_default_library",
+        "//pkg/virtctl/clientconfig:go_default_library",
         "//pkg/virtctl/testing:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",

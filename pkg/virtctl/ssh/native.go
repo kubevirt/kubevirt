@@ -12,11 +12,10 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"golang.org/x/term"
-
 	"k8s.io/client-go/tools/clientcmd"
-	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
 	"kubevirt.io/client-go/kubecli"
+	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 )
 
@@ -44,9 +43,9 @@ type NativeSSHConnection struct {
 	Options      SSHOptions
 }
 
-func (o *SSH) nativeSSH(kind, namespace, name string) error {
+func (o *SSH) nativeSSH(kind, namespace, name string, clientConfig clientcmd.ClientConfig) error {
 	conn := NativeSSHConnection{
-		ClientConfig: o.clientConfig,
+		ClientConfig: clientConfig,
 		Options:      o.options,
 	}
 	client, err := conn.PrepareSSHClient(kind, namespace, name)
