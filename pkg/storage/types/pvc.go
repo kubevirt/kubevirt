@@ -374,5 +374,5 @@ func IsConfigVolume(volume *virtv1.Volume) bool {
 }
 
 func IsPVCVolume(volume *virtv1.Volume) bool {
-	return volume.PersistentVolumeClaim != nil
+	return volume.PersistentVolumeClaim != nil || volume.DataVolume != nil
 }
