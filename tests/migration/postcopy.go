@@ -164,39 +164,32 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 		)
 
 		Context("and fail", Serial, func() {
-			var createdPods []string
-			BeforeEach(func() {
-				createdPods = []string{}
-			})
+			var killerPod string
 
-			runMigrationKillerPod := func(nodeName string) {
-				podName := fmt.Sprintf("migration-killer-pod-%s", rand.String(5))
+			runVirtHandlerKillerPod := func(nodeName string) {
+				podName := "migration-killer-pod-"
 
 				// kill the handler
 				pod := libpod.RenderPrivilegedPod(podName, []string{"/bin/bash", "-c"}, []string{fmt.Sprintf("while true; do pkill -9 virt-handler && sleep 5; done")})
 
 				pod.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
 				createdPod, err := virtClient.CoreV1().Pods(pod.Namespace).Create(context.Background(), pod, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should create helper pod")
-				createdPods = append(createdPods, createdPod.Name)
-				Expect(createdPods).ToNot(BeEmpty(), "There is no node for migration")
+				Expect(err).ToNot(HaveOccurred(), "Should create killer pod")
+				killerPod = createdPod.Name
 			}
 
-			removeMigrationKillerPod := func() {
-				for _, podName := range createdPods {
-					Eventually(func() error {
-						err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Delete(context.Background(), podName, metav1.DeleteOptions{})
-						return err
-					}, 10*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "Should delete helper pod")
+			removeVirtHandlerKillerPod := func() {
+				Expect(killerPod).NotTo(BeEmpty())
+				Eventually(func() error {
+					err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Delete(context.Background(), killerPod, metav1.DeleteOptions{})
+					return err
+				}, 10*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "Should delete helper pod")
 
-					Eventually(func() error {
-						_, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Get(context.Background(), podName, metav1.GetOptions{})
-						return err
-					}, 5*time.Minute, 1*time.Second).Should(
-						SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())),
-						"The killer pod should be gone within the given timeout",
-					)
-				}
+				Eventually(func() error {
+					_, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Get(context.Background(), killerPod, metav1.GetOptions{})
+					return err
+				}, 5*time.Minute, 1*time.Second).Should(
+					MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "The killer pod should be gone within the given timeout")
 
 				By("Waiting for virt-handler to come back online")
 				Eventually(func() error {
@@ -245,13 +238,13 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 				libmigration.WaitUntilMigrationMode(virtClient, vmi, v1.MigrationPostCopy, 5*time.Minute)
 
 				By("Starting virt-handler killer pod")
-				runMigrationKillerPod(vmi.Status.NodeName)
+				runVirtHandlerKillerPod(vmi.Status.NodeName)
 
 				By("Making sure that post-copy migration failed")
 				Eventually(matcher.ThisMigration(migration), 150, 1*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed))
 
 				By("Removing virt-handler killer pod")
-				removeMigrationKillerPod()
+				removeVirtHandlerKillerPod()
 
 				By("Ensuring the VirtualMachineInstance is restarted")
 				Eventually(matcher.ThisVMI(vmi), 4*time.Minute, 1*time.Second).Should(matcher.BeRestarted(vmi.UID))
