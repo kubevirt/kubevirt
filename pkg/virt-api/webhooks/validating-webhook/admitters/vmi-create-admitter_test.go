@@ -525,43 +525,46 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].name"))
 		})
-		It("should allow supported audio devices", func() {
-			supportedDevices := [...]string{"", "ich9", "ac97"}
-			vmi := api.NewMinimalVMI("testvmi")
-
-			for _, deviceName := range supportedDevices {
-				vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{
+		DescribeTable("should allow supported sound devices", func(model string) {
+			vmi := newBaseVmi(withSoundDevice(
+				&v1.SoundDevice{
 					Name:  "audio-device",
-					Model: deviceName,
-				}
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-				Expect(causes).To(BeEmpty())
-			}
-		})
-		It("should reject unsupported audio devices", func() {
-			vmi := api.NewMinimalVMI("testvmi")
+					Model: model,
+				},
+			))
 
-			vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{
-				Name:  "audio-device",
-				Model: "aNotSupportedDevice",
-			}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.Sound"))
-			Expect(causes[0].Message).To(ContainSubstring("Sound device type is not supported"))
-		})
-		It("should reject audio devices without name fields", func() {
-			vmi := api.NewMinimalVMI("testvmi")
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue())
+			Expect(resp.Result).To(BeNil())
+		},
+			Entry("with empty model", ""),
+			Entry("with ich9 model", "ich9"),
+			Entry("with ac97 model", "ac97"),
+		)
+		DescribeTable("should reject unsupported sound devices", func(soundDevice *v1.SoundDevice, expectMessage string) {
+			vmi := newBaseVmi(withSoundDevice(soundDevice))
 
-			supportedAudioDevice := "ac97"
-			vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{
-				Model: supportedAudioDevice,
-			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.Sound"))
-		})
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.Sound"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal(expectMessage))
+		},
+			Entry("with unsupported model",
+				&v1.SoundDevice{Name: "audio-device", Model: "aNotSupportedDevice"},
+				"Sound device type is not supported. Options: 'ich9' or 'ac97'",
+			),
+			Entry("without name field",
+				&v1.SoundDevice{Model: "ac97"},
+				"Sound device requires a name field.",
+			),
+		)
 		It("should reject volume with missing disk / file system", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
@@ -4263,5 +4266,11 @@ func withLivenessProbe(probe *v1.Probe) libvmi.Option {
 func withMachine(machine *v1.Machine) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Machine = machine
+	}
+}
+
+func withSoundDevice(soundDevice *v1.SoundDevice) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.Sound = soundDevice
 	}
 }
