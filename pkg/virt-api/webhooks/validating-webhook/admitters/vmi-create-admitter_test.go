@@ -314,16 +314,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 	It("should accept valid vmi spec on create", func() {
 		vmi := newBaseVmi(libvmi.WithContainerDisk("testdisk", "testimage"))
-		vmiBytes, _ := json.Marshal(&vmi)
 
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-				Object: runtime.RawExtension{
-					Raw: vmiBytes,
-				},
-			},
-		}
+		ar, err := newAdmissionReviewForVMICreation(vmi)
+		Expect(err).ToNot(HaveOccurred())
+
 		resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeTrue())
 	})
@@ -1118,13 +1112,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			enableFeatureGate(testsFGName)
 
 			vmi := api.NewMinimalVMI("testvmi")
-			vmiJSON, _ := json.Marshal(&vmi)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiJSON}}}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).NotTo(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
@@ -2071,17 +2061,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			vmiBytes, err := json.Marshal(&vmi)
+			ar, err := newAdmissionReviewForVMICreation(vmi)
 			Expect(err).To(Not(HaveOccurred()))
-
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse(), "The VMI should not be allowed")
@@ -2115,17 +2096,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			})
 
-			vmiBytes, err := json.Marshal(&vmi)
+			ar, err := newAdmissionReviewForVMICreation(vmi)
 			Expect(err).To(Not(HaveOccurred()))
-
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue(), "The VMI should be allowed")
@@ -3105,16 +3077,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 		It("Allow to create when spec.affinity set to nil", func() {
 			vmi.Spec.Affinity = nil
-			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
@@ -3125,16 +3090,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				PreferredDuringSchedulingIgnoredDuringExecution: nil,
 				RequiredDuringSchedulingIgnoredDuringExecution:  nil,
 			}
-			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
@@ -3156,16 +3114,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
@@ -3195,16 +3146,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
@@ -3234,16 +3178,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
@@ -3271,16 +3208,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
@@ -3307,16 +3237,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
@@ -3330,16 +3253,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				PreferredDuringSchedulingIgnoredDuringExecution: nil,
 				RequiredDuringSchedulingIgnoredDuringExecution:  nil,
 			}
-			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
@@ -3362,16 +3278,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
@@ -3404,16 +3313,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
@@ -3436,16 +3338,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
@@ -3473,16 +3368,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
@@ -3502,16 +3390,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				RequiredDuringSchedulingIgnoredDuringExecution:  nil,
 				PreferredDuringSchedulingIgnoredDuringExecution: nil,
 			}
-			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
@@ -3523,16 +3404,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					NodeSelectorTerms: nil,
 				},
 			}
-			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
@@ -3553,16 +3427,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
@@ -3584,16 +3451,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
@@ -3615,16 +3475,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
@@ -3648,16 +3501,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
@@ -3683,16 +3529,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
-			vmiBytes, _ := json.Marshal(&vmi)
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
@@ -3940,16 +3779,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Sockets:    16,
 				}
 
-				vmiBytes, _ := json.Marshal(&vmi)
-
-				ar := &admissionv1.AdmissionReview{
-					Request: &admissionv1.AdmissionRequest{
-						Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-						Object: runtime.RawExtension{
-							Raw: vmiBytes,
-						},
-					},
-				}
+				ar, err := newAdmissionReviewForVMICreation(vmi)
+				Expect(err).ToNot(HaveOccurred())
 
 				resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 				Expect(resp.Allowed).To(BeFalse())
@@ -3976,15 +3807,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				vmi.Spec.Domain.Features.HypervPassthrough = &v1.HyperVPassthrough{}
 			}
 
-			vmiBytes, _ := json.Marshal(&vmi)
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 
 			if expectValid {
