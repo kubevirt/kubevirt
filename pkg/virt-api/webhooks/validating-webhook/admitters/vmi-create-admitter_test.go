@@ -1181,21 +1181,28 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should allow BlockMultiQueue with CPU settings", func() {
-			vmi := api.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.P(true)
-			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{}
-			vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("5")
+			vmi := newBaseVmi(
+				libvmi.WithLimitCPU("5"),
+				withBlockMultiQueue(true),
+			)
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(BeEmpty())
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue())
+			Expect(resp.Result).To(BeNil())
 		})
 
 		It("should ignore CPU settings for explicitly rejected BlockMultiQueue", func() {
-			vmi := api.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.P(false)
+			vmi := newBaseVmi(withBlockMultiQueue(false))
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(BeEmpty())
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue())
+			Expect(resp.Result).To(BeNil())
 		})
 
 		It("should allow valid ioThreadsPolicy", func() {
@@ -4322,5 +4329,11 @@ func withSoundDevice(soundDevice *v1.SoundDevice) libvmi.Option {
 func withInputDevice(input v1.Input) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.Inputs = append(vmi.Spec.Domain.Devices.Inputs, input)
+	}
+}
+
+func withBlockMultiQueue(enabled bool) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.BlockMultiQueue = &enabled
 	}
 }
