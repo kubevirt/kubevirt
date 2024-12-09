@@ -14,7 +14,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/version"
@@ -66,11 +65,12 @@ var _ = Describe("virtctl", func() {
 		}
 		out := &bytes.Buffer{}
 		cmd.SetErr(out)
-		clientConfig := kubecli.DefaultClientConfig(&pflag.FlagSet{})
-		cmd.SetContext(clientconfig.NewContext(context.Background(), clientConfig))
+		cmd.SetContext(clientconfig.NewContext(
+			context.Background(), kubecli.DefaultClientConfig(&pflag.FlagSet{}),
+		))
 
-		virtctl.NewVirtctlCommand = func() (*cobra.Command, clientcmd.ClientConfig) {
-			return cmd, clientConfig
+		virtctl.NewVirtctlCommand = func() *cobra.Command {
+			return cmd
 		}
 		DeferCleanup(func() {
 			virtctl.NewVirtctlCommand = virtctl.NewVirtctlCommandFn
