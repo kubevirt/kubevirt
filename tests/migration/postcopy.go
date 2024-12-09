@@ -157,7 +157,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 					// Need to wait for cloud init to finish and start the agent inside the vmi.
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-					runStressTest(vmi, "350M", stressDefaultSleepDuration)
+					runStressTest(vmi, "350M")
 
 					// execute a migration, wait for finalized state
 					By("Starting the Migration")
@@ -244,7 +244,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 						// Need to wait for cloud init to finish and start the agent inside the vmi.
 						Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-						runStressTest(vmi, "350M", stressDefaultSleepDuration)
+						runStressTest(vmi, "350M")
 
 						By("Starting the Migration")
 						migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -317,7 +317,7 @@ func VMIMigrationWithGuestAgent(virtClient kubecli.KubevirtClient, pvName string
 
 	if mode == v1.MigrationPostCopy {
 		By("Running stress test to allow transition to post-copy")
-		runStressTest(vmi, stressLargeVMSize, stressDefaultSleepDuration)
+		runStressTest(vmi, stressLargeVMSize)
 	}
 
 	// execute a migration, wait for finalized state

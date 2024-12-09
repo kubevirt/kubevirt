@@ -131,7 +131,7 @@ var _ = SIGMigrationDescribe("Live Migrate A Paused VMI", func() {
 						// Need to wait for cloud init to finish and start the agent inside the vmi.
 						Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-						runStressTest(vmi, "350M", stressDefaultSleepDuration)
+						runStressTest(vmi, "350M")
 
 						By("Starting the Migration")
 						migration := libmigration.New(vmi.Name, vmi.Namespace)
