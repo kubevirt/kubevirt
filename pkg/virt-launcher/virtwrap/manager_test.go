@@ -1582,6 +1582,7 @@ var _ = Describe("Manager", func() {
 				ProgressTimeout:         3,
 				CompletionTimeoutPerGiB: 1,
 				AllowPostCopy:           true,
+				AllowWorkloadDisruption: true,
 			}
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
@@ -1631,6 +1632,7 @@ var _ = Describe("Manager", func() {
 				ProgressTimeout:         3,
 				CompletionTimeoutPerGiB: 1,
 				AllowPostCopy:           true,
+				AllowWorkloadDisruption: true,
 			}
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
@@ -1663,6 +1665,58 @@ var _ = Describe("Manager", func() {
 				}
 				return nil
 			})
+
+			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
+			monitor.startMonitor()
+		})
+		It("migration should switch to Paused if AllowWorkloadDisruption is allowed and PostCopy is not", func() {
+			migrationErrorChan := make(chan error)
+			defer close(migrationErrorChan)
+			var migrationData = 32479827394
+			fake_jobinfo := func() *libvirt.DomainJobInfo {
+				// stop decreasing data and send a different event otherwise this
+				// job will run indefinitely until timeout
+				if migrationData <= 32479826519 {
+					return &libvirt.DomainJobInfo{
+						Type: libvirt.DOMAIN_JOB_COMPLETED,
+					}
+				}
+
+				migrationData -= 125
+				return &libvirt.DomainJobInfo{
+					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
+					DataRemaining:    uint64(migrationData),
+					DataRemainingSet: true,
+				}
+			}
+
+			options := &cmdclient.MigrationOptions{
+				Bandwidth:               resource.MustParse("64Mi"),
+				ProgressTimeout:         3,
+				CompletionTimeoutPerGiB: 1,
+				AllowPostCopy:           false,
+				AllowWorkloadDisruption: true,
+			}
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "111222333",
+			}
+
+			manager := &LibvirtDomainManager{
+				paused: pausedVMIs{
+					paused: make(map[types.UID]bool),
+				},
+				virConn:       mockConn,
+				virtShareDir:  testVirtShareDir,
+				metadataCache: metadataCache,
+			}
+
+			mockConn.EXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
+			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().DoAndReturn(func(flag libvirt.DomainGetJobStatsFlags) (*libvirt.DomainJobInfo, error) {
+				return fake_jobinfo(), nil
+			})
+			mockDomain.EXPECT().Suspend().Times(1).Return(nil)
 
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
 			monitor.startMonitor()

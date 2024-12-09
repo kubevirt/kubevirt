@@ -109,14 +109,20 @@ const (
 	// container_memory_rss
 	ResultTypeAvgVirtAPIMemoryUsageInMB        ResultType = "avgVirtAPIMemoryUsageInMB"
 	ResultTypeAvgVirtControllerMemoryUsageInMB ResultType = "avgVirtControllerMemoryUsageInMB"
+	ResultTypeAvgVirtHandlerMemoryUsageInMB    ResultType = "avgVirtHandlerMemoryUsageInMB"
 	ResultTypeMinVirtAPIMemoryUsageInMB        ResultType = "minVirtAPIMemoryUsageInMB"
 	ResultTypeMaxVirtAPIMemoryUsageInMB        ResultType = "maxVirtAPIMemoryUsageInMB"
 	ResultTypeMinVirtControllerMemoryUsageInMB ResultType = "minVirtControllerMemoryUsageInMB"
 	ResultTypeMaxVirtControllerMemoryUsageInMB ResultType = "maxVirtControllerMemoryUsageInMB"
+	ResultTypeMinVirtHandlerMemoryUsageInMB    ResultType = "minVirtHandlerMemoryUsageInMB"
+	ResultTypeMaxVirtHandlerMemoryUsageInMB    ResultType = "maxVirtHandlerMemoryUsageInMB"
 
 	// container_cpu_usage_seconds_total
 	ResultTypeAvgVirtAPICPUUsage        ResultType = "avgVirtAPICPUUsage"
 	ResultTypeAvgVirtControllerCPUUsage ResultType = "avgVirtControllerCPUUsage"
+	ResultTypeAvgVirtHandlerCPUUsage    ResultType = "avgVirtHandlerCPUUsage"
+	ResultTypeMinVirtHandlerCPUUsage    ResultType = "minVirtHandlerCPUUsage"
+	ResultTypeMaxVirtHandlerCPUUsage    ResultType = "maxVirtHandlerCPUUsage"
 )
 
 const (

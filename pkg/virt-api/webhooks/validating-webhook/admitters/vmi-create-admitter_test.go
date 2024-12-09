@@ -218,117 +218,94 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 	Context("with probes given", func() {
 		It("should reject probes with no probe action configured", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			vmi.Spec.ReadinessProbe = &v1.Probe{InitialDelaySeconds: 2}
-			vmi.Spec.LivenessProbe = &v1.Probe{InitialDelaySeconds: 2}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			vmi := newBaseVmi(
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				withReadinessProbe(&v1.Probe{InitialDelaySeconds: 2}),
+				withLivenessProbe(&v1.Probe{InitialDelaySeconds: 2}),
+			)
 
-			vmiBytes, _ := json.Marshal(&vmi)
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(Equal(`either spec.readinessProbe.tcpSocket, spec.readinessProbe.exec or spec.readinessProbe.httpGet must be set if a spec.readinessProbe is specified, either spec.livenessProbe.tcpSocket, spec.livenessProbe.exec or spec.livenessProbe.httpGet must be set if a spec.livenessProbe is specified`))
 		})
 		It("should reject probes with more than one action per probe configured", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			vmi.Spec.ReadinessProbe = &v1.Probe{
-				InitialDelaySeconds: 2,
-				Handler: v1.Handler{
-					HTTPGet:        &k8sv1.HTTPGetAction{Host: "test", Port: intstr.Parse("80")},
-					TCPSocket:      &k8sv1.TCPSocketAction{Host: "lal", Port: intstr.Parse("80")},
-					Exec:           &k8sv1.ExecAction{Command: []string{"uname", "-a"}},
-					GuestAgentPing: &v1.GuestAgentPing{},
-				},
-			}
-			vmi.Spec.LivenessProbe = &v1.Probe{
-				InitialDelaySeconds: 2,
-				Handler: v1.Handler{
-					HTTPGet:   &k8sv1.HTTPGetAction{Host: "test", Port: intstr.Parse("80")},
-					TCPSocket: &k8sv1.TCPSocketAction{Host: "lal", Port: intstr.Parse("80")},
-					Exec:      &k8sv1.ExecAction{Command: []string{"uname", "-a"}},
-				},
-			}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-
-			vmiBytes, _ := json.Marshal(&vmi)
-
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
+			vmi := newBaseVmi(
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				withReadinessProbe(&v1.Probe{
+					InitialDelaySeconds: 2,
+					Handler: v1.Handler{
+						HTTPGet:        &k8sv1.HTTPGetAction{Host: "test", Port: intstr.Parse("80")},
+						TCPSocket:      &k8sv1.TCPSocketAction{Host: "lal", Port: intstr.Parse("80")},
+						Exec:           &k8sv1.ExecAction{Command: []string{"uname", "-a"}},
+						GuestAgentPing: &v1.GuestAgentPing{},
 					},
-				},
-			}
+				}),
+				withLivenessProbe(&v1.Probe{
+					InitialDelaySeconds: 2,
+					Handler: v1.Handler{
+						HTTPGet:   &k8sv1.HTTPGetAction{Host: "test", Port: intstr.Parse("80")},
+						TCPSocket: &k8sv1.TCPSocketAction{Host: "lal", Port: intstr.Parse("80")},
+						Exec:      &k8sv1.ExecAction{Command: []string{"uname", "-a"}},
+					},
+				}),
+			)
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(Equal(`spec.readinessProbe must have exactly one probe type set, spec.livenessProbe must have exactly one probe type set`))
 		})
 		It("should accept properly configured readiness and liveness probes", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			vmi.Spec.ReadinessProbe = &v1.Probe{
-				InitialDelaySeconds: 2,
-				Handler: v1.Handler{
-					TCPSocket: &k8sv1.TCPSocketAction{Host: "lal", Port: intstr.Parse("80")},
-				},
-			}
-			vmi.Spec.LivenessProbe = &v1.Probe{
-				InitialDelaySeconds: 2,
-				Handler: v1.Handler{
-					HTTPGet: &k8sv1.HTTPGetAction{Host: "test", Port: intstr.Parse("80")},
-				},
-			}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-
-			vmiBytes, _ := json.Marshal(&vmi)
-
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
+			vmi := newBaseVmi(
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				withReadinessProbe(&v1.Probe{
+					InitialDelaySeconds: 2,
+					Handler: v1.Handler{
+						TCPSocket: &k8sv1.TCPSocketAction{Host: "lal", Port: intstr.Parse("80")},
 					},
-				},
-			}
+				}),
+				withLivenessProbe(&v1.Probe{
+					InitialDelaySeconds: 2,
+					Handler: v1.Handler{
+						HTTPGet: &k8sv1.HTTPGetAction{Host: "test", Port: intstr.Parse("80")},
+					},
+				}),
+			)
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 		It("should reject properly configured network-based readiness and liveness probes if no Pod Network is present", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			vmi.Spec.ReadinessProbe = &v1.Probe{
-				InitialDelaySeconds: 2,
-				Handler: v1.Handler{
-					TCPSocket: &k8sv1.TCPSocketAction{Host: "lal", Port: intstr.Parse("80")},
-				},
-			}
-			vmi.Spec.LivenessProbe = &v1.Probe{
-				InitialDelaySeconds: 2,
-				Handler: v1.Handler{
-					HTTPGet: &k8sv1.HTTPGetAction{Host: "test", Port: intstr.Parse("80")},
-				},
-			}
-
-			vmiBytes, _ := json.Marshal(&vmi)
-
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
+			vmi := newBaseVmi(
+				libvmi.WithAutoAttachPodInterface(false),
+				withReadinessProbe(&v1.Probe{
+					InitialDelaySeconds: 2,
+					Handler: v1.Handler{
+						TCPSocket: &k8sv1.TCPSocketAction{Host: "lal", Port: intstr.Parse("80")},
 					},
-				},
-			}
+				}),
+				withLivenessProbe(&v1.Probe{
+					InitialDelaySeconds: 2,
+					Handler: v1.Handler{
+						HTTPGet: &k8sv1.HTTPGetAction{Host: "test", Port: intstr.Parse("80")},
+					},
+				}),
+			)
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(Equal(`spec.readinessProbe.tcpSocket is only allowed if the Pod Network is attached, spec.livenessProbe.httpGet is only allowed if the Pod Network is attached`))
@@ -392,65 +369,60 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	Context("with VirtualMachineInstance metadata", func() {
 		DescribeTable(
 			"Should allow VMI creation with kubevirt.io/ labels only for kubevirt service accounts",
-			func(vmiLabels map[string]string, userAccount string, positive bool) {
-				vmi := api.NewMinimalVMI("testvmi")
-				vmi.Labels = vmiLabels
-				vmiBytes, _ := json.Marshal(&vmi)
-				ar := &admissionv1.AdmissionReview{
-					Request: &admissionv1.AdmissionRequest{
-						Operation: admissionv1.Create,
-						UserInfo:  authv1.UserInfo{Username: "system:serviceaccount:kubevirt:" + userAccount},
-						Resource:  webhooks.VirtualMachineInstanceGroupVersionResource,
-						Object: runtime.RawExtension{
-							Raw: vmiBytes,
-						},
-					},
-				}
+			func(labels map[string]string, userAccount string) {
+				vmi := newBaseVmi()
+				vmi.Labels = labels
+
+				ar, err := newAdmissionReviewForVMICreation(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				ar.Request.UserInfo = authv1.UserInfo{Username: "system:serviceaccount:kubevirt:" + userAccount}
+
 				resp := vmiCreateAdmitter.Admit(context.Background(), ar)
-				if positive {
-					Expect(resp.Allowed).To(BeTrue())
-				} else {
-					Expect(resp.Allowed).To(BeFalse())
-					Expect(resp.Result.Details.Causes).To(HaveLen(1))
-					Expect(resp.Result.Details.Causes[0].Message).To(Equal("creation of the following reserved kubevirt.io/ labels on a VMI object is prohibited"))
-				}
+				Expect(resp.Allowed).To(BeTrue())
+				Expect(resp.Result).To(BeNil())
 			},
 			Entry("Create restricted label by API",
 				map[string]string{v1.NodeNameLabel: "someValue"},
 				components.ApiServiceAccountName,
-				true,
 			),
 			Entry("Create restricted label by Handler",
 				map[string]string{v1.NodeNameLabel: "someValue"},
 				components.HandlerServiceAccountName,
-				true,
 			),
 			Entry("Create restricted label by Controller",
 				map[string]string{v1.NodeNameLabel: "someValue"},
 				components.ControllerServiceAccountName,
-				true,
-			),
-			Entry("Create restricted label by non kubevirt user",
-				map[string]string{v1.NodeNameLabel: "someValue"},
-				"user-account",
-				false,
 			),
 			Entry("Create non restricted kubevirt.io prefixed label by non kubevirt user",
 				map[string]string{"kubevirt.io/l": "someValue"},
 				"user-account",
-				true,
 			),
 		)
-		DescribeTable("should reject annotations which require feature gate enabled", func(annotations map[string]string, expectedMsg string) {
-			vmi := api.NewMinimalVMI("testvmi")
-			vmi.ObjectMeta = metav1.ObjectMeta{
-				Annotations: annotations,
-			}
+		It("should reject restricted label by non kubevirt user", func() {
+			vmi := newBaseVmi(libvmi.WithLabel(v1.NodeNameLabel, "someValue"))
 
-			causes := ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, config, "fake-account")
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(causes[0].Message).To(ContainSubstring(expectedMsg))
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			ar.Request.UserInfo = authv1.UserInfo{Username: "system:serviceaccount:fake:" + "user-account"}
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("creation of the following reserved kubevirt.io/ labels on a VMI object is prohibited"))
+		})
+		DescribeTable("should reject annotations which require feature gate enabled", func(annotations map[string]string, expectedMsg string) {
+			vmi := newBaseVmi()
+			vmi.Annotations = annotations
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			ar.Request.UserInfo = authv1.UserInfo{Username: "fake-account"}
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring(expectedMsg))
 		},
 			Entry("without ExperimentalIgnitionSupport feature gate enabled",
 				map[string]string{v1.IgnitionAnnotation: "fake-data"},
@@ -461,15 +433,18 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				fmt.Sprintf("invalid entry metadata.annotations.%s", hooks.HookSidecarListAnnotationName),
 			),
 		)
-
 		DescribeTable("should accept annotations which require feature gate enabled", func(annotations map[string]string, featureGate string) {
 			enableFeatureGate(featureGate)
-			vmi := api.NewMinimalVMI("testvmi")
-			vmi.ObjectMeta = metav1.ObjectMeta{
-				Annotations: annotations,
-			}
-			causes := ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, config, "fake-account")
-			Expect(causes).To(BeEmpty())
+			vmi := newBaseVmi()
+			vmi.Annotations = annotations
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			ar.Request.UserInfo = authv1.UserInfo{Username: "fake-account"}
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue())
+			Expect(resp.Result).To(BeNil())
 		},
 			Entry("with ExperimentalIgnitionSupport feature gate enabled",
 				map[string]string{v1.IgnitionAnnotation: "fake-data"},
@@ -4436,5 +4411,17 @@ func newAdmissionReviewForVMICreation(vmi *v1.VirtualMachineInstance) (*admissio
 func withDomainClock(clock *v1.Clock) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Clock = clock
+	}
+}
+
+func withReadinessProbe(probe *v1.Probe) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.ReadinessProbe = probe
+	}
+}
+
+func withLivenessProbe(probe *v1.Probe) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.LivenessProbe = probe
 	}
 }

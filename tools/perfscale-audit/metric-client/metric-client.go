@@ -59,6 +59,13 @@ const (
 	minVirtControllerMemUsageInMB = `max(min_over_time(container_memory_rss{pod=~"virt-controller.*", container!="POD", container!=""}[%ds]))/1024/1024`
 	maxVirtControllerMemUsageInMB = `max(max_over_time(container_memory_rss{pod=~"virt-controller.*", container!="POD", container!=""}[%ds]))/1024/1024`
 	avgVirtControllerCPUUsage     = `max(rate(container_cpu_usage_seconds_total{namespace="kubevirt",pod=~"virt-controller.*", container!="",container!="POD"}[%ds]))`
+	// avg_over_time gives the average memory utilization of the virt-handler pod per node over time, the outside max, min, avg gives the pods with highest, lowest and average avg_over_time values respectively
+	avgVirtHandlerMemUsageInMB = `avg(avg_over_time((sum by (node) (container_memory_rss{pod=~"virt-handler.*", container="virt-handler"}) / sum by (node) (kubevirt_vmi_phase_count{node != "", node != "<no value>"}))[%ds:]))/1024/1024`
+	maxVirtHandlerMemUsageInMB = `max(avg_over_time((sum by (node) (container_memory_rss{pod=~"virt-handler.*", container="virt-handler"}) / sum by (node) (kubevirt_vmi_phase_count{node != "", node != "<no value>"}))[%ds:]))/1024/1024`
+	minVirtHandlerMemUsageInMB = `min(avg_over_time((sum by (node) (container_memory_rss{pod=~"virt-handler.*", container="virt-handler"}) / sum by (node) (kubevirt_vmi_phase_count{node != "", node != "<no value>"}))[%ds:]))/1024/1024`
+	avgVirtHandlerCPUUsage     = `avg((sum(rate(container_cpu_usage_seconds_total{pod=~"virt-handler.*", container="virt-handler"}[%ds])) by (node) / sum by (node) (kubevirt_vmi_phase_count{node != "", node != "<no value>"})))`
+	maxVirtHandlerCPUUsage     = `max((sum(rate(container_cpu_usage_seconds_total{pod=~"virt-handler.*", container="virt-handler"}[%ds])) by (node) / sum by (node) (kubevirt_vmi_phase_count{node != "", node != "<no value>"})))`
+	minVirtHandlerCPUUsage     = `min((sum(rate(container_cpu_usage_seconds_total{pod=~"virt-handler.*", container="virt-handler"}[%ds])) by (node) / sum by (node) (kubevirt_vmi_phase_count{node != "", node != "<no value>"})))`
 )
 
 type metricUsage struct {
@@ -404,6 +411,30 @@ func (m *MetricClient) getCPUAndMemoryUsageOfComponents(r *audit_api.Result, ran
 		{
 			query: fmt.Sprintf(minVirtControllerMemUsageInMB, int(rangeVector.Seconds())),
 			t:     audit_api.ResultTypeMinVirtControllerMemoryUsageInMB,
+		},
+		{
+			query: fmt.Sprintf(avgVirtHandlerCPUUsage, int(rangeVector.Seconds())),
+			t:     audit_api.ResultTypeAvgVirtHandlerCPUUsage,
+		},
+		{
+			query: fmt.Sprintf(avgVirtHandlerMemUsageInMB, int(rangeVector.Seconds())),
+			t:     audit_api.ResultTypeAvgVirtHandlerMemoryUsageInMB,
+		},
+		{
+			query: fmt.Sprintf(minVirtHandlerMemUsageInMB, int(rangeVector.Seconds())),
+			t:     audit_api.ResultTypeMinVirtHandlerMemoryUsageInMB,
+		},
+		{
+			query: fmt.Sprintf(maxVirtHandlerMemUsageInMB, int(rangeVector.Seconds())),
+			t:     audit_api.ResultTypeMaxVirtHandlerMemoryUsageInMB,
+		},
+		{
+			query: fmt.Sprintf(minVirtHandlerCPUUsage, int(rangeVector.Seconds())),
+			t:     audit_api.ResultTypeMinVirtHandlerCPUUsage,
+		},
+		{
+			query: fmt.Sprintf(maxVirtHandlerCPUUsage, int(rangeVector.Seconds())),
+			t:     audit_api.ResultTypeMaxVirtHandlerCPUUsage,
 		},
 	}
 

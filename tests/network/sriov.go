@@ -172,36 +172,30 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 			if vmi.Annotations == nil {
 				vmi.Annotations = make(map[string]string)
 			}
+
 			vmi.Annotations[v1.InstancetypeAnnotation] = testInstancetype
+
+			const (
+				specialNetTag = "specialNet"
+				pciAddress    = "0000:08:00.0"
+			)
 
 			for idx, iface := range vmi.Spec.Domain.Devices.Interfaces {
 				if iface.Name == sriovnet1 {
-					iface.Tag = "specialNet"
+					iface.Tag = specialNetTag
+					iface.PciAddress = pciAddress
 					vmi.Spec.Domain.Devices.Interfaces[idx] = iface
 				}
 			}
 			vmi, err := createVMIAndWait(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(deleteVMI, vmi)
-
-			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-			nic := domSpec.Devices.HostDevices[0]
-			// find the SRIOV interface
-			for _, iface := range domSpec.Devices.HostDevices {
-				if iface.Alias.GetName() == sriovnet1 {
-					nic = iface
-				}
-			}
-			address := nic.Address
-			pciAddrStr := fmt.Sprintf("%s:%s:%s.%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
 			deviceData := []cloudinit.DeviceData{
 				{
 					Type:    cloudinit.NICMetadataType,
-					Bus:     nic.Address.Type,
-					Address: pciAddrStr,
-					Tags:    []string{"specialNet"},
+					Bus:     "pci",
+					Address: pciAddress,
+					Tags:    []string{specialNetTag},
 				},
 			}
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})

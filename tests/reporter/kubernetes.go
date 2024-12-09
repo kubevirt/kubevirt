@@ -174,6 +174,7 @@ func (r *KubernetesReporter) dumpTestObjects(duration time.Duration, vmiNamespac
 	nodesDir := r.createNodesDir()
 	podsDir := r.createPodsDir()
 	networkPodsDir := r.createNetworkPodsDir()
+	computeProcessesDir := r.createComputeProcessesDir()
 
 	duration += 5 * time.Second
 	since := time.Now().Add(-duration)
@@ -224,7 +225,24 @@ func (r *KubernetesReporter) dumpTestObjects(duration time.Duration, vmiNamespac
 	r.logVMIMs(vmims)
 
 	r.logNodeCommands(virtCli, nodesWithTestPods)
-	r.logVirtLauncherCommands(virtCli, networkPodsDir)
+	networkCommandConfigs := []commands{
+		{command: ipAddrName, fileNameSuffix: "ipaddress"},
+		{command: ipLinkName, fileNameSuffix: "iplink"},
+		{command: ipRouteShowTableAll, fileNameSuffix: "iproute"},
+		{command: ipNeighShow, fileNameSuffix: "ipneigh"},
+		{command: bridgeJVlanShow, fileNameSuffix: "brvlan"},
+		{command: bridgeFdb, fileNameSuffix: "brfdb"},
+		{command: "env", fileNameSuffix: "env"},
+		{command: "cat /var/run/kubevirt/passt.log || true", fileNameSuffix: "passt"},
+	}
+	if checks.IsRunningOnKindInfra() {
+		networkCommandConfigs = append(networkCommandConfigs, []commands{{command: devVFio, fileNameSuffix: "vfio-devices"}}...)
+	}
+	r.logVirtLauncherCommands(virtCli, networkPodsDir, networkCommandConfigs)
+	computeCommandConfigs := []commands{
+		{command: "ps -aux", fileNameSuffix: "ps"},
+	}
+	r.logVirtLauncherCommands(virtCli, computeProcessesDir, computeCommandConfigs)
 	r.logVirtLauncherPrivilegedCommands(virtCli, networkPodsDir, virtHandlerPods)
 	r.logVMICommands(virtCli, vmiNamespaces)
 
@@ -518,7 +536,7 @@ func (r *KubernetesReporter) logVirtLauncherPrivilegedCommands(virtCli kubecli.K
 	}
 }
 
-func (r *KubernetesReporter) logVirtLauncherCommands(virtCli kubecli.KubevirtClient, logsdir string) {
+func (r *KubernetesReporter) logVirtLauncherCommands(virtCli kubecli.KubevirtClient, logsdir string, cmds []commands) {
 
 	if logsdir == "" {
 		printError("logsdir is empty, skipping logVirtLauncherCommands")
@@ -542,7 +560,7 @@ func (r *KubernetesReporter) logVirtLauncherCommands(virtCli kubecli.KubevirtCli
 			continue
 		}
 
-		r.executeVirtLauncherCommands(virtCli, logsdir, pod)
+		r.executeContainerCommands(virtCli, logsdir, &pod, computeContainer, cmds)
 	}
 }
 
@@ -1023,6 +1041,17 @@ func (r *KubernetesReporter) createNetworkPodsDir() string {
 	return logsdir
 }
 
+func (r *KubernetesReporter) createComputeProcessesDir() string {
+
+	logsdir := filepath.Join(r.artifactsDir, "compute", "computeProcesses")
+	if err := os.MkdirAll(logsdir, 0777); err != nil {
+		printError(failedCreateLogsDirectoryFmt, logsdir, err)
+		return ""
+	}
+
+	return logsdir
+}
+
 func (r *KubernetesReporter) createNodesDir() string {
 
 	logsdir := filepath.Join(r.artifactsDir, "nodes")
@@ -1216,25 +1245,6 @@ func (r *KubernetesReporter) executeNodeCommands(virtCli kubecli.KubevirtClient,
 	}
 
 	r.executeContainerCommands(virtCli, logsdir, pod, virtHandlerName, cmds)
-}
-
-func (r *KubernetesReporter) executeVirtLauncherCommands(virtCli kubecli.KubevirtClient, logsdir string, pod v1.Pod) {
-	cmds := []commands{
-		{command: ipAddrName, fileNameSuffix: "ipaddress"},
-		{command: ipLinkName, fileNameSuffix: "iplink"},
-		{command: ipRouteShowTableAll, fileNameSuffix: "iproute"},
-		{command: ipNeighShow, fileNameSuffix: "ipneigh"},
-		{command: bridgeJVlanShow, fileNameSuffix: "brvlan"},
-		{command: bridgeFdb, fileNameSuffix: "brfdb"},
-		{command: "env", fileNameSuffix: "env"},
-		{command: "cat /var/run/kubevirt/passt.log || true", fileNameSuffix: "passt"},
-	}
-
-	if checks.IsRunningOnKindInfra() {
-		cmds = append(cmds, []commands{{command: devVFio, fileNameSuffix: "vfio-devices"}}...)
-	}
-
-	r.executeContainerCommands(virtCli, logsdir, &pod, computeContainer, cmds)
 }
 
 func (r *KubernetesReporter) executeContainerCommands(virtCli kubecli.KubevirtClient, logsdir string, pod *v1.Pod, container string, cmds []commands) {

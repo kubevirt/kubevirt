@@ -308,6 +308,9 @@ func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec
 					return nil, fmt.Errorf("pod link (%s) is missing", podIfaceName)
 				}
 				ifacesSpec, err = n.managedTapSpec(podIfaceName, ifIndex, podIfaceStatusByName)
+				if nmstate.AnyInterface(ifacesSpec, hasIP4GlobalUnicast) {
+					spec.LinuxStack.IPv4.ArpIgnore = pointer.P(procsys.ARPReplyMode1)
+				}
 			}
 
 		// Passt is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.

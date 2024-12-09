@@ -527,12 +527,11 @@ func (app *virtHandlerApp) shouldInstallKubevirtSeccompProfile() {
 		return
 	}
 
-	installPath := filepath.Join("/proc/1/root", app.KubeletRoot)
-	if err := seccomp.InstallPolicy(installPath); err != nil {
+	if err := seccomp.InstallPolicy(app.KubeletRoot); err != nil {
 		log.DefaultLogger().Errorf("Failed to install Kubevirt Seccomp profile, %v", err)
 		return
 	}
-	log.DefaultLogger().Infof("Kubevirt Seccomp profile was installed at %s", installPath)
+	log.DefaultLogger().Infof("Kubevirt Seccomp profile was installed at %s", app.KubeletRoot)
 
 }
 

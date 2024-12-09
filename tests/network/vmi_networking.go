@@ -68,16 +68,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 		virtClient = kubevirt.Client()
 	})
 
-	checkNetworkVendor := func(vmi *v1.VirtualMachineInstance, expectedVendor string) {
-		err := console.SafeExpectBatch(vmi, []expect.Batcher{
-			&expect.BSnd{S: "\n"},
-			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: "cat /sys/class/net/eth0/device/vendor\n"},
-			&expect.BExp{R: expectedVendor},
-		}, 15)
-		Expect(err).ToNot(HaveOccurred())
-	}
-
 	checkLearningState := func(vmi *v1.VirtualMachineInstance, expectedValue string) {
 		output := libpod.RunCommandOnVmiPod(vmi, []string{"cat", "/sys/class/net/eth0-nic/brport/learning"})
 		ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal(expectedValue))
@@ -212,54 +202,60 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(job.WaitForJobToSucceed(remoteNodeTCPJob, 90*time.Second)).To(Succeed(), "should be able to reach VM workload from a pod on different node")
 			}
 		})
-
-		Context("VirtualMachineInstance with default interface model", func() {
-			BeforeEach(func() {
-				libnet.SkipWhenClusterNotSupportIpv4()
-
-				var err error
-				inboundVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewCirros(), metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				outboundVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewCirros(), metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
-				outboundVMI = libwait.WaitUntilVMIReady(outboundVMI, console.LoginToCirros)
-			})
-
-			// Unless an explicit interface model is specified, the default interface model is virtio.
-			It("[test_id:1550]should expose the right device type to the guest", func() {
-				By("checking the device vendor in /sys/class")
-
-				// Taken from https://wiki.osdev.org/Virtio#Technical_Details
-				virtio_vid := "0x1af4"
-
-				for _, networkVMI := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI} {
-					// as defined in https://vendev.org/pci/ven_1af4/
-					checkNetworkVendor(networkVMI, virtio_vid)
-				}
-			})
-		})
 	})
 
-	Context("VirtualMachineInstance with custom interface model", func() {
+	Context("VirtualMachineInstance with custom and default interface models", func() {
+		const (
+			secondaryNetName = "secondary-net"
+			nadName          = "simple-bridge"
+		)
+		BeforeEach(func() {
+			const linuxBridgeNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"plugins\": [{\"type\": \"bridge\", \"bridge\": \"%s\"}]}"}}`
+			ns := testsuite.GetTestNamespace(nil)
+			Expect(libnet.CreateNetworkAttachmentDefinition(nadName, ns,
+				fmt.Sprintf(linuxBridgeNAD, nadName, ns, nadName, secondaryNetName),
+			)).To(Succeed())
+		})
 		It("[test_id:1770]should expose the right device type to the guest", func() {
 			By("checking the device vendor in /sys/class")
 			// Create a machine with e1000 interface model
 			// Use alpine because cirros dhcp client starts prematurely before link is ready
-			masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
-			masqIface.Model = "e1000"
-			e1000VMI := libvmifact.NewAlpine(
-				libvmi.WithInterface(masqIface),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			)
-			var err error
-			e1000VMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), e1000VMI, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			e1000ModelIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
+			e1000ModelIface.Model = "e1000"
+			e1000ModelIface.PciAddress = "0000:02:01.0"
 
-			libwait.WaitUntilVMIReady(e1000VMI, console.LoginToAlpine)
-			// as defined in https://vendev.org/pci/ven_8086/
-			checkNetworkVendor(e1000VMI, "0x8086")
+			defaultModelIface := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)
+			defaultModelIface.PciAddress = "0000:03:00.0"
+			vmi := libvmifact.NewAlpine(
+				libvmi.WithInterface(e1000ModelIface),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithInterface(defaultModelIface),
+				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName, nadName)),
+			)
+
+			var err error
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+
+			By("verifying vendors for respective PCI devices")
+			const (
+				vendorCmd = "cat /sys/bus/pci/devices/%s/vendor\n"
+				// https://admin.pci-ids.ucw.cz/read/PC/8086
+				intelVendorID = "0x8086"
+				// https://admin.pci-ids.ucw.cz/read/PC/1af4
+				redhatVendorID = "0x1af4"
+			)
+
+			err = console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: fmt.Sprintf(vendorCmd, e1000ModelIface.PciAddress)},
+				&expect.BExp{R: intelVendorID},
+				&expect.BSnd{S: fmt.Sprintf(vendorCmd, defaultModelIface.PciAddress)},
+				&expect.BExp{R: redhatVendorID},
+			}, 40)
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 
