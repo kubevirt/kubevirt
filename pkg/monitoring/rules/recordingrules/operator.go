@@ -1,9 +1,19 @@
 package recordingrules
 
 import (
+	"fmt"
+
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	"github.com/machadovilaca/operator-observability/pkg/operatorrules"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/metrics"
+)
+
+const (
+	NoImpact float64 = iota
+	WarningImpact
+	CriticalImpact
 )
 
 var operatorRecordingRules = []operatorrules.RecordingRule{
@@ -13,7 +23,7 @@ var operatorRecordingRules = []operatorrules.RecordingRule{
 			Help: "Indicates whether HCO and its secondary resources health status is healthy (0), warning (1) or critical (2), based both on the firing alerts that impact the operator health, and on kubevirt_hco_system_health_status metric",
 		},
 		MetricType: operatormetrics.GaugeType,
-		Expr:       intstr.FromString(`label_replace(vector(2) and on() ((kubevirt_hco_system_health_status>1) or (count(ALERTS{kubernetes_operator_part_of="kubevirt", alertstate="firing", operator_health_impact="critical"})>0)) or (vector(1) and on() ((kubevirt_hco_system_health_status==1) or (count(ALERTS{kubernetes_operator_part_of="kubevirt", alertstate="firing", operator_health_impact="warning"})>0))) or vector(0),"name","kubevirt-hyperconverged","","")`),
+		Expr:       buildOperatorHealthStatusExpr(),
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
@@ -31,4 +41,20 @@ var operatorRecordingRules = []operatorrules.RecordingRule{
 		MetricType: operatormetrics.GaugeType,
 		Expr:       intstr.FromString(`sum by (container, reason)(kubevirt_memory_delta_from_requested_bytes)`),
 	},
+}
+
+func buildOperatorHealthStatusExpr() intstr.IntOrString {
+	criticalExpr := fmt.Sprintf(
+		`(vector(%d) and on() ((kubevirt_hco_system_health_status==%d) or (count(ALERTS{kubernetes_operator_part_of="kubevirt", alertstate="firing", operator_health_impact="critical"})>0)))`,
+		int64(CriticalImpact), int64(metrics.SystemHealthStatusError),
+	)
+
+	warningExpr := fmt.Sprintf(
+		`(vector(%d) and on() ((kubevirt_hco_system_health_status==%d) or (count(ALERTS{kubernetes_operator_part_of="kubevirt", alertstate="firing", operator_health_impact="warning"})>0)))`,
+		int64(WarningImpact), int64(metrics.SystemHealthStatusWarning),
+	)
+
+	healthyExpr := fmt.Sprintf("vector(%d)", int64(NoImpact))
+
+	return intstr.FromString("label_replace(" + criticalExpr + " or " + warningExpr + " or " + healthyExpr + `,"name","kubevirt-hyperconverged","","")`)
 }

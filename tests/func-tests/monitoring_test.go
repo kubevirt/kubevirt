@@ -5,13 +5,13 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
-	"math"
 	"net/http"
 	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	openshiftroutev1 "github.com/openshift/api/route/v1"
 	deschedulerv1 "github.com/openshift/cluster-kube-descheduler-operator/pkg/apis/descheduler/v1"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -32,17 +32,12 @@ import (
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
 
 	hcoalerts "github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/rules/alerts"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/rules/recordingrules"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )
 
 var runbookClient = http.DefaultClient
-
-const (
-	noneImpact float64 = iota
-	warningImpact
-	criticalImpact
-)
 
 var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring", Serial, Ordered, Label(tests.OpenshiftLabel, "monitoring"), func() {
 	flag.Parse()
@@ -76,7 +71,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("Alert rules should have all the requried annotations", func() {
+	It("Alert rules should have all the required annotations", func() {
 		for _, group := range prometheusRule.Spec.Groups {
 			for _, rule := range group.Rules {
 				if rule.Alert != "" {
@@ -171,7 +166,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 			return alert
 		}).WithTimeout(60 * time.Second).WithPolling(time.Second).WithContext(ctx).ShouldNot(BeNil())
 
-		verifyOperatorHealthMetricValue(ctx, promClient, hcoClient, initialOperatorHealthMetricValue, warningImpact)
+		verifyOperatorHealthMetricValue(ctx, promClient, initialOperatorHealthMetricValue, recordingrules.WarningImpact)
 	})
 
 	It("UnsupportedHCOModification alert should fired when there is an jsonpatch annotation to modify an operand CRs", func(ctx context.Context) {
@@ -189,7 +184,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 			alert := getAlertByName(alerts, "UnsupportedHCOModification")
 			return alert
 		}).WithTimeout(60 * time.Second).WithPolling(time.Second).WithContext(ctx).ShouldNot(BeNil())
-		verifyOperatorHealthMetricValue(ctx, promClient, hcoClient, initialOperatorHealthMetricValue, warningImpact)
+		verifyOperatorHealthMetricValue(ctx, promClient, initialOperatorHealthMetricValue, recordingrules.WarningImpact)
 	})
 
 	Describe("KubeDescheduler", Serial, Ordered, Label(tests.OpenshiftLabel, "monitoring"), func() {
@@ -293,7 +288,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 				return alert
 			}).WithTimeout(60 * time.Second).WithPolling(time.Second).WithContext(ctx).ShouldNot(BeNil())
 
-			verifyOperatorHealthMetricValue(ctx, promClient, hcoClient, initialOperatorHealthMetricValue, criticalImpact)
+			verifyOperatorHealthMetricValue(ctx, promClient, initialOperatorHealthMetricValue, recordingrules.CriticalImpact)
 
 			By("Correctly configuring the descheduler for KubeVirt")
 			Expect(cli.Patch(ctx, descheduler, patchConfigure)).To(Succeed())
@@ -367,8 +362,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 				return alert
 			}).WithTimeout(60 * time.Second).WithPolling(time.Second).WithContext(ctx).ShouldNot(BeNil())
 
-			verifyOperatorHealthMetricValue(ctx, promClient, hcoClient, initialOperatorHealthMetricValue, criticalImpact)
-
+			verifyOperatorHealthMetricValue(ctx, promClient, initialOperatorHealthMetricValue, recordingrules.CriticalImpact)
 		})
 	})
 
@@ -383,22 +377,12 @@ func getAlertByName(alerts promApiv1.AlertsResult, alertName string) *promApiv1.
 	return nil
 }
 
-func verifyOperatorHealthMetricValue(ctx context.Context, promClient promApiv1.API, hcoClient *tests.HCOPrometheusClient, initialOperatorHealthMetricValue, alertImpact float64) {
+func verifyOperatorHealthMetricValue(ctx context.Context, promClient promApiv1.API, initialOperatorHealthMetricValue, alertImpact float64) {
 	Eventually(func(g Gomega, ctx context.Context) {
 		if alertImpact >= initialOperatorHealthMetricValue {
-			systemHealthMetricValue, err := hcoClient.GetHCOMetric(ctx, "kubevirt_hco_system_health_status")
-			g.Expect(err).NotTo(HaveOccurred())
-
 			operatorHealthMetricValue := getMetricValue(ctx, promClient, "kubevirt_hyperconverged_operator_health_status")
-
-			expectedOperatorHealthMetricValue := math.Max(alertImpact, systemHealthMetricValue)
-
-			g.Expect(operatorHealthMetricValue).To(Equal(expectedOperatorHealthMetricValue),
-				"kubevirt_hyperconverged_operator_health_status value is %f, but its expected value is %f, "+
-					"while kubevirt_hco_system_health_status value is %f.",
-				operatorHealthMetricValue, expectedOperatorHealthMetricValue, systemHealthMetricValue)
+			g.Expect(operatorHealthMetricValue).To(Equal(alertImpact))
 		}
-
 	}).WithTimeout(60 * time.Second).WithPolling(5 * time.Second).WithContext(ctx).Should(Succeed())
 }
 
