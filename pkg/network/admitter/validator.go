@@ -76,3 +76,11 @@ func ValidateCreation(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSp
 	networkValidator := NewValidator(field, vmiSpec, clusterCfg)
 	return networkValidator.ValidateCreation()
 }
+
+func Validate(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg clusterConfigChecker) []metav1.StatusCause {
+	netValidator := NewValidator(field, vmiSpec, clusterCfg)
+	var statusCauses []metav1.StatusCause
+	statusCauses = append(statusCauses, netValidator.ValidateCreation()...)
+	statusCauses = append(statusCauses, netValidator.Validate()...)
+	return statusCauses
+}
