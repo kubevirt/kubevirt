@@ -1497,7 +1497,19 @@ var _ = Describe("Converter", func() {
 			Entry("ErrorPolicy equal to report", pointer.P(v1.DiskErrorPolicyReport), "report"),
 			Entry("ErrorPolicy equal to enospace", pointer.P(v1.DiskErrorPolicyEnospace), "enospace"),
 		)
-
+		DescribeTable("Should set the vmport by arch", func(arch string) {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			c.Architecture = NewArchConverter(arch)
+			domain := vmiToDomain(vmi, c)
+			switch arch {
+			case amd64:
+				Expect(domain.Spec.Features.VMPort.State).To(Equal("off"))
+			case arm64, s390x, ppc64le:
+				Expect(domain.Spec.Features.VMPort).To(BeNil())
+			}
+		},
+			MultiArchEntry(""),
+		)
 	})
 	Context("Network convert", func() {
 		var vmi *v1.VirtualMachineInstance
