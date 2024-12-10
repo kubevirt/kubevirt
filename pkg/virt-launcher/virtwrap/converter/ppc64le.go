@@ -83,5 +83,5 @@ func (archConverterPPC64) shouldVerboseLogsBeEnabled() bool {
 }
 
 func (archConverterPPC64) hasVMPort() bool {
-	return true
+	return false
 }
