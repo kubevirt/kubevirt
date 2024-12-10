@@ -17667,6 +17667,10 @@
        "default": {},
        "$ref": "#/definitions/v1.VolumeSnapshotStatus"
       }
+     },
+     "volumeUpdateState": {
+      "description": "VolumeUpdateState contains the information about the volumes set updates related to the volumeUpdateStrategy",
+      "$ref": "#/definitions/v1.VolumeUpdateState"
      }
     }
    },
@@ -17757,6 +17761,24 @@
      }
     }
    },
+   "v1.VolumeMigrationState": {
+    "type": "object",
+    "properties": {
+     "manualRecoveryRequired": {
+      "description": "ManualRecoveryRequired indicates if the update due to the migration failed and the volumes set needs to be manually restored",
+      "type": "boolean"
+     },
+     "migratedVolumes": {
+      "description": "MigratedVolumes lists the source and destination volumes during the volume migration",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.StorageMigratedVolumeInfo"
+      },
+      "x-kubernetes-list-type": "atomic"
+     }
+    }
+   },
    "v1.VolumeSnapshotStatus": {
     "type": "object",
     "required": [
@@ -17830,6 +17852,15 @@
       "description": "Target is the target name used when adding the volume to the VM, eg: vda",
       "type": "string",
       "default": ""
+     }
+    }
+   },
+   "v1.VolumeUpdateState": {
+    "type": "object",
+    "properties": {
+     "volumeMigrationState": {
+      "description": "VolumeMigrationState tracks the information related to the volume migration",
+      "$ref": "#/definitions/v1.VolumeMigrationState"
      }
     }
    },
