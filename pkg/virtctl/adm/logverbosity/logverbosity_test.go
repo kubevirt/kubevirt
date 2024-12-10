@@ -7,20 +7,19 @@ import (
 	"fmt"
 	"strings"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	jsonpatch "github.com/evanphx/json-patch"
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"kubevirt.io/kubevirt/tests/clientcmd"
-
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "kubevirt.io/api/core/v1"
-
 	"kubevirt.io/kubevirt/pkg/virtctl/adm/logverbosity"
+	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
 var _ = Describe("Log Verbosity", func() {
@@ -116,7 +115,7 @@ var _ = Describe("Log Verbosity", func() {
 			})
 
 			It("should fail (not executing the command)", func() {
-				cmd := clientcmd.NewRepeatableVirtctlCommand("adm", "log-verbosity", "--all")
+				cmd := testing.NewRepeatableVirtctlCommand("adm", "log-verbosity", "--all")
 				Expect(cmd).NotTo(BeNil())
 			})
 		})
@@ -131,7 +130,7 @@ var _ = Describe("Log Verbosity", func() {
 
 			It("should fail", func() {
 				expectListError() // simulate something like no permission to access the namespace
-				cmd := clientcmd.NewRepeatableVirtctlCommand("adm", "log-verbosity", "--all")
+				cmd := testing.NewRepeatableVirtctlCommand("adm", "log-verbosity", "--all")
 				err := cmd()
 				Expect(err).NotTo(Succeed())
 				Expect(err).To(MatchError(ContainSubstring("could not list KubeVirt CRs across all namespaces: List error")))
@@ -153,7 +152,7 @@ var _ = Describe("Log Verbosity", func() {
 
 			It("should fail", func() {
 				expectGetError() // for some reason, Get function returns an error
-				cmd := clientcmd.NewRepeatableVirtctlCommand("adm", "log-verbosity", "--all")
+				cmd := testing.NewRepeatableVirtctlCommand("adm", "log-verbosity", "--all")
 				err := cmd()
 				Expect(err).NotTo(Succeed())
 				Expect(err).To(MatchError(ContainSubstring("Get error")))
@@ -180,7 +179,7 @@ var _ = Describe("Log Verbosity", func() {
 
 		It("show: should succeed", func() {
 			expectGetKv()
-			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut("adm", "log-verbosity", "--all")()
+			bytes, err := testing.NewRepeatableVirtctlCommandWithOut("adm", "log-verbosity", "--all")()
 			Expect(err).To(Succeed())
 			output := []uint{2, 2, 2, 2, 2}
 			message := createOutputMessage(output)
@@ -189,7 +188,7 @@ var _ = Describe("Log Verbosity", func() {
 
 		It("set: should succeed", func() {
 			expectGetKv()
-			cmd := clientcmd.NewRepeatableVirtctlCommand("adm", "log-verbosity", "--all=7")
+			cmd := testing.NewRepeatableVirtctlCommand("adm", "log-verbosity", "--all=7")
 			Expect(cmd()).To(Succeed())
 			output := []uint{7, 7, 7, 7, 7}
 			expectAllComponentVerbosity(kv, output)
@@ -203,7 +202,7 @@ var _ = Describe("Log Verbosity", func() {
 
 		Context("with empty set of flags", func() {
 			It("should fail (return help)", func() {
-				cmd := clientcmd.NewRepeatableVirtctlCommand("adm", "log-verbosity")
+				cmd := testing.NewRepeatableVirtctlCommand("adm", "log-verbosity")
 				err := cmd()
 				Expect(err).NotTo(Succeed())
 				Expect(err).To(MatchError(ContainSubstring("no flag specified - expecting at least one flag")))
@@ -212,7 +211,7 @@ var _ = Describe("Log Verbosity", func() {
 
 		DescribeTable("should fail handled by the CLI package", func(args ...string) {
 			argStr := strings.Join(args, ",")
-			cmd := clientcmd.NewRepeatableVirtctlCommand("adm", "log-verbosity", argStr)
+			cmd := testing.NewRepeatableVirtctlCommand("adm", "log-verbosity", argStr)
 			Expect(cmd()).NotTo(Succeed())
 		},
 			Entry("reset and all coexist", "--reset", "--all=3"),
@@ -225,7 +224,7 @@ var _ = Describe("Log Verbosity", func() {
 		DescribeTable("should fail handled by error handler", func(output string, args ...string) {
 			commandAndArgs := []string{"adm", "log-verbosity"}
 			commandAndArgs = append(commandAndArgs, args...)
-			_, err := clientcmd.NewRepeatableVirtctlCommandWithOut(commandAndArgs...)()
+			_, err := testing.NewRepeatableVirtctlCommandWithOut(commandAndArgs...)()
 			Expect(err).NotTo(Succeed())
 
 			Expect(err).To(MatchError(ContainSubstring(output)))
@@ -249,7 +248,7 @@ var _ = Describe("Log Verbosity", func() {
 		Describe("set operation", func() {
 			Context("reset", func() {
 				It("do nothing", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand("adm", "log-verbosity", "--reset")
+					cmd := testing.NewRepeatableVirtctlCommand("adm", "log-verbosity", "--reset")
 					Expect(cmd()).To(Succeed())
 					Expect(kv.Spec.Configuration.DeveloperConfiguration).To(BeNil())
 				})
@@ -274,7 +273,7 @@ var _ = Describe("Log Verbosity", func() {
 		Describe("set operation", func() {
 			Context("reset", func() {
 				It("do nothing", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand("adm", "log-verbosity", "--reset")
+					cmd := testing.NewRepeatableVirtctlCommand("adm", "log-verbosity", "--reset")
 					Expect(cmd()).To(Succeed())
 					Expect(kv.Spec.Configuration.DeveloperConfiguration.LogVerbosity).To(BeNil())
 				})
@@ -400,7 +399,7 @@ func commonSetup(kvInterface *kubecli.MockKubeVirtInterface, kvs *v1.KubeVirtLis
 func commonShowTest(output []uint, args ...string) {
 	commandAndArgs := []string{"adm", "log-verbosity"}
 	commandAndArgs = append(commandAndArgs, args...)
-	bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(commandAndArgs...)()
+	bytes, err := testing.NewRepeatableVirtctlCommandWithOut(commandAndArgs...)()
 	Expect(err).To(Succeed())
 
 	message := createOutputMessage(output) // create an expected output message
@@ -410,6 +409,6 @@ func commonShowTest(output []uint, args ...string) {
 func commonSetCommand(args ...string) {
 	commandAndArgs := []string{"adm", "log-verbosity"}
 	commandAndArgs = append(commandAndArgs, args...)
-	cmd := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
+	cmd := testing.NewRepeatableVirtctlCommand(commandAndArgs...)
 	Expect(cmd()).To(Succeed())
 }
