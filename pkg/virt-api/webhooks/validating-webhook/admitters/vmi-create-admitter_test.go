@@ -3541,46 +3541,37 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 	Context("with topologySpreadConstraints checks", func() {
 		var vmi *v1.VirtualMachineInstance
-		vmiAdmissionReviewFromTopologyConstraints := func(vmi *v1.VirtualMachineInstance, constraints []k8sv1.TopologySpreadConstraint) *admissionv1.AdmissionReview {
-			vmi.Spec.TopologySpreadConstraints = constraints
-			vmiBytes, _ := json.Marshal(&vmi)
-
-			return &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: vmiBytes,
-					},
-				},
-			}
-		}
 		BeforeEach(func() {
 			vmi = api.NewMinimalVMI("testvmi")
-			vmi.Spec.TopologySpreadConstraints = []k8sv1.TopologySpreadConstraint{}
 		})
 		It("Allow to create when spec.topologySpreadConstraints set to nil", func() {
-			ar := vmiAdmissionReviewFromTopologyConstraints(vmi, nil)
+			vmi.Spec.TopologySpreadConstraints = nil
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
 		It("Allowed LabelSelector is not set", func() {
-			ar := vmiAdmissionReviewFromTopologyConstraints(vmi, []k8sv1.TopologySpreadConstraint{
+			vmi.Spec.TopologySpreadConstraints = []k8sv1.TopologySpreadConstraint{
 				{
 					MaxSkew:           1,
 					TopologyKey:       k8sv1.LabelHostname,
 					WhenUnsatisfiable: k8sv1.DoNotSchedule,
 					LabelSelector:     nil,
 				},
-			})
+			}
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
 		It("Allowed with valid LabelSelector is set", func() {
-			ar := vmiAdmissionReviewFromTopologyConstraints(vmi, []k8sv1.TopologySpreadConstraint{
+			vmi.Spec.TopologySpreadConstraints = []k8sv1.TopologySpreadConstraint{
 				{
 					MaxSkew:           1,
 					TopologyKey:       k8sv1.LabelHostname,
@@ -3595,21 +3586,27 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 						},
 					},
 				},
-			})
+			}
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
 		It("Should reject when TopologyKey is empty", func() {
-			ar := vmiAdmissionReviewFromTopologyConstraints(vmi, []k8sv1.TopologySpreadConstraint{
+			vmi.Spec.TopologySpreadConstraints = []k8sv1.TopologySpreadConstraint{
 				{
 					MaxSkew:           1,
 					TopologyKey:       "",
 					WhenUnsatisfiable: k8sv1.DoNotSchedule,
 					LabelSelector:     nil,
 				},
-			})
+			}
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
@@ -3619,14 +3616,17 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("Should reject when TopologyKey is not valid", func() {
-			ar := vmiAdmissionReviewFromTopologyConstraints(vmi, []k8sv1.TopologySpreadConstraint{
+			vmi.Spec.TopologySpreadConstraints = []k8sv1.TopologySpreadConstraint{
 				{
 					MaxSkew:           1,
 					TopologyKey:       "hostname=host1",
 					WhenUnsatisfiable: k8sv1.DoNotSchedule,
 					LabelSelector:     nil,
 				},
-			})
+			}
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
@@ -3636,14 +3636,17 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("Should reject MaxSkew is not valid", func() {
-			ar := vmiAdmissionReviewFromTopologyConstraints(vmi, []k8sv1.TopologySpreadConstraint{
+			vmi.Spec.TopologySpreadConstraints = []k8sv1.TopologySpreadConstraint{
 				{
 					MaxSkew:           -1,
 					TopologyKey:       k8sv1.LabelHostname,
 					WhenUnsatisfiable: k8sv1.DoNotSchedule,
 					LabelSelector:     nil,
 				},
-			})
+			}
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
@@ -3653,7 +3656,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("Should reject when validation failed due to values of MatchExpressions is set to nil", func() {
-			ar := vmiAdmissionReviewFromTopologyConstraints(vmi, []k8sv1.TopologySpreadConstraint{
+			vmi.Spec.TopologySpreadConstraints = []k8sv1.TopologySpreadConstraint{
 				{
 					MaxSkew:           1,
 					TopologyKey:       k8sv1.LabelHostname,
@@ -3668,7 +3671,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 						},
 					},
 				},
-			})
+			}
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
