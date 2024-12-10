@@ -1828,13 +1828,25 @@ var _ = SIGDescribe("Export", func() {
 		imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)
 		dataVolume := libdv.NewDataVolume(
 			libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-			libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.CirrosVolumeSize)),
+			libdv.WithStorage(
+				libdv.StorageWithStorageClass(sc),
+				// TODO: Rendering this VM with more size than usual as fully expanded images are likely
+				// to leave scratch space PVC without space if files such as lost+found exist.
+				// More info in https://issues.redhat.com/browse/CNV-51575.
+				libdv.StorageWithVolumeSize("1024Mi"),
+			),
 		)
 		dataVolume.SetNamespace(testsuite.GetTestNamespace(dataVolume))
 		dataVolume = createDataVolume(dataVolume)
 		blankDv := libdv.NewDataVolume(
 			libdv.WithBlankImageSource(),
-			libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.BlankVolumeSize)),
+			libdv.WithStorage(
+				libdv.StorageWithStorageClass(sc),
+				// TODO: Rendering this VM with more size than usual as fully expanded images are likely
+				// to leave scratch space PVC without space if files such as lost+found exist.
+				// More info in https://issues.redhat.com/browse/CNV-51575.
+				libdv.StorageWithVolumeSize("1024Mi"),
+			),
 		)
 		blankDv.SetNamespace(testsuite.GetTestNamespace(blankDv))
 		blankDv = createDataVolume(blankDv)
