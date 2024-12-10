@@ -63,6 +63,7 @@ import (
 	clientmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
+	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	mime "kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/rest/filter"
 	"kubevirt.io/kubevirt/pkg/service"
@@ -867,15 +868,16 @@ func (app *virtAPIApp) prepareCertManager() {
 }
 
 func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers) {
+	networkValidator := netadmitter.NewValidator(app.clusterConfig)
 
 	http.HandleFunc(components.VMICreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMICreate(w, r, app.clusterConfig)
+		validating_webhook.ServeVMICreate(w, r, app.clusterConfig, networkValidator)
 	})
 	http.HandleFunc(components.VMIUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIUpdate(w, r, app.clusterConfig, app.kubeVirtServiceAccounts)
 	})
 	http.HandleFunc(components.VMValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli, informers)
+		validating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli, informers, networkValidator)
 	})
 	http.HandleFunc(components.VMIRSValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIRS(w, r, app.clusterConfig)
@@ -914,7 +916,7 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 		validating_webhook.ServeVmClusterPreferences(w, r)
 	})
 	http.HandleFunc(components.StatusValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeStatusValidation(w, r, app.clusterConfig, app.virtCli, informers)
+		validating_webhook.ServeStatusValidation(w, r, app.clusterConfig, app.virtCli, informers, networkValidator)
 	})
 	http.HandleFunc(components.LauncherEvictionValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServePodEvictionInterceptor(w, r, app.clusterConfig, app.virtCli)

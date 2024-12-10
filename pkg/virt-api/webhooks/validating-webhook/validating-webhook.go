@@ -30,17 +30,16 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-func ServeVMICreate(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
-	validating_webhooks.Serve(resp, req, &admitters.VMICreateAdmitter{ClusterConfig: clusterConfig})
+func ServeVMICreate(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, validators ...admitters.Validator) {
+	validating_webhooks.Serve(resp, req, &admitters.VMICreateAdmitter{ClusterConfig: clusterConfig, Validators: validators})
 }
 
 func ServeVMIUpdate(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, kubeVirtServiceAccounts map[string]struct{}) {
 	validating_webhooks.Serve(resp, req, admitters.NewVMIUpdateAdmitter(clusterConfig, kubeVirtServiceAccounts))
 }
 
-func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient, informers *webhooks.Informers) {
-
-	validating_webhooks.Serve(resp, req, admitters.NewVMsAdmitter(clusterConfig, virtCli, informers))
+func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient, informers *webhooks.Informers, validators ...admitters.Validator) {
+	validating_webhooks.Serve(resp, req, admitters.NewVMsAdmitter(clusterConfig, virtCli, informers, validators...))
 }
 
 func ServeVMIRS(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
@@ -95,9 +94,11 @@ func ServeStatusValidation(resp http.ResponseWriter,
 	req *http.Request,
 	clusterConfig *virtconfig.ClusterConfig,
 	virtCli kubecli.KubevirtClient,
-	informers *webhooks.Informers) {
+	informers *webhooks.Informers,
+	validators ...admitters.Validator,
+) {
 	validating_webhooks.Serve(resp, req, &admitters.StatusAdmitter{
-		VmsAdmitter: admitters.NewVMsAdmitter(clusterConfig, virtCli, informers),
+		VmsAdmitter: admitters.NewVMsAdmitter(clusterConfig, virtCli, informers, validators...),
 	})
 }
 
