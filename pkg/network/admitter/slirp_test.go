@@ -42,8 +42,8 @@ var _ = Describe("Validate interface with SLIRP binding", func() {
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
-		causes := validator.Validate()
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
+		causes := validator.Validate(k8sfield.NewPath("fake"), &vmi.Spec)
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Message).To(Equal("Slirp interface is not enabled in kubevirt-config"))
 	})
@@ -57,8 +57,8 @@ var _ = Describe("Validate interface with SLIRP binding", func() {
 			libvmi.WithNetwork(libvmi.MultusNetwork("default", "net")),
 		)
 		config := stubClusterConfigChecker{slirpEnabled: true}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, config)
-		causes := validator.Validate()
+		validator := admitter.NewValidator(config)
+		causes := validator.Validate(k8sfield.NewPath("fake"), &vmi.Spec)
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Message).To(Equal("Slirp interface only implemented with pod network"))
 	})
@@ -73,8 +73,8 @@ var _ = Describe("Validate interface with SLIRP binding", func() {
 		)
 
 		config := stubClusterConfigChecker{slirpEnabled: true}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, config)
-		Expect(validator.Validate()).To(BeEmpty())
+		validator := admitter.NewValidator(config)
+		Expect(validator.Validate(k8sfield.NewPath("fake"), &vmi.Spec)).To(BeEmpty())
 	})
 })
 
@@ -88,8 +88,8 @@ var _ = Describe("Validate creation of interface with SLIRP binding", func() {
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
-		causes := validator.ValidateCreation()
+		validator := admitter.NewValidator(stubClusterConfigChecker{})
+		causes := validator.ValidateCreation(k8sfield.NewPath("fake"), &vmi.Spec)
 		Expect(causes).To(
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",

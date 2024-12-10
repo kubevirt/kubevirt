@@ -81,6 +81,52 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		disableFeatureGates()
 	})
 
+	It("when a validator pass, should allow request", func() {
+		vmiOld := newBaseVmi()
+		vmiOld.Spec.Domain.CPU = &v1.CPU{}
+		oldBytes, err := json.Marshal(vmiOld)
+		Expect(err).ToNot(HaveOccurred())
+		vmiNew := newBaseVmi()
+		vmiNew.Spec.Domain.CPU = &v1.CPU{Cores: 2}
+		newBytes, err := json.Marshal(vmiNew)
+		Expect(err).ToNot(HaveOccurred())
+		ar := &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{
+			UserInfo:  authv1.UserInfo{Username: "system:serviceaccount:kubevirt:kubevirt-apiserver"},
+			Resource:  webhooks.VirtualMachineInstanceGroupVersionResource,
+			Object:    runtime.RawExtension{Raw: oldBytes},
+			OldObject: runtime.RawExtension{Raw: newBytes},
+			Operation: admissionv1.Update,
+		}}
+		admitter := NewVMIUpdateAdmitter(config, webhooks.KubeVirtServiceAccounts(kubeVirtNamespace), validatorStub{})
+
+		resp := admitter.Admit(context.Background(), ar)
+		Expect(resp.Allowed).To(BeTrue())
+	})
+	It("when a validator fail, should reject request", func() {
+		vmiOld := newBaseVmi()
+		vmiOld.Spec.Domain.CPU = &v1.CPU{}
+		oldBytes, err := json.Marshal(vmiOld)
+		Expect(err).ToNot(HaveOccurred())
+		vmiNew := newBaseVmi()
+		vmiNew.Spec.Domain.CPU = &v1.CPU{Cores: 2}
+		newBytes, err := json.Marshal(vmiNew)
+		Expect(err).ToNot(HaveOccurred())
+		ar := &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{
+			UserInfo:  authv1.UserInfo{Username: "system:serviceaccount:kubevirt:kubevirt-apiserver"},
+			Resource:  webhooks.VirtualMachineInstanceGroupVersionResource,
+			Object:    runtime.RawExtension{Raw: oldBytes},
+			OldObject: runtime.RawExtension{Raw: newBytes},
+			Operation: admissionv1.Update,
+		}}
+		expectedStatusCause := []metav1.StatusCause{{Type: "test", Message: "test", Field: "test"}}
+		testValidator := validatorStub{statusCauses: expectedStatusCause}
+		admitter := NewVMIUpdateAdmitter(config, webhooks.KubeVirtServiceAccounts(kubeVirtNamespace), testValidator)
+
+		resp := admitter.Admit(context.Background(), ar)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Details.Causes).To(Equal(expectedStatusCause))
+	})
+
 	Context("Node restriction", func() {
 		mustMarshal := func(vmi *v1.VirtualMachineInstance) []byte {
 			b, err := json.Marshal(vmi)
