@@ -41,7 +41,7 @@ var _ = Describe("Apply PDBs", func() {
 		Expect(requiredPDB).ToNot(BeNil())
 
 		cachedPDB := requiredPDB.DeepCopy()
-		injectOperatorMetadata(kv, &cachedPDB.ObjectMeta, Version, Registry, Id, true)
+		injectOperatorMetadata(kv, &cachedPDB.ObjectMeta, Version, Registry, Id)
 		err := stores.PodDisruptionBudgetCache.Add(cachedPDB)
 		Expect(err).ToNot(HaveOccurred())
 

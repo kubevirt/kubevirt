@@ -44,7 +44,7 @@ func (r *Reconciler) syncExportProxyRoute(route *routev1.Route, caBundle []byte)
 
 func (r *Reconciler) syncRoute(route *routev1.Route, caBundle []byte) error {
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
-	injectOperatorMetadata(r.kv, &route.ObjectMeta, version, imageRegistry, id, true)
+	injectOperatorMetadata(r.kv, &route.ObjectMeta, version, imageRegistry, id)
 	route.Spec.TLS.DestinationCACertificate = string(caBundle)
 
 	var cachedRoute *routev1.Route
