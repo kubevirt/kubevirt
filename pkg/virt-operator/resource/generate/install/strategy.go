@@ -561,6 +561,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 
 	strategy.services = append(strategy.services, components.NewPrometheusService(config.GetNamespace()))
 	strategy.services = append(strategy.services, components.NewApiServerService(config.GetNamespace()))
+	strategy.services = append(strategy.services, components.NewControllerService(config.GetNamespace()))
 	strategy.services = append(strategy.services, components.NewOperatorWebhookService(operatorNamespace))
 	strategy.services = append(strategy.services, components.NewExportProxyService(config.GetNamespace()))
 	apiDeployment, err := components.NewApiServerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), productName, productVersion, productComponent, config.VirtApiImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
