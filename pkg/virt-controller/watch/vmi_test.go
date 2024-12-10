@@ -851,7 +851,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			controller.Execute()
 
-			Expect(pod.Annotations).To(HaveKey(downwardapi.NetworkInfoAnnot))
+			expectPodAnnotations(pod, HaveKey(downwardapi.NetworkInfoAnnot))
 		})
 	})
 
