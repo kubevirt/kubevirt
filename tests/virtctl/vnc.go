@@ -38,7 +38,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -60,7 +59,7 @@ var _ = Describe("[sig-compute][virtctl]VNC", decorators.SigCompute, func() {
 	It("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][level:component][test_id:4272]should connect to vnc with --proxy-only flag", func() {
 		By("Invoking virtctl vnc with --proxy-only")
 		r, w, _ := os.Pipe()
-		cmd := clientcmd.NewVirtctlCommand(
+		cmd := newVirtctlCommand(
 			"vnc",
 			vmi.Name,
 			"--namespace", vmi.Namespace,
@@ -87,7 +86,7 @@ var _ = Describe("[sig-compute][virtctl]VNC", decorators.SigCompute, func() {
 		By("Invoking virtctl vnc with --proxy-only")
 		go func() {
 			defer GinkgoRecover()
-			err := clientcmd.NewRepeatableVirtctlCommand(
+			err := newRepeatableVirtctlCommand(
 				"vnc",
 				vmi.Name,
 				"--namespace", vmi.Namespace,
@@ -111,7 +110,7 @@ var _ = Describe("[sig-compute][virtctl]VNC", decorators.SigCompute, func() {
 		By("gathering screenshots until we are past the first boot screen and see the expected resolution")
 		path := filepath.Join(GinkgoT().TempDir(), "screenshot.png")
 		Eventually(func(g Gomega) image.Point {
-			err := clientcmd.NewRepeatableVirtctlCommand(
+			err := newRepeatableVirtctlCommand(
 				"vnc", "screenshot",
 				vmi.Name,
 				"--namespace", vmi.Namespace,

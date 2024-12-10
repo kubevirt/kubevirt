@@ -24,11 +24,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	"k8s.io/apimachinery/pkg/util/yaml"
+
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/create/clone"
-	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
 const (
@@ -262,7 +264,7 @@ func newCommand(createCloneFlags ...string) (*clonev1alpha1.VirtualMachineClone,
 	baseArgs := []string{create, clone.Clone}
 	args := append(baseArgs, createCloneFlags...)
 
-	bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(args...)()
+	bytes, err := testing.NewRepeatableVirtctlCommandWithOut(args...)()
 	if err != nil {
 		return nil, err
 	}

@@ -5,10 +5,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/golang/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,7 +25,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
 var _ = Describe("Credentials add-ssh-key", func() {
@@ -452,5 +452,5 @@ func expectAccessCredentialIsSSHWithUser(credential *v1.AccessCredential, user s
 }
 
 func runAddKeyCommand(args ...string) error {
-	return clientcmd.NewRepeatableVirtctlCommand(append([]string{"credentials", "add-ssh-key"}, args...)...)()
+	return testing.NewRepeatableVirtctlCommand(append([]string{"credentials", "add-ssh-key"}, args...)...)()
 }

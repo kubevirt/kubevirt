@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "cmd.go",
         "create_vm.go",
         "guestfs.go",
         "imageupload.go",
@@ -17,6 +18,7 @@ go_library(
         "//pkg/libvmi:go_default_library",
         "//pkg/libvmi/cloudinit:go_default_library",
         "//pkg/pointer:go_default_library",
+        "//pkg/virtctl:go_default_library",
         "//pkg/virtctl/create:go_default_library",
         "//pkg/virtctl/create/vm:go_default_library",
         "//pkg/virtctl/guestfs:go_default_library",
@@ -46,6 +48,7 @@ go_library(
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/github.com/onsi/gomega/gstruct:go_default_library",
+        "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/golang.org/x/crypto/ssh:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",

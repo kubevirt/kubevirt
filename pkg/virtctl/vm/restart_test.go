@@ -27,10 +27,11 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
 var _ = Describe("Restart command", func() {
@@ -46,7 +47,7 @@ var _ = Describe("Restart command", func() {
 	})
 
 	It("should fail with missing input parameters", func() {
-		cmd := clientcmd.NewRepeatableVirtctlCommand("restart")
+		cmd := testing.NewRepeatableVirtctlCommand("restart")
 		err := cmd()
 		Expect(err).To(HaveOccurred())
 		Expect(err).Should(MatchError("accepts 1 arg(s), received 0"))
@@ -67,7 +68,7 @@ var _ = Describe("Restart command", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
 		vmInterface.EXPECT().Restart(context.Background(), vm.Name, &restartOptions).Return(nil).Times(1)
 
-		cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
+		cmd := testing.NewRepeatableVirtctlCommand(args...)
 		Expect(cmd()).To(Succeed())
 	},
 		Entry("should restart vm", v1.RestartOptions{DryRun: nil}, false, false, "restart", vmName),
@@ -86,7 +87,7 @@ var _ = Describe("Restart command", func() {
 		}
 		vmInterface.EXPECT().Restart(context.Background(), vm.Name, &restartOptions).Return(nil).Times(1)
 
-		cmd := clientcmd.NewRepeatableVirtctlCommand("restart", vmName, "--force", "--grace-period=0")
+		cmd := testing.NewRepeatableVirtctlCommand("restart", vmName, "--force", "--grace-period=0")
 		Expect(cmd()).To(Succeed())
 	})
 })

@@ -13,16 +13,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/golang/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/testing"
+	k8stesting "k8s.io/client-go/testing"
 
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1beta1"
@@ -34,8 +34,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virtctl/memorydump"
+	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 	"kubevirt.io/kubevirt/pkg/virtctl/vmexport"
-	"kubevirt.io/kubevirt/tests/clientcmd"
 )
 
 const vmName = "test-vm"
@@ -112,7 +112,7 @@ var _ = Describe("MemoryDump", func() {
 	})
 
 	expectVMEndpointMemoryDump := func(claimName string) {
-		virtClient.PrependReactor("put", "virtualmachines/memorydump", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+		virtClient.PrependReactor("put", "virtualmachines/memorydump", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
 			switch action := action.(type) {
 			case kvtesting.PutAction[*v1.VirtualMachineMemoryDumpRequest]:
 				Expect(action.GetName()).To(Equal(vm.Name))
@@ -259,7 +259,7 @@ var _ = Describe("MemoryDump", func() {
 	})
 
 	It("should call remove memory dump subresource", func() {
-		virtClient.PrependReactor("put", "virtualmachines/removememorydump", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+		virtClient.PrependReactor("put", "virtualmachines/removememorydump", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
 			switch action := action.(type) {
 			case kvtesting.PutAction[struct{}]:
 				Expect(action.GetName()).To(Equal(vm.Name))
@@ -291,8 +291,8 @@ var _ = Describe("MemoryDump", func() {
 		)
 
 		updateVMEStatusOnCreate := func() {
-			virtClient.Fake.PrependReactor("create", "virtualmachineexports", func(action testing.Action) (bool, runtime.Object, error) {
-				create, ok := action.(testing.CreateAction)
+			virtClient.Fake.PrependReactor("create", "virtualmachineexports", func(action k8stesting.Action) (bool, runtime.Object, error) {
+				create, ok := action.(k8stesting.CreateAction)
 				Expect(ok).To(BeTrue())
 				vme, ok := create.GetObject().(*exportv1.VirtualMachineExport)
 				Expect(ok).To(BeTrue())
@@ -524,20 +524,20 @@ func setFlag(flag, parameter string) string {
 
 func runCmd(args ...string) error {
 	_args := append([]string{"memory-dump"}, args...)
-	return clientcmd.NewRepeatableVirtctlCommand(_args...)()
+	return testing.NewRepeatableVirtctlCommand(_args...)()
 }
 
 func runGetCmd(args ...string) error {
 	_args := append([]string{"memory-dump", "get", vmName}, args...)
-	return clientcmd.NewRepeatableVirtctlCommand(_args...)()
+	return testing.NewRepeatableVirtctlCommand(_args...)()
 }
 
 func runDownloadCmd(args ...string) error {
 	_args := append([]string{"memory-dump", "download", vmName}, args...)
-	return clientcmd.NewRepeatableVirtctlCommand(_args...)()
+	return testing.NewRepeatableVirtctlCommand(_args...)()
 }
 
 func runRemoveCmd(args ...string) error {
 	_args := append([]string{"memory-dump", "remove", vmName}, args...)
-	return clientcmd.NewRepeatableVirtctlCommand(_args...)()
+	return testing.NewRepeatableVirtctlCommand(_args...)()
 }

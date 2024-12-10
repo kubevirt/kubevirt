@@ -37,11 +37,11 @@ go_test(
     tags = ["cov"],
     deps = [
         ":go_default_library",
+        "//pkg/virtctl/testing:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype:go_default_library",
         "//staging/src/kubevirt.io/client-go/containerizeddataimporter/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
-        "//tests/clientcmd:go_default_library",
         "//tests/libstorage:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",

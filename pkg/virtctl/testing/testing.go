@@ -13,39 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright The KubeVirt Authors
  *
  */
 
-package clientcmd
+package testing
 
 import (
 	"bytes"
-	"flag"
-
-	"github.com/spf13/cobra"
 
 	"kubevirt.io/kubevirt/pkg/virtctl"
 )
 
-func NewVirtctlCommand(args ...string) *cobra.Command {
-	commandline := []string{}
-	master := flag.Lookup("master").Value
-	if master != nil && master.String() != "" {
-		commandline = append(commandline, serverName, master.String())
-	}
-	kubeconfig := flag.Lookup("kubeconfig").Value
-	if kubeconfig != nil && kubeconfig.String() != "" {
-		commandline = append(commandline, "--kubeconfig", kubeconfig.String())
-	}
-	cmd, _ := virtctl.NewVirtctlCommand()
-	cmd.SetArgs(append(commandline, args...))
-	return cmd
-}
-
 func NewRepeatableVirtctlCommand(args ...string) func() error {
 	return func() error {
-		cmd := NewVirtctlCommand(args...)
+		cmd, _ := virtctl.NewVirtctlCommand()
+		cmd.SetArgs(args)
 		return cmd.Execute()
 	}
 }
@@ -53,7 +36,8 @@ func NewRepeatableVirtctlCommand(args ...string) func() error {
 func NewRepeatableVirtctlCommandWithOut(args ...string) func() ([]byte, error) {
 	return func() ([]byte, error) {
 		out := &bytes.Buffer{}
-		cmd := NewVirtctlCommand(args...)
+		cmd, _ := virtctl.NewVirtctlCommand()
+		cmd.SetArgs(args)
 		cmd.SetOut(out)
 		err := cmd.Execute()
 		return out.Bytes(), err
