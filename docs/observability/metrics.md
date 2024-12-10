@@ -81,6 +81,9 @@ The current available memory of the VM containers based on the working set. Type
 ### kubevirt_vm_created_by_pod_total
 The total number of VMs created by namespace and virt-api pod, since install. Type: Counter.
 
+### kubevirt_vm_created_timestamp_seconds
+Virtual Machine creation timestamp. Type: Gauge.
+
 ### kubevirt_vm_created_total
 The total number of VMs created by namespace, since install. Type: Counter.
 
