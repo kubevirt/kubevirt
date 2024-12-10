@@ -42,10 +42,15 @@ func MarkAsNonReady(vmi *v1.VirtualMachineInstance) {
 }
 
 func VirtualMachineFromVMI(name string, vmi *v1.VirtualMachineInstance, started bool) *v1.VirtualMachine {
+	runStrategy := v1.RunStrategyAlways
+	if !started {
+		runStrategy = v1.RunStrategyHalted
+	}
+
 	vm := &v1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vmi.ObjectMeta.Namespace, ResourceVersion: "1", UID: "vm-uid"},
 		Spec: v1.VirtualMachineSpec{
-			Running: &started,
+			RunStrategy: &runStrategy,
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   vmi.ObjectMeta.Name,

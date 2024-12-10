@@ -781,7 +781,6 @@ func GetVMMultiPvc() *v1.VirtualMachine {
 func getBaseVMPool(name string, replicas int, selectorLabels map[string]string) *poolv1.VirtualMachinePool {
 	baseVMISpec := getBaseVMISpec()
 	replicasInt32 := int32(replicas)
-	running := true
 
 	return &poolv1.VirtualMachinePool{
 		TypeMeta: metav1.TypeMeta{
@@ -801,7 +800,7 @@ func getBaseVMPool(name string, replicas int, selectorLabels map[string]string) 
 					Labels: selectorLabels,
 				},
 				Spec: v1.VirtualMachineSpec{
-					Running: &running,
+					RunStrategy: pointer.P(v1.RunStrategyAlways),
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: selectorLabels,
