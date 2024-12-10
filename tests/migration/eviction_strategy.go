@@ -187,7 +187,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-				runStressTest(vmi, stressDefaultVMSize, stressDefaultSleepDuration)
+				runStressTest(vmi, stressDefaultVMSize)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -323,7 +323,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 					// Put VMI under load
-					runStressTest(vmi, stressDefaultVMSize, stressDefaultSleepDuration)
+					runStressTest(vmi, stressDefaultVMSize)
 
 					node := vmi.Status.NodeName
 					libnode.TemporaryNodeDrain(node)
