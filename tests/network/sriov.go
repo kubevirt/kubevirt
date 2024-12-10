@@ -52,7 +52,6 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -104,8 +103,7 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 				To(Succeed(), shouldCreateNetwork)
 		})
 
-		It("should have cloud-init meta_data with aligned cpus to sriov interface numa node for VMIs with dedicatedCPUs", func() {
-			checks.SkipTestIfNoCPUManager()
+		It("should have cloud-init meta_data with aligned cpus to sriov interface numa node for VMIs with dedicatedCPUs", decorators.RequiresNodeWithCPUManager, func() {
 			vmi := newSRIOVVmi([]string{sriovnet1}, libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveNetworkData(defaultCloudInitNetworkData())))
 			vmi.Spec.Domain.CPU = &v1.CPU{
 				Cores:                 4,
@@ -265,8 +263,7 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 			Expect(rootPortController).To(BeEmpty(), "libvirt should not add additional buses to the root one")
 		})
 
-		It("[test_id:3959]should create a virtual machine with sriov interface and dedicatedCPUs", func() {
-			checks.SkipTestIfNoCPUManager()
+		It("[test_id:3959]should create a virtual machine with sriov interface and dedicatedCPUs", decorators.RequiresNodeWithCPUManager, func() {
 			// In addition to verifying that we can start a VMI with CPU pinning
 			// this also tests if we've correctly calculated the overhead for VFIO devices.
 			vmi := newSRIOVVmi([]string{sriovnet1}, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())))
