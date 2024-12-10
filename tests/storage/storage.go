@@ -962,10 +962,6 @@ var _ = SIGDescribe("Storage", func() {
 				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 			})
 
-			AfterEach(func() {
-				libstorage.DeleteDataVolume(&dataVolume)
-			})
-
 			// Not a candidate for NFS because local volumes are used in test
 			It("[test_id:1015]should be successfully started", func() {
 				// Start the VirtualMachineInstance with the PVC attached
@@ -1125,10 +1121,6 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 				vmi = nil
-			})
-
-			AfterEach(func() {
-				libstorage.DeleteDataVolume(&dataVolume)
 			})
 
 			It("should generate the pod with the volumeDevice", func() {
