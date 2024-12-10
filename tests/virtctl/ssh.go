@@ -50,7 +50,7 @@ var _ = Describe("[sig-compute][virtctl]SSH", decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
 
 	cmdNative := func(vmiName string) {
-		Expect(clientcmd.NewRepeatableVirtctlCommand(
+		Expect(newRepeatableVirtctlCommand(
 			"ssh",
 			"--local-ssh=false",
 			"--namespace", testsuite.GetTestNamespace(nil),
@@ -79,7 +79,7 @@ var _ = Describe("[sig-compute][virtctl]SSH", decorators.SigCompute, func() {
 			args = append(args, vmiName)
 
 			// The virtctl binary needs to run here because of the way local SSH client wrapping works.
-			// Running the command through NewRepeatableVirtctlCommand does not suffice.
+			// Running the command through newRepeatableVirtctlCommand does not suffice.
 			_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.GetTestNamespace(nil), "virtctl", args...)
 			Expect(err).ToNot(HaveOccurred())
 			out, err := cmd.CombinedOutput()
@@ -119,7 +119,7 @@ var _ = Describe("[sig-compute][virtctl]SSH", decorators.SigCompute, func() {
 
 	It("local-ssh flag should be unavailable in virtctl", decorators.ExcludeNativeSSH, func() {
 		// The built virtctl binary should be tested here, therefore clientcmd.CreateCommandWithNS needs to be used.
-		// Running the command through NewRepeatableVirtctlCommand would test the test binary instead.
+		// Running the command through newRepeatableVirtctlCommand would test the test binary instead.
 		_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.NamespaceTestDefault, "virtctl", "ssh", "--local-ssh=false")
 		Expect(err).ToNot(HaveOccurred())
 		out, err := cmd.CombinedOutput()

@@ -37,7 +37,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/preference"
-	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
 var _ = Describe("create preference", func() {
@@ -155,7 +155,7 @@ func setFlag(flag, parameter string) string {
 
 func runCmd(extraArgs ...string) ([]byte, error) {
 	args := append([]string{create.CREATE, "preference"}, extraArgs...)
-	return clientcmd.NewRepeatableVirtctlCommandWithOut(args...)()
+	return testing.NewRepeatableVirtctlCommandWithOut(args...)()
 }
 
 func getPreferenceSpec(bytes []byte) *instancetypev1beta1.VirtualMachinePreferenceSpec {
