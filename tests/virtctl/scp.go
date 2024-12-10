@@ -63,7 +63,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 			args = append(args, "--recursive")
 		}
 		args = append(args, src, dst)
-		Expect(clientcmd.NewRepeatableVirtctlCommand(args...)()).To(Succeed())
+		Expect(newRepeatableVirtctlCommand(args...)()).To(Succeed())
 	}
 
 	copyLocal := func(appendLocalSSH bool) func(src, dst string, recursive bool) {
@@ -85,7 +85,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 			args = append(args, src, dst)
 
 			// The virtctl binary needs to run here because of the way local SCP client wrapping works.
-			// Running the command through NewRepeatableVirtctlCommand does not suffice.
+			// Running the command through newRepeatableVirtctlCommand does not suffice.
 			_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.GetTestNamespace(nil), "virtctl", args...)
 			Expect(err).ToNot(HaveOccurred())
 			out, err := cmd.CombinedOutput()
@@ -166,7 +166,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 
 	It("local-ssh flag should be unavailable in virtctl", decorators.ExcludeNativeSSH, func() {
 		// The built virtctl binary should be tested here, therefore clientcmd.CreateCommandWithNS needs to be used.
-		// Running the command through NewRepeatableVirtctlCommand would test the test binary instead.
+		// Running the command through newRepeatableVirtctlCommand would test the test binary instead.
 		_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.NamespaceTestDefault, "virtctl", "scp", "--local-ssh=false")
 		Expect(err).ToNot(HaveOccurred())
 		out, err := cmd.CombinedOutput()

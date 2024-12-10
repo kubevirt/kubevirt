@@ -8,22 +8,23 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/retry"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/credentials/common"
 )
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewCommand() *cobra.Command {
 	cmdFlags := &removeSSHKeyFlags{}
 	cmd := &cobra.Command{
 		Use:     "remove-ssh-key",
 		Short:   "Remove credentials from a virtual machine.",
 		Example: exampleUsage,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRemoveKeyCommand(clientConfig, cmdFlags, cmd, args)
+			return runRemoveKeyCommand(cmdFlags, cmd, args)
 		},
 	}
 	cmdFlags.AddToCommand(cmd)
@@ -53,9 +54,13 @@ func (r *removeSSHKeyFlags) AddToCommand(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&r.Force, "force", false, "Force update of secret, even if it's not owned by the VM.")
 }
 
-func runRemoveKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *removeSSHKeyFlags, cmd *cobra.Command, args []string) error {
+func runRemoveKeyCommand(cmdFlags *removeSSHKeyFlags, cmd *cobra.Command, args []string) error {
 	vmName := args[0]
 
+	clientConfig, err := clientconfig.FromContext(cmd.Context())
+	if err != nil {
+		return err
+	}
 	vmNamespace, _, err := clientConfig.Namespace()
 	if err != nil {
 		return fmt.Errorf("error getting namespace: %w", err)

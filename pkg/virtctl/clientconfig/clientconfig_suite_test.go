@@ -1,4 +1,4 @@
-package version_test
+package clientconfig_test
 
 import (
 	"testing"
@@ -6,6 +6,6 @@ import (
 	"kubevirt.io/client-go/testutils"
 )
 
-func TestVersion(t *testing.T) {
+func TestRoot(t *testing.T) {
 	testutils.KubeVirtTestSuiteSetup(t)
 }

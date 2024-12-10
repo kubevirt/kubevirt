@@ -27,11 +27,12 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
 var _ = Describe("Stop command", func() {
@@ -47,7 +48,7 @@ var _ = Describe("Stop command", func() {
 	})
 
 	It("should fail with missing input parameters", func() {
-		cmd := clientcmd.NewRepeatableVirtctlCommand("stop")
+		cmd := testing.NewRepeatableVirtctlCommand("stop")
 		err := cmd()
 		Expect(err).To(HaveOccurred())
 		Expect(err).Should(MatchError("accepts 1 arg(s), received 0"))
@@ -60,7 +61,7 @@ var _ = Describe("Stop command", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
 		vmInterface.EXPECT().Stop(context.Background(), vm.Name, &v1.StopOptions{DryRun: []string{k8smetav1.DryRunAll}}).Return(nil).Times(1)
 
-		cmd := clientcmd.NewRepeatableVirtctlCommand("stop", vmName, "--dry-run")
+		cmd := testing.NewRepeatableVirtctlCommand("stop", vmName, "--dry-run")
 		Expect(cmd()).To(Succeed())
 	})
 
@@ -75,7 +76,7 @@ var _ = Describe("Stop command", func() {
 		}
 		vmInterface.EXPECT().Stop(context.Background(), vm.Name, &stopOptions).Return(nil).Times(1)
 
-		cmd := clientcmd.NewRepeatableVirtctlCommand("stop", vmName, "--force", "--grace-period=0")
+		cmd := testing.NewRepeatableVirtctlCommand("stop", vmName, "--force", "--grace-period=0")
 		Expect(cmd()).To(Succeed())
 	})
 
@@ -86,7 +87,7 @@ var _ = Describe("Stop command", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
 		vmInterface.EXPECT().Stop(context.Background(), vm.Name, &v1.StopOptions{DryRun: nil}).Return(nil).Times(1)
 
-		cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
+		cmd := testing.NewRepeatableVirtctlCommand(args...)
 		Expect(cmd()).To(Succeed())
 	},
 		Entry("with spec:runStrategy:always",

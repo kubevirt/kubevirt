@@ -9,17 +9,18 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/clientcmd"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/credentials/common"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewCommand() *cobra.Command {
 	cmdFlags := &addSSHKeyFlags{}
 	cmd := &cobra.Command{
 		Use:     "add-ssh-key",
@@ -27,7 +28,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: exampleUsage,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runAddKeyCommand(clientConfig, cmdFlags, cmd, args)
+			return runAddKeyCommand(cmdFlags, cmd, args)
 		},
 	}
 	cmdFlags.AddToCommand(cmd)
@@ -79,8 +80,13 @@ func (a *addSSHKeyFlags) AddToCommand(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&a.Force, "force", false, "Force update of secret, even if it's not owned by the VM.")
 }
 
-func runAddKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *addSSHKeyFlags, cmd *cobra.Command, args []string) error {
+func runAddKeyCommand(cmdFlags *addSSHKeyFlags, cmd *cobra.Command, args []string) error {
 	vmName := args[0]
+
+	clientConfig, err := clientconfig.FromContext(cmd.Context())
+	if err != nil {
+		return err
+	}
 	vmNamespace, _, err := clientConfig.Namespace()
 	if err != nil {
 		return fmt.Errorf("error getting namespace: %w", err)

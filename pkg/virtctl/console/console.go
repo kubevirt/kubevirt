@@ -29,24 +29,22 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/client-go/kubecli"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 type consoleCommand struct {
-	timeout      int
-	namespace    string
-	virtCli      kubecli.KubevirtClient
-	clientConfig clientcmd.ClientConfig
+	timeout   int
+	namespace string
+	virtCli   kubecli.KubevirtClient
 }
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	c := consoleCommand{clientConfig: clientConfig}
-
+func NewCommand() *cobra.Command {
+	c := consoleCommand{}
 	cmd := &cobra.Command{
 		Use:     "console (VMI)",
 		Short:   "Connect to a console of a virtual machine instance.",
@@ -54,7 +52,6 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		RunE:    c.run,
 	}
-
 	cmd.Flags().IntVar(&c.timeout, "timeout", 5, "The number of minutes to wait for the virtual machine instance to be ready.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
@@ -70,16 +67,18 @@ func usage() string {
 }
 
 func (c *consoleCommand) run(cmd *cobra.Command, args []string) error {
-
 	vmi := args[0]
 
-	var err error
-
-	if c.namespace, _, err = c.clientConfig.Namespace(); err != nil {
+	clientConfig, err := clientconfig.FromContext(cmd.Context())
+	if err != nil {
 		return err
 	}
 
-	if c.virtCli, err = kubecli.GetKubevirtClientFromClientConfig(c.clientConfig); err != nil {
+	if c.namespace, _, err = clientConfig.Namespace(); err != nil {
+		return err
+	}
+
+	if c.virtCli, err = kubecli.GetKubevirtClientFromClientConfig(clientConfig); err != nil {
 		return fmt.Errorf("cannot obtain KubeVirt client: %v", err)
 	}
 
