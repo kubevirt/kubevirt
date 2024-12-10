@@ -47,15 +47,16 @@ var _ = Describe("virtiofs container", func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
 
+	BeforeEach(func() {
+		enableFeatureGate(virtconfig.VirtIOFSStorageVolumeGate)
+		enableFeatureGate(virtconfig.VirtIOFSConfigVolumesGate)
+	})
+
 	AfterEach(func() {
 		disableFeatureGates()
 	})
 
-	DescribeTable("virtiofs privileged container", func(shouldEnableFeatureGate bool) {
-		if shouldEnableFeatureGate {
-			enableFeatureGate(virtconfig.VirtIOFSGate)
-		}
-
+	It("should create unprivileged containers only", func() {
 		vmi := api.NewMinimalVMI("testvm")
 
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
@@ -85,23 +86,11 @@ var _ = Describe("virtiofs container", func() {
 		container := generateVirtioFSContainers(vmi, "virtiofs-container", config)
 		Expect(container).To(HaveLen(2))
 
-		if shouldEnableFeatureGate {
-			// PV
-			Expect(container[0].SecurityContext.RunAsNonRoot).To(HaveValue(BeFalse()))
-			Expect(container[0].SecurityContext.AllowPrivilegeEscalation).To(HaveValue(BeTrue()))
-			// Secret
-			Expect(container[1].SecurityContext.RunAsNonRoot).To(HaveValue(BeTrue()))
-			Expect(container[1].SecurityContext.AllowPrivilegeEscalation).To(HaveValue(BeFalse()))
-		} else {
-			// PV
-			Expect(container[0].SecurityContext.RunAsNonRoot).To(HaveValue(BeTrue()))
-			Expect(container[0].SecurityContext.AllowPrivilegeEscalation).To(HaveValue(BeFalse()))
-			// Secret
-			Expect(container[1].SecurityContext.RunAsNonRoot).To(HaveValue(BeTrue()))
-			Expect(container[1].SecurityContext.AllowPrivilegeEscalation).To(HaveValue(BeFalse()))
-		}
-	},
-		Entry("Should create unprivileged containers only", false),
-		Entry("Should create an unprivileged container and a privileged one", true),
-	)
+		// PV
+		Expect(container[0].SecurityContext.RunAsNonRoot).To(HaveValue(BeTrue()))
+		Expect(container[0].SecurityContext.AllowPrivilegeEscalation).To(HaveValue(BeFalse()))
+		// Secret
+		Expect(container[1].SecurityContext.RunAsNonRoot).To(HaveValue(BeTrue()))
+		Expect(container[1].SecurityContext.AllowPrivilegeEscalation).To(HaveValue(BeFalse()))
+	})
 })
