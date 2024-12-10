@@ -20,10 +20,8 @@
 package instancetype_test
 
 import (
-	"context"
 	"encoding/json"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -54,26 +52,18 @@ var _ = Describe("ControllerRevision upgrades", func() {
 
 		vm *virtv1.VirtualMachine
 
-		virtClient  *kubecli.MockKubevirtClient
-		vmInterface *kubecli.MockVirtualMachineInterface
-		k8sClient   *k8sfake.Clientset
+		k8sClient *k8sfake.Clientset
 	)
 
 	BeforeEach(func() {
 		controllerrevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 		controllerrevisionInformerStore := controllerrevisionInformer.GetStore()
 
-		ctrl := gomock.NewController(GinkgoT())
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
-		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
-
 		k8sClient = k8sfake.NewSimpleClientset()
-		virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 
 		methods = &InstancetypeMethods{
 			ControllerRevisionStore: controllerrevisionInformerStore,
-			Clientset:               virtClient,
+			Clientset:               k8sClient,
 		}
 
 		vm = kubecli.NewMinimalVM("testvm")
@@ -97,7 +87,17 @@ var _ = Describe("ControllerRevision upgrades", func() {
 	}
 
 	expectVirtualMachineRevisionNamePatch := func() {
-		vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{})
+		k8sClient.Fake.PrependReactor("patch", "virtualmachines", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			patchAction, ok := action.(testing.PatchAction)
+			Expect(ok).To(BeTrue())
+
+			patchedObject := &virtv1.VirtualMachine{}
+			err = json.Unmarshal(patchAction.GetPatch(), patchedObject)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(patchedObject.Name).To(Equal(vm.Name))
+			return true, patchedObject, nil
+		})
 	}
 
 	crKeyFunc := func(namespace, name string) string {
