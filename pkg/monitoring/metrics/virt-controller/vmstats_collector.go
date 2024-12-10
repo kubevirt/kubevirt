@@ -32,7 +32,7 @@ import (
 
 var (
 	vmStatsCollector = operatormetrics.Collector{
-		Metrics:         append(timestampMetrics, vmResourceRequests, vmResourceLimits, vmInfo, vmDiskAllocatedSize),
+		Metrics:         append(timestampMetrics, vmResourceRequests, vmResourceLimits, vmInfo, vmDiskAllocatedSize, vmLastMigrationTimestamp),
 		CollectCallback: vmStatsCollectorCallback,
 	}
 
@@ -165,6 +165,14 @@ var (
 		},
 		[]string{"name", "namespace", "persistentvolumeclaim", "volume_mode", "device"},
 	)
+
+	vmLastMigrationTimestamp = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_last_migration_timestamp_seconds",
+			Help: "Virtual Machine last migration timestamp.",
+		},
+		[]string{"name", "namespace", "vmi_name", "migration_name", "source_pod", "target_pod"},
+	)
 )
 
 func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
@@ -180,11 +188,32 @@ func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
 		vms[i] = obj.(*k6tv1.VirtualMachine)
 	}
 
+	var vmis []*k6tv1.VirtualMachineInstance
+	vmiCachedObjs := vmiInformer.GetIndexer().List()
+	if len(vmiCachedObjs) != 0 {
+		vmis = make([]*k6tv1.VirtualMachineInstance, len(vmiCachedObjs))
+		for i, obj := range vmiCachedObjs {
+			vmis[i] = obj.(*k6tv1.VirtualMachineInstance)
+		}
+	}
+
+	var vmims []*k6tv1.VirtualMachineInstanceMigration
+	vmimCachedObjs := vmiMigrationInformer.GetIndexer().List()
+	if len(vmimCachedObjs) != 0 {
+		vmims = make([]*k6tv1.VirtualMachineInstanceMigration, len(vmimCachedObjs))
+		for i, obj := range vmimCachedObjs {
+			vmims[i] = obj.(*k6tv1.VirtualMachineInstanceMigration)
+		}
+	}
+
 	var results []operatormetrics.CollectorResult
 	results = append(results, CollectDiskAllocatedSize(vms)...)
 	results = append(results, CollectVMsInfo(vms)...)
 	results = append(results, CollectResourceRequestsAndLimits(vms)...)
 	results = append(results, reportVmsStats(vms)...)
+	if len(vmis) > 0 && len(vmims) > 0 {
+		results = append(results, CollectVmLastMigration(vms, vmis, vmims)...)
+	}
 	return results
 }
 
@@ -555,6 +584,30 @@ func collectDiskMetricsFromPVC(vm *k6tv1.VirtualMachine) []operatormetrics.Colle
 				Value:  float64(pvcSize.Value()),
 				Labels: []string{vm.Name, vm.Namespace, pvcName, volumeMode, diskName},
 			})
+		}
+	}
+
+	return cr
+}
+
+func CollectVmLastMigration(vms []*k6tv1.VirtualMachine, vmis []*k6tv1.VirtualMachineInstance, vmims []*k6tv1.VirtualMachineInstanceMigration) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	for _, vm := range vms {
+		for _, vmi := range vmis {
+			vmiVmName, ok := vmi.Labels["kubevirt.io/vm"]
+			if ok && vm.Name == vmiVmName {
+				for _, vmim := range vmims {
+					if vmi.Name == vmim.Spec.VMIName && vmim.Status.Phase == k6tv1.MigrationSucceeded {
+						cr = append(cr, operatormetrics.CollectorResult{
+							Metric: vmLastMigrationTimestamp,
+							Value:  float64(vmim.Status.MigrationState.EndTimestamp.Unix()),
+							Labels: []string{vm.Name, vm.Namespace, vmi.Name, vmim.Name,
+								vmim.Status.MigrationState.SourcePod, vmim.Status.MigrationState.TargetPod},
+						})
+					}
+				}
+			}
 		}
 	}
 
