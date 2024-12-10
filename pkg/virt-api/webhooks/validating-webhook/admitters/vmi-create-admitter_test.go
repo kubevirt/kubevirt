@@ -98,6 +98,25 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		disableFeatureGates()
 	})
 
+	It("when spec validator pass, should allow", func() {
+		ar, err := newAdmissionReviewForVMICreation(newBaseVmi())
+		Expect(err).ToNot(HaveOccurred())
+
+		admitter := &VMICreateAdmitter{ClusterConfig: config, SpecValidators: []ValidateSpec{validateStub()}}
+		resp := admitter.Admit(context.Background(), ar)
+		Expect(resp.Allowed).To(BeTrue())
+	})
+	It("when spec validator fail, should reject", func() {
+		expectedStatusCause := []metav1.StatusCause{{Type: "test", Message: "test", Field: "test"}}
+		admitter := &VMICreateAdmitter{ClusterConfig: config, SpecValidators: []ValidateSpec{validateStub(expectedStatusCause...)}}
+		ar, err := newAdmissionReviewForVMICreation(newBaseVmi())
+		Expect(err).ToNot(HaveOccurred())
+
+		resp := admitter.Admit(context.Background(), ar)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Details.Causes).To(Equal(expectedStatusCause))
+	})
+
 	It("should reject invalid VirtualMachineInstance spec on create", func() {
 		vmi := newBaseVmi()
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
@@ -4423,5 +4442,11 @@ func withReadinessProbe(probe *v1.Probe) libvmi.Option {
 func withLivenessProbe(probe *v1.Probe) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.LivenessProbe = probe
+	}
+}
+
+func validateStub(statusCauses ...metav1.StatusCause) ValidateSpec {
+	return func(_ *k8sfield.Path, _ *v1.VirtualMachineInstanceSpec, _ *virtconfig.ClusterConfig) []metav1.StatusCause {
+		return statusCauses
 	}
 }
