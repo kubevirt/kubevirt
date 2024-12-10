@@ -100,7 +100,7 @@ chpasswd: { expire: False }`
 		Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).To(PointTo(Equal(resource.MustParse("512Mi"))))
 	})
 
-	It("Example with volume-import flag and PVC type", func() {
+	It("[test_id:11647]Example with volume-import flag and PVC type", func() {
 		const (
 			runStrategy = v1.RunStrategyAlways
 			volName     = "imported-volume"
@@ -152,7 +152,7 @@ chpasswd: { expire: False }`
 		}))
 	})
 
-	It("Example with volume-import flag and Registry type", func() {
+	It("[test_id:11648]Example with volume-import flag and Registry type", func() {
 		const (
 			runStrategy = v1.RunStrategyAlways
 			volName     = "registry-source"
@@ -194,7 +194,7 @@ chpasswd: { expire: False }`
 		}))
 	})
 
-	It("Example with volume-import flag and Blank type", func() {
+	It("[test_id:11649]Example with volume-import flag and Blank type", func() {
 		const runStrategy = v1.RunStrategyAlways
 
 		out, err := runCreateVmCmd(
@@ -438,7 +438,7 @@ chpasswd: { expire: False }`
 		}))
 	})
 
-	It("Complex example with memory", func() {
+	It("[test_id:11650]Complex example with memory", func() {
 		const (
 			runStrategy                  = v1.RunStrategyManual
 			terminationGracePeriod int64 = 123
@@ -509,7 +509,7 @@ chpasswd: { expire: False }`
 		Expect(string(decoded)).To(Equal(cloudInitUserData))
 	})
 
-	It("Complex example with sysprep volume", func() {
+	It("[test_id:11651]Complex example with sysprep volume", func() {
 		const (
 			runStrategy                  = v1.RunStrategyManual
 			terminationGracePeriod int64 = 123
@@ -558,7 +558,7 @@ chpasswd: { expire: False }`
 		Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.Sysprep.Secret).To(BeNil())
 	})
 
-	It("Complex example with generated cloud-init config", func() {
+	It("[test_id:11652]Complex example with generated cloud-init config", func() {
 		const user = "alpine"
 		cdSource := cd.ContainerDiskFor(cd.ContainerDiskAlpineTestTooling)
 		tmpDir := GinkgoT().TempDir()
@@ -620,7 +620,7 @@ chpasswd: { expire: False }`
 		runSSHCommand(vm.Namespace, vm.Name, user, keyFile)
 	})
 
-	It("Complex example with access credentials", func() {
+	It("[test_id:11653]Complex example with access credentials", func() {
 		const user = "fedora"
 		cdSource := cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
 
@@ -678,7 +678,7 @@ chpasswd: { expire: False }`
 		runSSHCommand(secret.Namespace, vm.Name, user, keyFile)
 	})
 
-	It("Failure of implicit inference does not fail the VM creation", func() {
+	It("[test_id:11654]Failure of implicit inference does not fail the VM creation", func() {
 		By("Creating a PVC without annotation labels")
 		pvc := libstorage.CreateFSPVC("vm-pvc-"+rand.String(5), testsuite.GetTestNamespace(nil), size, nil)
 		volumeName := "imported-volume"

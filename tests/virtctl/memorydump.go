@@ -93,7 +93,7 @@ var _ = Describe("[sig-storage][virtctl]Memory dump", decorators.SigStorage, fun
 		waitForMemoryDumpDeletion(vm.Name, pvcName, out, true)
 	},
 		Entry("[test_id:9034] when creating a PVC", true),
-		Entry("with an existing PVC", false),
+		Entry("[test_id:11664]with an existing PVC", false),
 	)
 
 	It("[test_id:9035]Run multiple memory dumps", func() {
