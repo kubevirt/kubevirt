@@ -151,9 +151,11 @@ func networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi *v1.VirtualMachineIns
 			_, exists := indexedDomainIfaces[ifaceStatus.Name]
 			vmiSpecIface := netvmispec.LookupInterfaceByName(vmi.Spec.Domain.Devices.Interfaces, ifaceStatus.Name)
 
-			return netvmispec.ContainsInfoSource(
-				ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus,
-			) && !exists && vmiSpecIface.State != v1.InterfaceStateAbsent && vmiSpecIface.SRIOV == nil
+			return netvmispec.ContainsInfoSource(ifaceStatus.InfoSource, netvmispec.InfoSourceMultusStatus) &&
+				ifaceStatus.PodInterfaceName != "" &&
+				!exists &&
+				vmiSpecIface.State != v1.InterfaceStateAbsent &&
+				vmiSpecIface.SRIOV == nil
 		},
 	)
 
