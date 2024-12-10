@@ -923,16 +923,15 @@ func getUsableDiskSize(path string) (int64, error) {
 	if err != nil {
 		return int64(-1), err
 	}
-	availableSize := int64(statfs.Bavail) * int64(statfs.Bsize)
 
-	var stat syscall.Stat_t
-	err = syscall.Stat(path, &stat)
+	availableSize := int64(statfs.Bavail) * int64(statfs.Bsize)
+	diskInfo, err := converter.GetImageInfo(path)
 	if err != nil {
 		return int64(-1), err
 	}
-	actualSize := int64(stat.Size)
+	usableSize := diskInfo.ActualSize + availableSize
 
-	return actualSize + availableSize, nil
+	return usableSize, nil
 }
 
 func shouldExpandOffline(disk api.Disk) bool {
