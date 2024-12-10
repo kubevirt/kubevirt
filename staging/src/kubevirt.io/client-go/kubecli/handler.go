@@ -229,7 +229,11 @@ func (v *virtHandlerConn) doRequest(req *http.Request) (response string, err err
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return "", fmt.Errorf("unexpected return code %d (%s)", resp.StatusCode, resp.Status)
+		responseBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return "", fmt.Errorf("unexpected return code %d (%s)", resp.StatusCode, resp.Status)
+		}
+		return "", fmt.Errorf("unexpected return code %d (%s), message: %s", resp.StatusCode, resp.Status, string(responseBytes))
 	}
 
 	responseBytes, err := io.ReadAll(resp.Body)
