@@ -183,13 +183,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 				Eventually(func() error {
 					err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Delete(context.Background(), killerPod, metav1.DeleteOptions{})
 					return err
-				}, 10*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "Should delete helper pod")
-
-				Eventually(func() error {
-					_, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Get(context.Background(), killerPod, metav1.GetOptions{})
-					return err
-				}, 5*time.Minute, 1*time.Second).Should(
-					MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "The killer pod should be gone within the given timeout")
+				}, 1*time.Minute, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "Should delete helper pod")
 
 				By("Waiting for virt-handler to come back online")
 				Eventually(func() error {
