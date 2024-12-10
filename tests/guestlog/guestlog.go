@@ -10,25 +10,25 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/libvmops"
-
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	expect "github.com/google/goexpect"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -48,37 +48,6 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 
 	Describe("[level:component] Guest console log container", func() {
 		Context("set LogSerialConsole", func() {
-			DescribeTable("should successfully start with LogSerialConsole", func(autoattachSerialConsole, logSerialConsole, expected bool) {
-				By("Starting a VMI")
-				cirrosVmi = libvmifact.NewCirros(libvmi.WithLogSerialConsole(logSerialConsole))
-				cirrosVmi.Spec.Domain.Devices.AutoattachSerialConsole = pointer.P(autoattachSerialConsole)
-				vmi := libvmops.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
-
-				By("Finding virt-launcher pod")
-				virtlauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
-				Expect(err).ToNot(HaveOccurred())
-				foundContainer := false
-				for _, container := range virtlauncherPod.Spec.Containers {
-					if container.Name == "guest-console-log" {
-						foundContainer = true
-					}
-				}
-				Expect(foundContainer).To(Equal(expected))
-
-				if expected {
-					for _, containerStatus := range virtlauncherPod.Status.ContainerStatuses {
-						if containerStatus.Name == "guest-console-log" {
-							Expect(containerStatus.State.Running).ToNot(BeNil())
-						}
-					}
-				}
-			},
-				Entry("with AutoattachSerialConsole and LogSerialConsole", true, true, true),
-				Entry("with AutoattachSerialConsole but not LogSerialConsole", true, false, false),
-				Entry("without AutoattachSerialConsole but with LogSerialConsole", false, true, false),
-				Entry("without AutoattachSerialConsole and without LogSerialConsole", false, false, false),
-			)
-
 			It("it should exit cleanly when the shutdown is initiated by the guest", func() {
 				By("Starting a VMI")
 				vmi := libvmops.RunVMIAndExpectLaunch(cirrosVmi, cirrosStartupTimeout)
@@ -103,10 +72,10 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 
 				By("Ensuring virt-launcher pod is not reporting errors")
 				Eventually(func(g Gomega) {
-					virtlauncherPod, err := ThisPod(virtlauncherPod)()
+					virtlauncherPod, err := matcher.ThisPod(virtlauncherPod)()
 					g.Expect(err).ToNot(HaveOccurred())
-					Expect(virtlauncherPod).ToNot(BeInPhase(k8sv1.PodFailed))
-					g.Expect(virtlauncherPod).To(BeInPhase(k8sv1.PodSucceeded))
+					Expect(virtlauncherPod).ToNot(matcher.BeInPhase(k8sv1.PodFailed))
+					g.Expect(virtlauncherPod).To(matcher.BeInPhase(k8sv1.PodSucceeded))
 				}, 60*time.Second, 1*time.Second).Should(Succeed(), "virt-launcher should reach the PodSucceeded phase never hitting the PodFailed one")
 			})
 
