@@ -468,6 +468,55 @@ var _ = Describe("webhooks validator", func() {
 				Expect(err.Error()).To(ContainSubstring("invalid value for spec.tlsSecurityProfile.custom.minTLSVersion"))
 			})
 		})
+
+		Context("validate deprecated FGs", func() {
+			DescribeTable("should return warning for deprecated feature gate", func(fgs v1beta1.HyperConvergedFeatureGates, fgNames ...string) {
+				cr.Spec.FeatureGates = fgs
+				err := wh.ValidateCreate(ctx, dryRun, cr)
+				Expect(err).To(HaveOccurred())
+				expected := &ValidationWarning{}
+				Expect(errors.As(err, &expected)).To(BeTrue())
+
+				Expect(expected.warnings).To(HaveLen(len(fgNames)))
+				for _, fgName := range fgNames {
+					Expect(expected.warnings).To(ContainElements(ContainSubstring(fgName)))
+				}
+			},
+				Entry("should trigger a warning if the withHostPassthroughCPU=false FG exists in the CR",
+					v1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: ptr.To(false)}, "withHostPassthroughCPU"),
+				Entry("should trigger a warning if the withHostPassthroughCPU=true FG exists in the CR",
+					v1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: ptr.To(true)}, "withHostPassthroughCPU"),
+
+				Entry("should trigger a warning if the deployTektonTaskResources=false FG exists in the CR",
+					v1beta1.HyperConvergedFeatureGates{DeployTektonTaskResources: ptr.To(false)}, "deployTektonTaskResources"),
+				Entry("should trigger a warning if the deployTektonTaskResources=true FG exists in the CR",
+					v1beta1.HyperConvergedFeatureGates{DeployTektonTaskResources: ptr.To(true)}, "deployTektonTaskResources"),
+
+				Entry("should trigger a warning if the enableManagedTenantQuota=false FG exists in the CR",
+					v1beta1.HyperConvergedFeatureGates{EnableManagedTenantQuota: ptr.To(false)}, "enableManagedTenantQuota"),
+				Entry("should trigger a warning if the enableManagedTenantQuota=true FG exists in the CR",
+					v1beta1.HyperConvergedFeatureGates{EnableManagedTenantQuota: ptr.To(true)}, "enableManagedTenantQuota"),
+
+				Entry("should trigger a warning if the nonRoot=false FG exists in the CR",
+					v1beta1.HyperConvergedFeatureGates{NonRoot: ptr.To(false)}, "nonRoot"),
+				Entry("should trigger a warning if the nonRoot=true FG exists in the CR",
+					v1beta1.HyperConvergedFeatureGates{NonRoot: ptr.To(true)}, "nonRoot"),
+
+				Entry("should trigger multiple warnings if several deprecated FG exist in the CR",
+					v1beta1.HyperConvergedFeatureGates{
+						NonRoot:                  ptr.To(true),
+						EnableManagedTenantQuota: ptr.To(true),
+					}, "enableManagedTenantQuota", "nonRoot"),
+
+				Entry("should trigger multiple warnings if several deprecated FG exist in the CR, with some valid FGs",
+					v1beta1.HyperConvergedFeatureGates{
+						DownwardMetrics:             ptr.To(true),
+						NonRoot:                     ptr.To(false),
+						EnableCommonBootImageImport: ptr.To(true),
+						EnableManagedTenantQuota:    ptr.To(false),
+					}, "enableManagedTenantQuota", "nonRoot"),
+			)
+		})
 	})
 
 	Context("validate update validation webhook", func() {
@@ -1082,6 +1131,58 @@ var _ = Describe("webhooks validator", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("invalid value for spec.tlsSecurityProfile.custom.minTLSVersion"))
 			})
+		})
+
+		Context("validate deprecated FGs", func() {
+			DescribeTable("should return warning for deprecated feature gate", func(fgs v1beta1.HyperConvergedFeatureGates, fgNames ...string) {
+				newHCO := hco.DeepCopy()
+				newHCO.Spec.FeatureGates = fgs
+
+				err := wh.ValidateUpdate(ctx, dryRun, newHCO, hco)
+
+				Expect(err).To(HaveOccurred())
+				expected := &ValidationWarning{}
+				Expect(errors.As(err, &expected)).To(BeTrue())
+
+				Expect(expected.warnings).To(HaveLen(len(fgNames)))
+				for _, fgName := range fgNames {
+					Expect(expected.warnings).To(ContainElements(ContainSubstring(fgName)))
+				}
+			},
+				Entry("should trigger a warning if the withHostPassthroughCPU=false FG exists in the CR",
+					v1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: ptr.To(false)}, "withHostPassthroughCPU"),
+				Entry("should trigger a warning if the withHostPassthroughCPU=true FG exists in the CR",
+					v1beta1.HyperConvergedFeatureGates{WithHostPassthroughCPU: ptr.To(true)}, "withHostPassthroughCPU"),
+
+				Entry("should trigger a warning if the deployTektonTaskResources=false FG exists in the CR",
+					v1beta1.HyperConvergedFeatureGates{DeployTektonTaskResources: ptr.To(false)}, "deployTektonTaskResources"),
+				Entry("should trigger a warning if the deployTektonTaskResources=true FG exists in the CR",
+					v1beta1.HyperConvergedFeatureGates{DeployTektonTaskResources: ptr.To(true)}, "deployTektonTaskResources"),
+
+				Entry("should trigger a warning if the enableManagedTenantQuota=false FG exists in the CR",
+					v1beta1.HyperConvergedFeatureGates{EnableManagedTenantQuota: ptr.To(false)}, "enableManagedTenantQuota"),
+				Entry("should trigger a warning if the enableManagedTenantQuota=true FG exists in the CR",
+					v1beta1.HyperConvergedFeatureGates{EnableManagedTenantQuota: ptr.To(true)}, "enableManagedTenantQuota"),
+
+				Entry("should trigger a warning if the nonRoot=false FG exists in the CR",
+					v1beta1.HyperConvergedFeatureGates{NonRoot: ptr.To(false)}, "nonRoot"),
+				Entry("should trigger a warning if the nonRoot=true FG exists in the CR",
+					v1beta1.HyperConvergedFeatureGates{NonRoot: ptr.To(true)}, "nonRoot"),
+
+				Entry("should trigger multiple warnings if several deprecated FG exist in the CR",
+					v1beta1.HyperConvergedFeatureGates{
+						NonRoot:                  ptr.To(true),
+						EnableManagedTenantQuota: ptr.To(true),
+					}, "enableManagedTenantQuota", "nonRoot"),
+
+				Entry("should trigger multiple warnings if several deprecated FG exist in the CR, with some valid FGs",
+					v1beta1.HyperConvergedFeatureGates{
+						DownwardMetrics:             ptr.To(true),
+						NonRoot:                     ptr.To(false),
+						EnableCommonBootImageImport: ptr.To(true),
+						EnableManagedTenantQuota:    ptr.To(false),
+					}, "enableManagedTenantQuota", "nonRoot"),
+			)
 		})
 	})
 

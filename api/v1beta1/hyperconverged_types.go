@@ -403,9 +403,6 @@ type HyperConvergedFeatureGates struct {
 	// +default=false
 	DownwardMetrics *bool `json:"downwardMetrics,omitempty"`
 
-	// Allow migrating a virtual machine with CPU host-passthrough mode. This should be
-	// enabled only when the Cluster is homogeneous from CPU HW perspective doc here
-	// +optional
 	// Deprecated: there is no such FG in KubeVirt. This field is ignored
 	WithHostPassthroughCPU *bool `json:"withHostPassthroughCPU,omitempty"`
 
@@ -417,6 +414,9 @@ type HyperConvergedFeatureGates struct {
 	// +kubebuilder:default=true
 	// +default=true
 	EnableCommonBootImageImport *bool `json:"enableCommonBootImageImport,omitempty"`
+
+	// Deprecated: This field is ignored and will be removed on the next version of the API.
+	DeployTektonTaskResources *bool `json:"deployTektonTaskResources,omitempty"`
 
 	// deploy VM console proxy resources in SSP operator
 	// +optional
@@ -434,6 +434,9 @@ type HyperConvergedFeatureGates struct {
 	// Deprecated: this field is ignored and will be removed in the next version of the API.
 	DeployKubevirtIpamController *bool `json:"deployKubevirtIpamController,omitempty"`
 
+	// Deprecated: // Deprecated: This field is ignored and will be removed on the next version of the API.
+	NonRoot *bool `json:"nonRoot,omitempty"`
+
 	// Disable mediated devices handling on KubeVirt
 	// +optional
 	// +kubebuilder:default=false
@@ -448,6 +451,9 @@ type HyperConvergedFeatureGates struct {
 	// +kubebuilder:default=false
 	// +default=false
 	PersistentReservation *bool `json:"persistentReservation,omitempty"`
+
+	// Deprecated: This field is ignored and will be removed on the next version of the API.
+	EnableManagedTenantQuota *bool `json:"enableManagedTenantQuota,omitempty"`
 
 	// TODO update description to also include cpu limits as well, after 4.14
 

@@ -241,7 +241,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 					},
 					"withHostPassthroughCPU": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Allow migrating a virtual machine with CPU host-passthrough mode. This should be enabled only when the Cluster is homogeneous from CPU HW perspective doc here Deprecated: there is no such FG in KubeVirt. This field is ignored",
+							Description: "Deprecated: there is no such FG in KubeVirt. This field is ignored",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -250,6 +250,13 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 						SchemaProps: spec.SchemaProps{
 							Description: "Opt-in to automatic delivery/updates of the common data import cron templates. There are two sources for the data import cron templates: hard coded list of common templates, and custom templates that can be added to the dataImportCronTemplates field. This feature gates only control the common templates. It is possible to use custom templates by adding them to the dataImportCronTemplates field.",
 							Default:     true,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"deployTektonTaskResources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Deprecated: This field is ignored and will be removed on the next version of the API.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -277,6 +284,13 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 							Format:      "",
 						},
 					},
+					"nonRoot": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Deprecated: // Deprecated: This field is ignored and will be removed on the next version of the API.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"disableMDevConfiguration": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Disable mediated devices handling on KubeVirt",
@@ -289,6 +303,13 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 						SchemaProps: spec.SchemaProps{
 							Description: "Enable persistent reservation of a LUN through the SCSI Persistent Reserve commands on Kubevirt. In order to issue privileged SCSI ioctls, the VM requires activation of the persistent reservation flag. Once this feature gate is enabled, then the additional container with the qemu-pr-helper is deployed inside the virt-handler pod. Enabling (or removing) the feature gate causes the redeployment of the virt-handler pod.",
 							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"enableManagedTenantQuota": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Deprecated: This field is ignored and will be removed on the next version of the API.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

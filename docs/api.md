@@ -154,13 +154,16 @@ HyperConvergedFeatureGates is a set of optional feature gates to enable or disab
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
 | downwardMetrics | Allow to expose a limited set of host metrics to guests. | *bool | false | false |
-| withHostPassthroughCPU | Allow migrating a virtual machine with CPU host-passthrough mode. This should be enabled only when the Cluster is homogeneous from CPU HW perspective doc here Deprecated: there is no such FG in KubeVirt. This field is ignored | *bool |  | false |
+| withHostPassthroughCPU | Deprecated: there is no such FG in KubeVirt. This field is ignored | *bool |  | false |
 | enableCommonBootImageImport | Opt-in to automatic delivery/updates of the common data import cron templates. There are two sources for the data import cron templates: hard coded list of common templates, and custom templates that can be added to the dataImportCronTemplates field. This feature gates only control the common templates. It is possible to use custom templates by adding them to the dataImportCronTemplates field. | *bool | true | false |
+| deployTektonTaskResources | Deprecated: This field is ignored and will be removed on the next version of the API. | *bool |  | false |
 | deployVmConsoleProxy | deploy VM console proxy resources in SSP operator | *bool | false | false |
 | deployKubeSecondaryDNS | Deploy KubeSecondaryDNS by CNAO | *bool | false | false |
 | deployKubevirtIpamController | Deploy KubevirtIpamController by CNAO. Deprecated: this field is ignored and will be removed in the next version of the API. | *bool |  | false |
+| nonRoot | Deprecated: // Deprecated: This field is ignored and will be removed on the next version of the API. | *bool |  | false |
 | disableMDevConfiguration | Disable mediated devices handling on KubeVirt | *bool | false | false |
 | persistentReservation | Enable persistent reservation of a LUN through the SCSI Persistent Reserve commands on Kubevirt. In order to issue privileged SCSI ioctls, the VM requires activation of the persistent reservation flag. Once this feature gate is enabled, then the additional container with the qemu-pr-helper is deployed inside the virt-handler pod. Enabling (or removing) the feature gate causes the redeployment of the virt-handler pod. | *bool | false | false |
+| enableManagedTenantQuota | Deprecated: This field is ignored and will be removed on the next version of the API. | *bool |  | false |
 | autoResourceLimits | Enable KubeVirt to set automatic limits when they are needed. If ResourceQuota with set memory limits is associated with a namespace, each pod in that namespace must have memory limits set. By default, KubeVirt does not set such limits to the virt-launcher pod. When this feature gate is enabled, KubeVirt will set limits to the virt-launcher pod if they are not set manually and if a resource quota with memory limits is associated with the creation namespace. Note: this feature is in Developer Preview. | *bool | false | false |
 | alignCPUs | Enable KubeVirt to request up to two additional dedicated CPUs in order to complete the total CPU count to an even parity when using emulator thread isolation. Note: this feature is in Developer Preview. | *bool | false | false |
 | enableApplicationAwareQuota | EnableApplicationAwareQuota if true, enables the Application Aware Quota feature | *bool | false | false |

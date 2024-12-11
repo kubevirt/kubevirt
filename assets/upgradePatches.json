@@ -52,6 +52,42 @@
       "jsonPatchApplyOptions": {
         "allowMissingPathOnRemove": true
       }
+    },
+    {
+      "semverRange": "<=1.14.0",
+      "jsonPatch": [
+        {
+          "op": "remove",
+          "path": "/spec/featureGates/deployTektonTaskResources"
+        }
+      ],
+      "jsonPatchApplyOptions": {
+        "allowMissingPathOnRemove": true
+      }
+    },
+    {
+      "semverRange": "<=1.14.0",
+      "jsonPatch": [
+        {
+          "op": "remove",
+          "path": "/spec/featureGates/nonRoot"
+        }
+      ],
+      "jsonPatchApplyOptions": {
+        "allowMissingPathOnRemove": true
+      }
+    },
+    {
+      "semverRange": "<=1.14.0",
+      "jsonPatch": [
+        {
+          "op": "remove",
+          "path": "/spec/featureGates/enableManagedTenantQuota"
+        }
+      ],
+      "jsonPatchApplyOptions": {
+        "allowMissingPathOnRemove": true
+      }
     }
   ],
   "objectsToBeRemoved": [

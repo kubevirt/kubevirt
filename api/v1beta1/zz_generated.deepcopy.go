@@ -268,6 +268,11 @@ func (in *HyperConvergedFeatureGates) DeepCopyInto(out *HyperConvergedFeatureGat
 		*out = new(bool)
 		**out = **in
 	}
+	if in.DeployTektonTaskResources != nil {
+		in, out := &in.DeployTektonTaskResources, &out.DeployTektonTaskResources
+		*out = new(bool)
+		**out = **in
+	}
 	if in.DeployVMConsoleProxy != nil {
 		in, out := &in.DeployVMConsoleProxy, &out.DeployVMConsoleProxy
 		*out = new(bool)
@@ -283,6 +288,11 @@ func (in *HyperConvergedFeatureGates) DeepCopyInto(out *HyperConvergedFeatureGat
 		*out = new(bool)
 		**out = **in
 	}
+	if in.NonRoot != nil {
+		in, out := &in.NonRoot, &out.NonRoot
+		*out = new(bool)
+		**out = **in
+	}
 	if in.DisableMDevConfiguration != nil {
 		in, out := &in.DisableMDevConfiguration, &out.DisableMDevConfiguration
 		*out = new(bool)
@@ -290,6 +300,11 @@ func (in *HyperConvergedFeatureGates) DeepCopyInto(out *HyperConvergedFeatureGat
 	}
 	if in.PersistentReservation != nil {
 		in, out := &in.PersistentReservation, &out.PersistentReservation
+		*out = new(bool)
+		**out = **in
+	}
+	if in.EnableManagedTenantQuota != nil {
+		in, out := &in.EnableManagedTenantQuota, &out.EnableManagedTenantQuota
 		*out = new(bool)
 		**out = **in
 	}

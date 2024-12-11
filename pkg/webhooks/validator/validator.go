@@ -34,6 +34,24 @@ const (
 	updateDryRunTimeOut = time.Second * 3
 )
 
+type ValidationWarning struct {
+	warnings []string
+}
+
+func newValidationWarning(warnings []string) *ValidationWarning {
+	return &ValidationWarning{
+		warnings: warnings,
+	}
+}
+
+func (v *ValidationWarning) Error() string {
+	return ""
+}
+
+func (v *ValidationWarning) Warnings() []string {
+	return v.warnings
+}
+
 type WebhookHandler struct {
 	logger      logr.Logger
 	cli         client.Client
@@ -100,6 +118,12 @@ func (wh *WebhookHandler) Handle(ctx context.Context, req admission.Request) adm
 		if errors.As(err, &apiStatus) {
 			return validationResponseFromStatus(false, apiStatus.Status())
 		}
+
+		var vw *ValidationWarning
+		if errors.As(err, &vw) {
+			return admission.Allowed("").WithWarnings(vw.Warnings()...)
+		}
+
 		return admission.Denied(err.Error())
 	}
 
@@ -127,6 +151,10 @@ func (wh *WebhookHandler) ValidateCreate(_ context.Context, dryrun bool, hc *v1b
 	}
 
 	if err := wh.validateMediatedDeviceTypes(hc); err != nil {
+		return err
+	}
+
+	if err := wh.validateFeatureGates(hc); err != nil {
 		return err
 	}
 
@@ -190,6 +218,10 @@ func (wh *WebhookHandler) ValidateUpdate(ctx context.Context, dryrun bool, reque
 	}
 
 	if err := wh.validateMediatedDeviceTypes(requested); err != nil {
+		return err
+	}
+
+	if err := wh.validateFeatureGates(requested); err != nil {
 		return err
 	}
 
@@ -393,6 +425,41 @@ func (wh *WebhookHandler) validateMediatedDeviceTypes(hc *v1beta1.HyperConverged
 			}
 		}
 	}
+	return nil
+}
+
+const (
+	fgMovedWarning       = "spec.featureGates.%[1]s is deprecated and ignored. It will removed in a future version; use spec.%[1]s instead"
+	fgDeprecationWarning = "spec.featureGates.%s is deprecated and ignored. It will be removed in a future version;"
+)
+
+func (wh *WebhookHandler) validateFeatureGates(hc *v1beta1.HyperConverged) error {
+	var warnings []string
+
+	//nolint:staticcheck
+	if hc.Spec.FeatureGates.WithHostPassthroughCPU != nil {
+		warnings = append(warnings, fmt.Sprintf(fgDeprecationWarning, "withHostPassthroughCPU"))
+	}
+
+	//nolint:staticcheck
+	if hc.Spec.FeatureGates.DeployTektonTaskResources != nil {
+		warnings = append(warnings, fmt.Sprintf(fgDeprecationWarning, "deployTektonTaskResources"))
+	}
+
+	//nolint:staticcheck
+	if hc.Spec.FeatureGates.NonRoot != nil {
+		warnings = append(warnings, fmt.Sprintf(fgDeprecationWarning, "nonRoot"))
+	}
+
+	//nolint:staticcheck
+	if hc.Spec.FeatureGates.EnableManagedTenantQuota != nil {
+		warnings = append(warnings, fmt.Sprintf(fgDeprecationWarning, "enableManagedTenantQuota"))
+	}
+
+	if len(warnings) > 0 {
+		return newValidationWarning(warnings)
+	}
+
 	return nil
 }
 

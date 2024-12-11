@@ -1075,6 +1075,10 @@ spec:
                       Deploy KubevirtIpamController by CNAO.
                       Deprecated: this field is ignored and will be removed in the next version of the API.
                     type: boolean
+                  deployTektonTaskResources:
+                    description: 'Deprecated: This field is ignored and will be removed
+                      on the next version of the API.'
+                    type: boolean
                   deployVmConsoleProxy:
                     default: false
                     description: deploy VM console proxy resources in SSP operator
@@ -1101,6 +1105,14 @@ spec:
                       templates that can be added to the dataImportCronTemplates field. This feature gates only control the common
                       templates. It is possible to use custom templates by adding them to the dataImportCronTemplates field.
                     type: boolean
+                  enableManagedTenantQuota:
+                    description: 'Deprecated: This field is ignored and will be removed
+                      on the next version of the API.'
+                    type: boolean
+                  nonRoot:
+                    description: 'Deprecated: // Deprecated: This field is ignored
+                      and will be removed on the next version of the API.'
+                    type: boolean
                   persistentReservation:
                     default: false
                     description: |-
@@ -1117,10 +1129,8 @@ spec:
                       Note: this feature is in Developer Preview.
                     type: boolean
                   withHostPassthroughCPU:
-                    description: |-
-                      Allow migrating a virtual machine with CPU host-passthrough mode. This should be
-                      enabled only when the Cluster is homogeneous from CPU HW perspective doc here
-                      Deprecated: there is no such FG in KubeVirt. This field is ignored
+                    description: 'Deprecated: there is no such FG in KubeVirt. This
+                      field is ignored'
                     type: boolean
                 type: object
               filesystemOverhead:
