@@ -129,3 +129,12 @@ func GetVirtualMachineInstanceVolumes(vmi *v1.VirtualMachineInstance, opts ...Vo
 
 	return enumeratedVolumes
 }
+
+func IsConfigVolume(volume *v1.Volume) bool {
+	return volume.ConfigMap != nil || volume.Secret != nil ||
+		volume.ServiceAccount != nil || volume.DownwardAPI != nil
+}
+
+func IsStorageVolume(volume *v1.Volume) bool {
+	return volume.PersistentVolumeClaim != nil || volume.DataVolume != nil
+}

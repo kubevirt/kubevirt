@@ -29,12 +29,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmops"
 
-	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
-
 	expect "github.com/google/goexpect"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -44,7 +38,11 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/pkg/config"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
@@ -53,7 +51,7 @@ import (
 
 var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, func() {
 	BeforeEach(func() {
-		checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSGate)
+		checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSConfigVolumesGate)
 	})
 
 	Context("With a single ConfigMap volume", func() {

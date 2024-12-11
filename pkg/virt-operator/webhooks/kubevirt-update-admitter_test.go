@@ -314,6 +314,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Entry("with HotplugNICs", deprecation.HotplugNetworkIfacesGate, fmt.Sprintf(deprecation.WarningPattern, deprecation.HotplugNetworkIfacesGate, deprecation.GA)),
 			Entry("with Passt", deprecation.PasstGate, deprecation.PasstDiscontinueMessage),
 			Entry("with MacvtapGate", deprecation.MacvtapGate, deprecation.MacvtapDiscontinueMessage),
+			Entry("with ExperimentalVirtiofsSupport", deprecation.VirtIOFSGate, deprecation.VirtioFsFeatureGateDeprecationMessage),
 		)
 	})
 })
