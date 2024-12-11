@@ -53,7 +53,7 @@ func virtRecordingRules(namespace string) []operatorrules.RecordingRule {
 			},
 			MetricType: operatormetrics.GaugeType,
 			Expr: intstr.FromString(
-				fmt.Sprintf("sum(kubevirt_virt_controller_ready_status{namespace='%s'}) or vector(0)", namespace),
+				fmt.Sprintf("sum(kubevirt_virt_controller_ready_status{namespace='%s'}) unless(changes(kubevirt_virt_controller_ready_status{namespace='%s'}[1m]) > 0) or vector(0)", namespace, namespace),
 			),
 		},
 		{
