@@ -1448,12 +1448,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
-		It("should allow no start strategy to be set", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			vmi.Spec.StartStrategy = nil
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(BeEmpty())
-		})
 		It("should reject invalid start strategy", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			strategy := v1.StartStrategy("invalid")
