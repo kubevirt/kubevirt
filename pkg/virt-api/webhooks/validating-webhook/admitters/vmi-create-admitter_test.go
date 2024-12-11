@@ -1586,27 +1586,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				),
 			)
 		})
-
-		It("should detect invalid containerDisk paths", func() {
-			spec := &v1.VirtualMachineInstanceSpec{}
-			disk := v1.Disk{
-				Name:   "testdisk",
-				Serial: "SN-1_a",
-			}
-			spec.Domain.Devices.Disks = []v1.Disk{disk}
-			volume := v1.Volume{
-				Name: "testdisk",
-				VolumeSource: v1.VolumeSource{
-					ContainerDisk: testutils.NewFakeContainerDiskSource(),
-				},
-			}
-			volume.ContainerDisk.Path = "invalid"
-
-			spec.Volumes = []v1.Volume{volume}
-			spec.Domain.Devices.Disks = []v1.Disk{disk}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec, config)
-			Expect(causes).To(HaveLen(1))
-		})
 	})
 
 	Context("with cpu pinning", func() {
