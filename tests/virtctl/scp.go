@@ -45,7 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
+var _ = VirtctlDescribe("[sig-compute]SCP", decorators.SigCompute, func() {
 	var pub ssh.PublicKey
 	var keyFile string
 	var virtClient kubecli.KubevirtClient

@@ -53,7 +53,7 @@ const (
 	pvcSize = "100Mi"
 )
 
-var _ = Describe("[sig-storage][virtctl]ImageUpload", decorators.SigStorage, Serial, func() {
+var _ = VirtctlDescribe("[sig-storage]ImageUpload", decorators.SigStorage, Serial, func() {
 	var (
 		virtClient kubecli.KubevirtClient
 		imagePath  string
