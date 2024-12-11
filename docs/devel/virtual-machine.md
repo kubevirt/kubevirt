@@ -45,7 +45,7 @@ kubectl create -f myvm.yaml
 
 # Start an VirtualMachine:
 kubectl patch virtualmachine myvm --type=merge -p \
-    '{"spec":{"running": true}}'
+    '{"spec":{"runStrategy": Always}}'
 
 # Look at VirtualMachine status and associated events:
 kubectl describe virtualmachine myvm
@@ -55,7 +55,7 @@ kubectl describe virtualmachine myvm
 
 # Stop an VirtualMachine:
 kubectl patch virtualmachine myvm --type=merge -p \
-    '{"spec":{"running": false}}'
+    '{"spec":{"runStrategy": Halted}}'
 
 # Implicit cascade delete (first deletes the vm and then the vm)
 kubectl delete virtualmachine myvm
@@ -118,7 +118,7 @@ kind: VirtualMachine
 metadata:
   name: myvm
 spec:
-  running: false
+  runStrategy: Halted
   template:
     metadata:
       labels:
@@ -256,14 +256,14 @@ metadata:
 
 For now implicit: OnDelete. Can later be extended to RollingUpdate if needed.
 Spec changes have no direct effect on already running VMIs, and they will not
-directly be propagated to the VMI. If a VMI should be running (spec.running=true)
+directly be propagated to the VMI. If a VMI should be running (spec.runStrategy=Always)
 and it is powered down (VMI object delete, OS shutdown, ...),
 the VMI will be re-created by the controller with the new spec.
 
 ### Delete strategy
 
 The delete has a cascade that deletes the created VirtualMachine. If a cascade
-is turned off the VirtualMachine is orphaned and leaved running.
+is turned off the VirtualMachine is orphaned and left running.
 When the VirtualMachine with the same name as orphaned VirtualMachine
 is created, the VirtualMachine gets adopted and OwnerReference
 is updated accordingly.
@@ -313,14 +313,14 @@ autogenerating the Kubernetes resources: client, lister and watcher.
 
 The controller is responsible for watching the change in the registered
 virtual machines and update the state of the system. It is also
-responsible for creating new VirtualMachineInstance when the `running` is set to `true`.
-Moreover the controller attaches the `metadata.OwnerReference` to the created
+responsible for creating new VirtualMachineInstance when the `runStrategy` is set to `Always`.
+Moreover, the controller attaches the `metadata.OwnerReference` to the created
 VirtualMachineInstance. With this mechanism it can link the VirtualMachine to the
 VirtualMachineInstance and show combined status.
 
 The controller is designed to be a standalone service running in its own pod.
 Since the whole KubeVirt is designed to be modular, this approach allows for
-a more flexibility and less codebase in the core. Moreover it can be scaled
+a more flexibility and less codebase in the core. Moreover, it can be scaled
 up separately if the need arise.
 
 [VirtualMachineInstance]: https://kubevirt.github.io/api-reference/master/definitions.html#_v1_virtualmachine
