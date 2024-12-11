@@ -84,7 +84,7 @@ type storageOption func(*v1beta1.StorageSpec)
 // * volume mode from the storageProfile
 func WithStorage(options ...storageOption) dvOption {
 	storage := &v1beta1.StorageSpec{
-		Resources: corev1.ResourceRequirements{
+		Resources: corev1.VolumeResourceRequirements{
 			Requests: corev1.ResourceList{
 				"storage": resource.MustParse(defaultVolumeSize),
 			},
