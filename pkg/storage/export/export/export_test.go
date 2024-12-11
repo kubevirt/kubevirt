@@ -67,6 +67,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -1642,6 +1643,24 @@ func createPVC(name, contentType string) *k8sv1.PersistentVolumeClaim {
 			Namespace: testNamespace,
 			Annotations: map[string]string{
 				annContentType: contentType,
+			},
+		},
+		Status: k8sv1.PersistentVolumeClaimStatus{
+			Phase: k8sv1.ClaimBound,
+		},
+	}
+}
+
+func createBackendPVC(vmName string) *k8sv1.PersistentVolumeClaim {
+	return &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-%s-", backendstorage.PVCPrefix, vmName),
+			Namespace: testNamespace,
+			Annotations: map[string]string{
+				annContentType: "archive",
+			},
+			Labels: map[string]string{
+				backendstorage.PVCPrefix: vmName,
 			},
 		},
 		Status: k8sv1.PersistentVolumeClaimStatus{
