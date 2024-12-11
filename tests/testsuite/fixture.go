@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -187,10 +188,21 @@ func EnsureKubevirtReadyWithTimeout(timeout time.Duration) {
 
 }
 
+func shouldAllowEmulation(virtClient kubecli.KubevirtClient) bool {
+	allowEmulation := false
+
+	kv := libkubevirt.GetCurrentKv(virtClient)
+	if kv.Spec.Configuration.DeveloperConfiguration != nil {
+		allowEmulation = kv.Spec.Configuration.DeveloperConfiguration.UseEmulation
+	}
+
+	return allowEmulation
+}
+
 func EnsureKVMPresent() {
 	virtClient := kubevirt.Client()
 
-	if !ShouldAllowEmulation(virtClient) {
+	if !shouldAllowEmulation(virtClient) {
 		listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
 		virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
