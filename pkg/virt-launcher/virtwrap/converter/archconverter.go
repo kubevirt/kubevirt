@@ -40,6 +40,7 @@ type ArchConverter interface {
 	isUSBNeeded(vmi *v1.VirtualMachineInstance) bool
 	supportCPUHotplug() bool
 	isSMBiosNeeded() bool
+	hasVMPort() bool
 	transitionalModelType(useVirtioTransitional bool) string
 	isROMTuningSupported() bool
 	requiresMPXCPUValidation() bool

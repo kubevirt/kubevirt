@@ -94,3 +94,7 @@ func (archConverterARM64) requiresMPXCPUValidation() bool {
 func (archConverterARM64) shouldVerboseLogsBeEnabled() bool {
 	return false
 }
+
+func (archConverterARM64) hasVMPort() bool {
+	return false
+}

@@ -111,3 +111,7 @@ func (archConverterAMD64) requiresMPXCPUValidation() bool {
 func (archConverterAMD64) shouldVerboseLogsBeEnabled() bool {
 	return true
 }
+
+func (archConverterAMD64) hasVMPort() bool {
+	return true
+}

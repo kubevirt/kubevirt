@@ -1058,6 +1058,7 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *api.Feat
 			State: boolToOnOff(source.Pvspinlock.Enabled, true),
 		}
 	}
+
 	return nil
 }
 
@@ -1664,6 +1665,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	if vmi.Spec.Domain.Features != nil {
 		domain.Spec.Features = &api.Features{}
 		err := Convert_v1_Features_To_api_Features(vmi.Spec.Domain.Features, domain.Spec.Features, c)
+
+		if c.Architecture.hasVMPort() {
+			domain.Spec.Features.VMPort = &api.FeatureState{State: "off"}
+		}
+
 		if err != nil {
 			return err
 		}
