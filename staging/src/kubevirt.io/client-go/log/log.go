@@ -32,7 +32,7 @@ import (
 	"sync"
 	"time"
 
-	klog "github.com/go-kit/kit/log"
+	klog "github.com/go-kit/log"
 	"github.com/golang/glog"
 	flag "github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
