@@ -37,9 +37,11 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	metricsScraper "kubevirt.io/kubevirt/pkg/monitoring/domainstats/downwardmetrics"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
 const (
@@ -54,8 +56,8 @@ const (
 // (will also fail for `maxRequestsBurst` > 256)
 const _ = uint8(maxRequestsBurst - 1)
 
-func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocketPath, launcherSocketPath string) error {
-	report, err := newMetricsReporter(nodeName, launcherSocketPath)
+func RunDownwardMetricsVirtioServer(signalStopChan chan struct{}, nodeName string) error {
+	report, err := newMetricsReporter(nodeName)
 	if err != nil {
 		return err
 	}
@@ -63,17 +65,17 @@ func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocket
 	server := downwardMetricsServer{
 		rateLimiter:        rate.NewLimiter(maxRequestsPerSecond, maxRequestsBurst),
 		maxConnectAttempts: maxConnectAttempts,
-		virtioSerialSocket: channelSocketPath,
+		virtioSerialSocket: downwardmetrics.DownwardMetricsChannelSocket,
 		reportFn:           report,
 	}
-	go server.start(ctx)
+	go server.start(signalStopChan)
 	return nil
 }
 
 type metricsReporter func() (*api.Metrics, error)
 
-func newMetricsReporter(nodeName, launcherSocketPath string) (metricsReporter, error) {
-	exists, err := diskutils.FileExists(launcherSocketPath)
+func newMetricsReporter(nodeName string) (metricsReporter, error) {
+	exists, err := diskutils.FileExists(cmdclient.SocketOnGuest())
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +86,7 @@ func newMetricsReporter(nodeName, launcherSocketPath string) (metricsReporter, e
 	scraper := metricsScraper.NewReporter(nodeName)
 
 	return func() (*api.Metrics, error) {
-		return scraper.Report(launcherSocketPath)
+		return scraper.Report(cmdclient.SocketOnGuest())
 	}, nil
 }
 
@@ -101,17 +103,17 @@ type downwardMetricsServer struct {
 	reportFn           metricsReporter
 }
 
-func (s *downwardMetricsServer) start(ctx context.Context) {
-	conn, err := connect(ctx, s.virtioSerialSocket, s.maxConnectAttempts)
+func (s *downwardMetricsServer) start(signalStopChan chan struct{}) {
+	conn, err := connect(signalStopChan, s.virtioSerialSocket, s.maxConnectAttempts)
 	if err != nil {
 		log.Log.Reason(err).Error("failed to connect to virtio-serial socket")
 		return
 	}
 
-	s.serve(ctx, conn)
+	s.serve(signalStopChan, conn)
 }
 
-func (s *downwardMetricsServer) serve(ctx context.Context, conn net.Conn) {
+func (s *downwardMetricsServer) serve(signalStopChan chan struct{}, conn net.Conn) {
 	defer func(conn net.Conn) {
 		err := conn.Close()
 		if err != nil {
@@ -129,6 +131,8 @@ func (s *downwardMetricsServer) serve(ctx context.Context, conn net.Conn) {
 	// is canceled
 	newRequest := make(chan reqResult, 1)
 	reader := bufio.NewReader(conn)
+	ctx, cancelCtx := context.WithCancel(context.Background())
+	defer cancelCtx()
 
 	for {
 		// The virtio-serial vhostmd server implementation serves one request at a time,
@@ -179,7 +183,7 @@ func (s *downwardMetricsServer) serve(ctx context.Context, conn net.Conn) {
 			if err != nil {
 				log.Log.Reason(err).Error("failed to send the metrics")
 			}
-		case <-ctx.Done():
+		case <-signalStopChan:
 			return
 		}
 	}
@@ -216,7 +220,7 @@ func (s *downwardMetricsServer) getXmlMetrics() ([]byte, error) {
 	return xmlMetrics, nil
 }
 
-func connect(ctx context.Context, socketPath string, attempts uint) (net.Conn, error) {
+func connect(signalStopChan chan struct{}, socketPath string, attempts uint) (net.Conn, error) {
 	var conn net.Conn
 	var err error
 
@@ -242,8 +246,8 @@ func connect(ctx context.Context, socketPath string, attempts uint) (net.Conn, e
 
 		select {
 		case <-time.After(backoff): // try again
-		case <-ctx.Done():
-			return nil, ctx.Err()
+		case <-signalStopChan:
+			return nil, nil
 		}
 	}
 
