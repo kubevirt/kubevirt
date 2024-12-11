@@ -12,6 +12,7 @@ import (
 	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kube-openapi/pkg/builder"
+	"k8s.io/kube-openapi/pkg/builder3"
 	"k8s.io/kube-openapi/pkg/common"
 	"k8s.io/kube-openapi/pkg/common/restfuladapter"
 	"k8s.io/kube-openapi/pkg/spec3"
@@ -221,6 +222,100 @@ func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
 				if r == "dataSource" {
 					s.Required = append(s.Required[:i], s.Required[i+1:]...)
 					openapispec.Definitions[k] = s
+					break
+				}
+			}
+		}
+	}
+
+	return openapispec
+}
+
+func LoadOpenAPIV3Spec(webServices []*restful.WebService) *spec3.OpenAPI {
+	config := CreateV3Config()
+	openapispec, err := builder3.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(webServices), config)
+	if err != nil {
+		panic(fmt.Errorf("Failed to build swagger: %s", err))
+	}
+
+	// creationTimestamp, lastProbeTime and lastTransitionTime are deserialized as "null"
+	// Fix it here until
+	// https://github.com/kubernetes/kubernetes/issues/66899 is ready
+	// Otherwise CRDs can't use templates which contain metadata and controllers
+	// can't set conditions without timestamps
+
+	objectmeta := ""
+	for k := range openapispec.Components.Schemas {
+		if strings.Contains(k, "v1.ObjectMeta") {
+			objectmeta = k
+			break
+		}
+	}
+	resourceRequirements, exists := openapispec.Components.Schemas["v1.ResourceRequirements"]
+	if exists {
+		limits, exists := resourceRequirements.Properties["limits"]
+		if exists {
+			limits.AdditionalProperties = nil
+			resourceRequirements.Properties["limits"] = limits
+		}
+		requests, exists := resourceRequirements.Properties["requests"]
+		if exists {
+			requests.AdditionalProperties = nil
+			resourceRequirements.Properties["requests"] = requests
+		}
+
+	}
+
+	objectMeta, exists := openapispec.Components.Schemas[objectmeta]
+	if exists {
+		prop := objectMeta.Properties["creationTimestamp"]
+		prop.Type = spec.StringOrArray{"string", "null"}
+		// mask v1.Time as in validation v1.Time override sting,null type
+		prop.Ref = spec.Ref{}
+		objectMeta.Properties["creationTimestamp"] = prop
+	}
+
+	for k, s := range openapispec.Components.Schemas {
+		// allow nullable statuses
+		if status, found := s.Properties["status"]; found {
+			if !status.Type.Contains("string") {
+				definitionName := strings.Split(status.Ref.GetPointer().String(), "/")[2]
+				object := openapispec.Components.Schemas[definitionName]
+				object.Nullable = true
+				openapispec.Components.Schemas[definitionName] = object
+			}
+		}
+
+		if strings.HasSuffix(k, "Condition") {
+			prop := s.Properties["lastProbeTime"]
+			prop.Type = spec.StringOrArray{"string", "null"}
+			prop.Ref = spec.Ref{}
+			s.Properties["lastProbeTime"] = prop
+
+			prop = s.Properties["lastTransitionTime"]
+			prop.Type = spec.StringOrArray{"string", "null"}
+			prop.Ref = spec.Ref{}
+			s.Properties["lastTransitionTime"] = prop
+		}
+		if strings.Contains(k, "v1.HTTPGetAction") {
+			prop := s.Properties["port"]
+			prop.Type = spec.StringOrArray{"string", "number"}
+			// As intstr.IntOrString, the ref for that must be masked
+			prop.Ref = spec.Ref{}
+			s.Properties["port"] = prop
+		}
+		if strings.Contains(k, "v1.TCPSocketAction") {
+			prop := s.Properties["port"]
+			prop.Type = spec.StringOrArray{"string", "number"}
+			// As intstr.IntOrString, the ref for that must be masked
+			prop.Ref = spec.Ref{}
+			s.Properties["port"] = prop
+		}
+		if strings.Contains(k, "v1.PersistentVolumeClaimSpec") {
+			for i, r := range s.Required {
+				if r == "dataSource" {
+					s.Required = append(s.Required[:i], s.Required[i+1:]...)
+					openapispec.Components.Schemas[k] = s
 					break
 				}
 			}
