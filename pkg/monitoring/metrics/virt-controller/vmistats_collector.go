@@ -55,6 +55,8 @@ var (
 			vmiInfo,
 			vmiEvictionBlocker,
 			vmiAddresses,
+			vmiMigrationStartTime,
+			vmiMigrationEndTime,
 		},
 		CollectCallback: vmiStatsCollectorCallback,
 	}
@@ -97,6 +99,22 @@ var (
 		},
 		[]string{"node", "namespace", "name", "network_name", "address", "type"},
 	)
+
+	vmiMigrationStartTime = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_migration_start_time_seconds",
+			Help: "The time at which the migration started.",
+		},
+		[]string{"vmi", "namespace"},
+	)
+
+	vmiMigrationEndTime = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_migration_end_time_seconds",
+			Help: "The time at which the migration ended.",
+		},
+		[]string{"vmi", "namespace"},
+	)
 )
 
 func vmiStatsCollectorCallback() []operatormetrics.CollectorResult {
@@ -122,6 +140,7 @@ func reportVmisStats(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Col
 		crs = append(crs, collectVMIInfo(vmi))
 		crs = append(crs, getEvictionBlocker(vmi))
 		crs = append(crs, collectVMIInterfacesInfo(vmi)...)
+		crs = append(crs, reportMigrationTimestamps(vmi)...)
 	}
 
 	return crs
@@ -329,4 +348,30 @@ func collectVMIInterfaceInfo(vmi *k6tv1.VirtualMachineInstance, iface k6tv1.Virt
 		},
 		Value: 1.0,
 	}
+}
+
+func reportMigrationTimestamps(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	if vmi.Status.MigrationState == nil {
+		return cr
+	}
+
+	if vmi.Status.MigrationState.StartTimestamp != nil {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmiMigrationStartTime,
+			Value:  float64(vmi.Status.MigrationState.StartTimestamp.Time.Unix()),
+			Labels: []string{vmi.Name, vmi.Namespace},
+		})
+	}
+
+	if vmi.Status.MigrationState.EndTimestamp != nil {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmiMigrationEndTime,
+			Value:  float64(vmi.Status.MigrationState.EndTimestamp.Time.Unix()),
+			Labels: []string{vmi.Name, vmi.Namespace},
+		})
+	}
+
+	return cr
 }
