@@ -657,6 +657,7 @@ status:
     endTimestamp: "1988-01-01T01:01:01Z"
     failed: true
     failureReason: failureReasonValue
+    finalized: true
     migrationConfiguration:
       allowAutoConverge: true
       allowPostCopy: true

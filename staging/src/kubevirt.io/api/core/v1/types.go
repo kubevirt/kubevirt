@@ -760,6 +760,8 @@ type VirtualMachineInstanceMigrationState struct {
 
 	// Indicates the migration completed
 	Completed bool `json:"completed,omitempty"`
+	// Indicates that the migration has been finalized
+	Finalized bool `json:"finalized,omitempty"`
 	// Indicates that the migration failed
 	Failed bool `json:"failed,omitempty"`
 	// Indicates that the migration has been requested to abort

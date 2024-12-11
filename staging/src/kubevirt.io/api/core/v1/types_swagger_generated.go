@@ -225,6 +225,7 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"targetAttachmentPodUID":         "The UID of the target attachment pod for hotplug volumes",
 		"sourceNode":                     "The source node that the VMI originated on",
 		"completed":                      "Indicates the migration completed",
+		"finalized":                      "Indicates that the migration has been finalized",
 		"failed":                         "Indicates that the migration failed",
 		"abortRequested":                 "Indicates that the migration has been requested to abort",
 		"abortStatus":                    "Indicates the final status of the live migration abortion",

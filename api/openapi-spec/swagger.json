@@ -16761,6 +16761,10 @@
       "description": "Contains the reason why the migration failed",
       "type": "string"
      },
+     "finalized": {
+      "description": "Indicates that the migration has been finalized",
+      "type": "boolean"
+     },
      "migrationConfiguration": {
       "description": "Migration configurations to apply",
       "$ref": "#/definitions/v1.MigrationConfiguration"

@@ -25298,6 +25298,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref comm
 							Format:      "",
 						},
 					},
+					"finalized": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Indicates that the migration has been finalized",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"failed": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Indicates that the migration failed",

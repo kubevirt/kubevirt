@@ -771,7 +771,6 @@ func (c *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 		log.Log.Object(vmi).Info("The target node received the running migrated domain")
 		now := metav1.Now()
 		vmiCopy.Status.MigrationState.TargetNodeDomainReadyTimestamp = &now
-		c.finalizeMigration(vmiCopy)
 	}
 
 	if !migrations.IsMigrating(vmi) {
@@ -1383,6 +1382,22 @@ func (c *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMach
 	return err
 }
 
+func updateLiveUpdateConditions(vmi *v1.VirtualMachineInstance, condManager *controller.VirtualMachineInstanceConditionManager) {
+	if vmi.Status.MigrationState == nil || !vmi.Status.MigrationState.Failed {
+		return
+	}
+
+	// Update hotplug conditions if LiveMigration failed
+	condManager.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+		Type:    v1.VirtualMachineInstanceMemoryChange,
+		Status:  k8sv1.ConditionFalse,
+		Reason:  memoryHotplugFailedReason,
+		Message: "memory hotplug failed, the VM configuration is not supported",
+	})
+
+	condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceVCPUChange)
+}
+
 func (c *VirtualMachineController) updateVMIConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) error {
 	c.updateAccessCredentialConditions(vmi, domain, condManager)
 	c.updateLiveMigrationConditions(vmi, condManager)
@@ -1391,6 +1406,7 @@ func (c *VirtualMachineController) updateVMIConditions(vmi *v1.VirtualMachineIns
 		return err
 	}
 	c.updatePausedConditions(vmi, domain, condManager)
+	updateLiveUpdateConditions(vmi, condManager)
 
 	return nil
 }
@@ -3268,6 +3284,10 @@ func (c *VirtualMachineController) getMemoryDump(vmi *v1.VirtualMachineInstance)
 	return nil
 }
 
+func (c *VirtualMachineController) migrationNeedsFinalization(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Status.MigrationState != nil && !vmi.Status.MigrationState.Finalized && vmi.Status.MigrationState.Completed
+}
+
 func (c *VirtualMachineController) processVmUpdate(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 
 	isUnresponsive, isInitialized, err := c.isLauncherClientUnresponsive(vmi)
@@ -3283,11 +3303,14 @@ func (c *VirtualMachineController) processVmUpdate(vmi *v1.VirtualMachineInstanc
 
 	c.handlePostMigrationProxyCleanup(vmi)
 
-	if c.isPreMigrationTarget(vmi) {
+	switch {
+	case c.isPreMigrationTarget(vmi):
 		return c.vmUpdateHelperMigrationTarget(vmi)
-	} else if c.isMigrationSource(vmi) {
+	case c.isMigrationSource(vmi):
 		return c.vmUpdateHelperMigrationSource(vmi, domain)
-	} else {
+	case c.migrationNeedsFinalization(vmi):
+		return c.finalizeMigration(vmi)
+	default:
 		return c.vmUpdateHelperDefault(vmi, domain != nil)
 	}
 }
@@ -3446,6 +3469,8 @@ func (c *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInsta
 		log.Log.Object(vmi).Reason(err).Error(errorMessage)
 		return fmt.Errorf("%s: %v", errorMessage, err)
 	}
+
+	vmi.Status.MigrationState.Finalized = true
 
 	return nil
 }

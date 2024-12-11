@@ -1939,16 +1939,18 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
 			vmi.Labels = make(map[string]string)
-			vmi.Status.NodeName = "othernode"
+			vmi.Status.NodeName = host
 			vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
 			pastTime := metav1.NewTime(metav1.Now().Add(time.Duration(-10) * time.Second))
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				TargetNode:               host,
-				TargetNodeAddress:        "127.0.0.1:12345",
-				SourceNode:               "othernode",
-				MigrationUID:             "123",
-				TargetNodeDomainDetected: false,
-				StartTimestamp:           &pastTime,
+				TargetNode:                     host,
+				TargetNodeAddress:              "127.0.0.1:12345",
+				SourceNode:                     "othernode",
+				MigrationUID:                   "123",
+				TargetNodeDomainDetected:       true,
+				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
+				StartTimestamp:                 &pastTime,
+				Completed:                      true,
 			}
 
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
@@ -1981,16 +1983,18 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
 			vmi.Labels = make(map[string]string)
-			vmi.Status.NodeName = "othernode"
+			vmi.Status.NodeName = host
 			vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
 			pastTime := metav1.NewTime(metav1.Now().Add(time.Duration(-10) * time.Second))
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				TargetNode:               host,
-				TargetNodeAddress:        "127.0.0.1:12345",
-				SourceNode:               "othernode",
-				MigrationUID:             "123",
-				TargetNodeDomainDetected: false,
-				StartTimestamp:           &pastTime,
+				TargetNode:                     host,
+				TargetNodeAddress:              "127.0.0.1:12345",
+				SourceNode:                     "othernode",
+				MigrationUID:                   "123",
+				TargetNodeDomainDetected:       true,
+				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
+				StartTimestamp:                 &pastTime,
+				Completed:                      true,
 			}
 			cpuTopology := &v1.CPU{
 				Sockets: 1,
@@ -2152,16 +2156,18 @@ var _ = Describe("VirtualMachineInstance", func() {
 		vmi.ObjectMeta.ResourceVersion = "1"
 		vmi.Status.Phase = v1.Running
 		vmi.Labels = make(map[string]string)
-		vmi.Status.NodeName = "othernode"
+		vmi.Status.NodeName = host
 		vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
 		pastTime := metav1.NewTime(metav1.Now().Add(time.Duration(-10) * time.Second))
 		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-			TargetNode:               host,
-			TargetNodeAddress:        "127.0.0.1:12345",
-			SourceNode:               "othernode",
-			MigrationUID:             "123",
-			TargetNodeDomainDetected: false,
-			StartTimestamp:           &pastTime,
+			TargetNode:                     host,
+			TargetNodeAddress:              "127.0.0.1:12345",
+			SourceNode:                     "othernode",
+			MigrationUID:                   "123",
+			TargetNodeDomainDetected:       true,
+			TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
+			StartTimestamp:                 &pastTime,
+			Completed:                      true,
 		}
 
 		cpuTopology := &v1.CPU{
@@ -2200,8 +2206,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 		testutils.ExpectEvent(recorder, "failed to change vCPUs")
 		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(updatedVMI.Status.MigrationState.TargetNodeDomainDetected).To(BeTrue())
-		Expect(updatedVMI.Status.MigrationState.TargetNodeDomainReadyTimestamp).ToNot(BeNil())
 		Expect(updatedVMI.Status.CurrentCPUTopology).NotTo(BeNil())
 		Expect(updatedVMI.Status.Conditions).NotTo(ContainElement(MatchFields(IgnoreExtras, Fields{
 			"Type": Equal(v1.VirtualMachineInstanceVCPUChange),

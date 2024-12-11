@@ -930,6 +930,7 @@
       "sourceNode": "sourceNodeValue",
       "sourcePod": "sourcePodValue",
       "completed": true,
+      "finalized": true,
       "failed": true,
       "abortRequested": true,
       "abortStatus": "abortStatusValue",

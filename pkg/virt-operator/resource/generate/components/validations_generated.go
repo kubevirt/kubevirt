@@ -13535,6 +13535,9 @@ var CRDsValidation map[string]string = map[string]string{
             failureReason:
               description: Contains the reason why the migration failed
               type: string
+            finalized:
+              description: Indicates that the migration has been finalized
+              type: boolean
             migrationConfiguration:
               description: Migration configurations to apply
               properties:
@@ -13964,6 +13967,9 @@ var CRDsValidation map[string]string = map[string]string{
             failureReason:
               description: Contains the reason why the migration failed
               type: string
+            finalized:
+              description: Indicates that the migration has been finalized
+              type: boolean
             migrationConfiguration:
               description: Migration configurations to apply
               properties:
