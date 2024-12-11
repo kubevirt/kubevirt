@@ -136,6 +136,31 @@ var _ = Describe("Validating VM Admitter", func() {
 		virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
 	})
 
+	DescribeTable("when validator pass, should allow",
+		func(op admissionv1.Operation) {
+			vmsAdmitter.Validators = []Validator{validatorStub{}}
+			vm := newTestVM()
+
+			resp := admitVmOperation(vmsAdmitter, vm, op)
+			Expect(resp.Allowed).To(BeTrue())
+		},
+		Entry("create request", admissionv1.Create),
+		Entry("any request", admissionv1.Operation("")),
+	)
+	DescribeTable("when validator fail, should reject",
+		func(op admissionv1.Operation) {
+			expectedStatusCause := []metav1.StatusCause{{Type: "test", Message: "test", Field: "test"}}
+			vmsAdmitter.Validators = []Validator{validatorStub{statusCauses: expectedStatusCause}}
+			vm := newTestVM()
+
+			resp := admitVmOperation(vmsAdmitter, vm, op)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(Equal(expectedStatusCause))
+		},
+		Entry("create request", admissionv1.Create),
+		Entry("any request", admissionv1.Operation("")),
+	)
+
 	Context("with an invalid VM", func() {
 		It("should reject the request with unrecognized field", func() {
 			vmi := api.NewMinimalVMI("testvmi")
@@ -2338,6 +2363,17 @@ var _ = Describe("Validating VM Admitter", func() {
 	})
 })
 
+func newTestVM() *v1.VirtualMachine {
+	return &v1.VirtualMachine{
+		Spec: v1.VirtualMachineSpec{
+			RunStrategy: pointer.P(v1.RunStrategyAlways),
+			Template: &v1.VirtualMachineInstanceTemplateSpec{
+				Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}},
+			},
+		},
+	}
+}
+
 func admitVm(admitter *VMsAdmitter, vm *v1.VirtualMachine) *admissionv1.AdmissionResponse {
 	vmBytes, _ := json.Marshal(vm)
 
@@ -2347,6 +2383,22 @@ func admitVm(admitter *VMsAdmitter, vm *v1.VirtualMachine) *admissionv1.Admissio
 			Object: runtime.RawExtension{
 				Raw: vmBytes,
 			},
+		},
+	}
+
+	return admitter.Admit(context.Background(), ar)
+}
+
+func admitVmOperation(admitter *VMsAdmitter, vm *v1.VirtualMachine, operation admissionv1.Operation) *admissionv1.AdmissionResponse {
+	vmBytes, _ := json.Marshal(vm)
+
+	ar := &admissionv1.AdmissionReview{
+		Request: &admissionv1.AdmissionRequest{
+			Resource: webhooks.VirtualMachineGroupVersionResource,
+			Object: runtime.RawExtension{
+				Raw: vmBytes,
+			},
+			Operation: operation,
 		},
 	}
 

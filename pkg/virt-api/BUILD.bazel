@@ -12,6 +12,7 @@ go_library(
         "//pkg/monitoring/metrics/common/client:go_default_library",
         "//pkg/monitoring/metrics/virt-api:go_default_library",
         "//pkg/monitoring/profiler:go_default_library",
+        "//pkg/network/admitter:go_default_library",
         "//pkg/rest:go_default_library",
         "//pkg/rest/filter:go_default_library",
         "//pkg/service:go_default_library",

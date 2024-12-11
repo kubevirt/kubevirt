@@ -1402,9 +1402,9 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 		return vm, err
 	}
 
-	netValidator := netadmitter.NewValidator(k8sfield.NewPath("spec"), &vmi.Spec, c.clusterConfig)
+	netValidator := netadmitter.NewValidator(c.clusterConfig)
 	var validateErrors []error
-	for _, cause := range netValidator.ValidateCreation() {
+	for _, cause := range netValidator.ValidateCreation(k8sfield.NewPath("spec"), &vmi.Spec) {
 		validateErrors = append(validateErrors, errors.New(cause.String()))
 	}
 	if validateErr := errors.Join(validateErrors...); validateErrors != nil {
