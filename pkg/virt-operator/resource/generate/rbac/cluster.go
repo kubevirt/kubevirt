@@ -95,6 +95,7 @@ func GetAllCluster() []runtime.Object {
 		newViewClusterRole(),
 		newInstancetypeViewClusterRole(),
 		newInstancetypeViewClusterRoleBinding(),
+		newMigrateClusterRole(),
 	}
 }
 
@@ -274,10 +275,20 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					apiVMInstances,
 					apiVMIPresets,
 					apiVMIReplicasets,
-					apiVMIMigrations,
 				},
 				Verbs: []string{
 					"get", "delete", "create", "update", "patch", "list", "watch", "deletecollection",
+				},
+			},
+			{
+				APIGroups: []string{
+					GroupName,
+				},
+				Resources: []string{
+					apiVMIMigrations,
+				},
+				Verbs: []string{
+					"get", "list", "watch",
 				},
 			},
 			{
@@ -457,10 +468,20 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					apiVMInstances,
 					apiVMIPresets,
 					apiVMIReplicasets,
-					apiVMIMigrations,
 				},
 				Verbs: []string{
 					"get", "delete", "create", "update", "patch", "list", "watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					GroupName,
+				},
+				Resources: []string{
+					apiVMIMigrations,
+				},
+				Verbs: []string{
+					"get", "list", "watch",
 				},
 			},
 			{
@@ -543,6 +564,34 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"get", "list", "watch",
+				},
+			},
+		},
+	}
+}
+
+func newMigrateClusterRole() *rbacv1.ClusterRole {
+	return &rbacv1.ClusterRole{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: VersionNamev1,
+			Kind:       "ClusterRole",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "kubevirt.io:migrate",
+			Labels: map[string]string{
+				virtv1.AppLabel: "",
+			},
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{
+					GroupName,
+				},
+				Resources: []string{
+					apiVMIMigrations,
+				},
+				Verbs: []string{
+					"get", "delete", "create", "update", "patch", "list", "watch", "deletecollection",
 				},
 			},
 		},

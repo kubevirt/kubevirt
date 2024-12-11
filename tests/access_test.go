@@ -166,6 +166,7 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 	doSarRequest := func(group string, resource string, subresource string, namespace string, role string, verb string, expected, clusterWide bool) {
 		roleToUser := map[string]string{
+			"migrate":           testsuite.MigrateServiceAccountName,
 			"view":              testsuite.ViewServiceAccountName,
 			"instancetype:view": testsuite.ViewInstancetypeServiceAccountName,
 			"edit":              testsuite.EditServiceAccountName,
@@ -278,8 +279,9 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				core.GroupName,
 				"virtualmachineinstancemigrations",
 				false,
-				allowAllFor("admin"),
-				denyDeleteCollectionFor("edit"),
+				allowAllFor("migrate"),
+				denyModificationsFor("admin"),
+				denyModificationsFor("edit"),
 				denyModificationsFor("view"),
 				denyAllFor("instancetype:view"),
 				denyAllFor("default")),
