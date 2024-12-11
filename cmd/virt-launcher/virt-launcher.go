@@ -21,6 +21,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	goflag "flag"
 	"fmt"
 	"os"
@@ -44,12 +45,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
+	virtioserial "kubevirt.io/kubevirt/pkg/downwardmetrics/virtio-serial"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	putil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
@@ -335,6 +338,19 @@ func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 	}
 }
 
+func runDownwardMetricsVirtioServer(signalStopChan chan struct{}) error {
+	if _, ok := os.LookupEnv(services.ENV_VAR_VIRT_LAUNCHER_DOWNWARDMETRICS_SERVER); !ok {
+		return nil
+	}
+
+	nodeName, ok := os.LookupEnv(services.ENV_VAR_NODE_NAME)
+	if !ok {
+		return errors.New(services.ENV_VAR_NODE_NAME + " environment variable not found")
+	}
+
+	return virtioserial.RunDownwardMetricsVirtioServer(signalStopChan, nodeName)
+}
+
 func main() {
 	qemuTimeout := pflag.Duration("qemu-timeout", defaultStartTimeout, "Amount of time to wait for qemu")
 	virtShareDir := pflag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
@@ -479,6 +495,10 @@ func main() {
 	// This informs virt-controller that virt-launcher is ready to handle
 	// managing virtual machines.
 	markReady()
+
+	if err := runDownwardMetricsVirtioServer(signalStopChan); err != nil {
+		panic(fmt.Errorf("failed to start the DownwardMetrics server %v", err))
+	}
 
 	domain := waitForDomainUUID(*qemuTimeout, events, signalStopChan, domainManager)
 	if domain != nil {

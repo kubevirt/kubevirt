@@ -463,6 +463,14 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additiona
 		overhead.Add(resource.MustParse("1Mi"))
 	}
 
+	// DownwardMetrics virtio-serial devices spawn a server in the background.
+	// Only one server instance is created for each VM. Tests carried out under high-load scenarios, i.e.,
+	// repeatedly requesting metrics at a high frequency, shows a max observed overhead of 20MiB.
+	// Added 10MiB extra just to be sure.
+	if downwardmetrics.HasDevice(&vmi.Spec) {
+		overhead.Add(resource.MustParse("30Mi"))
+	}
+
 	addProbeOverheads(vmi, &overhead)
 
 	// Consider memory overhead for SEV guests.
