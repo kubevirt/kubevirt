@@ -25,6 +25,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "portforward_suite_test.go",
+        "portforward_test.go",
         "ports_test.go",
     ],
     embed = [":go_default_library"],
