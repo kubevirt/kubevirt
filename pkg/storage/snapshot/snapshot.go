@@ -29,7 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 )
 
@@ -61,6 +62,8 @@ const (
 	volumeSnapshotCreateEvent = "SuccessfulVolumeSnapshotCreate"
 
 	volumeSnapshotMissingEvent = "VolumeSnapshotMissing"
+
+	volumeSnapshotBackendExcludedEvent = "BackendExcludedSnapshot"
 
 	vmSnapshotDeadlineExceededError = "snapshot deadline exceeded"
 
@@ -226,7 +229,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 			log.Log.V(2).Infof("Deleting vmsnapshotcontent %s/%s", content.Namespace, content.Name)
 
 			err = ctrl.Client.VirtualMachineSnapshotContent(vmSnapshot.Namespace).Delete(context.Background(), content.Name, metav1.DeleteOptions{})
-			if err != nil && !errors.IsNotFound(err) {
+			if err != nil && !k8serrors.IsNotFound(err) {
 				return 0, err
 			}
 		} else {
@@ -604,6 +607,11 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 	var volumeBackups []snapshotv1.VolumeBackup
 	pvcs, err := source.PersistentVolumeClaims()
 	if err != nil {
+		if storageutils.IsErrNoBackendPVC(err) {
+			// No backend pvc when we should have one, lets wait
+			// TODO: Improve this error handling
+			return nil
+		}
 		return err
 	}
 	for volumeName, pvcName := range pvcs {
@@ -648,7 +656,7 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 	}
 
 	_, err = ctrl.Client.VirtualMachineSnapshotContent(content.Namespace).Create(context.Background(), content, metav1.CreateOptions{})
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return err
 	}
 
@@ -778,7 +786,7 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 		vmSnapshotCpy.Status.Phase = snapshotv1.Succeeded
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Operation complete"))
 		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionTrue, "Operation complete"))
-		if err := ctrl.updateSnapshotSnapshotableVolumes(vmSnapshotCpy, content); err != nil {
+		if err := ctrl.updateSnapshotSnapshotableVolumes(vmSnapshotCpy, content, source); err != nil {
 			return nil, err
 		}
 		metrics.HandleSucceededVMSnapshot(vmSnapshotCpy)
@@ -850,7 +858,7 @@ func updateVMSnapshotIndications(source snapshotSource) ([]snapshotv1.Indication
 	return indications, nil
 }
 
-func (ctrl *VMSnapshotController) updateSnapshotSnapshotableVolumes(snapshot *snapshotv1.VirtualMachineSnapshot, content *snapshotv1.VirtualMachineSnapshotContent) error {
+func (ctrl *VMSnapshotController) updateSnapshotSnapshotableVolumes(snapshot *snapshotv1.VirtualMachineSnapshot, content *snapshotv1.VirtualMachineSnapshotContent, source snapshotSource) error {
 	if content == nil {
 		return nil
 	}
@@ -858,8 +866,19 @@ func (ctrl *VMSnapshotController) updateSnapshotSnapshotableVolumes(snapshot *sn
 	if vm == nil || vm.Spec.Template == nil {
 		return nil
 	}
-	volumes, err := storageutils.GetVolumes(vm, ctrl.Client, storageutils.WithBackendVolume)
+
+	opts, err := getVolumeOptions(source)
 	if err != nil {
+		return err
+	}
+
+	volumes, err := storageutils.GetVolumes(vm, ctrl.Client, opts...)
+	if err != nil {
+		if storageutils.IsErrNoBackendPVC(err) {
+			// No backend pvc when we should have one, lets wait
+			// TODO: Improve this error handling
+			return nil
+		}
 		return err
 	}
 
@@ -888,8 +907,33 @@ func (ctrl *VMSnapshotController) updateVolumeSnapshotStatuses(vm *kubevirtv1.Vi
 	log.Log.V(3).Infof("Update volume snapshot status for VM [%s/%s]", vm.Namespace, vm.Name)
 
 	vmCopy := vm.DeepCopy()
-	volumes, err := storageutils.GetVolumes(vmCopy, ctrl.Client, storageutils.WithBackendVolume)
+
+	opts := []storageutils.VolumeOption{storageutils.WithRegularVolumes}
+	exists, err := ctrl.checkVMIRunning(vm)
 	if err != nil {
+		return err
+	}
+	// TODO: Currently, only offline snapshot is supported for backend storage PVC.
+	// Ignore it if the VM is online.
+	if !exists {
+		opts = append(opts, storageutils.WithBackendVolume)
+	} else if backendstorage.IsBackendStorageNeededForVMI(&vm.Spec.Template.Spec) {
+		log.Log.V(1).Infof("Ignoring backend PVC for VM [%s/%s]: Only offline snapshot supported.", vm.Namespace, vm.Name)
+		ctrl.Recorder.Eventf(
+			vm,
+			corev1.EventTypeNormal,
+			volumeSnapshotBackendExcludedEvent,
+			"Excluded backend PVC: Online snapshot not supported",
+		)
+	}
+
+	volumes, err := storageutils.GetVolumes(vmCopy, ctrl.Client, opts...)
+	if err != nil {
+		if storageutils.IsErrNoBackendPVC(err) {
+			// No backend pvc when we should have one, lets wait
+			// TODO: Improve this error handling
+			return nil
+		}
 		return err
 	}
 
