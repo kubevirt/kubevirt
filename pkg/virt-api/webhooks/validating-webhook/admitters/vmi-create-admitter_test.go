@@ -1357,11 +1357,17 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 		DescribeTable("Should accept valid DNSPolicy and DNSConfig",
 			func(dnsPolicy k8sv1.DNSPolicy, dnsConfig *k8sv1.PodDNSConfig) {
-				vmi := api.NewMinimalVMI("testvmi")
-				vmi.Spec.DNSPolicy = dnsPolicy
-				vmi.Spec.DNSConfig = dnsConfig
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-				Expect(causes).To(BeEmpty())
+				vmi := newBaseVmi(
+					withDNSPolicy(dnsPolicy),
+					withDNSConfig(dnsConfig),
+				)
+
+				ar, err := newAdmissionReviewForVMICreation(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+				Expect(resp.Allowed).To(BeTrue())
+				Expect(resp.Result).To(BeNil())
 			},
 			Entry("with DNSPolicy ClusterFirstWithHostNet", k8sv1.DNSClusterFirstWithHostNet, &k8sv1.PodDNSConfig{}),
 			Entry("with DNSPolicy ClusterFirst", k8sv1.DNSClusterFirst, &k8sv1.PodDNSConfig{}),
@@ -1377,20 +1383,25 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}),
 			Entry("with empty DNSPolicy", nil, nil),
 		)
-
 		DescribeTable("Should reject invalid DNSPolicy and DNSConfig",
 			func(dnsPolicy k8sv1.DNSPolicy, dnsConfig *k8sv1.PodDNSConfig, causeCount int, causeMessage []string) {
-				vmi := api.NewMinimalVMI("testvmi")
-				vmi.Spec.DNSPolicy = dnsPolicy
-				vmi.Spec.DNSConfig = dnsConfig
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-				Expect(causes).To(HaveLen(causeCount))
+				vmi := newBaseVmi(
+					withDNSPolicy(dnsPolicy),
+					withDNSConfig(dnsConfig),
+				)
+
+				ar, err := newAdmissionReviewForVMICreation(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(resp.Result.Details.Causes).To(HaveLen(causeCount))
 				for i := 0; i < causeCount; i++ {
-					Expect(causes[i].Message).To(Equal(causeMessage[i]))
+					Expect(resp.Result.Details.Causes[i].Message).To(Equal(causeMessage[i]))
 				}
 			},
 			Entry("with invalid DNSPolicy FakePolicy", k8sv1.DNSPolicy("FakePolicy"), &k8sv1.PodDNSConfig{}, 1,
-				[]string{"DNSPolicy: FakePolicy is not supported, valid values: [ClusterFirstWithHostNet ClusterFirst Default None ]"}),
+				[]string{"spec.dnsPolicy in body should be one of [ClusterFirst ClusterFirstWithHostNet Default None]"}),
 			Entry("with DNSPolicy None and no nameserver", k8sv1.DNSNone, &k8sv1.PodDNSConfig{}, 1,
 				[]string{"must provide at least one DNS nameserver when `dnsPolicy` is None"}),
 			Entry("with DNSPolicy None and too many nameservers", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
@@ -4360,5 +4371,17 @@ func withGPU(gpu v1.GPU) libvmi.Option {
 func withHostDevice(hostDevice v1.HostDevice) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.HostDevices = append(vmi.Spec.Domain.Devices.HostDevices, hostDevice)
+	}
+}
+
+func withDNSPolicy(dnsPolicy k8sv1.DNSPolicy) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.DNSPolicy = dnsPolicy
+	}
+}
+
+func withDNSConfig(dnsConfig *k8sv1.PodDNSConfig) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.DNSConfig = dnsConfig
 	}
 }
