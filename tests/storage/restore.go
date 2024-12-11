@@ -1071,15 +1071,6 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 				targetVM := getTargetVM(restoreToNewVM)
 
-				if libstorage.IsDataVolumeGC(virtClient) {
-					Eventually(func() error {
-						_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), *dvName, metav1.GetOptions{})
-						return err
-					}, 30*time.Second, time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
-					verifyOwnerRef(pvc, targetVM.APIVersion, targetVM.Kind, targetVM.Name, targetVM.UID)
-					return
-				}
-
 				dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), *dvName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				verifyOwnerRef(dv, targetVM.APIVersion, targetVM.Kind, targetVM.Name, targetVM.UID)
@@ -1236,10 +1227,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				}
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
 
-				if !libstorage.IsDataVolumeGC(virtClient) {
-					_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-				}
+				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1806,11 +1795,6 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					if err != nil && !errors.IsAlreadyExists(err) {
 						Expect(err).ToNot(HaveOccurred())
 					}
-
-					if sourceDV != nil {
-						libstorage.DeleteDataVolume(&sourceDV)
-					}
-
 					if cloneRole != nil {
 						err := virtClient.RbacV1().Roles(cloneRole.Namespace).Delete(context.TODO(), cloneRole.Name, metav1.DeleteOptions{})
 						Expect(err).ToNot(HaveOccurred())
@@ -1870,7 +1854,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 						cloneRole = nil
 						cloneRoleBinding = nil
 					} else if deleteSourcePVC {
-						libstorage.DeleteDataVolume(&sourceDV)
+						err := virtClient.CdiClient().CdiV1beta1().DataVolumes(sourceDV.Namespace).Delete(context.Background(), sourceDV.Name, metav1.DeleteOptions{})
+						Expect(err).ToNot(HaveOccurred())
 					}
 
 					doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
@@ -1890,14 +1875,14 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 					dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					defer libstorage.DeleteDataVolume(&dv)
 
 					vm, vmi = createAndStartVM(vm)
 					waitDVReady(dv)
 
 					checkCloneAnnotations(vm, true)
 					if deleteSourcePVC {
-						libstorage.DeleteDataVolume(&sourceDV)
+						err := virtClient.CdiClient().CdiV1beta1().DataVolumes(sourceDV.Namespace).Delete(context.Background(), sourceDV.Name, metav1.DeleteOptions{})
+						Expect(err).ToNot(HaveOccurred())
 					}
 					doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
 					checkCloneAnnotations(getTargetVM(restoreToNewVM), false)

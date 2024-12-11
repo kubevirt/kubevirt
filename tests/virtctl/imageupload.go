@@ -226,12 +226,10 @@ var _ = Describe("[sig-storage][virtctl]ImageUpload", decorators.SigStorage, Ser
 			Expect(err).ToNot(HaveOccurred())
 
 			if uploadDV {
-				if !libstorage.IsDataVolumeGC(virtClient) {
-					By("Get DataVolume")
-					dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(dv.Spec.ContentType).To(Equal(cdiv1.DataVolumeArchive))
-				}
+				By("Get DataVolume")
+				dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(dv.Spec.ContentType).To(Equal(cdiv1.DataVolumeArchive))
 			} else {
 				By("Validate no DataVolume")
 				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
@@ -318,11 +316,6 @@ func runImageUploadCmd(args ...string) error {
 
 func validateDataVolume(targetName string, _ string) {
 	virtClient := kubevirt.Client()
-	if libstorage.IsDataVolumeGC(virtClient) {
-		_, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return
-	}
 	By("Get DataVolume")
 	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
@@ -342,9 +335,6 @@ func validatePVC(targetName string, sc string) {
 
 func validateDataVolumeForceBind(targetName string) {
 	virtClient := kubevirt.Client()
-	if libstorage.IsDataVolumeGC(virtClient) {
-		return
-	}
 	By("Get DataVolume")
 	dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())

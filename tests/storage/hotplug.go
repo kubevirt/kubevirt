@@ -1259,7 +1259,6 @@ var _ = SIGDescribe("Hotplug", func() {
 					Expect(err).ToNot(HaveOccurred())
 					vm = nil
 				}
-				libstorage.DeleteDataVolume(&dv)
 			})
 
 			DescribeTable("should be able to add and remove volumes", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, storageClassFunc storageClassFunction, volumeMode k8sv1.PersistentVolumeMode, vmiOnly bool) {
