@@ -1476,69 +1476,111 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Message).To(Equal("either fake.startStrategy or fake.livenessProbe should be provided.Pausing VMI with LivenessProbe is not supported"))
 		})
 		Context("with kernel boot defined", func() {
-
-			createKernelBoot := func(kernelArgs, initrdPath, kernelPath, image string) *v1.KernelBoot {
-				var kbContainer *v1.KernelBootContainer
-				if image != "" || kernelPath != "" || initrdPath != "" {
-					kbContainer = &v1.KernelBootContainer{
-						Image:      image,
-						KernelPath: kernelPath,
-						InitrdPath: initrdPath,
-					}
-				}
-
-				return &v1.KernelBoot{
-					KernelArgs: kernelArgs,
-					Container:  kbContainer,
-				}
-			}
-
 			const (
-				validKernelArgs   = "args"
-				withoutKernelArgs = ""
+				validKernelArgs = "args"
 
-				validImage   = "image"
-				withoutImage = ""
+				validImage = "image"
 
 				invalidInitrd = "initrd"
 				validInitrd   = "/initrd"
-				withoutInitrd = ""
 
 				invalidKernel = "kernel"
 				validKernel   = "/kernel"
-				withoutKernel = ""
 			)
 
-			DescribeTable("", func(kernelBoot *v1.KernelBoot, shouldBeValid bool) {
-				kernelBootField := k8sfield.NewPath("spec").Child("domain").Child("firmware").Child("kernelBoot")
-				causes := validateKernelBoot(kernelBootField, kernelBoot)
+			DescribeTable("should allow kernel boot", func(kernelOptions []libvmi.Option) {
+				vmi := newBaseVmi(kernelOptions...)
 
-				if shouldBeValid {
-					Expect(causes).To(BeEmpty())
-				} else {
-					Expect(causes).ToNot(BeEmpty())
+				ar, err := newAdmissionReviewForVMICreation(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+				Expect(resp.Allowed).To(BeTrue())
+				Expect(resp.Result).To(BeNil())
+			},
+				Entry("without kernel args and null container",
+					[]libvmi.Option{}),
+				Entry("without kernel args, with container that has image & kernel & initrd defined",
+					[]libvmi.Option{
+						libvmi.WithKernelBootContainer(validImage),
+						withKernelBootInitrdPath(validInitrd),
+						withKernelBootKernelPath(validKernel),
+					}),
+				Entry("with kernel args, with container that has image & kernel & initrd defined",
+					[]libvmi.Option{
+						libvmi.WithKernelBootContainer(validImage),
+						withKernelBootKernelArgs(validKernelArgs),
+						withKernelBootInitrdPath(validInitrd),
+						withKernelBootKernelPath(validKernel),
+					}),
+				Entry("with kernel args, with container that has image & kernel defined",
+					[]libvmi.Option{
+						libvmi.WithKernelBootContainer(validImage),
+						withKernelBootKernelArgs(validKernelArgs),
+						withKernelBootKernelPath(validKernel),
+					}),
+				Entry("with kernel args, with container that has image & initrd defined",
+					[]libvmi.Option{
+						libvmi.WithKernelBootContainer(validImage),
+						withKernelBootKernelArgs(validKernelArgs),
+						withKernelBootInitrdPath(validInitrd),
+					}),
+			)
+
+			DescribeTable("should deny kernel boot", func(kernelOptions []libvmi.Option, causeCount int, causeMessage []string) {
+				vmi := newBaseVmi(kernelOptions...)
+
+				ar, err := newAdmissionReviewForVMICreation(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(resp.Result.Details.Causes).To(HaveLen(causeCount))
+				for i := range causeCount {
+					Expect(resp.Result.Details.Causes[i].Message).To(Equal(causeMessage[i]))
 				}
 			},
-				Entry("without kernel args and null container - should approve",
-					createKernelBoot(withoutKernelArgs, withoutInitrd, withoutKernel, withoutImage), true),
-				Entry("with kernel args and null container - should reject",
-					createKernelBoot(validKernelArgs, withoutInitrd, withoutKernel, withoutImage), false),
-				Entry("without kernel args, with container that has image & kernel & initrd defined - should approve",
-					createKernelBoot(withoutKernelArgs, validInitrd, validKernel, validImage), true),
-				Entry("with kernel args, with container that has image & kernel & initrd defined - should approve",
-					createKernelBoot(validKernelArgs, validInitrd, validKernel, validImage), true),
-				Entry("with kernel args, with container that has image & kernel defined - should approve",
-					createKernelBoot(validKernelArgs, withoutInitrd, validKernel, validImage), true),
-				Entry("with kernel args, with container that has image & initrd defined - should approve",
-					createKernelBoot(validKernelArgs, validInitrd, withoutKernel, validImage), true),
-				Entry("with kernel args, with container that has only image defined - should reject",
-					createKernelBoot(validKernelArgs, withoutInitrd, withoutKernel, validImage), false),
-				Entry("with invalid kernel path - should reject",
-					createKernelBoot(validKernelArgs, validInitrd, invalidKernel, validImage), false),
-				Entry("with invalid initrd path - should reject",
-					createKernelBoot(validKernelArgs, invalidInitrd, validKernel, validImage), false),
-				Entry("with kernel args, with container that has initrd and kernel defined but without image - should reject",
-					createKernelBoot(validKernelArgs, validInitrd, validKernel, withoutImage), false),
+				Entry("with kernel args and null container",
+					[]libvmi.Option{
+						withKernelBootKernelArgs(validKernelArgs),
+					}, 1,
+					[]string{"kernel arguments cannot be provided without an external kernel"}),
+				Entry("with kernel args, with container that has only image defined",
+					[]libvmi.Option{
+						libvmi.WithKernelBootContainer(validImage),
+						withKernelBootKernelArgs(validKernelArgs),
+					}, 1,
+					[]string{"spec.domain.firmware.kernelBoot.container must be defined with at least " +
+						"one of the following: kernelPath, initrdPath"},
+				),
+				Entry("with invalid kernel path",
+					[]libvmi.Option{
+						libvmi.WithKernelBootContainer(validImage),
+						withKernelBootKernelArgs(validKernelArgs),
+						withKernelBootInitrdPath(validInitrd),
+						withKernelBootKernelPath(invalidKernel),
+					}, 1,
+					[]string{"spec.domain.firmware.kernelBoot.container.kernelPath must be " +
+						"an absolute path to a file without relative components"},
+				),
+				Entry("with invalid initrd path",
+					[]libvmi.Option{
+						libvmi.WithKernelBootContainer(validImage),
+						withKernelBootKernelArgs(validKernelArgs),
+						withKernelBootInitrdPath(invalidInitrd),
+						withKernelBootKernelPath(validKernel),
+					}, 1,
+					[]string{"spec.domain.firmware.kernelBoot.container.initrdPath must be " +
+						"an absolute path to a file without relative components"},
+				),
+				Entry("with kernel args, with container that has initrd and kernel defined but without image",
+					[]libvmi.Option{
+						withKernelBootKernelArgs(validKernelArgs),
+						withKernelBootInitrdPath(validInitrd),
+						withKernelBootKernelPath(validKernel),
+					}, 1,
+					[]string{"spec.domain.firmware.kernelBoot.container must be defined with an image"},
+				),
 			)
 		})
 
@@ -4383,5 +4425,59 @@ func withDNSPolicy(dnsPolicy k8sv1.DNSPolicy) libvmi.Option {
 func withDNSConfig(dnsConfig *k8sv1.PodDNSConfig) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.DNSConfig = dnsConfig
+	}
+}
+
+func withKernelBootKernelArgs(kernelArgs string) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		switch {
+		case vmi.Spec.Domain.Firmware == nil:
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				KernelBoot: &v1.KernelBoot{},
+			}
+		case vmi.Spec.Domain.Firmware.KernelBoot == nil:
+			vmi.Spec.Domain.Firmware.KernelBoot = &v1.KernelBoot{}
+		}
+		vmi.Spec.Domain.Firmware.KernelBoot.KernelArgs = kernelArgs
+	}
+}
+
+func withKernelBootInitrdPath(initrdPath string) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		switch {
+		case vmi.Spec.Domain.Firmware == nil:
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				KernelBoot: &v1.KernelBoot{
+					Container: &v1.KernelBootContainer{},
+				},
+			}
+		case vmi.Spec.Domain.Firmware.KernelBoot == nil:
+			vmi.Spec.Domain.Firmware.KernelBoot = &v1.KernelBoot{
+				Container: &v1.KernelBootContainer{},
+			}
+		case vmi.Spec.Domain.Firmware.KernelBoot.Container == nil:
+			vmi.Spec.Domain.Firmware.KernelBoot.Container = &v1.KernelBootContainer{}
+		}
+		vmi.Spec.Domain.Firmware.KernelBoot.Container.InitrdPath = initrdPath
+	}
+}
+
+func withKernelBootKernelPath(kernelPath string) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		switch {
+		case vmi.Spec.Domain.Firmware == nil:
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				KernelBoot: &v1.KernelBoot{
+					Container: &v1.KernelBootContainer{},
+				},
+			}
+		case vmi.Spec.Domain.Firmware.KernelBoot == nil:
+			vmi.Spec.Domain.Firmware.KernelBoot = &v1.KernelBoot{
+				Container: &v1.KernelBootContainer{},
+			}
+		case vmi.Spec.Domain.Firmware.KernelBoot.Container == nil:
+			vmi.Spec.Domain.Firmware.KernelBoot.Container = &v1.KernelBootContainer{}
+		}
+		vmi.Spec.Domain.Firmware.KernelBoot.Container.KernelPath = kernelPath
 	}
 }
