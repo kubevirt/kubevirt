@@ -77,7 +77,6 @@ import (
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	dmetricsmanager "kubevirt.io/kubevirt/pkg/virt-handler/dmetrics-manager"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	nodelabeller "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller"
@@ -331,8 +330,6 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	downwardMetricsManager := dmetricsmanager.NewDownwardMetricsManager(app.HostOverride)
-
 	vmController, err := virthandler.NewController(
 		recorder,
 		app.virtCli,
@@ -348,7 +345,6 @@ func (app *virtHandlerApp) Run() {
 		app.clusterConfig,
 		podIsolationDetector,
 		migrationProxy,
-		downwardMetricsManager,
 		&capabilities,
 		hostCpuModel,
 		netsetup.NewNetConf(app.clusterConfig),
