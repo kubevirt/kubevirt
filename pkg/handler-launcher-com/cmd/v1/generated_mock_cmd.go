@@ -110,6 +110,22 @@ func (_mr *_MockCmdClientRecorder) UnfreezeVirtualMachine(arg0, arg1 interface{}
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnfreezeVirtualMachine", _s...)
 }
 
+func (_m *MockCmdClient) ResetVirtualMachine(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
+	_s := []interface{}{ctx, in}
+	for _, _x := range opts {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "ResetVirtualMachine", _s...)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdClientRecorder) ResetVirtualMachine(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1}, arg2...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ResetVirtualMachine", _s...)
+}
+
 func (_m *MockCmdClient) SoftRebootVirtualMachine(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
 	_s := []interface{}{ctx, in}
 	for _, _x := range opts {
@@ -584,6 +600,17 @@ func (_m *MockCmdServer) UnfreezeVirtualMachine(_param0 context.Context, _param1
 
 func (_mr *_MockCmdServerRecorder) UnfreezeVirtualMachine(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UnfreezeVirtualMachine", arg0, arg1)
+}
+
+func (_m *MockCmdServer) ResetVirtualMachine(_param0 context.Context, _param1 *VMIRequest) (*Response, error) {
+	ret := _m.ctrl.Call(_m, "ResetVirtualMachine", _param0, _param1)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdServerRecorder) ResetVirtualMachine(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ResetVirtualMachine", arg0, arg1)
 }
 
 func (_m *MockCmdServer) SoftRebootVirtualMachine(_param0 context.Context, _param1 *VMIRequest) (*Response, error) {
