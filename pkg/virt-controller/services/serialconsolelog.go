@@ -27,7 +27,7 @@ func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image str
 			Command:         []string{"/usr/bin/virt-tail"},
 			Args:            []string{"--logfile", logFile},
 			VolumeMounts: []k8sv1.VolumeMount{
-				k8sv1.VolumeMount{
+				{
 					Name:      "private",
 					MountPath: util.VirtPrivateDir,
 					ReadOnly:  true,
@@ -42,6 +42,7 @@ func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image str
 					Drop: []k8sv1.Capability{"ALL"},
 				},
 			},
+			RestartPolicy: pointer.P(k8sv1.ContainerRestartPolicyAlways),
 		}
 
 		guestConsoleLog.Env = append(guestConsoleLog.Env, k8sv1.EnvVar{Name: ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, Value: fmt.Sprint(virtLauncherLogVerbosity)})
