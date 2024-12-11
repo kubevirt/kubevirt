@@ -37,3 +37,6 @@ coverage --test_tag_filters=-nocov,-fuzz
 
 # Import user settings which may override the defaults
 try-import user.bazelrc
+
+# Caching the 'make generate' results
+build --disk_cache=~/.cache/bazel-disk-cache
