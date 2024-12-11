@@ -26,6 +26,8 @@ type ResourceRenderer struct {
 	vmRequests         k8sv1.ResourceList
 	calculatedLimits   k8sv1.ResourceList
 	calculatedRequests k8sv1.ResourceList
+	vmResourceClaims   []k8sv1.ResourceClaim
+	podResourceClaims  []k8sv1.PodResourceClaim
 }
 
 type resourcePredicate func(*v1.VirtualMachineInstance) bool
@@ -86,11 +88,24 @@ func (rr *ResourceRenderer) Requests() k8sv1.ResourceList {
 	return podRequests
 }
 
+func (rr *ResourceRenderer) Claims() []k8sv1.ResourceClaim {
+	var podRequests []k8sv1.ResourceClaim
+	copyResourceClaims(rr.vmResourceClaims, &podRequests) //this is actually used by the container that the pod requests
+	return podRequests
+}
+
 func (rr *ResourceRenderer) ResourceRequirements() k8sv1.ResourceRequirements {
 	return k8sv1.ResourceRequirements{
 		Limits:   rr.Limits(),
 		Requests: rr.Requests(),
+		Claims:   rr.Claims(),
 	}
+}
+
+func (rr *ResourceRenderer) PodResourceClaims() []k8sv1.PodResourceClaim { //this is working fine
+	var podResourceClaims []k8sv1.PodResourceClaim
+	podResourceClaims = append(podResourceClaims, rr.podResourceClaims...)
+	return podResourceClaims
 }
 
 func WithEphemeralStorageRequest() ResourceRendererOption {
@@ -267,6 +282,34 @@ func WithHostDevices(hostDevices []v1.HostDevice) ResourceRendererOption {
 	}
 }
 
+func WithHostDevicesWithResourceClaims(hostDevices []v1.HostDevice) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		resources := renderer.ResourceRequirements()
+
+		for _, hostDevice := range hostDevices {
+			rc := hostDevice.ResourceClaim
+			if rc.Source.ResourceClaimName != "" && rc.Source.ResourceClaimTemplateName != "" {
+				continue
+			}
+
+			podClaim := k8sv1.PodResourceClaim{
+				Name:   rc.Name,
+				Source: k8sv1.ClaimSource{},
+			}
+
+			if rc.Source.ResourceClaimName != "" {
+				podClaim.Source.ResourceClaimName = &rc.Source.ResourceClaimName
+			} else if rc.Source.ResourceClaimTemplateName != "" {
+				podClaim.Source.ResourceClaimTemplateName = &rc.Source.ResourceClaimTemplateName
+			}
+
+			renderer.vmResourceClaims = append(renderer.vmResourceClaims, k8sv1.ResourceClaim{Name: rc.Name})
+			renderer.podResourceClaims = append(renderer.podResourceClaims, podClaim)
+		}
+		copyResourceClaims(resources.Claims, &renderer.vmResourceClaims)
+	}
+}
+
 func WithSEV() ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		resources := renderer.ResourceRequirements()
@@ -288,6 +331,12 @@ func WithPersistentReservation() ResourceRendererOption {
 func copyResources(srcResources, dstResources k8sv1.ResourceList) {
 	for key, value := range srcResources {
 		dstResources[key] = value
+	}
+}
+
+func copyResourceClaims(srcClaims []k8sv1.ResourceClaim, dstClaims *[]k8sv1.ResourceClaim) {
+	for _, claim := range srcClaims {
+		*dstClaims = append(*dstClaims, claim)
 	}
 }
 
