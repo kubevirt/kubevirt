@@ -20,6 +20,8 @@
 package virt_controller
 
 import (
+	"strings"
+
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -210,7 +212,7 @@ func CollectVMsInfo(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResu
 				vm.Name, vm.Namespace,
 				os, workload, flavor, machineType,
 				instanceType, preference,
-				string(vm.Status.PrintableStatus), getVMStatusGroup(vm.Status.PrintableStatus),
+				strings.ToLower(string(vm.Status.PrintableStatus)), getVMStatusGroup(vm.Status.PrintableStatus),
 			},
 			Value: 1.0,
 		})

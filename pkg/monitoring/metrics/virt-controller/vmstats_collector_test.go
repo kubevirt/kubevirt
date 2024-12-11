@@ -176,7 +176,7 @@ var _ = Describe("VM Stats Collector", func() {
 
 				Expect(cr.GetLabelValue("machine_type")).To(Equal(vms[i].Spec.Template.Spec.Domain.Machine.Type))
 
-				Expect(cr.GetLabelValue("status")).To(Equal("CrashLoopBackOff"))
+				Expect(cr.GetLabelValue("status")).To(Equal("crashloopbackoff"))
 				Expect(cr.GetLabelValue("status_group")).To(Equal("error"))
 			}
 		})
