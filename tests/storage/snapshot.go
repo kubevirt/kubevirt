@@ -796,6 +796,27 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 				objectEventWatcher := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(30) * time.Second)
 				objectEventWatcher.WaitFor(context.Background(), watcher.WarningEvent, "FreezeError")
+				Eventually(func() *snapshotv1.VirtualMachineSnapshotStatus {
+					snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return snapshot.Status
+				}, time.Minute, 2*time.Second).Should(gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Conditions": ContainElements(
+						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+							"Type":   Equal(snapshotv1.ConditionReady),
+							"Status": Equal(corev1.ConditionFalse),
+							"Reason": Equal("Not ready")}),
+						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+							"Type":   Equal(snapshotv1.ConditionProgressing),
+							"Status": Equal(corev1.ConditionFalse),
+							"Reason": Equal("In error state")}),
+					),
+					"Phase": Equal(snapshotv1.InProgress),
+					"Error": gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Message": gstruct.PointTo(ContainSubstring("command Freeze failed")),
+					})),
+					"CreationTime": BeNil(),
+				})))
 			})
 
 			It("Calling Velero hooks should freeze/unfreeze VM", func() {
