@@ -20,6 +20,13 @@
 package virt_controller
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"time"
+
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -32,7 +39,7 @@ import (
 
 var (
 	vmStatsCollector = operatormetrics.Collector{
-		Metrics:         append(timestampMetrics, vmResourceRequests, vmResourceLimits, vmInfo, vmDiskAllocatedSize),
+		Metrics:         append(timestampMetrics, vmResourceRequests, vmResourceLimits, vmInfo, vmDiskAllocatedSize, vmLastMigrationTimestamp),
 		CollectCallback: vmStatsCollectorCallback,
 	}
 
@@ -165,6 +172,14 @@ var (
 		},
 		[]string{"name", "namespace", "persistentvolumeclaim", "volume_mode", "device"},
 	)
+
+	vmLastMigrationTimestamp = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_last_migration_timestamp_seconds",
+			Help: "Virtual Machine last migration timestamp.",
+		},
+		[]string{"name", "namespace", "vmi_name", "migration_name", "source_pod", "target_pod"},
+	)
 )
 
 func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
@@ -180,11 +195,31 @@ func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
 		vms[i] = obj.(*k6tv1.VirtualMachine)
 	}
 
+	var vmis []*k6tv1.VirtualMachineInstance
+	vmiCachedObjs := vmiInformer.GetIndexer().List()
+	if len(vmiCachedObjs) != 0 {
+		vmis = make([]*k6tv1.VirtualMachineInstance, len(vmiCachedObjs))
+		for i, obj := range vmiCachedObjs {
+			vmis[i] = obj.(*k6tv1.VirtualMachineInstance)
+		}
+	}
+
+	var vmims []*k6tv1.VirtualMachineInstanceMigration
+	vmimCachedObjs := vmiMigrationInformer.GetIndexer().List()
+	if len(vmimCachedObjs) != 0 {
+		vmims = make([]*k6tv1.VirtualMachineInstanceMigration, len(vmimCachedObjs))
+		for i, obj := range vmimCachedObjs {
+			vmims[i] = obj.(*k6tv1.VirtualMachineInstanceMigration)
+		}
+	}
+
 	var results []operatormetrics.CollectorResult
 	results = append(results, CollectDiskAllocatedSize(vms)...)
 	results = append(results, CollectVMsInfo(vms)...)
 	results = append(results, CollectResourceRequestsAndLimits(vms)...)
 	results = append(results, reportVmsStats(vms)...)
+	results = append(results, CollectVmLastMigration(vms, vmis, vmims, migrationCache)...)
+
 	return results
 }
 
@@ -559,4 +594,94 @@ func collectDiskMetricsFromPVC(vm *k6tv1.VirtualMachine) []operatormetrics.Colle
 	}
 
 	return cr
+}
+
+type MigrationDetails struct {
+	Timestamp time.Time
+	VMIName   string
+	VMIMName  string
+	SourcePod string
+	TargetPod string
+}
+
+type VmMigrationCache struct {
+	LastMigration map[string]MigrationDetails
+}
+
+func CollectVmLastMigration(vms []*k6tv1.VirtualMachine, vmis []*k6tv1.VirtualMachineInstance, vmims []*k6tv1.VirtualMachineInstanceMigration, cache *VmMigrationCache) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	processedVMs := make(map[string]bool)
+
+	if len(vmis) > 0 && len(vmims) > 0 {
+		for _, vm := range vms {
+			for _, vmi := range vmis {
+				vmiVmName, ok := vmi.Labels["kubevirt.io/vm"]
+				if ok && vm.Name == vmiVmName && vm.Namespace == vmi.Namespace {
+					for _, vmim := range vmims {
+						if vmi.Name == vmim.Spec.VMIName && vmim.Status.Phase == k6tv1.MigrationSucceeded {
+							cache.UpdateCache(vmim, vm.Name, vm.Namespace, vmi.Name)
+						}
+					}
+				}
+			}
+			processedVMs[fmt.Sprintf("%s/%s", vm.Namespace, vm.Name)] = true
+		}
+	}
+
+	for _, vm := range vms {
+		key := fmt.Sprintf("%s/%s", vm.Namespace, vm.Name)
+		if details, exists := cache.LastMigration[key]; exists {
+			cr = append(cr, operatormetrics.CollectorResult{
+				Metric: vmLastMigrationTimestamp,
+				Value:  float64(details.Timestamp.Unix()),
+				Labels: []string{vm.Name, vm.Namespace, details.VMIName, details.VMIMName, details.SourcePod, details.TargetPod},
+			})
+		}
+	}
+
+	return cr
+}
+
+func (cache *VmMigrationCache) SaveToFile(filename string) error {
+	file, err := json.MarshalIndent(cache.LastMigration, "", " ")
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(filename, file, 0644)
+}
+
+func (cache *VmMigrationCache) LoadFromFile(filename string) error {
+	file, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(file, &cache.LastMigration)
+}
+
+func NewVmMigrationCache(filename string) (*VmMigrationCache, error) {
+	cache := &VmMigrationCache{
+		LastMigration: make(map[string]MigrationDetails),
+	}
+	err := cache.LoadFromFile(filename)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	return cache, nil
+}
+
+func (cache *VmMigrationCache) UpdateCache(vmim *k6tv1.VirtualMachineInstanceMigration, vmName, namespace string, vmiName string) {
+	key := fmt.Sprintf("%s/%s", namespace, vmName)
+	newDetails := MigrationDetails{
+		Timestamp: vmim.Status.MigrationState.EndTimestamp.Time,
+		VMIName:   vmiName,
+		VMIMName:  vmim.Name,
+		SourcePod: vmim.Status.MigrationState.SourcePod,
+		TargetPod: vmim.Status.MigrationState.TargetPod,
+	}
+
+	if details, exists := cache.LastMigration[key]; !exists || newDetails.Timestamp.After(details.Timestamp) {
+		cache.LastMigration[key] = newDetails
+		cache.SaveToFile("/root/projects/github/kubevirt.io/kubevirt/data/vm_migration_cache.json")
+	}
 }

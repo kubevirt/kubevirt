@@ -20,7 +20,11 @@
 package virt_controller
 
 import (
+	"errors"
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
@@ -51,6 +55,8 @@ var (
 	vmiMigrationInformer          cache.SharedIndexInformer
 	kvPodInformer                 cache.SharedIndexInformer
 	clusterConfig                 *virtconfig.ClusterConfig
+
+	migrationCache *VmMigrationCache
 )
 
 func SetupMetrics(
@@ -75,6 +81,22 @@ func SetupMetrics(
 	vmiMigrationInformer = vmiMigration
 	kvPodInformer = pod
 	clusterConfig = virtClusterConfig
+
+	cacheDir := "/root/projects/github/kubevirt.io/kubevirt/data"
+	cacheFilename := "vm_migration_cache.json"
+	fullPathToCacheFile := filepath.Join(cacheDir, cacheFilename)
+
+	if _, err := os.Stat(cacheDir); errors.Is(err, os.ErrNotExist) {
+		if err = os.MkdirAll(cacheDir, 0755); err != nil {
+			log.Fatalf("Failed to create directory for cache: %v", err)
+		}
+	}
+
+	var err error
+	migrationCache, err = NewVmMigrationCache(fullPathToCacheFile)
+	if err != nil {
+		log.Fatalf("Failed to initialize VM migration cache: %v", err)
+	}
 
 	if err := client.SetupMetrics(); err != nil {
 		return err
