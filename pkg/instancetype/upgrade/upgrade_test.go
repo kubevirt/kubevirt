@@ -17,7 +17,7 @@
  * Copyright The KubeVirt Authors
  *
  */
-package instancetype_test
+package upgrade_test
 
 import (
 	"context"
@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
@@ -43,25 +44,31 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
-	. "kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/revision"
+	"kubevirt.io/kubevirt/pkg/instancetype/upgrade"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
 var _ = Describe("ControllerRevision upgrades", func() {
-	var (
-		methods *InstancetypeMethods
+	type upgrader interface {
+		Upgrade(vm *virtv1.VirtualMachine) error
+	}
 
+	var (
 		vm *virtv1.VirtualMachine
 
 		virtClient  *kubecli.MockKubevirtClient
 		vmInterface *kubecli.MockVirtualMachineInterface
 		k8sClient   *k8sfake.Clientset
+
+		upgradeHandler                  upgrader
+		controllerrevisionInformerStore cache.Store
 	)
 
 	BeforeEach(func() {
 		controllerrevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
-		controllerrevisionInformerStore := controllerrevisionInformer.GetStore()
+		controllerrevisionInformerStore = controllerrevisionInformer.GetStore()
 
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
@@ -71,13 +78,10 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		k8sClient = k8sfake.NewSimpleClientset()
 		virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 
-		methods = &InstancetypeMethods{
-			ControllerRevisionStore: controllerrevisionInformerStore,
-			Clientset:               virtClient,
-		}
-
 		vm = kubecli.NewMinimalVM("testvm")
 		vm.Namespace = k8sv1.NamespaceDefault
+
+		upgradeHandler = upgrade.New(controllerrevisionInformerStore, virtClient)
 	})
 
 	expectControllerRevisionCreation := func() {
@@ -89,9 +93,9 @@ var _ = Describe("ControllerRevision upgrades", func() {
 			createdCR, ok := createdObj.(*appsv1.ControllerRevision)
 			Expect(ok).To(BeTrue())
 
-			Expect(IsObjectLatestVersion(createdCR)).To(BeTrue())
+			Expect(upgrade.IsObjectLatestVersion(createdCR)).To(BeTrue())
 
-			Expect(methods.ControllerRevisionStore.Add(createdCR)).To(Succeed())
+			Expect(controllerrevisionInformerStore.Add(createdCR)).To(Succeed())
 			return true, createdObj, nil
 		})
 	}
@@ -109,16 +113,16 @@ var _ = Describe("ControllerRevision upgrades", func() {
 			deleted, ok := action.(testing.DeleteAction)
 			Expect(ok).To(BeTrue())
 
-			deletedObj, exists, err := methods.ControllerRevisionStore.GetByKey(crKeyFunc(deleted.GetNamespace(), deleted.GetName()))
+			deletedObj, exists, err := controllerrevisionInformerStore.GetByKey(crKeyFunc(deleted.GetNamespace(), deleted.GetName()))
 			Expect(exists).To(BeTrue())
 			Expect(err).ToNot(HaveOccurred())
-			Expect(methods.ControllerRevisionStore.Delete(deletedObj)).To(Succeed())
+			Expect(controllerrevisionInformerStore.Delete(deletedObj)).To(Succeed())
 			return true, nil, nil
 		})
 	}
 
 	createControllerRevisionFromObject := func(obj runtime.Object) *appsv1.ControllerRevision {
-		originalCR, err := CreateControllerRevision(vm, obj)
+		originalCR, err := revision.CreateControllerRevision(vm, obj)
 		Expect(err).ToNot(HaveOccurred())
 
 		originalCR.Data.Raw, err = json.Marshal(originalCR.Data.Object)
@@ -132,13 +136,13 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		createPreferenceCR func() *appsv1.ControllerRevision,
 	) {
 		originalInstancetypeCR := createInstancetypeCR()
-		Expect(methods.ControllerRevisionStore.Add(originalInstancetypeCR)).To(Succeed())
+		Expect(controllerrevisionInformerStore.Add(originalInstancetypeCR)).To(Succeed())
 		vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
 			RevisionName: originalInstancetypeCR.Name,
 		}
 
 		originalPreferenceCR := createPreferenceCR()
-		Expect(methods.ControllerRevisionStore.Add(originalPreferenceCR)).To(Succeed())
+		Expect(controllerrevisionInformerStore.Add(originalPreferenceCR)).To(Succeed())
 		vm.Spec.Preference = &virtv1.PreferenceMatcher{
 			RevisionName: originalPreferenceCR.Name,
 		}
@@ -151,33 +155,33 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		expectControllerRevisionDeletion()
 		expectControllerRevisionDeletion()
 
-		Expect(methods.Upgrade(vm)).To(Succeed())
+		Expect(upgradeHandler.Upgrade(vm)).To(Succeed())
 
-		Expect(methods.ControllerRevisionStore.List()).To(HaveLen(2))
+		Expect(controllerrevisionInformerStore.List()).To(HaveLen(2))
 
 		Expect(vm.Spec.Instancetype.Name).ToNot(Equal(originalInstancetypeCR.Name))
 		Expect(vm.Spec.Preference.Name).ToNot(Equal(originalPreferenceCR.Name))
 
-		newObj, exists, err := methods.ControllerRevisionStore.GetByKey(crKeyFunc(vm.Namespace, vm.Spec.Instancetype.RevisionName))
+		newObj, exists, err := controllerrevisionInformerStore.GetByKey(crKeyFunc(vm.Namespace, vm.Spec.Instancetype.RevisionName))
 		Expect(exists).To(BeTrue())
 		Expect(err).ToNot(HaveOccurred())
 
 		newInstancetypeCR, ok := newObj.(*appsv1.ControllerRevision)
 		Expect(ok).To(BeTrue())
 
-		Expect(IsObjectLatestVersion(newInstancetypeCR)).To(BeTrue())
+		Expect(upgrade.IsObjectLatestVersion(newInstancetypeCR)).To(BeTrue())
 		if originalKindLabel, hasLabel := originalInstancetypeCR.Labels[instancetypeapi.ControllerRevisionObjectKindLabel]; hasLabel {
 			Expect(newInstancetypeCR.Labels).To(HaveKeyWithValue(instancetypeapi.ControllerRevisionObjectKindLabel, originalKindLabel))
 		}
 
-		newObj, exists, err = methods.ControllerRevisionStore.GetByKey(crKeyFunc(vm.Namespace, vm.Spec.Preference.RevisionName))
+		newObj, exists, err = controllerrevisionInformerStore.GetByKey(crKeyFunc(vm.Namespace, vm.Spec.Preference.RevisionName))
 		Expect(exists).To(BeTrue())
 		Expect(err).ToNot(HaveOccurred())
 
 		newPreferenceCR, ok := newObj.(*appsv1.ControllerRevision)
 		Expect(ok).To(BeTrue())
 
-		Expect(IsObjectLatestVersion(newPreferenceCR)).To(BeTrue())
+		Expect(upgrade.IsObjectLatestVersion(newPreferenceCR)).To(BeTrue())
 		if originalKindLabel, hasLabel := originalPreferenceCR.Labels[instancetypeapi.ControllerRevisionObjectKindLabel]; hasLabel {
 			Expect(newPreferenceCR.Labels).To(HaveKeyWithValue(instancetypeapi.ControllerRevisionObjectKindLabel, originalKindLabel))
 		}
@@ -468,24 +472,24 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		createPreferenceCR func() *appsv1.ControllerRevision,
 	) {
 		originalInstancetypeCR := createInstancetypeCR()
-		Expect(methods.ControllerRevisionStore.Add(originalInstancetypeCR)).To(Succeed())
+		Expect(controllerrevisionInformerStore.Add(originalInstancetypeCR)).To(Succeed())
 		vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
 			RevisionName: originalInstancetypeCR.Name,
 		}
 
 		originalPreferenceCR := createPreferenceCR()
-		Expect(methods.ControllerRevisionStore.Add(originalPreferenceCR)).To(Succeed())
+		Expect(controllerrevisionInformerStore.Add(originalPreferenceCR)).To(Succeed())
 		vm.Spec.Preference = &virtv1.PreferenceMatcher{
 			RevisionName: originalPreferenceCR.Name,
 		}
 
-		Expect(methods.Upgrade(vm)).To(Succeed())
+		Expect(upgradeHandler.Upgrade(vm)).To(Succeed())
 
 		Expect(vm.Spec.Instancetype.RevisionName).To(Equal(originalInstancetypeCR.Name))
 		Expect(vm.Spec.Preference.RevisionName).To(Equal(originalPreferenceCR.Name))
 
 		// Repeat the Upgrade call to show it is idempotent
-		Expect(methods.Upgrade(vm)).To(Succeed())
+		Expect(upgradeHandler.Upgrade(vm)).To(Succeed())
 
 		Expect(vm.Spec.Instancetype.RevisionName).To(Equal(originalInstancetypeCR.Name))
 		Expect(vm.Spec.Preference.RevisionName).To(Equal(originalPreferenceCR.Name))
