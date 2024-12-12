@@ -63,7 +63,7 @@ spec:
         - name: NETWORK_ADDONS_VERSION
           value: v0.96.0
         - name: SSP_VERSION
-          value: v0.22.0-rc.0
+          value: v0.22.1
         - name: HPPO_VERSION
           value: v0.21.0
         - name: AAQ_VERSION
@@ -523,15 +523,15 @@ spec:
         - /manager
         env:
         - name: VALIDATOR_IMAGE
-          value: quay.io/kubevirt/kubevirt-template-validator@sha256:28daec478f721c7f92b81bd9b13307bfb8888e0eea9892f93df0ac1795b338ec
+          value: quay.io/kubevirt/kubevirt-template-validator@sha256:a8d15be0336b43bef23aa127d69b040ddfba917c6ae5a83f2226cdb7ae27ccc5
         - name: OPERATOR_VERSION
-          value: v0.22.0-rc.0
+          value: v0.22.1
         - name: VM_CONSOLE_PROXY_IMAGE
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: quay.io/kubevirt/ssp-operator@sha256:640e02a827a87dbc89134030cdcab3a7aa381b7b6a902ed19a8837d89a3baadb
+        image: quay.io/kubevirt/ssp-operator@sha256:4e37f106d2ab188c53ca743cd9226703f1f8640ad8628e80bdd249f48ab905cc
         livenessProbe:
           httpGet:
             path: /healthz
@@ -881,6 +881,22 @@ spec:
     targetPort: 4343
   selector:
     name: hyperconverged-cluster-webhook
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    name: ssp-operator
+  name: ssp-operator-service
+spec:
+  ports:
+  - name: "9443"
+    port: 9443
+    protocol: TCP
+    targetPort: 9443
+  selector:
+    control-plane: ssp-operator
   type: ClusterIP
 ---
 apiVersion: v1

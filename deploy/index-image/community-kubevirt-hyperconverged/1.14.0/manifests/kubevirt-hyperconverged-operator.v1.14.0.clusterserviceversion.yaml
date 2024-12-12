@@ -3,7 +3,7 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"macvtap":{},"multus":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"ssp.kubevirt.io/v1beta2","kind":"SSP","metadata":{"name":"ssp-sample","namespace":"kubevirt"},"spec":{"commonTemplates":{"namespace":"kubevirt"},"featureGates":{"deployVmConsoleProxy":true},"templateValidator":{"replicas":2}}},{"apiVersion":"cdi.kubevirt.io/v1beta1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1beta1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","storagePools":[{"name":"local","path":"/var/hpvolumes","pvcTemplate":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"50Gi"}}}}],"workload":{"nodeSelector":{"kubernetes.io/os":"linux"}}}},{"apiVersion":"aaq.kubevirt.io/v1alpha1","kind":"AAQ","metadata":{"name":"aaq","namespace":"aaq"},"spec":{"imagePullPolicy":"IfNotPresent"}}]'
+    alm-examples: '[{"apiVersion":"hco.kubevirt.io/v1beta1","kind":"HyperConverged","metadata":{"annotations":{"deployOVS":"false"},"name":"kubevirt-hyperconverged","namespace":"kubevirt-hyperconverged"},"spec":{}},{"apiVersion":"networkaddonsoperator.network.kubevirt.io/v1","kind":"NetworkAddonsConfig","metadata":{"name":"cluster"},"spec":{"imagePullPolicy":"IfNotPresent","kubeMacPool":{"rangeEnd":"FD:FF:FF:FF:FF:FF","rangeStart":"02:00:00:00:00:00"},"linuxBridge":{},"macvtap":{},"multus":{},"ovs":{}}},{"apiVersion":"kubevirt.io/v1","kind":"KubeVirt","metadata":{"name":"kubevirt","namespace":"kubevirt"},"spec":{"imagePullPolicy":"Always"}},{"apiVersion":"ssp.kubevirt.io/v1beta2","kind":"SSP","metadata":{"name":"ssp-sample","namespace":"kubevirt"},"spec":{"commonTemplates":{"namespace":"kubevirt"},"featureGates":{"deployVmConsoleProxy":true},"templateValidator":{"replicas":2}}},{"apiVersion":"ssp.kubevirt.io/v1beta3","kind":"SSP","metadata":{"name":"ssp-sample","namespace":"kubevirt"},"spec":{"commonTemplates":{"namespace":"kubevirt"},"templateValidator":{"replicas":2}}},{"apiVersion":"cdi.kubevirt.io/v1beta1","kind":"CDI","metadata":{"name":"cdi","namespace":"cdi"},"spec":{"imagePullPolicy":"IfNotPresent"}},{"apiVersion":"hostpathprovisioner.kubevirt.io/v1beta1","kind":"HostPathProvisioner","metadata":{"name":"hostpath-provisioner"},"spec":{"imagePullPolicy":"IfNotPresent","storagePools":[{"name":"local","path":"/var/hpvolumes","pvcTemplate":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"50Gi"}}}}],"workload":{"nodeSelector":{"kubernetes.io/os":"linux"}}}},{"apiVersion":"aaq.kubevirt.io/v1alpha1","kind":"AAQ","metadata":{"name":"aaq","namespace":"aaq"},"spec":{"imagePullPolicy":"IfNotPresent"}}]'
     capabilities: Deep Insights
     categories: OpenShift Optional
     certified: "false"
@@ -97,14 +97,14 @@ spec:
       kind: KubeVirt
       name: kubevirts.kubevirt.io
       version: v1
-    - kind: SSP
-      name: ssps.ssp.kubevirt.io
-      version: v1beta1
     - description: SSP is the Schema for the ssps API
       displayName: SSP
       kind: SSP
       name: ssps.ssp.kubevirt.io
       version: v1beta2
+    - kind: SSP
+      name: ssps.ssp.kubevirt.io
+      version: v1beta3
     - description: Represents a CDI deployment
       displayName: CDI deployment
       kind: CDI
@@ -2123,20 +2123,16 @@ spec:
           resources:
           - virtualmachineclusterinstancetypes
           verbs:
-          - create
           - delete
           - list
-          - update
           - watch
         - apiGroups:
           - instancetype.kubevirt.io
           resources:
           - virtualmachineclusterpreferences
           verbs:
-          - create
           - delete
           - list
-          - update
           - watch
         - apiGroups:
           - kubevirt.io
@@ -3190,7 +3186,7 @@ spec:
                 - name: NETWORK_ADDONS_VERSION
                   value: v0.96.0
                 - name: SSP_VERSION
-                  value: v0.22.0-rc.0
+                  value: v0.22.1
                 - name: HPPO_VERSION
                   value: v0.21.0
                 - name: AAQ_VERSION
@@ -3629,15 +3625,15 @@ spec:
                 - /manager
                 env:
                 - name: VALIDATOR_IMAGE
-                  value: quay.io/kubevirt/kubevirt-template-validator@sha256:28daec478f721c7f92b81bd9b13307bfb8888e0eea9892f93df0ac1795b338ec
+                  value: quay.io/kubevirt/kubevirt-template-validator@sha256:a8d15be0336b43bef23aa127d69b040ddfba917c6ae5a83f2226cdb7ae27ccc5
                 - name: OPERATOR_VERSION
-                  value: v0.22.0-rc.0
+                  value: v0.22.1
                 - name: VM_CONSOLE_PROXY_IMAGE
                 - name: POD_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.namespace
-                image: quay.io/kubevirt/ssp-operator@sha256:640e02a827a87dbc89134030cdcab3a7aa381b7b6a902ed19a8837d89a3baadb
+                image: quay.io/kubevirt/ssp-operator@sha256:4e37f106d2ab188c53ca743cd9226703f1f8640ad8628e80bdd249f48ab905cc
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -4717,7 +4713,7 @@ spec:
     name: kubevirt-apiserver-proxy
   - image: quay.io/kubevirt-ui/kubevirt-plugin@sha256:902af624e05eca764c17137c27813b1618f388e4b1a53b27b54665e8735251a2
     name: kubevirt-plugin
-  - image: quay.io/kubevirt/kubevirt-template-validator@sha256:28daec478f721c7f92b81bd9b13307bfb8888e0eea9892f93df0ac1795b338ec
+  - image: quay.io/kubevirt/kubevirt-template-validator@sha256:a8d15be0336b43bef23aa127d69b040ddfba917c6ae5a83f2226cdb7ae27ccc5
     name: kubevirt-template-validator
   - image: quay.io/kubevirt/libguestfs-tools@sha256:d655b9abbe8cce45bce3934e11d01715e170ddda4da78d7c51f356e7ee1e3263
     name: libguestfs-tools
@@ -4741,7 +4737,7 @@ spec:
     name: pr-helper
   - image: quay.io/kubevirt/sidecar-shim@sha256:cb4025f7275f8de2891c2195c5faf128ac1b68595cdb3eff776a2e5360b8f034
     name: sidecar-shim
-  - image: quay.io/kubevirt/ssp-operator@sha256:640e02a827a87dbc89134030cdcab3a7aa381b7b6a902ed19a8837d89a3baadb
+  - image: quay.io/kubevirt/ssp-operator@sha256:4e37f106d2ab188c53ca743cd9226703f1f8640ad8628e80bdd249f48ab905cc
     name: ssp-operator
   - image: quay.io/kubevirt/virt-api@sha256:d92c78b3048756fd11d3c6f1a48f4ce8555dd39e866039313dc23bfa70668443
     name: virt-api
@@ -4841,12 +4837,11 @@ spec:
     containerPort: 9443
     deploymentName: ssp-operator
     failurePolicy: Fail
-    generateName: validation.ssp.kubevirt.io
+    generateName: validation.v1beta2.ssp.kubevirt.io
     rules:
     - apiGroups:
       - ssp.kubevirt.io
       apiVersions:
-      - v1beta1
       - v1beta2
       operations:
       - CREATE
@@ -4857,6 +4852,26 @@ spec:
     targetPort: 9443
     type: ValidatingAdmissionWebhook
     webhookPath: /validate-ssp-kubevirt-io-v1beta2-ssp
+  - admissionReviewVersions:
+    - v1
+    containerPort: 9443
+    deploymentName: ssp-operator
+    failurePolicy: Fail
+    generateName: validation.v1beta3.ssp.kubevirt.io
+    rules:
+    - apiGroups:
+      - ssp.kubevirt.io
+      apiVersions:
+      - v1beta3
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - ssps
+    sideEffects: None
+    targetPort: 9443
+    type: ValidatingAdmissionWebhook
+    webhookPath: /validate-ssp-kubevirt-io-v1beta3-ssp
   - admissionReviewVersions:
     - v1beta1
     containerPort: 9443

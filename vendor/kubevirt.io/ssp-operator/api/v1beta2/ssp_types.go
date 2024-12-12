@@ -84,9 +84,9 @@ type SSPSpec struct {
 	// TokenGenerationService configures the service for generating tokens to access VNC for a VM.
 	TokenGenerationService *TokenGenerationService `json:"tokenGenerationService,omitempty"`
 
-	// CommonInstancetypes is the configuration of the common-instancetypes operand
-	//
-	// Deprecated: This functionality will be removed in a future release.
+	// CommonInstancetypes is ignored.
+	// +kubebuilder:deprecatedversion:warning="commonInstancetypes filed is ignored"
+	// Deprecated: This field is ignored.
 	CommonInstancetypes *CommonInstancetypes `json:"commonInstancetypes,omitempty"`
 
 	// TektonPipelines is the configuration of the tekton-pipelines operand
@@ -123,7 +123,8 @@ type FeatureGates struct {
 	// Deprecated: This field is ignored.
 	DeployVmConsoleProxy bool `json:"deployVmConsoleProxy,omitempty"`
 
-	// Enables deployment of the common-instancetypes bundles, defaults to true.
+	// +kubebuilder:deprecatedversion:warning="instance types and preferences are no longer deployed by SSP"
+	// Deprecated: This field is ignored.
 	DeployCommonInstancetypes *bool `json:"deployCommonInstancetypes,omitempty"`
 }
 

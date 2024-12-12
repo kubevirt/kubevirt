@@ -43,7 +43,7 @@ require (
 	kubevirt.io/application-aware-quota v1.3.0
 	kubevirt.io/containerized-data-importer-api v1.61.0
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
-	kubevirt.io/ssp-operator/api v0.22.0-rc.0
+	kubevirt.io/ssp-operator/api v0.22.1
 	sigs.k8s.io/controller-runtime v0.19.0
 	sigs.k8s.io/controller-tools v0.16.2
 )
