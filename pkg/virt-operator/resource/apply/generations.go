@@ -9,8 +9,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 
-	operatorsv1 "github.com/openshift/api/operator/v1"
-	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -53,10 +51,8 @@ func GetExpectedGeneration(required runtime.Object, previousGenerations []k6tv1.
 		return -1
 	}
 
-	operatorGenerations := toOperatorGenerations(previousGenerations)
-
 	meta := required.(v1.Object)
-	generation := resourcemerge.GenerationFor(operatorGenerations, schema.GroupResource{Group: group, Resource: resource}, meta.GetNamespace(), meta.GetName())
+	generation := generationFor(previousGenerations, schema.GroupResource{Group: group, Resource: resource}, meta.GetNamespace(), meta.GetName())
 	if generation == nil {
 		return -1
 	}
@@ -65,7 +61,6 @@ func GetExpectedGeneration(required runtime.Object, previousGenerations []k6tv1.
 }
 
 func SetGeneration(generations *[]k6tv1.GenerationStatus, actual runtime.Object) {
-
 	if actual == nil {
 		return
 	}
@@ -75,53 +70,42 @@ func SetGeneration(generations *[]k6tv1.GenerationStatus, actual runtime.Object)
 		return
 	}
 
-	operatorGenerations := toOperatorGenerations(*generations)
 	meta := actual.(v1.Object)
-
-	resourcemerge.SetGeneration(&operatorGenerations, operatorsv1.GenerationStatus{
+	setGeneration(generations, k6tv1.GenerationStatus{
 		Group:          group,
 		Resource:       resource,
 		Namespace:      meta.GetNamespace(),
 		Name:           meta.GetName(),
 		LastGeneration: meta.GetGeneration(),
 	})
-
-	newGenerations := toAPIGenerations(operatorGenerations)
-	*generations = newGenerations
 }
 
-func toOperatorGeneration(generation k6tv1.GenerationStatus) operatorsv1.GenerationStatus {
-	return operatorsv1.GenerationStatus{
-		Group:          generation.Group,
-		Resource:       generation.Resource,
-		Namespace:      generation.Namespace,
-		Name:           generation.Name,
-		LastGeneration: generation.LastGeneration,
-		Hash:           generation.Hash,
+func generationFor(generations []k6tv1.GenerationStatus, resource schema.GroupResource, namespace, name string) *k6tv1.GenerationStatus {
+	for i := range generations {
+		curr := &generations[i]
+		if curr.Namespace == namespace &&
+			curr.Name == name &&
+			curr.Group == resource.Group &&
+			curr.Resource == resource.Resource {
+
+			return curr
+		}
 	}
+
+	return nil
 }
 
-func toAPIGeneration(generation operatorsv1.GenerationStatus) k6tv1.GenerationStatus {
-	return k6tv1.GenerationStatus{
-		Group:          generation.Group,
-		Resource:       generation.Resource,
-		Namespace:      generation.Namespace,
-		Name:           generation.Name,
-		LastGeneration: generation.LastGeneration,
-		Hash:           generation.Hash,
+func setGeneration(generations *[]k6tv1.GenerationStatus, newGeneration k6tv1.GenerationStatus) {
+	if generations == nil {
+		return
 	}
-}
 
-func toOperatorGenerations(generations []k6tv1.GenerationStatus) (operatorGenerations []operatorsv1.GenerationStatus) {
-	for _, generation := range generations {
-		operatorGenerations = append(operatorGenerations, toOperatorGeneration(generation))
+	existingGeneration := generationFor(*generations, schema.GroupResource{Group: newGeneration.Group, Resource: newGeneration.Resource}, newGeneration.Namespace, newGeneration.Name)
+	if existingGeneration == nil {
+		*generations = append(*generations, newGeneration)
+		return
 	}
-	return operatorGenerations
-}
 
-func toAPIGenerations(generations []operatorsv1.GenerationStatus) (apiGenerations []k6tv1.GenerationStatus) {
-	for _, generation := range generations {
-		apiGenerations = append(apiGenerations, toAPIGeneration(generation))
-	}
-	return apiGenerations
+	existingGeneration.LastGeneration = newGeneration.LastGeneration
+	existingGeneration.Hash = newGeneration.Hash
 }

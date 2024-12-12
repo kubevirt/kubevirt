@@ -42,7 +42,6 @@ require (
 	github.com/opencontainers/selinux v1.13.0
 	github.com/openshift/api v0.0.0
 	github.com/openshift/client-go v0.0.0
-	github.com/openshift/library-go v0.0.0-20240502143225-f71afde059ac
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190725173916-b56e63a643cc
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.80.1
