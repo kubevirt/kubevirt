@@ -23,7 +23,7 @@ func EnsureObjectMeta(modified *bool, existing *metav1.ObjectMeta, required meta
 }
 
 func setStringIfSet(modified *bool, existing *string, required string) {
-	if len(required) == 0 {
+	if required == "" {
 		return
 	}
 	if required != *existing {
@@ -32,7 +32,7 @@ func setStringIfSet(modified *bool, existing *string, required string) {
 	}
 }
 
-func mergeMap(modified *bool, existing *map[string]string, required map[string]string) {
+func mergeMap(modified *bool, existing *map[string]string, required map[string]string) { //nolint:gocritic
 	if *existing == nil {
 		*existing = map[string]string{}
 	}
@@ -54,7 +54,6 @@ func mergeMap(modified *bool, existing *map[string]string, required map[string]s
 			// value found -> it should be removed
 			delete(*existing, actualKey)
 			*modified = true
-
 		} else if !ok || v != existingV {
 			*modified = true
 			(*existing)[actualKey] = v
