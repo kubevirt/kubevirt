@@ -1,0 +1,35 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "catalogsource_types.go",
+        "clusterserviceversion.go",
+        "clusterserviceversion_types.go",
+        "doc.go",
+        "installplan_types.go",
+        "register.go",
+        "subscription_types.go",
+        "zz_generated.deepcopy.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/operator-framework/api/pkg/operators/v1alpha1",
+    importpath = "github.com/operator-framework/api/pkg/operators/v1alpha1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/operator-framework/api/pkg/lib/version:go_default_library",
+        "//vendor/github.com/operator-framework/api/pkg/operators:go_default_library",
+        "//vendor/github.com/sirupsen/logrus:go_default_library",
+        "//vendor/k8s.io/api/admissionregistration/v1:go_default_library",
+        "//vendor/k8s.io/api/apps/v1:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/api/rbac/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/labels:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/intstr:go_default_library",
+        "//vendor/k8s.io/client-go/tools/record:go_default_library",
+    ],
+)

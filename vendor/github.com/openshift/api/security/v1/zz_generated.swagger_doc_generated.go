@@ -41,7 +41,7 @@ func (IDRange) SwaggerDoc() map[string]string {
 }
 
 var map_PodSecurityPolicyReview = map[string]string{
-	"":       "PodSecurityPolicyReview checks which service accounts (not users, since that would be cluster-wide) can create the `PodTemplateSpec` in question.",
+	"":       "PodSecurityPolicyReview checks which service accounts (not users, since that would be cluster-wide) can create the `PodTemplateSpec` in question.\n\nCompatibility level 2: Stable within a major release for a minimum of 9 months or 3 minor releases (whichever is longer).",
 	"spec":   "spec is the PodSecurityPolicy to check.",
 	"status": "status represents the current information/status for the PodSecurityPolicyReview.",
 }
@@ -70,7 +70,7 @@ func (PodSecurityPolicyReviewStatus) SwaggerDoc() map[string]string {
 }
 
 var map_PodSecurityPolicySelfSubjectReview = map[string]string{
-	"":       "PodSecurityPolicySelfSubjectReview checks whether this user/SA tuple can create the PodTemplateSpec",
+	"":       "PodSecurityPolicySelfSubjectReview checks whether this user/SA tuple can create the PodTemplateSpec\n\nCompatibility level 2: Stable within a major release for a minimum of 9 months or 3 minor releases (whichever is longer).",
 	"spec":   "spec defines specification the PodSecurityPolicySelfSubjectReview.",
 	"status": "status represents the current information/status for the PodSecurityPolicySelfSubjectReview.",
 }
@@ -89,7 +89,7 @@ func (PodSecurityPolicySelfSubjectReviewSpec) SwaggerDoc() map[string]string {
 }
 
 var map_PodSecurityPolicySubjectReview = map[string]string{
-	"":       "PodSecurityPolicySubjectReview checks whether a particular user/SA tuple can create the PodTemplateSpec.",
+	"":       "PodSecurityPolicySubjectReview checks whether a particular user/SA tuple can create the PodTemplateSpec.\n\nCompatibility level 2: Stable within a major release for a minimum of 9 months or 3 minor releases (whichever is longer).",
 	"spec":   "spec defines specification for the PodSecurityPolicySubjectReview.",
 	"status": "status represents the current information/status for the PodSecurityPolicySubjectReview.",
 }
@@ -121,9 +121,10 @@ func (PodSecurityPolicySubjectReviewStatus) SwaggerDoc() map[string]string {
 }
 
 var map_RangeAllocation = map[string]string{
-	"":      "RangeAllocation is used so we can easily expose a RangeAllocation typed for security group",
-	"range": "range is a string representing a unique label for a range of uids, \"1000000000-2000000000/10000\".",
-	"data":  "data is a byte array representing the serialized state of a range allocation.  It is a bitmap with each bit set to one to represent a range is taken.",
+	"":         "RangeAllocation is used so we can easily expose a RangeAllocation typed for security group\n\nCompatibility level 4: No compatibility is provided, the API can change at any point for any reason. These capabilities should not be used by applications needing long term support.",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"range":    "range is a string representing a unique label for a range of uids, \"1000000000-2000000000/10000\".",
+	"data":     "data is a byte array representing the serialized state of a range allocation.  It is a bitmap with each bit set to one to represent a range is taken.",
 }
 
 func (RangeAllocation) SwaggerDoc() map[string]string {
@@ -131,8 +132,9 @@ func (RangeAllocation) SwaggerDoc() map[string]string {
 }
 
 var map_RangeAllocationList = map[string]string{
-	"":      "RangeAllocationList is a list of RangeAllocations objects",
-	"items": "List of RangeAllocations.",
+	"":         "RangeAllocationList is a list of RangeAllocations objects\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"items":    "List of RangeAllocations.",
 }
 
 func (RangeAllocationList) SwaggerDoc() map[string]string {
@@ -162,7 +164,8 @@ func (SELinuxContextStrategyOptions) SwaggerDoc() map[string]string {
 }
 
 var map_SecurityContextConstraints = map[string]string{
-	"":                                "SecurityContextConstraints governs the ability to make requests that affect the SecurityContext that will be applied to a container. For historical reasons SCC was exposed under the core Kubernetes API group. That exposure is deprecated and will be removed in a future release - users should instead use the security.openshift.io group to manage SecurityContextConstraints.",
+	"":                                "SecurityContextConstraints governs the ability to make requests that affect the SecurityContext that will be applied to a container. For historical reasons SCC was exposed under the core Kubernetes API group. That exposure is deprecated and will be removed in a future release - users should instead use the security.openshift.io group to manage SecurityContextConstraints.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata":                        "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
 	"priority":                        "Priority influences the sort order of SCCs when evaluating which SCCs to try first for a given pod request based on access in the Users and Groups fields.  The higher the int, the higher priority. An unset value is considered a 0 priority. If scores for multiple SCCs are equal they will be sorted from most restrictive to least restrictive. If both priorities and restrictions are equal the SCCs will be sorted by name.",
 	"allowPrivilegedContainer":        "AllowPrivilegedContainer determines if a container can request to be run as privileged.",
 	"defaultAddCapabilities":          "DefaultAddCapabilities is the default set of capabilities that will be added to the container unless the pod spec specifically drops the capability.  You may not list a capabiility in both DefaultAddCapabilities and RequiredDropCapabilities.",
@@ -194,8 +197,9 @@ func (SecurityContextConstraints) SwaggerDoc() map[string]string {
 }
 
 var map_SecurityContextConstraintsList = map[string]string{
-	"":      "SecurityContextConstraintsList is a list of SecurityContextConstraints objects",
-	"items": "List of security context constraints.",
+	"":         "SecurityContextConstraintsList is a list of SecurityContextConstraints objects\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"items":    "List of security context constraints.",
 }
 
 func (SecurityContextConstraintsList) SwaggerDoc() map[string]string {
