@@ -10,6 +10,7 @@ function dump() {
         echo "Error during HCO CR deployment: exit status: $rv"
         ${KUBECTL} logs -n olm -l app=olm-operator
         ${KUBECTL} get pod -n kubevirt-hyperconverged
+        ${KUBECTL} logs -n kubevirt-hyperconverged -l name=hyperconverged-cluster-operator
         echo "*** HCO CR deployment failed ***"
     fi
     exit $rv
@@ -122,11 +123,15 @@ export KUBECTL=$(pwd)/_kubevirtci/cluster-up/kubectl.sh
 # TODO: drop the --version command line parameter when https://github.com/operator-framework/operator-lifecycle-manager/issues/3419 is resolved.
 ./operator-sdk olm install --version=v0.28.0
 
+# Deploy cert-manager for webhooks
+$KUBECTL apply -f deploy/cert-manager.yaml
+$KUBECTL -n cert-manager wait deployment/cert-manager-webhook --for=condition=Available --timeout="300s"
+
 trap "dump" INT TERM EXIT
 
 # install HCO on the cluster
 $KUBECTL create ns kubevirt-hyperconverged
-./operator-sdk run bundle -n kubevirt-hyperconverged --timeout=30m ${BUNDLE_IMAGE_NAME}
+./operator-sdk run bundle -n kubevirt-hyperconverged --timeout=10m ${BUNDLE_IMAGE_NAME}
 
 # deploy the HyperConverged CR
 $KUBECTL apply -n kubevirt-hyperconverged -f deploy/hco.cr.yaml
