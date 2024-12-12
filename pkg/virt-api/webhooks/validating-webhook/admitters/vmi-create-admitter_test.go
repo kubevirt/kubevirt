@@ -979,44 +979,53 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
-		DescribeTable("should verify LUN is mapped to PVC volume",
-			func(volume *v1.Volume, expectedErrors int) {
-				vmi := api.NewMinimalVMI("testvmi")
-				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-					Name: "testdisk",
-					DiskDevice: v1.DiskDevice{
-						LUN: &v1.LunTarget{},
-					},
-				})
-				vmi.Spec.Volumes = append(vmi.Spec.Volumes, *volume)
+		DescribeTable("should allow LUN is mapped to PVC volume", func(volume v1.Volume) {
+			vmi := newBaseVmi(libvmi.WithPersistentVolumeClaimLun("testdisk", "testpvc", false))
+			vmi.Spec.Volumes[0] = volume
 
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-				Expect(causes).To(HaveLen(expectedErrors))
-			},
-			Entry("and reject non PVC sources",
-				&v1.Volume{
-					Name: "testdisk",
-					VolumeSource: v1.VolumeSource{
-						ContainerDisk: testutils.NewFakeContainerDiskSource(),
-					},
-				}, 1),
-			Entry("and accept PVC sources",
-				&v1.Volume{
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue())
+			Expect(resp.Result).To(BeNil())
+		},
+			Entry("with PVC source",
+				v1.Volume{
 					Name: "testdisk",
 					VolumeSource: v1.VolumeSource{
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{},
 					},
-				}, 0),
-			Entry("and accept DataVolume sources",
-				&v1.Volume{
+				}),
+			Entry("with DataVolume source",
+				v1.Volume{
 					Name: "testdisk",
 					VolumeSource: v1.VolumeSource{
 						DataVolume: &v1.DataVolumeSource{
 							Name: "testDV",
 						},
 					},
-				}, 0),
+				}),
 		)
+		It("should deny LUN mapped to non PVC source", func() {
+			vmi := newBaseVmi(libvmi.WithPersistentVolumeClaimLun("testdisk", "testpvc", false))
+			vmi.Spec.Volumes[0] = v1.Volume{
+				Name: "testdisk",
+				VolumeSource: v1.VolumeSource{
+					ContainerDisk: testutils.NewFakeContainerDiskSource(),
+				},
+			}
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Details.Causes).To(HaveLen(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0].lun"))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("spec.domain.devices.disks[0].lun can only be " +
+				"mapped to a DataVolume or PersistentVolumeClaim volume."))
+		})
 		It("should accept a single interface and network", func() {
 			vm := api.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
