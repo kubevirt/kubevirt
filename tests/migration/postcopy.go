@@ -108,10 +108,6 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
 					Expect(err).ToNot(HaveOccurred())
 				})
 
-				AfterEach(func() {
-					libstorage.DeleteDataVolume(&dv)
-				})
-
 				It("[test_id:5004] should be migrated successfully, using guest agent on VM with postcopy", func() {
 					VMIMigrationWithGuestAgent(virtClient, dv.Name, "1Gi", migrationPolicy)
 				})

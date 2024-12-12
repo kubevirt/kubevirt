@@ -13124,7 +13124,7 @@
       "type": "boolean"
      },
      "name": {
-      "description": "Name of both the DataVolume and the PVC in the same namespace. After PVC population the DataVolume is garbage collected by default.",
+      "description": "Name of both the DataVolume and the PVC in the same namespace.",
       "type": "string",
       "default": ""
      }

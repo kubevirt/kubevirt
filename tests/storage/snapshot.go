@@ -1001,6 +1001,54 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				}
 			})
 
+			It("[test_id:4611] should successfully create a snapshot", func() {
+				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
+
+				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				waitSnapshotReady()
+
+				Expect(snapshot.Status.CreationTime).ToNot(BeNil())
+				contentName := *snapshot.Status.VirtualMachineSnapshotContentName
+				content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(*content.Spec.VirtualMachineSnapshotName).To(Equal(snapshot.Name))
+				Expect(content.Spec.Source.VirtualMachine.Spec).To(Equal(vm.Spec))
+				Expect(content.Spec.VolumeBackups).Should(HaveLen(len(vm.Spec.DataVolumeTemplates)))
+
+				for _, vol := range vm.Spec.Template.Spec.Volumes {
+					if vol.DataVolume == nil {
+						continue
+					}
+					found := false
+					for _, vb := range content.Spec.VolumeBackups {
+						if vol.DataVolume.Name == vb.PersistentVolumeClaim.Name {
+							found = true
+							Expect(vol.Name).To(Equal(vb.VolumeName))
+
+							pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), vol.DataVolume.Name, metav1.GetOptions{})
+							Expect(err).ToNot(HaveOccurred())
+							Expect(pvc.Spec).To(Equal(vb.PersistentVolumeClaim.Spec))
+
+							Expect(vb.VolumeSnapshotName).ToNot(BeNil())
+							vs, err := virtClient.
+								KubernetesSnapshotClient().
+								SnapshotV1().
+								VolumeSnapshots(vm.Namespace).
+								Get(context.Background(), *vb.VolumeSnapshotName, metav1.GetOptions{})
+							Expect(err).ToNot(HaveOccurred())
+							Expect(*vs.Spec.Source.PersistentVolumeClaimName).Should(Equal(vol.DataVolume.Name))
+							Expect(vs.Labels["snapshot.kubevirt.io/source-vm-name"]).Should(Equal(vm.Name))
+							Expect(vs.Status.Error).To(BeNil())
+							Expect(*vs.Status.ReadyToUse).To(BeTrue())
+						}
+					}
+					Expect(found).To(BeTrue())
+				}
+			})
+
 			It("should successfully recreate status", func() {
 				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
 
@@ -1312,99 +1360,8 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			})))
 		})
 
-		Context("With more complicated VM with/out GC of succeeded DV", Serial, func() {
-			var originalTTL *int32
-
-			BeforeEach(func() {
-				cdi := libstorage.GetCDI(virtClient)
-				originalTTL = cdi.Spec.Config.DataVolumeTTLSeconds
-			})
-
-			AfterEach(func() {
-				libstorage.SetDataVolumeGC(virtClient, originalTTL)
-			})
-
-			DescribeTable("should successfully create a snapshot", func(ttl *int32) {
-				libstorage.SetDataVolumeGC(virtClient, ttl)
-
-				vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass)
-				wffcSC := libstorage.IsStorageClassBindingModeWaitForFirstConsumer(snapshotStorageClass)
-				if wffcSC {
-					// with wffc need to start the virtual machine
-					// in order for the pvc to be populated
-					vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
-				} else {
-					vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyHalted)
-				}
-
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				for _, dvt := range vm.Spec.DataVolumeTemplates {
-					waitDataVolumePopulated(vm.Namespace, dvt.Name)
-				}
-
-				if wffcSC {
-					vm = libvmops.StopVirtualMachine(vm)
-				}
-
-				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
-
-				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				waitSnapshotReady()
-
-				Expect(snapshot.Status.CreationTime).ToNot(BeNil())
-				contentName := *snapshot.Status.VirtualMachineSnapshotContentName
-				content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(*content.Spec.VirtualMachineSnapshotName).To(Equal(snapshot.Name))
-				Expect(content.Spec.Source.VirtualMachine.Spec).To(Equal(vm.Spec))
-				Expect(content.Spec.VolumeBackups).Should(HaveLen(len(vm.Spec.DataVolumeTemplates)))
-
-				for _, vol := range vm.Spec.Template.Spec.Volumes {
-					if vol.DataVolume == nil {
-						continue
-					}
-					found := false
-					for _, vb := range content.Spec.VolumeBackups {
-						if vol.DataVolume.Name == vb.PersistentVolumeClaim.Name {
-							found = true
-							Expect(vol.Name).To(Equal(vb.VolumeName))
-
-							pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), vol.DataVolume.Name, metav1.GetOptions{})
-							Expect(err).ToNot(HaveOccurred())
-							Expect(pvc.Spec).To(Equal(vb.PersistentVolumeClaim.Spec))
-
-							Expect(vb.VolumeSnapshotName).ToNot(BeNil())
-							vs, err := virtClient.
-								KubernetesSnapshotClient().
-								SnapshotV1().
-								VolumeSnapshots(vm.Namespace).
-								Get(context.Background(), *vb.VolumeSnapshotName, metav1.GetOptions{})
-							Expect(err).ToNot(HaveOccurred())
-							Expect(*vs.Spec.Source.PersistentVolumeClaimName).Should(Equal(vol.DataVolume.Name))
-							Expect(vs.Labels["snapshot.kubevirt.io/source-vm-name"]).Should(Equal(vm.Name))
-							Expect(vs.Status.Error).To(BeNil())
-							Expect(*vs.Status.ReadyToUse).To(BeTrue())
-						}
-					}
-					Expect(found).To(BeTrue())
-				}
-			},
-				Entry("[test_id:4611] without DV garbage collection", virtpointer.P(int32(-1))),
-				Entry("[test_id:8668] with DV garbage collection", virtpointer.P(int32(0))),
-			)
-		})
-
 		Context("with independent DataVolume", func() {
 			var dv *cdiv1.DataVolume
-
-			AfterEach(func() {
-				libstorage.DeleteDataVolume(&dv)
-			})
 
 			DescribeTable("should accurately report DataVolume provisioning", func(storageOptFun func(string, string) libvmi.Option, memory string) {
 				dataVolume := libdv.NewDataVolume(

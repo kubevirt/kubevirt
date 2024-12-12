@@ -1043,10 +1043,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				}
 			})
 
-			AfterEach(func() {
-				libstorage.DeleteDataVolume(&dv)
-			})
-
 			It("[test_id:2653] should be migrated successfully, using guest agent on VM with default migration configuration", func() {
 				By("Creating the DV")
 				createDV(testsuite.NamespacePrivileged)
@@ -1130,7 +1126,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 				} else {
 					kvconfig.EnableFeatureGate(virtconfig.Root)
 				}
-				libstorage.DeleteDataVolume(&dv)
 			})
 
 			DescribeTable("should migrate root implementation to nonroot", func(createVMI func() *v1.VirtualMachineInstance, loginFunc console.LoginToFunction) {
@@ -1214,10 +1209,6 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 					kvconfig.EnableFeatureGate(virtconfig.Root)
 				} else {
 					kvconfig.DisableFeatureGate(virtconfig.Root)
-				}
-				if dv != nil {
-					libstorage.DeleteDataVolume(&dv)
-					dv = nil
 				}
 			})
 

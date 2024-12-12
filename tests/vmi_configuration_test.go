@@ -2106,10 +2106,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 		})
 
-		AfterEach(func() {
-			libstorage.DeleteDataVolume(&dataVolume)
-		})
-
 		It("[test_id:1681]should set appropriate cache modes", func() {
 			tmpHostDiskDir := storage.RandHostDiskDir()
 			vmi := libvmi.New(
