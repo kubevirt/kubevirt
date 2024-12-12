@@ -72,7 +72,7 @@ var _ = Describe("[sig-storage][virtctl]Guestfs", decorators.SigStorage, func() 
 				libstorage.CreateFSPVC(pvcClaim, testsuite.GetTestNamespace(nil), "500Mi", nil)
 			})
 
-			It("Should successfully run libguestfs-test-tool", func() {
+			It("[test_id:11669]Should successfully run libguestfs-test-tool", func() {
 				runGuestfsOnPVC(done, pvcClaim, testsuite.GetTestNamespace(nil), setGroup)
 				stdout, _, err := execCommandLibguestfsPod(
 					getGuestfsPodName(pvcClaim), testsuite.GetTestNamespace(nil), []string{"libguestfs-test-tool"},
@@ -86,10 +86,10 @@ var _ = Describe("[sig-storage][virtctl]Guestfs", decorators.SigStorage, func() 
 				verifyCanRunOnFSPVC(getGuestfsPodName(pvcClaim), testsuite.GetTestNamespace(nil))
 			},
 				Entry("[test_id:6480]without extra arguments"),
-				Entry("setting the uid", "--uid", "1002"),
+				Entry("[test_id:11670]setting the uid", "--uid", "1002"),
 			)
 
-			It("[posneg:negative]Should fail to run the guestfs command on a PVC in use", func() {
+			It("[posneg:negative][test_id:11671]Should fail to run the guestfs command on a PVC in use", func() {
 				runGuestfsOnPVC(done, pvcClaim, testsuite.GetTestNamespace(nil), setGroup)
 				cmd := guestfsCmd(pvcClaim, testsuite.GetTestNamespace(nil), setGroup)
 				Expect(cmd()).To(MatchError(fmt.Sprintf("PVC %s is used by another pod", pvcClaim)))

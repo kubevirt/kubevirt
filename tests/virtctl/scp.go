@@ -106,7 +106,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 		Expect(libssh.DumpPrivateKey(priv, keyFile)).To(Succeed())
 	})
 
-	DescribeTable("should copy a local file back and forth", func(copyFn func(string, string, bool)) {
+	DescribeTable("[test_id:11659]should copy a local file back and forth", func(copyFn func(string, string, bool)) {
 		By("injecting a SSH public key into a VMI")
 		vmi := libvmifact.NewAlpineWithTestTooling(
 			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(libssh.RenderUserDataWithKey(pub))),
@@ -131,7 +131,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 		Entry("using the local scp method without --local-ssh flag", decorators.ExcludeNativeSSH, copyLocal(false)),
 	)
 
-	DescribeTable("should copy a local directory back and forth", func(copyFn func(string, string, bool)) {
+	DescribeTable("[test_id:11660]should copy a local directory back and forth", func(copyFn func(string, string, bool)) {
 		By("injecting a SSH public key into a VMI")
 		vmi := libvmifact.NewAlpineWithTestTooling(
 			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(libssh.RenderUserDataWithKey(pub))),
@@ -164,7 +164,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 		Entry("using the local scp method without --local-ssh flag", decorators.ExcludeNativeSSH, copyLocal(false)),
 	)
 
-	It("local-ssh flag should be unavailable in virtctl", decorators.ExcludeNativeSSH, func() {
+	It("[test_id:11665]local-ssh flag should be unavailable in virtctl", decorators.ExcludeNativeSSH, func() {
 		// The built virtctl binary should be tested here, therefore clientcmd.CreateCommandWithNS needs to be used.
 		// Running the command through newRepeatableVirtctlCommand would test the test binary instead.
 		_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.NamespaceTestDefault, "virtctl", "scp", "--local-ssh=false")

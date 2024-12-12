@@ -121,7 +121,7 @@ var _ = Describe("[sig-storage][virtctl]ImageUpload", decorators.SigStorage, Ser
 		Entry("PVC", "pvc", validatePVC, libvmi.WithPersistentVolumeClaim),
 	)
 
-	DescribeTable("Create upload volume with force-bind flag should succeed", func(resource string, validateFn func(string)) {
+	DescribeTable("[test_id:11655]Create upload volume with force-bind flag should succeed", func(resource string, validateFn func(string)) {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists || !libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 			Fail("Fail no wffc storage class available")
@@ -169,7 +169,7 @@ var _ = Describe("[sig-storage][virtctl]ImageUpload", decorators.SigStorage, Ser
 		Entry("[test_id:10672]filesystem volumeMode", "filesystem"),
 	)
 
-	It("Upload fails when DV is in WFFC/PendingPopulation phase but uploads after consumer is created", func() {
+	It("[test_id:11656]Upload fails when DV is in WFFC/PendingPopulation phase but uploads after consumer is created", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists || !libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
 			Skip("Skip no wffc storage class available")
@@ -215,7 +215,7 @@ var _ = Describe("[sig-storage][virtctl]ImageUpload", decorators.SigStorage, Ser
 			archivePath = createArchive(imagePath)
 		})
 
-		DescribeTable("Should succeed", func(resource string, uploadDV bool) {
+		DescribeTable("[test_id:11657]Should succeed", func(resource string, uploadDV bool) {
 			By("Upload archive content")
 			targetName := "alpine-" + rand.String(12)
 			err := runImageUploadCmd(
@@ -247,7 +247,7 @@ var _ = Describe("[sig-storage][virtctl]ImageUpload", decorators.SigStorage, Ser
 			Entry("PVC", "pvc", false),
 		)
 
-		DescribeTable("fails when provisioning fails", func(resource, expected string) {
+		DescribeTable("[test_id:11658]fails when provisioning fails", func(resource, expected string) {
 			sc := "invalid-sc-" + rand.String(12)
 			libstorage.CreateStorageClass(sc, nil)
 			err := runImageUploadCmd(

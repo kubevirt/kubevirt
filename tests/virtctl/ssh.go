@@ -99,7 +99,7 @@ var _ = Describe("[sig-compute][virtctl]SSH", decorators.SigCompute, func() {
 		Expect(libssh.DumpPrivateKey(priv, keyFile)).To(Succeed())
 	})
 
-	DescribeTable("should succeed to execute a command on the VM", func(cmdFn func(string)) {
+	DescribeTable("[test_id:11661]should succeed to execute a command on the VM", func(cmdFn func(string)) {
 		By("injecting a SSH public key into a VMI")
 		vmi := libvmifact.NewAlpineWithTestTooling(
 			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(libssh.RenderUserDataWithKey(pub))),
@@ -117,7 +117,7 @@ var _ = Describe("[sig-compute][virtctl]SSH", decorators.SigCompute, func() {
 		Entry("using the local ssh method without --local-ssh flag", decorators.ExcludeNativeSSH, cmdLocal(false)),
 	)
 
-	It("local-ssh flag should be unavailable in virtctl", decorators.ExcludeNativeSSH, func() {
+	It("[test_id:11666]local-ssh flag should be unavailable in virtctl", decorators.ExcludeNativeSSH, func() {
 		// The built virtctl binary should be tested here, therefore clientcmd.CreateCommandWithNS needs to be used.
 		// Running the command through newRepeatableVirtctlCommand would test the test binary instead.
 		_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.NamespaceTestDefault, "virtctl", "ssh", "--local-ssh=false")

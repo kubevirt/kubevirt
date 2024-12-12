@@ -99,7 +99,7 @@ var _ = Describe("[sig-compute][virtctl]VNC", decorators.SigCompute, func() {
 		verifyProxyConnection(testPort, vmi.Name)
 	})
 
-	It("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][level:component]should allow creating a VNC screenshot in PNG format", func() {
+	It("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][level:component][test_id:11667]should allow creating a VNC screenshot in PNG format", func() {
 		// The default resolution is 720x400 for the vga/boch device used on amd64 and ppcl64,
 		// while it is 1280x800 for the virtio device used on arm64 and s390x.
 		size := image.Point{720, 400}
