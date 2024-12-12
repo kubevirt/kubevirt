@@ -514,6 +514,10 @@ if [ -z "$KUBEVIRT_HUGEPAGES_2M" ]; then
   add_to_label_filter '(!requireHugepages2Mi)' '&&'
 fi
 
+if [ -z "$KUBEVIRT_HUGEPAGES_1G" ]; then
+  add_to_label_filter '(!requireHugepages1Gi)' '&&'
+fi
+
 # Always override as we want to fail if anything is requiring special handling
 if [[ $TARGET =~ sig-compute-conformance ]]; then
     label_filter='(sig-compute && conformance)'
