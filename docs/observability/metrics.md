@@ -189,7 +189,7 @@ The total Guest OS data to be migrated to the new VM. Type: Counter.
 ### kubevirt_vmi_migration_dirty_memory_rate_bytes
 The rate of memory being dirty in the Guest OS. Type: Gauge.
 
-### kubevirt_vmi_migration_disk_transfer_rate_bytes
+### kubevirt_vmi_migration_memory_transfer_rate_bytes
 The rate at which the memory is being transferred. Type: Gauge.
 
 ### kubevirt_vmi_migration_end_time_seconds
