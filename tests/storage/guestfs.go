@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -167,7 +168,7 @@ var _ = SIGDescribe("[rfe_id:6364]Guestfs", Label("guestfs"), func() {
 			Expect(guestfsCmd.Execute()).To(HaveOccurred())
 		})
 
-		It("[posneg:positive][test_id:6479]Should successfully run guestfs command on a block-based PVC", Label("guestfs", "Block"), func() {
+		It("[posneg:positive][test_id:6479]Should successfully run guestfs command on a block-based PVC", Label("guestfs", "Block"), decorators.RequiresBlockStorage, func() {
 			pvcClaim = "pvc-block"
 			libstorage.CreateBlockPVC(pvcClaim, ns, "500Mi")
 			runGuestfsOnPVC(f, pvcClaim, ns)

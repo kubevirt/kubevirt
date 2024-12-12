@@ -1218,7 +1218,7 @@ var _ = SIGDescribe("Storage", func() {
 			})
 		})
 		Context("write and read data from a shared disk", func() {
-			It("should successfully write and read data", func() {
+			It("should successfully write and read data", decorators.RequiresBlockStorage, func() {
 				const diskName = "disk1"
 				const pvcClaim = "pvc-test-disk1"
 				const labelKey = "testshareablekey"
