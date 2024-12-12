@@ -3,8 +3,6 @@ package naming
 import (
 	"fmt"
 	"hash/fnv"
-
-	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 )
 
 // GetName returns a name given a base ("deployment-5") and a suffix ("deploy")
@@ -34,32 +32,6 @@ func GetName(base, suffix string, maxLength int) string {
 	prefix := base[0:baseLength]
 	// Calculate hash on initial base-suffix string
 	return fmt.Sprintf("%s-%s-%s", prefix, hash(base), suffix)
-}
-
-// GetPodName calls GetName with the length restriction for pods
-func GetPodName(base, suffix string) string {
-	return GetName(base, suffix, kvalidation.DNS1123SubdomainMaxLength)
-}
-
-// GetConfigMapName calls GetName with the length restriction for ConfigMaps
-func GetConfigMapName(base, suffix string) string {
-	return GetName(base, suffix, kvalidation.DNS1123SubdomainMaxLength)
-}
-
-// max returns the greater of its 2 inputs
-func max(a, b int) int {
-	if b > a {
-		return b
-	}
-	return a
-}
-
-// min returns the lesser of its 2 inputs
-func min(a, b int) int {
-	if b < a {
-		return b
-	}
-	return a
 }
 
 // hash calculates the hexadecimal representation (8-chars)

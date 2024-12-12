@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -16,6 +15,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply/resourcemerge"
 )
 
 func (r *Reconciler) createOrUpdateValidatingWebhookConfigurations(caBundle []byte) error {
@@ -209,13 +209,13 @@ func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(webhook *admis
 		return nil
 	}
 
-	modified := resourcemerge.BoolPtr(false)
+	modified := false
 	existingCopy := cachedWebhook.DeepCopy()
 	expectedGeneration := GetExpectedGeneration(webhook, r.kv.Status.Generations)
 
-	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, webhook.ObjectMeta)
+	resourcemerge.EnsureObjectMeta(&modified, &existingCopy.ObjectMeta, webhook.ObjectMeta)
 	// there was no change to metadata, the generation was right
-	if !*modified && existingCopy.ObjectMeta.Generation == expectedGeneration && certsMatch {
+	if !modified && existingCopy.ObjectMeta.Generation == expectedGeneration && certsMatch {
 		log.Log.V(4).Infof("validatingwebhookconfiguration %v is up-to-date", webhook.GetName())
 		return nil
 	}
@@ -305,13 +305,13 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 		return nil
 	}
 
-	modified := resourcemerge.BoolPtr(false)
+	modified := false
 	existingCopy := cachedWebhook.DeepCopy()
 	expectedGeneration := GetExpectedGeneration(webhook, r.kv.Status.Generations)
 
-	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, webhook.ObjectMeta)
+	resourcemerge.EnsureObjectMeta(&modified, &existingCopy.ObjectMeta, webhook.ObjectMeta)
 	// there was no change to metadata, the generation was right
-	if !*modified && existingCopy.ObjectMeta.Generation == expectedGeneration && certsMatch {
+	if !modified && existingCopy.ObjectMeta.Generation == expectedGeneration && certsMatch {
 		log.Log.V(4).Infof("mutating webhook configuration %v is up-to-date", webhook.GetName())
 		return nil
 	}
