@@ -14,16 +14,15 @@ import (
 )
 
 // EnsureObjectMeta writes namespace, name, labels, and annotations.  Don't set other things here.
-// TODO finalizer support maybe?
 func EnsureObjectMeta(modified *bool, existing *metav1.ObjectMeta, required metav1.ObjectMeta) {
-	SetStringIfSet(modified, &existing.Namespace, required.Namespace)
-	SetStringIfSet(modified, &existing.Name, required.Name)
-	MergeMap(modified, &existing.Labels, required.Labels)
-	MergeMap(modified, &existing.Annotations, required.Annotations)
-	MergeOwnerRefs(modified, &existing.OwnerReferences, required.OwnerReferences)
+	setStringIfSet(modified, &existing.Namespace, required.Namespace)
+	setStringIfSet(modified, &existing.Name, required.Name)
+	mergeMap(modified, &existing.Labels, required.Labels)
+	mergeMap(modified, &existing.Annotations, required.Annotations)
+	mergeOwnerRefs(modified, &existing.OwnerReferences, required.OwnerReferences)
 }
 
-func SetStringIfSet(modified *bool, existing *string, required string) {
+func setStringIfSet(modified *bool, existing *string, required string) {
 	if len(required) == 0 {
 		return
 	}
@@ -33,7 +32,7 @@ func SetStringIfSet(modified *bool, existing *string, required string) {
 	}
 }
 
-func MergeMap(modified *bool, existing *map[string]string, required map[string]string) {
+func mergeMap(modified *bool, existing *map[string]string, required map[string]string) {
 	if *existing == nil {
 		*existing = map[string]string{}
 	}
@@ -63,7 +62,7 @@ func MergeMap(modified *bool, existing *map[string]string, required map[string]s
 	}
 }
 
-func MergeOwnerRefs(modified *bool, existing *[]metav1.OwnerReference, required []metav1.OwnerReference) {
+func mergeOwnerRefs(modified *bool, existing *[]metav1.OwnerReference, required []metav1.OwnerReference) {
 	if *existing == nil {
 		*existing = []metav1.OwnerReference{}
 	}
