@@ -4930,9 +4930,9 @@ var _ = Describe("Template", func() {
 				"Name": Equal("guest-console-log"),
 			}))
 			if expected {
-				Expect(pod.Spec.Containers).To(containCGL)
+				Expect(pod.Spec.InitContainers).To(containCGL)
 			} else {
-				Expect(pod.Spec.Containers).ToNot(containCGL)
+				Expect(pod.Spec.InitContainers).ToNot(containCGL)
 			}
 
 		},
