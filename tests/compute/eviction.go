@@ -109,7 +109,7 @@ var _ = SIGDescribe("Eviction", func() {
 			Should(Receive(MatchError(ContainSubstring("Eviction triggered evacuation of VMI"))))
 		for i := 0; i < 3; i++ {
 			Eventually(errors).WithTimeout(3*time.Second).WithPolling(time.Second).
-				Should(Receive(MatchError(ContainSubstring("Cannot evict pod as it would violate the pod's disruption budget."))), fmt.Sprintf("Failed in iteration %d", i+1))
+				Should(Receive(MatchError(ContainSubstring("Evacuation in progress"))), fmt.Sprintf("Failed in iteration %d", i+1))
 
 		}
 
