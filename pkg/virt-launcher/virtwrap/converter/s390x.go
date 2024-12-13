@@ -50,7 +50,7 @@ func (archConverterS390X) addGraphicsDevice(_ *v1.VirtualMachineInstance, domain
 	)
 }
 
-func (archConverterS390X) scsiController(_ *ConverterContext, driver *api.ControllerDriver) api.Controller {
+func (archConverterS390X) scsiController(_ string, driver *api.ControllerDriver) api.Controller {
 	return api.Controller{
 		Type:   "scsi",
 		Index:  "0",

@@ -1661,7 +1661,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, usbController)
 
 	if needsSCSIController(vmi) {
-		scsiController := c.Architecture.scsiController(c, controllerDriver)
+		scsiController := c.Architecture.scsiController(InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()), controllerDriver)
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, scsiController)
 	}
 

@@ -61,8 +61,8 @@ func (archConverterARM64) addGraphicsDevice(vmi *v1.VirtualMachineInstance, doma
 	)
 }
 
-func (archConverterARM64) scsiController(c *ConverterContext, driver *api.ControllerDriver) api.Controller {
-	return defaultSCSIController(c, driver)
+func (archConverterARM64) scsiController(model string, driver *api.ControllerDriver) api.Controller {
+	return defaultSCSIController(model, driver)
 }
 
 func (archConverterARM64) isUSBNeeded(_ *v1.VirtualMachineInstance) bool {
