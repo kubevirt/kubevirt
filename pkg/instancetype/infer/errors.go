@@ -17,6 +17,20 @@
  *
  */
 
-package instancetype
+package infer
 
-const VMFieldsConflictsErrorFmt = "VM fields %s conflict with selected instance type"
+type IgnoreableInferenceError struct {
+	err error
+}
+
+func (e *IgnoreableInferenceError) Error() string {
+	return e.err.Error()
+}
+
+func (e *IgnoreableInferenceError) Unwrap() error {
+	return e.err
+}
+
+func NewIgnoreableInferenceError(err error) error {
+	return &IgnoreableInferenceError{err: err}
+}
