@@ -23,19 +23,21 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 )
 
 func applyGPUs(
 	field *k8sfield.Path,
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
-) Conflicts {
+) conflict.Conflicts {
 	if len(instancetypeSpec.GPUs) == 0 {
 		return nil
 	}
 
 	if len(vmiSpec.Domain.Devices.GPUs) > 0 {
-		return Conflicts{field.Child("domain", "devices", "gpus")}
+		return conflict.Conflicts{field.Child("domain", "devices", "gpus")}
 	}
 
 	vmiSpec.Domain.Devices.GPUs = make([]virtv1.GPU, len(instancetypeSpec.GPUs))

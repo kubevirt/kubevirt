@@ -23,19 +23,21 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 )
 
 func applySchedulerName(
 	field *k8sfield.Path,
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
-) Conflicts {
+) conflict.Conflicts {
 	if instancetypeSpec.SchedulerName == "" {
 		return nil
 	}
 
 	if vmiSpec.SchedulerName != "" {
-		return Conflicts{field.Child("schedulerName")}
+		return conflict.Conflicts{field.Child("schedulerName")}
 	}
 
 	vmiSpec.SchedulerName = instancetypeSpec.SchedulerName

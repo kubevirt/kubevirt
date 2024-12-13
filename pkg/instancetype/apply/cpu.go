@@ -26,6 +26,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 )
 
@@ -34,7 +35,7 @@ func applyCPU(
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
-) Conflicts {
+) conflict.Conflicts {
 	if vmiSpec.Domain.CPU == nil {
 		vmiSpec.Domain.CPU = &virtv1.CPU{}
 	}
@@ -112,7 +113,7 @@ func validateCPU(
 	field *k8sfield.Path,
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
-) (conflicts Conflicts) {
+) (conflicts conflict.Conflicts) {
 	if _, hasCPURequests := vmiSpec.Domain.Resources.Requests[k8sv1.ResourceCPU]; hasCPURequests {
 		conflicts = append(conflicts, field.Child("domain", "resources", "requests", string(k8sv1.ResourceCPU)))
 	}

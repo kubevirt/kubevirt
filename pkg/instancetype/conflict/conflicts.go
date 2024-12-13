@@ -16,7 +16,7 @@
  * Copyright The KubeVirt Authors
  *
  */
-package apply
+package conflict
 
 import (
 	"strings"

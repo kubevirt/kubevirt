@@ -25,19 +25,21 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 )
 
 func applyNodeSelector(
 	field *k8sfield.Path,
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
-) Conflicts {
+) conflict.Conflicts {
 	if instancetypeSpec.NodeSelector == nil {
 		return nil
 	}
 
 	if vmiSpec.NodeSelector != nil {
-		return Conflicts{field.Child("nodeSelector")}
+		return conflict.Conflicts{field.Child("nodeSelector")}
 	}
 
 	vmiSpec.NodeSelector = maps.Clone(instancetypeSpec.NodeSelector)

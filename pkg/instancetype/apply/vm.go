@@ -23,8 +23,11 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 )
 
 type vmiApplyHandler interface {
@@ -34,7 +37,7 @@ type vmiApplyHandler interface {
 		preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
 		vmiSpec *virtv1.VirtualMachineInstanceSpec,
 		vmiMetadata *metav1.ObjectMeta,
-	) (conflicts Conflicts)
+	) (conflicts conflict.Conflicts)
 }
 
 type specFinder interface {

@@ -29,6 +29,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	instancetypeErrors "kubevirt.io/kubevirt/pkg/instancetype/errors"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	utils "kubevirt.io/kubevirt/pkg/util"
@@ -42,7 +43,7 @@ type vmiApplier interface {
 		preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
 		vmiSpec *virtv1.VirtualMachineInstanceSpec,
 		vmiMetadata *metav1.ObjectMeta,
-	) (conflicts apply.Conflicts)
+	) (conflicts conflict.Conflicts)
 }
 
 type specFinder interface {

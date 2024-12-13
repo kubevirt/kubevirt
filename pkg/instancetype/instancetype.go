@@ -17,6 +17,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/annotations"
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	instancetypeErrors "kubevirt.io/kubevirt/pkg/instancetype/errors"
 	"kubevirt.io/kubevirt/pkg/instancetype/expand"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
@@ -53,7 +54,7 @@ type Methods interface {
 	Expand(vm *virtv1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig) (*virtv1.VirtualMachine, error)
 }
 
-type Conflicts apply.Conflicts
+type Conflicts conflict.Conflicts
 
 func (c Conflicts) String() string {
 	pathStrings := make([]string, 0, len(c))
