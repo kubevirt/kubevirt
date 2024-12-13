@@ -14,7 +14,7 @@
  *
  */
 
-package converter
+package archconverter
 
 import (
 	v1 "kubevirt.io/api/core/v1"
@@ -32,7 +32,7 @@ func (archConverterARM64) GetArchitecture() string {
 	return "arm64"
 }
 
-func (archConverterARM64) addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
+func (archConverterARM64) AddGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
 	// For arm64, qemu-kvm only support virtio-gpu display device, so set it as default video device.
 	// tablet and keyboard devices are necessary for control the VM via vnc connection
 	domain.Spec.Devices.Video = []api.Video{
@@ -61,40 +61,51 @@ func (archConverterARM64) addGraphicsDevice(vmi *v1.VirtualMachineInstance, doma
 	)
 }
 
-func (archConverterARM64) scsiController(model string, driver *api.ControllerDriver) api.Controller {
+func (archConverterARM64) ScsiController(model string, driver *api.ControllerDriver) api.Controller {
 	return defaultSCSIController(model, driver)
 }
 
-func (archConverterARM64) isUSBNeeded(_ *v1.VirtualMachineInstance) bool {
+func (archConverterARM64) IsUSBNeeded(_ *v1.VirtualMachineInstance) bool {
 	return true
 }
 
-func (archConverterARM64) supportCPUHotplug() bool {
+func (archConverterARM64) SupportCPUHotplug() bool {
 	return false
 }
 
-func (archConverterARM64) isSMBiosNeeded() bool {
+func (archConverterARM64) IsSMBiosNeeded() bool {
 	// ARM64 use UEFI boot by default, set SMBios is unnecessary.
 	return false
 }
 
-func (archConverterARM64) transitionalModelType(useVirtioTransitional bool) string {
+func (archConverterARM64) TransitionalModelType(useVirtioTransitional bool) string {
 	return defaultTransitionalModelType(useVirtioTransitional)
 }
 
-func (archConverterARM64) isROMTuningSupported() bool {
+func (archConverterARM64) IsROMTuningSupported() bool {
 	return true
 }
 
-func (archConverterARM64) requiresMPXCPUValidation() bool {
+func (archConverterARM64) RequiresMPXCPUValidation() bool {
 	// skip the mpx CPU feature validation for anything that is not x86 as it is not supported.
 	return false
 }
 
-func (archConverterARM64) shouldVerboseLogsBeEnabled() bool {
+func (archConverterARM64) ShouldVerboseLogsBeEnabled() bool {
 	return false
 }
 
-func (archConverterARM64) hasVMPort() bool {
+func (archConverterARM64) HasVMPort() bool {
+	return false
+}
+
+func hasTabletDevice(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Domain.Devices.Inputs != nil {
+		for _, device := range vmi.Spec.Domain.Devices.Inputs {
+			if device.Type == "tablet" {
+				return true
+			}
+		}
+	}
 	return false
 }

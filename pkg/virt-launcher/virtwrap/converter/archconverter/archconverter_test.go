@@ -14,7 +14,7 @@
  *
  */
 
-package converter
+package archconverter
 
 import (
 	. "github.com/onsi/ginkgo/v2"
