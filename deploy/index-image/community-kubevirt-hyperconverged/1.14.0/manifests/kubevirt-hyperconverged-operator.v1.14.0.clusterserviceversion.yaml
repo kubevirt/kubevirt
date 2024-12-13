@@ -3819,7 +3819,7 @@ spec:
                 - name: LIVENESS_PROBE_IMAGE
                   value: registry.k8s.io/sig-storage/livenessprobe@sha256:33692aed26aaf105b4d6e66280cceca9e0463f500c81b5d8c955428a75438f32
                 - name: CSI_SNAPSHOT_IMAGE
-                  value: registry.k8s.io/sig-storage/csi-snapshotter@sha256:b3e90b33781670ac050c22c9e88b9e876493dca248966b9da6f7a90cc412ab86
+                  value: registry.k8s.io/sig-storage/csi-snapshotter@sha256:dd788d79cf4c1b8edee6d9b80b8a1ebfc51a38a365c5be656986b129be9ac784
                 - name: CSI_SIG_STORAGE_PROVISIONER_IMAGE
                   value: registry.k8s.io/sig-storage/csi-provisioner@sha256:d078dc174323407e8cc6f0f9abd4efaac5db27838f1564d0253d5e3233e3f17f
                 - name: VERBOSITY
@@ -4691,7 +4691,7 @@ spec:
     name: csi-node-driver-registrar
   - image: registry.k8s.io/sig-storage/csi-provisioner@sha256:d078dc174323407e8cc6f0f9abd4efaac5db27838f1564d0253d5e3233e3f17f
     name: csi-provisioner
-  - image: registry.k8s.io/sig-storage/csi-snapshotter@sha256:b3e90b33781670ac050c22c9e88b9e876493dca248966b9da6f7a90cc412ab86
+  - image: registry.k8s.io/sig-storage/csi-snapshotter@sha256:dd788d79cf4c1b8edee6d9b80b8a1ebfc51a38a365c5be656986b129be9ac784
     name: csi-snapshotter
   - image: quay.io/kubevirt/hostpath-csi-driver@sha256:f8d44aabe0024058b4380e1af42a57a90b7f8c66c8627091bf425fc384c0880f
     name: hostpath-csi-driver
