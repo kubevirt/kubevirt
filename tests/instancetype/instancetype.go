@@ -407,19 +407,19 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			cause0 := apiStatus.Status().Details.Causes[0]
 			Expect(cause0.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
 			cpuSocketsField := "spec.template.spec.domain.cpu.sockets"
-			Expect(cause0.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldConflictErrorFmt, cpuSocketsField)))
+			Expect(cause0.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldsConflictsErrorFmt, cpuSocketsField)))
 			Expect(cause0.Field).To(Equal(cpuSocketsField))
 
 			cause1 := apiStatus.Status().Details.Causes[1]
 			Expect(cause1.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
 			cpuCoresField := "spec.template.spec.domain.cpu.cores"
-			Expect(cause1.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldConflictErrorFmt, cpuCoresField)))
+			Expect(cause1.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldsConflictsErrorFmt, cpuCoresField)))
 			Expect(cause1.Field).To(Equal(cpuCoresField))
 
 			cause2 := apiStatus.Status().Details.Causes[2]
 			Expect(cause2.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
 			cpuThreadsField := "spec.template.spec.domain.cpu.threads"
-			Expect(cause2.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldConflictErrorFmt, cpuThreadsField)))
+			Expect(cause2.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldsConflictsErrorFmt, cpuThreadsField)))
 			Expect(cause2.Field).To(Equal(cpuThreadsField))
 		})
 
@@ -439,7 +439,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
 			cause := apiStatus.Status().Details.Causes[0]
 			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(cause.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldConflictErrorFmt, expectedField)))
+			Expect(cause.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldsConflictsErrorFmt, expectedField)))
 			Expect(cause.Field).To(Equal(expectedField))
 		},
 			Entry("CPU resource requests", virtv1.ResourceRequirements{

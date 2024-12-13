@@ -30,10 +30,6 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-const (
-	VMFieldConflictErrorFmt = "VM field %s conflicts with selected instance type"
-)
-
 // FIXME(lyarwood): Move remaining users to instancetypeErrors.VMFieldsConflictsErrorFmt
 var (
 	VMFieldsConflictsErrorFmt = instancetypeErrors.VMFieldsConflictsErrorFmt
