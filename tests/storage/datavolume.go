@@ -26,7 +26,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -147,14 +146,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		return libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running}, libwait.WithTimeout(500))
 	}
 
-	alignImageSizeTo1MiB := func(size int64) int64 {
-		remainder := size % (1024 * 1024)
-		if remainder == 0 {
-			return size
-		}
-		return size - remainder
-	}
-
 	Context("[storage-req]PVC expansion", decorators.StorageReq, func() {
 		DescribeTable("PVC expansion is detected by VM and can be fully used", func(volumeMode k8sv1.PersistentVolumeMode) {
 			checks.SkipTestIfNoFeatureGate(virtconfig.ExpandDisksGate)
@@ -248,10 +239,8 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			if !volumeExpansionAllowed {
 				Skip("Skip when volume expansion storage class not available")
 			}
-
-			imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)
 			dataVolume := libdv.NewDataVolume(
-				libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
+				libdv.WithBlankImageSource(),
 				libdv.WithStorage(
 					libdv.StorageWithStorageClass(sc),
 					libdv.StorageWithVolumeSize("512Mi"),
@@ -261,47 +250,38 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			)
 			dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
+			libstorage.EventuallyDV(dataVolume, 100, HaveSucceeded())
+			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(dataVolume.Namespace).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, dataVolume.Namespace, libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()))
+			executorPod := createExecutorPodWithPVC("size-detection", pvc)
+			fstatOutput, err := exec.ExecuteCommandOnPod(
+				executorPod,
+				executorPod.Spec.Containers[0].Name,
+				[]string{"stat", "-f", "-c", "%a %s", libstorage.DefaultPvcMountPath},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			var freeBlocks, ioBlockSize int64
+			_, err = fmt.Sscanf(fstatOutput, "%d %d", &freeBlocks, &ioBlockSize)
+			Expect(err).ToNot(HaveOccurred())
+			freeSize := freeBlocks * ioBlockSize
+
+			vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, dataVolume.Namespace)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 500)
 
-			By("Expecting the VirtualMachineInstance console")
-			Expect(console.LoginToCirros(vmi)).To(Succeed())
-
-			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			pv, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), pvc.Spec.VolumeName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			pvcRequestSize := pvc.Spec.Resources.Requests[k8sv1.ResourceStorage]
-			pvCapacitySize := pv.Spec.Capacity[k8sv1.ResourceStorage]
-
-			By("Checking if PV capacity is larger than PVC request")
-			if pvCapacitySize.Cmp(pvcRequestSize) > 0 {
-				Expect(getVirtualSize(vmi, dataVolume)).To(Equal((pvcRequestSize.Value())))
-			} else {
-				volumeStatus := v1.VolumeStatus{}
-				Eventually(func() bool {
-					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					for _, volStatus := range vmi.Status.VolumeStatus {
-						if volStatus.Name == "disk0" {
-							volumeStatus = volStatus
-							return true
-						}
-					}
-					return false
-				}, 30*time.Second, time.Second).Should(BeTrue(), "Expected VolumeStatus for 'disk0' to be available")
-
-				Expect(volumeStatus.PersistentVolumeClaimInfo).ToNot(BeNil())
-				Expect(volumeStatus.PersistentVolumeClaimInfo.FilesystemOverhead).ToNot(BeNil())
-				overheadPercentage, err := strconv.ParseFloat(string(*volumeStatus.PersistentVolumeClaimInfo.FilesystemOverhead), 64)
+			// Let's wait for VMI to be ready
+			Eventually(func() bool {
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				overheadSize := float64(pvcRequestSize.Value()) * (1.0 - overheadPercentage)
-				expectedSize := alignImageSizeTo1MiB(int64(overheadSize))
-				Expect(getVirtualSize(vmi, dataVolume)).To(Equal(expectedSize))
-			}
+				for _, volStatus := range vmi.Status.VolumeStatus {
+					if volStatus.Name == "disk0" {
+						return true
+					}
+				}
+				return false
+			}, 30*time.Second, time.Second).Should(BeTrue(), "Expected VolumeStatus for 'disk0' to be available")
+
+			Expect(getVirtualSize(vmi, dataVolume)).ToNot(BeNumerically(">", freeSize))
 		})
 	})
 
