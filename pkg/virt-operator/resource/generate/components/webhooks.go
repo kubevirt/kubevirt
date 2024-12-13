@@ -312,7 +312,6 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 	migrationPolicyCreateValidatePath := MigrationPolicyCreateValidatePath
 	vmCloneCreateValidatePath := VMCloneCreateValidatePath
 	failurePolicy := admissionregistrationv1.Fail
-	ignorePolicy := admissionregistrationv1.Ignore
 
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
 		TypeMeta: metav1.TypeMeta{
@@ -335,7 +334,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				// We don't want to block evictions in the cluster in a case where this webhook is down.
 				// The eviction of virt-launcher will still be protected by our pdb.
-				FailurePolicy:  &ignorePolicy,
+				FailurePolicy:  &failurePolicy,
 				TimeoutSeconds: &defaultTimeoutSeconds,
 				SideEffects:    &sideEffectNoneOnDryRun,
 				Rules: []admissionregistrationv1.RuleWithOperations{{
@@ -353,6 +352,12 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &launcherEvictionValidatePath,
+					},
+				},
+				MatchConditions: []admissionregistrationv1.MatchCondition{
+					{
+						Name:       "only-vms",
+						Expression: `object.metadata.name.startsWith("virt-launcher")`,
 					},
 				},
 			},
