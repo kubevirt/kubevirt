@@ -36,7 +36,7 @@ const (
 type ArchConverter interface {
 	GetArchitecture() string
 	addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext)
-	scsiController(c *ConverterContext, driver *api.ControllerDriver) api.Controller
+	scsiController(model string, driver *api.ControllerDriver) api.Controller
 	isUSBNeeded(vmi *v1.VirtualMachineInstance) bool
 	supportCPUHotplug() bool
 	isSMBiosNeeded() bool
@@ -63,11 +63,11 @@ func NewArchConverter(arch string) ArchConverter {
 	}
 }
 
-func defaultSCSIController(c *ConverterContext, driver *api.ControllerDriver) api.Controller {
+func defaultSCSIController(model string, driver *api.ControllerDriver) api.Controller {
 	return api.Controller{
 		Type:   "scsi",
 		Index:  "0",
-		Model:  InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()),
+		Model:  model,
 		Driver: driver,
 	}
 }
