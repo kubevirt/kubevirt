@@ -28,8 +28,6 @@ import (
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	virtv1 "kubevirt.io/api/core/v1"
-
-	instancetypeErrors "kubevirt.io/kubevirt/pkg/instancetype/errors"
 )
 
 const (
@@ -65,7 +63,7 @@ func (h *handler) fromVolumes(
 		if volume.DataVolume != nil {
 			return h.fromDataVolume(vm, volume.DataVolume.Name, defaultNameLabel, defaultKindLabel)
 		}
-		return "", "", instancetypeErrors.NewIgnoreableInferenceError(fmt.Errorf(unsupportedVolumeTypeFmt, inferFromVolumeName))
+		return "", "", NewIgnoreableInferenceError(fmt.Errorf(unsupportedVolumeTypeFmt, inferFromVolumeName))
 	}
 	return "", "", fmt.Errorf("unable to find volume %s to infer defaults", inferFromVolumeName)
 }
@@ -73,7 +71,7 @@ func (h *handler) fromVolumes(
 func fromLabels(labels map[string]string, defaultNameLabel, defaultKindLabel string) (defaultName, defaultKind string, err error) {
 	defaultName, hasLabel := labels[defaultNameLabel]
 	if !hasLabel {
-		return "", "", instancetypeErrors.NewIgnoreableInferenceError(fmt.Errorf(missingLabelFmt, defaultNameLabel))
+		return "", "", NewIgnoreableInferenceError(fmt.Errorf(missingLabelFmt, defaultNameLabel))
 	}
 	return defaultName, labels[defaultKindLabel], nil
 }
@@ -123,7 +121,7 @@ func (h *handler) fromDataVolumeSpec(
 	if dataVolumeSpec != nil && dataVolumeSpec.SourceRef != nil {
 		return h.fromDataVolumeSourceRef(dataVolumeSpec.SourceRef, defaultNameLabel, defaultKindLabel, vmNameSpace)
 	}
-	return "", "", instancetypeErrors.NewIgnoreableInferenceError(errors.New(unsupportedDataVolumeSource))
+	return "", "", NewIgnoreableInferenceError(errors.New(unsupportedDataVolumeSource))
 }
 
 func (h *handler) fromDataSource(
@@ -142,7 +140,7 @@ func (h *handler) fromDataSource(
 	if ds.Spec.Source.PVC != nil {
 		return h.fromPVC(ds.Spec.Source.PVC.Name, ds.Spec.Source.PVC.Namespace, defaultNameLabel, defaultKindLabel)
 	}
-	return "", "", instancetypeErrors.NewIgnoreableInferenceError(errors.New(missingDataVolumeSourcePVC))
+	return "", "", NewIgnoreableInferenceError(errors.New(missingDataVolumeSourcePVC))
 }
 
 func (h *handler) fromDataVolumeSourceRef(
@@ -156,5 +154,5 @@ func (h *handler) fromDataVolumeSourceRef(
 		}
 		return h.fromDataSource(sourceRef.Name, namespace, defaultNameLabel, defaultKindLabel)
 	}
-	return "", "", instancetypeErrors.NewIgnoreableInferenceError(fmt.Errorf(unsupportedDataVolumeSourceRefFmt, sourceRef.Kind))
+	return "", "", NewIgnoreableInferenceError(fmt.Errorf(unsupportedDataVolumeSourceRefFmt, sourceRef.Kind))
 }
