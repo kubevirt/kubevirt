@@ -527,9 +527,6 @@ func (c *EvacuationController) filterRunningNonMigratingVMIs(vmis []*virtv1.Virt
 
 		if controller.VMIActivePodsCount(vmi, c.vmiPodIndexer) > 1 {
 			// waiting on target/source pods from a previous migration to terminate
-			//
-			// We only want to create a migration when num pods == 1 or else we run the
-			// risk of invalidating our pdb which prevents the VMI from being evicted
 			continue
 		}
 
