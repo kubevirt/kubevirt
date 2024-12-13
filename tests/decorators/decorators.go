@@ -3,7 +3,10 @@ package decorators
 import . "github.com/onsi/ginkgo/v2"
 
 var (
-	Quarantine  = Label("QUARANTINE")
+	Quarantine = Label("QUARANTINE")
+
+	// Periodic marks tests that must run on periodic lanes only
+	// See https://github.com/kubevirt/kubevirt/pull/12594
 	Periodic    = Label("PERIODIC")
 	Conformance = Label("conformance")
 
