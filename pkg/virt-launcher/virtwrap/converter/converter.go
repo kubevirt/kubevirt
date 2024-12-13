@@ -61,7 +61,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/archconverter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
@@ -87,7 +87,7 @@ type EFIConfiguration struct {
 }
 
 type ConverterContext struct {
-	Architecture                    archconverter.ArchConverter
+	Architecture                    arch.Converter
 	AllowEmulation                  bool
 	Secrets                         map[string]*k8sv1.Secret
 	VirtualMachine                  *v1.VirtualMachineInstance
@@ -2024,7 +2024,7 @@ func GracePeriodSeconds(vmi *v1.VirtualMachineInstance) int64 {
 
 func InterpretTransitionalModelType(useVirtioTransitional *bool, archString string) string {
 	vtenabled := useVirtioTransitional != nil && *useVirtioTransitional
-	return archconverter.NewArchConverter(archString).TransitionalModelType(vtenabled)
+	return arch.NewConverter(archString).TransitionalModelType(vtenabled)
 }
 
 func domainVCPUTopologyForHotplug(vmi *v1.VirtualMachineInstance, domain *api.Domain) {

@@ -63,7 +63,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/archconverter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -410,7 +410,7 @@ var _ = Describe("Manager", func() {
 		serialConsoleLogDisabled := clusterConfig.IsSerialConsoleLogDisabled()
 
 		c := &converter.ConverterContext{
-			Architecture:      archconverter.NewArchConverter(runtime.GOARCH),
+			Architecture:      arch.NewConverter(runtime.GOARCH),
 			VirtualMachine:    vmi,
 			AllowEmulation:    true,
 			SMBios:            &cmdv1.SMBios{},

@@ -80,7 +80,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/archconverter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
@@ -1014,7 +1014,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 
 	// Map the VirtualMachineInstance to the Domain
 	c := &converter.ConverterContext{
-		Architecture:          archconverter.NewArchConverter(runtime.GOARCH),
+		Architecture:          arch.NewConverter(runtime.GOARCH),
 		VirtualMachine:        vmi,
 		AllowEmulation:        allowEmulation,
 		CPUSet:                podCPUSet,

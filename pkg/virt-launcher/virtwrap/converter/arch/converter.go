@@ -14,7 +14,7 @@
  *
  */
 
-package archconverter
+package arch
 
 import (
 	"kubevirt.io/client-go/log"
@@ -33,7 +33,7 @@ const (
 	s390x                           = "s390x"
 )
 
-type ArchConverter interface {
+type Converter interface {
 	GetArchitecture() string
 	AddGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, isEFI bool)
 	ScsiController(model string, driver *api.ControllerDriver) api.Controller
@@ -47,19 +47,19 @@ type ArchConverter interface {
 	ShouldVerboseLogsBeEnabled() bool
 }
 
-func NewArchConverter(arch string) ArchConverter {
+func NewConverter(arch string) Converter {
 	switch arch {
 	case arm64:
-		return archConverterARM64{}
+		return converterARM64{}
 	case ppc64le:
-		return archConverterPPC64{}
+		return converterPPC64{}
 	case s390x:
-		return archConverterS390X{}
+		return converterS390X{}
 	case amd64:
-		return archConverterAMD64{}
+		return converterAMD64{}
 	default:
 		log.Log.Warning("Trying to create an arch converter from an unknown arch: " + arch + ". Falling back to AMD64")
-		return archConverterAMD64{}
+		return converterAMD64{}
 	}
 }
 

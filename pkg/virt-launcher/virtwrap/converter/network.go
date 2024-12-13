@@ -27,7 +27,7 @@ import (
 
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/archconverter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
@@ -83,7 +83,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext)
 			domainIface.Type = "ethernet"
 			if iface.BootOrder != nil {
 				domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
-			} else if archconverter.NewArchConverter(vmi.Spec.Architecture).IsROMTuningSupported() {
+			} else if arch.NewConverter(vmi.Spec.Architecture).IsROMTuningSupported() {
 				// s390x does not support setting ROM tuning, as it is for PCI Devices only
 				domainIface.Rom = &api.Rom{Enabled: "no"}
 			}
