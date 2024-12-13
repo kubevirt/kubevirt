@@ -35,7 +35,7 @@ const (
 
 type ArchConverter interface {
 	GetArchitecture() string
-	addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext)
+	addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, isEFI bool)
 	scsiController(model string, driver *api.ControllerDriver) api.Controller
 	isUSBNeeded(vmi *v1.VirtualMachineInstance) bool
 	supportCPUHotplug() bool
