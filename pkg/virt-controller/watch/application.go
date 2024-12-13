@@ -689,7 +689,6 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.persistentVolumeClaimInformer,
 		vca.storageClassInformer,
 		vca.storageProfileInformer,
-		vca.pdbInformer,
 		vca.migrationPolicyInformer,
 		vca.resourceQuotaInformer,
 		vca.vmiRecorder,
@@ -773,7 +772,6 @@ func (vca *VirtControllerApp) initDisruptionBudgetController() {
 		vca.migrationInformer,
 		recorder,
 		vca.clientSet,
-		vca.clusterConfig,
 	)
 	if err != nil {
 		panic(err)
