@@ -14,7 +14,7 @@
  *
  */
 
-package archconverter
+package arch
 
 import (
 	v1 "kubevirt.io/api/core/v1"
@@ -24,15 +24,15 @@ import (
 )
 
 // Ensure that there is a compile error should the struct not implement the archConverter interface anymore.
-var _ = ArchConverter(&archConverterARM64{})
+var _ = Converter(&converterARM64{})
 
-type archConverterARM64 struct{}
+type converterARM64 struct{}
 
-func (archConverterARM64) GetArchitecture() string {
-	return "arm64"
+func (converterARM64) GetArchitecture() string {
+	return arm64
 }
 
-func (archConverterARM64) AddGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
+func (converterARM64) AddGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
 	// For arm64, qemu-kvm only support virtio-gpu display device, so set it as default video device.
 	// tablet and keyboard devices are necessary for control the VM via vnc connection
 	domain.Spec.Devices.Video = []api.Video{
@@ -61,41 +61,41 @@ func (archConverterARM64) AddGraphicsDevice(vmi *v1.VirtualMachineInstance, doma
 	)
 }
 
-func (archConverterARM64) ScsiController(model string, driver *api.ControllerDriver) api.Controller {
+func (converterARM64) ScsiController(model string, driver *api.ControllerDriver) api.Controller {
 	return defaultSCSIController(model, driver)
 }
 
-func (archConverterARM64) IsUSBNeeded(_ *v1.VirtualMachineInstance) bool {
+func (converterARM64) IsUSBNeeded(_ *v1.VirtualMachineInstance) bool {
 	return true
 }
 
-func (archConverterARM64) SupportCPUHotplug() bool {
+func (converterARM64) SupportCPUHotplug() bool {
 	return false
 }
 
-func (archConverterARM64) IsSMBiosNeeded() bool {
+func (converterARM64) IsSMBiosNeeded() bool {
 	// ARM64 use UEFI boot by default, set SMBios is unnecessary.
 	return false
 }
 
-func (archConverterARM64) TransitionalModelType(useVirtioTransitional bool) string {
+func (converterARM64) TransitionalModelType(useVirtioTransitional bool) string {
 	return defaultTransitionalModelType(useVirtioTransitional)
 }
 
-func (archConverterARM64) IsROMTuningSupported() bool {
+func (converterARM64) IsROMTuningSupported() bool {
 	return true
 }
 
-func (archConverterARM64) RequiresMPXCPUValidation() bool {
+func (converterARM64) RequiresMPXCPUValidation() bool {
 	// skip the mpx CPU feature validation for anything that is not x86 as it is not supported.
 	return false
 }
 
-func (archConverterARM64) ShouldVerboseLogsBeEnabled() bool {
+func (converterARM64) ShouldVerboseLogsBeEnabled() bool {
 	return false
 }
 
-func (archConverterARM64) HasVMPort() bool {
+func (converterARM64) HasVMPort() bool {
 	return false
 }
 

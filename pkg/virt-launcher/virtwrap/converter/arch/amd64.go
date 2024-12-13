@@ -14,7 +14,7 @@
  *
  */
 
-package archconverter
+package arch
 
 import (
 	v1 "kubevirt.io/api/core/v1"
@@ -25,15 +25,15 @@ import (
 )
 
 // Ensure that there is a compile error should the struct not implement the archConverter interface anymore.
-var _ = ArchConverter(&archConverterAMD64{})
+var _ = Converter(&converterAMD64{})
 
-type archConverterAMD64 struct{}
+type converterAMD64 struct{}
 
-func (archConverterAMD64) GetArchitecture() string {
-	return "amd64"
+func (converterAMD64) GetArchitecture() string {
+	return amd64
 }
 
-func (archConverterAMD64) AddGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, isEFI bool) {
+func (converterAMD64) AddGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, isEFI bool) {
 	// For AMD64 + EFI, use bochs. For BIOS, use VGA
 	if isEFI {
 		domain.Spec.Devices.Video = []api.Video{
@@ -57,11 +57,11 @@ func (archConverterAMD64) AddGraphicsDevice(_ *v1.VirtualMachineInstance, domain
 	}
 }
 
-func (archConverterAMD64) ScsiController(model string, driver *api.ControllerDriver) api.Controller {
+func (converterAMD64) ScsiController(model string, driver *api.ControllerDriver) api.Controller {
 	return defaultSCSIController(model, driver)
 }
 
-func (archConverterAMD64) IsUSBNeeded(vmi *v1.VirtualMachineInstance) bool {
+func (converterAMD64) IsUSBNeeded(vmi *v1.VirtualMachineInstance) bool {
 	for i := range vmi.Spec.Domain.Devices.Inputs {
 		if vmi.Spec.Domain.Devices.Inputs[i].Bus == "usb" {
 			return true
@@ -87,30 +87,30 @@ func (archConverterAMD64) IsUSBNeeded(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-func (archConverterAMD64) SupportCPUHotplug() bool {
+func (converterAMD64) SupportCPUHotplug() bool {
 	return true
 }
 
-func (archConverterAMD64) IsSMBiosNeeded() bool {
+func (converterAMD64) IsSMBiosNeeded() bool {
 	return true
 }
 
-func (archConverterAMD64) TransitionalModelType(useVirtioTransitional bool) string {
+func (converterAMD64) TransitionalModelType(useVirtioTransitional bool) string {
 	return defaultTransitionalModelType(useVirtioTransitional)
 }
 
-func (archConverterAMD64) IsROMTuningSupported() bool {
+func (converterAMD64) IsROMTuningSupported() bool {
 	return true
 }
 
-func (archConverterAMD64) RequiresMPXCPUValidation() bool {
+func (converterAMD64) RequiresMPXCPUValidation() bool {
 	return true
 }
 
-func (archConverterAMD64) ShouldVerboseLogsBeEnabled() bool {
+func (converterAMD64) ShouldVerboseLogsBeEnabled() bool {
 	return true
 }
 
-func (archConverterAMD64) HasVMPort() bool {
+func (converterAMD64) HasVMPort() bool {
 	return true
 }

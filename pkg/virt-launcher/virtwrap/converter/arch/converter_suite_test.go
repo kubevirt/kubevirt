@@ -1,4 +1,4 @@
-package archconverter
+package arch
 
 import (
 	"testing"
