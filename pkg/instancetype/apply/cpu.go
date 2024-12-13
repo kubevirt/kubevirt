@@ -21,7 +21,6 @@ package apply
 
 import (
 	k8sv1 "k8s.io/api/core/v1"
-	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -31,7 +30,7 @@ import (
 )
 
 func applyCPU(
-	field *k8sfield.Path,
+	baseConflict *conflict.Conflict,
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
@@ -41,7 +40,7 @@ func applyCPU(
 	}
 
 	// If we have any conflicts return as there's no need to apply the topology below
-	if conflicts := validateCPU(field, instancetypeSpec, vmiSpec); len(conflicts) > 0 {
+	if conflicts := validateCPU(baseConflict, instancetypeSpec, vmiSpec); len(conflicts) > 0 {
 		return conflicts
 	}
 
@@ -110,48 +109,48 @@ func applyGuestCPUTopology(vCPUs uint32, preferenceSpec *v1beta1.VirtualMachineP
 }
 
 func validateCPU(
-	field *k8sfield.Path,
+	baseConflict *conflict.Conflict,
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 ) (conflicts conflict.Conflicts) {
 	if _, hasCPURequests := vmiSpec.Domain.Resources.Requests[k8sv1.ResourceCPU]; hasCPURequests {
-		conflicts = append(conflicts, field.Child("domain", "resources", "requests", string(k8sv1.ResourceCPU)))
+		conflicts = append(conflicts, baseConflict.NewChild("domain", "resources", "requests", string(k8sv1.ResourceCPU)))
 	}
 
 	if _, hasCPULimits := vmiSpec.Domain.Resources.Limits[k8sv1.ResourceCPU]; hasCPULimits {
-		conflicts = append(conflicts, field.Child("domain", "resources", "limits", string(k8sv1.ResourceCPU)))
+		conflicts = append(conflicts, baseConflict.NewChild("domain", "resources", "limits", string(k8sv1.ResourceCPU)))
 	}
 
 	if vmiSpec.Domain.CPU.Sockets != 0 {
-		conflicts = append(conflicts, field.Child("domain", "cpu", "sockets"))
+		conflicts = append(conflicts, baseConflict.NewChild("domain", "cpu", "sockets"))
 	}
 
 	if vmiSpec.Domain.CPU.Cores != 0 {
-		conflicts = append(conflicts, field.Child("domain", "cpu", "cores"))
+		conflicts = append(conflicts, baseConflict.NewChild("domain", "cpu", "cores"))
 	}
 
 	if vmiSpec.Domain.CPU.Threads != 0 {
-		conflicts = append(conflicts, field.Child("domain", "cpu", "threads"))
+		conflicts = append(conflicts, baseConflict.NewChild("domain", "cpu", "threads"))
 	}
 
 	if vmiSpec.Domain.CPU.Model != "" && instancetypeSpec.CPU.Model != nil {
-		conflicts = append(conflicts, field.Child("domain", "cpu", "model"))
+		conflicts = append(conflicts, baseConflict.NewChild("domain", "cpu", "model"))
 	}
 
 	if vmiSpec.Domain.CPU.DedicatedCPUPlacement && instancetypeSpec.CPU.DedicatedCPUPlacement != nil {
-		conflicts = append(conflicts, field.Child("domain", "cpu", "dedicatedCPUPlacement"))
+		conflicts = append(conflicts, baseConflict.NewChild("domain", "cpu", "dedicatedCPUPlacement"))
 	}
 
 	if vmiSpec.Domain.CPU.IsolateEmulatorThread && instancetypeSpec.CPU.IsolateEmulatorThread != nil {
-		conflicts = append(conflicts, field.Child("domain", "cpu", "isolateEmulatorThread"))
+		conflicts = append(conflicts, baseConflict.NewChild("domain", "cpu", "isolateEmulatorThread"))
 	}
 
 	if vmiSpec.Domain.CPU.NUMA != nil && instancetypeSpec.CPU.NUMA != nil {
-		conflicts = append(conflicts, field.Child("domain", "cpu", "numa"))
+		conflicts = append(conflicts, baseConflict.NewChild("domain", "cpu", "numa"))
 	}
 
 	if vmiSpec.Domain.CPU.Realtime != nil && instancetypeSpec.CPU.Realtime != nil {
-		conflicts = append(conflicts, field.Child("domain", "cpu", "realtime"))
+		conflicts = append(conflicts, baseConflict.NewChild("domain", "cpu", "realtime"))
 	}
 
 	return conflicts

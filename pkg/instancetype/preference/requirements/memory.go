@@ -21,8 +21,6 @@ package requirements
 import (
 	"fmt"
 
-	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 )
 
@@ -35,13 +33,13 @@ func (h *Handler) checkMemory() (conflict.Conflicts, error) {
 	if h.instancetypeSpec != nil && h.instancetypeSpec.Memory.Guest.Cmp(h.preferenceSpec.Requirements.Memory.Guest) < 0 {
 		instancetypeMemory := h.instancetypeSpec.Memory.Guest.String()
 		preferenceMemory := h.preferenceSpec.Requirements.Memory.Guest.String()
-		return conflict.Conflicts{k8sfield.NewPath("spec", "instancetype")},
+		return conflict.Conflicts{conflict.New("spec", "instancetype")},
 			fmt.Errorf(InsufficientInstanceTypeMemoryResourcesErrorFmt, instancetypeMemory, preferenceMemory)
 	}
 
 	vmiMemory := h.vmiSpec.Domain.Memory
 	if h.instancetypeSpec == nil && vmiMemory != nil && vmiMemory.Guest.Cmp(h.preferenceSpec.Requirements.Memory.Guest) < 0 {
-		return conflict.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "memory")},
+		return conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "memory")},
 			fmt.Errorf(InsufficientVMMemoryResourcesErrorFmt, vmiMemory.Guest.String(), h.preferenceSpec.Requirements.Memory.Guest.String())
 	}
 	return nil, nil

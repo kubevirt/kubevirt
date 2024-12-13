@@ -54,15 +54,16 @@ func (a *vmiApplier) ApplyToVMI(
 		return
 	}
 
+	baseConflict := conflict.NewFromPath(field)
 	if instancetypeSpec != nil {
-		conflicts = append(conflicts, applyNodeSelector(field, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applySchedulerName(field, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyCPU(field, instancetypeSpec, preferenceSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyMemory(field, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyIOThreadPolicy(field, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyLaunchSecurity(field, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyGPUs(field, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyHostDevices(field, instancetypeSpec, vmiSpec)...)
+		conflicts = append(conflicts, applyNodeSelector(baseConflict, instancetypeSpec, vmiSpec)...)
+		conflicts = append(conflicts, applySchedulerName(baseConflict, instancetypeSpec, vmiSpec)...)
+		conflicts = append(conflicts, applyCPU(baseConflict, instancetypeSpec, preferenceSpec, vmiSpec)...)
+		conflicts = append(conflicts, applyMemory(baseConflict, instancetypeSpec, vmiSpec)...)
+		conflicts = append(conflicts, applyIOThreadPolicy(baseConflict, instancetypeSpec, vmiSpec)...)
+		conflicts = append(conflicts, applyLaunchSecurity(baseConflict, instancetypeSpec, vmiSpec)...)
+		conflicts = append(conflicts, applyGPUs(baseConflict, instancetypeSpec, vmiSpec)...)
+		conflicts = append(conflicts, applyHostDevices(baseConflict, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyInstanceTypeAnnotations(instancetypeSpec.Annotations, vmiMetadata)...)
 	}
 
