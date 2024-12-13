@@ -32,7 +32,7 @@ func (archConverterARM64) GetArchitecture() string {
 	return "arm64"
 }
 
-func (archConverterARM64) addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, _ *ConverterContext) {
+func (archConverterARM64) addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
 	// For arm64, qemu-kvm only support virtio-gpu display device, so set it as default video device.
 	// tablet and keyboard devices are necessary for control the VM via vnc connection
 	domain.Spec.Devices.Video = []api.Video{

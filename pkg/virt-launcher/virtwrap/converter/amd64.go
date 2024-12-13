@@ -20,7 +20,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
@@ -34,9 +33,9 @@ func (archConverterAMD64) GetArchitecture() string {
 	return "amd64"
 }
 
-func (archConverterAMD64) addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) {
+func (archConverterAMD64) addGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, isEFI bool) {
 	// For AMD64 + EFI, use bochs. For BIOS, use VGA
-	if c.BochsForEFIGuests && util.IsEFIVMI(vmi) {
+	if isEFI {
 		domain.Spec.Devices.Video = []api.Video{
 			{
 				Model: api.VideoModel{

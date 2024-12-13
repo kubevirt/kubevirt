@@ -32,7 +32,7 @@ func (archConverterS390X) GetArchitecture() string {
 	return "s390x"
 }
 
-func (archConverterS390X) addGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ *ConverterContext) {
+func (archConverterS390X) addGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
 	domain.Spec.Devices.Video = []api.Video{
 		{
 			Model: api.VideoModel{

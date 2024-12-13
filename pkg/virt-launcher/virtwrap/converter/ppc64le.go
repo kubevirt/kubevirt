@@ -32,7 +32,7 @@ func (archConverterPPC64) GetArchitecture() string {
 	return "ppc64le"
 }
 
-func (archConverterPPC64) addGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ *ConverterContext) {
+func (archConverterPPC64) addGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
 	domain.Spec.Devices.Video = []api.Video{
 		{
 			Model: api.VideoModel{
