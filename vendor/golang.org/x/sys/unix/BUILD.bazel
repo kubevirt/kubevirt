@@ -110,6 +110,8 @@ go_library(
         "sysvshm_unix_other.go",
         "timestruct.go",
         "unveil_openbsd.go",
+        "vgetrandom_linux.go",
+        "vgetrandom_unsupported.go",
         "xattr_bsd.go",
         "zerrors_aix_ppc64.go",
         "zerrors_darwin_amd64.go",
