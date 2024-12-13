@@ -9,23 +9,23 @@ import (
 	"runtime"
 	"strings"
 
-	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/hooks"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-
 	"github.com/go-kit/kit/log"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
 	kubevirtlog "kubevirt.io/client-go/log"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/archconverter"
 )
 
 const (
@@ -218,7 +218,7 @@ var _ = Describe("LibvirtHelper", func() {
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 		domain := &api.Domain{}
 		c := &converter.ConverterContext{
-			Architecture:     converter.NewArchConverter(runtime.GOARCH),
+			Architecture:     archconverter.NewArchConverter(runtime.GOARCH),
 			VirtualMachine:   vmi,
 			AllowEmulation:   true,
 			SMBios:           &cmdv1.SMBios{},

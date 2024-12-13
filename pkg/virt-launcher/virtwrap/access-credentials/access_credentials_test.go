@@ -30,22 +30,20 @@ import (
 	"sync"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-
 	"github.com/fsnotify/fsnotify"
 	"github.com/golang/mock/gomock"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"libvirt.org/go/libvirt"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/archconverter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
@@ -76,7 +74,7 @@ var _ = Describe("AccessCredentials", func() {
 	expectIsolationDetectionForVMI := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
 		domain := &api.Domain{}
 		c := &converter.ConverterContext{
-			Architecture:   converter.NewArchConverter(runtime.GOARCH),
+			Architecture:   archconverter.NewArchConverter(runtime.GOARCH),
 			VirtualMachine: vmi,
 			AllowEmulation: true,
 			SMBios:         &cmdv1.SMBios{},

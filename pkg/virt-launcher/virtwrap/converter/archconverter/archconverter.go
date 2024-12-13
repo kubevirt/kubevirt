@@ -14,7 +14,7 @@
  *
  */
 
-package converter
+package archconverter
 
 import (
 	"kubevirt.io/client-go/log"
@@ -35,16 +35,16 @@ const (
 
 type ArchConverter interface {
 	GetArchitecture() string
-	addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, isEFI bool)
-	scsiController(model string, driver *api.ControllerDriver) api.Controller
-	isUSBNeeded(vmi *v1.VirtualMachineInstance) bool
-	supportCPUHotplug() bool
-	isSMBiosNeeded() bool
-	hasVMPort() bool
-	transitionalModelType(useVirtioTransitional bool) string
-	isROMTuningSupported() bool
-	requiresMPXCPUValidation() bool
-	shouldVerboseLogsBeEnabled() bool
+	AddGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, isEFI bool)
+	ScsiController(model string, driver *api.ControllerDriver) api.Controller
+	IsUSBNeeded(vmi *v1.VirtualMachineInstance) bool
+	SupportCPUHotplug() bool
+	IsSMBiosNeeded() bool
+	HasVMPort() bool
+	TransitionalModelType(useVirtioTransitional bool) string
+	IsROMTuningSupported() bool
+	RequiresMPXCPUValidation() bool
+	ShouldVerboseLogsBeEnabled() bool
 }
 
 func NewArchConverter(arch string) ArchConverter {

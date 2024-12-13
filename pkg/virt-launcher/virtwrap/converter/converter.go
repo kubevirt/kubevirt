@@ -61,6 +61,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/archconverter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
@@ -86,7 +87,7 @@ type EFIConfiguration struct {
 }
 
 type ConverterContext struct {
-	Architecture                    ArchConverter
+	Architecture                    archconverter.ArchConverter
 	AllowEmulation                  bool
 	Secrets                         map[string]*k8sv1.Secret
 	VirtualMachine                  *v1.VirtualMachineInstance
@@ -1381,7 +1382,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		CPUs:      cpuCount,
 	}
 	// set the maximum number of sockets here to allow hot-plug CPUs
-	if vmiCPU := vmi.Spec.Domain.CPU; vmiCPU != nil && vmiCPU.MaxSockets != 0 && c.Architecture.supportCPUHotplug() {
+	if vmiCPU := vmi.Spec.Domain.CPU; vmiCPU != nil && vmiCPU.MaxSockets != 0 && c.Architecture.SupportCPUHotplug() {
 		domainVCPUTopologyForHotplug(vmi, domain)
 	}
 
@@ -1453,7 +1454,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	// Take SMBios values from the VirtualMachineOptions
-	if c.Architecture.isSMBiosNeeded() {
+	if c.Architecture.IsSMBiosNeeded() {
 		domain.Spec.OS.SMBios = &api.SMBios{
 			Mode: "sysinfo",
 		}
@@ -1636,13 +1637,13 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		Index: "0",
 		Model: "none",
 	}
-	if c.Architecture.isUSBNeeded(vmi) {
+	if c.Architecture.IsUSBNeeded(vmi) {
 		usbController.Model = "qemu-xhci"
 	}
 	domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, usbController)
 
 	if needsSCSIController(vmi) {
-		scsiController := c.Architecture.scsiController(InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()), controllerDriver)
+		scsiController := c.Architecture.ScsiController(InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()), controllerDriver)
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, scsiController)
 	}
 
@@ -1660,7 +1661,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domain.Spec.Features = &api.Features{}
 		err := Convert_v1_Features_To_api_Features(vmi.Spec.Domain.Features, domain.Spec.Features, c)
 
-		if c.Architecture.hasVMPort() {
+		if c.Architecture.HasVMPort() {
 			domain.Spec.Features.VMPort = &api.FeatureState{State: "off"}
 		}
 
@@ -1710,7 +1711,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		*/
 
 		_, exists := existingFeatures["mpx"]
-		if c.Architecture.requiresMPXCPUValidation() && !exists && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
+		if c.Architecture.RequiresMPXCPUValidation() && !exists && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
 			domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
 				Name:   "mpx",
 				Policy: "disable",
@@ -1789,7 +1790,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == nil || *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {
-		c.Architecture.addGraphicsDevice(vmi, domain, c.BochsForEFIGuests && util.IsEFIVMI(vmi))
+		c.Architecture.AddGraphicsDevice(vmi, domain, c.BochsForEFIGuests && util.IsEFIVMI(vmi))
 		domain.Spec.Devices.Graphics = []api.Graphics{
 			{
 				Listen: &api.GraphicsListen{
@@ -1823,7 +1824,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	if c.Architecture.shouldVerboseLogsBeEnabled() {
+	if c.Architecture.ShouldVerboseLogsBeEnabled() {
 		virtLauncherLogVerbosity, err := strconv.Atoi(os.Getenv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY))
 		if err == nil && virtLauncherLogVerbosity > services.EXT_LOG_VERBOSITY_THRESHOLD {
 			// isa-debugcon device is only for x86_64
@@ -1994,17 +1995,6 @@ func GetVolumeNameByTarget(domain *api.Domain, target string) string {
 	return ""
 }
 
-func hasTabletDevice(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Devices.Inputs != nil {
-		for _, device := range vmi.Spec.Domain.Devices.Inputs {
-			if device.Type == "tablet" {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func GracePeriodSeconds(vmi *v1.VirtualMachineInstance) int64 {
 	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
 	if vmi.Spec.TerminationGracePeriodSeconds != nil {
@@ -2015,7 +2005,7 @@ func GracePeriodSeconds(vmi *v1.VirtualMachineInstance) int64 {
 
 func InterpretTransitionalModelType(useVirtioTransitional *bool, archString string) string {
 	vtenabled := useVirtioTransitional != nil && *useVirtioTransitional
-	return NewArchConverter(archString).transitionalModelType(vtenabled)
+	return archconverter.NewArchConverter(archString).TransitionalModelType(vtenabled)
 }
 
 func domainVCPUTopologyForHotplug(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
