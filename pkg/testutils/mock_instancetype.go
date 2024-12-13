@@ -8,17 +8,18 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 type MockInstancetypeMethods struct {
 	FindInstancetypeSpecFunc        func(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error)
-	ApplyToVmiFunc                  func(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) instancetype.Conflicts
+	ApplyToVmiFunc                  func(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) conflict.Conflicts
 	FindPreferenceSpecFunc          func(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error)
 	StoreControllerRevisionsFunc    func(vm *v1.VirtualMachine) error
 	InferDefaultInstancetypeFunc    func(vm *v1.VirtualMachine) error
 	InferDefaultPreferenceFunc      func(vm *v1.VirtualMachine) error
-	CheckPreferenceRequirementsFunc func(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) (instancetype.Conflicts, error)
+	CheckPreferenceRequirementsFunc func(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) (conflict.Conflicts, error)
 	UpgradeFunc                     func(vm *v1.VirtualMachine) error
 	ApplyToVMFunc                   func(vm *v1.VirtualMachine) error
 	ExpandFunc                      func(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig) (*v1.VirtualMachine, error)
@@ -30,7 +31,7 @@ func (m *MockInstancetypeMethods) FindInstancetypeSpec(vm *v1.VirtualMachine) (*
 	return m.FindInstancetypeSpecFunc(vm)
 }
 
-func (m *MockInstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) instancetype.Conflicts {
+func (m *MockInstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) conflict.Conflicts {
 	return m.ApplyToVmiFunc(field, instancetypespec, preferenceSpec, vmiSpec, vmiMetadata)
 }
 
@@ -50,7 +51,7 @@ func (m *MockInstancetypeMethods) InferDefaultPreference(vm *v1.VirtualMachine) 
 	return m.InferDefaultPreferenceFunc(vm)
 }
 
-func (m *MockInstancetypeMethods) CheckPreferenceRequirements(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) (instancetype.Conflicts, error) {
+func (m *MockInstancetypeMethods) CheckPreferenceRequirements(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) (conflict.Conflicts, error) {
 	return m.CheckPreferenceRequirementsFunc(instancetypeSpec, preferenceSpec, vmiSpec)
 }
 
@@ -71,7 +72,7 @@ func NewMockInstancetypeMethods() *MockInstancetypeMethods {
 		FindInstancetypeSpecFunc: func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
 			return nil, nil
 		},
-		ApplyToVmiFunc: func(_ *k8sfield.Path, _ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, _ *v1.VirtualMachineInstanceSpec, _ *metav1.ObjectMeta) instancetype.Conflicts {
+		ApplyToVmiFunc: func(_ *k8sfield.Path, _ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, _ *v1.VirtualMachineInstanceSpec, _ *metav1.ObjectMeta) conflict.Conflicts {
 			return nil
 		},
 		FindPreferenceSpecFunc: func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
@@ -86,7 +87,7 @@ func NewMockInstancetypeMethods() *MockInstancetypeMethods {
 		InferDefaultPreferenceFunc: func(_ *v1.VirtualMachine) error {
 			return nil
 		},
-		CheckPreferenceRequirementsFunc: func(_ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, _ *v1.VirtualMachineInstanceSpec) (instancetype.Conflicts, error) {
+		CheckPreferenceRequirementsFunc: func(_ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, _ *v1.VirtualMachineInstanceSpec) (conflict.Conflicts, error) {
 			return nil, nil
 		},
 		UpgradeFunc: func(_ *v1.VirtualMachine) error {

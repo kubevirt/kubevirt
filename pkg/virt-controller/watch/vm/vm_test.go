@@ -44,6 +44,7 @@ import (
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -4797,7 +4798,7 @@ var _ = Describe("VirtualMachine", func() {
 						"Reason": Equal("FailedCreate"),
 						"Message": And(
 							ContainSubstring("Error encountered while storing Instancetype ControllerRevisions"),
-							ContainSubstring(instancetype.VMFieldsConflictsErrorFmt, instancetype.Conflicts{
+							ContainSubstring(instancetype.VMFieldsConflictsErrorFmt, conflict.Conflicts{
 								field.NewPath("spec.template.spec.domain.cpu.sockets"),
 								field.NewPath("spec.template.spec.domain.cpu.cores"),
 								field.NewPath("spec.template.spec.domain.cpu.threads"),

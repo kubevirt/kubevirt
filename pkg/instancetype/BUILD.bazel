@@ -42,6 +42,7 @@ go_test(
     ],
     deps = [
         ":go_default_library",
+        "//pkg/instancetype/conflict:go_default_library",
         "//pkg/instancetype/errors:go_default_library",
         "//pkg/instancetype/preference/requirements:go_default_library",
         "//pkg/instancetype/revision:go_default_library",

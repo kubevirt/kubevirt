@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	instancetypepkg "kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/compute"
@@ -174,7 +175,7 @@ var _ = compute.SIGDescribe("ExpandSpec subresource", func() {
 
 				_, err := virtClient.ExpandSpec(testsuite.GetTestNamespace(vm)).ForVirtualMachine(vm)
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(fmt.Sprintf(instancetypepkg.VMFieldsConflictsErrorFmt, instancetypepkg.Conflicts{field.NewPath("spec.template.spec.domain.resources.requests.memory")})))
+				Expect(err).To(MatchError(fmt.Sprintf(instancetypepkg.VMFieldsConflictsErrorFmt, conflict.Conflicts{field.NewPath("spec.template.spec.domain.resources.requests.memory")})))
 			},
 				Entry("with VirtualMachineInstancetype", instancetypeMatcherFn),
 				Entry("with VirtualMachineClusterInstancetype", clusterInstancetypeMatcherFn),
