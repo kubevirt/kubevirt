@@ -21,9 +21,11 @@ package apply
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 )
 
-func applyInstanceTypeAnnotations(annotations map[string]string, target metav1.Object) (conflicts Conflicts) {
+func applyInstanceTypeAnnotations(annotations map[string]string, target metav1.Object) (conflicts conflict.Conflicts) {
 	if target.GetAnnotations() == nil {
 		target.SetAnnotations(make(map[string]string))
 	}

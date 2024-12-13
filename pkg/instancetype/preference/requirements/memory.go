@@ -23,7 +23,7 @@ import (
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
-	"kubevirt.io/kubevirt/pkg/instancetype/apply"
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 )
 
 const (
@@ -31,17 +31,17 @@ const (
 	InsufficientVMMemoryResourcesErrorFmt           = "insufficient Memory resources of %s provided by VirtualMachine, preference requires %s"
 )
 
-func (h *Handler) checkMemory() (apply.Conflicts, error) {
+func (h *Handler) checkMemory() (conflict.Conflicts, error) {
 	if h.instancetypeSpec != nil && h.instancetypeSpec.Memory.Guest.Cmp(h.preferenceSpec.Requirements.Memory.Guest) < 0 {
 		instancetypeMemory := h.instancetypeSpec.Memory.Guest.String()
 		preferenceMemory := h.preferenceSpec.Requirements.Memory.Guest.String()
-		return apply.Conflicts{k8sfield.NewPath("spec", "instancetype")},
+		return conflict.Conflicts{k8sfield.NewPath("spec", "instancetype")},
 			fmt.Errorf(InsufficientInstanceTypeMemoryResourcesErrorFmt, instancetypeMemory, preferenceMemory)
 	}
 
 	vmiMemory := h.vmiSpec.Domain.Memory
 	if h.instancetypeSpec == nil && vmiMemory != nil && vmiMemory.Guest.Cmp(h.preferenceSpec.Requirements.Memory.Guest) < 0 {
-		return apply.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "memory")},
+		return conflict.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "memory")},
 			fmt.Errorf(InsufficientVMMemoryResourcesErrorFmt, vmiMemory.Guest.String(), h.preferenceSpec.Requirements.Memory.Guest.String())
 	}
 	return nil, nil

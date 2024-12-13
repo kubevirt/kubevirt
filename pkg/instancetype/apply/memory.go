@@ -25,23 +25,25 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 )
 
 func applyMemory(
 	field *k8sfield.Path,
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
-) Conflicts {
+) conflict.Conflicts {
 	if vmiSpec.Domain.Memory != nil {
-		return Conflicts{field.Child("domain", "memory")}
+		return conflict.Conflicts{field.Child("domain", "memory")}
 	}
 
 	if _, hasMemoryRequests := vmiSpec.Domain.Resources.Requests[k8sv1.ResourceMemory]; hasMemoryRequests {
-		return Conflicts{field.Child("domain", "resources", "requests", string(k8sv1.ResourceMemory))}
+		return conflict.Conflicts{field.Child("domain", "resources", "requests", string(k8sv1.ResourceMemory))}
 	}
 
 	if _, hasMemoryLimits := vmiSpec.Domain.Resources.Limits[k8sv1.ResourceMemory]; hasMemoryLimits {
-		return Conflicts{field.Child("domain", "resources", "limits", string(k8sv1.ResourceMemory))}
+		return conflict.Conflicts{field.Child("domain", "resources", "limits", string(k8sv1.ResourceMemory))}
 	}
 
 	instancetypeMemory := instancetypeSpec.Memory.Guest.DeepCopy()

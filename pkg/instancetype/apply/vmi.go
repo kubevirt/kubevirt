@@ -25,6 +25,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 )
 
@@ -48,7 +49,7 @@ func (a *vmiApplier) ApplyToVMI(
 	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 	vmiMetadata *metav1.ObjectMeta,
-) (conflicts Conflicts) {
+) (conflicts conflict.Conflicts) {
 	if instancetypeSpec == nil && preferenceSpec == nil {
 		return
 	}
