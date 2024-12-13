@@ -21,7 +21,6 @@ package apply
 import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -30,20 +29,20 @@ import (
 )
 
 func applyMemory(
-	field *k8sfield.Path,
+	baseConflict *conflict.Conflict,
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 ) conflict.Conflicts {
 	if vmiSpec.Domain.Memory != nil {
-		return conflict.Conflicts{field.Child("domain", "memory")}
+		return conflict.Conflicts{baseConflict.NewChild("domain", "memory")}
 	}
 
 	if _, hasMemoryRequests := vmiSpec.Domain.Resources.Requests[k8sv1.ResourceMemory]; hasMemoryRequests {
-		return conflict.Conflicts{field.Child("domain", "resources", "requests", string(k8sv1.ResourceMemory))}
+		return conflict.Conflicts{baseConflict.NewChild("domain", "resources", "requests", string(k8sv1.ResourceMemory))}
 	}
 
 	if _, hasMemoryLimits := vmiSpec.Domain.Resources.Limits[k8sv1.ResourceMemory]; hasMemoryLimits {
-		return conflict.Conflicts{field.Child("domain", "resources", "limits", string(k8sv1.ResourceMemory))}
+		return conflict.Conflicts{baseConflict.NewChild("domain", "resources", "limits", string(k8sv1.ResourceMemory))}
 	}
 
 	instancetypeMemory := instancetypeSpec.Memory.Guest.DeepCopy()

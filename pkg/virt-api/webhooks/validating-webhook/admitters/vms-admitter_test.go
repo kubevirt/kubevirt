@@ -1753,9 +1753,8 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		It("should reject if instancetype fails to apply to VMI", func() {
 			var (
-				basePath = k8sfield.NewPath("spec", "template", "spec")
-				path1    = basePath.Child("example", "path")
-				path2    = basePath.Child("domain", "example", "path")
+				conflict1 = conflict.New("spec", "template", "spec", "example", "path")
+				conflict2 = conflict.New("spec", "template", "spec", "domain", "example", "path")
 			)
 			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
 				return &instancetypev1beta1.VirtualMachineInstancetypeSpec{}, nil
@@ -1767,16 +1766,16 @@ var _ = Describe("Validating VM Admitter", func() {
 				return &instancetypev1beta1.VirtualMachinePreferenceSpec{}, nil
 			}
 			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, _ *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) conflict.Conflicts {
-				return conflict.Conflicts{path1, path2}
+				return conflict.Conflicts{conflict1, conflict2}
 			}
 
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeFalse())
 			Expect(response.Result.Details.Causes).To(HaveLen(2))
 			Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(response.Result.Details.Causes[0].Field).To(Equal(path1.String()))
+			Expect(response.Result.Details.Causes[0].Field).To(Equal(conflict1.String()))
 			Expect(response.Result.Details.Causes[1].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(response.Result.Details.Causes[1].Field).To(Equal(path2.String()))
+			Expect(response.Result.Details.Causes[1].Field).To(Equal(conflict2.String()))
 		})
 
 		It("should apply instancetype to VMI before validating VMI", func() {
@@ -1830,7 +1829,7 @@ var _ = Describe("Validating VM Admitter", func() {
 				return &instancetypev1beta1.VirtualMachinePreferenceSpec{}, nil
 			}
 			instancetypeMethods.CheckPreferenceRequirementsFunc = func(_ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) (conflict.Conflicts, error) {
-				return conflict.Conflicts{k8sfield.NewPath("spec", "instancetype")}, fmt.Errorf("requirements not met")
+				return conflict.Conflicts{conflict.New("spec", "instancetype")}, fmt.Errorf("requirements not met")
 			}
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeFalse())

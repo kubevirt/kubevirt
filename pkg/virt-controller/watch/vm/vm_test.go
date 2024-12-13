@@ -20,7 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -4799,9 +4798,9 @@ var _ = Describe("VirtualMachine", func() {
 						"Message": And(
 							ContainSubstring("Error encountered while storing Instancetype ControllerRevisions"),
 							ContainSubstring(instancetype.VMFieldsConflictsErrorFmt, conflict.Conflicts{
-								field.NewPath("spec.template.spec.domain.cpu.sockets"),
-								field.NewPath("spec.template.spec.domain.cpu.cores"),
-								field.NewPath("spec.template.spec.domain.cpu.threads"),
+								conflict.New("spec.template.spec.domain.cpu.sockets"),
+								conflict.New("spec.template.spec.domain.cpu.cores"),
+								conflict.New("spec.template.spec.domain.cpu.threads"),
 							}),
 						),
 					}))

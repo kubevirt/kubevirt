@@ -19,8 +19,6 @@
 package apply
 
 import (
-	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
@@ -28,7 +26,7 @@ import (
 )
 
 func applyHostDevices(
-	field *k8sfield.Path,
+	baseConflict *conflict.Conflict,
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 ) conflict.Conflicts {
@@ -37,7 +35,7 @@ func applyHostDevices(
 	}
 
 	if len(vmiSpec.Domain.Devices.HostDevices) > 0 {
-		return conflict.Conflicts{field.Child("domain", "devices", "hostDevices")}
+		return conflict.Conflicts{baseConflict.NewChild("domain", "devices", "hostDevices")}
 	}
 
 	vmiSpec.Domain.Devices.HostDevices = make([]virtv1.HostDevice, len(instancetypeSpec.HostDevices))

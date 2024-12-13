@@ -21,8 +21,6 @@ package requirements
 import (
 	"fmt"
 
-	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-
 	"kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
@@ -40,34 +38,35 @@ const (
 func (h *Handler) checkCPU() (conflict.Conflicts, error) {
 	if h.instancetypeSpec != nil {
 		if h.instancetypeSpec.CPU.Guest < h.preferenceSpec.Requirements.CPU.Guest {
-			return conflict.Conflicts{k8sfield.NewPath("spec", "instancetype")},
+			return conflict.Conflicts{conflict.New("spec", "instancetype")},
 				fmt.Errorf(
 					InsufficientInstanceTypeCPUResourcesErrorFmt, h.instancetypeSpec.CPU.Guest, h.preferenceSpec.Requirements.CPU.Guest)
 		}
 		return nil, nil
 	}
 
-	cpuField := k8sfield.NewPath("spec", "template", "spec", "domain", "cpu")
 	if h.vmiSpec.Domain.CPU == nil {
-		return conflict.Conflicts{cpuField}, fmt.Errorf(NoVMCPUResourcesDefinedErrorFmt, h.preferenceSpec.Requirements.CPU.Guest)
+		return conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "cpu")},
+			fmt.Errorf(NoVMCPUResourcesDefinedErrorFmt, h.preferenceSpec.Requirements.CPU.Guest)
 	}
 
+	baseConflict := conflict.New("spec", "template", "spec", "domain", "cpu")
 	switch preferenceApply.GetPreferredTopology(h.preferenceSpec) {
 	case v1beta1.DeprecatedPreferThreads, v1beta1.Threads:
 		if h.vmiSpec.Domain.CPU.Threads < h.preferenceSpec.Requirements.CPU.Guest {
-			return conflict.Conflicts{cpuField.Child("threads")},
+			return conflict.Conflicts{baseConflict.NewChild("threads")},
 				fmt.Errorf(
 					InsufficientVMCPUResourcesErrorFmt, h.vmiSpec.Domain.CPU.Threads, h.preferenceSpec.Requirements.CPU.Guest, "threads")
 		}
 	case v1beta1.DeprecatedPreferCores, v1beta1.Cores:
 		if h.vmiSpec.Domain.CPU.Cores < h.preferenceSpec.Requirements.CPU.Guest {
-			return conflict.Conflicts{cpuField.Child("cores")},
+			return conflict.Conflicts{baseConflict.NewChild("cores")},
 				fmt.Errorf(
 					InsufficientVMCPUResourcesErrorFmt, h.vmiSpec.Domain.CPU.Cores, h.preferenceSpec.Requirements.CPU.Guest, "cores")
 		}
 	case v1beta1.DeprecatedPreferSockets, v1beta1.Sockets:
 		if h.vmiSpec.Domain.CPU.Sockets < h.preferenceSpec.Requirements.CPU.Guest {
-			return conflict.Conflicts{cpuField.Child("sockets")},
+			return conflict.Conflicts{baseConflict.NewChild("sockets")},
 				fmt.Errorf(
 					InsufficientVMCPUResourcesErrorFmt, h.vmiSpec.Domain.CPU.Sockets, h.preferenceSpec.Requirements.CPU.Guest, "sockets")
 		}
@@ -76,7 +75,11 @@ func (h *Handler) checkCPU() (conflict.Conflicts, error) {
 	case v1beta1.DeprecatedPreferAny, v1beta1.Any:
 		cpuResources := h.vmiSpec.Domain.CPU.Cores * h.vmiSpec.Domain.CPU.Sockets * h.vmiSpec.Domain.CPU.Threads
 		if cpuResources < h.preferenceSpec.Requirements.CPU.Guest {
-			return conflict.Conflicts{cpuField.Child("cores"), cpuField.Child("sockets"), cpuField.Child("threads")},
+			return conflict.Conflicts{
+					baseConflict.NewChild("cores"),
+					baseConflict.NewChild("sockets"),
+					baseConflict.NewChild("threads"),
+				},
 				fmt.Errorf(InsufficientVMCPUResourcesErrorFmt,
 					cpuResources, h.preferenceSpec.Requirements.CPU.Guest, "cores, sockets and threads")
 		}
@@ -90,18 +93,28 @@ func (h *Handler) checkSpread() (conflict.Conflicts, error) {
 		vCPUs     uint32
 		conflicts conflict.Conflicts
 	)
-	cpuField := k8sfield.NewPath("spec", "template", "spec", "domain", "cpu")
+	baseConflict := conflict.New("spec", "template", "spec", "domain", "cpu")
 	_, across := preferenceApply.GetSpreadOptions(h.preferenceSpec)
 	switch across {
 	case v1beta1.SpreadAcrossSocketsCores:
 		vCPUs = h.vmiSpec.Domain.CPU.Sockets * h.vmiSpec.Domain.CPU.Cores
-		conflicts = conflict.Conflicts{cpuField.Child("sockets"), cpuField.Child("cores")}
+		conflicts = conflict.Conflicts{
+			baseConflict.NewChild("sockets"),
+			baseConflict.NewChild("cores"),
+		}
 	case v1beta1.SpreadAcrossCoresThreads:
 		vCPUs = h.vmiSpec.Domain.CPU.Cores * h.vmiSpec.Domain.CPU.Threads
-		conflicts = conflict.Conflicts{cpuField.Child("cores"), cpuField.Child("threads")}
+		conflicts = conflict.Conflicts{
+			baseConflict.NewChild("cores"),
+			baseConflict.NewChild("threads"),
+		}
 	case v1beta1.SpreadAcrossSocketsCoresThreads:
 		vCPUs = h.vmiSpec.Domain.CPU.Sockets * h.vmiSpec.Domain.CPU.Cores * h.vmiSpec.Domain.CPU.Threads
-		conflicts = conflict.Conflicts{cpuField.Child("sockets"), cpuField.Child("cores"), cpuField.Child("threads")}
+		conflicts = conflict.Conflicts{
+			baseConflict.NewChild("sockets"),
+			baseConflict.NewChild("cores"),
+			baseConflict.NewChild("threads"),
+		}
 	}
 	if vCPUs < h.preferenceSpec.Requirements.CPU.Guest {
 		return conflicts, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, vCPUs, h.preferenceSpec.Requirements.CPU.Guest, across)

@@ -19,8 +19,6 @@
 package apply
 
 import (
-	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
@@ -28,7 +26,7 @@ import (
 )
 
 func applySchedulerName(
-	field *k8sfield.Path,
+	baseConflict *conflict.Conflict,
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 ) conflict.Conflicts {
@@ -37,7 +35,7 @@ func applySchedulerName(
 	}
 
 	if vmiSpec.SchedulerName != "" {
-		return conflict.Conflicts{field.Child("schedulerName")}
+		return conflict.Conflicts{baseConflict.NewChild("schedulerName")}
 	}
 
 	vmiSpec.SchedulerName = instancetypeSpec.SchedulerName

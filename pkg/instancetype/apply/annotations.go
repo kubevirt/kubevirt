@@ -20,7 +20,6 @@ package apply
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 )
@@ -34,7 +33,7 @@ func applyInstanceTypeAnnotations(annotations map[string]string, target metav1.O
 	for key, value := range annotations {
 		if targetValue, exists := targetAnnotations[key]; exists {
 			if targetValue != value {
-				conflicts = append(conflicts, k8sfield.NewPath("annotations", key))
+				conflicts = append(conflicts, conflict.New("annotations", key))
 			}
 			continue
 		}
