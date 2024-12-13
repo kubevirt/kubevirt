@@ -66,18 +66,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 )
 
-const deviceTypeNotCompatibleFmt = "device %s is of type lun. Not compatible with a file based disk"
-
-// The location of uefi boot loader on ARM64 is different from that on x86
-const defaultIOThread = uint(1)
-
 const (
-	multiQueueMaxQueues  = uint32(256)
-	QEMUSeaBiosDebugPipe = "/var/run/kubevirt-private/QEMUSeaBiosDebugPipe"
-)
-
-var (
-	BootMenuTimeoutMS = uint(10000)
+	deviceTypeNotCompatibleFmt = "device %s is of type lun. Not compatible with a file based disk"
+	defaultIOThread            = uint(1)
+	bootMenuTimeoutMS          = uint(10000)
+	multiQueueMaxQueues        = uint32(256)
+	QEMUSeaBiosDebugPipe       = "/var/run/kubevirt-private/QEMUSeaBiosDebugPipe"
 )
 
 type deviceNamer struct {
@@ -1898,7 +1892,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	if vmi.ShouldStartPaused() {
 		domain.Spec.OS.BootMenu = &api.BootMenu{
 			Enable:  "yes",
-			Timeout: &BootMenuTimeoutMS,
+			Timeout: pointer.P(bootMenuTimeoutMS),
 		}
 	}
 
