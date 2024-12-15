@@ -45,7 +45,7 @@ func (r *Reconciler) createOrUpdateAPIService(apiService *apiregv1.APIService, c
 		} else {
 			exists = true
 		}
-	} else if exists {
+	} else {
 		cachedAPIService = obj.(*apiregv1.APIService)
 	}
 
