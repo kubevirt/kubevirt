@@ -1224,6 +1224,7 @@ k8s.io/utils/trace
 ## explicit; go 1.22.0
 kubevirt.io/api/clone
 kubevirt.io/api/clone/v1alpha1
+kubevirt.io/api/clone/v1beta1
 kubevirt.io/api/core
 kubevirt.io/api/core/v1
 kubevirt.io/api/export
@@ -1261,6 +1262,8 @@ kubevirt.io/client-go/kubevirt/fake
 kubevirt.io/client-go/kubevirt/scheme
 kubevirt.io/client-go/kubevirt/typed/clone/v1alpha1
 kubevirt.io/client-go/kubevirt/typed/clone/v1alpha1/fake
+kubevirt.io/client-go/kubevirt/typed/clone/v1beta1
+kubevirt.io/client-go/kubevirt/typed/clone/v1beta1/fake
 kubevirt.io/client-go/kubevirt/typed/core/v1
 kubevirt.io/client-go/kubevirt/typed/core/v1/fake
 kubevirt.io/client-go/kubevirt/typed/export/v1alpha1
