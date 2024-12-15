@@ -92,13 +92,13 @@
      }
     }
    },
-   "/apis/clone.kubevirt.io/v1alpha1/": {
+   "/apis/clone.kubevirt.io/v1beta1/": {
     "get": {
      "description": "Get KubeVirt API Resources",
      "produces": [
       "application/json"
      ],
-     "operationId": "getAPIResources-clone.kubevirt.io-v1alpha1",
+     "operationId": "getAPIResources-clone.kubevirt.io-v1beta1",
      "responses": {
       "200": {
        "description": "OK",
@@ -118,7 +118,7 @@
      }
     }
    },
-   "/apis/clone.kubevirt.io/v1alpha1/virtualmachineclones": {
+   "/apis/clone.kubevirt.io/v1beta1/virtualmachineclones": {
     "get": {
      "description": "Get a list of VirtualMachineClone objects.",
      "produces": [
@@ -157,7 +157,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineCloneList"
+        "$ref": "#/definitions/v1beta1.VirtualMachineCloneList"
        }
       },
       "401": {
@@ -185,7 +185,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClone"
+        "$ref": "#/definitions/v1beta1.VirtualMachineClone"
        }
       }
      ],
@@ -193,19 +193,19 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClone"
+        "$ref": "#/definitions/v1beta1.VirtualMachineClone"
        }
       },
       "201": {
        "description": "Created",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClone"
+        "$ref": "#/definitions/v1beta1.VirtualMachineClone"
        }
       },
       "202": {
        "description": "Accepted",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClone"
+        "$ref": "#/definitions/v1beta1.VirtualMachineClone"
        }
       },
       "401": {
@@ -265,7 +265,7 @@
      }
     }
    },
-   "/apis/clone.kubevirt.io/v1alpha1/virtualmachineclones/{name}": {
+   "/apis/clone.kubevirt.io/v1beta1/virtualmachineclones/{name}": {
     "get": {
      "description": "Get a VirtualMachineClone object.",
      "produces": [
@@ -286,7 +286,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClone"
+        "$ref": "#/definitions/v1beta1.VirtualMachineClone"
        }
       },
       "401": {
@@ -314,7 +314,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClone"
+        "$ref": "#/definitions/v1beta1.VirtualMachineClone"
        }
       }
      ],
@@ -322,13 +322,13 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClone"
+        "$ref": "#/definitions/v1beta1.VirtualMachineClone"
        }
       },
       "201": {
        "description": "Create",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClone"
+        "$ref": "#/definitions/v1beta1.VirtualMachineClone"
        }
       },
       "401": {
@@ -408,7 +408,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClone"
+        "$ref": "#/definitions/v1beta1.VirtualMachineClone"
        }
       },
       "401": {
@@ -430,7 +430,7 @@
      }
     ]
    },
-   "/apis/clone.kubevirt.io/v1alpha1/watch/virtualmachineclones": {
+   "/apis/clone.kubevirt.io/v1beta1/watch/virtualmachineclones": {
     "get": {
      "description": "Watch a VirtualMachineCloneList object.",
      "produces": [
@@ -17897,42 +17897,6 @@
      }
     }
    },
-   "v1alpha1.Condition": {
-    "description": "Condition defines conditions",
-    "type": "object",
-    "required": [
-     "type",
-     "status"
-    ],
-    "properties": {
-     "lastProbeTime": {
-      "type": [
-       "string",
-       "null"
-      ]
-     },
-     "lastTransitionTime": {
-      "type": [
-       "string",
-       "null"
-      ]
-     },
-     "message": {
-      "type": "string"
-     },
-     "reason": {
-      "type": "string"
-     },
-     "status": {
-      "type": "string",
-      "default": ""
-     },
-     "type": {
-      "type": "string",
-      "default": ""
-     }
-    }
-   },
    "v1alpha1.MigrationPolicy": {
     "description": "MigrationPolicy holds migration policy (i.e. configurations) to apply to a VM or group of VMs",
     "type": "object",
@@ -18038,167 +18002,6 @@
        "type": "string",
        "default": ""
       }
-     }
-    }
-   },
-   "v1alpha1.VirtualMachineClone": {
-    "description": "VirtualMachineClone is a CRD that clones one VM into another.",
-    "type": "object",
-    "required": [
-     "spec"
-    ],
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-      "type": "string"
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
-     },
-     "spec": {
-      "default": {},
-      "$ref": "#/definitions/v1alpha1.VirtualMachineCloneSpec"
-     },
-     "status": {
-      "default": {},
-      "$ref": "#/definitions/v1alpha1.VirtualMachineCloneStatus"
-     }
-    }
-   },
-   "v1alpha1.VirtualMachineCloneList": {
-    "description": "VirtualMachineCloneList is a list of MigrationPolicy",
-    "type": "object",
-    "required": [
-     "items"
-    ],
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-      "type": "string"
-     },
-     "items": {
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1alpha1.VirtualMachineClone"
-      },
-      "x-kubernetes-list-type": "atomic"
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
-     }
-    }
-   },
-   "v1alpha1.VirtualMachineCloneSpec": {
-    "type": "object",
-    "required": [
-     "source"
-    ],
-    "properties": {
-     "annotationFilters": {
-      "description": "Example use: \"!some/key*\". For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
-      "type": "array",
-      "items": {
-       "type": "string",
-       "default": ""
-      },
-      "x-kubernetes-list-type": "atomic"
-     },
-     "labelFilters": {
-      "description": "Example use: \"!some/key*\". For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
-      "type": "array",
-      "items": {
-       "type": "string",
-       "default": ""
-      },
-      "x-kubernetes-list-type": "atomic"
-     },
-     "newMacAddresses": {
-      "description": "NewMacAddresses manually sets that target interfaces' mac addresses. The key is the interface name and the value is the new mac address. If this field is not specified, a new MAC address will be generated automatically, as for any interface that is not included in this map.",
-      "type": "object",
-      "additionalProperties": {
-       "type": "string",
-       "default": ""
-      }
-     },
-     "newSMBiosSerial": {
-      "description": "NewSMBiosSerial manually sets that target's SMbios serial. If this field is not specified, a new serial will be generated automatically.",
-      "type": "string"
-     },
-     "source": {
-      "description": "Source is the object that would be cloned. Currently supported source types are: VirtualMachine of kubevirt.io API group, VirtualMachineSnapshot of snapshot.kubevirt.io API group",
-      "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
-     },
-     "target": {
-      "description": "Target is the outcome of the cloning process. Currently supported source types are: - VirtualMachine of kubevirt.io API group - Empty (nil). If the target is not provided, the target type would default to VirtualMachine and a random name would be generated for the target. The target's name can be viewed by inspecting status \"TargetName\" field below.",
-      "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
-     },
-     "template": {
-      "description": "For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
-      "default": {},
-      "$ref": "#/definitions/v1alpha1.VirtualMachineCloneTemplateFilters"
-     }
-    }
-   },
-   "v1alpha1.VirtualMachineCloneStatus": {
-    "type": "object",
-    "nullable": true,
-    "properties": {
-     "conditions": {
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1alpha1.Condition"
-      },
-      "x-kubernetes-list-type": "atomic"
-     },
-     "creationTime": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
-     },
-     "phase": {
-      "type": "string"
-     },
-     "restoreName": {
-      "type": "string"
-     },
-     "snapshotName": {
-      "type": "string"
-     },
-     "targetName": {
-      "type": "string"
-     }
-    }
-   },
-   "v1alpha1.VirtualMachineCloneTemplateFilters": {
-    "type": "object",
-    "properties": {
-     "annotationFilters": {
-      "description": "Example use: \"!some/key*\". For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
-      "type": "array",
-      "items": {
-       "type": "string",
-       "default": ""
-      },
-      "x-kubernetes-list-type": "atomic"
-     },
-     "labelFilters": {
-      "description": "Example use: \"!some/key*\". For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
-      "type": "array",
-      "items": {
-       "type": "string",
-       "default": ""
-      },
-      "x-kubernetes-list-type": "atomic"
      }
     }
    },
@@ -19182,6 +18985,167 @@
       "description": "Status holds the current state of the controller and brief information about its associated VirtualMachineInstance",
       "default": {},
       "$ref": "#/definitions/v1.VirtualMachineStatus"
+     }
+    }
+   },
+   "v1beta1.VirtualMachineClone": {
+    "description": "VirtualMachineClone is a CRD that clones one VM into another.",
+    "type": "object",
+    "required": [
+     "spec"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "default": {},
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+     },
+     "spec": {
+      "default": {},
+      "$ref": "#/definitions/v1beta1.VirtualMachineCloneSpec"
+     },
+     "status": {
+      "default": {},
+      "$ref": "#/definitions/v1beta1.VirtualMachineCloneStatus"
+     }
+    }
+   },
+   "v1beta1.VirtualMachineCloneList": {
+    "description": "VirtualMachineCloneList is a list of MigrationPolicy",
+    "type": "object",
+    "required": [
+     "items"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1beta1.VirtualMachineClone"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "default": {},
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+     }
+    }
+   },
+   "v1beta1.VirtualMachineCloneSpec": {
+    "type": "object",
+    "required": [
+     "source"
+    ],
+    "properties": {
+     "annotationFilters": {
+      "description": "Example use: \"!some/key*\". For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "labelFilters": {
+      "description": "Example use: \"!some/key*\". For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "newMacAddresses": {
+      "description": "NewMacAddresses manually sets that target interfaces' mac addresses. The key is the interface name and the value is the new mac address. If this field is not specified, a new MAC address will be generated automatically, as for any interface that is not included in this map.",
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
+     "newSMBiosSerial": {
+      "description": "NewSMBiosSerial manually sets that target's SMbios serial. If this field is not specified, a new serial will be generated automatically.",
+      "type": "string"
+     },
+     "source": {
+      "description": "Source is the object that would be cloned. Currently supported source types are: VirtualMachine of kubevirt.io API group, VirtualMachineSnapshot of snapshot.kubevirt.io API group",
+      "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
+     },
+     "target": {
+      "description": "Target is the outcome of the cloning process. Currently supported source types are: - VirtualMachine of kubevirt.io API group - Empty (nil). If the target is not provided, the target type would default to VirtualMachine and a random name would be generated for the target. The target's name can be viewed by inspecting status \"TargetName\" field below.",
+      "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
+     },
+     "template": {
+      "description": "For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
+      "default": {},
+      "$ref": "#/definitions/v1beta1.VirtualMachineCloneTemplateFilters"
+     }
+    }
+   },
+   "v1beta1.VirtualMachineCloneStatus": {
+    "type": "object",
+    "nullable": true,
+    "properties": {
+     "conditions": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1beta1.Condition"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "creationTime": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "phase": {
+      "type": "string"
+     },
+     "restoreName": {
+      "type": "string"
+     },
+     "snapshotName": {
+      "type": "string"
+     },
+     "targetName": {
+      "type": "string"
+     }
+    }
+   },
+   "v1beta1.VirtualMachineCloneTemplateFilters": {
+    "type": "object",
+    "properties": {
+     "annotationFilters": {
+      "description": "Example use: \"!some/key*\". For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "labelFilters": {
+      "description": "Example use: \"!some/key*\". For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
      }
     }
    },
