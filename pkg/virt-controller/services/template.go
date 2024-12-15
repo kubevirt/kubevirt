@@ -265,10 +265,10 @@ func (t *templateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstanc
 	backendStoragePVCName := ""
 	if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
 		backendStoragePVC := backendstorage.PVCForVMI(t.persistentVolumeClaimStore, vmi)
-		backendStoragePVCName = backendStoragePVC.Name
-		if backendStoragePVCName == "" {
+		if backendStoragePVC == nil {
 			return nil, fmt.Errorf("can't generate manifest without backend-storage PVC, waiting for the PVC to be created")
 		}
+		backendStoragePVCName = backendStoragePVC.Name
 	}
 	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, true)
 }
