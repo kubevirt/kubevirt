@@ -65,7 +65,6 @@ spec:
                 enableApplicationAwareQuota: false
                 enableCommonBootImageImport: true
                 persistentReservation: false
-                primaryUserDefinedNetworkBinding: false
               liveMigrationConfig:
                 allowAutoConverge: false
                 allowPostCopy: false
@@ -1044,7 +1043,6 @@ spec:
                   enableApplicationAwareQuota: false
                   enableCommonBootImageImport: true
                   persistentReservation: false
-                  primaryUserDefinedNetworkBinding: false
                 description: |-
                   featureGates is a map of feature gate flags. Setting a flag to `true` will enable
                   the feature. Setting `false` or removing the feature gate, disables the feature.
@@ -1122,11 +1120,10 @@ spec:
                       Enabling (or removing) the feature gate causes the redeployment of the virt-handler pod.
                     type: boolean
                   primaryUserDefinedNetworkBinding:
-                    default: false
                     description: |-
                       primaryUserDefinedNetworkBinding deploys the needed configurations for kubevirt users to
                       be able to bind their VM to a UDN network on the VM's primary interface.
-                      Note: this feature is in Developer Preview.
+                      Deprecated: this field is ignored and will be removed in the next version of the API.
                     type: boolean
                   withHostPassthroughCPU:
                     description: 'Deprecated: there is no such FG in KubeVirt. This

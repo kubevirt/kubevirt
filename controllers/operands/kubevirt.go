@@ -428,7 +428,7 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfigu
 
 	seccompConfig := getKVSeccompConfig()
 
-	networkBindings := getNetworkBindings(hc.Spec.NetworkBinding, hc.Spec.FeatureGates)
+	networkBindings := getNetworkBindings(hc.Spec.NetworkBinding)
 
 	config := &kubevirtcorev1.KubeVirtConfiguration{
 		DeveloperConfiguration: devConfig,
@@ -521,22 +521,18 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfigu
 	return config, nil
 }
 
-func getNetworkBindings(
-	hcoNetworkBindings map[string]kubevirtcorev1.InterfaceBindingPlugin,
-	hcoFeatureGates hcov1beta1.HyperConvergedFeatureGates) map[string]kubevirtcorev1.InterfaceBindingPlugin {
+func getNetworkBindings(hcoNetworkBindings map[string]kubevirtcorev1.InterfaceBindingPlugin) map[string]kubevirtcorev1.InterfaceBindingPlugin {
 	networkBindings := maps.Clone(hcoNetworkBindings)
 
-	if hcoFeatureGates.PrimaryUserDefinedNetworkBinding != nil && *hcoFeatureGates.PrimaryUserDefinedNetworkBinding {
-		if networkBindings == nil {
-			networkBindings = make(map[string]kubevirtcorev1.InterfaceBindingPlugin)
-		}
-
-		sidecarImage, _ := os.LookupEnv(hcoutil.PrimaryUDNImageEnvV)
-		networkBindings[primaryUDNNetworkBindingName] = primaryUserDefinedNetworkBinding()
-		networkBindings[passtUDNNetworkBindingName] = passtUserDefinedNetworkBinding(sidecarImage)
+	if networkBindings == nil {
+		networkBindings = make(map[string]kubevirtcorev1.InterfaceBindingPlugin)
 	}
-	return networkBindings
 
+	sidecarImage, _ := os.LookupEnv(hcoutil.PrimaryUDNImageEnvV)
+	networkBindings[primaryUDNNetworkBindingName] = primaryUserDefinedNetworkBinding()
+	networkBindings[passtUDNNetworkBindingName] = passtUserDefinedNetworkBinding(sidecarImage)
+
+	return networkBindings
 }
 
 func getObsoleteCPUConfig(hcObsoleteCPUConf *hcov1beta1.HyperConvergedObsoleteCPUs) (map[string]bool, string) {

@@ -21,7 +21,6 @@ spec:
     enableApplicationAwareQuota: false
     enableCommonBootImageImport: true
     persistentReservation: false
-    primaryUserDefinedNetworkBinding: false
   higherWorkloadDensity:
     memoryOvercommitPercentage: 100
   infra: {}

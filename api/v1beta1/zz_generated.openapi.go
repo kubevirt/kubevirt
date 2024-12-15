@@ -340,8 +340,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 					},
 					"primaryUserDefinedNetworkBinding": {
 						SchemaProps: spec.SchemaProps{
-							Description: "primaryUserDefinedNetworkBinding deploys the needed configurations for kubevirt users to be able to bind their VM to a UDN network on the VM's primary interface. Note: this feature is in Developer Preview.",
-							Default:     false,
+							Description: "primaryUserDefinedNetworkBinding deploys the needed configurations for kubevirt users to be able to bind their VM to a UDN network on the VM's primary interface. Deprecated: this field is ignored and will be removed in the next version of the API.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
