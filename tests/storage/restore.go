@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	clone "kubevirt.io/api/clone/v1beta1"
 	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -1160,12 +1160,12 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).ShouldNot(HaveOccurred())
 
 				By(fmt.Sprintf("Waiting for the clone %s to finish", vmClone.Name))
-				Eventually(func() clonev1alpha1.VirtualMachineClonePhase {
+				Eventually(func() clone.VirtualMachineClonePhase {
 					vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Get(context.Background(), vmClone.Name, metav1.GetOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
 
 					return vmClone.Status.Phase
-				}, 3*time.Minute, 3*time.Second).Should(Equal(clonev1alpha1.Succeeded), "clone should finish successfully")
+				}, 3*time.Minute, 3*time.Second).Should(Equal(clone.Succeeded), "clone should finish successfully")
 			}
 
 			It("[test_id:5259]should restore a vm multiple from the same snapshot", func() {

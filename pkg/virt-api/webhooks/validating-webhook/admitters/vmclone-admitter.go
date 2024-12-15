@@ -37,8 +37,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
-	"kubevirt.io/api/clone"
-	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	clonebase "kubevirt.io/api/clone"
+	clone "kubevirt.io/api/clone/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -67,18 +67,18 @@ func NewVMCloneAdmitter(config *virtconfig.ClusterConfig, client kubecli.Kubevir
 
 // Admit validates an AdmissionReview
 func (admitter *VirtualMachineCloneAdmitter) Admit(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	if ar.Request.Resource.Group != clonev1alpha1.VirtualMachineCloneKind.Group {
-		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected group: %+v. Expected group: %+v", ar.Request.Resource.Group, clonev1alpha1.VirtualMachineCloneKind.Group))
+	if ar.Request.Resource.Group != clone.VirtualMachineCloneKind.Group {
+		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected group: %+v. Expected group: %+v", ar.Request.Resource.Group, clone.VirtualMachineCloneKind.Group))
 	}
-	if ar.Request.Resource.Resource != clone.ResourceVMClonePlural {
-		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource: %+v. Expected resource: %+v", ar.Request.Resource.Resource, clone.ResourceVMClonePlural))
+	if ar.Request.Resource.Resource != clonebase.ResourceVMClonePlural {
+		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource: %+v. Expected resource: %+v", ar.Request.Resource.Resource, clonebase.ResourceVMClonePlural))
 	}
 
 	if ar.Request.Operation == admissionv1.Create && !admitter.Config.SnapshotEnabled() {
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("snapshot feature gate is not enabled"))
 	}
 
-	vmClone := &clonev1alpha1.VirtualMachineClone{}
+	vmClone := &clone.VirtualMachineClone{}
 	err := json.Unmarshal(ar.Request.Object.Raw, vmClone)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
@@ -162,7 +162,7 @@ func validateFilters(filters []string, fieldName string) (causes []metav1.Status
 	return causes
 }
 
-func validateSourceAndTargetKind(vmClone *clonev1alpha1.VirtualMachineClone) []metav1.StatusCause {
+func validateSourceAndTargetKind(vmClone *clone.VirtualMachineClone) []metav1.StatusCause {
 	var causes []metav1.StatusCause = nil
 	sourceField := k8sfield.NewPath("spec")
 
@@ -191,7 +191,7 @@ func validateSourceAndTargetKind(vmClone *clonev1alpha1.VirtualMachineClone) []m
 	return causes
 }
 
-func validateSource(ctx context.Context, client kubecli.KubevirtClient, vmClone *clonev1alpha1.VirtualMachineClone) []metav1.StatusCause {
+func validateSource(ctx context.Context, client kubecli.KubevirtClient, vmClone *clone.VirtualMachineClone) []metav1.StatusCause {
 	var causes []metav1.StatusCause = nil
 	sourceField := k8sfield.NewPath("spec")
 	source := vmClone.Spec.Source
@@ -242,7 +242,7 @@ func validateSource(ctx context.Context, client kubecli.KubevirtClient, vmClone 
 	return causes
 }
 
-func validateTarget(vmClone *clonev1alpha1.VirtualMachineClone) []metav1.StatusCause {
+func validateTarget(vmClone *clone.VirtualMachineClone) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	source := vmClone.Spec.Source
@@ -263,7 +263,7 @@ func validateTarget(vmClone *clonev1alpha1.VirtualMachineClone) []metav1.StatusC
 	return causes
 }
 
-func validateNewMacAddresses(vmClone *clonev1alpha1.VirtualMachineClone) []metav1.StatusCause {
+func validateNewMacAddresses(vmClone *clone.VirtualMachineClone) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	for ifaceName, ifaceMac := range vmClone.Spec.NewMacAddresses {

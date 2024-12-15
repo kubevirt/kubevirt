@@ -67,7 +67,7 @@ var (
 	VIRTUALMACHINESNAPSHOTCONTENT    = "virtualmachinesnapshotcontents." + snapshotv1beta1.SchemeGroupVersion.Group
 	VIRTUALMACHINEEXPORT             = "virtualmachineexports." + exportv1beta1.SchemeGroupVersion.Group
 	MIGRATIONPOLICY                  = "migrationpolicies." + migrationsv1.MigrationPolicyKind.Group
-	VIRTUALMACHINECLONE              = "virtualmachineclones." + clonev1alpha1.VirtualMachineCloneKind.Group
+	VIRTUALMACHINECLONE              = "virtualmachineclones." + clone.GroupName
 )
 
 func addFieldsToVersion(version *extv1.CustomResourceDefinitionVersion, fields ...interface{}) error {

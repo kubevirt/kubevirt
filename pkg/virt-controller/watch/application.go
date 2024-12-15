@@ -35,9 +35,9 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
-	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	clone "kubevirt.io/api/clone/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
+	clonecontroller "kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/migration"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/node"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/pool"
@@ -211,7 +211,7 @@ type VirtControllerApp struct {
 	migrationPolicyInformer cache.SharedIndexInformer
 
 	vmCloneInformer   cache.SharedIndexInformer
-	vmCloneController *clone.VMCloneController
+	vmCloneController *clonecontroller.VMCloneController
 
 	instancetypeInformer        cache.SharedIndexInformer
 	clusterInstancetypeInformer cache.SharedIndexInformer
@@ -275,7 +275,7 @@ func init() {
 	utilruntime.Must(snapshotv1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(exportv1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(poolv1.AddToScheme(scheme.Scheme))
-	utilruntime.Must(clonev1alpha1.AddToScheme(scheme.Scheme))
+	utilruntime.Must(clone.AddToScheme(scheme.Scheme))
 }
 
 func Execute() {
@@ -891,7 +891,7 @@ func (vca *VirtControllerApp) initExportController() {
 func (vca *VirtControllerApp) initCloneController() {
 	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "clone-controller")
-	vca.vmCloneController, err = clone.NewVmCloneController(
+	vca.vmCloneController, err = clonecontroller.NewVmCloneController(
 		vca.clientSet, vca.vmCloneInformer, vca.vmSnapshotInformer, vca.vmRestoreInformer, vca.vmInformer, vca.vmSnapshotContentInformer, vca.persistentVolumeClaimInformer, recorder,
 	)
 	if err != nil {

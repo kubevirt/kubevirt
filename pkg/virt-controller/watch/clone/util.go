@@ -15,7 +15,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	clone "kubevirt.io/api/clone/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -68,11 +68,11 @@ func generateVMName(oldVMName string) string {
 	return generateNameWithRandomSuffix(oldVMName, "clone")
 }
 
-func isInPhase(vmClone *clonev1alpha1.VirtualMachineClone, phase clonev1alpha1.VirtualMachineClonePhase) bool {
+func isInPhase(vmClone *clone.VirtualMachineClone, phase clone.VirtualMachineClonePhase) bool {
 	return vmClone.Status.Phase == phase
 }
 
-func generateSnapshot(vmClone *clonev1alpha1.VirtualMachineClone, sourceVM *v1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
+func generateSnapshot(vmClone *clone.VirtualMachineClone, sourceVM *v1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
 	return &snapshotv1.VirtualMachineSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      generateSnapshotName(vmClone.UID),
@@ -115,8 +115,8 @@ func generateRestore(targetInfo *corev1.TypedLocalObjectReference, sourceVMName,
 
 func getCloneOwnerReference(cloneName string, cloneUID types.UID) metav1.OwnerReference {
 	return metav1.OwnerReference{
-		APIVersion:         clonev1alpha1.VirtualMachineCloneKind.GroupVersion().String(),
-		Kind:               clonev1alpha1.VirtualMachineCloneKind.Kind,
+		APIVersion:         clone.VirtualMachineCloneKind.GroupVersion().String(),
+		Kind:               clone.VirtualMachineCloneKind.Kind,
 		Name:               cloneName,
 		UID:                cloneUID,
 		Controller:         pointer.P(true),
@@ -128,8 +128,8 @@ func getCloneOwnerReference(cloneName string, cloneUID types.UID) metav1.OwnerRe
 // and the second one would be the key of the clone. Otherwise, the first return parameter would
 // be false and the second parameter is to be ignored.
 func isOwnedByClone(obj metav1.Object) (isOwned bool, key string) {
-	cloneKind := clonev1alpha1.VirtualMachineCloneKind.Kind
-	cloneApiVersion := clonev1alpha1.VirtualMachineCloneKind.GroupVersion().String()
+	cloneKind := clone.VirtualMachineCloneKind.Kind
+	cloneApiVersion := clone.VirtualMachineCloneKind.GroupVersion().String()
 
 	ownerRefs := obj.GetOwnerReferences()
 	for _, ownerRef := range ownerRefs {
@@ -145,7 +145,7 @@ func isOwnedByClone(obj metav1.Object) (isOwned bool, key string) {
 	// TODO: Unit test this?
 }
 
-func updateCondition(conditions []clonev1alpha1.Condition, c clonev1alpha1.Condition, includeReason bool) []clonev1alpha1.Condition {
+func updateCondition(conditions []clone.Condition, c clone.Condition, includeReason bool) []clone.Condition {
 	found := false
 	for i := range conditions {
 		if conditions[i].Type == c.Type {
@@ -164,24 +164,24 @@ func updateCondition(conditions []clonev1alpha1.Condition, c clonev1alpha1.Condi
 	return conditions
 }
 
-func updateCloneConditions(vmClone *clonev1alpha1.VirtualMachineClone, conditions ...clonev1alpha1.Condition) {
+func updateCloneConditions(vmClone *clone.VirtualMachineClone, conditions ...clone.Condition) {
 	for _, cond := range conditions {
 		vmClone.Status.Conditions = updateCondition(vmClone.Status.Conditions, cond, false)
 	}
 }
 
-func newReadyCondition(status corev1.ConditionStatus, reason string) clonev1alpha1.Condition {
-	return clonev1alpha1.Condition{
-		Type:               clonev1alpha1.ConditionReady,
+func newReadyCondition(status corev1.ConditionStatus, reason string) clone.Condition {
+	return clone.Condition{
+		Type:               clone.ConditionReady,
 		Status:             status,
 		Reason:             reason,
 		LastTransitionTime: *currentTime(),
 	}
 }
 
-func newProgressingCondition(status corev1.ConditionStatus, reason string) clonev1alpha1.Condition {
-	return clonev1alpha1.Condition{
-		Type:               clonev1alpha1.ConditionProgressing,
+func newProgressingCondition(status corev1.ConditionStatus, reason string) clone.Condition {
+	return clone.Condition{
+		Type:               clone.ConditionProgressing,
 		Status:             status,
 		Reason:             reason,
 		LastTransitionTime: *currentTime(),
