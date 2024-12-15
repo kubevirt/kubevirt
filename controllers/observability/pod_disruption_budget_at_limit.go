@@ -12,8 +12,11 @@ import (
 )
 
 const (
+	// ServiceAccountTlsCertPath is the path to the service account TLS certificate
+	// used for TLS communication with the alertmanager API
+	ServiceAccountTlsCertPath = "/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt"
+
 	alertmanagerSvcHost = "https://alertmanager-main.openshift-monitoring.svc.cluster.local:9094"
-	tlsCertPath         = "/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt"
 )
 
 func (r *Reconciler) ensurePodDisruptionBudgetAtLimitIsSilenced() error {
@@ -64,7 +67,7 @@ func (r *Reconciler) ensurePodDisruptionBudgetAtLimitIsSilenced() error {
 }
 
 func (r *Reconciler) NewAlertmanagerApi() (*alertmanager.Api, error) {
-	caCert, err := os.ReadFile(tlsCertPath)
+	caCert, err := os.ReadFile(ServiceAccountTlsCertPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read ca cert: %w", err)
 	}
