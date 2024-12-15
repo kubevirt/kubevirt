@@ -25,6 +25,7 @@ import (
 	"kubevirt.io/api/clone"
 
 	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	clonev1beta1 "kubevirt.io/api/clone/v1beta1"
 
 	"kubevirt.io/api/instancetype"
 
@@ -871,7 +872,14 @@ func NewVirtualMachineCloneCrd() (*extv1.CustomResourceDefinition, error) {
 		Group: clonev1alpha1.VirtualMachineCloneKind.Group,
 		Versions: []extv1.CustomResourceDefinitionVersion{
 			{
-				Name:    clonev1alpha1.SchemeGroupVersion.Version,
+				Name:               clonev1alpha1.SchemeGroupVersion.Version,
+				Served:             true,
+				Storage:            false,
+				Deprecated:         true,
+				DeprecationWarning: pointer.P("clone.kubevirt.io/v1alpha1 VirtualMachineClone is now deprecated and will be removed in v1."),
+			},
+			{
+				Name:    clonev1beta1.SchemeGroupVersion.Version,
 				Served:  true,
 				Storage: true,
 			},
