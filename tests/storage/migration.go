@@ -592,7 +592,6 @@ var _ = SIGDescribe("Volumes update with migration", decorators.RequiresTwoSched
 
 	Describe("Hotplug volumes", func() {
 		var fgDisabled bool
-		const size = "1Gi"
 		BeforeEach(func() {
 			var err error
 			virtClient, err = kubecli.GetKubevirtClient()

@@ -45,10 +45,7 @@ import (
 )
 
 const (
-	ioerrorPV  = "ioerror-pv"
-	ioerrorPVC = "ioerror-pvc"
 	deviceName = "errdev0"
-	diskName   = "disk0"
 )
 
 var _ = SIGDescribe("K8s IO events", Serial, func() {
