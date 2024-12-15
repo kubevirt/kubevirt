@@ -92,7 +92,7 @@ var _ = Describe("VMI network spec", func() {
 		})
 	})
 
-	const iface1, iface2, iface3, iface4, iface5 = "iface1", "iface2", "iface3", "iface4", "iface5"
+	const iface1, iface2 = "iface1", "iface2"
 
 	Context("pop interface by network", func() {
 		const netName = "net1"

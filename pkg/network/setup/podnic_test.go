@@ -20,10 +20,6 @@ import (
 )
 
 var _ = Describe("podNIC", func() {
-	const (
-		masqueradeCidr     = "10.0.2.0/30"
-		masqueradeIpv6Cidr = "fd10:0:2::0/120"
-	)
 	var (
 		mockNetwork          *netdriver.MockNetworkHandler
 		baseCacheCreator     tempCacheCreator
