@@ -13,8 +13,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"kubevirt.io/api/clone"
-	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	clonebase "kubevirt.io/api/clone"
+	clone "kubevirt.io/api/clone/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -27,7 +27,7 @@ var _ = Describe("Clone mutating webhook", func() {
 		testSourceVirtualMachineSnapshotName = "test-snapshot"
 	)
 
-	DescribeTable("should mutate the spec", func(vmClone *clonev1alpha1.VirtualMachineClone) {
+	DescribeTable("should mutate the spec", func(vmClone *clone.VirtualMachineClone) {
 		admissionReview, err := newAdmissionReviewForVMCloneCreation(vmClone)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -97,10 +97,10 @@ var _ = Describe("Clone mutating webhook", func() {
 	})
 })
 
-type option func(vmClone *clonev1alpha1.VirtualMachineClone)
+type option func(vmClone *clone.VirtualMachineClone)
 
-func newVirtualMachineClone(options ...option) *clonev1alpha1.VirtualMachineClone {
-	newVMClone := &clonev1alpha1.VirtualMachineClone{
+func newVirtualMachineClone(options ...option) *clone.VirtualMachineClone {
+	newVMClone := &clone.VirtualMachineClone{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "kubevirt-test-default",
 			Name:      "testclone",
@@ -123,7 +123,7 @@ const (
 )
 
 func withVirtualMachineSource(virtualMachineName string) option {
-	return func(vmClone *clonev1alpha1.VirtualMachineClone) {
+	return func(vmClone *clone.VirtualMachineClone) {
 		vmClone.Spec.Source = &k8sv1.TypedLocalObjectReference{
 			APIGroup: pointer.P(virtualMachineAPIGroup),
 			Kind:     virtualMachineKind,
@@ -133,7 +133,7 @@ func withVirtualMachineSource(virtualMachineName string) option {
 }
 
 func withVirtualMachineSnapshotSource(virtualMachineSnapshotName string) option {
-	return func(vmClone *clonev1alpha1.VirtualMachineClone) {
+	return func(vmClone *clone.VirtualMachineClone) {
 		vmClone.Spec.Source = &k8sv1.TypedLocalObjectReference{
 			APIGroup: pointer.P(virtualMachineSnapshotAPIGroup),
 			Kind:     virtualMachineSnapshotKind,
@@ -143,7 +143,7 @@ func withVirtualMachineSnapshotSource(virtualMachineSnapshotName string) option 
 }
 
 func withVirtualMachineTarget(virtualMachineName string) option {
-	return func(vmClone *clonev1alpha1.VirtualMachineClone) {
+	return func(vmClone *clone.VirtualMachineClone) {
 		vmClone.Spec.Target = &k8sv1.TypedLocalObjectReference{
 			APIGroup: pointer.P(virtualMachineAPIGroup),
 			Kind:     virtualMachineKind,
@@ -152,7 +152,7 @@ func withVirtualMachineTarget(virtualMachineName string) option {
 	}
 }
 
-func newAdmissionReviewForVMCloneCreation(vmClone *clonev1alpha1.VirtualMachineClone) (*admissionv1.AdmissionReview, error) {
+func newAdmissionReviewForVMCloneCreation(vmClone *clone.VirtualMachineClone) (*admissionv1.AdmissionReview, error) {
 	cloneBytes, err := json.Marshal(vmClone)
 	if err != nil {
 		return nil, err
@@ -162,8 +162,8 @@ func newAdmissionReviewForVMCloneCreation(vmClone *clonev1alpha1.VirtualMachineC
 		Request: &admissionv1.AdmissionRequest{
 			Operation: admissionv1.Create,
 			Resource: metav1.GroupVersionResource{
-				Group:    clone.GroupName,
-				Resource: clone.ResourceVMClonePlural,
+				Group:    clonebase.GroupName,
+				Resource: clonebase.ResourceVMClonePlural,
 			},
 			Object: runtime.RawExtension{
 				Raw: cloneBytes,

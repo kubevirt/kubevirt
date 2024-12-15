@@ -29,8 +29,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	"kubevirt.io/api/clone"
-	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	clonebase "kubevirt.io/api/clone"
+	clone "kubevirt.io/api/clone/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -53,16 +53,16 @@ func NewCloneCreateMutatorWithTargetSuffix(targetSuffix string) *CloneCreateMuta
 }
 
 func (mutator *CloneCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	if resource := ar.Request.Resource; resource.Group != clone.GroupName || resource.Resource != clone.ResourceVMClonePlural {
-		err := fmt.Errorf("expect resource to be '%s'", clone.ResourceVMClonePlural)
+	if resource := ar.Request.Resource; resource.Group != clonebase.GroupName || resource.Resource != clonebase.ResourceVMClonePlural {
+		err := fmt.Errorf("expect resource to be '%s'", clonebase.ResourceVMClonePlural)
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	if resp := webhookutils.ValidateSchema(clonev1alpha1.VirtualMachineCloneKind, ar.Request.Object.Raw); resp != nil {
+	if resp := webhookutils.ValidateSchema(clone.VirtualMachineCloneKind, ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
 
-	vmCloneOrig := &clonev1alpha1.VirtualMachineClone{}
+	vmCloneOrig := &clone.VirtualMachineClone{}
 
 	if err := json.Unmarshal(ar.Request.Object.Raw, &vmCloneOrig); err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
@@ -94,7 +94,7 @@ func (mutator *CloneCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *admi
 	}
 }
 
-func mutateClone(vmClone *clonev1alpha1.VirtualMachineClone, targetSuffix string) {
+func mutateClone(vmClone *clone.VirtualMachineClone, targetSuffix string) {
 	if vmClone.Spec.Target == nil {
 		vmClone.Spec.Target = generateDefaultTarget(&vmClone.Spec, targetSuffix)
 	} else if vmClone.Spec.Target.Name == "" {
@@ -106,7 +106,7 @@ func generateTargetName(sourceName string, targetSuffix string) string {
 	return fmt.Sprintf("clone-%s-%s", sourceName, targetSuffix)
 }
 
-func generateDefaultTarget(cloneSpec *clonev1alpha1.VirtualMachineCloneSpec, targetSuffix string) (target *k8sv1.TypedLocalObjectReference) {
+func generateDefaultTarget(cloneSpec *clone.VirtualMachineCloneSpec, targetSuffix string) (target *k8sv1.TypedLocalObjectReference) {
 	const (
 		virtualMachineAPIGroup = "kubevirt.io"
 		virtualMachineKind     = "VirtualMachine"
