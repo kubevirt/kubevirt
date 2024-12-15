@@ -21,6 +21,7 @@ swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/migrations/v1alpha1/
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/export/v1alpha1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/export/v1beta1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/clone/v1alpha1/types.go
+swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/clone/v1beta1/types.go
 
 deepcopy-gen \
     --bounding-dirs kubevirt.io/api \
@@ -36,6 +37,7 @@ deepcopy-gen \
     kubevirt.io/api/pool/v1alpha1 \
     kubevirt.io/api/migrations/v1alpha1 \
     kubevirt.io/api/clone/v1alpha1 \
+    kubevirt.io/api/clone/v1beta1 \
     kubevirt.io/api/core/v1
 
 defaulter-gen \
@@ -56,6 +58,7 @@ openapi-gen \
     k8s.io/apimachinery/pkg/util/intstr \
     kubevirt.io/api/core/v1 \
     kubevirt.io/api/clone/v1alpha1 \
+    kubevirt.io/api/clone/v1beta1 \
     kubevirt.io/api/export/v1alpha1 \
     kubevirt.io/api/export/v1beta1 \
     kubevirt.io/api/instancetype/v1alpha1 \
@@ -85,7 +88,7 @@ fi
 
 client-gen --clientset-name kubevirt \
     --input-base kubevirt.io/api \
-    --input core/v1,export/v1alpha1,export/v1beta1,snapshot/v1alpha1,snapshot/v1beta1,instancetype/v1alpha1,instancetype/v1alpha2,instancetype/v1beta1,pool/v1alpha1,migrations/v1alpha1,clone/v1alpha1 \
+    --input core/v1,export/v1alpha1,export/v1beta1,snapshot/v1alpha1,snapshot/v1beta1,instancetype/v1alpha1,instancetype/v1alpha2,instancetype/v1beta1,pool/v1alpha1,migrations/v1alpha1,clone/v1alpha1,clone/v1beta1 \
     --output-dir ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go \
     --output-pkg ${CLIENT_GEN_BASE} \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
@@ -154,6 +157,7 @@ deepcopy-gen \
 
     #include clone
     GOFLAGS= controller-gen crd paths=../api/clone/v1alpha1/
+    GOFLAGS= controller-gen crd paths=../api/clone/v1beta1/
 
     #remove some weird stuff from controller-gen
     cd config/crd
