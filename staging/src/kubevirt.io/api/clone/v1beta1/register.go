@@ -17,7 +17,7 @@
  *
  */
 
-package v1alpha1
+package v1beta1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,10 +29,10 @@ import (
 
 var (
 	// SchemeGroupVersion is group version used to register these objects
-	SchemeGroupVersion = schema.GroupVersion{Group: clone.GroupName, Version: clone.LatestAlphaVersion}
+	SchemeGroupVersion = schema.GroupVersion{Group: clone.GroupName, Version: clone.LatestBetaVersion}
 
-	VirtualMachineCloneKind     = schema.GroupVersionKind{Group: clone.GroupName, Version: clone.LatestAlphaVersion, Kind: clone.Kind}
-	VirtualMachineCloneListKind = schema.GroupVersionKind{Group: clone.GroupName, Version: clone.LatestAlphaVersion, Kind: clone.ListKind}
+	VirtualMachineCloneKind     = schema.GroupVersionKind{Group: clone.GroupName, Version: clone.LatestBetaVersion, Kind: clone.Kind}
+	VirtualMachineCloneListKind = schema.GroupVersionKind{Group: clone.GroupName, Version: clone.LatestBetaVersion, Kind: clone.ListKind}
 )
 
 // Kind takes an unqualified kind and returns back a Group qualified GroupKind
