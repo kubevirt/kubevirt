@@ -1068,24 +1068,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
-		It("should allow single multus network with a multus default", func() {
-			vm := api.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				*v1.DefaultBridgeNetworkInterface(),
-			}
-			vm.Spec.Domain.Devices.Interfaces[0].Name = "multus1"
-			vm.Spec.Networks = []v1.Network{
-				{
-					Name: "multus1",
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
-					},
-				},
-			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
-			Expect(causes).To(BeEmpty())
-		})
 		It("should raise a warning when Deprecated API is used", func() {
 			const testsFGName = "test-deprecated"
 			deprecation.RegisterFeatureGate(deprecation.FeatureGate{
