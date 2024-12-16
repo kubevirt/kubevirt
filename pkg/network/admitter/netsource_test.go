@@ -205,4 +205,57 @@ var _ = Describe("Validate network source", func() {
 		causes := validator.Validate()
 		Expect(causes).To(BeEmpty())
 	})
+
+	It("should allow primary network and multiple secondary networks", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{
+			{
+				Name: "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Bridge: &v1.InterfaceBridge{},
+				},
+			},
+			{
+				Name: "multus1",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Bridge: &v1.InterfaceBridge{},
+				},
+			},
+			{
+				Name: "multus2",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Bridge: &v1.InterfaceBridge{},
+				},
+			},
+		}
+
+		spec.Networks = []v1.Network{
+			{
+				Name: "default",
+				NetworkSource: v1.NetworkSource{
+					Pod: &v1.PodNetwork{},
+				},
+			},
+			{
+				Name: "multus1",
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{NetworkName: "multus-net1"},
+				},
+			},
+			{
+				Name: "multus2",
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{NetworkName: "multus-net2"},
+				},
+			},
+		}
+
+		validator := admitter.NewValidator(
+			k8sfield.NewPath("fake"),
+			spec,
+			stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true},
+		)
+		causes := validator.Validate()
+		Expect(causes).To(BeEmpty())
+	})
 })
