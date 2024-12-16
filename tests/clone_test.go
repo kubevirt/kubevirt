@@ -633,6 +633,20 @@ var _ = Describe("[Serial][sig-compute]VirtualMachineClone Tests", Serial, decor
 					By("Waiting until the source VM has instancetype and preference RevisionNames")
 					libinstancetype.WaitForVMInstanceTypeRevisionNames(sourceVM.Name, virtClient)
 
+					snapshotStorageClass, err := libstorage.GetSnapshotStorageClass(virtClient)
+					Expect(err).ToNot(HaveOccurred())
+
+					if snapshotStorageClass == "" {
+						Skip("Skiping test, no VolumeSnapshot support")
+					}
+
+					running := false
+					if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(snapshotStorageClass) {
+						// with wffc need to start the virtual machine
+						// in order for the pvc to be populated
+						running = true
+					}
+					sourceVM = createVMWithStorageClass(snapshotStorageClass, running)
 					vmClone = generateCloneFromVM()
 					createCloneAndWaitForFinish(vmClone)
 
