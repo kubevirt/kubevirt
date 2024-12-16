@@ -28,7 +28,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
-	instancetypeErrors "kubevirt.io/kubevirt/pkg/instancetype/errors"
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/requirements"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -305,7 +304,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 				}
-				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(Equal(fmt.Sprintf(instancetypeErrors.VMFieldsConflictsErrorFmt, "spec.template.spec.domain.cpu.cores"))))
+				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "cpu", "cores")}))
 			})
 
 			It("find successfully decodes v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
@@ -494,7 +493,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 				}
-				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(Equal(fmt.Sprintf(instancetypeErrors.VMFieldsConflictsErrorFmt, "spec.template.spec.domain.cpu.cores"))))
+				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "cpu", "cores")}))
 			})
 
 			It("find successfully decodes v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
@@ -1909,13 +1908,13 @@ var _ = Describe("Instancetype and Preferences", func() {
 							Pod: &v1.PodNetwork{},
 						},
 					}}
-					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeNil())
+					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 					Expect(vmi.Spec.Domain.Devices.Interfaces[0].Masquerade).ToNot(BeNil())
 					Expect(vmi.Spec.Domain.Devices.Interfaces[1].Masquerade).To(BeNil())
 				})
 				It("should not be applied on interface that has another binding set", func() {
 					vmi.Spec.Domain.Devices.Interfaces[0].SRIOV = &v1.InterfaceSRIOV{}
-					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeNil())
+					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 					Expect(vmi.Spec.Domain.Devices.Interfaces[0].Masquerade).To(BeNil())
 					Expect(vmi.Spec.Domain.Devices.Interfaces[0].SRIOV).ToNot(BeNil())
 				})
@@ -1923,7 +1922,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					vmi.Spec.Networks = []v1.Network{{
 						Name: vmi.Spec.Domain.Devices.Interfaces[0].Name,
 					}}
-					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeNil())
+					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 					Expect(vmi.Spec.Domain.Devices.Interfaces[0].Masquerade).To(BeNil())
 				})
 			})
@@ -2353,8 +2352,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 	Context("preference requirements check", func() {
 		DescribeTable("should pass when sufficient resources are provided", func(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) {
-			path, err := instancetypeMethods.CheckPreferenceRequirements(instancetypeSpec, preferenceSpec, vmiSpec)
-			Expect(path).To(BeNil())
+			conflict, err := instancetypeMethods.CheckPreferenceRequirements(instancetypeSpec, preferenceSpec, vmiSpec)
+			Expect(conflict).ToNot(HaveOccurred())
 			Expect(err).ToNot(HaveOccurred())
 		},
 			Entry("by an instance type for vCPUs",

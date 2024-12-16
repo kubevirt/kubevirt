@@ -16,7 +16,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/annotations"
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
-	instancetypeErrors "kubevirt.io/kubevirt/pkg/instancetype/errors"
 	"kubevirt.io/kubevirt/pkg/instancetype/expand"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	"kubevirt.io/kubevirt/pkg/instancetype/infer"
@@ -28,11 +27,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/instancetype/upgrade"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-)
-
-// FIXME(lyarwood): Move remaining users to instancetypeErrors.VMFieldsConflictsErrorFmt
-var (
-	VMFieldsConflictsErrorFmt = instancetypeErrors.VMFieldsConflictsErrorFmt
 )
 
 type Methods interface {

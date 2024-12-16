@@ -19,10 +19,13 @@
 package conflict
 
 import (
+	"fmt"
 	"strings"
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 )
+
+const conflictsErrorFmt = "VM field(s) %s conflicts with selected instance type"
 
 type Conflict struct {
 	k8sfield.Path
@@ -46,6 +49,10 @@ func (c Conflict) NewChild(name string, moreNames ...string) *Conflict {
 	}
 }
 
+func (c Conflict) Error() string {
+	return fmt.Sprintf(conflictsErrorFmt, c.String())
+}
+
 type Conflicts []*Conflict
 
 func (c Conflicts) String() string {
@@ -54,4 +61,8 @@ func (c Conflicts) String() string {
 		pathStrings = append(pathStrings, path.String())
 	}
 	return strings.Join(pathStrings, ", ")
+}
+
+func (c Conflicts) Error() string {
+	return fmt.Sprintf(conflictsErrorFmt, c.String())
 }
