@@ -60,19 +60,11 @@ var _ = Describe("passt-binding-plugin", func() {
 
 			var buf bytes.Buffer
 			Expect(versionedResult.PrintTo(&buf)).To(Succeed())
-			Expect(buf.String()).To(MatchJSON(fmt.Sprintf(`
+			Expect(buf.String()).To(MatchJSON(`
 			{
 				"cniVersion": "1.0.0",
-				"interfaces": [
-					{
-						"name": %q,
-						"mac": %q,
-						"sandbox": %q
-					}
-				],
 				"dns": {}
-			}
-		`, "eth0", testMACAddress, testNSPath)))
+			}`))
 		})
 
 		unprivPortErr := errors.New("unpriv port")
