@@ -40,28 +40,30 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet/job"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libregistry"
+	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-// The following tests require the backend-storage storage class to be RWO (recovery doesn't apply to RWX).
-// The flake-check lane sets up a default storage class that is RWX.
-// For these tests to run on that lane, they would have to configure a RWO storage class in the CR,
-//
-//	and therefore be serial, which would make them a lot more expensive.
-//
-// TODO: maybe we should use a flag set by the flake-checker lane to make the tests serial and CR-altering
-var _ = Describe("[sig-compute]Migration recovery", decorators.SigCompute, decorators.NoFlakeCheck, func() {
-
-	DescribeTable("should successfully defer a migration", func(fakeSuccess bool) {
+var _ = Describe("[sig-compute]Migration recovery", decorators.SigCompute, func() {
+	DescribeTable("should successfully defer a migration", func(fakeSuccess, flakeCheck bool) {
 		virtClient, err := kubecli.GetKubevirtClient()
 		Expect(err).NotTo(HaveOccurred())
+
+		if flakeCheck {
+			kv := getCurrentKvConfig(virtClient)
+			var exists bool
+			kv.VMStateStorageClass, exists = libstorage.GetRWOFileSystemStorageClass()
+			Expect(exists).To(BeTrue())
+			config.UpdateKubeVirtConfigValueAndWait(kv)
+		}
 
 		By("Creating a VMI with RWO backend-storage")
 		vmi := libvmifact.NewFedora(
@@ -157,8 +159,10 @@ var _ = Describe("[sig-compute]Migration recovery", decorators.SigCompute, decor
 		Expect(err).NotTo(HaveOccurred())
 		Expect(pvc.Labels).To(HaveKeyWithValue("persistent-state-for", vmi.Name))
 	},
-		Entry("failure", false),
-		Entry("success", true),
+		Entry("failure", decorators.NoFlakeCheck, false, false),
+		Entry("success", decorators.NoFlakeCheck, true, false),
+		Entry("failure [Serial]", decorators.FlakeCheck, Serial, false, true),
+		Entry("success [Serial]", decorators.FlakeCheck, Serial, true, true),
 	)
 })
 

@@ -196,7 +196,9 @@ export KUBEVIRT_DEPLOY_NET_BINDING_CNI=true
 
 export KUBEVIRT_PROVIDER="${TEST_LANE}"
 
-ginko_params="$ginko_params -no-color -succinct --label-filter=(!QUARANTINE)&&(!exclude-native-ssh)&&(!no-flake-check) -randomize-all"
+label_filter_include="flake-check"
+label_filter_exclude="(!QUARANTINE)&&(!exclude-native-ssh)&&(!no-flake-check)"
+ginko_params="$ginko_params -no-color -succinct --label-filter=(${label_filter_include})||(${label_filter_exclude}) -randomize-all"
 for test_file in $(echo "${NEW_TESTS}" | tr '|' '\n'); do
     ginko_params+=" -focus-file=${test_file}"
 done
