@@ -1,4 +1,5 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("//staging/src/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
 
 go_library(
     name = "go_default_library",
@@ -29,6 +30,8 @@ go_library(
         "//pkg/virtctl/vnc:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//staging/src/kubevirt.io/client-go/version:go_default_library",
+        "//vendor/github.com/coreos/go-semver/semver:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
     ],
@@ -40,10 +43,17 @@ go_test(
         "root_suite_test.go",
         "root_test.go",
     ],
+    x_defs = version_x_defs(),
     deps = [
         ":go_default_library",
+        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//staging/src/kubevirt.io/client-go/version:go_default_library",
+        "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/spf13/cobra:go_default_library",
+        "//vendor/github.com/spf13/pflag:go_default_library",
+        "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
     ],
 )
