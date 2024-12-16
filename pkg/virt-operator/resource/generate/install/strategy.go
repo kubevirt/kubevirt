@@ -60,7 +60,6 @@ import (
 	marshalutil "kubevirt.io/kubevirt/tools/util"
 )
 
-const customSCCPrivilegedAccountsType = "KubevirtCustomSCCRule"
 const ManifestsEncodingGzipBase64 = "gzip+base64"
 
 //go:generate mockgen -source $GOFILE -imports "libvirt=libvirt.org/go/libvirt" -package=$GOPACKAGE -destination=generated_mock_$GOFILE

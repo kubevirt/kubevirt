@@ -62,43 +62,6 @@ rules:
 sideEffects: None
 timeoutSeconds: 10
 `
-	mutatingWebhookYaml = `
-apiVersion: admissionregistration.k8s.io/v1
-kind: MutatingWebhookConfiguration
-metadata:
-  name: virt-api-mutator
-webhooks:
-- admissionReviewVersions:
-  - v1
-  - v1beta1
-  clientConfig:
-    caBundle: deadbeef
-    service:
-      name: virt-api
-      namespace: kubevirt
-      path: /virtualmachines-mutate
-      port: 443
-  failurePolicy: Fail
-  matchPolicy: Equivalent
-  name: virtualmachines-mutator.kubevirt.io
-  namespaceSelector: {}
-  objectSelector: {}
-  reinvocationPolicy: Never
-  rules:
-  - apiGroups:
-    - kubevirt.io
-    apiVersions:
-    - v1alpha3
-    - v1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - virtualmachines
-    scope: '*'
-  sideEffects: None
-  timeoutSeconds: 10
-`
 )
 
 var _ = Describe("WebhookConfiguration types", func() {

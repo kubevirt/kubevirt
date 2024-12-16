@@ -1237,9 +1237,8 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		Context("disk mutating sidecar", func() {
 			const (
-				hookSidecarImage     = "example-disk-mutation-hook-sidecar"
-				sidecarContainerName = "hook-sidecar-0"
-				newDiskImgName       = "kubevirt-disk.img"
+				hookSidecarImage = "example-disk-mutation-hook-sidecar"
+				newDiskImgName   = "kubevirt-disk.img"
 			)
 
 			var (

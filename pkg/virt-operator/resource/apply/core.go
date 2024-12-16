@@ -234,7 +234,7 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.TypedRateLi
 		if err := components.PopulateSecretWithCertificate(secret, ca, duration); err != nil {
 			return nil, err
 		}
-	} else if exists {
+	} else {
 		secret.Data = cachedSecret.Data
 	}
 

@@ -123,10 +123,6 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		)
 
 		Context("guest agent ping", func() {
-			const (
-				guestAgentDisconnectTimeout = 300 // Marking the status to not ready can take a little more time
-			)
-
 			BeforeEach(func() {
 				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withReadinessProbe(createGuestAgentPingProbe(period, initialSeconds)))
 				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)

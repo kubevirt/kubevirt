@@ -51,7 +51,6 @@ import (
 const (
 	castFailedFmt   = "Cast failed! obj: %+v"
 	deleteFailedFmt = "Failed to delete %s: %v"
-	finalizerPath   = "/metadata/finalizers"
 )
 
 func deleteDummyWebhookValidators(kv *v1.KubeVirt,

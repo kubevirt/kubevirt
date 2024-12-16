@@ -32,8 +32,6 @@ import (
 var _ = Describe("VMNetworkConfigurator", func() {
 	var baseCacheCreator tempCacheCreator
 
-	const launcherPID = 0
-
 	AfterEach(func() {
 		Expect(baseCacheCreator.New("").Delete()).To(Succeed())
 	})
