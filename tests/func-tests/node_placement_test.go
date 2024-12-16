@@ -44,7 +44,7 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 		cliSet = tests.GetK8sClientSet()
 
 		workerNodes = listNodesByLabels(ctx, cliSet, "node-role.kubernetes.io/worker")
-		tests.FailIfSingleNode(len(workerNodes.Items) < 2)
+		tests.FailIfSingleNodeCluster(len(workerNodes.Items) < 2)
 
 		// Label all but the last node with "node.kubernetes.io/hco-test-node-type=infra"
 		Eventually(func(g Gomega, ctx context.Context) {

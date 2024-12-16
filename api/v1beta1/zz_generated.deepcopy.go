@@ -573,6 +573,11 @@ func (in *HyperConvergedStatus) DeepCopyInto(out *HyperConvergedStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.InfrastructureHighlyAvailable != nil {
+		in, out := &in.InfrastructureHighlyAvailable, &out.InfrastructureHighlyAvailable
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

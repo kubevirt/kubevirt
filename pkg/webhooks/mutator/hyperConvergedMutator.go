@@ -5,17 +5,16 @@ import (
 	"fmt"
 	"net/http"
 
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	kubevirtcorev1 "kubevirt.io/api/core/v1"
+
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
-	kubevirtcorev1 "kubevirt.io/api/core/v1"
 )
 
 var (
@@ -79,23 +78,7 @@ func (hcm *HyperConvergedMutator) mutateHyperConverged(_ context.Context, req ad
 		}
 	}
 
-	if hc.Spec.EvictionStrategy == nil {
-		ci := hcoutil.GetClusterInfo()
-		if ci.IsInfrastructureHighlyAvailable() {
-			patches = append(patches, jsonpatch.JsonPatchOperation{
-				Operation: "add",
-				Path:      "/spec/evictionStrategy",
-				Value:     kubevirtcorev1.EvictionStrategyLiveMigrate,
-			})
-		} else {
-			patches = append(patches, jsonpatch.JsonPatchOperation{
-				Operation: "add",
-				Path:      "/spec/evictionStrategy",
-				Value:     kubevirtcorev1.EvictionStrategyNone,
-			})
-		}
-
-	}
+	patches = mutateEvictionStrategy(hc, patches)
 
 	if hc.Spec.MediatedDevicesConfiguration != nil {
 		if len(hc.Spec.MediatedDevicesConfiguration.MediatedDevicesTypes) > 0 && len(hc.Spec.MediatedDevicesConfiguration.MediatedDeviceTypes) == 0 { //nolint SA1019
@@ -121,4 +104,23 @@ func (hcm *HyperConvergedMutator) mutateHyperConverged(_ context.Context, req ad
 	}
 
 	return admission.Allowed("")
+}
+
+func mutateEvictionStrategy(hc *hcov1beta1.HyperConverged, patches []jsonpatch.JsonPatchOperation) []jsonpatch.JsonPatchOperation {
+	if hc.Status.InfrastructureHighlyAvailable == nil || hc.Spec.EvictionStrategy != nil { // New HyperConverged CR
+		return patches
+	}
+
+	var value = kubevirtcorev1.EvictionStrategyNone
+	if *hc.Status.InfrastructureHighlyAvailable {
+		value = kubevirtcorev1.EvictionStrategyLiveMigrate
+	}
+
+	patches = append(patches, jsonpatch.JsonPatchOperation{
+		Operation: "replace",
+		Path:      "/spec/evictionStrategy",
+		Value:     value,
+	})
+
+	return patches
 }

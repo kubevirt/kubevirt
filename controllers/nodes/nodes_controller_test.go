@@ -37,9 +37,6 @@ var _ = Describe("NodesController", func() {
 	Describe("Reconcile NodesController", func() {
 
 		BeforeEach(func() {
-			hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
-				return commontestutils.ClusterInfoMock{}
-			}
 			_ = os.Setenv(hcoutil.OperatorNamespaceEnv, commontestutils.Namespace)
 		})
 
@@ -49,6 +46,9 @@ var _ = Describe("NodesController", func() {
 
 		Context("Node Count Change", func() {
 			It("Should update InfrastructureHighlyAvailable to true if there are two or more worker nodes", func() {
+				hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+					return commontestutils.ClusterInfoMock{}
+				}
 				hco := commontestutils.NewHco()
 				numWorkerNodes := 3
 				var nodesArray []client.Object
@@ -66,8 +66,6 @@ var _ = Describe("NodesController", func() {
 
 				resources := []client.Object{hco, nodesArray[0], nodesArray[1], nodesArray[2]}
 				cl := commontestutils.InitClient(resources)
-				logger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)).WithName("nodes_controller_test")
-				Expect(hcoutil.GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
 				r := &ReconcileNodeCounter{
 					client: cl,
 				}
@@ -82,12 +80,14 @@ var _ = Describe("NodesController", func() {
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: commontestutils.Name, Namespace: commontestutils.Namespace},
 						latestHCO),
-				).ToNot(HaveOccurred())
+				).To(Succeed())
 
-				Expect(latestHCO.Status.InfrastructureHighlyAvailable).To(BeTrue())
-				Expect(res).To(Equal(reconcile.Result{}))
+				Expect(latestHCO.Status.InfrastructureHighlyAvailable).To(HaveValue(BeTrue()))
 			})
 			It("Should update InfrastructureHighlyAvailable to false if there is only one worker node", func() {
+				hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
+					return commontestutils.ClusterInfoSNOMock{}
+				}
 				hco := commontestutils.NewHco()
 				workerNode := &corev1.Node{
 					ObjectMeta: metav1.ObjectMeta{
@@ -99,8 +99,6 @@ var _ = Describe("NodesController", func() {
 				}
 				resources := []client.Object{hco, workerNode}
 				cl := commontestutils.InitClient(resources)
-				logger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)).WithName("nodes_controller_test")
-				Expect(hcoutil.GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
 				r := &ReconcileNodeCounter{
 					client: cl,
 				}
@@ -115,10 +113,33 @@ var _ = Describe("NodesController", func() {
 					cl.Get(context.TODO(),
 						types.NamespacedName{Name: commontestutils.Name, Namespace: commontestutils.Namespace},
 						latestHCO),
-				).ToNot(HaveOccurred())
+				).To(Succeed())
 
-				Expect(hco.Status.InfrastructureHighlyAvailable).To(BeFalse())
+				Expect(latestHCO.Status.InfrastructureHighlyAvailable).To(HaveValue(BeFalse()))
 				Expect(res).To(Equal(reconcile.Result{}))
+			})
+
+			It("Should not return error if the HyperConverged CR is not exist", func() {
+				workerNode := &corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "worker",
+						Labels: map[string]string{
+							"node-role.kubernetes.io/worker": "",
+						},
+					},
+				}
+				resources := []client.Object{workerNode}
+				cl := commontestutils.InitClient(resources)
+				logger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)).WithName("nodes_controller_test")
+				Expect(hcoutil.GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
+				r := &ReconcileNodeCounter{
+					client: cl,
+				}
+
+				// Reconcile to update HCO's status with the correct InfrastructureHighlyAvailable value
+				res, err := r.Reconcile(context.TODO(), request)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(res.Requeue).To(BeFalse())
 			})
 		})
 

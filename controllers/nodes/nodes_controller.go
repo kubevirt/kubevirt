@@ -2,23 +2,24 @@ package nodes
 
 import (
 	"context"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/workqueue"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-
-	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
+	"maps"
 
 	operatorhandler "github.com/operator-framework/operator-lib/handler"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/workqueue"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
@@ -68,20 +69,20 @@ type nodeCountChangePredicate struct {
 }
 
 func (nodeCountChangePredicate) Update(e event.UpdateEvent) bool {
-	return false
+	return !maps.Equal(e.ObjectOld.GetLabels(), e.ObjectNew.GetLabels())
 }
 
-func (nodeCountChangePredicate) Create(e event.CreateEvent) bool {
+func (nodeCountChangePredicate) Create(_ event.CreateEvent) bool {
 	// node is added
 	return true
 }
 
-func (nodeCountChangePredicate) Delete(e event.DeleteEvent) bool {
+func (nodeCountChangePredicate) Delete(_ event.DeleteEvent) bool {
 	// node is removed
 	return true
 }
 
-func (nodeCountChangePredicate) Generic(e event.GenericEvent) bool {
+func (nodeCountChangePredicate) Generic(_ event.GenericEvent) bool {
 	return false
 }
 
@@ -113,11 +114,20 @@ func (r *ReconcileNodeCounter) Reconcile(ctx context.Context, _ reconcile.Reques
 	}
 	err = r.client.Get(ctx, hcoKey, hco)
 	if err != nil {
+		if errors.IsNotFound(err) {
+			return reconcile.Result{}, nil
+		}
 		return reconcile.Result{}, err
 	}
 
-	if hco.Status.InfrastructureHighlyAvailable != clusterInfo.IsInfrastructureHighlyAvailable() {
-		hco.Status.InfrastructureHighlyAvailable = clusterInfo.IsInfrastructureHighlyAvailable()
+	if !hco.ObjectMeta.DeletionTimestamp.IsZero() {
+		return reconcile.Result{}, nil
+	}
+
+	if hco.Status.InfrastructureHighlyAvailable == nil ||
+		*hco.Status.InfrastructureHighlyAvailable != clusterInfo.IsInfrastructureHighlyAvailable() {
+
+		hco.Status.InfrastructureHighlyAvailable = ptr.To(clusterInfo.IsInfrastructureHighlyAvailable())
 		err = r.client.Status().Update(ctx, hco)
 		if err != nil {
 			return reconcile.Result{}, err

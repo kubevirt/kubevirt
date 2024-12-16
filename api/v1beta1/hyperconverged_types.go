@@ -733,7 +733,7 @@ type HyperConvergedStatus struct {
 	// InfrastructureHighlyAvailable describes whether the cluster has only one worker node
 	// (false) or more (true).
 	// +optional
-	InfrastructureHighlyAvailable bool `json:"infrastructureHighlyAvailable,omitempty"`
+	InfrastructureHighlyAvailable *bool `json:"infrastructureHighlyAvailable,omitempty"`
 }
 
 type Version struct {

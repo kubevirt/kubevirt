@@ -65,8 +65,12 @@ func FailIfNotOpenShift(ctx context.Context, cli client.Client, testName string)
 	ExpectWithOffset(1, isOpenShift).To(BeTrue(), `the %q test must run on openshift cluster. Use the "!%s" label filter in order to skip this test`, testName, OpenshiftLabel)
 }
 
-func FailIfSingleNode(singleWorkerCluster bool) {
-	ExpectWithOffset(1, singleWorkerCluster).To(BeFalse(), `this test requires a single worker cluster; use the "!%s" label filter to skip this test`, SingleNodeLabel)
+func FailIfSingleNodeCluster(singleWorkerCluster bool) {
+	ExpectWithOffset(1, singleWorkerCluster).To(BeFalse(), `this test requires a highly available cluster; use the "!%s" label filter to skip this test`, HighlyAvailableClusterLabel)
+}
+
+func FailIfHighAvailableCluster(singleWorkerCluster bool) {
+	ExpectWithOffset(1, singleWorkerCluster).To(BeTrue(), `this test requires a single worker cluster; use the "!%s" label filter to skip this test`, SingleNodeLabel)
 }
 
 type cacheIsOpenShift struct {
