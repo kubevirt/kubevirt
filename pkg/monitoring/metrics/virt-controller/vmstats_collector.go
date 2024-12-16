@@ -238,11 +238,11 @@ func getVMInstancetype(vm *k6tv1.VirtualMachine) string {
 	}
 
 	if instancetype.Kind == "VirtualMachineInstancetype" {
-		return fetchResourceName(instancetype.Name, instanceTypeInformer.GetIndexer())
+		return fetchResourceName(instancetype.Name, instancetypeMethods.InstancetypeStore)
 	}
 
 	if instancetype.Kind == "VirtualMachineClusterInstancetype" {
-		return fetchResourceName(instancetype.Name, clusterInstanceTypeInformer.GetIndexer())
+		return fetchResourceName(instancetype.Name, instancetypeMethods.ClusterInstancetypeStore)
 	}
 
 	return none
@@ -256,11 +256,11 @@ func getVMPreference(vm *k6tv1.VirtualMachine) string {
 	}
 
 	if preference.Kind == "VirtualMachinePreference" {
-		return fetchResourceName(preference.Name, preferenceInformer.GetIndexer())
+		return fetchResourceName(preference.Name, instancetypeMethods.PreferenceStore)
 	}
 
 	if preference.Kind == "VirtualMachineClusterPreference" {
-		return fetchResourceName(preference.Name, clusterPreferenceInformer.GetIndexer())
+		return fetchResourceName(preference.Name, instancetypeMethods.ClusterPreferenceStore)
 	}
 
 	return none
@@ -287,16 +287,20 @@ func CollectResourceRequestsAndLimits(vms []*k6tv1.VirtualMachine) []operatormet
 	var results []operatormetrics.CollectorResult
 
 	for _, vm := range vms {
+		// Apply any instance type and preference to a copy of the VM before proceeding
+		vmCopy := vm.DeepCopy()
+		_ = instancetypeMethods.ApplyToVM(vmCopy)
+
 		// Memory requests and limits from domain resources
-		results = append(results, collectMemoryResourceRequestsFromDomainResources(vm)...)
-		results = append(results, collectMemoryResourceLimitsFromDomainResources(vm)...)
+		results = append(results, collectMemoryResourceRequestsFromDomainResources(vmCopy)...)
+		results = append(results, collectMemoryResourceLimitsFromDomainResources(vmCopy)...)
 
 		// CPU requests from domain CPU
-		results = append(results, collectCpuResourceRequestsFromDomainCpu(vm)...)
+		results = append(results, collectCpuResourceRequestsFromDomainCpu(vmCopy)...)
 
 		// CPU requests and limits from domain resources
-		results = append(results, collectCpuResourceRequestsFromDomainResources(vm)...)
-		results = append(results, collectCpuResourceLimitsFromDomainResources(vm)...)
+		results = append(results, collectCpuResourceRequestsFromDomainResources(vmCopy)...)
+		results = append(results, collectCpuResourceLimitsFromDomainResources(vmCopy)...)
 	}
 
 	return results
@@ -403,6 +407,27 @@ func collectCpuResourceRequestsFromDomainResources(vm *k6tv1.VirtualMachine) []o
 	cpuRequests := vm.Spec.Template.Spec.Domain.Resources.Requests.Cpu()
 
 	if cpuRequests == nil || cpuRequests.IsZero() {
+		// If no CPU requests and no Domain CPU are set, the VMI will default to 1 thread with 1 core and 1 socket
+		if vm.Spec.Template.Spec.Domain.CPU == nil {
+			return append(cr,
+				operatormetrics.CollectorResult{
+					Metric: vmResourceRequests,
+					Value:  1.0,
+					Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "default"},
+				},
+				operatormetrics.CollectorResult{
+					Metric: vmResourceRequests,
+					Value:  1.0,
+					Labels: []string{vm.Name, vm.Namespace, "cpu", "threads", "default"},
+				},
+				operatormetrics.CollectorResult{
+					Metric: vmResourceRequests,
+					Value:  1.0,
+					Labels: []string{vm.Name, vm.Namespace, "cpu", "sockets", "default"},
+				},
+			)
+		}
+
 		return cr
 	}
 

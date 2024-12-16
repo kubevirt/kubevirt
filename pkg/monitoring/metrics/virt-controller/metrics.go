@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -44,37 +45,28 @@ var (
 	vmInformer                    cache.SharedIndexInformer
 	vmiInformer                   cache.SharedIndexInformer
 	persistentVolumeClaimInformer cache.SharedIndexInformer
-	clusterInstanceTypeInformer   cache.SharedIndexInformer
-	instanceTypeInformer          cache.SharedIndexInformer
-	clusterPreferenceInformer     cache.SharedIndexInformer
-	preferenceInformer            cache.SharedIndexInformer
 	vmiMigrationInformer          cache.SharedIndexInformer
 	kvPodInformer                 cache.SharedIndexInformer
 	clusterConfig                 *virtconfig.ClusterConfig
+	instancetypeMethods           *instancetype.InstancetypeMethods
 )
 
 func SetupMetrics(
 	vm cache.SharedIndexInformer,
 	vmi cache.SharedIndexInformer,
 	pvc cache.SharedIndexInformer,
-	clusterInstanceType cache.SharedIndexInformer,
-	instanceType cache.SharedIndexInformer,
-	clusterPreference cache.SharedIndexInformer,
-	preference cache.SharedIndexInformer,
 	vmiMigration cache.SharedIndexInformer,
 	pod cache.SharedIndexInformer,
 	virtClusterConfig *virtconfig.ClusterConfig,
+	methods *instancetype.InstancetypeMethods,
 ) error {
 	vmInformer = vm
 	vmiInformer = vmi
 	persistentVolumeClaimInformer = pvc
-	clusterInstanceTypeInformer = clusterInstanceType
-	instanceTypeInformer = instanceType
-	clusterPreferenceInformer = clusterPreference
-	preferenceInformer = preference
 	vmiMigrationInformer = vmiMigration
 	kvPodInformer = pod
 	clusterConfig = virtClusterConfig
+	instancetypeMethods = methods
 
 	if err := client.SetupMetrics(); err != nil {
 		return err
