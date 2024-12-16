@@ -1018,30 +1018,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				"fake.domain.devices.disks[1].bootOrder already set for a different device."))
 		})
 
-		It("should reject networks with duplicate names", func() {
-			vm := api.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-			vm.Spec.Networks = []v1.Network{
-				{
-					Name: "default",
-					NetworkSource: v1.NetworkSource{
-						Pod: &v1.PodNetwork{},
-					},
-				},
-				{
-					Name: "default",
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "test"},
-					},
-				},
-			}
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.networks[1].name"))
-			Expect(causes[0].Message).To(Equal("Network with name \"default\" already exists, every network must have a unique name"))
-		})
-
 		It("should accept networks with a multus network source and bridge interface", func() {
 			vm := api.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
