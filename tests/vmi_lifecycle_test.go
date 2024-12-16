@@ -1571,7 +1571,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 	Describe("Softreboot a VirtualMachineInstance", func() {
 		const vmiLaunchTimeout = 360
 
-		It("soft reboot vmi with agent connected should succeed", decorators.Conformance, func() {
+		It("soft reboot vmi with agent connected should succeed", decorators.Conformance, decorators.NoACPI, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(withoutACPI()), vmiLaunchTimeout)
 
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
@@ -1594,7 +1594,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			waitForVMIRebooted(vmi, console.LoginToCirros)
 		})
 
-		It("soft reboot vmi neither have the agent connected nor the ACPI feature enabled should fail", decorators.Conformance, func() {
+		It("soft reboot vmi neither have the agent connected nor the ACPI feature enabled should fail", decorators.Conformance, decorators.NoACPI, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(withoutACPI()), vmiLaunchTimeout)
 
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
