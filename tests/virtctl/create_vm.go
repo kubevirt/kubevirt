@@ -67,7 +67,7 @@ const (
 	size = "128Mi"
 )
 
-var _ = Describe("[sig-compute][virtctl]create vm", decorators.SigCompute, func() {
+var _ = VirtctlDescribe("[sig-compute]create vm", decorators.SigCompute, func() {
 	const (
 		importedVolumeRegexp = `imported-volume-\w{5}`
 		sysprepDisk          = "sysprepdisk"

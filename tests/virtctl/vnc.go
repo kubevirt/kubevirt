@@ -45,7 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-compute][virtctl]VNC", decorators.SigCompute, func() {
+var _ = VirtctlDescribe("[sig-compute]VNC", decorators.SigCompute, func() {
 	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
