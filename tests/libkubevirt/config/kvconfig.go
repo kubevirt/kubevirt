@@ -140,7 +140,8 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 		for _, pod := range pods.Items {
 			errAdditionalInfo := errComponentInfo + fmt.Sprintf(", pod: \"%s\"", pod.Name)
 
-			if pod.DeletionTimestamp != nil {
+			// Skip unhealthy or terminating pods
+			if !isPodHealthy(&pod) {
 				continue
 			}
 
@@ -161,6 +162,21 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 		}
 		return nil
 	}, duration, 1*time.Second).ShouldNot(HaveOccurred())
+}
+
+// Helper function to determine if a pod is healthy and ready
+func isPodHealthy(pod *k8sv1.Pod) bool {
+	if pod.DeletionTimestamp != nil || pod.Status.Phase != k8sv1.PodRunning {
+		return false
+	}
+
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == k8sv1.PodReady && condition.Status == k8sv1.ConditionTrue {
+			return true
+		}
+	}
+
+	return false
 }
 
 func callUrlOnPod(pod *k8sv1.Pod, port string, url string) ([]byte, error) {
