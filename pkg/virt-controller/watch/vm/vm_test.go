@@ -4797,11 +4797,11 @@ var _ = Describe("VirtualMachine", func() {
 						"Reason": Equal("FailedCreate"),
 						"Message": And(
 							ContainSubstring("Error encountered while storing Instancetype ControllerRevisions"),
-							ContainSubstring(instancetype.VMFieldsConflictsErrorFmt, conflict.Conflicts{
+							ContainSubstring(conflict.Conflicts{
 								conflict.New("spec.template.spec.domain.cpu.sockets"),
 								conflict.New("spec.template.spec.domain.cpu.cores"),
 								conflict.New("spec.template.spec.domain.cpu.threads"),
-							}),
+							}.Error()),
 						),
 					}))
 					testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)

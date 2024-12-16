@@ -49,13 +49,14 @@ func (a *vmiApplier) ApplyToVMI(
 	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 	vmiMetadata *metav1.ObjectMeta,
-) (conflicts conflict.Conflicts) {
+) conflict.Conflicts {
 	if instancetypeSpec == nil && preferenceSpec == nil {
-		return
+		return nil
 	}
 
-	baseConflict := conflict.NewFromPath(field)
 	if instancetypeSpec != nil {
+		baseConflict := conflict.NewFromPath(field)
+		conflicts := conflict.Conflicts{}
 		conflicts = append(conflicts, applyNodeSelector(baseConflict, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applySchedulerName(baseConflict, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyCPU(baseConflict, instancetypeSpec, preferenceSpec, vmiSpec)...)
@@ -65,13 +66,12 @@ func (a *vmiApplier) ApplyToVMI(
 		conflicts = append(conflicts, applyGPUs(baseConflict, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyHostDevices(baseConflict, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyInstanceTypeAnnotations(instancetypeSpec.Annotations, vmiMetadata)...)
-	}
-
-	if len(conflicts) > 0 {
-		return
+		if len(conflicts) > 0 {
+			return conflicts
+		}
 	}
 
 	a.preferenceApplier.Apply(preferenceSpec, vmiSpec, vmiMetadata)
 
-	return
+	return nil
 }

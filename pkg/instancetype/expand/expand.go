@@ -19,8 +19,6 @@
 package expand
 
 import (
-	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -30,7 +28,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
-	instancetypeErrors "kubevirt.io/kubevirt/pkg/instancetype/errors"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	utils "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -106,7 +103,7 @@ func (e *expander) Expand(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, er
 		&expandedVM.Spec.Template.ObjectMeta,
 	)
 	if len(conflicts) > 0 {
-		return nil, fmt.Errorf(instancetypeErrors.VMFieldsConflictsErrorFmt, conflicts.String())
+		return nil, conflicts
 	}
 
 	// Apply defaults to VM.Spec.Template.Spec after applying instance types to ensure we don't conflict

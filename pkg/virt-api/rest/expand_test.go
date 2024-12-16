@@ -27,6 +27,7 @@ import (
 	"kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
@@ -239,7 +240,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 
 			recorder := callExpandSpecApi(vm)
 			statusErr := ExpectStatusErrorWithCode(recorder, expectedStatusError)
-			Expect(statusErr.Status().Message).To(ContainSubstring(fmt.Sprintf(instancetype.VMFieldsConflictsErrorFmt, "spec.template.spec.domain.cpu.sockets")))
+			Expect(statusErr.Status().Message).To(ContainSubstring(conflict.New("spec.template.spec.domain.cpu.sockets").Error()))
 		})
 	}
 

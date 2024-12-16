@@ -9,7 +9,6 @@ go_library(
         "//pkg/instancetype/annotations:go_default_library",
         "//pkg/instancetype/apply:go_default_library",
         "//pkg/instancetype/conflict:go_default_library",
-        "//pkg/instancetype/errors:go_default_library",
         "//pkg/instancetype/expand:go_default_library",
         "//pkg/instancetype/find:go_default_library",
         "//pkg/instancetype/infer:go_default_library",
@@ -42,7 +41,6 @@ go_test(
     deps = [
         ":go_default_library",
         "//pkg/instancetype/conflict:go_default_library",
-        "//pkg/instancetype/errors:go_default_library",
         "//pkg/instancetype/preference/requirements:go_default_library",
         "//pkg/instancetype/revision:go_default_library",
         "//pkg/pointer:go_default_library",

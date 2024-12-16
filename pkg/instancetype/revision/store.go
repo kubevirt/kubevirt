@@ -37,7 +37,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
-	instancetypeErrors "kubevirt.io/kubevirt/pkg/instancetype/errors"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -119,7 +118,7 @@ func (h *revisionHandler) checkForInstancetypeConflicts(
 	vmiSpecCopy := vmiSpec.DeepCopy()
 	conflicts := apply.NewVMIApplier().ApplyToVMI(field.NewPath("spec", "template", "spec"), instancetypeSpec, nil, vmiSpecCopy, vmiMetadata)
 	if len(conflicts) > 0 {
-		return fmt.Errorf(instancetypeErrors.VMFieldsConflictsErrorFmt, conflicts.String())
+		return conflicts
 	}
 	return nil
 }
