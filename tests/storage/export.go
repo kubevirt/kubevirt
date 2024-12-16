@@ -592,7 +592,7 @@ var _ = SIGDescribe("Export", func() {
 		}
 	}
 
-	It("[Serial]should export a VM and verify swtpm directories in the gz archive", Serial, func() {
+	It("should export a VM and verify swtpm directories in the gz archive", Serial, func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
 			Skip("Skip test when Filesystem storage is not present")
