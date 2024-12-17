@@ -31,11 +31,11 @@ import (
 	exportv1 "kubevirt.io/api/export/v1beta1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
-	"kubevirt.io/kubevirt/pkg/controller"
-
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 )
 
 const (
@@ -107,7 +107,11 @@ func (ctrl *VMExportController) handleVMI(obj interface{}) {
 
 func (ctrl *VMExportController) getPVCsFromVMI(vmi *virtv1.VirtualMachineInstance) []*corev1.PersistentVolumeClaim {
 	var pvcs []*corev1.PersistentVolumeClaim
-	for _, volume := range vmi.Spec.Volumes {
+
+	// No need to handle error when using VMI to fetch volumes
+	volumes, _ := storageutils.GetVolumes(vmi, ctrl.Client, storageutils.WithAllVolumes)
+
+	for _, volume := range volumes {
 		pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
 		if pvc := ctrl.getPVCsFromName(vmi.Namespace, pvcName); pvc != nil {
 			pvcs = append(pvcs, pvc)
@@ -186,7 +190,17 @@ func (ctrl *VMExportController) getPVCsFromVM(vmNamespace, vmName string) ([]*co
 		return nil, false, nil
 	}
 	allPopulated := true
-	for _, volume := range vm.Spec.Template.Spec.Volumes {
+
+	volumes, err := storageutils.GetVolumes(vm, ctrl.Client, storageutils.WithAllVolumes)
+	if err != nil {
+		if storageutils.IsErrNoBackendPVC(err) {
+			// No backend pvc when we should have one, lets wait
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+
+	for _, volume := range volumes {
 		pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
 		if pvcName == "" {
 			continue

@@ -51,6 +51,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
+	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 )
 
 const (
@@ -355,7 +356,11 @@ var getCdiHeaderSecret = func(token, name string) *corev1.Secret {
 
 var getDataVolumes = func(vm *virtv1.VirtualMachine) ([]*cdiv1.DataVolume, error) {
 	res := make([]*cdiv1.DataVolume, 0)
-	for _, volume := range vm.Spec.Template.Spec.Volumes {
+	volumes, err := storageutils.GetVolumes(vm, nil)
+	if err != nil {
+		return nil, err
+	}
+	for _, volume := range volumes {
 		name := ""
 		if volume.DataVolume != nil {
 			name = volume.DataVolume.Name
