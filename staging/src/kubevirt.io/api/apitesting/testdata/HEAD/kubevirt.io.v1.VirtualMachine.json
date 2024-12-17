@@ -1246,6 +1246,46 @@
     },
     "observedGeneration": -18,
     "desiredGeneration": -17,
-    "runStrategy": "runStrategyValue"
+    "runStrategy": "runStrategyValue",
+    "volumeUpdateState": {
+      "volumeMigrationState": {
+        "migratedVolumes": [
+          {
+            "volumeName": "volumeNameValue",
+            "sourcePVCInfo": {
+              "claimName": "claimNameValue",
+              "accessModes": [
+                "accessModesValue"
+              ],
+              "volumeMode": "volumeModeValue",
+              "capacity": {
+                "capacityKey": "0"
+              },
+              "requests": {
+                "requestsKey": "0"
+              },
+              "preallocated": true,
+              "filesystemOverhead": "filesystemOverheadValue"
+            },
+            "destinationPVCInfo": {
+              "claimName": "claimNameValue",
+              "accessModes": [
+                "accessModesValue"
+              ],
+              "volumeMode": "volumeModeValue",
+              "capacity": {
+                "capacityKey": "0"
+              },
+              "requests": {
+                "requestsKey": "0"
+              },
+              "preallocated": true,
+              "filesystemOverhead": "filesystemOverheadValue"
+            }
+          }
+        ],
+        "manualRecoveryRequired": true
+      }
+    }
   }
 }
