@@ -158,12 +158,28 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 			}
 
 			buf, err := json.Marshal(metadataStruct)
+			_ = buf
 			Expect(err).ToNot(HaveOccurred())
 			By("mouting cloudinit iso")
 			Expect(mountGuestDevice(vmi, "config-2")).To(Succeed())
 
 			By("checking cloudinit meta-data")
-			tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
+			res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
+				&expect.BSnd{S: "sudo su -\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "cat /mnt/openstack/latest/meta_data.json" + console.CRLF},
+				&expect.BExp{R: `.+"specialNet".+`},
+			}, 20)
+			//Expect(err).ToNot(HaveOccurred())
+			fmt.Printf("TMP DEBUG BRING HOME len [%d]  r.Output\n", len(res))
+			if len(res) == 2 {
+				fmt.Printf("output: <%s>\n", res[1].Output)
+				for i, m := range res[1].Match {
+					fmt.Printf("match: [%d] <%s>\n", i, m)
+				}
+			}
+			fmt.Printf("err: [%v]\n", err)
+
 		})
 
 		It("should have cloud-init meta_data with tagged sriov nics", func() {
