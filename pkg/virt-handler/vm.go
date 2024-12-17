@@ -52,6 +52,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	vfsmanager "kubevirt.io/kubevirt/pkg/virt-handler/virtiofs"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -209,6 +211,7 @@ func NewController(
 		podIsolationDetector:             podIsolationDetector,
 		containerDiskMounter:             container_disk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
 		hotplugVolumeMounter:             hotplug_volume.NewVolumeMounter(hotplugState, kubeletPodsDir),
+		vfsManager:                       vfsmanager.NewVirtiofsManager("/pods"),
 		clusterConfig:                    clusterConfig,
 		virtLauncherFSRunDirPattern:      "/proc/%d/root/var/run",
 		capabilities:                     capabilities,
@@ -304,6 +307,7 @@ type VirtualMachineController struct {
 	podIsolationDetector     isolation.PodIsolationDetector
 	containerDiskMounter     container_disk.Mounter
 	hotplugVolumeMounter     hotplug_volume.VolumeMounter
+	vfsManager               *vfsmanager.VirtiofsManager
 	clusterConfig            *virtconfig.ClusterConfig
 	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
 	downwardMetricsManager   downwardMetricsManager
@@ -2810,6 +2814,11 @@ func (c *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		}
 	}
 
+	// Look for placeholder virtiofs sockets and launch the dispatcher
+	if err := c.vfsManager.StartVirtiofsDispatcher(vmi); err != nil {
+		return fmt.Errorf("failed to start the virtiofs dispatcher: %w", err)
+	}
+
 	// configure network inside virt-launcher compute container
 	if err := c.setupNetwork(vmi, vmi.Spec.Networks); err != nil {
 		return fmt.Errorf("failed to configure vmi network for migration target: %w", err)
@@ -3028,6 +3037,10 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		// Try to mount hotplug volume if there is any during startup.
 		if err := c.hotplugVolumeMounter.Mount(vmi, cgroupManager); err != nil {
 			return err
+		}
+		// Look for placeholder virtiofs sockets and launch the dispatcher
+		if err := c.vfsManager.StartVirtiofsDispatcher(vmi); err != nil {
+			return fmt.Errorf("failed to start the virtiofs dispatcher: %w", err)
 		}
 
 		nonAbsentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {

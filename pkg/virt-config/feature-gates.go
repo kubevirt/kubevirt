@@ -26,17 +26,18 @@ import "kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 */
 
 const (
-	ExpandDisksGate       = "ExpandDisks"
-	CPUManager            = "CPUManager"
-	IgnitionGate          = "ExperimentalIgnitionSupport"
-	HypervStrictCheckGate = "HypervStrictCheck"
-	SidecarGate           = "Sidecar"
-	HostDevicesGate       = "HostDevices"
-	SnapshotGate          = "Snapshot"
-	VMExportGate          = "VMExport"
-	HotplugVolumesGate    = "HotplugVolumes"
-	HostDiskGate          = "HostDisk"
-	VirtIOFSGate          = "ExperimentalVirtiofsSupport"
+	ExpandDisksGate           = "ExpandDisks"
+	CPUManager                = "CPUManager"
+	IgnitionGate              = "ExperimentalIgnitionSupport"
+	HypervStrictCheckGate     = "HypervStrictCheck"
+	SidecarGate               = "Sidecar"
+	HostDevicesGate           = "HostDevices"
+	SnapshotGate              = "Snapshot"
+	VMExportGate              = "VMExport"
+	HotplugVolumesGate        = "HotplugVolumes"
+	HostDiskGate              = "HostDisk"
+	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
+	VirtIOFSPVCGate           = "EnableVirtioFsPVC"
 
 	DownwardMetricsFeatureGate = "DownwardMetrics"
 	Root                       = "Root"
@@ -156,8 +157,16 @@ func (config *ClusterConfig) HostDiskEnabled() bool {
 	return config.isFeatureGateEnabled(HostDiskGate)
 }
 
-func (config *ClusterConfig) VirtiofsEnabled() bool {
-	return config.isFeatureGateEnabled(VirtIOFSGate)
+func (config *ClusterConfig) OldVirtiofsEnabled() bool {
+	return config.isFeatureGateEnabled(deprecation.VirtIOFSGate)
+}
+
+func (config *ClusterConfig) VirtiofsConfigVolumesEnabled() bool {
+	return config.isFeatureGateEnabled(VirtIOFSConfigVolumesGate)
+}
+
+func (config *ClusterConfig) VirtiofsPVCEnabled() bool {
+	return config.isFeatureGateEnabled(VirtIOFSPVCGate)
 }
 
 func (config *ClusterConfig) MacvtapEnabled() bool {
