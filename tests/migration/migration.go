@@ -853,7 +853,10 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 				dataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
-					libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
+					libdv.WithStorage(
+						libdv.StorageWithStorageClass(sc),
+						libdv.StorageWithAccessMode(k8sv1.ReadWriteOnce),
+					),
 				)
 
 				vmi := libvmi.New(
