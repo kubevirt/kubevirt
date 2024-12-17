@@ -3026,7 +3026,7 @@ func setRestartRequired(vm *virtv1.VirtualMachine, message string) {
 }
 
 // addRestartRequiredIfNeeded adds the restartRequired condition to the VM if any non-live-updatable field was changed
-func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine) bool {
+func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	if lastSeenVMSpec == nil {
 		return false
 	}
@@ -3068,6 +3068,19 @@ func (c *VMController) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.Virtual
 
 		lastSeenVM.Spec.Template.Spec.NodeSelector = currentVM.Spec.Template.Spec.NodeSelector
 		lastSeenVM.Spec.Template.Spec.Affinity = currentVM.Spec.Template.Spec.Affinity
+	} else {
+		// In the case live-updates aren't enable the volume set of the VM can be still changed by volume hotplugging.
+		// For imperative volume hotplug, first the VM status with the request AND the VMI spec are updated, then in the
+		// next iteration, the VM spec is updated as well. Here, we're in this iteration where the currentVM has for the first
+		// time the updated hotplugged volumes. Hence, we can compare the current VM volumes and disks with the ones belonging
+		// to the VMI.
+		// In case of a declarative update, the flow is the opposite, first we update the VM spec and then the VMI. Therefore, if
+		// the change was declarative, then the VMI would still not have the update.
+		if equality.Semantic.DeepEqual(currentVM.Spec.Template.Spec.Volumes, vmi.Spec.Volumes) &&
+			equality.Semantic.DeepEqual(currentVM.Spec.Template.Spec.Domain.Devices.Disks, vmi.Spec.Domain.Devices.Disks) {
+			lastSeenVMSpec.Template.Spec.Volumes = currentVM.Spec.Template.Spec.Volumes
+			lastSeenVMSpec.Template.Spec.Domain.Devices.Disks = currentVM.Spec.Template.Spec.Domain.Devices.Disks
+		}
 	}
 
 	if !equality.Semantic.DeepEqual(lastSeenVM.Spec.Template.Spec, currentVM.Spec.Template.Spec) {
@@ -3165,7 +3178,7 @@ func (c *VMController) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 		return vm, vmi, syncErr, nil
 	}
 
-	restartRequired := c.addRestartRequiredIfNeeded(startVMSpec, vm)
+	restartRequired := c.addRestartRequiredIfNeeded(startVMSpec, vm, vmi)
 
 	// Must check satisfiedExpectations again here because a VMI can be created or
 	// deleted in the startStop function which impacts how we process
