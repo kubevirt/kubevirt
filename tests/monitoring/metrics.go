@@ -152,7 +152,11 @@ func setupVM(virtClient kubecli.KubevirtClient) {
 }
 
 func createRunningVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
-	vmi := libvmifact.NewGuestless(libvmi.WithNamespace(testsuite.GetTestNamespace(nil)))
+	vmi := libvmifact.NewGuestless(
+		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+		libvmi.WithResourceMemory("512Mi"),
+		libvmi.WithLimitMemory("512Mi"),
+	)
 	vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunning())
 	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
