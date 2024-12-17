@@ -467,10 +467,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 
 			It("[test_id:1665]should map cores to virtio net queues", func() {
-				if testsuite.ShouldAllowEmulation(virtClient) {
-					Skip("Software emulation should not be enabled for this test to run")
-				}
-
 				_true := true
 				_false := false
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
@@ -2471,7 +2467,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(vmiCondition.Reason).To(Equal("Synchronizing with the Domain failed."))
 		})
 	})
-	Describe("[rfe_id:897][crit:medium][arm64][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with CPU pinning", decorators.WgS390x, func() {
+	Describe("[rfe_id:897][crit:medium][arm64][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with CPU pinning", decorators.WgS390x, decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
 		var nodes *k8sv1.NodeList
 
 		isNodeHasCPUManagerLabel := func(nodeName string) bool {
@@ -2493,7 +2489,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		BeforeEach(func() {
 			var err error
-			checks.SkipTestIfNoCPUManager()
 			nodes, err = virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			if len(nodes.Items) == 1 {

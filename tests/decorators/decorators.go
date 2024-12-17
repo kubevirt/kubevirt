@@ -21,6 +21,7 @@ var (
 	GPU         = Label("GPU")
 	VGPU        = Label("VGPU")
 	SEV         = Label("SEV")
+	SEVES       = Label("SEVES")
 	SRIOV       = Label("SRIOV")
 	StorageReq  = Label("storage-req")
 	Multus      = Label("Multus")
@@ -28,7 +29,15 @@ var (
 	Invtsc      = Label("Invtsc")
 	KSMRequired = Label("KSM-required")
 
+	// Deployment
+	SingleReplica = Label("single-replica")
+	MultiReplica  = Label("multi-replica")
+
 	// Features
+	CPUModel                             = Label("cpumodel")
+	VSOCK                                = Label("vsock")
+	VirtioFS                             = Label("virtiofs")
+	SoftwareEmulation                    = Label("software-emulation")
 	Sysprep                              = Label("Sysprep")
 	Windows                              = Label("Windows")
 	Networking                           = Label("Networking")
@@ -50,6 +59,7 @@ var (
 	USB                                  = Label("USB")
 	AutoResourceLimitsGate               = Label("AutoResourceLimitsGate")
 	RequiresTwoWorkerNodesWithCPUManager = Label("requires-two-worker-nodes-with-cpu-manager")
+	RequiresNodeWithCPUManager           = Label("requires-node-with-cpu-manager")
 	RequiresDualStackCluster             = Label("requires-dual-stack-cluster")
 	RequiresHugepages2Mi                 = Label("requireHugepages2Mi")
 

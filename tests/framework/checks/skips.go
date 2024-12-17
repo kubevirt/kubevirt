@@ -12,137 +12,20 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/util/cluster"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libkubevirt"
-	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
 const diskRhel = "disk-rhel"
-
-// Deprecated: SkipTestIfNoCPUManager should be converted to check & fail
-func SkipTestIfNoCPUManager() {
-	if !HasFeature(virtconfig.CPUManager) {
-		ginkgo.Skip("the CPUManager feature gate is not enabled.")
-	}
-
-	virtClient := kubevirt.Client()
-	nodes := libnode.GetAllSchedulableNodes(virtClient)
-
-	for _, node := range nodes.Items {
-		if IsCPUManagerPresent(&node) {
-			return
-		}
-	}
-	ginkgo.Skip("no node with CPUManager detected", 1)
-}
 
 // Deprecated: SkipTestIfNoFeatureGate should be converted to check & fail
 func SkipTestIfNoFeatureGate(featureGate string) {
 	if !HasFeature(featureGate) {
 		ginkgo.Skip(fmt.Sprintf("the %v feature gate is not enabled.", featureGate))
 	}
-}
-
-// Deprecated: SkipTestIfNotEnoughNodesWithCPUManager should be converted to check & fail
-func SkipTestIfNotEnoughNodesWithCPUManager(nodeCount int) {
-	if !HasFeature(virtconfig.CPUManager) {
-		ginkgo.Skip("the CPUManager feature gate is not enabled.")
-	}
-
-	virtClient := kubevirt.Client()
-	nodes := libnode.GetAllSchedulableNodes(virtClient)
-
-	found := 0
-	for _, node := range nodes.Items {
-		if IsCPUManagerPresent(&node) {
-			found++
-		}
-	}
-
-	if found < nodeCount {
-		msg := fmt.Sprintf(
-			"not enough node with CPUManager detected: expected %v nodes, but got %v",
-			nodeCount,
-			found,
-		)
-		ginkgo.Skip(msg, 1)
-	}
-}
-
-// Deprecated: SkipTestIfNotEnoughNodesWith2MiHugepages should be converted to check & fail
-func SkipTestIfNotEnoughNodesWith2MiHugepages(nodeCount int) {
-	virtClient := kubevirt.Client()
-	nodes := libnode.GetAllSchedulableNodes(virtClient)
-
-	found := 0
-	for _, node := range nodes.Items {
-		if Has2MiHugepages(&node) {
-			found++
-		}
-	}
-
-	if found < nodeCount {
-		msg := fmt.Sprintf(
-			"not enough node with 2Mi hugepages detected: expected %v nodes, but got %v",
-			nodeCount,
-			found,
-		)
-		ginkgo.Skip(msg, 1)
-	}
-}
-
-// Deprecated: SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages should be converted to check & fail
-func SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(nodeCount int) {
-	SkipTestIfNotEnoughNodesWithCPUManager(nodeCount)
-	SkipTestIfNotEnoughNodesWith2MiHugepages(nodeCount)
-}
-
-// Deprecated: SkipTestIfNotRealtimeCapable should be converted to check & fail
-func SkipTestIfNotRealtimeCapable() {
-
-	virtClient := kubevirt.Client()
-	nodes := libnode.GetAllSchedulableNodes(virtClient)
-
-	for _, node := range nodes.Items {
-		if IsRealtimeCapable(&node) && IsCPUManagerPresent(&node) && Has2MiHugepages(&node) {
-			return
-		}
-	}
-	ginkgo.Skip("no node capable of running realtime workloads detected", 1)
-
-}
-
-// Deprecated: SkipTestIfNotSEVCapable should be converted to check & fail
-func SkipTestIfNotSEVCapable() {
-	virtClient := kubevirt.Client()
-	nodes := libnode.GetAllSchedulableNodes(virtClient)
-
-	for _, node := range nodes.Items {
-		if IsSEVCapable(&node, v1.SEVLabel) {
-			return
-		}
-	}
-	ginkgo.Skip("no node capable of running SEV workloads detected", 1)
-}
-
-// Deprecated: SkipTestIfNotSEVESCapable should be converted to check & fail
-func SkipTestIfNotSEVESCapable() {
-	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
-	nodes := libnode.GetAllSchedulableNodes(virtClient)
-
-	for _, node := range nodes.Items {
-		if IsSEVCapable(&node, v1.SEVESLabel) {
-			return
-		}
-	}
-	ginkgo.Skip("no node capable of running SEV-ES workloads detected", 1)
 }
 
 func RecycleImageOrFail(virtClient kubecli.KubevirtClient, imageName string) {
@@ -188,22 +71,6 @@ func SkipIfPrometheusRuleIsNotEnabled(virtClient kubecli.KubevirtClient) {
 		ginkgo.Skip("Skip monitoring tests when PrometheusRule CRD is not available in the cluster")
 	} else if err != nil {
 		util.PanicOnError(err)
-	}
-}
-
-// Deprecated: SkipIfSingleReplica should be converted to check & fail
-func SkipIfSingleReplica(virtClient kubecli.KubevirtClient) {
-	kv := libkubevirt.GetCurrentKv(virtClient)
-	if kv.Spec.Infra != nil && kv.Spec.Infra.Replicas != nil && *(kv.Spec.Infra.Replicas) == 1 {
-		ginkgo.Skip("Skip multi-replica test on single-replica deployments")
-	}
-}
-
-// Deprecated: SkipIfMultiReplica should be converted to check & fail
-func SkipIfMultiReplica(virtClient kubecli.KubevirtClient) {
-	kv := libkubevirt.GetCurrentKv(virtClient)
-	if kv.Spec.Infra == nil || kv.Spec.Infra.Replicas == nil || *(kv.Spec.Infra.Replicas) > 1 {
-		ginkgo.Skip("Skip single-replica test on multi-replica deployments")
 	}
 }
 

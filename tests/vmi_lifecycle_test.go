@@ -83,8 +83,6 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 	var vmi *v1.VirtualMachineInstance
 
-	var allowEmulation *bool
-
 	const fakeLibvirtLogFilters = "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*"
 	const startupTimeout = 45
 
@@ -871,7 +869,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 		})
 
-		Context("with default cpu model", Serial, decorators.WgS390x, func() {
+		Context("with default cpu model", Serial, decorators.WgS390x, decorators.CPUModel, func() {
 			var originalConfig v1.KubeVirtConfiguration
 			var supportedCpuModels []string
 			var defaultCPUModel string
@@ -885,7 +883,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				supportedCpuModels = libnode.GetSupportedCPUModels(*nodes)
 				if len(supportedCpuModels) < 2 {
-					Skip("need at least 2 supported cpuModels for this test")
+					Fail("need at least 2 supported cpu models for this test")
 				}
 				defaultCPUModel = supportedCpuModels[0]
 				vmiCPUModel = supportedCpuModels[1]
@@ -940,7 +938,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 			It("should add node selector to virt-launcher when setting default cpuModel in kubevirtCR", func() {
 				if len(supportedCpuModels) < 1 {
-					Skip("Must have at least one supported cpuModel for this test")
+					Fail("Must have at least one supported cpu model for this test")
 				}
 				defaultCPUModel := supportedCpuModels[0]
 				config := originalConfig.DeepCopy()
@@ -958,7 +956,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			It("should prefer node selector of the vmi if cpuModel field is set in kubevirtCR and in the vmi", func() {
 				if len(supportedCpuModels) < 2 {
-					Skip("Must have at least one supported cpuModel for this test")
+					Fail("Must have at least two supported cpuModel for this test")
 				}
 				vmiCPUModel := supportedCpuModels[1]
 				defaultCPUModel := supportedCpuModels[0]
@@ -1285,17 +1283,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			)
 		})
 
-		Context("VirtualMachineInstance Emulation Mode", decorators.WgS390x, func() {
-			BeforeEach(func() {
-				// allowEmulation won't change in a test suite run, so cache it
-				if allowEmulation == nil {
-					emulation := testsuite.ShouldAllowEmulation(kubevirt.Client())
-					allowEmulation = &emulation
-				}
-				if !(*allowEmulation) {
-					Skip("Software emulation is not enabled on this cluster")
-				}
-			})
+		Context("VirtualMachineInstance Emulation Mode", decorators.WgS390x, decorators.SoftwareEmulation, func() {
 
 			It("[test_id:1643]should enable emulation in virt-launcher", func() {
 				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -1396,16 +1384,6 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 
 		Context("VM Accelerated Mode", decorators.WgS390x, func() {
-			BeforeEach(func() {
-				// allowEmulation won't change in a test suite run, so cache it
-				if allowEmulation == nil {
-					emulation := testsuite.ShouldAllowEmulation(kubevirt.Client())
-					allowEmulation = &emulation
-				}
-				if *allowEmulation {
-					Skip("Software emulation is enabled on this cluster")
-				}
-			})
 
 			It("[test_id:1646]should request a KVM and TUN device", func() {
 				vmi = libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
@@ -1455,7 +1433,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 				nodeList := libnode.GetAllSchedulableNodes(kubevirt.Client())
 
 				if len(nodeList.Items) == 0 {
-					Skip("There are no compute nodes in cluster")
+					Fail("There are no compute nodes in cluster")
 				}
 				node := nodeList.Items[0]
 
@@ -1882,12 +1860,12 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 	})
 
 	Context("replicaset with topology spread constraints", decorators.WgS390x, func() {
-		It("Replicas should be spread across nodes", func() {
+		It("Replicas should be spread across nodes", decorators.RequiresTwoSchedulableNodes, func() {
 			nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
 			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some schedulable nodes")
 			numNodes := len(nodes.Items)
 			if numNodes < 2 {
-				Skip("Skipping spec if test environment has less than two schedulable nodes")
+				Fail("The environment has less than two schedulable nodes")
 			}
 			vmLabelKey := "test" + rand.String(5)
 			vmLabelValue := "test" + rand.String(5)

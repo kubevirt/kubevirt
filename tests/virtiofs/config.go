@@ -30,10 +30,8 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 
 	expect "github.com/google/goexpect"
 	"github.com/google/uuid"
@@ -51,10 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmifact"
 )
 
-var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, func() {
-	BeforeEach(func() {
-		checks.SkipTestIfNoFeatureGate(virtconfig.VirtIOFSGate)
-	})
+var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, decorators.VirtioFS, func() {
 
 	Context("With a single ConfigMap volume", func() {
 		var (

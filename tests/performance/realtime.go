@@ -22,7 +22,6 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -43,7 +42,7 @@ func byStartingTheVMI(vmi *v1.VirtualMachineInstance, virtClient kubecli.Kubevir
 	libwait.WaitForSuccessfulVMIStart(vmi)
 }
 
-var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
+var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", decorators.RequiresTwoWorkerNodesWithCPUManager, decorators.RequiresHugepages2Mi, func() {
 
 	var (
 		vmi        *v1.VirtualMachineInstance
@@ -54,7 +53,6 @@ var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", 
 	BeforeEach(func() {
 		skipIfNoRealtimePerformanceTests()
 		virtClient = kubevirt.Client()
-		checks.SkipTestIfNotEnoughNodesWithCPUManagerWith2MiHugepages(1)
 	})
 
 	It("running cyclictest and collecting results directly from VM", func() {
