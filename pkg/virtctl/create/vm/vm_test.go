@@ -749,6 +749,28 @@ var _ = Describe("create vm", func() {
 	})
 
 	Describe("Manifest is not created successfully", func() {
+		const (
+			nameDotsError          = "invalid name \"name.with.dot\": must not contain dots"
+			nameTooLongError       = "invalid name \"somanycharactersthatthedisksnameislooooongerthantheallowedlength\": must be no more than 63 characters"
+			dns1123LabelError      = "a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')"
+			nameUpperCaseError     = "invalid name \"NOTALLOWED\": " + dns1123LabelError
+			nameDashBeginningError = "invalid name \"-notallowed\": " + dns1123LabelError
+		)
+
+		DescribeTable("Invalid parameter to NameFlag when a volume name is derived from it", func(param, errMsg string) {
+			out, err := runCmd(
+				setFlag(NameFlag, param),
+				setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag"),
+			)
+			Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("failed to parse \"--volume-containerdisk\" flag: invalid name \"%s-containerdisk-0\": %s", param, errMsg))))
+			Expect(out).To(BeEmpty())
+		},
+			Entry("invalid character (dot)", "name.with.dot", "must not contain dots"),
+			Entry("derived name will have more than 63 characters", "manycharacterssothatthedisknamewillbetoolongerthantheallowedlength", "must be no more than 63 characters"),
+			Entry("upper case", "NOTALLOWED", dns1123LabelError),
+			Entry("dash at the beginning", "-notallowed", dns1123LabelError),
+		)
+
 		DescribeTable("Invalid values for RunStrategy", func(runStrategy string) {
 			out, err := runCmd(setFlag(RunStrategyFlag, runStrategy))
 
@@ -907,6 +929,10 @@ var _ = Describe("create vm", func() {
 			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse \"--volume-datasource\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
 			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse \"--volume-datasource\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
 			Entry("Bootorder set to 0", "src:my-ds,bootorder:0", "failed to parse \"--volume-datasource\" flag: bootorder must be greater than 0"),
+			Entry("invalid character (dot)", "src:my-ds,name:name.with.dot", "failed to parse \"--volume-datasource\" flag: "+nameDotsError),
+			Entry("name has more than 63 characters", "src:my-ds,name:somanycharactersthatthedisksnameislooooongerthantheallowedlength", "failed to parse \"--volume-datasource\" flag: "+nameTooLongError),
+			Entry("upper case", "src:my-ds,name:NOTALLOWED", "failed to parse \"--volume-datasource\" flag: "+nameUpperCaseError),
+			Entry("dash at the beginning", "src:my-ds,name:-notallowed", "failed to parse \"--volume-datasource\" flag: "+nameDashBeginningError),
 		)
 
 		DescribeTable("Invalid arguments to VolumeImportFlag", func(errMsg string, flags ...string) {
@@ -948,6 +974,10 @@ var _ = Describe("create vm", func() {
 			Entry("Missing url with vddk volume source", "failed to parse \"--volume-import\" flag: URL is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,secretref:test-credentials,thumbprint:test-thumb,uuid:test-uuid")),
 			Entry("Missing uuid with vddk volume source", "failed to parse \"--volume-import\" flag: UUID is required with VDDK volume source", setFlag(VolumeImportFlag, "type:vddk,size:256Mi,backingfile:test-backingfile,secretref:test-credentials,thumbprint:test-thumb,url:http://url.com")),
 			Entry("Volume already exists", "failed to parse \"--volume-import\" flag: there is already a volume with name 'duplicated'", setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:duplicated"), setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:duplicated")),
+			Entry("Name has invalid character (dot)", "failed to parse \"--volume-import\" flag: "+nameDotsError, setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:name.with.dot")),
+			Entry("Name has more than 63 characters", "failed to parse \"--volume-import\" flag: "+nameTooLongError, setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:somanycharactersthatthedisksnameislooooongerthantheallowedlength")),
+			Entry("Name has upper case character", "failed to parse \"--volume-import\" flag: "+nameUpperCaseError, setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:NOTALLOWED")),
+			Entry("Name has dash at the beginning", "failed to parse \"--volume-import\" flag: "+nameDashBeginningError, setFlag(VolumeImportFlag, "type:blank,size:256Mi,name:-notallowed")),
 		)
 
 		DescribeTable("Invalid arguments to ContainerdiskVolumeFlag", func(flag, errMsg string) {
@@ -963,6 +993,10 @@ var _ = Describe("create vm", func() {
 			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse \"--volume-containerdisk\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
 			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse \"--volume-containerdisk\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
 			Entry("Bootorder set to 0", "src:my.registry/my-image:my-tag,bootorder:0", "failed to parse \"--volume-containerdisk\" flag: bootorder must be greater than 0"),
+			Entry("invalid character (dot)", "src:my.registry/my-image:my-tag,name:name.with.dot", "failed to parse \"--volume-containerdisk\" flag: "+nameDotsError),
+			Entry("name has more than 63 characters", "src:my.registry/my-image:my-tag,name:somanycharactersthatthedisksnameislooooongerthantheallowedlength", "failed to parse \"--volume-containerdisk\" flag: "+nameTooLongError),
+			Entry("upper case", "src:my.registry/my-image:my-tag,name:NOTALLOWED", "failed to parse \"--volume-containerdisk\" flag: "+nameUpperCaseError),
+			Entry("dash at the beginning", "src:my.registry/my-image:my-tag,name:-notallowed", "failed to parse \"--volume-containerdisk\" flag: "+nameDashBeginningError),
 		)
 
 		DescribeTable("Invalid arguments to ClonePvcVolumeFlag", func(flag, errMsg string) {
@@ -982,6 +1016,10 @@ var _ = Describe("create vm", func() {
 			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse \"--volume-clone-pvc\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
 			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse \"--volume-clone-pvc\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
 			Entry("Bootorder set to 0", "src:my-ns/my-pvc,bootorder:0", "failed to parse \"--volume-clone-pvc\" flag: bootorder must be greater than 0"),
+			Entry("invalid character (dot)", "src:my-ns/my-pvc,name:name.with.dot", "failed to parse \"--volume-clone-pvc\" flag: "+nameDotsError),
+			Entry("name has more than 63 characters", "src:my-ns/my-pvc,name:somanycharactersthatthedisksnameislooooongerthantheallowedlength", "failed to parse \"--volume-clone-pvc\" flag: "+nameTooLongError),
+			Entry("upper case", "src:my-ns/my-pvc,name:NOTALLOWED", "failed to parse \"--volume-clone-pvc\" flag: "+nameUpperCaseError),
+			Entry("dash at the beginning", "src:my-ns/my-pvc,name:-notallowed", "failed to parse \"--volume-clone-pvc\" flag: "+nameDashBeginningError),
 		)
 
 		DescribeTable("Invalid arguments to PvcVolumeFlag", func(flag, errMsg string) {
@@ -1000,6 +1038,10 @@ var _ = Describe("create vm", func() {
 			Entry("Invalid number in bootorder", "bootorder:10Gu", "failed to parse \"--volume-pvc\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"10Gu\": invalid syntax"),
 			Entry("Negative number in bootorder", "bootorder:-1", "failed to parse \"--volume-pvc\" flag: failed to parse param \"bootorder\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
 			Entry("Bootorder set to 0", "src:my-pvc,bootorder:0", "failed to parse \"--volume-pvc\" flag: bootorder must be greater than 0"),
+			Entry("invalid character (dot)", "src:my-pvc,name:name.with.dot", "failed to parse \"--volume-pvc\" flag: "+nameDotsError),
+			Entry("name has more than 63 characters", "src:my-pvc,name:somanycharactersthatthedisksnameislooooongerthantheallowedlength", "failed to parse \"--volume-pvc\" flag: "+nameTooLongError),
+			Entry("upper case", "src:my-pvc,name:NOTALLOWED", "failed to parse \"--volume-pvc\" flag: "+nameUpperCaseError),
+			Entry("dash at the beginning", "src:my-pvc,name:-notallowed", "failed to parse \"--volume-pvc\" flag: "+nameDashBeginningError),
 		)
 
 		DescribeTable("Invalid arguments to BlankVolumeFlag", func(flag, errMsg string) {
@@ -1012,6 +1054,10 @@ var _ = Describe("create vm", func() {
 			Entry("Invalid param", "test=test", "failed to parse \"--volume-blank\" flag: params need to have at least one colon: test=test"),
 			Entry("Unknown param", "test:test", "failed to parse \"--volume-blank\" flag: unknown param(s): test:test"),
 			Entry("Missing size", "name:my-blank", "failed to parse \"--volume-blank\" flag: size must be specified"),
+			Entry("invalid character (dot)", "size:256Mi,name:name.with.dot", "failed to parse \"--volume-blank\" flag: "+nameDotsError),
+			Entry("name has more than 63 characters", "size:256Mi,name:somanycharactersthatthedisksnameislooooongerthantheallowedlength", "failed to parse \"--volume-blank\" flag: "+nameTooLongError),
+			Entry("upper case", "size:256Mi,name:NOTALLOWED", "failed to parse \"--volume-blank\" flag: "+nameUpperCaseError),
+			Entry("dash at the beginning", "size:256Mi,name:-notallowed", "failed to parse \"--volume-blank\" flag: "+nameDashBeginningError),
 		)
 
 		DescribeTable("Duplicate DataVolumeTemplates or Volumes are not allowed", func(errMsg string, flags ...string) {
