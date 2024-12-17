@@ -65,7 +65,7 @@ var _ = SIGDescribe(" VirtualMachineInstance with passt network binding plugin",
 		err := config.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
 			SidecarImage:                passtSidecarImage,
 			NetworkAttachmentDefinition: libnet.PasstNetAttDef,
-			Migration:                   &v1.InterfaceBindingMigration{Method: v1.LinkRefresh},
+			Migration:                   &v1.InterfaceBindingMigration{},
 			ComputeResourceOverhead: &v1.ResourceRequirementsWithoutClaims{
 				Requests: map[k8sv1.ResourceName]resource.Quantity{
 					k8sv1.ResourceMemory: passtComputeMemoryOverheadWhenAllPortsAreForwarded,
@@ -361,15 +361,6 @@ EOL`, inetSuffix, serverIP, serverPort)
 				migrateVmiAfterMigIP = libnet.GetVmiPrimaryIPByFamily(migrateVMI, ipFamily)
 				return migrateVmiAfterMigIP
 			}, 30*time.Second).ShouldNot(Equal(migrateVmiBeforeMigIP), "the VMI status should get a new IP after migration")
-
-			By("Verify the guest renewed the IP")
-			/// We renew the IP to avoid issues such as
-			// another pod in the cluster gets the IP of the old pod
-			// a user wants the internal and exteranl IP on the VM to be same
-			ipValidation := fmt.Sprintf("ip addr show eth0 | grep %s", migrateVmiAfterMigIP)
-			Eventually(func() error {
-				return console.RunCommand(migrateVMI, ipValidation, time.Second*5)
-			}, 30*time.Second).Should(Succeed())
 
 			By("Verify the VMIs can ping each other after migration")
 			Expect(libnet.PingFromVMConsole(migrateVMI, anotherVmiIP)).To(Succeed())
