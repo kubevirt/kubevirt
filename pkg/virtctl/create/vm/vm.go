@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/yaml"
 
@@ -848,6 +849,10 @@ func (c *createVM) withContainerdiskVolume(vm *v1.VirtualMachine) error {
 			vol.Name = fmt.Sprintf("%s-containerdisk-%d", vm.Name, i)
 		}
 
+		if errs := validation.IsDNS1123Label(vol.Name); len(errs) > 0 {
+			return params.FlagErr(ContainerdiskVolumeFlag, "invalid name \"%s\": %s", vol.Name, strings.Join(errs, ","))
+		}
+
 		if err := volumeShouldNotExist(ContainerdiskVolumeFlag, vm, vol.Name); err != nil {
 			return err
 		}
@@ -890,6 +895,10 @@ func (c *createVM) withPvcVolume(vm *v1.VirtualMachine) error {
 
 		if vol.Name == "" {
 			vol.Name = name
+		}
+
+		if errs := validation.IsDNS1123Label(vol.Name); len(errs) > 0 {
+			return params.FlagErr(PvcVolumeFlag, "invalid name \"%s\": %s", vol.Name, strings.Join(errs, ","))
 		}
 
 		if err := volumeShouldNotExist(PvcVolumeFlag, vm, vol.Name); err != nil {
@@ -1281,6 +1290,10 @@ func withVolumeSourceRefDataSource(paramStr string) (*cdiv1.DataVolumeSpec, *uin
 }
 
 func createDataVolume(spec *cdiv1.DataVolumeSpec, size string, name string, vm *v1.VirtualMachine) error {
+	if errs := validation.IsDNS1123Label(name); len(errs) > 0 {
+		return params.FlagErr(VolumeImportFlag, "invalid name \"%s\": %s", name, strings.Join(errs, ","))
+	}
+
 	if err := volumeShouldNotExist(VolumeImportFlag, vm, name); err != nil {
 		return err
 	}
