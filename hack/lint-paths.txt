@@ -1,3 +1,4 @@
+cmd/virtctl
 pkg/instancetype
 pkg/libvmi
 pkg/network/admitter
@@ -27,3 +28,4 @@ tests/libvmops
 tests/libwait
 tests/scale
 tests/usb
+tests/virtctl
