@@ -3541,10 +3541,10 @@ kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6
 kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90/go.mod h1:018lASpFYBsYN6XwmA2TIrPCx6e0gviTd/ZNtSitKgc=
 kubevirt.io/qe-tools v0.1.8 h1:Ar7qicmzHdd+Ia+6rjHDg3D7GReIyq7QFXoC4F7TjhQ=
 kubevirt.io/qe-tools v0.1.8/go.mod h1:+Tr/WZGHIDQa/4pQgzM7+4J6YeVbUWAXESXtL2/zxqc=
-libvirt.org/go/libvirt v1.10005.0 h1:KQv+SZNQvHJOG7B34TI2hyKnKW6hpXTEJFHUerYuGNI=
-libvirt.org/go/libvirt v1.10005.0/go.mod h1:1WiFE8EjZfq+FCVog+rvr1yatKbKZ9FaFMZgEqxEJqQ=
-libvirt.org/go/libvirtxml v1.10005.0 h1:bKv2wYaEunDdvE4mqO+vG0bp/iIeO0mI7A+0MfilNxw=
-libvirt.org/go/libvirtxml v1.10005.0/go.mod h1:7Oq2BLDstLr/XtoQD8Fr3mfDNrzlI3utYKySXF2xkng=
+libvirt.org/go/libvirt v1.10009.1 h1:Z79EnxEVE190MeULGoq1GY0tb+O18FpYzUNYDHgkrN8=
+libvirt.org/go/libvirt v1.10009.1/go.mod h1:1WiFE8EjZfq+FCVog+rvr1yatKbKZ9FaFMZgEqxEJqQ=
+libvirt.org/go/libvirtxml v1.10009.0 h1:y60vA65jOAZSJedRoil1s2myVIy0NOfz0E6zhmYiN2g=
+libvirt.org/go/libvirtxml v1.10009.0/go.mod h1:7Oq2BLDstLr/XtoQD8Fr3mfDNrzlI3utYKySXF2xkng=
 lukechampine.com/uint128 v1.1.1/go.mod h1:c4eWIwlEGaxC/+H1VguhU4PHXNWDCDMUlWdIWl2j1gk=
 lukechampine.com/uint128 v1.2.0/go.mod h1:c4eWIwlEGaxC/+H1VguhU4PHXNWDCDMUlWdIWl2j1gk=
 lukechampine.com/uint128 v1.3.0/go.mod h1:c4eWIwlEGaxC/+H1VguhU4PHXNWDCDMUlWdIWl2j1gk=
