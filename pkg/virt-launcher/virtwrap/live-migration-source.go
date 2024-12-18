@@ -781,6 +781,8 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 		disksURI := fmt.Sprintf("unix://%s", migrationproxy.SourceUnixFile(virtShareDir, key))
 		params.DisksURI = disksURI
 		params.DisksURISet = true
+		params.MigrateDisksDetectZeroesList = copyDisks
+		params.MigrateDisksDetectZeroesSet = true
 	}
 
 	log.Log.Object(vmi).Infof("generated migration parameters: %+v", params)
