@@ -29,8 +29,6 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
-
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
@@ -48,6 +46,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	netutils "k8s.io/utils/net"
 
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libnode"
 
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -69,7 +68,7 @@ const (
 	remoteCmdErrPattern = "failed running `%s` with stdout:\n %v \n stderr:\n %v \n err: \n %v "
 )
 
-var _ = DescribeSerialInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus scraped metrics", func() {
+var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus scraped metrics", decorators.SigMonitoring, func() { //nolint:lll
 	var virtClient kubecli.KubevirtClient
 
 	// start a VMI, wait for it to run and return the node it runs on
@@ -92,13 +91,6 @@ var _ = DescribeSerialInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-
-		onOCP, err := clusterutil.IsOnOpenShift(virtClient)
-		Expect(err).ToNot(HaveOccurred(), "failed to detect cluster type")
-
-		if !onOCP {
-			Skip("test is verifying integration with OCP's cluster monitoring stack")
-		}
 	})
 
 	/*
@@ -116,21 +108,22 @@ var _ = DescribeSerialInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com
 
 		By("creating a VMI in a user defined namespace")
 		vmi := libvmifact.NewAlpine()
+		vmi.Namespace = testsuite.GetTestNamespace(vmi)
 		startVMI(vmi)
 
-		By("finding virt-operator pod")
+		By("finding virt-handler pod")
 		ops, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
 			context.Background(),
-			metav1.ListOptions{LabelSelector: "kubevirt.io=virt-operator"})
-		Expect(err).ToNot(HaveOccurred(), "failed to list virt-operators")
-		Expect(ops.Size()).ToNot(Equal(0), "no virt-operators found")
+			metav1.ListOptions{LabelSelector: "kubevirt.io=virt-handler"})
+		Expect(err).ToNot(HaveOccurred(), "failed to list virt-handlers")
+		Expect(ops.Size()).ToNot(Equal(0), "no virt-handlers found")
 		op := ops.Items[0]
-		Expect(op).ToNot(BeNil(), "virt-operator pod should not be nil")
+		Expect(op).ToNot(BeNil(), "virt-handler pod should not be nil")
 
 		var ep *k8sv1.Endpoints
 		By("finding Prometheus endpoint")
 		Eventually(func() bool {
-			ep, err = virtClient.CoreV1().Endpoints("openshift-monitoring").Get(context.Background(), "prometheus-k8s", metav1.GetOptions{})
+			ep, err = virtClient.CoreV1().Endpoints("monitoring").Get(context.Background(), "prometheus-k8s", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred(), "failed to retrieve Prometheus endpoint")
 
 			if len(ep.Subsets) == 0 || len(ep.Subsets[0].Addresses) == 0 {
@@ -150,15 +143,15 @@ var _ = DescribeSerialInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com
 		Expect(promPort).ToNot(BeEquivalentTo(0), "could not get Prometheus port from endpoint")
 
 		// the Service Account needs to have access to the Prometheus subresource api
-		token, err := generateTokenForPrometheusAPI(testsuite.GetTestNamespace(vmi))
-		DeferCleanup(cleanupClusterRoleAndBinding, testsuite.GetTestNamespace(vmi))
+		token, err := generateTokenForPrometheusAPI(vmi.Namespace)
+		DeferCleanup(cleanupClusterRoleAndBinding, vmi.Namespace)
 
 		By("querying Prometheus API endpoint for a VMI exported metric")
 		cmd := []string{
 			"curl",
 			"-L",
 			"-k",
-			fmt.Sprintf("https://%s:%d/api/v1/query", promIP, promPort),
+			fmt.Sprintf("http://%s:%d/api/v1/query", promIP, promPort),
 			"-H",
 			fmt.Sprintf("Authorization: Bearer %s", token),
 			"--data-urlencode",
@@ -169,7 +162,7 @@ var _ = DescribeSerialInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com
 			),
 		}
 
-		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(&op, "virt-operator", cmd)
+		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(&op, "virt-handler", cmd)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, strings.Join(cmd, " "), stdout, stderr, err))
 
 		// the Prometheus go-client does not export queryResult, and
@@ -725,7 +718,6 @@ func generateTokenForPrometheusAPI(namespace string) (string, error) {
 			tokenRequest,
 			metav1.CreateOptions{},
 		)
-
 	if err != nil {
 		return "", fmt.Errorf("failed to retrieve ServiceAccount token: %w", err)
 	}
