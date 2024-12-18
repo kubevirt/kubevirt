@@ -44,7 +44,7 @@ var _ = Describe("Check CR validation", Label("validation"), Serial, func() {
 			}).WithTimeout(10 * time.Second).WithPolling(500 * time.Millisecond).WithContext(ctx).Should(outcome)
 		},
 			Entry("succeed when VMI CPU allocation is nil", nil, Succeed()),
-			Entry("fail when VMI CPU allocation is 1", ptr.To(1), MatchError(ContainSubstring("Automatic CPU limits are incompatible with a VMI CPU allocation ratio of 1"))),
+			Entry("fail when VMI CPU allocation is 0", ptr.To(0), MatchError(ContainSubstring("vmiCPUAllocationRatio must be greater than 0"))),
 			Entry("succeed when VMI CPU allocation is 2", ptr.To(2), Succeed()),
 		)
 	})

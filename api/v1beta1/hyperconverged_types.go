@@ -91,7 +91,7 @@ type HyperConvergedSpec struct {
 
 	// ResourceRequirements describes the resource requirements for the operand workloads.
 	// +kubebuilder:default={"vmiCPUAllocationRatio": 10}
-	// +kubebuilder:validation:XValidation:rule="!has(self.vmiCPUAllocationRatio) || self.vmiCPUAllocationRatio != 1",message="Automatic CPU limits are incompatible with a VMI CPU allocation ratio of 1"
+	// +kubebuilder:validation:XValidation:rule="!has(self.vmiCPUAllocationRatio) || self.vmiCPUAllocationRatio > 0",message="vmiCPUAllocationRatio must be greater than 0"
 	// +optional
 	ResourceRequirements *OperandResourceRequirements `json:"resourceRequirements,omitempty"`
 

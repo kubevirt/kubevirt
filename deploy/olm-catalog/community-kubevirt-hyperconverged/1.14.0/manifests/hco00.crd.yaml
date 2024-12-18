@@ -2730,10 +2730,9 @@ spec:
                     type: integer
                 type: object
                 x-kubernetes-validations:
-                - message: Automatic CPU limits are incompatible with a VMI CPU allocation
-                    ratio of 1
+                - message: vmiCPUAllocationRatio must be greater than 0
                   rule: '!has(self.vmiCPUAllocationRatio) || self.vmiCPUAllocationRatio
-                    != 1'
+                    > 0'
               scratchSpaceStorageClass:
                 description: |-
                   Override the storage class used for scratch space during transfer operations. The scratch space storage class
