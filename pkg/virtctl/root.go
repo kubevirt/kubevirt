@@ -1,6 +1,7 @@
 package virtctl
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/client-go/kubecli"
@@ -89,6 +91,7 @@ func NewVirtctlCommandFn() (*cobra.Command, clientcmd.ClientConfig) {
 			cmd.Printf(cmd.UsageString())
 		},
 	}
+	addGLogVerbosityFlag(rootCmd.PersistentFlags())
 	rootCmd.SetUsageTemplate(templates.MainUsageTemplate())
 	rootCmd.SetOut(os.Stdout)
 
@@ -129,6 +132,17 @@ func NewVirtctlCommandFn() (*cobra.Command, clientcmd.ClientConfig) {
 	)
 
 	return rootCmd, clientConfig
+}
+
+func addGLogVerbosityFlag(fs *pflag.FlagSet) {
+	// The glog verbosity flag is added to the default flag set
+	// by init() in vendor/github.com/golang/glog/glog.go.
+	// We re-add it here to make it available in virtctl commands.
+	if f := flag.CommandLine.Lookup("v"); f != nil {
+		fs.AddFlag(pflag.PFlagFromGoFlag(f))
+	} else {
+		panic("failed to find verbosity flag \"v\" in default flag set")
+	}
 }
 
 func Execute() int {

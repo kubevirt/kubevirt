@@ -19,6 +19,7 @@ import (
 	"kubevirt.io/client-go/version"
 
 	"kubevirt.io/kubevirt/pkg/virtctl"
+	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
 var _ = Describe("virtctl", func() {
@@ -29,6 +30,13 @@ var _ = Describe("virtctl", func() {
 		Entry("returns virtctl as default", "42", "virtctl"),
 		Entry("returns kubectl", "kubectl-virt", "kubectl virt"),
 		Entry("returns oc", "oc-virt", "oc virt"),
+	)
+
+	DescribeTable("the log verbosity flag should be supported", func(arg string) {
+		Expect(testing.NewRepeatableVirtctlCommand(arg)()).To(Succeed())
+	},
+		Entry("regular flag", "--v=2"),
+		Entry("shorthand flag", "-v=2"),
 	)
 
 	It("Execute should print a message if and error occured and server and client virtctl versions are different", func() {
