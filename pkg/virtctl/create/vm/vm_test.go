@@ -1401,6 +1401,12 @@ chpasswd: { expire: False }`
 			srcInvalidSlashCountError = "src invalid: invalid count 2 of slashes in prefix/name"
 			srcMissingError           = "src must be specified"
 
+			nameDotsError          = "invalid name \"name.with.dot\": must not contain dots"
+			nameTooLongError       = "invalid name \"somanycharactersthatthedisksnameislooooongerthantheallowedlength\": must be no more than 63 characters"
+			dns1123LabelError      = "a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')"
+			nameUpperCaseError     = "invalid name \"NOTALLOWED\": " + dns1123LabelError
+			nameDashBeginningError = "invalid name \"-notallowed\": " + dns1123LabelError
+
 			inferenceNoVolumeError = "at least one volume is needed to infer an instance type or preference"
 			noVolumeError          = "there is no volume with name \"does-not-exist\""
 
@@ -1416,6 +1422,20 @@ chpasswd: { expire: False }`
 
 			invalidInferenceVolumeError   = "inference of instancetype or preference works only with datasources, datavolumes or pvcs"
 			dvInvalidInferenceVolumeError = "this datavolume is not valid to infer an instancetype or preference from (source needs to be PVC, Registry or Snapshot, sourceRef needs to be DataSource)"
+		)
+
+		DescribeTable("Invalid parameter to NameFlag when a volume name is derived from it", func(param, errMsg string) {
+			out, err := runCmd(
+				setFlag(NameFlag, param),
+				setFlag(ContainerdiskVolumeFlag, "src:my.registry/my-image:my-tag"),
+			)
+			Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("failed to parse \"--volume-containerdisk\" flag: invalid name \"%s-containerdisk-0\": %s", param, errMsg))))
+			Expect(out).To(BeEmpty())
+		},
+			Entry("invalid character (dot)", "name.with.dot", "must not contain dots"),
+			Entry("derived name will have more than 63 characters", "manycharacterssothatthedisknamewillbetoolongerthantheallowedlength", "must be no more than 63 characters"),
+			Entry("upper case", "NOTALLOWED", dns1123LabelError),
+			Entry("dash at the beginning", "-notallowed", dns1123LabelError),
 		)
 
 		DescribeTable("Invalid parameter to RunStrategyFlag", func(param string) {
@@ -1554,6 +1574,10 @@ chpasswd: { expire: False }`
 			Entry("Invalid number in bootorder", "bootorder:10Gu", bootOrderInvalidError),
 			Entry("Negative number in bootorder", "bootorder:-1", bootOrderNegativeError),
 			Entry("Bootorder set to 0", "src:my.registry/my-image:my-tag,bootorder:0", bootOrderZeroError),
+			Entry("invalid character (dot)", "src:my.registry/my-image:my-tag,name:name.with.dot", nameDotsError),
+			Entry("name has more than 63 characters", "src:my.registry/my-image:my-tag,name:somanycharactersthatthedisksnameislooooongerthantheallowedlength", nameTooLongError),
+			Entry("upper case", "src:my.registry/my-image:my-tag,name:NOTALLOWED", nameUpperCaseError),
+			Entry("dash at the beginning", "src:my.registry/my-image:my-tag,name:-notallowed", nameDashBeginningError),
 		)
 
 		DescribeTable("Invalid parameters to DataSourceVolumeFlag", func(params, errMsg string) {
@@ -1571,6 +1595,10 @@ chpasswd: { expire: False }`
 			Entry("Invalid number in bootorder", "bootorder:10Gu", bootOrderInvalidError),
 			Entry("Negative number in bootorder", "bootorder:-1", bootOrderNegativeError),
 			Entry("Bootorder set to 0", "src:my-ds,bootorder:0", bootOrderZeroError),
+			Entry("invalid character (dot)", "src:my-ds,name:name.with.dot", nameDotsError),
+			Entry("name has more than 63 characters", "src:my-ds,name:somanycharactersthatthedisksnameislooooongerthantheallowedlength", nameTooLongError),
+			Entry("upper case", "src:my-ds,name:NOTALLOWED", nameUpperCaseError),
+			Entry("dash at the beginning", "src:my-ds,name:-notallowed", nameDashBeginningError),
 		)
 
 		DescribeTable("Invalid parameters to ClonePvcVolumeFlag", func(params, errMsg string) {
@@ -1589,6 +1617,10 @@ chpasswd: { expire: False }`
 			Entry("Invalid number in bootorder", "bootorder:10Gu", bootOrderInvalidError),
 			Entry("Negative number in bootorder", "bootorder:-1", bootOrderNegativeError),
 			Entry("Bootorder set to 0", "src:my-ns/my-pvc,bootorder:0", bootOrderZeroError),
+			Entry("invalid character (dot)", "src:my-ns/my-pvc,name:name.with.dot", nameDotsError),
+			Entry("name has more than 63 characters", "src:my-ns/my-pvc,name:somanycharactersthatthedisksnameislooooongerthantheallowedlength", nameTooLongError),
+			Entry("upper case", "src:my-ns/my-pvc,name:NOTALLOWED", nameUpperCaseError),
+			Entry("dash at the beginning", "src:my-ns/my-pvc,name:-notallowed", nameDashBeginningError),
 		)
 
 		DescribeTable("Invalid parameters to PvcVolumeFlag", func(params, errMsg string) {
@@ -1606,6 +1638,10 @@ chpasswd: { expire: False }`
 			Entry("Invalid number in bootorder", "bootorder:10Gu", bootOrderInvalidError),
 			Entry("Negative number in bootorder", "bootorder:-1", bootOrderNegativeError),
 			Entry("Bootorder set to 0", "src:my-pvc,bootorder:0", bootOrderZeroError),
+			Entry("invalid character (dot)", "src:my-pvc,name:name.with.dot", nameDotsError),
+			Entry("name has more than 63 characters", "src:my-pvc,name:somanycharactersthatthedisksnameislooooongerthantheallowedlength", nameTooLongError),
+			Entry("upper case", "src:my-pvc,name:NOTALLOWED", nameUpperCaseError),
+			Entry("dash at the beginning", "src:my-pvc,name:-notallowed", nameDashBeginningError),
 		)
 
 		DescribeTable("Invalid parameters to BlankVolumeFlag", func(params, errMsg string) {
@@ -1617,6 +1653,10 @@ chpasswd: { expire: False }`
 			Entry("Invalid param", "test=test", paramsInvalidError),
 			Entry("Unknown param", "test:test", paramsUnknownError),
 			Entry("Missing size", "name:my-blank", sizeMissingError),
+			Entry("invalid character (dot)", "size:256Mi,name:name.with.dot", nameDotsError),
+			Entry("name has more than 63 characters", "size:256Mi,name:somanycharactersthatthedisksnameislooooongerthantheallowedlength", nameTooLongError),
+			Entry("upper case", "size:256Mi,name:NOTALLOWED", nameUpperCaseError),
+			Entry("dash at the beginning", "size:256Mi,name:-notallowed", nameDashBeginningError),
 		)
 
 		DescribeTable("Invalid parameters to VolumeImportFlag", func(params, errMsg string) {
@@ -1664,6 +1704,10 @@ chpasswd: { expire: False }`
 			Entry("Invalid number in bootorder", "type:blank,size:256Mi,bootorder:10Gu", bootOrderInvalidError),
 			Entry("Negative number in bootorder", "type:blank,size:256Mi,bootorder:-1", bootOrderNegativeError),
 			Entry("Bootorder set to 0", "type:blank,size:256Mi,bootorder:0", bootOrderZeroError),
+			Entry("Name has invalid character (dot)", "type:blank,size:256Mi,name:name.with.dot", nameDotsError),
+			Entry("Name has more than 63 characters", "type:blank,size:256Mi,name:somanycharactersthatthedisksnameislooooongerthantheallowedlength", nameTooLongError),
+			Entry("Name has upper case character", "type:blank,size:256Mi,name:NOTALLOWED", nameUpperCaseError),
+			Entry("Name has dash at the beginning", "type:blank,size:256Mi,name:-notallowed", nameDashBeginningError),
 		)
 
 		DescribeTable("Invalid parameters to SysprepVolumeFlag", func(params, errMsg string) {
