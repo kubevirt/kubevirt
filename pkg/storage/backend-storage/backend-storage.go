@@ -68,7 +68,7 @@ func IsBackendStorageNeededForVM(vm *corev1.VirtualMachine) bool {
 	if vm.Spec.Template == nil {
 		return false
 	}
-	return HasPersistentTPMDevice(&vm.Spec.Template.Spec)
+	return HasPersistentTPMDevice(&vm.Spec.Template.Spec) || HasPersistentEFI(&vm.Spec.Template.Spec)
 }
 
 func CreateIfNeeded(vmi *corev1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient) error {
