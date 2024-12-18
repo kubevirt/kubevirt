@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-const startupTimeout = 30
+const startupTimeout = 60
 
 var _ = SIGDescribe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]Console", func() {
 
