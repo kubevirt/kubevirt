@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/virtctl"
+	"kubevirt.io/kubevirt/tests/clientcmd"
 )
 
 var _ = Describe("Root", func() {
@@ -24,5 +25,12 @@ var _ = Describe("Root", func() {
 	It("returns oc", func() {
 		Expect(virtctl.GetProgramName("oc-virt")).To(BeEquivalentTo("oc virt"))
 	})
+
+	DescribeTable("the log verbosity flag should be supported", func(arg string) {
+		Expect(clientcmd.NewRepeatableVirtctlCommand(arg)()).To(Succeed())
+	},
+		Entry("regular flag", "--v=2"),
+		Entry("shorthand flag", "-v=2"),
+	)
 
 })
