@@ -13,8 +13,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	v1 "kubevirt.io/api/core/v1"
 
+	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
@@ -38,13 +40,20 @@ type testCase struct {
 
 // FuzzAdmitter tests the Validation webhook execution logic with random input: It does schema validation (syntactic check), followed by executing the domain specific validation logic (semantic checks).
 func FuzzAdmitter(f *testing.F) {
+	validateNetwork := func(field *field.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
+		return netadmitter.Validate(field, vmiSpec, clusterCfg)
+	}
+
 	testCases := []testCase{
 		{
 			name:    "SyntacticVirtualMachineInstanceFuzzing",
 			gvk:     webhooks.VirtualMachineInstanceGroupVersionResource,
 			objType: &v1.VirtualMachineInstance{},
 			admit: func(config *virtconfig.ClusterConfig, request *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-				adm := &admitters.VMICreateAdmitter{ClusterConfig: config}
+				adm := &admitters.VMICreateAdmitter{
+					ClusterConfig:  config,
+					SpecValidators: []admitters.SpecValidator{validateNetwork},
+				}
 				return adm.Admit(context.Background(), request)
 			},
 			fuzzFuncs: fuzzFuncs(withSyntaxErrors),
@@ -54,7 +63,10 @@ func FuzzAdmitter(f *testing.F) {
 			gvk:     webhooks.VirtualMachineInstanceGroupVersionResource,
 			objType: &v1.VirtualMachineInstance{},
 			admit: func(config *virtconfig.ClusterConfig, request *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-				adm := &admitters.VMICreateAdmitter{ClusterConfig: config}
+				adm := &admitters.VMICreateAdmitter{
+					ClusterConfig:  config,
+					SpecValidators: []admitters.SpecValidator{validateNetwork},
+				}
 				return adm.Admit(context.Background(), request)
 			},
 			fuzzFuncs: fuzzFuncs(),
