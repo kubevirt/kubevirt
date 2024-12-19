@@ -15,7 +15,6 @@ go_library(
         "//pkg/storage/types:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/util/migrations:go_default_library",
-        "//pkg/util/pdbs:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
         "//pkg/virt-controller/watch/descheduler:go_default_library",
