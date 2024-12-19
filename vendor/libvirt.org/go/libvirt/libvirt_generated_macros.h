@@ -29,7 +29,7 @@
 #pragma once
 
 #if !LIBVIR_CHECK_VERSION(0, 0, 1)
-#  define LIBVIR_VERSION_NUMBER 10005000
+#  define LIBVIR_VERSION_NUMBER 10009000
 #endif
 
 #if !LIBVIR_CHECK_VERSION(5, 8, 0)
@@ -432,6 +432,10 @@
 #  define VIR_DOMAIN_JOB_TIME_REMAINING "time_remaining"
 #endif
 
+#if !LIBVIR_CHECK_VERSION(10, 6, 0)
+#  define VIR_DOMAIN_JOB_VFIO_DATA_TRANSFERRED "vfio_data_transferred"
+#endif
+
 #if !LIBVIR_CHECK_VERSION(8, 0, 0)
 #  define VIR_DOMAIN_LAUNCH_SECURITY_SEV_API_MAJOR "sev-api-major"
 #endif
@@ -778,6 +782,10 @@
 
 #if !LIBVIR_CHECK_VERSION(1, 2, 17)
 #  define VIR_MIGRATE_PARAM_MIGRATE_DISKS "migrate_disks"
+#endif
+
+#if !LIBVIR_CHECK_VERSION(10, 9, 0)
+#  define VIR_MIGRATE_PARAM_MIGRATE_DISKS_DETECT_ZEROES "migrate_disks_detect_zeroes"
 #endif
 
 #if !LIBVIR_CHECK_VERSION(5, 2, 0)
