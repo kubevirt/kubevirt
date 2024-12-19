@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/expand"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
+	preferenceapply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/instancetype/upgrade"
@@ -195,4 +196,17 @@ func (c *controller) handleExpand(
 		return updatedVM, nil
 	}
 	return vm, nil
+}
+
+func (c *controller) ApplyDevicePreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	if vm.Spec.Preference == nil {
+		return nil
+	}
+	preferenceSpec, err := c.FindPreference(vm)
+	if err != nil {
+		return err
+	}
+	preferenceapply.ApplyDevicePreferences(preferenceSpec, &vmi.Spec)
+
+	return nil
 }

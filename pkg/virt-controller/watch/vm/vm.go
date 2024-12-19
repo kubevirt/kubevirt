@@ -59,7 +59,6 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/instancetype/v1beta1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -246,6 +245,7 @@ type instancetypeHandler interface {
 	ApplyToVMI(*k8sfield.Path, *v1beta1.VirtualMachineInstancetypeSpec, *v1beta1.VirtualMachinePreferenceSpec, *virtv1.VirtualMachineInstanceSpec, *metav1.ObjectMeta) (conflicts apply.Conflicts)
 	Find(*virtv1.VirtualMachine) (*v1beta1.VirtualMachineInstancetypeSpec, error)
 	FindPreference(*virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
+	ApplyDevicePreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error
 }
 
 type Controller struct {
@@ -1389,8 +1389,7 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 
 	// We need to apply device preferences before any new network or input devices are added. Doing so allows
 	// any autoAttach preferences we might have to be applied, either enabling or disabling the attachment of these devices.
-	preferenceSpec, err := c.applyDevicePreferences(vm, vmi)
-	if err != nil {
+	if err := c.instancetypeController.ApplyDevicePreferences(vm, vmi); err != nil {
 		log.Log.Object(vm).Infof("Failed to apply device preferences again to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error applying device preferences again: %v", err)
 		return vm, err
@@ -1405,8 +1404,7 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 		return vm, err
 	}
 
-	err = c.applyInstancetypeToVmi(vm, vmi, preferenceSpec)
-	if err != nil {
+	if err = c.applyInstancetypeToVmi(vm, vmi); err != nil {
 		log.Log.Object(vm).Infof("Failed to apply instancetype to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error creating virtual machine instance: Failed to apply instancetype: %v", err)
 		return vm, err
@@ -2015,9 +2013,13 @@ func (c *Controller) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMa
 	return vmi
 }
 
-func (c *Controller) applyInstancetypeToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
-
+func (c *Controller) applyInstancetypeToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
 	instancetypeSpec, err := c.instancetypeController.Find(vm)
+	if err != nil {
+		return err
+	}
+
+	preferenceSpec, err := c.instancetypeController.FindPreference(vm)
 	if err != nil {
 		return err
 	}
@@ -3447,20 +3449,6 @@ func autoAttachInputDevice(vmi *virtv1.VirtualMachineInstance) {
 			Name: "default-0",
 		},
 	)
-}
-
-// FIXME(lyarwood): Extract into instancetypeController
-func (c *Controller) applyDevicePreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
-	if vm.Spec.Preference != nil {
-		preferenceSpec, err := c.instancetypeController.FindPreference(vm)
-		if err != nil {
-			return nil, err
-		}
-		instancetype.ApplyDevicePreferences(preferenceSpec, &vmi.Spec)
-
-		return preferenceSpec, nil
-	}
-	return nil, nil
 }
 
 func (c *Controller) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
