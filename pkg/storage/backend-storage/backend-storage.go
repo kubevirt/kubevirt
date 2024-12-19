@@ -150,7 +150,7 @@ func IsBackendStorageNeededForVM(vm *corev1.VirtualMachine) bool {
 	if vm.Spec.Template == nil {
 		return false
 	}
-	return HasPersistentTPMDevice(&vm.Spec.Template.Spec)
+	return HasPersistentTPMDevice(&vm.Spec.Template.Spec) || HasPersistentEFI(&vm.Spec.Template.Spec)
 }
 
 func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) error {
