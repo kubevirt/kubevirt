@@ -893,7 +893,6 @@ rules:
   - virtualmachineinstances
   - virtualmachineinstancepresets
   - virtualmachineinstancereplicasets
-  - virtualmachineinstancemigrations
   verbs:
   - get
   - delete
@@ -903,6 +902,14 @@ rules:
   - list
   - watch
   - deletecollection
+- apiGroups:
+  - kubevirt.io
+  resources:
+  - virtualmachineinstancemigrations
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - snapshot.kubevirt.io
   resources:
@@ -1042,13 +1049,20 @@ rules:
   - virtualmachineinstances
   - virtualmachineinstancepresets
   - virtualmachineinstancereplicasets
-  - virtualmachineinstancemigrations
   verbs:
   - get
   - delete
   - create
   - update
   - patch
+  - list
+  - watch
+- apiGroups:
+  - kubevirt.io
+  resources:
+  - virtualmachineinstancemigrations
+  verbs:
+  - get
   - list
   - watch
 - apiGroups:
@@ -1229,6 +1243,19 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - kubevirt.io
+  resources:
+  - virtualmachineinstancemigrations
+  verbs:
+  - get
+  - delete
+  - create
+  - update
+  - patch
+  - list
+  - watch
+  - deletecollection
 - apiGroups:
   - authentication.k8s.io
   resources:
