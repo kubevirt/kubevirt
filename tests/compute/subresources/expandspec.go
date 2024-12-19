@@ -27,13 +27,12 @@ import (
 	. "github.com/onsi/gomega"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
-	instancetypepkg "kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/compute"
@@ -174,7 +173,7 @@ var _ = compute.SIGDescribe("ExpandSpec subresource", func() {
 
 				_, err := virtClient.ExpandSpec(testsuite.GetTestNamespace(vm)).ForVirtualMachine(vm)
 				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(fmt.Sprintf(instancetypepkg.VMFieldsConflictsErrorFmt, instancetypepkg.Conflicts{field.NewPath("spec.template.spec.domain.resources.requests.memory")})))
+				Expect(err).To(MatchError(conflict.New("spec.template.spec.domain.resources.requests.memory").Error()))
 			},
 				Entry("with VirtualMachineInstancetype", instancetypeMatcherFn),
 				Entry("with VirtualMachineClusterInstancetype", clusterInstancetypeMatcherFn),

@@ -8,7 +8,7 @@ go_library(
     deps = [
         "//pkg/defaults:go_default_library",
         "//pkg/instancetype/apply:go_default_library",
-        "//pkg/instancetype/errors:go_default_library",
+        "//pkg/instancetype/conflict:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-config:go_default_library",
