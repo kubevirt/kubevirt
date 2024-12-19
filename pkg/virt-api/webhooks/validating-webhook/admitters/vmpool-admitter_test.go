@@ -33,6 +33,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
@@ -42,6 +43,48 @@ var _ = Describe("Validating Pool Admitter", func() {
 	poolAdmitter := &VMPoolAdmitter{ClusterConfig: config}
 
 	always := v1.RunStrategyAlways
+
+	It("when a validator pass, should allow request", func() {
+		admitter := &VMPoolAdmitter{
+			ClusterConfig: config,
+			Validators:    []Validator{validatorStub{}}}
+		vmpool := newTestVMPool()
+
+		poolBytes, _ := json.Marshal(&vmpool)
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Resource: webhooks.VirtualMachinePoolGroupVersionResource,
+				Object: runtime.RawExtension{
+					Raw: poolBytes,
+				},
+			},
+		}
+
+		resp := admitter.Admit(context.Background(), ar)
+		Expect(resp.Allowed).To(BeTrue())
+	})
+	It("when a validator fail, should reject request", func() {
+		expectedStatusCause := []metav1.StatusCause{{Type: "test", Message: "test", Field: "test"}}
+		admitter := &VMPoolAdmitter{
+			ClusterConfig: config,
+			Validators:    []Validator{validatorStub{statusCauses: expectedStatusCause}}}
+		vmpool := newTestVMPool()
+
+		poolBytes, err := json.Marshal(&vmpool)
+		Expect(err).ToNot(HaveOccurred())
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Resource: webhooks.VirtualMachinePoolGroupVersionResource,
+				Object: runtime.RawExtension{
+					Raw: poolBytes,
+				},
+			},
+		}
+
+		resp := admitter.Admit(context.Background(), ar)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Details.Causes).To(Equal(expectedStatusCause))
+	})
 
 	DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
 		input := map[string]interface{}{}
@@ -176,3 +219,24 @@ var _ = Describe("Validating Pool Admitter", func() {
 		Expect(resp.Allowed).To(BeTrue())
 	})
 })
+
+func newTestVMPool() *poolv1.VirtualMachinePool {
+	return &poolv1.VirtualMachinePool{
+		Spec: poolv1.VirtualMachinePoolSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"test": "test"},
+			},
+			VirtualMachineTemplate: &poolv1.VirtualMachineTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"test": "test"},
+				},
+				Spec: v1.VirtualMachineSpec{
+					RunStrategy: pointer.P(v1.RunStrategyAlways),
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
+						Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}},
+					},
+				},
+			},
+		},
+	}
+}
