@@ -45,8 +45,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi"
 
-	"kubevirt.io/kubevirt/pkg/instancetype"
-
 	"github.com/emicklei/go-restful/v3"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -730,15 +728,6 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
 
-	instancetypeMethods := &instancetype.InstancetypeMethods{
-		InstancetypeStore:        vca.instancetypeInformer.GetStore(),
-		ClusterInstancetypeStore: vca.clusterInstancetypeInformer.GetStore(),
-		PreferenceStore:          vca.preferenceInformer.GetStore(),
-		ClusterPreferenceStore:   vca.clusterPreferenceInformer.GetStore(),
-		ControllerRevisionStore:  vca.controllerRevisionInformer.GetStore(),
-		Clientset:                vca.clientSet,
-	}
-
 	vca.vmController, err = vm.NewController(
 		vca.vmiInformer,
 		vca.vmInformer,
@@ -748,7 +737,6 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.persistentVolumeClaimInformer,
 		vca.controllerRevisionInformer,
 		vca.kvPodInformer,
-		instancetypeMethods,
 		recorder,
 		vca.clientSet,
 		vca.clusterConfig,

@@ -31,6 +31,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
@@ -57,6 +58,7 @@ import (
 	"k8s.io/utils/trace"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/api/instancetype/v1beta1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -131,12 +133,11 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
-	instancetypeMethods instancetype.Methods,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
 	netSynchronizer synchronizer,
-	instancetypeSynchronizer synchronizer,
+	instancetypeController instancetypeHandler,
 ) (*Controller, error) {
 
 	c := &Controller{
@@ -144,19 +145,18 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 			workqueue.DefaultTypedControllerRateLimiter[string](),
 			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vm"},
 		),
-		vmiIndexer:               vmiInformer.GetIndexer(),
-		vmIndexer:                vmInformer.GetIndexer(),
-		dataVolumeStore:          dataVolumeInformer.GetStore(),
-		dataSourceStore:          dataSourceInformer.GetStore(),
-		namespaceStore:           namespaceStore,
-		pvcStore:                 pvcInformer.GetStore(),
-		crIndexer:                crInformer.GetIndexer(),
-		instancetypeMethods:      instancetypeMethods,
-		instancetypeSynchronizer: instancetypeSynchronizer,
-		recorder:                 recorder,
-		clientset:                clientset,
-		expectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		dataVolumeExpectations:   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		vmiIndexer:             vmiInformer.GetIndexer(),
+		vmIndexer:              vmInformer.GetIndexer(),
+		dataVolumeStore:        dataVolumeInformer.GetStore(),
+		dataSourceStore:        dataSourceInformer.GetStore(),
+		namespaceStore:         namespaceStore,
+		pvcStore:               pvcInformer.GetStore(),
+		crIndexer:              crInformer.GetIndexer(),
+		instancetypeController: instancetypeController,
+		recorder:               recorder,
+		clientset:              clientset,
+		expectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		dataVolumeExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		cloneAuthFunc: func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error) {
 			response, err := dv.AuthorizeSA(requestNamespace, requestName, proxy, saNamespace, saName)
 			return response.Allowed, response.Reason, err
@@ -240,24 +240,31 @@ type synchronizer interface {
 	Sync(*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error)
 }
 
+type instancetypeHandler interface {
+	synchronizer
+	ApplyToVM(*virtv1.VirtualMachine) error
+	ApplyToVMI(*k8sfield.Path, *v1beta1.VirtualMachineInstancetypeSpec, *v1beta1.VirtualMachinePreferenceSpec, *virtv1.VirtualMachineInstanceSpec, *metav1.ObjectMeta) (conflicts apply.Conflicts)
+	Find(*virtv1.VirtualMachine) (*v1beta1.VirtualMachineInstancetypeSpec, error)
+	FindPreference(*virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
+}
+
 type Controller struct {
-	clientset                kubecli.KubevirtClient
-	Queue                    workqueue.TypedRateLimitingInterface[string]
-	vmiIndexer               cache.Indexer
-	vmIndexer                cache.Indexer
-	dataVolumeStore          cache.Store
-	dataSourceStore          cache.Store
-	namespaceStore           cache.Store
-	pvcStore                 cache.Store
-	crIndexer                cache.Indexer
-	instancetypeMethods      instancetype.Methods
-	instancetypeSynchronizer synchronizer
-	recorder                 record.EventRecorder
-	expectations             *controller.UIDTrackingControllerExpectations
-	dataVolumeExpectations   *controller.UIDTrackingControllerExpectations
-	cloneAuthFunc            CloneAuthFunc
-	clusterConfig            *virtconfig.ClusterConfig
-	hasSynced                func() bool
+	clientset              kubecli.KubevirtClient
+	Queue                  workqueue.TypedRateLimitingInterface[string]
+	vmiIndexer             cache.Indexer
+	vmIndexer              cache.Indexer
+	dataVolumeStore        cache.Store
+	dataSourceStore        cache.Store
+	namespaceStore         cache.Store
+	pvcStore               cache.Store
+	crIndexer              cache.Indexer
+	instancetypeController instancetypeHandler
+	recorder               record.EventRecorder
+	expectations           *controller.UIDTrackingControllerExpectations
+	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
+	cloneAuthFunc          CloneAuthFunc
+	clusterConfig          *virtconfig.ClusterConfig
+	hasSynced              func() bool
 
 	netSynchronizer synchronizer
 }
@@ -696,7 +703,7 @@ func (c *Controller) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *virt
 	}
 
 	vmCopyWithInstancetype := vm.DeepCopy()
-	if err := c.instancetypeMethods.ApplyToVM(vmCopyWithInstancetype); err != nil {
+	if err := c.instancetypeController.ApplyToVM(vmCopyWithInstancetype); err != nil {
 		return err
 	}
 
@@ -824,7 +831,7 @@ func (c *Controller) handleTolerationsChangeRequest(vm *virtv1.VirtualMachine, v
 	}
 
 	vmCopyWithInstancetype := vm.DeepCopy()
-	if err := c.instancetypeMethods.ApplyToVM(vmCopyWithInstancetype); err != nil {
+	if err := c.instancetypeController.ApplyToVM(vmCopyWithInstancetype); err != nil {
 		return err
 	}
 
@@ -850,7 +857,7 @@ func (c *Controller) handleAffinityChangeRequest(vm *virtv1.VirtualMachine, vmi 
 	}
 
 	vmCopyWithInstancetype := vm.DeepCopy()
-	if err := c.instancetypeMethods.ApplyToVM(vmCopyWithInstancetype); err != nil {
+	if err := c.instancetypeController.ApplyToVM(vmCopyWithInstancetype); err != nil {
 		return err
 	}
 
@@ -2010,7 +2017,7 @@ func (c *Controller) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMa
 
 func (c *Controller) applyInstancetypeToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
 
-	instancetypeSpec, err := c.instancetypeMethods.FindInstancetypeSpec(vm)
+	instancetypeSpec, err := c.instancetypeController.Find(vm)
 	if err != nil {
 		return err
 	}
@@ -2022,7 +2029,7 @@ func (c *Controller) applyInstancetypeToVmi(vm *virtv1.VirtualMachine, vmi *virt
 	instancetype.AddInstancetypeNameAnnotations(vm, vmi)
 	instancetype.AddPreferenceNameAnnotations(vm, vmi)
 
-	if conflicts := c.instancetypeMethods.ApplyToVmi(k8sfield.NewPath("spec"), instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta); len(conflicts) > 0 {
+	if conflicts := c.instancetypeController.ApplyToVMI(k8sfield.NewPath("spec"), instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta); len(conflicts) > 0 {
 		return fmt.Errorf("VMI conflicts with instancetype spec in fields: [%s]", conflicts.String())
 	}
 
@@ -3164,7 +3171,7 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 
 	// Expand any instance types and preferences associated with lastSeenVMSpec or the current VM before working out if things are live-updatable
 	currentVM := vm.DeepCopy()
-	if err := c.instancetypeMethods.ApplyToVM(currentVM); err != nil {
+	if err := c.instancetypeController.ApplyToVM(currentVM); err != nil {
 		return false
 	}
 	lastSeenVM := &virtv1.VirtualMachine{
@@ -3172,7 +3179,7 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 		ObjectMeta: currentVM.DeepCopy().ObjectMeta,
 		Spec:       *lastSeenVMSpec,
 	}
-	if err := c.instancetypeMethods.ApplyToVM(lastSeenVM); err != nil {
+	if err := c.instancetypeController.ApplyToVM(lastSeenVM); err != nil {
 		return false
 	}
 
@@ -3277,7 +3284,7 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	}
 
 	// FIXME(lyarwood): Move alongside netSynchronizer
-	syncedVM, err := c.instancetypeSynchronizer.Sync(vm, vmi)
+	syncedVM, err := c.instancetypeController.Sync(vm, vmi)
 	if err != nil {
 		return vm, vmi, handleSynchronizerErr(err), nil
 	}
@@ -3442,9 +3449,10 @@ func autoAttachInputDevice(vmi *virtv1.VirtualMachineInstance) {
 	)
 }
 
+// FIXME(lyarwood): Extract into instancetypeController
 func (c *Controller) applyDevicePreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
 	if vm.Spec.Preference != nil {
-		preferenceSpec, err := c.instancetypeMethods.FindPreferenceSpec(vm)
+		preferenceSpec, err := c.instancetypeController.FindPreference(vm)
 		if err != nil {
 			return nil, err
 		}
@@ -3461,7 +3469,7 @@ func (c *Controller) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi *
 	}
 
 	vmCopyWithInstancetype := vm.DeepCopy()
-	if err := c.instancetypeMethods.ApplyToVM(vmCopyWithInstancetype); err != nil {
+	if err := c.instancetypeController.ApplyToVM(vmCopyWithInstancetype); err != nil {
 		return err
 	}
 

@@ -127,8 +127,6 @@ var _ = Describe("VirtualMachine", func() {
 			})
 			podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 
-			instancetypeMethods := testutils.NewMockInstancetypeMethods()
-
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
@@ -142,7 +140,6 @@ var _ = Describe("VirtualMachine", func() {
 				pvcInformer,
 				crInformer,
 				podInformer,
-				instancetypeMethods,
 				recorder,
 				virtClient,
 				config,
@@ -4290,16 +4287,7 @@ var _ = Describe("VirtualMachine", func() {
 				controllerrevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 				controllerrevisionInformerStore = controllerrevisionInformer.GetStore()
 
-				controller.instancetypeMethods = &instancetype.InstancetypeMethods{
-					InstancetypeStore:        instancetypeInformerStore,
-					ClusterInstancetypeStore: clusterInstancetypeInformerStore,
-					PreferenceStore:          preferenceInformerStore,
-					ClusterPreferenceStore:   clusterPreferenceInformerStore,
-					ControllerRevisionStore:  controllerrevisionInformerStore,
-					Clientset:                virtClient,
-				}
-
-				controller.instancetypeSynchronizer = instancetypecontroller.New(
+				controller.instancetypeController = instancetypecontroller.New(
 					instancetypeInformerStore,
 					clusterInstancetypeInformerStore,
 					preferenceInformerStore,
@@ -6751,10 +6739,16 @@ var _ = Describe("VirtualMachine", func() {
 						RevisionName: revision.Name,
 					}
 
-					controller.instancetypeMethods = &instancetype.InstancetypeMethods{
-						ControllerRevisionStore: controllerrevisionInformerStore,
-						Clientset:               virtClient,
-					}
+					controller.instancetypeController = instancetypecontroller.New(
+						nil,
+						nil,
+						nil,
+						nil,
+						controllerrevisionInformerStore,
+						virtClient,
+						config,
+						controller.recorder,
+					)
 
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{

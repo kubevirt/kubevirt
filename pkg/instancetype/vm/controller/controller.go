@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -33,7 +34,9 @@ import (
 	"kubevirt.io/client-go/log"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/api/instancetype/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/expand"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
@@ -42,6 +45,27 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 )
+
+type applyVMHandler interface {
+	ApplyToVM(*virtv1.VirtualMachine) error
+}
+
+type applyVMIHandler interface {
+	ApplyToVMI(
+		*k8sfield.Path, *v1beta1.VirtualMachineInstancetypeSpec,
+		*v1beta1.VirtualMachinePreferenceSpec,
+		*virtv1.VirtualMachineInstanceSpec,
+		*metav1.ObjectMeta,
+	) (conflicts apply.Conflicts)
+}
+
+type instancetypeFindHandler interface {
+	Find(*virtv1.VirtualMachine) (*v1beta1.VirtualMachineInstancetypeSpec, error)
+}
+
+type preferenceFindHandler interface {
+	FindPreference(*virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
+}
 
 type expandHandler interface {
 	Expand(*virtv1.VirtualMachine) (*virtv1.VirtualMachine, error)
@@ -56,9 +80,13 @@ type upgradeHandler interface {
 }
 
 type controller struct {
+	applyVMIHandler
+	applyVMHandler
 	storeHandler
 	expandHandler
 	upgradeHandler
+	instancetypeFindHandler
+	preferenceFindHandler
 
 	clientset     kubecli.KubevirtClient
 	clusterConfig *virtconfig.ClusterConfig
@@ -69,15 +97,19 @@ func New(
 	instancetypeStore, clusterInstancetypeStore, preferenceStore, clusterPreferenceStore, revisionStore cache.Store,
 	virtClient kubecli.KubevirtClient, clusterConfig *virtconfig.ClusterConfig, recorder record.EventRecorder,
 ) *controller {
-	instancetypeFinder := find.NewSpecFinder(instancetypeStore, clusterInstancetypeStore, revisionStore, virtClient)
-	preferenceFinder := preferencefind.NewSpecFinder(preferenceStore, clusterPreferenceStore, revisionStore, virtClient)
+	finder := find.NewSpecFinder(instancetypeStore, clusterInstancetypeStore, revisionStore, virtClient)
+	prefFinder := preferencefind.NewSpecFinder(preferenceStore, clusterPreferenceStore, revisionStore, virtClient)
 	return &controller{
-		storeHandler:   revision.New(instancetypeStore, clusterInstancetypeStore, preferenceStore, clusterPreferenceStore, virtClient),
-		expandHandler:  expand.New(clusterConfig, instancetypeFinder, preferenceFinder),
-		upgradeHandler: upgrade.New(revisionStore, virtClient),
-		clientset:      virtClient,
-		clusterConfig:  clusterConfig,
-		recorder:       recorder,
+		instancetypeFindHandler: finder,
+		preferenceFindHandler:   prefFinder,
+		applyVMIHandler:         apply.NewVMIApplier(),
+		applyVMHandler:          apply.NewVMApplier(finder, prefFinder),
+		storeHandler:            revision.New(instancetypeStore, clusterInstancetypeStore, preferenceStore, clusterPreferenceStore, virtClient),
+		expandHandler:           expand.New(clusterConfig, finder, prefFinder),
+		upgradeHandler:          upgrade.New(revisionStore, virtClient),
+		clientset:               virtClient,
+		clusterConfig:           clusterConfig,
+		recorder:                recorder,
 	}
 }
 
