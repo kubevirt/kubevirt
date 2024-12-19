@@ -136,6 +136,7 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
 	netSynchronizer synchronizer,
+	instancetypeSynchronizer synchronizer,
 ) (*Controller, error) {
 
 	c := &Controller{
@@ -143,18 +144,19 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 			workqueue.DefaultTypedControllerRateLimiter[string](),
 			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vm"},
 		),
-		vmiIndexer:             vmiInformer.GetIndexer(),
-		vmIndexer:              vmInformer.GetIndexer(),
-		dataVolumeStore:        dataVolumeInformer.GetStore(),
-		dataSourceStore:        dataSourceInformer.GetStore(),
-		namespaceStore:         namespaceStore,
-		pvcStore:               pvcInformer.GetStore(),
-		crIndexer:              crInformer.GetIndexer(),
-		instancetypeMethods:    instancetypeMethods,
-		recorder:               recorder,
-		clientset:              clientset,
-		expectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		dataVolumeExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		vmiIndexer:               vmiInformer.GetIndexer(),
+		vmIndexer:                vmInformer.GetIndexer(),
+		dataVolumeStore:          dataVolumeInformer.GetStore(),
+		dataSourceStore:          dataSourceInformer.GetStore(),
+		namespaceStore:           namespaceStore,
+		pvcStore:                 pvcInformer.GetStore(),
+		crIndexer:                crInformer.GetIndexer(),
+		instancetypeMethods:      instancetypeMethods,
+		instancetypeSynchronizer: instancetypeSynchronizer,
+		recorder:                 recorder,
+		clientset:                clientset,
+		expectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		dataVolumeExpectations:   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		cloneAuthFunc: func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error) {
 			response, err := dv.AuthorizeSA(requestNamespace, requestName, proxy, saNamespace, saName)
 			return response.Allowed, response.Reason, err
@@ -239,22 +241,23 @@ type synchronizer interface {
 }
 
 type Controller struct {
-	clientset              kubecli.KubevirtClient
-	Queue                  workqueue.TypedRateLimitingInterface[string]
-	vmiIndexer             cache.Indexer
-	vmIndexer              cache.Indexer
-	dataVolumeStore        cache.Store
-	dataSourceStore        cache.Store
-	namespaceStore         cache.Store
-	pvcStore               cache.Store
-	crIndexer              cache.Indexer
-	instancetypeMethods    instancetype.Methods
-	recorder               record.EventRecorder
-	expectations           *controller.UIDTrackingControllerExpectations
-	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
-	cloneAuthFunc          CloneAuthFunc
-	clusterConfig          *virtconfig.ClusterConfig
-	hasSynced              func() bool
+	clientset                kubecli.KubevirtClient
+	Queue                    workqueue.TypedRateLimitingInterface[string]
+	vmiIndexer               cache.Indexer
+	vmIndexer                cache.Indexer
+	dataVolumeStore          cache.Store
+	dataSourceStore          cache.Store
+	namespaceStore           cache.Store
+	pvcStore                 cache.Store
+	crIndexer                cache.Indexer
+	instancetypeMethods      instancetype.Methods
+	instancetypeSynchronizer synchronizer
+	recorder                 record.EventRecorder
+	expectations             *controller.UIDTrackingControllerExpectations
+	dataVolumeExpectations   *controller.UIDTrackingControllerExpectations
+	cloneAuthFunc            CloneAuthFunc
+	clusterConfig            *virtconfig.ClusterConfig
+	hasSynced                func() bool
 
 	netSynchronizer synchronizer
 }
@@ -3273,11 +3276,17 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		return vm, vmi, common.NewSyncError(fmt.Errorf(fetchingRunStrategyErrFmt, err), failedCreateReason), err
 	}
 
-	// TODO(lyarwood): Extract all instance type logic into a handler
-	vm, syncErr = c.syncInstancetypes(vm)
-	if syncErr != nil {
-		return vm, vmi, syncErr, nil
+	// FIXME(lyarwood): Move alongside netSynchronizer
+	syncedVM, err := c.instancetypeSynchronizer.Sync(vm, vmi)
+	if err != nil {
+		return vm, vmi, handleSynchronizerErr(err), nil
 	}
+	if !equality.Semantic.DeepEqual(vm.Spec, syncedVM.Spec) {
+		return syncedVM, vmi, nil, nil
+	}
+
+	vm.ObjectMeta = syncedVM.ObjectMeta
+	vm.Spec = syncedVM.Spec
 
 	// eventually, would like the condition to be `== "true"`, but for now we need to support legacy behavior by default
 	if vm.Annotations[virtv1.ImmediateDataVolumeCreation] != "false" {
@@ -3310,13 +3319,9 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	vmCopy := vm.DeepCopy()
 
 	if c.netSynchronizer != nil {
-		syncedVM, errSync := c.netSynchronizer.Sync(vmCopy, vmi)
-		var errWithReason common.SyncError
-		if errSync != nil {
-			if errors.As(errSync, &errWithReason) {
-				return vm, vmi, errWithReason, nil
-			}
-			return vm, vmi, common.NewSyncError(fmt.Errorf("unsupported error: %v", errSync), "UnsupportedSyncError"), nil
+		syncedVM, err := c.netSynchronizer.Sync(vmCopy, vmi)
+		if err != nil {
+			return vm, vmi, handleSynchronizerErr(err), nil
 		}
 		vmCopy.ObjectMeta = syncedVM.ObjectMeta
 		vmCopy.Spec = syncedVM.Spec
@@ -3366,72 +3371,15 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	return vm, vmi, nil, nil
 }
 
-func (c *Controller) syncInstancetypes(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, common.SyncError) {
-	if vm.Spec.Instancetype == nil && vm.Spec.Preference == nil {
-		return vm, nil
+func handleSynchronizerErr(err error) common.SyncError {
+	if err == nil {
+		return nil
 	}
-
-	referencePolicy := c.clusterConfig.GetInstancetypeReferencePolicy()
-	switch referencePolicy {
-	case virtv1.Reference:
-		// Ensure we have ControllerRevisions of any instancetype or preferences referenced by the VM
-		if err := c.instancetypeMethods.StoreControllerRevisions(vm); err != nil {
-			log.Log.Object(vm).Infof("failed to store Instancetype ControllerRevisions for VirtualMachine: %s/%s", vm.Namespace, vm.Name)
-			c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error encountered while storing Instancetype ControllerRevisions: %v", err)
-			return vm, common.NewSyncError(fmt.Errorf("Error encountered while storing Instancetype ControllerRevisions: %v", err), common.FailedCreateVirtualMachineReason)
-		}
-	case virtv1.Expand, virtv1.ExpandAll:
-		if !shouldExpandInstancetypeAndPreference(vm, referencePolicy) {
-			break
-		}
-
-		expandVMCopy, err := c.instancetypeMethods.Expand(vm, c.clusterConfig)
-		if err != nil {
-			return vm, common.NewSyncError(fmt.Errorf("error encountered while expanding instance type into VirtualMachine: %v", err), common.FailedCreateVirtualMachineReason)
-		}
-
-		// Only update the VM if we have changed something by applying an instance type and preference
-		if !equality.Semantic.DeepEqual(vm.Spec, expandVMCopy.Spec) {
-			updatedVm, err := c.clientset.VirtualMachine(expandVMCopy.Namespace).Update(context.Background(), expandVMCopy, metav1.UpdateOptions{})
-			if err != nil {
-				return vm, common.NewSyncError(fmt.Errorf("error encountered when trying to update VirtualMachine with expanded instance type and preference: %v", err), failedUpdateErrorReason)
-			}
-
-			// We should clean up any instance type or preference ControllerRevisions after successfully expanding the VM
-			if vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "" {
-				revisionName := vm.Spec.Instancetype.RevisionName
-				if err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(
-					context.Background(), revisionName, metav1.DeleteOptions{}); err != nil {
-					return nil, common.NewSyncError(
-						fmt.Errorf("error encountered cleaning up instance type ControllerRevision %s after successfully expanding VirtualMachine %s: %v", revisionName, vm.Name, err),
-						failedUpdateErrorReason,
-					)
-				}
-			}
-
-			if vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "" {
-				revisionName := vm.Spec.Preference.RevisionName
-				if err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(
-					context.Background(), revisionName, metav1.DeleteOptions{}); err != nil {
-					return nil, common.NewSyncError(
-						fmt.Errorf("error encountered cleaning up preference ControllerRevision %s after successfully expanding VirtualMachine %s: %v", revisionName, vm.Name, err),
-						failedUpdateErrorReason,
-					)
-				}
-			}
-
-			// Return at this point as the update will trigger another sync
-			return updatedVm, nil
-		}
+	var errWithReason common.SyncError
+	if errors.As(err, &errWithReason) {
+		return errWithReason
 	}
-
-	// If we have ControllerRevisions make sure they are fully up to date before proceeding
-	if err := c.instancetypeMethods.Upgrade(vm); err != nil {
-		log.Log.Object(vm).Reason(err).Errorf("failed to upgrade instancetype.kubevirt.io ControllerRevisions for VirtualMachine: %s/%s", vm.Namespace, vm.Name)
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err)
-		return vm, common.NewSyncError(fmt.Errorf("error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err), common.FailedCreateVirtualMachineReason)
-	}
-	return vm, nil
+	return common.NewSyncError(fmt.Errorf("unsupported error: %v", err), "UnsupportedSyncError")
 }
 
 func shouldExpandInstancetypeAndPreference(vm *virtv1.VirtualMachine, referencePolicy virtv1.InstancetypeReferencePolicy) bool {
