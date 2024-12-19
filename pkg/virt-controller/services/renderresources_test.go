@@ -479,7 +479,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 		}
 		staticOverhead = pointer.P(resource.MustParse(staticOverheadString))
 		// MemoryReq / 512bit
-		baseOverhead = pointer.P(resource.MustParse("2Mi"))
+		baseOverhead = pointer.P(resource.MustParse("7Mi"))
 		coresOverhead = pointer.P(resource.MustParse("8Mi"))
 		videoRAMOverhead = pointer.P(resource.MustParse("16Mi"))
 		cpuArchOverhead = pointer.P(resource.MustParse("128Mi"))
