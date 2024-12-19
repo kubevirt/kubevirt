@@ -194,6 +194,8 @@ export KUBEVIRT_DEPLOY_NFS_CSI=true
 export KUBEVIRT_DEPLOY_PROMETHEUS=true
 export KUBEVIRT_DEPLOY_NET_BINDING_CNI=true
 
+export KUBEVIRT_FLAKE_CHECK="true"
+
 export KUBEVIRT_PROVIDER="${TEST_LANE}"
 
 ginko_params="$ginko_params -no-color -succinct --label-filter=(!QUARANTINE)&&(!exclude-native-ssh)&&(!no-flake-check) -randomize-all"

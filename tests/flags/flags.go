@@ -53,6 +53,7 @@ var ArtifactsDir string
 var OperatorManifestPath string
 var TestingManifestPath string
 var ApplyDefaulte2eConfiguration bool
+var FlakeCheck bool
 
 var DeployFakeKWOKNodesFlag = false
 var DeployTestingInfrastructureFlag = false
@@ -100,6 +101,7 @@ func init() {
 	flag.StringVar(&DNSServiceNamespace, "dns-service-namespace", "kube-system", "cluster DNS service namespace")
 	flag.StringVar(&MigrationNetworkNIC, "migration-network-nic", "eth1", "NIC to use on cluster nodes to access the dedicated migration network")
 	flag.BoolVar(&DisableCustomSELinuxPolicy, "disable-custom-selinux-policy", false, "disables the installation and use of the custom SELinux policy for virt-launcher")
+	flag.BoolVar(&FlakeCheck, "flake-check", false, "Informs that we're running under the flake-check environment")
 }
 
 func NormalizeFlags() {
