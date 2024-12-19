@@ -32,10 +32,8 @@ import (
 var _ = Describe("Expose", func() {
 
 	const vmName = "my-vm"
-	const vmNoLabelName = "vm-no-label"
 	const unknownVM = "unknown-vm"
 	var vmi *v1.VirtualMachineInstance
-	var vmNoLabel *v1.VirtualMachineInstance
 	var vm *v1.VirtualMachine
 	var vmrs *v1.VirtualMachineInstanceReplicaSet
 	var kubeclient *fake.Clientset
@@ -45,7 +43,6 @@ var _ = Describe("Expose", func() {
 
 	BeforeEach(func() {
 		vmi = api.NewMinimalVMI(vmName)
-		vmNoLabel = api.NewMinimalVMI(vmNoLabelName)
 		vm = kubecli.NewMinimalVM(vmName)
 		vmrs = kubecli.NewMinimalVirtualMachineInstanceReplicaSet(vmName)
 
@@ -72,14 +69,11 @@ var _ = Describe("Expose", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeclient.CoreV1()).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().DiscoveryClient().Return(discovery).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().DynamicClient().Return(dynamic).AnyTimes()
-		// set labels on vm, vm and vmrs
-		vmi.ObjectMeta.Labels = map[string]string{"key": "value"}
-		vmNoLabel.ObjectMeta.Labels = map[string]string{}
-		vm.Spec = v1.VirtualMachineSpec{Template: &v1.VirtualMachineInstanceTemplateSpec{ObjectMeta: vmi.ObjectMeta}}
-		vmrs.Spec = v1.VirtualMachineInstanceReplicaSetSpec{Selector: &k8smetav1.LabelSelector{MatchLabels: vmi.ObjectMeta.Labels}, Template: &v1.VirtualMachineInstanceTemplateSpec{}}
+		// set labels vmrs
+		vm.Spec = v1.VirtualMachineSpec{Template: &v1.VirtualMachineInstanceTemplateSpec{}}
+		vmrs.Spec = v1.VirtualMachineInstanceReplicaSetSpec{Selector: &k8smetav1.LabelSelector{MatchLabels: map[string]string{"something": "something"}}, Template: &v1.VirtualMachineInstanceTemplateSpec{}}
 		// set up mock interface behavior
 		vmiInterface.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vmi, nil).AnyTimes()
-		vmiInterface.EXPECT().Get(context.Background(), vmNoLabel.Name, gomock.Any()).Return(vmNoLabel, nil).AnyTimes()
 		vmiInterface.EXPECT().Get(context.Background(), unknownVM, gomock.Any()).Return(nil, errors.New("unknown VM")).AnyTimes()
 		vmInterface.EXPECT().Get(context.Background(), vmi.Name, gomock.Any()).Return(vm, nil).AnyTimes()
 		vmInterface.EXPECT().Get(context.Background(), unknownVM, gomock.Any()).Return(nil, errors.New("unknown VM")).AnyTimes()
@@ -213,13 +207,6 @@ var _ = Describe("Expose", func() {
 					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
 						"--port", "9999")
 					Expect(cmd()).To(Succeed())
-				})
-			})
-			Context("With cluster-ip on a vm that has no label", func() {
-				It("should fail", func() {
-					cmd := clientcmd.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmNoLabelName, "--name", "my-service",
-						"--port", "9999")
-					Expect(cmd()).NotTo(Succeed())
 				})
 			})
 			Context("With cluster-ip on an unknown vm", func() {

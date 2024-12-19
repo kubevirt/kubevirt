@@ -2,6 +2,7 @@ package expose
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -168,12 +169,10 @@ func (o *Command) RunE(args []string) error {
 		if err != nil {
 			return fmt.Errorf("error fetching VirtualMachineInstance: %v", err)
 		}
-		serviceSelector = vmi.ObjectMeta.Labels
 		ports = podNetworkPorts(&vmi.Spec)
-		// remove unwanted labels
-		delete(serviceSelector, virtv1.NodeNameLabel)
-		delete(serviceSelector, virtv1.VirtualMachinePoolRevisionName)
-		delete(serviceSelector, virtv1.MigrationTargetNodeNameLabel)
+		serviceSelector = map[string]string{
+			virtv1.VirtualMachineNameLabel: vmi.Name,
+		}
 	case "vm", "vms", "virtualmachine", "virtualmachines":
 		// get the VM
 		vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), vmName, options)
@@ -183,27 +182,27 @@ func (o *Command) RunE(args []string) error {
 		if vm.Spec.Template != nil {
 			ports = podNetworkPorts(&vm.Spec.Template.Spec)
 		}
-		serviceSelector = vm.Spec.Template.ObjectMeta.Labels
-		delete(serviceSelector, virtv1.VirtualMachinePoolRevisionName)
+		serviceSelector = map[string]string{
+			virtv1.VirtualMachineNameLabel: vm.Name,
+		}
 	case "vmirs", "vmirss", "virtualmachineinstancereplicaset", "virtualmachineinstancereplicasets":
 		// get the VM replica set
 		vmirs, err := virtClient.ReplicaSet(namespace).Get(context.Background(), vmName, options)
 		if err != nil {
 			return fmt.Errorf("error fetching VirtualMachineInstance ReplicaSet: %v", err)
 		}
-		if len(vmirs.Spec.Selector.MatchExpressions) > 0 {
-			return fmt.Errorf("cannot expose VirtualMachineInstance ReplicaSet with match expressions")
-		}
 		if vmirs.Spec.Template != nil {
 			ports = podNetworkPorts(&vmirs.Spec.Template.Spec)
+		}
+		if vmirs.Spec.Selector == nil || len(vmirs.Spec.Selector.MatchLabels) == 0 {
+			return errors.New("cannot expose VirtualMachineInstanceReplicaSet without any selector labels")
+		}
+		if len(vmirs.Spec.Selector.MatchExpressions) > 0 {
+			return errors.New("cannot expose VirtualMachineInstanceReplicaSet with match expressions")
 		}
 		serviceSelector = vmirs.Spec.Selector.MatchLabels
 	default:
 		return fmt.Errorf("unsupported resource type: %s", vmType)
-	}
-
-	if len(serviceSelector) == 0 {
-		return fmt.Errorf("cannot expose %s without any label: %s", vmType, vmName)
 	}
 
 	if port == 0 && len(ports) == 0 {
