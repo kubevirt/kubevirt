@@ -6488,6 +6488,19 @@ var CRDsValidation map[string]string = map[string]string{
                             depends on additional factors of the VirtualMachineInstance,
                             like the number of guest CPUs.
                           type: boolean
+                        panicDevices:
+                          description: PanicDevices provides additional crash information
+                            when a guest crashes.
+                          items:
+                            properties:
+                              model:
+                                description: |-
+                                  Model specifies what type of panic device is provided.
+                                  The panic model used when this attribute is missing depends on the hypervisor and guest arch.
+                                  One of: isa, hyperv, pvpanic.
+                                type: string
+                            type: object
+                          type: array
                         rng:
                           description: Whether to have random number generator from
                             host
@@ -9283,6 +9296,19 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredNetworkInterfaceMultiQueue optionally enables
                 the vhost multiqueue feature for virtio interfaces.
               type: boolean
+            preferredPanicDevices:
+              description: PreferredPanicDevices optionally defines any panic devices
+                to be used to signal guest failures.
+              items:
+                properties:
+                  model:
+                    description: |-
+                      Model specifies what type of panic device is provided.
+                      The panic model used when this attribute is missing depends on the hypervisor and guest arch.
+                      One of: isa, hyperv, pvpanic.
+                    type: string
+                type: object
+              type: array
             preferredRng:
               description: PreferredRng optionally defines the preferred rng device
                 to be used.
@@ -11698,6 +11724,19 @@ var CRDsValidation map[string]string = map[string]string{
                     factors of the VirtualMachineInstance, like the number of guest
                     CPUs.
                   type: boolean
+                panicDevices:
+                  description: PanicDevices provides additional crash information
+                    when a guest crashes.
+                  items:
+                    properties:
+                      model:
+                        description: |-
+                          Model specifies what type of panic device is provided.
+                          The panic model used when this attribute is missing depends on the hypervisor and guest arch.
+                          One of: isa, hyperv, pvpanic.
+                        type: string
+                    type: object
+                  type: array
                 rng:
                   description: Whether to have random number generator from host
                   type: object
@@ -14885,6 +14924,19 @@ var CRDsValidation map[string]string = map[string]string{
                     factors of the VirtualMachineInstance, like the number of guest
                     CPUs.
                   type: boolean
+                panicDevices:
+                  description: PanicDevices provides additional crash information
+                    when a guest crashes.
+                  items:
+                    properties:
+                      model:
+                        description: |-
+                          Model specifies what type of panic device is provided.
+                          The panic model used when this attribute is missing depends on the hypervisor and guest arch.
+                          One of: isa, hyperv, pvpanic.
+                        type: string
+                    type: object
+                  type: array
                 rng:
                   description: Whether to have random number generator from host
                   type: object
@@ -17291,6 +17343,19 @@ var CRDsValidation map[string]string = map[string]string{
                             depends on additional factors of the VirtualMachineInstance,
                             like the number of guest CPUs.
                           type: boolean
+                        panicDevices:
+                          description: PanicDevices provides additional crash information
+                            when a guest crashes.
+                          items:
+                            properties:
+                              model:
+                                description: |-
+                                  Model specifies what type of panic device is provided.
+                                  The panic model used when this attribute is missing depends on the hypervisor and guest arch.
+                                  One of: isa, hyperv, pvpanic.
+                                type: string
+                            type: object
+                          type: array
                         rng:
                           description: Whether to have random number generator from
                             host
@@ -21801,6 +21866,19 @@ var CRDsValidation map[string]string = map[string]string{
                                     factors of the VirtualMachineInstance, like the
                                     number of guest CPUs.
                                   type: boolean
+                                panicDevices:
+                                  description: PanicDevices provides additional crash
+                                    information when a guest crashes.
+                                  items:
+                                    properties:
+                                      model:
+                                        description: |-
+                                          Model specifies what type of panic device is provided.
+                                          The panic model used when this attribute is missing depends on the hypervisor and guest arch.
+                                          One of: isa, hyperv, pvpanic.
+                                        type: string
+                                    type: object
+                                  type: array
                                 rng:
                                   description: Whether to have random number generator
                                     from host
@@ -23710,6 +23788,19 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredNetworkInterfaceMultiQueue optionally enables
                 the vhost multiqueue feature for virtio interfaces.
               type: boolean
+            preferredPanicDevices:
+              description: PreferredPanicDevices optionally defines any panic devices
+                to be used to signal guest failures.
+              items:
+                properties:
+                  model:
+                    description: |-
+                      Model specifies what type of panic device is provided.
+                      The panic model used when this attribute is missing depends on the hypervisor and guest arch.
+                      One of: isa, hyperv, pvpanic.
+                    type: string
+                type: object
+              type: array
             preferredRng:
               description: PreferredRng optionally defines the preferred rng device
                 to be used.
@@ -27010,6 +27101,19 @@ var CRDsValidation map[string]string = map[string]string{
                                         factors of the VirtualMachineInstance, like
                                         the number of guest CPUs.
                                       type: boolean
+                                    panicDevices:
+                                      description: PanicDevices provides additional
+                                        crash information when a guest crashes.
+                                      items:
+                                        properties:
+                                          model:
+                                            description: |-
+                                              Model specifies what type of panic device is provided.
+                                              The panic model used when this attribute is missing depends on the hypervisor and guest arch.
+                                              One of: isa, hyperv, pvpanic.
+                                            type: string
+                                        type: object
+                                      type: array
                                     rng:
                                       description: Whether to have random number generator
                                         from host
