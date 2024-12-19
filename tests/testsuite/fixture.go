@@ -64,8 +64,9 @@ const (
 const HostPathBase = "/tmp/hostImages"
 
 var (
-	HostPathAlpine string
-	HostPathCustom string
+	HostPathAlpine       string
+	HostPathAlpineNoPriv string
+	HostPathCustom       string
 )
 
 var Arch string
@@ -136,6 +137,7 @@ func BeforeTestSuiteSetup(_ []byte) {
 	// TODO link this somehow with the image provider which we run upfront
 
 	HostPathAlpine = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "alpine", worker))
+	HostPathAlpineNoPriv = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "alpine-nopriv", worker))
 	HostPathCustom = filepath.Join(HostPathBase, fmt.Sprintf("%s%v", "custom", worker))
 
 	// Wait for schedulable nodes
