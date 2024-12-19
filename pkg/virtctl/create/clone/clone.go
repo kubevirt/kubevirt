@@ -27,7 +27,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/clientcmd"
-	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	clone "kubevirt.io/api/clone/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"sigs.k8s.io/yaml"
 
@@ -70,7 +70,7 @@ type createClone struct {
 	clientConfig clientcmd.ClientConfig
 }
 
-type cloneSpec clonev1alpha1.VirtualMachineCloneSpec
+type cloneSpec clone.VirtualMachineCloneSpec
 type optionFn func(*createClone, *cloneSpec) error
 
 var optFns = map[string]optionFn{
@@ -179,10 +179,10 @@ func (c *createClone) usage() string {
   {{ProgramName}} create clone --source-name sourceVM | kubectl create -f -`
 }
 
-func (c *createClone) newClone() (*clonev1alpha1.VirtualMachineClone, error) {
-	clone := kubecli.NewMinimalClone(c.name)
+func (c *createClone) newClone() (*clone.VirtualMachineClone, error) {
+	vmClone := kubecli.NewMinimalClone(c.name)
 	if c.namespace != "" {
-		clone.Namespace = c.namespace
+		vmClone.Namespace = c.namespace
 	}
 
 	source, err := c.typeToTypedLocalObjectReference(c.sourceType, c.sourceName, true)
@@ -195,25 +195,25 @@ func (c *createClone) newClone() (*clonev1alpha1.VirtualMachineClone, error) {
 		return nil, err
 	}
 
-	clone.Spec = clonev1alpha1.VirtualMachineCloneSpec{
+	vmClone.Spec = clone.VirtualMachineCloneSpec{
 		Source:            source,
 		Target:            target,
 		AnnotationFilters: c.annotationFilters,
 		LabelFilters:      c.labelFilters,
-		Template: clonev1alpha1.VirtualMachineCloneTemplateFilters{
+		Template: clone.VirtualMachineCloneTemplateFilters{
 			AnnotationFilters: c.templateAnnotationFilters,
 			LabelFilters:      c.templateLabelFilters,
 		},
 	}
 
 	if c.newSmbiosSerial != "" {
-		clone.Spec.NewSMBiosSerial = pointer.P(c.newSmbiosSerial)
+		vmClone.Spec.NewSMBiosSerial = pointer.P(c.newSmbiosSerial)
 	}
 
-	return clone, nil
+	return vmClone, nil
 }
 
-func (c *createClone) applyFlags(cmd *cobra.Command, spec *clonev1alpha1.VirtualMachineCloneSpec) error {
+func (c *createClone) applyFlags(cmd *cobra.Command, spec *clone.VirtualMachineCloneSpec) error {
 	for flag := range optFns {
 		if cmd.Flags().Changed(flag) {
 			if err := optFns[flag](c, (*cloneSpec)(spec)); err != nil {
