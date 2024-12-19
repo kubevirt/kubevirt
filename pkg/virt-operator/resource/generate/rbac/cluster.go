@@ -580,9 +580,6 @@ func newMigrateClusterRole() *rbacv1.ClusterRole {
 			Name: "kubevirt.io:migrate",
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
-				"rbac.authorization.k8s.io/aggregate-to-admin": "false",
-				"rbac.authorization.k8s.io/aggregate-to-edit":  "false",
-				"rbac.authorization.k8s.io/aggregate-to-view":  "false",
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
