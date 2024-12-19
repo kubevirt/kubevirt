@@ -20,6 +20,7 @@ go_library(
         "server.go",
         "timer.go",
         "transport.go",
+        "unencrypted.go",
         "write.go",
         "writesched.go",
         "writesched_priority.go",
