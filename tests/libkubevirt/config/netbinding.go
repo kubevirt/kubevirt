@@ -36,7 +36,8 @@ func WithNetBindingPlugin(name string, netBindingPlugin v1.InterfaceBindingPlugi
 }
 
 func registerBindingPugins(config v1.KubeVirtConfiguration, name string, binding v1.InterfaceBindingPlugin) (
-	*patch.PatchSet, error) {
+	*patch.PatchSet, error,
+) {
 	patchSet := patch.New()
 
 	if config.NetworkConfiguration == nil {
