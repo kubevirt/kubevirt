@@ -62,6 +62,7 @@ var (
 	RequiresNodeWithCPUManager           = Label("requires-node-with-cpu-manager")
 	RequiresDualStackCluster             = Label("requires-dual-stack-cluster")
 	RequiresHugepages2Mi                 = Label("requireHugepages2Mi")
+	NoACPI                               = Label("NoACPI")
 
 	// Storage classes
 	// Requires a storage class with support for snapshots
