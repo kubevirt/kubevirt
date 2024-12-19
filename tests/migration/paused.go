@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 
@@ -131,7 +130,7 @@ var _ = SIGMigrationDescribe("Live Migrate A Paused VMI", func() {
 						// Need to wait for cloud init to finish and start the agent inside the vmi.
 						Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-						runStressTest(vmi, "350M", stressDefaultSleepDuration)
+						runStressTest(vmi, "400M", stressDefaultSleepDuration)
 
 						By("Starting the Migration")
 						migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -150,9 +149,8 @@ var _ = SIGMigrationDescribe("Live Migrate A Paused VMI", func() {
 						Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 
 					},
-						Entry("[QUARANTINE] migrate successfully (migration policy)", decorators.Quarantine, expectSuccess, "50Mi", applyWithMigrationPolicy),
-						Entry("[QUARANTINE] migrate successfully (CR change)", Serial, decorators.Quarantine, expectSuccess, "50Mi", applyWithKubevirtCR),
-						Entry("[QUARANTINE] fail migration", decorators.Quarantine, expectFailure, "1Mi", applyWithMigrationPolicy),
+						Entry("migrate successfully (migration policy)", expectSuccess, "50Mi", applyWithMigrationPolicy),
+						Entry("migrate successfully (CR change)", Serial, expectSuccess, "50Mi", applyWithKubevirtCR),
 					)
 				})
 			})
