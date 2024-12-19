@@ -334,8 +334,25 @@ func (VGPUDisplayOptions) SwaggerDoc() map[string]string {
 
 func (HostDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"deviceName": "DeviceName is the resource name of the host device exposed by a device plugin",
-		"tag":        "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
+		"deviceName":    "DeviceName is the resource name of the host device exposed by a device plugin",
+		"tag":           "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
+		"resourceClaim": "If specified, the ResourceName of the host device will be provisioned using DRA driver . which will not require the deviceName field\n+optional",
+	}
+}
+
+func (ResourceClaim) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "ResourceClaim represents a resource claim to be used by the virtual machine",
+		"name":   "Name is the name of the resource claim",
+		"source": "Source represents the source of the resource claim",
+	}
+}
+
+func (ResourceClaimSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                          "ResourceClaimSource represents the source of a resource claim",
+		"resourceClaimName":         "ResourceClaimName is the name of the resource claim",
+		"resourceClaimTemplateName": "ResourceClaimTemplateName is the name of the resource claim template\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must\nbe set.",
 	}
 }
 
