@@ -78,7 +78,7 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1.CustomResourceDefinition) erro
 	var cachedCrd *extv1.CustomResourceDefinition
 
 	crd = crd.DeepCopy()
-	injectOperatorMetadata(r.kv, &crd.ObjectMeta, version, imageRegistry, id, true)
+	injectOperatorMetadata(r.kv, &crd.ObjectMeta, version, imageRegistry, id)
 	obj, exists, _ := r.stores.OperatorCrdCache.Get(crd)
 	if !exists {
 		// Create non existent
@@ -145,7 +145,7 @@ func (r *Reconciler) rolloutNonCompatibleCRDChange(crd *extv1.CustomResourceDefi
 	}
 
 	cachedCrd = obj.(*extv1.CustomResourceDefinition)
-	injectOperatorMetadata(r.kv, &crd.ObjectMeta, version, imageRegistry, id, true)
+	injectOperatorMetadata(r.kv, &crd.ObjectMeta, version, imageRegistry, id)
 	if objectMatchesVersion(&cachedCrd.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) {
 		// Patch if in the deployed version the subresource is not enabled
 		if !needsSubresourceStatusEnable(crd, cachedCrd) {
