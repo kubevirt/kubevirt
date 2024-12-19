@@ -18,8 +18,9 @@ type mockController struct {
 		*v1beta1.VirtualMachinePreferenceSpec,
 		*virtv1.VirtualMachineInstanceSpec,
 		*metav1.ObjectMeta) (conflicts apply.Conflicts)
-	findFunc           func(*virtv1.VirtualMachine) (*v1beta1.VirtualMachineInstancetypeSpec, error)
-	findPreferenceFunc func(*virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
+	findFunc                   func(*virtv1.VirtualMachine) (*v1beta1.VirtualMachineInstancetypeSpec, error)
+	findPreferenceFunc         func(*virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
+	applyDevicePreferencesFunc func(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error
 }
 
 func NewMockController() *mockController {
@@ -43,6 +44,9 @@ func NewMockController() *mockController {
 		},
 		findPreferenceFunc: func(*virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error) {
 			return nil, nil
+		},
+		applyDevicePreferencesFunc: func(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+			return nil
 		},
 	}
 }
@@ -71,4 +75,8 @@ func (m *mockController) FindPreference(vm *virtv1.VirtualMachine) (*v1beta1.Vir
 
 func (m *mockController) Sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error) {
 	return m.syncFunc(vm, vmi)
+}
+
+func (m *mockController) ApplyDevicePreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	return m.applyDevicePreferencesFunc(vm, vmi)
 }
