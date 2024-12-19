@@ -32,6 +32,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+	"libvirt.org/go/libvirt"
 
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
@@ -311,6 +312,10 @@ func (l *AccessCredentialManager) agentSetAuthorizedKeys(domName string, user st
 			return err
 		}
 		defer domain.Free()
+
+		if len(authorizedKeys) == 0 {
+			return domain.AuthorizedSSHKeysSet(user, nil, libvirt.DOMAIN_AUTHORIZED_SSH_KEYS_SET_REMOVE)
+		}
 
 		// Zero flags argument means that the authorized_keys file is overwritten with the authorizedKeys
 		return domain.AuthorizedSSHKeysSet(user, authorizedKeys, 0)
