@@ -382,12 +382,16 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				patch := []byte("[{ \"op\": \"replace\", \"path\": \"/spec/running\", \"value\": true }]")
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() error {
+					_, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					return err
+				}, 300*time.Second, 2*time.Second).Should(Succeed())
 
 				restore := createRestoreDef(vm.Name, snapshot.Name)
 
 				_, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachine %q is not stopped", vm.Name)))
+				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("VirtualMachineInstance %q exists, VM must be stopped before restore", vm.Name)))
 			})
 
 			It("[test_id:5258]should reject restore if another in progress", func() {
