@@ -22,7 +22,6 @@ package admitter
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -76,4 +75,9 @@ func (v Validator) ValidateCreation() []metav1.StatusCause {
 	causes = append(causes, validateCreationSlirpBinding(v.field, v.vmiSpec)...)
 
 	return causes
+}
+
+func ValidateCreation(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg clusterConfigChecker) []metav1.StatusCause {
+	networkValidator := NewValidator(field, vmiSpec, clusterCfg)
+	return networkValidator.ValidateCreation()
 }
