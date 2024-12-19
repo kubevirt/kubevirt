@@ -27,7 +27,6 @@ go_library(
         "//pkg/network/cache:go_default_library",
         "//pkg/network/domainspec:go_default_library",
         "//pkg/network/errors:go_default_library",
-        "//pkg/network/namescheme:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/safepath:go_default_library",
@@ -76,7 +75,6 @@ go_test(
     timeout = "long",
     srcs = [
         "migration_test.go",
-        "non-root_test.go",
         "options_test.go",
         "realtime_test.go",
         "retry_manager_test.go",
@@ -96,7 +94,6 @@ go_test(
         "//pkg/pointer:go_default_library",
         "//pkg/safepath:go_default_library",
         "//pkg/testutils:go_default_library",
-        "//pkg/unsafepath:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
