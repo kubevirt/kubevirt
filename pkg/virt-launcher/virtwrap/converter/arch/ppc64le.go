@@ -14,7 +14,7 @@
  *
  */
 
-package converter
+package arch
 
 import (
 	v1 "kubevirt.io/api/core/v1"
@@ -24,15 +24,15 @@ import (
 )
 
 // Ensure that there is a compile error should the struct not implement the archConverter interface anymore.
-var _ = ArchConverter(&archConverterPPC64{})
+var _ = Converter(&converterPPC64{})
 
-type archConverterPPC64 struct{}
+type converterPPC64 struct{}
 
-func (archConverterPPC64) GetArchitecture() string {
-	return "ppc64le"
+func (converterPPC64) GetArchitecture() string {
+	return ppc64le
 }
 
-func (archConverterPPC64) addGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ *ConverterContext) {
+func (converterPPC64) AddGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
 	domain.Spec.Devices.Video = []api.Video{
 		{
 			Model: api.VideoModel{
@@ -44,44 +44,44 @@ func (archConverterPPC64) addGraphicsDevice(_ *v1.VirtualMachineInstance, domain
 	}
 }
 
-func (archConverterPPC64) scsiController(c *ConverterContext, driver *api.ControllerDriver) api.Controller {
-	return defaultSCSIController(c, driver)
+func (converterPPC64) ScsiController(model string, driver *api.ControllerDriver) api.Controller {
+	return defaultSCSIController(model, driver)
 }
 
-func (archConverterPPC64) isUSBNeeded(_ *v1.VirtualMachineInstance) bool {
+func (converterPPC64) IsUSBNeeded(_ *v1.VirtualMachineInstance) bool {
 	//In ppc64le usb devices like mouse / keyboard are set by default,
 	//so we can't disable the controller otherwise we run into the following error:
 	//"unsupported configuration: USB is disabled for this domain, but USB devices are present in the domain XML"
 	return true
 }
 
-func (archConverterPPC64) supportCPUHotplug() bool {
+func (converterPPC64) SupportCPUHotplug() bool {
 	return true
 }
 
-func (archConverterPPC64) isSMBiosNeeded() bool {
+func (converterPPC64) IsSMBiosNeeded() bool {
 	// SMBios option does not work in Power, attempting to set it will result in the following error message:
 	// "Option not supported for this target" issued by qemu-system-ppc64, so don't set it in case GOARCH is ppc64le
 	return false
 }
 
-func (archConverterPPC64) transitionalModelType(useVirtioTransitional bool) string {
+func (converterPPC64) TransitionalModelType(useVirtioTransitional bool) string {
 	return defaultTransitionalModelType(useVirtioTransitional)
 }
 
-func (archConverterPPC64) isROMTuningSupported() bool {
+func (converterPPC64) IsROMTuningSupported() bool {
 	return true
 }
 
-func (archConverterPPC64) requiresMPXCPUValidation() bool {
+func (converterPPC64) RequiresMPXCPUValidation() bool {
 	// skip the mpx CPU feature validation for anything that is not x86 as it is not supported.
 	return false
 }
 
-func (archConverterPPC64) shouldVerboseLogsBeEnabled() bool {
+func (converterPPC64) ShouldVerboseLogsBeEnabled() bool {
 	return false
 }
 
-func (archConverterPPC64) hasVMPort() bool {
+func (converterPPC64) HasVMPort() bool {
 	return false
 }

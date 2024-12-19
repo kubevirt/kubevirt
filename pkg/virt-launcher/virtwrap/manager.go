@@ -42,28 +42,12 @@ import (
 	"syscall"
 	"time"
 
-	virtcache "kubevirt.io/kubevirt/tools/cache"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
-
-	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"
-
-	"kubevirt.io/kubevirt/pkg/downwardmetrics"
-	"kubevirt.io/kubevirt/pkg/network/cache"
-	"kubevirt.io/kubevirt/pkg/util/hardware"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
+	"libvirt.org/go/libvirt"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"libvirt.org/go/libvirt"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -72,27 +56,41 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/ignition"
+	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
+	"kubevirt.io/kubevirt/pkg/network/cache"
 	netsriov "kubevirt.io/kubevirt/pkg/network/deviceinfo"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	accesscredentials "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/access-credentials"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
+	virtcache "kubevirt.io/kubevirt/tools/cache"
 )
 
 const (
@@ -1016,7 +1014,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 
 	// Map the VirtualMachineInstance to the Domain
 	c := &converter.ConverterContext{
-		Architecture:          converter.NewArchConverter(runtime.GOARCH),
+		Architecture:          arch.NewConverter(runtime.GOARCH),
 		VirtualMachine:        vmi,
 		AllowEmulation:        allowEmulation,
 		CPUSet:                podCPUSet,
