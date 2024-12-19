@@ -72,7 +72,7 @@ for tag in ${docker_tag} ${docker_tag_alt}; do
             --define container_prefix=${docker_prefix} \
             --define image_prefix=${image_prefix} \
             --define container_tag=${tag} \
-            //:push-${target}
+            //:push-${target} -- --repository ${docker_prefix}/${image_prefix}${target} --tag ${tag}
 
     done
 done
@@ -86,7 +86,7 @@ if [[ $image_prefix_alt ]]; then
             --define container_prefix=${docker_prefix} \
             --define image_prefix=${image_prefix_alt} \
             --define container_tag=${docker_tag} \
-            //:push-${target}
+            //:push-${target} -- --repository ${docker_prefix}/${image_prefix}${target} --tag ${tag}
 
     done
 fi
