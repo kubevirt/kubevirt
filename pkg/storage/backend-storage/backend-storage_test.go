@@ -292,4 +292,47 @@ var _ = Describe("Backend Storage", func() {
 			Expect(pvc.Labels).To(HaveKeyWithValue("persistent-state-for", vmiName))
 		})
 	})
+	Context("IsBackendStorageNeeded", func() {
+		var vm *virtv1.VirtualMachine
+
+		BeforeEach(func() {
+			vm = &virtv1.VirtualMachine{
+				Spec: virtv1.VirtualMachineSpec{
+					Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+						Spec: virtv1.VirtualMachineInstanceSpec{
+							Domain: virtv1.DomainSpec{
+								Devices: virtv1.Devices{
+									TPM: &virtv1.TPMDevice{},
+								},
+								Firmware: &virtv1.Firmware{
+									Bootloader: &virtv1.Bootloader{
+										EFI: &virtv1.EFI{},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+		})
+
+		DescribeTable("should", func(expected bool, alter func(vm *virtv1.VirtualMachine)) {
+			alter(vm)
+			Expect(IsBackendStorageNeededForVM(vm)).To(Equal(expected))
+			Expect(IsBackendStorageNeededForVMI(&vm.Spec.Template.Spec)).To(Equal(expected))
+		},
+			Entry("be false when no persistent feature is set", false, func(_ *virtv1.VirtualMachine) {
+			}),
+			Entry("be true when persistent TPM is set", true, func(vm *virtv1.VirtualMachine) {
+				vm.Spec.Template.Spec.Domain.Devices.TPM.Persistent = pointer.P(true)
+			}),
+			Entry("be true when persistent EFI is set", true, func(vm *virtv1.VirtualMachine) {
+				vm.Spec.Template.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
+			}),
+			Entry("be true when persistent TPM and EFI are set", true, func(vm *virtv1.VirtualMachine) {
+				vm.Spec.Template.Spec.Domain.Devices.TPM.Persistent = pointer.P(true)
+				vm.Spec.Template.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
+			}),
+		)
+	})
 })
