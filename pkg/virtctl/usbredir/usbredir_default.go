@@ -28,19 +28,25 @@ import (
 	"github.com/spf13/cobra"
 
 	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 )
 
-func (usbredirCmd *usbredirCommand) Run(command *cobra.Command, args []string) error {
+func Run(cmd *cobra.Command, args []string) error {
 	if _, err := exec.LookPath(usbredirClient); err != nil {
 		return fmt.Errorf("Error on finding %s in $PATH: %s", usbredirClient, err.Error())
 	}
 
-	namespace, _, err := usbredirCmd.clientConfig.Namespace()
+	clientConfig, err := clientconfig.FromContext(cmd.Context())
+	if err != nil {
+		return err
+	}
+	namespace, _, err := clientConfig.Namespace()
 	if err != nil {
 		return err
 	}
 
-	virtCli, err := kubecli.GetKubevirtClientFromClientConfig(usbredirCmd.clientConfig)
+	virtCli, err := kubecli.GetKubevirtClientFromClientConfig(clientConfig)
 	if err != nil {
 		return err
 	}

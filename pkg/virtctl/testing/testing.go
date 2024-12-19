@@ -27,7 +27,7 @@ import (
 
 func NewRepeatableVirtctlCommand(args ...string) func() error {
 	return func() error {
-		cmd, _ := virtctl.NewVirtctlCommand()
+		cmd := virtctl.NewVirtctlCommand()
 		cmd.SetArgs(args)
 		return cmd.Execute()
 	}
@@ -36,7 +36,7 @@ func NewRepeatableVirtctlCommand(args ...string) func() error {
 func NewRepeatableVirtctlCommandWithOut(args ...string) func() ([]byte, error) {
 	return func() ([]byte, error) {
 		out := &bytes.Buffer{}
-		cmd, _ := virtctl.NewVirtctlCommand()
+		cmd := virtctl.NewVirtctlCommand()
 		cmd.SetArgs(args)
 		cmd.SetOut(out)
 		err := cmd.Execute()

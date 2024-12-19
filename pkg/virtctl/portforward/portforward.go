@@ -33,6 +33,7 @@ import (
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
@@ -46,8 +47,9 @@ var (
 	address        string = "127.0.0.1"
 )
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewCommand() *cobra.Command {
 	log.InitializeLogging("portforward")
+	c := PortForward{}
 	cmd := &cobra.Command{
 		Use:     "port-forward [kind/]name[.namespace] [protocol/]localPort[:targetPort]...",
 		Short:   "Forward local ports to a virtualmachine or virtualmachineinstance.",
@@ -63,10 +65,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			}
 			return nil
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := PortForward{clientConfig: clientConfig}
-			return c.Run(cmd, args)
-		},
+		RunE: c.Run,
 	}
 	cmd.Flags().BoolVar(&forwardToStdio, forwardToStdioFlag, forwardToStdio,
 		fmt.Sprintf("--%s=true: Set this to true to forward the tunnel to stdout/stdin; Only works with a single port", forwardToStdioFlag))
@@ -77,19 +76,23 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 }
 
 type PortForward struct {
-	address      *net.IPAddr
-	clientConfig clientcmd.ClientConfig
-	resource     portforwardableResource
+	address  *net.IPAddr
+	resource portforwardableResource
 }
 
 func (o *PortForward) Run(cmd *cobra.Command, args []string) error {
 	setOutput(cmd)
-	kind, namespace, name, ports, err := o.prepareCommand(args)
+
+	clientConfig, err := clientconfig.FromContext(cmd.Context())
+	if err != nil {
+		return err
+	}
+	kind, namespace, name, ports, err := o.prepareCommand(args, clientConfig)
 	if err != nil {
 		return err
 	}
 
-	if err := o.setResource(kind, namespace); err != nil {
+	if err := o.setResource(kind, namespace, clientConfig); err != nil {
 		return err
 	}
 
@@ -116,7 +119,7 @@ func (o *PortForward) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (o *PortForward) prepareCommand(args []string) (kind string, namespace string, name string, ports []forwardedPort, err error) {
+func (o *PortForward) prepareCommand(args []string, clientConfig clientcmd.ClientConfig) (kind string, namespace string, name string, ports []forwardedPort, err error) {
 	kind, namespace, name, err = templates.ParseTarget(args[0])
 	if err != nil {
 		return
@@ -128,7 +131,7 @@ func (o *PortForward) prepareCommand(args []string) (kind string, namespace stri
 	}
 
 	if len(namespace) < 1 {
-		namespace, _, err = o.clientConfig.Namespace()
+		namespace, _, err = clientConfig.Namespace()
 		if err != nil {
 			return
 		}
@@ -137,8 +140,8 @@ func (o *PortForward) prepareCommand(args []string) (kind string, namespace stri
 	return
 }
 
-func (o *PortForward) setResource(kind, namespace string) error {
-	client, err := kubecli.GetKubevirtClientFromClientConfig(o.clientConfig)
+func (o *PortForward) setResource(kind, namespace string, clientConfig clientcmd.ClientConfig) error {
+	client, err := kubecli.GetKubevirtClientFromClientConfig(clientConfig)
 	if err != nil {
 		return err
 	}
