@@ -27,6 +27,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/memorydump"
 	"kubevirt.io/kubevirt/pkg/virtctl/pause"
 	"kubevirt.io/kubevirt/pkg/virtctl/portforward"
+	"kubevirt.io/kubevirt/pkg/virtctl/reset"
 	"kubevirt.io/kubevirt/pkg/virtctl/scp"
 	"kubevirt.io/kubevirt/pkg/virtctl/softreboot"
 	"kubevirt.io/kubevirt/pkg/virtctl/ssh"
@@ -120,6 +121,7 @@ func NewVirtctlCommandFn() (*cobra.Command, clientcmd.ClientConfig) {
 		pause.NewCommand(clientConfig),
 		unpause.NewCommand(clientConfig),
 		softreboot.NewSoftRebootCommand(clientConfig),
+		reset.NewResetCommand(clientConfig),
 		expose.NewCommand(clientConfig),
 		version.VersionCommand(clientConfig),
 		imageupload.NewImageUploadCommand(clientConfig),
