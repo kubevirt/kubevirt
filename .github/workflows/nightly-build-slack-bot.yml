@@ -1,0 +1,34 @@
+name: Nightly-Build slack bot
+
+on:
+  schedule:
+  - cron: '30 5 * * *'
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: ./automation/hco-nightly-reporter
+
+jobs:
+  build-and-run-slack-bot:
+    name: Nightly-build slack bot
+    if: github.repository == 'kubevirt/hyperconverged-cluster-operator'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: ./automation/hco-nightly-reporter/go.mod
+
+    - name: Build
+      run: go build -v .
+
+    - name: run
+      env:
+        HCO_CHANNEL_ID: ${{ secrets.HCO_SLACK_CHANNEL_ID }}
+        HCO_GROUP_ID: ${{ secrets.HCO_SLACK_GROUP_ID }}
+        HCO_REPORTER_SLACK_TOKEN: ${{ secrets.HCO_REPORTER_SLACK_TOKEN }}
+      run:
+        ./hco-nightly-reporter
