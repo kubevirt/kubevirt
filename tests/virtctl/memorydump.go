@@ -323,9 +323,13 @@ func verifyMemoryDumpFile(dumpFilePath, dumpName string) {
 		Expect(err).ToNot(HaveOccurred())
 		switch header.Typeflag {
 		case tar.TypeDir:
-			Expect(os.MkdirAll(filepath.Join(extractPath, header.Name), 0750)).To(Succeed())
+			path, err := sanitizedPath(extractPath, header.Name)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(os.MkdirAll(path, 0o750)).To(Succeed())
 		case tar.TypeReg:
-			extractedFile, err := os.Create(filepath.Join(extractPath, header.Name))
+			path, err := sanitizedPath(extractPath, header.Name)
+			Expect(err).ToNot(HaveOccurred())
+			extractedFile, err := os.Create(path)
 			Expect(err).ToNot(HaveOccurred())
 			for {
 				const megabyte = 1024 * 1024
@@ -344,4 +348,12 @@ func verifyMemoryDumpFile(dumpFilePath, dumpName string) {
 	stat, err := os.Stat(filepath.Join(extractPath, dumpName))
 	Expect(err).ToNot(HaveOccurred())
 	Expect(stat.Size()).To(BeNumerically(">", 0))
+}
+
+func sanitizedPath(extractPath, name string) (string, error) {
+	path := filepath.Join(extractPath, name)
+	if !strings.HasPrefix(path, filepath.Clean(extractPath)) {
+		return "", fmt.Errorf("%s: illegal path", path)
+	}
+	return path, nil
 }
