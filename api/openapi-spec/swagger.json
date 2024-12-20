@@ -11344,11 +11344,12 @@
       "type": "string"
      },
      "volumeMode": {
-      "description": "volumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.",
+      "description": "volumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.\n - `\"FromStorageProfile\"` means the volume mode will be auto selected by CDI according to a matching StorageProfile",
       "type": "string",
       "enum": [
        "Block",
-       "Filesystem"
+       "Filesystem",
+       "FromStorageProfile"
       ]
      },
      "volumeName": {
@@ -11539,24 +11540,6 @@
      }
     }
    },
-   "k8s.io.api.core.v1.ResourceClaim": {
-    "description": "ResourceClaim references one entry in PodSpec.ResourceClaims.",
-    "type": "object",
-    "required": [
-     "name"
-    ],
-    "properties": {
-     "name": {
-      "description": "Name must match the name of one entry in pod.spec.resourceClaims of the Pod where this field is used. It makes that resource available inside a container.",
-      "type": "string",
-      "default": ""
-     },
-     "request": {
-      "description": "Request is the name chosen for a request in the referenced claim. If empty, everything from the claim is made available, otherwise only the result of this request.",
-      "type": "string"
-     }
-    }
-   },
    "k8s.io.api.core.v1.ResourceFieldSelector": {
     "description": "ResourceFieldSelector represents container resources (cpu, memory) and their output format",
     "type": "object",
@@ -11579,38 +11562,6 @@
      }
     },
     "x-kubernetes-map-type": "atomic"
-   },
-   "k8s.io.api.core.v1.ResourceRequirements": {
-    "description": "ResourceRequirements describes the compute resource requirements.",
-    "type": "object",
-    "properties": {
-     "claims": {
-      "description": "Claims lists the names of resources, defined in spec.resourceClaims, that are used by this container.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate.\n\nThis field is immutable. It can only be set for containers.",
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/k8s.io.api.core.v1.ResourceClaim"
-      },
-      "x-kubernetes-list-map-keys": [
-       "name"
-      ],
-      "x-kubernetes-list-type": "map"
-     },
-     "limits": {
-      "description": "Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
-      "type": "object",
-      "additionalProperties": {
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
-      }
-     },
-     "requests": {
-      "description": "Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
-      "type": "object",
-      "additionalProperties": {
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
-      }
-     }
-    }
    },
    "k8s.io.api.core.v1.TCPSocketAction": {
     "description": "TCPSocketAction describes an action based on opening a socket",
@@ -15349,11 +15300,12 @@
       }
      },
      "volumeMode": {
-      "description": "VolumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.",
+      "description": "VolumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.\n - `\"FromStorageProfile\"` means the volume mode will be auto selected by CDI according to a matching StorageProfile",
       "type": "string",
       "enum": [
        "Block",
-       "Filesystem"
+       "Filesystem",
+       "FromStorageProfile"
       ]
      }
     }
@@ -19175,7 +19127,7 @@
      "resources": {
       "description": "Resources represents the minimum resources the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources",
       "default": {},
-      "$ref": "#/definitions/k8s.io.api.core.v1.ResourceRequirements"
+      "$ref": "#/definitions/k8s.io.api.core.v1.VolumeResourceRequirements"
      },
      "selector": {
       "description": "A label query over volumes to consider for binding.",
@@ -19186,11 +19138,12 @@
       "type": "string"
      },
      "volumeMode": {
-      "description": "volumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.",
+      "description": "volumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.\n - `\"FromStorageProfile\"` means the volume mode will be auto selected by CDI according to a matching StorageProfile",
       "type": "string",
       "enum": [
        "Block",
-       "Filesystem"
+       "Filesystem",
+       "FromStorageProfile"
       ]
      },
      "volumeName": {

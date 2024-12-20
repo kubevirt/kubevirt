@@ -699,7 +699,7 @@ func (c *command) createStorageSpec() (*cdiv1.StorageSpec, error) {
 	}
 
 	spec := &cdiv1.StorageSpec{
-		Resources: v1.ResourceRequirements{
+		Resources: v1.VolumeResourceRequirements{
 			Requests: v1.ResourceList{
 				v1.ResourceStorage: quantity,
 			},

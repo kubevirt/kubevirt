@@ -710,7 +710,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CDIStatus":                schema_pkg_apis_core_v1beta1_CDIStatus(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CertConfig":               schema_pkg_apis_core_v1beta1_CertConfig(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ClaimPropertySet":         schema_pkg_apis_core_v1beta1_ClaimPropertySet(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ComponentConfig":          schema_pkg_apis_core_v1beta1_ComponentConfig(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ConditionState":           schema_pkg_apis_core_v1beta1_ConditionState(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CustomTLSProfile":         schema_pkg_apis_core_v1beta1_CustomTLSProfile(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CustomizeComponents":      schema_pkg_apis_core_v1beta1_CustomizeComponents(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CustomizeComponentsPatch": schema_pkg_apis_core_v1beta1_CustomizeComponentsPatch(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataImportCron":           schema_pkg_apis_core_v1beta1_DataImportCron(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataImportCronCondition":  schema_pkg_apis_core_v1beta1_DataImportCronCondition(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataImportCronList":       schema_pkg_apis_core_v1beta1_DataImportCronList(ref),
@@ -741,19 +745,25 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeSpec":           schema_pkg_apis_core_v1beta1_DataVolumeSpec(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeStatus":         schema_pkg_apis_core_v1beta1_DataVolumeStatus(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.FilesystemOverhead":       schema_pkg_apis_core_v1beta1_FilesystemOverhead(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.Flags":                    schema_pkg_apis_core_v1beta1_Flags(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportProxy":              schema_pkg_apis_core_v1beta1_ImportProxy(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportSourceType":         schema_pkg_apis_core_v1beta1_ImportSourceType(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportStatus":             schema_pkg_apis_core_v1beta1_ImportStatus(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.IntermediateTLSProfile":   schema_pkg_apis_core_v1beta1_IntermediateTLSProfile(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ModernTLSProfile":         schema_pkg_apis_core_v1beta1_ModernTLSProfile(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ObjectTransfer":           schema_pkg_apis_core_v1beta1_ObjectTransfer(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ObjectTransferCondition":  schema_pkg_apis_core_v1beta1_ObjectTransferCondition(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ObjectTransferList":       schema_pkg_apis_core_v1beta1_ObjectTransferList(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ObjectTransferSpec":       schema_pkg_apis_core_v1beta1_ObjectTransferSpec(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ObjectTransferStatus":     schema_pkg_apis_core_v1beta1_ObjectTransferStatus(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.OldTLSProfile":            schema_pkg_apis_core_v1beta1_OldTLSProfile(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.StorageProfile":           schema_pkg_apis_core_v1beta1_StorageProfile(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.StorageProfileList":       schema_pkg_apis_core_v1beta1_StorageProfileList(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.StorageProfileSpec":       schema_pkg_apis_core_v1beta1_StorageProfileSpec(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.StorageProfileStatus":     schema_pkg_apis_core_v1beta1_StorageProfileStatus(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.StorageSpec":              schema_pkg_apis_core_v1beta1_StorageSpec(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.TLSProfileSpec":           schema_pkg_apis_core_v1beta1_TLSProfileSpec(ref),
+		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.TLSSecurityProfile":       schema_pkg_apis_core_v1beta1_TLSSecurityProfile(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.TransferSource":           schema_pkg_apis_core_v1beta1_TransferSource(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.TransferTarget":           schema_pkg_apis_core_v1beta1_TransferTarget(ref),
 		"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.VolumeCloneSource":        schema_pkg_apis_core_v1beta1_VolumeCloneSource(ref),
@@ -7385,10 +7395,10 @@ func schema_k8sio_api_core_v1_PersistentVolumeClaimSpec(ref common.ReferenceCall
 					},
 					"volumeMode": {
 						SchemaProps: spec.SchemaProps{
-							Description: "volumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.",
+							Description: "volumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.\n - `\"FromStorageProfile\"` means the volume mode will be auto selected by CDI according to a matching StorageProfile",
 							Type:        []string{"string"},
 							Format:      "",
-							Enum:        []interface{}{"Block", "Filesystem"},
+							Enum:        []interface{}{"Block", "Filesystem", "FromStorageProfile"},
 						},
 					},
 					"dataSource": {
@@ -8028,10 +8038,10 @@ func schema_k8sio_api_core_v1_PersistentVolumeSpec(ref common.ReferenceCallback)
 					},
 					"volumeMode": {
 						SchemaProps: spec.SchemaProps{
-							Description: "volumeMode defines if a volume is intended to be used with a formatted filesystem or to remain in raw block state. Value of Filesystem is implied when not included in spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.",
+							Description: "volumeMode defines if a volume is intended to be used with a formatted filesystem or to remain in raw block state. Value of Filesystem is implied when not included in spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.\n - `\"FromStorageProfile\"` means the volume mode will be auto selected by CDI according to a matching StorageProfile",
 							Type:        []string{"string"},
 							Format:      "",
-							Enum:        []interface{}{"Block", "Filesystem"},
+							Enum:        []interface{}{"Block", "Filesystem", "FromStorageProfile"},
 						},
 					},
 					"nodeAffinity": {
@@ -22472,10 +22482,10 @@ func schema_kubevirtio_api_core_v1_PersistentVolumeClaimInfo(ref common.Referenc
 					},
 					"volumeMode": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VolumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.",
+							Description: "VolumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.\n - `\"FromStorageProfile\"` means the volume mode will be auto selected by CDI according to a matching StorageProfile",
 							Type:        []string{"string"},
 							Format:      "",
-							Enum:        []interface{}{"Block", "Filesystem"},
+							Enum:        []interface{}{"Block", "Filesystem", "FromStorageProfile"},
 						},
 					},
 					"capacity": {
@@ -33786,6 +33796,12 @@ func schema_pkg_apis_core_v1beta1_CDICertConfig(ref common.ReferenceCallback) co
 							Ref:         ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CertConfig"),
 						},
 					},
+					"client": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Client configuration Certs are rotated and discarded",
+							Ref:         ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CertConfig"),
+						},
+					},
 				},
 			},
 		},
@@ -33970,7 +33986,7 @@ func schema_pkg_apis_core_v1beta1_CDIConfigSpec(ref common.ReferenceCallback) co
 					},
 					"dataVolumeTTLSeconds": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DataVolumeTTLSeconds is the time in seconds after DataVolume completion it can be garbage collected. The default is 0 sec. To disable GC use -1.",
+							Description: "DataVolumeTTLSeconds is the time in seconds after DataVolume completion it can be garbage collected. Disabled by default.",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
@@ -33978,7 +33994,7 @@ func schema_pkg_apis_core_v1beta1_CDIConfigSpec(ref common.ReferenceCallback) co
 					"tlsSecurityProfile": {
 						SchemaProps: spec.SchemaProps{
 							Description: "TLSSecurityProfile is used by operators to apply cluster-wide TLS security settings to operands.",
-							Ref:         ref("github.com/openshift/api/config/v1.TLSSecurityProfile"),
+							Ref:         ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.TLSSecurityProfile"),
 						},
 					},
 					"imagePullSecrets": {
@@ -33995,11 +34011,18 @@ func schema_pkg_apis_core_v1beta1_CDIConfigSpec(ref common.ReferenceCallback) co
 							},
 						},
 					},
+					"logVerbosity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LogVerbosity overrides the default verbosity level used to initialize loggers",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/openshift/api/config/v1.TLSSecurityProfile", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.ResourceRequirements", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.FilesystemOverhead", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportProxy"},
+			"k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.ResourceRequirements", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.FilesystemOverhead", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportProxy", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.TLSSecurityProfile"},
 	}
 }
 
@@ -34013,6 +34036,13 @@ func schema_pkg_apis_core_v1beta1_CDIConfigStatus(ref common.ReferenceCallback) 
 					"uploadProxyURL": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The calculated upload proxy URL",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"uploadProxyCA": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UploadProxyCA is the certificate authority of the upload proxy",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -34145,9 +34175,9 @@ func schema_pkg_apis_core_v1beta1_CDISpec(ref common.ReferenceCallback) common.O
 					},
 					"infra": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Rules on which nodes CDI infrastructure pods will be scheduled",
+							Description: "Selectors and tolerations that should apply to cdi infrastructure components",
 							Default:     map[string]interface{}{},
-							Ref:         ref("kubevirt.io/controller-lifecycle-operator-sdk/api.NodePlacement"),
+							Ref:         ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ComponentConfig"),
 						},
 					},
 					"workload": {
@@ -34155,6 +34185,12 @@ func schema_pkg_apis_core_v1beta1_CDISpec(ref common.ReferenceCallback) common.O
 							Description: "Restrict on which nodes CDI workload pods will be scheduled",
 							Default:     map[string]interface{}{},
 							Ref:         ref("kubevirt.io/controller-lifecycle-operator-sdk/api.NodePlacement"),
+						},
+					},
+					"customizeComponents": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CustomizeComponents"),
 						},
 					},
 					"cloneStrategyOverride": {
@@ -34187,7 +34223,7 @@ func schema_pkg_apis_core_v1beta1_CDISpec(ref common.ReferenceCallback) common.O
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CDICertConfig", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CDIConfigSpec", "kubevirt.io/controller-lifecycle-operator-sdk/api.NodePlacement"},
+			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CDICertConfig", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CDIConfigSpec", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ComponentConfig", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CustomizeComponents", "kubevirt.io/controller-lifecycle-operator-sdk/api.NodePlacement"},
 	}
 }
 
@@ -34299,15 +34335,88 @@ func schema_pkg_apis_core_v1beta1_ClaimPropertySet(ref common.ReferenceCallback)
 					},
 					"volumeMode": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VolumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.",
+							Description: "VolumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.\n - `\"FromStorageProfile\"` means the volume mode will be auto selected by CDI according to a matching StorageProfile",
 							Type:        []string{"string"},
 							Format:      "",
-							Enum:        []interface{}{"Block", "Filesystem"},
+							Enum:        []interface{}{"Block", "Filesystem", "FromStorageProfile"},
+						},
+					},
+				},
+				Required: []string{"accessModes", "volumeMode"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_core_v1beta1_ComponentConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ComponentConfig defines the scheduling and replicas configuration for CDI components",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"nodeSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "nodeSelector is the node selector applied to the relevant kind of pods It specifies a map of key-value pairs: for the pod to be eligible to run on a node, the node must have each of the indicated key-value pairs as labels (it can have additional labels as well). See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"affinity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "affinity enables pod affinity/anti-affinity placement expanding the types of constraints that can be expressed with nodeSelector. affinity is going to be applied to the relevant kind of pods in parallel with nodeSelector See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity",
+							Ref:         ref("k8s.io/api/core/v1.Affinity"),
+						},
+					},
+					"tolerations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "tolerations is a list of tolerations applied to the relevant kind of pods See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/ for more info. These are additional tolerations other than default ones.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.Toleration"),
+									},
+								},
+							},
+						},
+					},
+					"deploymentReplicas": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeploymentReplicas set Replicas for cdi-deployment",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"apiServerReplicas": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ApiserverReplicas set Replicas for cdi-apiserver",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"uploadProxyReplicas": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UploadproxyReplicas set Replicas for cdi-uploadproxy",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Toleration"},
 	}
 }
 
@@ -34353,6 +34462,124 @@ func schema_pkg_apis_core_v1beta1_ConditionState(ref common.ReferenceCallback) c
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
+func schema_pkg_apis_core_v1beta1_CustomTLSProfile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CustomTLSProfile is a user-defined TLS security profile. Be extremely careful using a custom TLS profile as invalid configurations can be catastrophic.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"ciphers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ciphers is used to specify the cipher algorithms that are negotiated during the TLS handshake.  Operators may remove entries their operands do not support.  For example, to use DES-CBC3-SHA  (yaml):\n\n  ciphers:\n    - DES-CBC3-SHA",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"minTLSVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "minTLSVersion is used to specify the minimal version of the TLS protocol that is negotiated during the TLS handshake. For example, to use TLS versions 1.1, 1.2 and 1.3 (yaml):\n\n  minTLSVersion: VersionTLS11\n\nNOTE: currently the highest minTLSVersion allowed is VersionTLS12",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"ciphers", "minTLSVersion"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_core_v1beta1_CustomizeComponents(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CustomizeComponents defines patches for components deployed by the CDI operator.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"patches": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CustomizeComponentsPatch"),
+									},
+								},
+							},
+						},
+					},
+					"flags": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Configure the value used for deployment and daemonset resources",
+							Ref:         ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.Flags"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CustomizeComponentsPatch", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.Flags"},
+	}
+}
+
+func schema_pkg_apis_core_v1beta1_CustomizeComponentsPatch(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CustomizeComponentsPatch defines a patch for some resource.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"resourceName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"resourceType": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"patch": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"resourceName", "resourceType", "patch", "type"},
+			},
+		},
 	}
 }
 
@@ -34603,6 +34830,13 @@ func schema_pkg_apis_core_v1beta1_DataImportCronStatus(ref common.ReferenceCallb
 						SchemaProps: spec.SchemaProps{
 							Description: "LastImportTimestamp is the time of the last import",
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"sourceFormat": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SourceFormat defines the format of the DataImportCron-created disk image sources",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"conditions": {
@@ -35673,6 +35907,64 @@ func schema_pkg_apis_core_v1beta1_FilesystemOverhead(ref common.ReferenceCallbac
 	}
 }
 
+func schema_pkg_apis_core_v1beta1_Flags(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Flags will create a patch that will replace all flags for the container's command field. The only flags that will be used are those define. There are no guarantees around forward/backward compatibility.  If set incorrectly this will cause the resource when rolled out to error until flags are updated.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"api": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"controller": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"uploadProxy": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_core_v1beta1_ImportProxy(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -35794,11 +36086,33 @@ func schema_pkg_apis_core_v1beta1_ImportStatus(ref common.ReferenceCallback) com
 	}
 }
 
+func schema_pkg_apis_core_v1beta1_IntermediateTLSProfile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "IntermediateTLSProfile is a TLS security profile based on: https://wiki.mozilla.org/Security/Server_Side_TLS#Intermediate_compatibility_.28default.29",
+				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_core_v1beta1_ModernTLSProfile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ModernTLSProfile is a TLS security profile based on: https://wiki.mozilla.org/Security/Server_Side_TLS#Modern_compatibility",
+				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_core_v1beta1_ObjectTransfer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ObjectTransfer is the cluster scoped object transfer resource",
+				Description: "Deprecated for removal in v1.\n\nObjectTransfer is the cluster scoped object transfer resource",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -36029,6 +36343,17 @@ func schema_pkg_apis_core_v1beta1_ObjectTransferStatus(ref common.ReferenceCallb
 	}
 }
 
+func schema_pkg_apis_core_v1beta1_OldTLSProfile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "OldTLSProfile is a TLS security profile based on: https://wiki.mozilla.org/Security/Server_Side_TLS#Old_backward_compatibility",
+				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_core_v1beta1_StorageProfile(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -36155,6 +36480,20 @@ func schema_pkg_apis_core_v1beta1_StorageProfileSpec(ref common.ReferenceCallbac
 							},
 						},
 					},
+					"dataImportCronSourceFormat": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DataImportCronSourceFormat defines the format of the DataImportCron-created disk image sources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"snapshotClass": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SnapshotClass is optional specific VolumeSnapshotClass for CloneStrategySnapshot. If not set, a VolumeSnapshotClass is chosen according to the provisioner.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -36205,6 +36544,20 @@ func schema_pkg_apis_core_v1beta1_StorageProfileStatus(ref common.ReferenceCallb
 							},
 						},
 					},
+					"dataImportCronSourceFormat": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DataImportCronSourceFormat defines the format of the DataImportCron-created disk image sources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"snapshotClass": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SnapshotClass is optional specific VolumeSnapshotClass for CloneStrategySnapshot. If not set, a VolumeSnapshotClass is chosen according to the provisioner.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -36246,7 +36599,7 @@ func schema_pkg_apis_core_v1beta1_StorageSpec(ref common.ReferenceCallback) comm
 						SchemaProps: spec.SchemaProps{
 							Description: "Resources represents the minimum resources the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources",
 							Default:     map[string]interface{}{},
-							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
+							Ref:         ref("k8s.io/api/core/v1.VolumeResourceRequirements"),
 						},
 					},
 					"volumeName": {
@@ -36265,10 +36618,10 @@ func schema_pkg_apis_core_v1beta1_StorageSpec(ref common.ReferenceCallback) comm
 					},
 					"volumeMode": {
 						SchemaProps: spec.SchemaProps{
-							Description: "volumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.",
+							Description: "volumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.\n - `\"FromStorageProfile\"` means the volume mode will be auto selected by CDI according to a matching StorageProfile",
 							Type:        []string{"string"},
 							Format:      "",
-							Enum:        []interface{}{"Block", "Filesystem"},
+							Enum:        []interface{}{"Block", "Filesystem", "FromStorageProfile"},
 						},
 					},
 					"dataSource": {
@@ -36287,7 +36640,106 @@ func schema_pkg_apis_core_v1beta1_StorageSpec(ref common.ReferenceCallback) comm
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.TypedLocalObjectReference", "k8s.io/api/core/v1.TypedObjectReference", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+			"k8s.io/api/core/v1.TypedLocalObjectReference", "k8s.io/api/core/v1.TypedObjectReference", "k8s.io/api/core/v1.VolumeResourceRequirements", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+	}
+}
+
+func schema_pkg_apis_core_v1beta1_TLSProfileSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "TLSProfileSpec is the desired behavior of a TLSSecurityProfile.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"ciphers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ciphers is used to specify the cipher algorithms that are negotiated during the TLS handshake.  Operators may remove entries their operands do not support.  For example, to use DES-CBC3-SHA  (yaml):\n\n  ciphers:\n    - DES-CBC3-SHA",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"minTLSVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "minTLSVersion is used to specify the minimal version of the TLS protocol that is negotiated during the TLS handshake. For example, to use TLS versions 1.1, 1.2 and 1.3 (yaml):\n\n  minTLSVersion: VersionTLS11\n\nNOTE: currently the highest minTLSVersion allowed is VersionTLS12",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"ciphers", "minTLSVersion"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_core_v1beta1_TLSSecurityProfile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "TLSSecurityProfile defines the schema for a TLS security profile. This object is used by operators to apply TLS security settings to operands.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "type is one of Old, Intermediate, Modern or Custom. Custom provides the ability to specify individual TLS security profile parameters. Old, Intermediate and Modern are TLS security profiles based on:\n\nhttps://wiki.mozilla.org/Security/Server_Side_TLS#Recommended_configurations\n\nThe profiles are intent based, so they may change over time as new ciphers are developed and existing ciphers are found to be insecure.  Depending on precisely which ciphers are available to a process, the list may be reduced.\n\nNote that the Modern profile is currently not supported because it is not yet well adopted by common software libraries.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"old": {
+						SchemaProps: spec.SchemaProps{
+							Description: "old is a TLS security profile based on:\n\nhttps://wiki.mozilla.org/Security/Server_Side_TLS#Old_backward_compatibility\n\nand looks like this (yaml):\n\n  ciphers:\n    - TLS_AES_128_GCM_SHA256\n    - TLS_AES_256_GCM_SHA384\n    - TLS_CHACHA20_POLY1305_SHA256\n    - ECDHE-ECDSA-AES128-GCM-SHA256\n    - ECDHE-RSA-AES128-GCM-SHA256\n    - ECDHE-ECDSA-AES256-GCM-SHA384\n    - ECDHE-RSA-AES256-GCM-SHA384\n    - ECDHE-ECDSA-CHACHA20-POLY1305\n    - ECDHE-RSA-CHACHA20-POLY1305\n    - DHE-RSA-AES128-GCM-SHA256\n    - DHE-RSA-AES256-GCM-SHA384\n    - DHE-RSA-CHACHA20-POLY1305\n    - ECDHE-ECDSA-AES128-SHA256\n    - ECDHE-RSA-AES128-SHA256\n    - ECDHE-ECDSA-AES128-SHA\n    - ECDHE-RSA-AES128-SHA\n    - ECDHE-ECDSA-AES256-SHA384\n    - ECDHE-RSA-AES256-SHA384\n    - ECDHE-ECDSA-AES256-SHA\n    - ECDHE-RSA-AES256-SHA\n    - DHE-RSA-AES128-SHA256\n    - DHE-RSA-AES256-SHA256\n    - AES128-GCM-SHA256\n    - AES256-GCM-SHA384\n    - AES128-SHA256\n    - AES256-SHA256\n    - AES128-SHA\n    - AES256-SHA\n    - DES-CBC3-SHA\n  minTLSVersion: VersionTLS10",
+							Ref:         ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.OldTLSProfile"),
+						},
+					},
+					"intermediate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "intermediate is a TLS security profile based on:\n\nhttps://wiki.mozilla.org/Security/Server_Side_TLS#Intermediate_compatibility_.28recommended.29\n\nand looks like this (yaml):\n\n  ciphers:\n    - TLS_AES_128_GCM_SHA256\n    - TLS_AES_256_GCM_SHA384\n    - TLS_CHACHA20_POLY1305_SHA256\n    - ECDHE-ECDSA-AES128-GCM-SHA256\n    - ECDHE-RSA-AES128-GCM-SHA256\n    - ECDHE-ECDSA-AES256-GCM-SHA384\n    - ECDHE-RSA-AES256-GCM-SHA384\n    - ECDHE-ECDSA-CHACHA20-POLY1305\n    - ECDHE-RSA-CHACHA20-POLY1305\n    - DHE-RSA-AES128-GCM-SHA256\n    - DHE-RSA-AES256-GCM-SHA384\n  minTLSVersion: VersionTLS12",
+							Ref:         ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.IntermediateTLSProfile"),
+						},
+					},
+					"modern": {
+						SchemaProps: spec.SchemaProps{
+							Description: "modern is a TLS security profile based on:\n\nhttps://wiki.mozilla.org/Security/Server_Side_TLS#Modern_compatibility\n\nand looks like this (yaml):\n\n  ciphers:\n    - TLS_AES_128_GCM_SHA256\n    - TLS_AES_256_GCM_SHA384\n    - TLS_CHACHA20_POLY1305_SHA256\n  minTLSVersion: VersionTLS13\n\nNOTE: Currently unsupported.",
+							Ref:         ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ModernTLSProfile"),
+						},
+					},
+					"custom": {
+						SchemaProps: spec.SchemaProps{
+							Description: "custom is a user-defined TLS security profile. Be extremely careful using a custom profile as invalid configurations can be catastrophic. An example custom profile looks like this:\n\n  ciphers:\n    - ECDHE-ECDSA-CHACHA20-POLY1305\n    - ECDHE-RSA-CHACHA20-POLY1305\n    - ECDHE-RSA-AES128-GCM-SHA256\n    - ECDHE-ECDSA-AES128-GCM-SHA256\n  minTLSVersion: VersionTLS11",
+							Ref:         ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CustomTLSProfile"),
+						},
+					},
+				},
+			},
+			VendorExtensible: spec.VendorExtensible{
+				Extensions: spec.Extensions{
+					"x-kubernetes-unions": []interface{}{
+						map[string]interface{}{
+							"discriminator": "type",
+							"fields-to-discriminateBy": map[string]interface{}{
+								"custom":       "Custom",
+								"intermediate": "Intermediate",
+								"modern":       "Modern",
+								"old":          "Old",
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.CustomTLSProfile", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.IntermediateTLSProfile", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ModernTLSProfile", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.OldTLSProfile"},
 	}
 }
 
@@ -36626,11 +37078,39 @@ func schema_pkg_apis_core_v1beta1_VolumeImportSourceSpec(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"targetClaim": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TargetClaim the name of the specific claim to be populated with a multistage import.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"checkpoints": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeCheckpoint"),
+									},
+								},
+							},
+						},
+					},
+					"finalCheckpoint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportSourceType"},
+			"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.DataVolumeCheckpoint", "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1.ImportSourceType"},
 	}
 }
 
