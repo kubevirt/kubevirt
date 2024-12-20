@@ -37,6 +37,13 @@ func (archConverterS390X) addGraphicsDevice(vmi *v1.VirtualMachineInstance, doma
 			},
 		},
 	}
+
+	domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
+		api.Input{
+			Bus:  "virtio",
+			Type: "keyboard",
+		},
+	)
 }
 
 func (archConverterS390X) scsiController(c *ConverterContext, driver *api.ControllerDriver) api.Controller {
