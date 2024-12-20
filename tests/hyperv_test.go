@@ -26,7 +26,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
@@ -213,7 +212,6 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 				return features
 			}
 			var supportedKVMInfoFeature []string
-			checks.SkipIfARM64(testsuite.Arch, "arm64 does not support cpu model")
 			nodes := libnode.GetAllSchedulableNodes(virtClient)
 			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 			node := &nodes.Items[0]
