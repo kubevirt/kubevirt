@@ -63,13 +63,10 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-const (
-	size = "128Mi"
-)
-
 var _ = VirtctlDescribe("[sig-compute]create vm", decorators.SigCompute, func() {
 	const (
 		randNameTail         = 5
+		size                 = "128Mi"
 		importedVolumeRegexp = `imported-volume-\w{5}`
 		sysprepDisk          = "sysprepdisk"
 		cloudInitDisk        = "cloudinitdisk"
@@ -783,7 +780,7 @@ func decodeVM(bytes []byte) (*v1.VirtualMachine, error) {
 func createInstancetype(virtClient kubecli.KubevirtClient) *instancetypev1beta1.VirtualMachineInstancetype {
 	instancetype := builder.NewInstancetype(
 		builder.WithCPUs(1),
-		builder.WithMemory(size),
+		builder.WithMemory("128Mi"),
 	)
 	instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(nil)).
 		Create(context.Background(), instancetype, metav1.CreateOptions{})
@@ -824,7 +821,7 @@ func createAnnotatedDataSource(virtClient kubecli.KubevirtClient, instancetypeNa
 
 func createAnnotatedSourcePVC(instancetypeName, preferenceName string) *k8sv1.PersistentVolumeClaim {
 	const randNameTail = 5
-	return libstorage.CreateFSPVC("vm-pvc-"+rand.String(randNameTail), testsuite.GetTestNamespace(nil), size, map[string]string{
+	return libstorage.CreateFSPVC("vm-pvc-"+rand.String(randNameTail), testsuite.GetTestNamespace(nil), "128Mi", map[string]string{
 		apiinstancetype.DefaultInstancetypeLabel:     instancetypeName,
 		apiinstancetype.DefaultInstancetypeKindLabel: apiinstancetype.SingularResourceName,
 		apiinstancetype.DefaultPreferenceLabel:       preferenceName,
