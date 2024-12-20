@@ -141,13 +141,13 @@ func (h *revisionHandler) storePreferenceRevision(vm *virtv1.VirtualMachine) (*a
 func (h *revisionHandler) createPreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
 	switch strings.ToLower(vm.Spec.Preference.Kind) {
 	case api.SingularPreferenceResourceName, api.PluralPreferenceResourceName:
-		preference, err := preferenceFind.NewPreferenceFinder(h.preferenceStore, h.virtClient).Find(vm)
+		preference, err := preferenceFind.NewPreferenceFinder(h.preferenceStore, h.virtClient).FindPreference(vm)
 		if err != nil {
 			return nil, err
 		}
 		return h.storeControllerRevision(vm, preference)
 	case api.ClusterSingularPreferenceResourceName, api.ClusterPluralPreferenceResourceName:
-		clusterPreference, err := preferenceFind.NewClusterPreferenceFinder(h.clusterPreferenceStore, h.virtClient).Find(vm)
+		clusterPreference, err := preferenceFind.NewClusterPreferenceFinder(h.clusterPreferenceStore, h.virtClient).FindPreference(vm)
 		if err != nil {
 			return nil, err
 		}
