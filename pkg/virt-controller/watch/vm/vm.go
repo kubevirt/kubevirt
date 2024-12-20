@@ -31,7 +31,6 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
@@ -65,7 +64,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/instancetype"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -242,7 +240,7 @@ type synchronizer interface {
 type instancetypeHandler interface {
 	synchronizer
 	ApplyToVM(*virtv1.VirtualMachine) error
-	ApplyToVMI(*k8sfield.Path, *v1beta1.VirtualMachineInstancetypeSpec, *v1beta1.VirtualMachinePreferenceSpec, *virtv1.VirtualMachineInstanceSpec, *metav1.ObjectMeta) (conflicts apply.Conflicts)
+	ApplyToVMI(*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) error
 	Find(*virtv1.VirtualMachine) (*v1beta1.VirtualMachineInstancetypeSpec, error)
 	FindPreference(*virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
 	ApplyDevicePreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error
@@ -1404,7 +1402,7 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 		return vm, err
 	}
 
-	if err = c.applyInstancetypeToVmi(vm, vmi); err != nil {
+	if err = c.instancetypeController.ApplyToVMI(vm, vmi); err != nil {
 		log.Log.Object(vm).Infof("Failed to apply instancetype to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error creating virtual machine instance: Failed to apply instancetype: %v", err)
 		return vm, err
@@ -2011,31 +2009,6 @@ func (c *Controller) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMa
 	}
 
 	return vmi
-}
-
-func (c *Controller) applyInstancetypeToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	instancetypeSpec, err := c.instancetypeController.Find(vm)
-	if err != nil {
-		return err
-	}
-
-	preferenceSpec, err := c.instancetypeController.FindPreference(vm)
-	if err != nil {
-		return err
-	}
-
-	if instancetypeSpec == nil && preferenceSpec == nil {
-		return nil
-	}
-
-	instancetype.AddInstancetypeNameAnnotations(vm, vmi)
-	instancetype.AddPreferenceNameAnnotations(vm, vmi)
-
-	if conflicts := c.instancetypeController.ApplyToVMI(k8sfield.NewPath("spec"), instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta); len(conflicts) > 0 {
-		return fmt.Errorf("VMI conflicts with instancetype spec in fields: [%s]", conflicts.String())
-	}
-
-	return nil
 }
 
 func hasStartPausedRequest(vm *virtv1.VirtualMachine) bool {

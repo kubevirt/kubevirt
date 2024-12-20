@@ -36,9 +36,11 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/instancetype/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/instancetype/annotations"
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/expand"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
+	preferenceannotations "kubevirt.io/kubevirt/pkg/instancetype/preference/annotations"
 	preferenceapply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
@@ -49,15 +51,6 @@ import (
 
 type applyVMHandler interface {
 	ApplyToVM(*virtv1.VirtualMachine) error
-}
-
-type applyVMIHandler interface {
-	ApplyToVMI(
-		*k8sfield.Path, *v1beta1.VirtualMachineInstancetypeSpec,
-		*v1beta1.VirtualMachinePreferenceSpec,
-		*virtv1.VirtualMachineInstanceSpec,
-		*metav1.ObjectMeta,
-	) (conflicts apply.Conflicts)
 }
 
 type instancetypeFindHandler interface {
@@ -81,7 +74,6 @@ type upgradeHandler interface {
 }
 
 type controller struct {
-	applyVMIHandler
 	applyVMHandler
 	storeHandler
 	expandHandler
@@ -103,7 +95,6 @@ func New(
 	return &controller{
 		instancetypeFindHandler: finder,
 		preferenceFindHandler:   prefFinder,
-		applyVMIHandler:         apply.NewVMIApplier(),
 		applyVMHandler:          apply.NewVMApplier(finder, prefFinder),
 		storeHandler:            revision.New(instancetypeStore, clusterInstancetypeStore, preferenceStore, clusterPreferenceStore, virtClient),
 		expandHandler:           expand.New(clusterConfig, finder, prefFinder),
@@ -207,6 +198,37 @@ func (c *controller) ApplyDevicePreferences(vm *virtv1.VirtualMachine, vmi *virt
 		return err
 	}
 	preferenceapply.ApplyDevicePreferences(preferenceSpec, &vmi.Spec)
+
+	return nil
+}
+
+func (c *controller) ApplyToVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	instancetypeSpec, err := c.Find(vm)
+	if err != nil {
+		return err
+	}
+
+	preferenceSpec, err := c.FindPreference(vm)
+	if err != nil {
+		return err
+	}
+
+	if instancetypeSpec == nil && preferenceSpec == nil {
+		return nil
+	}
+
+	annotations.Set(vm, vmi)
+	preferenceannotations.Set(vm, vmi)
+
+	if conflicts := apply.NewVMIApplier().ApplyToVMI(
+		k8sfield.NewPath("spec"),
+		instancetypeSpec,
+		preferenceSpec,
+		&vmi.Spec,
+		&vmi.ObjectMeta,
+	); len(conflicts) > 0 {
+		return fmt.Errorf("VMI conflicts with instancetype spec in fields: [%s]", conflicts.String())
+	}
 
 	return nil
 }
