@@ -334,8 +334,8 @@ func verifyMemoryDumpFile(dumpFilePath, dumpName string) {
 			var path string
 			path, err = sanitizedPath(extractPath, header.Name)
 			Expect(err).ToNot(HaveOccurred())
-			const permRWXRW = 0o750
-			Expect(os.MkdirAll(path, permRWXRW)).To(Succeed())
+			const permRWX = 0o700
+			Expect(os.MkdirAll(path, permRWX)).To(Succeed())
 		case tar.TypeReg:
 			var path string
 			path, err = sanitizedPath(extractPath, header.Name)
