@@ -1541,7 +1541,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 	})
 
-	Describe("Softreboot a VirtualMachineInstance", func() {
+	Describe("Softreboot a VirtualMachineInstance", decorators.ACPI, func() {
 		const vmiLaunchTimeout = 360
 
 		It("soft reboot vmi with agent connected should succeed", decorators.Conformance, func() {

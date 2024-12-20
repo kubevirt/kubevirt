@@ -28,6 +28,7 @@ var (
 	Macvtap     = Label("Macvtap")
 	Invtsc      = Label("Invtsc")
 	KSMRequired = Label("KSM-required")
+	ACPI        = Label("ACPI")
 
 	// Deployment
 	SingleReplica = Label("single-replica")
