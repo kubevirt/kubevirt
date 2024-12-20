@@ -126,6 +126,18 @@ var _ = Describe("AccessCredentials", func() {
 		Expect(manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)).To(Succeed())
 	})
 
+	It("should remove ssh key file when key array is empty", func() {
+		domName := "some-domain"
+		user := "someowner"
+
+		mockConn.EXPECT().LookupDomainByName(domName).Return(mockDomain, nil).Times(1)
+		mockDomain.EXPECT().AuthorizedSSHKeysSet(user, nil, libvirt.DOMAIN_AUTHORIZED_SSH_KEYS_SET_REMOVE).
+			Return(nil).Times(1)
+		mockDomain.EXPECT().Free().Times(1)
+
+		Expect(manager.agentSetAuthorizedKeys(domName, user, nil)).To(Succeed())
+	})
+
 	It("should dynamically update ssh key with old qemu agent", func() {
 		domName := "some-domain"
 		user := "someowner"

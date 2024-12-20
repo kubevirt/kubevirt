@@ -117,6 +117,7 @@ type DomainCapsDevices struct {
 	Redirdev   *DomainCapsDevice `xml:"redirdev"`
 	Channel    *DomainCapsDevice `xml:"channel"`
 	Crypto     *DomainCapsDevice `xml:"crypto"`
+	Interface  *DomainCapsDevice `xml:"interface"`
 }
 
 type DomainCapsDevice struct {
@@ -132,6 +133,7 @@ type DomainCapsFeatures struct {
 	Backup            *DomainCapsFeatureBackup            `xml:"backup"`
 	AsyncTeardown     *DomainCapsFeatureAsyncTeardown     `xml:"async-teardown"`
 	S390PV            *DomainCapsFeatureS390PV            `xml:"s390-pv"`
+	PS2               *DomainCapsFeaturePS2               `xml:"ps2"`
 	SEV               *DomainCapsFeatureSEV               `xml:"sev"`
 	SGX               *DomainCapsFeatureSGX               `xml:"sgx"`
 	HyperV            *DomainCapsFeatureHyperV            `xml:"hyperv"`
@@ -164,6 +166,10 @@ type DomainCapsFeatureAsyncTeardown struct {
 }
 
 type DomainCapsFeatureS390PV struct {
+	Supported string `xml:"supported,attr"`
+}
+
+type DomainCapsFeaturePS2 struct {
 	Supported string `xml:"supported,attr"`
 }
 
