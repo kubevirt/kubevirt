@@ -101,6 +101,8 @@ elif [[ $TARGET =~ sig-monitoring ]]; then
     export KUBEVIRT_DEPLOY_PROMETHEUS=true
 elif [[ $TARGET =~ wg-s390x ]]; then
     export KUBEVIRT_PROVIDER=${TARGET/-wg-s390x}
+elif [[ $TARGET =~ wg-arm64 ]]; then
+    export KUBEVIRT_PROVIDER=${TARGET/-wg-arm64}
 else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
@@ -350,7 +352,8 @@ kubectl version
 
 mkdir -p "$ARTIFACTS_PATH"
 export KUBEVIRT_E2E_PARALLEL=true
-if [[ $TARGET =~ .*kind.* ]] || [[ $TARGET =~ .*k3d.* ]]; then
+# arm64 e2e test lane use kind provider
+if [[ $TARGET =~ .*kind.* ]] || [[ $TARGET =~ .*k3d.* ]] || [[ $TARGET =~ wg-arm64 ]]; then
   export KUBEVIRT_E2E_PARALLEL=false
 fi
 
@@ -428,6 +431,8 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(sig-storage)'
   elif [[ $TARGET =~ wg-s390x ]]; then
     label_filter='(wg-s390x)'
+  elif [[ $TARGET =~ wg-arm64 ]]; then
+    label_filter='(wg-arm64 && !(software-emulation,requires-two-schedulable-nodes,cpumodel))'
   elif [[ $TARGET =~ vgpu.* ]]; then
     label_filter='(VGPU)'
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
