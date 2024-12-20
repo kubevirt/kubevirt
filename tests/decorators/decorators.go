@@ -76,6 +76,7 @@ var (
 	Kubernetes130 = Label("kubernetes130")
 	// WG archs
 	WgS390x = Label("wg-s390x")
+	WgArm64 = Label("wg-arm64")
 	// Virtctl related tests
 	Virtctl = Label("virtctl")
 
