@@ -1763,7 +1763,8 @@ var _ = Describe("Converter", func() {
 					Expect(domain.Spec.Devices.Inputs[1].Type).To(Equal(v1.InputTypeKeyboard))
 				case s390x:
 					Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal(v1.VirtIO))
-					Expect(domain.Spec.Devices.Inputs).To(BeEmpty())
+					Expect(domain.Spec.Devices.Inputs[0].Type).To(Equal(v1.InputTypeKeyboard))
+					Expect(domain.Spec.Devices.Inputs[0].Bus).To(Equal(v1.InputBusVirtio))
 				}
 			}
 		},
