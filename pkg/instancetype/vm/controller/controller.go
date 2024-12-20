@@ -106,7 +106,7 @@ func New(
 }
 
 const (
-	storeControllerRevisionErrFmt   = "Error encountered while storing Instancetype ControllerRevisions: %v"
+	storeControllerRevisionErrFmt   = "error encountered while storing instancetype.kubevirt.io controllerRevisions: %v"
 	upgradeControllerRevisionErrFmt = "error encountered while upgrading instancetype.kubevirt.io controllerRevisions: %v"
 	cleanControllerRevisionErrFmt   = "error encountered cleaning controllerRevision %s after successfully expanding VirtualMachine %s: %v"
 )
@@ -123,8 +123,6 @@ func (c *controller) Sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		if err := c.Store(vm); err != nil {
 			log.Log.Object(vm).Errorf(storeControllerRevisionErrFmt, err)
 			c.recorder.Eventf(vm, corev1.EventTypeWarning, common.FailedCreateVirtualMachineReason, storeControllerRevisionErrFmt, err)
-			// FIXME(lyarwood) Align storeControllerRevisionErrFmt with the other errors and use lower case
-			//nolint:stylecheck
 			return vm, common.NewSyncError(fmt.Errorf(storeControllerRevisionErrFmt, err), common.FailedCreateVirtualMachineReason)
 		}
 	case virtv1.Expand, virtv1.ExpandAll:

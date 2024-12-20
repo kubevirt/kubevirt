@@ -4797,7 +4797,7 @@ var _ = Describe("VirtualMachine", func() {
 						"Type":   Equal(v1.VirtualMachineFailure),
 						"Reason": Equal("FailedCreate"),
 						"Message": And(
-							ContainSubstring("Error encountered while storing Instancetype ControllerRevisions"),
+							ContainSubstring("error encountered while storing instancetype.kubevirt.io controllerRevisions"),
 							ContainSubstring(conflict.Conflicts{
 								conflict.New("spec.template.spec.domain.cpu.sockets"),
 								conflict.New("spec.template.spec.domain.cpu.cores"),
