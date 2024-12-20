@@ -61,7 +61,6 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -877,8 +876,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			//store old kubevirt-config
 			BeforeEach(func() {
-				// arm64 does not support cpu model
-				checks.SkipIfARM64(testsuite.Arch, "arm64 does not support cpu model")
 				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				supportedCpuModels = libnode.GetSupportedCPUModels(*nodes)
@@ -977,7 +974,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("with node feature discovery", Serial, func() {
+		Context("with node feature discovery", Serial, decorators.CPUModel, func() {
 			var node *k8sv1.Node
 			var supportedCPU string
 			var supportedCPUs []string
@@ -986,8 +983,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var supportedKVMInfoFeature []string
 
 			BeforeEach(func() {
-				// arm64 does not support cpu model
-				checks.SkipIfARM64(testsuite.Arch, "arm64 does not support cpu model")
 				nodes = libnode.GetAllSchedulableNodes(kubevirt.Client())
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
