@@ -26,8 +26,6 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
 
-	batchv1 "k8s.io/api/batch/v1"
-	k8score "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,14 +35,11 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
-	"kubevirt.io/kubevirt/tests/libnet/job"
 	"kubevirt.io/kubevirt/tests/libpod"
-	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
@@ -139,7 +134,7 @@ var _ = Describe("[sig-compute]Migration recovery", decorators.SigCompute, func(
 		nukedPVC := targetPVC
 		if fakeSuccess {
 			By("Simulating a migration success by manually adding /meta/migrated to the source PVC")
-			fakeMigrationSuccessInPVC(virtClient, sourcePVC, migration.Namespace)
+			libmigration.FakeMigrationSuccessInPVC(virtClient, sourcePVC, migration.Namespace)
 
 			keptPVC = targetPVC
 			nukedPVC = sourcePVC
@@ -165,72 +160,3 @@ var _ = Describe("[sig-compute]Migration recovery", decorators.SigCompute, func(
 		Entry("success [Serial]", decorators.FlakeCheck, Serial, true, true),
 	)
 })
-
-func fakeMigrationSuccessInPVC(virtClient kubecli.KubevirtClient, pvcName, namespace string) {
-	var err error
-
-	By("Creating a job")
-	fakeSuccessJob := &batchv1.Job{
-		ObjectMeta: k8smeta.ObjectMeta{
-			GenerateName: "migration-success-faker-",
-		},
-		Spec: batchv1.JobSpec{
-			ActiveDeadlineSeconds:   pointer.P(int64(90)),
-			BackoffLimit:            pointer.P(int32(1)),
-			TTLSecondsAfterFinished: pointer.P(int32(90)),
-			Template: k8score.PodTemplateSpec{
-				ObjectMeta: k8smeta.ObjectMeta{
-					GenerateName: "backend-storage-recover-",
-				},
-				Spec: k8score.PodSpec{
-					RestartPolicy: k8score.RestartPolicyNever,
-					SecurityContext: &k8score.PodSecurityContext{
-						RunAsNonRoot: pointer.P(true),
-						RunAsUser:    pointer.P(int64(util.NonRootUID)),
-						RunAsGroup:   pointer.P(int64(util.NonRootUID)),
-						FSGroup:      pointer.P(int64(util.NonRootUID)),
-						SeccompProfile: &k8score.SeccompProfile{
-							Type: k8score.SeccompProfileTypeRuntimeDefault,
-						},
-					},
-					Containers: []k8score.Container{{
-						Name: "container",
-						SecurityContext: &k8score.SecurityContext{
-							AllowPrivilegeEscalation: pointer.P(false),
-							Capabilities:             &k8score.Capabilities{Drop: []k8score.Capability{"ALL"}},
-						},
-						Image:   libregistry.GetUtilityImageFromRegistry("vm-killer"), // Any image will do, we just need `touch`
-						Command: []string{"touch"},
-						Args:    []string{"/meta/migrated"},
-						VolumeMounts: []k8score.VolumeMount{{
-							Name:      "backend-storage",
-							MountPath: "/meta",
-							SubPath:   "meta",
-						}},
-					}},
-					Volumes: []k8score.Volume{{
-						Name: "backend-storage",
-						VolumeSource: k8score.VolumeSource{
-							PersistentVolumeClaim: &k8score.PersistentVolumeClaimVolumeSource{
-								ClaimName: pvcName,
-							},
-						},
-					}},
-				},
-			},
-		},
-	}
-
-	fakeSuccessJob, err = virtClient.BatchV1().Jobs(namespace).Create(context.Background(), fakeSuccessJob, k8smeta.CreateOptions{})
-	Expect(err).NotTo(HaveOccurred())
-
-	By("Waiting for the job to succeed")
-	err = job.WaitForJobToSucceed(fakeSuccessJob, time.Minute)
-	Expect(err).NotTo(HaveOccurred())
-
-	By("Removing the job")
-	// Job is auto-removed after 90 seconds, might already be gone, deleting anyway to free PVC
-	_ = virtClient.BatchV1().Jobs(namespace).Delete(context.Background(), fakeSuccessJob.Name, k8smeta.DeleteOptions{
-		PropagationPolicy: pointer.P(k8smeta.DeletePropagationBackground),
-	})
-}

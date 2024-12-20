@@ -14,11 +14,15 @@ import (
 	"github.com/onsi/gomega/gstruct"
 
 	k8snetworkplumbingwgv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -27,8 +31,10 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/job"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
+	"kubevirt.io/kubevirt/tests/libregistry"
 )
 
 const MigrationWaitTime = 240
@@ -512,4 +518,73 @@ func WaitUntilMigrationMode(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMa
 		return ""
 	}, timeout, 1*time.Second).Should(Equal(expectedMode), fmt.Sprintf("migration should be in %s after %d s", expectedMode, timeout))
 	return vmi
+}
+
+func FakeMigrationSuccessInPVC(virtClient kubecli.KubevirtClient, pvcName, namespace string) {
+	var err error
+
+	By("Creating a job")
+	fakeSuccessJob := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "migration-success-faker-",
+		},
+		Spec: batchv1.JobSpec{
+			ActiveDeadlineSeconds:   pointer.P(int64(90)),
+			BackoffLimit:            pointer.P(int32(1)),
+			TTLSecondsAfterFinished: pointer.P(int32(90)),
+			Template: k8sv1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "backend-storage-recover-",
+				},
+				Spec: k8sv1.PodSpec{
+					RestartPolicy: k8sv1.RestartPolicyNever,
+					SecurityContext: &k8sv1.PodSecurityContext{
+						RunAsNonRoot: pointer.P(true),
+						RunAsUser:    pointer.P(int64(util.NonRootUID)),
+						RunAsGroup:   pointer.P(int64(util.NonRootUID)),
+						FSGroup:      pointer.P(int64(util.NonRootUID)),
+						SeccompProfile: &k8sv1.SeccompProfile{
+							Type: k8sv1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
+					Containers: []k8sv1.Container{{
+						Name: "container",
+						SecurityContext: &k8sv1.SecurityContext{
+							AllowPrivilegeEscalation: pointer.P(false),
+							Capabilities:             &k8sv1.Capabilities{Drop: []k8sv1.Capability{"ALL"}},
+						},
+						Image:   libregistry.GetUtilityImageFromRegistry("vm-killer"), // Any image will do, we just need `touch`
+						Command: []string{"touch"},
+						Args:    []string{"/meta/migrated"},
+						VolumeMounts: []k8sv1.VolumeMount{{
+							Name:      "backend-storage",
+							MountPath: "/meta",
+							SubPath:   "meta",
+						}},
+					}},
+					Volumes: []k8sv1.Volume{{
+						Name: "backend-storage",
+						VolumeSource: k8sv1.VolumeSource{
+							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: pvcName,
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	fakeSuccessJob, err = virtClient.BatchV1().Jobs(namespace).Create(context.Background(), fakeSuccessJob, metav1.CreateOptions{})
+	Expect(err).NotTo(HaveOccurred())
+
+	By("Waiting for the job to succeed")
+	err = job.WaitForJobToSucceed(fakeSuccessJob, time.Minute)
+	Expect(err).NotTo(HaveOccurred())
+
+	By("Removing the job")
+	// Job is auto-removed after 90 seconds, might already be gone, deleting anyway to free PVC
+	_ = virtClient.BatchV1().Jobs(namespace).Delete(context.Background(), fakeSuccessJob.Name, metav1.DeleteOptions{
+		PropagationPolicy: pointer.P(metav1.DeletePropagationBackground),
+	})
 }
