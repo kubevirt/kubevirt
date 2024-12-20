@@ -145,9 +145,10 @@ var _ = VirtctlDescribe("[sig-compute]SCP", decorators.SigCompute, func() {
 		copyFromDir := filepath.Join(GinkgoT().TempDir(), "sourcedir")
 		copyToDir := filepath.Join(GinkgoT().TempDir(), "targetdir")
 
-		Expect(os.Mkdir(copyFromDir, 0777)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(copyFromDir, "file1"), []byte("test"), 0777)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(copyFromDir, "file2"), []byte("test1"), 0777)).To(Succeed())
+		const permRWXAll = 0o777
+		Expect(os.Mkdir(copyFromDir, permRWXAll)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(copyFromDir, "file1"), []byte("test"), permRWXAll)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(copyFromDir, "file2"), []byte("test1"), permRWXAll)).To(Succeed())
 
 		By("copying a file to the VMI")
 		copyFn(copyFromDir, vmi.Name+":"+"./sourcedir", true)
@@ -175,7 +176,7 @@ var _ = VirtctlDescribe("[sig-compute]SCP", decorators.SigCompute, func() {
 	})
 })
 
-func compareFile(file1 string, file2 string) {
+func compareFile(file1, file2 string) {
 	expected, err := os.ReadFile(file1)
 	Expect(err).ToNot(HaveOccurred())
 	actual, err := os.ReadFile(file2)
