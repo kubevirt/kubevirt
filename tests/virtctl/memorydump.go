@@ -327,8 +327,14 @@ func verifyMemoryDumpFile(dumpFilePath, dumpName string) {
 		case tar.TypeReg:
 			extractedFile, err := os.Create(filepath.Join(extractPath, header.Name))
 			Expect(err).ToNot(HaveOccurred())
-			_, err = io.Copy(extractedFile, tarReader)
-			Expect(err).ToNot(HaveOccurred())
+			for {
+				const megabyte = 1024 * 1024
+				_, err = io.CopyN(extractedFile, tarReader, megabyte)
+				if err != nil && err == io.EOF {
+					break
+				}
+				Expect(err).ToNot(HaveOccurred())
+			}
 			Expect(extractedFile.Close()).To(Succeed())
 		default:
 			Fail("unknown tar header type")
