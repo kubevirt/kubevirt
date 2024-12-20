@@ -51,12 +51,14 @@ var _ = VirtctlDescribe("[sig-compute]VNC", decorators.SigCompute, decorators.Wg
 	BeforeEach(func() {
 		var err error
 		vmi = libvmifact.NewGuestless()
-		vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+		vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).
+			Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 	})
 
-	It("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component][test_id:4272]should connect to vnc with --proxy-only flag", func() {
+	It("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]"+
+		"[test_id:4272]should connect to vnc with --proxy-only flag", func() {
 		By("Invoking virtctl vnc with --proxy-only")
 		r, w, _ := os.Pipe()
 		cmd := newVirtctlCommand(
@@ -80,7 +82,8 @@ var _ = VirtctlDescribe("[sig-compute]VNC", decorators.SigCompute, decorators.Wg
 		verifyProxyConnection(fmt.Sprintf("%v", result["port"]), vmi.Name)
 	})
 
-	It("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component][test_id:5274]should connect to vnc with --proxy-only flag to the specified port", func() {
+	It("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]"+
+		"[test_id:5274]should connect to vnc with --proxy-only flag to the specified port", func() {
 		const testPort = "33333"
 
 		By("Invoking virtctl vnc with --proxy-only")
@@ -99,7 +102,8 @@ var _ = VirtctlDescribe("[sig-compute]VNC", decorators.SigCompute, decorators.Wg
 		verifyProxyConnection(testPort, vmi.Name)
 	})
 
-	It("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component][test_id:11667]should allow creating a VNC screenshot in PNG format", func() {
+	It("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]"+
+		"[test_id:11667]should allow creating a VNC screenshot in PNG format", func() {
 		// The default resolution is 720x400 for the vga/boch device used on amd64 and ppcl64,
 		// while it is 1280x800 for the virtio device used on arm64 and s390x.
 		size := image.Point{720, 400}

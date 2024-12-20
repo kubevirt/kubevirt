@@ -54,21 +54,30 @@ const (
 )
 
 var _ = VirtctlDescribe("[sig-storage]ImageUpload", decorators.SigStorage, Serial, func() {
+	const (
+		timeout      = 180
+		randNameTail = 5
+	)
+
 	var (
 		virtClient kubecli.KubevirtClient
 		imagePath  string
+		targetName string
 		kubectlCmd *exec.Cmd
 	)
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 		imagePath = copyAlpineDisk()
+		targetName = "alpine-" + rand.String(randNameTail)
 
 		config, err := virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), "config", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		if config.Status.UploadProxyURL == nil {
 			By("Setting up port forwarding")
-			_, kubectlCmd, err = clientcmd.CreateCommandWithNS(flags.ContainerizedDataImporterNamespace, "kubectl", "port-forward", "svc/cdi-uploadproxy", "18443:443")
+			_, kubectlCmd, err = clientcmd.CreateCommandWithNS(
+				flags.ContainerizedDataImporterNamespace, "kubectl", "port-forward", "svc/cdi-uploadproxy", "18443:443",
+			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kubectlCmd.Start()).To(Succeed())
 		}
@@ -81,42 +90,42 @@ var _ = VirtctlDescribe("[sig-storage]ImageUpload", decorators.SigStorage, Seria
 		}
 	})
 
-	DescribeTable("[test_id:4621]Upload an image and start a VMI should succeed", func(resource string, validateFn func(string, string), diskFn func(string, string, ...libvmi.DiskOption) libvmi.Option) {
-		sc, exists := libstorage.GetRWOBlockStorageClass()
-		if !exists {
-			Fail("Fail test when RWOBlock storage class is not present")
-		}
+	DescribeTable("[test_id:4621]Upload an imag start a VMI should succeed",
+		func(resource string, validateFn func(string, string), diskFn func(string, string, ...libvmi.DiskOption) libvmi.Option) {
+			sc, exists := libstorage.GetRWOBlockStorageClass()
+			if !exists {
+				Fail("Fail test when RWOBlock storage class is not present")
+			}
 
-		By("Upload image")
-		targetName := "alpine-" + rand.String(12)
-		stdout, stderr, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), "virtctl", "image-upload",
-			resource, targetName,
-			"--image-path", imagePath,
-			"--size", pvcSize,
-			"--storage-class", sc,
-			"--force-bind",
-			"--volume-mode", "block",
-			"--insecure",
-		)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(stdout).To(MatchRegexp(`\d{1,3}\.?\d{1,2}%`), "progress missing from stdout")
-		Expect(stderr).To(BeEmpty())
+			By("Upload image")
+			stdout, stderr, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), "virtctl", "image-upload",
+				resource, targetName,
+				"--image-path", imagePath,
+				"--size", pvcSize,
+				"--storage-class", sc,
+				"--force-bind",
+				"--volume-mode", "block",
+				"--insecure",
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stdout).To(MatchRegexp(`\d{1,3}\.?\d{1,2}%`), "progress missing from stdout")
+			Expect(stderr).To(BeEmpty())
 
-		By("Validating uploaded image")
-		validateFn(targetName, sc)
+			By("Validating uploaded image")
+			validateFn(targetName, sc)
 
-		By("Start VMI")
-		vmi := libvmi.New(
-			libvmi.WithResourceMemory("256Mi"),
-			diskFn("disk0", targetName),
-		)
-		vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		libwait.WaitForSuccessfulVMIStart(vmi,
-			libwait.WithFailOnWarnings(false),
-			libwait.WithTimeout(180),
-		)
-	},
+			By("Start VMI")
+			vmi := libvmi.New(
+				libvmi.WithResourceMemory("256Mi"),
+				diskFn("disk0", targetName),
+			)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libwait.WaitForSuccessfulVMIStart(vmi,
+				libwait.WithFailOnWarnings(false),
+				libwait.WithTimeout(timeout),
+			)
+		},
 		Entry("DataVolume", decorators.StorageCritical, "dv", validateDataVolume, libvmi.WithDataVolume),
 		Entry("PVC", "pvc", validatePVC, libvmi.WithPersistentVolumeClaim),
 	)
@@ -128,7 +137,6 @@ var _ = VirtctlDescribe("[sig-storage]ImageUpload", decorators.SigStorage, Seria
 		}
 
 		By("Upload image")
-		targetName := "alpine-" + rand.String(12)
 		err := runImageUploadCmd(
 			resource, targetName,
 			"--image-path", imagePath,
@@ -152,7 +160,6 @@ var _ = VirtctlDescribe("[sig-storage]ImageUpload", decorators.SigStorage, Seria
 		}
 
 		By("Upload image")
-		targetName := "alpine-" + rand.String(12)
 		err := runImageUploadCmd(
 			"dv", targetName,
 			"--image-path", imagePath,
@@ -175,7 +182,6 @@ var _ = VirtctlDescribe("[sig-storage]ImageUpload", decorators.SigStorage, Seria
 			Skip("Skip no wffc storage class available")
 		}
 
-		targetName := "alpine-" + rand.String(12)
 		args := []string{
 			"dv", targetName,
 			"--image-path", imagePath,
@@ -196,9 +202,9 @@ var _ = VirtctlDescribe("[sig-storage]ImageUpload", decorators.SigStorage, Seria
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Wait for DV to be in UploadReady phase")
-		dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
+		dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vmi.Namespace).Get(context.Background(), targetName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		libstorage.EventuallyDV(dv, 240, matcher.BeInPhase(cdiv1.UploadReady))
+		libstorage.EventuallyDV(dv, timeout, matcher.BeInPhase(cdiv1.UploadReady))
 
 		By("Upload image, now should succeed")
 		Expect(runImageUploadCmd(args...)).To(Succeed())
@@ -217,7 +223,6 @@ var _ = VirtctlDescribe("[sig-storage]ImageUpload", decorators.SigStorage, Seria
 
 		DescribeTable("[test_id:11657]Should succeed", func(resource string, uploadDV bool) {
 			By("Upload archive content")
-			targetName := "alpine-" + rand.String(12)
 			err := runImageUploadCmd(
 				resource, targetName,
 				"--archive-path", archivePath,
@@ -227,17 +232,21 @@ var _ = VirtctlDescribe("[sig-storage]ImageUpload", decorators.SigStorage, Seria
 
 			if uploadDV {
 				By("Get DataVolume")
-				dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
+				var dv *cdiv1.DataVolume
+				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).
+					Get(context.Background(), targetName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(dv.Spec.ContentType).To(Equal(cdiv1.DataVolumeArchive))
 			} else {
 				By("Validate no DataVolume")
-				_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
+				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).
+					Get(context.Background(), targetName, metav1.GetOptions{})
 				Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 			}
 
 			By("Get PVC")
-			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
+			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).
+				Get(context.Background(), targetName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pvc.Annotations).To(HaveKeyWithValue("cdi.kubevirt.io/storage.contentType", string(cdiv1.DataVolumeArchive)))
 		},
@@ -246,10 +255,10 @@ var _ = VirtctlDescribe("[sig-storage]ImageUpload", decorators.SigStorage, Seria
 		)
 
 		DescribeTable("[test_id:11658]fails when provisioning fails", func(resource, expected string) {
-			sc := "invalid-sc-" + rand.String(12)
+			sc := "invalid-sc-" + rand.String(randNameTail)
 			libstorage.CreateStorageClass(sc, nil)
 			err := runImageUploadCmd(
-				resource, "alpine-archive-"+rand.String(12),
+				resource, "alpine-archive-"+rand.String(randNameTail),
 				"--archive-path", archivePath,
 				"--storage-class", sc,
 				"--force-bind",
@@ -266,7 +275,8 @@ var _ = VirtctlDescribe("[sig-storage]ImageUpload", decorators.SigStorage, Seria
 func copyAlpineDisk() string {
 	virtClient := kubevirt.Client()
 	By("Getting the disk image provider pod")
-	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=disks-images-provider"})
+	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).
+		List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=disks-images-provider"})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(pods.Items).ToNot(BeEmpty())
 
@@ -314,21 +324,24 @@ func runImageUploadCmd(args ...string) error {
 	return newRepeatableVirtctlCommand(_args...)()
 }
 
-func validateDataVolume(targetName string, _ string) {
+func validateDataVolume(targetName, _ string) {
 	virtClient := kubevirt.Client()
 	By("Get DataVolume")
-	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
+	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).
+		Get(context.Background(), targetName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func validatePVC(targetName string, sc string) {
+func validatePVC(targetName, sc string) {
 	virtClient := kubevirt.Client()
 	By("Validate no DataVolume")
-	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
+	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).
+		Get(context.Background(), targetName, metav1.GetOptions{})
 	Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 	By("Get PVC")
-	pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
+	pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).
+		Get(context.Background(), targetName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(*pvc.Spec.StorageClassName).To(Equal(sc))
 }
@@ -336,7 +349,8 @@ func validatePVC(targetName string, sc string) {
 func validateDataVolumeForceBind(targetName string) {
 	virtClient := kubevirt.Client()
 	By("Get DataVolume")
-	dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
+	dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).
+		Get(context.Background(), targetName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	_, found := dv.Annotations["cdi.kubevirt.io/storage.bind.immediate.requested"]
@@ -346,11 +360,13 @@ func validateDataVolumeForceBind(targetName string) {
 func validatePVCForceBind(targetName string) {
 	virtClient := kubevirt.Client()
 	By("Validate no DataVolume")
-	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
+	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).
+		Get(context.Background(), targetName, metav1.GetOptions{})
 	Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 	By("Get PVC")
-	pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), targetName, metav1.GetOptions{})
+	pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).
+		Get(context.Background(), targetName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	_, found := pvc.Annotations["cdi.kubevirt.io/storage.bind.immediate.requested"]
 	Expect(found).To(BeTrue())
