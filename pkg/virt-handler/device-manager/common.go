@@ -252,7 +252,8 @@ func formatVFIODeviceSpecs(devID string) []*v1beta1.DeviceSpec {
 		Permissions:   "mrw",
 	})
 
-	vfioDevice := filepath.Join(vfioDevicePath, devID)
+	iommuGroup := strings.Split(devID, deviceIDSeparator)[0]
+	vfioDevice := filepath.Join(vfioDevicePath, iommuGroup)
 	devSpecs = append(devSpecs, &v1beta1.DeviceSpec{
 		HostPath:      vfioDevice,
 		ContainerPath: vfioDevice,
