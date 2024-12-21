@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -46,7 +47,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
@@ -77,6 +77,8 @@ const (
 	sriovnet4           = "sriov4"
 	sriovnetLinkEnabled = "sriov-linked"
 )
+
+var pciAddressRegex = regexp.MustCompile(hardware.PCI_ADDRESS_PATTERN)
 
 var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 	var virtClient kubecli.KubevirtClient
@@ -250,17 +252,14 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 			Expect(checkDefaultInterfaceInPod(vmi)).To(Succeed())
 
 			By("checking virtual machine instance has two interfaces")
-			checkInterfacesInGuest(vmi, []string{"eth0", "eth1"})
+			expectedInterfaces := []string{"eth0", "eth1"}
+			checkInterfacesInGuest(vmi, expectedInterfaces)
 
-			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			rootPortController := []api.Controller{}
-			for _, c := range domSpec.Devices.Controllers {
-				if c.Model == "pcie-root-port" {
-					rootPortController = append(rootPortController, c)
-				}
+			for _, iface := range expectedInterfaces {
+				onRootPCIBridge, err := isInterfaceOnRootPCIComplex(vmi, iface)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(onRootPCIBridge).To(BeTrue(), fmt.Sprintf("Expected interface %s on PCI root bridge", iface))
 			}
-			Expect(rootPortController).To(BeEmpty(), "libvirt should not add additional buses to the root one")
 		})
 
 		It("[test_id:3959]should create a virtual machine with sriov interface and dedicatedCPUs", decorators.RequiresNodeWithCPUManager, func() {
@@ -645,6 +644,40 @@ func checkInterfacesInGuest(vmi *v1.VirtualMachineInstance, interfaces []string)
 	for _, iface := range interfaces {
 		Expect(libnet.InterfaceExists(vmi, iface)).To(Succeed())
 	}
+}
+
+// isInterfaceOnRootPCIComplex checks whether device is on root complex
+// Count the number of occurrences of PCI addresses along the device path
+// If only one is found, it indicates that the device is on the root complex,
+// otherwise a PCI bridge address will be listed along the path as the parent
+// of this device.
+// Examples:
+// on root       /sys/devices/pci0000:00/0000:00:03.0/net/eth1
+// not on root   /sys/devices/pci0000:00/0000:00:02.7/0000:08:00.0/net/eth1
+func isInterfaceOnRootPCIComplex(vmi *v1.VirtualMachineInstance, iface string) (bool, error) {
+	ifacePath, err := console.RunCommandAndStoreOutput(vmi,
+		fmt.Sprintf("find /sys/devices/ -name %s", iface), 15*time.Second)
+	if err != nil {
+		return false, err
+	}
+	ifacePathSlice := strings.Split(ifacePath, "/")
+	const busTokenIndex = 4
+	if len(ifacePathSlice) < busTokenIndex {
+		return false, fmt.Errorf("interface path %s is not as expected", ifacePath)
+	}
+	ifacePathSlice = ifacePathSlice[busTokenIndex-1:]
+
+	return countNumberOfPCIAddressesAlongPath(ifacePathSlice) == 1, nil
+}
+
+func countNumberOfPCIAddressesAlongPath(path []string) int {
+	var pciAddressCountAlongPath int
+	for _, token := range path {
+		if pciAddressRegex.MatchString(token) {
+			pciAddressCountAlongPath++
+		}
+	}
+	return pciAddressCountAlongPath
 }
 
 // createVMIAndWait creates the received VMI and waits for the guest to load the guest-agent
