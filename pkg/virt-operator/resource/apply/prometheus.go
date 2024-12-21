@@ -36,7 +36,7 @@ func (r *Reconciler) createOrUpdateServiceMonitor(serviceMonitor *promv1.Service
 
 	obj, exists, _ := r.stores.ServiceMonitorCache.Get(serviceMonitor)
 
-	injectOperatorMetadata(r.kv, &serviceMonitor.ObjectMeta, version, imageRegistry, id, true)
+	injectOperatorMetadata(r.kv, &serviceMonitor.ObjectMeta, version, imageRegistry, id)
 	if !exists {
 		// Create non existent
 		r.expectations.ServiceMonitor.RaiseExpectations(r.kvKey, 1, 0)
@@ -111,7 +111,7 @@ func (r *Reconciler) createOrUpdatePrometheusRule(prometheusRule *promv1.Prometh
 
 	obj, exists, _ := r.stores.PrometheusRuleCache.Get(prometheusRule)
 
-	injectOperatorMetadata(r.kv, &prometheusRule.ObjectMeta, version, imageRegistry, id, true)
+	injectOperatorMetadata(r.kv, &prometheusRule.ObjectMeta, version, imageRegistry, id)
 	if !exists {
 		// Create non existent
 		r.expectations.PrometheusRule.RaiseExpectations(r.kvKey, 1, 0)
