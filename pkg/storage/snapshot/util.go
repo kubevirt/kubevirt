@@ -26,6 +26,8 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
+	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -127,6 +129,22 @@ func getSimplifiedMetaObject(meta metav1.ObjectMeta) *metav1.ObjectMeta {
 	result.ManagedFields = nil
 
 	return result
+}
+
+func getVolumeOptions(source snapshotSource) ([]storageutils.VolumeOption, error) {
+	opts := []storageutils.VolumeOption{storageutils.WithRegularVolumes}
+	if source != nil {
+		online, err := source.Online()
+		if err != nil {
+			return opts, err
+		}
+		// TODO: Currently, only offline snapshot is supported for backend storage PVC.
+		// Ignore it if the VM is online.
+		if !online {
+			opts = append(opts, storageutils.WithBackendVolume)
+		}
+	}
+	return opts, nil
 }
 
 func GetSnapshotContents(vmSnapshot *snapshotv1.VirtualMachineSnapshot, client kubecli.KubevirtClient) (*snapshotv1.VirtualMachineSnapshotContent, error) {
