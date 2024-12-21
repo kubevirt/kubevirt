@@ -100,17 +100,6 @@ func (c *cmd) CmdAddResult(args *skel.CmdArgs) (types.Result, error) {
 
 		netname := netConf.Args.Cni.LogicNetworkName
 		log.Printf("setup for logical network %s completed successfully", netname)
-
-		podLink, lerr := c.netlinkAdapter.ReadLink(primaryPodInterfaceName)
-		if lerr != nil {
-			return lerr
-		}
-
-		result.Interfaces = append(result.Interfaces, &type100.Interface{
-			Name:    podLink.Attrs().Name,
-			Mac:     podLink.Attrs().HardwareAddr.String(),
-			Sandbox: c.netns.Path(),
-		})
 		return nil
 	})
 	if err != nil {

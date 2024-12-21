@@ -22,7 +22,6 @@ package plugin_test
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"net"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -60,24 +59,15 @@ var _ = Describe("passt-binding-plugin", func() {
 
 			var buf bytes.Buffer
 			Expect(versionedResult.PrintTo(&buf)).To(Succeed())
-			Expect(buf.String()).To(MatchJSON(fmt.Sprintf(`
+			Expect(buf.String()).To(MatchJSON(`
 			{
 				"cniVersion": "1.0.0",
-				"interfaces": [
-					{
-						"name": %q,
-						"mac": %q,
-						"sandbox": %q
-					}
-				],
 				"dns": {}
-			}
-		`, "eth0", testMACAddress, testNSPath)))
+			}`))
 		})
 
 		unprivPortErr := errors.New("unpriv port")
 		pingGroupErr := errors.New("ping group")
-		readLinkErr := errors.New("read link")
 
 		DescribeTable("fails to", func(sysCtl stubSysCtl, netLink stubNetLink, expectedErr error) {
 			cmd := plugin.NewCmd(stubNetNS{}, sysCtl, netLink)
@@ -92,7 +82,6 @@ var _ = Describe("passt-binding-plugin", func() {
 		},
 			Entry("set unprivileged port", stubSysCtl{unprivPortErr: unprivPortErr}, stubNetLink{}, unprivPortErr),
 			Entry("set ping port", stubSysCtl{pingGroupErr: pingGroupErr}, stubNetLink{}, pingGroupErr),
-			Entry("read link", stubSysCtl{}, stubNetLink{readLinkErr: readLinkErr}, readLinkErr),
 		)
 	})
 
