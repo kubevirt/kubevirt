@@ -1,4 +1,4 @@
-//go:build s390x
+//go:build amd64 || s390x
 
 /*
  * This file is part of the KubeVirt project
@@ -15,13 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright the KubeVirt Authors.
+ * Copyright 2024 Red Hat, Inc.
  *
  */
 
-package nodelabeller
+package nodecapabilities_test
 
-func getCapLabels() []string {
-	exposedCaps := []string{}
-	return exposedCaps
+import (
+	"testing"
+
+	"kubevirt.io/client-go/testutils"
+)
+
+func TestNodeLabeller(t *testing.T) {
+	testutils.KubeVirtTestSuiteSetup(t)
 }
