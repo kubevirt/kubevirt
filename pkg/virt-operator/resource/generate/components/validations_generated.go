@@ -13890,6 +13890,88 @@ var CRDsValidation map[string]string = map[string]string{
       type: object
     spec:
       properties:
+        addedNodeSelectorTerm:
+          description: |-
+            AddedNodeSelectorTerm is applied additionally to the NodeAffinity specified on the VM.
+            The scheduler will automatically attempt a reasonable migration, addition constraints
+            on the one-off migration are required only in special cases.
+            In order to be valid migration targets, Nodes need to satisfy existing NodeAffinity as defined on the VM.
+            AND the expressions on this added NodeSelectorTerm.
+            AddedNodeSelectorTerm is empty by default (all Nodes match).
+            AddedNodeSelectorTerm can only restrict the set of Nodes that are valid target for the migration.
+            When multiple nodeSelectorTerms are specified in nodeAffinity types,
+            then the Pod can be scheduled onto a node if one of the specified terms can be satisfied (terms are ORed).
+            When multiple expressions are specified in a single nodeSelectorTerms,
+            then the Pod can be scheduled onto a node only if all the expressions are satisfied (expressions are ANDed).
+            To obtain the expected result (restrict the set of Nodes that are valid target for the migration),
+            all the expressions specified here are going to be added to all the NodeSelectorTerms defined on the VM.
+          properties:
+            matchExpressions:
+              description: A list of node selector requirements by node's labels.
+              items:
+                description: |-
+                  A node selector requirement is a selector that contains values, a key, and an operator
+                  that relates the key and values.
+                properties:
+                  key:
+                    description: The label key that the selector applies to.
+                    type: string
+                  operator:
+                    description: |-
+                      Represents a key's relationship to a set of values.
+                      Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                    type: string
+                  values:
+                    description: |-
+                      An array of string values. If the operator is In or NotIn,
+                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                      the values array must be empty. If the operator is Gt or Lt, the values
+                      array must have a single element, which will be interpreted as an integer.
+                      This array is replaced during a strategic merge patch.
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
+                required:
+                - key
+                - operator
+                type: object
+              type: array
+              x-kubernetes-list-type: atomic
+            matchFields:
+              description: A list of node selector requirements by node's fields.
+              items:
+                description: |-
+                  A node selector requirement is a selector that contains values, a key, and an operator
+                  that relates the key and values.
+                properties:
+                  key:
+                    description: The label key that the selector applies to.
+                    type: string
+                  operator:
+                    description: |-
+                      Represents a key's relationship to a set of values.
+                      Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                    type: string
+                  values:
+                    description: |-
+                      An array of string values. If the operator is In or NotIn,
+                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                      the values array must be empty. If the operator is Gt or Lt, the values
+                      array must have a single element, which will be interpreted as an integer.
+                      This array is replaced during a strategic merge patch.
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
+                required:
+                - key
+                - operator
+                type: object
+              type: array
+              x-kubernetes-list-type: atomic
+          type: object
+          x-kubernetes-map-type: atomic
         vmiName:
           description: The name of the VMI to perform the migration on. VMI must exist
             in the migration objects namespace
