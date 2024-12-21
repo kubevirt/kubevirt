@@ -114,7 +114,7 @@ var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][lev
 				case err := <-k8ResChan:
 					Expect(err).ToNot(HaveOccurred())
 				case <-time.After(45 * time.Second):
-					Fail("Timout reached while waiting for valid VNC server response")
+					Fail("Timeout reached while waiting for valid VNC server response")
 				}
 			}
 
