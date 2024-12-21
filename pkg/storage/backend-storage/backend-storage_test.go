@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -291,5 +292,32 @@ var _ = Describe("Backend Storage", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pvc.Labels).To(HaveKeyWithValue("persistent-state-for", vmiName))
 		})
+	})
+	Context("IsBackendStorageNeeded", func() {
+		var vm *virtv1.VirtualMachine
+
+		BeforeEach(func() {
+			vm = libvmi.NewVirtualMachine(libvmi.New(libvmi.WithUefi(false)))
+			vm.Spec.Template.Spec.Domain.Devices.TPM = &virtv1.TPMDevice{}
+		})
+
+		DescribeTable("should", func(expected bool, alter func(vm *virtv1.VirtualMachine)) {
+			alter(vm)
+			Expect(IsBackendStorageNeededForVM(vm)).To(Equal(expected))
+			Expect(IsBackendStorageNeededForVMI(&vm.Spec.Template.Spec)).To(Equal(expected))
+		},
+			Entry("be false when no persistent feature is set", false, func(_ *virtv1.VirtualMachine) {
+			}),
+			Entry("be true when persistent TPM is set", true, func(vm *virtv1.VirtualMachine) {
+				vm.Spec.Template.Spec.Domain.Devices.TPM.Persistent = pointer.P(true)
+			}),
+			Entry("be true when persistent EFI is set", true, func(vm *virtv1.VirtualMachine) {
+				vm.Spec.Template.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
+			}),
+			Entry("be true when persistent TPM and EFI are set", true, func(vm *virtv1.VirtualMachine) {
+				vm.Spec.Template.Spec.Domain.Devices.TPM.Persistent = pointer.P(true)
+				vm.Spec.Template.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
+			}),
+		)
 	})
 })
