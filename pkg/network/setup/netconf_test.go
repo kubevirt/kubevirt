@@ -121,6 +121,7 @@ var _ = Describe("netconf", func() {
 			Name:          testNetworkName,
 			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 		}}
+		vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{{Name: testNetworkName, PodInterfaceName: "eth0"}}
 		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).NotTo(Succeed())
 	})
 

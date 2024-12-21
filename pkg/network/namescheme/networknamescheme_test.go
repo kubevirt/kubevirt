@@ -143,6 +143,70 @@ var _ = Describe("Network Name Scheme", func() {
 		)
 	})
 
+	Context("CreateFromIfaceStatuses", func() {
+		const (
+			networkName1 = "net1"
+			networkName2 = "net2"
+
+			podIfaceName1 = "podIface1"
+			podIfaceName2 = "podIface2"
+		)
+
+		DescribeTable("Should return an empty map",
+			func(networks []virtv1.Network, ifaceStatusesByName map[string]virtv1.VirtualMachineInstanceNetworkInterface) {
+				Expect(namescheme.CreateFromIfaceStatuses(networks, ifaceStatusesByName)).To(BeEmpty())
+			},
+			Entry("when there are no networks and no iface statuses", nil, nil),
+			Entry("when there are no networks",
+				nil, map[string]virtv1.VirtualMachineInstanceNetworkInterface{
+					networkName1: {Name: networkName1},
+					"":           {Name: ""},
+				},
+			),
+		)
+
+		DescribeTable("Should return a map of network name to pod interface name",
+			func(networks []virtv1.Network,
+				ifaceStatusesByName map[string]virtv1.VirtualMachineInstanceNetworkInterface,
+				expectedResult map[string]string,
+			) {
+				Expect(namescheme.CreateFromIfaceStatuses(networks, ifaceStatusesByName)).To(Equal(expectedResult))
+			},
+			Entry("when all networks have a matching pod iface name",
+				[]virtv1.Network{
+					{Name: networkName1},
+					{Name: networkName2},
+				},
+				map[string]virtv1.VirtualMachineInstanceNetworkInterface{
+					networkName1: {Name: networkName1, PodInterfaceName: podIfaceName1},
+					networkName2: {Name: networkName2, PodInterfaceName: podIfaceName2},
+				},
+				map[string]string{networkName1: podIfaceName1, networkName2: podIfaceName2},
+			),
+			Entry("when a network does not have a matching interface status entry",
+				[]virtv1.Network{
+					{Name: networkName1},
+					{Name: networkName2},
+				},
+				map[string]virtv1.VirtualMachineInstanceNetworkInterface{
+					networkName2: {Name: networkName2, PodInterfaceName: podIfaceName2},
+				},
+				map[string]string{networkName1: "", networkName2: podIfaceName2},
+			),
+			Entry("when a network has a matching interface status entry but PodInterfaceName is missing",
+				[]virtv1.Network{
+					{Name: networkName1},
+					{Name: networkName2},
+				},
+				map[string]virtv1.VirtualMachineInstanceNetworkInterface{
+					networkName1: {Name: networkName1, PodInterfaceName: podIfaceName1},
+					networkName2: {Name: networkName2, PodInterfaceName: ""},
+				},
+				map[string]string{networkName1: podIfaceName1, networkName2: ""},
+			),
+		)
+	})
+
 	Context("PodHasOrdinalInterfaceName", func() {
 		DescribeTable("should return TRUE, given network status with ordinal interface names",
 			func(podNetworkStatuses []networkv1.NetworkStatus) {
@@ -177,93 +241,6 @@ var _ = Describe("Network Name Scheme", func() {
 					{Interface: "podb1f51a511f1"},
 					{Interface: "pod16477688c0e"},
 				}),
-		)
-	})
-
-	Context("HashedPodInterfaceName", func() {
-		DescribeTable("should return the given network name's hashed pod interface name",
-			func(network virtv1.Network, expectedPodIfaceName string) {
-				Expect(namescheme.HashedPodInterfaceName(network, []virtv1.VirtualMachineInstanceNetworkInterface{})).To(Equal(expectedPodIfaceName))
-			},
-			Entry("given default network name when default is pod network",
-				newPodNetwork(),
-				"eth0",
-			),
-			Entry("given default network name when default is Multus default network",
-				createMultusDefaultNetwork("overlay-network", "pod-net-br"),
-				"eth0",
-			),
-			Entry("given secondary network name",
-				createMultusSecondaryNetwork("red", "test-br"),
-				"podb1f51a511f1",
-			),
-		)
-	})
-	Context("OrdinalPodInterfaceName", func() {
-		DescribeTable("should return empty string",
-			func(networkName string, networks []virtv1.Network) {
-				Expect(namescheme.OrdinalPodInterfaceName(networkName, networks)).To(BeEmpty())
-			},
-			Entry("given no networks",
-				"red",
-				nil,
-			),
-			Entry("given invalid network name",
-				"blah",
-				[]virtv1.Network{
-					newPodNetwork(),
-					createMultusSecondaryNetwork("blue", "test-br"),
-					createMultusSecondaryNetwork("red", "test-br"),
-				}),
-		)
-
-		DescribeTable("should return ordinal pod interface name",
-			func(networkName string, networks []virtv1.Network, expectedPodIfaceName string) {
-				Expect(namescheme.OrdinalPodInterfaceName(networkName, networks)).To(Equal(expectedPodIfaceName))
-			},
-			Entry("given default network name and default is pod network",
-				"default",
-				[]virtv1.Network{
-					newPodNetwork(),
-					createMultusSecondaryNetwork("blue", "test-br"),
-					createMultusSecondaryNetwork("red", "test-br"),
-				},
-				"eth0",
-			),
-			Entry("given default network name and default is Multus default network",
-				"overlay",
-				[]virtv1.Network{
-					createMultusDefaultNetwork("overlay", "pod-net-br"),
-					createMultusSecondaryNetwork("blue", "test-br"),
-					createMultusSecondaryNetwork("red", "test-br"),
-				},
-				"eth0",
-			),
-			Entry("given secondary network name",
-				"red",
-				[]virtv1.Network{
-					newPodNetwork(),
-					createMultusSecondaryNetwork("blue", "test-br"),
-					createMultusSecondaryNetwork("red", "test-br"),
-				},
-				"net2",
-			),
-			Entry("given secondary network name with different order",
-				"multus01",
-				[]virtv1.Network{
-					createMultusSecondaryNetwork("blue", "test-br"),
-					createMultusSecondaryNetwork("multus01", "test-br"),
-					newPodNetwork(),
-				},
-				"net2",
-			),
-			Entry("given secondary network name, only one secondary network",
-				"multus01",
-				[]virtv1.Network{
-					createMultusSecondaryNetwork("multus01", "test-br"),
-				},
-				"net1",
-			),
 		)
 	})
 })

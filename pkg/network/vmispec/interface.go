@@ -188,3 +188,7 @@ func HasBindingPluginDeviceInfo(iface v1.Interface, bindingPlugins map[string]v1
 	}
 	return false
 }
+
+func HasIfaceStatusOriginatedFromSpec(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
+	return ifaceStatus.Name != ""
+}
