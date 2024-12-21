@@ -52,7 +52,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -83,6 +82,7 @@ func NewController(templateService services.TemplateService,
 	topologyHinter topology.Hinter,
 	netAnnotationsGenerator annotationsGenerator,
 	netStatusUpdater statusUpdater,
+	netSpecValidator specValidator,
 ) (*Controller, error) {
 
 	c := &Controller{
@@ -109,6 +109,7 @@ func NewController(templateService services.TemplateService,
 		backendStorage:          backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
 		netAnnotationsGenerator: netAnnotationsGenerator,
 		updateNetworkStatus:     netStatusUpdater,
+		validateNetworkSpec:     netSpecValidator,
 	}
 
 	c.hasSynced = func() bool {
@@ -178,6 +179,8 @@ type annotationsGenerator interface {
 
 type statusUpdater func(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error
 
+type specValidator func(*k8sfield.Path, *virtv1.VirtualMachineInstanceSpec, *virtconfig.ClusterConfig) []v1.StatusCause
+
 type Controller struct {
 	templateService         services.TemplateService
 	clientset               kubecli.KubevirtClient
@@ -200,6 +203,7 @@ type Controller struct {
 	hasSynced               func() bool
 	netAnnotationsGenerator annotationsGenerator
 	updateNetworkStatus     statusUpdater
+	validateNetworkSpec     specValidator
 }
 
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
@@ -1024,9 +1028,8 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 			return common.NewSyncError(fmt.Errorf(services.FailedToRenderLaunchManifestErrFormat, err), controller.FailedCreatePodReason), pod
 		}
 
-		netValidator := netadmitter.NewValidator(k8sfield.NewPath("spec"), &vmi.Spec, c.clusterConfig)
 		var validateErrors []error
-		for _, cause := range netValidator.ValidateCreation() {
+		for _, cause := range c.validateNetworkSpec(k8sfield.NewPath("spec"), &vmi.Spec, c.clusterConfig) {
 			validateErrors = append(validateErrors, errors.New(cause.String()))
 		}
 		if validateErr := errors.Join(validateErrors...); validateErrors != nil {
