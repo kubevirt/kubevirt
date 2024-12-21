@@ -40,13 +40,13 @@ func GetCurrentKv(virtClient kubecli.KubevirtClient) *v1.KubeVirt {
 func GetKvList(virtClient kubecli.KubevirtClient) []v1.KubeVirt {
 	var kvList *v1.KubeVirtList
 	var err error
+	const eventualTimeout = 10
 
 	gomega.Eventually(func() error {
-
 		kvList, err = virtClient.KubeVirt(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 
 		return err
-	}, 10*time.Second, 1*time.Second).ShouldNot(gomega.HaveOccurred())
+	}, eventualTimeout*time.Second, 1*time.Second).ShouldNot(gomega.HaveOccurred())
 
 	return kvList.Items
 }
