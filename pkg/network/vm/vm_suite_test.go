@@ -17,7 +17,7 @@
  *
  */
 
-package network_test
+package vm_test
 
 import (
 	"testing"
@@ -25,6 +25,6 @@ import (
 	"kubevirt.io/client-go/testutils"
 )
 
-func TestNetwork(t *testing.T) {
+func TestVM(t *testing.T) {
 	testutils.KubeVirtTestSuiteSetup(t)
 }
