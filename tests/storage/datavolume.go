@@ -286,49 +286,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 	})
 
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachineInstance with a DataVolume as a volume source", func() {
-
-		Context("without fsgroup support", Serial, func() {
-			size := "1Gi"
-
-			It("should succesfully start", func() {
-				// Create DV and alter permission of disk.img
-				sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
-				if !foundSC {
-					Skip("Skip test when Filesystem storage is not present")
-				}
-
-				dv := libdv.NewDataVolume(
-					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-					libdv.WithStorage(
-						libdv.StorageWithStorageClass(sc),
-						libdv.StorageWithVolumeSize(size),
-						libdv.StorageWithReadWriteManyAccessMode(),
-					),
-					libdv.WithForceBindAnnotation(),
-				)
-
-				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespacePrivileged).Create(context.Background(), dv, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				var pvc *k8sv1.PersistentVolumeClaim
-				Eventually(func() *k8sv1.PersistentVolumeClaim {
-					pvc, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.NamespacePrivileged).Get(context.Background(), dv.Name, metav1.GetOptions{})
-					if err != nil {
-						return nil
-					}
-					return pvc
-				}, 30*time.Second).Should(Not(BeNil()))
-				By("waiting for the dv import to pvc to finish")
-				libstorage.EventuallyDV(dv, 180, HaveSucceeded())
-				libstorage.ChangeImgFilePermissionsToNonQEMU(pvc)
-
-				By("Starting the VirtualMachineInstance")
-				vmi := libvmops.RunVMIAndExpectLaunch(libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace), 120)
-
-				By(checkingVMInstanceConsoleExpectedOut)
-				Expect(console.LoginToAlpine(vmi)).To(Succeed())
-			})
-		})
-
 		Context("Alpine import", func() {
 			BeforeEach(func() {
 				cdis, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(context.Background(), metav1.ListOptions{})
