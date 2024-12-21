@@ -131,27 +131,27 @@ var _ = SIGMigrationDescribe("Live Migrate A Paused VMI", func() {
 						// Need to wait for cloud init to finish and start the agent inside the vmi.
 						Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-						runStressTest(vmi, "350M", stressDefaultSleepDuration)
+						runStressTest(vmi, "350M")
 
 						By("Starting the Migration")
 						migration := libmigration.New(vmi.Name, vmi.Namespace)
 						migration = libmigration.RunMigration(virtClient, migration)
 
 						// check VMI, confirm migration state
-						libmigration.WaitUntilMigrationMode(virtClient, vmi, v1.MigrationPaused, 300)
+						libmigration.WaitUntilMigrationMode(virtClient, vmi, v1.MigrationPaused, 5*time.Minute)
 
 						if expectSuccess {
 							libmigration.ExpectMigrationToSucceed(virtClient, migration, 100)
 						} else {
-							Eventually(matcher.ThisMigration(migration), 150, 1*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed))
+							Eventually(matcher.ThisMigration(migration), 150*time.Second, 1*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed))
 						}
 
 						By("Making sure that the VMI is unpaused")
 						Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 
 					},
-						Entry("[QUARANTINE] migrate successfully (migration policy)", decorators.Quarantine, expectSuccess, "50Mi", applyWithMigrationPolicy),
-						Entry("[QUARANTINE] migrate successfully (CR change)", Serial, decorators.Quarantine, expectSuccess, "50Mi", applyWithKubevirtCR),
+						Entry("migrate successfully (migration policy)", expectSuccess, "10Mi", applyWithMigrationPolicy),
+						Entry("migrate successfully (CR change)", Serial, expectSuccess, "10Mi", applyWithKubevirtCR),
 						Entry("[QUARANTINE] fail migration", decorators.Quarantine, expectFailure, "1Mi", applyWithMigrationPolicy),
 					)
 				})
