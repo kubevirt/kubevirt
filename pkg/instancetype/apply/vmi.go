@@ -25,6 +25,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 )
 
@@ -48,28 +49,29 @@ func (a *vmiApplier) ApplyToVMI(
 	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 	vmiMetadata *metav1.ObjectMeta,
-) (conflicts Conflicts) {
+) conflict.Conflicts {
 	if instancetypeSpec == nil && preferenceSpec == nil {
-		return
+		return nil
 	}
 
 	if instancetypeSpec != nil {
-		conflicts = append(conflicts, applyNodeSelector(field, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applySchedulerName(field, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyCPU(field, instancetypeSpec, preferenceSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyMemory(field, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyIOThreadPolicy(field, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyLaunchSecurity(field, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyGPUs(field, instancetypeSpec, vmiSpec)...)
-		conflicts = append(conflicts, applyHostDevices(field, instancetypeSpec, vmiSpec)...)
+		baseConflict := conflict.NewFromPath(field)
+		conflicts := conflict.Conflicts{}
+		conflicts = append(conflicts, applyNodeSelector(baseConflict, instancetypeSpec, vmiSpec)...)
+		conflicts = append(conflicts, applySchedulerName(baseConflict, instancetypeSpec, vmiSpec)...)
+		conflicts = append(conflicts, applyCPU(baseConflict, instancetypeSpec, preferenceSpec, vmiSpec)...)
+		conflicts = append(conflicts, applyMemory(baseConflict, instancetypeSpec, vmiSpec)...)
+		conflicts = append(conflicts, applyIOThreadPolicy(baseConflict, instancetypeSpec, vmiSpec)...)
+		conflicts = append(conflicts, applyLaunchSecurity(baseConflict, instancetypeSpec, vmiSpec)...)
+		conflicts = append(conflicts, applyGPUs(baseConflict, instancetypeSpec, vmiSpec)...)
+		conflicts = append(conflicts, applyHostDevices(baseConflict, instancetypeSpec, vmiSpec)...)
 		conflicts = append(conflicts, applyInstanceTypeAnnotations(instancetypeSpec.Annotations, vmiMetadata)...)
-	}
-
-	if len(conflicts) > 0 {
-		return
+		if len(conflicts) > 0 {
+			return conflicts
+		}
 	}
 
 	a.preferenceApplier.Apply(preferenceSpec, vmiSpec, vmiMetadata)
 
-	return
+	return nil
 }
