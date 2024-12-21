@@ -20,9 +20,11 @@
 package ssh
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -31,6 +33,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/portforward"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
@@ -139,7 +142,7 @@ func (o *SSH) Run(cmd *cobra.Command, args []string) error {
 func PrepareCommand(cmd *cobra.Command, clientConfig clientcmd.ClientConfig, opts *SSHOptions, args []string) (kind, namespace, name string, err error) {
 	opts.IdentityFilePathProvided = cmd.Flags().Changed(IdentityFilePathFlag)
 	var targetUsername string
-	kind, namespace, name, targetUsername, err = templates.ParseSSHTarget(args[0])
+	kind, namespace, name, targetUsername, err = ParseTarget(args[0])
 	if err != nil {
 		return
 	}
@@ -184,4 +187,26 @@ func defaultUsername() string {
 		}
 	}
 	return ""
+}
+
+// ParseTarget SSH Target argument supporting the form of username@vmi/name.namespace (or simpler)
+func ParseTarget(arg string) (string, string, string, string, error) {
+	kind := "vmi"
+	username := ""
+
+	usernameAndTarget := strings.Split(arg, "@")
+	if len(usernameAndTarget) > 1 {
+		username = usernameAndTarget[0]
+		if username == "" {
+			return "", "", "", "", errors.New("expected username before '@'")
+		}
+		arg = usernameAndTarget[1]
+	}
+
+	if arg == "" {
+		return "", "", "", "", errors.New("expected target after '@'")
+	}
+
+	kind, namespace, name, err := portforward.ParseTarget(arg)
+	return kind, namespace, name, username, err
 }
