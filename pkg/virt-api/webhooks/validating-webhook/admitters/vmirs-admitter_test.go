@@ -41,6 +41,46 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 	vmirsAdmitter := &VMIRSAdmitter{ClusterConfig: config}
 
+	It("when a validator pass, should allow request", func() {
+		admitter := &VMIRSAdmitter{ClusterConfig: config, Validators: []Validator{validatorStub{}}}
+		vmirs := newTestVMIRS()
+
+		bytes, err := json.Marshal(vmirs)
+		Expect(err).ToNot(HaveOccurred())
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Resource: webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource,
+				Object: runtime.RawExtension{
+					Raw: bytes,
+				},
+			},
+		}
+
+		resp := admitter.Admit(context.Background(), ar)
+		Expect(resp.Allowed).To(BeTrue())
+	})
+	It("when a validator fail, should reject request", func() {
+		expectedStatusCause := []metav1.StatusCause{{Type: "test", Message: "test", Field: "test"}}
+		testValidator := validatorStub{statusCauses: expectedStatusCause}
+		admitter := &VMIRSAdmitter{ClusterConfig: config, Validators: []Validator{testValidator}}
+		vmirs := newTestVMIRS()
+
+		bytes, err := json.Marshal(vmirs)
+		Expect(err).ToNot(HaveOccurred())
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Resource: webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource,
+				Object: runtime.RawExtension{
+					Raw: bytes,
+				},
+			},
+		}
+
+		resp := admitter.Admit(context.Background(), ar)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result.Details.Causes).To(Equal(expectedStatusCause))
+	})
+
 	DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {
 		input := map[string]interface{}{}
 		json.Unmarshal([]byte(data), &input)
@@ -142,6 +182,22 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 		Expect(resp.Allowed).To(BeTrue())
 	})
 })
+
+func newTestVMIRS() v1.VirtualMachineInstanceReplicaSet {
+	return v1.VirtualMachineInstanceReplicaSet{
+		Spec: v1.VirtualMachineInstanceReplicaSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"test": ""},
+			},
+			Template: &v1.VirtualMachineInstanceTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"test": ""},
+				},
+				Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}},
+			},
+		},
+	}
+}
 
 type virtualMachineBuilder struct {
 	disks   []v1.Disk
