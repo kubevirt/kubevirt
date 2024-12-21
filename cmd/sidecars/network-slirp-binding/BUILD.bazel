@@ -22,27 +22,35 @@ go_binary(
     visibility = ["//visibility:public"],
 )
 
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_image",
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("@rules_oci//oci:defs.bzl", "oci_image")
+
+pkg_tar(
+    name = "get-version",
+    srcs = ["//:get-version"],
+    package_dir = "/",
 )
 
-container_image(
+pkg_tar(
+    name = "network-slirp-binding-tar",
+    srcs = [":network-slirp-binding"],
+    package_dir = "/",
+)
+
+oci_image(
     name = "version-container",
     base = "//:passwd-image",
-    directory = "/",
-    files = ["//:get-version"],
+    tars = [
+        ":get-version",
+    ],
 )
 
-container_image(
+oci_image(
     name = "network-slirp-binding-image",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "//conditions:default": "amd64",
-    }),
     base = ":version-container",
-    directory = "/",
     entrypoint = ["/network-slirp-binding"],
-    files = [":network-slirp-binding"],
+    tars = [
+        ":network-slirp-binding-tar",
+    ],
     visibility = ["//visibility:public"],
 )
