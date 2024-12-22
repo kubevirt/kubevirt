@@ -30,6 +30,7 @@ cp -R /images/* /hostImages/
 echo "make the alpine image ready for parallel use"
 for ((n = 1; n <= $(($NUM_TEST_IMAGE_REPLICAS)); n++)); do
     cp -r /hostImages/alpine hostImages/alpine${n}
+    cp -r /hostImages/alpine hostImages/alpine-nopriv${n}
 done
 rm -rf /hostImages/alpine
 mkdir -p /local-storage/hotplug-test
@@ -42,6 +43,10 @@ for ((n = 1; n <= $(($NUM_TEST_IMAGE_REPLICAS)); n++)); do
 done
 rm -rf /hostImages/custom
 chmod -R 777 /hostImages
+for ((n = 1; n <= $(($NUM_TEST_IMAGE_REPLICAS)); n++)); do
+    chmod 640 /hostImages/alpine-nopriv${n}/disk.img
+    chown root:root /hostImages/alpine-nopriv${n}/disk.img
+done
 
 # Create a 4Gi blank disk image
 dd if=/dev/zero of=/local-storage/hp_file.img bs=4k count=1024k

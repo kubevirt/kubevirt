@@ -54,7 +54,6 @@ case ${ARCHITECTURE} in
         alpine-with-test-tooling-container-disk
         fedora-realtime-container-disk
         disks-images-provider
-        nfs-server
         winrmcli
         network-slirp-binding
         network-passt-binding
