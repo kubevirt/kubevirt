@@ -161,7 +161,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 
 	})
 
-	Describe("VM instance migration", func() {
+	Describe("VM instance migration", decorators.RequiresTwoSchedulableNodes, func() {
 		var virtClient kubecli.KubevirtClient
 
 		BeforeEach(func() {

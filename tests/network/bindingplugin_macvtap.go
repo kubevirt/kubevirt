@@ -111,7 +111,7 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 		Expect(libnet.PingFromVMConsole(clientVMI, serverIPAddr)).To(Succeed())
 	})
 
-	Context("VMI migration", func() {
+	Context("VMI migration", decorators.RequiresTwoSchedulableNodes, func() {
 		var clientVMI *v1.VirtualMachineInstance
 
 		BeforeEach(func() {

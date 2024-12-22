@@ -55,7 +55,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGMigrationDescribe("Live Migration", func() {
+var _ = SIGMigrationDescribe("Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {

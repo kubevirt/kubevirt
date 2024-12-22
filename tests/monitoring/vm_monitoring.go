@@ -167,7 +167,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 		})
 	})
 
-	Context("VM migration metrics", func() {
+	Context("VM migration metrics", decorators.RequiresTwoSchedulableNodes, func() {
 		var nodes *corev1.NodeList
 
 		BeforeEach(func() {

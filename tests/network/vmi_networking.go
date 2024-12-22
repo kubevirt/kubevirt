@@ -588,7 +588,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			})
 		})
 
-		When("performing migration", func() {
+		When("performing migration", decorators.RequiresTwoSchedulableNodes, func() {
 			var vmi *v1.VirtualMachineInstance
 
 			ping := func(ipAddr string) error {

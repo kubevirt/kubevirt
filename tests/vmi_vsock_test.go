@@ -120,7 +120,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			}
 		}
 
-		It("should retain the CID for migration target", func() {
+		It("should retain the CID for migration target", decorators.RequiresTwoSchedulableNodes, func() {
 			By("Creating a VMI with VSOCK enabled")
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)

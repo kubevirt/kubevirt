@@ -104,7 +104,7 @@ const (
 	stressDefaultSleepDuration = 15
 )
 
-var _ = SIGMigrationDescribe("VM Live Migration", func() {
+var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
 	var (
 		virtClient              kubecli.KubevirtClient
 		migrationBandwidthLimit resource.Quantity

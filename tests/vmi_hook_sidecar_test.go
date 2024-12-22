@@ -223,7 +223,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 					fmt.Sprintf("container %s should terminate", sidecarContainerName))
 			})
 
-			DescribeTable("migrate VMI with sidecar", func(hookVersion string, sidecarShouldTerminate bool) {
+			DescribeTable("migrate VMI with sidecar", decorators.RequiresTwoSchedulableNodes, func(hookVersion string, sidecarShouldTerminate bool) {
 				vmi.ObjectMeta.Annotations = RenderSidecar(hookVersion)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 360)
 
