@@ -3015,14 +3015,14 @@ Version: 1.2.3`)
 					Expect(kv.Spec.Workloads).To(BeNil())
 				})
 
-				It("should not set replica with SingleReplica ControlPlane but HighAvailable Infrastructure ", func() {
+				It("should set replica=1 with SingleReplica ControlPlane and HighAvailable Infrastructure ", func() {
 					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
 						return &commontestutils.ClusterInfoSRCPHAIMock{}
 					}
 					kv, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(kv.Spec.Infra).To(Not(BeNil()))
-					Expect(kv.Spec.Infra.Replicas).To(BeNil())
+					Expect(*kv.Spec.Infra.Replicas).To(Equal(uint8(1)))
 					Expect(kv.Spec.Workloads).To(BeNil())
 				})
 
@@ -3059,13 +3059,15 @@ Version: 1.2.3`)
 					Expect(kv.Spec.Workloads.Replicas).To(BeNil())
 				})
 
-				It("should not set replica with SingleReplica ControlPlane but HighAvailable Infrastructure ", func() {
+				It("should set replica=1 with SingleReplica ControlPlane but HighAvailable Infrastructure ", func() {
 					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
 						return &commontestutils.ClusterInfoSRCPHAIMock{}
 					}
 					kv, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(kv.Spec.Infra).To(BeNil())
+					Expect(kv.Spec.Infra).To(Not(BeNil()))
+					Expect(kv.Spec.Infra.Replicas).To(Not(BeNil()))
+					Expect(*kv.Spec.Infra.Replicas).To(Equal(uint8(1)))
 					Expect(kv.Spec.Workloads).To(Not(BeNil()))
 					Expect(kv.Spec.Workloads.Replicas).To(BeNil())
 				})
@@ -3098,13 +3100,15 @@ Version: 1.2.3`)
 					Expect(kv.Spec.Workloads).To(BeNil())
 				})
 
-				It("should not set replica with SingleReplica ControlPlane but HighAvailable Infrastructure ", func() {
+				It("should set replica=1 with SingleReplica ControlPlane but HighAvailable Infrastructure ", func() {
 					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
 						return &commontestutils.ClusterInfoSRCPHAIMock{}
 					}
 					kv, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(kv.Spec.Infra).To(BeNil())
+					Expect(kv.Spec.Infra).To(Not(BeNil()))
+					Expect(kv.Spec.Infra.Replicas).To(Not(BeNil()))
+					Expect(*kv.Spec.Infra.Replicas).To(Equal(uint8(1)))
 					Expect(kv.Spec.Workloads).To(BeNil())
 				})
 
@@ -3143,14 +3147,14 @@ Version: 1.2.3`)
 					Expect(kv.Spec.Workloads.Replicas).To(BeNil())
 				})
 
-				It("should not set replica with SingleReplica ControlPlane but HighAvailable Infrastructure ", func() {
+				It("should set replica=1 with SingleReplica ControlPlane and HighAvailable Infrastructure ", func() {
 					hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
 						return &commontestutils.ClusterInfoSRCPHAIMock{}
 					}
 					kv, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(kv.Spec.Infra).To(Not(BeNil()))
-					Expect(kv.Spec.Infra.Replicas).To(BeNil())
+					Expect(*kv.Spec.Infra.Replicas).To(Equal(uint8(1)))
 					Expect(kv.Spec.Workloads).To(Not(BeNil()))
 					Expect(kv.Spec.Workloads.Replicas).To(BeNil())
 				})

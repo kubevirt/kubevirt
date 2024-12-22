@@ -32,6 +32,7 @@ type ClusterInfo interface {
 	GetBaseDomain() string
 	IsManagedByOLM() bool
 	IsControlPlaneHighlyAvailable() bool
+	IsControlPlaneNodeExists() bool
 	IsInfrastructureHighlyAvailable() bool
 	SetHighAvailabilityMode(ctx context.Context, cl client.Client) error
 	IsConsolePluginImageProvided() bool
@@ -53,6 +54,7 @@ type ClusterInfoImp struct {
 	managedByOLM                  bool
 	runningLocally                bool
 	controlPlaneHighlyAvailable   atomic.Bool
+	controlPlaneNodeExist         atomic.Bool
 	infrastructureHighlyAvailable atomic.Bool
 	consolePluginImageProvided    bool
 	monitoringAvailable           bool
@@ -205,6 +207,10 @@ func (c *ClusterInfoImp) IsControlPlaneHighlyAvailable() bool {
 	return c.controlPlaneHighlyAvailable.Load()
 }
 
+func (c *ClusterInfoImp) IsControlPlaneNodeExists() bool {
+	return c.controlPlaneNodeExist.Load()
+}
+
 func (c *ClusterInfoImp) IsInfrastructureHighlyAvailable() bool {
 	return c.infrastructureHighlyAvailable.Load()
 }
@@ -217,6 +223,7 @@ func (c *ClusterInfoImp) SetHighAvailabilityMode(ctx context.Context, cl client.
 	}
 
 	c.controlPlaneHighlyAvailable.Store(masterNodeCount >= 3)
+	c.controlPlaneNodeExist.Store(masterNodeCount >= 1)
 	c.infrastructureHighlyAvailable.Store(workerNodeCount >= 2)
 	return nil
 }

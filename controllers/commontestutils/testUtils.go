@@ -294,6 +294,9 @@ func (ClusterInfoMock) IsManagedByOLM() bool {
 func (ClusterInfoMock) IsControlPlaneHighlyAvailable() bool {
 	return true
 }
+func (ClusterInfoMock) IsControlPlaneNodeExists() bool {
+	return true
+}
 func (ClusterInfoMock) IsInfrastructureHighlyAvailable() bool {
 	return true
 }
@@ -366,6 +369,9 @@ func (ClusterInfoSNOMock) IsManagedByOLM() bool {
 func (ClusterInfoSNOMock) IsControlPlaneHighlyAvailable() bool {
 	return false
 }
+func (ClusterInfoSNOMock) IsControlPlaneNodeExists() bool {
+	return true
+}
 func (ClusterInfoSNOMock) IsInfrastructureHighlyAvailable() bool {
 	return false
 }
@@ -437,6 +443,9 @@ func (ClusterInfoSRCPHAIMock) IsManagedByOLM() bool {
 }
 func (ClusterInfoSRCPHAIMock) IsControlPlaneHighlyAvailable() bool {
 	return false
+}
+func (ClusterInfoSRCPHAIMock) IsControlPlaneNodeExists() bool {
+	return true
 }
 func (ClusterInfoSRCPHAIMock) IsInfrastructureHighlyAvailable() bool {
 	return true
