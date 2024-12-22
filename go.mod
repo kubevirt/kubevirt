@@ -28,7 +28,7 @@ require (
 	github.com/prometheus/common v0.57.0
 	github.com/samber/lo v1.47.0
 	github.com/spf13/pflag v1.0.5
-	golang.org/x/sync v0.8.0
+	golang.org/x/sync v0.10.0
 	golang.org/x/tools v0.24.0
 	gomodules.xyz/jsonpatch/v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -92,9 +92,9 @@ require (
 	golang.org/x/mod v0.20.0 // indirect
 	golang.org/x/net v0.28.0 // indirect
 	golang.org/x/oauth2 v0.22.0 // indirect
-	golang.org/x/sys v0.24.0 // indirect
-	golang.org/x/term v0.23.0 // indirect
-	golang.org/x/text v0.17.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
+	golang.org/x/term v0.27.0 // indirect
+	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/time v0.6.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
@@ -203,5 +203,5 @@ replace (
 // FIX: Unhandled exception in gopkg.in/yaml.v3
 replace gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
 
-// FIX: CVE-2023-45288
-replace golang.org/x/net => golang.org/x/net v0.23.0
+// Fix CVE-2024-45338
+replace golang.org/x/net => golang.org/x/net v0.33.0
