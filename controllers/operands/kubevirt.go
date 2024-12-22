@@ -813,9 +813,9 @@ func hcoConfig2KvConfig(hcoConfig hcov1beta1.HyperConvergedConfig, controlPlaneH
 		kvConfig.Replicas = ptr.To[uint8](1)
 	}
 
-	// In case there are no worker nodes, we're setting an empty struct for NodePlacement
-	// so that kubevirt control plane pods won't have any affinity rules, and they could get
-	// scheduled onto worker nodes.
+	// In case there are no control plane / master nodes in the cluster, we're setting
+	// an empty struct for NodePlacement so that kubevirt control plane pods won't have
+	// any affinity rules, and they could get scheduled onto worker nodes.
 	if hcoConfig.NodePlacement == nil && !controlPlaneNodeExists {
 		kvConfig.NodePlacement = &kubevirtcorev1.NodePlacement{}
 		return kvConfig
