@@ -215,8 +215,8 @@ var _ = Describe("[sig-compute]SwapTest", Serial, decorators.SigCompute, func() 
 })
 
 func getMemInfoByString(node v1.Node, field string) int {
-	stdout, stderr, err := libnode.ExecuteCommandOnNodeThroughVirtHandler(node.Name, []string{"grep", field, "/proc/meminfo"})
-	ExpectWithOffset(2, err).ToNot(HaveOccurred(), fmt.Sprintf("stderr: %v \n", stderr))
+	stdout, err := libnode.ExecuteCommandInVirtHandlerPod(node.Name, []string{"grep", field, "/proc/meminfo"})
+	ExpectWithOffset(2, err).ToNot(HaveOccurred())
 	fields := strings.Fields(stdout)
 	size, err := strconv.Atoi(fields[1])
 	ExpectWithOffset(2, err).ToNot(HaveOccurred())
