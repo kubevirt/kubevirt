@@ -452,21 +452,25 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	})
 
 	Context("with VirtualMachineInstance spec", func() {
-		It("should accept valid machine type", func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			if webhooks.IsPPC64(&vmi.Spec) {
-				vmi.Spec.Domain.Machine = &v1.Machine{Type: "pseries"}
-			} else if webhooks.IsARM64(&vmi.Spec) {
-				vmi.Spec.Domain.Machine = &v1.Machine{Type: "virt"}
-			} else if webhooks.IsS390X(&vmi.Spec) {
-				vmi.Spec.Domain.Machine = &v1.Machine{Type: "s390-ccw-virtio"}
-			} else {
-				vmi.Spec.Domain.Machine = &v1.Machine{Type: "q35"}
-			}
+		DescribeTable("should accept valid machine type", func(arch, machineType string) {
+			enableFeatureGate(virtconfig.MultiArchitecture)
+			vmi := newBaseVmi(
+				libvmi.WithArchitecture(arch),
+				withMachine(&v1.Machine{Type: machineType}),
+			)
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(BeEmpty())
-		})
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue())
+			Expect(resp.Result).To(BeNil())
+		},
+			Entry("when arch is ppc64le", "ppc64le", "pseries"),
+			Entry("when arch is arm64", "arm64", "virt"),
+			Entry("when arch is s390x", "s390x", "s390-ccw-virtio"),
+			Entry("when arch is amd64", "amd64", "q35"),
+		)
 		It("should reject invalid machine type", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Machine = &v1.Machine{Type: "test"}
@@ -4253,5 +4257,11 @@ func withReadinessProbe(probe *v1.Probe) libvmi.Option {
 func withLivenessProbe(probe *v1.Probe) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.LivenessProbe = probe
+	}
+}
+
+func withMachine(machine *v1.Machine) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Machine = machine
 	}
 }
