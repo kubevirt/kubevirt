@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -190,7 +191,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateProbe(field.Child("readinessProbe"), spec.ReadinessProbe)...)
 	causes = append(causes, validateProbe(field.Child("livenessProbe"), spec.LivenessProbe)...)
 
-	if getNumberOfPodInterfaces(spec) < 1 {
+	if podNetwork := vmispec.LookupPodNetwork(spec.Networks); podNetwork == nil {
 		causes = appendStatusCauseForProbeNotAllowedWithNoPodNetworkPresent(field.Child("readinessProbe"), spec.ReadinessProbe, causes)
 		causes = appendStatusCauseForProbeNotAllowedWithNoPodNetworkPresent(field.Child("livenessProbe"), spec.LivenessProbe, causes)
 	}
@@ -1822,21 +1823,6 @@ func validateDevices(field *k8sfield.Path, devices *v1.Devices) []metav1.StatusC
 	var causes []metav1.StatusCause
 	causes = append(causes, validateDisks(field.Child("disks"), devices.Disks)...)
 	return causes
-}
-
-func getNumberOfPodInterfaces(spec *v1.VirtualMachineInstanceSpec) int {
-	nPodInterfaces := 0
-	for _, net := range spec.Networks {
-		if net.Pod != nil {
-			for _, iface := range spec.Domain.Devices.Interfaces {
-				if iface.Name == net.Name {
-					nPodInterfaces++
-					break // we maintain 1-to-1 relationship between networks and interfaces
-				}
-			}
-		}
-	}
-	return nPodInterfaces
 }
 
 func validateDiskName(field *k8sfield.Path, idx int, disks []v1.Disk) []metav1.StatusCause {
