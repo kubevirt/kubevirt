@@ -23,8 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	v1 "kubevirt.io/api/core/v1"
-
-	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 type clusterConfigChecker interface {
@@ -38,8 +36,6 @@ type Validator struct {
 	field         *k8sfield.Path
 	vmiSpec       *v1.VirtualMachineInstanceSpec
 	configChecker clusterConfigChecker
-
-	networkByName map[string]v1.Network
 }
 
 func NewValidator(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, configChecker clusterConfigChecker) *Validator {
@@ -47,7 +43,6 @@ func NewValidator(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, 
 		field:         field,
 		vmiSpec:       vmiSpec,
 		configChecker: configChecker,
-		networkByName: netvmispec.IndexNetworkSpecByName(vmiSpec.Networks),
 	}
 }
 
@@ -80,4 +75,12 @@ func (v Validator) ValidateCreation() []metav1.StatusCause {
 func ValidateCreation(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg clusterConfigChecker) []metav1.StatusCause {
 	networkValidator := NewValidator(field, vmiSpec, clusterCfg)
 	return networkValidator.ValidateCreation()
+}
+
+func Validate(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg clusterConfigChecker) []metav1.StatusCause {
+	netValidator := NewValidator(field, vmiSpec, clusterCfg)
+	var statusCauses []metav1.StatusCause
+	statusCauses = append(statusCauses, netValidator.ValidateCreation()...)
+	statusCauses = append(statusCauses, netValidator.Validate()...)
+	return statusCauses
 }
