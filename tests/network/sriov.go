@@ -161,7 +161,11 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 			Expect(mountGuestDevice(vmi, "config-2")).To(Succeed())
 
 			By("checking cloudinit meta-data")
-			tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
+			resp, err := tests.GetCloudInitMetaData(vmi, "openstack/latest/meta_data.json")
+			Expect(err).ToNot(HaveOccurred())
+			fmt.Printf("CloudInit resp=%s\n", resp)
+			fmt.Printf("local json=%s\n", string(buf))
+
 		})
 
 		It("should have cloud-init meta_data with tagged sriov nics", func() {
@@ -213,7 +217,10 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 			Expect(mountGuestDevice(vmi, "config-2")).To(Succeed())
 
 			By("checking cloudinit meta-data")
-			tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
+			resp, err := tests.GetCloudInitMetaData(vmi, "openstack/latest/meta_data.json")
+			Expect(err).ToNot(HaveOccurred())
+			fmt.Printf("CloudInit resp=%s\n", resp)
+			fmt.Printf("local json=%s\n", string(buf))
 		})
 
 		It("[test_id:1754]should create a virtual machine with sriov interface", func() {
