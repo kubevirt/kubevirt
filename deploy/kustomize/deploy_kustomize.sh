@@ -4,8 +4,8 @@ set -x
 
 # Setup Environment Variables
 HCO_VERSION="${HCO_VERSION:-}"
-HCO_CHANNEL="${HCO_CHANNEL:-candidate-v1.14}"
-HCO_INDEX_IMAGE="${HCO_INDEX_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-index:1.14.0-unstable}"
+HCO_CHANNEL="${HCO_CHANNEL:-candidate-v1.15}"
+HCO_INDEX_IMAGE="${HCO_INDEX_IMAGE:-quay.io/kubevirt/hyperconverged-cluster-index:1.15.0-unstable}"
 MARKETPLACE_MODE="${MARKETPLACE_MODE:-true}"
 PRIVATE_REPO="${PRIVATE_REPO:-false}"
 QUAY_USERNAME="${QUAY_USERNAME:-}"
