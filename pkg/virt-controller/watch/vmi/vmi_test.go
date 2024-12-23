@@ -39,6 +39,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -232,6 +233,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, config),
 			stubNetworkAnnotationsGenerator{},
 			stubNetStatusUpdate,
+			validateNetVMISpecStub(),
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
@@ -765,6 +767,24 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			expectPodAnnotations(pod, Not(HaveKeyWithValue(key1, value1)), Not(HaveKeyWithValue(key2, value2)))
 		})
+	})
+
+	It("should fail which when network VMI spec validator fail", func() {
+		controller.validateNetworkSpec = validateNetVMISpecStub(metav1.StatusCause{Type: "test", Message: "test", Field: "test"})
+
+		vmi := newPendingVirtualMachine("testvmi")
+		addVirtualMachine(vmi)
+
+		sanityExecute()
+
+		vmi, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vmi.Status.Conditions).To(SatisfyAll(ContainElement(MatchFields(IgnoreExtras, Fields{
+			"Type":    Equal(virtv1.VirtualMachineInstanceSynchronized),
+			"Status":  Equal(k8sv1.ConditionFalse),
+			"Reason":  Equal("FailedCreateValidation"),
+			"Message": Equal("failed create validation: &StatusCause{Type:test,Message:test,Field:test,}"),
+		}))))
 	})
 
 	Context("On valid VirtualMachineInstance given", func() {
@@ -3801,4 +3821,10 @@ type stubNetworkAnnotationsGenerator struct {
 
 func (s stubNetworkAnnotationsGenerator) GenerateFromActivePod(_ *virtv1.VirtualMachineInstance, _ *k8sv1.Pod) map[string]string {
 	return s.annotations
+}
+
+func validateNetVMISpecStub(causes ...metav1.StatusCause) func(*k8sfield.Path, *virtv1.VirtualMachineInstanceSpec, *virtconfig.ClusterConfig) []metav1.StatusCause {
+	return func(*k8sfield.Path, *virtv1.VirtualMachineInstanceSpec, *virtconfig.ClusterConfig) []metav1.StatusCause {
+		return causes
+	}
 }
