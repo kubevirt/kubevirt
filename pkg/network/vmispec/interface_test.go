@@ -29,7 +29,6 @@ import (
 )
 
 var _ = Describe("VMI network spec", func() {
-
 	Context("pod network", func() {
 		const podNet0 = "podnet0"
 
@@ -69,11 +68,11 @@ var _ = Describe("VMI network spec", func() {
 		})
 
 		It("finds two SR-IOV interfaces in list", func() {
-			sriov_net1 := v1.Interface{
+			sriovNet1 := v1.Interface{
 				Name:                   "sriov-net1",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
 			}
-			sriov_net2 := v1.Interface{
+			sriovNet2 := v1.Interface{
 				Name:                   "sriov-net2",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
 			}
@@ -83,11 +82,11 @@ var _ = Describe("VMI network spec", func() {
 					Name:                   "masq-net0",
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 				},
-				sriov_net1,
-				sriov_net2,
+				sriovNet1,
+				sriovNet2,
 			}
 
-			Expect(netvmispec.FilterSRIOVInterfaces(ifaces)).To(Equal([]v1.Interface{sriov_net1, sriov_net2}))
+			Expect(netvmispec.FilterSRIOVInterfaces(ifaces)).To(Equal([]v1.Interface{sriovNet1, sriovNet2}))
 			Expect(netvmispec.SRIOVInterfaceExist(ifaces)).To(BeTrue())
 		})
 	})
@@ -208,15 +207,16 @@ var _ = Describe("VMI network spec", func() {
 				)
 				Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).To(Succeed())
 			})
-			It("should allow migration if the VMI use bridge to connect to the pod network and has AllowLiveMigrationBridgePodNetwork annotation", func() {
-				network := podNetwork(podNet0)
-				vmi := libvmi.New(
-					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-					libvmi.WithNetwork(&network),
-					libvmi.WithAnnotation(v1.AllowPodBridgeNetworkLiveMigrationAnnotation, ""),
-				)
-				Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).To(Succeed())
-			})
+			It("should allow migration if the VMI use bridge to connect to the pod network and has AllowLiveMigrationBridgePodNetwork annotation",
+				func() {
+					network := podNetwork(podNet0)
+					vmi := libvmi.New(
+						libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+						libvmi.WithNetwork(&network),
+						libvmi.WithAnnotation(v1.AllowPodBridgeNetworkLiveMigrationAnnotation, ""),
+					)
+					Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).To(Succeed())
+				})
 			It("should allow migration if the VMI use migratable binding plugin to connect to the pod network", func() {
 				network := podNetwork(podNet0)
 				vmi := libvmi.New(
