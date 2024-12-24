@@ -91,41 +91,6 @@ var _ = Describe("VMI network spec", func() {
 		})
 	})
 
-	const iface1, iface2 = "iface1", "iface2"
-
-	Context("pop interface by network", func() {
-		const netName = "net1"
-		network := podNetwork(netName)
-		expectedStatusIfaces := vmiStatusInterfaces(iface1, iface2)
-
-		It("has no network", func() {
-			statusIface, statusIfaces := netvmispec.PopInterfaceByNetwork(vmiStatusInterfaces(iface1, iface2), nil)
-			Expect(statusIface).To(BeNil())
-			Expect(statusIfaces).To(Equal(expectedStatusIfaces))
-		})
-
-		It("has no interfaces", func() {
-			statusIface, _ := netvmispec.PopInterfaceByNetwork(nil, &network)
-			Expect(statusIface).To(BeNil())
-		})
-
-		It("interface not found", func() {
-			statusIface, _ := netvmispec.PopInterfaceByNetwork(vmiStatusInterfaces(iface1, iface2), &network)
-			Expect(statusIface).To(BeNil())
-		})
-
-		DescribeTable("pop interface from position", func(statusIfaces []v1.VirtualMachineInstanceNetworkInterface) {
-			expectedStatusIface := v1.VirtualMachineInstanceNetworkInterface{Name: netName}
-			statusIface, statusIfaces := netvmispec.PopInterfaceByNetwork(statusIfaces, &network)
-			Expect(*statusIface).To(Equal(expectedStatusIface))
-			Expect(statusIfaces).To(Equal(expectedStatusIfaces))
-		},
-			Entry("first", vmiStatusInterfaces(netName, iface1, iface2)),
-			Entry("last", vmiStatusInterfaces(iface1, iface2, netName)),
-			Entry("mid", vmiStatusInterfaces(iface1, netName, iface2)),
-		)
-	})
-
 	Context("migratable", func() {
 		const (
 			migratablePlugin    = "mig"
@@ -298,13 +263,4 @@ func interfaceWithBindingPlugin(name, pluginName string) v1.Interface {
 		Name:    name,
 		Binding: &v1.PluginBinding{Name: pluginName},
 	}
-}
-
-func vmiStatusInterfaces(names ...string) []v1.VirtualMachineInstanceNetworkInterface {
-	var statusInterfaces []v1.VirtualMachineInstanceNetworkInterface
-	for _, name := range names {
-		iface := v1.VirtualMachineInstanceNetworkInterface{Name: name}
-		statusInterfaces = append(statusInterfaces, iface)
-	}
-	return statusInterfaces
 }
