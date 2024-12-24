@@ -357,7 +357,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 		},
-			Entry("unprivileged virtiofsd", testsuite.NamespaceTestDefault),
+			Entry("unprivileged virtiofsd", decorators.Conformance, testsuite.NamespaceTestDefault),
 			Entry("privileged virtiofsd", testsuite.NamespacePrivileged),
 		)
 	})

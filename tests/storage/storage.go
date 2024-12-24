@@ -243,7 +243,7 @@ var _ = SIGDescribe("Storage", func() {
 			}
 
 			Context("should be successfully", func() {
-				DescribeTable("started", func(newVMI VMICreationFunc, imageOwnedByQEMU bool) {
+				DescribeTable("started", decorators.Conformance, func(newVMI VMICreationFunc, imageOwnedByQEMU bool) {
 					pvcName := diskAlpineHostPath
 					if !imageOwnedByQEMU {
 						// Setup hostpath PV that points at non-root owned image with chmod 640
@@ -395,7 +395,7 @@ var _ = SIGDescribe("Storage", func() {
 				})
 
 				// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
-				It("[test_id:3136]started with Ephemeral PVC", func() {
+				It("[test_id:3136]started with Ephemeral PVC", decorators.Conformance, func() {
 					pvName = diskAlpineHostPath
 
 					vmi = libvmi.New(
