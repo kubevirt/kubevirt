@@ -287,7 +287,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachineInstance with a DataVolume as a volume source", func() {
 		Context("Alpine import", func() {
-			It("[test_id:3189]should be successfully started and stopped multiple times", func() {
+			It("[test_id:3189]should be successfully started and stopped multiple times", decorators.Conformance, func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
 					Fail("Fail test when Filesystem storage is not present")
@@ -988,7 +988,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}, 30*time.Second, 5*time.Second).Should(BeTrue())
 			})
 
-			DescribeTable("[storage-req] deny then allow clone request", decorators.StorageReq, func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool, cloneMutateFunc func(), fail bool) {
+			DescribeTable("[storage-req] deny then allow clone request", decorators.Conformance, decorators.StorageReq, func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool, cloneMutateFunc func(), fail bool) {
 				if cloneMutateFunc != nil {
 					cloneMutateFunc()
 				}
