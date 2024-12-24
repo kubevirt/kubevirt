@@ -74,7 +74,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		},
 	}
 	config, _, kvStore := testutils.NewFakeClusterConfigUsingKV(kv)
-	vmiCreateAdmitter := &VMICreateAdmitter{ClusterConfig: config}
+	const kubeVirtNamespace = "kubevirt"
+	kubeVirtServiceAccounts := webhooks.KubeVirtServiceAccounts(kubeVirtNamespace)
+	vmiCreateAdmitter := &VMICreateAdmitter{ClusterConfig: config, KubeVirtServiceAccounts: kubeVirtServiceAccounts}
 
 	dnsConfigTestOption := "test"
 	enableFeatureGate := func(featureGate string) {
@@ -102,13 +104,21 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		ar, err := newAdmissionReviewForVMICreation(newBaseVmi())
 		Expect(err).ToNot(HaveOccurred())
 
-		admitter := &VMICreateAdmitter{ClusterConfig: config, SpecValidators: []SpecValidator{newValidateStub()}}
+		admitter := &VMICreateAdmitter{
+			ClusterConfig:           config,
+			KubeVirtServiceAccounts: kubeVirtServiceAccounts,
+			SpecValidators:          []SpecValidator{newValidateStub()},
+		}
 		resp := admitter.Admit(context.Background(), ar)
 		Expect(resp.Allowed).To(BeTrue())
 	})
 	It("when spec validator fail, should reject", func() {
 		expectedStatusCauses := []metav1.StatusCause{{Type: "test", Message: "test", Field: "test"}}
-		admitter := &VMICreateAdmitter{ClusterConfig: config, SpecValidators: []SpecValidator{newValidateStub(expectedStatusCauses...)}}
+		admitter := &VMICreateAdmitter{
+			ClusterConfig:           config,
+			KubeVirtServiceAccounts: kubeVirtServiceAccounts,
+			SpecValidators:          []SpecValidator{newValidateStub(expectedStatusCauses...)},
+		}
 		ar, err := newAdmissionReviewForVMICreation(newBaseVmi())
 		Expect(err).ToNot(HaveOccurred())
 

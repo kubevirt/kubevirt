@@ -44,6 +44,9 @@ func FuzzAdmitter(f *testing.F) {
 		return netadmitter.Validate(field, vmiSpec, clusterCfg)
 	}
 
+	const kubeVirtNamespace = "kubevirt"
+	kubeVirtServiceAccounts := webhooks.KubeVirtServiceAccounts(kubeVirtNamespace)
+
 	testCases := []testCase{
 		{
 			name:    "SyntacticVirtualMachineInstanceFuzzing",
@@ -51,8 +54,9 @@ func FuzzAdmitter(f *testing.F) {
 			objType: &v1.VirtualMachineInstance{},
 			admit: func(config *virtconfig.ClusterConfig, request *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 				adm := &admitters.VMICreateAdmitter{
-					ClusterConfig:  config,
-					SpecValidators: []admitters.SpecValidator{validateNetwork},
+					ClusterConfig:           config,
+					KubeVirtServiceAccounts: kubeVirtServiceAccounts,
+					SpecValidators:          []admitters.SpecValidator{validateNetwork},
 				}
 				return adm.Admit(context.Background(), request)
 			},
@@ -64,8 +68,9 @@ func FuzzAdmitter(f *testing.F) {
 			objType: &v1.VirtualMachineInstance{},
 			admit: func(config *virtconfig.ClusterConfig, request *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 				adm := &admitters.VMICreateAdmitter{
-					ClusterConfig:  config,
-					SpecValidators: []admitters.SpecValidator{validateNetwork},
+					ClusterConfig:           config,
+					KubeVirtServiceAccounts: kubeVirtServiceAccounts,
+					SpecValidators:          []admitters.SpecValidator{validateNetwork},
 				}
 				return adm.Admit(context.Background(), request)
 			},

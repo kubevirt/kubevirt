@@ -30,8 +30,18 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-func ServeVMICreate(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, specValidators ...admitters.SpecValidator) {
-	validating_webhooks.Serve(resp, req, &admitters.VMICreateAdmitter{ClusterConfig: clusterConfig, SpecValidators: specValidators})
+func ServeVMICreate(
+	resp http.ResponseWriter,
+	req *http.Request,
+	clusterConfig *virtconfig.ClusterConfig,
+	kubeVirtServiceAccounts map[string]struct{},
+	specValidators ...admitters.SpecValidator,
+) {
+	validating_webhooks.Serve(resp, req, &admitters.VMICreateAdmitter{
+		ClusterConfig:           clusterConfig,
+		KubeVirtServiceAccounts: kubeVirtServiceAccounts,
+		SpecValidators:          specValidators,
+	})
 }
 
 func ServeVMIUpdate(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, kubeVirtServiceAccounts map[string]struct{}) {

@@ -97,8 +97,9 @@ var isValidExpression = regexp.MustCompile(`^[A-Za-z0-9_.+-]+$`).MatchString
 type SpecValidator func(*k8sfield.Path, *v1.VirtualMachineInstanceSpec, *virtconfig.ClusterConfig) []metav1.StatusCause
 
 type VMICreateAdmitter struct {
-	ClusterConfig  *virtconfig.ClusterConfig
-	SpecValidators []SpecValidator
+	ClusterConfig           *virtconfig.ClusterConfig
+	SpecValidators          []SpecValidator
+	KubeVirtServiceAccounts map[string]struct{}
 }
 
 func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
