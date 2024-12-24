@@ -39,7 +39,12 @@ import (
 
 var _ = Describe("Validating Pool Admitter", func() {
 	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
-	poolAdmitter := &VMPoolAdmitter{ClusterConfig: config}
+
+	const kubeVirtNamespace = "kubevirt"
+	poolAdmitter := &VMPoolAdmitter{
+		ClusterConfig:           config,
+		KubeVirtServiceAccounts: webhooks.KubeVirtServiceAccounts(kubeVirtNamespace),
+	}
 
 	always := v1.RunStrategyAlways
 

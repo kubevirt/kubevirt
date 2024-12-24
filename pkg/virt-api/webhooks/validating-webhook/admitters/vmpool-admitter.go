@@ -41,7 +41,8 @@ import (
 )
 
 type VMPoolAdmitter struct {
-	ClusterConfig *virtconfig.ClusterConfig
+	ClusterConfig           *virtconfig.ClusterConfig
+	KubeVirtServiceAccounts map[string]struct{}
 }
 
 func (admitter *VMPoolAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {

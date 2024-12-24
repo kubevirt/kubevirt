@@ -63,8 +63,8 @@ func ServeVMIRS(resp http.ResponseWriter, req *http.Request, clusterConfig *virt
 	validating_webhooks.Serve(resp, req, &admitters.VMIRSAdmitter{ClusterConfig: clusterConfig})
 }
 
-func ServeVMPool(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
-	validating_webhooks.Serve(resp, req, &admitters.VMPoolAdmitter{ClusterConfig: clusterConfig})
+func ServeVMPool(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, kubeVirtServiceAccounts map[string]struct{}) {
+	validating_webhooks.Serve(resp, req, &admitters.VMPoolAdmitter{ClusterConfig: clusterConfig, KubeVirtServiceAccounts: kubeVirtServiceAccounts})
 }
 
 func ServeVMIPreset(resp http.ResponseWriter, req *http.Request) {
