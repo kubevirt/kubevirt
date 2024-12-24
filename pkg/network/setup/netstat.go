@@ -113,13 +113,9 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 	// Guest Agent information will add and conditionally override data gathered from the cache.
 	interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, domain.Status.Interfaces)
 
-	primaryNetwork := netvmispec.LookupPodNetwork(vmi.Spec.Networks)
-	if primaryNetwork != nil {
+	if primaryNetwork := netvmispec.LookupPodNetwork(vmi.Spec.Networks); primaryNetwork != nil {
 		interfacesStatus = restorePrimaryIfaceStatus(interfacesStatus, vmi.Status.Interfaces, primaryNetwork.Name)
-	}
-	primaryInterfaceStatus, interfacesStatus := netvmispec.PopInterfaceByNetwork(interfacesStatus, primaryNetwork)
-	if primaryInterfaceStatus != nil {
-		interfacesStatus = append([]v1.VirtualMachineInstanceNetworkInterface{*primaryInterfaceStatus}, interfacesStatus...)
+		interfacesStatus = movePrimaryIfaceStatusToFront(interfacesStatus, primaryNetwork.Name)
 	}
 
 	interfacesStatus = ifacesStatusFromMultus(interfacesStatus, multusStatusNetworksByName, vmiInterfacesSpecByName)
@@ -169,6 +165,25 @@ func restorePodIfaceNames(
 	}
 
 	return interfacesStatus
+}
+
+func movePrimaryIfaceStatusToFront(
+	interfacesStatus []v1.VirtualMachineInstanceNetworkInterface,
+	primaryNetworkName string,
+) []v1.VirtualMachineInstanceNetworkInterface {
+	primaryIfaceStatusIndex := slices.IndexFunc(interfacesStatus, func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
+		return ifaceStatus.Name == primaryNetworkName
+	})
+
+	// primary iface status was not found or is already placed first
+	if primaryIfaceStatusIndex <= 0 {
+		return interfacesStatus
+	}
+
+	return append(
+		[]v1.VirtualMachineInstanceNetworkInterface{interfacesStatus[primaryIfaceStatusIndex]},
+		append(interfacesStatus[:primaryIfaceStatusIndex], interfacesStatus[primaryIfaceStatusIndex+1:]...)...,
+	)
 }
 
 func ifacesStatusFromMultus(
