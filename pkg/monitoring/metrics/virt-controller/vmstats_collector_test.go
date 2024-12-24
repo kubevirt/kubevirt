@@ -27,12 +27,184 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	k6tv1 "kubevirt.io/api/core/v1"
 )
 
 var _ = Describe("VM Stats Collector", func() {
+	Context("VM Resource Requests", func() {
+		It("should ignore VM with empty memory resource requests and limits", func() {
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "testvm",
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
+						Spec: k6tv1.VirtualMachineInstanceSpec{
+							Domain: k6tv1.DomainSpec{},
+						},
+					},
+				},
+			}
+
+			cr := CollectResourceRequestsAndLimits([]*k6tv1.VirtualMachine{vm})
+			Expect(cr).To(BeZero())
+		})
+
+		It("should collect VM memory resource requests and limits", func() {
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "testvm",
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
+						Spec: k6tv1.VirtualMachineInstanceSpec{
+							Domain: k6tv1.DomainSpec{
+								Resources: k6tv1.ResourceRequirements{
+									Requests: k8sv1.ResourceList{
+										k8sv1.ResourceMemory: *resource.NewQuantity(1024, resource.BinarySI),
+									},
+									Limits: k8sv1.ResourceList{
+										k8sv1.ResourceMemory: *resource.NewQuantity(2048, resource.BinarySI),
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			crs := CollectResourceRequestsAndLimits([]*k6tv1.VirtualMachine{vm})
+			Expect(crs).To(HaveLen(2), "Expected 2 metrics")
+
+			By("checking the resource requests")
+			Expect(crs[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
+			Expect(crs[0].Value).To(BeEquivalentTo(1024))
+			Expect(crs[0].Labels).To(Equal([]string{"testvm", "test-ns", "memory", "bytes", "domain"}))
+
+			By("checking the resource limits")
+			Expect(crs[1].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_limits"))
+			Expect(crs[1].Value).To(BeEquivalentTo(2048))
+			Expect(crs[1].Labels).To(Equal([]string{"testvm", "test-ns", "memory", "bytes"}))
+		})
+
+		It("should collect VM memory guest and hugepages requests", func() {
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "testvm",
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
+						Spec: k6tv1.VirtualMachineInstanceSpec{
+							Domain: k6tv1.DomainSpec{
+								Memory: &k6tv1.Memory{
+									Guest: resource.NewQuantity(1024, resource.BinarySI),
+									Hugepages: &k6tv1.Hugepages{
+										PageSize: "2Mi",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			crs := CollectResourceRequestsAndLimits([]*k6tv1.VirtualMachine{vm})
+			Expect(crs).To(HaveLen(2), "Expected 2 metrics")
+
+			By("checking the memory guest requests")
+			Expect(crs[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
+			Expect(crs[0].Value).To(BeEquivalentTo(1024))
+			Expect(crs[0].Labels).To(Equal([]string{"testvm", "test-ns", "memory", "bytes", "guest"}))
+
+			By("checking the memory hugepages requests")
+			Expect(crs[1].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
+			Expect(crs[1].Value).To(BeEquivalentTo(2097152))
+			Expect(crs[1].Labels).To(Equal([]string{"testvm", "test-ns", "memory", "bytes", "hugepages"}))
+		})
+
+		It("should collect VM CPU resource requests and limits", func() {
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "testvm",
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
+						Spec: k6tv1.VirtualMachineInstanceSpec{
+							Domain: k6tv1.DomainSpec{
+								Resources: k6tv1.ResourceRequirements{
+									Requests: k8sv1.ResourceList{
+										k8sv1.ResourceCPU: *resource.NewMilliQuantity(500, resource.BinarySI),
+									},
+									Limits: k8sv1.ResourceList{
+										k8sv1.ResourceCPU: *resource.NewMilliQuantity(1000, resource.BinarySI),
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			crs := CollectResourceRequestsAndLimits([]*k6tv1.VirtualMachine{vm})
+			Expect(crs).To(HaveLen(2), "Expected 2 metrics")
+
+			By("checking the resource requests")
+			Expect(crs[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
+			Expect(crs[0].Value).To(BeEquivalentTo(0.5))
+			Expect(crs[0].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "cores", "requests"}))
+
+			By("checking the resource limits")
+			Expect(crs[1].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_limits"))
+			Expect(crs[1].Value).To(BeEquivalentTo(1))
+			Expect(crs[1].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "cores"}))
+		})
+
+		It("should collect VM CPU resource requests from domain", func() {
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "testvm",
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
+						Spec: k6tv1.VirtualMachineInstanceSpec{
+							Domain: k6tv1.DomainSpec{
+								CPU: &k6tv1.CPU{
+									Cores:   2,
+									Threads: 4,
+									Sockets: 1,
+								},
+							},
+						},
+					},
+				},
+			}
+
+			crs := CollectResourceRequestsAndLimits([]*k6tv1.VirtualMachine{vm})
+			Expect(crs).To(HaveLen(3), "Expected 1 metric")
+
+			Expect(crs[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
+			Expect(crs[0].Value).To(BeEquivalentTo(2))
+			Expect(crs[0].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "cores", "domain"}))
+
+			Expect(crs[1].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
+			Expect(crs[1].Value).To(BeEquivalentTo(4))
+			Expect(crs[1].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "threads", "domain"}))
+
+			Expect(crs[2].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
+			Expect(crs[2].Value).To(BeEquivalentTo(1))
+			Expect(crs[2].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "sockets", "domain"}))
+		})
+	})
+
 	Context("VM status collector", func() {
 		createVM := func(status k6tv1.VirtualMachinePrintableStatus, vmLastTransitionsTime time.Time) *k6tv1.VirtualMachine {
 			return &k6tv1.VirtualMachine{
