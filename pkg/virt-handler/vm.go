@@ -3153,7 +3153,9 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	options := virtualMachineOptions(smbios, period, preallocatedVolumes, c.capabilities, disksInfo, c.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
 
+	log.Log.Object(vmi).Info("Sending SyncVMI command")
 	err = client.SyncVirtualMachine(vmi, options)
+	log.Log.Object(vmi).Info("SyncVMI command returned")
 	if err != nil {
 		isSecbootError := strings.Contains(err.Error(), "EFI OVMF rom missing")
 		if isSecbootError {
