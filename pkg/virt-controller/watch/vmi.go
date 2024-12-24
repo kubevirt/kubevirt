@@ -511,6 +511,8 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 
 	c.aggregateDataVolumesConditions(vmiCopy, dataVolumes)
 
+	c.backendStorage.UpdateVolumeStatus(vmiCopy)
+
 	switch {
 	case vmi.IsUnprocessed():
 		if vmiPodExists {
@@ -1049,7 +1051,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		// do not return; just log the error
 	}
 
-	err := c.backendStorage.CreateIfNeededAndUpdateVolumeStatus(vmi)
+	err := c.backendStorage.CreateIfNeeded(vmi)
 	if err != nil {
 		return &syncErrorImpl{err, controller.FailedBackendStorageCreateReason}, pod
 	}
