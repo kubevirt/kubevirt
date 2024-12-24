@@ -317,8 +317,8 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 					Operation: admissionv1.Update,
 				},
 			}
-			resp := admitVMILabelsUpdate(updateVmi, vmi, ar)
-			Expect(resp).To(BeNil())
+			resp := vmiUpdateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue())
 		},
 		Entry("Update of an existing label",
 			map[string]string{"kubevirt.io/l": "someValue", "other-label/l": "value"},
@@ -360,8 +360,9 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 					Operation: admissionv1.Update,
 				},
 			}
-			resp := admitVMILabelsUpdate(updateVmi, vmi, ar)
-			Expect(resp).To(BeNil())
+
+			resp := vmiUpdateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue())
 		},
 		Entry("Update by API",
 			map[string]string{v1.NodeNameLabel: "someValue"},
@@ -402,7 +403,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 					Operation: admissionv1.Update,
 				},
 			}
-			resp := admitVMILabelsUpdate(updateVmi, vmi, ar)
+			resp := vmiUpdateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Message).To(Equal("modification of the following reserved kubevirt.io/ labels on a VMI object is prohibited"))
