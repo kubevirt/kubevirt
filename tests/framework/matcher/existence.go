@@ -13,10 +13,6 @@ func Exist() types.GomegaMatcher {
 	return existMatcher{}
 }
 
-func BePresent() types.GomegaMatcher {
-	return existMatcher{}
-}
-
 func BeGone() types.GomegaMatcher {
 	return goneMatcher{}
 }
