@@ -28,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmops"
 
@@ -428,7 +429,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			Entry("[test_id:8500]using virtctl", memoryDumpVirtctl, removeMemoryDumpVirtctl),
 		)
 
-		It("[test_id:8502]Run multiple memory dumps", func() {
+		It("[test_id:8502]Run multiple memory dumps", decorators.StorageCritical, func() {
 			previousOutput := ""
 			for i := 0; i < 3; i++ {
 				By("Running memory dump number: " + strconv.Itoa(i))
@@ -544,7 +545,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			}
 		})
 
-		It("[test_id:9034]Should be able to get and remove memory dump", func() {
+		It("[test_id:9034]Should be able to get and remove memory dump", decorators.StorageCritical, func() {
 			previousOutput := createMemoryDumpAndVerify(vm, memoryDumpPVCName, noPreviousOutput, memoryDumpVirtctlCreatePVC)
 			removeMemoryDumpAndVerify(vm, memoryDumpPVCName, previousOutput, removeMemoryDumpVirtctl)
 		})

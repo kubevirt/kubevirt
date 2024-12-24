@@ -146,7 +146,7 @@ var _ = Describe("[sig-storage][Serial][virtctl]ImageUpload", decorators.SigStor
 				Expect(err).ToNot(HaveOccurred())
 			}
 		},
-			Entry("DataVolume", "dv", "alpine-dv-"+rand.String(12), validateDataVolume, true),
+			Entry("DataVolume", decorators.StorageCritical, "dv", "alpine-dv-"+rand.String(12), validateDataVolume, true),
 			Entry("PVC", "pvc", "alpine-pvc-"+rand.String(12), validatePVC, false),
 		)
 	})
