@@ -92,7 +92,7 @@ var _ = VirtctlDescribe("[sig-storage]Memory dump", decorators.SigStorage, func(
 		Expect(runMemoryDumpRemoveCmd(vm.Name)).To(Succeed())
 		waitForMemoryDumpDeletion(vm.Name, pvcName, out, true)
 	},
-		Entry("[test_id:9034] when creating a PVC", true),
+		Entry("[test_id:9034] when creating a PVC", decorators.Conformance, true),
 		Entry("[test_id:11664]with an existing PVC", false),
 	)
 
