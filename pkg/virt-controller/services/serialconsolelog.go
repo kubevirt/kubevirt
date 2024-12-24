@@ -13,7 +13,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image string, config *virtconfig.ClusterConfig, virtLauncherLogVerbosity uint) *k8sv1.Container {
+func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image string, config *virtconfig.ClusterConfig, virtLauncherLogVerbosity uint, socketTimeout string) *k8sv1.Container {
 	const serialPort = 0
 	if isSerialConsoleLogEnabled(vmi, config) {
 		logFile := fmt.Sprintf("%s/%s/virt-serial%d-log", util.VirtPrivateDir, vmi.ObjectMeta.UID, serialPort)
@@ -25,7 +25,7 @@ func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image str
 			Image:           image,
 			ImagePullPolicy: k8sv1.PullIfNotPresent,
 			Command:         []string{"/usr/bin/virt-tail"},
-			Args:            []string{"--logfile", logFile},
+			Args:            []string{"--logfile", logFile, "--socket-timeout", socketTimeout},
 			VolumeMounts: []k8sv1.VolumeMount{
 				k8sv1.VolumeMount{
 					Name:      "private",
