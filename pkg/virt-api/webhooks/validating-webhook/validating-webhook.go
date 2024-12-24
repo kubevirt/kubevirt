@@ -48,9 +48,15 @@ func ServeVMIUpdate(resp http.ResponseWriter, req *http.Request, clusterConfig *
 	validating_webhooks.Serve(resp, req, admitters.NewVMIUpdateAdmitter(clusterConfig, kubeVirtServiceAccounts))
 }
 
-func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient, informers *webhooks.Informers) {
-
-	validating_webhooks.Serve(resp, req, admitters.NewVMsAdmitter(clusterConfig, virtCli, informers))
+func ServeVMs(
+	resp http.ResponseWriter,
+	req *http.Request,
+	clusterConfig *virtconfig.ClusterConfig,
+	virtCli kubecli.KubevirtClient,
+	informers *webhooks.Informers,
+	kubeVirtServiceAccounts map[string]struct{},
+) {
+	validating_webhooks.Serve(resp, req, admitters.NewVMsAdmitter(clusterConfig, virtCli, informers, kubeVirtServiceAccounts))
 }
 
 func ServeVMIRS(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
@@ -105,9 +111,11 @@ func ServeStatusValidation(resp http.ResponseWriter,
 	req *http.Request,
 	clusterConfig *virtconfig.ClusterConfig,
 	virtCli kubecli.KubevirtClient,
-	informers *webhooks.Informers) {
+	informers *webhooks.Informers,
+	kubeVirtServiceAccounts map[string]struct{},
+) {
 	validating_webhooks.Serve(resp, req, &admitters.StatusAdmitter{
-		VmsAdmitter: admitters.NewVMsAdmitter(clusterConfig, virtCli, informers),
+		VmsAdmitter: admitters.NewVMsAdmitter(clusterConfig, virtCli, informers, kubeVirtServiceAccounts),
 	})
 }
 

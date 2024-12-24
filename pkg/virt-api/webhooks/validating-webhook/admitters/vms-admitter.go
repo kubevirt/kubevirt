@@ -58,20 +58,22 @@ import (
 var validRunStrategies = []v1.VirtualMachineRunStrategy{v1.RunStrategyHalted, v1.RunStrategyManual, v1.RunStrategyAlways, v1.RunStrategyRerunOnFailure, v1.RunStrategyOnce}
 
 type VMsAdmitter struct {
-	VirtClient          kubecli.KubevirtClient
-	DataSourceInformer  cache.SharedIndexInformer
-	NamespaceInformer   cache.SharedIndexInformer
-	InstancetypeMethods instancetype.Methods
-	ClusterConfig       *virtconfig.ClusterConfig
+	VirtClient              kubecli.KubevirtClient
+	DataSourceInformer      cache.SharedIndexInformer
+	NamespaceInformer       cache.SharedIndexInformer
+	InstancetypeMethods     instancetype.Methods
+	ClusterConfig           *virtconfig.ClusterConfig
+	KubeVirtServiceAccounts map[string]struct{}
 }
 
-func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient, informers *webhooks.Informers) *VMsAdmitter {
+func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient, informers *webhooks.Informers, kubeVirtServiceAccounts map[string]struct{}) *VMsAdmitter {
 	return &VMsAdmitter{
-		VirtClient:          client,
-		DataSourceInformer:  informers.DataSourceInformer,
-		NamespaceInformer:   informers.NamespaceInformer,
-		InstancetypeMethods: &instancetype.InstancetypeMethods{Clientset: client},
-		ClusterConfig:       clusterConfig,
+		VirtClient:              client,
+		DataSourceInformer:      informers.DataSourceInformer,
+		NamespaceInformer:       informers.NamespaceInformer,
+		InstancetypeMethods:     &instancetype.InstancetypeMethods{Clientset: client},
+		ClusterConfig:           clusterConfig,
+		KubeVirtServiceAccounts: kubeVirtServiceAccounts,
 	}
 }
 

@@ -82,8 +82,9 @@ func FuzzAdmitter(f *testing.F) {
 			objType: &v1.VirtualMachine{},
 			admit: func(config *virtconfig.ClusterConfig, request *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 				adm := &admitters.VMsAdmitter{
-					ClusterConfig:       config,
-					InstancetypeMethods: testutils.NewMockInstancetypeMethods(),
+					ClusterConfig:           config,
+					KubeVirtServiceAccounts: kubeVirtServiceAccounts,
+					InstancetypeMethods:     testutils.NewMockInstancetypeMethods(),
 				}
 				return adm.Admit(context.Background(), request)
 			},
@@ -95,8 +96,9 @@ func FuzzAdmitter(f *testing.F) {
 			objType: &v1.VirtualMachine{},
 			admit: func(config *virtconfig.ClusterConfig, request *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 				adm := &admitters.VMsAdmitter{
-					ClusterConfig:       config,
-					InstancetypeMethods: testutils.NewMockInstancetypeMethods(),
+					ClusterConfig:           config,
+					KubeVirtServiceAccounts: kubeVirtServiceAccounts,
+					InstancetypeMethods:     testutils.NewMockInstancetypeMethods(),
 				}
 				return adm.Admit(context.Background(), request)
 			},
