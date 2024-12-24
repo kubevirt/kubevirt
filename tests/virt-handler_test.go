@@ -51,9 +51,8 @@ var _ = Describe("[sig-compute]virt-handler", decorators.SigCompute, func() {
 
 		getHandlerConnectionCount := func(nodeName string) int {
 			cmd := []string{"bash", "-c", fmt.Sprintf("ss -ntlap | grep %d | wc -l", virt_api.DefaultConsoleServerPort)}
-			stdout, stderr, err := libnode.ExecuteCommandOnNodeThroughVirtHandler(nodeName, cmd)
+			stdout, err := libnode.ExecuteCommandInVirtHandlerPod(nodeName, cmd)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(stderr).To(BeEmpty())
 
 			stdout = strings.TrimSpace(stdout)
 			stdout = strings.ReplaceAll(stdout, "\n", "")

@@ -461,16 +461,12 @@ func GetNodeHostModel(node *k8sv1.Node) (hostModel string) {
 	return hostModel
 }
 
-func ExecuteCommandOnNodeThroughVirtHandler(nodeName string, command []string) (stdout, stderr string, err error) {
+func ExecuteCommandInVirtHandlerPod(nodeName string, args []string) (stdout string, err error) {
 	virtHandlerPod, err := GetVirtHandlerPod(kubevirt.Client(), nodeName)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
-	return exec.ExecuteCommandOnPodWithResults(virtHandlerPod, components.VirtHandlerName, command)
-}
-
-func ExecuteCommandInVirtHandlerPod(nodeName string, args []string) (stdout string, err error) {
-	stdout, stderr, err := ExecuteCommandOnNodeThroughVirtHandler(nodeName, args)
+	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtHandlerPod, components.VirtHandlerName, args)
 	if err != nil {
 		return stdout, fmt.Errorf("failed excuting command=%v, error=%v, stdout=%s, stderr=%s", args, err, stdout, stderr)
 	}
