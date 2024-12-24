@@ -20,19 +20,13 @@
 package webhooks
 
 import (
-	"fmt"
 	"runtime"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	poolv1 "kubevirt.io/api/pool/v1alpha1"
-	"kubevirt.io/client-go/log"
-
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
-
 	v1 "kubevirt.io/api/core/v1"
-	clientutil "kubevirt.io/client-go/util"
+	poolv1 "kubevirt.io/api/pool/v1alpha1"
 )
 
 var Arch = runtime.GOARCH
@@ -78,33 +72,6 @@ type Informers struct {
 	VMRestoreInformer  cache.SharedIndexInformer
 	DataSourceInformer cache.SharedIndexInformer
 	NamespaceInformer  cache.SharedIndexInformer
-}
-
-func isComponentServiceAccount(serviceAccount, namespace, component string) bool {
-	return serviceAccount == fmt.Sprintf("system:serviceaccount:%s:%s", namespace, component)
-}
-
-func GetNamespace() string {
-	ns, err := clientutil.GetNamespace()
-	logger := log.DefaultLogger()
-
-	if err != nil {
-		logger.Info("Failed to get namespace. Fallback to default: 'kubevirt'")
-		ns = "kubevirt"
-	}
-	return ns
-}
-
-// IsKubeVirtServiceAccount returns true in case `serviceAccount` belongs to one of
-// KubeVirt's main components
-//
-// Deprecated: because it directly reads the namespace from the file-system
-func IsKubeVirtServiceAccount(serviceAccount string) bool {
-	ns := GetNamespace()
-
-	return isComponentServiceAccount(serviceAccount, ns, components.ApiServiceAccountName) ||
-		isComponentServiceAccount(serviceAccount, ns, components.HandlerServiceAccountName) ||
-		isComponentServiceAccount(serviceAccount, ns, components.ControllerServiceAccountName)
 }
 
 func IsARM64(vmiSpec *v1.VirtualMachineInstanceSpec) bool {

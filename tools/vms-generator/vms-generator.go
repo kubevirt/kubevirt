@@ -183,7 +183,7 @@ func main() {
 
 	// Having no generics is lots of fun
 	for name, obj := range vms {
-		causes := validating_webhook.ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &obj.Spec, config, "user-account")
+		causes := validating_webhook.ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &obj.Spec, config, false)
 		handleCauses(causes, name, "vm")
 		handleError(dumpObject(name, *obj))
 	}
@@ -222,7 +222,7 @@ func main() {
 				Operation: admissionv1.Create,
 			},
 		}
-		causes := validating_webhook.ValidateVMPoolSpec(ar, k8sfield.NewPath("spec"), obj, config)
+		causes := validating_webhook.ValidateVMPoolSpec(ar, k8sfield.NewPath("spec"), obj, config, false)
 		handleCauses(causes, name, "vm pool")
 		handleError(dumpObject(name, *obj))
 	}
