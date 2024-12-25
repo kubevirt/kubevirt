@@ -87,6 +87,10 @@ var _ = Describe("Default pod network", func() {
 			stubClusterConfig{defaultNetworkInterface: string(v1.DeprecatedSlirpInterface)},
 			"slirp interface is deprecated as of v1.3",
 		),
+		Entry("when the deprecated passt binding is the cluster-wide default",
+			stubClusterConfig{defaultNetworkInterface: string(v1.DeprecatedPasstInterface)},
+			"passt interface is deprecated as of v1.3",
+		),
 	)
 })
 

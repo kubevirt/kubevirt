@@ -25,12 +25,12 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-type netClusterConfiger interface {
+type netClusterConfigurer interface {
 	GetDefaultNetworkInterface() string
 	IsBridgeInterfaceOnPodNetworkEnabled() bool
 }
 
-func SetDefaultNetworkInterface(config netClusterConfiger, spec *v1.VirtualMachineInstanceSpec) error {
+func SetDefaultNetworkInterface(config netClusterConfigurer, spec *v1.VirtualMachineInstanceSpec) error {
 	if autoAttach := spec.Domain.Devices.AutoattachPodInterface; autoAttach != nil && !*autoAttach {
 		return nil
 	}
@@ -50,6 +50,8 @@ func SetDefaultNetworkInterface(config netClusterConfiger, spec *v1.VirtualMachi
 		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
 	case v1.DeprecatedSlirpInterface:
 		return fmt.Errorf("slirp interface is deprecated as of v1.3")
+	case v1.DeprecatedPasstInterface:
+		return fmt.Errorf("passt interface is deprecated as of v1.3")
 	}
 
 	spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}

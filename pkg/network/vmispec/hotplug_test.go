@@ -73,9 +73,15 @@ var _ = Describe("utilitary funcs to identify attachments to hotplug", func() {
 				libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(networkName)),
 					libvmi.WithNetwork(libvmi.MultusNetwork(networkName, nadName)),
-					libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
-						Name: networkName, InterfaceName: guestIfaceName, InfoSource: vmispec.NewInfoSource(vmispec.InfoSourceDomain, vmispec.InfoSourceMultusStatus),
-					}))),
+					libvmistatus.WithStatus(
+						libvmistatus.New(libvmistatus.WithInterfaceStatus(
+							v1.VirtualMachineInstanceNetworkInterface{
+								Name:          networkName,
+								InterfaceName: guestIfaceName,
+								InfoSource:    vmispec.NewInfoSource(vmispec.InfoSourceDomain, vmispec.InfoSourceMultusStatus),
+							},
+						)),
+					),
 				),
 			),
 		)
@@ -115,10 +121,16 @@ var _ = Describe("utilitary funcs to identify attachments to hotplug", func() {
 			),
 			Entry("when vmi interfaces have an extra interface which requires hotplug",
 				libvmi.New(
-					libvmi.WithInterface(v1.Interface{Name: testNetworkName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}),
+					libvmi.WithInterface(v1.Interface{
+						Name:                   testNetworkName1,
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
+					}),
 					libvmi.WithInterface(v1.Interface{Name: testNetworkName2}),
 					libvmi.WithInterface(v1.Interface{Name: testNetworkName3}),
-					libvmi.WithInterface(v1.Interface{Name: testNetworkName4, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}),
+					libvmi.WithInterface(v1.Interface{
+						Name:                   testNetworkName4,
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
+					}),
 					libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
 					libvmi.WithNetwork(&v1.Network{Name: testNetworkName2}),
 					libvmi.WithNetwork(&v1.Network{Name: testNetworkName3}),
@@ -134,15 +146,26 @@ var _ = Describe("utilitary funcs to identify attachments to hotplug", func() {
 					]`,
 					}},
 				},
-				[]v1.Interface{{Name: testNetworkName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}, {Name: testNetworkName2}, {Name: testNetworkName3}},
+				[]v1.Interface{
+					{Name: testNetworkName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+					{Name: testNetworkName2},
+					{Name: testNetworkName3},
+				},
 				[]v1.Network{{Name: testNetworkName1}, {Name: testNetworkName2}, {Name: testNetworkName3}},
 				expectToChange,
 			),
-			Entry("when vmi interfaces have an extra SRIOV interface which requires hotplug, change is not required since SRIOV hotplug to a pod is not supported",
+			Entry(
+				"when vmi ifaces have an extra SRIOV iface which requires hotplug, change is not required since SRIOV hotplug to a pod is unsupported",
 				libvmi.New(
 					libvmi.WithInterface(v1.Interface{Name: testNetworkName1}),
-					libvmi.WithInterface(v1.Interface{Name: testNetworkName2, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}),
-					libvmi.WithInterface(v1.Interface{Name: testNetworkName3, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}),
+					libvmi.WithInterface(v1.Interface{
+						Name:                   testNetworkName2,
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
+					}),
+					libvmi.WithInterface(v1.Interface{
+						Name:                   testNetworkName3,
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
+					}),
 					libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
 					libvmi.WithNetwork(&v1.Network{Name: testNetworkName2}),
 					libvmi.WithNetwork(&v1.Network{Name: testNetworkName3}),
