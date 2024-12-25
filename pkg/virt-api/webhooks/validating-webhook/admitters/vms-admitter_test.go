@@ -126,12 +126,15 @@ var _ = Describe("Validating VM Admitter", func() {
 		mockVMIClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		k8sClient = k8sfake.NewSimpleClientset()
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+
+		const kubeVirtNamespace = "kubevirt"
 		vmsAdmitter = &VMsAdmitter{
-			VirtClient:          virtClient,
-			DataSourceInformer:  dataSourceInformer,
-			NamespaceInformer:   namespaceInformer,
-			ClusterConfig:       config,
-			InstancetypeMethods: instancetypeMethods,
+			VirtClient:              virtClient,
+			DataSourceInformer:      dataSourceInformer,
+			NamespaceInformer:       namespaceInformer,
+			ClusterConfig:           config,
+			InstancetypeMethods:     instancetypeMethods,
+			KubeVirtServiceAccounts: webhooks.KubeVirtServiceAccounts(kubeVirtNamespace),
 		}
 		virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
 	})

@@ -58,20 +58,22 @@ import (
 var validRunStrategies = []v1.VirtualMachineRunStrategy{v1.RunStrategyHalted, v1.RunStrategyManual, v1.RunStrategyAlways, v1.RunStrategyRerunOnFailure, v1.RunStrategyOnce}
 
 type VMsAdmitter struct {
-	VirtClient          kubecli.KubevirtClient
-	DataSourceInformer  cache.SharedIndexInformer
-	NamespaceInformer   cache.SharedIndexInformer
-	InstancetypeMethods instancetype.Methods
-	ClusterConfig       *virtconfig.ClusterConfig
+	VirtClient              kubecli.KubevirtClient
+	DataSourceInformer      cache.SharedIndexInformer
+	NamespaceInformer       cache.SharedIndexInformer
+	InstancetypeMethods     instancetype.Methods
+	ClusterConfig           *virtconfig.ClusterConfig
+	KubeVirtServiceAccounts map[string]struct{}
 }
 
-func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient, informers *webhooks.Informers) *VMsAdmitter {
+func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient, informers *webhooks.Informers, kubeVirtServiceAccounts map[string]struct{}) *VMsAdmitter {
 	return &VMsAdmitter{
-		VirtClient:          client,
-		DataSourceInformer:  informers.DataSourceInformer,
-		NamespaceInformer:   informers.NamespaceInformer,
-		InstancetypeMethods: &instancetype.InstancetypeMethods{Clientset: client},
-		ClusterConfig:       clusterConfig,
+		VirtClient:              client,
+		DataSourceInformer:      informers.DataSourceInformer,
+		NamespaceInformer:       informers.NamespaceInformer,
+		InstancetypeMethods:     &instancetype.InstancetypeMethods{Clientset: client},
+		ClusterConfig:           clusterConfig,
+		KubeVirtServiceAccounts: kubeVirtServiceAccounts,
 	}
 }
 
@@ -86,7 +88,6 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 	}
 
 	raw := ar.Request.Object.Raw
-	accountName := ar.Request.UserInfo.Username
 	vm := v1.VirtualMachine{}
 
 	err := json.Unmarshal(raw, &vm)
@@ -137,7 +138,9 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 			return webhookutils.ToAdmissionResponse(causes)
 		}
 	}
-	causes = ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vmCopy.Spec, admitter.ClusterConfig, accountName)
+
+	_, isKubeVirtServiceAccount := admitter.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]
+	causes = ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vmCopy.Spec, admitter.ClusterConfig, isKubeVirtServiceAccount)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -330,7 +333,7 @@ func (admitter *VMsAdmitter) validateVirtualMachineDataVolumeTemplateNamespace(a
 	return causes, nil
 }
 
-func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpec, config *virtconfig.ClusterConfig, accountName string) []metav1.StatusCause {
+func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpec, config *virtconfig.ClusterConfig, isKubeVirtServiceAccount bool) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if spec.Template == nil {
@@ -341,7 +344,7 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 		})
 	}
 
-	causes = append(causes, ValidateVirtualMachineInstanceMetadata(field.Child("template", "metadata"), &spec.Template.ObjectMeta, config, accountName)...)
+	causes = append(causes, ValidateVirtualMachineInstanceMetadata(field.Child("template", "metadata"), &spec.Template.ObjectMeta, config, isKubeVirtServiceAccount)...)
 	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec, config)...)
 
 	causes = append(causes, validateDataVolumeTemplate(field, spec)...)
