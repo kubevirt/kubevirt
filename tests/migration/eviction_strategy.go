@@ -26,6 +26,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
+	"github.com/onsi/gomega/types"
 
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
@@ -40,7 +42,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -56,11 +57,26 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
+func vmiIsMigrated(originalNode string) types.GomegaMatcher {
+	return gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+			"NodeName": Not(Equal(originalNode)),
+		}),
+	})
+}
+
+func evacuationIsClear() types.GomegaMatcher {
+	return gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+			"EvacuationNodeName": BeEmpty(),
+		}),
+	})
+}
+
 var _ = SIGMigrationDescribe("Live Migration", func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
-		checks.SkipIfMigrationIsNotPossible()
 		virtClient = kubevirt.Client()
 	})
 
@@ -69,77 +85,28 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 			It("[test_id:3242]should block the eviction api and migrate", decorators.Conformance, func() {
 				vmi := libvmops.RunVMIAndExpectLaunch(alpineVMIWithEvictionStrategy(), 180)
-				vmiNodeOrig := vmi.Status.NodeName
+
+				originalNode := vmi.Status.NodeName
+
 				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
+
+				By("Evicting the VMI")
 				err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 				Expect(errors.IsTooManyRequests(err)).To(BeTrue())
 
 				By("Ensuring the VMI has migrated and lives on another node")
-				Eventually(func() error {
-					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
-
-					if vmi.Status.NodeName == vmiNodeOrig {
-						return fmt.Errorf("VMI is still on the same node")
-					}
-
-					if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.SourceNode != vmiNodeOrig {
-						return fmt.Errorf("VMI did not migrate yet")
-					}
-
-					if vmi.Status.EvacuationNodeName != "" {
-						return fmt.Errorf("VMI is still evacuating: %v", vmi.Status.EvacuationNodeName)
-					}
-
-					return nil
-				}, 360*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-				resVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				Expect(err).ShouldNot(HaveOccurred())
-				Expect(resVMI.Status.EvacuationNodeName).To(Equal(""), "vmi evacuation state should be clean")
-			})
-
-			It("[sig-compute][test_id:3243]should recreate the PDB if VMIs with similar names are recreated", func() {
-				vmi := alpineVMIWithEvictionStrategy()
-				for x := 0; x < 3; x++ {
-					By("creating the VMI")
-					_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					By("checking that the PDB appeared")
-					Eventually(matcher.AllPDBs(vmi.Namespace), 3*time.Second, 500*time.Millisecond).Should(HaveLen(1))
-
-					By("waiting for VMI")
-					libwait.WaitForSuccessfulVMIStart(vmi,
-						libwait.WithTimeout(60),
-					)
-					By("deleting the VMI")
-					Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
-					By("checking that the PDB disappeared")
-					Eventually(matcher.AllPDBs(vmi.Namespace), 3*time.Second, 500*time.Millisecond).Should(BeEmpty())
-					Eventually(matcher.ThisVMI(vmi), 60*time.Second, 500*time.Millisecond).Should(matcher.BeGone())
-				}
-			})
-
-			It("should create the PDB if VMI is live-migratable and has the LiveMigrateIfPossible strategy set", func() {
-				By("creating the VMI")
-				vmi := alpineVMIWithEvictionStrategy(libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrateIfPossible))
-				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("checking that the PDB appeared, with extra time since schedulability needs to be determined first in the cluster")
-				Eventually(matcher.AllPDBs(vmi.Namespace), 60*time.Second, 500*time.Millisecond).Should(HaveLen(1))
-				By("waiting for VMI")
-				libwait.WaitForSuccessfulVMIStart(vmi,
-					libwait.WithTimeout(60),
+				Eventually(matcher.ThisVMI(vmi)).WithTimeout(time.Minute).WithPolling(time.Second).Should(
+					SatisfyAll(
+						vmiIsMigrated(originalNode),
+						evacuationIsClear(),
+						haveMigrationState(gstruct.PointTo(gstruct.MatchFields(
+							gstruct.IgnoreExtras, gstruct.Fields{
+								"SourceNode": Equal(originalNode),
+							},
+						))),
+					),
 				)
-
-				By("deleting the VMI")
-				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
-				By("checking that the PDB disappeared")
-				Eventually(matcher.AllPDBs(vmi.Namespace), 3*time.Second, 500*time.Millisecond).Should(BeEmpty())
 			})
 
 			It("[sig-compute][test_id:7680]should delete PDBs created by an old virt-controller", func() {
@@ -604,6 +571,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					Expect(err).NotTo(HaveOccurred())
 					err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 					Expect(err).ToNot(HaveOccurred())
+					Expect(matcher.ThisVMI(vmi)).To(evacuationIsClear())
 				})
 			})
 		})

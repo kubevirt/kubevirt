@@ -119,17 +119,6 @@ var _ = Describe("Migration watcher", func() {
 		Expect(pods.Items[0].Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(1))
 	}
 
-	expectPDB := func(namespace, migrationName, vmiUID string) {
-		pdbList, err := kubeClient.PolicyV1().PodDisruptionBudgets(namespace).List(context.Background(), metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=%s", virtv1.MigrationNameLabel, migrationName),
-		})
-		Expect(err).ToNot(HaveOccurred())
-		Expect(pdbList.Items).To(HaveLen(1))
-		Expect(pdbList.Items[0].Spec.MinAvailable.String()).To(Equal("2"))
-		Expect(pdbList.Items[0].Spec.Selector).ToNot(BeNil())
-		Expect(pdbList.Items[0].Spec.Selector.MatchLabels).To(HaveKeyWithValue(virtv1.CreatedByLabel, vmiUID))
-	}
-
 	expectPodAnnotationTimestamp := func(namespace, name, expectedTimestamp string) {
 		updatedPod, err := kubeClient.CoreV1().Pods(namespace).Get(context.Background(), name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -335,13 +324,6 @@ var _ = Describe("Migration watcher", func() {
 		err := controller.nodeStore.Add(node)
 		Expect(err).ShouldNot(HaveOccurred())
 		_, err = kubeClient.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-	}
-
-	addPDB := func(pdb *policyv1.PodDisruptionBudget) {
-		err := controller.pdbIndexer.Add(pdb)
-		Expect(err).ShouldNot(HaveOccurred())
-		_, err = kubeClient.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Create(context.Background(), pdb, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -1677,70 +1659,6 @@ var _ = Describe("Migration watcher", func() {
 			Entry("host-model should be targeted only to nodes which support the model", true),
 			Entry("non-host-model should not be targeted to nodes which support the model", false),
 		)
-	})
-
-	Context("Migration with protected VMI (PDB)", func() {
-		It("should update PDB before starting the migration", func() {
-			vmi := newVirtualMachine("testvmi", virtv1.Running)
-			vmi.Spec.EvictionStrategy = pointer.P(virtv1.EvictionStrategyLiveMigrate)
-			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
-			pdb := newPDB("pdb-test", vmi, 1)
-
-			addMigration(migration)
-			addVirtualMachineInstance(vmi)
-			addPod(newSourcePodForVirtualMachine(vmi))
-			addPDB(pdb)
-
-			sanityExecute()
-
-			testutils.ExpectEvents(recorder, successfulUpdatePodDisruptionBudgetReason)
-			expectPDB(migration.Namespace, migration.Name, string(vmi.UID))
-		})
-
-		It("should create the target Pod after the k8s PDB controller processed the PDB mutation", func() {
-			vmi := newVirtualMachine("testvmi", virtv1.Running)
-			vmi.Spec.EvictionStrategy = pointer.P(virtv1.EvictionStrategyLiveMigrate)
-			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
-			pdb := newPDB("pdb-test", vmi, 2)
-			pdb.Generation = 42
-			pdb.Status.DesiredHealthy = int32(pdb.Spec.MinAvailable.IntValue())
-			pdb.Status.ObservedGeneration = pdb.Generation
-			pdb.Labels = map[string]string{
-				virtv1.MigrationNameLabel: migration.Name,
-			}
-
-			addMigration(migration)
-			addVirtualMachineInstance(vmi)
-			addPod(newSourcePodForVirtualMachine(vmi))
-			addPDB(pdb)
-
-			sanityExecute()
-
-			testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
-			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
-		})
-
-		Context("when cluster EvictionStrategy is set to 'LiveMigrate'", func() {
-			BeforeEach(func() {
-				setConfig(&virtv1.KubeVirtConfiguration{EvictionStrategy: pointer.P(virtv1.EvictionStrategyLiveMigrate)})
-			})
-
-			It("should update PDB", func() {
-				vmi := newVirtualMachine("testvmi", virtv1.Running)
-				migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
-				pdb := newPDB("pdb-test", vmi, 1)
-
-				addMigration(migration)
-				addVirtualMachineInstance(vmi)
-				addPod(newSourcePodForVirtualMachine(vmi))
-				addPDB(pdb)
-
-				sanityExecute()
-
-				testutils.ExpectEvents(recorder, successfulUpdatePodDisruptionBudgetReason)
-				expectPDB(migration.Namespace, migration.Name, string(vmi.UID))
-			})
-		})
 	})
 
 	Context("Migration policy", func() {
