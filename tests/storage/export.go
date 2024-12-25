@@ -1365,11 +1365,11 @@ var _ = SIGDescribe("Export", func() {
 			})
 	}
 
-	It("should create export from VMSnapshot", func() {
+	It("should create export from VMSnapshot", decorators.RequiresSnapshotStorageClass, func() {
 		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
 		Expect(err).ToNot(HaveOccurred())
 		if sc == "" {
-			Skip("Skip test when storage with snapshot is not present")
+			Fail("Fail test when storage with snapshot is not present")
 		}
 
 		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
@@ -1435,11 +1435,11 @@ var _ = SIGDescribe("Export", func() {
 		return export
 	}
 
-	It("should create export from VMSnapshot with multiple volumes", func() {
+	It("should create export from VMSnapshot with multiple volumes", decorators.RequiresSnapshotStorageClass, func() {
 		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
 		Expect(err).ToNot(HaveOccurred())
 		if sc == "" {
-			Skip("Skip test when storage with snapshot is not present")
+			Fail("Fail test when storage with snapshot is not present")
 		}
 
 		blankDv := libdv.NewDataVolume(
@@ -1878,13 +1878,13 @@ var _ = SIGDescribe("Export", func() {
 		checkWithJsonOutput(pod, export, vm)
 	})
 
-	It("should generate updated DataVolumeTemplates on http endpoint when exporting snapshot", func() {
+	It("should generate updated DataVolumeTemplates on http endpoint when exporting snapshot", decorators.RequiresSnapshotStorageClass, func() {
 		virtClient, err := kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
 		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
 		Expect(err).ToNot(HaveOccurred())
 		if sc == "" {
-			Skip("Skip test when storage with snapshot is not present")
+			Fail("Fail test when storage with snapshot is not present")
 		}
 
 		vm := libstorage.RenderVMWithDataVolumeTemplate(libdv.NewDataVolume(

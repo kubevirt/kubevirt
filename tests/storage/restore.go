@@ -581,7 +581,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 
 			})
 		})
-		Context("with instancetype and preferences", func() {
+		Context("with instancetype and preferences", decorators.RequiresSnapshotStorageClass, func() {
 			var (
 				instancetype *instancetypev1beta1.VirtualMachineInstancetype
 				preference   *instancetypev1beta1.VirtualMachinePreference
@@ -594,7 +594,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				if snapshotStorageClass == "" {
-					Skip("Skiping test, no VolumeSnapshot support")
+					Fail("Failing test, no VolumeSnapshot support")
 				}
 
 				instancetype = &instancetypev1beta1.VirtualMachineInstancetype{
@@ -731,7 +731,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 	})
 
 	Context("[storage-req]", decorators.StorageReq, func() {
-		Context("With a more complicated VM", func() {
+		Context("With a more complicated VM", decorators.RequiresSnapshotStorageClass, func() {
 			var (
 				newVmName            string
 				vm                   *v1.VirtualMachine
@@ -748,7 +748,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				if sc == "" {
-					Skip("Skiping test, no VolumeSnapshot support")
+					Fail("Failing test, no VolumeSnapshot support")
 				}
 
 				snapshotStorageClass = sc

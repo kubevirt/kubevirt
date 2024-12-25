@@ -779,7 +779,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 	})
 
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] DataVolume clone permission checking", func() {
-		Context("using Alpine import/clone", func() {
+		Context("using Alpine import/clone", decorators.RequiresSnapshotStorageClass, func() {
 			var dataVolume *cdiv1.DataVolume
 			var cloneRole *rbacv1.Role
 			var cloneRoleBinding *rbacv1.RoleBinding
@@ -790,7 +790,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				storageClass, err = libstorage.GetSnapshotStorageClass(virtClient)
 				Expect(err).ToNot(HaveOccurred())
 				if storageClass == "" {
-					Skip("Skiping test, no VolumeSnapshot support")
+					Fail("Failing test, no VolumeSnapshot support")
 				}
 
 				dataVolume = libdv.NewDataVolume(

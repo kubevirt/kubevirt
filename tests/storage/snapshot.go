@@ -288,7 +288,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 		})
 	})
 
-	Context("[storage-req]", decorators.StorageReq, func() {
+	Context("[storage-req]", decorators.StorageReq, decorators.RequiresSnapshotStorageClass, func() {
 		var (
 			snapshotStorageClass string
 		)
@@ -298,7 +298,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			if sc == "" {
-				Skip("Skiping test, no VolumeSnapshot support")
+				Fail("Failing test, no VolumeSnapshot support")
 			}
 
 			snapshotStorageClass = sc
