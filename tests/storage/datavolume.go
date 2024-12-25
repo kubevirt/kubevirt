@@ -303,10 +303,10 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}
 			})
 
-			It("[test_id:3189]should be successfully started and stopped multiple times", func() {
+			It("[test_id:3189]should be successfully started and stopped multiple times", decorators.Conformance, func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				dataVolume := libdv.NewDataVolume(
@@ -917,7 +917,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}
 			}
 
-			DescribeTable("should resolve DataVolume sourceRef", func(createDataSourceFunc func() *cdiv1.DataSource) {
+			DescribeTable("should resolve DataVolume sourceRef", decorators.Conformance, func(createDataSourceFunc func() *cdiv1.DataSource) {
 				// convert DV to use datasource
 				dvt := &vm.Spec.DataVolumeTemplates[0]
 				ds := createDataSourceFunc()
@@ -1004,7 +1004,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}, 30*time.Second, 5*time.Second).Should(BeTrue())
 			})
 
-			DescribeTable("[storage-req] deny then allow clone request", decorators.StorageReq, func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool, cloneMutateFunc func(), fail bool) {
+			DescribeTable("[storage-req] deny then allow clone request", decorators.Conformance, decorators.StorageReq, func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool, cloneMutateFunc func(), fail bool) {
 				if cloneMutateFunc != nil {
 					cloneMutateFunc()
 				}
@@ -1262,7 +1262,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			Expect(virtClient.VirtualMachinePreference(virtualMachinePreference.Namespace).Delete(context.Background(), virtualMachinePreference.Name, metav1.DeleteOptions{})).To(Succeed())
 		})
 
-		It("should use PreferredStorageClassName when storage class not provided by VM", func() {
+		It("should use PreferredStorageClassName when storage class not provided by VM", decorators.Conformance, func() {
 			// Remove storage class name from VM definition
 			vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName = nil
 
@@ -1272,7 +1272,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			Expect(*vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName).To(Equal(virtualMachinePreference.Spec.Volumes.PreferredStorageClassName))
 		})
 
-		It("should always use VM defined storage class over PreferredStorageClassName", func() {
+		It("should always use VM defined storage class over PreferredStorageClassName", decorators.Conformance, func() {
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
