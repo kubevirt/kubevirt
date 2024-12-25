@@ -70,6 +70,11 @@ var (
 	RequiresNoSnapshotStorageClass = Label("RequiresNoSnapshotStorageClass")
 	// Requires a storage class with ReadWriteMany Block support
 	RequiresRWXBlock = Label("RequiresRWXBlock")
+	// Requires a storage class with ReadWriteOnce Filesystem support
+	RequiresRWOFs = Label("RequiresRWOFs")
+	// Requires a storage class with ReadWriteMany Filesystem support
+	RequiresRWXFs = Label("RequiresRWXFs")
+
 	// Requires a storage class with Block storage support
 	RequiresBlockStorage = Label("RequiresBlockStorage")
 	// Kubernetes versions
