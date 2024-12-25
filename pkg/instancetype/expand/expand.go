@@ -50,14 +50,15 @@ type specFinder interface {
 }
 
 type preferenceSpecFinder interface {
-	Find(*virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
+	FindPreference(*virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
 }
 
 type expander struct {
-	clusterConfig      *virtconfig.ClusterConfig
-	vmiApplier         vmiApplier
-	instancetypeFinder specFinder
-	preferenceFinder   preferenceSpecFinder
+	vmiApplier
+	specFinder
+	preferenceSpecFinder
+
+	clusterConfig *virtconfig.ClusterConfig
 }
 
 func New(
@@ -66,10 +67,10 @@ func New(
 	preferenceFinder preferenceSpecFinder,
 ) *expander {
 	return &expander{
-		clusterConfig:      clusterConfig,
-		vmiApplier:         apply.NewVMIApplier(),
-		instancetypeFinder: instancetypeFinder,
-		preferenceFinder:   preferenceFinder,
+		clusterConfig:        clusterConfig,
+		vmiApplier:           apply.NewVMIApplier(),
+		specFinder:           instancetypeFinder,
+		preferenceSpecFinder: preferenceFinder,
 	}
 }
 
@@ -78,12 +79,12 @@ func (e *expander) Expand(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, er
 		return vm, nil
 	}
 
-	instancetypeSpec, err := e.instancetypeFinder.Find(vm)
+	instancetypeSpec, err := e.Find(vm)
 	if err != nil {
 		return nil, err
 	}
 
-	preferenceSpec, err := e.preferenceFinder.Find(vm)
+	preferenceSpec, err := e.FindPreference(vm)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +98,7 @@ func (e *expander) Expand(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, er
 	}
 
 	// Replace with VMApplier.ApplyToVM once conflict errors are aligned
-	conflicts := e.vmiApplier.ApplyToVMI(
+	conflicts := e.ApplyToVMI(
 		k8sfield.NewPath("spec", "template", "spec"),
 		instancetypeSpec, preferenceSpec,
 		&expandedVM.Spec.Template.Spec,
