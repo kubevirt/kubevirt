@@ -25,8 +25,8 @@ import (
 	"path"
 	"reflect"
 
-	"kubevirt.io/api/clone"
-	clonev1lpha1 "kubevirt.io/api/clone/v1alpha1"
+	clonebase "kubevirt.io/api/clone"
+	clone "kubevirt.io/api/clone/v1beta1"
 
 	"kubevirt.io/api/instancetype"
 
@@ -254,14 +254,14 @@ func poolApiServiceDefinitions() []*restful.WebService {
 }
 
 func vmCloneDefinitions() []*restful.WebService {
-	mpGVR := clonev1lpha1.SchemeGroupVersion.WithResource(clone.ResourceVMClonePlural)
+	mpGVR := clone.SchemeGroupVersion.WithResource(clonebase.ResourceVMClonePlural)
 
-	ws, err := groupVersionProxyBase(schema.GroupVersion{Group: clonev1lpha1.SchemeGroupVersion.Group, Version: clonev1lpha1.SchemeGroupVersion.Version})
+	ws, err := groupVersionProxyBase(schema.GroupVersion{Group: clone.SchemeGroupVersion.Group, Version: clone.SchemeGroupVersion.Version})
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = genericClusterResourceProxy(ws, mpGVR, &clonev1lpha1.VirtualMachineClone{}, clonev1lpha1.VirtualMachineCloneKind.Kind, &clonev1lpha1.VirtualMachineCloneList{})
+	ws, err = genericClusterResourceProxy(ws, mpGVR, &clone.VirtualMachineClone{}, clone.VirtualMachineCloneKind.Kind, &clone.VirtualMachineCloneList{})
 	if err != nil {
 		panic(err)
 	}
