@@ -101,7 +101,7 @@ var _ = Describe("pod network configurator", func() {
 					Type:        "user",
 					Source:      domainschema.InterfaceSource{Device: "eth0"},
 					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
-					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
+					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp", Dev: "eth0"}, {Proto: "udp", Dev: "eth0"}},
 					Model:       &domainschema.Model{Type: "virtio-non-transitional"},
 				},
 			),
@@ -113,7 +113,7 @@ var _ = Describe("pod network configurator", func() {
 					Type:        "user",
 					Source:      domainschema.InterfaceSource{Device: "eth0"},
 					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
-					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
+					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp", Dev: "eth0"}, {Proto: "udp", Dev: "eth0"}},
 					Model:       &domainschema.Model{Type: "virtio-non-transitional"},
 					Address:     &domainschema.Address{Type: "pci", Domain: "0x0000", Bus: "0x02", Slot: "0x02", Function: "0x0"},
 				},
@@ -126,7 +126,7 @@ var _ = Describe("pod network configurator", func() {
 					Type:        "user",
 					Source:      domainschema.InterfaceSource{Device: "eth0"},
 					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
-					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
+					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp", Dev: "eth0"}, {Proto: "udp", Dev: "eth0"}},
 					Model:       &domainschema.Model{Type: "virtio-non-transitional"},
 					MAC:         &domainschema.MAC{MAC: "02:02:02:02:02:02"},
 				},
@@ -139,7 +139,7 @@ var _ = Describe("pod network configurator", func() {
 					Type:        "user",
 					Source:      domainschema.InterfaceSource{Device: "eth0"},
 					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
-					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
+					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp", Dev: "eth0"}, {Proto: "udp", Dev: "eth0"}},
 					Model:       &domainschema.Model{Type: "virtio-non-transitional"},
 					ACPI:        &domainschema.ACPI{Index: uint(2)},
 				},
@@ -153,7 +153,7 @@ var _ = Describe("pod network configurator", func() {
 					Type:        "user",
 					Source:      domainschema.InterfaceSource{Device: "eth0"},
 					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
-					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
+					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp", Dev: "eth0"}, {Proto: "udp", Dev: "eth0"}},
 					Model:       &domainschema.Model{Type: "e1000"},
 				},
 			),
@@ -170,6 +170,7 @@ var _ = Describe("pod network configurator", func() {
 					PortForward: []domainschema.InterfacePortForward{
 						{
 							Proto: "tcp",
+							Dev:   "eth0",
 							Ranges: []domainschema.InterfacePortForwardRange{
 								{Start: 1}, {Start: 4},
 							},
@@ -190,6 +191,7 @@ var _ = Describe("pod network configurator", func() {
 					PortForward: []domainschema.InterfacePortForward{
 						{
 							Proto: "udp",
+							Dev:   "eth0",
 							Ranges: []domainschema.InterfacePortForwardRange{
 								{Start: 2}, {Start: 3},
 							},
@@ -210,12 +212,14 @@ var _ = Describe("pod network configurator", func() {
 					PortForward: []domainschema.InterfacePortForward{
 						{
 							Proto: "tcp",
+							Dev:   "eth0",
 							Ranges: []domainschema.InterfacePortForwardRange{
 								{Start: 1}, {Start: 4},
 							},
 						},
 						{
 							Proto: "udp",
+							Dev:   "eth0",
 							Ranges: []domainschema.InterfacePortForwardRange{
 								{Start: 2}, {Start: 3},
 							},
@@ -244,7 +248,7 @@ var _ = Describe("pod network configurator", func() {
 					Type:        "user",
 					Source:      domainschema.InterfaceSource{Device: "eth0"},
 					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
-					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
+					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp", Dev: "eth0"}, {Proto: "udp", Dev: "eth0"}},
 					Model:       &domainschema.Model{Type: "virtio-transitional"},
 				},
 			),
@@ -257,7 +261,7 @@ var _ = Describe("pod network configurator", func() {
 					Backend: &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 					Model:   &domainschema.Model{Type: "virtio-non-transitional"},
 					PortForward: []domainschema.InterfacePortForward{
-						{Proto: "tcp", Ranges: []domainschema.InterfacePortForwardRange{
+						{Proto: "tcp", Dev: "eth0", Ranges: []domainschema.InterfacePortForwardRange{
 							{Start: 15000, Exclude: "yes"}, {Start: 15001, Exclude: "yes"},
 							{Start: 15004, Exclude: "yes"}, {Start: 15006, Exclude: "yes"},
 							{Start: 15008, Exclude: "yes"}, {Start: 15009, Exclude: "yes"},
@@ -283,7 +287,7 @@ var _ = Describe("pod network configurator", func() {
 				Type:        "user",
 				Source:      domainschema.InterfaceSource{Device: "eth0"},
 				Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
-				PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
+				PortForward: []domainschema.InterfacePortForward{{Proto: "tcp", Dev: "eth0"}, {Proto: "udp", Dev: "eth0"}},
 				Model:       &domainschema.Model{Type: "virtio-non-transitional"},
 			}
 
@@ -309,7 +313,7 @@ var _ = Describe("pod network configurator", func() {
 				Type:        "user",
 				Source:      domainschema.InterfaceSource{Device: "eth0"},
 				Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
-				PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
+				PortForward: []domainschema.InterfacePortForward{{Proto: "tcp", Dev: "eth0"}, {Proto: "udp", Dev: "eth0"}},
 				Model:       &domainschema.Model{Type: "virtio-non-transitional"},
 			}
 
