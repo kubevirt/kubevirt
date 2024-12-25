@@ -287,22 +287,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachineInstance with a DataVolume as a volume source", func() {
 		Context("Alpine import", func() {
-			BeforeEach(func() {
-				cdis, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(context.Background(), metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(cdis.Items).To(HaveLen(1))
-				hasWaitForFirstConsumerGate := false
-				for _, feature := range cdis.Items[0].Spec.Config.FeatureGates {
-					if feature == "HonorWaitForFirstConsumer" {
-						hasWaitForFirstConsumerGate = true
-						break
-					}
-				}
-				if !hasWaitForFirstConsumerGate {
-					Skip("HonorWaitForFirstConsumer is disabled in CDI, skipping tests relying on it")
-				}
-			})
-
 			It("[test_id:3189]should be successfully started and stopped multiple times", func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
