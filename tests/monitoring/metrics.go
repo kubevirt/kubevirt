@@ -149,6 +149,15 @@ func basicVMLifecycle(virtClient kubecli.KubevirtClient) {
 		},
 		0, ">", 0)
 
+	By("Verifying kubevirt_vm_vnic_info metric")
+	libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vm_vnic_info", 1,
+		map[string]string{
+			"namespace":    vm.Namespace,
+			"name":         vm.Name,
+			"binding_type": "masquerade",
+			"network":      "pod networking",
+		}, 0)
+
 	By("Deleting the VirtualMachine")
 	err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 	Expect(err).ToNot(HaveOccurred())
@@ -160,11 +169,14 @@ func basicVMLifecycle(virtClient kubecli.KubevirtClient) {
 func createAndRunVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 	vmDiskPVC := "test-vm-pvc"
 	pvc := libstorage.CreateFSPVC(vmDiskPVC, testsuite.GetTestNamespace(nil), "512Mi", nil)
+	iface := *v1.DefaultMasqueradeNetworkInterface()
 
 	vmi := libvmifact.NewFedora(
 		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 		libvmi.WithLimitMemory("512Mi"),
 		libvmi.WithPersistentVolumeClaim("testdisk", pvc.Name),
+		libvmi.WithInterface(iface),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
 
 	vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
