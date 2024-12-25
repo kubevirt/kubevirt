@@ -5974,6 +5974,14 @@ rpm(
 )
 
 rpm(
+    name = "qemu-kvm-device-display-virtio-gpu-17__9.0.0-10.el9.x86_64",
+    sha256 = "eaaf29ef9d9f104da226da11540f95158ce1d73587ba1a6eadb7d04b1f665944",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-device-display-virtio-gpu-9.0.0-10.el9.x86_64.rpm",
+    ],
+)
+
+rpm(
     name = "qemu-kvm-device-display-virtio-gpu-ccw-17__9.0.0-10.el9.s390x",
     sha256 = "62d283feeaef8867099921894cbdf628e4c7849678e3e02a6ef1a9d4913532a9",
     urls = [
@@ -5988,6 +5996,14 @@ rpm(
     urls = [
         "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-display-virtio-gpu-pci-9.0.0-10.el9.aarch64.rpm",
         "https://storage.googleapis.com/builddeps/f4e94839c87c011a286190351b1fa1b917b1276d90fea7c9daca6b8702a9df45",
+    ],
+)
+
+rpm(
+    name = "qemu-kvm-device-display-virtio-gpu-pci-17__9.0.0-10.el9.x86_64",
+    sha256 = "e8a789afda33e8d60482f9cd71ab0640bf200ea06ba40fba8054233f5b57f48b",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-device-display-virtio-gpu-pci-9.0.0-10.el9.x86_64.rpm",
     ],
 )
 
