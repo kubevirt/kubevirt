@@ -42,7 +42,7 @@ func NewPreferenceFinder(store cache.Store, virtClient kubecli.KubevirtClient) *
 	}
 }
 
-func (f *preferenceFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreference, error) {
+func (f *preferenceFinder) FindPreference(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreference, error) {
 	if vm.Spec.Preference == nil {
 		return nil, nil
 	}
