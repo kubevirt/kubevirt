@@ -13,6 +13,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -36,7 +37,6 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
@@ -56,7 +56,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		config.EnableFeatureGate(virtconfig.SnapshotGate)
+		config.EnableFeatureGate(featuregate.SnapshotGate)
 
 		format.MaxLength = 0
 	})
