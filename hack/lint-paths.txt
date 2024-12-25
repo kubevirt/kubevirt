@@ -16,6 +16,7 @@ tests/infrastructure
 tests/instancetype
 tests/libconfigmap
 tests/libinstancetype
+tests/libkubevirt
 tests/libnet
 tests/libnode
 tests/libpod
