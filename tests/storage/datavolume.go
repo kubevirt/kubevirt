@@ -155,7 +155,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			if volumeMode == k8sv1.PersistentVolumeBlock {
 				sc, exists = libstorage.GetRWOBlockStorageClass()
 				if !exists {
-					Skip("Skip test when Block storage is not present")
+					Fail("Fail test when Block storage is not present")
 				}
 			} else {
 				sc, exists = libstorage.GetRWOFileSystemStorageClass()
@@ -223,7 +223,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				&expect.BExp{R: "0"},
 			}, 360)).To(Succeed(), "can use more space after expansion and resize")
 		},
-			Entry("with Block PVC", k8sv1.PersistentVolumeBlock),
+			Entry("with Block PVC", decorators.RequiresBlockStorage, k8sv1.PersistentVolumeBlock),
 			Entry("with Filesystem PVC", k8sv1.PersistentVolumeFilesystem),
 		)
 

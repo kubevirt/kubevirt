@@ -884,7 +884,7 @@ var _ = SIGDescribe("Storage", func() {
 			})
 		})
 
-		Context("[rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component][storage-req] With Cirros BlockMode PVC", decorators.StorageReq, func() {
+		Context("[rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component][storage-req] With Cirros BlockMode PVC", decorators.RequiresBlockStorage, decorators.StorageReq, func() {
 			var dataVolume *cdiv1.DataVolume
 			var err error
 
@@ -892,7 +892,7 @@ var _ = SIGDescribe("Storage", func() {
 				// create a new PV and PVC (PVs can't be reused)
 				sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
 				if !foundSC {
-					Skip("Skip test when Block storage is not present")
+					Fail("Fail test when Block storage is not present")
 				}
 
 				dataVolume = libdv.NewDataVolume(
@@ -920,13 +920,13 @@ var _ = SIGDescribe("Storage", func() {
 			})
 		})
 
-		Context("[storage-req][rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component]With Alpine block volume PVC", decorators.StorageReq, func() {
+		Context("[storage-req][rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component]With Alpine block volume PVC", decorators.RequiresRWXBlock, decorators.StorageReq, func() {
 
 			It("[test_id:3139]should be successfully started", func() {
 				By("Create a VMIWithPVC")
 				sc, exists := libstorage.GetRWXBlockStorageClass()
 				if !exists {
-					Skip("Skip test when Block storage is not present")
+					Fail("Fail test when Block storage is not present")
 				}
 
 				// Start the VirtualMachineInstance with the PVC attached
@@ -1045,14 +1045,14 @@ var _ = SIGDescribe("Storage", func() {
 
 		})
 
-		Context("[storage-req] With a volumeMode block backed ephemeral disk", decorators.StorageReq, func() {
+		Context("[storage-req] With a volumeMode block backed ephemeral disk", decorators.RequiresBlockStorage, decorators.StorageReq, func() {
 			var dataVolume *cdiv1.DataVolume
 			var err error
 
 			BeforeEach(func() {
 				sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
 				if !foundSC {
-					Skip("Skip test when Block storage is not present")
+					Fail("Fail test when Block storage is not present")
 				}
 
 				dataVolume = libdv.NewDataVolume(

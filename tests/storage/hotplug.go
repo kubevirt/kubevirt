@@ -549,7 +549,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 	})
 
-	Context("Offline VM with a block volume", func() {
+	Context("Offline VM with a block volume", decorators.RequiresRWXBlock, func() {
 		var (
 			vm *v1.VirtualMachine
 			sc string
@@ -560,7 +560,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			sc, exists = libstorage.GetRWXBlockStorageClass()
 			if !exists {
-				Skip("Skip test when RWXBlock storage class is not present")
+				Fail("Fail test when RWXBlock storage class is not present")
 			}
 
 			dv := libdv.NewDataVolume(
@@ -730,7 +730,7 @@ var _ = SIGDescribe("Hotplug", func() {
 	})
 
 	Context("[storage-req]", decorators.StorageReq, func() {
-		Context("Online VM", func() {
+		Context("Online VM", decorators.RequiresRWXBlock, func() {
 			var (
 				vm *v1.VirtualMachine
 				sc string
@@ -757,7 +757,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				exists := false
 				sc, exists = libstorage.GetRWXBlockStorageClass()
 				if !exists {
-					Skip("Skip test when RWXBlock storage class is not present")
+					Fail("Fail test when RWXBlock storage class is not present")
 				}
 
 				node := findCPUManagerWorkerNode()
@@ -1119,7 +1119,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			})
 		})
 
-		Context("VMI migration", func() {
+		Context("VMI migration", decorators.RequiresRWXBlock, func() {
 			var (
 				vmi *v1.VirtualMachineInstance
 				sc  string
@@ -1160,7 +1160,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				exists := false
 				sc, exists = libstorage.GetRWXBlockStorageClass()
 				if !exists {
-					Skip("Skip test when RWXBlock storage class is not present")
+					Fail("Fail test when RWXBlock storage class is not present")
 				}
 			})
 
@@ -1260,10 +1260,11 @@ var _ = SIGDescribe("Hotplug", func() {
 				}
 			})
 
-			DescribeTable("should be able to add and remove volumes", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, storageClassFunc storageClassFunction, volumeMode k8sv1.PersistentVolumeMode, vmiOnly bool) {
-				sc, exists := storageClassFunc()
+			DescribeTable("should be able to add and remove volumes", decorators.RequiresBlockStorage, func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode, vmiOnly bool) {
+				// Some permutations of this test want a filesystem on top of a block device
+				sc, exists := libstorage.GetRWOBlockStorageClass()
 				if !exists {
-					Skip("Skip test when appropriate storage class is not available")
+					Fail("Fail test when block storage class is not available")
 				}
 
 				var err error
@@ -1312,14 +1313,14 @@ var _ = SIGDescribe("Hotplug", func() {
 
 				verifyAttachDetachVolume(vm, addVolumeFunc, removeVolumeFunc, sc, volumeMode, vmiOnly, true)
 			},
-				Entry("with DataVolume and running VM", addDVVolumeVM, removeVolumeVM, libstorage.GetRWOBlockStorageClass, k8sv1.PersistentVolumeFilesystem, false),
-				Entry("with DataVolume and VMI directly", addDVVolumeVMI, removeVolumeVMI, libstorage.GetRWOBlockStorageClass, k8sv1.PersistentVolumeFilesystem, true),
-				Entry(" with Block DataVolume immediate attach", Serial, addDVVolumeVM, removeVolumeVM, libstorage.GetRWOBlockStorageClass, k8sv1.PersistentVolumeBlock, false),
+				Entry("with DataVolume and running VM", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, false),
+				Entry("with DataVolume and VMI directly", addDVVolumeVMI, removeVolumeVMI, k8sv1.PersistentVolumeFilesystem, true),
+				Entry(" with Block DataVolume immediate attach", Serial, addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, false),
 			)
 		})
 	})
 
-	Context("delete attachment pod several times", func() {
+	Context("delete attachment pod several times", decorators.RequiresRWXBlock, func() {
 		var (
 			vm       *v1.VirtualMachine
 			hpvolume *cdiv1.DataVolume
@@ -1331,7 +1332,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			}
 			_, foundSC := libstorage.GetRWXBlockStorageClass()
 			if !foundSC {
-				Skip("Skip test when block RWX storage is not present")
+				Fail("Fail test when block RWX storage is not present")
 			}
 		})
 
@@ -1427,7 +1428,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		})
 	})
 
-	Context("with limit range in namespace", func() {
+	Context("with limit range in namespace", decorators.RequiresRWXBlock, func() {
 		var (
 			sc                         string
 			lr                         *k8sv1.LimitRange
@@ -1580,9 +1581,8 @@ var _ = SIGDescribe("Hotplug", func() {
 		BeforeEach(func() {
 			exists := false
 			sc, exists = libstorage.GetRWXBlockStorageClass()
-
 			if !exists {
-				Skip("Skip test when RWXBlock storage class is not present")
+				Fail("Fail test when RWXBlock storage class is not present")
 			}
 			originalConfig = *libkubevirt.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
 		})
