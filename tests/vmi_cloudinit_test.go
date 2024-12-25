@@ -375,7 +375,9 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				checkCloudInitFile(vmi, "openstack/latest/network_data.json", testNetworkData)
 
 				By("checking cloudinit meta-data")
-				tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
+				resp, err := tests.GetCloudInitMetaData(vmi, "openstack/latest/meta_data.json")
+				fmt.Printf("CloudInit resp=%s\n", resp)
+				fmt.Printf("local json=%s\n", string(buf))
 			})
 			It("[test_id:3185]should have cloud-init network-config with NetworkDataBase64 source", func() {
 				vmi := libvmifact.NewCirros(

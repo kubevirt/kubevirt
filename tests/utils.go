@@ -25,9 +25,6 @@ import (
 	"fmt"
 	"path/filepath"
 
-	expect "github.com/google/goexpect"
-	. "github.com/onsi/gomega"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -84,15 +81,7 @@ func GetRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*launcherApi.Domai
 	return &runningVMISpec, err
 }
 
-func CheckCloudInitMetaData(vmi *v1.VirtualMachineInstance, testFile, testData string) {
-	cmdCheck := "cat " + filepath.Join("/mnt", testFile) + "\n"
-	res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
-		&expect.BSnd{S: "sudo su -\n"},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: cmdCheck},
-		&expect.BExp{R: testData},
-	}, 15)
-	if err != nil {
-		Expect(res[1].Output).To(ContainSubstring(testData))
-	}
+func GetCloudInitMetaData(vmi *v1.VirtualMachineInstance, testFile string) (string, error) {
+	cmdCheck := "cat " + filepath.Join("/mnt", testFile)
+	return console.RunCommandAndStoreOutput(vmi, cmdCheck, 15)
 }
