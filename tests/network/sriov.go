@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -161,7 +162,7 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 			Expect(mountGuestDevice(vmi, "config-2")).To(Succeed())
 
 			By("checking cloudinit meta-data")
-			tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
+			checkCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
 		})
 
 		It("should have cloud-init meta_data with tagged sriov nics", func() {
@@ -213,7 +214,7 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 			Expect(mountGuestDevice(vmi, "config-2")).To(Succeed())
 
 			By("checking cloudinit meta-data")
-			tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
+			checkCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
 		})
 
 		It("[test_id:1754]should create a virtual machine with sriov interface", func() {
@@ -782,4 +783,15 @@ func mountGuestDevice(vmi *v1.VirtualMachineInstance, devName string) error {
 		&expect.BSnd{S: console.EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
+}
+
+func checkCloudInitMetaData(vmi *v1.VirtualMachineInstance, testFile, testData string) {
+	cmdCheck := "cat " + filepath.Join("/mnt", testFile) + "\n"
+	err := console.SafeExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: "sudo su -\n"},
+		&expect.BExp{R: console.PromptExpression},
+		&expect.BSnd{S: cmdCheck},
+		&expect.BExp{R: testData},
+	}, 15)
+	Expect(err).ToNot(HaveOccurred())
 }
