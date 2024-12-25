@@ -117,3 +117,29 @@ docker run \
         --deploy-testing-infra \
         --path-to-testing-infra-manifests=data/manifests
 ```
+
+
+## Skipping Tests When Cluster Requirements Aren't Met
+KubeVirt provides [tests decorators](https://github.com/kubevirt/kubevirt/blob/main/tests/decorators/decorators.go) 
+to indicate the cluster requirements for certain tests. If your 
+cluster doesn't meet these requirements, you can choose to skip 
+the relevant tests by explicitly setting the `KUBEVIRT_E2E_SKIP`
+environment variable with the appropriate decorators.
+
+For example, to skip tests that require more than one schedulable node, 
+which is useful for single-node clusters, run:
+
+``` bash
+export KUBEVIRT_E2E_SKIP=requires-two-schedulable-nodes
+```
+
+You can skip multiple tests by combining decorators with the | symbol. 
+For example, to skip tests requiring two schedulable nodes and 
+specific storage, run:
+
+``` bash
+export KUBEVIRT_E2E_SKIP=requires-two-schedulable-nodes|storage-req
+```
+
+For more information on filtering tests when using Ginkgo directly, 
+refer to [Ginkgo documentation](https://onsi.github.io/ginkgo/#description-based-filtering).
