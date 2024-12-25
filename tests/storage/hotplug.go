@@ -1271,7 +1271,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 				storageClass, foundSC := libstorage.GetRWOFileSystemStorageClass()
 				if !foundSC {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				dv = libdv.NewDataVolume(
@@ -1762,7 +1762,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		It("should allow adding and removing hotplugged volumes", func() {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip no filesystem storage class available")
+				Fail("Fail no filesystem storage class available")
 			}
 
 			dv := libdv.NewDataVolume(

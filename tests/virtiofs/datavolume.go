@@ -279,7 +279,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			var exists bool
 			sc, exists = libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
+				Fail("Fail test when Filesystem storage is not present")
 			}
 		})
 

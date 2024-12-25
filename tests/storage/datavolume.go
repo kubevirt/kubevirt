@@ -160,7 +160,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			} else {
 				sc, exists = libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 			}
 			volumeExpansionAllowed := volumeExpansionAllowed(sc)
@@ -232,7 +232,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
+				Fail("Fail test when Filesystem storage is not present")
 			}
 
 			volumeExpansionAllowed := volumeExpansionAllowed(sc)
@@ -306,7 +306,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			It("[test_id:3189]should be successfully started and stopped multiple times", func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				dataVolume := libdv.NewDataVolume(
@@ -344,7 +344,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)
@@ -387,7 +387,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			It("[test_id:5252]should be successfully started when using a PVC volume owned by a DataVolume", func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				dataVolume := libdv.NewDataVolume(
@@ -517,7 +517,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			It("should be possible to stop VM if datavolume is crashing", func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				dataVolume := libdv.NewDataVolume(
@@ -561,7 +561,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			It("[test_id:3190]should correctly handle eventually consistent DataVolumes", func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				realRegistryName := flags.KubeVirtUtilityRepoPrefix
@@ -634,7 +634,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		BeforeEach(func() {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
+				Fail("Fail test when Filesystem storage is not present")
 			}
 
 			vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
@@ -731,7 +731,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			It("[test_id:3191]should be successfully started and stopped multiple times", func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
@@ -757,7 +757,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			It("[test_id:3192]should remove owner references on DataVolume if VM is orphan deleted.", func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
@@ -1106,7 +1106,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		DescribeTable("[rfe_id:5070][crit:medium][vendor:cnv-qe@redhat.com][level:component]fstrim from the VM influences disk.img", func(dvChange func(*cdiv1.DataVolume) *cdiv1.DataVolume, expectSmaller bool) {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
+				Fail("Fail test when Filesystem storage is not present")
 			}
 
 			dataVolume := libdv.NewDataVolume(
@@ -1220,7 +1220,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		BeforeEach(func() {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip test when Filesystem storage class is not present")
+				Fail("Fail test when Filesystem storage class is not present")
 			}
 
 			vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)

@@ -1090,7 +1090,7 @@ var _ = SIGDescribe("Storage", func() {
 			BeforeEach(func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				dv = libdv.NewDataVolume(
