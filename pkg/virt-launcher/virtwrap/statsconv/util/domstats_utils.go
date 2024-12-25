@@ -192,6 +192,8 @@ var Testdataexpected = `{
      "TotalSet": false
    }, 
    "MigrateDomainJobInfo": {
+	 "DataTotal": 0,
+	 "DataTotalSet": false,
      "DataProcessed": 0,
      "DataProcessedSet": false,
      "DataRemaining": 0,
