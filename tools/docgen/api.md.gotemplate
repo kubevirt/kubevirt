@@ -1,0 +1,33 @@
+{{- /* templates */ -}}
+{{- define "type-doc-header" }}## {{ .Name }}
+
+{{ .Doc }}
+{{ end -}}
+{{- define "table" -}}
+| Field | Description | Scheme | Default | Required |
+| ----- | ----------- | ------ | -------- |-------- |
+{{- range .}}
+| {{.Name}} | {{.Doc}} | {{.PrintedType}} | {{.DefaultValue}} | {{.Mandatory}} |
+{{- end -}}
+{{ end -}}
+{{- define "type-doc" }}
+{{ template "type-doc-header" . | FirstItem }}
+{{ template "table" . | ItemFields }}
+
+[Back to TOC](#table-of-contents)
+{{- end -}}
+{{ define "toc-line" }}* [{{ .Name }}](#{{ .Name | ToLower }}){{ end }}
+{{- /* the document starts here */ -}}
+# API Docs
+
+This Document documents the types introduced by the hyperconverged-cluster-operator to be consumed by users.
+
+> Note this document is generated from code comments. When contributing a change to this document please do so by changing the code comments.
+
+## Table of Contents
+{{- range . }}
+{{ template "toc-line" . | FirstItem -}}
+{{ end -}}
+{{ range . }}
+{{ template "type-doc" . -}}
+{{ end }}

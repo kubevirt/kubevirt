@@ -20,134 +20,167 @@ package main
 
 import (
 	"bytes"
+	"embed"
+	"errors"
 	"fmt"
 	"go/ast"
-	"go/doc"
 	"go/parser"
 	"go/token"
+	"io"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
-)
+	"text/template"
 
-const (
-	firstParagraph = `
-# API Docs
-
-This Document documents the types introduced by the hyperconverged-cluster-operator to be consumed by users.
-
-> Note this document is generated from code comments. When contributing a change to this document please do so by changing the code comments.`
+	"golang.org/x/mod/modfile"
+	"golang.org/x/mod/semver"
 )
 
 var (
 	links = map[string]string{
-		"metav1.ObjectMeta":        "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#objectmeta-v1-meta",
-		"metav1.ListMeta":          "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#listmeta-v1-meta",
-		"metav1.LabelSelector":     "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#labelselector-v1-meta",
-		"v1.ResourceRequirements":  "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#resourcerequirements-v1-core",
-		"v1.LocalObjectReference":  "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#localobjectreference-v1-core",
-		"v1.SecretKeySelector":     "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#secretkeyselector-v1-core",
-		"v1.PersistentVolumeClaim": "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#persistentvolumeclaim-v1-core",
-		"v1.EmptyDirVolumeSource":  "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#emptydirvolumesource-v1-core",
-		"apiextensionsv1.JSON":     "https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#json-v1-apiextensions-k8s-io",
+		"metav1.ObjectMeta":        "https://kubernetes.io/docs/reference/generated/kubernetes-api/%s/#objectmeta-v1-meta",
+		"metav1.ListMeta":          "https://kubernetes.io/docs/reference/generated/kubernetes-api/%s/#listmeta-v1-meta",
+		"metav1.LabelSelector":     "https://kubernetes.io/docs/reference/generated/kubernetes-api/%s/#labelselector-v1-meta",
+		"v1.ResourceRequirements":  "https://kubernetes.io/docs/reference/generated/kubernetes-api/%s/#resourcerequirements-v1-core",
+		"v1.LocalObjectReference":  "https://kubernetes.io/docs/reference/generated/kubernetes-api/%s/#localobjectreference-v1-core",
+		"v1.SecretKeySelector":     "https://kubernetes.io/docs/reference/generated/kubernetes-api/%s/#secretkeyselector-v1-core",
+		"v1.PersistentVolumeClaim": "https://kubernetes.io/docs/reference/generated/kubernetes-api/%s/#persistentvolumeclaim-v1-core",
+		"v1.EmptyDirVolumeSource":  "https://kubernetes.io/docs/reference/generated/kubernetes-api/%s/#emptydirvolumesource-v1-core",
+		"apiextensionsv1.JSON":     "https://kubernetes.io/docs/reference/generated/kubernetes-api/%s/#json-v1-apiextensions-k8s-io",
 	}
 
 	selfLinks = map[string]string{
 		"sdkapi.NodePlacement": "https://github.com/kubevirt/controller-lifecycle-operator-sdk/blob/bbf16167410b7a781c7b08a3f088fc39551c7a00/pkg/sdk/api/types.go#L49",
 	}
-	typesDoc = map[string]KubeTypes{}
+
+	typeFields = map[string][]*ast.Field{}
 )
 
 const (
 	kubebuilderDefaultPrefix = "// +kubebuilder:default="
 )
 
-func toSectionLink(name string) string {
-	name = strings.ToLower(name)
-	name = strings.Replace(name, " ", "-", -1)
-	return name
-}
+func main() {
+	err := setK8sLinks()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 
-func printTOC(types []KubeTypes) {
-	fmt.Printf("\n## Table of Contents\n")
-	for _, t := range types {
-		strukt := t[0]
-		if len(t) > 1 {
-			fmt.Printf("* [%s](#%s)\n", strukt.Name, toSectionLink(strukt.Name))
-		}
+	types, err := parseFiles(os.Args[1:])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	err = printAPIDocs(os.Stdout, types)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }
 
-func printAPIDocs(paths []string) {
-	fmt.Println(firstParagraph)
-
-	types := ParseDocumentationFrom(paths)
-	for _, t := range types {
-		strukt := t[0]
-		selfLinks[strukt.Name] = "#" + strings.ToLower(strukt.Name)
-		typesDoc[toLink(strukt.Name)] = t[1:]
+func parseFiles(paths []string) ([]KubeTypes, error) {
+	initial, err := getInitialInfo(paths)
+	if err != nil {
+		return nil, err
 	}
 
-	// we need to parse once more to now add the self links and the inlined fields
-	types = ParseDocumentationFrom(paths)
-
-	printTOC(types)
-
-	for _, t := range types {
-		strukt := t[0]
-		if len(t) > 1 {
-			fmt.Printf("\n## %s\n\n%s\n\n", strukt.Name, strukt.Doc)
-
-			fmt.Println("| Field | Description | Scheme | Default | Required |")
-			fmt.Println("| ----- | ----------- | ------ | -------- |-------- |")
-			fields := t[1:]
-			for _, f := range fields {
-				fmt.Println("|", f.Name, "|", f.Doc, "|", f.Type, "|", f.Default, "|", f.Mandatory, "|")
-			}
-			fmt.Println("")
-			fmt.Println("[Back to TOC](#table-of-contents)")
-		}
+	for _, strukt := range initial {
+		selfLinks[strukt.name] = "#" + strings.ToLower(strukt.name)
+		typeFields[toLink(strukt.name)] = strukt.fields
 	}
+
+	var types []KubeTypes
+	for _, info := range initial {
+		types = handleType(types, info.name, info.strct, info.doc)
+	}
+
+	return types, nil
 }
 
-// Pair of strings. We keed the name of fields and the doc
-type Pair struct {
-	Name, Doc, Type, Default string
-	Mandatory                bool
+type typeInfo struct {
+	Name         string
+	Doc          string
+	PrintedType  string
+	DefaultValue string
+	Mandatory    bool
 }
 
 // KubeTypes is an array to represent all available types in a parsed file. [0] is for the type itself
-type KubeTypes []Pair
+type KubeTypes []typeInfo
 
-// ParseDocumentationFrom gets all types' documentation and returns them as an
-// array. Each type is again represented as an array (we have to use arrays as we
-// need to be sure for the order of the fields). This function returns fields and
-// struct definitions that have no documentation as {name, ""}.
-func ParseDocumentationFrom(srcs []string) []KubeTypes {
-	var docForTypes []KubeTypes
-
-	for _, src := range srcs {
-		pkg := astFrom(src)
-
-		for _, kubType := range pkg.Types {
-			docForTypes = handleType(docForTypes, kubType)
-		}
-	}
-
-	return docForTypes
+type initialInfo struct {
+	name   string
+	strct  *ast.StructType
+	doc    string
+	fields []*ast.Field
 }
-func handleType(docForTypes []KubeTypes, kubType *doc.Type) []KubeTypes {
-	if structType, ok := kubType.Decl.Specs[0].(*ast.TypeSpec).Type.(*ast.StructType); ok {
-		var ks KubeTypes
-		ks = append(ks, Pair{Name: kubType.Name, Doc: fmtRawDoc(kubType.Doc), Type: "", Default: "", Mandatory: false})
 
-		for _, field := range structType.Fields.List {
-			ks = handleField(ks, field)
+func getInitialInfo(srcs []string) ([]initialInfo, error) {
+	var initial []initialInfo
+	for _, src := range srcs {
+		fset := token.NewFileSet()
+
+		file, err := parser.ParseFile(fset, src, nil, parser.ParseComments)
+		if err != nil {
+			return nil, err
 		}
-		docForTypes = append(docForTypes, ks)
+
+		initial = parseAST(initial, file.Decls)
 	}
 
-	return docForTypes
+	slices.SortFunc(initial, func(a, b initialInfo) int {
+		return strings.Compare(a.name, b.name)
+	})
+
+	return initial, nil
+}
+
+func parseAST(initial []initialInfo, decls []ast.Decl) []initialInfo {
+	for _, decl := range decls {
+		strct, name, doc := getStructFromDecl(decl)
+		if strct != nil {
+			initial = append(initial, initialInfo{
+				name:   name,
+				strct:  strct,
+				doc:    doc,
+				fields: strct.Fields.List,
+			})
+		}
+	}
+
+	return initial
+}
+
+func getStructFromDecl(decl ast.Decl) (*ast.StructType, string, string) {
+	d, ok := decl.(*ast.GenDecl)
+	if !ok || d.Tok != token.TYPE || len(d.Specs) != 1 {
+		return nil, "", ""
+	}
+
+	s, ok := d.Specs[0].(*ast.TypeSpec)
+	if !ok {
+		return nil, "", ""
+	}
+
+	strct, ok := s.Type.(*ast.StructType)
+	if !ok {
+		return nil, "", ""
+	}
+
+	return strct, s.Name.Name, d.Doc.Text()
+}
+
+func handleType(docForTypes []KubeTypes, name string, st *ast.StructType, doc string) []KubeTypes {
+	var ks KubeTypes
+	ks = append(ks, typeInfo{Name: name, Doc: fmtRawDoc(doc), PrintedType: "", DefaultValue: "", Mandatory: false})
+
+	for _, field := range st.Fields.List {
+		ks = handleField(ks, field)
+	}
+	return append(docForTypes, ks)
 }
 
 func handleField(ks KubeTypes, field *ast.Field) KubeTypes {
@@ -155,34 +188,22 @@ func handleField(ks KubeTypes, field *ast.Field) KubeTypes {
 	if isInlined(field) {
 		// Skip external types, as we don't want their content to be part of the API documentation.
 		if isInternalType(field.Type) {
-			ks = append(ks, typesDoc[fieldType(field.Type)]...)
+			var flds KubeTypes
+			for _, fld := range typeFields[fieldType(field.Type)] {
+				flds = handleField(flds, fld)
+			}
+			ks = append(ks, flds...)
 		}
 	} else if n := fieldName(field); n != "-" {
 		fieldDoc := fmtRawDoc(field.Doc.Text())
-		ks = append(ks, Pair{
-			Name:      n,
-			Doc:       fieldDoc,
-			Type:      fieldType(field.Type),
-			Default:   fieldDefault(field),
-			Mandatory: fieldRequired(field)})
+		ks = append(ks, typeInfo{
+			Name:         n,
+			Doc:          fieldDoc,
+			PrintedType:  fieldType(field.Type),
+			DefaultValue: fieldDefault(field),
+			Mandatory:    fieldRequired(field)})
 	}
 	return ks
-}
-
-func astFrom(filePath string) *doc.Package {
-	fset := token.NewFileSet()
-	m := make(map[string]*ast.File)
-
-	f, err := parser.ParseFile(fset, filePath, nil, parser.ParseComments)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-
-	m[filePath] = f
-	apkg, _ := ast.NewPackage(fset, m, nil, nil)
-
-	return doc.New(apkg, "", 0)
 }
 
 func fmtRawDoc(rawDoc string) string {
@@ -322,6 +343,63 @@ func fieldType(typ ast.Expr) string {
 	}
 }
 
-func main() {
-	printAPIDocs(os.Args[1:])
+func getK8sAPIVersion() (string, error) {
+	data, err := os.ReadFile("./go.mod")
+	if err != nil {
+		return "", err
+	}
+
+	gomod, err := modfile.Parse("./go.mod", data, nil)
+	if err != nil {
+		return "", err
+	}
+
+	for _, req := range gomod.Require {
+		if req.Mod.Path == "k8s.io/api" {
+			v := strings.Replace(req.Mod.Version, "v0.", "v1.", -1)
+			return semver.MajorMinor(v), nil
+		}
+	}
+
+	return "", errors.New("couldn't find the Kubernetes version in go.mod")
+}
+
+func setK8sLinks() error {
+	k8sVer, err := getK8sAPIVersion()
+	if err != nil {
+		return err
+	}
+
+	for pkg, link := range links {
+		links[pkg] = fmt.Sprintf(link, k8sVer)
+	}
+
+	return nil
+}
+
+//go:embed api.md.gotemplate
+var templateFile embed.FS
+
+func printAPIDocs(w io.Writer, types []KubeTypes) error {
+	funcMap := template.FuncMap{
+		"ToLower": strings.ToLower,
+		"FirstItem": func(kubeTypes KubeTypes) typeInfo {
+			return kubeTypes[0]
+		},
+		"ItemFields": func(kubeTypes KubeTypes) KubeTypes {
+			return kubeTypes[1:]
+		},
+	}
+
+	tmplt, err := template.New("api.md.gotemplate").Funcs(funcMap).ParseFS(templateFile, "api.md.gotemplate")
+	if err != nil {
+		return err
+	}
+
+	err = tmplt.Execute(w, types)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
