@@ -777,6 +777,23 @@ var _ = Describe("netstat", func() {
 		Entry("When existing pod interface name has a custom value", "custom-iface"),
 	)
 
+	It("VMI with a secondary interface status reported interface should keep the prev PodInterfaceName", func() {
+		const (
+			secondaryNetworkName  = "secondary"
+			secondaryPodIfaceName = "pod123456"
+		)
+		setup.Vmi.Spec.Domain.Devices.Interfaces = append(setup.Vmi.Spec.Domain.Devices.Interfaces, newVMISpecIfaceWithBridgeBinding(secondaryNetworkName))
+		setup.Vmi.Spec.Networks = append(setup.Vmi.Spec.Networks, newVMISpecMultusNetwork(secondaryNetworkName))
+		setup.Vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: secondaryNetworkName, PodInterfaceName: secondaryPodIfaceName, InfoSource: netvmispec.InfoSourceMultusStatus},
+		}
+		Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+			{Name: secondaryNetworkName, PodInterfaceName: secondaryPodIfaceName, InfoSource: netvmispec.InfoSourceMultusStatus},
+		}))
+	})
+
 	Context("misc scenario", func() {
 		const (
 			networkName = "primary"

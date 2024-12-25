@@ -278,7 +278,7 @@ var _ = Describe("Status Update", func() {
 	})
 
 	DescribeTable("Should generate interface status for secondary interface (not matched on status) when Multus network status is reported",
-		func(podAnnotations map[string]string) {
+		func(podAnnotations map[string]string, expectedInterfaces []v1.VirtualMachineInstanceNetworkInterface) {
 			vmi := libvmi.New(
 				libvmi.WithNamespace(testNamespace),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName)),
@@ -287,10 +287,6 @@ var _ = Describe("Status Update", func() {
 
 			Expect(vmicontroller.UpdateStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
-			expectedInterfaces := []v1.VirtualMachineInstanceNetworkInterface{
-				{Name: secondaryNetworkName, InfoSource: vmispec.InfoSourceMultusStatus},
-			}
-
 			Expect(vmi.Status.Interfaces).To(Equal(expectedInterfaces))
 		},
 		Entry("When using hashed naming scheme",
@@ -298,11 +294,17 @@ var _ = Describe("Status Update", func() {
 				networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
 				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
 			},
+			[]v1.VirtualMachineInstanceNetworkInterface{
+				{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
+			},
 		),
 		Entry("When using ordinal naming scheme",
 			map[string]string{
 				networkv1.NetworkAttachmentAnnot: multusOrdinalNetworksAnnotation,
 				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndOrdinalSecondaryNets,
+			},
+			[]v1.VirtualMachineInstanceNetworkInterface{
+				{Name: secondaryNetworkName, PodInterfaceName: "net1", InfoSource: vmispec.InfoSourceMultusStatus},
 			},
 		),
 	)
@@ -321,7 +323,7 @@ var _ = Describe("Status Update", func() {
 
 			expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 				{Name: defaultNetworkName, PodInterfaceName: expectedPrimaryInterfaceName},
-				{Name: secondaryNetworkName, PodInterfaceName: "", InfoSource: vmispec.InfoSourceMultusStatus},
+				{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
 			}
 
 			Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
@@ -364,7 +366,7 @@ var _ = Describe("Status Update", func() {
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: defaultNetworkName, PodInterfaceName: "eth0"},
-			{Name: secondaryNetworkName, PodInterfaceName: "", InfoSource: vmispec.InfoSourceMultusStatus},
+			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
 		}
 
 		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
@@ -390,7 +392,7 @@ var _ = Describe("Status Update", func() {
 		Expect(vmicontroller.UpdateStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
-			{Name: secondaryNetworkName, InfoSource: vmispec.InfoSourceMultusStatus},
+			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
 		}
 
 		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
@@ -398,7 +400,7 @@ var _ = Describe("Status Update", func() {
 
 	It("Should remove the Multus info source when VMI.status has an interface but it is not reported by Multus network-status", func() {
 		existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
-			{Name: secondaryNetworkName, InfoSource: vmispec.InfoSourceMultusStatus},
+			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
 		}
 
 		vmi := libvmi.New(
@@ -415,7 +417,7 @@ var _ = Describe("Status Update", func() {
 		Expect(vmicontroller.UpdateStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
-			{Name: secondaryNetworkName},
+			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880"},
 		}
 
 		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
@@ -440,7 +442,7 @@ var _ = Describe("Status Update", func() {
 		Expect(vmicontroller.UpdateStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
-			{Name: secondaryNetworkName, InfoSource: vmispec.InfoSourceGuestAgent},
+			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceGuestAgent},
 		}
 
 		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
@@ -466,7 +468,7 @@ var _ = Describe("Status Update", func() {
 		Expect(vmicontroller.UpdateStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
-			{Name: secondaryNetworkName, InfoSource: vmispec.InfoSourceMultusStatus},
+			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
 			{Name: "", InfoSource: vmispec.InfoSourceGuestAgent, IP: "192.168.50.10"},
 		}
 
@@ -492,7 +494,7 @@ var _ = Describe("Status Update", func() {
 		Expect(vmicontroller.UpdateStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
-			{Name: secondaryNetworkName},
+			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880"},
 		}
 
 		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))

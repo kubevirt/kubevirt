@@ -32,6 +32,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -123,7 +124,8 @@ func interfaceStatusFromInterfaceNames(queueCount int32, ifaceNames ...string) [
 			InterfaceName: fmt.Sprintf("eth%d", i+initialIfacesInVMI),
 			InfoSource: vmispec.NewInfoSource(
 				vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent, vmispec.InfoSourceMultusStatus),
-			QueueCount: queueCount,
+			QueueCount:       queueCount,
+			PodInterfaceName: namescheme.GenerateHashedInterfaceName(ifaceName),
 		})
 	}
 	return ifaceStatus

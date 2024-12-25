@@ -80,6 +80,17 @@ func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, networks []v1.N
 }
 
 func (n *VMNetworkConfigurator) SetupPodNetworkPhase2(domain *api.Domain, networks []v1.Network) error {
+	ifaceStatusesByName := vmispec.IndexInterfaceStatusByName(n.vmi.Status.Interfaces,
+		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
+			return vmispec.HasIfaceStatusOriginatedFromSpec(ifaceStatus) && ifaceStatus.PodInterfaceName != ""
+		},
+	)
+
+	networks = vmispec.FilterNetworksSpec(networks, func(network v1.Network) bool {
+		_, hasPodIfaceName := ifaceStatusesByName[network.Name]
+		return hasPodIfaceName
+	})
+
 	nics, err := n.getPhase2NICs(domain, networks)
 	if err != nil {
 		return err

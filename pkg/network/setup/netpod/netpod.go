@@ -80,7 +80,8 @@ type NetPod struct {
 
 	bindingPluginsByName map[string]v1.InterfaceBindingPlugin
 
-	log *log.FilteredLogger
+	log                    *log.FilteredLogger
+	podIfaceNamesByNetName map[string]string
 }
 
 type option func(*NetPod)
@@ -106,6 +107,22 @@ func NewNetPod(vmiNetworks []v1.Network, vmiIfaces []v1.Interface, vmiUID string
 	for _, opt := range opts {
 		opt(&n)
 	}
+
+	ifaceStatusesByName := vmispec.IndexInterfaceStatusByName(n.vmiIfaceStatuses,
+		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
+			return vmispec.HasIfaceStatusOriginatedFromSpec(ifaceStatus) && ifaceStatus.PodInterfaceName != ""
+		},
+	)
+
+	n.vmiSpecIfaces = vmispec.FilterInterfacesSpec(n.vmiSpecIfaces, func(iface v1.Interface) bool {
+		_, hasPodIfaceName := ifaceStatusesByName[iface.Name]
+		return hasPodIfaceName
+	})
+
+	n.vmiSpecNets = vmispec.FilterNetworksByInterfaces(n.vmiSpecNets, n.vmiSpecIfaces)
+
+	n.podIfaceNamesByNetName = namescheme.CreateFromIfaceStatuses(n.vmiSpecNets, ifaceStatusesByName)
+
 	return n
 }
 
@@ -253,8 +270,6 @@ func (n NetPod) config(currentStatus *nmstate.Status) error {
 func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec, error) {
 	podIfaceStatusByName := ifaceStatusByName(currentStatus.Interfaces)
 
-	podIfaceNameByVMINetwork := createNetworkNameScheme(n.vmiSpecNets, n.vmiIfaceStatuses, currentStatus.Interfaces)
-
 	spec := nmstate.Spec{Interfaces: []nmstate.Interface{}}
 
 	for ifIndex, iface := range n.vmiSpecIfaces {
@@ -262,7 +277,7 @@ func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec
 			ifacesSpec []nmstate.Interface
 			err        error
 		)
-		podIfaceName := podIfaceNameByVMINetwork[iface.Name]
+		podIfaceName := n.podIfaceNamesByNetName[iface.Name]
 
 		switch {
 		case iface.Bridge != nil:
@@ -535,8 +550,8 @@ func (n NetPod) setupNAT(desiredSpec *nmstate.Spec, currentStatus *nmstate.Statu
 	if bridgeIfaceSpec == nil {
 		return nil
 	}
-	podIfaceNameByVMINetwork := createNetworkNameScheme(n.vmiSpecNets, n.vmiIfaceStatuses, currentStatus.Interfaces)
-	podIfaceName := podIfaceNameByVMINetwork[bridgeIfaceSpec.Metadata.NetworkName]
+
+	podIfaceName := n.podIfaceNamesByNetName[bridgeIfaceSpec.Metadata.NetworkName]
 	podIfaceSpec := nmstate.LookupInterface(currentStatus.Interfaces, func(i nmstate.Interface) bool {
 		return i.Name == podIfaceName
 	})
@@ -619,27 +634,6 @@ func firstIPGlobalUnicast(ip nmstate.IP) *nmstate.IPAddress {
 	return nil
 }
 
-func createNetworkNameScheme(networks []v1.Network, ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface, currentIfaces []nmstate.Interface) map[string]string {
-	var podIfaceNamesByNetworkName map[string]string
-
-	if includesOrdinalNames(currentIfaces) {
-		podIfaceNamesByNetworkName = namescheme.CreateOrdinalNetworkNameScheme(networks)
-	} else {
-		podIfaceNamesByNetworkName = namescheme.CreateHashedNetworkNameScheme(networks)
-	}
-
-	return namescheme.UpdatePrimaryPodIfaceNameFromVMIStatus(podIfaceNamesByNetworkName, networks, ifaceStatuses)
-}
-
-func includesOrdinalNames(ifaces []nmstate.Interface) bool {
-	for _, iface := range ifaces {
-		if namescheme.OrdinalSecondaryInterfaceName(iface.Name) {
-			return true
-		}
-	}
-	return false
-}
-
 func filterSupportedBindingNetworks(specNetworks []v1.Network, specInterfaces []v1.Interface) ([]v1.Network, error) {
 	var networks []v1.Network
 	for _, network := range specNetworks {
@@ -677,7 +671,7 @@ func (n NetPod) clearCache(nets []v1.Network) error {
 			unplugErrors = append(unplugErrors, err)
 		}
 
-		podInterfaceName := namescheme.HashedPodInterfaceName(net, n.vmiIfaceStatuses)
+		podInterfaceName := n.podIfaceNamesByNetName[net.Name]
 		err = cache.DeleteDHCPInterfaceCache(n.cacheCreator, strconv.Itoa(n.podPID), podInterfaceName)
 		if err != nil {
 			unplugErrors = append(unplugErrors, err)
