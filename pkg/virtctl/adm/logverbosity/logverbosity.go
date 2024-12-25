@@ -9,23 +9,17 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
-
-	"k8s.io/client-go/tools/clientcmd"
-
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
-
-type Command struct {
-	clientConfig clientcmd.ClientConfig
-	command      string
-}
 
 // for command parsing
 const (
@@ -58,6 +52,8 @@ var virtComponents = map[string]*uint{
 	allComponents:     new(uint),
 }
 
+type Command struct{}
+
 // operation type of log-verbosity command
 type operation int
 
@@ -73,7 +69,8 @@ const (
 	lvPath = "/spec/configuration/developerConfiguration/logVerbosity"
 )
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewCommand() *cobra.Command {
+	c := Command{}
 	cmd := &cobra.Command{
 		Use:   "log-verbosity",
 		Short: "Show, Set or Reset log verbosity. The verbosity value must be 0-9. The default cluster config is normally 2.\n",
@@ -90,10 +87,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 - Flag syntax must be "flag=arg" ("flag arg" not supported).`,
 		Example: usage(),
 		Args:    cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			c := Command{command: "log-verbosity", clientConfig: clientConfig}
-			return c.RunE(cmd)
-		},
+		RunE:    c.RunE,
 	}
 
 	cmd.Flags().UintVar(virtComponents["virt-api"], "virt-api", NoFlag, "show/set virt-api log verbosity (0-9)")
@@ -353,8 +347,12 @@ func findOperation(cmd *cobra.Command) (operation, error) {
 	}
 }
 
-func (c *Command) RunE(cmd *cobra.Command) error {
-	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(c.clientConfig)
+func (c *Command) RunE(cmd *cobra.Command, _ []string) error {
+	clientConfig, err := clientconfig.FromContext(cmd.Context())
+	if err != nil {
+		return err
+	}
+	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(clientConfig)
 	if err != nil {
 		return err
 	}

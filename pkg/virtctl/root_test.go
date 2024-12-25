@@ -2,6 +2,7 @@ package virtctl_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"runtime"
@@ -13,12 +14,12 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/version"
 
 	"kubevirt.io/kubevirt/pkg/virtctl"
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
@@ -64,9 +65,12 @@ var _ = Describe("virtctl", func() {
 		}
 		out := &bytes.Buffer{}
 		cmd.SetErr(out)
+		cmd.SetContext(clientconfig.NewContext(
+			context.Background(), kubecli.DefaultClientConfig(&pflag.FlagSet{}),
+		))
 
-		virtctl.NewVirtctlCommand = func() (*cobra.Command, clientcmd.ClientConfig) {
-			return cmd, kubecli.DefaultClientConfig(&pflag.FlagSet{})
+		virtctl.NewVirtctlCommand = func() *cobra.Command {
+			return cmd
 		}
 		DeferCleanup(func() {
 			virtctl.NewVirtctlCommand = virtctl.NewVirtctlCommandFn

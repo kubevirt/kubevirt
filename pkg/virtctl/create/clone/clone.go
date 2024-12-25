@@ -20,18 +20,20 @@
 package clone
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/client-go/tools/clientcmd"
-	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
-	"kubevirt.io/client-go/kubecli"
 	"sigs.k8s.io/yaml"
 
+	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 )
 
 const (
@@ -66,8 +68,6 @@ type createClone struct {
 	templateAnnotationFilters []string
 	newMacAddresses           []string
 	newSmbiosSerial           string
-
-	clientConfig clientcmd.ClientConfig
 }
 
 type cloneSpec clonev1alpha1.VirtualMachineCloneSpec
@@ -77,18 +77,13 @@ var optFns = map[string]optionFn{
 	NewMacAddressesFlag: withNewMacAddresses,
 }
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	c := createClone{
-		clientConfig: clientConfig,
-	}
-
+func NewCommand() *cobra.Command {
+	c := createClone{}
 	cmd := &cobra.Command{
 		Use:     Clone,
 		Short:   "Create a clone object manifest",
 		Example: c.usage(),
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return c.run(cmd)
-		},
+		RunE:    c.run,
 	}
 
 	const emptyValue = ""
@@ -225,8 +220,8 @@ func (c *createClone) applyFlags(cmd *cobra.Command, spec *clonev1alpha1.Virtual
 	return nil
 }
 
-func (c *createClone) run(cmd *cobra.Command) error {
-	if err := c.setDefaults(); err != nil {
+func (c *createClone) run(cmd *cobra.Command, _ []string) error {
+	if err := c.setDefaults(cmd.Context()); err != nil {
 		return err
 	}
 
@@ -298,8 +293,12 @@ func (c *createClone) typeToTypedLocalObjectReference(sourceOrTargetType, source
 	}, nil
 }
 
-func (c *createClone) setDefaults() error {
-	namespace, overridden, err := c.clientConfig.Namespace()
+func (c *createClone) setDefaults(ctx context.Context) error {
+	clientConfig, err := clientconfig.FromContext(ctx)
+	if err != nil {
+		return err
+	}
+	namespace, overridden, err := clientConfig.Namespace()
 	if err != nil {
 		return err
 	}

@@ -2,7 +2,6 @@ package credentials
 
 import (
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/credentials/addkey"
 	"kubevirt.io/kubevirt/pkg/virtctl/credentials/password"
@@ -10,7 +9,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "credentials",
 		Short: "Manipulate credentials on a virtual machine.",
@@ -20,9 +19,9 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	}
 
 	cmd.AddCommand(
-		addkey.NewCommand(clientConfig),
-		removekey.NewCommand(clientConfig),
-		password.SetPasswordCommand(clientConfig),
+		addkey.NewCommand(),
+		removekey.NewCommand(),
+		password.SetPasswordCommand(),
 	)
 
 	cmd.SetUsageTemplate(templates.UsageTemplate())
