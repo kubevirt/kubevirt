@@ -218,7 +218,7 @@ var _ = Describe("Backend Storage", func() {
 			}
 		})
 		It("Should label the target PVC and remove the source PVC on migration success", func() {
-			err := MigrationHandoff(virtClient, pvcStore, migration)
+			_, err := MigrationHandoff(virtClient, pvcStore, migration)
 			Expect(err).NotTo(HaveOccurred())
 			_, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
 			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
@@ -227,7 +227,7 @@ var _ = Describe("Backend Storage", func() {
 			Expect(targetPVC.Labels).To(HaveKeyWithValue("persistent-state-for", vmiName))
 		})
 		It("Should remove the target PVC on migration failure", func() {
-			err := MigrationAbort(virtClient, migration)
+			_, err := MigrationAbort(virtClient, migration)
 			Expect(err).NotTo(HaveOccurred())
 			sourcePVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -237,7 +237,7 @@ var _ = Describe("Backend Storage", func() {
 		})
 		It("Should keep the shared PVC on migration success", func() {
 			migration.Status.MigrationState.TargetPersistentStatePVCName = sourcePVCName
-			err := MigrationHandoff(virtClient, pvcStore, migration)
+			_, err := MigrationHandoff(virtClient, pvcStore, migration)
 			Expect(err).NotTo(HaveOccurred())
 			sourcePVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -245,7 +245,7 @@ var _ = Describe("Backend Storage", func() {
 		})
 		It("Should keep the shared PVC on migration failure", func() {
 			migration.Status.MigrationState.TargetPersistentStatePVCName = sourcePVCName
-			err := MigrationAbort(virtClient, migration)
+			_, err := MigrationAbort(virtClient, migration)
 			Expect(err).NotTo(HaveOccurred())
 			sourcePVC, err := k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), sourcePVCName, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
