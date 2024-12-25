@@ -114,6 +114,9 @@ Virtual Machine last transition timestamp to running status. Type: Counter.
 ### kubevirt_vm_starting_status_last_transition_timestamp_seconds
 Virtual Machine last transition timestamp to starting status. Type: Counter.
 
+### kubevirt_vm_vnic_info
+Details of Virtual Machine (VM) vNIC interfaces, such as vNIC name, binding type, network name, and binding name for each vNIC defined in the VM's configuration. Type: Gauge.
+
 ### kubevirt_vmi_cpu_system_usage_seconds_total
 Total CPU time spent in system mode. Type: Counter.
 
@@ -296,6 +299,9 @@ Total amount of time spent in each state by each vcpu (cpu_time excluding hyperv
 
 ### kubevirt_vmi_vcpu_wait_seconds_total
 Amount of time spent by each vcpu while waiting on I/O. Type: Counter.
+
+### kubevirt_vmi_vnic_info
+Details of VirtualMachineInstance (VMI) vNIC interfaces, such as vNIC name, binding type, network name, and binding name for each vNIC of a running instance. Type: Gauge.
 
 ### kubevirt_vmsnapshot_disks_restored_from_source
 Returns the total number of virtual machine disks restored from the source virtual machine. Type: Gauge.
