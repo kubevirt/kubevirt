@@ -1248,7 +1248,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			BeforeEach(func() {
 				if !libstorage.HasCDI() {
-					Skip("Skip tests when CDI is not present")
+					Fail("Fail tests when CDI is not present")
 				}
 			})
 
@@ -1328,7 +1328,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		BeforeEach(func() {
 			if !libstorage.HasCDI() {
-				Skip("Skip tests when CDI is not present")
+				Fail("Fail tests when CDI is not present")
 			}
 			_, foundSC := libstorage.GetRWXBlockStorageClass()
 			if !foundSC {
@@ -1460,7 +1460,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		updateCDIResourceRequirements := func(requirements *k8sv1.ResourceRequirements) {
 			if !libstorage.HasCDI() {
-				Skip("Test requires CDI CR to be available")
+				Fail("Test requires CDI CR to be available")
 			}
 			orgCdiConfig, err := virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), "config", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())

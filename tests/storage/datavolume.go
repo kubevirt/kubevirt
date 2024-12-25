@@ -95,7 +95,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		virtClient = kubevirt.Client()
 
 		if !libstorage.HasCDI() {
-			Skip("Skip DataVolume tests when CDI is not present")
+			Fail("Fail DataVolume tests when CDI is not present")
 		}
 	})
 
