@@ -186,20 +186,15 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			localNodeTCPJob.Spec.Template.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: newNodeAffinity(k8sv1.NodeSelectorOpIn, inboundVMI.Status.NodeName)}
 			localNodeTCPJob, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), localNodeTCPJob, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(job.WaitForJobToSucceed(localNodeTCPJob, 90*time.Second)).To(Succeed(), "should be able to reach VM workload from a pod on the same node")
 
-			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+			By("start connectivity job on different node")
+			remoteNodeTCPJob := job.NewHelloWorldJobTCP(ip, strconv.Itoa(testPort))
+			remoteNodeTCPJob.Spec.Template.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: newNodeAffinity(k8sv1.NodeSelectorOpNotIn, inboundVMI.Status.NodeName)}
+			remoteNodeTCPJob, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), remoteNodeTCPJob, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			if len(nodes.Items) == 1 {
-				Skip("Skip network TCP connectivity test across nodes because only one node present")
-			} else {
-				By("start connectivity job on different node")
-				remoteNodeTCPJob := job.NewHelloWorldJobTCP(ip, strconv.Itoa(testPort))
-				remoteNodeTCPJob.Spec.Template.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: newNodeAffinity(k8sv1.NodeSelectorOpNotIn, inboundVMI.Status.NodeName)}
-				remoteNodeTCPJob, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), remoteNodeTCPJob, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(job.WaitForJobToSucceed(remoteNodeTCPJob, 90*time.Second)).To(Succeed(), "should be able to reach VM workload from a pod on different node")
-			}
+
+			Expect(job.WaitForJobToSucceed(localNodeTCPJob, 90*time.Second)).To(Succeed(), "should be able to reach VM workload from a pod on the same node")
+			Expect(job.WaitForJobToSucceed(remoteNodeTCPJob, 90*time.Second)).To(Succeed(), "should be able to reach VM workload from a pod on different node")
 		})
 	})
 
