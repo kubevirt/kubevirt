@@ -98,20 +98,6 @@ var _ = Describe("utilitary funcs to identify attachments to hotplug", func() {
 				Expect(nets).To(Equal(expNets))
 				Expect(exists).To(Equal(expToChange))
 			},
-			Entry("when vmi interfaces match pod multus annotation and status, change is not required",
-				libvmi.New(
-					libvmi.WithInterface(v1.Interface{Name: testNetworkName1}),
-					libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
-					withInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: testNetworkName1}),
-				),
-				&k8sv1.Pod{
-					ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
-						networkv1.NetworkStatusAnnot: `[
-						{"interface":"net1", "name":"red-net", "namespace": "default"}
-					]`,
-					}},
-				}, nil, nil, expectNoChange,
-			),
 			Entry("when vmi interfaces have an extra interface which requires hotplug",
 				libvmi.New(
 					libvmi.WithInterface(v1.Interface{Name: testNetworkName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}),

@@ -36,10 +36,12 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/pod/annotations"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -584,6 +586,34 @@ var _ = Describe("Annotations Generator", func() {
 				},
 			),
 		)
+
+		It("Should not generate network attachment annotation when all spec interfaces are present in status", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(network1Name)),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, networkAttachmentDefinitionName1)),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{Name: "default", PodInterfaceName: "eth0"}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       network1Name,
+							InfoSource: vmispec.InfoSourceMultusStatus,
+						}),
+					),
+				),
+			)
+
+			pod := newStubVirtLauncherPod(vmi, map[string]string{
+				networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
+				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
+			})
+			generator := annotations.NewGenerator(clusterConfig)
+
+			annotations := generator.GenerateFromActivePod(vmi, pod)
+			Expect(annotations).ToNot(HaveKey(networkv1.NetworkAttachmentAnnot))
+		})
 
 		It("Should generate network attachment annotation when VMI is not connected to secondary networks and an interface is hot plugged",
 			func() {
