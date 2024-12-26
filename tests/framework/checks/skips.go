@@ -106,13 +106,6 @@ func SkipIfARM64(arch string, message string) {
 	}
 }
 
-// Deprecated: SkipIfS390X should be converted to check & fail
-func SkipIfS390X(arch string, message string) {
-	if IsS390X(arch) {
-		ginkgo.Skip("Skip test on s390x: " + message)
-	}
-}
-
 // Deprecated: SkipIfRunningOnKindInfra should be converted to check & fail
 func SkipIfRunningOnKindInfra(message string) {
 	if IsRunningOnKindInfra() {

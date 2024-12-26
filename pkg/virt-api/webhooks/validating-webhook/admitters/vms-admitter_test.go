@@ -2149,7 +2149,9 @@ var _ = Describe("Validating VM Admitter", func() {
 			var maxGuest resource.Quantity
 
 			BeforeEach(func() {
-				checks.SkipIfS390X(rt.GOARCH, "Memory hotplug is not supported for s390x")
+				if checks.IsS390X(rt.GOARCH) {
+					Fail("Fail test on s390x: Memory hotplug is not supported for s390x")
+				}
 				guest := resource.MustParse("1Gi")
 				maxGuest = resource.MustParse("4Gi")
 
