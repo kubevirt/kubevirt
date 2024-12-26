@@ -39,18 +39,6 @@ func RecycleImageOrFail(virtClient kubecli.KubevirtClient, imageName string) {
 	}
 }
 
-// Deprecated: SkipIfNoRhelImage should be converted to check & fail
-func SkipIfNoRhelImage(virtClient kubecli.KubevirtClient) {
-	rhelPv, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), diskRhel, metav1.GetOptions{})
-	if err != nil || rhelPv.Status.Phase == k8sv1.VolumePending || rhelPv.Status.Phase == k8sv1.VolumeFailed {
-		ginkgo.Skip(fmt.Sprintf("Skip RHEL tests that requires PVC %s", diskRhel))
-	} else if rhelPv.Status.Phase == k8sv1.VolumeReleased {
-		rhelPv.Spec.ClaimRef = nil
-		_, err = virtClient.CoreV1().PersistentVolumes().Update(context.Background(), rhelPv, metav1.UpdateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	}
-}
-
 // Deprecated: SkipIfUseFlannel should be converted to check & fail
 func SkipIfUseFlannel(virtClient kubecli.KubevirtClient) {
 	labelSelector := "app=flannel"
