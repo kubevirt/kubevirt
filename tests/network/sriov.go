@@ -161,7 +161,14 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 			Expect(mountGuestDevice(vmi, "config-2")).To(Succeed())
 
 			By("checking cloudinit meta-data")
-			tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
+			const consoleCmd = `cat /mnt/openstack/latest/meta_data.json; printf "@@"`
+			res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
+				&expect.BSnd{S: consoleCmd + console.CRLF},
+				&expect.BExp{R: `(.*)@@`},
+			}, 15)
+			Expect(err).ToNot(HaveOccurred())
+			rawOutput := res[len(res)-1].Output
+			Expect(trimRawString2JSON(rawOutput)).To(MatchJSON(buf))
 		})
 
 		It("should have cloud-init meta_data with tagged sriov nics", func() {
@@ -782,4 +789,15 @@ func mountGuestDevice(vmi *v1.VirtualMachineInstance, devName string) error {
 		&expect.BSnd{S: console.EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
+}
+
+// trimRawString2JSON remove string left of first { and right of last }
+// e.g. xxx { yyy } zzzz => { yyy }
+func trimRawString2JSON(input string) string {
+	startIdx := strings.Index(input, "{")
+	endIdx := strings.LastIndex(input, "}")
+	if startIdx == -1 || endIdx == -1 {
+		return ""
+	}
+	return input[startIdx : endIdx+1]
 }
