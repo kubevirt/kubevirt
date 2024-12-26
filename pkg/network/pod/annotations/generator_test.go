@@ -520,6 +520,22 @@ var _ = Describe("Annotations Generator", func() {
 			clusterConfig = newClusterConfig(kv)
 		})
 
+		It("Should not generate network attachment annotation when there are no networks", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithAutoAttachPodInterface(false),
+			)
+
+			pod := newStubVirtLauncherPod(vmi, map[string]string{
+				networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet,
+			})
+
+			generator := annotations.NewGenerator(clusterConfig)
+
+			annotations := generator.GenerateFromActivePod(vmi, pod)
+			Expect(annotations).ToNot(HaveKey(networkv1.NetworkAttachmentAnnot))
+		})
+
 		DescribeTable("Should not generate network attachment annotation", func(podAnnotations map[string]string) {
 			vmi := libvmi.New(
 				libvmi.WithNamespace(testNamespace),

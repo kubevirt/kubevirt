@@ -98,7 +98,6 @@ var _ = Describe("utilitary funcs to identify attachments to hotplug", func() {
 				Expect(nets).To(Equal(expNets))
 				Expect(exists).To(Equal(expToChange))
 			},
-			Entry("when no interfaces exist, change is not required", libvmi.New(), nil, nil, nil, expectNoChange),
 			Entry("when vmi interfaces match pod multus annotation and status, change is not required",
 				libvmi.New(
 					libvmi.WithInterface(v1.Interface{Name: testNetworkName1}),
