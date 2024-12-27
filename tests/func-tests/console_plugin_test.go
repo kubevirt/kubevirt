@@ -65,29 +65,35 @@ var _ = Describe("kubevirt console plugin", Label(tests.OpenshiftLabel, "console
 		pluginServiceName := kubevirtPlugin.Spec.Backend.Service.Name
 		pluginServicePort := kubevirtPlugin.Spec.Backend.Service.Port
 
-		consolePods := &corev1.PodList{}
-		Expect(cli.List(ctx, consolePods, client.MatchingLabels{
-			"app":       "console",
-			"component": "ui",
-		}, client.InNamespace(openshiftConsoleNamespace))).To(Succeed())
+		hcoPods := &corev1.PodList{}
+		Expect(cli.List(ctx, hcoPods, client.MatchingLabels{
+			"name": "hyperconverged-cluster-operator",
+		}, client.InNamespace(tests.InstallNamespace))).To(Succeed())
 
-		Expect(consolePods.Items).ToNot(BeEmpty())
+		Expect(hcoPods.Items).ToNot(BeEmpty())
 
-		testConsolePod := consolePods.Items[0]
-		command := fmt.Sprintf(`curl -ks https://%s.%s.svc:%d/plugin-manifest.json`,
-			pluginServiceName, tests.InstallNamespace, pluginServicePort)
+		testConsolePod := hcoPods.Items[0]
+		command := fmt.Sprintf(`curl -ks https://%s:%d/plugin-manifest.json`,
+			pluginServiceName, pluginServicePort)
 
-		stdout, stderr, err := executeCommandOnPod(ctx, k8sClientSet, &testConsolePod, command)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(stdout).ToNot(BeEmpty())
-		Expect(stderr).To(BeEmpty())
+		Eventually(func(g Gomega, ctx context.Context) string {
+			stdout, stderr, err := executeCommandOnPod(ctx, k8sClientSet, &testConsolePod, command)
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(stdout).ToNot(BeEmpty())
+			g.Expect(stderr).To(BeEmpty())
 
-		var pluginManifests map[string]interface{}
-		err = json.Unmarshal([]byte(stdout), &pluginManifests)
-		Expect(err).ToNot(HaveOccurred())
+			var pluginManifests map[string]interface{}
+			err = json.Unmarshal([]byte(stdout), &pluginManifests)
+			g.Expect(err).ToNot(HaveOccurred())
 
-		pluginName := pluginManifests["name"]
-		Expect(pluginName).To(Equal(expectedKubevirtConsolePluginName))
+			pluginName, ok := pluginManifests["name"]
+			g.Expect(ok).To(BeTrue())
+			return pluginName.(string)
+		}).
+			WithContext(ctx).
+			WithTimeout(60 * time.Second).
+			WithPolling(time.Second).
+			Should(Equal(expectedKubevirtConsolePluginName))
 	})
 
 	It("nodePlacement should be propagated from HyperConverged CR to console-plugin and apiserver-proxy Deployments", Serial, func(ctx context.Context) {
