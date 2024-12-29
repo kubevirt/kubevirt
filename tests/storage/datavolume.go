@@ -146,7 +146,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		return libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running}, libwait.WithTimeout(500))
 	}
 
-	Context("[storage-req]PVC expansion", decorators.StorageReq, func() {
+	Context("[storage-req]PVC expansion", decorators.StorageReq, decorators.RequiresVolumeExpansion, func() {
 		DescribeTable("PVC expansion is detected by VM and can be fully used", func(volumeMode k8sv1.PersistentVolumeMode) {
 			checks.SkipTestIfNoFeatureGate(virtconfig.ExpandDisksGate)
 
@@ -165,7 +165,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			}
 			volumeExpansionAllowed := volumeExpansionAllowed(sc)
 			if !volumeExpansionAllowed {
-				Skip("Skip when volume expansion storage class not available")
+				Fail("Fail when volume expansion storage class not available")
 			}
 
 			imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)
@@ -237,7 +237,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			volumeExpansionAllowed := volumeExpansionAllowed(sc)
 			if !volumeExpansionAllowed {
-				Skip("Skip when volume expansion storage class not available")
+				Fail("Fail when volume expansion storage class not available")
 			}
 			dataVolume := libdv.NewDataVolume(
 				libdv.WithBlankImageSource(),
