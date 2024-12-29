@@ -9,7 +9,8 @@
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  * See the License for the specific language governing permissions and
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
  * limitations under the License.
  *
  * Copyright 2024 Red Hat, Inc.
@@ -30,7 +31,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	kubevirt "kubevirt.io/client-go/kubevirt"
+	"kubevirt.io/client-go/kubevirt"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -134,7 +135,7 @@ func (v *VMNetController) hasOrdinalNetworkInterfaces(vmi *v1.VirtualMachineInst
 	return hasOrdinalIfaces, nil
 }
 
-func (c *VMNetController) vmiInterfacesPatch(newVmiSpec *v1.VirtualMachineInstanceSpec, vmi *v1.VirtualMachineInstance) error {
+func (v *VMNetController) vmiInterfacesPatch(newVmiSpec *v1.VirtualMachineInstanceSpec, vmi *v1.VirtualMachineInstance) error {
 	if equality.Semantic.DeepEqual(vmi.Spec.Domain.Devices.Interfaces, newVmiSpec.Domain.Devices.Interfaces) {
 		return nil
 	}
@@ -147,7 +148,9 @@ func (c *VMNetController) vmiInterfacesPatch(newVmiSpec *v1.VirtualMachineInstan
 	if err != nil {
 		return err
 	}
-	_, err = c.clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = v.clientset.KubevirtV1().
+		VirtualMachineInstances(vmi.Namespace).
+		Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 
 	return err
 }

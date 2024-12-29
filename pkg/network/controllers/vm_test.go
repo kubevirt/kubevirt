@@ -9,7 +9,8 @@
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  * See the License for the specific language governing permissions and
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
  * limitations under the License.
  *
  * Copyright 2024 Red Hat, Inc.
@@ -99,9 +100,12 @@ var _ = Describe("VM Network Controller", func() {
 
 		// Setup `Patch` to fail.
 		injectedPatchError := errors.New("test patch error")
-		clientset.Fake.PrependReactor("patch", "virtualmachineinstances", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-			return true, nil, injectedPatchError
-		})
+		clientset.Fake.PrependReactor(
+			"patch",
+			"virtualmachineinstances",
+			func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
+				return true, nil, injectedPatchError
+			})
 
 		vmi := libvmi.New(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -147,7 +151,9 @@ var _ = Describe("VM Network Controller", func() {
 		Expect(updatedVM).To(Equal(originalVM))
 
 		// Assert that the hotplug reached the VMI
-		updatedVMI, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+		updatedVMI, err := clientset.KubevirtV1().
+			VirtualMachineInstances(vmi.Namespace).
+			Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(updatedVMI.Spec.Networks).To(Equal(updatedVM.Spec.Template.Spec.Networks))
@@ -184,7 +190,9 @@ var _ = Describe("VM Network Controller", func() {
 		Expect(updatedVM).To(Equal(originalVM))
 
 		// Assert that the hotplug reached the VMI
-		updatedVMI, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+		updatedVMI, err := clientset.KubevirtV1().
+			VirtualMachineInstances(vmi.Namespace).
+			Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(updatedVMI.Spec.Networks).To(Equal(updatedVM.Spec.Template.Spec.Networks))
@@ -225,14 +233,15 @@ var _ = Describe("VM Network Controller", func() {
 		Expect(updatedVM).To(Equal(originalVM))
 
 		// Assert that the hotunplug did **not** reach the VMI
-		updatedVMI, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+		updatedVMI, err := clientset.KubevirtV1().
+			VirtualMachineInstances(vmi.Namespace).
+			Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(updatedVMI.Spec.Networks).To(Equal(updatedVM.Spec.Template.Spec.Networks))
 		iface := vmispec.LookupInterfaceByName(updatedVMI.Spec.Domain.Devices.Interfaces, unplugNetworkName)
 		Expect(iface).NotTo(BeNil())
 		Expect(iface.State).NotTo(Equal(v1.InterfaceStateAbsent))
-
 	})
 
 	It("sync does not hotunplug interfaces when legacy ordinal interface names are found", func() {
@@ -277,7 +286,9 @@ var _ = Describe("VM Network Controller", func() {
 		Expect(updatedVM).To(Equal(originalVM))
 
 		// Assert that the hotunplug did **not** reached the VMI
-		updatedVMI, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+		updatedVMI, err := clientset.KubevirtV1().
+			VirtualMachineInstances(vmi.Namespace).
+			Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(updatedVMI.Spec.Networks).To(Equal(updatedVM.Spec.Template.Spec.Networks))
