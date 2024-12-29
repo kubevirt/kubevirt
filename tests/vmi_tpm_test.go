@@ -32,8 +32,6 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
-	"kubevirt.io/kubevirt/tests/framework/checks"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/client-go/kubecli"
@@ -50,7 +48,7 @@ var _ = Describe("[sig-compute]vTPM", decorators.SigCompute, func() {
 	})
 
 	Context("[rfe_id:5168][crit:high][vendor:cnv-qe@redhat.com][level:component] with TPM VMI option enabled", func() {
-		It("[test_id:8607] should expose a functional emulated TPM which persists across migrations", func() {
+		It("[test_id:8607] should expose a functional emulated TPM which persists across migrations", decorators.RequiresTwoSchedulableNodes, func() {
 			By("Creating a VMI with TPM enabled")
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{}
@@ -77,7 +75,6 @@ var _ = Describe("[sig-compute]vTPM", decorators.SigCompute, func() {
 			}, 300)).To(Succeed(), "PCR extension doesn't work correctly")
 
 			By("Migrating the VMI")
-			checks.SkipIfMigrationIsNotPossible()
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 

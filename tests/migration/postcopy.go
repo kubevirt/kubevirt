@@ -45,6 +45,7 @@ import (
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -59,7 +60,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGMigrationDescribe("VM Post Copy Live Migration", func() {
+var _ = SIGMigrationDescribe("VM Post Copy Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
 	var (
 		virtClient      kubecli.KubevirtClient
 		err             error

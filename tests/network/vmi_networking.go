@@ -583,7 +583,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			})
 		})
 
-		When("performing migration", func() {
+		When("performing migration", decorators.RequiresTwoSchedulableNodes, func() {
 			var vmi *v1.VirtualMachineInstance
 
 			ping := func(ipAddr string) error {
@@ -598,10 +598,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}
 				return pod, nil
 			}
-
-			BeforeEach(func() {
-				checks.SkipIfMigrationIsNotPossible()
-			})
 
 			DescribeTable("[Conformance] preserves connectivity - IPv4", func(ports []v1.Port) {
 				libnet.SkipWhenClusterNotSupportIpv4()

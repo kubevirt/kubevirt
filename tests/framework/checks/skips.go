@@ -92,13 +92,6 @@ func SkipIfOpenShift4(message string) {
 	}
 }
 
-// Deprecated: SkipIfMigrationIsNotPossible should be converted to check & fail
-func SkipIfMigrationIsNotPossible() {
-	if !HasAtLeastTwoNodes() {
-		ginkgo.Skip("Migration tests require at least 2 nodes")
-	}
-}
-
 // Deprecated: SkipIfARM64 should be converted to check & fail
 func SkipIfARM64(arch string, message string) {
 	if IsARM64(arch) {

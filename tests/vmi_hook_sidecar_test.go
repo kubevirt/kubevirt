@@ -45,7 +45,6 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -224,9 +223,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 					fmt.Sprintf("container %s should terminate", sidecarContainerName))
 			})
 
-			DescribeTable("migrate VMI with sidecar", func(hookVersion string, sidecarShouldTerminate bool) {
-				checks.SkipIfMigrationIsNotPossible()
-
+			DescribeTable("migrate VMI with sidecar", decorators.RequiresTwoSchedulableNodes, func(hookVersion string, sidecarShouldTerminate bool) {
 				vmi.ObjectMeta.Annotations = RenderSidecar(hookVersion)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 360)
 

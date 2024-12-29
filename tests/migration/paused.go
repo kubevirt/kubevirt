@@ -37,8 +37,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 
-	"kubevirt.io/kubevirt/tests/framework/checks"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -54,13 +52,12 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = SIGMigrationDescribe("Live Migrate A Paused VMI", func() {
+var _ = SIGMigrationDescribe("Live Migrate A Paused VMI", decorators.RequiresTwoSchedulableNodes, func() {
 	var (
 		virtClient kubecli.KubevirtClient
 	)
 
 	BeforeEach(func() {
-		checks.SkipIfMigrationIsNotPossible()
 		virtClient = kubevirt.Client()
 	})
 

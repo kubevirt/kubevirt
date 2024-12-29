@@ -46,7 +46,6 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
@@ -168,12 +167,10 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 		})
 	})
 
-	Context("VM migration metrics", func() {
+	Context("VM migration metrics", decorators.RequiresTwoSchedulableNodes, func() {
 		var nodes *corev1.NodeList
 
 		BeforeEach(func() {
-			checks.SkipIfMigrationIsNotPossible()
-
 			Eventually(func() []corev1.Node {
 				nodes = libnode.GetAllSchedulableNodes(virtClient)
 				return nodes.Items
