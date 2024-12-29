@@ -40,7 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-type VMNetController struct {
+type VMController struct {
 	clientset kubevirt.Interface
 	podGetter podFromVMIGetter
 }
@@ -70,14 +70,14 @@ const (
 	hotPlugNetworkInterfaceErrorReason = "HotPlugNetworkInterfaceError"
 )
 
-func NewVMNetController(clientset kubevirt.Interface, podGetter podFromVMIGetter) *VMNetController {
-	return &VMNetController{
+func NewVMController(clientset kubevirt.Interface, podGetter podFromVMIGetter) *VMController {
+	return &VMController{
 		clientset: clientset,
 		podGetter: podGetter,
 	}
 }
 
-func (v *VMNetController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) (*v1.VirtualMachine, error) {
+func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) (*v1.VirtualMachine, error) {
 	if vmi == nil || vmi.DeletionTimestamp != nil {
 		return vm, nil
 	}
@@ -120,7 +120,7 @@ func (v *VMNetController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInst
 	return vmCopy, nil
 }
 
-func (v *VMNetController) hasOrdinalNetworkInterfaces(vmi *v1.VirtualMachineInstance) (bool, error) {
+func (v *VMController) hasOrdinalNetworkInterfaces(vmi *v1.VirtualMachineInstance) (bool, error) {
 	pod, err := v.podGetter.CurrentPod(vmi)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to fetch pod from cache.")
@@ -135,7 +135,7 @@ func (v *VMNetController) hasOrdinalNetworkInterfaces(vmi *v1.VirtualMachineInst
 	return hasOrdinalIfaces, nil
 }
 
-func (v *VMNetController) vmiInterfacesPatch(newVmiSpec *v1.VirtualMachineInstanceSpec, vmi *v1.VirtualMachineInstance) error {
+func (v *VMController) vmiInterfacesPatch(newVmiSpec *v1.VirtualMachineInstanceSpec, vmi *v1.VirtualMachineInstance) error {
 	if equality.Semantic.DeepEqual(vmi.Spec.Domain.Devices.Interfaces, newVmiSpec.Domain.Devices.Interfaces) {
 		return nil
 	}

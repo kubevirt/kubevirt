@@ -751,7 +751,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		recorder,
 		vca.clientSet,
 		vca.clusterConfig,
-		netcontrollers.NewVMNetController(
+		netcontrollers.NewVMController(
 			vca.clientSet.GeneratedKubeVirtClient(),
 			controller.NewPodCacheStore(vca.kvPodInformer.GetIndexer()),
 		),

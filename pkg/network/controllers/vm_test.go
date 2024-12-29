@@ -44,12 +44,12 @@ import (
 
 var _ = Describe("VM Network Controller", func() {
 	It("sync does nothing when the hotplug FG is unset", func() {
-		c := controllers.NewVMNetController(fake.NewSimpleClientset(), stubPodGetter{})
+		c := controllers.NewVMController(fake.NewSimpleClientset(), stubPodGetter{})
 		Expect(c.Sync(newEmptyVM(), libvmi.New())).To(Equal(newEmptyVM()))
 	})
 
 	DescribeTable("sync does nothing when", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, podGetter stubPodGetter) {
-		c := controllers.NewVMNetController(fake.NewSimpleClientset(), podGetter)
+		c := controllers.NewVMController(fake.NewSimpleClientset(), podGetter)
 		originalVM := vm.DeepCopy()
 		Expect(c.Sync(vm, vmi)).To(Equal(originalVM))
 	},
@@ -82,7 +82,7 @@ var _ = Describe("VM Network Controller", func() {
 	)
 
 	It("sync fails when pod fetching returns an error", func() {
-		c := controllers.NewVMNetController(
+		c := controllers.NewVMController(
 			fake.NewSimpleClientset(),
 			stubPodGetter{err: errors.New("test")},
 		)
@@ -93,7 +93,7 @@ var _ = Describe("VM Network Controller", func() {
 
 	It("sync fails when VMI patch returns an error", func() {
 		clientset := fake.NewSimpleClientset()
-		c := controllers.NewVMNetController(
+		c := controllers.NewVMController(
 			clientset,
 			stubPodGetter{pod: &k8sv1.Pod{}},
 		)
@@ -128,7 +128,7 @@ var _ = Describe("VM Network Controller", func() {
 
 	It("sync succeeds to hotplug new interface", func() {
 		clientset := fake.NewSimpleClientset()
-		c := controllers.NewVMNetController(
+		c := controllers.NewVMController(
 			clientset,
 			stubPodGetter{pod: &k8sv1.Pod{}},
 		)
@@ -162,7 +162,7 @@ var _ = Describe("VM Network Controller", func() {
 
 	It("sync succeeds to clear hotunplug interfaces", func() {
 		clientset := fake.NewSimpleClientset()
-		c := controllers.NewVMNetController(
+		c := controllers.NewVMController(
 			clientset,
 			stubPodGetter{pod: &k8sv1.Pod{}},
 		)
@@ -201,7 +201,7 @@ var _ = Describe("VM Network Controller", func() {
 
 	It("sync does not hotunplug interfaces when pod is not found", func() {
 		clientset := fake.NewSimpleClientset()
-		c := controllers.NewVMNetController(
+		c := controllers.NewVMController(
 			clientset,
 			stubPodGetter{pod: nil},
 		)
@@ -254,7 +254,7 @@ var _ = Describe("VM Network Controller", func() {
 					]`,
 			}},
 		}
-		c := controllers.NewVMNetController(
+		c := controllers.NewVMController(
 			clientset,
 			stubPodGetter{pod: pod},
 		)
