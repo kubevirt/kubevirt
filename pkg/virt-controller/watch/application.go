@@ -97,9 +97,9 @@ import (
 	workloadupdater "kubevirt.io/kubevirt/pkg/virt-controller/watch/workload-updater"
 
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
+	netcontrollers "kubevirt.io/kubevirt/pkg/network/controllers"
 	"kubevirt.io/kubevirt/pkg/network/netbinding"
 	netannotations "kubevirt.io/kubevirt/pkg/network/pod/annotations"
-	netvmicontroller "kubevirt.io/kubevirt/pkg/network/vmicontroller"
 	storageannotations "kubevirt.io/kubevirt/pkg/storage/pod/annotations"
 )
 
@@ -660,7 +660,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.clusterConfig,
 		topologyHinter,
 		netAnnotationsGenerator,
-		netvmicontroller.UpdateStatus,
+		netcontrollers.UpdateVMIStatus,
 		func(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
 			return netadmitter.ValidateCreation(field, vmiSpec, clusterCfg)
 		},
