@@ -16,7 +16,7 @@
  *
  */
 
-package network
+package controllers
 
 import (
 	v1 "kubevirt.io/api/core/v1"

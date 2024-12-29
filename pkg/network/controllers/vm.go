@@ -16,7 +16,7 @@
  *
  */
 
-package network
+package controllers
 
 import (
 	"context"
