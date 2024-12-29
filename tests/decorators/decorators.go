@@ -83,6 +83,8 @@ var (
 	RequiresBlockStorage = Label("RequiresBlockStorage")
 	// Tests that ensure sig-storage functionality which are conformance-unready
 	StorageCritical = Label("StorageCritical")
+	// Requires a storage class with volume expansion support
+	RequiresVolumeExpansion = Label("RequiresVolumeExpansion")
 	// Kubernetes versions
 	Kubernetes130 = Label("kubernetes130")
 	// WG archs
