@@ -73,7 +73,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 		const (
 			period         = 5
 			initialSeconds = 5
-			timeoutSeconds = 1
+			timeoutSeconds = 5
 			port           = 1500
 		)
 
@@ -103,6 +103,11 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				Expect(matcher.ThisVMI(vmi)()).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
 
 				By("Starting the server inside the VMI")
+				Eventually(matcher.ThisVMI(vmi)).WithTimeout(6 * time.Minute).WithPolling(3 * time.Second).Should(
+					matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+				vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(
+					context.Background(), vmi.Name, metav1.GetOptions{})
+
 				serverStarter(vmi, readinessProbe, 1500)
 			} else {
 				By(specifyingVMReadinessProbe)
@@ -166,8 +171,8 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 	Context("for liveness", func() {
 		const (
 			period         = 5
-			initialSeconds = 90
-			timeoutSeconds = 1
+			initialSeconds = 10
+			timeoutSeconds = 15
 			port           = 1500
 		)
 
@@ -196,6 +201,10 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				vmi = createReadyAlpineVMIWithLivenessProbe(livenessProbe)
 
 				By("Starting the server inside the VMI")
+				Eventually(matcher.ThisVMI(vmi)).WithTimeout(6 * time.Minute).WithPolling(3 * time.Second).Should(
+					matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+				vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(
+					context.Background(), vmi.Name, metav1.GetOptions{})
 				serverStarter(vmi, livenessProbe, 1500)
 			} else {
 				By(specifyingVMLivenessProbe)
@@ -372,13 +381,13 @@ func withLivelinessProbe(probe *v1.Probe) libvmi.Option {
 }
 
 func newHTTPServerPod(ipFamily, port int) *k8sv1.Pod {
-	serverCommand := fmt.Sprintf("nc -%d -klp %d --sh-exec 'echo -e \"HTTP/1.1 200 OK\\nContent-Length: 12\\n\\nHello World!\"'", ipFamily, port)
-	return libpod.RenderPrivilegedPod("http-hello-world-server", []string{"/bin/bash"}, []string{"-c", serverCommand})
+	serverCommand := fmt.Sprintf("while true; do nc -%d -klp %d --sh-exec 'echo -e \"HTTP/1.1 200 OK\\nContent-Length: 12\\n\\nHello World\"'; done;", ipFamily, port)
+	return libpod.RenderPod("http-hello-world-server", []string{"/bin/bash"}, []string{"-c", serverCommand})
 }
 
 func newTCPServerPod(ipFamily, port int) *k8sv1.Pod {
-	serverCommand := fmt.Sprintf("nc -%d -klp %d --sh-exec 'echo \"Hello World!\"'", ipFamily, port)
-	return libpod.RenderPrivilegedPod("tcp-hello-world-server", []string{"/bin/bash"}, []string{"-c", serverCommand})
+	serverCommand := fmt.Sprintf("while true; do nc -%d -klp %d --sh-exec 'echo \"Hello World\"'; done;", ipFamily, port)
+	return libpod.RenderPod("tcp-hello-world-server", []string{"/bin/bash"}, []string{"-c", serverCommand})
 }
 
 func createPodAndWaitUntil(pod *k8sv1.Pod, phaseToWait k8sv1.PodPhase) *k8sv1.Pod {
