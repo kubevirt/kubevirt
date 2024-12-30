@@ -135,11 +135,16 @@ var _ = Describe("[sig-compute]VM state", func() {
 					},
 				}
 			}
-			vm := libvmi.NewVirtualMachine(vmi)
-			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, metav1.CreateOptions{})
+			var err error
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vmi.Namespace = vm.Namespace
-			startVM(vm)
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			By("Waiting for agent to connect")
+			Eventually(matcher.ThisVMI(vmi)).WithTimeout(4 * time.Minute).WithPolling(2 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 			By("Adding TPM and/or EFI data")
 			if withTPM {
