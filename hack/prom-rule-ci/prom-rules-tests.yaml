@@ -610,7 +610,7 @@ tests:
   input_series:
   - series: 'kubevirt_hco_system_health_status'
     # time:  0     1     2     3     4     5     6     7     8     9     10     11
-    values: "1     1     1     1     2     2     2     2     3     3      3      3"
+    values: "0     0     0     0     1     1     1     1     2     2      2      2"
   - series: 'ALERTS{kubernetes_operator_part_of="kubevirt", alertstate="firing", operator_health_impact="warning"}'
     # time:  0     1     2     3     4     5     6     7     8     9     10     11
     values: "1     1   stale stale   1     1   stale stale   1     1    stale  stale"
@@ -771,47 +771,46 @@ tests:
             kubernetes_operator_part_of: "kubevirt"
             kubernetes_operator_component: "hyperconverged-cluster-operator"
 
-# Test OperatorConditionsUnhealthy
+# Test HCOOperatorConditionsUnhealthy
 - interval: 1m
   input_series:
-    - series: 'kubevirt_hco_system_health_status{reason="healthy"}'
-    - values: "stale 1 stale stale stale"
+    - series: 'kubevirt_hco_system_health_status'
+    - values: "stale stale 2 stale"
 
-    - series: 'kubevirt_hco_system_health_status{reason="SOME_ERROR"}'
-      values: "stale stale stale 3 stale"
-
-    - series: 'kubevirt_hco_system_health_status{reason="SOME_WARNING"}'
-      values: "stale stale stale stale stale 2 stale"
+    - series: 'kubevirt_hco_system_health_status'
+      values: "stale stale 2 stale 1 stale"
 
   alert_rule_test:
     - eval_time: 1m
-      alertname: OperatorConditionsUnhealthy
+      alertname: HCOOperatorConditionsUnhealthy
       exp_alerts: [ ]
 
-    - eval_time: 3m
-      alertname: OperatorConditionsUnhealthy
+    - eval_time: 1m
+      alertname: HCOOperatorConditionsUnhealthy
+      exp_alerts: [ ]
+
+    - eval_time: 2m
+      alertname: HCOOperatorConditionsUnhealthy
       exp_alerts:
         - exp_annotations:
-            description: "HCO and its secondary resources are in a critical state due to SOME_ERROR."
+            description: "HCO and its secondary resources are in a critical state due to system error."
             summary: "HCO and its secondary resources are in a critical state."
-            runbook_url: "https://kubevirt.io/monitoring/runbooks/OperatorConditionsUnhealthy"
+            runbook_url: "https://kubevirt.io/monitoring/runbooks/HCOOperatorConditionsUnhealthy"
           exp_labels:
             severity: "critical"
             operator_health_impact: "critical"
             kubernetes_operator_part_of: "kubevirt"
             kubernetes_operator_component: "hyperconverged-cluster-operator"
-            reason: "SOME_ERROR"
 
-    - eval_time: 5m
-      alertname: OperatorConditionsUnhealthy
+    - eval_time: 4m
+      alertname: HCOOperatorConditionsUnhealthy
       exp_alerts:
         - exp_annotations:
-            description: "HCO and its secondary resources are in a warning state due to SOME_WARNING."
+            description: "HCO and its secondary resources are in a warning state due to system warning."
             summary: "HCO and its secondary resources are in a warning state."
-            runbook_url: "https://kubevirt.io/monitoring/runbooks/OperatorConditionsUnhealthy"
+            runbook_url: "https://kubevirt.io/monitoring/runbooks/HCOOperatorConditionsUnhealthy"
           exp_labels:
             severity: "warning"
             operator_health_impact: "warning"
             kubernetes_operator_part_of: "kubevirt"
             kubernetes_operator_component: "hyperconverged-cluster-operator"
-            reason: "SOME_WARNING"

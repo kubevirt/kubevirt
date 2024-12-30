@@ -9,20 +9,16 @@ import (
 
 var _ = Describe("Operator Metrics", func() {
 	Context("kubevirt_hco_system_health_status", func() {
-		It("should set system error reason correctly", func() {
-			metrics.SetHCOSystemError("Reason1")
-			v, err := metrics.GetHCOMetricSystemHealthStatus("Reason1")
+		It("should set the correct system health status", func() {
+			metrics.SetHCOMetricSystemHealthStatus(metrics.SystemHealthStatusError)
+			v, err := metrics.GetHCOMetricSystemHealthStatus()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(v).To(Equal(metrics.SystemHealthStatusError))
 
-			metrics.SetHCOSystemError("Reason2")
-			v, err = metrics.GetHCOMetricSystemHealthStatus("Reason2")
+			metrics.SetHCOMetricSystemHealthStatus(metrics.SystemHealthStatusWarning)
+			v, err = metrics.GetHCOMetricSystemHealthStatus()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(v).To(Equal(metrics.SystemHealthStatusError))
-
-			v, err = metrics.GetHCOMetricSystemHealthStatus("Reason1")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(v).To(Equal(metrics.SystemHealthStatusUnknown))
+			Expect(v).To(Equal(metrics.SystemHealthStatusWarning))
 		})
 	})
 })
