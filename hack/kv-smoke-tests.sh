@@ -249,7 +249,9 @@ ${TESTS_BINARY} \
     -ginkgo.flake-attempts=3 \
     -oc-path="$(which oc)" \
     -kubectl-path="$(which oc)" \
+    -container-tag="${KUBEVIRT_VERSION}" \
     -utility-container-prefix=quay.io/kubevirt \
+    -utility-container-tag="${KUBEVIRT_VERSION}" \
     -test.timeout=3h \
     -ginkgo.timeout=3h \
     -artifacts=${ARTIFACT_DIR}/kubevirt_dump
