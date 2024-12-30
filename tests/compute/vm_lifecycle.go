@@ -38,7 +38,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
-	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -51,10 +50,10 @@ var _ = SIGDescribe("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 
 	It("[test_id:3007][QUARANTINE] Should force restart a VM with terminationGracePeriodSeconds>0", decorators.Quarantine, func() {
 		By("getting a VM with high TerminationGracePeriod")
-		vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(libvmi.WithTerminationGracePeriod(600)))
+		vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(libvmi.WithTerminationGracePeriod(600)), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		vm = libvmops.StartVirtualMachine(vm)
+		Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 
 		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -80,10 +79,10 @@ var _ = SIGDescribe("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 
 	It("should force stop a VM with terminationGracePeriodSeconds>0", func() {
 		By("getting a VM with high TerminationGracePeriod")
-		vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(libvmi.WithTerminationGracePeriod(600)))
+		vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(libvmi.WithTerminationGracePeriod(600)), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		vm = libvmops.StartVirtualMachine(vm)
+		Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 
 		By("setting up a watch for vmi")
 		lw, err := virtClient.VirtualMachineInstance(vm.Namespace).Watch(context.Background(), metav1.ListOptions{})

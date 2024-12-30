@@ -389,8 +389,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		It("[test_id:1528]should survive guest shutdown, multiple times", decorators.Conformance, func() {
-			By("Creating new VM, not running")
-			vm := libvmops.StartVirtualMachine(createVM(virtClient, libvmifact.NewCirros()))
+			vm := createRunningVM(virtClient, libvmifact.NewCirros())
+			Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
 			for i := 0; i < 3; i++ {
 				By("Getting the running VirtualMachineInstance")
