@@ -112,8 +112,6 @@ const (
 
 	kvm = 107
 
-	// secretTokenLength is the lenght of the randomly generated token
-	secretTokenLength = 20
 	// secretTokenKey is the entry used to store the token in the virtualMachineExport secret
 	secretTokenKey = "token"
 
@@ -730,7 +728,7 @@ func (ctrl *VMExportController) handleVMExportToken(vmExport *exportv1.VirtualMa
 		vmExport.Status.TokenSecretRef = &generatedSecretName
 	}
 
-	token, err := kutil.GenerateSecureRandomString(secretTokenLength)
+	token, err := kutil.GenerateVMExportToken()
 	if err != nil {
 		return err
 	}

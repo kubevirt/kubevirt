@@ -263,10 +263,11 @@ func CalcExpectedMemoryDumpSize(vmi *v1.VirtualMachineInstance) *resource.Quanti
 	return expectedPvcSize
 }
 
-// GenerateSecureRandomString creates a securely generated random string using crypto/rand
-func GenerateSecureRandomString(n int) (string, error) {
+// GenerateVMExportToken creates a cryptographically secure token for VM export
+func GenerateVMExportToken() (string, error) {
 	const alphanums = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-	ret := make([]byte, n)
+	const tokenLen = 20
+	ret := make([]byte, tokenLen)
 	for i := range ret {
 		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(alphanums))))
 		if err != nil {
