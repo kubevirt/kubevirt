@@ -28,9 +28,6 @@ const (
 	CPUManagerOS3Path                         = HostRootMount + "var/lib/origin/openshift.local.volumes/cpu_manager_state"
 	CPUManagerPath                            = KubeletRoot + "/cpu_manager_state"
 
-	// Alphanums is the list of alphanumeric characters used to create a securely generated random string
-	Alphanums = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-
 	NonRootUID         = 107
 	NonRootUserString  = "qemu"
 	RootUser           = 0
@@ -268,13 +265,14 @@ func CalcExpectedMemoryDumpSize(vmi *v1.VirtualMachineInstance) *resource.Quanti
 
 // GenerateSecureRandomString creates a securely generated random string using crypto/rand
 func GenerateSecureRandomString(n int) (string, error) {
+	const alphanums = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 	ret := make([]byte, n)
 	for i := range ret {
-		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(Alphanums))))
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(alphanums))))
 		if err != nil {
 			return "", err
 		}
-		ret[i] = Alphanums[num.Int64()]
+		ret[i] = alphanums[num.Int64()]
 	}
 
 	return string(ret), nil
