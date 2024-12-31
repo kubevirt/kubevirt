@@ -105,10 +105,6 @@ func IsSEVAttestationRequested(vmi *v1.VirtualMachineInstance) bool {
 	return IsSEVVMI(vmi) && vmi.Spec.Domain.LaunchSecurity.SEV.Attestation != nil
 }
 
-func IsAMD64VMI(vmi *v1.VirtualMachineInstance) bool {
-	return vmi.Spec.Architecture == "amd64"
-}
-
 func IsEFIVMI(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.Firmware != nil &&
 		vmi.Spec.Domain.Firmware.Bootloader != nil &&
