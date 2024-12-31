@@ -132,6 +132,12 @@ cluster-down:
 cluster-sync:
 	IMAGE_REGISTRY=$(IMAGE_REGISTRY) REGISTRY_NAMESPACE=$(REGISTRY_NAMESPACE) ./cluster/sync.sh
 
+cluster-redeploy-operator:
+	IMAGE_REGISTRY=$(IMAGE_REGISTRY) REGISTRY_NAMESPACE=$(REGISTRY_NAMESPACE) ./cluster/sync-pod.sh operator
+
+cluster-redeploy-webhook:
+	IMAGE_REGISTRY=$(IMAGE_REGISTRY) REGISTRY_NAMESPACE=$(REGISTRY_NAMESPACE) ./cluster/sync-pod.sh webhook
+
 cluster-clean:
 	CMD="./cluster/kubectl.sh" ./hack/clean.sh
 
@@ -267,6 +273,8 @@ bump-hco:
 		cluster-up \
 		cluster-down \
 		cluster-sync \
+		cluster-redeploy-operator \
+		cluster-redeploy-webhook \
 		cluster-clean \
 		stageRegistry \
 		functest \
