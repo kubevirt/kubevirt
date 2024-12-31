@@ -14,7 +14,6 @@ import (
 	v12 "kubevirt.io/api/core/v1"
 
 	v1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -468,7 +467,7 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachin
 	domain.Spec.CPUTune = cpuTune
 
 	// Add the hint-dedicated feature when dedicatedCPUs are requested for AMD64 architecture.
-	if util.IsAMD64VMI(vmi) {
+	if isAMD64VMI(vmi) {
 		if domain.Spec.Features == nil {
 			domain.Spec.Features = &api.Features{}
 		}
@@ -680,4 +679,8 @@ func hugePagesInfo(vmi *v12.VirtualMachineInstance, domain *api.DomainSpec) (siz
 		}
 	}
 	return 0, "b", false, nil
+}
+
+func isAMD64VMI(vmi *v12.VirtualMachineInstance) bool {
+	return vmi.Spec.Architecture == "amd64"
 }
