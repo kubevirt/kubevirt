@@ -249,8 +249,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				checkCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
 
-				By("mouting cloudinit iso")
-				Expect(mountGuestDevice(vmi, dataSourceNoCloudVolumeID)).To(Succeed())
+				By("mounting cloudinit iso")
+				Expect(console.RunCommand(vmi, fmt.Sprintf("sudo sh -c 'mount $(blkid  -L %s) /mnt/'", dataSourceNoCloudVolumeID), time.Second*120)).To(Succeed())
 
 				By("checking cloudinit network-config")
 				checkCloudInitFile(vmi, "network-config", testNetworkData)
@@ -267,8 +267,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				checkCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
 
-				By("mouting cloudinit iso")
-				Expect(mountGuestDevice(vmi, dataSourceNoCloudVolumeID)).To(Succeed())
+				By("mounting cloudinit iso")
+				Expect(console.RunCommand(vmi, fmt.Sprintf("sudo sh -c 'mount $(blkid  -L %s) /mnt/'", dataSourceNoCloudVolumeID), time.Second*120)).To(Succeed())
 
 				By("checking cloudinit network-config")
 				checkCloudInitFile(vmi, "network-config", testNetworkData)
@@ -293,8 +293,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				checkCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
 
-				By("mouting cloudinit iso")
-				Expect(mountGuestDevice(vmi, dataSourceNoCloudVolumeID)).To(Succeed())
+				By("mounting cloudinit iso")
+				Expect(console.RunCommand(vmi, fmt.Sprintf("sudo sh -c 'mount $(blkid  -L %s) /mnt/'", dataSourceNoCloudVolumeID), time.Second*120)).To(Succeed())
 
 				By("checking cloudinit network-config")
 				checkCloudInitFile(vmi, "network-config", testNetworkData)
@@ -320,8 +320,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				checkCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 
-				By("mouting cloudinit iso")
-				Expect(mountGuestDevice(vmi, dataSourceConfigDriveVolumeID)).To(Succeed())
+				By("mounting cloudinit iso")
+				Expect(console.RunCommand(vmi, fmt.Sprintf("sudo sh -c 'mount $(blkid  -L %s) /mnt/'", dataSourceNoCloudVolumeID), time.Second*120)).To(Succeed())
 
 				By("checking cloudinit network-config")
 				checkCloudInitFile(vmi, "openstack/latest/network_data.json", testNetworkData)
@@ -368,8 +368,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 				buf, err := json.Marshal(metadataStruct)
 				Expect(err).ToNot(HaveOccurred())
-				By("mouting cloudinit iso")
-				Expect(mountGuestDevice(vmi, dataSourceConfigDriveVolumeID)).To(Succeed())
+				By("mounting cloudinit iso")
+				Expect(console.RunCommand(vmi, fmt.Sprintf("sudo sh -c 'mount $(blkid  -L %s) /mnt/'", dataSourceNoCloudVolumeID), time.Second*120)).To(Succeed())
 
 				By("checking cloudinit network-config")
 				checkCloudInitFile(vmi, "openstack/latest/network_data.json", testNetworkData)
@@ -385,8 +385,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 				checkCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
-				By("mouting cloudinit iso")
-				Expect(mountGuestDevice(vmi, dataSourceConfigDriveVolumeID)).To(Succeed())
+				By("mounting cloudinit iso")
+				Expect(console.RunCommand(vmi, fmt.Sprintf("sudo sh -c 'mount $(blkid  -L %s) /mnt/'", dataSourceNoCloudVolumeID), time.Second*120)).To(Succeed())
 
 				By("checking cloudinit network-config")
 				checkCloudInitFile(vmi, "openstack/latest/network_data.json", testNetworkData)
@@ -416,8 +416,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				checkCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 
-				By("mouting cloudinit iso")
-				Expect(mountGuestDevice(vmi, dataSourceConfigDriveVolumeID)).To(Succeed())
+				By("mounting cloudinit iso")
+				Expect(console.RunCommand(vmi, fmt.Sprintf("sudo sh -c 'mount $(blkid  -L %s) /mnt/'", dataSourceNoCloudVolumeID), time.Second*120)).To(Succeed())
 
 				By("checking cloudinit network-config")
 				checkCloudInitFile(vmi, "openstack/latest/network_data.json", testNetworkData)
@@ -471,7 +471,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				checkCloudInitIsoSize(vmi, cloudinit.DataSourceConfigDrive)
 
 				By("mounting cloudinit iso")
-				Expect(mountGuestDevice(vmi, dataSourceConfigDriveVolumeID)).To(Succeed())
+				Expect(console.RunCommand(vmi, fmt.Sprintf("sudo sh -c 'mount $(blkid  -L %s) /mnt/'", dataSourceNoCloudVolumeID), time.Second*120)).To(Succeed())
 
 				By("checking cloudinit network-config")
 				checkCloudInitFile(vmi, "openstack/latest/network_data.json", testNetworkData)
@@ -511,18 +511,6 @@ func lookupCloudInitNoCloudVolume(volumes []v1.Volume) *v1.Volume {
 		}
 	}
 	return nil
-}
-
-func mountGuestDevice(vmi *v1.VirtualMachineInstance, devName string) error {
-	cmdCheck := fmt.Sprintf("mount $(blkid  -L %s) /mnt/\n", devName)
-	return console.SafeExpectBatch(vmi, []expect.Batcher{
-		&expect.BSnd{S: "sudo su -\n"},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: cmdCheck},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: console.EchoLastReturnValue},
-		&expect.BExp{R: console.RetValue("0")},
-	}, 15)
 }
 
 func verifyUserDataVMI(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {

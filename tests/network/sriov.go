@@ -30,7 +30,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	expect "github.com/google/goexpect"
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -157,8 +156,8 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 
 			buf, err := json.Marshal(metadataStruct)
 			Expect(err).ToNot(HaveOccurred())
-			By("mouting cloudinit iso")
-			Expect(mountGuestDevice(vmi, "config-2")).To(Succeed())
+			By("mounting cloudinit iso")
+			Expect(console.RunCommand(vmi, "sudo sh -c 'mount $(blkid  -L config-2) /mnt/'", time.Second*120)).To(Succeed())
 
 			By("checking cloudinit meta-data")
 			tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
@@ -209,8 +208,8 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 
 			buf, err := json.Marshal(metadataStruct)
 			Expect(err).ToNot(HaveOccurred())
-			By("mouting cloudinit iso")
-			Expect(mountGuestDevice(vmi, "config-2")).To(Succeed())
+			By("mounting cloudinit iso")
+			Expect(console.RunCommand(vmi, "sudo sh -c 'mount $(blkid  -L config-2) /mnt/'", time.Second*120)).To(Succeed())
 
 			By("checking cloudinit meta-data")
 			tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
@@ -770,16 +769,4 @@ func sriovNodeName(sriovResourceName string) (string, error) {
 		return "", fmt.Errorf("failed to detect nodes with allocatable resources (%s)", sriovResourceName)
 	}
 	return sriovNodes[0].Name, nil
-}
-
-func mountGuestDevice(vmi *v1.VirtualMachineInstance, devName string) error {
-	cmdCheck := fmt.Sprintf("mount $(blkid  -L %s) /mnt/\n", devName)
-	return console.SafeExpectBatch(vmi, []expect.Batcher{
-		&expect.BSnd{S: "sudo su -\n"},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: cmdCheck},
-		&expect.BExp{R: console.PromptExpression},
-		&expect.BSnd{S: console.EchoLastReturnValue},
-		&expect.BExp{R: console.RetValue("0")},
-	}, 15)
 }
