@@ -41,7 +41,7 @@ func IsNonRootVMI(vmi *v1.VirtualMachineInstance) bool {
 	return ok || nonRoot
 }
 
-func IsSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
+func isSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		if iface.SRIOV != nil {
 			return true
@@ -81,7 +81,7 @@ func IsHostDevVMI(vmi *v1.VirtualMachineInstance) bool {
 // Check if a VMI spec requests a VFIO device
 func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
 
-	if IsHostDevVMI(vmi) || IsGPUVMI(vmi) || IsSRIOVVmi(vmi) {
+	if IsHostDevVMI(vmi) || IsGPUVMI(vmi) || isSRIOVVmi(vmi) {
 		return true
 	}
 	return false
