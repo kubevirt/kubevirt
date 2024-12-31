@@ -3,16 +3,16 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"strings"
-
-	"github.com/kubevirt/hyperconverged-cluster-operator/tools/release-notes/git"
 
 	"github.com/golang/glog"
 	"github.com/joho/godotenv"
+
+	"github.com/kubevirt/hyperconverged-cluster-operator/tools/release-notes/git"
 )
 
 func (r *releaseData) writeHeader() {
@@ -28,15 +28,12 @@ func (r *releaseData) writeHeader() {
 		glog.Fatalf("ERROR failed to get type of changes: %s\n", err)
 	}
 
-	io.WriteString(r.writer, fmt.Sprintf("This release follows %s and consists of %d changes, leading to %s.\n", r.hco.PreviousTag, numChanges, typeOfChanges))
-	io.WriteString(r.writer, "\n")
-	io.WriteString(r.writer, fmt.Sprintf("The source code and selected binaries are available for download at: %s.\n", tagUrl))
-	io.WriteString(r.writer, "\n")
-	io.WriteString(r.writer, "The primary release artifact of hyperconverged-cluster-operator is the git tree. The release tag is\n")
-	io.WriteString(r.writer, fmt.Sprintf("signed and can be verified using `git tag -v %s`.\n", r.hco.CurrentTag))
-	io.WriteString(r.writer, "\n")
-	io.WriteString(r.writer, "Pre-built containers are published on Quay and can be viewed at: <https://quay.io/kubevirt/>.\n")
-	io.WriteString(r.writer, "\n")
+	fmt.Fprintf(r.writer, "This release follows %s and consists of %d changes, leading to %s.\n\n", r.hco.PreviousTag, numChanges, typeOfChanges)
+	fmt.Fprintf(r.writer, "The source code and selected binaries are available for download at: %s.\n\n", tagUrl)
+	fmt.Fprintln(r.writer, "The primary release artifact of hyperconverged-cluster-operator is the git tree. The release tag is")
+	fmt.Fprintf(r.writer, "signed and can be verified using `git tag -v %s`.\n\n", r.hco.CurrentTag)
+	fmt.Fprintln(r.writer, "Pre-built containers are published on Quay and can be viewed at: <https://quay.io/kubevirt/>.")
+	fmt.Fprintln(r.writer)
 }
 
 func (r *releaseData) writeHcoChanges() {
@@ -45,15 +42,15 @@ func (r *releaseData) writeHcoChanges() {
 		glog.Fatalf("ERROR failed to get release notes of %s: %s\n", r.hco.Name, err)
 	}
 
-	io.WriteString(r.writer, fmt.Sprintf("### %s - %s\n", r.hco.Name, r.hco.CurrentTag))
+	fmt.Fprintf(r.writer, "### %s - %s\n", r.hco.Name, r.hco.CurrentTag)
 	if len(releaseNotes) > 0 {
 		for _, note := range releaseNotes {
-			io.WriteString(r.writer, fmt.Sprintf("- %s\n", note))
+			fmt.Fprintf(r.writer, "- %s\n", note)
 		}
 	} else {
-		io.WriteString(r.writer, "No notable changes\n")
+		fmt.Fprintln(r.writer, "No notable changes")
 	}
-	io.WriteString(r.writer, "\n")
+	fmt.Fprintln(r.writer)
 }
 
 func (r *releaseData) writeOtherChangesIfVersionUpdated(g *git.Project) {
@@ -62,26 +59,26 @@ func (r *releaseData) writeOtherChangesIfVersionUpdated(g *git.Project) {
 		glog.Fatalf("ERROR failed to get release notes of %s: %s\n", g.Name, err)
 	}
 
-	io.WriteString(r.writer, fmt.Sprintf("### %s: %s -> %s\n", g.Name, g.PreviousTag, g.CurrentTag))
+	fmt.Fprintf(r.writer, "### %s: %s -> %s\n", g.Name, g.PreviousTag, g.CurrentTag)
 	if len(releaseNotes) > 0 {
 		for _, note := range releaseNotes {
-			io.WriteString(r.writer, fmt.Sprintf("- %s\n", note))
+			fmt.Fprintf(r.writer, "- %s\n", note)
 		}
 	} else {
-		io.WriteString(r.writer, "No notable changes\n")
+		fmt.Fprintln(r.writer, "No notable changes")
 	}
 }
 
 func (r *releaseData) writeOtherChanges() {
 	for _, p := range r.projects {
 		if len(p.PreviousTag) == 0 || p.PreviousTag == p.CurrentTag {
-			io.WriteString(r.writer, fmt.Sprintf("### %s: %s\n", p.Name, p.CurrentTag))
-			io.WriteString(r.writer, "Not updated\n")
+			fmt.Fprintf(r.writer, "### %s: %s\n", p.Name, p.CurrentTag)
+			fmt.Fprintln(r.writer, "Not updated")
 		} else {
 			r.writeOtherChangesIfVersionUpdated(p)
 		}
 
-		io.WriteString(r.writer, "\n")
+		fmt.Fprintln(r.writer)
 	}
 }
 
@@ -110,8 +107,9 @@ func (r *releaseData) findProjectsCurrentAndPreviousReleases() {
 }
 
 func (r *releaseData) writeNotableChanges() {
-	io.WriteString(r.writer, "Notable changes\n---------------\n")
-	io.WriteString(r.writer, "\n")
+	fmt.Fprintln(r.writer, "Notable changes")
+	fmt.Fprintln(r.writer, "---------------")
+	fmt.Fprintln(r.writer)
 
 	r.writeHcoChanges()
 	r.findProjectsCurrentAndPreviousReleases()
@@ -148,11 +146,12 @@ func (r *releaseData) writeContributors() {
 		}
 	}
 
-	io.WriteString(r.writer, "\n")
-	io.WriteString(r.writer, "Contributors\n------------\n")
-	io.WriteString(r.writer, fmt.Sprintf("%d people contributed to this HCO release:\n\n", numContributors))
-	io.WriteString(r.writer, sb.String())
-	io.WriteString(r.writer, "\n")
+	fmt.Fprintln(r.writer)
+	fmt.Fprintln(r.writer, "Contributors")
+	fmt.Fprintln(r.writer, "------------")
+	fmt.Fprintf(r.writer, "%d people contributed to this HCO release:\n\n", numContributors)
+	fmt.Fprintf(r.writer, sb.String())
+	fmt.Fprintln(r.writer)
 }
 
 const additionalResources = `Additional Resources
@@ -184,7 +183,7 @@ func (r *releaseData) generateReleaseNotes() {
 	r.writeNotableChanges()
 	r.writeContributors()
 
-	io.WriteString(r.writer, additionalResources)
+	fmt.Fprint(r.writer, additionalResources)
 }
 
 func createProjects(baseDir string, token string) []*git.Project {
@@ -217,7 +216,7 @@ func parseArguments() *releaseData {
 		log.Fatal("--release is a required argument")
 	}
 
-	baseDir := fmt.Sprintf("%s/%s/", *cacheDir, "kubevirt")
+	baseDir := path.Join(*cacheDir, "kubevirt")
 	hco := "hyperconverged-cluster-operator"
 
 	gitToken := getToken(*githubTokenFile)
