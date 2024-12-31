@@ -25,8 +25,6 @@ const (
 	KubeletRoot                               = "/var/lib/kubelet"
 	KubeletPodsDir                            = KubeletRoot + "/pods"
 	HostRootMount                             = "/proc/1/root/"
-	CPUManagerOS3Path                         = HostRootMount + "var/lib/origin/openshift.local.volumes/cpu_manager_state"
-	CPUManagerPath                            = KubeletRoot + "/cpu_manager_state"
 
 	NonRootUID         = 107
 	NonRootUserString  = "qemu"
