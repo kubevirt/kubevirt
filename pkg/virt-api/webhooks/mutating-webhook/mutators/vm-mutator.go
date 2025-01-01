@@ -50,10 +50,6 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	if resp := webhookutils.ValidateSchema(v1.VirtualMachineGroupVersionKind, ar.Request.Object.Raw); resp != nil {
-		return resp
-	}
-
 	raw := ar.Request.Object.Raw
 	vm := v1.VirtualMachine{}
 
