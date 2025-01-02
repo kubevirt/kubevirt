@@ -509,7 +509,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Entry("with custom CIDR [IPv4] containing leading zeros", []v1.Port{}, 8080, cidrWithLeadingZeros),
 			)
 
-			It("[outside_connectivity]should be able to reach the outside world [IPv4]", func() {
+			It("should be able to reach the outside world [IPv4]", Label("RequiresOutsideConnectivity"), func() {
 				libnet.SkipWhenClusterNotSupportIpv4()
 				ipv4Address := "8.8.8.8"
 				if flags.IPV4ConnectivityCheckAddress != "" {
@@ -562,7 +562,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Entry("with custom CIDR [IPv6]", []v1.Port{}, 8080, "fd10:10:10::2/120"),
 			)
 
-			It("[outside_connectivity]should be able to reach the outside world [IPv6]", func() {
+			It("should be able to reach the outside world", Label("RequiresOutsideConnectivity", "IPv6"), func() {
 				libnet.SkipWhenClusterNotSupportIpv6()
 				// Cluster nodes subnet (docker network gateway)
 				// Docker network subnet cidr definition:
