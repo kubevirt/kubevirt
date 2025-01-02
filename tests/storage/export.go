@@ -61,6 +61,7 @@ import (
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -493,7 +494,7 @@ var _ = SIGDescribe("Export", func() {
 		expectedFormat exportv1.ExportVolumeFormat, urlTemplate string, volumeMode k8sv1.PersistentVolumeMode) {
 		sc, exists := storageClassFunction()
 		if !exists {
-			Skip("Skip test when right storage is not present")
+			Fail("Fail test when right storage is not present")
 		}
 		pvc, comparison := populateFunction(sc, volumeMode)
 		By("Creating the export token, we can export volumes using this token")
@@ -573,13 +574,13 @@ var _ = SIGDescribe("Export", func() {
 		Entry("with RAW gzipped kubevirt content type", populateKubeVirtContent, verifyKubeVirtGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.KubeVirtGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
 		Entry("with archive content type", populateArchiveContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.Dir, archiveDircontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
 		Entry("with archive tarred gzipped content type", populateArchiveContent, verifyArchiveGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.ArchiveGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
-		Entry("with RAW kubevirt content type block", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
+		Entry("with RAW kubevirt content type block", decorators.RequiresBlockStorage, populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
 		// "proxy" tests
 		Entry("with RAW kubevirt content type PROXY", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
 		Entry("with RAW gzipped kubevirt content type PROXY", populateKubeVirtContent, verifyKubeVirtGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
 		Entry("with archive content type PROXY", populateArchiveContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.Dir, archiveDircontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
 		Entry("with archive tarred gzipped content type PROXY", populateArchiveContent, verifyArchiveGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.ArchiveGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
-		Entry("with RAW kubevirt content type block PROXY", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
+		Entry("with RAW kubevirt content type block PROXY", decorators.RequiresBlockStorage, populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
 	)
 
 	verifyArchiveContainsDirectories := func(archivePath string, expectedDirs []string, pod *k8sv1.Pod) {
@@ -595,7 +596,7 @@ var _ = SIGDescribe("Export", func() {
 	It("should export a VM and verify swtpm directories in the gz archive", Serial, func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 
 		By("Setting the VMState storage class")
@@ -823,7 +824,7 @@ var _ = SIGDescribe("Export", func() {
 	It("Should recreate the exporter pod and secret if the pod fails", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 		vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
 		checkExportSecretRef(vmExport)
@@ -868,7 +869,7 @@ var _ = SIGDescribe("Export", func() {
 	It("Should recreate the exporter pod if the pod is deleted", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 		vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
 		checkExportSecretRef(vmExport)
@@ -887,7 +888,7 @@ var _ = SIGDescribe("Export", func() {
 	It("Should recreate the service if the service is deleted", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 		vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
 		checkExportSecretRef(vmExport)
@@ -906,7 +907,7 @@ var _ = SIGDescribe("Export", func() {
 	It("Should handle no pvc existing when export created, then creating and populating the pvc", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 		dv := libdv.NewDataVolume(
 			libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
@@ -951,7 +952,7 @@ var _ = SIGDescribe("Export", func() {
 	It("should be possibe to observe exportserver pod exiting", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 		vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
 		checkExportSecretRef(vmExport)
@@ -988,7 +989,7 @@ var _ = SIGDescribe("Export", func() {
 	It("Should handle populating an export without a previously defined tokenSecretRef", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 
 		pvc, _ := populateKubeVirtContent(sc, k8sv1.PersistentVolumeFilesystem)
@@ -1010,7 +1011,7 @@ var _ = SIGDescribe("Export", func() {
 	It("Should honor TTL by cleaning up the the VMExport altogether", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 
 		pvc, _ := populateKubeVirtContent(sc, k8sv1.PersistentVolumeFilesystem)
@@ -1156,7 +1157,7 @@ var _ = SIGDescribe("Export", func() {
 		It("should populate external links and cert and contain ingress host", func() {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
+				Fail("Fail test when Filesystem storage is not present")
 			}
 			testCert, err := createIngressTLSSecret(tlsSecretName)
 			Expect(err).NotTo(HaveOccurred())
@@ -1190,7 +1191,7 @@ var _ = SIGDescribe("Export", func() {
 		It("should populate external links and cert and contain route host", func() {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
+				Fail("Fail test when Filesystem storage is not present")
 			}
 			if !checks.IsOpenShift() {
 				Skip("Not on openshift")
@@ -1364,11 +1365,11 @@ var _ = SIGDescribe("Export", func() {
 			})
 	}
 
-	It("should create export from VMSnapshot", func() {
+	It("should create export from VMSnapshot", decorators.RequiresSnapshotStorageClass, func() {
 		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
 		Expect(err).ToNot(HaveOccurred())
 		if sc == "" {
-			Skip("Skip test when storage with snapshot is not present")
+			Fail("Fail test when storage with snapshot is not present")
 		}
 
 		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
@@ -1434,11 +1435,11 @@ var _ = SIGDescribe("Export", func() {
 		return export
 	}
 
-	It("should create export from VMSnapshot with multiple volumes", func() {
+	It("should create export from VMSnapshot with multiple volumes", decorators.RequiresSnapshotStorageClass, func() {
 		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
 		Expect(err).ToNot(HaveOccurred())
 		if sc == "" {
-			Skip("Skip test when storage with snapshot is not present")
+			Fail("Fail test when storage with snapshot is not present")
 		}
 
 		blankDv := libdv.NewDataVolume(
@@ -1512,7 +1513,7 @@ var _ = SIGDescribe("Export", func() {
 	It("should report export pending if VM is running, and start the VM export if the VM is not running, then stop again once VM started", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
 		vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
@@ -1631,7 +1632,7 @@ var _ = SIGDescribe("Export", func() {
 		It(" should report export pending if PVC is in use because of VMI using it, and start the VM export if the PVC is not in use, then stop again once pvc in use again", Serial, func() {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
+				Fail("Fail test when Filesystem storage is not present")
 			}
 			cpu := resource.MustParse("500m")
 			mem := resource.MustParse("1240Mi")
@@ -1836,7 +1837,7 @@ var _ = SIGDescribe("Export", func() {
 	It("should generate updated DataVolumeTemplates on http endpoint when exporting", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 
 		vm := libstorage.RenderVMWithDataVolumeTemplate(libdv.NewDataVolume(
@@ -1877,13 +1878,13 @@ var _ = SIGDescribe("Export", func() {
 		checkWithJsonOutput(pod, export, vm)
 	})
 
-	It("should generate updated DataVolumeTemplates on http endpoint when exporting snapshot", func() {
+	It("should generate updated DataVolumeTemplates on http endpoint when exporting snapshot", decorators.RequiresSnapshotStorageClass, func() {
 		virtClient, err := kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
 		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
 		Expect(err).ToNot(HaveOccurred())
 		if sc == "" {
-			Skip("Skip test when storage with snapshot is not present")
+			Fail("Fail test when storage with snapshot is not present")
 		}
 
 		vm := libstorage.RenderVMWithDataVolumeTemplate(libdv.NewDataVolume(
@@ -1925,7 +1926,7 @@ var _ = SIGDescribe("Export", func() {
 	It("Should generate DVs and expanded VM definition on http endpoint with multiple volumes", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 		clusterInstancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
 			TypeMeta: metav1.TypeMeta{
@@ -2097,7 +2098,7 @@ var _ = SIGDescribe("Export", func() {
 	It("should mark the status phase skipped on VM without volumes", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 		vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
 		vm = createVM(vm)
@@ -2180,7 +2181,7 @@ var _ = SIGDescribe("Export", func() {
 		It("should recreate exportserver pod when KubeVirt cert params updated", func() {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
+				Fail("Fail test when Filesystem storage is not present")
 			}
 			vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
 			checkExportSecretRef(vmExport)

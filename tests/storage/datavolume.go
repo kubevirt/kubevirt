@@ -95,7 +95,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		virtClient = kubevirt.Client()
 
 		if !libstorage.HasCDI() {
-			Skip("Skip DataVolume tests when CDI is not present")
+			Fail("Fail DataVolume tests when CDI is not present")
 		}
 	})
 
@@ -155,12 +155,12 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			if volumeMode == k8sv1.PersistentVolumeBlock {
 				sc, exists = libstorage.GetRWOBlockStorageClass()
 				if !exists {
-					Skip("Skip test when Block storage is not present")
+					Fail("Fail test when Block storage is not present")
 				}
 			} else {
 				sc, exists = libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 			}
 			volumeExpansionAllowed := volumeExpansionAllowed(sc)
@@ -223,7 +223,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				&expect.BExp{R: "0"},
 			}, 360)).To(Succeed(), "can use more space after expansion and resize")
 		},
-			Entry("with Block PVC", k8sv1.PersistentVolumeBlock),
+			Entry("with Block PVC", decorators.RequiresBlockStorage, k8sv1.PersistentVolumeBlock),
 			Entry("with Filesystem PVC", k8sv1.PersistentVolumeFilesystem),
 		)
 
@@ -232,7 +232,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
+				Fail("Fail test when Filesystem storage is not present")
 			}
 
 			volumeExpansionAllowed := volumeExpansionAllowed(sc)
@@ -287,26 +287,10 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachineInstance with a DataVolume as a volume source", func() {
 		Context("Alpine import", func() {
-			BeforeEach(func() {
-				cdis, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(context.Background(), metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(cdis.Items).To(HaveLen(1))
-				hasWaitForFirstConsumerGate := false
-				for _, feature := range cdis.Items[0].Spec.Config.FeatureGates {
-					if feature == "HonorWaitForFirstConsumer" {
-						hasWaitForFirstConsumerGate = true
-						break
-					}
-				}
-				if !hasWaitForFirstConsumerGate {
-					Skip("HonorWaitForFirstConsumer is disabled in CDI, skipping tests relying on it")
-				}
-			})
-
 			It("[test_id:3189]should be successfully started and stopped multiple times", func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				dataVolume := libdv.NewDataVolume(
@@ -344,7 +328,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)
@@ -387,7 +371,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			It("[test_id:5252]should be successfully started when using a PVC volume owned by a DataVolume", func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				dataVolume := libdv.NewDataVolume(
@@ -517,7 +501,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			It("should be possible to stop VM if datavolume is crashing", func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				dataVolume := libdv.NewDataVolume(
@@ -561,7 +545,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			It("[test_id:3190]should correctly handle eventually consistent DataVolumes", func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				realRegistryName := flags.KubeVirtUtilityRepoPrefix
@@ -634,7 +618,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		BeforeEach(func() {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
+				Fail("Fail test when Filesystem storage is not present")
 			}
 
 			vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
@@ -731,7 +715,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			It("[test_id:3191]should be successfully started and stopped multiple times", func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
@@ -757,7 +741,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			It("[test_id:3192]should remove owner references on DataVolume if VM is orphan deleted.", func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
@@ -779,7 +763,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 	})
 
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] DataVolume clone permission checking", func() {
-		Context("using Alpine import/clone", func() {
+		Context("using Alpine import/clone", decorators.RequiresSnapshotStorageClass, func() {
 			var dataVolume *cdiv1.DataVolume
 			var cloneRole *rbacv1.Role
 			var cloneRoleBinding *rbacv1.RoleBinding
@@ -790,7 +774,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				storageClass, err = libstorage.GetSnapshotStorageClass(virtClient)
 				Expect(err).ToNot(HaveOccurred())
 				if storageClass == "" {
-					Skip("Skiping test, no VolumeSnapshot support")
+					Fail("Failing test, no VolumeSnapshot support")
 				}
 
 				dataVolume = libdv.NewDataVolume(
@@ -1106,7 +1090,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		DescribeTable("[rfe_id:5070][crit:medium][vendor:cnv-qe@redhat.com][level:component]fstrim from the VM influences disk.img", func(dvChange func(*cdiv1.DataVolume) *cdiv1.DataVolume, expectSmaller bool) {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
+				Fail("Fail test when Filesystem storage is not present")
 			}
 
 			dataVolume := libdv.NewDataVolume(
@@ -1220,7 +1204,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		BeforeEach(func() {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip test when Filesystem storage class is not present")
+				Fail("Fail test when Filesystem storage class is not present")
 			}
 
 			vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)

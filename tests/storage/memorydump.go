@@ -312,7 +312,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			var exists bool
 			sc, exists = libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip no filesystem storage class available")
+				Fail("Fail no filesystem storage class available")
 			}
 			libstorage.CheckNoProvisionerStorageClassPVs(sc, numPVs)
 

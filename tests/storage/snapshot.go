@@ -288,7 +288,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 		})
 	})
 
-	Context("[storage-req]", decorators.StorageReq, func() {
+	Context("[storage-req]", decorators.StorageReq, decorators.RequiresSnapshotStorageClass, func() {
 		var (
 			snapshotStorageClass string
 		)
@@ -298,7 +298,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			if sc == "" {
-				Skip("Skiping test, no VolumeSnapshot support")
+				Fail("Failing test, no VolumeSnapshot support")
 			}
 
 			snapshotStorageClass = sc
@@ -880,9 +880,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					memoryDumpPVC.Spec.VolumeMode = &volumeMode
 					var err error
 					memoryDumpPVC, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Create(context.Background(), memoryDumpPVC, metav1.CreateOptions{})
-					if err != nil {
-						Skip(fmt.Sprintf("Skiping test, no filesystem pvc available, err: %s", err))
-					}
+					Expect(err).ToNot(HaveOccurred())
 				})
 
 				AfterEach(func() {
