@@ -17,8 +17,6 @@ const (
 	latestBuildURL      = basicPrawURL + "/latest-build.txt"
 	finishedURLTemplate = basicPrawURL + "/%s/finished.json"
 	jobURLTemplate      = basicPrawURL + "/%s/prowjob.json"
-
-	timeFormat = "2006-01-02, 15:04:05"
 )
 
 type finished struct {
@@ -126,15 +124,16 @@ func sendMessageToSlackChannel(blocks []slack.Block) error {
 }
 
 func generateMsgHeader() slack.Block {
-	return slack.NewHeaderBlock(
-		slack.NewTextBlockObject(
-			"plain_text", "Nightly Build Status", false, false,
+	return slack.NewRichTextBlock(
+		"header",
+		slack.NewRichTextSection(
+			slack.NewRichTextSectionTextElement("Nightly Build Status", &slack.RichTextSectionTextStyle{Bold: true}),
 		),
 	)
 }
 
-func generateMentionBlock(blockId string) slack.Block {
-	return slack.NewRichTextBlock(blockId, slack.NewRichTextSection(
+func generateMentionBlock() slack.Block {
+	return slack.NewRichTextBlock("mention", slack.NewRichTextSection(
 		slack.NewRichTextSectionUserGroupElement(groupId),
 	))
 }
@@ -142,23 +141,17 @@ func generateMentionBlock(blockId string) slack.Block {
 func generateNoBuildMessage(buildTime time.Time) []slack.Block {
 	return []slack.Block{
 		generateMsgHeader(),
-		slack.NewDividerBlock(),
-		slack.NewRichTextBlock("1", slack.NewRichTextSection(
+		slack.NewRichTextBlock("status", slack.NewRichTextSection(
 			slack.NewRichTextSectionEmojiElement("failed", 3, nil),
-		)),
-		slack.NewRichTextBlock("2", slack.NewRichTextSection(
 			slack.NewRichTextSectionTextElement(
-				"No new build today", nil,
+				" No new build today", nil,
 			),
 		)),
-		slack.NewRichTextBlock("3", slack.NewRichTextSection(
-			slack.NewRichTextSectionTextElement(
-				fmt.Sprintf("Last build was at %v", buildTime.Format(timeFormat)),
-				nil,
-			),
+		slack.NewRichTextBlock("last-build-time", slack.NewRichTextSection(
+			slack.NewRichTextSectionTextElement("Last build: ", nil),
+			slack.NewRichTextSectionDateElement(buildTime.UTC().Unix(), "{date_long_full} at {time}, {ago}", nil, nil),
 		)),
-		generateMentionBlock("4"),
-		slack.NewDividerBlock(),
+		generateMentionBlock(),
 	}
 }
 
@@ -172,30 +165,24 @@ func generateStatusMessage(buildStatus *finished, jobURL string) []slack.Block {
 		emoji = "failed"
 	}
 
-	ts := buildStatus.getBuildTime().Format(timeFormat)
-
 	blocks := []slack.Block{
 		generateMsgHeader(),
-		slack.NewDividerBlock(),
-		slack.NewRichTextBlock("1", slack.NewRichTextSection(
-			slack.NewRichTextSectionEmojiElement(emoji, 3, nil),
-		)),
-		slack.NewRichTextBlock("2", slack.NewRichTextSection(
+		slack.NewRichTextBlock("status", slack.NewRichTextSection(
 			slack.NewRichTextSectionTextElement(
 				"Status: ", nil,
 			),
+			slack.NewRichTextSectionEmojiElement(emoji, 3, nil),
+			slack.NewRichTextSectionTextElement(" ", nil),
 			slack.NewRichTextSectionLinkElement(jobURL, status, &slack.RichTextSectionTextStyle{Bold: true}),
 		)),
-		slack.NewRichTextBlock("3", slack.NewRichTextSection(
-			slack.NewRichTextSectionTextElement(
-				"Build time: "+ts+" UTC", nil,
-			),
+		slack.NewRichTextBlock("build-time", slack.NewRichTextSection(
+			slack.NewRichTextSectionTextElement("Build time: ", nil),
+			slack.NewRichTextSectionDateElement(time.Now().UTC().Unix(), "{date_long} at {time}", nil, nil),
 		)),
 	}
 
 	if !buildStatus.Passed {
-		blocks = append(blocks, slack.NewDividerBlock())
-		blocks = append(blocks, generateMentionBlock("4"))
+		blocks = append(blocks, generateMentionBlock())
 	}
 	return blocks
 }
