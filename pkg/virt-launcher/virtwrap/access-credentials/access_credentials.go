@@ -20,8 +20,6 @@
 package accesscredentials
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -31,31 +29,17 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
 const logVerbosityDebug = 4
-
-type openReturn struct {
-	Return int `json:"return"`
-}
-
-type readReturnData struct {
-	Count  int    `json:"count"`
-	BufB64 string `json:"buf-b64"`
-}
-type readReturn struct {
-	Return readReturnData `json:"return"`
-}
 
 type AccessCredentialManager struct {
 	virConn cli.Connection
@@ -72,26 +56,17 @@ type AccessCredentialManager struct {
 
 	domainModifyLock *sync.Mutex
 	metadataCache    *metadata.Cache
-
-	eventSent   bool
-	eventSender EventSender
-}
-
-type EventSender interface {
-	SendK8sEvent(vmi *v1.VirtualMachineInstance, severity, reason, message string) error
 }
 
 func NewManager(connection cli.Connection,
 	domainModifyLock *sync.Mutex,
 	metadataCache *metadata.Cache,
-	eventSender EventSender,
 ) *AccessCredentialManager {
 	return &AccessCredentialManager{
 		virConn:                    connection,
 		resyncCheckIntervalSeconds: 15,
 		domainModifyLock:           domainModifyLock,
 		metadataCache:              metadataCache,
-		eventSender:                eventSender,
 	}
 }
 
@@ -133,161 +108,6 @@ func getSecretBaseDir() string {
 	return config.SecretSourceDir
 }
 
-func (l *AccessCredentialManager) writeGuestFile(contents, domName, filePath, owner string, fileExists bool) error {
-	// ensure the directory exists with the correct permissions
-	err := l.agentCreateDirectory(domName, filepath.Dir(filePath), "700", owner)
-	if err != nil {
-		return err
-	}
-
-	if fileExists {
-		// ensure the file has the correct permissions for writing
-		if permErr := l.agentSetFilePermissions(domName, filePath, "600", owner); permErr != nil {
-			return permErr
-		}
-	}
-
-	// write the file
-	base64Str := base64.StdEncoding.EncodeToString([]byte(contents))
-	cmdOpenFile := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": %q, "mode":"w" } }`, filePath)
-	output, err := l.virConn.QemuAgentCommand(cmdOpenFile, domName)
-	if err != nil {
-		return err
-	}
-
-	openRes := &openReturn{}
-	err = json.Unmarshal([]byte(output), openRes)
-	if err != nil {
-		return err
-	}
-
-	cmdWriteFile := fmt.Sprintf(`{"execute": "guest-file-write", "arguments": { "handle": %d, "buf-b64": %q } }`, openRes.Return, base64Str)
-	_, err = l.virConn.QemuAgentCommand(cmdWriteFile, domName)
-	if err != nil {
-		return err
-	}
-
-	cmdCloseFile := fmt.Sprintf(`{"execute": "guest-file-close", "arguments": { "handle": %d } }`, openRes.Return)
-	_, err = l.virConn.QemuAgentCommand(cmdCloseFile, domName)
-	if err != nil {
-		return err
-	}
-
-	if !fileExists {
-		// ensure the file has the correct permissions and ownership after creating new file
-		if permErr := l.agentSetFilePermissions(domName, filePath, "600", owner); permErr != nil {
-			return permErr
-		}
-	}
-
-	return nil
-}
-
-func (l *AccessCredentialManager) readGuestFile(domName, filePath string) (string, error) {
-	contents := ""
-
-	cmdOpenFile := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": %q, "mode":"r" } }`, filePath)
-	output, err := l.virConn.QemuAgentCommand(cmdOpenFile, domName)
-	if err != nil {
-		return contents, err
-	}
-
-	openRes := &openReturn{}
-	err = json.Unmarshal([]byte(output), openRes)
-	if err != nil {
-		return contents, err
-	}
-
-	cmdReadFile := fmt.Sprintf(`{"execute": "guest-file-read", "arguments": { "handle": %d } }`, openRes.Return)
-	readOutput, err := l.virConn.QemuAgentCommand(cmdReadFile, domName)
-	if err != nil {
-		return contents, err
-	}
-
-	readRes := &readReturn{}
-	err = json.Unmarshal([]byte(readOutput), readRes)
-	if err != nil {
-		return contents, err
-	}
-
-	if readRes.Return.Count > 0 {
-		readBytes, decodingErr := base64.StdEncoding.DecodeString(readRes.Return.BufB64)
-		if decodingErr != nil {
-			return contents, decodingErr
-		}
-		contents = string(readBytes)
-	}
-
-	cmdCloseFile := fmt.Sprintf(`{"execute": "guest-file-close", "arguments": { "handle": %d } }`, openRes.Return)
-	_, err = l.virConn.QemuAgentCommand(cmdCloseFile, domName)
-	if err != nil {
-		return contents, err
-	}
-
-	return contents, nil
-}
-
-func (l *AccessCredentialManager) agentGuestExec(domName, command string, args []string) (string, error) {
-	var timeoutInSeconds int32 = 10
-	return agent.GuestExec(l.virConn, domName, command, args, timeoutInSeconds)
-}
-
-// Requires usage of mkdir, chown, chmod
-func (l *AccessCredentialManager) agentCreateDirectory(domName, dir, permissions, owner string) error {
-	// Ensure the directory exists
-	_, err := l.agentGuestExec(domName, "mkdir", []string{"-p", dir})
-	if err != nil {
-		return err
-	}
-
-	// set ownership/permissions of directory using parent directory owner
-	_, err = l.agentGuestExec(domName, "chown", []string{owner, dir})
-	if err != nil {
-		return err
-	}
-	_, err = l.agentGuestExec(domName, "chmod", []string{permissions, dir})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (l *AccessCredentialManager) agentGetUserInfo(domName, user string) (filePath, uid, gid string, err error) {
-	passwdEntryStr, err := l.agentGuestExec(domName, "getent", []string{"passwd", user})
-	if err != nil {
-		return "", "", "", fmt.Errorf("unable to detect home directory of user %s: %s", user, err.Error())
-	}
-	passwdEntryStr = strings.TrimSpace(passwdEntryStr)
-	entries := strings.Split(passwdEntryStr, ":")
-
-	const expectedPasswdEntries = 6
-	if len(entries) < expectedPasswdEntries {
-		return "", "", "", fmt.Errorf("unable to detect home directory of user %s", user)
-	}
-
-	filePath = entries[5]
-	uid = entries[2]
-	gid = entries[3]
-	log.Log.Infof("Detected home directory %s for user %s", filePath, user)
-	return filePath, uid, gid, nil
-}
-
-// Requires usage of chown, chmod
-func (l *AccessCredentialManager) agentSetFilePermissions(domName, filePath, permissions, owner string) error {
-	// set ownership/permissions of directory using parent directory owner
-	_, err := l.agentGuestExec(domName, "chown", []string{owner, filePath})
-	if err != nil {
-		return err
-	}
-	_, err = l.agentGuestExec(domName, "chmod", []string{permissions, filePath})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (l *AccessCredentialManager) agentSetUserPassword(domName, user, password string) (err error) {
 	domain, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
@@ -305,70 +125,17 @@ func (l *AccessCredentialManager) pingAgent(domName string) error {
 	return err
 }
 
-// agentSetAuthorizedKeys sets the SSH keys and returns "true" if the old deprecated flow was used.
-func (l *AccessCredentialManager) agentSetAuthorizedKeys(domName, user string, authorizedKeys []string) (bool, error) {
-	err := func() (err error) {
-		domain, err := l.virConn.LookupDomainByName(domName)
-		if err != nil {
-			return err
-		}
-		defer func() { err = errors.Join(err, domain.Free()) }()
-
-		// Zero flags argument means that the authorized_keys file is overwritten with the authorizedKeys
-		return domain.AuthorizedSSHKeysSet(user, authorizedKeys, 0)
-	}()
-	if err == nil {
-		return false, nil
-	}
-
-	log.Log.V(logVerbosityDebug).Infof("Could not set SSH key using guest-ssh-add-authorized-keys: %v", err)
-
-	// If AuthorizedSSHKeysSet method failed, use the old method
-	desiredAuthorizedKeys := strings.Join(authorizedKeys, "\n")
-	secondErr := l.agentWriteAuthorizedKeysFile(domName, user, desiredAuthorizedKeys)
-	if secondErr == nil {
-		return true, nil
-	}
-
-	return false, fmt.Errorf(
-		"failed to set SSH keys: error from guest-ssh-add-authorized-keys: %w; error from using guest-file-write: %w",
-		err,
-		secondErr,
-	)
-}
-
-func (l *AccessCredentialManager) agentWriteAuthorizedKeysFile(domName, user, desiredAuthorizedKeys string) (err error) {
-	curAuthorizedKeys := ""
-	fileExists := true
-
-	// ######
-	// Step 1. Get home directory for user.
-	// ######
-	homeDir, uid, gid, err := l.agentGetUserInfo(domName, user)
+func (l *AccessCredentialManager) agentSetAuthorizedKeys(domName, user string, authorizedKeys []string) (err error) {
+	domain, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to lookup domain %s: %w", domName, err)
 	}
+	defer func() { err = errors.Join(err, domain.Free()) }()
 
-	// ######
-	// Step 2. Read file on guest to determine if change is required
-	// ######
-	filePath := fmt.Sprintf("%s/.ssh/authorized_keys", homeDir)
-	curAuthorizedKeys, err = l.readGuestFile(domName, filePath)
-	if err != nil && strings.Contains(err.Error(), "No such file or directory") {
-		fileExists = false
-	} else if err != nil {
-		return err
-	}
-
-	// ######
-	// Step 3. Write authorized_keys file if changes exist
-	// ######
-	// only update if the updated string is not equal to the current contents on the guest.
-	if curAuthorizedKeys != desiredAuthorizedKeys {
-		err = l.writeGuestFile(desiredAuthorizedKeys, domName, filePath, fmt.Sprintf("%s:%s", uid, gid), fileExists)
-		if err != nil {
-			return err
-		}
+	// Zero flags argument means that the authorized_keys file is overwritten with the authorizedKeys
+	err = domain.AuthorizedSSHKeysSet(user, authorizedKeys, 0)
+	if err != nil {
+		return fmt.Errorf("failed to set SSH authorized keys: %w", err)
 	}
 
 	return nil
@@ -405,36 +172,13 @@ func getSecret(accessCred *v1.AccessCredential) string {
 	return secretName
 }
 
-func (l *AccessCredentialManager) reportAccessCredentialResult(
-	vmi *v1.VirtualMachineInstance,
-	succeeded bool,
-	message string,
-	usedDeprecatedFlow bool,
-) {
+func (l *AccessCredentialManager) reportAccessCredentialResult(succeeded bool, message string) {
 	acMetadata := api.AccessCredentialMetadata{
 		Succeeded: succeeded,
 		Message:   message,
 	}
 	l.metadataCache.AccessCredential.Store(acMetadata)
 	log.Log.V(logVerbosityDebug).Infof("Access credential set in metadata: %v", acMetadata)
-
-	if !succeeded || !usedDeprecatedFlow {
-		l.eventSent = false
-	}
-
-	if succeeded && usedDeprecatedFlow && !l.eventSent {
-		err := l.eventSender.SendK8sEvent(
-			vmi,
-			k8sv1.EventTypeWarning,
-			v1.AccessCredentialsSyncSuccess.String(),
-			"Used deprecated method to set SSH keys. It will be removed in a future release. Update qemu guest agent to 5.2 or newer to keep SSH key injection working.", //nolint:lll
-		)
-		if err != nil {
-			log.Log.Reason(err).Errorf("Error encountered sending k8s event about using deprecated flow to update SSH key.")
-		} else {
-			l.eventSent = true
-		}
-	}
 }
 
 func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
@@ -488,13 +232,12 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 func (l *AccessCredentialManager) reloadCredentialFiles(vmi *v1.VirtualMachineInstance, domName string, logger *log.FilteredLogger) bool {
 	err := l.pingAgent(domName)
 	if err != nil {
-		l.reportAccessCredentialResult(vmi, false, "Guest agent is offline", false)
+		l.reportAccessCredentialResult(false, "Guest agent is offline")
 		return true
 	}
 
 	reload := false
 	reportedErr := false
-	usedDeprecatedFlow := false
 
 	credentialInfo := newAccessCredentialsInfo()
 
@@ -506,7 +249,7 @@ func (l *AccessCredentialManager) reloadCredentialFiles(vmi *v1.VirtualMachineIn
 			reload = true
 			reportedErr = true
 			logger.Reason(err).Errorf("Error encountered")
-			l.reportAccessCredentialResult(vmi, false, err.Error(), false)
+			l.reportAccessCredentialResult(false, err.Error())
 		}
 	}
 
@@ -518,18 +261,15 @@ func (l *AccessCredentialManager) reloadCredentialFiles(vmi *v1.VirtualMachineIn
 			allAuthorizedKeys = append(allAuthorizedKeys, pubKeys...)
 		}
 
-		deprecated, err := l.agentSetAuthorizedKeys(domName, user, allAuthorizedKeys)
+		err := l.agentSetAuthorizedKeys(domName, user, allAuthorizedKeys)
 		if err != nil {
 			// if writing failed, reset reload to true so this change will be retried again
 			reload = true
 			reportedErr = true
 			logger.Reason(err).Errorf("Error encountered writing access credentials using guest agent")
-			l.reportAccessCredentialResult(vmi, false, fmt.Sprintf(
+			l.reportAccessCredentialResult(false, fmt.Sprintf(
 				"Error encountered writing ssh pub key access credentials for user [%s]: %v",
-				user, err), false)
-		}
-		if deprecated {
-			usedDeprecatedFlow = true
+				user, err))
 		}
 	}
 
@@ -542,11 +282,11 @@ func (l *AccessCredentialManager) reloadCredentialFiles(vmi *v1.VirtualMachineIn
 			reportedErr = true
 			logger.Reason(err).Errorf("Error encountered setting password for user [%s]", user)
 
-			l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered setting password for user [%s]: %v", user, err), false)
+			l.reportAccessCredentialResult(false, fmt.Sprintf("Error encountered setting password for user [%s]: %v", user, err))
 		}
 	}
 	if !reportedErr {
-		l.reportAccessCredentialResult(vmi, true, "", usedDeprecatedFlow)
+		l.reportAccessCredentialResult(true, "")
 	}
 
 	return reload
