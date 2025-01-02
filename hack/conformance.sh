@@ -53,6 +53,11 @@ if [[ ! -z "$SKIP_SNAPSHOT_STORAGE_TESTS" ]]; then
     add_to_label_filter "(!RequiresSnapshotStorageClass)" "&&"
 fi
 
+if [[ ! "$KUBEVIRT_E2E_FOCUS" =~ "sig-storage" ]]; then
+    # We skip sig-storage tests since many features are gated
+    add_to_label_filter "(!sig-storage)" "&&"
+fi
+
 if [[ ! -z "$KUBEVIRT_PROVIDER" ]]; then
     sonobuoy_args="${sonobuoy_args} --plugin-env kubevirt-conformance.KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER}"
 fi
