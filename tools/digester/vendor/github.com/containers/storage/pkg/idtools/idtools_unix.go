@@ -1,5 +1,4 @@
 //go:build !windows
-// +build !windows
 
 package idtools
 
@@ -13,6 +12,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/containers/storage/pkg/fileutils"
 	"github.com/containers/storage/pkg/system"
 	"github.com/moby/sys/user"
 )
@@ -55,7 +55,7 @@ func mkdirAs(path string, mode os.FileMode, ownerUID, ownerGID int, mkAll, chown
 			if dirPath == "/" {
 				break
 			}
-			if _, err := os.Stat(dirPath); err != nil && os.IsNotExist(err) {
+			if err := fileutils.Exists(dirPath); err != nil && os.IsNotExist(err) {
 				paths = append(paths, dirPath)
 			}
 		}

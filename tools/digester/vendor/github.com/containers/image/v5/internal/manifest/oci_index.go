@@ -1,10 +1,13 @@
 package manifest
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
 	"runtime"
+	"slices"
 
 	platform "github.com/containers/image/v5/internal/pkg/platform"
 	compression "github.com/containers/image/v5/pkg/compression/types"
@@ -12,8 +15,6 @@ import (
 	"github.com/opencontainers/go-digest"
 	imgspec "github.com/opencontainers/image-spec/specs-go"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
-	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 )
 
 const (
@@ -235,10 +236,7 @@ func (index *OCI1IndexPublic) chooseInstance(ctx *types.SystemContext, preferGzi
 	if preferGzip == types.OptionalBoolTrue {
 		didPreferGzip = true
 	}
-	wantedPlatforms, err := platform.WantedPlatforms(ctx)
-	if err != nil {
-		return "", fmt.Errorf("getting platform information %#v: %w", ctx, err)
-	}
+	wantedPlatforms := platform.WantedPlatforms(ctx)
 	var bestMatch *instanceCandidate
 	bestMatch = nil
 	for manifestIndex, d := range index.Manifests {
@@ -260,7 +258,7 @@ func (index *OCI1IndexPublic) chooseInstance(ctx *types.SystemContext, preferGzi
 	if bestMatch != nil {
 		return bestMatch.digest, nil
 	}
-	return "", fmt.Errorf("no image found in image index for architecture %s, variant %q, OS %s", wantedPlatforms[0].Architecture, wantedPlatforms[0].Variant, wantedPlatforms[0].OS)
+	return "", fmt.Errorf("no image found in image index for architecture %q, variant %q, OS %q", wantedPlatforms[0].Architecture, wantedPlatforms[0].Variant, wantedPlatforms[0].OS)
 }
 
 func (index *OCI1Index) ChooseInstanceByCompression(ctx *types.SystemContext, preferGzip types.OptionalBool) (digest.Digest, error) {
@@ -296,29 +294,51 @@ func OCI1IndexPublicFromComponents(components []imgspecv1.Descriptor, annotation
 		},
 	}
 	for i, component := range components {
-		var platform *imgspecv1.Platform
-		if component.Platform != nil {
-			platformCopy := ociPlatformClone(*component.Platform)
-			platform = &platformCopy
-		}
-		m := imgspecv1.Descriptor{
-			MediaType:    component.MediaType,
-			ArtifactType: component.ArtifactType,
-			Size:         component.Size,
-			Digest:       component.Digest,
-			URLs:         slices.Clone(component.URLs),
-			Annotations:  maps.Clone(component.Annotations),
-			Platform:     platform,
-		}
-		index.Manifests[i] = m
+		index.Manifests[i] = oci1DescriptorClone(component)
 	}
 	return &index
+}
+
+func oci1DescriptorClone(d imgspecv1.Descriptor) imgspecv1.Descriptor {
+	var platform *imgspecv1.Platform
+	if d.Platform != nil {
+		platformCopy := ociPlatformClone(*d.Platform)
+		platform = &platformCopy
+	}
+	return imgspecv1.Descriptor{
+		MediaType:    d.MediaType,
+		Digest:       d.Digest,
+		Size:         d.Size,
+		URLs:         slices.Clone(d.URLs),
+		Annotations:  maps.Clone(d.Annotations),
+		Data:         bytes.Clone(d.Data),
+		Platform:     platform,
+		ArtifactType: d.ArtifactType,
+	}
 }
 
 // OCI1IndexPublicClone creates a deep copy of the passed-in index.
 // This is publicly visible as c/image/manifest.OCI1IndexClone.
 func OCI1IndexPublicClone(index *OCI1IndexPublic) *OCI1IndexPublic {
-	return OCI1IndexPublicFromComponents(index.Manifests, index.Annotations)
+	var subject *imgspecv1.Descriptor
+	if index.Subject != nil {
+		s := oci1DescriptorClone(*index.Subject)
+		subject = &s
+	}
+	manifests := make([]imgspecv1.Descriptor, len(index.Manifests))
+	for i, m := range index.Manifests {
+		manifests[i] = oci1DescriptorClone(m)
+	}
+	return &OCI1IndexPublic{
+		Index: imgspecv1.Index{
+			Versioned:    index.Versioned,
+			MediaType:    index.MediaType,
+			ArtifactType: index.ArtifactType,
+			Manifests:    manifests,
+			Subject:      subject,
+			Annotations:  maps.Clone(index.Annotations),
+		},
+	}
 }
 
 // ToOCI1Index returns the index encoded as an OCI1 index.

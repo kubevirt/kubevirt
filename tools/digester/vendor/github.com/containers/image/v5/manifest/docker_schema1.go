@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/containers/storage/pkg/regexp"
 	"github.com/docker/docker/api/types/versions"
 	"github.com/opencontainers/go-digest"
-	"golang.org/x/exp/slices"
 )
 
 // Schema1FSLayers is an entry of the "fsLayers" array in docker/distribution schema 1.
@@ -221,7 +221,7 @@ func (m *Schema1) fixManifestLayers() error {
 			m.History = slices.Delete(m.History, i, i+1)
 			m.ExtractedV1Compatibility = slices.Delete(m.ExtractedV1Compatibility, i, i+1)
 		} else if m.ExtractedV1Compatibility[i].Parent != m.ExtractedV1Compatibility[i+1].ID {
-			return fmt.Errorf("Invalid parent ID. Expected %v, got %v", m.ExtractedV1Compatibility[i+1].ID, m.ExtractedV1Compatibility[i].Parent)
+			return fmt.Errorf("Invalid parent ID. Expected %v, got %q", m.ExtractedV1Compatibility[i+1].ID, m.ExtractedV1Compatibility[i].Parent)
 		}
 	}
 	return nil
@@ -318,20 +318,20 @@ func (m *Schema1) ToSchema2Config(diffIDs []digest.Digest) ([]byte, error) {
 	// Add the history and rootfs information.
 	rootfs, err := json.Marshal(rootFS)
 	if err != nil {
-		return nil, fmt.Errorf("error encoding rootfs information %#v: %v", rootFS, err)
+		return nil, fmt.Errorf("error encoding rootfs information %#v: %w", rootFS, err)
 	}
 	rawRootfs := json.RawMessage(rootfs)
 	raw["rootfs"] = &rawRootfs
 	history, err := json.Marshal(convertedHistory)
 	if err != nil {
-		return nil, fmt.Errorf("error encoding history information %#v: %v", convertedHistory, err)
+		return nil, fmt.Errorf("error encoding history information %#v: %w", convertedHistory, err)
 	}
 	rawHistory := json.RawMessage(history)
 	raw["history"] = &rawHistory
 	// Encode the result.
 	config, err = json.Marshal(raw)
 	if err != nil {
-		return nil, fmt.Errorf("error re-encoding compat image config %#v: %v", s1, err)
+		return nil, fmt.Errorf("error re-encoding compat image config %#v: %w", s1, err)
 	}
 	return config, nil
 }
@@ -342,5 +342,5 @@ func (m *Schema1) ImageID(diffIDs []digest.Digest) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return digest.FromBytes(image).Hex(), nil
+	return digest.FromBytes(image).Encoded(), nil
 }

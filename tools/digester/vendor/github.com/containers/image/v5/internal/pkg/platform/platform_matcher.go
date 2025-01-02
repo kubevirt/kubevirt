@@ -21,12 +21,12 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/containers/image/v5/types"
 	imgspecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/slices"
 )
 
 // For Linux, the kernel has already detected the ABI, ISA and Features.
@@ -64,8 +64,8 @@ func getCPUInfo(pattern string) (info string, err error) {
 	return "", fmt.Errorf("getCPUInfo for pattern: %s not found", pattern)
 }
 
-func getCPUVariantWindows(arch string) string {
-	// Windows only supports v7 for ARM32 and v8 for ARM64 and so we can use
+func getCPUVariantDarwinWindows(arch string) string {
+	// Darwin and Windows only support v7 for ARM32 and v8 for ARM64 and so we can use
 	// runtime.GOARCH to determine the variants
 	var variant string
 	switch arch {
@@ -133,8 +133,8 @@ func getCPUVariantArm() string {
 }
 
 func getCPUVariant(os string, arch string) string {
-	if os == "windows" {
-		return getCPUVariantWindows(arch)
+	if os == "darwin" || os == "windows" {
+		return getCPUVariantDarwinWindows(arch)
 	}
 	if arch == "arm" || arch == "arm64" {
 		return getCPUVariantArm()
@@ -153,7 +153,7 @@ var compatibility = map[string][]string{
 // WantedPlatforms returns all compatible platforms with the platform specifics possibly overridden by user,
 // the most compatible platform is first.
 // If some option (arch, os, variant) is not present, a value from current platform is detected.
-func WantedPlatforms(ctx *types.SystemContext) ([]imgspecv1.Platform, error) {
+func WantedPlatforms(ctx *types.SystemContext) []imgspecv1.Platform {
 	// Note that this does not use Platform.OSFeatures and Platform.OSVersion at all.
 	// The fields are not specified by the OCI specification, as of version 1.1, usefully enough
 	// to be interoperable, anyway.
@@ -211,7 +211,7 @@ func WantedPlatforms(ctx *types.SystemContext) ([]imgspecv1.Platform, error) {
 			Variant:      v,
 		})
 	}
-	return res, nil
+	return res
 }
 
 // MatchesPlatform returns true if a platform descriptor from a multi-arch image matches

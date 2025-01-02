@@ -1,15 +1,19 @@
 package docker
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"mime"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"strings"
 	"sync"
 
@@ -112,10 +116,10 @@ func newImageSource(ctx context.Context, sys *types.SystemContext, ref dockerRef
 		// Don’t just build a string, try to preserve the typed error.
 		primary := &attempts[len(attempts)-1]
 		extras := []string{}
-		for i := 0; i < len(attempts)-1; i++ {
+		for _, attempt := range attempts[:len(attempts)-1] {
 			// This is difficult to fit into a single-line string, when the error can contain arbitrary strings including any metacharacters we decide to use.
 			// The paired [] at least have some chance of being unambiguous.
-			extras = append(extras, fmt.Sprintf("[%s: %v]", attempts[i].ref.String(), attempts[i].err))
+			extras = append(extras, fmt.Sprintf("[%s: %v]", attempt.ref.String(), attempt.err))
 		}
 		return nil, fmt.Errorf("(Mirrors also failed: %s): %s: %w", strings.Join(extras, "\n"), primary.ref.String(), primary.err)
 	}
@@ -160,6 +164,34 @@ func newImageSourceAttempt(ctx context.Context, sys *types.SystemContext, logica
 	if err := s.ensureManifestIsLoaded(ctx); err != nil {
 		client.Close()
 		return nil, err
+	}
+
+	if h, err := sysregistriesv2.AdditionalLayerStoreAuthHelper(endpointSys); err == nil && h != "" {
+		acf := map[string]struct {
+			Username      string `json:"username,omitempty"`
+			Password      string `json:"password,omitempty"`
+			IdentityToken string `json:"identityToken,omitempty"`
+		}{
+			physicalRef.ref.String(): {
+				Username:      client.auth.Username,
+				Password:      client.auth.Password,
+				IdentityToken: client.auth.IdentityToken,
+			},
+		}
+		acfD, err := json.Marshal(acf)
+		if err != nil {
+			logrus.Warnf("failed to marshal auth config: %v", err)
+		} else {
+			cmd := exec.Command(h)
+			cmd.Stdin = bytes.NewReader(acfD)
+			if err := cmd.Run(); err != nil {
+				var stderr string
+				if ee, ok := err.(*exec.ExitError); ok {
+					stderr = string(ee.Stderr)
+				}
+				logrus.Warnf("Failed to call additional-layer-store-auth-helper (stderr:%s): %v", stderr, err)
+			}
+		}
 	}
 	return s, nil
 }
@@ -260,9 +292,15 @@ func splitHTTP200ResponseToPartial(streams chan io.ReadCloser, errs chan error, 
 			}
 			currentOffset += toSkip
 		}
+		var reader io.Reader
+		if c.Length == math.MaxUint64 {
+			reader = body
+		} else {
+			reader = io.LimitReader(body, int64(c.Length))
+		}
 		s := signalCloseReader{
 			closed:        make(chan struct{}),
-			stream:        io.NopCloser(io.LimitReader(body, int64(c.Length))),
+			stream:        io.NopCloser(reader),
 			consumeStream: true,
 		}
 		streams <- s
@@ -343,12 +381,24 @@ func parseMediaType(contentType string) (string, map[string]string, error) {
 // The specified chunks must be not overlapping and sorted by their offset.
 // The readers must be fully consumed, in the order they are returned, before blocking
 // to read the next chunk.
+// If the Length for the last chunk is set to math.MaxUint64, then it
+// fully fetches the remaining data from the offset to the end of the blob.
 func (s *dockerImageSource) GetBlobAt(ctx context.Context, info types.BlobInfo, chunks []private.ImageSourceChunk) (chan io.ReadCloser, chan error, error) {
 	headers := make(map[string][]string)
 
 	rangeVals := make([]string, 0, len(chunks))
+	lastFound := false
 	for _, c := range chunks {
-		rangeVals = append(rangeVals, fmt.Sprintf("%d-%d", c.Offset, c.Offset+c.Length-1))
+		if lastFound {
+			return nil, nil, fmt.Errorf("internal error: another chunk requested after an util-EOF chunk")
+		}
+		// If the Length is set to -1, then request anything after the specified offset.
+		if c.Length == math.MaxUint64 {
+			lastFound = true
+			rangeVals = append(rangeVals, fmt.Sprintf("%d-", c.Offset))
+		} else {
+			rangeVals = append(rangeVals, fmt.Sprintf("%d-%d", c.Offset, c.Offset+c.Length-1))
+		}
 	}
 
 	headers["Range"] = []string{fmt.Sprintf("bytes=%s", strings.Join(rangeVals, ","))}
@@ -414,26 +464,20 @@ func (s *dockerImageSource) GetSignaturesWithFormat(ctx context.Context, instanc
 	var res []signature.Signature
 	switch {
 	case s.c.supportsSignatures:
-		sigs, err := s.getSignaturesFromAPIExtension(ctx, instanceDigest)
-		if err != nil {
+		if err := s.appendSignaturesFromAPIExtension(ctx, &res, instanceDigest); err != nil {
 			return nil, err
 		}
-		res = append(res, sigs...)
 	case s.c.signatureBase != nil:
-		sigs, err := s.getSignaturesFromLookaside(ctx, instanceDigest)
-		if err != nil {
+		if err := s.appendSignaturesFromLookaside(ctx, &res, instanceDigest); err != nil {
 			return nil, err
 		}
-		res = append(res, sigs...)
 	default:
 		return nil, errors.New("Internal error: X-Registry-Supports-Signatures extension not supported, and lookaside should not be empty configuration")
 	}
 
-	sigstoreSigs, err := s.getSignaturesFromSigstoreAttachments(ctx, instanceDigest)
-	if err != nil {
+	if err := s.appendSignaturesFromSigstoreAttachments(ctx, &res, instanceDigest); err != nil {
 		return nil, err
 	}
-	res = append(res, sigstoreSigs...)
 	return res, nil
 }
 
@@ -455,35 +499,35 @@ func (s *dockerImageSource) manifestDigest(ctx context.Context, instanceDigest *
 	return manifest.Digest(s.cachedManifest)
 }
 
-// getSignaturesFromLookaside implements GetSignaturesWithFormat() from the lookaside location configured in s.c.signatureBase,
-// which is not nil.
-func (s *dockerImageSource) getSignaturesFromLookaside(ctx context.Context, instanceDigest *digest.Digest) ([]signature.Signature, error) {
+// appendSignaturesFromLookaside implements GetSignaturesWithFormat() from the lookaside location configured in s.c.signatureBase,
+// which is not nil, storing the signatures to *dest.
+// On error, the contents of *dest are undefined.
+func (s *dockerImageSource) appendSignaturesFromLookaside(ctx context.Context, dest *[]signature.Signature, instanceDigest *digest.Digest) error {
 	manifestDigest, err := s.manifestDigest(ctx, instanceDigest)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// NOTE: Keep this in sync with docs/signature-protocols.md!
-	signatures := []signature.Signature{}
 	for i := 0; ; i++ {
 		if i >= maxLookasideSignatures {
-			return nil, fmt.Errorf("server provided %d signatures, assuming that's unreasonable and a server error", maxLookasideSignatures)
+			return fmt.Errorf("server provided %d signatures, assuming that's unreasonable and a server error", maxLookasideSignatures)
 		}
 
 		sigURL, err := lookasideStorageURL(s.c.signatureBase, manifestDigest, i)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		signature, missing, err := s.getOneSignature(ctx, sigURL)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if missing {
 			break
 		}
-		signatures = append(signatures, signature)
+		*dest = append(*dest, signature)
 	}
-	return signatures, nil
+	return nil
 }
 
 // getOneSignature downloads one signature from sigURL, and returns (signature, false, nil)
@@ -546,48 +590,51 @@ func (s *dockerImageSource) getOneSignature(ctx context.Context, sigURL *url.URL
 	}
 }
 
-// getSignaturesFromAPIExtension implements GetSignaturesWithFormat() using the X-Registry-Supports-Signatures API extension.
-func (s *dockerImageSource) getSignaturesFromAPIExtension(ctx context.Context, instanceDigest *digest.Digest) ([]signature.Signature, error) {
+// appendSignaturesFromAPIExtension implements GetSignaturesWithFormat() using the X-Registry-Supports-Signatures API extension,
+// storing the signatures to *dest.
+// On error, the contents of *dest are undefined.
+func (s *dockerImageSource) appendSignaturesFromAPIExtension(ctx context.Context, dest *[]signature.Signature, instanceDigest *digest.Digest) error {
 	manifestDigest, err := s.manifestDigest(ctx, instanceDigest)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	parsedBody, err := s.c.getExtensionsSignatures(ctx, s.physicalRef, manifestDigest)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	var sigs []signature.Signature
 	for _, sig := range parsedBody.Signatures {
 		if sig.Version == extensionSignatureSchemaVersion && sig.Type == extensionSignatureTypeAtomic {
-			sigs = append(sigs, signature.SimpleSigningFromBlob(sig.Content))
+			*dest = append(*dest, signature.SimpleSigningFromBlob(sig.Content))
 		}
 	}
-	return sigs, nil
+	return nil
 }
 
-func (s *dockerImageSource) getSignaturesFromSigstoreAttachments(ctx context.Context, instanceDigest *digest.Digest) ([]signature.Signature, error) {
+// appendSignaturesFromSigstoreAttachments implements GetSignaturesWithFormat() using the sigstore tag convention,
+// storing the signatures to *dest.
+// On error, the contents of *dest are undefined.
+func (s *dockerImageSource) appendSignaturesFromSigstoreAttachments(ctx context.Context, dest *[]signature.Signature, instanceDigest *digest.Digest) error {
 	if !s.c.useSigstoreAttachments {
 		logrus.Debugf("Not looking for sigstore attachments: disabled by configuration")
-		return nil, nil
+		return nil
 	}
 
 	manifestDigest, err := s.manifestDigest(ctx, instanceDigest)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	ociManifest, err := s.c.getSigstoreAttachmentManifest(ctx, s.physicalRef, manifestDigest)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if ociManifest == nil {
-		return nil, nil
+		return nil
 	}
 
 	logrus.Debugf("Found a sigstore attachment manifest with %d layers", len(ociManifest.Layers))
-	res := []signature.Signature{}
 	for layerIndex, layer := range ociManifest.Layers {
 		// Note that this copies all kinds of attachments: attestations, and whatever else is there,
 		// not just signatures. We leave the signature consumers to decide based on the MIME type.
@@ -598,11 +645,11 @@ func (s *dockerImageSource) getSignaturesFromSigstoreAttachments(ctx context.Con
 		payload, err := s.c.getOCIDescriptorContents(ctx, s.physicalRef, layer, iolimits.MaxSignatureBodySize,
 			none.NoCache)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		res = append(res, signature.SigstoreFromComponents(layer.MediaType, payload, layer.Annotations))
+		*dest = append(*dest, signature.SigstoreFromComponents(layer.MediaType, payload, layer.Annotations))
 	}
-	return res, nil
+	return nil
 }
 
 // deleteImage deletes the named image from the registry, if supported.
@@ -780,7 +827,7 @@ func makeBufferedNetworkReader(stream io.ReadCloser, nBuffers, bufferSize uint) 
 		handleBufferedNetworkReader(&br)
 	}()
 
-	for i := uint(0); i < nBuffers; i++ {
+	for range nBuffers {
 		b := bufferedNetworkReaderBuffer{
 			data: make([]byte, bufferSize),
 		}
