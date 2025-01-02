@@ -53,6 +53,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -74,8 +75,21 @@ var _ = SIGDescribe("Volumes update with migration", decorators.RequiresTwoSched
 			WorkloadUpdateMethods: []virtv1.WorkloadUpdateMethod{virtv1.WorkloadUpdateMethodLiveMigrate},
 		}
 		rolloutStrategy := pointer.P(virtv1.VMRolloutStrategyLiveUpdate)
-		config.PatchWorkloadUpdateMethodAndRolloutStrategy(originalKv.Name, virtClient, updateStrategy, rolloutStrategy,
-			[]string{virtconfig.VolumesUpdateStrategy, virtconfig.VolumeMigration})
+		fgs := []string{virtconfig.VolumesUpdateStrategy, virtconfig.VolumeMigration, virtconfig.VMPersistentState}
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		Expect(exists).To(BeTrue())
+
+		patch, err := patch.New(
+			patch.WithAdd("/spec/workloadUpdateStrategy", updateStrategy),
+			patch.WithAdd("/spec/configuration/vmRolloutStrategy", rolloutStrategy),
+			patch.WithAdd("/spec/configuration/developerConfiguration/featureGates", fgs),
+			patch.WithAdd("/spec/configuration/vmStateStorageClass", sc),
+		).GeneratePayload()
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		EventuallyWithOffset(1, func() error {
+			_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), originalKv.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+			return err
+		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 		currentKv := libkubevirt.GetCurrentKv(virtClient)
 		config.WaitForConfigToBePropagatedToComponent(
@@ -586,6 +600,41 @@ var _ = SIGDescribe("Volumes update with migration", decorators.RequiresTwoSched
 				}
 				return vm.Status.VolumeUpdateState.VolumeMigrationState
 			}).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(BeNil())
+		})
+
+		It("should be able to migrate a VM with vTPM and the persistent state", func() {
+			volName := "volume"
+			dv := createDV()
+
+			vmi := libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
+				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithDataVolume(volName, dv.Name),
+				libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
+				libvmi.WithPersistentTPM(),
+			)
+			vm := libvmi.NewVirtualMachine(vmi,
+				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
+				libvmi.WithDataVolumeTemplate(dv),
+			)
+			vm, err := virtClient.VirtualMachine(ns).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm), 360*time.Second, 1*time.Second).Should(matcher.BeReady())
+			libwait.WaitForSuccessfulVMIStart(vmi)
+
+			destDV := createBlankDV(virtClient, ns, size)
+			By("Update volumes")
+			updateVMWithDV(vm, volName, destDV.Name)
+			Eventually(func() bool {
+				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name,
+					metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				claim := storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
+				return claim == destDV.Name
+			}, 120*time.Second, time.Second).Should(BeTrue())
+			waitForMigrationToSucceed(virtClient, vm.Name, ns)
 		})
 	})
 
