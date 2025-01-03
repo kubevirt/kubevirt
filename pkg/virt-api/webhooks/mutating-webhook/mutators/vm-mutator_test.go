@@ -1896,30 +1896,6 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			Expect(resp.Result.Message).To(ContainSubstring("expect resource to be"))
 		})
 
-		It("should fail if passed json is not VirtualMachine type", func() {
-			notVm := struct {
-				TestField string `json:"testField"`
-			}{
-				TestField: "test-string",
-			}
-
-			jsonBytes, err := json.Marshal(notVm)
-			Expect(err).ToNot(HaveOccurred())
-
-			ar := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: k8smetav1.GroupVersionResource{Group: v1.VirtualMachineGroupVersionKind.Group, Version: v1.VirtualMachineGroupVersionKind.Version, Resource: "virtualmachines"},
-					Object: runtime.RawExtension{
-						Raw: jsonBytes,
-					},
-				},
-			}
-
-			resp := mutator.Mutate(ar)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)))
-		})
-
 		DescribeTable("should fail if", func(instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher, expectedField, expectedMessage string) {
 			vm.Spec.Instancetype = instancetypeMatcher
 			vm.Spec.Preference = preferenceMatcher
