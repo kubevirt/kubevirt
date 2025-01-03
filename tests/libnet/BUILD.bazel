@@ -8,7 +8,7 @@ go_library(
         "ipaddress.go",
         "mac.go",
         "namespace.go",
-        "network_attachment_definition.go",
+        "netattachdef.go",
         "ping.go",
         "plumbing.go",
         "skips.go",

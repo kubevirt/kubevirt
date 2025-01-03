@@ -61,9 +61,9 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 	})
 
 	BeforeEach(func() {
-		ns := testsuite.GetTestNamespace(nil)
-		Expect(libnet.CreateMacvtapNetworkAttachmentDefinition(ns, macvtapNetworkName, macvtapLowerDevice)).To(Succeed(),
-			"A macvtap network named %s should be provisioned", macvtapNetworkName)
+		netAttachDef := libnet.NewMacvtapNetAttachDef(macvtapNetworkName, macvtapLowerDevice)
+		_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(nil), netAttachDef)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	var serverMAC, clientMAC string
