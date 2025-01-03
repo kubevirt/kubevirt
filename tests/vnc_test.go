@@ -49,7 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 )
 
-var _ = Describe("[rfe_id:127][crit:medium][arm64][vendor:cnv-qe@redhat.com][level:component][sig-compute]VNC", decorators.SigCompute, func() {
+var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VNC", decorators.SigCompute, decorators.WgArm64, func() {
 
 	var vmi *v1.VirtualMachineInstance
 
