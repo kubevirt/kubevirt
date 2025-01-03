@@ -32,7 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	typesutil "kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 )
@@ -69,6 +70,8 @@ const (
 	restoreVMNotReadyEvent = "RestoreTargetNotReady"
 
 	restoreDataVolumeCreateErrorEvent = "RestoreDataVolumeCreateError"
+
+	restoreBackendExcludedEvent = "restoreBackendExcluded"
 )
 
 var (
@@ -365,7 +368,7 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 		return false, err
 	}
 
-	noRestore, err := ctrl.volumesNotForRestore(content)
+	noRestore, err := ctrl.volumesNotForRestore(content, target, vmRestore)
 	if err != nil {
 		return false, err
 	}
@@ -552,8 +555,90 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 	if updated, err := t.reconcileDataVolumes(restoredVM); updated || err != nil {
 		return updated, err
 	}
+	// Reconcile backend storage PVC since it's not part of the VM/VMI spec
+	if ready, err := t.reconcileBackendVolume(); !ready || err != nil {
+		return !ready, err
+	}
 
 	return t.reconcileSpec(restoredVM)
+}
+
+func (t *vmRestoreTarget) reconcileBackendVolume() (bool, error) {
+	if !t.Exists() {
+		// Only offline snapshot to the same VM supported.
+		return true, nil
+	}
+
+	vmSnapshot, err := t.controller.getVMSnapshot(t.vmRestore)
+	if err != nil {
+		return false, err
+	}
+
+	content, err := t.controller.getSnapshotContent(vmSnapshot)
+	if err != nil {
+		return false, err
+	}
+
+	snapshotVM := content.Spec.Source.VirtualMachine
+	if snapshotVM == nil {
+		return false, fmt.Errorf("unexpected snapshot source")
+	}
+
+	if !backendstorage.IsBackendStorageNeededForVMI(&snapshotVM.Spec.Template.Spec) {
+		return true, nil
+	}
+
+	// Retrieve only the backend volume
+	volumes, err := storageutils.GetVolumes(snapshotVM, t.controller.Client, storageutils.WithBackendVolume)
+	if err != nil {
+		if storageutils.IsErrNoBackendPVC(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	pvc, err := t.controller.getPVC(snapshotVM.Namespace, volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName)
+	if err != nil || pvc == nil {
+		return false, err
+	}
+
+	// Step 1: Remove backend pvc label from original backend PVC
+	if pvc.Labels != nil {
+		// Only remove label when the VM name is the same since the backend logic filters by VM name + label
+		if t.vmRestore.Spec.Target.Name == snapshotVM.Name {
+			isRestorePVC := false
+			for _, vr := range t.vmRestore.Status.Restores {
+				if vr.PersistentVolumeClaimName == pvc.Name {
+					isRestorePVC = true
+				}
+			}
+			if !isRestorePVC {
+				pvc.Labels = getFilteredLabels(pvc.Labels)
+				if _, err := t.controller.Client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(context.Background(), pvc, metav1.UpdateOptions{}); err != nil {
+					return false, err
+				}
+			}
+		}
+	}
+
+	// Step 2: Update restore PVC with backend labels
+	for _, vr := range t.vmRestore.Status.Restores {
+		if vr.VolumeName == storageutils.BackendPVCVolumeName(t.vmRestore.Spec.Target.Name) {
+			restorePVC, err := t.controller.getPVC(t.vmRestore.Namespace, vr.PersistentVolumeClaimName)
+			if err != nil {
+				return false, err
+			}
+			if restorePVC.Labels == nil {
+				restorePVC.Labels = map[string]string{}
+			}
+			restorePVC.Labels[backendstorage.PVCPrefix] = t.vmRestore.Spec.Target.Name
+			if _, err := t.controller.Client.CoreV1().PersistentVolumeClaims(restorePVC.Namespace).Update(context.Background(), restorePVC, metav1.UpdateOptions{}); err != nil {
+				return false, err
+			}
+		}
+	}
+
+	return true, nil
 }
 
 func (t *vmRestoreTarget) getSnapshotVM() (*snapshotv1.VirtualMachine, error) {
@@ -582,7 +667,9 @@ func (t *vmRestoreTarget) updateVMRestoreRestores(snapshotVM *snapshotv1.Virtual
 	}
 	for k := range restores {
 		restore := &restores[k]
-		volumes, err := storageutils.GetVolumes(snapshotVM, t.controller.Client, storageutils.WithAllVolumes)
+		// Just need to access the regular VM volumes here as the backend volume
+		// is handled separately.
+		volumes, err := storageutils.GetVolumes(snapshotVM, t.controller.Client)
 		if err != nil {
 			return false, err
 		}
@@ -632,7 +719,9 @@ func (t *vmRestoreTarget) generateRestoredVMSpec(snapshotVM *snapshotv1.VirtualM
 		t.DeepCopyInto(&newTemplates[i])
 	}
 
-	volumes, err := storageutils.GetVolumes(snapshotVM, t.controller.Client, storageutils.WithAllVolumes)
+	// Just need to access the regular VM volumes here as the backend volume
+	// doesn't need to be included in the VM spec.
+	volumes, err := storageutils.GetVolumes(snapshotVM, t.controller.Client)
 	if err != nil {
 		return nil, err
 	}
@@ -856,7 +945,7 @@ func (t *vmRestoreTarget) restoreInstancetypeControllerRevision(vmSnapshotRevisi
 	// Ignore any NotFound errors raised allowing the CR to be restored below.
 	if t.Exists() {
 		existingCR, err := t.getControllerRevision(vm.Namespace, restoredCRName)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !k8serrors.IsNotFound(err) {
 			return nil, err
 		}
 		if existingCR != nil {
@@ -880,7 +969,7 @@ func (t *vmRestoreTarget) restoreInstancetypeControllerRevision(vmSnapshotRevisi
 	restoredCR, err = t.controller.Client.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), restoredCR, metav1.CreateOptions{})
 	// This might not be our first time through the reconcile loop so accommodate previous calls to restoreInstancetypeControllerRevision by ignoring unexpected existing CRs for now.
 	// TODO - Check the contents of the existing CR here against that of the snapshot CR
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, err
 	}
 
@@ -1268,14 +1357,29 @@ func setLastRestoreAnnotation(restore *snapshotv1.VirtualMachineRestore, obj met
 	obj.GetAnnotations()[lastRestoreAnnotation] = getRestoreAnnotationValue(restore)
 }
 
+func getFilteredLabels(labels map[string]string) map[string]string {
+	excludedKey := backendstorage.PVCPrefix
+	excludedMap := map[string]struct{}{
+		excludedKey: {},
+	}
+
+	filteredLabels := make(map[string]string)
+	for key, value := range labels {
+		if _, excluded := excludedMap[key]; !excluded {
+			filteredLabels[key] = value
+		}
+	}
+
+	return filteredLabels
+}
+
 func CreateRestorePVCDefFromVMRestore(vmRestoreName, restorePVCName string, volumeSnapshot *vsv1.VolumeSnapshot, volumeBackup *snapshotv1.VolumeBackup, sourceVmName, sourceVmNamespace string) (*corev1.PersistentVolumeClaim, error) {
 	pvc, err := CreateRestorePVCDef(restorePVCName, volumeSnapshot, volumeBackup)
 	if err != nil {
 		return nil, err
 	}
-	if pvc.Labels == nil {
-		pvc.Labels = make(map[string]string)
-	}
+
+	pvc.Labels = getFilteredLabels(pvc.Labels)
 
 	if pvc.Annotations == nil {
 		pvc.Annotations = make(map[string]string)
@@ -1292,10 +1396,10 @@ func updateRestoreCondition(r *snapshotv1.VirtualMachineRestore, c snapshotv1.Co
 
 // Returns a set of volumes not for restore
 // Currently only memory dump volumes should not be restored
-func (ctrl *VMRestoreController) volumesNotForRestore(content *snapshotv1.VirtualMachineSnapshotContent) (sets.String, error) {
+func (ctrl *VMRestoreController) volumesNotForRestore(content *snapshotv1.VirtualMachineSnapshotContent, target restoreTarget, vmRestore *snapshotv1.VirtualMachineRestore) (sets.String, error) {
 	noRestore := sets.NewString()
 
-	volumes, err := storageutils.GetVolumes(content.Spec.Source.VirtualMachine, ctrl.Client, storageutils.WithAllVolumes)
+	volumes, err := storageutils.GetVolumes(content.Spec.Source.VirtualMachine, ctrl.Client)
 	if err != nil {
 		return noRestore, err
 	}
@@ -1303,6 +1407,19 @@ func (ctrl *VMRestoreController) volumesNotForRestore(content *snapshotv1.Virtua
 	for _, volume := range volumes {
 		if volume.MemoryDump != nil {
 			noRestore.Insert(volume.Name)
+		}
+	}
+
+	if !target.Exists() {
+		// Restoring backend storage not supported when target is not equal to the source
+		volumes, err := storageutils.GetVolumes(content.Spec.Source.VirtualMachine, ctrl.Client, storageutils.WithBackendVolume)
+		if err != nil && !storageutils.IsErrNoBackendPVC(err) {
+			return noRestore, err
+		}
+		for _, volume := range volumes {
+			noRestore.Insert(volume.Name)
+			ctrl.Recorder.Eventf(vmRestore, corev1.EventTypeWarning, restoreBackendExcludedEvent,
+				"Backend volume %s excluded from restore: Only restoring to the same VM supported", volume.Name)
 		}
 	}
 
