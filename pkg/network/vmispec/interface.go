@@ -64,15 +64,22 @@ func VerifyVMIMigratable(vmi *v1.VirtualMachineInstance, bindingPlugins map[stri
 	if allowPodBridgeNetworkLiveMigration && IsPodNetworkWithBridgeBindingInterface(vmi.Spec.Networks, ifaces) {
 		return nil
 	}
-	if IsPodNetworkWithMasqueradeBindingInterface(vmi.Spec.Networks, ifaces) || IsPodNetworkWithMigratableBindingPlugin(vmi.Spec.Networks, ifaces, bindingPlugins) {
+	if IsPodNetworkWithMasqueradeBindingInterface(vmi.Spec.Networks, ifaces) ||
+		IsPodNetworkWithMigratableBindingPlugin(vmi.Spec.Networks, ifaces, bindingPlugins) {
 		return nil
 	}
 
-	return fmt.Errorf("cannot migrate VMI which does not use masquerade, bridge with %s VM annotation or a migratable plugin to connect to the pod network", v1.AllowPodBridgeNetworkLiveMigrationAnnotation)
-
+	return fmt.Errorf(
+		"cannot migrate VMI which does not use masquerade, bridge with %s VM annotation or a migratable plugin to connect to the pod network",
+		v1.AllowPodBridgeNetworkLiveMigrationAnnotation,
+	)
 }
 
-func IsPodNetworkWithMigratableBindingPlugin(networks []v1.Network, ifaces []v1.Interface, bindingPlugins map[string]v1.InterfaceBindingPlugin) bool {
+func IsPodNetworkWithMigratableBindingPlugin(
+	networks []v1.Network,
+	ifaces []v1.Interface,
+	bindingPlugins map[string]v1.InterfaceBindingPlugin,
+) bool {
 	if podNetwork := LookupPodNetwork(networks); podNetwork != nil {
 		if podInterface := LookupInterfaceByName(ifaces, podNetwork.Name); podInterface != nil {
 			if podInterface.Binding != nil {
@@ -102,21 +109,10 @@ func IsPodNetworkWithBridgeBindingInterface(networks []v1.Network, ifaces []v1.I
 	return true
 }
 
-func PopInterfaceByNetwork(statusIfaces []v1.VirtualMachineInstanceNetworkInterface, network *v1.Network) (*v1.VirtualMachineInstanceNetworkInterface, []v1.VirtualMachineInstanceNetworkInterface) {
-	if network == nil {
-		return nil, statusIfaces
-	}
-	for index, currStatusIface := range statusIfaces {
-		if currStatusIface.Name == network.Name {
-			primaryIface := statusIfaces[index]
-			statusIfaces = append(statusIfaces[:index], statusIfaces[index+1:]...)
-			return &primaryIface, statusIfaces
-		}
-	}
-	return nil, statusIfaces
-}
-
-func LookupInterfaceStatusByMac(interfaces []v1.VirtualMachineInstanceNetworkInterface, macAddress string) *v1.VirtualMachineInstanceNetworkInterface {
+func LookupInterfaceStatusByMac(
+	interfaces []v1.VirtualMachineInstanceNetworkInterface,
+	macAddress string,
+) *v1.VirtualMachineInstanceNetworkInterface {
 	for index := range interfaces {
 		if interfaces[index].MAC == macAddress {
 			return &interfaces[index]
@@ -125,7 +121,10 @@ func LookupInterfaceStatusByMac(interfaces []v1.VirtualMachineInstanceNetworkInt
 	return nil
 }
 
-func LookupInterfaceStatusByName(interfaces []v1.VirtualMachineInstanceNetworkInterface, name string) *v1.VirtualMachineInstanceNetworkInterface {
+func LookupInterfaceStatusByName(
+	interfaces []v1.VirtualMachineInstanceNetworkInterface,
+	name string,
+) *v1.VirtualMachineInstanceNetworkInterface {
 	for index := range interfaces {
 		if interfaces[index].Name == name {
 			return &interfaces[index]
@@ -151,7 +150,10 @@ func LookupInterfaceByName(ifaces []v1.Interface, name string) *v1.Interface {
 	return nil
 }
 
-func IndexInterfaceStatusByName(interfaces []v1.VirtualMachineInstanceNetworkInterface, p func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool) map[string]v1.VirtualMachineInstanceNetworkInterface {
+func IndexInterfaceStatusByName(
+	interfaces []v1.VirtualMachineInstanceNetworkInterface,
+	p func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool,
+) map[string]v1.VirtualMachineInstanceNetworkInterface {
 	indexedInterfaceStatus := map[string]v1.VirtualMachineInstanceNetworkInterface{}
 	for _, iface := range interfaces {
 		if p == nil || p(iface) {

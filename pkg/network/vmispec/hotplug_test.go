@@ -68,9 +68,15 @@ var _ = Describe("utilitary funcs to identify attachments to hotplug", func() {
 				libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(networkName)),
 					libvmi.WithNetwork(libvmi.MultusNetwork(networkName, nadName)),
-					libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
-						Name: networkName, InterfaceName: guestIfaceName, InfoSource: vmispec.NewInfoSource(vmispec.InfoSourceDomain, vmispec.InfoSourceMultusStatus),
-					}))),
+					libvmistatus.WithStatus(
+						libvmistatus.New(libvmistatus.WithInterfaceStatus(
+							v1.VirtualMachineInstanceNetworkInterface{
+								Name:          networkName,
+								InterfaceName: guestIfaceName,
+								InfoSource:    vmispec.NewInfoSource(vmispec.InfoSourceDomain, vmispec.InfoSourceMultusStatus),
+							},
+						)),
+					),
 				),
 			),
 		)
