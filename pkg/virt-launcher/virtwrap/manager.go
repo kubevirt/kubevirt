@@ -769,6 +769,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		}
 	}
 
+	logger.Info("Starting network setup")
 	nonAbsentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
 		return iface.State != v1.InterfaceStateAbsent
 	})
@@ -783,47 +784,56 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	}
 
 	// Create ephemeral disk for container disks
+	logger.Info("Starting CreateEphemeralImages for container disks")
 	err = containerdisk.CreateEphemeralImages(vmi, l.ephemeralDiskCreator, disksInfo)
 	if err != nil {
 		return domain, fmt.Errorf("preparing ephemeral container disk images failed: %v", err)
 	}
 	// Create images for volumes that are marked ephemeral.
+	logger.Info("Starting CreateEphemeralImages")
 	err = l.ephemeralDiskCreator.CreateEphemeralImages(vmi, domain)
 	if err != nil {
 		return domain, fmt.Errorf("preparing ephemeral images failed: %v", err)
 	}
 	// create empty disks if they exist
+	logger.Info("Starting CreateTemporaryDisks")
 	if err := emptydisk.NewEmptyDiskCreator().CreateTemporaryDisks(vmi); err != nil {
 		return domain, fmt.Errorf("creating empty disks failed: %v", err)
 	}
 	// create ConfigMap disks if they exists
+	logger.Info("Starting CreateConfigMapDisks")
 	if err := config.CreateConfigMapDisks(vmi, generateEmptyIsos); err != nil {
 		return domain, fmt.Errorf("creating config map disks failed: %v", err)
 	}
 	// create Secret disks if they exists
+	logger.Info("Starting CreateSecretDisks")
 	if err := config.CreateSecretDisks(vmi, generateEmptyIsos); err != nil {
 		return domain, fmt.Errorf("creating secret disks failed: %v", err)
 	}
 
 	// create Sysprep disks if they exists
+	logger.Info("Starting CreateSysprepDisks")
 	if err := config.CreateSysprepDisks(vmi, generateEmptyIsos); err != nil {
 		return domain, fmt.Errorf("creating sysprep disks failed: %v", err)
 	}
 
 	// create DownwardAPI disks if they exists
+	logger.Info("Starting CreateDownwardAPIDisks")
 	if err := config.CreateDownwardAPIDisks(vmi, generateEmptyIsos); err != nil {
 		return domain, fmt.Errorf("creating DownwardAPI disks failed: %v", err)
 	}
 	// create ServiceAccount disk if exists
+	logger.Info("Starting CreateServiceAccountDisk")
 	if err := config.CreateServiceAccountDisk(vmi, generateEmptyIsos); err != nil {
 		return domain, fmt.Errorf("creating service account disk failed: %v", err)
 	}
 	// create downwardMetric disk if exists
+	logger.Info("Starting CreateDownwardMetricDisk")
 	if err := downwardmetrics.CreateDownwardMetricDisk(vmi); err != nil {
 		return domain, fmt.Errorf("failed to craete downwardMetric disk: %v", err)
 	}
 
-	// set drivers cache mode
+	logger.Info("Setting drivers cache mode")
 	for i := range domain.Spec.Devices.Disks {
 		err := converter.SetDriverCacheMode(&domain.Spec.Devices.Disks[i], l.directIOChecker)
 		if err != nil {
@@ -832,12 +842,15 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
 	}
 
+	logger.Info("Starting HandleQemuAgentAccessCredentials")
 	if err := l.credManager.HandleQemuAgentAccessCredentials(vmi); err != nil {
 		return domain, fmt.Errorf("Starting qemu agent access credential propagation failed: %v", err)
 	}
 
 	// expand disk image files if they're too small
+	logger.Info("Starting expandDiskImagesOffline")
 	expandDiskImagesOffline(vmi, domain)
+	logger.Info("expandDiskImagesOffline completed")
 
 	return domain, err
 }
