@@ -49,7 +49,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -1753,9 +1753,8 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		It("should reject if instancetype fails to apply to VMI", func() {
 			var (
-				basePath = k8sfield.NewPath("spec", "template", "spec")
-				path1    = basePath.Child("example", "path")
-				path2    = basePath.Child("domain", "example", "path")
+				conflict1 = conflict.New("spec", "template", "spec", "example", "path")
+				conflict2 = conflict.New("spec", "template", "spec", "domain", "example", "path")
 			)
 			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
 				return &instancetypev1beta1.VirtualMachineInstancetypeSpec{}, nil
@@ -1766,17 +1765,17 @@ var _ = Describe("Validating VM Admitter", func() {
 			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
 				return &instancetypev1beta1.VirtualMachinePreferenceSpec{}, nil
 			}
-			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, _ *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) instancetype.Conflicts {
-				return instancetype.Conflicts{path1, path2}
+			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, _ *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) conflict.Conflicts {
+				return conflict.Conflicts{conflict1, conflict2}
 			}
 
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeFalse())
 			Expect(response.Result.Details.Causes).To(HaveLen(2))
 			Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(response.Result.Details.Causes[0].Field).To(Equal(path1.String()))
+			Expect(response.Result.Details.Causes[0].Field).To(Equal(conflict1.String()))
 			Expect(response.Result.Details.Causes[1].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(response.Result.Details.Causes[1].Field).To(Equal(path2.String()))
+			Expect(response.Result.Details.Causes[1].Field).To(Equal(conflict2.String()))
 		})
 
 		It("should apply instancetype to VMI before validating VMI", func() {
@@ -1788,7 +1787,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
 				return &instancetypev1beta1.VirtualMachineInstancetypeSpec{}, nil
 			}
-			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) instancetype.Conflicts {
+			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) conflict.Conflicts {
 				vmiSpec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("-1Mi")
 				return nil
 			}
@@ -1808,7 +1807,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			}
 
 			// Mock out ApplyToVmiFunc so that it applies some changes to the CPU of the provided VMISpec
-			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) instancetype.Conflicts {
+			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) conflict.Conflicts {
 				vmiSpec.Domain.CPU = &v1.CPU{Cores: 1, Threads: 1, Sockets: 1}
 				return nil
 			}
@@ -1829,8 +1828,8 @@ var _ = Describe("Validating VM Admitter", func() {
 			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
 				return &instancetypev1beta1.VirtualMachinePreferenceSpec{}, nil
 			}
-			instancetypeMethods.CheckPreferenceRequirementsFunc = func(_ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) (instancetype.Conflicts, error) {
-				return instancetype.Conflicts{k8sfield.NewPath("spec", "instancetype")}, fmt.Errorf("requirements not met")
+			instancetypeMethods.CheckPreferenceRequirementsFunc = func(_ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) (conflict.Conflicts, error) {
+				return conflict.Conflicts{conflict.New("spec", "instancetype")}, fmt.Errorf("requirements not met")
 			}
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeFalse())

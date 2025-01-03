@@ -17,9 +17,7 @@
  *
  */
 
-package instancetype
-
-const VMFieldsConflictsErrorFmt = "VM fields %s conflict with selected instance type"
+package infer
 
 type IgnoreableInferenceError struct {
 	err error

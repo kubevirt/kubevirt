@@ -27,7 +27,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
-	instancetypeErrors "kubevirt.io/kubevirt/pkg/instancetype/errors"
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/requirements"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -304,7 +304,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 				}
-				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(Equal(fmt.Sprintf(instancetypeErrors.VMFieldsConflictsErrorFmt, "spec.template.spec.domain.cpu.cores"))))
+				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "cpu", "cores")}))
 			})
 
 			It("find successfully decodes v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
@@ -493,7 +493,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 				}
-				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(Equal(fmt.Sprintf(instancetypeErrors.VMFieldsConflictsErrorFmt, "spec.template.spec.domain.cpu.cores"))))
+				Expect(instancetypeMethods.StoreControllerRevisions(vm)).To(MatchError(conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "cpu", "cores")}))
 			})
 
 			It("find successfully decodes v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
@@ -1908,13 +1908,13 @@ var _ = Describe("Instancetype and Preferences", func() {
 							Pod: &v1.PodNetwork{},
 						},
 					}}
-					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeNil())
+					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 					Expect(vmi.Spec.Domain.Devices.Interfaces[0].Masquerade).ToNot(BeNil())
 					Expect(vmi.Spec.Domain.Devices.Interfaces[1].Masquerade).To(BeNil())
 				})
 				It("should not be applied on interface that has another binding set", func() {
 					vmi.Spec.Domain.Devices.Interfaces[0].SRIOV = &v1.InterfaceSRIOV{}
-					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeNil())
+					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 					Expect(vmi.Spec.Domain.Devices.Interfaces[0].Masquerade).To(BeNil())
 					Expect(vmi.Spec.Domain.Devices.Interfaces[0].SRIOV).ToNot(BeNil())
 				})
@@ -1922,7 +1922,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					vmi.Spec.Networks = []v1.Network{{
 						Name: vmi.Spec.Domain.Devices.Interfaces[0].Name,
 					}}
-					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeNil())
+					Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 					Expect(vmi.Spec.Domain.Devices.Interfaces[0].Masquerade).To(BeNil())
 				})
 			})
@@ -2352,8 +2352,8 @@ var _ = Describe("Instancetype and Preferences", func() {
 
 	Context("preference requirements check", func() {
 		DescribeTable("should pass when sufficient resources are provided", func(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) {
-			path, err := instancetypeMethods.CheckPreferenceRequirements(instancetypeSpec, preferenceSpec, vmiSpec)
-			Expect(path).To(BeNil())
+			conflict, err := instancetypeMethods.CheckPreferenceRequirements(instancetypeSpec, preferenceSpec, vmiSpec)
+			Expect(conflict).ToNot(HaveOccurred())
 			Expect(err).ToNot(HaveOccurred())
 		},
 			Entry("by an instance type for vCPUs",
@@ -2557,7 +2557,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			),
 		)
 
-		DescribeTable("should be rejected when insufficient resources are provided", func(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, expectedConflict instancetype.Conflicts, errSubString string) {
+		DescribeTable("should be rejected when insufficient resources are provided", func(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, expectedConflict conflict.Conflicts, errSubString string) {
 			conflicts, err := instancetypeMethods.CheckPreferenceRequirements(instancetypeSpec, preferenceSpec, vmiSpec)
 			Expect(conflicts).To(Equal(expectedConflict))
 			Expect(err).To(HaveOccurred())
@@ -2577,7 +2577,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					},
 				},
 				nil,
-				instancetype.Conflicts{k8sfield.NewPath("spec", "instancetype")},
+				conflict.Conflicts{conflict.New("spec", "instancetype")},
 				fmt.Sprintf(requirements.InsufficientInstanceTypeCPUResourcesErrorFmt, uint32(1), uint32(2)),
 			),
 			Entry("by an instance type for Memory",
@@ -2594,7 +2594,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 					},
 				},
 				nil,
-				instancetype.Conflicts{k8sfield.NewPath("spec", "instancetype")},
+				conflict.Conflicts{conflict.New("spec", "instancetype")},
 				fmt.Sprintf(requirements.InsufficientInstanceTypeMemoryResourcesErrorFmt, "1Gi", "2Gi"),
 			),
 			Entry("by a VM for vCPUs using PreferSockets (default)",
@@ -2616,7 +2616,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						},
 					},
 				},
-				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "sockets")},
+				conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "cpu", "sockets")},
 				fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(2), "sockets"),
 			),
 			Entry("by a VM for vCPUs using PreferCores",
@@ -2638,7 +2638,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						},
 					},
 				},
-				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores")},
+				conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "cpu", "cores")},
 				fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(2), "cores"),
 			),
 			Entry("by a VM for vCPUs using PreferThreads",
@@ -2660,7 +2660,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						},
 					},
 				},
-				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "threads")},
+				conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "cpu", "threads")},
 				fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(2), "threads"),
 			),
 			Entry("by a VM for vCPUs using PreferSpread by default across SocketsCores",
@@ -2683,7 +2683,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						},
 					},
 				},
-				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "sockets"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores")},
+				conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "cpu", "sockets"), conflict.New("spec", "template", "spec", "domain", "cpu", "cores")},
 				fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1beta1.SpreadAcrossSocketsCores),
 			),
 			Entry("by a VM for vCPUs using PreferSpread across CoresThreads",
@@ -2709,7 +2709,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						},
 					},
 				},
-				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "threads")},
+				conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "cpu", "cores"), conflict.New("spec", "template", "spec", "domain", "cpu", "threads")},
 				fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1beta1.SpreadAcrossCoresThreads),
 			),
 			Entry("by a VM for vCPUs using PreferSpread across SocketsCoresThreads",
@@ -2736,7 +2736,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						},
 					},
 				},
-				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "sockets"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores"), k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "threads")},
+				conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "cpu", "sockets"), conflict.New("spec", "template", "spec", "domain", "cpu", "cores"), conflict.New("spec", "template", "spec", "domain", "cpu", "threads")},
 				fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1beta1.SpreadAcrossSocketsCoresThreads),
 			),
 			Entry("by a VM for vCPUs using PreferAny",
@@ -2760,10 +2760,10 @@ var _ = Describe("Instancetype and Preferences", func() {
 						},
 					},
 				},
-				instancetype.Conflicts{
-					k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "cores"),
-					k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "sockets"),
-					k8sfield.NewPath("spec", "template", "spec", "domain", "cpu", "threads"),
+				conflict.Conflicts{
+					conflict.New("spec", "template", "spec", "domain", "cpu", "cores"),
+					conflict.New("spec", "template", "spec", "domain", "cpu", "sockets"),
+					conflict.New("spec", "template", "spec", "domain", "cpu", "threads"),
 				},
 				fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(2), uint32(4), "cores, sockets and threads"),
 			),
@@ -2783,7 +2783,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 						},
 					},
 				},
-				instancetype.Conflicts{k8sfield.NewPath("spec", "template", "spec", "domain", "memory")},
+				conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "memory")},
 				fmt.Sprintf(requirements.InsufficientVMMemoryResourcesErrorFmt, "1Gi", "2Gi"),
 			))
 	})
