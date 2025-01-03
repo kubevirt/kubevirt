@@ -44,6 +44,7 @@ import (
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/vm/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -126,8 +127,6 @@ var _ = Describe("VirtualMachine", func() {
 			})
 			podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 
-			instancetypeMethods := testutils.NewMockInstancetypeMethods()
-
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
@@ -141,11 +140,11 @@ var _ = Describe("VirtualMachine", func() {
 				pvcInformer,
 				crInformer,
 				podInformer,
-				instancetypeMethods,
 				recorder,
 				virtClient,
 				config,
 				nil,
+				instancetypecontroller.NewMockController(),
 			)
 
 			// Wrap our workqueue to have a way to detect when we are done processing updates
@@ -4288,14 +4287,16 @@ var _ = Describe("VirtualMachine", func() {
 				controllerrevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 				controllerrevisionInformerStore = controllerrevisionInformer.GetStore()
 
-				controller.instancetypeMethods = &instancetype.InstancetypeMethods{
-					InstancetypeStore:        instancetypeInformerStore,
-					ClusterInstancetypeStore: clusterInstancetypeInformerStore,
-					PreferenceStore:          preferenceInformerStore,
-					ClusterPreferenceStore:   clusterPreferenceInformerStore,
-					ControllerRevisionStore:  controllerrevisionInformerStore,
-					Clientset:                virtClient,
-				}
+				controller.instancetypeController = instancetypecontroller.New(
+					instancetypeInformerStore,
+					clusterInstancetypeInformerStore,
+					preferenceInformerStore,
+					clusterPreferenceInformerStore,
+					controllerrevisionInformerStore,
+					virtClient,
+					config,
+					controller.recorder,
+				)
 
 				instancetypeObj = &instancetypev1beta1.VirtualMachineInstancetype{
 					TypeMeta: metav1.TypeMeta{
@@ -4796,7 +4797,7 @@ var _ = Describe("VirtualMachine", func() {
 						"Type":   Equal(v1.VirtualMachineFailure),
 						"Reason": Equal("FailedCreate"),
 						"Message": And(
-							ContainSubstring("Error encountered while storing Instancetype ControllerRevisions"),
+							ContainSubstring("error encountered while storing instancetype.kubevirt.io controllerRevisions"),
 							ContainSubstring(instancetype.VMFieldsConflictsErrorFmt, instancetype.Conflicts{
 								field.NewPath("spec.template.spec.domain.cpu.sockets"),
 								field.NewPath("spec.template.spec.domain.cpu.cores"),
@@ -6738,10 +6739,16 @@ var _ = Describe("VirtualMachine", func() {
 						RevisionName: revision.Name,
 					}
 
-					controller.instancetypeMethods = &instancetype.InstancetypeMethods{
-						ControllerRevisionStore: controllerrevisionInformerStore,
-						Clientset:               virtClient,
-					}
+					controller.instancetypeController = instancetypecontroller.New(
+						nil,
+						nil,
+						nil,
+						nil,
+						controllerrevisionInformerStore,
+						virtClient,
+						config,
+						controller.recorder,
+					)
 
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
