@@ -9,6 +9,7 @@ service Cmd {
   rpc UnpauseVirtualMachine(VMIRequest) returns (Response) {}
   rpc FreezeVirtualMachine(FreezeRequest) returns (Response) {}
   rpc UnfreezeVirtualMachine(VMIRequest) returns (Response) {}
+  rpc ResetVirtualMachine(VMIRequest) returns (Response) {}
   rpc SoftRebootVirtualMachine(VMIRequest) returns (Response) {}
   rpc ShutdownVirtualMachine(VMIRequest) returns (Response) {}
   rpc KillVirtualMachine(VMIRequest) returns (Response) {}

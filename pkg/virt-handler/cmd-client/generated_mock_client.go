@@ -93,6 +93,16 @@ func (_mr *_MockLauncherClientRecorder) SyncMigrationTarget(arg0, arg1 interface
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncMigrationTarget", arg0, arg1)
 }
 
+func (_m *MockLauncherClient) ResetVirtualMachine(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "ResetVirtualMachine", vmi)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockLauncherClientRecorder) ResetVirtualMachine(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ResetVirtualMachine", arg0)
+}
+
 func (_m *MockLauncherClient) SoftRebootVirtualMachine(vmi *v1.VirtualMachineInstance) error {
 	ret := _m.ctrl.Call(_m, "SoftRebootVirtualMachine", vmi)
 	ret0, _ := ret[0].(error)
