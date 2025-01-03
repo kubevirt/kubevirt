@@ -17,7 +17,7 @@
  *
  */
 
-package vmicontroller_test
+package controllers_test
 
 import (
 	"testing"
@@ -25,6 +25,6 @@ import (
 	"kubevirt.io/client-go/testutils"
 )
 
-func TestVMIController(t *testing.T) {
+func TestControllers(t *testing.T) {
 	testutils.KubeVirtTestSuiteSetup(t)
 }

@@ -17,7 +17,7 @@
  *
  */
 
-package vmicontroller
+package controllers
 
 import (
 	"fmt"
@@ -33,7 +33,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-func UpdateStatus(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) error {
+func UpdateVMIStatus(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) error {
 	var interfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
 
 	networkStatuses := multus.NetworkStatusesFromPod(pod)

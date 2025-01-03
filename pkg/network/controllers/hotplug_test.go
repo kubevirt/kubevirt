@@ -9,14 +9,15 @@
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  * See the License for the specific language governing permissions and
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
  * limitations under the License.
  *
  * Copyright 2023 Red Hat, Inc.
  *
  */
 
-package network_test
+package controllers_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -27,8 +28,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/network/controllers"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 )
 
 var _ = Describe("Network interface hot{un}plug", func() {
@@ -42,7 +43,7 @@ var _ = Describe("Network interface hot{un}plug", func() {
 	DescribeTable("apply dynamic interface request on VMI",
 		func(vmiForVM, currentVMI, expectedVMI *v1.VirtualMachineInstance, hasOrdinalIfaces bool) {
 			vm := virtualMachineFromVMI(currentVMI.Name, vmiForVM)
-			updatedVMI := network.ApplyDynamicIfaceRequestOnVMI(vm, currentVMI, hasOrdinalIfaces)
+			updatedVMI := controllers.ApplyDynamicIfaceRequestOnVMI(vm, currentVMI, hasOrdinalIfaces)
 			Expect(updatedVMI.Networks).To(Equal(expectedVMI.Spec.Networks))
 			Expect(updatedVMI.Domain.Devices.Interfaces).To(Equal(expectedVMI.Spec.Domain.Devices.Interfaces))
 		},
@@ -84,7 +85,10 @@ var _ = Describe("Network interface hot{un}plug", func() {
 			!ordinal),
 		Entry("when an interface has to be hotplugged but it has no SRIOV or bridge binding",
 			libvmi.New(
-				libvmi.WithInterface(v1.Interface{Name: testNetworkName1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}),
+				libvmi.WithInterface(v1.Interface{
+					Name:                   testNetworkName1,
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				}),
 				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
 			),
 			libvmi.New(),
@@ -148,7 +152,8 @@ var _ = Describe("Network interface hot{un}plug", func() {
 
 	DescribeTable("spec interfaces",
 		func(specIfaces []v1.Interface, statusIfaces []v1.VirtualMachineInstanceNetworkInterface,
-			expectedInterfaces []v1.Interface, expectedNetworks []v1.Network) {
+			expectedInterfaces []v1.Interface, expectedNetworks []v1.Network,
+		) {
 			var testNetworks []v1.Network
 			for _, iface := range specIfaces {
 				testNetworks = append(testNetworks, v1.Network{Name: iface.Name})
@@ -156,7 +161,7 @@ var _ = Describe("Network interface hot{un}plug", func() {
 			testStatusIfaces := vmispec.IndexInterfaceStatusByName(statusIfaces,
 				func(i v1.VirtualMachineInstanceNetworkInterface) bool { return true })
 
-			ifaces, networks := network.ClearDetachedInterfaces(specIfaces, testNetworks, testStatusIfaces)
+			ifaces, networks := controllers.ClearDetachedInterfaces(specIfaces, testNetworks, testStatusIfaces)
 
 			Expect(ifaces).To(Equal(expectedInterfaces))
 			Expect(networks).To(Equal(expectedNetworks))

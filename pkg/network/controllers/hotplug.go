@@ -9,14 +9,15 @@
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  * See the License for the specific language governing permissions and
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
  * limitations under the License.
  *
  * Copyright 2023 Red Hat, Inc.
  *
  */
 
-package network
+package controllers
 
 import (
 	v1 "kubevirt.io/api/core/v1"
@@ -24,13 +25,19 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-func ApplyDynamicIfaceRequestOnVMI(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, hasOrdinalIfaces bool) *v1.VirtualMachineInstanceSpec {
+func ApplyDynamicIfaceRequestOnVMI(
+	vm *v1.VirtualMachine,
+	vmi *v1.VirtualMachineInstance,
+	hasOrdinalIfaces bool,
+) *v1.VirtualMachineInstanceSpec {
 	vmiSpecCopy := vmi.Spec.DeepCopy()
 	vmiIndexedInterfaces := vmispec.IndexInterfaceSpecByName(vmiSpecCopy.Domain.Devices.Interfaces)
 	vmIndexedNetworks := vmispec.IndexNetworkSpecByName(vm.Spec.Template.Spec.Networks)
 	for _, vmIface := range vm.Spec.Template.Spec.Domain.Devices.Interfaces {
 		_, existsInVMISpec := vmiIndexedInterfaces[vmIface.Name]
-		shouldBeHotPlug := !existsInVMISpec && vmIface.State != v1.InterfaceStateAbsent && (vmIface.InterfaceBindingMethod.Bridge != nil || vmIface.InterfaceBindingMethod.SRIOV != nil)
+		shouldBeHotPlug := !existsInVMISpec &&
+			vmIface.State != v1.InterfaceStateAbsent &&
+			(vmIface.InterfaceBindingMethod.Bridge != nil || vmIface.InterfaceBindingMethod.SRIOV != nil)
 		shouldBeHotUnplug := !hasOrdinalIfaces && existsInVMISpec && vmIface.State == v1.InterfaceStateAbsent
 		if shouldBeHotPlug {
 			vmiSpecCopy.Networks = append(vmiSpecCopy.Networks, vmIndexedNetworks[vmIface.Name])
@@ -44,7 +51,11 @@ func ApplyDynamicIfaceRequestOnVMI(vm *v1.VirtualMachine, vmi *v1.VirtualMachine
 	return vmiSpecCopy
 }
 
-func ClearDetachedInterfaces(specIfaces []v1.Interface, specNets []v1.Network, statusIfaces map[string]v1.VirtualMachineInstanceNetworkInterface) ([]v1.Interface, []v1.Network) {
+func ClearDetachedInterfaces(
+	specIfaces []v1.Interface,
+	specNets []v1.Network,
+	statusIfaces map[string]v1.VirtualMachineInstanceNetworkInterface,
+) ([]v1.Interface, []v1.Network) {
 	var ifaces []v1.Interface
 	for _, iface := range specIfaces {
 		if _, existInStatus := statusIfaces[iface.Name]; (existInStatus && iface.State == v1.InterfaceStateAbsent) ||
