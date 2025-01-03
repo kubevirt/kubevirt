@@ -108,8 +108,6 @@ const (
 	exportTokenHeader = "x-kubevirt-export-token"
 	// secretTokenKey is the entry used to store the token in the virtualMachineExport secret
 	secretTokenKey = "token"
-	// secretTokenLenght is the lenght of the randomly generated token
-	secretTokenLenght = 20
 
 	// ErrRequiredFlag serves as error message when a mandatory flag is missing
 	ErrRequiredFlag = "need to specify the '%s' flag when using '%s'"
@@ -834,7 +832,7 @@ func copyFileWithProgressBar(output io.Writer, resp *http.Response, decompress b
 // getOrCreateTokenSecret obtains a token secret to be used along with the virtualMachineExport
 func getOrCreateTokenSecret(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport) (*k8sv1.Secret, error) {
 	// Securely randomize a 20 char string to be used as a token
-	token, err := util.GenerateSecureRandomString(secretTokenLenght)
+	token, err := util.GenerateVMExportToken()
 	if err != nil {
 		return nil, err
 	}

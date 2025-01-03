@@ -25,11 +25,6 @@ const (
 	KubeletRoot                               = "/var/lib/kubelet"
 	KubeletPodsDir                            = KubeletRoot + "/pods"
 	HostRootMount                             = "/proc/1/root/"
-	CPUManagerOS3Path                         = HostRootMount + "var/lib/origin/openshift.local.volumes/cpu_manager_state"
-	CPUManagerPath                            = KubeletRoot + "/cpu_manager_state"
-
-	// Alphanums is the list of alphanumeric characters used to create a securely generated random string
-	Alphanums = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
 	NonRootUID         = 107
 	NonRootUserString  = "qemu"
@@ -46,7 +41,7 @@ func IsNonRootVMI(vmi *v1.VirtualMachineInstance) bool {
 	return ok || nonRoot
 }
 
-func IsSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
+func isSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		if iface.SRIOV != nil {
 			return true
@@ -86,7 +81,7 @@ func IsHostDevVMI(vmi *v1.VirtualMachineInstance) bool {
 // Check if a VMI spec requests a VFIO device
 func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
 
-	if IsHostDevVMI(vmi) || IsGPUVMI(vmi) || IsSRIOVVmi(vmi) {
+	if IsHostDevVMI(vmi) || IsGPUVMI(vmi) || isSRIOVVmi(vmi) {
 		return true
 	}
 	return false
@@ -108,14 +103,6 @@ func IsSEVESVMI(vmi *v1.VirtualMachineInstance) bool {
 // Check if a VMI spec requests SEV with attestation
 func IsSEVAttestationRequested(vmi *v1.VirtualMachineInstance) bool {
 	return IsSEVVMI(vmi) && vmi.Spec.Domain.LaunchSecurity.SEV.Attestation != nil
-}
-
-func IsAMD64VMI(vmi *v1.VirtualMachineInstance) bool {
-	return vmi.Spec.Architecture == "amd64"
-}
-
-func IsARM64VMI(vmi *v1.VirtualMachineInstance) bool {
-	return vmi.Spec.Architecture == "arm64"
 }
 
 func IsEFIVMI(vmi *v1.VirtualMachineInstance) bool {
@@ -266,15 +253,17 @@ func CalcExpectedMemoryDumpSize(vmi *v1.VirtualMachineInstance) *resource.Quanti
 	return expectedPvcSize
 }
 
-// GenerateSecureRandomString creates a securely generated random string using crypto/rand
-func GenerateSecureRandomString(n int) (string, error) {
-	ret := make([]byte, n)
+// GenerateVMExportToken creates a cryptographically secure token for VM export
+func GenerateVMExportToken() (string, error) {
+	const alphanums = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	const tokenLen = 20
+	ret := make([]byte, tokenLen)
 	for i := range ret {
-		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(Alphanums))))
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(alphanums))))
 		if err != nil {
 			return "", err
 		}
-		ret[i] = Alphanums[num.Int64()]
+		ret[i] = alphanums[num.Int64()]
 	}
 
 	return string(ret), nil
