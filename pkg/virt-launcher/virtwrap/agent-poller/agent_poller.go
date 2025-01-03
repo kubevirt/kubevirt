@@ -74,18 +74,19 @@ func NewAsyncAgentStore() AsyncAgentStore {
 // it fires up updated event
 func (s *AsyncAgentStore) Store(key, value any) {
 	oldData, _ := s.store.Load(key)
-	updated := (oldData == nil) || !equality.Semantic.DeepEqual(oldData, value)
 
 	s.store.Store(key, value)
 
-	if updated {
-		domainInfo := api.DomainGuestInfo{}
-		switch key {
-		case libvirt.DOMAIN_GUEST_INFO_OS, libvirt.DOMAIN_GUEST_INFO_INTERFACES, GetFSFreezeStatus:
-			domainInfo.OSInfo = s.GetGuestOSInfo()
-			domainInfo.Interfaces = s.GetInterfaceStatus()
-			domainInfo.FSFreezeStatus = s.GetFSFreezeStatus()
+	domainInfo := api.DomainGuestInfo{}
+	switch key {
+	case libvirt.DOMAIN_GUEST_INFO_OS, libvirt.DOMAIN_GUEST_INFO_INTERFACES, GetFSFreezeStatus:
+		updated := (oldData == nil) || !equality.Semantic.DeepEqual(oldData, value)
+		if !updated {
+			return
 		}
+		domainInfo.OSInfo = s.GetGuestOSInfo()
+		domainInfo.Interfaces = s.GetInterfaceStatus()
+		domainInfo.FSFreezeStatus = s.GetFSFreezeStatus()
 
 		s.AgentUpdated <- AgentUpdatedEvent{
 			DomainInfo: domainInfo,
