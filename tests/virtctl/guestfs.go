@@ -96,7 +96,7 @@ var _ = VirtctlDescribe("[sig-storage]Guestfs", decorators.SigStorage, func() {
 			})
 		})
 
-		It("[posneg:positive][test_id:6479]Should successfully run guestfs command on a block-based PVC", decorators.RequiresBlockStorage, func() {
+		It("[posneg:positive][test_id:6479]Should successfully run guestfs command on a block-based PVC", decorators.Conformance, decorators.RequiresBlockStorage, func() {
 			libstorage.CreateBlockPVC(pvcClaim, testsuite.GetTestNamespace(nil), "500Mi")
 			runGuestfsOnPVC(done, pvcClaim, testsuite.GetTestNamespace(nil), setGroup)
 			stdout, stderr, err := execCommandLibguestfsPod(
