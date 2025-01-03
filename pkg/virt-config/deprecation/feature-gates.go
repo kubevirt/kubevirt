@@ -77,6 +77,13 @@ const (
 	MacvtapGate = "Macvtap" // Deprecated
 	// DockerSELinuxMCSWorkaround sets the SELinux level of all the non-compute virt-launcher containers to "s0".
 	DockerSELinuxMCSWorkaround = "DockerSELinuxMCSWorkaround" // Deprecated
+
+	// VolumesUpdateStrategy enables to specify the strategy on the volume updates.
+	// Introduced in v1.3.0
+	VolumesUpdateStrategy = "VolumesUpdateStrategy" // GA
+	// VolumeMigration enables to migrate the storage. It depends on the VolumesUpdateStrategy feature.
+	// Introduced in v1.3.0
+	VolumeMigration = "VolumeMigration" // GA
 )
 
 type FeatureGate struct {
@@ -106,6 +113,9 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Discontinued, Message: PasstDiscontinueMessage, VmiSpecUsed: passtApiUsed})
 	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})
 	RegisterFeatureGate(FeatureGate{Name: DockerSELinuxMCSWorkaround, State: Deprecated, Message: fmt.Sprintf("DockerSELinuxMCSWorkaround has been deprecated since v1.4.")})
+
+	RegisterFeatureGate(FeatureGate{Name: VolumesUpdateStrategy, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: VolumeMigration, State: GA})
 }
 
 // RegisterFeatureGate adds a given feature-gate to the FG list
