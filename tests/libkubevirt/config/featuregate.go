@@ -102,11 +102,7 @@ func updateKubeVirtConfigValueAndWaitHandlerRedeploymnet(kvConfig v1.KubeVirtCon
 		ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		gen := ds.Status.ObservedGeneration
-		if gen > currentGen {
-			return true
-		}
-		return false
-
+		return gen > currentGen
 	}, 90*time.Second, 1*time.Second).Should(BeTrue())
 
 	waitForConfigToBePropagated(kv.ResourceVersion)
