@@ -79,6 +79,37 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 		tcpProbe := createTCPProbe(period, initialSeconds, port)
 		httpProbe := createHTTPProbe(period, initialSeconds, port)
+		It("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", func() {
+			By(specifyingVMReadinessProbe)
+			vmi = createReadyAlpineVMIWithReadinessProbe(tcpProbe)
+
+			Expect(matcher.ThisVMI(vmi)()).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
+
+			By("Starting the server inside the VMI")
+			Eventually(matcher.ThisVMI(vmi)).WithTimeout(6 * time.Minute).WithPolling(3 * time.Second).Should(
+				matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(
+				context.Background(), vmi.Name, metav1.GetOptions{})
+
+			serverStarter(vmi, tcpProbe, 1500)
+			Eventually(matcher.ThisVMI(vmi), 2*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
+		})
+
+		It("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", func() {
+			By(specifyingVMReadinessProbe)
+			vmi = createReadyAlpineVMIWithReadinessProbe(httpProbe)
+
+			Expect(matcher.ThisVMI(vmi)()).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
+
+			By("Starting the server inside the VMI")
+			Eventually(matcher.ThisVMI(vmi)).WithTimeout(6 * time.Minute).WithPolling(3 * time.Second).Should(
+				matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(
+				context.Background(), vmi.Name, metav1.GetOptions{})
+
+			serverStarter(vmi, httpProbe, 1500)
+			Eventually(matcher.ThisVMI(vmi), 2*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
+		})
 
 		DescribeTable("should succeed", func(readinessProbe *v1.Probe, ipFamily k8sv1.IPFamily) {
 			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
@@ -120,9 +151,9 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 
 			Eventually(matcher.ThisVMI(vmi), 2*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 		},
-			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, k8sv1.IPv4Protocol),
+			//Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", tcpProbe, k8sv1.IPv4Protocol),
 			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv6", tcpProbe, k8sv1.IPv6Protocol),
-			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, k8sv1.IPv4Protocol),
+			//Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", httpProbe, k8sv1.IPv4Protocol),
 			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv6", httpProbe, k8sv1.IPv6Protocol),
 			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily),
 		)
