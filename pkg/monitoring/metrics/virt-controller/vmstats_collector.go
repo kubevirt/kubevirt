@@ -34,7 +34,7 @@ import (
 
 var (
 	vmStatsCollector = operatormetrics.Collector{
-		Metrics:         append(timestampMetrics, vmResourceRequests, vmResourceLimits, vmInfo, vmDiskAllocatedSize, vmCreationTimestamp),
+		Metrics:         append(timestampMetrics, vmResourceRequests, vmResourceLimits, vmInfo, vmDiskAllocatedSize, vmCreationTimestamp, vmVnicInfo),
 		CollectCallback: vmStatsCollectorCallback,
 	}
 
@@ -175,6 +175,15 @@ var (
 		},
 		[]string{"name", "namespace"},
 	)
+
+	vmVnicInfo = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_vnic_info",
+			Help: "Details of Virtual Machine (VM) vNIC interfaces, such as vNIC name, binding type, network name, " +
+				"and binding plugin in use for each vNIC defined in the VM's configuration.",
+		},
+		[]string{"name", "namespace", "vnic_name", "binding_type", "network", "binding_plugin_name"},
+	)
 )
 
 func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
@@ -196,6 +205,7 @@ func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
 	results = append(results, CollectResourceRequestsAndLimits(vms)...)
 	results = append(results, reportVmsStats(vms)...)
 	results = append(results, collectVMCreationTimestamp(vms)...)
+	results = append(results, CollectVmsVnicInfo(vms)...)
 	return results
 }
 
@@ -586,4 +596,89 @@ func collectVMCreationTimestamp(vms []*k6tv1.VirtualMachine) []operatormetrics.C
 	}
 
 	return cr
+}
+
+func CollectVmsVnicInfo(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var results []operatormetrics.CollectorResult
+
+	for _, vm := range vms {
+		if vm.Spec.Template == nil || vm.Spec.Template.Spec.Domain.Devices.Interfaces == nil {
+			continue
+		}
+
+		interfaces := vm.Spec.Template.Spec.Domain.Devices.Interfaces
+		networks := vm.Spec.Template.Spec.Networks
+
+		for _, iface := range interfaces {
+			bindingType, bindingName := getBinding(iface)
+			networkName, matchFound := getNetworkName(iface.Name, networks)
+
+			if !matchFound {
+				continue
+			}
+
+			results = append(results, operatormetrics.CollectorResult{
+				Metric: vmVnicInfo,
+				Labels: []string{
+					vm.Name,
+					vm.Namespace,
+					iface.Name,
+					bindingType,
+					networkName,
+					bindingName,
+				},
+				Value: 1.0,
+			})
+		}
+	}
+
+	return results
+}
+
+func getBinding(iface k6tv1.Interface) (bindingType, bindingName string) {
+	bindingType = none
+	bindingName = none
+
+	switch {
+	case iface.Masquerade != nil:
+		bindingType = "masquerade"
+	case iface.Bridge != nil:
+		bindingType = "bridge"
+	case iface.SRIOV != nil:
+		bindingType = "sriov"
+	case iface.Binding != nil:
+		bindingType = "bindingPlugin"
+		bindingName = iface.Binding.Name
+	}
+
+	return bindingType, bindingName
+}
+
+func getNetworkName(ifaceName string, networks []k6tv1.Network) (networkName string, matchFound bool) {
+	networkName = none
+	matchFound = false
+
+	net := LookupNetworkByName(networks, ifaceName)
+	if net != nil {
+		matchFound = true
+		switch {
+		case net.Pod != nil:
+			networkName = "pod networking"
+		case net.Multus != nil:
+			networkName = net.Multus.NetworkName
+		}
+	} else {
+		matchFound = false
+	}
+
+	return networkName, matchFound
+}
+
+func LookupNetworkByName(networks []k6tv1.Network, name string) *k6tv1.Network {
+	for _, net := range networks {
+		if net.Name == name {
+			return &net
+		}
+	}
+	return nil
 }
