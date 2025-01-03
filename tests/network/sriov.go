@@ -105,7 +105,7 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 				To(Succeed(), shouldCreateNetwork)
 		})
 
-		It("should have cloud-init meta_data with aligned cpus to sriov interface numa node for VMIs with dedicatedCPUs", decorators.RequiresNodeWithCPUManager, func() {
+		It("should have cloud-init meta_data with tagged interface and aligned cpus to sriov interface numa node for VMIs with dedicatedCPUs", decorators.RequiresNodeWithCPUManager, func() {
 			vmi := newSRIOVVmi([]string{sriovnet1}, libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveNetworkData(defaultCloudInitNetworkData())))
 			vmi.Spec.Domain.CPU = &v1.CPU{
 				Cores:                 4,
@@ -163,59 +163,14 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 			Expect(mountGuestDevice(vmi, "config-2")).To(Succeed())
 
 			By("checking cloudinit meta-data")
-			tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
-		})
-
-		It("should have cloud-init meta_data with tagged sriov nics", func() {
-			vmi := newSRIOVVmi([]string{sriovnet1}, libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveNetworkData(defaultCloudInitNetworkData())))
-			testInstancetype := "testInstancetype"
-			if vmi.Annotations == nil {
-				vmi.Annotations = make(map[string]string)
-			}
-
-			vmi.Annotations[v1.InstancetypeAnnotation] = testInstancetype
-
-			const (
-				specialNetTag = "specialNet"
-				pciAddress    = "0000:08:00.0"
-			)
-
-			for idx, iface := range vmi.Spec.Domain.Devices.Interfaces {
-				if iface.Name == sriovnet1 {
-					iface.Tag = specialNetTag
-					iface.PciAddress = pciAddress
-					vmi.Spec.Domain.Devices.Interfaces[idx] = iface
-				}
-			}
-			vmi, err := createVMIAndWait(vmi)
+			const consoleCmd = `cat /mnt/openstack/latest/meta_data.json; printf "@@"`
+			res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
+				&expect.BSnd{S: consoleCmd + console.CRLF},
+				&expect.BExp{R: `(.*)@@`},
+			}, 15)
 			Expect(err).ToNot(HaveOccurred())
-			DeferCleanup(deleteVMI, vmi)
-			deviceData := []cloudinit.DeviceData{
-				{
-					Type:    cloudinit.NICMetadataType,
-					Bus:     "pci",
-					Address: pciAddress,
-					Tags:    []string{specialNetTag},
-				},
-			}
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			metadataStruct := cloudinit.ConfigDriveMetadata{
-				InstanceID:   fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace),
-				InstanceType: testInstancetype,
-				Hostname:     dns.SanitizeHostname(vmi),
-				UUID:         string(vmi.Spec.Domain.Firmware.UUID),
-				Devices:      &deviceData,
-			}
-
-			buf, err := json.Marshal(metadataStruct)
-			Expect(err).ToNot(HaveOccurred())
-			By("mouting cloudinit iso")
-			Expect(mountGuestDevice(vmi, "config-2")).To(Succeed())
-
-			By("checking cloudinit meta-data")
-			tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
+			rawOutput := res[len(res)-1].Output
+			Expect(trimRawString2JSON(rawOutput)).To(MatchJSON(buf))
 		})
 
 		It("[test_id:1754]should create a virtual machine with sriov interface", func() {
@@ -824,4 +779,15 @@ func mountGuestDevice(vmi *v1.VirtualMachineInstance, devName string) error {
 		&expect.BSnd{S: console.EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
+}
+
+// trimRawString2JSON remove string left of first { and right of last }
+// e.g. xxx { yyy } zzzz => { yyy }
+func trimRawString2JSON(input string) string {
+	startIdx := strings.Index(input, "{")
+	endIdx := strings.LastIndex(input, "}")
+	if startIdx == -1 || endIdx == -1 {
+		return ""
+	}
+	return input[startIdx : endIdx+1]
 }
