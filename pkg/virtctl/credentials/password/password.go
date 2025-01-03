@@ -6,16 +6,17 @@ import (
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/clientcmd"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/credentials/common"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
-func SetPasswordCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func SetPasswordCommand() *cobra.Command {
 	cmdFlags := &passwordCommandFlags{}
 	cmd := &cobra.Command{
 		Use:     "set-password",
@@ -23,7 +24,7 @@ func SetPasswordCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: exampleUsage,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSetPasswordCommand(clientConfig, cmdFlags, cmd, args)
+			return runSetPasswordCommand(cmdFlags, cmd, args)
 		},
 	}
 	cmdFlags.AddToCommand(cmd)
@@ -60,9 +61,13 @@ func (p *passwordCommandFlags) AddToCommand(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&p.Force, "force", false, "Force update of secret, even if it's not owned by the VM.")
 }
 
-func runSetPasswordCommand(clientConfig clientcmd.ClientConfig, cmdFlags *passwordCommandFlags, cmd *cobra.Command, args []string) error {
+func runSetPasswordCommand(cmdFlags *passwordCommandFlags, cmd *cobra.Command, args []string) error {
 	vmName := args[0]
 
+	clientConfig, err := clientconfig.FromContext(cmd.Context())
+	if err != nil {
+		return err
+	}
 	vmNamespace, _, err := clientConfig.Namespace()
 	if err != nil {
 		return fmt.Errorf("error getting namespace: %w", err)
