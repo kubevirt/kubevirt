@@ -72,6 +72,8 @@ var (
 	RequiresRWXBlock = Label("RequiresRWXBlock")
 	// Requires a storage class with Block storage support
 	RequiresBlockStorage = Label("RequiresBlockStorage")
+	// Requires a storage class with volume expansion support
+	RequiresVolumeExpansion = Label("RequiresVolumeExpansion")
 	// Kubernetes versions
 	Kubernetes130 = Label("kubernetes130")
 	// WG archs
