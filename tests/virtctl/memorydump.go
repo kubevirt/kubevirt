@@ -44,7 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -52,6 +52,7 @@ import (
 
 var _ = VirtctlDescribe("[sig-storage]Memory dump", decorators.SigStorage, func() {
 	const (
+		randNameTail    = 5
 		claimNameFlag   = "--claim-name"
 		createClaimFlag = "--create-claim"
 		outputFlag      = "--output"
@@ -68,13 +69,13 @@ var _ = VirtctlDescribe("[sig-storage]Memory dump", decorators.SigStorage, func(
 			Fail("Fail no filesystem storage class available")
 		}
 
-		pvcName = "fs-pvc-" + rand.String(5)
+		pvcName = "fs-pvc-" + rand.String(randNameTail)
 
 		vm = libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 		var err error
 		vm, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
+		Eventually(matcher.ThisVM(vm), 360*time.Second, 1*time.Second).Should(matcher.BeReady())
 	})
 
 	DescribeTable("Should be able to get and remove memory dump", func(create bool) {
@@ -118,7 +119,7 @@ var _ = VirtctlDescribe("[sig-storage]Memory dump", decorators.SigStorage, func(
 		Expect(runMemoryDumpRemoveCmd(vm.Name)).To(Succeed())
 		out = waitForMemoryDumpDeletion(vm.Name, pvcName, out, true)
 
-		pvcName2 := "fs-pvc-" + rand.String(5)
+		pvcName2 := "fs-pvc-" + rand.String(randNameTail)
 		Expect(runMemoryDumpGetCmd(vm.Name, claimNameFlag, pvcName2, createClaimFlag)).To(Succeed())
 		out = waitForMemoryDumpCompletion(vm.Name, pvcName2, out, false)
 		Expect(runMemoryDumpRemoveCmd(vm.Name)).To(Succeed())
@@ -138,7 +139,8 @@ var _ = VirtctlDescribe("[sig-storage]Memory dump", decorators.SigStorage, func(
 		}
 		Expect(runMemoryDumpGetCmd(vm.Name, args...)).To(Succeed())
 
-		vm, err := kubevirt.Client().VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		var err error
+		vm, err = kubevirt.Client().VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vm.Status.MemoryDumpRequest.FileName).ToNot(BeNil())
 		verifyMemoryDumpFile(output, *vm.Status.MemoryDumpRequest.FileName)
@@ -158,7 +160,8 @@ var _ = VirtctlDescribe("[sig-storage]Memory dump", decorators.SigStorage, func(
 		}
 		Expect(runMemoryDumpDownloadCmd(vm.Name, args...)).To(Succeed())
 
-		vm, err := kubevirt.Client().VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		var err error
+		vm, err = kubevirt.Client().VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vm.Status.MemoryDumpRequest.FileName).ToNot(BeNil())
 		verifyMemoryDumpFile(output, *vm.Status.MemoryDumpRequest.FileName)
@@ -180,6 +183,7 @@ func runMemoryDumpDownloadCmd(name string, args ...string) error {
 	}, args...)
 	return newRepeatableVirtctlCommand(_args...)()
 }
+
 func runMemoryDumpRemoveCmd(name string, args ...string) error {
 	_args := append([]string{
 		"memory-dump", "remove", name,
@@ -214,7 +218,8 @@ func waitForMemoryDumpCompletion(vmName, pvcName, previousOut string, shouldEqua
 			return false
 		}
 
-		pvc, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), pvcName, metav1.GetOptions{})
+		pvc, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).
+			Get(context.Background(), pvcName, metav1.GetOptions{})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(pvc.Annotations).To(HaveKeyWithValue(v1.PVCMemoryDumpAnnotation, *vm.Status.MemoryDumpRequest.FileName))
 
@@ -245,7 +250,8 @@ func waitForMemoryDumpDeletion(vmName, pvcName, previousOut string, shouldEqual 
 	}, 90*time.Second, 2*time.Second).Should(BeTrue())
 
 	// Expect PVC to still exist
-	pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), pvcName, metav1.GetOptions{})
+	pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).
+		Get(context.Background(), pvcName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	return verifyMemoryDumpPVC(pvc, previousOut, shouldEqual)
@@ -254,8 +260,9 @@ func waitForMemoryDumpDeletion(vmName, pvcName, previousOut string, shouldEqual 
 func verifyMemoryDumpPVC(pvc *k8sv1.PersistentVolumeClaim, previousOut string, shouldEqual bool) string {
 	virtClient := kubevirt.Client()
 
+	const randNameTail = 5
 	pod := libstorage.RenderPodWithPVC(
-		"pod-"+rand.String(5),
+		"pod-"+rand.String(randNameTail),
 		[]string{"/bin/bash", "-c", "touch /tmp/startup; while true; do echo hello; sleep 2; done"},
 		nil, pvc,
 	)
@@ -269,7 +276,7 @@ func verifyMemoryDumpPVC(pvc *k8sv1.PersistentVolumeClaim, previousOut string, s
 
 	pod, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	Eventually(ThisPod(pod), 120*time.Second, 1*time.Second).Should(HaveConditionTrue(k8sv1.PodReady))
+	Eventually(matcher.ThisPod(pod), 120*time.Second, 1*time.Second).Should(matcher.HaveConditionTrue(k8sv1.PodReady))
 
 	lsOut, err := exec.ExecuteCommandOnPod(
 		pod, pod.Spec.Containers[0].Name,
@@ -316,19 +323,34 @@ func verifyMemoryDumpFile(dumpFilePath, dumpName string) {
 	tarReader := tar.NewReader(gzReader)
 
 	for {
-		header, err := tarReader.Next()
+		var header *tar.Header
+		header, err = tarReader.Next()
 		if err == io.EOF {
 			break
 		}
 		Expect(err).ToNot(HaveOccurred())
 		switch header.Typeflag {
 		case tar.TypeDir:
-			Expect(os.MkdirAll(filepath.Join(extractPath, header.Name), 0750)).To(Succeed())
+			var path string
+			path, err = sanitizedPath(extractPath, header.Name)
+			Expect(err).ToNot(HaveOccurred())
+			const permRWX = 0o700
+			Expect(os.MkdirAll(path, permRWX)).To(Succeed())
 		case tar.TypeReg:
-			extractedFile, err := os.Create(filepath.Join(extractPath, header.Name))
+			var path string
+			path, err = sanitizedPath(extractPath, header.Name)
 			Expect(err).ToNot(HaveOccurred())
-			_, err = io.Copy(extractedFile, tarReader)
+			var extractedFile *os.File
+			extractedFile, err = os.Create(path)
 			Expect(err).ToNot(HaveOccurred())
+			for {
+				const megabyte = 1024 * 1024
+				_, err = io.CopyN(extractedFile, tarReader, megabyte)
+				if err != nil && err == io.EOF {
+					break
+				}
+				Expect(err).ToNot(HaveOccurred())
+			}
 			Expect(extractedFile.Close()).To(Succeed())
 		default:
 			Fail("unknown tar header type")
@@ -338,4 +360,12 @@ func verifyMemoryDumpFile(dumpFilePath, dumpName string) {
 	stat, err := os.Stat(filepath.Join(extractPath, dumpName))
 	Expect(err).ToNot(HaveOccurred())
 	Expect(stat.Size()).To(BeNumerically(">", 0))
+}
+
+func sanitizedPath(extractPath, name string) (string, error) {
+	path := filepath.Join(extractPath, name)
+	if !strings.HasPrefix(path, filepath.Clean(extractPath)) {
+		return "", fmt.Errorf("%s: illegal path", path)
+	}
+	return path, nil
 }
