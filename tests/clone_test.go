@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	clone "kubevirt.io/api/clone/v1beta1"
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
@@ -138,7 +138,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		return snapshot
 	}
 
-	generateCloneFromVMWithParams := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clonev1alpha1.VirtualMachineClone {
+	generateCloneFromVMWithParams := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clone.VirtualMachineClone {
 		vmClone := kubecli.NewMinimalCloneWithNS("testclone", sourceVM.Namespace)
 
 		cloneSourceRef := &k8sv1.TypedLocalObjectReference{
@@ -156,7 +156,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		return vmClone
 	}
 
-	generateCloneFromSnapshot := func(snapshot *snapshotv1.VirtualMachineSnapshot, targetVMName string) *clonev1alpha1.VirtualMachineClone {
+	generateCloneFromSnapshot := func(snapshot *snapshotv1.VirtualMachineSnapshot, targetVMName string) *clone.VirtualMachineClone {
 		vmClone := kubecli.NewMinimalCloneWithNS("testclone", snapshot.Namespace)
 
 		cloneSourceRef := &k8sv1.TypedLocalObjectReference{
@@ -177,18 +177,18 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		return vmClone
 	}
 
-	createCloneAndWaitForFinish := func(vmClone *clonev1alpha1.VirtualMachineClone) {
+	createCloneAndWaitForFinish := func(vmClone *clone.VirtualMachineClone) {
 		By(fmt.Sprintf("Creating clone object %s", vmClone.Name))
 		vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Create(context.Background(), vmClone, v1.CreateOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
 
 		By(fmt.Sprintf("Waiting for the clone %s to finish", vmClone.Name))
-		Eventually(func() clonev1alpha1.VirtualMachineClonePhase {
+		Eventually(func() clone.VirtualMachineClonePhase {
 			vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Get(context.Background(), vmClone.Name, v1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			return vmClone.Status.Phase
-		}, 3*time.Minute, 3*time.Second).Should(Equal(clonev1alpha1.Succeeded), "clone should finish successfully")
+		}, 3*time.Minute, 3*time.Second).Should(Equal(clone.Succeeded), "clone should finish successfully")
 	}
 
 	expectVMRunnable := func(vm *virtv1.VirtualMachine, login console.LoginToFunction) *virtv1.VirtualMachine {
@@ -236,7 +236,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 
 		var (
 			sourceVM, targetVM *virtv1.VirtualMachine
-			vmClone            *clonev1alpha1.VirtualMachineClone
+			vmClone            *clone.VirtualMachineClone
 		)
 
 		expectEqualStrMap := func(actual, expected map[string]string, expectationMsg string, keysToExclude ...string) {
@@ -289,7 +289,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 			return createVM(options...)
 		}
 
-		generateCloneFromVM := func() *clonev1alpha1.VirtualMachineClone {
+		generateCloneFromVM := func() *clone.VirtualMachineClone {
 			return generateCloneFromVMWithParams(sourceVM, targetVMName)
 		}
 
@@ -735,14 +735,14 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				})
 
 				It("double cloning: clone target as a clone source", func() {
-					addCloneAnnotationAndLabelFilters := func(vmClone *clonev1alpha1.VirtualMachineClone) {
+					addCloneAnnotationAndLabelFilters := func(vmClone *clone.VirtualMachineClone) {
 						filters := []string{"somekey/*"}
 						vmClone.Spec.LabelFilters = filters
 						vmClone.Spec.AnnotationFilters = filters
 						vmClone.Spec.Template.LabelFilters = filters
 						vmClone.Spec.Template.AnnotationFilters = filters
 					}
-					generateCloneWithFilters := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clonev1alpha1.VirtualMachineClone {
+					generateCloneWithFilters := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clone.VirtualMachineClone {
 						vmclone := generateCloneFromVMWithParams(sourceVM, targetVMName)
 						addCloneAnnotationAndLabelFilters(vmclone)
 						return vmclone
@@ -793,14 +793,14 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 					})
 
 					It("should not delete the vmsnapshot and vmrestore until all the pvc(s) are bound", func() {
-						addCloneAnnotationAndLabelFilters := func(vmClone *clonev1alpha1.VirtualMachineClone) {
+						addCloneAnnotationAndLabelFilters := func(vmClone *clone.VirtualMachineClone) {
 							filters := []string{"somekey/*"}
 							vmClone.Spec.LabelFilters = filters
 							vmClone.Spec.AnnotationFilters = filters
 							vmClone.Spec.Template.LabelFilters = filters
 							vmClone.Spec.Template.AnnotationFilters = filters
 						}
-						generateCloneWithFilters := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clonev1alpha1.VirtualMachineClone {
+						generateCloneWithFilters := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clone.VirtualMachineClone {
 							vmclone := generateCloneFromVMWithParams(sourceVM, targetVMName)
 							addCloneAnnotationAndLabelFilters(vmclone)
 							return vmclone

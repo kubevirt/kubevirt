@@ -30,7 +30,7 @@ import (
 
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 
-	clonev1alpha1 "kubevirt.io/client-go/kubevirt/typed/clone/v1alpha1"
+	clone "kubevirt.io/client-go/kubevirt/typed/clone/v1beta1"
 
 	secv1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -73,7 +73,7 @@ type KubevirtClient interface {
 	MigrationPolicy() migrationsv1.MigrationPolicyInterface
 	ExpandSpec(namespace string) ExpandSpecInterface
 	ServerVersion() ServerVersionInterface
-	VirtualMachineClone(namespace string) clonev1alpha1.VirtualMachineCloneInterface
+	VirtualMachineClone(namespace string) clone.VirtualMachineCloneInterface
 	ClusterProfiler() *ClusterProfiler
 	GuestfsVersion() *GuestfsVersion
 	RestClient() *rest.RESTClient
@@ -109,7 +109,7 @@ type kubevirtClient struct {
 	snapshotClient          *k8ssnapshotclient.Clientset
 	dynamicClient           dynamic.Interface
 	migrationsClient        *migrationsv1.MigrationsV1alpha1Client
-	cloneClient             *clonev1alpha1.CloneV1alpha1Client
+	cloneClient             *clone.CloneV1beta1Client
 	*kubernetes.Clientset
 }
 
@@ -219,11 +219,11 @@ func (k kubevirtClient) MigrationPolicyClient() *migrationsv1.MigrationsV1alpha1
 	return k.migrationsClient
 }
 
-func (k kubevirtClient) VirtualMachineClone(namespace string) clonev1alpha1.VirtualMachineCloneInterface {
-	return k.generatedKubeVirtClient.CloneV1alpha1().VirtualMachineClones(namespace)
+func (k kubevirtClient) VirtualMachineClone(namespace string) clone.VirtualMachineCloneInterface {
+	return k.generatedKubeVirtClient.CloneV1beta1().VirtualMachineClones(namespace)
 }
 
-func (k kubevirtClient) VirtualMachineCloneClient() *clonev1alpha1.CloneV1alpha1Client {
+func (k kubevirtClient) VirtualMachineCloneClient() *clone.CloneV1beta1Client {
 	return k.cloneClient // TODO ihol3 delete function? who's using it?
 }
 

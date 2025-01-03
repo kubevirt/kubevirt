@@ -13,25 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2022 Red Hat, Inc.
+ * Copyright 2024 The KubeVirt Authors.
  *
  */
 
-package clone
+// +k8s:deepcopy-gen=package
+// +groupName=clone.kubevirt.io
+// +k8s:openapi-gen=true
 
-// GroupName is the group name used in this package
-const (
-	GroupName          = "clone.kubevirt.io"
-	LatestAlphaVersion = "v1alpha1"
-	LatestBetaVersion  = "v1beta1"
-	LatestVersion      = LatestBetaVersion
-	Kind               = "VirtualMachineClone"
-	ListKind           = "VirtualMachineCloneList"
-
-	ResourceVMCloneSingular = "virtualmachineclone"
-	ResourceVMClonePlural   = ResourceVMCloneSingular + "s"
-)
-
-var (
-	ApiSupportedWebhookVersions = []string{LatestVersion}
-)
+package v1beta1
