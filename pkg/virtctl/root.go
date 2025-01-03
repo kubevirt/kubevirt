@@ -16,6 +16,7 @@ import (
 	"kubevirt.io/client-go/log"
 	client_version "kubevirt.io/client-go/version"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/config"
 	"kubevirt.io/kubevirt/pkg/virtctl/adm"
 	"kubevirt.io/kubevirt/pkg/virtctl/configuration"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
@@ -98,6 +99,7 @@ func NewVirtctlCommandFn() (*cobra.Command, clientcmd.ClientConfig) {
 	//TODO: Add a ClientConfigFactory which allows substituting the KubeVirt client with a mock for unit testing
 	clientConfig := kubecli.DefaultClientConfig(rootCmd.PersistentFlags())
 	rootCmd.AddCommand(
+		config.NewConfigCommand(clientConfig),
 		configuration.NewListPermittedDevices(clientConfig),
 		console.NewCommand(clientConfig),
 		usbredir.NewCommand(clientConfig),
