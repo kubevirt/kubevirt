@@ -49,7 +49,7 @@ import (
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 const requiredFieldFmt = "%s is a required field"
@@ -115,7 +115,7 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 	var causes []metav1.StatusCause
 	clusterCfg := admitter.ClusterConfig.GetConfig()
 	if devCfg := clusterCfg.DeveloperConfiguration; devCfg != nil {
-		causes = append(causes, deprecation.ValidateFeatureGates(devCfg.FeatureGates, &vmi.Spec)...)
+		causes = append(causes, featuregate.ValidateFeatureGates(devCfg.FeatureGates, &vmi.Spec)...)
 	}
 
 	for _, validateSpec := range admitter.SpecValidators {
@@ -147,8 +147,8 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 func warnDeprecatedAPIs(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []string {
 	var warnings []string
 	for _, fg := range config.GetConfig().DeveloperConfiguration.FeatureGates {
-		deprecatedFeature := deprecation.FeatureGateInfo(fg)
-		if deprecatedFeature != nil && deprecatedFeature.State == deprecation.Deprecated && deprecatedFeature.VmiSpecUsed != nil {
+		deprecatedFeature := featuregate.FeatureGateInfo(fg)
+		if deprecatedFeature != nil && deprecatedFeature.State == featuregate.Deprecated && deprecatedFeature.VmiSpecUsed != nil {
 			if used := deprecatedFeature.VmiSpecUsed(spec); used {
 				warnings = append(warnings, deprecatedFeature.Message)
 			}
@@ -498,7 +498,7 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 	if launchSecurity != nil && !config.WorkloadEncryptionSEVEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.WorkloadEncryptionSEV),
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.WorkloadEncryptionSEV),
 			Field:   field.Child("launchSecurity").String(),
 		})
 	} else if launchSecurity != nil && launchSecurity.SEV != nil {
@@ -1105,7 +1105,7 @@ func validateArchitecture(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 	if spec.Architecture != "" && spec.Architecture != runtime.GOARCH && !config.MultiArchitectureEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueRequired,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config, invalid entry %s", virtconfig.MultiArchitecture,
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config, invalid entry %s", featuregate.MultiArchitecture,
 				field.Child("architecture").String()),
 			Field: field.Child("architecture").String(),
 		})
@@ -2225,7 +2225,7 @@ func validateVSOCK(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, co
 	if !config.VSOCKEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VSOCKGate),
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.VSOCKGate),
 			Field:   field.Child("domain", "devices", "autoattachVSOCK").String(),
 		})
 	}
@@ -2242,7 +2242,7 @@ func validatePersistentReservation(field *k8sfield.Path, spec *v1.VirtualMachine
 	if !config.PersistentReservationEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.PersistentReservation),
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.PersistentReservation),
 			Field:   field.Child("domain", "devices", "disks", "luns", "reservation").String(),
 		})
 	}
@@ -2260,14 +2260,14 @@ func validatePersistentState(field *k8sfield.Path, spec *v1.VirtualMachineInstan
 		if backendstorage.HasPersistentTPMDevice(spec) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VMPersistentState),
+				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.VMPersistentState),
 				Field:   field.Child("domain", "devices", "tpm", "persistent").String(),
 			})
 		}
 		if backendstorage.HasPersistentEFI(spec) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VMPersistentState),
+				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.VMPersistentState),
 				Field:   field.Child("domain", "firmware", "bootloader", "efi", "persistent").String(),
 			})
 		}

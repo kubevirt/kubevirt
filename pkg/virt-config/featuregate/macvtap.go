@@ -17,14 +17,19 @@
  *
  */
 
-package deprecation
+package featuregate
 
 import (
-	"testing"
-
-	"kubevirt.io/client-go/testutils"
+	v1 "kubevirt.io/api/core/v1"
 )
 
-func TestDeprecation(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t)
+const MacvtapDiscontinueMessage = "Macvtap network binding is discontinued since v1.3. Please refer to Kubevirt user guide for alternatives."
+
+func macvtapApiUsed(spec *v1.VirtualMachineInstanceSpec) bool {
+	for _, net := range spec.Domain.Devices.Interfaces {
+		if net.DeprecatedMacvtap != nil {
+			return true
+		}
+	}
+	return false
 }

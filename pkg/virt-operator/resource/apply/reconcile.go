@@ -48,7 +48,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -1360,7 +1360,7 @@ func (r *Reconciler) isFeatureGateEnabled(featureGate string) bool {
 }
 
 func (r *Reconciler) exportProxyEnabled() bool {
-	return r.isFeatureGateEnabled(virtconfig.VMExportGate)
+	return r.isFeatureGateEnabled(featuregate.VMExportGate)
 }
 
 func (r *Reconciler) commonInstancetypesDeploymentEnabled() bool {

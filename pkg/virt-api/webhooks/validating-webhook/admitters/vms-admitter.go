@@ -26,7 +26,6 @@ import (
 	"reflect"
 
 	"kubevirt.io/kubevirt/pkg/defaults"
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -53,6 +52,7 @@ import (
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var validRunStrategies = []v1.VirtualMachineRunStrategy{v1.RunStrategyHalted, v1.RunStrategyManual, v1.RunStrategyAlways, v1.RunStrategyRerunOnFailure, v1.RunStrategyOnce}
@@ -130,7 +130,7 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 	if ar.Request.Operation == admissionv1.Create {
 		clusterCfg := admitter.ClusterConfig.GetConfig()
 		if devCfg := clusterCfg.DeveloperConfiguration; devCfg != nil {
-			causes = append(causes, deprecation.ValidateFeatureGates(devCfg.FeatureGates, &vm.Spec.Template.Spec)...)
+			causes = append(causes, featuregate.ValidateFeatureGates(devCfg.FeatureGates, &vm.Spec.Template.Spec)...)
 		}
 
 		netValidator := netadmitter.NewValidator(k8sfield.NewPath("spec"), &vmCopy.Spec.Template.Spec, admitter.ClusterConfig)
@@ -524,14 +524,14 @@ func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	if spec.UpdateVolumesStrategy != nil && !config.VolumesUpdateStrategyEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VolumesUpdateStrategy),
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.VolumesUpdateStrategy),
 			Field:   "updateVolumesStrategy",
 		})
 	}
 	if spec.UpdateVolumesStrategy != nil && *spec.UpdateVolumesStrategy == v1.UpdateVolumesStrategyMigration && !config.VolumeMigrationEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VolumeMigration),
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.VolumeMigration),
 			Field:   "updateVolumesStrategy",
 		})
 	}
