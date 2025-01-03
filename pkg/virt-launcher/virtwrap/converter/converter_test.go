@@ -1652,6 +1652,11 @@ var _ = Describe("Converter", func() {
 			if isAMD64(arch) && (autoAttach == nil || *autoAttach) {
 				Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal("vga"))
 			}
+			if isS390X(arch) && (autoAttach == nil || *autoAttach) {
+				Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal(v1.VirtIO))
+				Expect(domain.Spec.Devices.Inputs[0].Type).To(Equal(v1.InputTypeKeyboard))
+				Expect(domain.Spec.Devices.Inputs[0].Bus).To(Equal(v1.InputBusVirtio))
+			}
 		},
 			Entry("and add the graphics and video device if it is not set on amd64", nil, 1, "amd64"),
 			Entry("and add the graphics and video device if it is set to true on amd64", True(), 1, "amd64"),
