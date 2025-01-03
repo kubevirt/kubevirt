@@ -8,7 +8,6 @@ go_library(
     deps = [
         "//pkg/config:go_default_library",
         "//pkg/virt-launcher/metadata:go_default_library",
-        "//pkg/virt-launcher/virtwrap/agent:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/cli:go_default_library",
         "//pkg/virt-launcher/virtwrap/util:go_default_library",
