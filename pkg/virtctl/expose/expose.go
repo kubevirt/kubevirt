@@ -2,6 +2,7 @@ package expose
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -156,10 +157,9 @@ func (c *command) getServiceSelectorAndPorts(vmType, vmName string) (map[string]
 			return nil, nil, fmt.Errorf("error fetching VirtualMachineInstance: %v", err)
 		}
 		ports = podNetworkPorts(&vmi.Spec)
-		serviceSelector = vmi.ObjectMeta.Labels
-		delete(serviceSelector, v1.NodeNameLabel)
-		delete(serviceSelector, v1.VirtualMachinePoolRevisionName)
-		delete(serviceSelector, v1.MigrationTargetNodeNameLabel)
+		serviceSelector = map[string]string{
+			v1.VirtualMachineNameLabel: vmi.Name,
+		}
 	case "vm", "vms", "virtualmachine", "virtualmachines":
 		vm, err := c.client.VirtualMachine(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		if err != nil {
@@ -168,8 +168,9 @@ func (c *command) getServiceSelectorAndPorts(vmType, vmName string) (map[string]
 		if vm.Spec.Template != nil {
 			ports = podNetworkPorts(&vm.Spec.Template.Spec)
 		}
-		serviceSelector = vm.Spec.Template.ObjectMeta.Labels
-		delete(serviceSelector, v1.VirtualMachinePoolRevisionName)
+		serviceSelector = map[string]string{
+			v1.VirtualMachineNameLabel: vm.Name,
+		}
 	case "vmirs", "vmirss", "virtualmachineinstancereplicaset", "virtualmachineinstancereplicasets":
 		vmirs, err := c.client.ReplicaSet(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		if err != nil {
@@ -178,12 +179,13 @@ func (c *command) getServiceSelectorAndPorts(vmType, vmName string) (map[string]
 		if vmirs.Spec.Template != nil {
 			ports = podNetworkPorts(&vmirs.Spec.Template.Spec)
 		}
-		if vmirs.Spec.Selector != nil {
-			if len(vmirs.Spec.Selector.MatchExpressions) > 0 {
-				return nil, nil, fmt.Errorf("cannot expose VirtualMachineInstanceReplicaSet with match expressions")
-			}
-			serviceSelector = vmirs.Spec.Selector.MatchLabels
+		if vmirs.Spec.Selector == nil || len(vmirs.Spec.Selector.MatchLabels) == 0 {
+			return nil, nil, errors.New("cannot expose VirtualMachineInstanceReplicaSet without any selector labels")
 		}
+		if len(vmirs.Spec.Selector.MatchExpressions) > 0 {
+			return nil, nil, errors.New("cannot expose VirtualMachineInstanceReplicaSet with match expressions")
+		}
+		serviceSelector = vmirs.Spec.Selector.MatchLabels
 	default:
 		return nil, nil, fmt.Errorf("unsupported resource type: %s", vmType)
 	}
@@ -192,9 +194,6 @@ func (c *command) getServiceSelectorAndPorts(vmType, vmName string) (map[string]
 		ports = []k8sv1.ServicePort{{Name: c.portName, Protocol: c.protocol, Port: c.port, TargetPort: c.targetPort}}
 	}
 
-	if len(serviceSelector) == 0 {
-		return nil, nil, fmt.Errorf("cannot expose %s without any label: %s", vmType, vmName)
-	}
 	if len(ports) == 0 {
 		return nil, nil, fmt.Errorf("couldn't find port via --port flag or introspection")
 	}
