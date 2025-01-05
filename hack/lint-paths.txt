@@ -1,13 +1,13 @@
 pkg/instancetype
 pkg/libvmi
 pkg/network/admitter
+pkg/network/controllers
 pkg/network/deviceinfo
 pkg/network/domainspec
 pkg/network/multus
 pkg/network/namescheme
 pkg/network/netbinding
 pkg/network/pod/annotations
-pkg/network/vmicontroller
 pkg/storage/pod/annotations
 pkg/virtctl/credentials
 tests/console
