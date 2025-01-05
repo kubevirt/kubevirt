@@ -135,7 +135,7 @@ var _ = Describe("Application", func() {
 		app.evacuationController, _ = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 		app.disruptionBudgetController, _ = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, migrationInformer, recorder, virtClient, config)
 		app.nodeController, _ = node.NewController(virtClient, nodeInformer, vmiInformer, recorder)
-		app.vmiController, _ = vmi.NewController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
+		app.vmiController, _ = vmi.NewController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			vmiInformer,
 			vmInformer,
 			podInformer,
@@ -170,7 +170,7 @@ var _ = Describe("Application", func() {
 			config,
 			nil,
 		)
-		app.migrationController, _ = migration.NewController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
+		app.migrationController, _ = migration.NewController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			vmiInformer,
 			podInformer,
 			migrationInformer,
@@ -215,7 +215,7 @@ var _ = Describe("Application", func() {
 		_ = app.restoreController.Init()
 		app.exportController = &export.VMExportController{
 			Client:                      virtClient,
-			TemplateService:             services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
+			TemplateService:             services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			VMExportInformer:            vmExportInformer,
 			PVCInformer:                 pvcInformer,
 			PodInformer:                 podInformer,

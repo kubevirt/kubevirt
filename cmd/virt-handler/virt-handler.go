@@ -131,7 +131,6 @@ type virtHandlerApp struct {
 	PodIpAddress              string
 	VirtShareDir              string
 	VirtPrivateDir            string
-	VirtLibDir                string
 	KubeletPodsDir            string
 	KubeletRoot               string
 	WatchdogTimeoutDuration   time.Duration
@@ -201,17 +200,6 @@ func (app *virtHandlerApp) Run() {
 	logger := log.Log
 	logger.V(1).Infof("hostname %s", app.HostOverride)
 	var err error
-
-	// Copy container-disk binary
-	targetFile := filepath.Join(app.VirtLibDir, "/init/usr/bin/container-disk")
-	err = os.MkdirAll(filepath.Dir(targetFile), os.ModePerm)
-	if err != nil {
-		panic(err)
-	}
-	err = copy("/usr/bin/container-disk", targetFile)
-	if err != nil {
-		panic(err)
-	}
 
 	app.reloadableRateLimiter = ratelimiter.NewReloadableRateLimiter(flowcontrol.NewTokenBucketRateLimiter(virtconfig.DefaultVirtHandlerQPS, virtconfig.DefaultVirtHandlerBurst))
 	clientmetrics.RegisterRestConfigHooks()
@@ -607,9 +595,6 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.StringVar(&app.VirtPrivateDir, "kubevirt-private-dir", util.VirtPrivateDir,
 		"private directory for virt-handler state")
-
-	flag.StringVar(&app.VirtLibDir, "kubevirt-lib-dir", util.VirtLibDir,
-		"Shared lib directory between virt-handler and virt-launcher")
 
 	flag.StringVar(&app.KubeletPodsDir, "kubelet-pods-dir", util.KubeletPodsDir,
 		"Path for pod directory (matching host's path for kubelet root)")

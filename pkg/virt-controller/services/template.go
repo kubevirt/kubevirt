@@ -151,7 +151,6 @@ type templateService struct {
 	exporterImage              string
 	launcherQemuTimeout        int
 	virtShareDir               string
-	virtLibDir                 string
 	ephemeralDiskDir           string
 	containerDiskDir           string
 	hotplugDiskDir             string
@@ -1237,7 +1236,6 @@ type templateServiceOption func(*templateService)
 func NewTemplateService(launcherImage string,
 	launcherQemuTimeout int,
 	virtShareDir string,
-	virtLibDir string,
 	ephemeralDiskDir string,
 	containerDiskDir string,
 	hotplugDiskDir string,
@@ -1258,7 +1256,6 @@ func NewTemplateService(launcherImage string,
 		launcherImage:              launcherImage,
 		launcherQemuTimeout:        launcherQemuTimeout,
 		virtShareDir:               virtShareDir,
-		virtLibDir:                 virtLibDir,
 		ephemeralDiskDir:           ephemeralDiskDir,
 		containerDiskDir:           containerDiskDir,
 		hotplugDiskDir:             hotplugDiskDir,

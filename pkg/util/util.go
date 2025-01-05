@@ -21,7 +21,6 @@ const (
 	RequestHeaderClientCAFileKey              = "requestheader-client-ca-file"
 	VirtShareDir                              = "/var/run/kubevirt"
 	VirtPrivateDir                            = "/var/run/kubevirt-private"
-	VirtLibDir                                = "/var/lib/kubevirt"
 	KubeletRoot                               = "/var/lib/kubelet"
 	KubeletPodsDir                            = KubeletRoot + "/pods"
 	HostRootMount                             = "/proc/1/root/"

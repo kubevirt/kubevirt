@@ -217,7 +217,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		}
 
 		controller, _ = NewController(
-			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", rqInformer.GetStore(), nsInformer.GetStore()),
+			services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
 			vmiInformer,
 			vmInformer,
 			podInformer,
