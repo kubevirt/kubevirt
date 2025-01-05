@@ -489,7 +489,7 @@ var _ = SIGDescribe("Export", func() {
 	type caBundleGenerator func(string, string, *exportv1.VirtualMachineExport) *k8sv1.ConfigMap
 	type urlGenerator func(exportv1.ExportVolumeFormat, string, string, string, *exportv1.VirtualMachineExport) (string, string)
 
-	DescribeTable("should make a PVC export available", func(populateFunction populateFunction, verifyFunction verifyFunction,
+	DescribeTable("should make a PVC export available", decorators.StorageCritical, func(populateFunction populateFunction, verifyFunction verifyFunction,
 		storageClassFunction storageClassFunction, caBundleGenerator caBundleGenerator, urlGenerator urlGenerator,
 		expectedFormat exportv1.ExportVolumeFormat, urlTemplate string, volumeMode k8sv1.PersistentVolumeMode) {
 		sc, exists := storageClassFunction()
@@ -1923,7 +1923,7 @@ var _ = SIGDescribe("Export", func() {
 		checkWithJsonOutput(pod, export, vm)
 	})
 
-	It("Should generate DVs and expanded VM definition on http endpoint with multiple volumes", func() {
+	It("Should generate DVs and expanded VM definition on http endpoint with multiple volumes", decorators.StorageCritical, func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
 			Fail("Fail test when Filesystem storage is not present")
