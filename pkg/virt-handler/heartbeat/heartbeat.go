@@ -35,13 +35,15 @@ type HeartBeat struct {
 }
 
 func NewHeartBeat(clientset k8scli.CoreV1Interface, deviceManager device_manager.DeviceControllerInterface, clusterConfig *virtconfig.ClusterConfig, host string) *HeartBeat {
+	const cpuManagerOS3Path = virtutil.HostRootMount + "var/lib/origin/openshift.local.volumes/cpu_manager_state"
+	const cpuManagerPath = virtutil.KubeletRoot + "/cpu_manager_state"
 	return &HeartBeat{
 		clientset:               clientset,
 		deviceManagerController: deviceManager,
 		clusterConfig:           clusterConfig,
 		host:                    host,
 		// This is a temporary workaround until k8s bug #66525 is resolved
-		cpuManagerPaths:           []string{virtutil.CPUManagerPath, virtutil.CPUManagerOS3Path},
+		cpuManagerPaths:           []string{cpuManagerPath, cpuManagerOS3Path},
 		devicePluginPollIntervall: 1 * time.Second,
 		devicePluginWaitTimeout:   10 * time.Second,
 	}
