@@ -8,6 +8,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/libvmops"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -1761,16 +1762,28 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				var sourceDV *cdiv1.DataVolume
 				var cloneRole *rbacv1.Role
 				var cloneRoleBinding *rbacv1.RoleBinding
+				var forcedHostAssistedScName string
 
 				BeforeEach(func() {
-					sourceSC, exists := libstorage.GetRWOFileSystemStorageClass()
-					if !exists || sourceSC == snapshotStorageClass {
-						Skip("Two storageclasses required for this test")
+					sc, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), snapshotStorageClass, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					hostAssistedSc := sc.DeepCopy()
+					hostAssistedSc.ObjectMeta = metav1.ObjectMeta{
+						GenerateName: fmt.Sprintf("%s-force-host-assisted", snapshotStorageClass),
+						Labels: map[string]string{
+							cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)): "",
+						},
+						Annotations: map[string]string{
+							"cdi.kubevirt.io/clone-strategy": string(cdiv1.CloneStrategyHostAssisted),
+						},
 					}
+					sc, err = virtClient.StorageV1().StorageClasses().Create(context.Background(), hostAssistedSc, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					forcedHostAssistedScName = sc.Name
 
 					source := libdv.NewDataVolume(
 						libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
-						libdv.WithStorage(libdv.StorageWithStorageClass(sourceSC)),
+						libdv.WithStorage(libdv.StorageWithStorageClass(forcedHostAssistedScName)),
 						libdv.WithForceBindAnnotation(),
 					)
 					source, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespaceTestAlternative).Create(context.Background(), source, metav1.CreateOptions{})
@@ -1801,6 +1814,10 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 						err = virtClient.RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(context.TODO(), cloneRoleBinding.Name, metav1.DeleteOptions{})
 						Expect(err).ToNot(HaveOccurred())
 					}
+					if forcedHostAssistedScName != "" {
+						err := virtClient.StorageV1().StorageClasses().Delete(context.Background(), forcedHostAssistedScName, metav1.DeleteOptions{})
+						Expect(err).ToNot(HaveOccurred())
+					}
 				})
 
 				checkCloneAnnotations := func(vm *v1.VirtualMachine, shouldExist bool) {
@@ -1828,7 +1845,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					// TODO: consider ensuring network clone gets done here using StorageProfile CloneStrategy
 					dataVolume := libdv.NewDataVolume(
 						libdv.WithPVCSource(sourceDV.Namespace, sourceDV.Name),
-						libdv.WithStorage(libdv.StorageWithStorageClass(snapshotStorageClass), libdv.StorageWithVolumeSize("1Gi")),
+						libdv.WithStorage(libdv.StorageWithStorageClass(forcedHostAssistedScName), libdv.StorageWithVolumeSize("1Gi")),
 					)
 
 					return libvmi.NewVirtualMachine(
