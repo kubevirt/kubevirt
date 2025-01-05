@@ -61,7 +61,6 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -77,7 +76,7 @@ import (
 	"kubevirt.io/kubevirt/tests/watcher"
 )
 
-var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level:component][sig-compute]VMIlifecycle", decorators.SigCompute, decorators.VMIlifecycle, func() {
+var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component][sig-compute]VMIlifecycle", decorators.SigCompute, decorators.VMIlifecycle, decorators.WgArm64, func() {
 
 	var err error
 
@@ -877,8 +876,6 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 
 			//store old kubevirt-config
 			BeforeEach(func() {
-				// arm64 does not support cpu model
-				checks.SkipIfARM64(testsuite.Arch, "arm64 does not support cpu model")
 				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				supportedCpuModels = libnode.GetSupportedCPUModels(*nodes)
@@ -977,7 +974,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			})
 		})
 
-		Context("with node feature discovery", Serial, func() {
+		Context("with node feature discovery", Serial, decorators.CPUModel, func() {
 			var node *k8sv1.Node
 			var supportedCPU string
 			var supportedCPUs []string
@@ -986,8 +983,6 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 			var supportedKVMInfoFeature []string
 
 			BeforeEach(func() {
-				// arm64 does not support cpu model
-				checks.SkipIfARM64(testsuite.Arch, "arm64 does not support cpu model")
 				nodes = libnode.GetAllSchedulableNodes(kubevirt.Client())
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
@@ -1546,7 +1541,7 @@ var _ = Describe("[rfe_id:273][crit:high][arm64][vendor:cnv-qe@redhat.com][level
 		})
 	})
 
-	Describe("Softreboot a VirtualMachineInstance", func() {
+	Describe("Softreboot a VirtualMachineInstance", decorators.ACPI, func() {
 		const vmiLaunchTimeout = 360
 
 		It("soft reboot vmi with agent connected should succeed", decorators.Conformance, func() {

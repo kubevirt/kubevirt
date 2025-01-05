@@ -92,13 +92,6 @@ func SkipIfOpenShift4(message string) {
 	}
 }
 
-// Deprecated: SkipIfARM64 should be converted to check & fail
-func SkipIfARM64(arch string, message string) {
-	if IsARM64(arch) {
-		ginkgo.Skip("Skip test on arm64: " + message)
-	}
-}
-
 // Deprecated: SkipIfS390X should be converted to check & fail
 func SkipIfS390X(arch string, message string) {
 	if IsS390X(arch) {
