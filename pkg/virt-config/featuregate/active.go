@@ -64,6 +64,14 @@ const (
 	// through the kv.spec.configuration.instancetype.referencePolicy configurable.
 	InstancetypeReferencePolicy = "InstancetypeReferencePolicy"
 
+	// Owner: @Barakmor1
+	// Alpha: v1.6.0
+	//
+	// ImageVolume The ImageVolume FG in KubeVirt uses Kubernetes ImageVolume FG to eliminate
+	// the need for an extra container for containerDisk, improving security by avoiding
+	// bind mounts in virt-handler.
+	ImageVolume = "ImageVolume"
+
 	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
 	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
 )
