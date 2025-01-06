@@ -33,6 +33,7 @@ go_library(
         "//pkg/network/admitter:go_default_library",
         "//pkg/network/link:go_default_library",
         "//pkg/network/vmispec:go_default_library",
+        "//pkg/storage/admitters:go_default_library",
         "//pkg/storage/backend-storage:go_default_library",
         "//pkg/storage/reservation:go_default_library",
         "//pkg/storage/snapshot:go_default_library",
@@ -74,7 +75,6 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/util/validation/field:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
     ],
 )
 
