@@ -48,13 +48,13 @@ func NewSpecFinder(store, clusterStore, revisionStore cache.Store, virtClient ku
 
 const unexpectedKindFmt = "got unexpected kind in PreferenceMatcher: %s"
 
-func (f *specFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error) {
+func (f *specFinder) FindPreference(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error) {
 	if vm.Spec.Preference == nil {
 		return nil, nil
 	}
 
 	if vm.Spec.Preference.RevisionName != "" {
-		revision, err := f.revisionFinder.Find(vm)
+		revision, err := f.revisionFinder.FindPreference(vm)
 		if err != nil {
 			return nil, err
 		}
@@ -63,13 +63,13 @@ func (f *specFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachinePre
 
 	switch strings.ToLower(vm.Spec.Preference.Kind) {
 	case api.SingularPreferenceResourceName, api.PluralPreferenceResourceName:
-		preference, err := f.preferenceFinder.Find(vm)
+		preference, err := f.preferenceFinder.FindPreference(vm)
 		if err != nil {
 			return nil, err
 		}
 		return &preference.Spec, nil
 	case api.ClusterSingularPreferenceResourceName, api.ClusterPluralPreferenceResourceName, "":
-		clusterPreference, err := f.clusterPreferenceFinder.Find(vm)
+		clusterPreference, err := f.clusterPreferenceFinder.FindPreference(vm)
 		if err != nil {
 			return nil, err
 		}

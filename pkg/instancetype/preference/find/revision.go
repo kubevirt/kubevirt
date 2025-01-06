@@ -44,7 +44,7 @@ func NewRevisionFinder(store cache.Store, virtClient kubecli.KubevirtClient) *re
 	}
 }
 
-func (f *revisionFinder) Find(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
+func (f *revisionFinder) FindPreference(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
 	if vm.Spec.Preference == nil {
 		return nil, nil
 	}

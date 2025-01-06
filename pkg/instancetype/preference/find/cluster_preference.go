@@ -41,7 +41,7 @@ func NewClusterPreferenceFinder(store cache.Store, virtClient kubecli.KubevirtCl
 	}
 }
 
-func (f *clusterPreferenceFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachineClusterPreference, error) {
+func (f *clusterPreferenceFinder) FindPreference(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachineClusterPreference, error) {
 	if vm.Spec.Preference == nil {
 		return nil, nil
 	}
