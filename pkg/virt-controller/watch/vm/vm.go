@@ -2872,9 +2872,10 @@ func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstanc
 
 	// sync VMI conditions, ignore list represents conditions that are not synced generically
 	syncIgnoreMap := map[string]interface{}{
-		string(virtv1.VirtualMachineReady):           nil,
-		string(virtv1.VirtualMachineFailure):         nil,
-		string(virtv1.VirtualMachineRestartRequired): nil,
+		string(virtv1.VirtualMachineReady):                  nil,
+		string(virtv1.VirtualMachineFailure):                nil,
+		string(virtv1.VirtualMachineRestartRequired):        nil,
+		string(virtv1.VirtualMachineManualRecoveryRequired): nil,
 	}
 	vmiCondMap := make(map[string]interface{})
 
