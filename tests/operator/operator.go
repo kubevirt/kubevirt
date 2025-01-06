@@ -138,10 +138,9 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	var k8sClient string
 
 	var (
-		generatePreviousVersionVmsnapshotYamls func(vmYamls map[string]*vmYamlDefinition)
-		generateMigratableVMIs                 func(int) []*v1.VirtualMachineInstance
-		verifyVMIsUpdated                      func([]*v1.VirtualMachineInstance)
-		verifyVMIsEvicted                      func([]*v1.VirtualMachineInstance)
+		generateMigratableVMIs func(int) []*v1.VirtualMachineInstance
+		verifyVMIsUpdated      func([]*v1.VirtualMachineInstance)
+		verifyVMIsEvicted      func([]*v1.VirtualMachineInstance)
 	)
 
 	deprecatedBeforeAll(func() {
@@ -316,68 +315,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				}
 				return nil
 			}, 10, 1).Should(Succeed(), "Expects only a single successful migration per workload update")
-		}
-
-		generatePreviousVersionVmsnapshotYamls = func(vmYamls map[string]*vmYamlDefinition) {
-			ext, err := extclient.NewForConfig(virtClient.Config())
-			Expect(err).ToNot(HaveOccurred())
-
-			crd, err := ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "virtualmachinesnapshots.snapshot.kubevirt.io", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			// Generate a vmsnapshot Yaml for every version
-			// supported in the currently deployed KubeVirt
-			// For every vm version
-			supportedVersions := []string{}
-			for _, version := range crd.Spec.Versions {
-				supportedVersions = append(supportedVersions, version.Name)
-			}
-
-			for _, vmYaml := range vmYamls {
-				vmSnapshots := []vmSnapshotDef{}
-				for _, version := range supportedVersions {
-					snapshotName := fmt.Sprintf("vm-%s-snapshot-%s", vmYaml.apiVersion, version)
-					snapshotYaml := fmt.Sprintf(`apiVersion: snapshot.kubevirt.io/%s
-kind: VirtualMachineSnapshot
-metadata:
-  name: %s
-spec:
-  source:
-    apiGroup: kubevirt.io
-    kind: VirtualMachine
-    name: %s
-`, version, snapshotName, vmYaml.vmName)
-					restoreName := fmt.Sprintf("vm-%s-restore-%s", vmYaml.apiVersion, version)
-					restoreYaml := fmt.Sprintf(`apiVersion: snapshot.kubevirt.io/%s
-kind: VirtualMachineRestore
-metadata:
-  name: %s
-spec:
-  target:
-    apiGroup: kubevirt.io
-    kind: VirtualMachine
-    name: %s
-  virtualMachineSnapshotName: %s
-`, version, restoreName, vmYaml.vmName, snapshotName)
-
-					snapshotYamlFile := filepath.Join(workDir, fmt.Sprintf("%s.yaml", snapshotName))
-					err = os.WriteFile(snapshotYamlFile, []byte(snapshotYaml), 0644)
-					Expect(err).ToNot(HaveOccurred())
-
-					restoreYamlFile := filepath.Join(workDir, fmt.Sprintf("%s.yaml", restoreName))
-					err = os.WriteFile(restoreYamlFile, []byte(restoreYaml), 0644)
-					Expect(err).ToNot(HaveOccurred())
-
-					vmSnapshots = append(vmSnapshots, vmSnapshotDef{
-						vmSnapshotName:  snapshotName,
-						yamlFile:        snapshotYamlFile,
-						restoreName:     restoreName,
-						restoreYamlFile: restoreYamlFile,
-					})
-				}
-				vmYamlTmp, _ := vmYamls[vmYaml.apiVersion]
-				vmYamlTmp.vmSnapshots = vmSnapshots
-			}
 		}
 	})
 
@@ -1033,7 +970,8 @@ spec:
 			var vmYamls map[string]*vmYamlDefinition
 			if createVMs {
 				vmYamls, err = generatePreviousVersionVmYamls(workDir, previousUtilityRegistry, previousUtilityTag)
-				generatePreviousVersionVmsnapshotYamls(vmYamls)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(generatePreviousVersionVmsnapshotYamls(vmYamls, workDir)).To(Succeed())
 			}
 			for _, vmYaml := range vmYamls {
 				By(fmt.Sprintf("Creating VM with %s api", vmYaml.vmName))
@@ -3296,4 +3234,77 @@ spec:
 	}
 
 	return vmYamls, nil
+}
+
+func generatePreviousVersionVmsnapshotYamls(vmYamls map[string]*vmYamlDefinition, workDir string) error {
+	virtClient := kubevirt.Client()
+	ext, err := extclient.NewForConfig(virtClient.Config())
+	if err != nil {
+		return err
+	}
+
+	crd, err := ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "virtualmachinesnapshots.snapshot.kubevirt.io", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	// Generate a vmsnapshot Yaml for every version
+	// supported in the currently deployed KubeVirt
+	// For every vm version
+	supportedVersions := []string{}
+	for _, version := range crd.Spec.Versions {
+		supportedVersions = append(supportedVersions, version.Name)
+	}
+
+	for _, vmYaml := range vmYamls {
+		vmSnapshots := []vmSnapshotDef{}
+		for _, version := range supportedVersions {
+			snapshotName := fmt.Sprintf("vm-%s-snapshot-%s", vmYaml.apiVersion, version)
+			snapshotYaml := fmt.Sprintf(`apiVersion: snapshot.kubevirt.io/%s
+kind: VirtualMachineSnapshot
+metadata:
+  name: %s
+spec:
+  source:
+    apiGroup: kubevirt.io
+    kind: VirtualMachine
+    name: %s
+`, version, snapshotName, vmYaml.vmName)
+			restoreName := fmt.Sprintf("vm-%s-restore-%s", vmYaml.apiVersion, version)
+			restoreYaml := fmt.Sprintf(`apiVersion: snapshot.kubevirt.io/%s
+kind: VirtualMachineRestore
+metadata:
+  name: %s
+spec:
+  target:
+    apiGroup: kubevirt.io
+    kind: VirtualMachine
+    name: %s
+  virtualMachineSnapshotName: %s
+`, version, restoreName, vmYaml.vmName, snapshotName)
+
+			snapshotYamlFile := filepath.Join(workDir, fmt.Sprintf("%s.yaml", snapshotName))
+			err = os.WriteFile(snapshotYamlFile, []byte(snapshotYaml), 0644)
+			if err != nil {
+				return err
+			}
+
+			restoreYamlFile := filepath.Join(workDir, fmt.Sprintf("%s.yaml", restoreName))
+			err = os.WriteFile(restoreYamlFile, []byte(restoreYaml), 0644)
+			if err != nil {
+				return err
+			}
+
+			vmSnapshots = append(vmSnapshots, vmSnapshotDef{
+				vmSnapshotName:  snapshotName,
+				yamlFile:        snapshotYamlFile,
+				restoreName:     restoreName,
+				restoreYamlFile: restoreYamlFile,
+			})
+		}
+		vmYamlTmp, _ := vmYamls[vmYaml.apiVersion]
+		vmYamlTmp.vmSnapshots = vmSnapshots
+	}
+
+	return nil
 }
