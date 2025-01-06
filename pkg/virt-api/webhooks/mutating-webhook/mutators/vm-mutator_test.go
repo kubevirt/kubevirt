@@ -1874,6 +1874,71 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		Expect(vmSpec.Template.Spec.Architecture).To(Equal(rt.GOARCH))
 	})
 
+	It("should allow resource.Quantity fields to accept integer and float values", func() {
+		// Raw JSON representation of the VM
+		rawVMJSON := []byte(`{
+        "apiVersion": "kubevirt.io/v1",
+        "kind": "VirtualMachine",
+        "metadata": {
+            "name": "test-vm",
+            "namespace": "default"
+        },
+        "spec": {
+            "template": {
+                "spec": {
+                    "domain": {
+                        "resources": {
+                            "requests": {
+                                "memory": 22436758,
+                                "cpu": "2"
+                            },
+                            "limits": {
+                                "memory": 22436758,
+                                "cpu": 2.5
+                            }
+                        },
+                        "memory": {
+                            "guest": 2048234
+                        },
+                        "devices": {
+                            "disks": [
+                                {
+                                    "disk": {
+                                        "bus": "virtio"
+                                    },
+                                    "name": "containerdisk"
+                                },
+                                {
+                                    "disk": {
+                                        "bus": "virtio"
+                                    },
+                                    "name": "cloudinitdisk"
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    }`)
+
+		ar := &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{
+				Resource: k8smetav1.GroupVersionResource{
+					Group:    v1.VirtualMachineGroupVersionKind.Group,
+					Version:  v1.VirtualMachineGroupVersionKind.Version,
+					Resource: "virtualmachines",
+				},
+				Object: runtime.RawExtension{
+					Raw: rawVMJSON,
+				},
+			},
+		}
+
+		resp := mutator.Mutate(ar)
+		Expect(resp.Allowed).To(BeTrue())
+	})
+
 	Context("failure tests", func() {
 		invalidInferFromVolumeFailurePolicy := v1.InferFromVolumeFailurePolicy("not-valid")
 
