@@ -42,7 +42,6 @@ import (
 	libcloudinit "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
@@ -375,7 +374,14 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				checkCloudInitFile(vmi, "openstack/latest/network_data.json", testNetworkData)
 
 				By("checking cloudinit meta-data")
-				tests.CheckCloudInitMetaData(vmi, "openstack/latest/meta_data.json", string(buf))
+				const consoleCmd = `cat /mnt/openstack/latest/meta_data.json; printf "@@"`
+				res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
+					&expect.BSnd{S: consoleCmd + console.CRLF},
+					&expect.BExp{R: `(.*)@@`},
+				}, 15)
+				Expect(err).ToNot(HaveOccurred())
+				rawOutput := res[len(res)-1].Output
+				Expect(rawOutput).To(ContainSubstring(string(buf)))
 			})
 			It("[test_id:3185]should have cloud-init network-config with NetworkDataBase64 source", func() {
 				vmi := libvmifact.NewCirros(
