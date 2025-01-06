@@ -136,7 +136,7 @@ func constructDPIdevicesFromMdev(mdevs []*MDEV, iommuToMDEVMap map[string]string
 	for _, mdev := range mdevs {
 		iommuToMDEVMap[mdev.iommuGroup] = mdev.UUID
 		dpiDev := &pluginapi.Device{
-			ID:     string(mdev.iommuGroup),
+			ID:     mdev.iommuGroup,
 			Health: pluginapi.Healthy,
 		}
 		if mdev.numaNode >= 0 {

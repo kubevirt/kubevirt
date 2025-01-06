@@ -36,7 +36,7 @@ var _ = Describe("Mediated Device", func() {
 	var fakeSupportedTypesPath string
 	var clientTest *fake.Clientset
 	resourceNameToTypeName := func(rawName string) string {
-		typeNameStr := strings.Replace(string(rawName), " ", "_", -1)
+		typeNameStr := strings.Replace(rawName, " ", "_", -1)
 		typeNameStr = strings.TrimSpace(typeNameStr)
 		return typeNameStr
 	}
