@@ -2261,9 +2261,6 @@ func validatePersistentReservation(field *k8sfield.Path, spec *v1.VirtualMachine
 
 func validatePersistentState(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	if !backendstorage.IsBackendStorageNeededForVMI(spec) {
-		return causes
-	}
 
 	if !config.VMPersistentStateEnabled() {
 		if backendstorage.HasPersistentTPMDevice(spec) {

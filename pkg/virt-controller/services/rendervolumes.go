@@ -364,10 +364,6 @@ func PathForNVram(vmi *v1.VirtualMachineInstance) string {
 
 func withBackendStorage(vmi *v1.VirtualMachineInstance, backendStoragePVCName string) VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
-		if !backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
-			return nil
-		}
-
 		volumeName := "vm-state"
 		renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
 			Name: volumeName,

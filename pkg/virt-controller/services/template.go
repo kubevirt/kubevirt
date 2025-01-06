@@ -262,28 +262,22 @@ func (t *templateService) GetLauncherImage() string {
 }
 
 func (t *templateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
-	backendStoragePVCName := ""
-	if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
-		backendStoragePVC := backendstorage.PVCForVMI(t.persistentVolumeClaimStore, vmi)
-		if backendStoragePVC == nil {
-			return nil, fmt.Errorf("can't generate manifest without backend-storage PVC, waiting for the PVC to be created")
-		}
-		backendStoragePVCName = backendStoragePVC.Name
+	backendStoragePVC := backendstorage.PVCForVMI(t.persistentVolumeClaimStore, vmi)
+	if backendStoragePVC == nil {
+		return nil, fmt.Errorf("can't generate manifest without backend-storage PVC, waiting for the PVC to be created")
 	}
-	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, true)
+	return t.renderLaunchManifest(vmi, nil, backendStoragePVC.Name, true)
 }
 
 func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error) {
 	imageIDs := containerdisk.ExtractImageIDsFromSourcePod(vmi, sourcePod)
-	backendStoragePVCName := ""
-	if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
-		backendStoragePVC := backendstorage.PVCForMigrationTarget(t.persistentVolumeClaimStore, migration)
-		if backendStoragePVC == nil {
-			return nil, fmt.Errorf("can't generate manifest without backend-storage PVC, waiting for the PVC to be created")
-		}
-		backendStoragePVCName = backendStoragePVC.Name
+
+	backendStoragePVC := backendstorage.PVCForMigrationTarget(t.persistentVolumeClaimStore, migration)
+	if backendStoragePVC == nil {
+		return nil, fmt.Errorf("can't generate manifest without backend-storage PVC, waiting for the PVC to be created")
 	}
-	targetPod, err := t.renderLaunchManifest(vmi, imageIDs, backendStoragePVCName, false)
+
+	targetPod, err := t.renderLaunchManifest(vmi, imageIDs, backendStoragePVC.Name, false)
 	if err != nil {
 		return nil, err
 	}
@@ -301,15 +295,11 @@ func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 }
 
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
-	backendStoragePVCName := ""
-	if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
-		backendStoragePVC := backendstorage.PVCForVMI(t.persistentVolumeClaimStore, vmi)
-		if backendStoragePVC == nil {
-			return nil, fmt.Errorf("can't generate manifest without backend-storage PVC, waiting for the PVC to be created")
-		}
-		backendStoragePVCName = backendStoragePVC.Name
+	backendStoragePVC := backendstorage.PVCForVMI(t.persistentVolumeClaimStore, vmi)
+	if backendStoragePVC == nil {
+		return nil, fmt.Errorf("can't generate manifest without backend-storage PVC, waiting for the PVC to be created")
 	}
-	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, false)
+	return t.renderLaunchManifest(vmi, nil, backendStoragePVC.Name, false)
 }
 
 func (t *templateService) IsPPC64() bool {

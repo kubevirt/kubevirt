@@ -268,10 +268,6 @@ func HasPersistentEFI(vmiSpec *corev1.VirtualMachineInstanceSpec) bool {
 		*vmiSpec.Domain.Firmware.Bootloader.EFI.Persistent
 }
 
-func IsBackendStorageNeededForVMI(vmiSpec *corev1.VirtualMachineInstanceSpec) bool {
-	return HasPersistentTPMDevice(vmiSpec) || HasPersistentEFI(vmiSpec)
-}
-
 func IsBackendStorageNeededForVM(vm *corev1.VirtualMachine) bool {
 	if vm.Spec.Template == nil {
 		return false
@@ -540,10 +536,6 @@ func (bs *BackendStorage) CreatePVCForMigrationTarget(vmi *corev1.VirtualMachine
 // - The backend storage PVC is bound
 // - The backend storage PVC is pending uses a WaitForFirstConsumer storage class
 func (bs *BackendStorage) IsPVCReady(vmi *corev1.VirtualMachineInstance, pvcName string) (bool, error) {
-	if !IsBackendStorageNeededForVMI(&vmi.Spec) {
-		return true, nil
-	}
-
 	obj, exists, err := bs.pvcStore.GetByKey(controller.NamespacedKey(vmi.Namespace, pvcName))
 	if err != nil {
 		return false, err

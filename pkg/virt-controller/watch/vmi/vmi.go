@@ -1100,10 +1100,6 @@ func (c *Controller) handleBackendStorage(vmi *virtv1.VirtualMachineInstance) (s
 		return "", common.NewSyncError(err, controller.FailedBackendStorageCreateReason)
 	}
 
-	if !backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
-		return "", nil
-	}
-
 	// If we found a successful migration, critical PVC labels were updated, we need to refresh the informer
 	c.pvcExpectations.ExpectCreations(key, 1)
 	pvc, err, success := backendstorage.RecoverFromBrokenMigration(c.clientset, c.migrationIndexer, c.pvcIndexer, vmi, c.templateService.GetLauncherImage())
