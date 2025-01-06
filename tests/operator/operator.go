@@ -136,11 +136,9 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	var virtClient kubecli.KubevirtClient
 	var aggregatorClient *aggregatorclient.Clientset
 	var k8sClient string
-	var vmYamls map[string]*vmYamlDefinition
 
 	var (
-		generatePreviousVersionVmYamls         func(string, string)
-		generatePreviousVersionVmsnapshotYamls func()
+		generatePreviousVersionVmsnapshotYamls func(vmYamls map[string]*vmYamlDefinition)
 		generateMigratableVMIs                 func(int) []*v1.VirtualMachineInstance
 		verifyVMIsUpdated                      func([]*v1.VirtualMachineInstance)
 		verifyVMIsEvicted                      func([]*v1.VirtualMachineInstance)
@@ -320,7 +318,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			}, 10, 1).Should(Succeed(), "Expects only a single successful migration per workload update")
 		}
 
-		generatePreviousVersionVmsnapshotYamls = func() {
+		generatePreviousVersionVmsnapshotYamls = func(vmYamls map[string]*vmYamlDefinition) {
 			ext, err := extclient.NewForConfig(virtClient.Config())
 			Expect(err).ToNot(HaveOccurred())
 
@@ -381,98 +379,10 @@ spec:
 				vmYamlTmp.vmSnapshots = vmSnapshots
 			}
 		}
-
-		generatePreviousVersionVmYamls = func(previousUtilityRegistry string, previousUtilityTag string) {
-			ext, err := extclient.NewForConfig(virtClient.Config())
-			Expect(err).ToNot(HaveOccurred())
-
-			crd, err := ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "virtualmachines.kubevirt.io", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			// Generate a vm Yaml for every version supported in the currently deployed KubeVirt
-
-			supportedVersions := []string{}
-			for _, version := range crd.Spec.Versions {
-				supportedVersions = append(supportedVersions, version.Name)
-			}
-
-			for i, version := range supportedVersions {
-				vmYaml := fmt.Sprintf(`apiVersion: kubevirt.io/%s
-kind: VirtualMachine
-metadata:
-  labels:
-    kubevirt.io/vm: vm-%s
-  name: vm-%s
-spec:
-  dataVolumeTemplates:
-  - metadata:
-      name: test-dv%v
-    spec:
-      pvc:
-        accessModes:
-        - ReadWriteOnce
-        resources:
-          requests:
-            storage: 1Gi
-      source:
-        blank: {}
-  runStrategy: Manual
-  template:
-    metadata:
-      labels:
-        kubevirt.io/vm: vm-%s
-    spec:
-      domain:
-        devices:
-          disks:
-          - disk:
-              bus: virtio
-            name: containerdisk
-          - disk:
-              bus: virtio
-            name: cloudinitdisk
-          - disk:
-              bus: virtio
-            name: datavolumedisk1
-        machine:
-          type: ""
-        resources:
-          requests:
-            memory: 128M
-      terminationGracePeriodSeconds: 0
-      volumes:
-      - dataVolume:
-          name: test-dv%v
-        name: datavolumedisk1
-      - containerDisk:
-          image: %s/%s-container-disk-demo:%s
-        name: containerdisk
-      - cloudInitNoCloud:
-          userData: |
-            #!/bin/sh
-
-            echo 'printed from cloud-init userdata'
-        name: cloudinitdisk
-`, version, version, version, i, version, i, previousUtilityRegistry, cd.ContainerDiskCirros, previousUtilityTag)
-
-				yamlFile := filepath.Join(workDir, fmt.Sprintf("vm-%s.yaml", version))
-				err = os.WriteFile(yamlFile, []byte(vmYaml), 0644)
-				Expect(err).ToNot(HaveOccurred())
-
-				vmYamls[version] = &vmYamlDefinition{
-					apiVersion:    version,
-					vmName:        "vm-" + version,
-					generatedYaml: vmYaml,
-					yamlFile:      yamlFile,
-				}
-			}
-		}
 	})
 
 	BeforeEach(func() {
 		workDir = GinkgoT().TempDir()
-
-		vmYamls = make(map[string]*vmYamlDefinition)
 
 		verifyOperatorWebhookCertificate()
 	})
@@ -1120,11 +1030,10 @@ spec:
 			// needs to be a VM created for every api. This is how we will ensure
 			// our api remains upgradable and supportable from previous release.
 
+			var vmYamls map[string]*vmYamlDefinition
 			if createVMs {
-				generatePreviousVersionVmYamls(previousUtilityRegistry, previousUtilityTag)
-				generatePreviousVersionVmsnapshotYamls()
-			} else {
-				Expect(vmYamls).To(BeEmpty())
+				vmYamls, err = generatePreviousVersionVmYamls(workDir, previousUtilityRegistry, previousUtilityTag)
+				generatePreviousVersionVmsnapshotYamls(vmYamls)
 			}
 			for _, vmYaml := range vmYamls {
 				By(fmt.Sprintf("Creating VM with %s api", vmYaml.vmName))
@@ -3292,4 +3201,99 @@ func ensureShasums() error {
 	}
 
 	return nil
+}
+
+func generatePreviousVersionVmYamls(workDir, previousUtilityRegistry, previousUtilityTag string) (map[string]*vmYamlDefinition, error) {
+	virtClient := kubevirt.Client()
+	vmYamls := make(map[string]*vmYamlDefinition)
+	ext, err := extclient.NewForConfig(virtClient.Config())
+	if err != nil {
+		return nil, err
+	}
+
+	crd, err := ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "virtualmachines.kubevirt.io", metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate a vm Yaml for every version supported in the currently deployed KubeVirt
+	supportedVersions := []string{}
+	for _, version := range crd.Spec.Versions {
+		supportedVersions = append(supportedVersions, version.Name)
+	}
+
+	for i, version := range supportedVersions {
+		vmYaml := fmt.Sprintf(`apiVersion: kubevirt.io/%[1]s
+kind: VirtualMachine
+metadata:
+  labels:
+    kubevirt.io/vm: vm-%[1]s
+  name: vm-%[1]s
+spec:
+  dataVolumeTemplates:
+  - metadata:
+      name: test-dv%[2]d
+    spec:
+      pvc:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+      source:
+        blank: {}
+  runStrategy: Manual
+  template:
+    metadata:
+      labels:
+        kubevirt.io/vm: vm-%[1]s
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: containerdisk
+          - disk:
+              bus: virtio
+            name: cloudinitdisk
+          - disk:
+              bus: virtio
+            name: datavolumedisk1
+        machine:
+          type: ""
+        resources:
+          requests:
+            memory: 128M
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - dataVolume:
+          name: test-dv%[2]d
+        name: datavolumedisk1
+      - containerDisk:
+          image: %[3]s/%[4]s-container-disk-demo:%[5]s
+        name: containerdisk
+      - cloudInitNoCloud:
+          userData: |
+            #!/bin/sh
+
+            echo 'printed from cloud-init userdata'
+        name: cloudinitdisk
+`, version, i, previousUtilityRegistry, cd.ContainerDiskCirros, previousUtilityTag)
+
+		yamlFile := filepath.Join(workDir, fmt.Sprintf("vm-%s.yaml", version))
+		err = os.WriteFile(yamlFile, []byte(vmYaml), 0644)
+		if err != nil {
+			return nil, err
+		}
+
+		vmYamls[version] = &vmYamlDefinition{
+			apiVersion:    version,
+			vmName:        "vm-" + version,
+			generatedYaml: vmYaml,
+			yamlFile:      yamlFile,
+		}
+	}
+
+	return vmYamls, nil
 }
