@@ -112,16 +112,16 @@ func VMIMigratableOnEviction(clusterConfig *virtconfig.ClusterConfig, vmi *v1.Vi
 	return false
 }
 
-func InterruptedMigrationForVMI(migrationIndexer cache.Indexer, vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstanceMigration, error) {
-	objs, err := migrationIndexer.ByIndex(cache.NamespaceIndex, vmi.Namespace)
+func InterruptedMigrationForVMI(migrationIndexer cache.Indexer, vmiName, ns string) (*v1.VirtualMachineInstanceMigration, error) {
+	objs, err := migrationIndexer.ByIndex(cache.NamespaceIndex, ns)
 	if err != nil {
 		return nil, err
 	}
 	for _, obj := range objs {
 		migration := obj.(*v1.VirtualMachineInstanceMigration)
-		if migration.Spec.VMIName == vmi.Name {
+		if migration.Spec.VMIName == vmiName {
 			if migration.Status.Phase != v1.MigrationInterrupted {
-				log.Log.Warningf("Found an unexpected migration for VMI %s/%s: %s", vmi.Namespace, vmi.Name, migration.Name)
+				log.Log.Warningf("Found an unexpected migration for VMI %s/%s: %s", ns, vmiName, migration.Name)
 				continue
 			}
 			return migration, nil

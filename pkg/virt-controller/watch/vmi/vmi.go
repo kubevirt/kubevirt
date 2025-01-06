@@ -1102,7 +1102,7 @@ func (c *Controller) handleBackendStorage(vmi *virtv1.VirtualMachineInstance) (s
 
 	// If we found a successful migration, critical PVC labels were updated, we need to refresh the informer
 	c.pvcExpectations.ExpectCreations(key, 1)
-	pvc, err, success := backendstorage.RecoverFromBrokenMigration(c.clientset, c.migrationIndexer, c.pvcIndexer, vmi, c.templateService.GetLauncherImage())
+	pvc, err, success := backendstorage.RecoverFromBrokenMigration(c.clientset, c.migrationIndexer, c.pvcIndexer, vmi.Name, vmi.Namespace, c.templateService.GetLauncherImage())
 	if err != nil || pvc == nil || !success {
 		// Clear the expectation in all cases except after recovering from a successful migration
 		c.pvcExpectations.CreationObserved(key)

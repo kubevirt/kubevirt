@@ -111,15 +111,15 @@ func PVCForMigrationTarget(pvcStore cache.Store, migration *corev1.VirtualMachin
 	return pvcForMigrationTargetFromStore(pvcStore, migration)
 }
 
-func RecoverFromBrokenMigration(client kubecli.KubevirtClient, migrationIndexer cache.Indexer, pvcStore cache.Store, vmi *corev1.VirtualMachineInstance, launcherImage string) (*v1.PersistentVolumeClaim, error, bool) {
+func RecoverFromBrokenMigration(client kubecli.KubevirtClient, migrationIndexer cache.Indexer, pvcStore cache.Store, vmiName, ns, launcherImage string) (*v1.PersistentVolumeClaim, error, bool) {
 	var pvc *v1.PersistentVolumeClaim
 
-	migration, err := migrations.InterruptedMigrationForVMI(migrationIndexer, vmi)
+	migration, err := migrations.InterruptedMigrationForVMI(migrationIndexer, vmiName, ns)
 	if err != nil || migration == nil {
 		return nil, err, false
 	}
-	if migration.Status.MigrationState == nil ||
-		migration.Status.MigrationState.TargetPersistentStatePVCName == migration.Status.MigrationState.SourcePersistentStatePVCName {
+	_, volMig := migration.GetLabels()[corev1.VolumesUpdateMigration]
+	if migration.Status.MigrationState == nil || (migration.Status.MigrationState.TargetPersistentStatePVCName == migration.Status.MigrationState.SourcePersistentStatePVCName && !volMig) {
 		// The migration either didn't actually start, or the backend storage is RWX. Either way we're good, we can delete it.
 		err := client.VirtualMachineInstanceMigration(migration.Namespace).Delete(context.Background(), migration.Name, metav1.DeleteOptions{})
 		return nil, err, false
@@ -180,7 +180,7 @@ func RecoverFromBrokenMigration(client kubecli.KubevirtClient, migrationIndexer 
 		},
 	}
 
-	job, err = client.BatchV1().Jobs(vmi.Namespace).Create(context.Background(), job, metav1.CreateOptions{})
+	job, err = client.BatchV1().Jobs(ns).Create(context.Background(), job, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err, false
 	}
@@ -219,11 +219,11 @@ func RecoverFromBrokenMigration(client kubecli.KubevirtClient, migrationIndexer 
 	}
 
 	// The handoff/abort was successful, we don't want to fail if the job deletion fails
-	_ = client.BatchV1().Jobs(vmi.Namespace).Delete(context.Background(), job.Name, metav1.DeleteOptions{
+	_ = client.BatchV1().Jobs(ns).Delete(context.Background(), job.Name, metav1.DeleteOptions{
 		PropagationPolicy: pointer.P(metav1.DeletePropagationBackground),
 	})
 
-	err = client.VirtualMachineInstanceMigration(vmi.Namespace).Delete(context.Background(), migration.Name, metav1.DeleteOptions{})
+	err = client.VirtualMachineInstanceMigration(ns).Delete(context.Background(), migration.Name, metav1.DeleteOptions{})
 
 	return pvc, err, success
 }

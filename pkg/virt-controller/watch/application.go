@@ -735,6 +735,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 	}
 
 	vca.vmController, err = vm.NewController(
+		vca.templateService,
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.dataVolumeInformer,
@@ -743,6 +744,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.persistentVolumeClaimInformer,
 		vca.controllerRevisionInformer,
 		vca.kvPodInformer,
+		vca.migrationInformer,
 		instancetypeMethods,
 		recorder,
 		vca.clientSet,
