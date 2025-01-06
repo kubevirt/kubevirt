@@ -1278,7 +1278,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			)
 		})
 
-		Context("VirtualMachineInstance Emulation Mode", decorators.WgS390x, decorators.SoftwareEmulation, func() {
+		Context("VirtualMachineInstance Emulation Mode", decorators.SoftwareEmulation, func() {
 
 			It("[test_id:1643]should enable emulation in virt-launcher", func() {
 				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})

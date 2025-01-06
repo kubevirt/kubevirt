@@ -2467,7 +2467,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(vmiCondition.Reason).To(Equal("Synchronizing with the Domain failed."))
 		})
 	})
-	Describe("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with CPU pinning", decorators.WgS390x, decorators.WgArm64, decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
+	Describe("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with CPU pinning", decorators.WgArm64, decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
 		var nodes *k8sv1.NodeList
 
 		isNodeHasCPUManagerLabel := func(nodeName string) bool {
