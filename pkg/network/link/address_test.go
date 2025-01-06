@@ -50,7 +50,7 @@ var _ = Describe("Common Methods", func() {
 		It("Should return 2 addresses", func() {
 			gw, vm, err := GenerateMasqueradeGatewayAndVmIPAddrs(createNetwork("10.0.0.0/30", ""), netdriver.IPv4)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(gw.IPNet.String()).To(Equal(("10.0.0.1/30")))
+			Expect(gw.IPNet.String()).To(Equal("10.0.0.1/30"))
 			Expect(vm.IPNet.String()).To(Equal("10.0.0.2/30"))
 		})
 		It("Should return 2 IPV6 addresses", func() {

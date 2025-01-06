@@ -309,7 +309,7 @@ var _ = Describe("exportserver", func() {
 			err := yaml.Unmarshal([]byte(yamlString), resCm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resCm.Name).To(Equal("test-ca-configmap"))
-			Expect(resCm.Data["ca.crt"]).To((Equal("cert data")))
+			Expect(resCm.Data["ca.crt"]).To(Equal("cert data"))
 		}
 
 		verifyCmJson := func(jsonBytes []byte) {
@@ -317,7 +317,7 @@ var _ = Describe("exportserver", func() {
 			err := json.Unmarshal(jsonBytes, resCm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resCm.Name).To(Equal("test-ca-configmap"))
-			Expect(resCm.Data["ca.crt"]).To((Equal("cert data")))
+			Expect(resCm.Data["ca.crt"]).To(Equal("cert data"))
 		}
 
 		getBasePath := func() (string, error) {
@@ -684,7 +684,7 @@ var _ = Describe("exportserver", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resSecret.Name).To(Equal("header-secret-test-export"))
 			log.DefaultLogger().Infof("%v", resSecret)
-			Expect(resSecret.StringData["token"]).To((Equal("x-kubevirt-export-token:token-secret")))
+			Expect(resSecret.StringData["token"]).To(Equal("x-kubevirt-export-token:token-secret"))
 		}
 
 		tokenGetter := func() (string, error) {

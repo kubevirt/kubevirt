@@ -2136,7 +2136,7 @@ func (c *Controller) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) (vi
 }
 
 func (c *Controller) canMoveToAttachedPhase(currentPhase virtv1.VolumePhase) bool {
-	return (currentPhase == "" || currentPhase == virtv1.VolumeBound || currentPhase == virtv1.VolumePending)
+	return currentPhase == "" || currentPhase == virtv1.VolumeBound || currentPhase == virtv1.VolumePending
 }
 
 func (c *Controller) findAttachmentPodByVolumeName(volumeName string, attachmentPods []*k8sv1.Pod) *k8sv1.Pod {

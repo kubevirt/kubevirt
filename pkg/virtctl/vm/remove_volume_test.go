@@ -202,6 +202,6 @@ var _ = Describe("Remove volume command", func() {
 		})
 		commandAndArgs := []string{"removevolume", "testvmi", "--volume-name=testvolume"}
 		cmdRemove := testing.NewRepeatableVirtctlCommand(commandAndArgs...)
-		Expect(cmdRemove()).To(MatchError((ContainSubstring("error removing volume after 15 retries"))))
+		Expect(cmdRemove()).To(MatchError(ContainSubstring("error removing volume after 15 retries")))
 	})
 })

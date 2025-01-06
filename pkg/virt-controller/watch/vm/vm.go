@@ -1572,7 +1572,7 @@ func calculateStartBackoffTime(failCount int, maxDelay int) int {
 		interval = minInterval
 	}
 
-	delaySeconds = (interval * multiplier)
+	delaySeconds = interval * multiplier
 	randomRange := (delaySeconds / 2) + 1
 	// add randomized seconds to offset multiple failing VMs from one another
 	delaySeconds += rand.Intn(randomRange)

@@ -499,7 +499,7 @@ func (c *createVM) newVM() (*v1.VirtualMachine, error) {
 			Name: c.name,
 		},
 		Spec: v1.VirtualMachineSpec{
-			RunStrategy: pointer.P(v1.VirtualMachineRunStrategy((c.runStrategy))),
+			RunStrategy: pointer.P(v1.VirtualMachineRunStrategy(c.runStrategy)),
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				Spec: v1.VirtualMachineInstanceSpec{
 					TerminationGracePeriodSeconds: &c.terminationGracePeriod,

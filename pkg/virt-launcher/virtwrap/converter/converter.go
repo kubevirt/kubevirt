@@ -1305,7 +1305,7 @@ func getIOThreadsCountType(vmi *v1.VirtualMachineInstance) (ioThreadCount, autoT
 		}
 	}
 
-	ioThreadCount = (autoThreads + dedicatedThreads)
+	ioThreadCount = autoThreads + dedicatedThreads
 	return
 }
 
