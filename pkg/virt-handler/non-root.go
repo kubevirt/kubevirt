@@ -200,7 +200,7 @@ func FindInterfaceIndexPath(res isolation.IsolationResult, podIfaceName string, 
 	return nil, fmt.Errorf(strings.Join(errs, ", "))
 }
 
-func (*VirtualMachineController) prepareVFIO(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
+func (*VirtualMachineController) prepareVFIO(res isolation.IsolationResult) error {
 	vfioBasePath, err := isolation.SafeJoin(res, "dev", "vfio")
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -242,7 +242,7 @@ func (*VirtualMachineController) prepareVFIO(vmi *v1.VirtualMachineInstance, res
 	return nil
 }
 
-func (c *VirtualMachineController) nonRootSetup(origVMI, vmi *v1.VirtualMachineInstance) error {
+func (c *VirtualMachineController) nonRootSetup(origVMI *v1.VirtualMachineInstance) error {
 	res, err := c.podIsolationDetector.Detect(origVMI)
 	if err != nil {
 		return err
@@ -253,7 +253,7 @@ func (c *VirtualMachineController) nonRootSetup(origVMI, vmi *v1.VirtualMachineI
 	if err := c.prepareTap(origVMI, res); err != nil {
 		return err
 	}
-	if err := c.prepareVFIO(origVMI, res); err != nil {
+	if err := c.prepareVFIO(res); err != nil {
 		return err
 	}
 	return nil
