@@ -26,6 +26,7 @@ import (
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	k8sv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/client-go/log"
@@ -105,7 +106,7 @@ var (
 			Name: "kubevirt_vmi_migration_start_time_seconds",
 			Help: "The time at which the migration started.",
 		},
-		[]string{"node", "namespace", "name"},
+		[]string{"node", "namespace", "name", "migration_name"},
 	)
 
 	vmiMigrationEndTime = operatormetrics.NewGaugeVec(
@@ -113,7 +114,7 @@ var (
 			Name: "kubevirt_vmi_migration_end_time_seconds",
 			Help: "The time at which the migration ended.",
 		},
-		[]string{"node", "namespace", "name"},
+		[]string{"node", "namespace", "name", "migration_name", "status"},
 	)
 )
 
@@ -140,7 +141,7 @@ func reportVmisStats(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Col
 		crs = append(crs, collectVMIInfo(vmi))
 		crs = append(crs, getEvictionBlocker(vmi))
 		crs = append(crs, collectVMIInterfacesInfo(vmi)...)
-		crs = append(crs, reportMigrationTimestamps(vmi)...)
+		crs = append(crs, collectVMIMigrationTime(vmi)...)
 	}
 
 	return crs
@@ -350,18 +351,26 @@ func collectVMIInterfaceInfo(vmi *k6tv1.VirtualMachineInstance, iface k6tv1.Virt
 	}
 }
 
-func reportMigrationTimestamps(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
+func collectVMIMigrationTime(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
 	var cr []operatormetrics.CollectorResult
+	var migrationName string
 
 	if vmi.Status.MigrationState == nil {
 		return cr
+	}
+
+	migration, exists, err := getMigrationFromMigrationUID(vmi.Namespace, vmi.Status.MigrationState.MigrationUID)
+	if err != nil || !exists {
+		migrationName = none
+	} else {
+		migrationName = migration.Name
 	}
 
 	if vmi.Status.MigrationState.StartTimestamp != nil {
 		cr = append(cr, operatormetrics.CollectorResult{
 			Metric: vmiMigrationStartTime,
 			Value:  float64(vmi.Status.MigrationState.StartTimestamp.Time.Unix()),
-			Labels: []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name},
+			Labels: []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, migrationName},
 		})
 	}
 
@@ -369,9 +378,41 @@ func reportMigrationTimestamps(vmi *k6tv1.VirtualMachineInstance) []operatormetr
 		cr = append(cr, operatormetrics.CollectorResult{
 			Metric: vmiMigrationEndTime,
 			Value:  float64(vmi.Status.MigrationState.EndTimestamp.Time.Unix()),
-			Labels: []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name},
+			Labels: []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, migrationName,
+				calculateMigrationStatus(vmi.Status.MigrationState),
+			},
 		})
 	}
 
 	return cr
+}
+
+func calculateMigrationStatus(migrationState *k6tv1.VirtualMachineInstanceMigrationState) string {
+	if !migrationState.Completed {
+		return ""
+	}
+
+	if migrationState.Failed {
+		return "failed"
+	}
+
+	return "succeeded"
+}
+
+func getMigrationFromMigrationUID(namespace string, migrationUID types.UID) (*k6tv1.VirtualMachineInstanceMigration, bool, error) {
+	objs, err := vmiMigrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	if err != nil {
+		return nil, false, err
+	}
+
+	for _, obj := range objs {
+		curMigration := obj.(*k6tv1.VirtualMachineInstanceMigration)
+		if curMigration.UID != migrationUID {
+			continue
+		}
+
+		return curMigration, true, nil
+	}
+
+	return nil, false, nil
 }

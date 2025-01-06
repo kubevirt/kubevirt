@@ -403,6 +403,58 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(metrics[1].Labels).To(Equal([]string{"testNode", "test-ns", "testvmi", "networkA", "", "InternalIP"}))
 		})
 	})
+
+	Context("VMI migration start and end time metrics", func() {
+		now := metav1.Unix(1000, 0)
+		nowFloatValue := float64(now.Unix())
+
+		DescribeTable("kubevirt_vmi_migration_start_time and kubevirt_vmi_migration_end_time metrics", func(migrationState *k6tv1.VirtualMachineInstanceMigrationState, hasExpectedStartTime bool, expectedStartTime float64, hasExpectedEndTime bool, expectedEndTime float64) {
+			if migrationState != nil {
+				migrationState.MigrationUID = "test-migration-uid"
+				migrationState.Completed = true
+				migrationState.Failed = false
+			}
+
+			vmi := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "testvmi",
+				},
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					NodeName:       "testNode",
+					MigrationState: migrationState,
+				},
+			}
+
+			metrics := collectVMIMigrationTime(vmi)
+			index := 0
+
+			if !hasExpectedStartTime && !hasExpectedEndTime {
+				Expect(metrics).To(BeEmpty())
+				return
+			}
+
+			if hasExpectedStartTime {
+				Expect(metrics[index].Value).To(BeEquivalentTo(expectedStartTime))
+				Expect(metrics[index].Labels).To(Equal([]string{"testNode", "test-ns", "testvmi", "test-migration"}))
+				index++
+			}
+
+			if hasExpectedEndTime {
+				Expect(metrics[index].Value).To(BeEquivalentTo(expectedEndTime))
+				Expect(metrics[index].Labels).To(Equal([]string{"testNode", "test-ns", "testvmi", "test-migration", "succeeded"}))
+			}
+		},
+			Entry("no migration", nil, false, 0.0, false, 0.0),
+			Entry("migration in progress", &k6tv1.VirtualMachineInstanceMigrationState{
+				StartTimestamp: &now,
+			}, true, nowFloatValue, false, 0.0),
+			Entry("migration completed", &k6tv1.VirtualMachineInstanceMigrationState{
+				StartTimestamp: &now,
+				EndTimestamp:   &now,
+			}, true, nowFloatValue, true, nowFloatValue),
+		)
+	})
 })
 
 func interfacesFor(values [][]string) []k6tv1.VirtualMachineInstanceNetworkInterface {
@@ -447,6 +499,7 @@ func setupTestCollector() {
 	preferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
 	clusterPreferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 	kvPodInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+	vmiMigrationInformer, _ = testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstanceMigration{})
 
 	_ = instanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineInstancetype{
 		ObjectMeta: newObjectMetaForInstancetypes("i-managed", "kubevirt.io"),
@@ -475,6 +528,14 @@ func setupTestCollector() {
 
 	_ = kvPodInformer.GetStore().Add(&k8sv1.Pod{
 		ObjectMeta: newPodMetaForInformer("virt-launcher-testpod", "test-ns", "test-vmi-uid"),
+	})
+
+	_ = vmiMigrationInformer.GetStore().Add(&k6tv1.VirtualMachineInstanceMigration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-migration",
+			Namespace: "test-ns",
+			UID:       "test-migration-uid",
+		},
 	})
 }
 
