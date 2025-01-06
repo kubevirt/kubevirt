@@ -35,6 +35,7 @@ import (
 
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
@@ -65,6 +66,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -123,7 +125,9 @@ const (
 
 const defaultMaxCrashLoopBackoffDelaySeconds = 300
 
-func NewController(vmiInformer cache.SharedIndexInformer,
+func NewController(
+	templateService services.TemplateService,
+	vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
 	dataVolumeInformer cache.SharedIndexInformer,
 	dataSourceInformer cache.SharedIndexInformer,
@@ -131,6 +135,7 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
+	migrationInformer cache.SharedIndexInformer,
 	instancetypeMethods instancetype.Methods,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
@@ -139,6 +144,7 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 ) (*Controller, error) {
 
 	c := &Controller{
+		templateService: templateService,
 		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
 			workqueue.DefaultTypedControllerRateLimiter[string](),
 			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vm"},
@@ -150,6 +156,8 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 		namespaceStore:         namespaceStore,
 		pvcStore:               pvcInformer.GetStore(),
 		crIndexer:              crInformer.GetIndexer(),
+		pvcIndexer:             pvcInformer.GetIndexer(),
+		migrationIndexer:       migrationInformer.GetIndexer(),
 		instancetypeMethods:    instancetypeMethods,
 		recorder:               recorder,
 		clientset:              clientset,
@@ -239,6 +247,7 @@ type synchronizer interface {
 }
 
 type Controller struct {
+	templateService        services.TemplateService
 	clientset              kubecli.KubevirtClient
 	Queue                  workqueue.TypedRateLimitingInterface[string]
 	vmiIndexer             cache.Indexer
@@ -248,6 +257,8 @@ type Controller struct {
 	namespaceStore         cache.Store
 	pvcStore               cache.Store
 	crIndexer              cache.Indexer
+	migrationIndexer       cache.Indexer
+	pvcIndexer             cache.Indexer
 	instancetypeMethods    instancetype.Methods
 	recorder               record.EventRecorder
 	expectations           *controller.UIDTrackingControllerExpectations
@@ -1344,7 +1355,23 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 		return vm, nil
 	}
 
-	if controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm, virtv1.VirtualMachineManualRecoveryRequired, k8score.ConditionTrue) {
+	pvc, err, success := backendstorage.RecoverFromBrokenMigration(c.clientset, c.migrationIndexer, c.pvcIndexer, vm.Name, vm.Namespace, c.templateService.GetLauncherImage())
+	vmCond := controller.NewVirtualMachineConditionManager()
+	if pvc != nil {
+		if success {
+			vmCond.RemoveCondition(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange))
+			vmCond.RemoveCondition(vm, virtv1.VirtualMachineManualRecoveryRequired)
+			vm.Status.VolumeUpdateState.VolumeMigrationState = nil
+		} else {
+			vmCond.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+				Type:   virtv1.VirtualMachineManualRecoveryRequired,
+				Status: k8score.ConditionTrue,
+				Reason: "volume migration failed",
+			})
+		}
+	}
+
+	if vmCond.HasConditionWithStatus(vm, virtv1.VirtualMachineManualRecoveryRequired, k8score.ConditionTrue) {
 		log.Log.Object(vm).Reason(err).Error(failedManualRecoveryRequiredCondSetErrMsg)
 		return vm, nil
 	}
@@ -1715,8 +1742,10 @@ func syncVolumeMigration(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineIn
 		vmCond.RemoveCondition(vm, virtv1.VirtualMachineManualRecoveryRequired)
 		return
 	}
+
 	if vmi == nil {
-		if vmCond.HasConditionWithStatus(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange), k8score.ConditionTrue) {
+		if vmCond.HasConditionWithStatus(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange), k8score.ConditionTrue) &&
+			!vmCond.HasCondition(vm, virtv1.VirtualMachineManualRecoveryRequired) {
 			// Something went wrong with the VMI while the volume migration was in progress
 			vmCond.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 				Type:   virtv1.VirtualMachineManualRecoveryRequired,

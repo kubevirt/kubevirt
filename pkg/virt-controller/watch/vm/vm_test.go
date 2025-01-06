@@ -47,6 +47,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
@@ -77,6 +78,7 @@ var _ = Describe("VirtualMachine", func() {
 		var config *virtconfig.ClusterConfig
 		var kvStore cache.Store
 		var virtFakeClient *fake.Clientset
+		var qemuGid int64 = 107
 
 		BeforeEach(func() {
 			virtClient = kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
@@ -125,6 +127,9 @@ var _ = Describe("VirtualMachine", func() {
 				},
 			})
 			podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
+			migrationInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
+			rqInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
+			nsInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 
 			instancetypeMethods := testutils.NewMockInstancetypeMethods()
 
@@ -133,7 +138,8 @@ var _ = Describe("VirtualMachine", func() {
 
 			config, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
-			controller, _ = NewController(vmiInformer,
+			controller, _ = NewController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", rqInformer.GetStore(), nsInformer.GetStore()),
+				vmiInformer,
 				vmInformer,
 				dataVolumeInformer,
 				dataSourceInformer,
@@ -141,6 +147,7 @@ var _ = Describe("VirtualMachine", func() {
 				pvcInformer,
 				crInformer,
 				podInformer,
+				migrationInformer,
 				instancetypeMethods,
 				recorder,
 				virtClient,
