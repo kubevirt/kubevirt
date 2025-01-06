@@ -663,7 +663,7 @@ func numaMapping(vmi *v12.VirtualMachineInstance, domain *api.DomainSpec, topolo
 		}
 	}
 
-	if hugepagesEnabled && mod > 0 {
+	if mod > 0 {
 		for i := range domain.CPU.NUMA.Cells[:mod] {
 			domain.CPU.NUMA.Cells[i].Memory += hugepagesSize
 		}
