@@ -117,13 +117,15 @@ type vmYamlDefinition struct {
 	vmSnapshots   []vmSnapshotDef
 }
 
+const (
+	imageDigestShaPrefix = "@sha256:"
+)
+
 var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func() {
 
 	const (
 		virtApiDepName        = "virt-api"
 		virtControllerDepName = "virt-controller"
-
-		imageDigestShaPrefix = "@sha256:"
 	)
 
 	var originalKv *v1.KubeVirt
@@ -137,7 +139,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	var vmYamls map[string]*vmYamlDefinition
 
 	var (
-		ensureShasums                          func()
 		generatePreviousVersionVmYamls         func(string, string)
 		generatePreviousVersionVmsnapshotYamls func()
 		generateMigratableVMIs                 func(int) []*v1.VirtualMachineInstance
@@ -153,25 +154,8 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 		k8sClient = clientcmd.GetK8sCmdClient()
 
-		ensureShasums = func() {
-			if flags.SkipShasumCheck {
-				log.Log.Warning("Cannot use shasums, skipping")
-				return
-			}
-
-			for _, name := range []string{"virt-operator", "virt-api", "virt-controller"} {
-				deployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(ContainSubstring(imageDigestShaPrefix), fmt.Sprintf("%s should use sha", name))
-			}
-
-			handler, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(handler.Spec.Template.Spec.Containers[0].Image).To(ContainSubstring(imageDigestShaPrefix), "virt-handler should use sha")
-		}
-
 		// make sure virt deployments use shasums before we start
-		ensureShasums()
+		Expect(ensureShasums()).To(Succeed())
 
 		originalKv = libkubevirt.GetCurrentKv(virtClient)
 
@@ -513,7 +497,7 @@ spec:
 		allKvInfraPodsAreReady(originalKv)
 
 		// make sure virt deployments use shasums again after each test
-		ensureShasums()
+		Expect(ensureShasums()).To(Succeed())
 
 		// ensure that the state is fully restored after destructive tests
 		verifyOperatorWebhookCertificate()
@@ -3278,4 +3262,34 @@ func deleteAllKvAndWait(ignoreOriginal bool, originalKvName string) {
 
 		g.Expect(deleteCount).To(BeZero(), "still waiting on %d kvs to delete", deleteCount)
 	}).WithTimeout(240 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+}
+
+func ensureShasums() error {
+	virtClient := kubevirt.Client()
+	if flags.SkipShasumCheck {
+		log.Log.Warning("Cannot use shasums, skipping")
+		return nil
+	}
+
+	for _, name := range []string{"virt-operator", "virt-api", "virt-controller"} {
+		deployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		if !strings.Contains(deployment.Spec.Template.Spec.Containers[0].Image, imageDigestShaPrefix) {
+			return fmt.Errorf("%s should use sha", name)
+		}
+	}
+
+	handler, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	if !strings.Contains(handler.Spec.Template.Spec.Containers[0].Image, imageDigestShaPrefix) {
+		return fmt.Errorf("virt-handler should use sha")
+	}
+
+	return nil
 }
