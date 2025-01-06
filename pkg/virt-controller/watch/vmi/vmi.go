@@ -393,7 +393,7 @@ func (c *Controller) syncDynamicLabelsToPod(vmi *virtv1.VirtualMachineInstance, 
 func (c *Controller) syncPodAnnotations(pod *k8sv1.Pod, newAnnotations map[string]string) (*k8sv1.Pod, error) {
 	patchSet := patch.New()
 	for key, newValue := range newAnnotations {
-		if podAnnotationValue, keyExist := pod.Annotations[key]; !keyExist || (keyExist && podAnnotationValue != newValue) {
+		if podAnnotationValue, keyExist := pod.Annotations[key]; !keyExist || podAnnotationValue != newValue {
 			patchSet.AddOption(
 				patch.WithAdd(fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(key)), newValue),
 			)
@@ -556,8 +556,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceProvisioning) {
 			conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceProvisioning)
 		}
-		switch {
-		case vmiPodExists:
+		if vmiPodExists {
 			// ensure that the QOS class on the VMI matches to Pods QOS class
 			if pod.Status.QOSClass == "" {
 				vmiCopy.Status.QOSClass = nil
@@ -625,7 +624,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			} else if controller.IsPodDownOrGoingDown(pod) {
 				vmiCopy.Status.Phase = virtv1.Failed
 			}
-		case !vmiPodExists:
+		} else {
 			// someone other than the controller deleted the pod unexpectedly
 			vmiCopy.Status.Phase = virtv1.Failed
 		}
