@@ -2662,6 +2662,7 @@ func (c *Controller) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1.V
 	}{
 		{virtv1.VirtualMachineStatusTerminating, c.isVirtualMachineStatusTerminating},
 		{virtv1.VirtualMachineStatusStopping, c.isVirtualMachineStatusStopping},
+		{virtv1.VirtualMachineStatusStopped, c.isVirtualMachineStatusStopped},
 		{virtv1.VirtualMachineStatusMigrating, c.isVirtualMachineStatusMigrating},
 		{virtv1.VirtualMachineStatusPaused, c.isVirtualMachineStatusPaused},
 		{virtv1.VirtualMachineStatusRunning, c.isVirtualMachineStatusRunning},
@@ -2674,7 +2675,6 @@ func (c *Controller) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1.V
 		{virtv1.VirtualMachineStatusImagePullBackOff, c.isVirtualMachineStatusImagePullBackOff},
 		{virtv1.VirtualMachineStatusStarting, c.isVirtualMachineStatusStarting},
 		{virtv1.VirtualMachineStatusCrashLoopBackOff, c.isVirtualMachineStatusCrashLoopBackOff},
-		{virtv1.VirtualMachineStatusStopped, c.isVirtualMachineStatusStopped},
 	}
 
 	for _, status := range statuses {
