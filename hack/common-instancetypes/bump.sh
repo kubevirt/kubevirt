@@ -2,9 +2,6 @@
 
 set -ex
 
-source "$(dirname "$0")/common.sh"
-source "$(dirname "$0")/config.sh"
-
 TARGET_BRANCH=${1:-"main"}
 
 function latest_version() {
@@ -24,8 +21,8 @@ version=$(latest_version)
 instancetypes_checksum=$(checksum "${version}" "common-clusterinstancetypes-bundle-${version}.yaml")
 preferences_checksum=$(checksum "${version}" "common-clusterpreferences-bundle-${version}.yaml")
 
-sed -i "/^[[:blank:]]*common_instancetypes_version[[:blank:]]*=/s/=.*/=\${COMMON_INSTANCETYPES_VERSION:-\"${version}\"}/" hack/config-default.sh
-sed -i "/^[[:blank:]]*cluster_instancetypes_sha256[[:blank:]]*=/s/=.*/=\${CLUSTER_INSTANCETYPES_SHA256:-\"${instancetypes_checksum}\"}/" hack/config-default.sh
-sed -i "/^[[:blank:]]*cluster_preferences_sha256[[:blank:]]*=/s/=.*/=\${CLUSTER_PREFERENCES_SHA256:-\"${preferences_checksum}\"}/" hack/config-default.sh
+sed -i "/^[[:blank:]]*common_instancetypes_version[[:blank:]]*=/s/=.*/=\${COMMON_INSTANCETYPES_VERSION:-\"${version}\"}/" $(dirname "$0")/default.sh
+sed -i "/^[[:blank:]]*cluster_instancetypes_sha256[[:blank:]]*=/s/=.*/=\${CLUSTER_INSTANCETYPES_SHA256:-\"${instancetypes_checksum}\"}/" $(dirname "$0")/default.sh
+sed -i "/^[[:blank:]]*cluster_preferences_sha256[[:blank:]]*=/s/=.*/=\${CLUSTER_PREFERENCES_SHA256:-\"${preferences_checksum}\"}/" $(dirname "$0")/default.sh
 
-hack/sync-common-instancetypes.sh
+$(dirname "$0")/sync.sh
