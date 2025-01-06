@@ -137,7 +137,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	var vmYamls map[string]*vmYamlDefinition
 
 	var (
-		deleteAllKvAndWait                     func(bool)
 		ensureShasums                          func()
 		generatePreviousVersionVmYamls         func(string, string)
 		generatePreviousVersionVmsnapshotYamls func()
@@ -153,36 +152,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 		k8sClient = clientcmd.GetK8sCmdClient()
-
-		deleteAllKvAndWait = func(ignoreOriginal bool) {
-			Eventually(func() error {
-
-				kvs := libkubevirt.GetKvList(virtClient)
-
-				deleteCount := 0
-				for _, kv := range kvs {
-
-					if ignoreOriginal && kv.Name == originalKv.Name {
-						continue
-					}
-					deleteCount++
-					if kv.DeletionTimestamp == nil {
-
-						By("deleting the kv object")
-						err := virtClient.KubeVirt(kv.Namespace).Delete(context.Background(), kv.Name, metav1.DeleteOptions{})
-						if err != nil {
-							return err
-						}
-					}
-				}
-				if deleteCount != 0 {
-					return fmt.Errorf("still waiting on %d kvs to delete", deleteCount)
-				}
-				return nil
-
-			}, 240*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
-		}
 
 		ensureShasums = func() {
 			if flags.SkipShasumCheck {
@@ -525,7 +494,7 @@ spec:
 	})
 
 	AfterEach(func() {
-		deleteAllKvAndWait(true)
+		deleteAllKvAndWait(true, originalKv.Name)
 
 		kvs := libkubevirt.GetKvList(virtClient)
 		if len(kvs) == 0 {
@@ -1101,7 +1070,7 @@ spec:
 
 			// Delete current KubeVirt install so we can install previous release.
 			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
+			deleteAllKvAndWait(false, originalKv.Name)
 
 			By("Verifying all infra pods have terminated")
 			expectVirtOperatorPodsToTerminate(originalKv)
@@ -1354,7 +1323,7 @@ spec:
 			deleteVMIs(migratableVMIs)
 
 			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
+			deleteAllKvAndWait(false, originalKv.Name)
 		},
 			Entry("by patching KubeVirt CR", false),
 			Entry("by updating virt-operator", true),
@@ -1375,7 +1344,7 @@ spec:
 			}
 
 			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
+			deleteAllKvAndWait(false, originalKv.Name)
 
 			// this is just verifying some common known components do in fact get deleted.
 			By("Sanity Checking Deployments infrastructure is deleted")
@@ -1458,7 +1427,7 @@ spec:
 			sanityCheckDeploymentsExist()
 
 			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
+			deleteAllKvAndWait(false, originalKv.Name)
 
 			// this is just verifying some common known components do in fact get deleted.
 			By("Sanity Checking Deployments infrastructure is deleted")
@@ -1484,7 +1453,7 @@ spec:
 			sanityCheckDeploymentsExist()
 
 			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
+			deleteAllKvAndWait(false, originalKv.Name)
 		})
 
 		// this test ensures that we can deal with image prefixes in case they are not used for tests already
@@ -1572,7 +1541,7 @@ spec:
 			sanityCheckDeploymentsExist()
 
 			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
+			deleteAllKvAndWait(false, originalKv.Name)
 
 			// this is just verifying some common known components do in fact get deleted.
 			By("Sanity Checking Deployments infrastructure is deleted")
@@ -1626,7 +1595,7 @@ spec:
 			deleteVMIs(vmisNonMigratable)
 
 			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
+			deleteAllKvAndWait(false, originalKv.Name)
 		})
 
 		// NOTE - this test verifies new operators can grab the leader election lease
@@ -1767,7 +1736,7 @@ spec:
 			}, 240*time.Second, 1*time.Second).Should(BeTrue(), "Expected labels to be updated for virt-handler daemonset")
 
 			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
+			deleteAllKvAndWait(false, originalKv.Name)
 		})
 
 		Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster", func() {
@@ -3284,4 +3253,29 @@ func getVirtLauncherSha(deploymentConfigStr string) (string, error) {
 	}
 
 	return config.VirtLauncherSha, nil
+}
+
+func deleteAllKvAndWait(ignoreOriginal bool, originalKvName string) {
+	GinkgoHelper()
+
+	virtClient := kubevirt.Client()
+	Eventually(func(g Gomega) {
+		kvs := libkubevirt.GetKvList(virtClient)
+
+		deleteCount := 0
+		for _, kv := range kvs {
+			if ignoreOriginal && kv.Name == originalKvName {
+				continue
+			}
+			deleteCount++
+			if kv.DeletionTimestamp == nil {
+				GinkgoLogr.Info("deleting the kv object", "namespace", kv.Namespace, "name", kv.Name)
+				g.Expect(
+					virtClient.KubeVirt(kv.Namespace).Delete(context.Background(), kv.Name, metav1.DeleteOptions{}),
+				).To(Succeed())
+			}
+		}
+
+		g.Expect(deleteCount).To(BeZero(), "still waiting on %d kvs to delete", deleteCount)
+	}).WithTimeout(240 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
 }
