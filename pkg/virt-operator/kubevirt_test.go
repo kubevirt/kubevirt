@@ -62,8 +62,10 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	promclientfake "kubevirt.io/client-go/prometheusoperator/fake"
+	kvtesting "kubevirt.io/client-go/testing"
 	"kubevirt.io/client-go/version"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	kubecontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/monitoring/rules"
@@ -249,6 +251,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 			dummyValidatingAdmissionPolicy := &admissionregistrationv1.ValidatingAdmissionPolicy{}
 			return true, dummyValidatingAdmissionPolicy, nil
 		}
+
 		if action.GetVerb() == "get" && action.GetResource().Resource == "serviceaccounts" {
 			return true, nil, errors.NewNotFound(schema.GroupResource{Group: "", Resource: "serviceaccounts"}, "whatever")
 		}
@@ -2622,6 +2625,175 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(1)) // 1 of 2 PDBs patched
 			Expect(kvTestData.resourceChanges["namespace"][Patched]).To(Equal(0))            // namespace unpatched
 			Expect(kvTestData.resourceChanges["daemonsets"][Patched]).To(Equal(0))           // namespace unpatched
+		})
+
+		Context("virt-api replica count", func() {
+			var kvTestData KubeVirtTestData
+			const (
+				CustomizedReplicas              int32 = 4
+				numOfNodes                            = 1000
+				expectedReplicasForLargeCluster int32 = 100
+			)
+
+			BeforeEach(func() {
+				kvTestData = KubeVirtTestData{}
+				kvTestData.BeforeTest()
+				DeferCleanup(kvTestData.AfterTest)
+
+				var testNodes []k8sv1.Node
+
+				for i := range numOfNodes {
+					node := k8sv1.Node{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: fmt.Sprintf("testnode-%d", i),
+						},
+					}
+					testNodes = append(testNodes, node)
+				}
+
+				kvTestData.kubeClient.Fake.PrependReactor("list", "nodes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					return true, &k8sv1.NodeList{Items: testNodes}, nil
+				})
+			})
+
+			It("should apply the replica count from CustomizeComponents patch", func() {
+				patchSet, err := patch.New(patch.WithReplace("/spec/replicas", CustomizedReplicas)).GeneratePayload()
+				Expect(err).ToNot(HaveOccurred())
+
+				kv := &v1.KubeVirt{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-install",
+						Namespace: NAMESPACE,
+					},
+					Spec: v1.KubeVirtSpec{
+						CustomizeComponents: v1.CustomizeComponents{
+							Patches: []v1.CustomizeComponentsPatch{
+								{
+									ResourceName: components.VirtAPIName,
+									ResourceType: "Deployment",
+									Type:         v1.JSONPatchType,
+									Patch:        string(patchSet),
+								},
+							},
+						},
+					},
+				}
+
+				kubecontroller.SetLatestApiVersionAnnotation(kv)
+				kvTestData.addKubeVirt(kv)
+				kvTestData.addInstallStrategy(kvTestData.defaultConfig)
+
+				apiDeployment := getDefaultVirtApiDeployment(NAMESPACE, kvTestData.defaultConfig)
+				kvTestData.addDeployment(apiDeployment, kv)
+
+				kvTestData.kvInterface.EXPECT().
+					Patch(
+						context.Background(),
+						kv.Name,
+						types.JSONPatchType,
+						gomock.Any(),
+						metav1.PatchOptions{},
+						gomock.Any(),
+					)
+
+				kvTestData.kubeClient.Fake.PrependReactor("patch", "deployments", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					patchAction, ok := action.(testing.PatchAction)
+					Expect(ok).To(BeTrue())
+					Expect(patchAction.GetName()).To(Equal(components.VirtAPIName))
+					Expect(patchAction.GetPatchType()).To(Equal(types.JSONPatchType))
+
+					var patches []map[string]interface{}
+					err = json.Unmarshal(patchAction.GetPatch(), &patches)
+					Expect(err).ToNot(HaveOccurred())
+
+					var replicas int32
+					for _, patch := range patches {
+						if patch["op"] == "replace" && patch["path"] == "/spec" {
+							specData, ok := patch["value"].(map[string]interface{})
+							Expect(ok).To(BeTrue(), "Expected /spec patch value to be a map")
+
+							replicasValue, exists := specData["replicas"]
+							Expect(exists).To(BeTrue(), "Expected 'replicas' field in /spec patch")
+
+							replicas = int32(replicasValue.(float64))
+							break
+						}
+					}
+
+					patchedDeployment := apiDeployment.DeepCopy()
+					patchedDeployment.Spec.Replicas = pointer.P(replicas)
+
+					Expect(*patchedDeployment.Spec.Replicas).To(Equal(CustomizedReplicas))
+					return true, patchedDeployment, nil
+				})
+
+				kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+				kvTestData.shouldExpectCreations()
+
+				kvTestData.controller.Execute()
+
+				Expect(kvtesting.FilterActions(&kvTestData.kubeClient.Fake, "patch", "deployments")).To(HaveLen(1))
+			})
+
+			It("should determine replicas based on the number of nodes when CustomizeComponents is not used", func() {
+				kv := &v1.KubeVirt{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-install",
+						Namespace: NAMESPACE,
+					},
+				}
+
+				kubecontroller.SetLatestApiVersionAnnotation(kv)
+				kvTestData.addKubeVirt(kv)
+				kvTestData.addInstallStrategy(kvTestData.defaultConfig)
+
+				apiDeployment := getDefaultVirtApiDeployment(NAMESPACE, kvTestData.defaultConfig)
+				kvTestData.addDeployment(apiDeployment, kv)
+
+				kvTestData.kvInterface.EXPECT().
+					Patch(
+						context.Background(),
+						kv.Name,
+						types.JSONPatchType,
+						gomock.Any(),
+						metav1.PatchOptions{},
+						gomock.Any(),
+					)
+
+				kvTestData.kubeClient.Fake.PrependReactor("patch", "deployments", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					patchAction, ok := action.(testing.PatchAction)
+					Expect(ok).To(BeTrue())
+					Expect(patchAction.GetName()).To(Equal(components.VirtAPIName))
+					Expect(patchAction.GetPatchType()).To(Equal(types.JSONPatchType))
+
+					var patches []map[string]interface{}
+					err = json.Unmarshal(patchAction.GetPatch(), &patches)
+					Expect(err).ToNot(HaveOccurred())
+
+					var replicas int32
+					for _, patch := range patches {
+						if patch["op"] == "replace" && patch["path"] == "/spec" {
+							specData, ok := patch["value"].(map[string]interface{})
+							Expect(ok).To(BeTrue(), "Expected /spec patch value to be a map")
+
+							replicasValue, exists := specData["replicas"]
+							Expect(exists).To(BeTrue(), "Expected 'replicas' field in /spec patch")
+
+							replicas = int32(replicasValue.(float64))
+							break
+						}
+					}
+					Expect(replicas).To(BeEquivalentTo(expectedReplicasForLargeCluster))
+					return true, nil, nil
+				})
+
+				kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+				kvTestData.shouldExpectCreations()
+
+				kvTestData.controller.Execute()
+
+				Expect(kvtesting.FilterActions(&kvTestData.kubeClient.Fake, "patch", "deployments")).To(HaveLen(1))
+			})
 		})
 
 		DescribeTable("should update kubevirt resources when Operator version changes if no imageTag and imageRegistry is explicitly set.", func(withExport bool, patchCount, resourceCount, numPDBs int) {
