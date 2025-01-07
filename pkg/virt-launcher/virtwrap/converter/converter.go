@@ -1266,12 +1266,13 @@ func getIOThreadsCountType(vmi *v1.VirtualMachineInstance) (ioThreadCount, autoT
 	dedicatedThreads := 0
 
 	var threadPoolLimit int
+	policy := vmi.Spec.Domain.IOThreadsPolicy
 	switch {
-	case vmi.Spec.Domain.IOThreadsPolicy == nil:
+	case policy == nil:
 		threadPoolLimit = 1
-	case *vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicyShared:
+	case *policy == v1.IOThreadsPolicyShared:
 		threadPoolLimit = 1
-	case *vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicyAuto:
+	case *policy == v1.IOThreadsPolicyAuto:
 		// When IOThreads policy is set to auto and we've allocated a dedicated
 		// pCPU for the emulator thread, we can place IOThread and Emulator thread in the same pCPU
 		if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
@@ -1287,6 +1288,11 @@ func getIOThreadsCountType(vmi *v1.VirtualMachineInstance) (ioThreadCount, autoT
 
 			threadPoolLimit = numCPUs * 2
 		}
+	case *policy == v1.IOThreadsPolicySupplementalPool:
+		if vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount != nil {
+			ioThreadCount = int(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount)
+		}
+		return
 	}
 
 	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
@@ -1313,6 +1319,7 @@ func setIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus uint
 	if !hasIOThreads(vmi) {
 		return
 	}
+	currentAutoThread := defaultIOThread
 	ioThreadCount, autoThreads := getIOThreadsCountType(vmi)
 	if ioThreadCount != 0 {
 		if domain.Spec.IOThreads == nil {
@@ -1320,20 +1327,32 @@ func setIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus uint
 		}
 		domain.Spec.IOThreads.IOThreads = uint(ioThreadCount)
 	}
-
-	currentAutoThread := defaultIOThread
-	currentDedicatedThread := uint(autoThreads + 1)
-	for i, disk := range domain.Spec.Devices.Disks {
-		// Only disks with virtio bus support IOThreads
-		if disk.Target.Bus == v1.DiskBusVirtio {
-			if vmi.Spec.Domain.Devices.Disks[i].DedicatedIOThread != nil && *vmi.Spec.Domain.Devices.Disks[i].DedicatedIOThread {
-				domain.Spec.Devices.Disks[i].Driver.IOThread = pointer.P(currentDedicatedThread)
-				currentDedicatedThread += 1
-			} else {
-				domain.Spec.Devices.Disks[i].Driver.IOThread = pointer.P(currentAutoThread)
-				// increment the threadId to be used next but wrap around at the thread limit
-				// the odd math here is because thread ID's start at 1, not 0
-				currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1
+	if vmi.Spec.Domain.IOThreadsPolicy != nil &&
+		*vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool {
+		iothreads := &api.DiskIOThreads{}
+		for id := 1; id <= int(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount); id++ {
+			iothreads.IOThread = append(iothreads.IOThread, api.DiskIOThread{Id: uint32(id)})
+		}
+		for i, disk := range domain.Spec.Devices.Disks {
+			// Only disks with virtio bus support IOThreads
+			if disk.Target.Bus == v1.DiskBusVirtio {
+				domain.Spec.Devices.Disks[i].Driver.IOThreads = iothreads
+			}
+		}
+	} else {
+		currentDedicatedThread := uint(autoThreads + 1)
+		for i, disk := range domain.Spec.Devices.Disks {
+			// Only disks with virtio bus support IOThreads
+			if disk.Target.Bus == v1.DiskBusVirtio {
+				if vmi.Spec.Domain.Devices.Disks[i].DedicatedIOThread != nil && *vmi.Spec.Domain.Devices.Disks[i].DedicatedIOThread {
+					domain.Spec.Devices.Disks[i].Driver.IOThread = pointer.P(currentDedicatedThread)
+					currentDedicatedThread += 1
+				} else {
+					domain.Spec.Devices.Disks[i].Driver.IOThread = pointer.P(currentAutoThread)
+					// increment the threadId to be used next but wrap around at the thread limit
+					// the odd math here is because thread ID's start at 1, not 0
+					currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1
+				}
 			}
 		}
 	}

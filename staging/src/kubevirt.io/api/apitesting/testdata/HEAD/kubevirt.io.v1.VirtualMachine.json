@@ -412,6 +412,9 @@
             }
           },
           "ioThreadsPolicy": "ioThreadsPolicyValue",
+          "ioThreads": {
+            "supplementalPoolThreadCount": 4294967269
+          },
           "chassis": {
             "manufacturer": "manufacturerValue",
             "version": "versionValue",
