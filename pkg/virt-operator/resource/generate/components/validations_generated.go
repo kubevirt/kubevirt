@@ -19167,6 +19167,14 @@ var CRDsValidation map[string]string = map[string]string{
       type: object
     spec:
       properties:
+        nameGeneration:
+          description: Options for the name generation in a pool.
+          properties:
+            appendIndexToConfigMapRefs:
+              type: boolean
+            appendIndexToSecretRefs:
+              type: boolean
+          type: object
         paused:
           description: Indicates that the pool is paused.
           type: boolean
