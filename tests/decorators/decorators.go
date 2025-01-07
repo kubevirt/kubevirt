@@ -73,6 +73,8 @@ var (
 	RequiresRWXBlock = Label("RequiresRWXBlock")
 	// Requires a storage class with Block storage support
 	RequiresBlockStorage = Label("RequiresBlockStorage")
+	// Tests that ensure sig-storage functionality which are conformance-unready
+	StorageCritical = Label("StorageCritical")
 	// Kubernetes versions
 	Kubernetes130 = Label("kubernetes130")
 	// WG archs

@@ -117,7 +117,7 @@ var _ = VirtctlDescribe("[sig-storage]ImageUpload", decorators.SigStorage, Seria
 			libwait.WithTimeout(180),
 		)
 	},
-		Entry("DataVolume", "dv", validateDataVolume, libvmi.WithDataVolume),
+		Entry("DataVolume", decorators.StorageCritical, "dv", validateDataVolume, libvmi.WithDataVolume),
 		Entry("PVC", "pvc", validatePVC, libvmi.WithPersistentVolumeClaim),
 	)
 

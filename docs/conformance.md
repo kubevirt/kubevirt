@@ -96,27 +96,34 @@ Find them at `plugins/kubevirt-conformance/results/global/k8s-reporter` of the t
 make conformance
 ```
 
-To run without outside connectivity tests add the argument:
+To run without outside connectivity tests add the following environment variable:
 
 ```bash
 SKIP_OUTSIDE_CONN_TESTS=true make conformance
 ```
 
-The following argument is only used for running the conformance tests on the Arm64 test infrastructure in KubeVirtCI.
+In case one does not have block storage/snapshot support in the cluster,  
+It's possible to run without block storage/snapshot tests via these environment variables:
+
+```bash
+SKIP_BLOCK_STORAGE_TESTS=true SKIP_SNAPSHOT_STORAGE_TESTS=true make conformance
+```
+
+The following environment variable is only used for running the conformance tests on the Arm64 test infrastructure in KubeVirtCI.
 This is necessary because some specific setups, such as IPv6, are not enabled on the Arm64 test infrastructure.
-By adding the argument, we can skip the unsupported tests.
+By adding the environment variable, we can skip the unsupported tests.
 
 ```bash
 RUN_ON_ARM64_INFRA=true make conformance
 ```
 
-To focus on specific tests pass KUBEVIRT_E2E_FOCUS argument:
+To focus on specific tests pass KUBEVIRT_E2E_FOCUS environment variable:
 
 ```bash
 KUBEVIRT_E2E_FOCUS=sig-network make conformance
 ```
 
-To use on specific images tag on test suite override DOCKER_TAG argument:
+To use on specific images tag on test suite override DOCKER_TAG environment variable:
 
 ```bash
 DOCKER_TAG=mybuild make conformance

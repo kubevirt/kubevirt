@@ -40,6 +40,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -338,7 +339,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			removeMemoryDumpAndVerify(vm, memoryDumpPVCName, previousOutput, removeMemoryDumpVMSubresource)
 		})
 
-		It("[test_id:8502]Run multiple memory dumps", func() {
+		It("[test_id:8502]Run multiple memory dumps", decorators.StorageCritical, func() {
 			previousOutput := ""
 			for i := 0; i < 3; i++ {
 				By("Running memory dump number: " + strconv.Itoa(i))

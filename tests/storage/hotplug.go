@@ -532,7 +532,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		DescribeTable("Should add volumes on an offline VM", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction) {
+		DescribeTable("Should add volumes on an offline VM", decorators.StorageCritical, func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction) {
 			By("Adding test volumes")
 			addVolumeFunc(vm.Name, vm.Namespace, testNewVolume1, "madeup", v1.DiskBusSCSI, false, "")
 			addVolumeFunc(vm.Name, vm.Namespace, testNewVolume2, "madeup2", v1.DiskBusSCSI, false, "")
@@ -582,7 +582,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		DescribeTable("Should start with a hotplug block", func(addVolumeFunc addVolumeFunction) {
+		DescribeTable("Should start with a hotplug block", decorators.StorageCritical, func(addVolumeFunc addVolumeFunction) {
 			dv := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeBlock)
 
 			By("Adding a hotplug block volume")
@@ -772,7 +772,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 			})
 
-			DescribeTable("should add/remove volume", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode, vmiOnly, waitToStart bool) {
+			DescribeTable("should add/remove volume", decorators.StorageCritical, func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode, vmiOnly, waitToStart bool) {
 				verifyAttachDetachVolume(vm, addVolumeFunc, removeVolumeFunc, sc, volumeMode, vmiOnly, waitToStart)
 			},
 				Entry("with DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, false, false),
@@ -1164,7 +1164,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				}
 			})
 
-			DescribeTable("should allow live migration with attached hotplug volumes", func(vmiFunc func() *v1.VirtualMachineInstance) {
+			DescribeTable("should allow live migration with attached hotplug volumes", decorators.StorageCritical, func(vmiFunc func() *v1.VirtualMachineInstance) {
 				vmi = vmiFunc()
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
 				volumeName := "testvolume"
@@ -1718,7 +1718,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			libstorage.DeleteStorageClass(storageClassHostPath)
 		})
 
-		It("should attach a hostpath based volume to running VM", func() {
+		It("should attach a hostpath based volume to running VM", decorators.StorageCritical, func() {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi,
