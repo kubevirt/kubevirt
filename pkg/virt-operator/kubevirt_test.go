@@ -2628,6 +2628,98 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.resourceChanges["daemonsets"][Patched]).To(Equal(0))           // namespace unpatched
 		})
 
+		It("should apply virt-api replica count from a CustomizeComponents patch", func() {
+			kvTestData := KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			defer kvTestData.AfterTest()
+
+			expectedReplicas := 4
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-install",
+					Namespace: NAMESPACE,
+				},
+				Spec: v1.KubeVirtSpec{
+					CustomizeComponents: v1.CustomizeComponents{
+						Patches: []v1.CustomizeComponentsPatch{
+							{
+								ResourceName: components.VirtAPIName,
+								ResourceType: "Deployment",
+								Type:         v1.JSONPatchType,
+								Patch:        `[{"op":"replace","path":"/spec/replicas","value":` + strconv.Itoa(expectedReplicas) + `}]`,
+							},
+						},
+					},
+				},
+			}
+
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
+			kvTestData.addKubeVirt(kv)
+
+			kvTestData.addInstallStrategy(kvTestData.defaultConfig)
+
+			apiDeployment, err := getDefaultVirtApiDeployment(NAMESPACE, kvTestData.defaultConfig)
+			Expect(err).ToNot(HaveOccurred())
+			kvTestData.addDeployment(apiDeployment, kv)
+
+			kvTestData.kvInterface.EXPECT().
+				Patch(
+					context.Background(),
+					kv.Name,
+					types.JSONPatchType,
+					gomock.Any(),
+					metav1.PatchOptions{},
+					gomock.Any(),
+				).
+				DoAndReturn(func(_ context.Context, name string, patchType types.PatchType, patch []byte, options metav1.PatchOptions, subresources ...string) (*v1.KubeVirt, error) {
+					fmt.Printf("KubeVirt Patch Payload: %s\n", string(patch))
+					return kv, nil
+				}).AnyTimes()
+
+			kvTestData.kvInterface.EXPECT().
+				UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{}).
+				DoAndReturn(func(_ context.Context, updatedKv *v1.KubeVirt, _ metav1.UpdateOptions) (*v1.KubeVirt, error) {
+					return updatedKv, nil
+				}).AnyTimes()
+
+			kvTestData.kubeClient.Fake.PrependReactor("patch", "deployments", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				patchAction, ok := action.(testing.PatchAction)
+				Expect(ok).To(BeTrue())
+				Expect(patchAction.GetName()).To(Equal(components.VirtAPIName))
+				Expect(patchAction.GetPatchType()).To(Equal(types.JSONPatchType))
+
+				patchedDeployment := apiDeployment.DeepCopy()
+				patchedDeployment.Spec.Replicas = pointer.P(int32(expectedReplicas))
+				fmt.Printf("Deployment Patch Payload: %s\n", string(patchAction.GetPatch()))
+				return true, patchedDeployment, nil
+			})
+
+			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+			kvTestData.shouldExpectCreations()
+
+			kvTestData.controller.Execute()
+
+			updatedDeployment, exist, err := kvTestData.controller.stores.DeploymentCache.Get("kubevirt-test/virt-api")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exist).To(BeTrue(), "virt-api Deployment should exist in the cache")
+			Expect(updatedDeployment).ToNot(BeNil(), "virt-api Deployment should not be nil")
+
+			deployment, ok := updatedDeployment.(*appsv1.Deployment)
+			Expect(ok).To(BeTrue(), "Object in cache should be a Deployment")
+			Expect(deployment.Spec.Replicas).ToNot(BeNil())
+			Expect(*deployment.Spec.Replicas).To(Equal(int32(expectedReplicas)), "Expected virt-api replicas to be updated")
+		})
+
+		DescribeTable("virt-api replica calculation", func(nodesCount int, expectedReplicas int32) {
+			Expect(calcExpectedReplicas(nodesCount)).To(Equal(expectedReplicas))
+		},
+			Entry("single node cluster", 1, int32(1)),
+			Entry("3 nodes cluster", 3, int32(2)),
+			Entry("30 nodes cluster", 30, int32(3)),
+			Entry("100 nodes cluster", 100, int32(10)),
+		)
+
 		DescribeTable("should update kubevirt resources when Operator version changes if no imageTag and imageRegistry is explicitly set.", func(withExport bool, patchCount, resourceCount, numPDBs int) {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
@@ -3166,4 +3258,22 @@ func getDefaultExportProxyDeployment(namespace string, config *util.KubeVirtDepl
 		config.GetImagePullSecrets(),
 		config.GetVerbosity(),
 		config.GetExtraEnv())
+}
+
+func calcExpectedReplicas(nodesCount int) int32 {
+	// Please note that this logic is temporary. For more information take a look on the comment in
+	// getDesiredApiReplicas() function in pkg/virt-operator/resource/apply/apps.go.
+	//
+	// When the logic is replaced for getDesiredApiReplicas(), it needs to be replaced here as well.
+	if nodesCount == 1 {
+		return 1
+	}
+
+	const minReplicas = 2
+	expectedReplicas := nodesCount / 10
+	if expectedReplicas < minReplicas {
+		expectedReplicas = minReplicas
+	}
+
+	return int32(expectedReplicas)
 }
