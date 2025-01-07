@@ -37,6 +37,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/util/cluster"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -113,6 +114,13 @@ func AdjustKubeVirtResource() {
 		featuregate.VMPersistentState,
 		featuregate.AutoResourceLimitsGate,
 	)
+
+	v, err := cluster.GetKubernetesVersion()
+	if v >= "1.31" {
+		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
+			featuregate.ImageVolume,
+		)
+	}
 
 	if kv.Spec.Configuration.NetworkConfiguration == nil {
 		testDefaultPermitSlirpInterface := true
