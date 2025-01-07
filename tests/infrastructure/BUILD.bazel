@@ -20,7 +20,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
-        "//pkg/util/cluster:go_default_library",
         "//pkg/util/tls:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/node-labeller/util:go_default_library",
