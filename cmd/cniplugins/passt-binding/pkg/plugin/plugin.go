@@ -30,7 +30,6 @@ import (
 	type100 "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/plugins/pkg/ns"
 
-	"kubevirt.io/kubevirt/cmd/cniplugins/passt-binding/pkg/plugin/netlink"
 	"kubevirt.io/kubevirt/cmd/cniplugins/passt-binding/pkg/plugin/sysctl"
 )
 
@@ -43,7 +42,7 @@ func CmdAdd(args *skel.CmdArgs) error {
 	}
 	defer netns.Close()
 
-	c := NewCmd(netns, sysctl.New(), netlink.New())
+	c := NewCmd(netns, sysctl.New())
 	result, err := c.CmdAddResult(args)
 	if err != nil {
 		return err
@@ -74,8 +73,8 @@ type cmd struct {
 	netlinkAdapter netlinkAdapter
 }
 
-func NewCmd(netns ns.NetNS, sysctlAdapter sysctlAdapter, netlinkAdapter netlinkAdapter) *cmd {
-	return &cmd{netns: netns, sysctlAdapter: sysctlAdapter, netlinkAdapter: netlinkAdapter}
+func NewCmd(netns ns.NetNS, sysctlAdapter sysctlAdapter) *cmd {
+	return &cmd{netns: netns, sysctlAdapter: sysctlAdapter}
 }
 
 func (c *cmd) CmdAddResult(args *skel.CmdArgs) (types.Result, error) {
