@@ -372,13 +372,13 @@ func withLivelinessProbe(probe *v1.Probe) libvmi.Option {
 }
 
 func newHTTPServerPod(ipFamily, port int) *k8sv1.Pod {
-	serverCommand := fmt.Sprintf("nc -%d -klp %d --sh-exec 'echo -e \"HTTP/1.1 200 OK\\nContent-Length: 12\\n\\nHello World!\"'", ipFamily, port)
-	return libpod.RenderPrivilegedPod("http-hello-world-server", []string{"/bin/bash"}, []string{"-c", serverCommand})
+	serverCommand := fmt.Sprintf("while true; do nc -%d -klp %d --sh-exec 'echo -e \"HTTP/1.1 200 OK\\nContent-Length: 12\\n\\nHello World\"'; done;", ipFamily, port)
+	return libpod.RenderPod("http-hello-world-server", []string{"/bin/bash"}, []string{"-c", serverCommand})
 }
 
 func newTCPServerPod(ipFamily, port int) *k8sv1.Pod {
-	serverCommand := fmt.Sprintf("nc -%d -klp %d --sh-exec 'echo \"Hello World!\"'", ipFamily, port)
-	return libpod.RenderPrivilegedPod("tcp-hello-world-server", []string{"/bin/bash"}, []string{"-c", serverCommand})
+	serverCommand := fmt.Sprintf("while true; do nc -%d -klp %d --sh-exec 'echo \"Hello World\"'; done;", ipFamily, port)
+	return libpod.RenderPod("tcp-hello-world-server", []string{"/bin/bash"}, []string{"-c", serverCommand})
 }
 
 func createPodAndWaitUntil(pod *k8sv1.Pod, phaseToWait k8sv1.PodPhase) *k8sv1.Pod {
