@@ -37,6 +37,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/util/cluster"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -113,6 +114,12 @@ func AdjustKubeVirtResource() {
 		virtconfig.VMPersistentState,
 		virtconfig.AutoResourceLimitsGate,
 	)
+	v, err := cluster.GetKubernetesVersion()
+	if v >= "1.31" {
+		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
+			virtconfig.ImageVolume,
+		)
+	}
 	if flags.DisableCustomSELinuxPolicy {
 		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
 			virtconfig.DisableCustomSELinuxPolicy,
