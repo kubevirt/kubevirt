@@ -139,6 +139,8 @@ aliases:
   sig-observability-reviewers:
     - machadovilaca
     - avlitman
+    - nunnatsa
+    - orenc1
 
   #
   # SIG Release
