@@ -14,6 +14,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/config"
+	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
@@ -213,6 +214,27 @@ func withVMIConfigVolumes(vmiDisks []v1.Disk, vmiVolumes []v1.Volume) VolumeRend
 			if volume.DownwardAPI != nil {
 				renderer.addDownwardAPIVolumeMount(volume)
 			}
+		}
+		return nil
+	}
+}
+
+func withImageVolumes(vmi *v1.VirtualMachineInstance, imageVolumeFeatureGateEnabled bool) VolumeRendererOption {
+	return func(renderer *VolumeRenderer) error {
+		if !imageVolumeFeatureGateEnabled {
+			return nil
+		}
+		for i, volume := range vmi.Spec.Volumes {
+			if volume.ContainerDisk != nil {
+				renderer.addContainerDiskVolume(volume)
+				renderer.addContainerDiskVolumeMount(volume, i)
+			}
+		}
+
+		if util.HasKernelBootContainerImage(vmi) {
+			kbc := vmi.Spec.Domain.Firmware.KernelBoot.Container
+			renderer.addKernelBootVolume(kbc)
+			renderer.addKernelBootVolumeMount()
 		}
 		return nil
 	}
@@ -689,6 +711,43 @@ func (vr *VolumeRenderer) addDownwardAPIVolumeMount(volume v1.Volume) {
 	})
 }
 
+func (vr *VolumeRenderer) addContainerDiskVolume(volume v1.Volume) {
+	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
+		Name: volume.Name,
+		VolumeSource: k8sv1.VolumeSource{
+			Image: &k8sv1.ImageVolumeSource{
+				Reference:  volume.ContainerDisk.Image,
+				PullPolicy: volume.ContainerDisk.ImagePullPolicy,
+			},
+		},
+	})
+}
+
+func (vr *VolumeRenderer) addKernelBootVolumeMount() {
+	vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
+		Name:      containerdisk.KernelBootName,
+		MountPath: filepath.Join(filepath.Join(util.VirtShareDir, "/container-disks"), containerdisk.KernelBootName),
+	})
+}
+
+func (vr *VolumeRenderer) addKernelBootVolume(kbc *v1.KernelBootContainer) {
+	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
+		Name: containerdisk.KernelBootName,
+		VolumeSource: k8sv1.VolumeSource{
+			Image: &k8sv1.ImageVolumeSource{
+				Reference:  kbc.Image,
+				PullPolicy: kbc.ImagePullPolicy,
+			},
+		},
+	})
+}
+
+func (vr *VolumeRenderer) addContainerDiskVolumeMount(volume v1.Volume, volumeIndex int) {
+	vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
+		Name:      volume.Name,
+		MountPath: filepath.Join(filepath.Join(util.VirtShareDir, "/container-disks"), containerdisk.GetDiskTargetName(volumeIndex)),
+	})
+}
 func (vr *VolumeRenderer) handleCloudInitNoCloud(volume v1.Volume) {
 	if volume.CloudInitNoCloud.UserDataSecretRef != nil {
 		// attach a secret referenced by the user

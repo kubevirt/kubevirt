@@ -363,6 +363,11 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	gracePeriodSeconds := gracePeriodInSeconds(vmi)
 
 	imagePullSecrets := imgPullSecrets(vmi.Spec.Volumes...)
+	if util.HasKernelBootContainerImage(vmi) && vmi.Spec.Domain.Firmware.KernelBoot.Container.ImagePullSecret != "" {
+		imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, k8sv1.LocalObjectReference{
+			Name: vmi.Spec.Domain.Firmware.KernelBoot.Container.ImagePullSecret,
+		})
+	}
 	if t.imagePullSecret != "" {
 		imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, k8sv1.LocalObjectReference{
 			Name: t.imagePullSecret,
@@ -490,13 +495,15 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	// Make sure the compute container is always the first since the mutating webhook shipped with the sriov operator
 	// for adding the requested resources to the pod will add them to the first container of the list
 	containers := []k8sv1.Container{compute}
-	containersDisks := containerdisk.GenerateContainers(vmi, t.clusterConfig, imageIDs, containerDisks, virtBinDir)
-	containers = append(containers, containersDisks...)
+	if !t.clusterConfig.ImageVolumeEnabled() {
+		containersDisks := containerdisk.GenerateContainers(vmi, t.clusterConfig, imageIDs, containerDisks, virtBinDir)
+		containers = append(containers, containersDisks...)
 
-	kernelBootContainer := containerdisk.GenerateKernelBootContainer(vmi, t.clusterConfig, imageIDs, containerDisks, virtBinDir)
-	if kernelBootContainer != nil {
-		log.Log.Object(vmi).Infof("kernel boot container generated")
-		containers = append(containers, *kernelBootContainer)
+		kernelBootContainer := containerdisk.GenerateKernelBootContainer(vmi, t.clusterConfig, imageIDs, containerDisks, virtBinDir)
+		if kernelBootContainer != nil {
+			log.Log.Object(vmi).Infof("kernel boot container generated")
+			containers = append(containers, *kernelBootContainer)
+		}
 	}
 
 	virtiofsContainers := generateVirtioFSContainers(vmi, t.launcherImage, t.clusterConfig)
@@ -564,7 +571,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	var initContainers []k8sv1.Container
 
-	if HaveContainerDiskVolume(vmi.Spec.Volumes) || util.HasKernelBootContainerImage(vmi) {
+	if !t.clusterConfig.ImageVolumeEnabled() && (HaveContainerDiskVolume(vmi.Spec.Volumes) || util.HasKernelBootContainerImage(vmi)) {
 		initContainerCommand := []string{"/usr/bin/cp",
 			"/usr/bin/container-disk",
 			"/init/usr/bin/container-disk",
@@ -808,6 +815,7 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 		withVMIVolumes(t.persistentVolumeClaimStore, vmi.Spec.Volumes, vmi.Status.VolumeStatus),
 		withAccessCredentials(vmi.Spec.AccessCredentials),
 		withBackendStorage(vmi, backendStoragePVCName),
+		withImageVolumes(vmi, t.clusterConfig.ImageVolumeEnabled()),
 	}
 	if len(requestedHookSidecarList) != 0 {
 		volumeOpts = append(volumeOpts, withSidecarVolumes(requestedHookSidecarList))
