@@ -1448,6 +1448,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pvcs.Items).To(HaveLen(1))
+				pvc := pvcs.Items[0]
 
 				loginFunc := func(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) error {
 					// Wait for cloud init to finish and start the agent inside the vmi.
@@ -1458,6 +1459,12 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				doRestoreNoVMStart("", loginFunc, false, true, vm.Name)
 				startVMAfterRestore(vm.Name, "", true, loginFunc)
 				Expect(restore.Status.Restores).To(HaveLen(2))
+
+				By("Expect original backend PVC to be deleted")
+				Eventually(func() error {
+					_, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
+					return err
+				}, 60*time.Second, 5*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 			})
 
 			DescribeTable("should reject vm start if restore in progress", func(deleteFunc string) {
@@ -1958,6 +1965,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 							_, err := virtClient.CoreV1().Namespaces().Get(context.Background(), testsuite.NamespaceTestAlternative, metav1.GetOptions{})
 							return err
 						}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+
 						sourceDV = nil
 						cloneRole = nil
 						cloneRoleBinding = nil

@@ -28,6 +28,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
+	"github.com/openshift/library-go/pkg/build/naming"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -36,6 +37,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	validation "k8s.io/apimachinery/pkg/util/validation"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
@@ -64,6 +66,8 @@ const (
 
 	restoreSourceNamespaceLabel = "restore.kubevirt.io/source-vm-namespace"
 
+	restoreCleanupBackendPVCLabel = "restore.kubevirt.io/cleanup-backend-pvc"
+
 	restoreCompleteEvent = "VirtualMachineRestoreComplete"
 
 	restoreErrorEvent = "VirtualMachineRestoreError"
@@ -90,6 +94,7 @@ type restoreTarget interface {
 	UpdateTarget(obj metav1.Object)
 	Exists() bool
 	UID() types.UID
+	VirtualMachine() *kubevirtv1.VirtualMachine
 	TargetRestored() bool
 }
 
@@ -229,7 +234,7 @@ func (ctrl *VMRestoreController) updateVMRestore(vmRestoreIn *snapshotv1.Virtual
 		return 0, ctrl.doUpdateStatus(vmRestoreIn, vmRestoreOut)
 	}
 
-	if err = ctrl.deleteObsoleteDataVolumes(vmRestoreOut); err != nil {
+	if err = ctrl.deleteObsoleteVolumes(vmRestoreOut, target); err != nil {
 		logger.Reason(err).Error("Error cleaning up")
 		return 0, ctrl.doUpdateError(vmRestoreIn, err)
 	}
@@ -570,45 +575,72 @@ func (t *vmRestoreTarget) reconcileBackendVolume(snapshotVM *snapshotv1.VirtualM
 	// Retrieve only the backend volume
 	volumes, err := storageutils.GetVolumes(snapshotVM, t.controller.Client, storageutils.WithBackendVolume)
 	if err != nil {
-		if storageutils.IsErrNoBackendPVC(err) {
-			return false, nil
-		}
+		// Not checking for ErrNoBackendPVC, simply returning
+		// error as backend PVC should exist now
 		return false, err
 	}
 
-	pvc, err := t.controller.getPVC(snapshotVM.Namespace, volumes[0].VolumeSource.PersistentVolumeClaim.ClaimName)
-	if err != nil || pvc == nil {
+	isRestorePVCUpdated := false
+	for _, volume := range volumes {
+		pvc, err := t.controller.getPVC(snapshotVM.Namespace, volume.VolumeSource.PersistentVolumeClaim.ClaimName)
+		if err != nil || pvc == nil {
+			return false, err
+		}
+
+		// Step 1: Remove backend label from the original backend PVC
+		updated, err := t.removeBackendLabelFromPVC(pvc, snapshotVM.Name)
+		if err != nil {
+			return false, err
+		}
+
+		// Step 2: Update the restore PVC with backend labels
+		isRestorePVCUpdated, err = t.updateRestorePVCWithBackendLabel(pvc)
+		if err != nil {
+			return false, err
+		}
+
+		isRestorePVCUpdated = updated || isRestorePVCUpdated
+	}
+
+	return isRestorePVCUpdated, nil
+}
+
+func (t *vmRestoreTarget) removeBackendLabelFromPVC(pvc *corev1.PersistentVolumeClaim, snapshotVMName string) (bool, error) {
+	if pvc.Labels == nil {
+		return false, nil
+	}
+
+	// Only remove label when the VM name is the same since the backend logic filters by VM name + label
+	if t.vmRestore.Spec.Target.Name == snapshotVMName {
+		for _, vr := range t.vmRestore.Status.Restores {
+			if vr.PersistentVolumeClaimName == pvc.Name {
+				log.Log.Object(t.vmRestore).V(3).Infof("Restore PVC %s updated with backend label", pvc.Name)
+				return true, nil
+			}
+		}
+
+		// Remove the backend label.
+		newLabels := getFilteredLabels(pvc.Labels)
+		// Adding this label to identify the original backend PVC and garbage-collect it.
+		newLabels[restoreCleanupBackendPVCLabel] = getCleanupLabelValue(t.vmRestore)
+
+		// Generate patch to remove the backend label
+		patchBytes, err := patch.New(
+			patch.WithTest("/metadata/labels", pvc.Labels),
+			patch.WithReplace("/metadata/labels", newLabels),
+		).GeneratePayload()
+		if err != nil {
+			return false, err
+		}
+
+		_, err = t.controller.Client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Patch(context.Background(), pvc.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		return false, err
 	}
 
-	// Step 1: Remove backend pvc label from original backend PVC
-	if pvc.Labels != nil {
-		// Only remove label when the VM name is the same since the backend logic filters by VM name + label
-		if t.vmRestore.Spec.Target.Name == snapshotVM.Name {
-			isRestorePVC := false
-			for _, vr := range t.vmRestore.Status.Restores {
-				if vr.PersistentVolumeClaimName == pvc.Name {
-					isRestorePVC = true
-				}
-			}
-			if !isRestorePVC {
-				// Generate patch to remove the labels
-				patchBytes, err := patch.New(
-					patch.WithTest("/metadata/labels", pvc.Labels),
-					patch.WithReplace("/metadata/labels", getFilteredLabels(pvc.Labels)),
-				).GeneratePayload()
+	return false, nil
+}
 
-				if err != nil {
-					return false, err
-				}
-				if _, err := t.controller.Client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Patch(context.Background(), pvc.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
-					return false, err
-				}
-			}
-		}
-	}
-
-	// Step 2: Update restore PVC with backend labels
+func (t *vmRestoreTarget) updateRestorePVCWithBackendLabel(originalPVC *corev1.PersistentVolumeClaim) (bool, error) {
 	for _, vr := range t.vmRestore.Status.Restores {
 		if vr.VolumeName == storageutils.BackendPVCVolumeName(t.vmRestore.Spec.Target.Name) {
 			restorePVC, err := t.controller.getPVC(t.vmRestore.Namespace, vr.PersistentVolumeClaimName)
@@ -616,14 +648,17 @@ func (t *vmRestoreTarget) reconcileBackendVolume(snapshotVM *snapshotv1.VirtualM
 				return false, err
 			}
 
-			patchSet := patch.New()
+			// This means the restore PVC is already updated
+			if restorePVC.Name == originalPVC.Name {
+				return true, nil
+			}
 
+			// Patch restore PVC with backend label
+			patchSet := patch.New()
 			if restorePVC.Labels == nil {
-				patchSet.AddOption(
-					patch.WithAdd("/metadata/labels", map[string]string{
-						backendstorage.PVCPrefix: t.vmRestore.Spec.Target.Name,
-					}),
-				)
+				patchSet.AddOption(patch.WithAdd("/metadata/labels", map[string]string{
+					backendstorage.PVCPrefix: t.vmRestore.Spec.Target.Name,
+				}))
 			} else {
 				updatedLabels := make(map[string]string, len(restorePVC.Labels))
 				for k, v := range restorePVC.Labels {
@@ -636,19 +671,21 @@ func (t *vmRestoreTarget) reconcileBackendVolume(snapshotVM *snapshotv1.VirtualM
 					patch.WithReplace("/metadata/labels", updatedLabels),
 				)
 			}
-
 			patchBytes, err := patchSet.GeneratePayload()
 			if err != nil {
 				return false, err
 			}
-
-			if _, err := t.controller.Client.CoreV1().PersistentVolumeClaims(restorePVC.Namespace).Patch(context.Background(), restorePVC.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+			_, err = t.controller.Client.CoreV1().PersistentVolumeClaims(restorePVC.Namespace).Patch(context.Background(), restorePVC.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+			if err != nil {
 				return false, err
 			}
 		}
 	}
+	return false, nil
+}
 
-	return true, nil
+func getCleanupLabelValue(vmRestore *snapshotv1.VirtualMachineRestore) string {
+	return naming.GetName(backendstorage.PVCPrefix, vmRestore.Spec.Target.Name, validation.DNS1035LabelMaxLength)
 }
 
 func (t *vmRestoreTarget) getSnapshotVM() (*snapshotv1.VirtualMachine, error) {
@@ -1089,7 +1126,7 @@ func (t *vmRestoreTarget) Own(obj metav1.Object) {
 	return
 }
 
-func (ctrl *VMRestoreController) deleteObsoleteDataVolumes(vmRestore *snapshotv1.VirtualMachineRestore) error {
+func (ctrl *VMRestoreController) deleteObsoleteVolumes(vmRestore *snapshotv1.VirtualMachineRestore, target restoreTarget) error {
 	for _, dvName := range vmRestore.Status.DeletedDataVolumes {
 		objKey := cacheKeyFunc(vmRestore.Namespace, dvName)
 		_, exists, err := ctrl.DataVolumeInformer.GetStore().GetByKey(objKey)
@@ -1106,6 +1143,31 @@ func (ctrl *VMRestoreController) deleteObsoleteDataVolumes(vmRestore *snapshotv1
 		}
 	}
 
+	// Garbage-collect original backend PVC if necessary
+	err := ctrl.deleteObsoleteBackendPVC(vmRestore, target)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ctrl *VMRestoreController) deleteObsoleteBackendPVC(vmRestore *snapshotv1.VirtualMachineRestore, target restoreTarget) error {
+	// Target should always exist at this point, just nil check for safety.
+	if target.Exists() && backendstorage.IsBackendStorageNeededForVM(target.VirtualMachine()) {
+		pvcs, err := ctrl.Client.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s", restoreCleanupBackendPVCLabel, getCleanupLabelValue(vmRestore)),
+		})
+		if err != nil {
+			return err
+		}
+		for _, pvc := range pvcs.Items {
+			err = ctrl.Client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(context.Background(), pvc.Name, metav1.DeleteOptions{})
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -1118,6 +1180,10 @@ func (t *vmRestoreTarget) UID() types.UID {
 
 func (t *vmRestoreTarget) Exists() bool {
 	return t.vm != nil
+}
+
+func (t *vmRestoreTarget) VirtualMachine() *kubevirtv1.VirtualMachine {
+	return t.vm
 }
 
 func sourceAndTargetAreDifferent(target restoreTarget, vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
