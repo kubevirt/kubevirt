@@ -91,7 +91,7 @@ func getVolumes(obj metav1.Object, vmiSpec v1.VirtualMachineInstanceSpec, client
 			return enumeratedVolumes, err
 		}
 		if backendVolumeName != "" {
-			enumeratedVolumes = append(enumeratedVolumes, *createPVCVolume(backendVolumeName))
+			enumeratedVolumes = append(enumeratedVolumes, *createBackendPVCVolume(backendVolumeName, obj.GetName()))
 		}
 	}
 
@@ -151,9 +151,9 @@ func needsRegularVolumes(vmiSpec v1.VirtualMachineInstanceSpec, opts []VolumeOpt
 	return false
 }
 
-func createPVCVolume(pvcName string) *v1.Volume {
+func createBackendPVCVolume(pvcName, vmName string) *v1.Volume {
 	return &v1.Volume{
-		Name: pvcName,
+		Name: BackendPVCVolumeName(vmName),
 		VolumeSource: v1.VolumeSource{
 			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
@@ -163,6 +163,12 @@ func createPVCVolume(pvcName string) *v1.Volume {
 			},
 		},
 	}
+}
+
+// BackendPVCVolumeName return the name of the volume that will be arbitrarily used to represent
+// the backend PVC during volume enumeration.
+func BackendPVCVolumeName(vmName string) string {
+	return fmt.Sprintf("%s-%s", backendstorage.PVCPrefix, vmName)
 }
 
 // Helper function to select the newest non-terminating PVC
