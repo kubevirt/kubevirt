@@ -481,13 +481,6 @@ func (c *Controller) handleDataVolumes(vm *virtv1.VirtualMachine) (bool, error) 
 				return false, err
 			}
 
-			if pvc != nil {
-				// don't want to keep creating DataVolumes that will be garbage collected
-				if storagetypes.IsDataVolumeGarbageCollected(pvc) {
-					continue
-				}
-			}
-
 			// ready = false because encountered DataVolume that is not created yet
 			ready = false
 			newDataVolume, err := watchutil.CreateDataVolumeManifest(c.clientset, template, vm)
@@ -514,14 +507,20 @@ func (c *Controller) handleDataVolumes(vm *virtv1.VirtualMachine) (bool, error) 
 				return ready, fmt.Errorf("failed to create DataVolume: %v", err)
 			}
 			c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDataVolumeCreateReason, "Created DataVolume %s", curDataVolume.Name)
-		} else if curDataVolume.Status.Phase != cdiv1.Succeeded &&
-			curDataVolume.Status.Phase != cdiv1.WaitForFirstConsumer &&
-			curDataVolume.Status.Phase != cdiv1.PendingPopulation {
+		} else {
+			switch curDataVolume.Status.Phase {
+			case cdiv1.Succeeded, cdiv1.WaitForFirstConsumer, cdiv1.PendingPopulation:
+				continue
+			case cdiv1.Failed:
+				c.recorder.Eventf(vm, k8score.EventTypeWarning, controller.FailedDataVolumeImportReason, "DataVolume %s failed to import disk image", curDataVolume.Name)
+			case cdiv1.Pending:
+				if err := storagetypes.HasDataVolumeExceededQuotaError(curDataVolume); err != nil {
+					c.recorder.Eventf(vm, k8score.EventTypeWarning, controller.FailedDataVolumeImportReason, "DataVolume %s exceeds quota limits", curDataVolume.Name)
+					return false, err
+				}
+			}
 			// ready = false because encountered DataVolume that is not populated yet
 			ready = false
-			if curDataVolume.Status.Phase == cdiv1.Failed {
-				c.recorder.Eventf(vm, k8score.EventTypeWarning, controller.FailedDataVolumeImportReason, "DataVolume %s failed to import disk image", curDataVolume.Name)
-			}
 		}
 	}
 	return ready, nil
