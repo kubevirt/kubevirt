@@ -27,6 +27,7 @@ import (
 
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
@@ -36,6 +37,7 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -93,7 +95,10 @@ func (admitter *VMRestoreAdmitter) Admit(ctx context.Context, ar *admissionv1.Ad
 			case core.GroupName:
 				switch vmRestore.Spec.Target.Kind {
 				case "VirtualMachine":
-					causes = admitter.validatePatches(vmRestore.Spec.Patches, k8sfield.NewPath("spec", "patches"))
+					causes, err = admitter.validateTargetVM(ctx, k8sfield.NewPath("spec"), vmRestore)
+					if err != nil {
+						return webhookutils.ToAdmissionResponseError(err)
+					}
 				default:
 					causes = []metav1.StatusCause{
 						{
@@ -160,6 +165,54 @@ func (admitter *VMRestoreAdmitter) Admit(ctx context.Context, ar *admissionv1.Ad
 		Allowed: true,
 	}
 	return &reviewResponse
+}
+
+func (admitter *VMRestoreAdmitter) validateTargetVM(ctx context.Context, field *k8sfield.Path, vmRestore *snapshotv1.VirtualMachineRestore) (causes []metav1.StatusCause, err error) {
+	targetName := vmRestore.Spec.Target.Name
+	namespace := vmRestore.Namespace
+
+	causes = admitter.validatePatches(vmRestore.Spec.Patches, field.Child("patches"))
+
+	vmSnapshot, err := admitter.Client.VirtualMachineSnapshot(namespace).Get(ctx, vmRestore.Spec.VirtualMachineSnapshotName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	target, err := admitter.Client.VirtualMachine(namespace).Get(ctx, targetName, metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	}
+
+	sourceTargetVmsAreDifferent := errors.IsNotFound(err) || (vmSnapshot.Status.SourceUID != nil && target.UID != *vmSnapshot.Status.SourceUID)
+	if sourceTargetVmsAreDifferent {
+		contentName := vmSnapshot.Status.VirtualMachineSnapshotContentName
+		if contentName == nil {
+			return nil, fmt.Errorf("snapshot content name is nil in vmSnapshot status")
+		}
+
+		vmSnapshotContent, err := admitter.Client.VirtualMachineSnapshotContent(namespace).Get(ctx, *contentName, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		snapshotVM := vmSnapshotContent.Spec.Source.VirtualMachine
+		if snapshotVM == nil {
+			return nil, fmt.Errorf("unexpected snapshot source")
+		}
+
+		if backendstorage.IsBackendStorageNeededForVMI(&snapshotVM.Spec.Template.Spec) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Restore to a different VM not supported when using backend storage",
+				Field:   field.String(),
+			})
+		}
+	}
+
+	return causes, nil
 }
 
 func (admitter *VMRestoreAdmitter) validatePatches(patches []string, field *k8sfield.Path) (causes []metav1.StatusCause) {
