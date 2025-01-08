@@ -570,6 +570,46 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			return pool.Status.Replicas
 		}, 10*time.Second, 1*time.Second).Should(Equal(int32(1)))
 	})
+
+	DescribeTable("should respect name generation settings", func(appendIndex *bool) {
+		const (
+			cmName     = "configmap"
+			secretName = "secret"
+		)
+
+		newPool := newPoolFromVMI(libvmi.New(
+			libvmi.WithConfigMapDisk(cmName, cmName),
+			libvmi.WithSecretDisk(secretName, secretName),
+		))
+		newPool.Spec.NameGeneration = &poolv1.VirtualMachinePoolNameGeneration{
+			AppendIndexToConfigMapRefs: appendIndex,
+			AppendIndexToSecretRefs:    appendIndex,
+		}
+		createVirtualMachinePool(newPool)
+		doScale(newPool.Name, 2)
+
+		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: labelSelectorToString(newPool.Spec.Selector),
+		})
+		Expect(vms.Items).To(HaveLen(2))
+		Expect(err).ToNot(HaveOccurred())
+		for _, vm := range vms.Items {
+			Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(2))
+			Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(cmName))
+			Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(secretName))
+			if appendIndex != nil && *appendIndex {
+				Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ConfigMap.Name).To(MatchRegexp(fmt.Sprintf("%s-\\d", cmName)))
+				Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.Secret.SecretName).To(MatchRegexp(fmt.Sprintf("%s-\\d", secretName)))
+			} else {
+				Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ConfigMap.Name).To(Equal(cmName))
+				Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.Secret.SecretName).To(Equal(secretName))
+			}
+		}
+	},
+		Entry("do not append index by default", nil),
+		Entry("do not append index if set to false", pointer.P(false)),
+		Entry("append index if set to true", pointer.P(true)),
+	)
 })
 
 func newPoolFromVMI(vmi *v1.VirtualMachineInstance) *poolv1.VirtualMachinePool {
