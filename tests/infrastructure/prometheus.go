@@ -28,7 +28,7 @@ import (
 	"strings"
 	"time"
 
-	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
+	"kubevirt.io/kubevirt/tests/decorators"
 
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libvmi"
@@ -42,6 +42,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	netutils "k8s.io/utils/net"
 
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -65,11 +67,8 @@ const (
 	remoteCmdErrPattern = "failed running `%s` with stdout:\n %v \n stderr:\n %v \n err: \n %v \n"
 )
 
-var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus scraped metrics", func() {
-
-	var (
-		virtClient kubecli.KubevirtClient
-	)
+var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus scraped metrics", decorators.SigMonitoring, func() { //nolint:lll
+	var virtClient kubecli.KubevirtClient
 
 	// start a VMI, wait for it to run and return the node it runs on
 	startVMI := func(vmi *v1.VirtualMachineInstance) string {
@@ -91,13 +90,6 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-
-		onOCP, err := clusterutil.IsOnOpenShift(virtClient)
-		Expect(err).ToNot(HaveOccurred(), "failed to detect cluster type")
-
-		if !onOCP {
-			Skip("test is verifying integration with OCP's cluster monitoring stack")
-		}
 	})
 
 	/*
@@ -116,19 +108,20 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 
 		By("creating a VMI in a user defined namespace")
 		vmi := libvmi.NewAlpine()
+		vmi.Namespace = testsuite.GetTestNamespace(vmi)
 		startVMI(vmi)
 
-		By("finding virt-operator pod")
-		ops, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=virt-operator"})
-		Expect(err).ToNot(HaveOccurred(), "failed to list virt-operators")
-		Expect(ops.Size()).ToNot(Equal(0), "no virt-operators found")
+		By("finding virt-handler pod")
+		ops, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=virt-handler"})
+		Expect(err).ToNot(HaveOccurred(), "failed to list virt-handlers")
+		Expect(ops.Size()).ToNot(Equal(0), "no virt-handlers found")
 		op := ops.Items[0]
-		Expect(op).ToNot(BeNil(), "virt-operator pod should not be nil")
+		Expect(op).ToNot(BeNil(), "virt-handler pod should not be nil")
 
 		var ep *k8sv1.Endpoints
 		By("finding Prometheus endpoint")
 		Eventually(func() bool {
-			ep, err = virtClient.CoreV1().Endpoints("openshift-monitoring").Get(context.Background(), "prometheus-k8s", metav1.GetOptions{})
+			ep, err = virtClient.CoreV1().Endpoints("monitoring").Get(context.Background(), "prometheus-k8s", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred(), "failed to retrieve Prometheus endpoint")
 
 			if len(ep.Subsets) == 0 || len(ep.Subsets[0].Addresses) == 0 {
@@ -147,19 +140,16 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 		}
 		Expect(promPort).ToNot(BeEquivalentTo(0), "could not get Prometheus port from endpoint")
 
-		// We need a token from a service account that can view all namespaces in the cluster
-		By("extracting virt-operator sa token")
-		cmd := []string{"cat", "/var/run/secrets/kubernetes.io/serviceaccount/token"}
-		token, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, &op, "virt-operator", cmd)
-		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, strings.Join(cmd, " "), token, stderr, err))
-		Expect(token).ToNot(BeEmpty(), "virt-operator sa token returned empty")
+		// the Service Account needs to have access to the Prometheus subresource api
+		token, err := generateTokenForPrometheusAPI(vmi.Namespace)
+		DeferCleanup(cleanupClusterRoleAndBinding, vmi.Namespace)
 
 		By("querying Prometheus API endpoint for a VMI exported metric")
-		cmd = []string{
+		cmd := []string{
 			"curl",
 			"-L",
 			"-k",
-			fmt.Sprintf("https://%s:%d/api/v1/query", promIP, promPort),
+			fmt.Sprintf("http://%s:%d/api/v1/query", promIP, promPort),
 			"-H",
 			fmt.Sprintf("Authorization: Bearer %s", token),
 			"--data-urlencode",
@@ -169,7 +159,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 				vmi.Name,
 			)}
 
-		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, &op, "virt-operator", cmd)
+		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtClient, &op, "virt-handler", cmd)
 		Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, strings.Join(cmd, " "), stdout, stderr, err))
 
 		// the Prometheus go-client does not export queryResult, and
@@ -639,4 +629,100 @@ func countReadyAndLeaderPods(pod *k8sv1.Pod, component string) (foundMetrics map
 	}
 
 	return foundMetrics, err
+}
+
+func generateTokenForPrometheusAPI(namespace string) (string, error) {
+	virtClient := kubevirt.Client()
+
+	// Define resource names
+	serviceAccountName := "prometheus-access-sa"
+	clusterRoleName := "prometheus-access-cluster-role"
+	clusterRoleBindingName := "prometheus-access-cluster-rolebinding"
+
+	// Create ServiceAccount
+	sa := &k8sv1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceAccountName,
+			Namespace: namespace,
+		},
+	}
+	_, err := virtClient.CoreV1().ServiceAccounts(namespace).Create(context.Background(), sa, metav1.CreateOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to create ServiceAccount: %w", err)
+	}
+
+	// Create ClusterRole
+	clusterRole := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: clusterRoleName + "-" + namespace, // Namespaced suffix for uniqueness
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{"monitoring.coreos.com"},
+				Resources: []string{"prometheuses/api"},
+				Verbs:     []string{"create"},
+			},
+		},
+	}
+	_, err = virtClient.RbacV1().ClusterRoles().Create(context.Background(), clusterRole, metav1.CreateOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to create ClusterRole: %w", err)
+	}
+
+	// Create ClusterRoleBinding
+	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: clusterRoleBindingName + "-" + namespace, // Namespaced suffix for uniqueness
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      serviceAccountName,
+				Namespace: namespace,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "ClusterRole",
+			Name:     clusterRoleName + "-" + namespace, // Match the ClusterRole name
+			APIGroup: "rbac.authorization.k8s.io",
+		},
+	}
+	_, err = virtClient.RbacV1().ClusterRoleBindings().Create(context.Background(), clusterRoleBinding, metav1.CreateOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to create ClusterRoleBinding: %w", err)
+	}
+
+	// Retrieve token for the ServiceAccount
+	tokenRequest := &authenticationv1.TokenRequest{
+		Spec: authenticationv1.TokenRequestSpec{},
+	}
+	token, err := virtClient.CoreV1().
+		ServiceAccounts(namespace).
+		CreateToken(
+			context.Background(),
+			serviceAccountName,
+			tokenRequest,
+			metav1.CreateOptions{},
+		)
+
+	if err != nil {
+		return "", fmt.Errorf("failed to retrieve ServiceAccount token: %w", err)
+	}
+
+	// Return the token
+	return token.Status.Token, nil
+}
+
+func cleanupClusterRoleAndBinding(namespace string) {
+	virtClient := kubevirt.Client()
+	clusterRoleName := "prometheus-access-cluster-role-" + namespace
+	clusterRoleBindingName := "prometheus-access-cluster-rolebinding-" + namespace
+
+	// Delete ClusterRole
+	err := virtClient.RbacV1().ClusterRoles().Delete(context.Background(), clusterRoleName, metav1.DeleteOptions{})
+	Expect(err).ToNot(HaveOccurred(), "Failed to delete ClusterRole: %s", clusterRoleName)
+
+	// Delete ClusterRoleBinding
+	err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), clusterRoleBindingName, metav1.DeleteOptions{})
+	Expect(err).ToNot(HaveOccurred(), "Failed to delete ClusterRoleBinding: %s", clusterRoleBindingName)
 }
