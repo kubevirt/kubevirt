@@ -181,6 +181,7 @@ func initializeDirs(ephemeralDiskDir string,
 		panic(err)
 	}
 
+	//TODO: Remove this code once ImageVolume is GAed
 	err = containerdisk.SetLocalDirectory(containerDiskDir)
 	if err != nil {
 		panic(err)
