@@ -4,9 +4,13 @@ pkg/network/admitter
 pkg/network/controllers
 pkg/network/deviceinfo
 pkg/network/domainspec
+pkg/network/downwardapi
+pkg/network/errors
 pkg/network/multus
 pkg/network/namescheme
 pkg/network/netbinding
+pkg/network/netmachinery
+pkg/network/netns
 pkg/network/pod/annotations
 pkg/network/vmispec
 pkg/storage/pod/annotations
