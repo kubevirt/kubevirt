@@ -97,7 +97,7 @@ function up() {
     kubectl config set-cluster kubernetes --insecure-skip-tls-verify=true
 
     ${_cli} scp --prefix ${provider_prefix:?} /usr/bin/kubectl - >${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
-    
+
     chmod u+x ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
 
     # Make sure that local config is correct
