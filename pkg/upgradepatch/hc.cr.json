@@ -1,0 +1,57 @@
+{
+  "kind": "HyperConverged",
+  "apiVersion": "hco.kubevirt.io/v1beta1",
+  "metadata": {
+    "name": "kubevirt-hyperconverged",
+    "creationTimestamp": null
+  },
+  "spec": {
+    "infra": {},
+    "workloads": {},
+    "featureGates": {
+      "downwardMetrics": false,
+      "enableCommonBootImageImport": true,
+      "deployVmConsoleProxy": false,
+      "deployKubeSecondaryDNS": false,
+      "disableMDevConfiguration": false,
+      "persistentReservation": false,
+      "autoResourceLimits": false,
+      "alignCPUs": false,
+      "enableApplicationAwareQuota": false
+    },
+    "liveMigrationConfig": {
+      "parallelMigrationsPerCluster": 5,
+      "parallelOutboundMigrationsPerNode": 2,
+      "completionTimeoutPerGiB": 150,
+      "progressTimeout": 150,
+      "allowAutoConverge": false,
+      "allowPostCopy": false
+    },
+    "certConfig": {
+      "ca": {
+        "duration": "48h0m0s",
+        "renewBefore": "24h0m0s"
+      },
+      "server": {
+        "duration": "24h0m0s",
+        "renewBefore": "12h0m0s"
+      }
+    },
+    "workloadUpdateStrategy": {
+      "workloadUpdateMethods": [
+        "LiveMigrate"
+      ],
+      "batchEvictionSize": 10,
+      "batchEvictionInterval": "1m0s"
+    },
+    "uninstallStrategy": "BlockUninstallIfWorkloadsExist",
+    "virtualMachineOptions": {
+      "disableFreePageReporting": false,
+      "disableSerialConsoleLog": true
+    },
+    "higherWorkloadDensity": {
+      "memoryOvercommitPercentage": 100
+    }
+  },
+  "status": {}
+}

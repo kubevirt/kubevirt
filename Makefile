@@ -43,7 +43,7 @@ lint:
 
 build: build-operator build-csv-merger build-webhook
 
-build-operator: $(SOURCES) ## Build binary from source
+build-operator: gogenerate $(SOURCES) ## Build binary from source
 	go build -ldflags="${LDFLAGS}" -o _out/hyperconverged-cluster-operator ./cmd/hyperconverged-cluster-operator
 
 build-csv-merger: ## Build binary from source
@@ -193,6 +193,9 @@ bump-kubevirtci:
 	rm -rf _kubevirtci
 	./hack/bump-kubevirtci.sh
 
+gogenerate:
+	go generate ./pkg/upgradepatch
+
 generate:
 	./hack/generate.sh
 
@@ -213,7 +216,7 @@ help: ## Show this help screen
 		awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 	@echo ''
 
-test-unit:
+test-unit: gogenerate
 	JOB_TYPE="travis" ./hack/build-tests.sh
 
 test: test-unit
@@ -293,6 +296,7 @@ bump-hco:
 		deploy_cr \
 		deploy_fake_kubedescheduler \
 		build-docgen \
+		gogenerate \
 		generate \
 		generate-doc \
 		validate-no-offensive-lang \

@@ -58,6 +58,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/observability"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/metrics"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/upgradepatch"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
@@ -165,6 +166,11 @@ func main() {
 		return err == nil, nil
 	})
 	cmdHelper.ExitOnError(err, "Failed to set the status of the Upgradeable Operator Condition")
+
+	if err = upgradepatch.Init(logger); err != nil {
+		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Failed validating upgrade patches file")
+		cmdHelper.ExitOnError(err, "Failed validating upgrade patches file")
+	}
 
 	// re-create the condition, this time with the final client
 	upgradeableCondition, err = hcoutil.NewOperatorCondition(ci, mgr.GetClient(), operatorsapiv2.Upgradeable)

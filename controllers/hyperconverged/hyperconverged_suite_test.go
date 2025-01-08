@@ -6,11 +6,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/upgradepatch"
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 const (
@@ -36,6 +37,7 @@ func TestHyperconverged(t *testing.T) {
 		wd, _ := os.Getwd()
 		destFile = path.Join(wd, "upgradePatches.json")
 		Expect(commontestutils.CopyFile(destFile, path.Join(testFilesLocation, "upgradePatches.json"))).To(Succeed())
+		Expect(upgradepatch.Init(GinkgoLogr)).To(Succeed())
 	})
 
 	AfterSuite(func() {

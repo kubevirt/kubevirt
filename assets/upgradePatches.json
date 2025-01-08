@@ -23,7 +23,9 @@
           "value": {
             "batchEvictionInterval": "1m0s",
             "batchEvictionSize": 10,
-            "workloadUpdateMethods": ["LiveMigrate"]
+            "workloadUpdateMethods": [
+              "LiveMigrate"
+            ]
           }
         }
       ]
@@ -34,7 +36,7 @@
         {
           "op": "replace",
           "path": "/spec/virtualMachineOptions/disableFreePageReporting",
-	  "value": false
+          "value": false
         }
       ],
       "jsonPatchApplyOptions": {
@@ -47,54 +49,26 @@
         {
           "op": "remove",
           "path": "/spec/featureGates/deployKubevirtIpamController"
-        }
-      ],
-      "jsonPatchApplyOptions": {
-        "allowMissingPathOnRemove": true
-      }
-    },
-    {
-      "semverRange": "<=1.14.0",
-      "jsonPatch": [
-        {
-          "op": "remove",
-          "path": "/spec/featureGates/primaryUserDefinedNetworkBinding"
-        }
-      ],
-      "jsonPatchApplyOptions": {
-        "allowMissingPathOnRemove": true
-      }
-    },
-    {
-      "semverRange": "<=1.14.0",
-      "jsonPatch": [
+        },
         {
           "op": "remove",
           "path": "/spec/featureGates/deployTektonTaskResources"
-        }
-      ],
-      "jsonPatchApplyOptions": {
-        "allowMissingPathOnRemove": true
-      }
-    },
-    {
-      "semverRange": "<=1.14.0",
-      "jsonPatch": [
-        {
-          "op": "remove",
-          "path": "/spec/featureGates/nonRoot"
-        }
-      ],
-      "jsonPatchApplyOptions": {
-        "allowMissingPathOnRemove": true
-      }
-    },
-    {
-      "semverRange": "<=1.14.0",
-      "jsonPatch": [
+        },
         {
           "op": "remove",
           "path": "/spec/featureGates/enableManagedTenantQuota"
+        },
+        {
+          "op": "remove",
+          "path": "/spec/featureGates/nonRoot"
+        },
+        {
+          "op": "remove",
+          "path": "/spec/featureGates/primaryUserDefinedNetworkBinding"
+        },
+        {
+          "op": "remove",
+          "path": "/spec/featureGates/withHostPassthroughCPU"
         }
       ],
       "jsonPatchApplyOptions": {

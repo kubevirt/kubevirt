@@ -182,11 +182,6 @@ func detectAPIOverlap(crdMap map[string][]string) map[string]sets.Set[string] {
 	overlapsMap := make(map[string]sets.Set[string])
 	for operator, groups := range crdMap {
 		for _, apiGroup := range groups {
-			// We work on replacement for current v2v. Remove this check when vmware import is removed
-			if apiGroup == "v2v.kubevirt.io" {
-				continue
-			}
-
 			compareMapWithEntry(crdMap, operator, apiGroup, overlapsMap)
 		}
 	}

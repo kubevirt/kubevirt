@@ -3,7 +3,6 @@ package hyperconverged
 import (
 	"cmp"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
@@ -18,13 +17,11 @@ import (
 	imagev1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	operatorhandler "github.com/operator-framework/operator-lib/handler"
-	"github.com/pkg/errors"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimetav1 "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,6 +50,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/metrics"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/upgradepatch"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
 )
@@ -86,9 +84,6 @@ const (
 	hcoVersionName    = "operator"
 	secondaryCRPrefix = "hco-controlled-cr-"
 	apiServerCRPrefix = "api-server-cr-"
-
-	// These group are no longer supported. Use these constants to remove unused resources
-	v2vGroup = "v2v.kubevirt.io"
 
 	requestedStatusKey = "requested status"
 )
@@ -131,26 +126,6 @@ func newReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo, upgradeableCond 
 }
 
 // newCRDremover returns a new CRDRemover
-func newCRDremover(client client.Client) *CRDRemover {
-	crdRemover := &CRDRemover{
-		client: client,
-		crdsToRemove: []schema.GroupKind{
-			// These are the v2v CRDs we have to remove moving to MTV
-			{Group: v2vGroup, Kind: "V2VVmware"},
-			{Group: v2vGroup, Kind: "OVirtProvider"},
-			{Group: v2vGroup, Kind: "VMImportConfig"},
-		},
-	}
-
-	// The list of related objects to remove is initialized empty;
-	// Once the corresponding CRD (and hence CR) is removed successfully,
-	// the CR can be removed from the list of related objects.
-	crdRemover.relatedObjectsToRemove = make([]schema.GroupKind, 0, len(crdRemover.crdsToRemove))
-
-	return crdRemover
-}
-
-// add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) error {
 	// Create a new controller
 	c, err := controller.New("hyperconverged-controller", mgr, controller.Options{Reconciler: r})
@@ -311,20 +286,13 @@ func (r *ReconcileHyperConverged) Reconcile(ctx context.Context, request reconci
 	if instance == nil {
 		// if the HyperConverged CR was deleted during an upgrade process, then this is not an upgrade anymore
 		r.upgradeMode = false
-		if err == nil {
-			err = r.setOperatorUpgradeableStatus(hcoRequest)
-		}
+		err = r.setOperatorUpgradeableStatus(hcoRequest)
 
 		return reconcile.Result{}, err
 	}
 
 	if r.firstLoop {
 		r.firstLoopInitialization(hcoRequest)
-		if err := validateUpgradePatches(hcoRequest); err != nil {
-			logger.Error(err, "Failed validating upgrade patches file")
-			r.eventEmitter.EmitEvent(hcoRequest.Instance, corev1.EventTypeWarning, "Failed validating upgrade patches file", err.Error())
-			os.Exit(1)
-		}
 	}
 
 	if err = r.monitoringReconciler.UpdateRelatedObjects(hcoRequest); err != nil {
@@ -465,7 +433,7 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 	req.SetUpgradeMode(r.upgradeMode)
 
 	if r.upgradeMode {
-		if result, err := r.handleUpgrade(req, init); result != nil {
+		if result, err := r.handleUpgrade(req); result != nil {
 			return *result, err
 		}
 	}
@@ -473,41 +441,7 @@ func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile
 	return r.EnsureOperandAndComplete(req, init)
 }
 
-func (r *ReconcileHyperConverged) handleUpgrade(req *common.HcoRequest, init bool) (*reconcile.Result, error) {
-
-	crdStatusUpdated, err := r.updateCrdStoredVersions(req)
-	if err != nil {
-		return &reconcile.Result{Requeue: true}, err
-	}
-
-	if crdStatusUpdated {
-		return &reconcile.Result{Requeue: true}, nil
-	}
-
-	// Attempt to remove old CRDs and related objects:
-	// Directly removing v2v CRDs will be enough to trigger the
-	// removal of the corresponding CRs.
-	// vmimportconfigs CR is protected by "vm-import-finalizer"
-	// which is managed by vm-import-operator that should remove
-	// all of its operands before removing the finalizer so that the
-	// CR and then the CRD can be really deleted.
-	// We don't have any race condition here because the CRD will be
-	// deleted without blocking the caller.
-	// vm-import-operator pod on the other side is not deleted during the
-	// upgrade process, but only at the end of it as a consequence of
-	// the removal of the old CSV (vm-import-operator deployment has
-	// an owner reference on it) once the upgrade successfully completed.
-
-	cdrRemover := newCRDremover(r.client)
-	err = cdrRemover.Remove(req)
-	if err != nil {
-		return &reconcile.Result{Requeue: init}, err
-	}
-	// if we still have something to remove, requeue to retry
-	if !cdrRemover.Done() {
-		return &reconcile.Result{Requeue: true}, nil
-	}
-
+func (r *ReconcileHyperConverged) handleUpgrade(req *common.HcoRequest) (*reconcile.Result, error) {
 	modified, err := r.migrateBeforeUpgrade(req)
 	if err != nil {
 		return &reconcile.Result{Requeue: true}, err
@@ -711,7 +645,7 @@ func (r *ReconcileHyperConverged) ensureHcoDeleted(req *common.HcoRequest) (reco
 	if slices.Contains(req.Instance.ObjectMeta.Finalizers, FinalizerName) {
 		req.Instance.ObjectMeta.Finalizers, finDropped = drop(req.Instance.ObjectMeta.Finalizers, FinalizerName)
 		req.Dirty = true
-		requeue = requeue || finDropped
+		requeue = finDropped
 	}
 
 	// Need to requeue because finalizer update does not change metadata.generation
@@ -1149,44 +1083,6 @@ func (r *ReconcileHyperConverged) setOperatorUpgradeableStatus(request *common.H
 	return nil
 }
 
-const crdName = "hyperconvergeds.hco.kubevirt.io"
-
-func (r *ReconcileHyperConverged) updateCrdStoredVersions(req *common.HcoRequest) (bool, error) {
-	versionsToBeRemoved := []string{"v1alpha1"}
-
-	found := &apiextensionsv1.CustomResourceDefinition{}
-	key := client.ObjectKey{Namespace: hcoutil.UndefinedNamespace, Name: crdName}
-	err := r.client.Get(req.Ctx, key, found)
-	if err != nil {
-		req.Logger.Error(err, fmt.Sprintf("failed to read the %s CRD; %s", crdName, err.Error()))
-		return false, err
-	}
-
-	needsUpdate := false
-	var newStoredVersions []string
-	for _, vToBeRemoved := range versionsToBeRemoved {
-		for _, sVersion := range found.Status.StoredVersions {
-			if vToBeRemoved != sVersion {
-				newStoredVersions = append(newStoredVersions, sVersion)
-			} else {
-				needsUpdate = true
-			}
-		}
-	}
-	if needsUpdate {
-		found.Status.StoredVersions = newStoredVersions
-		err = r.client.Status().Update(req.Ctx, found)
-		if err != nil {
-			req.Logger.Error(err, fmt.Sprintf("failed updating the %s CRD status: %s", crdName, err.Error()))
-			return false, err
-		}
-		req.Logger.Info("successfully updated status.storedVersions on HCO CRD", "CRD Name", crdName)
-		return true, nil
-	}
-
-	return false, nil
-}
-
 func (r *ReconcileHyperConverged) migrateBeforeUpgrade(req *common.HcoRequest) (bool, error) {
 	upgradePatched, err := r.applyUpgradePatches(req)
 	if err != nil {
@@ -1211,30 +1107,18 @@ func (r *ReconcileHyperConverged) applyUpgradePatches(req *common.HcoRequest) (b
 		return false, err
 	}
 
-	hcoJSON, err := json.Marshal(req.Instance)
+	tmpInstance, err := upgradepatch.ApplyUpgradePatch(req.Logger, req.Instance, knownHcoSV)
 	if err != nil {
 		return false, err
 	}
 
-	for _, p := range hcoUpgradeChanges.HCOCRPatchList {
-		hcoJSON, err = r.applyUpgradePatch(req, hcoJSON, knownHcoSV, p)
-		if err != nil {
-			return false, err
-		}
-	}
-
-	for _, p := range hcoUpgradeChanges.ObjectsToBeRemoved {
+	for _, p := range upgradepatch.GetObjectsToBeRemoved() {
 		removed, err := r.removeLeftover(req, knownHcoSV, p)
 		if err != nil {
 			return removed, err
 		}
 	}
 
-	tmpInstance := &hcov1beta1.HyperConverged{}
-	err = json.Unmarshal(hcoJSON, tmpInstance)
-	if err != nil {
-		return false, err
-	}
 	if !reflect.DeepEqual(tmpInstance.Spec, req.Instance.Spec) {
 		req.Logger.Info("updating HCO spec as a result of upgrade patches")
 		tmpInstance.Spec.DeepCopyInto(&req.Instance.Spec)
@@ -1245,39 +1129,8 @@ func (r *ReconcileHyperConverged) applyUpgradePatches(req *common.HcoRequest) (b
 	return modified, nil
 }
 
-func (r *ReconcileHyperConverged) applyUpgradePatch(req *common.HcoRequest, hcoJSON []byte, knownHcoSV semver.Version, p hcoCRPatch) ([]byte, error) {
-	affectedRange, err := semver.ParseRange(p.SemverRange)
-	if err != nil {
-		return hcoJSON, err
-	}
-	if affectedRange(knownHcoSV) {
-		req.Logger.Info("applying upgrade patch", "knownHcoSV", knownHcoSV, "affectedRange", p.SemverRange, "patches", p.JSONPatch, "applyOptions", p.JSONPatchApplyOptions)
-		var patchedBytes []byte
-		if p.JSONPatchApplyOptions != nil {
-			patchedBytes, err = p.JSONPatch.ApplyWithOptions(hcoJSON, p.JSONPatchApplyOptions)
-		} else {
-			patchedBytes, err = p.JSONPatch.Apply(hcoJSON)
-		}
-		if err != nil {
-			// tolerate jsonpatch test failures
-			if errors.Is(err, jsonpatch.ErrTestFailed) {
-				return hcoJSON, nil
-			}
-
-			return hcoJSON, err
-		}
-		return patchedBytes, nil
-	}
-	return hcoJSON, nil
-}
-
-func (r *ReconcileHyperConverged) removeLeftover(req *common.HcoRequest, knownHcoSV semver.Version, p objectToBeRemoved) (bool, error) {
-
-	affectedRange, err := semver.ParseRange(p.SemverRange)
-	if err != nil {
-		return false, err
-	}
-	if affectedRange(knownHcoSV) {
+func (r *ReconcileHyperConverged) removeLeftover(req *common.HcoRequest, knownHcoSV semver.Version, p upgradepatch.ObjectToBeRemoved) (bool, error) {
+	if p.IsAffectedRange(knownHcoSV) {
 		removeRelatedObject(req, r.client, p.GroupVersionKind, p.ObjectKey)
 		u := &unstructured.Unstructured{}
 		u.SetGroupVersionKind(p.GroupVersionKind)

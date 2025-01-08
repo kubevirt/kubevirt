@@ -21,7 +21,6 @@ require (
 	github.com/openshift/library-go v0.0.0-20240830130947-d9523164b328
 	github.com/operator-framework/api v0.27.0
 	github.com/operator-framework/operator-lib v0.15.0
-	github.com/pkg/errors v0.9.1
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.76.0
 	github.com/prometheus/client_golang v1.20.2
 	github.com/prometheus/client_model v0.6.1
@@ -84,6 +83,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
