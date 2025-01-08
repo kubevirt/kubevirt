@@ -22,12 +22,14 @@ package services
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
+	"k8s.io/utils/ptr"
 
 	"github.com/golang/mock/gomock"
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -50,6 +52,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	k6tconfig "kubevirt.io/kubevirt/pkg/config"
+	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
@@ -3674,6 +3677,193 @@ var _ = Describe("Template", func() {
 				Expect(hasContainerWithName(initContainers, "kernel-boot")).To(BeTrue())
 				Expect(hasContainerWithName(containers, "kernel-boot")).To(BeTrue())
 			})
+		})
+
+		Context("with ImageVolume", func() {
+			BeforeEach(func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				enableFeatureGate(featuregate.ImageVolume)
+			})
+
+			DescribeTable("should not define additional containers", func(vmi *v1.VirtualMachineInstance) {
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod).ToNot(BeNil())
+				for _, container := range append(pod.Spec.Containers, pod.Spec.InitContainers...) {
+					Expect(container.Name).ToNot(BeElementOf(
+						"container-disk-binary",
+						"volumecontainerdisk-init",
+						"volumekernel-boot-volume-init",
+						"kernel-boot",
+						"volumekernel-boot-volume",
+						"volumecontainerdisk",
+					))
+				}
+			},
+				Entry("with container disk", libvmi.New(
+					libvmi.WithNamespace("default"),
+					libvmi.WithContainerDisk("r0", "someImage"),
+				)),
+				Entry("with kernel boot", libvmi.New(
+					libvmi.WithNamespace("default"),
+					libvmi.WithKernelBootContainer("someImage"),
+				)),
+			)
+
+			DescribeTable("should not use old volume and mounts", func(vmi *v1.VirtualMachineInstance) {
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod).ToNot(BeNil())
+
+				volumes := pod.Spec.Volumes
+				var computeMounts []k8sv1.VolumeMount
+				for _, c := range pod.Spec.Containers {
+					if c.Name == "compute" {
+						computeMounts = c.VolumeMounts
+						break
+					}
+				}
+				Expect(volumes).ToNot(ContainElement(
+					k8sv1.Volume{
+						Name:         "container-disks",
+						VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}}}),
+				)
+				Expect(computeMounts).ToNot(ContainElement(
+					k8sv1.VolumeMount{
+						Name:             "container-disks",
+						MountPath:        "/var/run/kubevirt/container-disks",
+						MountPropagation: ptr.To(k8sv1.MountPropagationHostToContainer)}),
+				)
+			},
+				Entry("with container disk", libvmi.New(
+					libvmi.WithNamespace("default"),
+					libvmi.WithContainerDisk("r0", "someImage"),
+				)),
+				Entry("with kernel boot", libvmi.New(
+					libvmi.WithNamespace("default"),
+					libvmi.WithKernelBootContainer("someImage"),
+				)),
+			)
+
+			It("vmi with container disk should define volumes and mounts properly", func() {
+				vmi := libvmi.New(
+					libvmi.WithNamespace("default"),
+					libvmi.WithContainerDisk("r0", "someImage"),
+				)
+				Expect(vmi.Spec.Volumes).To(HaveLen(1))
+				vmiVolume := vmi.Spec.Volumes[0]
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod).ToNot(BeNil())
+
+				volumes := pod.Spec.Volumes
+				var computeMounts []k8sv1.VolumeMount
+				for _, c := range pod.Spec.Containers {
+					if c.Name == "compute" {
+						computeMounts = c.VolumeMounts
+						break
+					}
+				}
+
+				Expect(volumes).To(ContainElement(
+					k8sv1.Volume{
+						Name: vmiVolume.Name,
+						VolumeSource: k8sv1.VolumeSource{
+							Image: &k8sv1.ImageVolumeSource{
+								Reference:  vmiVolume.ContainerDisk.Image,
+								PullPolicy: vmiVolume.ContainerDisk.ImagePullPolicy,
+							},
+						},
+					}),
+				)
+				Expect(computeMounts).To(ContainElement(
+					k8sv1.VolumeMount{
+						Name:      vmiVolume.Name,
+						MountPath: filepath.Join(filepath.Join(util.VirtImageVolumeDir), "disk_0"),
+						ReadOnly:  true,
+					}),
+				)
+			})
+
+			It("vmi with kernel boot should define volumes and mounts properly", func() {
+				vmi := libvmi.New(
+					libvmi.WithNamespace("default"),
+					libvmi.WithKernelBootContainer("someImage"),
+				)
+				kernelbootcontainer := vmi.Spec.Domain.Firmware.KernelBoot.Container
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod).ToNot(BeNil())
+
+				volumes := pod.Spec.Volumes
+				var computeMounts []k8sv1.VolumeMount
+				for _, c := range pod.Spec.Containers {
+					if c.Name == "compute" {
+						computeMounts = c.VolumeMounts
+						break
+					}
+				}
+
+				Expect(volumes).To(ContainElement(
+					k8sv1.Volume{
+						Name: containerdisk.KernelBootName,
+						VolumeSource: k8sv1.VolumeSource{
+							Image: &k8sv1.ImageVolumeSource{
+								Reference:  kernelbootcontainer.Image,
+								PullPolicy: kernelbootcontainer.ImagePullPolicy,
+							},
+						},
+					}),
+				)
+				Expect(computeMounts).To(ContainElement(
+					k8sv1.VolumeMount{
+						Name:      containerdisk.KernelBootName,
+						MountPath: util.VirtKernelBootVolumeDir,
+						ReadOnly:  true,
+					}),
+				)
+			})
+
+			It("vmi with kernel boot and ImagePullSecret should include the ImagePullSecret in vmi's spec", func() {
+				vmi := libvmi.New(
+					libvmi.WithNamespace("default"),
+					libvmi.WithKernelBootContainer("someImage"),
+					libvmi.WithKernelBootContainerImagePullSecret("someImagePullSecret"),
+				)
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod).ToNot(BeNil())
+
+				Expect(pod.Spec.ImagePullSecrets).To(ContainElement(
+					k8sv1.LocalObjectReference{
+						Name: "someImagePullSecret",
+					}),
+				)
+			})
+
+			DescribeTable("should pass a flag to virt-launcher when using image volume", func(vmi *v1.VirtualMachineInstance) {
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod).ToNot(BeNil())
+
+				containers := pod.Spec.Containers
+				initContainers := pod.Spec.InitContainers
+				for _, container := range append(containers, initContainers...) {
+					if container.Name == "compute" {
+						Expect(container.Command).To(ContainElement("--image-volume"))
+						break
+					}
+				}
+			},
+				Entry("with container disk", libvmi.New(
+					libvmi.WithNamespace("default"),
+					libvmi.WithContainerDisk("r0", "someImage"),
+				)),
+				Entry("with kernel boot", libvmi.New(
+					libvmi.WithNamespace("default"),
+					libvmi.WithKernelBootContainer("someImage"),
+				)),
+			)
 		})
 
 		Context("Using defaultRuntimeClass", func() {
