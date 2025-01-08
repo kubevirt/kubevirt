@@ -193,6 +193,16 @@ func HasDataVolumeErrors(namespace string, volumes []virtv1.Volume, dataVolumeSt
 	return nil
 }
 
+// FIXME: Bound mistakenly reports ErrExceededQuota with ConditionUnknown status
+func HasDataVolumeExceededQuotaError(dv *cdiv1.DataVolume) error {
+	dvBoundCond := NewDataVolumeConditionManager().GetCondition(dv, cdiv1.DataVolumeBound)
+	if dvBoundCond != nil && dvBoundCond.Status != v1.ConditionTrue && dvBoundCond.Reason == "ErrExceededQuota" {
+		return fmt.Errorf("DataVolume %s importer is not running due to an error: %v", dv.Name, dvBoundCond.Message)
+	}
+
+	return nil
+}
+
 func HasDataVolumeProvisioning(namespace string, volumes []virtv1.Volume, dataVolumeStore cache.Store) bool {
 	for _, volume := range volumes {
 		if volume.DataVolume == nil {
