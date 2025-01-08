@@ -2845,7 +2845,7 @@ func (c *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	}
 
 	if virtutil.IsNonRootVMI(vmi) {
-		if err := c.nonRootSetup(origVMI, vmi); err != nil {
+		if err := c.nonRootSetup(origVMI); err != nil {
 			return err
 		}
 	}
@@ -3079,7 +3079,7 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		}
 
 		if virtutil.IsNonRootVMI(vmi) {
-			if err := c.nonRootSetup(origVMI, vmi); err != nil {
+			if err := c.nonRootSetup(origVMI); err != nil {
 				return err
 			}
 		}
