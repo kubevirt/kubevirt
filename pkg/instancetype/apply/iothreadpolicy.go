@@ -19,23 +19,23 @@
 package apply
 
 import (
-	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-
 	virtv1 "kubevirt.io/api/core/v1"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 )
 
 func applyIOThreadPolicy(
-	field *k8sfield.Path,
+	baseConflict *conflict.Conflict,
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
-) Conflicts {
+) conflict.Conflicts {
 	if instancetypeSpec.IOThreadsPolicy == nil {
 		return nil
 	}
 
 	if vmiSpec.Domain.IOThreadsPolicy != nil {
-		return Conflicts{field.Child("domain", "ioThreadsPolicy")}
+		return conflict.Conflicts{baseConflict.NewChild("domain", "ioThreadsPolicy")}
 	}
 
 	instancetypeIOThreadPolicy := *instancetypeSpec.IOThreadsPolicy

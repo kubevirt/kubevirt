@@ -25,8 +25,6 @@ import (
 	api "kubevirt.io/api/instancetype"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-
-	instancetypeErrors "kubevirt.io/kubevirt/pkg/instancetype/errors"
 )
 
 const logVerbosityLevel = 3
@@ -58,7 +56,7 @@ func (h *handler) Instancetype(vm *virtv1.VirtualMachine) error {
 	defaultName, defaultKind, err := h.fromVolumes(
 		vm, vm.Spec.Instancetype.InferFromVolume, api.DefaultInstancetypeLabel, api.DefaultInstancetypeKindLabel)
 	if err != nil {
-		var ignoreableInferenceErr *instancetypeErrors.IgnoreableInferenceError
+		var ignoreableInferenceErr *IgnoreableInferenceError
 		if errors.As(err, &ignoreableInferenceErr) && ignoreFailure {
 			log.Log.Object(vm).V(logVerbosityLevel).Info("Ignored error during inference of instancetype, clearing matcher.")
 			vm.Spec.Instancetype = nil
@@ -91,7 +89,7 @@ func (h *handler) Preference(vm *virtv1.VirtualMachine) error {
 	defaultName, defaultKind, err := h.fromVolumes(
 		vm, vm.Spec.Preference.InferFromVolume, api.DefaultPreferenceLabel, api.DefaultPreferenceKindLabel)
 	if err != nil {
-		var ignoreableInferenceErr *instancetypeErrors.IgnoreableInferenceError
+		var ignoreableInferenceErr *IgnoreableInferenceError
 		if errors.As(err, &ignoreableInferenceErr) && ignoreFailure {
 			log.Log.Object(vm).V(logVerbosityLevel).Info("Ignored error during inference of preference, clearing matcher.")
 			vm.Spec.Preference = nil

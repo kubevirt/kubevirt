@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	goerrors "errors"
-	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -28,7 +27,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	instancetypepkg "kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -404,26 +403,28 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
 			Expect(apiStatus.Status().Details.Causes).To(HaveLen(expectedCausesLength))
 
+			baseCPUConflict := conflict.New("spec", "template", "spec", "domain", "cpu")
+
 			cause0 := apiStatus.Status().Details.Causes[0]
 			Expect(cause0.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			cpuSocketsField := "spec.template.spec.domain.cpu.sockets"
-			Expect(cause0.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldConflictErrorFmt, cpuSocketsField)))
-			Expect(cause0.Field).To(Equal(cpuSocketsField))
+			socketsConflict := baseCPUConflict.NewChild("sockets")
+			Expect(cause0.Message).To(Equal(socketsConflict.Error()))
+			Expect(cause0.Field).To(Equal(socketsConflict.String()))
 
 			cause1 := apiStatus.Status().Details.Causes[1]
 			Expect(cause1.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			cpuCoresField := "spec.template.spec.domain.cpu.cores"
-			Expect(cause1.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldConflictErrorFmt, cpuCoresField)))
-			Expect(cause1.Field).To(Equal(cpuCoresField))
+			coresConflict := baseCPUConflict.NewChild("cores")
+			Expect(cause1.Message).To(Equal(coresConflict.Error()))
+			Expect(cause1.Field).To(Equal(coresConflict.String()))
 
 			cause2 := apiStatus.Status().Details.Causes[2]
 			Expect(cause2.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			cpuThreadsField := "spec.template.spec.domain.cpu.threads"
-			Expect(cause2.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldConflictErrorFmt, cpuThreadsField)))
-			Expect(cause2.Field).To(Equal(cpuThreadsField))
+			threadsConflict := baseCPUConflict.NewChild("threads")
+			Expect(cause2.Message).To(Equal(threadsConflict.Error()))
+			Expect(cause2.Field).To(Equal(threadsConflict.String()))
 		})
 
-		DescribeTable("[test_id:CNV-9301] should fail if the VirtualMachine has ", func(resources virtv1.ResourceRequirements, expectedField string) {
+		DescribeTable("[test_id:CNV-9301] should fail if the VirtualMachine has ", func(resources virtv1.ResourceRequirements, expectedConflict *conflict.Conflict) {
 			instancetype := builder.NewInstancetypeFromVMI(vmi)
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
@@ -439,29 +440,29 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
 			cause := apiStatus.Status().Details.Causes[0]
 			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(cause.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldConflictErrorFmt, expectedField)))
-			Expect(cause.Field).To(Equal(expectedField))
+			Expect(cause.Message).To(Equal(expectedConflict.Error()))
+			Expect(cause.Field).To(Equal(expectedConflict.String()))
 		},
 			Entry("CPU resource requests", virtv1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
 					k8sv1.ResourceCPU: resource.MustParse("1"),
 				},
-			}, "spec.template.spec.domain.resources.requests.cpu"),
+			}, conflict.New("spec.template.spec.domain.resources.requests.cpu")),
 			Entry("CPU resource limits", virtv1.ResourceRequirements{
 				Limits: k8sv1.ResourceList{
 					k8sv1.ResourceCPU: resource.MustParse("1"),
 				},
-			}, "spec.template.spec.domain.resources.limits.cpu"),
+			}, conflict.New("spec.template.spec.domain.resources.limits.cpu")),
 			Entry("Memory resource requests", virtv1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
 					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 				},
-			}, "spec.template.spec.domain.resources.requests.memory"),
+			}, conflict.New("spec.template.spec.domain.resources.requests.memory")),
 			Entry("Memory resource limits", virtv1.ResourceRequirements{
 				Limits: k8sv1.ResourceList{
 					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 				},
-			}, "spec.template.spec.domain.resources.limits.memory"),
+			}, conflict.New("spec.template.spec.domain.resources.limits.memory")),
 		)
 
 		It("[test_id:CNV-9302] should apply preferences to default network interface", func() {
@@ -1012,7 +1013,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			By("Creating the VirtualMachine")
 			_, err := virtClient.VirtualMachine(namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).To(MatchError("admission webhook \"virtualmachine-validator.kubevirt.io\" denied the request: VM field spec.template.spec.domain.memory conflicts with selected instance type"))
+			Expect(err).To(MatchError("admission webhook \"virtualmachine-validator.kubevirt.io\" denied the request: VM field(s) spec.template.spec.domain.memory conflicts with selected instance type"))
 		},
 			Entry("with explicitly setting RejectInferFromVolumeFailure", true),
 			Entry("with implicitly setting RejectInferFromVolumeFailure (default)", false),

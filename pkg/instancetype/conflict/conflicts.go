@@ -16,15 +16,44 @@
  * Copyright The KubeVirt Authors
  *
  */
-package apply
+package conflict
 
 import (
+	"fmt"
 	"strings"
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-type Conflicts []*k8sfield.Path
+const conflictsErrorFmt = "VM field(s) %s conflicts with selected instance type"
+
+type Conflict struct {
+	k8sfield.Path
+}
+
+func New(name string, moreNames ...string) *Conflict {
+	return &Conflict{
+		Path: *k8sfield.NewPath(name, moreNames...),
+	}
+}
+
+func NewFromPath(path *k8sfield.Path) *Conflict {
+	return &Conflict{
+		Path: *path,
+	}
+}
+
+func (c Conflict) NewChild(name string, moreNames ...string) *Conflict {
+	return &Conflict{
+		Path: *c.Child(name, moreNames...),
+	}
+}
+
+func (c Conflict) Error() string {
+	return fmt.Sprintf(conflictsErrorFmt, c.String())
+}
+
+type Conflicts []*Conflict
 
 func (c Conflicts) String() string {
 	pathStrings := make([]string, 0, len(c))
@@ -32,4 +61,8 @@ func (c Conflicts) String() string {
 		pathStrings = append(pathStrings, path.String())
 	}
 	return strings.Join(pathStrings, ", ")
+}
+
+func (c Conflicts) Error() string {
+	return fmt.Sprintf(conflictsErrorFmt, c.String())
 }
