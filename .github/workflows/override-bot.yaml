@@ -2,6 +2,9 @@ name: Override Bot
 on:
   issue_comment:
     types: [created]
+  schedule:
+    - cron:  '0/10 * * * *'
+  workflow_dispatch:
 jobs:
   override:
     name: Check for redundant CI lanes for override
@@ -15,7 +18,7 @@ jobs:
       - name: Setup Python3
         uses: actions/setup-python@v5
         with:
-          python-version: '3.7'
+          python-version: '3.13'
           architecture: 'x64'
       - name: Install dependencies
         run: |

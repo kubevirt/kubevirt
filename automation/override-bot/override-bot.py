@@ -55,8 +55,19 @@ class PullRequest:
         self.override_list = []
 
     def get_ci_tests(self):
-        statuses_raw = requests.get(self.statuses_url).text
+        statuses_req = requests.get(self.statuses_url)
+        statuses_raw = statuses_req.text
         statuses = json.loads(statuses_raw)
+
+        while True:
+            link = statuses_req.links.get('next')
+            next_link = link.get('url') if link else None
+            if next_link is None:
+                break
+            statuses_req = requests.get(next_link)
+            statuses_raw = statuses_req.text
+            statuses = statuses + json.loads(statuses_raw)
+
         for status in statuses:
             context = status['context']
             if 'ci-index' in context or 'images' in context or 'prow' not in context:
