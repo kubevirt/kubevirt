@@ -480,7 +480,7 @@ func (c *createVM) usage() string {
   {{ProgramName}} create vm --access-cred=type:password,src:my-pws
 
   # Create a manifest for a VirtualMachine with a Containerdisk and a Sysprep volume (source ConfigMap needs to exist)
-  {{ProgramName}} create vm --memory=1Gi --volume-containerdisk=src:my.registry/my-image:my-tag --sysprep=src:my-cm`
+  {{ProgramName}} create vm --memory=1Gi --volume-containerdisk=src:my.registry/my-image:my-tag --volume-sysprep=src:my-cm`
 }
 
 func (c *createVM) newVM() (*v1.VirtualMachine, error) {
