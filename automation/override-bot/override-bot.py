@@ -1,19 +1,29 @@
-import requests, json, datetime, os
 from enum import Enum
+
+import datetime
+import json
+import os
+import requests
 from github import Github
 
 ORG_NAME = 'kubevirt'
 REPO_NAME = 'hyperconverged-cluster-operator'
 GITHUB_BASE_API = 'https://api.github.com/repos'
 
+relevant_contex = lambda x: 'ci-index' not in x and 'images' not in x and 'prow' in x
+github_token = os.environ['HCO_BOT_TOKEN']
+github_headers = {'Authorization': f'Bearer {github_token}'}
+
+
 class Result(Enum):
-    Success =    0
+    Success = 0
     Overridden = 1
-    Failure =    2
-    Pending =    3
-    Error   =    4
-    Aborted =    5
-    Invalid =    6
+    Failure = 2
+    Pending = 3
+    Error = 4
+    Aborted = 5
+    Invalid = 6
+
 
 class OverrideBot:
     def __init__(self):
@@ -21,17 +31,18 @@ class OverrideBot:
         self.start_time = datetime.datetime.now()
         self.finish_time = None
 
-        github_token = os.environ['HCO_BOT_TOKEN']
         gh = Github(github_token)
         repo_name = f'{ORG_NAME}/{REPO_NAME}'
         self.repo_obj = gh.get_repo(repo_name)
 
     def get_prs(self):
-        get_prs_req = requests.get(f'{GITHUB_BASE_API}/{ORG_NAME}/{REPO_NAME}/pulls')
+        get_prs_req = requests.get(f'{GITHUB_BASE_API}/{ORG_NAME}/{REPO_NAME}/pulls', headers=github_headers)
         pr_full_list = json.loads(get_prs_req.text)
-        for pr in pr_full_list:
-            if 'do-not-merge/hold' not in [label['name'] for label in pr['labels']]:
-                self.pr_list.append(PullRequest(pr['number'], pr['title'], pr['url'], pr['_links']['statuses']['href']))
+        self.pr_list = list(
+            map(lambda pr_obj: PullRequest(pr_obj['number'], pr_obj['title'], pr_obj['url'],
+                                           pr_obj['_links']['statuses']['href']),
+                filter(lambda pr_details: 'do-not-merge/hold' not in [label['name'] for label in pr_details['labels']],
+                       pr_full_list)))
 
     def get_ci_tests(self):
         for pr in self.pr_list:
@@ -45,6 +56,7 @@ class OverrideBot:
         for pr in self.pr_list:
             pr.comment_overrides(self.repo_obj.get_pull(pr.number))
 
+
 class PullRequest:
     def __init__(self, number, title, gh_url, statuses_url):
         self.number = number
@@ -55,26 +67,20 @@ class PullRequest:
         self.override_list = []
 
     def get_ci_tests(self):
-        statuses_req = requests.get(self.statuses_url)
-        statuses_raw = statuses_req.text
-        statuses = json.loads(statuses_raw)
+        next_link = self.statuses_url
 
-        while True:
-            link = statuses_req.links.get('next')
-            next_link = link.get('url') if link else None
-            if next_link is None:
-                break
-            statuses_req = requests.get(next_link)
+        statuses = []
+        while next_link is not None:
+            statuses_req = requests.get(next_link, headers=github_headers)
             statuses_raw = statuses_req.text
             statuses = statuses + json.loads(statuses_raw)
 
-        for status in statuses:
+            link = statuses_req.links.get('next')
+            next_link = link.get('url') if link else None
+
+        for status in list(filter(lambda x: relevant_contex(x['context']), statuses)):
             context = status['context']
-            if 'ci-index' in context or 'images' in context or 'prow' not in context:
-                continue
-            splitted = context.split('/')[-1].split('-')
-            provider = splitted[-1]
-            test_name = '-'.join(splitted[:-1])
+            test_name, provider = context.rsplit('-', 1)
             state = status['state']
             overridden = status['description'] and 'Overridden' in status['description']
             test_obj = self.get_test_obj(test_name)
@@ -110,15 +116,14 @@ class PullRequest:
             return
         comment = ''
         for override in self.override_list:
-            for passed in override[1]:
-                comment += passed.name.split('/')[-1] + ', '
-            comment = comment[:-2] # removing comma at the end
+            lanes = ", ".join(map(lambda x: x.name.split('/')[-1], override[1]))
             plural = 's' if len(override[1]) > 1 else ''
-            comment += f' lane{plural} succeeded.\n'
+            comment += f'{lanes} lane{plural} succeeded.\n'
             comment += f'/override {override[0].name}\n'
 
-        print (f'comment for PR #{self.number} is:\n{comment}')
+        print(f'comment for PR #{self.number} is:\n{comment}')
         gh_pr.create_issue_comment(comment)
+
 
 class CiTest:
     def __init__(self, name, lanes_list):
@@ -126,6 +131,7 @@ class CiTest:
         self.lanes_list = lanes_list
         self.succeeded_any = False
         self.succeeded_lanes = []
+
 
 class RedundantLane:
     def __init__(self, name, provider, state, overridden, ci_test):
@@ -151,6 +157,7 @@ class RedundantLane:
         else:
             self.result = Result.Invalid
 
+
 def main():
     ob = OverrideBot()
     ob.get_prs()
@@ -158,6 +165,7 @@ def main():
     ob.nominate_lanes_for_override()
     ob.comment_overrides()
     ob.finish_time = datetime.datetime.now()
+
 
 if __name__ == '__main__':
     main()
