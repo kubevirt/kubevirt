@@ -7552,7 +7552,8 @@ var _ = Describe("VirtualMachine", func() {
 				Reason: reason,
 			}
 		}
-		DescribeTable("", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, expectedVolumeMigrationState *v1.VolumeMigrationState, expectCond bool) {
+		DescribeTable("and UpdateVolumesStrategy set to Migration", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, expectedVolumeMigrationState *v1.VolumeMigrationState, expectCond bool) {
+			vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyMigration)
 			syncVolumeMigration(vm, vmi)
 			Expect(vm.Status.VolumeUpdateState.VolumeMigrationState).To(Equal(expectedVolumeMigrationState))
 			Expect(controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm,

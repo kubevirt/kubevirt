@@ -43,6 +43,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
+
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libdv"
@@ -61,7 +63,9 @@ import (
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
+	testsmig "kubevirt.io/kubevirt/tests/migration"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -586,6 +590,118 @@ var _ = SIGDescribe("Volumes update with migration", decorators.RequiresTwoSched
 				}
 				return vm.Status.VolumeUpdateState.VolumeMigrationState
 			}).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(BeNil())
+		})
+
+		Context("should be able to recover from an interuppted volume migration", func() {
+			const volName = "volume0"
+
+			createMigpolicyWithLimitedBandwidth := func(vmi *virtv1.VirtualMachineInstance) {
+				policy := testsmig.PreparePolicyAndVMIWithBandwidthLimitation(vmi, resource.MustParse("1Ki"))
+				testsmig.CreateMigrationPolicy(virtClient, policy)
+				Eventually(func() *migrationsv1.MigrationPolicy {
+					policy, err := virtClient.MigrationPolicy().Get(context.Background(), policy.Name, metav1.GetOptions{})
+					if err != nil {
+						return nil
+					}
+					return policy
+				}, 30*time.Second, time.Second).ShouldNot(BeNil())
+			}
+
+			createAndStartVM := func(dv *cdiv1.DataVolume) *virtv1.VirtualMachine {
+				vmi := libvmi.New(
+					libvmi.WithNamespace(ns),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
+					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithDataVolume(volName, dv.Name),
+					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
+				)
+				createMigpolicyWithLimitedBandwidth(vmi)
+				vm := libvmi.NewVirtualMachine(vmi,
+					libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
+					libvmi.WithDataVolumeTemplate(dv),
+					libvmi.WithRunStrategy(virtv1.RunStrategyManual),
+				)
+				vm, err := virtClient.VirtualMachine(ns).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Starting the VM")
+				vm = libvmops.StartVirtualMachine(vm)
+				vmi = libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running})
+				_, err = libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
+
+				return vm
+			}
+
+			It("when the copy of the destination volumes was successful", func() {
+				dv := createDV()
+				libstorage.CreateFSPVC(destPVC, ns, sizeWithOverhead, nil)
+				vm := createAndStartVM(dv)
+
+				By("Update volumes")
+				updateVMWithPVC(vm, volName, destPVC)
+
+				var migration *v1.VirtualMachineInstanceMigration
+				Eventually(func() int {
+					ls := labels.Set{
+						virtv1.VolumesUpdateMigration: vm.Name,
+					}
+					migList, err := virtClient.VirtualMachineInstanceMigration(ns).List(context.Background(),
+						metav1.ListOptions{
+							LabelSelector: ls.String(),
+						})
+					Expect(err).ToNot(HaveOccurred())
+					if len(migList.Items) < 1 {
+						return 0
+					}
+					Expect(migList.Items).To(HaveLen(1))
+					migration = &migList.Items[0]
+					return 1
+				}).WithTimeout(time.Minute).WithPolling(time.Second).Should(Equal(1))
+				Eventually(matcher.ThisMigration(migration), 3*time.Minute, 1*time.Second).Should(matcher.BeInPhase(v1.MigrationRunning))
+
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name,
+					metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Killing the source pod")
+				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(err).NotTo(HaveOccurred())
+				err = virtClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{
+					GracePeriodSeconds: pointer.P(int64(0)),
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Making sure that post-copy migration failed")
+				Eventually(matcher.ThisMigration(migration), 3*time.Minute, 1*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed))
+
+				virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Start(context.Background(), vm.Name, &virtv1.StartOptions{Paused: false})
+				checkVolumeMigrationOnVM(vm, volName, dv.Name, destPVC)
+
+				By("By removing the update volume strategy in order to remove the manual recovery condition and start the VM")
+				p, err := patch.New(
+					patch.WithRemove("/spec/updateVolumesStrategy"),
+				).GeneratePayload()
+				Expect(err).ToNot(HaveOccurred())
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, metav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() bool {
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return controller.NewVirtualMachineConditionManager().HasCondition(
+						vm, virtv1.VirtualMachineManualRecoveryRequired)
+				}).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(BeFalse())
+
+				By("Starting the VM")
+				Eventually(func() bool {
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return controller.NewVirtualMachineConditionManager().HasCondition(
+						vm, virtv1.VirtualMachineManualRecoveryRequired)
+				}).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(BeFalse())
+				libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running})
+			})
 		})
 	})
 
