@@ -94,6 +94,6 @@ jobs:
             ```release-note
             Bump ${{ env.UPDATED_COMPONENT }} to ${{ env.UPDATED_VERSION }}
             ```
-          assignees: tiraboschi,orenc1,nunnatsa,machadovilaca,dharmit
-          reviewers: tiraboschi,orenc1,nunnatsa,machadovilaca,dharmit
+          assignees: orenc1,nunnatsa,machadovilaca,avlitman
+          reviewers: orenc1,nunnatsa,machadovilaca,avlitman
           branch: bump_${{ env.UPDATED_COMPONENT }}_${{ env.UPDATED_VERSION }}_${{ matrix.branches.branch }}
