@@ -2,7 +2,7 @@ package scp
 
 import "strings"
 
-func (o *SCP) buildSCPTarget(local LocalArgument, remote RemoteArgument, toRemote bool) (opts []string) {
+func (o *SCP) buildSCPTarget(local *LocalArgument, remote *RemoteArgument, toRemote bool) (opts []string) {
 	if o.recursive {
 		opts = append(opts, "-r")
 	}
