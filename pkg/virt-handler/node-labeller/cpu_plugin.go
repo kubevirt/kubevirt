@@ -29,6 +29,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	libvirtxml "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/capabilities"
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
@@ -175,4 +176,31 @@ func (n *NodeLabeller) getStructureFromXMLFile(path string, structure interface{
 	n.logger.V(4).Infof("node-labeller - loading data from xml file: %#v", string(rawFile))
 
 	return xml.Unmarshal(rawFile, structure)
+}
+
+func (n *NodeLabeller) loadCapabilities() error {
+	capabilities, err := n.getCapabilities()
+	if err != nil {
+		return fmt.Errorf("failed to load capabilities: %w", err)
+	}
+
+	var supportedMachines []libvirtxml.CapsGuestMachine
+	for _, guest := range capabilities.Guests {
+		supportedMachines = append(supportedMachines, guest.Arch.Machines...)
+	}
+	n.supportedMachines = supportedMachines
+
+	return nil
+}
+
+func (n *NodeLabeller) getCapabilities() (*libvirtxml.Caps, error) {
+	capabilitiesFilePath := filepath.Join(n.volumePath, n.capabilitiesFileName)
+	capabilities := &libvirtxml.Caps{}
+
+	err := n.getStructureFromXMLFile(capabilitiesFilePath, capabilities)
+	if err != nil {
+		return nil, err
+	}
+
+	return capabilities, nil
 }

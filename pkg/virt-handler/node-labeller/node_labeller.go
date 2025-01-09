@@ -43,6 +43,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	libvirtxmlstab "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/capabilities"
 )
 
 var nodeLabellerLabels = []string{
@@ -57,6 +58,7 @@ var nodeLabellerLabels = []string{
 	kubevirtv1.HostModelCPULabel,
 	kubevirtv1.HostModelRequiredFeaturesLabel,
 	kubevirtv1.NodeHostModelIsObsoleteLabel,
+	kubevirtv1.SupportedMachineTypeLabel,
 }
 
 // NodeLabeller struct holds information needed to run node-labeller
@@ -68,10 +70,12 @@ type NodeLabeller struct {
 	clusterConfig           *virtconfig.ClusterConfig
 	hypervFeatures          supportedFeatures
 	hostCapabilities        supportedFeatures
+	supportedMachines       []libvirtxmlstab.CapsGuestMachine
 	queue                   workqueue.TypedRateLimitingInterface[string]
 	supportedFeatures       []string
 	cpuModelVendor          string
 	volumePath              string
+	capabilitiesFileName    string
 	domCapabilitiesFileName string
 	cpuCounter              *libvirtxml.CapsHostCPUCounter
 	hostCPUModel            hostCPUModel
@@ -95,6 +99,7 @@ func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.
 			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-handler-node-labeller"},
 		),
 		volumePath:              volumePath,
+		capabilitiesFileName:    "capabilities.xml",
 		domCapabilitiesFileName: "virsh_domcapabilities.xml",
 		cpuCounter:              cpuCounter,
 		hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool, 0)},
@@ -170,6 +175,11 @@ func (n *NodeLabeller) loadAll() error {
 		n.logger.Errorf("node-labeller could not load host dom capabilities: " + err.Error())
 		return err
 	}
+	err = n.loadCapabilities()
+	if err != nil {
+		n.logger.Errorf("node-labeller could not load host capabilities: " + err.Error())
+		return err
+	}
 
 	n.loadHypervFeatures()
 
@@ -241,6 +251,12 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatu
 	for _, value := range cpuModels {
 		newLabels[kubevirtv1.CPUModelLabel+value] = "true"
 		newLabels[kubevirtv1.SupportedHostModelMigrationCPU+value] = "true"
+	}
+
+	// Add labels for supported machine types and their deprecation status
+	for _, machine := range n.supportedMachines {
+		labelKey := kubevirtv1.SupportedMachineTypeLabel + machine.Name
+		newLabels[labelKey] = "true"
 	}
 
 	if _, hostModelObsolete := obsoleteCPUsx86[hostCpuModel.Name]; !hostModelObsolete {
