@@ -443,7 +443,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     export KUBEVIRT_E2E_PARALLEL=false
     label_filter='((sig-compute && Serial) && !(GPU,VGPU,sig-compute-migrations) && !(software-emulation, SEV, SEVES))'
   elif [[ $TARGET =~ sig-compute-parallel ]]; then
-    label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations) && !(software-emulation, SEV, SEVES))'
+    label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations,sig-storage) && !(software-emulation, SEV, SEVES))'
   elif [[ $TARGET =~ sig-compute-conformance ]]; then
     label_filter='(sig-compute && conformance)'
   elif [[ $TARGET =~ sig-compute ]]; then
@@ -512,6 +512,10 @@ fi
 
 if [ -z "$KUBEVIRT_HUGEPAGES_2M" ]; then
   add_to_label_filter '(!requireHugepages2Mi)' '&&'
+fi
+
+if [ -z "$KUBEVIRT_HUGEPAGES_1G" ]; then
+  add_to_label_filter '(!requireHugepages1Gi)' '&&'
 fi
 
 # Always override as we want to fail if anything is requiring special handling

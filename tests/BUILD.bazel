@@ -122,7 +122,6 @@ go_test(
         "//pkg/network/dns:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
-        "//pkg/util/cluster:go_default_library",
         "//pkg/util/hardware:go_default_library",
         "//pkg/util/net/dns:go_default_library",
         "//pkg/virt-api:go_default_library",
