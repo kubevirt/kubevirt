@@ -25,6 +25,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
@@ -117,7 +118,7 @@ func (o *PortForward) Run(cmd *cobra.Command, args []string) error {
 }
 
 func (o *PortForward) prepareCommand(args []string) (kind string, namespace string, name string, ports []forwardedPort, err error) {
-	kind, namespace, name, err = templates.ParseTarget(args[0])
+	kind, namespace, name, err = ParseTarget(args[0])
 	if err != nil {
 		return
 	}
@@ -143,9 +144,9 @@ func (o *PortForward) setResource(kind, namespace string) error {
 		return err
 	}
 
-	if templates.KindIsVMI(kind) {
+	if kindIsVMI(kind) {
 		o.resource = client.VirtualMachineInstance(namespace)
-	} else if templates.KindIsVM(kind) {
+	} else if kindIsVM(kind) {
 		o.resource = client.VirtualMachine(namespace)
 	} else {
 		return errors.New("unsupported resource kind " + kind)
@@ -235,4 +236,55 @@ func examples() string {
 
   # Use as SCP ProxyCommand:
   scp -o 'ProxyCommand={{ProgramName}} port-forward --stdio=true testvmi.mynamespace 22' local.file user@testvmi.mynamespace`
+}
+
+// ParseTarget argument supporting the form of vmi/name.namespace (or simpler)
+func ParseTarget(target string) (string, string, string, error) {
+	kind := "vmi"
+
+	parts := strings.Split(target, "/")
+	if len(parts) > 2 {
+		return "", "", "", errors.New("target is not valid with more than one '/'")
+	}
+	if len(parts) == 2 {
+		kind = parts[0]
+		if !kindIsVM(kind) && !kindIsVMI(kind) {
+			return "", "", "", errors.New("unsupported resource kind " + kind)
+		}
+		target = parts[1]
+	}
+	if target == "" {
+		return "", "", "", errors.New("expected name after '/'")
+	}
+	if target[0] == '.' {
+		return "", "", "", errors.New("expected name before '.'")
+	}
+	if target[len(target)-1] == '.' {
+		return "", "", "", errors.New("expected namespace after '.'")
+	}
+	subparts := strings.Split(target, ".")
+	if len(subparts) > 2 {
+		return "", "", "", errors.New("target is not valid with more than one '.'")
+	}
+
+	name := subparts[0]
+	namespace := ""
+	if len(subparts) == 2 {
+		namespace = subparts[1]
+	}
+
+	return kind, namespace, name, nil
+}
+func kindIsVMI(kind string) bool {
+	return kind == "vmi" ||
+		kind == "vmis" ||
+		kind == "virtualmachineinstance" ||
+		kind == "virtualmachineinstances"
+}
+
+func kindIsVM(kind string) bool {
+	return kind == "vm" ||
+		kind == "vms" ||
+		kind == "virtualmachine" ||
+		kind == "virtualmachines"
 }
