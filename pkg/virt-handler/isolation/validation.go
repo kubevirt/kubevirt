@@ -8,16 +8,15 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	utildisk "kubevirt.io/kubevirt/pkg/util/disk"
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
-
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 )
 
 const (
 	QEMUIMGPath = "/usr/bin/qemu-img"
 )
 
-func GetImageInfo(imagePath string, context IsolationResult, config *v1.DiskVerification) (*containerdisk.DiskInfo, error) {
+func GetImageInfo(imagePath string, context IsolationResult, config *v1.DiskVerification) (*utildisk.DiskInfo, error) {
 	memoryLimit := fmt.Sprintf("%d", config.MemoryLimit.Value())
 
 	// #nosec g204 no risk to use MountNamespace()  argument as it returns a fixed string of "/proc/<pid>/ns/mnt"
@@ -36,7 +35,7 @@ func GetImageInfo(imagePath string, context IsolationResult, config *v1.DiskVeri
 		return nil, fmt.Errorf("failed to invoke qemu-img: %v", err)
 	}
 
-	info := &containerdisk.DiskInfo{}
+	info := &utildisk.DiskInfo{}
 	err = json.Unmarshal(out, info)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse disk info: %v", err)

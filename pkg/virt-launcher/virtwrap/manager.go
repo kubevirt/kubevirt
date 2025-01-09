@@ -42,7 +42,26 @@ import (
 	"syscall"
 	"time"
 
+	imagevolume "kubevirt.io/kubevirt/pkg/image-volume"
+	utildisk "kubevirt.io/kubevirt/pkg/util/disk"
+	virtcache "kubevirt.io/kubevirt/tools/cache"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
+
+	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"
+
 	"libvirt.org/go/libvirt"
+
+	"kubevirt.io/kubevirt/pkg/downwardmetrics"
+	"kubevirt.io/kubevirt/pkg/network/cache"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -51,6 +70,8 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
@@ -82,7 +103,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
@@ -722,10 +742,10 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	logger.Info("Executing PreStartHook on VMI pod environment")
 
-	disksInfo := map[string]*containerdisk.DiskInfo{}
+	disksInfo := map[string]*utildisk.DiskInfo{}
 	for k, v := range l.disksInfo {
 		if v != nil {
-			disksInfo[k] = &containerdisk.DiskInfo{
+			disksInfo[k] = &utildisk.DiskInfo{
 				Format:      v.Format,
 				BackingFile: v.BackingFile,
 				ActualSize:  int64(v.ActualSize),
@@ -782,6 +802,16 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		return domain, fmt.Errorf("preparing the pod network failed: %v", err)
 	}
 
+	// Create ephemeral disk for image volume if needed
+	err = imagevolume.CreateEphemeralImages(vmi, l.ephemeralDiskCreator)
+	if err != nil {
+		return domain, fmt.Errorf("preparing ephemeral image volumes failed: %w", err)
+	}
+	// Create iso from image volume if needed
+	err = imagevolume.CreateISOImages(vmi)
+	if err != nil {
+		return domain, fmt.Errorf("preparing iso images failed: %w", err)
+	}
 	// Create ephemeral disk for container disks
 	err = containerdisk.CreateEphemeralImages(vmi, l.ephemeralDiskCreator, disksInfo)
 	if err != nil {
@@ -1014,6 +1044,13 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		}
 	}
 
+	imageVolumeCustomPaths := make(map[string]string)
+	for _, v := range vmi.Spec.Volumes {
+		if v.Image != nil && v.Image.Path != "" {
+			imageVolumeCustomPaths[v.Name] = v.Image.Path
+		}
+	}
+
 	// Map the VirtualMachineInstance to the Domain
 	c := &converter.ConverterContext{
 		Architecture:          arch.NewConverter(runtime.GOARCH),
@@ -1029,6 +1066,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		UseLaunchSecurity:     kutil.IsSEVVMI(vmi),
 		FreePageReporting:     isFreePageReportingEnabled(false, vmi),
 		SerialConsoleLog:      isSerialConsoleLogEnabled(false, vmi),
+		ImageVolumeCustomPaths: imageVolumeCustomPaths,
 	}
 
 	if options != nil {
