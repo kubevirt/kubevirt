@@ -273,7 +273,6 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 	volumes := []volume{
 		{"libvirt-runtimes", runtimesPath, runtimesPath, nil},
 		{"virt-share-dir", util.VirtShareDir, util.VirtShareDir, &bidi},
-		{"virt-lib-dir", util.VirtLibDir, util.VirtLibDir, nil},
 		{"virt-private-dir", util.VirtPrivateDir, util.VirtPrivateDir, nil},
 		{"kubelet-pods", kubeletPodsPath, "/pods", nil},
 		{"kubelet", util.KubeletRoot, util.KubeletRoot, &bidi},

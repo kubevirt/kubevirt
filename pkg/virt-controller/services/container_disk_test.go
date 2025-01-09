@@ -53,7 +53,6 @@ var _ = Describe("Container disk", func() {
 			svc = NewTemplateService("kubevirt/virt-launcher",
 				240,
 				"/var/run/kubevirt",
-				"/var/lib/kubevirt",
 				"/var/run/kubevirt-ephemeral-disks",
 				"/var/run/kubevirt/container-disks",
 				v1.HotplugDiskDir,

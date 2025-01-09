@@ -225,7 +225,6 @@ type VirtControllerApp struct {
 	launcherQemuTimeout        int
 	imagePullSecret            string
 	virtShareDir               string
-	virtLibDir                 string
 	ephemeralDiskDir           string
 	containerDiskDir           string
 	hotplugDiskDir             string
@@ -620,7 +619,6 @@ func (vca *VirtControllerApp) initCommon() {
 	vca.templateService = services.NewTemplateService(vca.launcherImage,
 		vca.launcherQemuTimeout,
 		vca.virtShareDir,
-		vca.virtLibDir,
 		vca.ephemeralDiskDir,
 		vca.containerDiskDir,
 		vca.hotplugDiskDir,
@@ -945,9 +943,6 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.virtShareDir, "kubevirt-share-dir", util.VirtShareDir,
 		"Shared directory between virt-handler and virt-launcher")
-
-	flag.StringVar(&vca.virtLibDir, "kubevirt-lib-dir", util.VirtLibDir,
-		"Shared lib directory between virt-handler and virt-launcher")
 
 	flag.StringVar(&vca.ephemeralDiskDir, "ephemeral-disk-dir", ephemeralDiskDir,
 		"Base directory for ephemeral disk data")
