@@ -14,7 +14,7 @@
  *
  */
 
-package converter
+package arch
 
 import (
 	v1 "kubevirt.io/api/core/v1"
@@ -24,15 +24,15 @@ import (
 )
 
 // Ensure that there is a compile error should the struct not implement the archConverter interface anymore.
-var _ = ArchConverter(&archConverterS390X{})
+var _ = Converter(&converterS390X{})
 
-type archConverterS390X struct{}
+type converterS390X struct{}
 
-func (archConverterS390X) GetArchitecture() string {
-	return "s390x"
+func (converterS390X) GetArchitecture() string {
+	return s390x
 }
 
-func (archConverterS390X) addGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ *ConverterContext) {
+func (converterS390X) AddGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
 	domain.Spec.Devices.Video = []api.Video{
 		{
 			Model: api.VideoModel{
@@ -50,7 +50,7 @@ func (archConverterS390X) addGraphicsDevice(_ *v1.VirtualMachineInstance, domain
 	)
 }
 
-func (archConverterS390X) scsiController(_ *ConverterContext, driver *api.ControllerDriver) api.Controller {
+func (converterS390X) ScsiController(_ string, driver *api.ControllerDriver) api.Controller {
 	return api.Controller{
 		Type:   "scsi",
 		Index:  "0",
@@ -59,37 +59,37 @@ func (archConverterS390X) scsiController(_ *ConverterContext, driver *api.Contro
 	}
 }
 
-func (archConverterS390X) isUSBNeeded(_ *v1.VirtualMachineInstance) bool {
+func (converterS390X) IsUSBNeeded(_ *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-func (archConverterS390X) supportCPUHotplug() bool {
+func (converterS390X) SupportCPUHotplug() bool {
 	return true
 }
 
-func (archConverterS390X) isSMBiosNeeded() bool {
+func (converterS390X) IsSMBiosNeeded() bool {
 	return false
 }
 
-func (archConverterS390X) transitionalModelType(_ bool) string {
+func (converterS390X) TransitionalModelType(_ bool) string {
 	// "virtio-non-transitional" and "virtio-transitional" are both PCI devices, so they don't work on s390x.
 	// "virtio" is a generic model that can be either PCI or CCW depending on the machine type
 	return "virtio"
 }
 
-func (archConverterS390X) isROMTuningSupported() bool {
+func (converterS390X) IsROMTuningSupported() bool {
 	return false
 }
 
-func (archConverterS390X) requiresMPXCPUValidation() bool {
+func (converterS390X) RequiresMPXCPUValidation() bool {
 	// skip the mpx CPU feature validation for anything that is not x86 as it is not supported.
 	return false
 }
 
-func (archConverterS390X) shouldVerboseLogsBeEnabled() bool {
+func (converterS390X) ShouldVerboseLogsBeEnabled() bool {
 	return false
 }
 
-func (archConverterS390X) hasVMPort() bool {
+func (converterS390X) HasVMPort() bool {
 	return false
 }

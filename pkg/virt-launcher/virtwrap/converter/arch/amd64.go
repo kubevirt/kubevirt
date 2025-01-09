@@ -14,29 +14,28 @@
  *
  */
 
-package converter
+package arch
 
 import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
 // Ensure that there is a compile error should the struct not implement the archConverter interface anymore.
-var _ = ArchConverter(&archConverterAMD64{})
+var _ = Converter(&converterAMD64{})
 
-type archConverterAMD64 struct{}
+type converterAMD64 struct{}
 
-func (archConverterAMD64) GetArchitecture() string {
-	return "amd64"
+func (converterAMD64) GetArchitecture() string {
+	return amd64
 }
 
-func (archConverterAMD64) addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) {
+func (converterAMD64) AddGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, isEFI bool) {
 	// For AMD64 + EFI, use bochs. For BIOS, use VGA
-	if c.BochsForEFIGuests && util.IsEFIVMI(vmi) {
+	if isEFI {
 		domain.Spec.Devices.Video = []api.Video{
 			{
 				Model: api.VideoModel{
@@ -58,11 +57,11 @@ func (archConverterAMD64) addGraphicsDevice(vmi *v1.VirtualMachineInstance, doma
 	}
 }
 
-func (archConverterAMD64) scsiController(c *ConverterContext, driver *api.ControllerDriver) api.Controller {
-	return defaultSCSIController(c, driver)
+func (converterAMD64) ScsiController(model string, driver *api.ControllerDriver) api.Controller {
+	return defaultSCSIController(model, driver)
 }
 
-func (archConverterAMD64) isUSBNeeded(vmi *v1.VirtualMachineInstance) bool {
+func (converterAMD64) IsUSBNeeded(vmi *v1.VirtualMachineInstance) bool {
 	for i := range vmi.Spec.Domain.Devices.Inputs {
 		if vmi.Spec.Domain.Devices.Inputs[i].Bus == "usb" {
 			return true
@@ -88,30 +87,30 @@ func (archConverterAMD64) isUSBNeeded(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-func (archConverterAMD64) supportCPUHotplug() bool {
+func (converterAMD64) SupportCPUHotplug() bool {
 	return true
 }
 
-func (archConverterAMD64) isSMBiosNeeded() bool {
+func (converterAMD64) IsSMBiosNeeded() bool {
 	return true
 }
 
-func (archConverterAMD64) transitionalModelType(useVirtioTransitional bool) string {
+func (converterAMD64) TransitionalModelType(useVirtioTransitional bool) string {
 	return defaultTransitionalModelType(useVirtioTransitional)
 }
 
-func (archConverterAMD64) isROMTuningSupported() bool {
+func (converterAMD64) IsROMTuningSupported() bool {
 	return true
 }
 
-func (archConverterAMD64) requiresMPXCPUValidation() bool {
+func (converterAMD64) RequiresMPXCPUValidation() bool {
 	return true
 }
 
-func (archConverterAMD64) shouldVerboseLogsBeEnabled() bool {
+func (converterAMD64) ShouldVerboseLogsBeEnabled() bool {
 	return true
 }
 
-func (archConverterAMD64) hasVMPort() bool {
+func (converterAMD64) HasVMPort() bool {
 	return true
 }

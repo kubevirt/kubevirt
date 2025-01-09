@@ -14,7 +14,7 @@
  *
  */
 
-package converter
+package arch
 
 import (
 	"kubevirt.io/client-go/log"
@@ -33,41 +33,41 @@ const (
 	s390x                           = "s390x"
 )
 
-type ArchConverter interface {
+type Converter interface {
 	GetArchitecture() string
-	addGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext)
-	scsiController(c *ConverterContext, driver *api.ControllerDriver) api.Controller
-	isUSBNeeded(vmi *v1.VirtualMachineInstance) bool
-	supportCPUHotplug() bool
-	isSMBiosNeeded() bool
-	hasVMPort() bool
-	transitionalModelType(useVirtioTransitional bool) string
-	isROMTuningSupported() bool
-	requiresMPXCPUValidation() bool
-	shouldVerboseLogsBeEnabled() bool
+	AddGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, isEFI bool)
+	ScsiController(model string, driver *api.ControllerDriver) api.Controller
+	IsUSBNeeded(vmi *v1.VirtualMachineInstance) bool
+	SupportCPUHotplug() bool
+	IsSMBiosNeeded() bool
+	HasVMPort() bool
+	TransitionalModelType(useVirtioTransitional bool) string
+	IsROMTuningSupported() bool
+	RequiresMPXCPUValidation() bool
+	ShouldVerboseLogsBeEnabled() bool
 }
 
-func NewArchConverter(arch string) ArchConverter {
+func NewConverter(arch string) Converter {
 	switch arch {
 	case arm64:
-		return archConverterARM64{}
+		return converterARM64{}
 	case ppc64le:
-		return archConverterPPC64{}
+		return converterPPC64{}
 	case s390x:
-		return archConverterS390X{}
+		return converterS390X{}
 	case amd64:
-		return archConverterAMD64{}
+		return converterAMD64{}
 	default:
 		log.Log.Warning("Trying to create an arch converter from an unknown arch: " + arch + ". Falling back to AMD64")
-		return archConverterAMD64{}
+		return converterAMD64{}
 	}
 }
 
-func defaultSCSIController(c *ConverterContext, driver *api.ControllerDriver) api.Controller {
+func defaultSCSIController(model string, driver *api.ControllerDriver) api.Controller {
 	return api.Controller{
 		Type:   "scsi",
 		Index:  "0",
-		Model:  InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()),
+		Model:  model,
 		Driver: driver,
 	}
 }

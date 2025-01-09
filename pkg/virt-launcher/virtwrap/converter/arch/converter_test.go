@@ -14,7 +14,7 @@
  *
  */
 
-package converter
+package arch
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -23,15 +23,15 @@ import (
 
 var _ = Describe("Arch Converter", func() {
 
-	DescribeTable("Should create a new archConverter for the correct architecture", func(arch string, result ArchConverter) {
-		ac := NewArchConverter(arch)
+	DescribeTable("Should create a new archConverter for the correct architecture", func(arch string, result Converter) {
+		ac := NewConverter(arch)
 
 		Expect(ac).To(Equal(result))
 	},
-		Entry("amd64", "amd64", archConverterAMD64{}),
-		Entry("arm64", "arm64", archConverterARM64{}),
-		Entry("ppc64le", "ppc64le", archConverterPPC64{}),
-		Entry("s390x", "s390x", archConverterS390X{}),
-		Entry("unkown", "unknown", archConverterAMD64{}),
+		Entry("amd64", "amd64", converterAMD64{}),
+		Entry("arm64", "arm64", converterARM64{}),
+		Entry("ppc64le", "ppc64le", converterPPC64{}),
+		Entry("s390x", "s390x", converterS390X{}),
+		Entry("unkown", "unknown", converterAMD64{}),
 	)
 })
