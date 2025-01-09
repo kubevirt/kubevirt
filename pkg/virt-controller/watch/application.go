@@ -255,6 +255,7 @@ type VirtControllerApp struct {
 	restoreControllerThreads          int
 	snapshotControllerResyncPeriod    time.Duration
 	cloneControllerThreads            int
+	additionalVMILauncherLabelsSync   string
 
 	caConfigMapName          string
 	promCertFilePath         string
@@ -660,6 +661,7 @@ func (vca *VirtControllerApp) initCommon() {
 		func(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
 			return netadmitter.ValidateCreation(field, vmiSpec, clusterCfg)
 		},
+		vca.additionalVMILauncherLabelsSync,
 	)
 	if err != nil {
 		panic(err)
@@ -1004,6 +1006,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.IntVar(&vca.cloneControllerThreads, "clone-controller-threads", defaultControllerThreads,
 		"Number of goroutines to run for clone controller")
+
+	flag.StringVar(&vca.additionalVMILauncherLabelsSync, "additional-vmi-launcher-labels-sync", "",
+		"Comma separated list of labels which if present on vmi, will be synced to the virt-launcher pod. Note, it is unidirectional from vmi to virt-launcher pod")
 }
 
 func (vca *VirtControllerApp) setupLeaderElector() (err error) {
