@@ -76,11 +76,11 @@ func (o *SCP) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	if o.options.WrapLocalSSH {
-		clientArgs := o.buildSCPTarget(*local, *remote, toRemote)
+		clientArgs := o.buildSCPTarget(local, remote, toRemote)
 		return ssh.RunLocalClient(remote.Kind, remote.Namespace, remote.Name, &o.options, clientArgs)
 	}
 
-	return o.nativeSCP(*local, *remote, toRemote)
+	return o.nativeSCP(local, remote, toRemote)
 }
 
 type LocalArgument struct {
