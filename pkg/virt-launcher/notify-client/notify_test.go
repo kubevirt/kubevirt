@@ -63,6 +63,7 @@ var _ = Describe("Notify", func() {
 		var mockDomain *cli.MockVirDomain
 		var mockCon *cli.MockConnection
 		var ctrl *gomock.Controller
+		var e *eventCaller
 
 		BeforeEach(func() {
 			ctrl = gomock.NewController(GinkgoT())
@@ -76,6 +77,7 @@ var _ = Describe("Notify", func() {
 			stopped = false
 			shareDir, err = os.MkdirTemp("", "kubevirt-share")
 			Expect(err).ToNot(HaveOccurred())
+			e = &eventCaller{}
 
 			go func() {
 				notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
@@ -107,7 +109,7 @@ var _ = Describe("Notify", func() {
 				mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
 				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
 
-				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: event}}, client, deleteNotificationSent, nil, nil, nil, nil, metadataCache)
+				e.eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: event}}, client, deleteNotificationSent, nil, nil, nil, nil, metadataCache)
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -138,7 +140,7 @@ var _ = Describe("Notify", func() {
 				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_NOSTATE, -1, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 				mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
 
-				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}}, client, deleteNotificationSent, nil, nil, nil, nil, metadataCache)
+				e.eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}}, client, deleteNotificationSent, nil, nil, nil, nil, metadataCache)
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -178,7 +180,7 @@ var _ = Describe("Notify", func() {
 					},
 				}
 
-				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, interfaceStatus, nil, nil, nil, metadataCache)
+				e.eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, interfaceStatus, nil, nil, nil, metadataCache)
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -209,7 +211,7 @@ var _ = Describe("Notify", func() {
 					Name: guestOsName,
 				}
 
-				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, &osInfoStatus, nil, nil, metadataCache)
+				e.eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, &osInfoStatus, nil, nil, metadataCache)
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -239,7 +241,7 @@ var _ = Describe("Notify", func() {
 					Status: fsFrozenStatus,
 				}
 
-				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, nil, nil, &fsFreezeStatus, metadataCache)
+				e.eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, nil, nil, nil, &fsFreezeStatus, metadataCache)
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -265,6 +267,7 @@ var _ = Describe("Notify", func() {
 		var client *Notifier
 		var recorder *record.FakeRecorder
 		var vmiStore cache.Store
+		var e *eventCaller
 
 		BeforeEach(func() {
 			stop = make(chan struct{})
@@ -278,6 +281,7 @@ var _ = Describe("Notify", func() {
 			recorder.IncludeObject = true
 			vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			vmiStore = vmiInformer.GetStore()
+			e = &eventCaller{}
 
 			go func() {
 				notifyserver.RunServer(shareDir, stop, eventChan, recorder, vmiStore)
@@ -341,7 +345,7 @@ var _ = Describe("Notify", func() {
 			eventReason := "IOerror"
 			eventMessage := "VM Paused due to not enough space on volume: "
 			metadataCache := metadata.NewCache()
-			eventCallback(mockCon, domain, libvirtEvent{}, client, deleteNotificationSent, nil, nil, vmi, nil, metadataCache)
+			e.eventCallback(mockCon, domain, libvirtEvent{}, client, deleteNotificationSent, nil, nil, vmi, nil, metadataCache)
 			event := <-recorder.Events
 			Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
 		})

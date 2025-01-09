@@ -238,7 +238,26 @@ func newWatchEventError(err error) watch.Event {
 	return watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
 }
 
-func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
+type eventCaller struct {
+	domainStatus             api.LifeCycle
+	domainStatusChangeReason api.StateChangeReason
+}
+
+func (e *eventCaller) printStatus(status *api.DomainStatus) {
+	v := 2
+	if status.Status == e.domainStatus && status.Reason == e.domainStatusChangeReason {
+		// Status hasn't changed so log only in higher verbosity.
+		v = 3
+	}
+	log.Log.V(v).Infof("kubevirt domain status: %v(%v) reason: %v(%v)", status.Status, e.domainStatus, status.Reason, e.domainStatusChangeReason)
+}
+
+func (e *eventCaller) updateStatus(status *api.DomainStatus) {
+	e.domainStatus = status.Status
+	e.domainStatusChangeReason = status.Reason
+}
+
+func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
 	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, vmi *v1.VirtualMachineInstance, fsFreezeStatus *api.FSFreeze,
 	metadataCache *metadata.Cache) {
 
@@ -251,12 +270,6 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 		domain.SetState(api.NoState, api.ReasonNonExistent)
 	} else {
 		defer d.Free()
-
-		// Remember current status before it will be changed.
-		var (
-			prevStatus = domain.Status.Status
-			prevReason = domain.Status.Reason
-		)
 
 		// No matter which event, try to fetch the domain xml
 		// and the state. If we get a IsNotFound error, that
@@ -289,12 +302,8 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 			domain.Spec = *spec
 		}
 
-		if domain.Status.Status == prevStatus && domain.Status.Reason == prevReason {
-			// Status hasn't changed so log only in higher verbosity.
-			log.Log.V(3).Infof("kubevirt domain status: %v(%v):%v(%v)", domain.Status.Status, status, domain.Status.Reason, reason)
-		} else {
-			log.Log.Infof("kubevirt domain status: %v(%v):%v(%v)", domain.Status.Status, status, domain.Status.Reason, reason)
-		}
+		e.printStatus(&domain.Status)
+		e.updateStatus(&domain.Status)
 	}
 
 	switch domain.Status.Reason {
@@ -414,12 +423,14 @@ func (n *Notifier) StartDomainNotifier(
 		var interfaceStatuses []api.InterfaceStatus
 		var guestOsInfo *api.GuestOSInfo
 		var fsFreezeStatus *api.FSFreeze
+		var eventCaller eventCaller
+
 		for {
 			select {
 			case event := <-eventChan:
 				metadataCache.ResetNotification()
 				domainCache = util.NewDomainFromName(event.Domain, vmi.UID)
-				eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
+				eventCaller.eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
 				log.Log.Infof("Domain name event: %v", domainCache.Spec.Name)
 				if event.AgentEvent != nil {
 					if event.AgentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED {
@@ -434,7 +445,7 @@ func (n *Notifier) StartDomainNotifier(
 				guestOsInfo = agentUpdate.DomainInfo.OSInfo
 				fsFreezeStatus = agentUpdate.DomainInfo.FSFreezeStatus
 
-				eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
+				eventCaller.eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
 					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
 			case <-reconnectChan:
 				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect, domain %s", domainName)))
@@ -447,7 +458,7 @@ func (n *Notifier) StartDomainNotifier(
 						util.DomainFromNamespaceName(domainCache.ObjectMeta.Namespace, domainCache.ObjectMeta.Name),
 						vmi.UID,
 					)
-					eventCallback(
+					eventCaller.eventCallback(
 						domainConn,
 						domainCache,
 						libvirtEvent{},
