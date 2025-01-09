@@ -228,6 +228,7 @@ func SetDefaultVirtualMachineInstanceSpec(clusterConfig *virtconfig.ClusterConfi
 	setGuestMemory(spec)
 	SetDefaultGuestCPUTopology(clusterConfig, spec)
 	setDefaultPullPoliciesOnContainerDisks(spec)
+	setDefaultPullPoliciesOnImageVolumes(spec)
 	setDefaultEvictionStrategy(clusterConfig, spec)
 	if err := vmispec.SetDefaultNetworkInterface(clusterConfig, spec); err != nil {
 		return err
@@ -262,6 +263,18 @@ func setDefaultPullPoliciesOnContainerDisks(spec *v1.VirtualMachineInstanceSpec)
 				volume.ContainerDisk.ImagePullPolicy = k8sv1.PullAlways
 			} else {
 				volume.ContainerDisk.ImagePullPolicy = k8sv1.PullIfNotPresent
+			}
+		}
+	}
+}
+
+func setDefaultPullPoliciesOnImageVolumes(spec *v1.VirtualMachineInstanceSpec) {
+	for _, volume := range spec.Volumes {
+		if volume.Image != nil && volume.Image.PullPolicy == "" {
+			if strings.HasSuffix(volume.Image.Image, ":latest") || !strings.ContainsAny(volume.Image.Image, ":@") {
+				volume.Image.PullPolicy = k8sv1.PullAlways
+			} else {
+				volume.Image.PullPolicy = k8sv1.PullIfNotPresent
 			}
 		}
 	}

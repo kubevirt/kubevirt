@@ -808,6 +808,14 @@
               "claimName": "claimNameValue",
               "readOnly": true,
               "hotpluggable": true
+            },
+            "image": {
+              "mountMode": "mountModeValue",
+              "image": "imageValue",
+              "pullPolicy": "pullPolicyValue",
+              "pullSecret": "pullSecretValue",
+              "path": "pathValue",
+              "readOnly": true
             }
           }
         ],

@@ -57,7 +57,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/config"
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/executor"
@@ -76,6 +75,7 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
+	utildisk "kubevirt.io/kubevirt/pkg/util/disk"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -3006,7 +3006,7 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		return err
 	}
 	var errorTolerantFeaturesError []error
-	disksInfo := map[string]*containerdisk.DiskInfo{}
+	disksInfo := map[string]*utildisk.DiskInfo{}
 	if !vmi.IsRunning() && !vmi.IsFinal() {
 		// give containerDisks some time to become ready before throwing errors on retries
 		info := c.getLauncherClientInfo(vmi)
@@ -3496,7 +3496,7 @@ func (c *VirtualMachineController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.
 }
 
 func (c *VirtualMachineController) reportTargetTopologyForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
-	options := virtualMachineOptions(nil, 0, nil, c.capabilities, map[string]*containerdisk.DiskInfo{}, c.clusterConfig)
+	options := virtualMachineOptions(nil, 0, nil, c.capabilities, map[string]*utildisk.DiskInfo{}, c.clusterConfig)
 	topology, err := json.Marshal(options.Topology)
 	if err != nil {
 		return err

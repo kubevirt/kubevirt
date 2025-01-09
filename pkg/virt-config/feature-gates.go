@@ -173,3 +173,7 @@ func (config *ClusterConfig) AlignCPUsEnabled() bool {
 func (config *ClusterConfig) NodeRestrictionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.NodeRestrictionGate)
 }
+
+func (config *ClusterConfig) ImageVolumeEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.ImageVolume)
+}

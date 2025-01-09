@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
+	imagevolume "kubevirt.io/kubevirt/pkg/image-volume"
 	putil "kubevirt.io/kubevirt/pkg/util"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
@@ -221,6 +222,11 @@ func initializeDirs(ephemeralDiskDir string,
 	}
 
 	err = virtlauncher.InitializeDisksDirectories(downwardmetrics.DownwardMetricsChannelDir)
+	if err != nil {
+		panic(err)
+	}
+
+	err = virtlauncher.InitializeDisksDirectories(imagevolume.IsosBaseDir)
 	if err != nil {
 		panic(err)
 	}

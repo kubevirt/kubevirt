@@ -14081,6 +14081,51 @@
      }
     }
    },
+   "v1.ImageVolumeSource": {
+    "description": "ImageVolumeSource represents an image volume resource. Directly attached to the VMI via QEMU.",
+    "type": "object",
+    "required": [
+     "mountMode",
+     "image"
+    ],
+    "properties": {
+     "image": {
+      "description": "Image or artifact reference to be used.",
+      "type": "string",
+      "default": ""
+     },
+     "mountMode": {
+      "description": "MountMode defines how the image should be mounted. Cannot be updated. - Ephemeral: Create ephemeral image and mounts it. - IsoArtifact: Generates an ISO artifact from the OCI image and mounts it.\n\nPossible enum values:\n - `\"Ephemeral\"` defines create ephemeral image before mounting.\n - `\"IsoArtifact\"` defines generating an ISO artifact from the OCI image. This ISO artifact is then mounted instead of the original image.",
+      "type": "string",
+      "default": "",
+      "enum": [
+       "Ephemeral",
+       "IsoArtifact"
+      ]
+     },
+     "path": {
+      "description": "Path defines the path to the disk file in the container.",
+      "type": "string"
+     },
+     "pullPolicy": {
+      "description": "Image pull policy. One of Always, Never, IfNotPresent. Defaults to Always if :latest tag is specified, or IfNotPresent otherwise. Cannot be updated. More info: https://kubernetes.io/docs/concepts/containers/images#updating-images\n\nPossible enum values:\n - `\"Always\"` means that kubelet always attempts to pull the latest image. Container will fail If the pull fails.\n - `\"IfNotPresent\"` means that kubelet pulls if the image isn't present on disk. Container will fail if the image isn't present and the pull fails.\n - `\"Never\"` means that kubelet never pulls an image, but only uses a local image. Container will fail if the image isn't present",
+      "type": "string",
+      "enum": [
+       "Always",
+       "IfNotPresent",
+       "Never"
+      ]
+     },
+     "pullSecret": {
+      "description": "PullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.",
+      "type": "string"
+     },
+     "readOnly": {
+      "description": "ReadOnly defines the mount mode of the image. Defaults to false.",
+      "type": "boolean"
+     }
+    }
+   },
    "v1.InitrdInfo": {
     "description": "InitrdInfo show info about the initrd file",
     "type": "object",
@@ -17828,6 +17873,10 @@
      "hostDisk": {
       "description": "HostDisk represents a disk created on the cluster level",
       "$ref": "#/definitions/v1.HostDisk"
+     },
+     "image": {
+      "description": "Image represents an image volume resource. Directly attached to the vmi via qemu.",
+      "$ref": "#/definitions/v1.ImageVolumeSource"
      },
      "memoryDump": {
       "description": "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi",

@@ -28,6 +28,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	utildisk "kubevirt.io/kubevirt/pkg/util/disk"
 )
 
 // Assuming windows does not care what's the exact label.
@@ -90,7 +91,7 @@ func createSysprepDisk(volumeName string, size int64) error {
 	if err := validateUnattendPresence(sysprepSourcePath); err != nil {
 		return err
 	}
-	filesPath, err := getFilesLayout(sysprepSourcePath)
+	filesPath, err := utildisk.GetFilesLayoutForISO(sysprepSourcePath)
 	if err != nil {
 		return err
 	}

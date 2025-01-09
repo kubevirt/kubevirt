@@ -14,6 +14,7 @@ go_library(
         "//pkg/safepath:go_default_library",
         "//pkg/unsafepath:go_default_library",
         "//pkg/util:go_default_library",
+        "//pkg/util/disk:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-handler/virt-chroot:go_default_library",

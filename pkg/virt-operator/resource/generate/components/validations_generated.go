@@ -7863,6 +7863,51 @@ var CRDsValidation map[string]string = map[string]string{
                         - path
                         - type
                         type: object
+                      image:
+                        description: |-
+                          Image represents an image volume resource.
+                          Directly attached to the vmi via qemu.
+                        properties:
+                          image:
+                            description: Image or artifact reference to be used.
+                            minLength: 1
+                            type: string
+                          mountMode:
+                            default: Ephemeral
+                            description: |-
+                              MountMode defines how the image should be mounted.
+                              Cannot be updated.
+                              - Ephemeral: Create ephemeral image and mounts it.
+                              - IsoArtifact: Generates an ISO artifact from the OCI image and mounts it.
+                            enum:
+                            - Ephemeral
+                            - IsoArtifact
+                            type: string
+                          path:
+                            description: Path defines the path to the disk file in
+                              the container.
+                            type: string
+                          pullPolicy:
+                            description: |-
+                              Image pull policy.
+                              One of Always, Never, IfNotPresent.
+                              Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
+                              Cannot be updated.
+                              More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+                            type: string
+                          pullSecret:
+                            description: PullSecret is the name of the Docker registry
+                              secret required to pull the image. The secret must already
+                              exist.
+                            type: string
+                          readOnly:
+                            description: ReadOnly defines the mount mode of the image.
+                              Defaults to false.
+                            type: boolean
+                        required:
+                        - image
+                        - mountMode
+                        type: object
                       memoryDump:
                         description: MemoryDump is attached to the virt launcher and
                           is populated with a memory dump of the vmi
@@ -13062,6 +13107,49 @@ var CRDsValidation map[string]string = map[string]string{
                 required:
                 - path
                 - type
+                type: object
+              image:
+                description: |-
+                  Image represents an image volume resource.
+                  Directly attached to the vmi via qemu.
+                properties:
+                  image:
+                    description: Image or artifact reference to be used.
+                    minLength: 1
+                    type: string
+                  mountMode:
+                    default: Ephemeral
+                    description: |-
+                      MountMode defines how the image should be mounted.
+                      Cannot be updated.
+                      - Ephemeral: Create ephemeral image and mounts it.
+                      - IsoArtifact: Generates an ISO artifact from the OCI image and mounts it.
+                    enum:
+                    - Ephemeral
+                    - IsoArtifact
+                    type: string
+                  path:
+                    description: Path defines the path to the disk file in the container.
+                    type: string
+                  pullPolicy:
+                    description: |-
+                      Image pull policy.
+                      One of Always, Never, IfNotPresent.
+                      Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
+                      Cannot be updated.
+                      More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+                    type: string
+                  pullSecret:
+                    description: PullSecret is the name of the Docker registry secret
+                      required to pull the image. The secret must already exist.
+                    type: string
+                  readOnly:
+                    description: ReadOnly defines the mount mode of the image. Defaults
+                      to false.
+                    type: boolean
+                required:
+                - image
+                - mountMode
                 type: object
               memoryDump:
                 description: MemoryDump is attached to the virt launcher and is populated
@@ -18697,6 +18785,51 @@ var CRDsValidation map[string]string = map[string]string{
                         - path
                         - type
                         type: object
+                      image:
+                        description: |-
+                          Image represents an image volume resource.
+                          Directly attached to the vmi via qemu.
+                        properties:
+                          image:
+                            description: Image or artifact reference to be used.
+                            minLength: 1
+                            type: string
+                          mountMode:
+                            default: Ephemeral
+                            description: |-
+                              MountMode defines how the image should be mounted.
+                              Cannot be updated.
+                              - Ephemeral: Create ephemeral image and mounts it.
+                              - IsoArtifact: Generates an ISO artifact from the OCI image and mounts it.
+                            enum:
+                            - Ephemeral
+                            - IsoArtifact
+                            type: string
+                          path:
+                            description: Path defines the path to the disk file in
+                              the container.
+                            type: string
+                          pullPolicy:
+                            description: |-
+                              Image pull policy.
+                              One of Always, Never, IfNotPresent.
+                              Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
+                              Cannot be updated.
+                              More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+                            type: string
+                          pullSecret:
+                            description: PullSecret is the name of the Docker registry
+                              secret required to pull the image. The secret must already
+                              exist.
+                            type: string
+                          readOnly:
+                            description: ReadOnly defines the mount mode of the image.
+                              Defaults to false.
+                            type: boolean
+                        required:
+                        - image
+                        - mountMode
+                        type: object
                       memoryDump:
                         description: MemoryDump is attached to the virt launcher and
                           is populated with a memory dump of the vmi
@@ -23202,6 +23335,52 @@ var CRDsValidation map[string]string = map[string]string{
                                 required:
                                 - path
                                 - type
+                                type: object
+                              image:
+                                description: |-
+                                  Image represents an image volume resource.
+                                  Directly attached to the vmi via qemu.
+                                properties:
+                                  image:
+                                    description: Image or artifact reference to be
+                                      used.
+                                    minLength: 1
+                                    type: string
+                                  mountMode:
+                                    default: Ephemeral
+                                    description: |-
+                                      MountMode defines how the image should be mounted.
+                                      Cannot be updated.
+                                      - Ephemeral: Create ephemeral image and mounts it.
+                                      - IsoArtifact: Generates an ISO artifact from the OCI image and mounts it.
+                                    enum:
+                                    - Ephemeral
+                                    - IsoArtifact
+                                    type: string
+                                  path:
+                                    description: Path defines the path to the disk
+                                      file in the container.
+                                    type: string
+                                  pullPolicy:
+                                    description: |-
+                                      Image pull policy.
+                                      One of Always, Never, IfNotPresent.
+                                      Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
+                                      Cannot be updated.
+                                      More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+                                    type: string
+                                  pullSecret:
+                                    description: PullSecret is the name of the Docker
+                                      registry secret required to pull the image.
+                                      The secret must already exist.
+                                    type: string
+                                  readOnly:
+                                    description: ReadOnly defines the mount mode of
+                                      the image. Defaults to false.
+                                    type: boolean
+                                required:
+                                - image
+                                - mountMode
                                 type: object
                               memoryDump:
                                 description: MemoryDump is attached to the virt launcher
@@ -28400,6 +28579,52 @@ var CRDsValidation map[string]string = map[string]string{
                                     required:
                                     - path
                                     - type
+                                    type: object
+                                  image:
+                                    description: |-
+                                      Image represents an image volume resource.
+                                      Directly attached to the vmi via qemu.
+                                    properties:
+                                      image:
+                                        description: Image or artifact reference to
+                                          be used.
+                                        minLength: 1
+                                        type: string
+                                      mountMode:
+                                        default: Ephemeral
+                                        description: |-
+                                          MountMode defines how the image should be mounted.
+                                          Cannot be updated.
+                                          - Ephemeral: Create ephemeral image and mounts it.
+                                          - IsoArtifact: Generates an ISO artifact from the OCI image and mounts it.
+                                        enum:
+                                        - Ephemeral
+                                        - IsoArtifact
+                                        type: string
+                                      path:
+                                        description: Path defines the path to the
+                                          disk file in the container.
+                                        type: string
+                                      pullPolicy:
+                                        description: |-
+                                          Image pull policy.
+                                          One of Always, Never, IfNotPresent.
+                                          Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
+                                          Cannot be updated.
+                                          More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+                                        type: string
+                                      pullSecret:
+                                        description: PullSecret is the name of the
+                                          Docker registry secret required to pull
+                                          the image. The secret must already exist.
+                                        type: string
+                                      readOnly:
+                                        description: ReadOnly defines the mount mode
+                                          of the image. Defaults to false.
+                                        type: boolean
+                                    required:
+                                    - image
+                                    - mountMode
                                     type: object
                                   memoryDump:
                                     description: MemoryDump is attached to the virt

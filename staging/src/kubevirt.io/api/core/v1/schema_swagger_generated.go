@@ -450,6 +450,7 @@ func (VolumeSource) SwaggerDoc() map[string]string {
 		"serviceAccount":        "ServiceAccountVolumeSource represents a reference to a service account.\nThere can only be one volume of this type!\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/\n+optional",
 		"downwardMetrics":       "DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest\nmetrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.",
 		"memoryDump":            "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi",
+		"image":                 "Image represents an image volume resource.\nDirectly attached to the vmi via qemu.\n+optional",
 	}
 }
 
@@ -499,6 +500,18 @@ func (ContainerDiskSource) SwaggerDoc() map[string]string {
 		"imagePullSecret": "ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.",
 		"path":            "Path defines the path to disk file in the container",
 		"imagePullPolicy": "Image pull policy.\nOne of Always, Never, IfNotPresent.\nDefaults to Always if :latest tag is specified, or IfNotPresent otherwise.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/containers/images#updating-images\n+optional",
+	}
+}
+
+func (ImageVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "ImageVolumeSource represents an image volume resource.\nDirectly attached to the VMI via QEMU.",
+		"mountMode":  "MountMode defines how the image should be mounted.\nCannot be updated.\n- Ephemeral: Create ephemeral image and mounts it.\n- IsoArtifact: Generates an ISO artifact from the OCI image and mounts it.\n+kubebuilder:default=Ephemeral",
+		"image":      "Image or artifact reference to be used.\n+kubebuilder:validation:MinLength=1",
+		"pullPolicy": "Image pull policy.\nOne of Always, Never, IfNotPresent.\nDefaults to Always if :latest tag is specified, or IfNotPresent otherwise.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/containers/images#updating-images\n+optional",
+		"pullSecret": "PullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.\n+optional",
+		"path":       "Path defines the path to the disk file in the container.\n+optional",
+		"readOnly":   "ReadOnly defines the mount mode of the image. Defaults to false.\n+optional",
 	}
 }
 

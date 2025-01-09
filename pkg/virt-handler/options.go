@@ -23,9 +23,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"libvirt.org/go/libvirtxml"
 
+	utildisk "kubevirt.io/kubevirt/pkg/util/disk"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
@@ -34,7 +34,7 @@ func virtualMachineOptions(
 	period uint32,
 	preallocatedVolumes []string,
 	capabilities *libvirtxml.Caps,
-	disksInfo map[string]*containerdisk.DiskInfo,
+	disksInfo map[string]*utildisk.DiskInfo,
 	clusterConfig *virtconfig.ClusterConfig,
 ) *cmdv1.VirtualMachineOptions {
 	options := &cmdv1.VirtualMachineOptions{
@@ -128,7 +128,7 @@ func cpuToCPU(cpu libvirtxml.CapsHostNUMACPU) *cmdv1.CPU {
 	}
 }
 
-func disksInfoToDisksInfo(disksInfo map[string]*containerdisk.DiskInfo) map[string]*cmdv1.DiskInfo {
+func disksInfoToDisksInfo(disksInfo map[string]*utildisk.DiskInfo) map[string]*cmdv1.DiskInfo {
 	info := map[string]*cmdv1.DiskInfo{}
 	for k, v := range disksInfo {
 		if v != nil {

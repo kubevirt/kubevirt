@@ -62,6 +62,16 @@ func NewFakeContainerDiskSource() *KVv1.ContainerDiskSource {
 	}
 }
 
+func NewFakeImageVolumeSource() *KVv1.ImageVolumeSource {
+	return &KVv1.ImageVolumeSource{
+		MountMode:  KVv1.ImageVolumeMountModeEphemeral,
+		Image:      "fake-image",
+		PullSecret: "fake-pull-secret",
+		PullPolicy: k8score.PullIfNotPresent,
+		Path:       "/fake-path",
+	}
+}
+
 func NewFakePersistentVolumeSource() *KVv1.PersistentVolumeClaimVolumeSource {
 	return &KVv1.PersistentVolumeClaimVolumeSource{
 		PersistentVolumeClaimVolumeSource: k8score.PersistentVolumeClaimVolumeSource{

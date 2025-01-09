@@ -413,6 +413,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.HyperVPassthrough":                                                  schema_kubevirtio_api_core_v1_HyperVPassthrough(ref),
 		"kubevirt.io/api/core/v1.HypervTimer":                                                        schema_kubevirtio_api_core_v1_HypervTimer(ref),
 		"kubevirt.io/api/core/v1.I6300ESBWatchdog":                                                   schema_kubevirtio_api_core_v1_I6300ESBWatchdog(ref),
+		"kubevirt.io/api/core/v1.ImageVolumeSource":                                                  schema_kubevirtio_api_core_v1_ImageVolumeSource(ref),
 		"kubevirt.io/api/core/v1.InitrdInfo":                                                         schema_kubevirtio_api_core_v1_InitrdInfo(ref),
 		"kubevirt.io/api/core/v1.Input":                                                              schema_kubevirtio_api_core_v1_Input(ref),
 		"kubevirt.io/api/core/v1.InstancetypeConfiguration":                                          schema_kubevirtio_api_core_v1_InstancetypeConfiguration(ref),
@@ -20468,6 +20469,66 @@ func schema_kubevirtio_api_core_v1_I6300ESBWatchdog(ref common.ReferenceCallback
 	}
 }
 
+func schema_kubevirtio_api_core_v1_ImageVolumeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ImageVolumeSource represents an image volume resource. Directly attached to the VMI via QEMU.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"mountMode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MountMode defines how the image should be mounted. Cannot be updated. - Ephemeral: Create ephemeral image and mounts it. - IsoArtifact: Generates an ISO artifact from the OCI image and mounts it.\n\nPossible enum values:\n - `\"Ephemeral\"` defines create ephemeral image before mounting.\n - `\"IsoArtifact\"` defines generating an ISO artifact from the OCI image. This ISO artifact is then mounted instead of the original image.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+							Enum:        []interface{}{"Ephemeral", "IsoArtifact"},
+						},
+					},
+					"image": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Image or artifact reference to be used.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"pullPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Image pull policy. One of Always, Never, IfNotPresent. Defaults to Always if :latest tag is specified, or IfNotPresent otherwise. Cannot be updated. More info: https://kubernetes.io/docs/concepts/containers/images#updating-images\n\nPossible enum values:\n - `\"Always\"` means that kubelet always attempts to pull the latest image. Container will fail If the pull fails.\n - `\"IfNotPresent\"` means that kubelet pulls if the image isn't present on disk. Container will fail if the image isn't present and the pull fails.\n - `\"Never\"` means that kubelet never pulls an image, but only uses a local image. Container will fail if the image isn't present",
+							Type:        []string{"string"},
+							Format:      "",
+							Enum:        []interface{}{"Always", "IfNotPresent", "Never"},
+						},
+					},
+					"pullSecret": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Path defines the path to the disk file in the container.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"readOnly": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ReadOnly defines the mount mode of the image. Defaults to false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"mountMode", "image"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_InitrdInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -27377,12 +27438,18 @@ func schema_kubevirtio_api_core_v1_Volume(ref common.ReferenceCallback) common.O
 							Ref:         ref("kubevirt.io/api/core/v1.MemoryDumpVolumeSource"),
 						},
 					},
+					"image": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Image represents an image volume resource. Directly attached to the vmi via qemu.",
+							Ref:         ref("kubevirt.io/api/core/v1.ImageVolumeSource"),
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.CloudInitConfigDriveSource", "kubevirt.io/api/core/v1.CloudInitNoCloudSource", "kubevirt.io/api/core/v1.ConfigMapVolumeSource", "kubevirt.io/api/core/v1.ContainerDiskSource", "kubevirt.io/api/core/v1.DataVolumeSource", "kubevirt.io/api/core/v1.DownwardAPIVolumeSource", "kubevirt.io/api/core/v1.DownwardMetricsVolumeSource", "kubevirt.io/api/core/v1.EmptyDiskSource", "kubevirt.io/api/core/v1.EphemeralVolumeSource", "kubevirt.io/api/core/v1.HostDisk", "kubevirt.io/api/core/v1.MemoryDumpVolumeSource", "kubevirt.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/api/core/v1.SecretVolumeSource", "kubevirt.io/api/core/v1.ServiceAccountVolumeSource", "kubevirt.io/api/core/v1.SysprepSource"},
+			"kubevirt.io/api/core/v1.CloudInitConfigDriveSource", "kubevirt.io/api/core/v1.CloudInitNoCloudSource", "kubevirt.io/api/core/v1.ConfigMapVolumeSource", "kubevirt.io/api/core/v1.ContainerDiskSource", "kubevirt.io/api/core/v1.DataVolumeSource", "kubevirt.io/api/core/v1.DownwardAPIVolumeSource", "kubevirt.io/api/core/v1.DownwardMetricsVolumeSource", "kubevirt.io/api/core/v1.EmptyDiskSource", "kubevirt.io/api/core/v1.EphemeralVolumeSource", "kubevirt.io/api/core/v1.HostDisk", "kubevirt.io/api/core/v1.ImageVolumeSource", "kubevirt.io/api/core/v1.MemoryDumpVolumeSource", "kubevirt.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/api/core/v1.SecretVolumeSource", "kubevirt.io/api/core/v1.ServiceAccountVolumeSource", "kubevirt.io/api/core/v1.SysprepSource"},
 	}
 }
 
@@ -27552,11 +27619,17 @@ func schema_kubevirtio_api_core_v1_VolumeSource(ref common.ReferenceCallback) co
 							Ref:         ref("kubevirt.io/api/core/v1.MemoryDumpVolumeSource"),
 						},
 					},
+					"image": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Image represents an image volume resource. Directly attached to the vmi via qemu.",
+							Ref:         ref("kubevirt.io/api/core/v1.ImageVolumeSource"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.CloudInitConfigDriveSource", "kubevirt.io/api/core/v1.CloudInitNoCloudSource", "kubevirt.io/api/core/v1.ConfigMapVolumeSource", "kubevirt.io/api/core/v1.ContainerDiskSource", "kubevirt.io/api/core/v1.DataVolumeSource", "kubevirt.io/api/core/v1.DownwardAPIVolumeSource", "kubevirt.io/api/core/v1.DownwardMetricsVolumeSource", "kubevirt.io/api/core/v1.EmptyDiskSource", "kubevirt.io/api/core/v1.EphemeralVolumeSource", "kubevirt.io/api/core/v1.HostDisk", "kubevirt.io/api/core/v1.MemoryDumpVolumeSource", "kubevirt.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/api/core/v1.SecretVolumeSource", "kubevirt.io/api/core/v1.ServiceAccountVolumeSource", "kubevirt.io/api/core/v1.SysprepSource"},
+			"kubevirt.io/api/core/v1.CloudInitConfigDriveSource", "kubevirt.io/api/core/v1.CloudInitNoCloudSource", "kubevirt.io/api/core/v1.ConfigMapVolumeSource", "kubevirt.io/api/core/v1.ContainerDiskSource", "kubevirt.io/api/core/v1.DataVolumeSource", "kubevirt.io/api/core/v1.DownwardAPIVolumeSource", "kubevirt.io/api/core/v1.DownwardMetricsVolumeSource", "kubevirt.io/api/core/v1.EmptyDiskSource", "kubevirt.io/api/core/v1.EphemeralVolumeSource", "kubevirt.io/api/core/v1.HostDisk", "kubevirt.io/api/core/v1.ImageVolumeSource", "kubevirt.io/api/core/v1.MemoryDumpVolumeSource", "kubevirt.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/api/core/v1.SecretVolumeSource", "kubevirt.io/api/core/v1.ServiceAccountVolumeSource", "kubevirt.io/api/core/v1.SysprepSource"},
 	}
 }
 

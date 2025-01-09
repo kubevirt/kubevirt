@@ -54,10 +54,12 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
+	imagevolume "kubevirt.io/kubevirt/pkg/image-volume"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
+	utildisk "kubevirt.io/kubevirt/pkg/util/disk"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -114,6 +116,7 @@ type ConverterContext struct {
 	BochsForEFIGuests               bool
 	SerialConsoleLog                bool
 	DomainAttachmentByInterfaceName map[string]string
+	ImageVolumeCustomPaths          map[string]string
 }
 
 func assignDiskToSCSIController(disk *api.Disk, unit int) {
@@ -552,6 +555,9 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *Convert
 	if source.ContainerDisk != nil {
 		return Convert_v1_ContainerDiskSource_To_api_Disk(source.Name, source.ContainerDisk, disk, c, diskIndex)
 	}
+	if source.Image != nil {
+		return Convert_v1_ImageVolumeSource_To_api_Disk(source.Name, source.Image, disk, c)
+	}
 
 	if source.CloudInitNoCloud != nil || source.CloudInitConfigDrive != nil {
 		return Convert_v1_CloudInitSource_To_api_Disk(source.VolumeSource, disk, c)
@@ -853,6 +859,52 @@ func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, disk *api.D
 	disk.BackingStore.Type = backingDisk.Type
 
 	return nil
+}
+
+func Convert_v1_ImageVolumeSource_To_api_Disk(volumeName string, image *v1.ImageVolumeSource, disk *api.Disk, c *ConverterContext) error {
+	if disk.Type == "lun" {
+		return fmt.Errorf(deviceTypeNotCompatibleFmt, disk.Alias.GetName())
+	}
+	disk.Type = "file"
+	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
+	disk.Driver.Discard = "unmap"
+
+	switch image.MountMode {
+	case v1.ImageVolumeMountModeEphemeral:
+		subPath := c.ImageVolumeCustomPaths[volumeName]
+		source, err := imagevolume.GetImageVolumeDiskPath(volumeName, subPath)
+		if err != nil {
+			return err
+		}
+		info, err := imagevolume.GetImageVolumeDiskInfo(source)
+		if err != nil {
+			return err
+		}
+
+		disk.Driver.Type = "qcow2"
+		disk.ReadOnly = toApiReadOnly(image.ReadOnly)
+		disk.Source.File = c.EphemeraldiskCreator.GetFilePath(volumeName)
+		disk.BackingStore = &api.BackingStore{
+			Type: "file",
+			Format: &api.BackingStoreFormat{
+				Type: info.Format,
+			},
+			Source: &api.DiskSource{
+				File: source,
+			},
+		}
+		return nil
+
+	case v1.ImageVolumeMountModeIsoArtifact:
+		disk.Driver.Type = "raw"
+		disk.ReadOnly = toApiReadOnly(image.ReadOnly)
+		disk.Source.File = imagevolume.GetImageVolumeISOPath(volumeName)
+
+		return nil
+
+	default:
+		return fmt.Errorf("cannot convert image volume to disk, unexpected mount mode %q", image.MountMode)
+	}
 }
 
 func Convert_v1_Watchdog_To_api_Watchdog(source *v1.Watchdog, watchdog *api.Watchdog, _ *ConverterContext) error {
@@ -1924,7 +1976,7 @@ func boolToString(value *bool, defaultPositive bool, positive string, negative s
 	return toString(*value)
 }
 
-func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
+func GetImageInfo(imagePath string) (*utildisk.DiskInfo, error) {
 
 	// #nosec No risk for attacket injection. Only get information about an image
 	out, err := exec.Command(
@@ -1933,7 +1985,7 @@ func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to invoke qemu-img: %v", err)
 	}
-	info := &containerdisk.DiskInfo{}
+	info := &utildisk.DiskInfo{}
 	err = json.Unmarshal(out, info)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse disk info: %v", err)

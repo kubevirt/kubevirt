@@ -204,6 +204,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain)...)
 	causes = append(causes, validateVolumes(field.Child("volumes"), spec.Volumes, config)...)
 	causes = append(causes, validateContainerDisks(field, spec)...)
+	causes = append(causes, validateImageVolumes(field, spec, config)...)
 
 	causes = append(causes, validateAccessCredentials(field.Child("accessCredentials"), spec.AccessCredentials, spec.Volumes)...)
 
@@ -1171,6 +1172,28 @@ func validateContainerDisks(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 	return causes
 }
 
+func validateImageVolumes(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	imageVolumeEnabled := config.ImageVolumeEnabled()
+	var causes []metav1.StatusCause
+	for idx, volume := range spec.Volumes {
+		if volume.Image == nil {
+			continue
+		}
+		if !imageVolumeEnabled {
+			f := field.Child("volumes").Index(idx).Child("imageVolume").String()
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config, invalid entry %s", virtconfig.ImageVolume, f),
+				Field:   f,
+			})
+		}
+		if volume.Image.Path != "" {
+			causes = append(causes, validatePath(field.Child("volumes").Index(idx).Child("imageVolume"), volume.Image.Path)...)
+		}
+	}
+	return causes
+}
+
 func validatePath(field *k8sfield.Path, path string) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	if path == "/" {
@@ -1607,6 +1630,9 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 			volumeSourceSetCount++
 		}
 		if volume.ContainerDisk != nil {
+			volumeSourceSetCount++
+		}
+		if volume.Image != nil {
 			volumeSourceSetCount++
 		}
 		if volume.Ephemeral != nil {
