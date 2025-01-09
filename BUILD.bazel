@@ -209,6 +209,7 @@ build_other_images_default = {
     # Customized container-disk images
     "$(container_prefix)/$(image_prefix)fedora-with-test-tooling-container-disk:$(container_tag)": "//containerimages:fedora-with-test-tooling",
     # testing images
+    "$(container_prefix)/$(image_prefix)disks-images-provider:$(container_tag)": "//images/disks-images-provider:disks-images-provider-image",
     "$(container_prefix)/$(image_prefix)vm-killer:$(container_tag)": "//images/vm-killer:vm-killer-image",
 }
 
@@ -233,7 +234,6 @@ build_other_images_aarch64_x86_64 = dicts.add(
         "$(container_prefix)/$(image_prefix)alpine-with-test-tooling-container-disk:$(container_tag)": "//containerimages:alpine-with-test-tooling",
         "$(container_prefix)/$(image_prefix)fedora-realtime-container-disk:$(container_tag)": "//containerimages:fedora-realtime",
         # testing images
-        "$(container_prefix)/$(image_prefix)disks-images-provider:$(container_tag)": "//images/disks-images-provider:disks-images-provider-image",
         "$(container_prefix)/$(image_prefix)winrmcli:$(container_tag)": "//images/winrmcli:winrmcli-image",
     },
 )
