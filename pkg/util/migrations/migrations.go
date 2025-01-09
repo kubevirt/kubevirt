@@ -1,10 +1,9 @@
 package migrations
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -111,4 +110,22 @@ func VMIMigratableOnEviction(clusterConfig *virtconfig.ClusterConfig, vmi *v1.Vi
 		return vmi.IsMigratable()
 	}
 	return false
+}
+
+func InterruptedMigrationForVMI(migrationIndexer cache.Indexer, vmiName, ns string) (*v1.VirtualMachineInstanceMigration, error) {
+	objs, err := migrationIndexer.ByIndex(cache.NamespaceIndex, ns)
+	if err != nil {
+		return nil, err
+	}
+	for _, obj := range objs {
+		migration := obj.(*v1.VirtualMachineInstanceMigration)
+		if migration.Spec.VMIName == vmiName {
+			if migration.Status.Phase != v1.MigrationInterrupted {
+				log.Log.Warningf("Found an unexpected migration for VMI %s/%s: %s", ns, vmiName, migration.Name)
+				continue
+			}
+			return migration, nil
+		}
+	}
+	return nil, nil
 }

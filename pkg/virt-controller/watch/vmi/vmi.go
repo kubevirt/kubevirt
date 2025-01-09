@@ -70,6 +70,7 @@ func NewController(templateService services.TemplateService,
 	vmiInformer cache.SharedIndexInformer,
 	vmInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
+	migrationInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
 	storageClassInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
@@ -94,6 +95,7 @@ func NewController(templateService services.TemplateService,
 		vmiIndexer:              vmiInformer.GetIndexer(),
 		vmStore:                 vmInformer.GetStore(),
 		podIndexer:              podInformer.GetIndexer(),
+		migrationIndexer:        migrationInformer.GetIndexer(),
 		pvcIndexer:              pvcInformer.GetIndexer(),
 		recorder:                recorder,
 		clientset:               clientset,
@@ -188,6 +190,7 @@ type Controller struct {
 	vmiIndexer              cache.Indexer
 	vmStore                 cache.Store
 	podIndexer              cache.Indexer
+	migrationIndexer        cache.Indexer
 	pvcIndexer              cache.Indexer
 	topologyHinter          topology.Hinter
 	recorder                record.EventRecorder
@@ -393,7 +396,7 @@ func (c *Controller) syncDynamicLabelsToPod(vmi *virtv1.VirtualMachineInstance, 
 func (c *Controller) syncPodAnnotations(pod *k8sv1.Pod, newAnnotations map[string]string) (*k8sv1.Pod, error) {
 	patchSet := patch.New()
 	for key, newValue := range newAnnotations {
-		if podAnnotationValue, keyExist := pod.Annotations[key]; !keyExist || (keyExist && podAnnotationValue != newValue) {
+		if podAnnotationValue, keyExist := pod.Annotations[key]; !keyExist || podAnnotationValue != newValue {
 			patchSet.AddOption(
 				patch.WithAdd(fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(key)), newValue),
 			)
@@ -625,7 +628,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			} else if controller.IsPodDownOrGoingDown(pod) {
 				vmiCopy.Status.Phase = virtv1.Failed
 			}
-		case !vmiPodExists:
+		default:
 			// someone other than the controller deleted the pod unexpectedly
 			vmiCopy.Status.Phase = virtv1.Failed
 		}
@@ -972,11 +975,6 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		// do not return; just log the error
 	}
 
-	backendStoragePVCName, syncErr := c.handleBackendStorage(vmi)
-	if syncErr != nil {
-		return syncErr, pod
-	}
-
 	dataVolumesReady, isWaitForFirstConsumer, syncErr := c.handleSyncDataVolumes(vmi, dataVolumes)
 	if syncErr != nil {
 		return syncErr, pod
@@ -999,12 +997,16 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 			return nil, pod
 		}
 
+		backendStoragePVCName, syncErr := c.handleBackendStorage(vmi)
+		if syncErr != nil {
+			return syncErr, pod
+		}
+
 		// If a backend-storage PVC was just created but not yet seen by the informer, give it time
 		if !c.pvcExpectations.SatisfiedExpectations(key) {
 			return nil, pod
 		}
 
-		var backendStorageReady bool
 		backendStorageReady, err := c.backendStorage.IsPVCReady(vmi, backendStoragePVCName)
 		if err != nil {
 			return common.NewSyncError(err, controller.FailedBackendStorageProbeReason), pod
@@ -1101,11 +1103,21 @@ func (c *Controller) handleBackendStorage(vmi *virtv1.VirtualMachineInstance) (s
 		return "", common.NewSyncError(err, controller.FailedBackendStorageCreateReason)
 	}
 
-	if !backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
-		return "", nil
+	// If we found a successful migration, critical PVC labels were updated, we need to refresh the informer
+	c.pvcExpectations.ExpectCreations(key, 1)
+	pvc, err, success := backendstorage.RecoverFromBrokenMigration(c.clientset, c.migrationIndexer, c.pvcIndexer, vmi.Name, vmi.Namespace, c.templateService.GetLauncherImage())
+	if err != nil || pvc == nil || !success {
+		// Clear the expectation in all cases except after recovering from a successful migration
+		c.pvcExpectations.CreationObserved(key)
+	}
+	if err != nil {
+		return "", common.NewSyncError(err, controller.FailedBackendStorageCreateReason)
+	}
+	if pvc != nil {
+		return pvc.Name, nil
 	}
 
-	pvc := backendstorage.PVCForVMI(c.pvcIndexer, vmi)
+	pvc = backendstorage.PVCForVMI(c.pvcIndexer, vmi)
 	if pvc == nil {
 		c.pvcExpectations.ExpectCreations(key, 1)
 		if pvc, err = c.backendStorage.CreatePVCForVMI(vmi); err != nil {
@@ -1181,11 +1193,20 @@ func (c *Controller) updatePVC(old, cur interface{}) {
 	if curPVC.DeletionTimestamp != nil {
 		return
 	}
+
+	_, existsOld := oldPVC.Labels[backendstorage.PVCPrefix]
+	persistentStateFor, existsCur := curPVC.Labels[backendstorage.PVCPrefix]
+	if !existsOld && existsCur {
+		vmiKey := controller.NamespacedKey(curPVC.Namespace, persistentStateFor)
+		c.pvcExpectations.CreationObserved(vmiKey)
+		c.Queue.Add(vmiKey)
+		return // The PVC is a backend-storage PVC, won't be listed by `c.listVMIsMatchingDV()`
+	}
+
 	if equality.Semantic.DeepEqual(curPVC.Status.Capacity, oldPVC.Status.Capacity) {
 		// We only do something when the capacity changes
 		return
 	}
-
 	vmis, err := c.listVMIsMatchingDV(curPVC.Namespace, curPVC.Name)
 	if err != nil {
 		log.Log.Object(curPVC).Errorf("Error encountered getting VMIs for DataVolume: %v", err)

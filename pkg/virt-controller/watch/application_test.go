@@ -139,6 +139,7 @@ var _ = Describe("Application", func() {
 			vmiInformer,
 			vmInformer,
 			podInformer,
+			migrationInformer,
 			pvcInformer,
 			storageClassInformer,
 			recorder,
@@ -156,7 +157,8 @@ var _ = Describe("Application", func() {
 			},
 		)
 		app.rsController, _ = replicaset.NewController(vmiInformer, rsInformer, recorder, virtClient, uint(10))
-		app.vmController, _ = vm.NewController(vmiInformer,
+		app.vmController, _ = vm.NewController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
+			vmiInformer,
 			vmInformer,
 			dataVolumeInformer,
 			dataSourceInformer,
@@ -164,6 +166,7 @@ var _ = Describe("Application", func() {
 			pvcInformer,
 			crInformer,
 			podInformer,
+			migrationInformer,
 			instancetypeMethods,
 			recorder,
 			virtClient,

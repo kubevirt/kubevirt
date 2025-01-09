@@ -85,14 +85,12 @@ func getVolumes(obj metav1.Object, vmiSpec v1.VirtualMachineInstanceSpec, client
 		}
 	}
 
-	if needsBackendPVC(vmiSpec, opts) {
-		backendVolumeName, err := getBackendPVCName(obj, client)
-		if err != nil {
-			return enumeratedVolumes, err
-		}
-		if backendVolumeName != "" {
-			enumeratedVolumes = append(enumeratedVolumes, *createPVCVolume(backendVolumeName))
-		}
+	backendVolumeName, err := getBackendPVCName(obj, client)
+	if err != nil {
+		return enumeratedVolumes, err
+	}
+	if backendVolumeName != "" {
+		enumeratedVolumes = append(enumeratedVolumes, *createPVCVolume(backendVolumeName))
 	}
 
 	return enumeratedVolumes, nil
@@ -127,15 +125,6 @@ func getBackendPVCName(obj metav1.Object, client kubecli.KubevirtClient) (string
 			return pvc.Name, nil
 		}
 	}
-}
-
-func needsBackendPVC(vmiSpec v1.VirtualMachineInstanceSpec, opts []VolumeOption) bool {
-	for _, opt := range opts {
-		if opt == WithBackendVolume || opt == WithAllVolumes {
-			return backendstorage.IsBackendStorageNeededForVMI(&vmiSpec)
-		}
-	}
-	return false
 }
 
 func needsRegularVolumes(vmiSpec v1.VirtualMachineInstanceSpec, opts []VolumeOption) bool {

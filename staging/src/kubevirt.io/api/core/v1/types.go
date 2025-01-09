@@ -666,10 +666,14 @@ func (m *VirtualMachineInstanceMigration) IsFinal() bool {
 
 func (m *VirtualMachineInstanceMigration) IsRunning() bool {
 	switch m.Status.Phase {
-	case MigrationFailed, MigrationPending, MigrationPhaseUnset, MigrationSucceeded:
+	case MigrationFailed, MigrationPending, MigrationPhaseUnset, MigrationSucceeded, MigrationInterrupted:
 		return false
 	}
 	return true
+}
+
+func (m *VirtualMachineInstanceMigration) IsInterrupted() bool {
+	return m.Status.Phase == MigrationInterrupted
 }
 
 // The migration phase indicates that the target pod should have already been created
@@ -1425,6 +1429,8 @@ const (
 	MigrationSucceeded VirtualMachineInstanceMigrationPhase = "Succeeded"
 	// The migration failed
 	MigrationFailed VirtualMachineInstanceMigrationPhase = "Failed"
+	// The migration was interrupted and will have to be recovered later
+	MigrationInterrupted VirtualMachineInstanceMigrationPhase = "Interrupted"
 )
 
 // Deprecated for removal in v2, please use VirtualMachineInstanceType and VirtualMachinePreference instead.
