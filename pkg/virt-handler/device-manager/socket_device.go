@@ -158,7 +158,7 @@ func (dpi *SocketDevicePlugin) Allocate(ctx context.Context, r *pluginapi.Alloca
 		return nil, fmt.Errorf("error setting the permission the socket %s/%s:%v", dpi.socketDir, dpi.socket, err)
 	}
 	if se, exists, err := selinux.NewSELinux(); err == nil && exists {
-		if err := selinux.RelabelFiles(util.UnprivilegedContainerSELinuxLabel, se.IsPermissive(), prSock); err != nil {
+		if err := selinux.RelabelFilesUnprivileged(se.IsPermissive(), prSock); err != nil {
 			return nil, fmt.Errorf("error relabeling required files: %v", err)
 		}
 	} else if err != nil {

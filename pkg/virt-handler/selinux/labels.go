@@ -171,15 +171,16 @@ type SELinux interface {
 	IsPermissive() bool
 }
 
-func RelabelFiles(newLabel string, continueOnError bool, files ...*safepath.Path) error {
-	relabelArgs := []string{"selinux", "relabel", newLabel}
+func RelabelFilesUnprivileged(continueOnError bool, files ...*safepath.Path) error {
+	const unprivilegedContainerSELinuxLabel = "system_u:object_r:container_file_t:s0"
+	relabelArgs := []string{"selinux", "relabel", unprivilegedContainerSELinuxLabel}
 	for _, file := range files {
 		cmd := exec.Command("virt-chroot", append(relabelArgs, "--root", unsafepath.UnsafeRoot(file.Raw()), unsafepath.UnsafeRelative(file.Raw()))...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		err := cmd.Run()
 		if err != nil {
-			err := fmt.Errorf("error relabeling file %s with label %s. Reason: %v", file, newLabel, err)
+			err := fmt.Errorf("error relabeling file %s with label %s. Reason: %v", file, unprivilegedContainerSELinuxLabel, err)
 			if !continueOnError {
 				return err
 			} else {
