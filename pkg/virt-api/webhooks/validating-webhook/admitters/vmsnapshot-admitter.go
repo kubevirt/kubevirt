@@ -32,11 +32,9 @@ import (
 
 	"kubevirt.io/api/core"
 
-	v1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
-	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -148,7 +146,7 @@ func (admitter *VMSnapshotAdmitter) Admit(ctx context.Context, ar *admissionv1.A
 }
 
 func (admitter *VMSnapshotAdmitter) validateCreateVM(ctx context.Context, field *k8sfield.Path, namespace, name string) ([]metav1.StatusCause, error) {
-	vm, err := admitter.Client.VirtualMachine(namespace).Get(ctx, name, metav1.GetOptions{})
+	_, err := admitter.Client.VirtualMachine(namespace).Get(ctx, name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return []metav1.StatusCause{
 			{
@@ -161,22 +159,6 @@ func (admitter *VMSnapshotAdmitter) validateCreateVM(ctx context.Context, field 
 
 	if err != nil {
 		return nil, err
-	}
-
-	if backendstorage.IsBackendStorageNeededForVM(vm) {
-		runStrategy, err := vm.RunStrategy()
-		if err != nil {
-			return nil, err
-		}
-		if runStrategy != v1.RunStrategyHalted {
-			return []metav1.StatusCause{
-				{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("VirtualMachine %q is not halted, online snapshot with backend PVC is not yet supported", name),
-					Field:   field.String(),
-				},
-			}, nil
-		}
 	}
 
 	return []metav1.StatusCause{}, nil
