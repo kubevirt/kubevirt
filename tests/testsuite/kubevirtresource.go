@@ -23,6 +23,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -35,7 +37,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	putil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -91,7 +92,7 @@ func AdjustKubeVirtResource() {
 		},
 	}
 	// Disable CPUManager Featuregate for s390x as it is not supported.
-	if putil.TranslateBuildArch() != "s390x" {
+	if translateBuildArch() != "s390x" {
 		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
 			virtconfig.CPUManager,
 		)
@@ -191,4 +192,25 @@ func UpdateKubeVirtConfigValue(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
 	Expect(err).ToNot(HaveOccurred())
 
 	return kv
+}
+
+/*
+translateBuildArch translates the build_arch to arch
+
+	case1:
+	  build_arch is crossbuild-s390x, which will be translated to s390x arch
+	case2:
+	  build_arch is s390x, which will be translated to s390x arch
+*/
+func translateBuildArch() string {
+	buildArch := os.Getenv("BUILD_ARCH")
+
+	if buildArch == "" {
+		return ""
+	}
+	archElements := strings.Split(buildArch, "-")
+	if len(archElements) == 2 {
+		return archElements[1]
+	}
+	return archElements[0]
 }
