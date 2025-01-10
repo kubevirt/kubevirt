@@ -2,8 +2,7 @@
 
 set -ex
 
-source $(dirname "$0")/common.sh
-source $(dirname "$0")/config.sh
+source $(dirname "$0")/default.sh
 
 _common_instancetypes_base_url="https://github.com/kubevirt/common-instancetypes/releases/download"
 _cluster_instancetypes_path="pkg/virt-operator/resource/generate/components/data/common-clusterinstancetypes-bundle.yaml"
