@@ -24,8 +24,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
-
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -34,9 +32,11 @@ import (
 
 	"kubevirt.io/api/core"
 
+	v1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -164,13 +164,19 @@ func (admitter *VMSnapshotAdmitter) validateCreateVM(ctx context.Context, field 
 	}
 
 	if backendstorage.IsBackendStorageNeededForVM(vm) {
-		return []metav1.StatusCause{
-			{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("VirtualMachine %q needs backend storage, which is not yet supported", name),
-				Field:   field.String(),
-			},
-		}, nil
+		runStrategy, err := vm.RunStrategy()
+		if err != nil {
+			return nil, err
+		}
+		if runStrategy != v1.RunStrategyHalted {
+			return []metav1.StatusCause{
+				{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("VirtualMachine %q is not halted, online snapshot with backend PVC is not yet supported", name),
+					Field:   field.String(),
+				},
+			}, nil
+		}
 	}
 
 	return []metav1.StatusCause{}, nil

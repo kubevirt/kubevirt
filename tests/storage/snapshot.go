@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/watcher"
@@ -28,6 +30,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/velero"
 
@@ -1467,6 +1470,70 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes[0]).Should(Equal("snapshotablevolume"))
 				Expect(snapshot.Status.SnapshotVolumes.ExcludedVolumes).Should(HaveLen(1))
 				Expect(snapshot.Status.SnapshotVolumes.ExcludedVolumes[0]).Should(Equal("notsnapshotablevolume"))
+			})
+
+			It("Should also include backend PVC in the snapshot", Serial, func() {
+				By("Setting the VMState storage class to snapshot")
+				kv := libkubevirt.GetCurrentKv(virtClient)
+				kv.Spec.Configuration.VMStateStorageClass = snapshotStorageClass
+				config.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+
+				By("Creating DV with snapshot supported storage class")
+				includedDataVolume := libdv.NewDataVolume(
+					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+					libdv.WithStorage(libdv.StorageWithStorageClass(snapshotStorageClass)),
+					libdv.WithForceBindAnnotation(),
+				)
+				dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), includedDataVolume, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				waitDataVolumePopulated(dv.Namespace, dv.Name)
+
+				By("Creating a VMI with persistent TPM")
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+					libvmi.WithPersistentVolumeClaim("snapshotablevolume", includedDataVolume.Name),
+				)
+				vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+				vm = libvmi.NewVirtualMachine(vmi)
+				vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
+
+				By("Expecting the creation of a backend storage PVC with the right storage class")
+				pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+					LabelSelector: "persistent-state-for=" + vmi.Name,
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pvcs.Items).To(HaveLen(1))
+
+				// Stop VM before snapshotting as currently, only offline snapshot is supported for backend PVC
+				vm = libvmops.StopVirtualMachine(vm)
+
+				By("Create Snapshot")
+				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
+				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func() v1.VirtualMachineStatus {
+					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return vm.Status
+				}, 180*time.Second, 3*time.Second).Should(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"VolumeSnapshotStatuses": HaveExactElements(
+						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+							"Enabled": BeTrue()}),
+						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+							"Enabled": BeTrue()})),
+				}))
+
+				snapshot = libstorage.WaitSnapshotSucceeded(virtClient, vm.Namespace, snapshot.Name)
+				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes).Should(HaveLen(2))
+				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes[0]).Should(Equal("snapshotablevolume"))
+				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes[1]).Should(Equal(fmt.Sprintf("persistent-state-for-%s", vm.Name)))
 			})
 		})
 

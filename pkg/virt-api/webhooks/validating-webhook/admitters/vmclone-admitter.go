@@ -29,6 +29,7 @@ import (
 
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -382,6 +383,14 @@ func validateCloneVolumeSnapshotSupportVM(vm *v1.VirtualMachine, sourceField *k8
 				})
 			}
 		}
+	}
+
+	if backendstorage.IsBackendStorageNeededForVM(vm) {
+		result = append(result, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Virtual Machine requires backend storage, operation not supported",
+			Field:   sourceField.String(),
+		})
 	}
 
 	return result

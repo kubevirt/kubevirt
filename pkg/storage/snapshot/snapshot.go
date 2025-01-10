@@ -29,7 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -226,7 +226,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 			log.Log.V(2).Infof("Deleting vmsnapshotcontent %s/%s", content.Namespace, content.Name)
 
 			err = ctrl.Client.VirtualMachineSnapshotContent(vmSnapshot.Namespace).Delete(context.Background(), content.Name, metav1.DeleteOptions{})
-			if err != nil && !errors.IsNotFound(err) {
+			if err != nil && !k8serrors.IsNotFound(err) {
 				return 0, err
 			}
 		} else {
@@ -604,6 +604,11 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 	var volumeBackups []snapshotv1.VolumeBackup
 	pvcs, err := source.PersistentVolumeClaims()
 	if err != nil {
+		if storageutils.IsErrNoBackendPVC(err) {
+			// No backend pvc when we should have one, lets wait
+			// TODO: Improve this error handling
+			return nil
+		}
 		return err
 	}
 	for volumeName, pvcName := range pvcs {
@@ -648,7 +653,7 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 	}
 
 	_, err = ctrl.Client.VirtualMachineSnapshotContent(content.Namespace).Create(context.Background(), content, metav1.CreateOptions{})
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return err
 	}
 
@@ -859,7 +864,7 @@ func (ctrl *VMSnapshotController) updateSnapshotSnapshotableVolumes(snapshot *sn
 		return nil
 	}
 	volumes, err := storageutils.GetVolumes(vm, ctrl.Client, storageutils.WithAllVolumes)
-	if err != nil {
+	if err != nil && !storageutils.IsErrNoBackendPVC(err) {
 		return err
 	}
 
@@ -889,7 +894,7 @@ func (ctrl *VMSnapshotController) updateVolumeSnapshotStatuses(vm *kubevirtv1.Vi
 
 	vmCopy := vm.DeepCopy()
 	volumes, err := storageutils.GetVolumes(vmCopy, ctrl.Client, storageutils.WithAllVolumes)
-	if err != nil {
+	if err != nil && !storageutils.IsErrNoBackendPVC(err) {
 		return err
 	}
 
