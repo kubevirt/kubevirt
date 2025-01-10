@@ -1555,9 +1555,6 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(pvcs.Items).To(HaveLen(1))
 
-				// Stop VM before snapshotting as currently, only offline snapshot is supported for backend PVC
-				vm = libvmops.StopVirtualMachine(vm)
-
 				By("Create Snapshot")
 				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
 				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
