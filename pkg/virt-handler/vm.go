@@ -1411,7 +1411,7 @@ func (c *VirtualMachineController) updateVMIConditions(vmi *v1.VirtualMachineIns
 	return nil
 }
 
-func (c *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
+func (c *VirtualMachineController) updateVMIStatus(origVMI, vmi *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
 
 	// Don't update the VirtualMachineInstance if it is already in a final state
@@ -1422,11 +1422,8 @@ func (c *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 		// not owned by this host, likely the result of a migration
 		return nil
 	} else if domainMigrated(domain) {
-		return c.migrationSourceUpdateVMIStatus(origVMI, domain)
+		return c.migrationSourceUpdateVMIStatus(vmi, domain)
 	}
-
-	vmi := origVMI.DeepCopy()
-	oldStatus := *vmi.Status.DeepCopy()
 
 	// Update VMI status fields based on what is reported on the domain
 	err = c.updateVMIStatusFromDomain(vmi, domain)
@@ -1457,7 +1454,7 @@ func (c *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	controller.SetVMIPhaseTransitionTimestamp(origVMI, vmi)
 
 	// Only issue vmi update if status has changed
-	if !equality.Semantic.DeepEqual(oldStatus, vmi.Status) {
+	if !equality.Semantic.DeepEqual(origVMI.Status, vmi.Status) {
 		key := controller.VirtualMachineInstanceKey(vmi)
 		c.vmiExpectations.SetExpectations(key, 1, 0)
 		_, err = c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
@@ -1468,7 +1465,7 @@ func (c *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	}
 
 	// Record an event on the VMI when the VMI's phase changes
-	if oldStatus.Phase != vmi.Status.Phase {
+	if origVMI.Status.Phase != vmi.Status.Phase {
 		c.recordPhaseChangeEvent(vmi)
 	}
 
@@ -2037,48 +2034,50 @@ func (c *VirtualMachineController) defaultExecute(key string,
 
 	var syncErr error
 
+	vmiCopy := vmi.DeepCopy()
+
 	// Process the VirtualMachineInstance update in this order.
 	// * Shutdown and Deletion due to VirtualMachineInstance deletion, process stopping, graceful shutdown trigger, etc...
 	// * Cleanup of already shutdown and Deleted VMIs
 	// * Update due to spec change and initial start flow.
 	switch {
 	case forceIgnoreSync:
-		log.Log.Object(vmi).V(3).Info("No update processing required: forced ignore")
+		log.Log.Object(vmiCopy).V(3).Info("No update processing required: forced ignore")
 	case shouldShutdown:
-		log.Log.Object(vmi).V(3).Info("Processing shutdown.")
-		syncErr = c.processVmShutdown(vmi, domain)
+		log.Log.Object(vmiCopy).V(3).Info("Processing shutdown.")
+		syncErr = c.processVmShutdown(vmiCopy, domain)
 	case forceShutdownIrrecoverable:
 		msg := formatIrrecoverableErrorMessage(domain)
-		log.Log.Object(vmi).V(3).Infof("Processing a destruction of an irrecoverable domain - %s.", msg)
-		syncErr = c.processVmDestroy(vmi, domain)
+		log.Log.Object(vmiCopy).V(3).Infof("Processing a destruction of an irrecoverable domain - %s.", msg)
+		syncErr = c.processVmDestroy(vmiCopy, domain)
 		if syncErr == nil {
 			syncErr = &vmiIrrecoverableError{msg}
 		}
 	case shouldDelete:
-		log.Log.Object(vmi).V(3).Info("Processing deletion.")
-		syncErr = c.processVmDelete(vmi)
+		log.Log.Object(vmiCopy).V(3).Info("Processing deletion.")
+		syncErr = c.processVmDelete(vmiCopy)
 	case shouldCleanUp:
-		log.Log.Object(vmi).V(3).Info("Processing local ephemeral data cleanup for shutdown domain.")
-		syncErr = c.processVmCleanup(vmi)
+		log.Log.Object(vmiCopy).V(3).Info("Processing local ephemeral data cleanup for shutdown domain.")
+		syncErr = c.processVmCleanup(vmiCopy)
 	case shouldUpdate:
-		log.Log.Object(vmi).V(3).Info("Processing vmi update")
-		syncErr = c.processVmUpdate(vmi, domain)
+		log.Log.Object(vmiCopy).V(3).Info("Processing vmi update")
+		syncErr = c.processVmUpdate(vmiCopy, domain)
 	default:
-		log.Log.Object(vmi).V(3).Info("No update processing required")
+		log.Log.Object(vmiCopy).V(3).Info("No update processing required")
 	}
 
-	if syncErr != nil && !vmi.IsFinal() {
-		c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.SyncFailed.String(), syncErr.Error())
+	if syncErr != nil && !vmiCopy.IsFinal() {
+		c.recorder.Event(vmiCopy, k8sv1.EventTypeWarning, v1.SyncFailed.String(), syncErr.Error())
 
 		// `syncErr` will be propagated anyway, and it will be logged in `re-enqueueing`
 		// so there is no need to log it twice in hot path without increased verbosity.
-		log.Log.Object(vmi).Reason(syncErr).Error("Synchronizing the VirtualMachineInstance failed.")
+		log.Log.Object(vmiCopy).Reason(syncErr).Error("Synchronizing the VirtualMachineInstance failed.")
 	}
 
 	// Update the VirtualMachineInstance status, if the VirtualMachineInstance exists
 	if vmiExists {
-		if err := c.updateVMIStatus(vmi, domain, syncErr); err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Updating the VirtualMachineInstance status failed.")
+		if err := c.updateVMIStatus(vmi, vmiCopy, domain, syncErr); err != nil {
+			log.Log.Object(vmiCopy).Reason(err).Error("Updating the VirtualMachineInstance status failed.")
 			return err
 		}
 	}
