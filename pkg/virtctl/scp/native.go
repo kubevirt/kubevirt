@@ -13,7 +13,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/ssh"
 )
 
-func (o *SCP) nativeSCP(local LocalArgument, remote RemoteArgument, toRemote bool) error {
+func (o *SCP) nativeSCP(local *LocalArgument, remote *RemoteArgument, toRemote bool) error {
 	sshClient := ssh.NativeSSHConnection{
 		ClientConfig: o.clientConfig,
 		Options:      o.options,
