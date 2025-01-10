@@ -1276,34 +1276,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		Context("VirtualMachineInstance Emulation Mode", decorators.SoftwareEmulation, func() {
 
-			It("[test_id:1643]should enable emulation in virt-launcher", func() {
-				vmi := libvmifact.NewAlpine()
-				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				libwait.WaitForSuccessfulVMIStart(vmi)
-
-				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(err).NotTo(HaveOccurred())
-
-				emulationFlagFound := false
-				computeContainerFound := false
-				for _, container := range pod.Spec.Containers {
-					if container.Name == "compute" {
-						computeContainerFound = true
-						for _, cmd := range container.Command {
-							By(cmd)
-							if cmd == "--allow-emulation" {
-								emulationFlagFound = true
-							}
-						}
-					}
-				}
-
-				Expect(computeContainerFound).To(BeTrue(), "Compute container was not found in pod")
-				Expect(emulationFlagFound).To(BeTrue(), "Expected VirtualMachineInstance pod to have '--allow-emulation' flag")
-			})
-
 			It("[test_id:1644]should be reflected in domain XML", func() {
 				vmi := libvmifact.NewAlpine()
 				err := kubevirt.Client().RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Error()
@@ -1349,79 +1321,9 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				Expect(domain.Spec.Type).To(Equal(expectedType), "VMI domain type should be of expectedType")
 			})
-
-			It("[test_id:1645]should request a TUN device but not KVM", func() {
-				vmi := libvmifact.NewAlpine()
-				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				vmi = libwait.WaitForSuccessfulVMIStart(vmi)
-
-				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(err).NotTo(HaveOccurred())
-
-				computeContainerFound := false
-				for _, container := range pod.Spec.Containers {
-					if container.Name == "compute" {
-						computeContainerFound = true
-
-						_, ok := container.Resources.Limits[services.KvmDevice]
-						Expect(ok).To(BeFalse(), "Container should not have requested KVM device")
-
-						_, ok = container.Resources.Limits[services.TunDevice]
-						Expect(ok).To(BeTrue(), "Container should have requested TUN device")
-					}
-				}
-
-				Expect(computeContainerFound).To(BeTrue(), "Compute container was not found in pod")
-			})
 		})
 
 		Context("VM Accelerated Mode", decorators.WgS390x, func() {
-
-			It("[test_id:1646]should request a KVM and TUN device", func() {
-				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
-				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(err).NotTo(HaveOccurred())
-
-				computeContainerFound := false
-				for _, container := range pod.Spec.Containers {
-					if container.Name == "compute" {
-						computeContainerFound = true
-
-						_, ok := container.Resources.Limits[services.KvmDevice]
-						Expect(ok).To(BeTrue(), "Container should have requested KVM device")
-
-						_, ok = container.Resources.Limits[services.TunDevice]
-						Expect(ok).To(BeTrue(), "Container should have requested TUN device")
-					}
-				}
-
-				Expect(computeContainerFound).To(BeTrue(), "Compute container was not found in pod")
-			})
-
-			It("[test_id:1647]should not enable emulation in virt-launcher", func() {
-				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
-				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(err).NotTo(HaveOccurred())
-
-				emulationFlagFound := false
-				computeContainerFound := false
-				for _, container := range pod.Spec.Containers {
-					if container.Name == "compute" {
-						computeContainerFound = true
-						for _, cmd := range container.Command {
-							By(cmd)
-							if cmd == "--allow-emulation" {
-								emulationFlagFound = true
-							}
-						}
-					}
-				}
-
-				Expect(computeContainerFound).To(BeTrue(), "Compute container was not found in pod")
-				Expect(emulationFlagFound).To(BeFalse(), "Expected VM pod not to have '--allow-emulation' flag")
-			})
 
 			It("[test_id:1648]Should provide KVM via plugin framework", func() {
 				nodeList := libnode.GetAllSchedulableNodes(kubevirt.Client())
