@@ -54,7 +54,8 @@ var _ = VirtctlDescribe("[sig-storage]Guestfs", decorators.SigStorage, func() {
 
 	BeforeEach(func() {
 		guestfs.CreateAttacherFunc = fakeCreateAttacher
-		pvcClaim = "pvc-" + rand.String(5)
+		const randNameTail = 5
+		pvcClaim = "pvc-" + rand.String(randNameTail)
 		done = make(chan struct{})
 	})
 
@@ -96,16 +97,17 @@ var _ = VirtctlDescribe("[sig-storage]Guestfs", decorators.SigStorage, func() {
 			})
 		})
 
-		It("[posneg:positive][test_id:6479]Should successfully run guestfs command on a block-based PVC", decorators.Conformance, decorators.RequiresBlockStorage, func() {
-			libstorage.CreateBlockPVC(pvcClaim, testsuite.GetTestNamespace(nil), "500Mi")
-			runGuestfsOnPVC(done, pvcClaim, testsuite.GetTestNamespace(nil), setGroup)
-			stdout, stderr, err := execCommandLibguestfsPod(
-				getGuestfsPodName(pvcClaim), testsuite.GetTestNamespace(nil), []string{"guestfish", "-a", "/dev/vda", "run"},
-			)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(stderr).To(BeEmpty())
-			Expect(stdout).To(BeEmpty())
-		})
+		It("[posneg:positive][test_id:6479]Should successfully run guestfs command on a block-based PVC",
+			decorators.Conformance, decorators.RequiresBlockStorage, func() {
+				libstorage.CreateBlockPVC(pvcClaim, testsuite.GetTestNamespace(nil), "500Mi")
+				runGuestfsOnPVC(done, pvcClaim, testsuite.GetTestNamespace(nil), setGroup)
+				stdout, stderr, err := execCommandLibguestfsPod(
+					getGuestfsPodName(pvcClaim), testsuite.GetTestNamespace(nil), []string{"guestfish", "-a", "/dev/vda", "run"},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(stderr).To(BeEmpty())
+				Expect(stdout).To(BeEmpty())
+			})
 	})
 
 	It("[rfe_id:6364]Should successfully run guestfs command on a filesystem-based PVC with root", func() {
@@ -119,7 +121,7 @@ func getGuestfsPodName(pvc string) string {
 	return "libguestfs-tools-" + pvc
 }
 
-func execCommandLibguestfsPod(podName, namespace string, args []string) (string, string, error) {
+func execCommandLibguestfsPod(podName, namespace string, args []string) (stdout, stderr string, err error) {
 	pod, err := kubevirt.Client().CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return exec.ExecuteCommandOnPodWithResults(pod, "libguestfs", args)
