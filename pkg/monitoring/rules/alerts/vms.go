@@ -17,8 +17,6 @@ limitations under the License.
 package alerts
 
 import (
-	"fmt"
-
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -29,19 +27,6 @@ var (
 	fiftyMB = resource.MustParse("50Mi")
 
 	vmsAlerts = []promv1.Rule{
-		{
-			Alert: "KubevirtVmHighMemoryUsage",
-			Expr:  intstr.FromString("kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes < 52428800 or kubevirt_vm_container_free_memory_bytes_based_on_rss < 52428800"),
-			For:   ptr.To(promv1.Duration("1m")),
-			Annotations: map[string]string{
-				"description": fmt.Sprintf("Container {{ $labels.container }} in pod {{ $labels.pod }} in namespace {{ $labels.namespace }} free memory is less than %s and it is close to requested memory", fiftyMB.String()),
-				"summary":     "VM is at risk of being evicted and in serious cases of memory exhaustion being terminated by the runtime.",
-			},
-			Labels: map[string]string{
-				severityAlertLabelKey:        "warning",
-				operatorHealthImpactLabelKey: "none",
-			},
-		},
 		{
 			Alert: "OrphanedVirtualMachineInstances",
 			Expr:  intstr.FromString("(((max by (node) (kube_pod_status_ready{condition='true',pod=~'virt-handler.*'} * on(pod) group_left(node) max by(pod,node)(kube_pod_info{pod=~'virt-handler.*',node!=''})) ) == 1) or (count by (node)( kube_pod_info{pod=~'virt-launcher.*',node!=''})*0)) == 0"),
