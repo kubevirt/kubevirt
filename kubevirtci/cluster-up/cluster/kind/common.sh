@@ -12,6 +12,11 @@ CONFIG_WORKER_CPU_MANAGER=${CONFIG_WORKER_CPU_MANAGER:-false}
 # avaliable value: ipv4, ipv6, dual
 IPFAMILY=${IPFAMILY}
 
+# setup the port mapping for kind cluster, this is needed for some e2e tests
+# KIND_PORT_MAPPING=cluster_port:host_port e.g. KIND_PORT_MAPPING=30001:30002
+# only one port mapping allowed
+KIND_PORT_MAPPING=${KIND_PORT_MAPPING}
+
 # check CPU arch
 PLATFORM=$(uname -m)
 case ${PLATFORM} in
@@ -93,7 +98,11 @@ function _insecure-registry-config-cmd() {
 
 # this works since the nodes use the same names as containers
 function _ssh_into_node() {
-    ${CRI_BIN} exec -it "$1" bash
+    if [[ $2 != "" ]]; then
+        ${CRI_BIN} exec "$@"
+    else
+        ${CRI_BIN} exec -it "$1" bash
+    fi    
 }
 
 function _run_registry() {
@@ -255,6 +264,22 @@ EOF
         cat <<EOF >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
   - containerPath: /dev/vfio/
     hostPath: /dev/vfio/
+EOF
+  fi
+}
+
+function _add_extra_portmapping() {
+  if [[ "$KIND_PORT_MAPPING" != "" ]]; then
+    container_port=$(echo "$KIND_PORT_MAPPING" | awk -F: '{print $1}')
+    host_port=$(echo "$KIND_PORT_MAPPING" | awk -F: '{print $2}')
+    if [[ -z "$container_port" || -z "$host_port" ]]; then
+      echo "Invalid KIND_PORT_MAPPING format. Expected 'container_port:host_port'."
+      exit 1
+    fi
+    cat <<EOF >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
+  extraPortMappings:
+  - containerPort: $container_port
+    hostPort: $host_port
 EOF
   fi
 }
