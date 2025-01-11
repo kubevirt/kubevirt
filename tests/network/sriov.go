@@ -138,6 +138,7 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 			sourcePCIAddress := fmt.Sprintf("%s:%s:%s.%s", srcAddr.Domain[2:], srcAddr.Bus[2:], srcAddr.Slot[2:], srcAddr.Function[2:])
 			alignedCPUsInt, err := hardware.LookupDeviceVCPUAffinity(sourcePCIAddress, domSpec)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(alignedCPUsInt).NotTo(HaveLen(0))
 			deviceData := []cloudinit.DeviceData{
 				{
 					Type:        cloudinit.NICMetadataType,

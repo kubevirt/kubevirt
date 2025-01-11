@@ -62,6 +62,7 @@ function deploy_sriov() {
 function up() {
     cp $KIND_MANIFESTS_DIR/kind.yaml ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
     export CONFIG_WORKER_CPU_MANAGER=true
+    export CONFIG_TOPOLOGY_MANAGER_POLICY="single-numa-node"
     kind_up
 
     configure_registry_proxy
