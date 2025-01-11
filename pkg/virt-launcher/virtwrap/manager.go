@@ -42,26 +42,10 @@ import (
 	"syscall"
 	"time"
 
-	imagevolume "kubevirt.io/kubevirt/pkg/image-volume"
-	utildisk "kubevirt.io/kubevirt/pkg/util/disk"
-	virtcache "kubevirt.io/kubevirt/tools/cache"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
-
-	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"
-
 	"libvirt.org/go/libvirt"
 
-	"kubevirt.io/kubevirt/pkg/downwardmetrics"
-	"kubevirt.io/kubevirt/pkg/network/cache"
-	"kubevirt.io/kubevirt/pkg/util/hardware"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
+	imagevolume "kubevirt.io/kubevirt/pkg/image-volume"
+	utildisk "kubevirt.io/kubevirt/pkg/util/disk"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -1053,19 +1037,19 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 
 	// Map the VirtualMachineInstance to the Domain
 	c := &converter.ConverterContext{
-		Architecture:          arch.NewConverter(runtime.GOARCH),
-		VirtualMachine:        vmi,
-		AllowEmulation:        allowEmulation,
-		CPUSet:                podCPUSet,
-		IsBlockPVC:            isBlockPVCMap,
-		IsBlockDV:             isBlockDVMap,
-		EFIConfiguration:      efiConf,
-		UseVirtioTransitional: vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
-		PermanentVolumes:      permanentVolumes,
-		EphemeraldiskCreator:  l.ephemeralDiskCreator,
-		UseLaunchSecurity:     kutil.IsSEVVMI(vmi),
-		FreePageReporting:     isFreePageReportingEnabled(false, vmi),
-		SerialConsoleLog:      isSerialConsoleLogEnabled(false, vmi),
+		Architecture:           arch.NewConverter(runtime.GOARCH),
+		VirtualMachine:         vmi,
+		AllowEmulation:         allowEmulation,
+		CPUSet:                 podCPUSet,
+		IsBlockPVC:             isBlockPVCMap,
+		IsBlockDV:              isBlockDVMap,
+		EFIConfiguration:       efiConf,
+		UseVirtioTransitional:  vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
+		PermanentVolumes:       permanentVolumes,
+		EphemeraldiskCreator:   l.ephemeralDiskCreator,
+		UseLaunchSecurity:      kutil.IsSEVVMI(vmi),
+		FreePageReporting:      isFreePageReportingEnabled(false, vmi),
+		SerialConsoleLog:       isSerialConsoleLogEnabled(false, vmi),
 		ImageVolumeCustomPaths: imageVolumeCustomPaths,
 	}
 
