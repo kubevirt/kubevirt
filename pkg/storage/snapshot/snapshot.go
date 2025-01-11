@@ -29,7 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 )
 
 const (
@@ -225,7 +226,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 			log.Log.V(2).Infof("Deleting vmsnapshotcontent %s/%s", content.Namespace, content.Name)
 
 			err = ctrl.Client.VirtualMachineSnapshotContent(vmSnapshot.Namespace).Delete(context.Background(), content.Name, metav1.DeleteOptions{})
-			if err != nil && !errors.IsNotFound(err) {
+			if err != nil && !k8serrors.IsNotFound(err) {
 				return 0, err
 			}
 		} else {
@@ -603,6 +604,11 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 	var volumeBackups []snapshotv1.VolumeBackup
 	pvcs, err := source.PersistentVolumeClaims()
 	if err != nil {
+		if storageutils.IsErrNoBackendPVC(err) {
+			// No backend pvc when we should have one, lets wait
+			// TODO: Improve this error handling
+			return nil
+		}
 		return err
 	}
 	for volumeName, pvcName := range pvcs {
@@ -647,7 +653,7 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 	}
 
 	_, err = ctrl.Client.VirtualMachineSnapshotContent(content.Namespace).Create(context.Background(), content, metav1.CreateOptions{})
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return err
 	}
 
@@ -777,7 +783,9 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 		vmSnapshotCpy.Status.Phase = snapshotv1.Succeeded
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Operation complete"))
 		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionTrue, "Operation complete"))
-		updateSnapshotSnapshotableVolumes(vmSnapshotCpy, content)
+		if err := ctrl.updateSnapshotSnapshotableVolumes(vmSnapshotCpy, content); err != nil {
+			return nil, err
+		}
 		metrics.HandleSucceededVMSnapshot(vmSnapshotCpy)
 	} else {
 		vmSnapshotCpy.Status.Phase = snapshotv1.InProgress
@@ -847,15 +855,18 @@ func updateVMSnapshotIndications(source snapshotSource) ([]snapshotv1.Indication
 	return indications, nil
 }
 
-func updateSnapshotSnapshotableVolumes(snapshot *snapshotv1.VirtualMachineSnapshot, content *snapshotv1.VirtualMachineSnapshotContent) {
+func (ctrl *VMSnapshotController) updateSnapshotSnapshotableVolumes(snapshot *snapshotv1.VirtualMachineSnapshot, content *snapshotv1.VirtualMachineSnapshotContent) error {
 	if content == nil {
-		return
+		return nil
 	}
 	vm := content.Spec.Source.VirtualMachine
 	if vm == nil || vm.Spec.Template == nil {
-		return
+		return nil
 	}
-	volumes := vm.Spec.Template.Spec.Volumes
+	volumes, err := storageutils.GetVolumes(vm, ctrl.Client, storageutils.WithAllVolumes)
+	if err != nil && !storageutils.IsErrNoBackendPVC(err) {
+		return err
+	}
 
 	volumeBackups := make(map[string]bool)
 	for _, volumeBackup := range content.Spec.VolumeBackups {
@@ -875,16 +886,22 @@ func updateSnapshotSnapshotableVolumes(snapshot *snapshotv1.VirtualMachineSnapsh
 		IncludedVolumes: includedVolumes,
 		ExcludedVolumes: excludedVolumes,
 	}
+	return nil
 }
 
 func (ctrl *VMSnapshotController) updateVolumeSnapshotStatuses(vm *kubevirtv1.VirtualMachine) error {
 	log.Log.V(3).Infof("Update volume snapshot status for VM [%s/%s]", vm.Namespace, vm.Name)
 
 	vmCopy := vm.DeepCopy()
+	volumes, err := storageutils.GetVolumes(vmCopy, ctrl.Client, storageutils.WithAllVolumes)
+	if err != nil && !storageutils.IsErrNoBackendPVC(err) {
+		return err
+	}
+
 	var statuses []kubevirtv1.VolumeSnapshotStatus
-	for i, volume := range vmCopy.Spec.Template.Spec.Volumes {
+	for _, volume := range volumes {
 		log.Log.V(3).Infof("Update volume snapshot status for volume [%s]", volume.Name)
-		status := ctrl.getVolumeSnapshotStatus(vmCopy, &vmCopy.Spec.Template.Spec.Volumes[i])
+		status := ctrl.getVolumeSnapshotStatus(vmCopy, &volume)
 		statuses = append(statuses, status)
 	}
 
@@ -892,7 +909,7 @@ func (ctrl *VMSnapshotController) updateVolumeSnapshotStatuses(vm *kubevirtv1.Vi
 	if equality.Semantic.DeepEqual(vmCopy.Status.VolumeSnapshotStatuses, vm.Status.VolumeSnapshotStatuses) {
 		return nil
 	}
-	_, err := ctrl.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
+	_, err = ctrl.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
 	return err
 }
 

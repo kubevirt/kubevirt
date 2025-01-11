@@ -243,6 +243,11 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		}),
 	)
 
+	It("should reject clone with source that uses backend storage", func() {
+		vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+		admitter.admitAndExpect(vmClone, false)
+	})
+
 	Context("source types", func() {
 
 		DescribeTable("should allow legal types", func(kind string) {
