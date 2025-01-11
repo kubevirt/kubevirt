@@ -68,10 +68,12 @@ import (
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	accesscredentials "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/access-credentials"
@@ -1726,9 +1728,21 @@ func (l *LibvirtDomainManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreez
 		return err
 	}
 
-	// idempotent - prevent failuer in case fs is already frozen
+	// idempotent - prevent failure in case fs is already frozen
 	if fsfreezeStatus == api.FSFrozen {
 		return nil
+	}
+
+	// The fsfreeze doesn't apply to the TPM, so we can at least do a fsync to the state
+	// directory to ensure data integrity. This explicit sync ensures that pending
+	// writes to the swtpm backing files are flushed to disk.
+	if backendstorage.HasPersistentTPMDevice(&vmi.Spec) {
+		cmd := exec.Command("/usr/bin/sync", services.PathForSwtpm(vmi))
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			log.Log.Errorf("fsync error to TPM state directory: %s, output: %s", err.Error(), out)
+			return err
+		}
 	}
 	_, err = l.virConn.QemuAgentCommand(`{"execute":"guest-fsfreeze-freeze"}`, domainName)
 	if err != nil {

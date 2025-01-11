@@ -1431,7 +1431,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Entry("to a new VM", true),
 			)
 
-			It("Should restore a vm with backend storage", Serial, func() {
+			DescribeTable("Should restore a vm with backend storage", Serial, func(onlineSnapshot bool) {
 				By("Setting the VMState storage class to snapshot")
 				kv := libkubevirt.GetCurrentKv(virtClient)
 				kv.Spec.Configuration.VMStateStorageClass = snapshotStorageClass
@@ -1456,7 +1456,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					return console.LoginToFedora(vmi)
 				}
 
-				doRestoreNoVMStart("", loginFunc, false, true, vm.Name)
+				doRestoreNoVMStart("", loginFunc, onlineSnapshot, true, vm.Name)
 				startVMAfterRestore(vm.Name, "", true, loginFunc)
 				Expect(restore.Status.Restores).To(HaveLen(2))
 
@@ -1465,7 +1465,10 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 					_, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
 					return err
 				}, 60*time.Second, 5*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
-			})
+			},
+				Entry("with offline snapshot", false),
+				Entry("with online snapshot", true),
+			)
 
 			DescribeTable("should reject vm start if restore in progress", func(deleteFunc string) {
 				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
