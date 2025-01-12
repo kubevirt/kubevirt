@@ -74,7 +74,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var virtClientset *kubevirtfake.Clientset
 	var kubeClient *fake.Clientset
 	// We pass the store to backend storage and we don't have direct access
-	var storageClassStore cache.Store
+	var storageClassStore, storageProfileStore cache.Store
 	var kvStore cache.Store
 
 	expectMatchingPodCreation := func(vmi *virtv1.VirtualMachineInstance, matchers ...gomegaTypes.GomegaMatcher) {
@@ -192,6 +192,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		storageProfileInformer, _ := testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
+		storageProfileStore = storageProfileInformer.GetStore()
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
@@ -559,6 +560,64 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				expectMatchingPodCreation(vmi)
 			})
 
+		})
+
+		When("backend storage no RWX support", func() {
+			var vmi *virtv1.VirtualMachineInstance
+
+			BeforeEach(func() {
+				vmi = newPendingVirtualMachine("testvmi")
+				vmi.Spec.Domain.Firmware = &virtv1.Firmware{
+					Bootloader: &virtv1.Bootloader{
+						EFI: &virtv1.EFI{
+							Persistent: pointer.P(true),
+						},
+					},
+				}
+				addVirtualMachine(vmi)
+			})
+
+			It("should create a corresponding RWO PVC on VMI creation", func() {
+				sc := &storagev1.StorageClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testsc123",
+					},
+					VolumeBindingMode: pointer.P(storagev1.VolumeBindingImmediate),
+				}
+				sp := &cdiv1.StorageProfile{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: sc.Name,
+					},
+					Spec: cdiv1.StorageProfileSpec{
+						ClaimPropertySets: []cdiv1.ClaimPropertySet{
+							{AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}, VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem)},
+						},
+					},
+					Status: cdiv1.StorageProfileStatus{
+						StorageClass: pointer.P(sc.Name),
+						ClaimPropertySets: []cdiv1.ClaimPropertySet{
+							{AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}, VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem)},
+						},
+					},
+				}
+				Expect(storageClassStore.Add(sc)).To(Succeed())
+				Expect(storageProfileStore.Add(sp)).To(Succeed())
+				kvCR := testutils.GetFakeKubeVirtClusterConfig(kvStore)
+				kvCR.Spec.Configuration.VMStateStorageClass = "testsc123"
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvCR)
+
+				sanityExecute()
+				expectVirtualMachinePendingState(vmi.Namespace, vmi.Name)
+				pvcs, err := kubeClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+					LabelSelector: "persistent-state-for=" + vmi.Name,
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pvcs.Items).To(HaveLen(1))
+				pvc := pvcs.Items[0]
+				Expect(pvc.Spec.StorageClassName).To(HaveValue(Equal(sc.Name)))
+				Expect(pvc.Spec.AccessModes).To(HaveLen(1))
+				Expect(pvc.Spec.AccessModes[0]).To(Equal(k8sv1.ReadWriteOnce))
+			})
 		})
 	})
 
