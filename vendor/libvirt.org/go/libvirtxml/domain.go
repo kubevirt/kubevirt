@@ -170,6 +170,12 @@ type DomainDiskSource struct {
 	Cookies       *DomainDiskCookies         `xml:"cookies"`
 	Readahead     *DomainDiskSourceReadahead `xml:"readahead"`
 	Timeout       *DomainDiskSourceTimeout   `xml:"timeout"`
+	DataStore     *DomainDiskDataStore       `xml:"dataStore"`
+}
+
+type DomainDiskDataStore struct {
+	Format *DomainDiskFormat `xml:"format"`
+	Source *DomainDiskSource `xml:"source"`
 }
 
 type DomainDiskSlices struct {
@@ -2058,6 +2064,27 @@ type DomainTPMBackendEmulator struct {
 	PersistentState string                      `xml:"persistent_state,attr,omitempty"`
 	Debug           uint                        `xml:"debug,attr,omitempty"`
 	ActivePCRBanks  *DomainTPMBackendPCRBanks   `xml:"active_pcr_banks"`
+	Source          *DomainTPMBackendSource     `xml:"source"`
+	Profile         *DomainTPMBackendProfile    `xml:"profile"`
+}
+
+type DomainTPMBackendProfile struct {
+	Source         string `xml:"source,attr,omitempty"`
+	RemoveDisabled string `xml:"removeDisabled,attr,omitempty"`
+	Name           string `xml:"name,attr,omitempty"`
+}
+
+type DomainTPMBackendSource struct {
+	File *DomainTPMBackendSourceFile `xml:"-"`
+	Dir  *DomainTPMBackendSourceDir  `xml:"-"`
+}
+
+type DomainTPMBackendSourceFile struct {
+	Path string `xml:"path,attr,omitempty"`
+}
+
+type DomainTPMBackendSourceDir struct {
+	Path string `xml:"path,attr,omitempty"`
 }
 
 type DomainTPMBackendPCRBanks struct {
@@ -2255,10 +2282,11 @@ type DomainSMBios struct {
 }
 
 type DomainNVRam struct {
-	NVRam    string            `xml:",chardata"`
-	Source   *DomainDiskSource `xml:"source"`
-	Template string            `xml:"template,attr,omitempty"`
-	Format   string            `xml:"format,attr,omitempty"`
+	NVRam          string            `xml:",chardata"`
+	Source         *DomainDiskSource `xml:"source"`
+	Template       string            `xml:"template,attr,omitempty"`
+	Format         string            `xml:"format,attr,omitempty"`
+	TemplateFormat string            `xml:"templateFormat,attr,omitempty"`
 }
 
 type DomainBootDevice struct {
@@ -3715,6 +3743,78 @@ func (a *DomainDiskBackingStore) UnmarshalXML(d *xml.Decoder, start xml.StartEle
 	return nil
 }
 
+type domainDiskDataStore DomainDiskDataStore
+
+func (a *DomainDiskDataStore) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	start.Name.Local = "dataStore"
+	if a.Source != nil {
+		if a.Source.File != nil {
+			start.Attr = append(start.Attr, xml.Attr{
+				xml.Name{Local: "type"}, "file",
+			})
+		} else if a.Source.Block != nil {
+			start.Attr = append(start.Attr, xml.Attr{
+				xml.Name{Local: "type"}, "block",
+			})
+		} else if a.Source.Dir != nil {
+			start.Attr = append(start.Attr, xml.Attr{
+				xml.Name{Local: "type"}, "dir",
+			})
+		} else if a.Source.Network != nil {
+			start.Attr = append(start.Attr, xml.Attr{
+				xml.Name{Local: "type"}, "network",
+			})
+		} else if a.Source.Volume != nil {
+			start.Attr = append(start.Attr, xml.Attr{
+				xml.Name{Local: "type"}, "volume",
+			})
+		} else if a.Source.VHostUser != nil {
+			start.Attr = append(start.Attr, xml.Attr{
+				xml.Name{Local: "type"}, "vhostuser",
+			})
+		} else if a.Source.VHostVDPA != nil {
+			start.Attr = append(start.Attr, xml.Attr{
+				xml.Name{Local: "type"}, "vhostvdpa",
+			})
+		}
+	}
+	disk := domainDiskDataStore(*a)
+	return e.EncodeElement(disk, start)
+}
+
+func (a *DomainDiskDataStore) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	typ, ok := getAttr(start.Attr, "type")
+	if !ok {
+		typ = "file"
+	}
+	a.Source = &DomainDiskSource{}
+	if typ == "file" {
+		a.Source.File = &DomainDiskSourceFile{}
+	} else if typ == "block" {
+		a.Source.Block = &DomainDiskSourceBlock{}
+	} else if typ == "network" {
+		a.Source.Network = &DomainDiskSourceNetwork{}
+	} else if typ == "dir" {
+		a.Source.Dir = &DomainDiskSourceDir{}
+	} else if typ == "volume" {
+		a.Source.Volume = &DomainDiskSourceVolume{}
+	} else if typ == "vhostuser" {
+		a.Source.VHostUser = &DomainDiskSourceVHostUser{}
+	} else if typ == "vhostvdpa" {
+		a.Source.VHostVDPA = &DomainDiskSourceVHostVDPA{}
+	}
+	disk := domainDiskDataStore(*a)
+	err := d.DecodeElement(&disk, &start)
+	if err != nil {
+		return err
+	}
+	*a = DomainDiskDataStore(disk)
+	if !ok && a.Source.File.File == "" {
+		a.Source.File = nil
+	}
+	return nil
+}
+
 type domainDiskMirror DomainDiskMirror
 
 func (a *DomainDiskMirror) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
@@ -4608,6 +4708,51 @@ func (a *DomainTPMBackend) UnmarshalXML(d *xml.Decoder, start xml.StartElement) 
 	} else if typ == "external" {
 		a.External = &DomainTPMBackendExternal{}
 		err := d.DecodeElement(a.External, &start)
+		if err != nil {
+			return err
+		}
+	} else {
+		d.Skip()
+	}
+	return nil
+}
+
+func (a *DomainTPMBackendSource) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	start.Name.Local = "source"
+	if a.File != nil {
+		start.Attr = append(start.Attr, xml.Attr{
+			xml.Name{Local: "type"}, "file",
+		})
+		err := e.EncodeElement(a.File, start)
+		if err != nil {
+			return err
+		}
+	} else if a.Dir != nil {
+		start.Attr = append(start.Attr, xml.Attr{
+			xml.Name{Local: "type"}, "dir",
+		})
+		err := e.EncodeElement(a.Dir, start)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *DomainTPMBackendSource) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	typ, ok := getAttr(start.Attr, "type")
+	if !ok {
+		return fmt.Errorf("Missing TPM source type")
+	}
+	if typ == "file" {
+		a.File = &DomainTPMBackendSourceFile{}
+		err := d.DecodeElement(a.File, &start)
+		if err != nil {
+			return err
+		}
+	} else if typ == "dir" {
+		a.Dir = &DomainTPMBackendSourceDir{}
+		err := d.DecodeElement(a.Dir, &start)
 		if err != nil {
 			return err
 		}

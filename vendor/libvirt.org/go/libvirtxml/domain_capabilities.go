@@ -90,6 +90,7 @@ type DomainCapsCPUModel struct {
 	Fallback   string `xml:"fallback,attr,omitempty"`
 	Deprecated string `xml:"deprecated,attr,omitempty"`
 	Vendor     string `xml:"vendor,attr,omitempty"`
+	Canonical  string `xml:"canonical,attr,omitempty"`
 }
 
 type DomainCapsCPUFeature struct {
@@ -128,6 +129,7 @@ type DomainCapsDevices struct {
 	Channel    *DomainCapsDevice `xml:"channel"`
 	Crypto     *DomainCapsDevice `xml:"crypto"`
 	Interface  *DomainCapsDevice `xml:"interface"`
+	Panic      *DomainCapsDevice `xml:"panic"`
 }
 
 type DomainCapsDevice struct {
