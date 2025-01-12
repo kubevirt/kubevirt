@@ -66,7 +66,7 @@ var _ = Describe("Expand command", func() {
 	})
 
 	It("should fail when called on non existing vm", func() {
-		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return((virtClient.KubevirtV1().VirtualMachines(k8smetav1.NamespaceDefault))).Times(1)
+		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachines(k8smetav1.NamespaceDefault)).Times(1)
 		cmd := testing.NewRepeatableVirtctlCommand(virtctl.COMMAND_EXPAND, "--vm", "non-existing-vm")
 		Expect(cmd()).Should(MatchError("error expanding VirtualMachine - non-existing-vm in namespace - default: virtualmachines.kubevirt.io \"non-existing-vm\" not found"))
 	})
@@ -77,7 +77,7 @@ var _ = Describe("Expand command", func() {
 	})
 
 	DescribeTable("should succeed when called on vm with", func(extraArgs []string) {
-		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return((virtClient.KubevirtV1().VirtualMachines(k8smetav1.NamespaceDefault))).Times(1)
+		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachines(k8smetav1.NamespaceDefault)).Times(1)
 		_, err := virtClient.KubevirtV1().VirtualMachines(k8smetav1.NamespaceDefault).Create(context.Background(), kubecli.NewMinimalVM(vmName), k8smetav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 

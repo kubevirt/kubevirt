@@ -630,7 +630,7 @@ func numaMapping(vmi *v12.VirtualMachineInstance, domain *api.DomainSpec, topolo
 	} else if memoryBytes%hugepagesSize != 0 {
 		return fmt.Errorf("requested memory can't be divided through the numa page size: %v mod %v != 0", memory, hugepagesSize)
 	}
-	mod = (memoryBytes % (hugepagesSize * cellCount) / hugepagesSize)
+	mod = memoryBytes % (hugepagesSize * cellCount) / hugepagesSize
 	if mod != 0 {
 		memoryBytes = memoryBytes - mod*hugepagesSize
 	}

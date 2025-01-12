@@ -25,8 +25,8 @@ import (
 
 const (
 	// Guest policy bits as defined in AMD SEV API specification
-	SEVPolicyNoDebug        uint = (1 << 0)
-	SEVPolicyEncryptedState uint = (1 << 2)
+	SEVPolicyNoDebug        uint = 1 << 0
+	SEVPolicyEncryptedState uint = 1 << 2
 )
 
 func SEVPolicyToBits(policy *v1.SEVPolicy) uint {

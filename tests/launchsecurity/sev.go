@@ -271,7 +271,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 
 			checkCmd := []string{"ls", sevDevicePath}
 			_, err = libnode.ExecuteCommandInVirtHandlerPod(nodeName, checkCmd)
-			isDevicePresent = (err == nil)
+			isDevicePresent = err == nil
 
 			if !isDevicePresent {
 				By(fmt.Sprintf("Creating a fake SEV device on %s", nodeName))

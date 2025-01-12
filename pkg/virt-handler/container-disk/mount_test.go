@@ -403,7 +403,7 @@ var _ = Describe("ContainerDisk", func() {
 					Expect(err).ToNot(HaveOccurred())
 					defer kernelFile.Close()
 
-					_, err = (kernelFile.Write(args.kernel))
+					_, err = kernelFile.Write(args.kernel)
 					Expect(err).ToNot(HaveOccurred())
 
 					kernelBootVMI.Spec.Domain.Firmware.KernelBoot.Container.KernelPath = filepath.Join("/", filepath.Base(kernelFile.Name()))
@@ -414,7 +414,7 @@ var _ = Describe("ContainerDisk", func() {
 					Expect(err).ToNot(HaveOccurred())
 					defer initrdFile.Close()
 
-					_, err = (initrdFile.Write(args.initrd))
+					_, err = initrdFile.Write(args.initrd)
 					Expect(err).ToNot(HaveOccurred())
 
 					kernelBootVMI.Spec.Domain.Firmware.KernelBoot.Container.InitrdPath = filepath.Join("/", filepath.Base(initrdFile.Name()))

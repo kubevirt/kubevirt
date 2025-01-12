@@ -247,7 +247,7 @@ var _ = Describe("Add volume command", func() {
 				expectVMEndpointAddVolumeErrorFunc(func() error {
 					return errors.New(concurrentErrorAdd)
 				}, verifyDVVolumeSource)
-				Expect(runCmd(true, "")).To(MatchError(ContainSubstring(("error adding volume after 15 retries"))))
+				Expect(runCmd(true, "")).To(MatchError(ContainSubstring("error adding volume after 15 retries")))
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(15))
 			})
 		})

@@ -1403,7 +1403,7 @@ var _ = Describe("Export controller", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(dvs).To(HaveLen(1))
 		Expect(dvs[0]).ToNot(BeNil())
-		Expect(dvs[0].Name).To((Equal("pvc")))
+		Expect(dvs[0].Name).To(Equal("pvc"))
 		Expect(dvs[0].Spec.Storage).To(
 			gstruct.PointTo(
 				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{

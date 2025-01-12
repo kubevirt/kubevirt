@@ -219,7 +219,7 @@ func hasVerbosityInKV(kv *v1.KubeVirt) (map[string]uint, bool, error) {
 func createOutputLines(verbosityVal map[string]uint) []string {
 	var lines []string
 
-	allIsSet := (*virtComponents[allComponents] != NoFlag)
+	allIsSet := *virtComponents[allComponents] != NoFlag
 
 	for componentName, verbosity := range virtComponents {
 		if componentName == allComponents {
