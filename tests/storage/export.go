@@ -68,7 +68,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
-	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
@@ -593,17 +592,7 @@ var _ = SIGDescribe("Export", func() {
 		}
 	}
 
-	It("should export a VM and verify swtpm directories in the gz archive", Serial, func() {
-		sc, exists := libstorage.GetRWOFileSystemStorageClass()
-		if !exists {
-			Fail("Fail test when Filesystem storage is not present")
-		}
-
-		By("Setting the VMState storage class")
-		kv := libkubevirt.GetCurrentKv(virtClient)
-		kv.Spec.Configuration.VMStateStorageClass = sc
-		config.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
-
+	It("should export a VM and verify swtpm directories in the gz archive", func() {
 		// Create a VM with a persistent TPM device
 		vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 		vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: virtpointer.P(true)}

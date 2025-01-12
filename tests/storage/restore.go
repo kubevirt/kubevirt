@@ -9,8 +9,6 @@ import (
 	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
-	"kubevirt.io/kubevirt/tests/libkubevirt"
-	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libvmops"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -1431,12 +1429,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Entry("to a new VM", true),
 			)
 
-			DescribeTable("Should restore a vm with backend storage", Serial, func(onlineSnapshot bool) {
-				By("Setting the VMState storage class to snapshot")
-				kv := libkubevirt.GetCurrentKv(virtClient)
-				kv.Spec.Configuration.VMStateStorageClass = snapshotStorageClass
-				config.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
-
+			DescribeTable("Should restore a vm with backend storage", func(onlineSnapshot bool) {
 				vm = createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
 				vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
 				vm, vmi = createAndStartVM(vm)

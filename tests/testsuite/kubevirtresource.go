@@ -127,7 +127,7 @@ func AdjustKubeVirtResource() {
 		}
 	}
 
-	storageClass, exists := libstorage.GetRWXFileSystemStorageClass()
+	storageClass, exists := libstorage.GetVMStateStorageClass()
 	if exists {
 		kv.Spec.Configuration.VMStateStorageClass = storageClass
 	}
