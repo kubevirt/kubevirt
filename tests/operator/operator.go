@@ -610,17 +610,16 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			waitForKvWithTimeout(kv, 120)
 
 			By("Check that worker nodes resumed the default amount of allocatable kvm devices")
-			defaultKvmDevices := "1k"
-			Eventually(func() error {
+			const defaultKvmDevices = "1k"
+			defaultKvmDevicesQuant := resource.MustParse(defaultKvmDevices)
+			kvmDeviceKey := k8sv1.ResourceName(services.KvmDevice)
+
+			Eventually(func(g Gomega) {
 				nodesWithKvm := libnode.GetNodesWithKVM()
 				for _, node := range nodesWithKvm {
-					kvmDevices, _ := node.Status.Allocatable[services.KvmDevice]
-					if kvmDevices != resource.MustParse(defaultKvmDevices) {
-						return fmt.Errorf("node %s does not have the expected allocatable kvm devices: %s, got: %d", node.Name, defaultKvmDevices, kvmDevices.Value())
-					}
+					g.Expect(node.Status.Allocatable).To(HaveKeyWithValue(kvmDeviceKey, defaultKvmDevicesQuant), "node %s does not have the expected allocatable kvm devices", node.Name)
 				}
-				return nil
-			}, 60*time.Second, 5*time.Second).ShouldNot(HaveOccurred())
+			}).WithTimeout(60 * time.Second).WithPolling(5 * time.Second).Should(Succeed())
 		})
 	})
 
