@@ -25,10 +25,9 @@ const (
 	KubeletPodsDir                            = KubeletRoot + "/pods"
 	HostRootMount                             = "/proc/1/root/"
 
-	NonRootUID         = 107
-	NonRootUserString  = "qemu"
-	RootUser           = 0
-	memoryDumpOverhead = 100 * 1024 * 1024
+	NonRootUID        = 107
+	NonRootUserString = "qemu"
+	RootUser          = 0
 
 	UnprivilegedContainerSELinuxLabel = "system_u:object_r:container_file_t:s0"
 )
@@ -245,6 +244,7 @@ func SetDefaultVolumeDisk(spec *v1.VirtualMachineInstanceSpec) {
 }
 
 func CalcExpectedMemoryDumpSize(vmi *v1.VirtualMachineInstance) *resource.Quantity {
+	const memoryDumpOverhead = 100 * 1024 * 1024
 	domain := vmi.Spec.Domain
 	vmiMemoryReq := domain.Resources.Requests.Memory()
 	expectedPvcSize := resource.NewQuantity(int64(memoryDumpOverhead), vmiMemoryReq.Format)
