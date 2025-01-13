@@ -109,7 +109,8 @@
           "nodeVerbosity": {
             "nodeVerbosityKey": 18446744073709551603
           }
-        }
+        },
+        "clusterProfiler": true
       },
       "emulatedMachines": [
         "emulatedMachinesValue"

@@ -495,3 +495,7 @@ func (c *ClusterConfig) GetInstancetypeReferencePolicy() v1.InstancetypeReferenc
 	}
 	return policy
 }
+
+func (c *ClusterConfig) IsClusterProfilerEnabled() bool {
+	return c.GetConfig().DeveloperConfiguration.ClusterProfiler
+}
