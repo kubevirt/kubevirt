@@ -32,6 +32,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -413,13 +414,9 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					for _, env := range vc.Spec.Template.Spec.Containers[0].Env {
-						if env.Name == envVarDeploymentKeyToUpdate {
-							return false
-						}
-					}
-
-					return true
+					return !slices.ContainsFunc(vc.Spec.Template.Spec.Containers[0].Env, func(env k8sv1.EnvVar) bool {
+						return env.Name == envVarDeploymentKeyToUpdate
+					})
 				}),
 
 			Entry("[test_id:6255] customresourcedefinitions",
@@ -445,13 +442,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					vmcrd, err := virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), crdName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					for _, sn := range vmcrd.Spec.Names.ShortNames {
-						if sn == shortNameAdded {
-							return false
-						}
-					}
-
-					return true
+					return !slices.Contains(vmcrd.Spec.Names.ShortNames, shortNameAdded)
 				}),
 			Entry("[test_id:6256] poddisruptionbudgets", decorators.MultiReplica,
 				func() {
@@ -516,13 +507,9 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					vc, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), daemonSetName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					for _, env := range vc.Spec.Template.Spec.Containers[0].Env {
-						if env.Name == envVarDeploymentKeyToUpdate {
-							return false
-						}
-					}
-
-					return true
+					return !slices.ContainsFunc(vc.Spec.Template.Spec.Containers[0].Env, func(env k8sv1.EnvVar) bool {
+						return env.Name == envVarDeploymentKeyToUpdate
+					})
 				}),
 		)
 
