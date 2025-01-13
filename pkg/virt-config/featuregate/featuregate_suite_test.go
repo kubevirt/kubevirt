@@ -17,19 +17,14 @@
  *
  */
 
-package deprecation
+package featuregate
 
 import (
-	v1 "kubevirt.io/api/core/v1"
+	"testing"
+
+	"kubevirt.io/client-go/testutils"
 )
 
-const PasstDiscontinueMessage = "Passt network binding is discontinued since v1.3. Please refer to Kubevirt user guide for alternatives."
-
-func passtApiUsed(spec *v1.VirtualMachineInstanceSpec) bool {
-	for _, net := range spec.Domain.Devices.Interfaces {
-		if net.DeprecatedPasst != nil {
-			return true
-		}
-	}
-	return false
+func TestFeatureGate(t *testing.T) {
+	testutils.KubeVirtTestSuiteSetup(t)
 }
