@@ -128,8 +128,10 @@ func (c *consoleCommand) handleConsoleConnection(vmi string) error {
 
 	if err != nil {
 		if e, ok := err.(*websocket.CloseError); ok && e.Code == websocket.CloseAbnormalClosure {
-			fmt.Fprint(os.Stderr, "\nYou were disconnected from the console. This has one of the following reasons:"+
-				"\n - another user connected to the console of the target vm"+
+			fmt.Fprint(os.Stderr, "\n"+
+				"You were disconnected from the console. This could be caused by one of the following:"+
+				"\n - the target VM was powered off"+
+				"\n - another user connected to the console of the target VM"+
 				"\n - network issues\n")
 		}
 		return err
