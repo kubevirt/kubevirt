@@ -13206,6 +13206,10 @@
     "description": "DeveloperConfiguration holds developer options",
     "type": "object",
     "properties": {
+     "clusterProfiler": {
+      "description": "Enable the ability to pprof profile KubeVirt control plane",
+      "type": "boolean"
+     },
      "cpuAllocationRatio": {
       "description": "For each requested virtual CPU, CPUAllocationRatio defines how much physical CPU to request per VMI from the hosting node. The value is in fraction of a CPU thread (or core on non-hyperthreaded nodes). For example, a value of 1 means 1 physical CPU thread per VMI CPU thread. A value of 100 would be 1% of a physical thread allocated for each requested VMI thread. This option has no effect on VMIs that request dedicated CPUs. More information at: https://kubevirt.io/user-guide/operations/node_overcommit/#node-cpu-allocation-ratio Defaults to 10",
       "type": "integer",

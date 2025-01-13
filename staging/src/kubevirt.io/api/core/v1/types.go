@@ -2789,6 +2789,9 @@ type DeveloperConfiguration struct {
 	MinimumClusterTSCFrequency *int64            `json:"minimumClusterTSCFrequency,omitempty"`
 	DiskVerification           *DiskVerification `json:"diskVerification,omitempty"`
 	LogVerbosity               *LogVerbosity     `json:"logVerbosity,omitempty"`
+
+	// Enable the ability to pprof profile KubeVirt control plane
+	ClusterProfiler bool `json:"clusterProfiler,omitempty"`
 }
 
 // LogVerbosity sets log verbosity level of  various components

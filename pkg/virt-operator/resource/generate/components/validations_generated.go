@@ -883,6 +883,10 @@ var CRDsValidation map[string]string = map[string]string{
             developerConfiguration:
               description: DeveloperConfiguration holds developer options
               properties:
+                clusterProfiler:
+                  description: Enable the ability to pprof profile KubeVirt control
+                    plane
+                  type: boolean
                 cpuAllocationRatio:
                   description: |-
                     For each requested virtual CPU, CPUAllocationRatio defines how much physical CPU to request per VMI

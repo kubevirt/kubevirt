@@ -18896,6 +18896,13 @@ func schema_kubevirtio_api_core_v1_DeveloperConfiguration(ref common.ReferenceCa
 							Ref: ref("kubevirt.io/api/core/v1.LogVerbosity"),
 						},
 					},
+					"clusterProfiler": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enable the ability to pprof profile KubeVirt control plane",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
