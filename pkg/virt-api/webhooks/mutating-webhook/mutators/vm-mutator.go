@@ -84,7 +84,6 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	// Set VM defaults
 	log.Log.Object(vm).V(4).Info("Apply defaults")
 
-	// FIXME(lyarwood): Handle err here
 	preferenceSpec, _ := mutator.instancetypeMutator.FindPreference(vm)
 	defaults.SetVirtualMachineDefaults(vm, mutator.ClusterConfig, preferenceSpec)
 
