@@ -51,7 +51,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/vm/controller"
+	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/rest"
 	"kubevirt.io/kubevirt/pkg/storage/export/export"

@@ -58,7 +58,7 @@ go_test(
         "//pkg/controller/testing:go_default_library",
         "//pkg/instancetype:go_default_library",
         "//pkg/instancetype/conflict:go_default_library",
-        "//pkg/instancetype/vm/controller:go_default_library",
+        "//pkg/instancetype/controller/vm:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/libvmi/status:go_default_library",
         "//pkg/pointer:go_default_library",

@@ -6,7 +6,7 @@ go_library(
         "controller.go",
         "mock.go",
     ],
-    importpath = "kubevirt.io/kubevirt/pkg/instancetype/vm/controller",
+    importpath = "kubevirt.io/kubevirt/pkg/instancetype/controller/vm",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/instancetype/annotations:go_default_library",
