@@ -43,13 +43,12 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/instancetype"
-
 	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
 	fakeclientset "kubevirt.io/client-go/kubevirt/fake"
 	instancetypeclientset "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	instancetypeVMWebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks/vm"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
@@ -153,7 +152,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		cdiClient = cdifake.NewSimpleClientset()
 		virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
 
-		mutator.InstancetypeMethods = &instancetype.InstancetypeMethods{Clientset: virtClient}
+		mutator.instancetypeMutator = instancetypeVMWebhooks.NewMutator(virtClient)
 	})
 
 	It("should allow VM being deleted without applying mutations", func() {
