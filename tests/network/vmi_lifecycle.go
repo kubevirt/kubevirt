@@ -82,7 +82,7 @@ var _ = SIGDescribe("[crit:high][vendor:cnv-qe@redhat.com][level:component]", de
 				}
 
 				By("restarting kubelet")
-				pod := renderPkillAllPod("kubelet")
+				pod := libpod.RenderPrivilegedPod("vmi-killer", []string{"pkill"}, []string{"-9", "kubelet"})
 				pod.Spec.NodeName = nodeName
 				pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -138,10 +138,6 @@ var _ = SIGDescribe("[crit:high][vendor:cnv-qe@redhat.com][level:component]", de
 		})
 	})
 })
-
-func renderPkillAllPod(processName string) *k8sv1.Pod {
-	return libpod.RenderPrivilegedPod("vmi-killer", []string{"pkill"}, []string{"-9", processName})
-}
 
 func verifyDummyNicForBridgeNetwork(vmi *v1.VirtualMachineInstance) {
 	output := libpod.RunCommandOnVmiPod(vmi, []string{"/bin/bash", "-c", "/usr/sbin/ip link show|grep DOWN|grep -c eth0"})
