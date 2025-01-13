@@ -114,22 +114,13 @@ func generateMessage(ctx context.Context) ([]slack.Block, string, error) {
 		return nil, "", fmt.Errorf("failed to fetch the job info; %s", err.Error())
 	}
 
-	return generateStatusMessage(buildStatus, jobURL), jobURL, nil
+	return generateStatusMessage(buildStatus, buildTime, jobURL), jobURL, nil
 }
 
 func sendMessageToSlackChannel(blocks []slack.Block) error {
 	s := slack.New(token)
 	_, _, err := s.PostMessage(channelId, slack.MsgOptionBlocks(blocks...))
 	return err
-}
-
-func generateMsgHeader() slack.Block {
-	return slack.NewRichTextBlock(
-		"header",
-		slack.NewRichTextSection(
-			slack.NewRichTextSectionTextElement("Nightly Build Status", &slack.RichTextSectionTextStyle{Bold: true}),
-		),
-	)
 }
 
 func generateMentionBlock() slack.Block {
@@ -140,22 +131,21 @@ func generateMentionBlock() slack.Block {
 
 func generateNoBuildMessage(buildTime time.Time) []slack.Block {
 	return []slack.Block{
-		generateMsgHeader(),
 		slack.NewRichTextBlock("status", slack.NewRichTextSection(
 			slack.NewRichTextSectionEmojiElement("failed", 3, nil),
 			slack.NewRichTextSectionTextElement(
-				" No new build today", nil,
+				" Nightly build wasn't run today", nil,
 			),
 		)),
 		slack.NewRichTextBlock("last-build-time", slack.NewRichTextSection(
-			slack.NewRichTextSectionTextElement("Last build: ", nil),
+			slack.NewRichTextSectionTextElement("Last build was at ", nil),
 			slack.NewRichTextSectionDateElement(buildTime.UTC().Unix(), "{date_long_full} at {time}, {ago}", nil, nil),
 		)),
 		generateMentionBlock(),
 	}
 }
 
-func generateStatusMessage(buildStatus *finished, jobURL string) []slack.Block {
+func generateStatusMessage(buildStatus *finished, buildTime time.Time, jobURL string) []slack.Block {
 	var status, emoji string
 	if buildStatus.Passed {
 		status = "passed"
@@ -166,18 +156,15 @@ func generateStatusMessage(buildStatus *finished, jobURL string) []slack.Block {
 	}
 
 	blocks := []slack.Block{
-		generateMsgHeader(),
 		slack.NewRichTextBlock("status", slack.NewRichTextSection(
-			slack.NewRichTextSectionTextElement(
-				"Status: ", nil,
-			),
 			slack.NewRichTextSectionEmojiElement(emoji, 3, nil),
+			slack.NewRichTextSectionTextElement(
+				" Nightly build ", nil,
+			),
 			slack.NewRichTextSectionTextElement(" ", nil),
 			slack.NewRichTextSectionLinkElement(jobURL, status, &slack.RichTextSectionTextStyle{Bold: true}),
-		)),
-		slack.NewRichTextBlock("build-time", slack.NewRichTextSection(
-			slack.NewRichTextSectionTextElement("Build time: ", nil),
-			slack.NewRichTextSectionDateElement(time.Now().UTC().Unix(), "{date_long} at {time}", nil, nil),
+			slack.NewRichTextSectionTextElement(", at ", nil),
+			slack.NewRichTextSectionDateElement(buildTime.UTC().Unix(), "{date_long} at {time}", nil, nil),
 		)),
 	}
 
