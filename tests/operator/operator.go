@@ -526,12 +526,12 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(service.Spec.Ports[0].Port).To(Equal(int32(123)))
 
 			By("Test that the port is revered to the original")
-			Eventually(func() bool {
+			Eventually(func() int32 {
 				service, err := virtClient.CoreV1().Services(originalKv.Namespace).Get(context.Background(), "virt-api", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				return service.Spec.Ports[0].Port == originalPort
-			}, 120*time.Second, 5*time.Second).Should(BeTrue(), "waiting for service to revert to original state")
+				return service.Spec.Ports[0].Port
+			}).WithTimeout(120*time.Second).WithPolling(5*time.Second).Should(Equal(originalPort), "waiting for service to revert to original state")
 
 			By("Test that the revert of the service stays consistent")
 			Consistently(func() int32 {
@@ -539,7 +539,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				Expect(err).ToNot(HaveOccurred())
 
 				return service.Spec.Ports[0].Port
-			}, 20*time.Second, 5*time.Second).Should(Equal(originalPort))
+			}).WithTimeout(20 * time.Second).WithPolling(5 * time.Second).Should(Equal(originalPort))
 		})
 	})
 
