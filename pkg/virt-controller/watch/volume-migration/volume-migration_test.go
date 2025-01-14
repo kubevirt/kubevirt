@@ -351,6 +351,40 @@ var _ = Describe("Volume Migration", func() {
 						},
 					},
 				})), fmt.Errorf("cannot migrate the VM. The volume disk1 is RWO and not included in the migration volumes")),
+			Entry("with valid migrated volumes and persistent storage", libvmi.New(libvmi.WithName("test"), libvmi.WithTPM(true),
+				libvmistatus.WithStatus(
+					v1.VirtualMachineInstanceStatus{
+						MigratedVolumes: []v1.StorageMigratedVolumeInfo{
+							{
+								VolumeName:         "disk0",
+								SourcePVCInfo:      &v1.PersistentVolumeClaimInfo{ClaimName: "src"},
+								DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "dst"},
+							},
+						},
+						Conditions: []v1.VirtualMachineInstanceCondition{
+							v1.VirtualMachineInstanceCondition{
+								Type:   v1.VirtualMachineInstanceIsMigratable,
+								Status: k8sv1.ConditionFalse,
+								Reason: v1.VirtualMachineInstanceReasonDisksNotMigratable,
+							},
+						},
+						VolumeStatus: []v1.VolumeStatus{
+							{
+								Name: "disk0",
+								PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+									ClaimName:   "src",
+									AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+								},
+							},
+							{
+								Name: "persistent-state-for-test",
+								PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+									ClaimName:   "persistent-state-for-test",
+									AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+								},
+							},
+						},
+					})), nil),
 		)
 	})
 
