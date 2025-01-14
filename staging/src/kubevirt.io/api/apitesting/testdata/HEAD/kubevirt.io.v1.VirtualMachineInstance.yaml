@@ -609,6 +609,7 @@ status:
     ipAddress: ipAddressValue
     ipAddresses:
     - ipAddressesValue
+    linkState: linkStateValue
     mac: macValue
     name: nameValue
     podInterfaceName: podInterfaceNameValue

@@ -13314,6 +13314,10 @@ var CRDsValidation map[string]string = map[string]string{
                 items:
                   type: string
                 type: array
+              linkState:
+                description: 'LinkState Reports the current operational link state''.
+                  values: up, down.'
+                type: string
               mac:
                 description: Hardware address of a Virtual Machine interface
                 type: string
