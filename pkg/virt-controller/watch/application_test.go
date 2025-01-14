@@ -100,6 +100,7 @@ var _ = Describe("Application", func() {
 		dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
 		cdiInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		cdiConfigInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+		storageProfileInformer, _ := testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
 		rsInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceReplicaSet{})
 		storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 		crdInformer, _ := testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
@@ -174,6 +175,7 @@ var _ = Describe("Application", func() {
 			VMIInformer:               vmiInformer,
 			PodInformer:               podInformer,
 			StorageClassInformer:      storageClassInformer,
+			StorageProfileInformer:    storageProfileInformer,
 			PVCInformer:               pvcInformer,
 			CRDInformer:               crdInformer,
 			DVInformer:                dvInformer,

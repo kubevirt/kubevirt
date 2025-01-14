@@ -39,6 +39,7 @@ import (
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/status"
@@ -64,12 +65,13 @@ var (
 
 var _ = Describe("Snapshot controlleer", func() {
 	var (
-		timeStamp               = metav1.Now()
-		vmName                  = "testvm"
-		vmRevisionName          = "testvm-revision"
-		vmSnapshotName          = "test-snapshot"
-		retain                  = snapshotv1.VirtualMachineSnapshotContentRetain
-		volumeSnapshotClassName = "csi-rbdplugin-snapclass"
+		timeStamp                = metav1.Now()
+		vmName                   = "testvm"
+		vmRevisionName           = "testvm-revision"
+		vmSnapshotName           = "test-snapshot"
+		retain                   = snapshotv1.VirtualMachineSnapshotContentRetain
+		volumeSnapshotClassName  = "csi-rbdplugin-snapclass"
+		volumeSnapshotClassName2 = "csi-rbdplugin-snapclass-alt"
 	)
 
 	timeFunc := func() *metav1.Time {
@@ -197,6 +199,18 @@ var _ = Describe("Snapshot controlleer", func() {
 		return vms
 	}
 
+	createStorageProfile := func() *cdiv1.StorageProfile {
+		return &cdiv1.StorageProfile{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: storageClassName,
+			},
+			Status: cdiv1.StorageProfileStatus{
+
+				SnapshotClass: pointer.P(volumeSnapshotClassName2),
+			},
+		}
+	}
+
 	createStorageClass := func() *storagev1.StorageClass {
 		return &storagev1.StorageClass{
 			ObjectMeta: metav1.ObjectMeta{
@@ -244,7 +258,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			},
 			{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: volumeSnapshotClassName + "alt",
+					Name: volumeSnapshotClassName2,
 				},
 				Driver: "rook-ceph.rbd.csi.ceph.com",
 			},
@@ -272,6 +286,8 @@ var _ = Describe("Snapshot controlleer", func() {
 		var volumeSnapshotClassSource *framework.FakeControllerSource
 		var storageClassInformer cache.SharedIndexInformer
 		var storageClassSource *framework.FakeControllerSource
+		var storageProfileInformer cache.SharedIndexInformer
+		var storageProfileSource *framework.FakeControllerSource
 		var pvcInformer cache.SharedIndexInformer
 		var pvcSource *framework.FakeControllerSource
 		var crdInformer cache.SharedIndexInformer
@@ -298,6 +314,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			go vmSnapshotContentInformer.Run(stop)
 			go vmInformer.Run(stop)
 			go storageClassInformer.Run(stop)
+			go storageProfileInformer.Run(stop)
 			go pvcInformer.Run(stop)
 			go crdInformer.Run(stop)
 			go vmiInformer.Run(stop)
@@ -310,6 +327,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshotContentInformer.HasSynced,
 				vmInformer.HasSynced,
 				storageClassInformer.HasSynced,
+				storageProfileInformer.HasSynced,
 				pvcInformer.HasSynced,
 				crdInformer.HasSynced,
 				vmiInformer.HasSynced,
@@ -335,6 +353,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			volumeSnapshotInformer, volumeSnapshotSource = testutils.NewFakeInformerFor(&vsv1.VolumeSnapshot{})
 			volumeSnapshotClassInformer, volumeSnapshotClassSource = testutils.NewFakeInformerFor(&vsv1.VolumeSnapshotClass{})
 			storageClassInformer, storageClassSource = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
+			storageProfileInformer, storageProfileSource = testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
 			pvcInformer, pvcSource = testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
 			crdInformer, crdSource = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 			dvInformer, dvSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
@@ -350,6 +369,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				VMIInformer:               vmiInformer,
 				PodInformer:               podInformer,
 				StorageClassInformer:      storageClassInformer,
+				StorageProfileInformer:    storageProfileInformer,
 				PVCInformer:               pvcInformer,
 				CRDInformer:               crdInformer,
 				DVInformer:                dvInformer,
@@ -1309,6 +1329,46 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 
 				expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClasses[0].Name, vmSnapshotContent)
+				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
+				vmSnapshotSource.Add(vmSnapshot)
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+				addVolumeSnapshotClass(volumeSnapshotClasses...)
+				controller.processVMSnapshotContentWorkItem()
+				testutils.ExpectEvent(recorder, "SuccessfulVolumeSnapshotCreate")
+			})
+
+			It("should create VolumeSnapshot with multiple VolumeSnapshotClasses and storageprofile", func() {
+				vm := createLockedVM()
+				storageClass := createStorageClass()
+				volumeSnapshotClasses := createVolumeSnapshotClasses()
+				pvcs := createPersistentVolumeClaims()
+				storageProfile := createStorageProfile()
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshotContent := createVMSnapshotContent()
+				vmSnapshotContent.UID = contentUID
+
+				updatedContent := vmSnapshotContent.DeepCopy()
+				updatedContent.ResourceVersion = "1"
+				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+					ReadyToUse: pointer.P(false),
+				}
+
+				volumeSnapshots := createVolumeSnapshots(vmSnapshotContent)
+				for i := range volumeSnapshots {
+					vss := snapshotv1.VolumeSnapshotStatus{
+						VolumeSnapshotName: volumeSnapshots[i].Name,
+					}
+					updatedContent.Status.VolumeSnapshotStatus = append(updatedContent.Status.VolumeSnapshotStatus, vss)
+				}
+
+				vmSource.Add(vm)
+				storageClassSource.Add(storageClass)
+				storageProfileSource.Add(storageProfile)
+				for i := range pvcs {
+					pvcSource.Add(&pvcs[i])
+				}
+
+				expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClassName2, vmSnapshotContent)
 				expectVMSnapshotContentUpdate(vmSnapshotClient, updatedContent)
 				vmSnapshotSource.Add(vmSnapshot)
 				vmSnapshotContentSource.Add(vmSnapshotContent)

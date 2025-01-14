@@ -165,10 +165,11 @@ type VirtControllerApp struct {
 
 	controllerRevisionInformer cache.SharedIndexInformer
 
-	dataVolumeInformer cache.SharedIndexInformer
-	dataSourceInformer cache.SharedIndexInformer
-	cdiInformer        cache.SharedIndexInformer
-	cdiConfigInformer  cache.SharedIndexInformer
+	dataVolumeInformer     cache.SharedIndexInformer
+	dataSourceInformer     cache.SharedIndexInformer
+	storageProfileInformer cache.SharedIndexInformer
+	cdiInformer            cache.SharedIndexInformer
+	cdiConfigInformer      cache.SharedIndexInformer
 
 	migrationController *MigrationController
 	migrationInformer   cache.SharedIndexInformer
@@ -382,6 +383,7 @@ func Execute() {
 		app.cdiInformer = app.informerFactory.CDI()
 		app.cdiConfigInformer = app.informerFactory.CDIConfig()
 		app.dataSourceInformer = app.informerFactory.DataSource()
+		app.storageProfileInformer = app.informerFactory.StorageProfile()
 		log.Log.Infof("CDI detected, DataVolume integration enabled")
 	} else {
 		// Add a dummy DataVolume informer in the event datavolume support
@@ -391,6 +393,7 @@ func Execute() {
 		app.cdiInformer = app.informerFactory.DummyCDI()
 		app.cdiConfigInformer = app.informerFactory.DummyCDIConfig()
 		app.dataSourceInformer = app.informerFactory.DummyDataSource()
+		app.storageProfileInformer = app.informerFactory.DummyStorageProfile()
 		log.Log.Infof("CDI not detected, DataVolume integration disabled")
 	}
 
@@ -782,6 +785,7 @@ func (vca *VirtControllerApp) initSnapshotController() {
 		VMInformer:                vca.vmInformer,
 		VMIInformer:               vca.vmiInformer,
 		StorageClassInformer:      vca.storageClassInformer,
+		StorageProfileInformer:    vca.storageProfileInformer,
 		PVCInformer:               vca.persistentVolumeClaimInformer,
 		CRDInformer:               vca.crdInformer,
 		PodInformer:               vca.allPodInformer,
