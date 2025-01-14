@@ -25,37 +25,29 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 )
 
-type Handler struct {
-	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec
-	preferenceSpec   *v1beta1.VirtualMachinePreferenceSpec
-	vmiSpec          *virtv1.VirtualMachineInstanceSpec
+type checker struct{}
+
+func New() *checker {
+	return &checker{}
 }
 
-func New(
+func (c *checker) Check(
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
-) *Handler {
-	return &Handler{
-		instancetypeSpec: instancetypeSpec,
-		preferenceSpec:   preferenceSpec,
-		vmiSpec:          vmiSpec,
-	}
-}
-
-func (h *Handler) Check() (conflict.Conflicts, error) {
-	if h.preferenceSpec == nil || h.preferenceSpec.Requirements == nil {
+) (conflict.Conflicts, error) {
+	if preferenceSpec == nil || preferenceSpec.Requirements == nil {
 		return nil, nil
 	}
 
-	if h.preferenceSpec.Requirements.CPU != nil {
-		if conflicts, err := h.checkCPU(); err != nil {
+	if preferenceSpec.Requirements.CPU != nil {
+		if conflicts, err := checkCPU(instancetypeSpec, preferenceSpec, vmiSpec); err != nil {
 			return conflicts, err
 		}
 	}
 
-	if h.preferenceSpec.Requirements.Memory != nil {
-		if conflicts, err := h.checkMemory(); err != nil {
+	if preferenceSpec.Requirements.Memory != nil {
+		if conflicts, err := checkMemory(instancetypeSpec, preferenceSpec, vmiSpec); err != nil {
 			return conflicts, err
 		}
 	}

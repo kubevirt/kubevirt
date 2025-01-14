@@ -21,6 +21,7 @@ package requirements
 import (
 	"fmt"
 
+	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
@@ -35,89 +36,97 @@ const (
 	NoVMCPUResourcesDefinedErrorFmt = "no CPU resources provided by VirtualMachine, preference requires %d vCPU"
 )
 
-func (h *Handler) checkCPU() (conflict.Conflicts, error) {
-	if h.instancetypeSpec != nil {
-		if h.instancetypeSpec.CPU.Guest < h.preferenceSpec.Requirements.CPU.Guest {
+func checkCPU(
+	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
+	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+	vmiSpec *virtv1.VirtualMachineInstanceSpec,
+) (conflict.Conflicts, error) {
+	if instancetypeSpec != nil {
+		if instancetypeSpec.CPU.Guest < preferenceSpec.Requirements.CPU.Guest {
 			return conflict.Conflicts{conflict.New("spec", "instancetype")},
 				fmt.Errorf(
-					InsufficientInstanceTypeCPUResourcesErrorFmt, h.instancetypeSpec.CPU.Guest, h.preferenceSpec.Requirements.CPU.Guest)
+					InsufficientInstanceTypeCPUResourcesErrorFmt, instancetypeSpec.CPU.Guest, preferenceSpec.Requirements.CPU.Guest)
 		}
 		return nil, nil
 	}
 
-	if h.vmiSpec.Domain.CPU == nil {
+	if vmiSpec.Domain.CPU == nil {
 		return conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "cpu")},
-			fmt.Errorf(NoVMCPUResourcesDefinedErrorFmt, h.preferenceSpec.Requirements.CPU.Guest)
+			fmt.Errorf(NoVMCPUResourcesDefinedErrorFmt, preferenceSpec.Requirements.CPU.Guest)
 	}
 
 	baseConflict := conflict.New("spec", "template", "spec", "domain", "cpu")
-	switch preferenceApply.GetPreferredTopology(h.preferenceSpec) {
+	switch preferenceApply.GetPreferredTopology(preferenceSpec) {
 	case v1beta1.DeprecatedPreferThreads, v1beta1.Threads:
-		if h.vmiSpec.Domain.CPU.Threads < h.preferenceSpec.Requirements.CPU.Guest {
+		if vmiSpec.Domain.CPU.Threads < preferenceSpec.Requirements.CPU.Guest {
 			return conflict.Conflicts{baseConflict.NewChild("threads")},
 				fmt.Errorf(
-					InsufficientVMCPUResourcesErrorFmt, h.vmiSpec.Domain.CPU.Threads, h.preferenceSpec.Requirements.CPU.Guest, "threads")
+					InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Threads, preferenceSpec.Requirements.CPU.Guest, "threads")
 		}
 	case v1beta1.DeprecatedPreferCores, v1beta1.Cores:
-		if h.vmiSpec.Domain.CPU.Cores < h.preferenceSpec.Requirements.CPU.Guest {
+		if vmiSpec.Domain.CPU.Cores < preferenceSpec.Requirements.CPU.Guest {
 			return conflict.Conflicts{baseConflict.NewChild("cores")},
 				fmt.Errorf(
-					InsufficientVMCPUResourcesErrorFmt, h.vmiSpec.Domain.CPU.Cores, h.preferenceSpec.Requirements.CPU.Guest, "cores")
+					InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Cores, preferenceSpec.Requirements.CPU.Guest, "cores")
 		}
 	case v1beta1.DeprecatedPreferSockets, v1beta1.Sockets:
-		if h.vmiSpec.Domain.CPU.Sockets < h.preferenceSpec.Requirements.CPU.Guest {
+		if vmiSpec.Domain.CPU.Sockets < preferenceSpec.Requirements.CPU.Guest {
 			return conflict.Conflicts{baseConflict.NewChild("sockets")},
 				fmt.Errorf(
-					InsufficientVMCPUResourcesErrorFmt, h.vmiSpec.Domain.CPU.Sockets, h.preferenceSpec.Requirements.CPU.Guest, "sockets")
+					InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Sockets, preferenceSpec.Requirements.CPU.Guest, "sockets")
 		}
 	case v1beta1.DeprecatedPreferSpread, v1beta1.Spread:
-		return h.checkSpread()
+		return checkSpread(instancetypeSpec, preferenceSpec, vmiSpec)
 	case v1beta1.DeprecatedPreferAny, v1beta1.Any:
-		cpuResources := h.vmiSpec.Domain.CPU.Cores * h.vmiSpec.Domain.CPU.Sockets * h.vmiSpec.Domain.CPU.Threads
-		if cpuResources < h.preferenceSpec.Requirements.CPU.Guest {
+		cpuResources := vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Sockets * vmiSpec.Domain.CPU.Threads
+		if cpuResources < preferenceSpec.Requirements.CPU.Guest {
 			return conflict.Conflicts{
 					baseConflict.NewChild("cores"),
 					baseConflict.NewChild("sockets"),
 					baseConflict.NewChild("threads"),
 				},
 				fmt.Errorf(InsufficientVMCPUResourcesErrorFmt,
-					cpuResources, h.preferenceSpec.Requirements.CPU.Guest, "cores, sockets and threads")
+					cpuResources, preferenceSpec.Requirements.CPU.Guest, "cores, sockets and threads")
 		}
 	}
 
 	return nil, nil
 }
 
-func (h *Handler) checkSpread() (conflict.Conflicts, error) {
+func checkSpread(
+	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
+	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+	vmiSpec *virtv1.VirtualMachineInstanceSpec,
+) (conflict.Conflicts, error) {
 	var (
 		vCPUs     uint32
 		conflicts conflict.Conflicts
 	)
 	baseConflict := conflict.New("spec", "template", "spec", "domain", "cpu")
-	_, across := preferenceApply.GetSpreadOptions(h.preferenceSpec)
+	_, across := preferenceApply.GetSpreadOptions(preferenceSpec)
 	switch across {
 	case v1beta1.SpreadAcrossSocketsCores:
-		vCPUs = h.vmiSpec.Domain.CPU.Sockets * h.vmiSpec.Domain.CPU.Cores
+		vCPUs = vmiSpec.Domain.CPU.Sockets * vmiSpec.Domain.CPU.Cores
 		conflicts = conflict.Conflicts{
 			baseConflict.NewChild("sockets"),
 			baseConflict.NewChild("cores"),
 		}
 	case v1beta1.SpreadAcrossCoresThreads:
-		vCPUs = h.vmiSpec.Domain.CPU.Cores * h.vmiSpec.Domain.CPU.Threads
+		vCPUs = vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Threads
 		conflicts = conflict.Conflicts{
 			baseConflict.NewChild("cores"),
 			baseConflict.NewChild("threads"),
 		}
 	case v1beta1.SpreadAcrossSocketsCoresThreads:
-		vCPUs = h.vmiSpec.Domain.CPU.Sockets * h.vmiSpec.Domain.CPU.Cores * h.vmiSpec.Domain.CPU.Threads
+		vCPUs = vmiSpec.Domain.CPU.Sockets * vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Threads
 		conflicts = conflict.Conflicts{
 			baseConflict.NewChild("sockets"),
 			baseConflict.NewChild("cores"),
 			baseConflict.NewChild("threads"),
 		}
 	}
-	if vCPUs < h.preferenceSpec.Requirements.CPU.Guest {
-		return conflicts, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, vCPUs, h.preferenceSpec.Requirements.CPU.Guest, across)
+	if vCPUs < preferenceSpec.Requirements.CPU.Guest {
+		return conflicts, fmt.Errorf(InsufficientVMCPUResourcesErrorFmt, vCPUs, preferenceSpec.Requirements.CPU.Guest, across)
 	}
 	return nil, nil
 }
