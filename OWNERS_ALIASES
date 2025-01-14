@@ -128,6 +128,15 @@ aliases:
   sig-compute-instancetype-reviewers:
     - akrejcir
 
+  # SIG Compute virtctl sub project
+  # Responsible for virtctl within SIG Compute
+  sig-compute-virtctl-approvers:
+    - 0xFelix
+    - fossedihelm
+  sig-compute-virtctl-reviewers:
+    - oshoval
+    - lyarwood
+
   #
   # SIG Observability
   # Owns the responsibility to keep kubevirt observable by i.e.
