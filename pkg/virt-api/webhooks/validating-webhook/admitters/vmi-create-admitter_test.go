@@ -1281,6 +1281,35 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
+
+		DescribeTable("virtiofs filesystems using", func(featureGate string, shouldAllow bool, vmiOption libvmi.Option) {
+			if featureGate != "" {
+				enableFeatureGate(featureGate)
+			}
+
+			vmi := libvmi.New(vmiOption)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+
+			if shouldAllow {
+				Expect(causes).To(BeEmpty())
+			} else {
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Field).To(Equal("fake.domain.devices.filesystems"))
+			}
+
+		},
+			Entry("PVC should be rejected when feature gate is disabled", "", false, libvmi.WithFilesystemPVC("sharedtestdisk")),
+			Entry("PVC should be accepted when feature gate is enabled", virtconfig.VirtIOFSStorageVolumeGate, true, libvmi.WithFilesystemPVC("sharedtestdisk")),
+
+			Entry("DV should be rejected when feature gate is disabled", "", false, libvmi.WithFilesystemDV("sharedtestdisk")),
+			Entry("DV should be accepted when feature gate is enabled", virtconfig.VirtIOFSStorageVolumeGate, true, libvmi.WithFilesystemDV("sharedtestdisk")),
+			Entry("configmap should be rejected when the feature gate is disabled", "", false, libvmi.WithConfigMapFs("sharedconfigmap", "sharedconfigmap")),
+			Entry("configmap should be accepted when the feature gate is enabled", virtconfig.VirtIOFSConfigVolumesGate, true, libvmi.WithConfigMapFs("sharedconfigmap", "sharedconfigmap")),
+			Entry("PVC should be accepted when the deprecated feature gate is enabled", deprecation.VirtIOFSGate, true, libvmi.WithFilesystemPVC("sharedtestdisk")),
+			Entry("DV should be accepted when the deprecated feature gate is enabled", deprecation.VirtIOFSGate, true, libvmi.WithFilesystemDV("sharedtestdisk")),
+			Entry("config map should be accepted when the deprecated feature gate is enabled", deprecation.VirtIOFSGate, true, libvmi.WithConfigMapFs("sharedconfigmap", "sharedconfigmap")),
+		)
+
 		It("should reject host devices when feature gate is disabled", func() {
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
