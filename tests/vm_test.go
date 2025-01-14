@@ -115,7 +115,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		newVirtualMachineInstanceWithBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
 			sc, foundSC := libstorage.GetRWOBlockStorageClass()
 			if !foundSC {
-				Skip("Skip test when Block storage is not present")
+				Skip("Block storage (RWO) is not present")
 			}
 			return newVirtualMachineInstanceWithDV(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), sc, k8sv1.PersistentVolumeBlock)
 		}
@@ -541,7 +541,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			_, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), storageClassName, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
-				Skip("Skipping since required StorageClass is not configured")
+				Fail(fmt.Sprintf(`StorageClass "%s" is not configured`, storageClassName))
 			}
 			Expect(err).ToNot(HaveOccurred())
 
@@ -767,7 +767,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			It("[test_id:4119]should migrate a running VM", func() {
 				nodes := libnode.GetAllSchedulableNodes(virtClient)
 				if len(nodes.Items) < 2 {
-					Skip("Migration tests require at least 2 nodes")
+					Fail("Migration tests require at least 2 nodes")
 				}
 				By("Creating a VM with RunStrategyAlways")
 				vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(
@@ -795,7 +795,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			It("[test_id:7743]should not migrate a running vm if dry-run option is passed", func() {
 				nodes := libnode.GetAllSchedulableNodes(virtClient)
 				if len(nodes.Items) < 2 {
-					Skip("Migration tests require at least 2 nodes")
+					Fail("Migration tests require at least 2 nodes")
 				}
 				By("Creating a VM with RunStrategyAlways")
 				vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(
