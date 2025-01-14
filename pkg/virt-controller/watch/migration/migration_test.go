@@ -47,6 +47,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
+	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 	"kubevirt.io/client-go/api"
@@ -1363,6 +1364,44 @@ var _ = Describe("Migration watcher", func() {
 			sanityExecute()
 
 			expectMigrationTargetReadyState(migration.Namespace, migration.Name)
+		})
+
+		It("should disable post-copy when is volume migrating", func() {
+			vmi := newVirtualMachine("testvmi", virtv1.Running)
+			addNodeNameToVMI(vmi, "node02")
+			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationScheduled)
+			targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+			targetPod.Spec.NodeName = "node01"
+
+			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				TargetNode:        "node01",
+				SourceNode:        "node02",
+				TargetNodeAddress: "10.10.10.10:1234",
+				StartTimestamp:    pointer.P(metav1.Now()),
+			}
+			virtcontroller.NewVirtualMachineInstanceConditionManager().UpdateCondition(vmi,
+				&virtv1.VirtualMachineInstanceCondition{
+					Type:   v1.VirtualMachineInstanceVolumesChange,
+					Status: k8sv1.ConditionTrue,
+				},
+			)
+			migrationPolicy := generatePolicyAndAlignVMI(vmi)
+			migrationPolicy.Spec.AllowPostCopy = pointer.P(true)
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+			addPod(targetPod)
+			addMigrationPolicies(*migrationPolicy)
+
+			sanityExecute()
+			updatedVMI, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVMI.Status.MigrationState).ToNot(BeNil())
+			Expect(updatedVMI.Status.MigrationState.MigrationConfiguration).ToNot(BeNil())
+			Expect(updatedVMI.Status.MigrationState.MigrationConfiguration.AllowPostCopy).To(PointTo(BeFalse()))
+
+			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulHandOverPodReason)
 		})
 
 		It("should transition to running phase", func() {
