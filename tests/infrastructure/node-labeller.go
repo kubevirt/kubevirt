@@ -62,7 +62,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 		virtClient = kubevirt.Client()
 		nodesWithKVM = libnode.GetNodesWithKVM()
 		if len(nodesWithKVM) == 0 {
-			Skip("Skip testing with node-labeller, because there are no nodes with kvm")
+			Fail("No nodes with kvm")
 		}
 	})
 

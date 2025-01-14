@@ -69,7 +69,7 @@ var _ = Describe(SIGSerial("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com]
 			// It is possible to run this test on a cluster that simply does not have worker nodes.
 			// Since KubeVirt can't control that, the only correct action is to halt the test.
 			if nodeName == "" {
-				Skip("Could not determine a node to safely taint")
+				Fail("Could not determine a node to safely taint")
 			}
 
 			podsOnNode, err := virtClient.CoreV1().Pods("").List(context.Background(), metav1.ListOptions{
