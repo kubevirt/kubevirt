@@ -193,6 +193,7 @@ var _ = Describe("Application", func() {
 			VMIInformer:               vmiInformer,
 			PodInformer:               podInformer,
 			StorageClassInformer:      storageClassInformer,
+			StorageProfileInformer:    storageProfileInformer,
 			PVCInformer:               pvcInformer,
 			CRDInformer:               crdInformer,
 			DVInformer:                dvInformer,
