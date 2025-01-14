@@ -44,12 +44,16 @@ import (
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 	instancetypeapi "kubevirt.io/api/instancetype"
+	"kubevirt.io/api/instancetype/v1beta1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	fakeclientset "kubevirt.io/client-go/kubevirt/fake"
 
 	v1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
+	instancetypeWebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks/vm"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -62,13 +66,12 @@ import (
 var _ = Describe("Validating VM Admitter", func() {
 	config, crdInformer, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 	var (
-		vmsAdmitter         *VMsAdmitter
-		dataSourceInformer  cache.SharedIndexInformer
-		namespaceInformer   cache.SharedIndexInformer
-		instancetypeMethods *testutils.MockInstancetypeMethods
-		mockVMIClient       *kubecli.MockVirtualMachineInstanceInterface
-		virtClient          *kubecli.MockKubevirtClient
-		k8sClient           *k8sfake.Clientset
+		vmsAdmitter        *VMsAdmitter
+		dataSourceInformer cache.SharedIndexInformer
+		namespaceInformer  cache.SharedIndexInformer
+		mockVMIClient      *kubecli.MockVirtualMachineInstanceInterface
+		virtClient         *kubecli.MockKubevirtClient
+		k8sClient          *k8sfake.Clientset
 	)
 
 	enableFeatureGate := func(featureGates ...string) {
@@ -117,7 +120,6 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(namespaceInformer.GetStore().Add(ns1)).To(Succeed())
 		Expect(namespaceInformer.GetStore().Add(ns2)).To(Succeed())
 		Expect(namespaceInformer.GetStore().Add(ns3)).To(Succeed())
-		instancetypeMethods = testutils.NewMockInstancetypeMethods()
 
 		ctrl := gomock.NewController(GinkgoT())
 		mockVMIClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
@@ -130,7 +132,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			DataSourceInformer:      dataSourceInformer,
 			NamespaceInformer:       namespaceInformer,
 			ClusterConfig:           config,
-			InstancetypeMethods:     instancetypeMethods,
+			InstancetypeAdmitter:    instancetypeWebhooks.NewMockAdmitter(),
 			KubeVirtServiceAccounts: webhooks.KubeVirtServiceAccounts(kubeVirtNamespace),
 		}
 		virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
@@ -1258,33 +1260,75 @@ var _ = Describe("Validating VM Admitter", func() {
 
 	Context("Instancetype", func() {
 		var (
-			vm *v1.VirtualMachine
+			vm               *v1.VirtualMachine
+			testInstancetype *v1beta1.VirtualMachineInstancetype
+			testPreference   *v1beta1.VirtualMachinePreference
 		)
 
 		BeforeEach(func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			vm = &v1.VirtualMachine{
-				Spec: v1.VirtualMachineSpec{
-					Instancetype: &v1.InstancetypeMatcher{
-						Name: "test",
-						Kind: instancetypeapi.SingularResourceName,
+			vm = libvmi.NewVirtualMachine(
+				libvmi.New(
+					libvmi.WithNamespace("test"),
+				),
+				libvmi.WithInstancetype("test"),
+				libvmi.WithPreference("test"),
+			)
+
+			testInstancetypeClients := fakeclientset.NewSimpleClientset().InstancetypeV1beta1()
+
+			testInstancetypeClient := testInstancetypeClients.VirtualMachineInstancetypes(vm.Namespace)
+			virtClient.EXPECT().VirtualMachineInstancetype(gomock.Any()).Return(testInstancetypeClient).AnyTimes()
+
+			//TODO(lyarwood): Add WithNamespace to libinstancetype.builder and use here
+			testInstancetype = &instancetypev1beta1.VirtualMachineInstancetype{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       instancetypeapi.SingularResourceName,
+					APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      vm.Spec.Instancetype.Name,
+					Namespace: vm.Namespace,
+				},
+				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1beta1.CPUInstancetype{
+						Guest: uint32(2),
 					},
-					Preference: &v1.PreferenceMatcher{
-						Name: "test",
-						Kind: instancetypeapi.SingularPreferenceResourceName,
-					},
-					Running: pointer.P(false),
-					Template: &v1.VirtualMachineInstanceTemplateSpec{
-						Spec: vmi.Spec,
+					Memory: instancetypev1beta1.MemoryInstancetype{
+						Guest: resource.MustParse("128Mi"),
 					},
 				},
 			}
+			_, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.Background(), testInstancetype, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			fakePreferenceClient := testInstancetypeClients.VirtualMachinePreferences(vm.Namespace)
+			virtClient.EXPECT().VirtualMachinePreference(gomock.Any()).Return(fakePreferenceClient).AnyTimes()
+
+			//TODO(lyarwood): Add WithNamespace to libinstancetype.builder and use here
+			testPreference = &instancetypev1beta1.VirtualMachinePreference{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       instancetypeapi.SingularPreferenceResourceName,
+					APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      vm.Spec.Preference.Name,
+					Namespace: vm.Namespace,
+				},
+				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
+					},
+				},
+			}
+
+			_, err = virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), testPreference, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vmsAdmitter.InstancetypeAdmitter = instancetypeWebhooks.NewAdmitter(virtClient)
 		})
 
 		It("should reject if instancetype is not found", func() {
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
-				return nil, fmt.Errorf("instancetype not found")
-			}
+			vm.Spec.Instancetype.Name = "unknown"
 
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeFalse())
@@ -1294,9 +1338,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject if preference is not found", func() {
-			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
-				return nil, fmt.Errorf("preference not found")
-			}
+			vm.Spec.Preference.Name = "unknown"
 
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeFalse())
@@ -1306,22 +1348,19 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject if instancetype fails to apply to VMI", func() {
+			vm.Spec.Template.Spec.Domain = v1.DomainSpec{
+				CPU: &v1.CPU{
+					Sockets: 1,
+				},
+				Memory: &v1.Memory{
+					Guest: pointer.P(resource.MustParse("1Gi")),
+				},
+			}
+
 			var (
-				conflict1 = conflict.New("spec", "template", "spec", "example", "path")
-				conflict2 = conflict.New("spec", "template", "spec", "domain", "example", "path")
+				conflict1 = conflict.New("spec", "template", "spec", "domain", "cpu", "sockets")
+				conflict2 = conflict.New("spec", "template", "spec", "domain", "memory")
 			)
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
-				return &instancetypev1beta1.VirtualMachineInstancetypeSpec{}, nil
-			}
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
-				return &instancetypev1beta1.VirtualMachineInstancetypeSpec{}, nil
-			}
-			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
-				return &instancetypev1beta1.VirtualMachinePreferenceSpec{}, nil
-			}
-			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, _ *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) conflict.Conflicts {
-				return conflict.Conflicts{conflict1, conflict2}
-			}
 
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeFalse())
@@ -1332,59 +1371,25 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(response.Result.Details.Causes[1].Field).To(Equal(conflict2.String()))
 		})
 
-		It("should apply instancetype to VMI before validating VMI", func() {
-			// Test that VMI without instancetype application is valid
-			response := admitVm(vmsAdmitter, vm)
-			Expect(response.Allowed).To(BeTrue())
-
-			// Instancetype application sets invalid memory value
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
-				return &instancetypev1beta1.VirtualMachineInstancetypeSpec{}, nil
-			}
-			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) conflict.Conflicts {
-				vmiSpec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("-1Mi")
-				return nil
-			}
-
-			// Test that VMI fails
-			response = admitVm(vmsAdmitter, vm)
-			Expect(response.Allowed).To(BeFalse())
-			Expect(response.Result.Details.Causes).To(HaveLen(1))
-			Expect(response.Result.Details.Causes[0].Field).
-				To(Equal("spec.template.spec.domain.resources.requests.memory"))
-		})
-
 		It("should not apply instancetype to the VMISpec of the original VM", func() {
-
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
-				return &instancetypev1beta1.VirtualMachineInstancetypeSpec{}, nil
-			}
-
-			// Mock out ApplyToVmiFunc so that it applies some changes to the CPU of the provided VMISpec
-			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) conflict.Conflicts {
-				vmiSpec.Domain.CPU = &v1.CPU{Cores: 1, Threads: 1, Sockets: 1}
-				return nil
-			}
-
-			// Nil out CPU within the DomainSpec of the VMISpec being admitted to assert this remains untouched
-			vm.Spec.Template.Spec.Domain.CPU = nil
-
 			// The VM should be admitted successfully
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeTrue())
 
 			// Ensure CPU has remained nil within the now admitted VMISpec
 			Expect(vm.Spec.Template.Spec.Domain.CPU).To(BeNil())
-
 		})
 
 		It("should reject if preference requirements are not met", func() {
-			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
-				return &instancetypev1beta1.VirtualMachinePreferenceSpec{}, nil
+			testPreference.Spec.Requirements = &v1beta1.PreferenceRequirements{
+				CPU: &v1beta1.CPUPreferenceRequirement{
+					Guest: 10,
+				},
 			}
-			instancetypeMethods.CheckPreferenceRequirementsFunc = func(_ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) (conflict.Conflicts, error) {
-				return conflict.Conflicts{conflict.New("spec", "instancetype")}, fmt.Errorf("requirements not met")
-			}
+
+			_, err := virtClient.VirtualMachinePreference(vm.Namespace).Update(context.Background(), testPreference, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeFalse())
 			Expect(response.Result.Details.Causes).To(HaveLen(1))
@@ -1392,18 +1397,25 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("failure checking preference requirements"))
 		})
 
-		DescribeTable("should reject if PreferSpread requested with", func(vCPUs uint32, preferenceSpec instancetypev1beta1.VirtualMachinePreferenceSpec, expectedMessage string) {
-			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
-				return &preferenceSpec, nil
-			}
+		const (
+			instancetypeCPUGuestPath       = "instancetype.spec.cpu.guest"
+			spreadAcrossSocketsCoresErrFmt = "%d vCPUs provided by the instance type are not divisible by the " +
+				"Spec.PreferSpreadSocketToCoreRatio or Spec.CPU.PreferSpreadOptions.Ratio of %d provided by the preference"
+			spreadAcrossCoresThreadsErrFmt        = "%d vCPUs provided by the instance type are not divisible by the number of threads per core %d"
+			spreadAcrossSocketsCoresThreadsErrFmt = "%d vCPUs provided by the instance type are not divisible by the number of threads per core " +
+				"%d and Spec.PreferSpreadSocketToCoreRatio or Spec.CPU.PreferSpreadOptions.Ratio of %d"
+		)
 
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
-				return &instancetypev1beta1.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1beta1.CPUInstancetype{
-						Guest: vCPUs,
-					},
-				}, nil
-			}
+		DescribeTable("should reject if PreferSpread requested with", func(vCPUs uint32, preferenceSpec instancetypev1beta1.VirtualMachinePreferenceSpec, expectedMessage string) {
+			testPreference.Spec = preferenceSpec
+
+			_, err := virtClient.VirtualMachinePreference(vm.Namespace).Update(context.Background(), testPreference, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			testInstancetype.Spec.CPU.Guest = vCPUs
+
+			_, err = virtClient.VirtualMachineInstancetype(vm.Namespace).Update(context.Background(), testInstancetype, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeFalse())
@@ -1646,9 +1658,12 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		DescribeTable("should admit VM with preference using preferSpread and without instancetype", func(preferredCPUTopology instancetypev1beta1.PreferredCPUTopology) {
 			vm.Spec.Instancetype = nil
-			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
-				return &instancetypev1beta1.VirtualMachinePreferenceSpec{CPU: &instancetypev1beta1.CPUPreferences{PreferredCPUTopology: &preferredCPUTopology}}, nil
-			}
+
+			testPreference.Spec.CPU.PreferredCPUTopology = pointer.P(preferredCPUTopology)
+
+			_, err := virtClient.VirtualMachinePreference(vm.Namespace).Update(context.Background(), testPreference, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeTrue())
 		},
