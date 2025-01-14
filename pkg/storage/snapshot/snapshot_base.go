@@ -74,6 +74,7 @@ type VMSnapshotController struct {
 	VMInformer                cache.SharedIndexInformer
 	VMIInformer               cache.SharedIndexInformer
 	StorageClassInformer      cache.SharedIndexInformer
+	StorageProfileInformer    cache.SharedIndexInformer
 	PVCInformer               cache.SharedIndexInformer
 	CRDInformer               cache.SharedIndexInformer
 	PodInformer               cache.SharedIndexInformer
@@ -234,6 +235,7 @@ func (ctrl *VMSnapshotController) Run(threadiness int, stopCh <-chan struct{}) e
 		ctrl.PVCInformer.HasSynced,
 		ctrl.DVInformer.HasSynced,
 		ctrl.StorageClassInformer.HasSynced,
+		ctrl.StorageProfileInformer.HasSynced,
 	) {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
@@ -592,6 +594,23 @@ func (ctrl *VMSnapshotController) handlePVC(obj interface{}) {
 			ctrl.vmSnapshotStatusQueue.Add(k)
 		}
 	}
+}
+
+func (ctrl *VMSnapshotController) getVolumeSnapshotClass(vscName string) (*vsv1.VolumeSnapshotClass, error) {
+	di := ctrl.dynamicInformerMap[volumeSnapshotClassCRD]
+	di.mutex.Lock()
+	defer di.mutex.Unlock()
+
+	if di.informer == nil {
+		return nil, nil
+	}
+
+	obj, exists, err := di.informer.GetStore().GetByKey(vscName)
+	if !exists || err != nil {
+		return nil, err
+	}
+
+	return obj.(*vsv1.VolumeSnapshotClass).DeepCopy(), nil
 }
 
 func (ctrl *VMSnapshotController) getVolumeSnapshotClasses() []vsv1.VolumeSnapshotClass {

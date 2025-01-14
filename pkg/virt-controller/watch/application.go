@@ -789,6 +789,7 @@ func (vca *VirtControllerApp) initSnapshotController() {
 		VMInformer:                vca.vmInformer,
 		VMIInformer:               vca.vmiInformer,
 		StorageClassInformer:      vca.storageClassInformer,
+		StorageProfileInformer:    vca.storageProfileInformer,
 		PVCInformer:               vca.persistentVolumeClaimInformer,
 		CRDInformer:               vca.crdInformer,
 		PodInformer:               vca.allPodInformer,
