@@ -2589,6 +2589,37 @@ var _ = Describe("Validating VM Admitter", func() {
 			HavePrefix("feature gate test-deprecated is deprecated"),
 			HavePrefix("spec.running is deprecated, please use spec.runStrategy instead.")))
 	})
+
+	It("should reject request when Discontinued feature is used", func() {
+		const fgName = "test-discontinued"
+		const fgMessage = "FG is discontinued"
+		deprecation.RegisterFeatureGate(deprecation.FeatureGate{
+			Name:        fgName,
+			State:       deprecation.Discontinued,
+			VmiSpecUsed: func(_ *v1.VirtualMachineInstanceSpec) bool { return true },
+			Message:     fgMessage,
+		})
+		DeferCleanup(deprecation.UnregisterFeatureGate, fgName)
+		enableFeatureGate(fgName)
+
+		vmi := api.NewMinimalVMI("testvmi")
+		vm := &v1.VirtualMachine{
+			Spec: v1.VirtualMachineSpec{
+				Running: pointer.P(false),
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: vmi.Spec,
+				},
+			},
+		}
+
+		resp := admitVm(vmsAdmitter, vm)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result).ToNot(BeNil())
+		Expect(resp.Result.Message).To(Equal(fgMessage))
+		Expect(resp.Result.Details.Causes).To(HaveLen(1))
+		Expect(resp.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
+		Expect(resp.Result.Details.Causes[0].Message).To(Equal(fgMessage))
+	})
 })
 
 func admitVm(admitter *VMsAdmitter, vm *v1.VirtualMachine) *admissionv1.AdmissionResponse {
@@ -2600,6 +2631,7 @@ func admitVm(admitter *VMsAdmitter, vm *v1.VirtualMachine) *admissionv1.Admissio
 			Object: runtime.RawExtension{
 				Raw: vmBytes,
 			},
+			Operation: admissionv1.Create,
 		},
 	}
 
