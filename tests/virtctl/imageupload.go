@@ -179,7 +179,7 @@ var _ = VirtctlDescribe("[sig-storage]ImageUpload", decorators.SigStorage, Seria
 	It("[test_id:11656]Upload fails when DV is in WFFC/PendingPopulation phase but uploads after consumer is created", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists || !libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
-			Skip("Skip no wffc storage class available")
+			Fail("The File system (RWO) Storage class is not WFFC")
 		}
 
 		args := []string{

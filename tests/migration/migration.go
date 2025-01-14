@@ -363,11 +363,11 @@ var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedula
 			It("should migrate vmi and use Live Migration method with read-only disks", func() {
 				By("Defining a VMI with PVC disk and read-only CDRoms")
 				if !libstorage.HasCDI() {
-					Skip("Skip DataVolume tests when CDI is not present")
+					Fail("CDI is not present")
 				}
 				sc, exists := libstorage.GetRWXBlockStorageClass()
 				if !exists {
-					Skip("Skip test when Block storage is not present")
+					Fail("Block storage (RWX) is not present")
 				}
 				dv := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
