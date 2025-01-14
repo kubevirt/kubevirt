@@ -29,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 
 	"github.com/opencontainers/selinux/go-selinux"
@@ -64,6 +65,7 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
+	volmig "kubevirt.io/kubevirt/pkg/virt-controller/watch/volume-migration"
 )
 
 const (
@@ -978,6 +980,12 @@ func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInst
 
 	if !c.isMigrationPolicyMatched(vmiCopy) {
 		vmiCopy.Status.MigrationState.MigrationConfiguration = clusterMigrationConfigs
+	}
+	// TODO: disable post-copy for volume migration until is properly tested
+	if volmig.IsVolumeMigrating(vmiCopy) &&
+		vmiCopy.Status.MigrationState.MigrationConfiguration != nil {
+		vmiCopy.Status.MigrationState.MigrationConfiguration.AllowPostCopy = pointer.P(false)
+		log.Log.Object(vmiCopy).Warning("disabling post-copy migration for volume migration")
 	}
 
 	if controller.VMIHasHotplugCPU(vmi) && vmi.IsCPUDedicated() {
