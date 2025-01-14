@@ -64,12 +64,7 @@ elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_WITH_CNAO=true
   export KUBEVIRT_DEPLOY_NET_BINDING_CNI=true
   export KUBEVIRT_DEPLOY_CDI=false
-  # FIXME: https://github.com/kubevirt/kubevirt/issues/9158
-  if [[ $TARGET =~ no-istio ]]; then
-    export KUBEVIRT_DEPLOY_ISTIO=false
-  else
-    export KUBEVIRT_DEPLOY_ISTIO=true
-  fi
+  export KUBEVIRT_DEPLOY_ISTIO=true
   export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
 elif [[ $TARGET =~ sig-storage ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
