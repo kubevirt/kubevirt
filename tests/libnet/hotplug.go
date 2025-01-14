@@ -54,7 +54,9 @@ func VerifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, queueCount int
 	EventuallyWithOffset(1, func() []v1.VirtualMachineInstanceNetworkInterface {
 		return cleanMACAddressesFromStatus(vmiCurrentInterfaces(vmi.GetNamespace(), vmi.GetName()))
 	}, 30*time.Second).Should(
-		ConsistOf(interfaceStatusFromInterfaceNames(queueCount, secondaryNetworksNames...)))
+		ConsistOf(
+			interfaceStatusFromInterfaceNames(queueCount, vmispec.IndexInterfaceSpecByName(nonAbsentIfaces), secondaryNetworksNames...),
+		))
 
 	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), metav1.GetOptions{})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
@@ -115,20 +117,36 @@ func cleanMACAddressesFromStatus(status []v1.VirtualMachineInstanceNetworkInterf
 	return status
 }
 
-func interfaceStatusFromInterfaceNames(queueCount int32, ifaceNames ...string) []v1.VirtualMachineInstanceNetworkInterface {
-	const initialIfacesInVMI = 1
-	var ifaceStatus []v1.VirtualMachineInstanceNetworkInterface
+func interfaceStatusFromInterfaceNames(
+	queueCount int32,
+	ifacesByName map[string]v1.Interface,
+	ifaceNames ...string,
+) []v1.VirtualMachineInstanceNetworkInterface {
+	const (
+		initialIfacesInVMI = 1
+
+		linkStateUp = "up"
+	)
+	var ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface
+
 	for i, ifaceName := range ifaceNames {
-		ifaceStatus = append(ifaceStatus, v1.VirtualMachineInstanceNetworkInterface{
+		newIfaceStatus := v1.VirtualMachineInstanceNetworkInterface{
 			Name:          ifaceName,
 			InterfaceName: fmt.Sprintf("eth%d", i+initialIfacesInVMI),
 			InfoSource: vmispec.NewInfoSource(
 				vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent, vmispec.InfoSourceMultusStatus),
 			QueueCount:       queueCount,
 			PodInterfaceName: namescheme.GenerateHashedInterfaceName(ifaceName),
-		})
+		}
+
+		if iface := ifacesByName[ifaceName]; iface.SRIOV == nil {
+			newIfaceStatus.LinkState = linkStateUp
+		}
+
+		ifaceStatuses = append(ifaceStatuses, newIfaceStatus)
 	}
-	return ifaceStatus
+
+	return ifaceStatuses
 }
 
 func PatchVMWithNewInterface(vm *v1.VirtualMachine, newNetwork v1.Network, newIface v1.Interface) error {
