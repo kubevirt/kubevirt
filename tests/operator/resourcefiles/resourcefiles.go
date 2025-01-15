@@ -2,6 +2,8 @@ package resourcefiles
 
 import (
 	"embed"
+	"fmt"
+	"os"
 	"text/template"
 )
 
@@ -47,4 +49,15 @@ type RestoreInfo struct {
 
 func (RestoreInfo) templateName() string {
 	return "restore-template.yaml"
+}
+
+func WriteFile(fileName string, info TemplateInfo) error {
+	file, err := os.Create(fileName)
+	if err != nil {
+		return fmt.Errorf("failed to create file %q: %v", fileName, err)
+	}
+
+	defer file.Close()
+
+	return templates.Lookup(info.templateName()).Execute(file, info)
 }
