@@ -43,6 +43,8 @@ conn_check_dns=${CONN_CHECK_DNS:-""}
 migration_network_nic=${MIGRATION_NETWORK_NIC:-"eth1"}
 infra_replicas=${KUBEVIRT_INFRA_REPLICAS:-0}
 test_image_replicas=${KUBEVIRT_E2E_PARALLEL_NODES:-6}
+base_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+kubevirt_test_config=${KUBEVIRT_TEST_CONFIG:-$(if [[ "${KUBEVIRT_STORAGE:-}" == rook-ceph* ]]; then echo "${base_dir}/tests/default-ceph-config.json"; else echo "${base_dir}/tests/default-config.json"; fi)}
 
 # try to derive csv_version from docker tag. But it must start with x.y.z, without leading v
 default_csv_version="${docker_tag/latest/0.0.0}"
