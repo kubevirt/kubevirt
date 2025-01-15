@@ -1929,10 +1929,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	})
 })
 
-func renderPkillAllPod(processName string) *k8sv1.Pod {
-	return libpod.RenderPrivilegedPod("vmi-killer", []string{"pkill"}, []string{"-9", processName})
-}
-
 func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
 	namespace := vmi.GetObjectMeta().GetNamespace()
 	uid := vmi.GetObjectMeta().GetUID()
@@ -1963,7 +1959,7 @@ func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineI
 }
 
 func pkillHandler(virtCli kubecli.KubevirtClient, node string) error {
-	pod := renderPkillAllPod("virt-handler")
+	pod := libpod.RenderPrivilegedPod("vmi-killer", []string{"pkill"}, []string{"-9", "virt-handler"})
 	pod.Spec.NodeName = node
 	createdPod, err := virtCli.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred(), "Should create helper pod")
@@ -1980,13 +1976,13 @@ func pkillHandler(virtCli kubecli.KubevirtClient, node string) error {
 }
 
 func pkillAllLaunchers(virtCli kubecli.KubevirtClient, node string) (*k8sv1.Pod, error) {
-	pod := renderPkillAllPod("virt-launcher")
+	pod := libpod.RenderPrivilegedPod("vmi-killer", []string{"pkill"}, []string{"-9", "virt-launcher"})
 	pod.Spec.NodeName = node
 	return virtCli.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 }
 
 func pkillAllVMIs(virtCli kubecli.KubevirtClient, node string) error {
-	pod := renderPkillAllPod("qemu")
+	pod := libpod.RenderPrivilegedPod("vmi-killer", []string{"pkill"}, []string{"-9", "qemu"})
 	pod.Spec.NodeName = node
 	_, err := virtCli.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 
