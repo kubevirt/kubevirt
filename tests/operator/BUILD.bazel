@@ -41,6 +41,7 @@ go_library(
         "//tests/libstorage:go_default_library",
         "//tests/libvmifact:go_default_library",
         "//tests/libwait:go_default_library",
+        "//tests/operator/resourcefiles:go_default_library",
         "//tests/testsuite:go_default_library",
         "//tests/util:go_default_library",
         "//vendor/github.com/coreos/go-semver/semver:go_default_library",

@@ -98,6 +98,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/operator/resourcefiles"
 	"kubevirt.io/kubevirt/tests/testsuite"
 	util2 "kubevirt.io/kubevirt/tests/util"
 )
@@ -3154,72 +3155,21 @@ func generatePreviousVersionVmYamls(workDir, previousUtilityRegistry, previousUt
 	}
 
 	// Generate a vm Yaml for every version supported in the currently deployed KubeVirt
-	supportedVersions := []string{}
+	var supportedVersions []string
 	for _, version := range crd.Spec.Versions {
 		supportedVersions = append(supportedVersions, version.Name)
 	}
 
+	imageName := fmt.Sprintf("%s/%s-container-disk-demo:%s", previousUtilityRegistry, cd.ContainerDiskCirros, previousUtilityTag)
+
 	for i, version := range supportedVersions {
-		vmYaml := fmt.Sprintf(`apiVersion: kubevirt.io/%[1]s
-kind: VirtualMachine
-metadata:
-  labels:
-    kubevirt.io/vm: vm-%[1]s
-  name: vm-%[1]s
-spec:
-  dataVolumeTemplates:
-  - metadata:
-      name: test-dv%[2]d
-    spec:
-      pvc:
-        accessModes:
-        - ReadWriteOnce
-        resources:
-          requests:
-            storage: 1Gi
-      source:
-        blank: {}
-  runStrategy: Manual
-  template:
-    metadata:
-      labels:
-        kubevirt.io/vm: vm-%[1]s
-    spec:
-      domain:
-        devices:
-          disks:
-          - disk:
-              bus: virtio
-            name: containerdisk
-          - disk:
-              bus: virtio
-            name: cloudinitdisk
-          - disk:
-              bus: virtio
-            name: datavolumedisk1
-        machine:
-          type: ""
-        resources:
-          requests:
-            memory: 128M
-      terminationGracePeriodSeconds: 0
-      volumes:
-      - dataVolume:
-          name: test-dv%[2]d
-        name: datavolumedisk1
-      - containerDisk:
-          image: %[3]s/%[4]s-container-disk-demo:%[5]s
-        name: containerdisk
-      - cloudInitNoCloud:
-          userData: |
-            #!/bin/sh
+		yamlFileName := filepath.Join(workDir, fmt.Sprintf("vm-%s.yaml", version))
 
-            echo 'printed from cloud-init userdata'
-        name: cloudinitdisk
-`, version, i, previousUtilityRegistry, cd.ContainerDiskCirros, previousUtilityTag)
-
-		yamlFile := filepath.Join(workDir, fmt.Sprintf("vm-%s.yaml", version))
-		err = os.WriteFile(yamlFile, []byte(vmYaml), 0644)
+		err = resourcefiles.WriteFile(yamlFileName, resourcefiles.VMInfo{
+			Version:   version,
+			Index:     i,
+			ImageName: imageName,
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -3227,7 +3177,7 @@ spec:
 		vmYamls[version] = &vmYamlDefinition{
 			apiVersion: version,
 			vmName:     "vm-" + version,
-			yamlFile:   yamlFile,
+			yamlFile:   yamlFileName,
 		}
 	}
 
