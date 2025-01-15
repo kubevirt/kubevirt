@@ -3199,60 +3199,61 @@ func generatePreviousVersionVmsnapshotYamls(vmYamls map[string]*vmYamlDefinition
 	// Generate a vmsnapshot Yaml for every version
 	// supported in the currently deployed KubeVirt
 	// For every vm version
-	supportedVersions := []string{}
+	var supportedVersions []string
 	for _, version := range crd.Spec.Versions {
 		supportedVersions = append(supportedVersions, version.Name)
 	}
 
 	for _, vmYaml := range vmYamls {
-		vmSnapshots := []vmSnapshotDef{}
+		var vmSnapshots []vmSnapshotDef
 		for _, version := range supportedVersions {
-			snapshotName := fmt.Sprintf("vm-%s-snapshot-%s", vmYaml.apiVersion, version)
-			snapshotYaml := fmt.Sprintf(`apiVersion: snapshot.kubevirt.io/%s
-kind: VirtualMachineSnapshot
-metadata:
-  name: %s
-spec:
-  source:
-    apiGroup: kubevirt.io
-    kind: VirtualMachine
-    name: %s
-`, version, snapshotName, vmYaml.vmName)
-			restoreName := fmt.Sprintf("vm-%s-restore-%s", vmYaml.apiVersion, version)
-			restoreYaml := fmt.Sprintf(`apiVersion: snapshot.kubevirt.io/%s
-kind: VirtualMachineRestore
-metadata:
-  name: %s
-spec:
-  target:
-    apiGroup: kubevirt.io
-    kind: VirtualMachine
-    name: %s
-  virtualMachineSnapshotName: %s
-`, version, restoreName, vmYaml.vmName, snapshotName)
-
-			snapshotYamlFile := filepath.Join(workDir, fmt.Sprintf("%s.yaml", snapshotName))
-			err = os.WriteFile(snapshotYamlFile, []byte(snapshotYaml), 0644)
+			vmSnapshots, err = generateSnapshotsForVersion(vmYaml, version, workDir, vmSnapshots)
 			if err != nil {
 				return err
 			}
-
-			restoreYamlFile := filepath.Join(workDir, fmt.Sprintf("%s.yaml", restoreName))
-			err = os.WriteFile(restoreYamlFile, []byte(restoreYaml), 0644)
-			if err != nil {
-				return err
-			}
-
-			vmSnapshots = append(vmSnapshots, vmSnapshotDef{
-				vmSnapshotName:  snapshotName,
-				yamlFile:        snapshotYamlFile,
-				restoreName:     restoreName,
-				restoreYamlFile: restoreYamlFile,
-			})
 		}
-		vmYamlTmp, _ := vmYamls[vmYaml.apiVersion]
-		vmYamlTmp.vmSnapshots = vmSnapshots
+
+		vmYaml.vmSnapshots = vmSnapshots
 	}
 
 	return nil
+}
+
+func generateSnapshotsForVersion(vmYaml *vmYamlDefinition, version string, workDir string, vmSnapshots []vmSnapshotDef) ([]vmSnapshotDef, error) {
+	snapshotName := fmt.Sprintf("vm-%s-snapshot-%s", vmYaml.apiVersion, version)
+	snapshotYamlFileName := filepath.Join(workDir, fmt.Sprintf("%s.yaml", snapshotName))
+
+	err := resourcefiles.WriteFile(
+		snapshotYamlFileName,
+		resourcefiles.SnapshotInfo{
+			Version: version,
+			Name:    snapshotName,
+			VMName:  vmYaml.vmName,
+		})
+	if err != nil {
+		return nil, err
+	}
+
+	restoreName := fmt.Sprintf("vm-%s-restore-%s", vmYaml.apiVersion, version)
+	restoreYamlFileName := filepath.Join(workDir, fmt.Sprintf("%s.yaml", restoreName))
+	err = resourcefiles.WriteFile(
+		restoreYamlFileName,
+		resourcefiles.RestoreInfo{
+			Version:      version,
+			Name:         restoreName,
+			VMName:       vmYaml.vmName,
+			SnapshotName: snapshotName,
+		})
+	if err != nil {
+		return nil, err
+	}
+
+	vmSnapshots = append(vmSnapshots, vmSnapshotDef{
+		vmSnapshotName:  snapshotName,
+		yamlFile:        snapshotYamlFileName,
+		restoreName:     restoreName,
+		restoreYamlFile: restoreYamlFileName,
+	})
+
+	return vmSnapshots, nil
 }
