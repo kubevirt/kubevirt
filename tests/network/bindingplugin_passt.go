@@ -53,6 +53,8 @@ import (
 )
 
 var _ = SIGDescribe(" VirtualMachineInstance with passt network binding plugin", decorators.NetCustomBindingPlugins, Serial, func() {
+	const passtNetAttDefName = "netbindingpasst"
+
 	var err error
 
 	BeforeEach(func() {
@@ -64,7 +66,7 @@ var _ = SIGDescribe(" VirtualMachineInstance with passt network binding plugin",
 
 		err := config.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
 			SidecarImage:                passtSidecarImage,
-			NetworkAttachmentDefinition: libnet.PasstNetAttDef,
+			NetworkAttachmentDefinition: passtNetAttDefName,
 			Migration:                   &v1.InterfaceBindingMigration{},
 			ComputeResourceOverhead: &v1.ResourceRequirementsWithoutClaims{
 				Requests: map[k8sv1.ResourceName]resource.Quantity{
@@ -76,7 +78,9 @@ var _ = SIGDescribe(" VirtualMachineInstance with passt network binding plugin",
 	})
 
 	BeforeEach(func() {
-		Expect(libnet.CreatePasstNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil))).To(Succeed())
+		netAttachDef := libnet.NewPasstNetAttachDef(passtNetAttDefName)
+		_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(nil), netAttachDef)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("should apply the interface configuration", func() {

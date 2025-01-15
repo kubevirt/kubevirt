@@ -64,11 +64,6 @@ const (
 )
 
 const (
-	linuxBridgeConfNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"%s\", \"bridge\": \"%s\", \"vlan\": %d, \"ipam\": {%s}, \"macspoofchk\": %t, \"mtu\": 1400},{\"type\": \"tuning\"}]}"}}`
-	ptpConfNAD         = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"%s\" }},{\"type\": \"tuning\"}]}"}}`
-)
-
-const (
 	ptpSubnet     = "10.1.1.0/24"
 	ptpSubnetMask = "/24"
 	ptpSubnetIP1  = "10.1.1.1"
@@ -90,7 +85,6 @@ const (
 )
 
 const (
-	bridge10CNIType       = "bridge"
 	bridge10Name          = "br10"
 	bridge10MacSpoofCheck = false
 )
@@ -147,13 +141,29 @@ var _ = SIGDescribe("Multus", Serial, decorators.Multus, func() {
 		},
 	}
 
-	createBridgeNetworkAttachmentDefinition := func(namespace, networkName, bridgeCNIType, bridgeName string, vlan int, ipam string, macSpoofCheck bool) error {
-		bridgeNad := fmt.Sprintf(linuxBridgeConfNAD, networkName, namespace, bridgeCNIType, bridgeName, vlan, ipam, macSpoofCheck)
-		return libnet.CreateNetworkAttachmentDefinition(networkName, namespace, bridgeNad)
+	createBridgeNetworkAttachmentDefinition := func(
+		namespace, networkName string, bridgeName string, vlan int, ipam map[string]string, macSpoofCheck bool,
+	) error {
+		netAttachDef := libnet.NewBridgeNetAttachDef(
+			networkName,
+			bridgeName,
+			libnet.WithMTU(1400),
+			libnet.WithVLAN(vlan),
+			libnet.WithIPAM(ipam),
+			libnet.WithMacSpoofChk(macSpoofCheck),
+		)
+		_, err := libnet.CreateNetAttachDef(context.Background(), namespace, netAttachDef)
+		return err
 	}
 	createPtpNetworkAttachmentDefinition := func(namespace, networkName, subnet string) error {
-		ptpNad := fmt.Sprintf(ptpConfNAD, networkName, namespace, subnet)
-		return libnet.CreateNetworkAttachmentDefinition(networkName, namespace, ptpNad)
+		const pluginType = "ptp"
+		ipam := map[string]string{"type": "host-local", "subnet": subnet}
+		netAttachDef := libnet.NewNetAttachDef(
+			networkName,
+			libnet.NewNetConfig("mynet", libnet.NewNetPluginConfig(pluginType, map[string]interface{}{"ipam": ipam})),
+		)
+		_, err := libnet.CreateNetAttachDef(context.Background(), namespace, netAttachDef)
+		return err
 	}
 
 	BeforeEach(func() {
@@ -163,9 +173,9 @@ var _ = SIGDescribe("Multus", Serial, decorators.Multus, func() {
 		Expect(nodes.Items).NotTo(BeEmpty())
 
 		const vlanID100 = 100
-		Expect(createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), linuxBridgeVlan100Network, bridge10CNIType, bridge10Name, vlanID100, "", bridge10MacSpoofCheck)).To(Succeed())
+		Expect(createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), linuxBridgeVlan100Network,
+			bridge10Name, vlanID100, nil, bridge10MacSpoofCheck)).To(Succeed())
 
-		// Create ptp crds with tuning plugin enabled in two different namespaces
 		Expect(createPtpNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), ptpConf1, ptpSubnet)).To(Succeed())
 		Expect(createPtpNetworkAttachmentDefinition(testsuite.NamespaceTestAlternative, ptpConf2, ptpSubnet)).To(Succeed())
 
@@ -397,14 +407,11 @@ var _ = SIGDescribe("Multus", Serial, decorators.Multus, func() {
 				return "", fmt.Errorf("couldn't find iface %s on vmi %s", networkName, vmiName)
 			}
 
-			generateIPAMConfig := func(ipamType, subnet string) string {
-				return fmt.Sprintf("\\\"type\\\": \\\"%s\\\", \\\"subnet\\\": \\\"%s\\\"", ipamType, subnet)
-			}
-
-			DescribeTable("should be able to ping between two vms", func(interfaces []v1.Interface, networks []v1.Network, ifaceName, staticIPVm1, staticIPVm2 string) {
+			DescribeTable("should be able to ping between two vms", func(interfaces []v1.Interface,
+				networks []v1.Network, ifaceName, staticIPVm1, staticIPVm2 string) {
 				if staticIPVm2 == "" || staticIPVm1 == "" {
-					ipam := generateIPAMConfig("host-local", ptpSubnet)
-					Expect(createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), linuxBridgeVlan100WithIPAMNetwork, bridge10CNIType, bridge10Name, 0, ipam, bridge10MacSpoofCheck)).To(Succeed())
+					ipam := map[string]string{"type": "host-local", "subnet": ptpSubnet}
+					Expect(createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), linuxBridgeVlan100WithIPAMNetwork, bridge10Name, 0, ipam, bridge10MacSpoofCheck)).To(Succeed())
 				}
 
 				vmiOne := createVMIOnNode(interfaces, networks)
@@ -609,66 +616,66 @@ var _ = SIGDescribe("Multus", Serial, decorators.Multus, func() {
 
 				Expect(createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil),
 					linuxBridgeWithMACSpoofCheckNetwork,
-					bridge11CNIType,
 					bridge11Name,
 					0,
-					"",
+					nil,
 					bridge11MACSpoofCheck)).To(Succeed())
 			})
 
-			It("Should allow outbound communication from VM under test - only if original MAC address is unchanged", func() {
-				const (
-					vmUnderTestIPAddress = "10.2.1.1"
-					targetVMIPAddress    = "10.2.1.2"
-					bridgeSubnetMask     = "/24"
-				)
+			It("Should allow outbound communication from VM under test - only if original MAC address is unchanged",
+				func() {
+					const (
+						vmUnderTestIPAddress = "10.2.1.1"
+						targetVMIPAddress    = "10.2.1.2"
+						bridgeSubnetMask     = "/24"
+					)
 
-				initialMacAddress, err := libnet.GenerateRandomMac()
-				Expect(err).NotTo(HaveOccurred())
-				initialMacAddressStr := initialMacAddress.String()
+					initialMacAddress, err := libnet.GenerateRandomMac()
+					Expect(err).NotTo(HaveOccurred())
+					initialMacAddressStr := initialMacAddress.String()
 
-				spoofedMacAddress, err := libnet.GenerateRandomMac()
-				Expect(err).NotTo(HaveOccurred())
-				spoofedMacAddressStr := spoofedMacAddress.String()
+					spoofedMacAddress, err := libnet.GenerateRandomMac()
+					Expect(err).NotTo(HaveOccurred())
+					spoofedMacAddressStr := spoofedMacAddress.String()
 
-				linuxBridgeInterfaceWithMACSpoofCheck := libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeWithMACSpoofCheckNetwork)
+					linuxBridgeInterfaceWithMACSpoofCheck := libvmi.InterfaceDeviceWithBridgeBinding(linuxBridgeWithMACSpoofCheckNetwork)
 
-				By("Creating a VM with custom MAC address on its Linux bridge CNI interface.")
-				linuxBridgeInterfaceWithCustomMac := linuxBridgeInterfaceWithMACSpoofCheck
-				libvmi.InterfaceWithMac(&linuxBridgeInterfaceWithCustomMac, initialMacAddressStr)
+					By("Creating a VM with custom MAC address on its Linux bridge CNI interface.")
+					linuxBridgeInterfaceWithCustomMac := linuxBridgeInterfaceWithMACSpoofCheck
+					libvmi.InterfaceWithMac(&linuxBridgeInterfaceWithCustomMac, initialMacAddressStr)
 
-				vmiUnderTest := libvmifact.NewFedora(
-					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
-					libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
-					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(
-						cloudinit.CreateNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, linuxBridgeInterfaceWithCustomMac.MacAddress, vmUnderTestIPAddress+bridgeSubnetMask),
-					)),
-					libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
-				vmiUnderTest, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiUnderTest)).Create(context.Background(), vmiUnderTest, metav1.CreateOptions{})
-				ExpectWithOffset(1, err).ToNot(HaveOccurred())
+					vmiUnderTest := libvmifact.NewFedora(
+						libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
+						libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
+						libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(
+							cloudinit.CreateNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, linuxBridgeInterfaceWithCustomMac.MacAddress, vmUnderTestIPAddress+bridgeSubnetMask),
+						)),
+						libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
+					vmiUnderTest, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiUnderTest)).Create(context.Background(), vmiUnderTest, metav1.CreateOptions{})
+					ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-				By("Creating a target VM with Linux bridge CNI network interface and default MAC address.")
-				targetVmi := libvmifact.NewFedora(
-					libvmi.WithInterface(linuxBridgeInterfaceWithMACSpoofCheck),
-					libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
-					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(
-						cloudinit.CreateNetworkDataWithStaticIPsByIface("eth0", targetVMIPAddress+bridgeSubnetMask),
-					)),
-					libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
-				targetVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(targetVmi)).Create(context.Background(), targetVmi, metav1.CreateOptions{})
-				ExpectWithOffset(1, err).ToNot(HaveOccurred())
+					By("Creating a target VM with Linux bridge CNI network interface and default MAC address.")
+					targetVmi := libvmifact.NewFedora(
+						libvmi.WithInterface(linuxBridgeInterfaceWithMACSpoofCheck),
+						libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
+						libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(
+							cloudinit.CreateNetworkDataWithStaticIPsByIface("eth0", targetVMIPAddress+bridgeSubnetMask),
+						)),
+						libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
+					targetVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(targetVmi)).Create(context.Background(), targetVmi, metav1.CreateOptions{})
+					ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-				vmiUnderTest = libwait.WaitUntilVMIReady(vmiUnderTest, console.LoginToFedora)
-				libwait.WaitUntilVMIReady(targetVmi, console.LoginToFedora)
+					vmiUnderTest = libwait.WaitUntilVMIReady(vmiUnderTest, console.LoginToFedora)
+					libwait.WaitUntilVMIReady(targetVmi, console.LoginToFedora)
 
-				Expect(libnet.PingFromVMConsole(vmiUnderTest, targetVMIPAddress)).To(Succeed(), "Ping target IP with original MAC should succeed")
+					Expect(libnet.PingFromVMConsole(vmiUnderTest, targetVMIPAddress)).To(Succeed(), "Ping target IP with original MAC should succeed")
 
-				Expect(changeInterfaceMACAddress(vmiUnderTest, linuxBridgeInterfaceWithCustomMac.Name, spoofedMacAddressStr)).To(Succeed())
-				Expect(libnet.PingFromVMConsole(vmiUnderTest, targetVMIPAddress)).NotTo(Succeed(), "Ping target IP with modified MAC should fail")
+					Expect(changeInterfaceMACAddress(vmiUnderTest, linuxBridgeInterfaceWithCustomMac.Name, spoofedMacAddressStr)).To(Succeed())
+					Expect(libnet.PingFromVMConsole(vmiUnderTest, targetVMIPAddress)).NotTo(Succeed(), "Ping target IP with modified MAC should fail")
 
-				Expect(changeInterfaceMACAddress(vmiUnderTest, linuxBridgeInterfaceWithCustomMac.Name, initialMacAddressStr)).To(Succeed())
-				Expect(libnet.PingFromVMConsole(vmiUnderTest, targetVMIPAddress)).To(Succeed(), "Ping target IP with restored original MAC should succeed")
-			})
+					Expect(changeInterfaceMACAddress(vmiUnderTest, linuxBridgeInterfaceWithCustomMac.Name, initialMacAddressStr)).To(Succeed())
+					Expect(libnet.PingFromVMConsole(vmiUnderTest, targetVMIPAddress)).To(Succeed(), "Ping target IP with restored original MAC should succeed")
+				})
 		})
 	})
 

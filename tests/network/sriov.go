@@ -65,9 +65,8 @@ import (
 )
 
 const (
-	sriovLinkEnableConfNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"link_state\": \"enable\", \"vlan\": 0, \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
-	sriovVlanConfNAD       = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"link_state\": \"enable\", \"vlan\": 200, \"ipam\":{}}"}}`
-	sriovConfNAD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"sriov\", \"type\": \"sriov\", \"vlan\": 0, \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
+	defaultVLAN  = 0
+	specificVLAN = 200
 )
 
 const (
@@ -85,11 +84,6 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 
 	sriovResourceName := readSRIOVResourceName()
 
-	createSriovNetworkAttachmentDefinition := func(networkName, namespace, networkAttachmentDefinition string) error {
-		sriovNad := fmt.Sprintf(networkAttachmentDefinition, networkName, namespace, sriovResourceName)
-		return libnet.CreateNetworkAttachmentDefinition(networkName, namespace, sriovNad)
-	}
-
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
@@ -101,8 +95,10 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 
 	Context("VMI connected to single SRIOV network", func() {
 		BeforeEach(func() {
-			Expect(createSriovNetworkAttachmentDefinition(sriovnet1, testsuite.NamespaceTestDefault, sriovConfNAD)).
-				To(Succeed(), shouldCreateNetwork)
+			netAttachDef := libnet.NewSriovNetAttachDef(sriovnet1, defaultVLAN)
+			netAttachDef.Annotations = map[string]string{libnet.ResourceNameAnnotation: sriovResourceName}
+			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.NamespaceTestDefault, netAttachDef)
+			Expect(err).NotTo(HaveOccurred(), shouldCreateNetwork)
 		})
 
 		It("should have cloud-init meta_data with tagged interface and aligned cpus to sriov interface numa node for VMIs with dedicatedCPUs", decorators.RequiresNodeWithCPUManager, func() {
@@ -307,8 +303,15 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 
 	Context("VMI connected to two SRIOV networks", func() {
 		BeforeEach(func() {
-			Expect(createSriovNetworkAttachmentDefinition(sriovnet1, testsuite.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
-			Expect(createSriovNetworkAttachmentDefinition(sriovnet2, testsuite.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
+			netAttachDef1 := libnet.NewSriovNetAttachDef(sriovnet1, defaultVLAN)
+			netAttachDef1.Annotations = map[string]string{libnet.ResourceNameAnnotation: sriovResourceName}
+			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.NamespaceTestDefault, netAttachDef1)
+			Expect(err).NotTo(HaveOccurred(), shouldCreateNetwork)
+
+			netAttachDef2 := libnet.NewSriovNetAttachDef(sriovnet2, defaultVLAN)
+			netAttachDef2.Annotations = map[string]string{libnet.ResourceNameAnnotation: sriovResourceName}
+			_, err = libnet.CreateNetAttachDef(context.Background(), testsuite.NamespaceTestDefault, netAttachDef2)
+			Expect(err).NotTo(HaveOccurred(), shouldCreateNetwork)
 		})
 
 		It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
@@ -340,7 +343,10 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 		sriovNetworks := []string{sriovnet1, sriovnet2, sriovnet3, sriovnet4}
 		BeforeEach(func() {
 			for _, sriovNetwork := range sriovNetworks {
-				Expect(createSriovNetworkAttachmentDefinition(sriovNetwork, testsuite.NamespaceTestDefault, sriovConfNAD)).To(Succeed(), shouldCreateNetwork)
+				netAttachDef := libnet.NewSriovNetAttachDef(sriovNetwork, defaultVLAN)
+				netAttachDef.Annotations = map[string]string{libnet.ResourceNameAnnotation: sriovResourceName}
+				_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.NamespaceTestDefault, netAttachDef)
+				Expect(err).NotTo(HaveOccurred(), shouldCreateNetwork)
 			}
 		})
 
@@ -378,8 +384,10 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 		})
 
 		BeforeEach(func() {
-			Expect(createSriovNetworkAttachmentDefinition(sriovnetLinkEnabled, testsuite.NamespaceTestDefault, sriovLinkEnableConfNAD)).
-				To(Succeed(), shouldCreateNetwork)
+			netAttachDef := libnet.NewSriovNetAttachDef(sriovnetLinkEnabled, defaultVLAN, libnet.WithLinkState())
+			netAttachDef.Annotations = map[string]string{libnet.ResourceNameAnnotation: sriovResourceName}
+			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.NamespaceTestDefault, netAttachDef)
+			Expect(err).NotTo(HaveOccurred(), shouldCreateNetwork)
 		})
 
 		It("[test_id:3956]should connect to another machine with sriov interface over IP", func() {
@@ -422,7 +430,11 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 				var err error
 				ipVlaned1, err = libnet.CidrToIP(cidrVlaned1)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(createSriovNetworkAttachmentDefinition(sriovnetVlanned, testsuite.NamespaceTestDefault, sriovVlanConfNAD)).To(Succeed())
+
+				netAttachDef := libnet.NewSriovNetAttachDef(sriovnetVlanned, specificVLAN, libnet.WithLinkState())
+				netAttachDef.Annotations = map[string]string{libnet.ResourceNameAnnotation: sriovResourceName}
+				_, err = libnet.CreateNetAttachDef(context.Background(), testsuite.NamespaceTestDefault, netAttachDef)
+				Expect(err).NotTo(HaveOccurred(), shouldCreateNetwork)
 			})
 
 			It("should be able to ping between two VMIs with the same VLAN over SRIOV network", func() {
