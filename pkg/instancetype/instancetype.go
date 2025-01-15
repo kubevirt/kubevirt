@@ -99,7 +99,7 @@ func CompareRevisions(revisionA, revisionB *appsv1.ControllerRevision) (bool, er
 }
 
 func (m *InstancetypeMethods) CheckPreferenceRequirements(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) (conflict.Conflicts, error) {
-	conflicts, err := requirements.New(instancetypeSpec, preferenceSpec, vmiSpec).Check()
+	conflicts, err := requirements.New().Check(instancetypeSpec, preferenceSpec, vmiSpec)
 	return conflicts, err
 }
 

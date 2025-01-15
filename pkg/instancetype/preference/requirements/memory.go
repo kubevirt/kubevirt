@@ -22,6 +22,9 @@ import (
 	"fmt"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
+
+	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/api/instancetype/v1beta1"
 )
 
 const (
@@ -29,18 +32,22 @@ const (
 	InsufficientVMMemoryResourcesErrorFmt           = "insufficient Memory resources of %s provided by VirtualMachine, preference requires %s"
 )
 
-func (h *Handler) checkMemory() (conflict.Conflicts, error) {
-	if h.instancetypeSpec != nil && h.instancetypeSpec.Memory.Guest.Cmp(h.preferenceSpec.Requirements.Memory.Guest) < 0 {
-		instancetypeMemory := h.instancetypeSpec.Memory.Guest.String()
-		preferenceMemory := h.preferenceSpec.Requirements.Memory.Guest.String()
+func checkMemory(
+	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
+	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+	vmiSpec *virtv1.VirtualMachineInstanceSpec,
+) (conflict.Conflicts, error) {
+	if instancetypeSpec != nil && instancetypeSpec.Memory.Guest.Cmp(preferenceSpec.Requirements.Memory.Guest) < 0 {
+		instancetypeMemory := instancetypeSpec.Memory.Guest.String()
+		preferenceMemory := preferenceSpec.Requirements.Memory.Guest.String()
 		return conflict.Conflicts{conflict.New("spec", "instancetype")},
 			fmt.Errorf(InsufficientInstanceTypeMemoryResourcesErrorFmt, instancetypeMemory, preferenceMemory)
 	}
 
-	vmiMemory := h.vmiSpec.Domain.Memory
-	if h.instancetypeSpec == nil && vmiMemory != nil && vmiMemory.Guest.Cmp(h.preferenceSpec.Requirements.Memory.Guest) < 0 {
+	vmiMemory := vmiSpec.Domain.Memory
+	if instancetypeSpec == nil && vmiMemory != nil && vmiMemory.Guest.Cmp(preferenceSpec.Requirements.Memory.Guest) < 0 {
 		return conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "memory")},
-			fmt.Errorf(InsufficientVMMemoryResourcesErrorFmt, vmiMemory.Guest.String(), h.preferenceSpec.Requirements.Memory.Guest.String())
+			fmt.Errorf(InsufficientVMMemoryResourcesErrorFmt, vmiMemory.Guest.String(), preferenceSpec.Requirements.Memory.Guest.String())
 	}
 	return nil, nil
 }
