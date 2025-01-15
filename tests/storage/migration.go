@@ -55,6 +55,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -78,8 +79,15 @@ var _ = SIGDescribe("Volumes update with migration", decorators.RequiresTwoSched
 			WorkloadUpdateMethods: []virtv1.WorkloadUpdateMethod{virtv1.WorkloadUpdateMethodLiveMigrate},
 		}
 		rolloutStrategy := pointer.P(virtv1.VMRolloutStrategyLiveUpdate)
-		config.PatchWorkloadUpdateMethodAndRolloutStrategy(originalKv.Name, virtClient, updateStrategy, rolloutStrategy,
-			[]string{virtconfig.VolumesUpdateStrategy, virtconfig.VolumeMigration})
+		patchWorkload, err := patch.New(
+			patch.WithAdd("/spec/workloadUpdateStrategy", updateStrategy),
+			patch.WithAdd("/spec/configuration/vmRolloutStrategy", rolloutStrategy),
+		).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+		_, err = virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(
+			context.Background(), originalKv.Name, types.JSONPatchType,
+			patchWorkload, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
 		currentKv := libkubevirt.GetCurrentKv(virtClient)
 		config.WaitForConfigToBePropagatedToComponent(

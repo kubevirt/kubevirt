@@ -39,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -73,25 +72,6 @@ func patchKV(namespace, name string, patchSet *patch.PatchSet) error {
 	}
 	_, err = kubevirt.Client().KubeVirt(namespace).Patch(context.Background(), name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 	return err
-}
-
-func PatchWorkloadUpdateMethodAndRolloutStrategy(kvName string,
-	virtClient kubecli.KubevirtClient,
-	updateStrategy *v1.KubeVirtWorkloadUpdateStrategy,
-	rolloutStrategy *v1.VMRolloutStrategy, fgs []string,
-) {
-	patchWorkload, err := patch.New(
-		patch.WithAdd("/spec/workloadUpdateStrategy", updateStrategy),
-		patch.WithAdd("/spec/configuration/vmRolloutStrategy", rolloutStrategy),
-		patch.WithAdd("/spec/configuration/developerConfiguration/featureGates", fgs),
-	).GeneratePayload()
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	EventuallyWithOffset(1, func() error {
-		_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(
-			context.Background(), kvName, types.JSONPatchType,
-			patchWorkload, metav1.PatchOptions{})
-		return err
-	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 }
 
 // UpdateKubeVirtConfigValueAndWait updates the given configuration in the kubevirt custom resource
