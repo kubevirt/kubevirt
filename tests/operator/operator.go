@@ -117,13 +117,15 @@ type vmYamlDefinition struct {
 	vmSnapshots   []vmSnapshotDef
 }
 
+const (
+	imageDigestShaPrefix = "@sha256:"
+)
+
 var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func() {
 
 	const (
 		virtApiDepName        = "virt-api"
 		virtControllerDepName = "virt-controller"
-
-		imageDigestShaPrefix = "@sha256:"
 	)
 
 	var originalKv *v1.KubeVirt
@@ -134,16 +136,11 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	var virtClient kubecli.KubevirtClient
 	var aggregatorClient *aggregatorclient.Clientset
 	var k8sClient string
-	var vmYamls map[string]*vmYamlDefinition
 
 	var (
-		deleteAllKvAndWait                     func(bool)
-		ensureShasums                          func()
-		generatePreviousVersionVmYamls         func(string, string)
-		generatePreviousVersionVmsnapshotYamls func()
-		generateMigratableVMIs                 func(int) []*v1.VirtualMachineInstance
-		verifyVMIsUpdated                      func([]*v1.VirtualMachineInstance)
-		verifyVMIsEvicted                      func([]*v1.VirtualMachineInstance)
+		generateMigratableVMIs func(int) []*v1.VirtualMachineInstance
+		verifyVMIsUpdated      func([]*v1.VirtualMachineInstance)
+		verifyVMIsEvicted      func([]*v1.VirtualMachineInstance)
 	)
 
 	deprecatedBeforeAll(func() {
@@ -154,55 +151,8 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 		k8sClient = clientcmd.GetK8sCmdClient()
 
-		deleteAllKvAndWait = func(ignoreOriginal bool) {
-			Eventually(func() error {
-
-				kvs := libkubevirt.GetKvList(virtClient)
-
-				deleteCount := 0
-				for _, kv := range kvs {
-
-					if ignoreOriginal && kv.Name == originalKv.Name {
-						continue
-					}
-					deleteCount++
-					if kv.DeletionTimestamp == nil {
-
-						By("deleting the kv object")
-						err := virtClient.KubeVirt(kv.Namespace).Delete(context.Background(), kv.Name, metav1.DeleteOptions{})
-						if err != nil {
-							return err
-						}
-					}
-				}
-				if deleteCount != 0 {
-					return fmt.Errorf("still waiting on %d kvs to delete", deleteCount)
-				}
-				return nil
-
-			}, 240*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
-		}
-
-		ensureShasums = func() {
-			if flags.SkipShasumCheck {
-				log.Log.Warning("Cannot use shasums, skipping")
-				return
-			}
-
-			for _, name := range []string{"virt-operator", "virt-api", "virt-controller"} {
-				deployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(ContainSubstring(imageDigestShaPrefix), fmt.Sprintf("%s should use sha", name))
-			}
-
-			handler, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(handler.Spec.Template.Spec.Containers[0].Image).To(ContainSubstring(imageDigestShaPrefix), "virt-handler should use sha")
-		}
-
 		// make sure virt deployments use shasums before we start
-		ensureShasums()
+		Expect(ensureShasums()).To(Succeed())
 
 		originalKv = libkubevirt.GetCurrentKv(virtClient)
 
@@ -366,166 +316,16 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				return nil
 			}, 10, 1).Should(Succeed(), "Expects only a single successful migration per workload update")
 		}
-
-		generatePreviousVersionVmsnapshotYamls = func() {
-			ext, err := extclient.NewForConfig(virtClient.Config())
-			Expect(err).ToNot(HaveOccurred())
-
-			crd, err := ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "virtualmachinesnapshots.snapshot.kubevirt.io", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			// Generate a vmsnapshot Yaml for every version
-			// supported in the currently deployed KubeVirt
-			// For every vm version
-			supportedVersions := []string{}
-			for _, version := range crd.Spec.Versions {
-				supportedVersions = append(supportedVersions, version.Name)
-			}
-
-			for _, vmYaml := range vmYamls {
-				vmSnapshots := []vmSnapshotDef{}
-				for _, version := range supportedVersions {
-					snapshotName := fmt.Sprintf("vm-%s-snapshot-%s", vmYaml.apiVersion, version)
-					snapshotYaml := fmt.Sprintf(`apiVersion: snapshot.kubevirt.io/%s
-kind: VirtualMachineSnapshot
-metadata:
-  name: %s
-spec:
-  source:
-    apiGroup: kubevirt.io
-    kind: VirtualMachine
-    name: %s
-`, version, snapshotName, vmYaml.vmName)
-					restoreName := fmt.Sprintf("vm-%s-restore-%s", vmYaml.apiVersion, version)
-					restoreYaml := fmt.Sprintf(`apiVersion: snapshot.kubevirt.io/%s
-kind: VirtualMachineRestore
-metadata:
-  name: %s
-spec:
-  target:
-    apiGroup: kubevirt.io
-    kind: VirtualMachine
-    name: %s
-  virtualMachineSnapshotName: %s
-`, version, restoreName, vmYaml.vmName, snapshotName)
-
-					snapshotYamlFile := filepath.Join(workDir, fmt.Sprintf("%s.yaml", snapshotName))
-					err = os.WriteFile(snapshotYamlFile, []byte(snapshotYaml), 0644)
-					Expect(err).ToNot(HaveOccurred())
-
-					restoreYamlFile := filepath.Join(workDir, fmt.Sprintf("%s.yaml", restoreName))
-					err = os.WriteFile(restoreYamlFile, []byte(restoreYaml), 0644)
-					Expect(err).ToNot(HaveOccurred())
-
-					vmSnapshots = append(vmSnapshots, vmSnapshotDef{
-						vmSnapshotName:  snapshotName,
-						yamlFile:        snapshotYamlFile,
-						restoreName:     restoreName,
-						restoreYamlFile: restoreYamlFile,
-					})
-				}
-				vmYamlTmp, _ := vmYamls[vmYaml.apiVersion]
-				vmYamlTmp.vmSnapshots = vmSnapshots
-			}
-		}
-
-		generatePreviousVersionVmYamls = func(previousUtilityRegistry string, previousUtilityTag string) {
-			ext, err := extclient.NewForConfig(virtClient.Config())
-			Expect(err).ToNot(HaveOccurred())
-
-			crd, err := ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "virtualmachines.kubevirt.io", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			// Generate a vm Yaml for every version supported in the currently deployed KubeVirt
-
-			supportedVersions := []string{}
-			for _, version := range crd.Spec.Versions {
-				supportedVersions = append(supportedVersions, version.Name)
-			}
-
-			for i, version := range supportedVersions {
-				vmYaml := fmt.Sprintf(`apiVersion: kubevirt.io/%s
-kind: VirtualMachine
-metadata:
-  labels:
-    kubevirt.io/vm: vm-%s
-  name: vm-%s
-spec:
-  dataVolumeTemplates:
-  - metadata:
-      name: test-dv%v
-    spec:
-      pvc:
-        accessModes:
-        - ReadWriteOnce
-        resources:
-          requests:
-            storage: 1Gi
-      source:
-        blank: {}
-  runStrategy: Manual
-  template:
-    metadata:
-      labels:
-        kubevirt.io/vm: vm-%s
-    spec:
-      domain:
-        devices:
-          disks:
-          - disk:
-              bus: virtio
-            name: containerdisk
-          - disk:
-              bus: virtio
-            name: cloudinitdisk
-          - disk:
-              bus: virtio
-            name: datavolumedisk1
-        machine:
-          type: ""
-        resources:
-          requests:
-            memory: 128M
-      terminationGracePeriodSeconds: 0
-      volumes:
-      - dataVolume:
-          name: test-dv%v
-        name: datavolumedisk1
-      - containerDisk:
-          image: %s/%s-container-disk-demo:%s
-        name: containerdisk
-      - cloudInitNoCloud:
-          userData: |
-            #!/bin/sh
-
-            echo 'printed from cloud-init userdata'
-        name: cloudinitdisk
-`, version, version, version, i, version, i, previousUtilityRegistry, cd.ContainerDiskCirros, previousUtilityTag)
-
-				yamlFile := filepath.Join(workDir, fmt.Sprintf("vm-%s.yaml", version))
-				err = os.WriteFile(yamlFile, []byte(vmYaml), 0644)
-				Expect(err).ToNot(HaveOccurred())
-
-				vmYamls[version] = &vmYamlDefinition{
-					apiVersion:    version,
-					vmName:        "vm-" + version,
-					generatedYaml: vmYaml,
-					yamlFile:      yamlFile,
-				}
-			}
-		}
 	})
 
 	BeforeEach(func() {
 		workDir = GinkgoT().TempDir()
 
-		vmYamls = make(map[string]*vmYamlDefinition)
-
 		verifyOperatorWebhookCertificate()
 	})
 
 	AfterEach(func() {
-		deleteAllKvAndWait(true)
+		deleteAllKvAndWait(true, originalKv.Name)
 
 		kvs := libkubevirt.GetKvList(virtClient)
 		if len(kvs) == 0 {
@@ -544,7 +344,7 @@ spec:
 		allKvInfraPodsAreReady(originalKv)
 
 		// make sure virt deployments use shasums again after each test
-		ensureShasums()
+		Expect(ensureShasums()).To(Succeed())
 
 		// ensure that the state is fully restored after destructive tests
 		verifyOperatorWebhookCertificate()
@@ -1101,7 +901,7 @@ spec:
 
 			// Delete current KubeVirt install so we can install previous release.
 			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
+			deleteAllKvAndWait(false, originalKv.Name)
 
 			By("Verifying all infra pods have terminated")
 			expectVirtOperatorPodsToTerminate(originalKv)
@@ -1167,11 +967,11 @@ spec:
 			// needs to be a VM created for every api. This is how we will ensure
 			// our api remains upgradable and supportable from previous release.
 
+			var vmYamls map[string]*vmYamlDefinition
 			if createVMs {
-				generatePreviousVersionVmYamls(previousUtilityRegistry, previousUtilityTag)
-				generatePreviousVersionVmsnapshotYamls()
-			} else {
-				Expect(vmYamls).To(BeEmpty())
+				vmYamls, err = generatePreviousVersionVmYamls(workDir, previousUtilityRegistry, previousUtilityTag)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(generatePreviousVersionVmsnapshotYamls(vmYamls, workDir)).To(Succeed())
 			}
 			for _, vmYaml := range vmYamls {
 				By(fmt.Sprintf("Creating VM with %s api", vmYaml.vmName))
@@ -1354,7 +1154,7 @@ spec:
 			deleteVMIs(migratableVMIs)
 
 			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
+			deleteAllKvAndWait(false, originalKv.Name)
 		},
 			Entry("by patching KubeVirt CR", false),
 			Entry("by updating virt-operator", true),
@@ -1375,7 +1175,7 @@ spec:
 			}
 
 			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
+			deleteAllKvAndWait(false, originalKv.Name)
 
 			// this is just verifying some common known components do in fact get deleted.
 			By("Sanity Checking Deployments infrastructure is deleted")
@@ -1458,7 +1258,7 @@ spec:
 			sanityCheckDeploymentsExist()
 
 			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
+			deleteAllKvAndWait(false, originalKv.Name)
 
 			// this is just verifying some common known components do in fact get deleted.
 			By("Sanity Checking Deployments infrastructure is deleted")
@@ -1484,7 +1284,7 @@ spec:
 			sanityCheckDeploymentsExist()
 
 			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
+			deleteAllKvAndWait(false, originalKv.Name)
 		})
 
 		// this test ensures that we can deal with image prefixes in case they are not used for tests already
@@ -1572,7 +1372,7 @@ spec:
 			sanityCheckDeploymentsExist()
 
 			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
+			deleteAllKvAndWait(false, originalKv.Name)
 
 			// this is just verifying some common known components do in fact get deleted.
 			By("Sanity Checking Deployments infrastructure is deleted")
@@ -1626,7 +1426,7 @@ spec:
 			deleteVMIs(vmisNonMigratable)
 
 			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
+			deleteAllKvAndWait(false, originalKv.Name)
 		})
 
 		// NOTE - this test verifies new operators can grab the leader election lease
@@ -1767,7 +1567,7 @@ spec:
 			}, 240*time.Second, 1*time.Second).Should(BeTrue(), "Expected labels to be updated for virt-handler daemonset")
 
 			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false)
+			deleteAllKvAndWait(false, originalKv.Name)
 		})
 
 		Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster", func() {
@@ -3284,4 +3084,227 @@ func getVirtLauncherSha(deploymentConfigStr string) (string, error) {
 	}
 
 	return config.VirtLauncherSha, nil
+}
+
+func deleteAllKvAndWait(ignoreOriginal bool, originalKvName string) {
+	GinkgoHelper()
+
+	virtClient := kubevirt.Client()
+	Eventually(func(g Gomega) {
+		kvs := libkubevirt.GetKvList(virtClient)
+
+		deleteCount := 0
+		for _, kv := range kvs {
+			if ignoreOriginal && kv.Name == originalKvName {
+				continue
+			}
+			deleteCount++
+			if kv.DeletionTimestamp == nil {
+				GinkgoLogr.Info("deleting the kv object", "namespace", kv.Namespace, "name", kv.Name)
+				g.Expect(
+					virtClient.KubeVirt(kv.Namespace).Delete(context.Background(), kv.Name, metav1.DeleteOptions{}),
+				).To(Succeed())
+			}
+		}
+
+		g.Expect(deleteCount).To(BeZero(), "still waiting on %d kvs to delete", deleteCount)
+	}).WithTimeout(240 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+}
+
+func ensureShasums() error {
+	virtClient := kubevirt.Client()
+	if flags.SkipShasumCheck {
+		log.Log.Warning("Cannot use shasums, skipping")
+		return nil
+	}
+
+	for _, name := range []string{"virt-operator", "virt-api", "virt-controller"} {
+		deployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		if !strings.Contains(deployment.Spec.Template.Spec.Containers[0].Image, imageDigestShaPrefix) {
+			return fmt.Errorf("%s should use sha", name)
+		}
+	}
+
+	handler, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	if !strings.Contains(handler.Spec.Template.Spec.Containers[0].Image, imageDigestShaPrefix) {
+		return fmt.Errorf("virt-handler should use sha")
+	}
+
+	return nil
+}
+
+func generatePreviousVersionVmYamls(workDir, previousUtilityRegistry, previousUtilityTag string) (map[string]*vmYamlDefinition, error) {
+	virtClient := kubevirt.Client()
+	vmYamls := make(map[string]*vmYamlDefinition)
+	ext, err := extclient.NewForConfig(virtClient.Config())
+	if err != nil {
+		return nil, err
+	}
+
+	crd, err := ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "virtualmachines.kubevirt.io", metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate a vm Yaml for every version supported in the currently deployed KubeVirt
+	supportedVersions := []string{}
+	for _, version := range crd.Spec.Versions {
+		supportedVersions = append(supportedVersions, version.Name)
+	}
+
+	for i, version := range supportedVersions {
+		vmYaml := fmt.Sprintf(`apiVersion: kubevirt.io/%[1]s
+kind: VirtualMachine
+metadata:
+  labels:
+    kubevirt.io/vm: vm-%[1]s
+  name: vm-%[1]s
+spec:
+  dataVolumeTemplates:
+  - metadata:
+      name: test-dv%[2]d
+    spec:
+      pvc:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+      source:
+        blank: {}
+  runStrategy: Manual
+  template:
+    metadata:
+      labels:
+        kubevirt.io/vm: vm-%[1]s
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: containerdisk
+          - disk:
+              bus: virtio
+            name: cloudinitdisk
+          - disk:
+              bus: virtio
+            name: datavolumedisk1
+        machine:
+          type: ""
+        resources:
+          requests:
+            memory: 128M
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - dataVolume:
+          name: test-dv%[2]d
+        name: datavolumedisk1
+      - containerDisk:
+          image: %[3]s/%[4]s-container-disk-demo:%[5]s
+        name: containerdisk
+      - cloudInitNoCloud:
+          userData: |
+            #!/bin/sh
+
+            echo 'printed from cloud-init userdata'
+        name: cloudinitdisk
+`, version, i, previousUtilityRegistry, cd.ContainerDiskCirros, previousUtilityTag)
+
+		yamlFile := filepath.Join(workDir, fmt.Sprintf("vm-%s.yaml", version))
+		err = os.WriteFile(yamlFile, []byte(vmYaml), 0644)
+		if err != nil {
+			return nil, err
+		}
+
+		vmYamls[version] = &vmYamlDefinition{
+			apiVersion:    version,
+			vmName:        "vm-" + version,
+			generatedYaml: vmYaml,
+			yamlFile:      yamlFile,
+		}
+	}
+
+	return vmYamls, nil
+}
+
+func generatePreviousVersionVmsnapshotYamls(vmYamls map[string]*vmYamlDefinition, workDir string) error {
+	virtClient := kubevirt.Client()
+	ext, err := extclient.NewForConfig(virtClient.Config())
+	if err != nil {
+		return err
+	}
+
+	crd, err := ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "virtualmachinesnapshots.snapshot.kubevirt.io", metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	// Generate a vmsnapshot Yaml for every version
+	// supported in the currently deployed KubeVirt
+	// For every vm version
+	supportedVersions := []string{}
+	for _, version := range crd.Spec.Versions {
+		supportedVersions = append(supportedVersions, version.Name)
+	}
+
+	for _, vmYaml := range vmYamls {
+		vmSnapshots := []vmSnapshotDef{}
+		for _, version := range supportedVersions {
+			snapshotName := fmt.Sprintf("vm-%s-snapshot-%s", vmYaml.apiVersion, version)
+			snapshotYaml := fmt.Sprintf(`apiVersion: snapshot.kubevirt.io/%s
+kind: VirtualMachineSnapshot
+metadata:
+  name: %s
+spec:
+  source:
+    apiGroup: kubevirt.io
+    kind: VirtualMachine
+    name: %s
+`, version, snapshotName, vmYaml.vmName)
+			restoreName := fmt.Sprintf("vm-%s-restore-%s", vmYaml.apiVersion, version)
+			restoreYaml := fmt.Sprintf(`apiVersion: snapshot.kubevirt.io/%s
+kind: VirtualMachineRestore
+metadata:
+  name: %s
+spec:
+  target:
+    apiGroup: kubevirt.io
+    kind: VirtualMachine
+    name: %s
+  virtualMachineSnapshotName: %s
+`, version, restoreName, vmYaml.vmName, snapshotName)
+
+			snapshotYamlFile := filepath.Join(workDir, fmt.Sprintf("%s.yaml", snapshotName))
+			err = os.WriteFile(snapshotYamlFile, []byte(snapshotYaml), 0644)
+			if err != nil {
+				return err
+			}
+
+			restoreYamlFile := filepath.Join(workDir, fmt.Sprintf("%s.yaml", restoreName))
+			err = os.WriteFile(restoreYamlFile, []byte(restoreYaml), 0644)
+			if err != nil {
+				return err
+			}
+
+			vmSnapshots = append(vmSnapshots, vmSnapshotDef{
+				vmSnapshotName:  snapshotName,
+				yamlFile:        snapshotYamlFile,
+				restoreName:     restoreName,
+				restoreYamlFile: restoreYamlFile,
+			})
+		}
+		vmYamlTmp, _ := vmYamls[vmYaml.apiVersion]
+		vmYamlTmp.vmSnapshots = vmSnapshots
+	}
+
+	return nil
 }
