@@ -792,7 +792,7 @@ func (app *SubresourceAPIApp) ResetVMIRequestHandler(request *restful.Request, r
 
 	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 		if vmi.Status.Phase != v1.Running {
-			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmNotRunning))
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("Unable to reset VMI because phase is %s instead of %s", v1.Running, vmi.Status.Phase))
 		}
 		return nil
 	}
