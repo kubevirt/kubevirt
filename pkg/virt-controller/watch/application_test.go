@@ -126,6 +126,7 @@ var _ = Describe("Application", func() {
 		preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
 		clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 		controllerRevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
+		csiDriverInformer, _ := testutils.NewFakeInformerFor(&storagev1.CSIDriver{})
 
 		var qemuGid int64 = 107
 
@@ -164,6 +165,9 @@ var _ = Describe("Application", func() {
 			pvcInformer,
 			crInformer,
 			podInformer,
+			dvInformer,
+			storageClassInformer,
+			csiDriverInformer,
 			recorder,
 			virtClient,
 			config,

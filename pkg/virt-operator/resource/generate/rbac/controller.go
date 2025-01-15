@@ -550,6 +550,17 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"watch",
 				},
 			},
+			{
+				APIGroups: []string{
+					"storage.k8s.io",
+				},
+				Resources: []string{
+					"csidrivers",
+				},
+				Verbs: []string{
+					"get", "list", "watch",
+				},
+			},
 		},
 	}
 }

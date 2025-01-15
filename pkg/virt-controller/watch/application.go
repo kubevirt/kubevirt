@@ -183,6 +183,8 @@ type VirtControllerApp struct {
 	cdiInformer            cache.SharedIndexInformer
 	cdiConfigInformer      cache.SharedIndexInformer
 
+	csiDriverInformer cache.SharedIndexInformer
+
 	migrationController *migration.Controller
 	migrationInformer   cache.SharedIndexInformer
 
@@ -383,6 +385,7 @@ func Execute() {
 	app.vmSnapshotContentInformer = app.informerFactory.VirtualMachineSnapshotContent()
 	app.vmRestoreInformer = app.informerFactory.VirtualMachineRestore()
 	app.storageClassInformer = app.informerFactory.StorageClass()
+	app.csiDriverInformer = app.informerFactory.CSIDriver()
 	app.caExportConfigMapInformer = app.informerFactory.KubeVirtExportCAConfigMap()
 	app.exportRouteConfigMapInformer = app.informerFactory.ExportRouteConfigMap()
 	app.unmanagedSecretInformer = app.informerFactory.UnmanagedSecrets()
@@ -735,6 +738,9 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.persistentVolumeClaimInformer,
 		vca.controllerRevisionInformer,
 		vca.kvPodInformer,
+		vca.dataVolumeInformer,
+		vca.storageClassInformer,
+		vca.csiDriverInformer,
 		recorder,
 		vca.clientSet,
 		vca.clusterConfig,

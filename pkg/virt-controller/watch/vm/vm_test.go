@@ -54,6 +54,8 @@ import (
 
 	gomegatypes "github.com/onsi/gomega/types"
 
+	storagev1 "k8s.io/api/storage/v1"
+
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 )
@@ -101,6 +103,10 @@ var _ = Describe("VirtualMachine", func() {
 			vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
 			pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 			namespaceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
+			dvInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+			storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
+			csiDriverInformer, _ := testutils.NewFakeInformerFor(&storagev1.CSIDriver{})
+
 			ns1 := &k8sv1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "ns1",
@@ -140,6 +146,9 @@ var _ = Describe("VirtualMachine", func() {
 				pvcInformer,
 				crInformer,
 				podInformer,
+				dvInformer,
+				storageClassInformer,
+				csiDriverInformer,
 				recorder,
 				virtClient,
 				config,

@@ -130,6 +130,9 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
+	dvInformer cache.SharedIndexInformer,
+	storageClassInformer cache.SharedIndexInformer,
+	csiDriversInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -148,6 +151,9 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 		dataSourceStore:        dataSourceInformer.GetStore(),
 		namespaceStore:         namespaceStore,
 		pvcStore:               pvcInformer.GetStore(),
+		dvStore:                dvInformer.GetStore(),
+		storageClassStore:      storageClassInformer.GetStore(),
+		csiDriverStore:         csiDriversInformer.GetStore(),
 		crIndexer:              crInformer.GetIndexer(),
 		instancetypeController: instancetypeController,
 		recorder:               recorder,
@@ -255,6 +261,9 @@ type Controller struct {
 	dataSourceStore        cache.Store
 	namespaceStore         cache.Store
 	pvcStore               cache.Store
+	dvStore                cache.Store
+	storageClassStore      cache.Store
+	csiDriverStore         cache.Store
 	crIndexer              cache.Indexer
 	instancetypeController instancetypeHandler
 	recorder               record.EventRecorder
@@ -1033,7 +1042,7 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 		}
 	case *vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration:
 		// Validate if the update volumes can be migrated
-		if err := volumemig.ValidateVolumes(vmi, vm); err != nil {
+		if err := volumemig.ValidateVolumes(vmi, vm, c.dvStore, c.storageClassStore, c.csiDriverStore); err != nil {
 			log.Log.Object(vm).Errorf("cannot migrate the VM. Volumes are invalid: %v", err)
 			setRestartRequired(vm, err.Error())
 			return nil
