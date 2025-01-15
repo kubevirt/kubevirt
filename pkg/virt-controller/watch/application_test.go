@@ -41,7 +41,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	clone "kubevirt.io/api/clone/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1beta1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -58,7 +58,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
+	clonecontroller "kubevirt.io/kubevirt/pkg/virt-controller/watch/clone"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/migration"
@@ -119,7 +119,7 @@ var _ = Describe("Application", func() {
 		dvInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		instancetypeMethods := testutils.NewMockInstancetypeMethods()
 		exportServiceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Service{})
-		cloneInformer, _ := testutils.NewFakeInformerFor(&clonev1alpha1.VirtualMachineClone{})
+		cloneInformer, _ := testutils.NewFakeInformerFor(&clone.VirtualMachineClone{})
 		secretInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Secret{})
 		instancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
 		clusterInstancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
@@ -242,7 +242,7 @@ var _ = Describe("Application", func() {
 		app.nodeInformer = nodeInformer
 		app.resourceQuotaInformer = resourceQuotaInformer
 		app.namespaceInformer = namespaceInformer
-		app.vmCloneController, _ = clone.NewVmCloneController(
+		app.vmCloneController, _ = clonecontroller.NewVmCloneController(
 			virtClient,
 			cloneInformer,
 			vmSnapshotInformer,

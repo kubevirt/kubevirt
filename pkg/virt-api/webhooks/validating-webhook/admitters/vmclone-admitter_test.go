@@ -38,8 +38,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/tools/cache"
 
-	"kubevirt.io/api/clone"
-	clonev1lpha1 "kubevirt.io/api/clone/v1alpha1"
+	clonebase "kubevirt.io/api/clone"
+	clone "kubevirt.io/api/clone/v1beta1"
 	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -54,7 +54,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 	var virtClient *kubecli.MockKubevirtClient
 	var kubevirtClient *fake.Clientset
 	var admitter *VirtualMachineCloneAdmitter
-	var vmClone *clonev1lpha1.VirtualMachineClone
+	var vmClone *clone.VirtualMachineClone
 	var config *virtconfig.ClusterConfig
 	var kvStore cache.Store
 	var vmInterface *kubecli.MockVirtualMachineInterface
@@ -422,15 +422,15 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 
 })
 
-func createCloneAdmissionReview(vmClone *clonev1lpha1.VirtualMachineClone) *admissionv1.AdmissionReview {
+func createCloneAdmissionReview(vmClone *clone.VirtualMachineClone) *admissionv1.AdmissionReview {
 	policyBytes, _ := json.Marshal(vmClone)
 
 	ar := &admissionv1.AdmissionReview{
 		Request: &admissionv1.AdmissionRequest{
 			Operation: admissionv1.Create,
 			Resource: metav1.GroupVersionResource{
-				Group:    clonev1lpha1.VirtualMachineCloneKind.Group,
-				Resource: clone.ResourceVMClonePlural,
+				Group:    clone.VirtualMachineCloneKind.Group,
+				Resource: clonebase.ResourceVMClonePlural,
 			},
 			Object: runtime.RawExtension{
 				Raw: policyBytes,
@@ -441,13 +441,13 @@ func createCloneAdmissionReview(vmClone *clonev1lpha1.VirtualMachineClone) *admi
 	return ar
 }
 
-func (admitter *VirtualMachineCloneAdmitter) admitAndExpect(clone *clonev1lpha1.VirtualMachineClone, expectAllowed bool) {
+func (admitter *VirtualMachineCloneAdmitter) admitAndExpect(clone *clone.VirtualMachineClone, expectAllowed bool) {
 	ar := createCloneAdmissionReview(clone)
 	resp := admitter.Admit(context.Background(), ar)
 	Expect(resp.Allowed).To(Equal(expectAllowed))
 }
 
-func newValidClone() *clonev1lpha1.VirtualMachineClone {
+func newValidClone() *clone.VirtualMachineClone {
 	vmClone := kubecli.NewMinimalCloneWithNS("testclone", metav1.NamespaceDefault)
 	vmClone.Spec.Source = newValidObjReference()
 	vmClone.Spec.Target = newValidObjReference()

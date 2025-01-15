@@ -11,8 +11,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	"kubevirt.io/api/clone"
-	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	clonebase "kubevirt.io/api/clone"
+	clone "kubevirt.io/api/clone/v1beta1"
 	virtv1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
@@ -139,9 +139,9 @@ func (ctrl *VMCloneController) handleVMClone(obj interface{}) {
 		obj = unknown.Obj
 	}
 
-	vmClone, ok := obj.(*clonev1alpha1.VirtualMachineClone)
+	vmClone, ok := obj.(*clone.VirtualMachineClone)
 	if !ok {
-		log.Log.Errorf(unknownTypeErrFmt, clone.ResourceVMCloneSingular)
+		log.Log.Errorf(unknownTypeErrFmt, clonebase.ResourceVMCloneSingular)
 		return
 	}
 
@@ -182,9 +182,9 @@ func (ctrl *VMCloneController) handleSnapshot(obj interface{}) {
 		return
 	}
 
-	snapshotWaitingKeys, err := ctrl.vmCloneIndexer.IndexKeys(string(clonev1alpha1.SnapshotInProgress), snapshotKey)
+	snapshotWaitingKeys, err := ctrl.vmCloneIndexer.IndexKeys(string(clone.SnapshotInProgress), snapshotKey)
 	if err != nil {
-		log.Log.Object(snapshot).Reason(err).Error("cannot get clone snapshotWaitingKeys from " + string(clonev1alpha1.SnapshotInProgress) + " indexer")
+		log.Log.Object(snapshot).Reason(err).Error("cannot get clone snapshotWaitingKeys from " + string(clone.SnapshotInProgress) + " indexer")
 		return
 	}
 
@@ -214,9 +214,9 @@ func (ctrl *VMCloneController) handleRestore(obj interface{}) {
 		return
 	}
 
-	restoreWaitingKeys, err := ctrl.vmCloneIndexer.IndexKeys(string(clonev1alpha1.RestoreInProgress), restoreKey)
+	restoreWaitingKeys, err := ctrl.vmCloneIndexer.IndexKeys(string(clone.RestoreInProgress), restoreKey)
 	if err != nil {
-		log.Log.Object(restore).Reason(err).Error("cannot get clone restoreWaitingKeys from " + string(clonev1alpha1.RestoreInProgress) + " indexer")
+		log.Log.Object(restore).Reason(err).Error("cannot get clone restoreWaitingKeys from " + string(clone.RestoreInProgress) + " indexer")
 		return
 	}
 
@@ -251,9 +251,9 @@ func (ctrl *VMCloneController) handlePVC(obj interface{}) {
 
 	restoreKey := getKey(restoreName, pvc.Namespace)
 
-	succeededWaitingKeys, err := ctrl.vmCloneIndexer.IndexKeys(string(clonev1alpha1.Succeeded), restoreKey)
+	succeededWaitingKeys, err := ctrl.vmCloneIndexer.IndexKeys(string(clone.Succeeded), restoreKey)
 	if err != nil {
-		log.Log.Object(pvc).Reason(err).Error("cannot get clone succeededWaitingKeys from " + string(clonev1alpha1.Succeeded) + " indexer")
+		log.Log.Object(pvc).Reason(err).Error("cannot get clone succeededWaitingKeys from " + string(clone.Succeeded) + " indexer")
 		return
 	}
 
@@ -345,21 +345,21 @@ func (ctrl *VMCloneController) runWorker() {
 }
 
 // takes a namespace and returns all vm clone with the specified target vm name
-func (ctrl *VMCloneController) listVmCloneMatchingVM(namespace, name string) ([]*clonev1alpha1.VirtualMachineClone, error) {
-	return ctrl.filterVmClone(namespace, func(vmClone *clonev1alpha1.VirtualMachineClone) bool {
+func (ctrl *VMCloneController) listVmCloneMatchingVM(namespace, name string) ([]*clone.VirtualMachineClone, error) {
+	return ctrl.filterVmClone(namespace, func(vmClone *clone.VirtualMachineClone) bool {
 		return vmClone.Spec.Target.Name == name
 	})
 }
 
-func (ctrl *VMCloneController) filterVmClone(namespace string, filter func(*clonev1alpha1.VirtualMachineClone) bool) ([]*clonev1alpha1.VirtualMachineClone, error) {
+func (ctrl *VMCloneController) filterVmClone(namespace string, filter func(*clone.VirtualMachineClone) bool) ([]*clone.VirtualMachineClone, error) {
 	objs, err := ctrl.vmCloneIndexer.ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	var vmClones []*clonev1alpha1.VirtualMachineClone
+	var vmClones []*clone.VirtualMachineClone
 	for _, obj := range objs {
-		vmClone := obj.(*clonev1alpha1.VirtualMachineClone)
+		vmClone := obj.(*clone.VirtualMachineClone)
 
 		if filter(vmClone) {
 			vmClones = append(vmClones, vmClone)
