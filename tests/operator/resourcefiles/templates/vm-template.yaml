@@ -1,0 +1,56 @@
+apiVersion: kubevirt.io/{{ .Version }}
+kind: VirtualMachine
+metadata:
+  labels:
+    kubevirt.io/vm: vm-{{ .Version }}
+  name: vm-{{ .Version }}
+spec:
+  dataVolumeTemplates:
+    - metadata:
+        name: test-dv{{ .Index }}
+      spec:
+        pvc:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
+        source:
+          blank: {}
+  runStrategy: Manual
+  template:
+    metadata:
+      labels:
+        kubevirt.io/vm: vm-{{ .Version }}
+    spec:
+      domain:
+        devices:
+          disks:
+            - disk:
+                bus: virtio
+              name: containerdisk
+            - disk:
+                bus: virtio
+              name: cloudinitdisk
+            - disk:
+                bus: virtio
+              name: datavolumedisk
+        machine:
+          type: ""
+        resources:
+          requests:
+            memory: 128M
+      terminationGracePeriodSeconds: 0
+      volumes:
+        - dataVolume:
+            name: test-dv{{ .Index }}
+          name: datavolumedisk
+        - containerDisk:
+            image: {{ .ImageName }}
+          name: containerdisk
+        - cloudInitNoCloud:
+            userData: |
+              #!/bin/sh
+              
+              echo 'printed from cloud-init userdata'
+          name: cloudinitdisk
