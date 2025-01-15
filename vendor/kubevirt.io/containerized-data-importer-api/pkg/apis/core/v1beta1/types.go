@@ -379,6 +379,11 @@ const (
 	// Paused represents a DataVolumePhase of Paused
 	Paused DataVolumePhase = "Paused"
 
+	// PrepClaimInProgress represents a data volume with a current phase of PrepClaimInProgress
+	PrepClaimInProgress DataVolumePhase = "PrepClaimInProgress"
+	// RebindInProgress represents a data volume with a current phase of RebindInProgress
+	RebindInProgress DataVolumePhase = "RebindInProgress"
+
 	// DataVolumeReady is the condition that indicates if the data volume is ready to be consumed.
 	DataVolumeReady DataVolumeConditionType = "Ready"
 	// DataVolumeBound is the condition that indicates if the underlying PVC is bound or not.
@@ -414,6 +419,10 @@ type StorageProfileSpec struct {
 	CloneStrategy *CDICloneStrategy `json:"cloneStrategy,omitempty"`
 	// ClaimPropertySets is a provided set of properties applicable to PVC
 	ClaimPropertySets []ClaimPropertySet `json:"claimPropertySets,omitempty"`
+	// DataImportCronSourceFormat defines the format of the DataImportCron-created disk image sources
+	DataImportCronSourceFormat *DataImportCronSourceFormat `json:"dataImportCronSourceFormat,omitempty"`
+	// SnapshotClass is optional specific VolumeSnapshotClass for CloneStrategySnapshot. If not set, a VolumeSnapshotClass is chosen according to the provisioner.
+	SnapshotClass *string `json:"snapshotClass,omitempty"`
 }
 
 // StorageProfileStatus provides the most recently observed status of the StorageProfile
@@ -426,6 +435,10 @@ type StorageProfileStatus struct {
 	CloneStrategy *CDICloneStrategy `json:"cloneStrategy,omitempty"`
 	// ClaimPropertySets computed from the spec and detected in the system
 	ClaimPropertySets []ClaimPropertySet `json:"claimPropertySets,omitempty"`
+	// DataImportCronSourceFormat defines the format of the DataImportCron-created disk image sources
+	DataImportCronSourceFormat *DataImportCronSourceFormat `json:"dataImportCronSourceFormat,omitempty"`
+	// SnapshotClass is optional specific VolumeSnapshotClass for CloneStrategySnapshot. If not set, a VolumeSnapshotClass is chosen according to the provisioner.
+	SnapshotClass *string `json:"snapshotClass,omitempty"`
 }
 
 // ClaimPropertySet is a set of properties applicable to PVC
@@ -524,6 +537,7 @@ type DataSourceList struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
 // +kubebuilder:resource:shortName=dic;dics,categories=all
+// +kubebuilder:printcolumn:name="Format",type="string",JSONPath=".status.sourceFormat",description="The format in which created sources are saved"
 type DataImportCron struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -582,8 +596,10 @@ type DataImportCronStatus struct {
 	// LastExecutionTimestamp is the time of the last polling
 	LastExecutionTimestamp *metav1.Time `json:"lastExecutionTimestamp,omitempty"`
 	// LastImportTimestamp is the time of the last import
-	LastImportTimestamp *metav1.Time              `json:"lastImportTimestamp,omitempty"`
-	Conditions          []DataImportCronCondition `json:"conditions,omitempty" optional:"true"`
+	LastImportTimestamp *metav1.Time `json:"lastImportTimestamp,omitempty"`
+	// SourceFormat defines the format of the DataImportCron-created disk image sources
+	SourceFormat *DataImportCronSourceFormat `json:"sourceFormat,omitempty"`
+	Conditions   []DataImportCronCondition   `json:"conditions,omitempty" optional:"true"`
 }
 
 // ImportStatus of a currently in progress import
@@ -644,6 +660,12 @@ type VolumeImportSourceSpec struct {
 	Preallocation *bool `json:"preallocation,omitempty"`
 	// ContentType represents the type of the imported data (Kubevirt or archive)
 	ContentType DataVolumeContentType `json:"contentType,omitempty"`
+	// TargetClaim the name of the specific claim to be populated with a multistage import.
+	TargetClaim *string `json:"targetClaim,omitempty"`
+	// Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.
+	Checkpoints []DataVolumeCheckpoint `json:"checkpoints,omitempty"`
+	// FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.
+	FinalCheckpoint *bool `json:"finalCheckpoint,omitempty"`
 }
 
 // ImportSourceType contains each one of the source types allowed in a VolumeImportSource
@@ -834,6 +856,17 @@ const (
 	CloneStrategyCsiClone CDICloneStrategy = "csi-clone"
 )
 
+// DataImportCronSourceFormat defines the format of the DataImportCron-created disk image sources
+type DataImportCronSourceFormat string
+
+const (
+	// DataImportCronSourceFormatSnapshot implies using a VolumeSnapshot as the resulting DataImportCron disk image source
+	DataImportCronSourceFormatSnapshot DataImportCronSourceFormat = "snapshot"
+
+	// DataImportCronSourceFormatPvc implies using a PVC as the resulting DataImportCron disk image source
+	DataImportCronSourceFormatPvc DataImportCronSourceFormat = "pvc"
+)
+
 // CDIUninstallStrategy defines the state to leave CDI on uninstall
 type CDIUninstallStrategy string
 
@@ -913,13 +946,16 @@ type CDIConfigSpec struct {
 	Preallocation *bool `json:"preallocation,omitempty"`
 	// InsecureRegistries is a list of TLS disabled registries
 	InsecureRegistries []string `json:"insecureRegistries,omitempty"`
-	// DataVolumeTTLSeconds is the time in seconds after DataVolume completion it can be garbage collected. The default is 0 sec. To disable GC use -1.
+	// DataVolumeTTLSeconds is the time in seconds after DataVolume completion it can be garbage collected. Disabled by default.
 	// +optional
 	DataVolumeTTLSeconds *int32 `json:"dataVolumeTTLSeconds,omitempty"`
 	// TLSSecurityProfile is used by operators to apply cluster-wide TLS security settings to operands.
 	TLSSecurityProfile *ocpconfigv1.TLSSecurityProfile `json:"tlsSecurityProfile,omitempty"`
 	// The imagePullSecrets used to pull the container images
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	// LogVerbosity overrides the default verbosity level used to initialize loggers
+	// +optional
+	LogVerbosity *int32 `json:"logVerbosity,omitempty"`
 }
 
 // CDIConfigStatus provides the most recently observed status of the CDI Config resource
