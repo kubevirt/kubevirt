@@ -13,7 +13,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/reset"
-	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
 var _ = Describe("Resetting", func() {
@@ -28,7 +28,7 @@ var _ = Describe("Resetting", func() {
 
 	Context("With missing input parameters", func() {
 		It("should fail", func() {
-			cmd := clientcmd.NewRepeatableVirtctlCommand(reset.COMMAND_RESET)
+			cmd := testing.NewRepeatableVirtctlCommand(reset.COMMAND_RESET)
 			Expect(cmd()).To(MatchError(ContainSubstring("received 0")))
 		})
 	})
@@ -39,7 +39,7 @@ var _ = Describe("Resetting", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).Times(1)
 		vmiInterface.EXPECT().Reset(context.Background(), vmiName).Return(nil).Times(1)
 
-		cmd := clientcmd.NewRepeatableVirtctlCommand(reset.COMMAND_RESET, vmiName)
+		cmd := testing.NewRepeatableVirtctlCommand(reset.COMMAND_RESET, vmiName)
 		Expect(cmd()).To(Succeed())
 	})
 	It("should fail reset of VMI when server returns VM not found", func() {
@@ -48,7 +48,7 @@ var _ = Describe("Resetting", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).Times(1)
 		vmiInterface.EXPECT().Reset(context.Background(), vmiName).Return(fmt.Errorf("vm not found")).Times(1)
 
-		cmd := clientcmd.NewRepeatableVirtctlCommand(reset.COMMAND_RESET, vmiName)
+		cmd := testing.NewRepeatableVirtctlCommand(reset.COMMAND_RESET, vmiName)
 		Expect(cmd()).To(MatchError(ContainSubstring("not found")))
 	})
 })
