@@ -874,7 +874,6 @@ spec:
           - virtualmachines/restart
           - virtualmachines/addvolume
           - virtualmachines/removevolume
-          - virtualmachines/migrate
           - virtualmachines/memorydump
           verbs:
           - update
@@ -1030,7 +1029,6 @@ spec:
           - virtualmachines/restart
           - virtualmachines/addvolume
           - virtualmachines/removevolume
-          - virtualmachines/migrate
           - virtualmachines/memorydump
           verbs:
           - update
@@ -1241,6 +1239,12 @@ spec:
           - get
           - list
           - watch
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachines/migrate
+          verbs:
+          - update
         - apiGroups:
           - kubevirt.io
           resources:

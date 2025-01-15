@@ -113,7 +113,6 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiVMRestart), virtv1.SubresourceGroupName, apiVMStop, "update"),
 				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiVMAddVolume), virtv1.SubresourceGroupName, apiVMRestart, "update"),
 				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiVMRemoveVolume), virtv1.SubresourceGroupName, apiVMAddVolume, "update"),
-				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiVMMigrate), virtv1.SubresourceGroupName, apiVMMigrate, "update"),
 				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiVMMemoryDump), virtv1.SubresourceGroupName, apiVMMemoryDump, "update"),
 
 				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiExpandVmSpec), virtv1.SubresourceGroupName, apiExpandVmSpec, "update"),
@@ -178,7 +177,6 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiVMRestart), virtv1.SubresourceGroupName, apiVMStop, "update"),
 				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiVMAddVolume), virtv1.SubresourceGroupName, apiVMRestart, "update"),
 				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiVMRemoveVolume), virtv1.SubresourceGroupName, apiVMAddVolume, "update"),
-				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiVMMigrate), virtv1.SubresourceGroupName, apiVMMigrate, "update"),
 				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiVMMemoryDump), virtv1.SubresourceGroupName, apiVMMemoryDump, "update"),
 
 				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiExpandVmSpec), virtv1.SubresourceGroupName, apiExpandVmSpec, "update"),
@@ -217,6 +215,7 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 				Expect(clusterRole).ToNot(BeNil())
 				expectExactRuleExists(clusterRole.Rules, apiGroup, resource, verbs...)
 			},
+				Entry(fmt.Sprintf("update %s/%s", virtv1.SubresourceGroupName, apiVMMigrate), virtv1.SubresourceGroupName, apiVMMigrate, "update"),
 				Entry(fmt.Sprintf("get, delete, create, update, patch, list, watch %s/%s", GroupName, apiVMIMigrations), GroupName, apiVMIMigrations, "get", "delete", "create", "update", "patch", "list", "watch", "deletecollection"),
 			)
 		})

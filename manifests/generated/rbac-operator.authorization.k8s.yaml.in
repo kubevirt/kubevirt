@@ -876,7 +876,6 @@ rules:
   - virtualmachines/restart
   - virtualmachines/addvolume
   - virtualmachines/removevolume
-  - virtualmachines/migrate
   - virtualmachines/memorydump
   verbs:
   - update
@@ -1032,7 +1031,6 @@ rules:
   - virtualmachines/restart
   - virtualmachines/addvolume
   - virtualmachines/removevolume
-  - virtualmachines/migrate
   - virtualmachines/memorydump
   verbs:
   - update
@@ -1243,6 +1241,12 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachines/migrate
+  verbs:
+  - update
 - apiGroups:
   - kubevirt.io
   resources:

@@ -248,7 +248,6 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					apiVMRestart,
 					apiVMAddVolume,
 					apiVMRemoveVolume,
-					apiVMMigrate,
 					apiVMMemoryDump,
 				},
 				Verbs: []string{
@@ -441,7 +440,6 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					apiVMRestart,
 					apiVMAddVolume,
 					apiVMRemoveVolume,
-					apiVMMigrate,
 					apiVMMemoryDump,
 				},
 				Verbs: []string{
@@ -583,6 +581,17 @@ func newMigrateClusterRole() *rbacv1.ClusterRole {
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{
+					virtv1.SubresourceGroupName,
+				},
+				Resources: []string{
+					apiVMMigrate,
+				},
+				Verbs: []string{
+					"update",
+				},
+			},
 			{
 				APIGroups: []string{
 					GroupName,
