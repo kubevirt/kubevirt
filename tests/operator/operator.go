@@ -110,11 +110,10 @@ type vmSnapshotDef struct {
 }
 
 type vmYamlDefinition struct {
-	apiVersion    string
-	vmName        string
-	generatedYaml string
-	yamlFile      string
-	vmSnapshots   []vmSnapshotDef
+	apiVersion  string
+	vmName      string
+	yamlFile    string
+	vmSnapshots []vmSnapshotDef
 }
 
 const (
@@ -3226,10 +3225,9 @@ spec:
 		}
 
 		vmYamls[version] = &vmYamlDefinition{
-			apiVersion:    version,
-			vmName:        "vm-" + version,
-			generatedYaml: vmYaml,
-			yamlFile:      yamlFile,
+			apiVersion: version,
+			vmName:     "vm-" + version,
+			yamlFile:   yamlFile,
 		}
 	}
 
