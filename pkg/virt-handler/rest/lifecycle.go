@@ -147,6 +147,23 @@ func (lh *LifecycleHandler) UnfreezeHandler(request *restful.Request, response *
 	response.WriteHeader(http.StatusAccepted)
 }
 
+func (lh *LifecycleHandler) ResetHandler(request *restful.Request, response *restful.Response) {
+	vmi, client, err := lh.getVMILauncherClient(request, response)
+	if err != nil {
+		return
+	}
+
+	err = client.ResetVirtualMachine(vmi)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to reset VMI")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	lh.recorder.Eventf(vmi, k8sv1.EventTypeNormal, "Reset", "VirtualMachineInstance reset")
+	response.WriteHeader(http.StatusAccepted)
+}
+
 func (lh *LifecycleHandler) SoftRebootHandler(request *restful.Request, response *restful.Response) {
 	vmi, client, err := lh.getVMILauncherClient(request, response)
 	if err != nil {

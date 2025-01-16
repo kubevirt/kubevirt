@@ -1217,6 +1217,16 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Unfreeze(arg0, arg1 int
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Unfreeze", arg0, arg1)
 }
 
+func (_m *MockVirtualMachineInstanceInterface) Reset(ctx context.Context, name string) error {
+	ret := _m.ctrl.Call(_m, "Reset", ctx, name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Reset(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Reset", arg0, arg1)
+}
+
 func (_m *MockVirtualMachineInstanceInterface) SoftReboot(ctx context.Context, name string) error {
 	ret := _m.ctrl.Call(_m, "SoftReboot", ctx, name)
 	ret0, _ := ret[0].(error)
