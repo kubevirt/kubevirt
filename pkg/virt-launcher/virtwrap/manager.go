@@ -184,6 +184,7 @@ type LibvirtDomainManager struct {
 
 	cpuSetGetter                  func() ([]int, error)
 	imageVolumeFeatureGateEnabled bool
+	setTimeOnce                   sync.Once
 }
 
 type pausedVMIs struct {
@@ -236,6 +237,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		migrateInfoStats:              &stats.DomainJobInfo{},
 		metadataCache:                 metadataCache,
 		cpuSetGetter:                  cpuSetGetter,
+		setTimeOnce:                   sync.Once{},
 		imageVolumeFeatureGateEnabled: imageVolumeEnabled,
 	}
 
@@ -358,7 +360,7 @@ func (l *LibvirtDomainManager) UpdateGuestMemory(vmi *v1.VirtualMachineInstance)
 	return nil
 }
 
-func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) error {
+func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) {
 	// Try to set VM time to the current value.  This is typically useful
 	// when clock wasn't running on the VM for some time (e.g. during
 	// suspension or migration), especially if the time delay exceeds NTP
@@ -367,75 +369,73 @@ func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) erro
 	// environment, especially QEMU agent presence) or that the set time is
 	// very precise (NTP in the guest should take care of it if needed).
 
-	domName := api.VMINamespaceKeyFunc(vmi)
-	dom, err := l.virConn.LookupDomainByName(domName)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedSyncGuestTime)
-		return err
-	}
-
-	go func() {
-		defer dom.Free()
-
-		// Syncing the guest time is a best-effort. Therefore
-		// don't flood the logs
-		var latestErr error
-		defer func() {
-			if latestErr != nil {
-				log.Log.Object(vmi).Warning(latestErr.Error())
+	l.setTimeOnce.Do(func() {
+		go func() {
+			domName := api.VMINamespaceKeyFunc(vmi)
+			dom, err := l.virConn.LookupDomainByName(domName)
+			if err != nil {
+				log.Log.Object(vmi).Reason(err).Error(failedSyncGuestTime)
+				return
 			}
-		}()
+			defer dom.Free()
+			// Syncing the guest time is a best-effort. Therefore
+			// don't flood the logs
+			var latestErr error
+			defer func() {
+				if latestErr != nil {
+					log.Log.Object(vmi).Warning(latestErr.Error())
+				}
+			}()
 
-		ctx := l.getGuestTimeContext()
-		timeout := time.After(60 * time.Second)
-		ticker := time.NewTicker(time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-timeout:
-				log.Log.Object(vmi).Error(failedSyncGuestTime)
-				return
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				currTime := time.Now()
-				secs := currTime.Unix()
-				nsecs := uint(currTime.Nanosecond())
-				err := dom.SetTime(secs, nsecs, 0)
-				if err != nil {
-					libvirtError, ok := err.(libvirt.Error)
-					if !ok {
-						log.Log.Object(vmi).Reason(err).Warning(failedSyncGuestTime)
-						return
-					}
-
-					switch libvirtError.Code {
-					case libvirt.ERR_AGENT_UNRESPONSIVE:
-						const unresponsive = "failed to set time: QEMU agent unresponsive"
-						latestErr = fmt.Errorf("%s, %s", unresponsive, err)
-						log.Log.Object(vmi).Reason(err).V(9).Info(unresponsive)
-					case libvirt.ERR_OPERATION_UNSUPPORTED:
-						// no need to retry as this opertaion is not supported
-						log.Log.Object(vmi).Reason(err).Warning("failed to set time: not supported")
-						return
-					case libvirt.ERR_ARGUMENT_UNSUPPORTED:
-						// no need to retry as the agent is not configured
-						log.Log.Object(vmi).Reason(err).Warning("failed to set time: agent not configured")
-						return
-					default:
-						latestErr = fmt.Errorf("%s, %s", failedSyncGuestTime, err)
-						log.Log.Object(vmi).Reason(err).V(9).Info(failedSyncGuestTime)
-					}
-				} else {
-					latestErr = nil
-					log.Log.Object(vmi).Info("guest VM time sync finished successfully")
+			ctx := l.getGuestTimeContext()
+			timeout := time.After(60 * time.Second)
+			ticker := time.NewTicker(time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-timeout:
+					log.Log.Object(vmi).Error(failedSyncGuestTime)
 					return
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					currTime := time.Now()
+					secs := currTime.Unix()
+					nsecs := uint(currTime.Nanosecond())
+					err := dom.SetTime(secs, nsecs, 0)
+					if err != nil {
+						libvirtError, ok := err.(libvirt.Error)
+						if !ok {
+							log.Log.Object(vmi).Reason(err).Warning(failedSyncGuestTime)
+							return
+						}
+
+						switch libvirtError.Code {
+						case libvirt.ERR_AGENT_UNRESPONSIVE:
+							const unresponsive = "failed to set time: QEMU agent unresponsive"
+							latestErr = fmt.Errorf("%s, %s", unresponsive, err)
+							log.Log.Object(vmi).Reason(err).V(9).Info(unresponsive)
+						case libvirt.ERR_OPERATION_UNSUPPORTED:
+							// no need to retry as this opertaion is not supported
+							log.Log.Object(vmi).Reason(err).Warning("failed to set time: not supported")
+							return
+						case libvirt.ERR_ARGUMENT_UNSUPPORTED:
+							// no need to retry as the agent is not configured
+							log.Log.Object(vmi).Reason(err).Warning("failed to set time: agent not configured")
+							return
+						default:
+							latestErr = fmt.Errorf("%s, %s", failedSyncGuestTime, err)
+							log.Log.Object(vmi).Reason(err).V(9).Info(failedSyncGuestTime)
+						}
+					} else {
+						latestErr = nil
+						log.Log.Object(vmi).Info("guest VM time sync finished successfully")
+						return
+					}
 				}
 			}
-		}
-	}()
-
-	return nil
+		}()
+	})
 }
 
 func (l *LibvirtDomainManager) getGuestTimeContext() context.Context {
@@ -1697,10 +1697,7 @@ func (l *LibvirtDomainManager) UnpauseVMI(vmi *v1.VirtualMachineInstance) error 
 		l.paused.remove(vmi.UID)
 		// Try to set guest time after this commands execution.
 		// This operation is not disruptive.
-		if err := l.setGuestTime(vmi); err != nil {
-			return err
-		}
-
+		l.setGuestTime(vmi)
 	} else {
 		logger.Infof("Domain is not paused for %s", vmi.GetObjectMeta().GetName())
 	}
