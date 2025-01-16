@@ -2119,7 +2119,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			createVMI(vmi)
 
 			client.EXPECT().Ping().AnyTimes()
-			client.EXPECT().FinalizeVirtualMachineMigration(gomock.Any(), gomock.Any())
 
 			sanityExecute()
 
@@ -2175,6 +2174,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			client.EXPECT().Ping().AnyTimes()
 			client.EXPECT().FinalizeVirtualMachineMigration(gomock.Any(), gomock.Any())
 			client.EXPECT().SyncVirtualMachineCPUs(gomock.Any(), gomock.Any())
+			client.EXPECT().FinalizeVirtualMachineMigration(vmi, gomock.Any())
 
 			sanityExecute()
 
