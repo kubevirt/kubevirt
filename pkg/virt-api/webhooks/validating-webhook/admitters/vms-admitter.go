@@ -352,21 +352,6 @@ func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 		}
 	}
 
-	if spec.UpdateVolumesStrategy != nil && !config.VolumesUpdateStrategyEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VolumesUpdateStrategy),
-			Field:   "updateVolumesStrategy",
-		})
-	}
-	if spec.UpdateVolumesStrategy != nil && *spec.UpdateVolumesStrategy == v1.UpdateVolumesStrategyMigration && !config.VolumeMigrationEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VolumeMigration),
-			Field:   "updateVolumesStrategy",
-		})
-	}
-
 	return causes
 }
 

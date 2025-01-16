@@ -6612,11 +6612,6 @@ var _ = Describe("VirtualMachine", func() {
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
 								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{
-										virtconfig.VolumesUpdateStrategy,
-									},
-								},
 							},
 						},
 					})
@@ -6641,12 +6636,6 @@ var _ = Describe("VirtualMachine", func() {
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
 								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{
-										virtconfig.VolumesUpdateStrategy,
-										virtconfig.VolumeMigration,
-									},
-								},
 							},
 						},
 					})

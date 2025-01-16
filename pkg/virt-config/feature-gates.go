@@ -63,10 +63,6 @@ const (
 	// AlignCPUsGate allows emulator thread to assign two extra CPUs if needed to complete even parity.
 	AlignCPUsGate = "AlignCPUs"
 
-	// VolumesUpdateStrategy enables to specify the strategy on the volume updates.
-	VolumesUpdateStrategy = "VolumesUpdateStrategy"
-	// VolumeMigration enables to migrate the storage. It depends on the VolumesUpdateStrategy feature.
-	VolumeMigration = "VolumeMigration"
 	// Owner: @xpivarc
 	// Alpha: v1.3.0
 	//
@@ -235,14 +231,6 @@ func (config *ClusterConfig) AutoResourceLimitsEnabled() bool {
 
 func (config *ClusterConfig) AlignCPUsEnabled() bool {
 	return config.isFeatureGateEnabled(AlignCPUsGate)
-}
-
-func (config *ClusterConfig) VolumesUpdateStrategyEnabled() bool {
-	return config.isFeatureGateEnabled(VolumesUpdateStrategy)
-}
-
-func (config *ClusterConfig) VolumeMigrationEnabled() bool {
-	return config.isFeatureGateEnabled(VolumeMigration)
 }
 
 func (config *ClusterConfig) NodeRestrictionEnabled() bool {

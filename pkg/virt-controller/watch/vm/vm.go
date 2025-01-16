@@ -973,9 +973,6 @@ func (c *Controller) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virtv1
 }
 
 func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	if !c.clusterConfig.VolumesUpdateStrategyEnabled() {
-		return nil
-	}
 	if vmi == nil {
 		return nil
 	}
@@ -1028,9 +1025,6 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 			setRestartRequired(vm, "the volumes replacement is effective only after restart")
 		}
 	case *vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration:
-		if !c.clusterConfig.VolumeMigrationEnabled() {
-			return nil
-		}
 		// Validate if the update volumes can be migrated
 		if err := volumemig.ValidateVolumes(vmi, vm); err != nil {
 			log.Log.Object(vm).Errorf("cannot migrate the VM. Volumes are invalid: %v", err)
