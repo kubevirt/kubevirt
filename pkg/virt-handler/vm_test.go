@@ -1914,7 +1914,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				UID:            "123",
 				StartTimestamp: &now,
 				EndTimestamp:   &now,
-				Completed:      true,
+				Failed:         false,
 			}
 
 			domainFeeder.Add(domain)
