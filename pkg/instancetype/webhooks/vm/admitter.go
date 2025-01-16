@@ -25,15 +25,15 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"kubevirt.io/client-go/kubecli"
 
-	virtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/api/instancetype/v1beta1"
-
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
-	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/requirements"
+	"kubevirt.io/kubevirt/pkg/instancetype/preference/validation"
+
+	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/api/instancetype/v1beta1"
 )
 
 type instancetypeFinder interface {
@@ -100,8 +100,12 @@ func (a *admitter) ApplyToVM(vm *virtv1.VirtualMachine) (
 		}}
 	}
 
-	if spreadConflicts := checkSpreadCPUTopology(instancetypeSpec, preferenceSpec); len(spreadConflicts) > 0 {
-		return nil, nil, spreadConflicts
+	if spreadConflict := validation.CheckSpreadCPUTopology(instancetypeSpec, preferenceSpec); spreadConflict != nil {
+		return nil, nil, []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: spreadConflict.Error(),
+			Field:   spreadConflict.String(),
+		}}
 	}
 
 	conflicts := a.ApplyToVMI(
@@ -125,53 +129,4 @@ func (a *admitter) ApplyToVM(vm *virtv1.VirtualMachine) (
 		})
 	}
 	return nil, nil, causes
-}
-
-const (
-	instancetypeCPUGuestPath       = "instancetype.spec.cpu.guest"
-	spreadAcrossSocketsCoresErrFmt = "%d vCPUs provided by the instance type are not divisible by the " +
-		"Spec.PreferSpreadSocketToCoreRatio or Spec.CPU.PreferSpreadOptions.Ratio of %d provided by the preference"
-	spreadAcrossCoresThreadsErrFmt        = "%d vCPUs provided by the instance type are not divisible by the number of threads per core %d"
-	spreadAcrossSocketsCoresThreadsErrFmt = "%d vCPUs provided by the instance type are not divisible by the number of threads per core " +
-		"%d and Spec.PreferSpreadSocketToCoreRatio or Spec.CPU.PreferSpreadOptions.Ratio of %d"
-)
-
-func checkSpreadCPUTopology(
-	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
-	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
-) []metav1.StatusCause {
-	topology := preferenceApply.GetPreferredTopology(preferenceSpec)
-	if instancetypeSpec == nil || (topology != v1beta1.Spread && topology != v1beta1.DeprecatedPreferSpread) {
-		return nil
-	}
-
-	ratio, across := preferenceApply.GetSpreadOptions(preferenceSpec)
-	switch across {
-	case v1beta1.SpreadAcrossSocketsCores:
-		if (instancetypeSpec.CPU.Guest % ratio) > 0 {
-			return []metav1.StatusCause{{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf(spreadAcrossSocketsCoresErrFmt, instancetypeSpec.CPU.Guest, ratio),
-				Field:   k8sfield.NewPath(instancetypeCPUGuestPath).String(),
-			}}
-		}
-	case v1beta1.SpreadAcrossCoresThreads:
-		if (instancetypeSpec.CPU.Guest % ratio) > 0 {
-			return []metav1.StatusCause{{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf(spreadAcrossCoresThreadsErrFmt, instancetypeSpec.CPU.Guest, ratio),
-				Field:   k8sfield.NewPath(instancetypeCPUGuestPath).String(),
-			}}
-		}
-	case v1beta1.SpreadAcrossSocketsCoresThreads:
-		const threadsPerCore = 2
-		if (instancetypeSpec.CPU.Guest%threadsPerCore) > 0 || ((instancetypeSpec.CPU.Guest/threadsPerCore)%ratio) > 0 {
-			return []metav1.StatusCause{{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf(spreadAcrossSocketsCoresThreadsErrFmt, instancetypeSpec.CPU.Guest, threadsPerCore, ratio),
-				Field:   k8sfield.NewPath(instancetypeCPUGuestPath).String(),
-			}}
-		}
-	}
-	return nil
 }
