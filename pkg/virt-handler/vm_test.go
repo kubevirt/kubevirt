@@ -1942,7 +1942,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 				UID:            "123",
 				StartTimestamp: &now,
 				EndTimestamp:   &now,
-				Completed:      true,
 			}
 
 			addVMI(vmi, domain)
@@ -1953,7 +1952,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(updatedVMI.Status.MigrationTransport).To(Equal(v1.MigrationTransportUnix))
-			Expect(updatedVMI.Status.MigrationState.Completed).To(BeTrue())
 			Expect(updatedVMI.Status.MigrationState.StartTimestamp).To(Equal(&now))
 			Expect(updatedVMI.Status.MigrationState.EndTimestamp).To(Equal(&now))
 			Expect(updatedVMI.Status.NodeName).To(Equal("othernode"))
@@ -3383,7 +3381,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 				UID:            miguid,
 				StartTimestamp: pointer.P(metav1.NewTime(time.Now())),
 				EndTimestamp:   end,
-				Completed:      completed,
 				Failed:         failed,
 				Mode:           mode,
 			}
@@ -3434,7 +3431,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.setMigrationProgressStatus(vmi, d)
 			Expect(vmi.Status.MigrationState.StartTimestamp).To(Equal(d.Spec.Metadata.KubeVirt.Migration.StartTimestamp))
 			Expect(vmi.Status.MigrationState.EndTimestamp).To(Equal(d.Spec.Metadata.KubeVirt.Migration.EndTimestamp))
-			Expect(vmi.Status.MigrationState.Completed).To(Equal(d.Spec.Metadata.KubeVirt.Migration.Completed))
 			Expect(vmi.Status.MigrationState.Failed).To(Equal(d.Spec.Metadata.KubeVirt.Migration.Failed))
 			Expect(vmi.Status.MigrationState.AbortStatus).To(Equal(v1.MigrationAbortStatus(
 				d.Spec.Metadata.KubeVirt.Migration.AbortStatus)))
@@ -3456,7 +3452,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			Expect(vmi.Status.MigrationState.StartTimestamp).To(Equal(d.Spec.Metadata.KubeVirt.Migration.StartTimestamp))
 			Expect(vmi.Status.MigrationState.EndTimestamp).To(Equal(d.Spec.Metadata.KubeVirt.Migration.EndTimestamp))
-			Expect(vmi.Status.MigrationState.Completed).To(Equal(d.Spec.Metadata.KubeVirt.Migration.Completed))
 			Expect(vmi.Status.MigrationState.Failed).To(Equal(d.Spec.Metadata.KubeVirt.Migration.Failed))
 			Expect(vmi.Status.MigrationState.AbortStatus).To(Equal(v1.MigrationAbortStatus(
 				d.Spec.Metadata.KubeVirt.Migration.AbortStatus)))
