@@ -49,10 +49,7 @@ func (l *LibvirtDomainManager) finalizeMigrationTarget(vmi *v1.VirtualMachineIns
 		}
 	}
 
-	if err := l.setGuestTime(vmi); err != nil {
-		return err
-	}
-
+	l.setGuestTime(vmi)
 	return nil
 }
 
