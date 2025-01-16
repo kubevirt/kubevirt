@@ -746,11 +746,6 @@ func (c *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 		log.Log.Object(vmi).Info("The target node received the running migrated domain")
 		now := metav1.Now()
 		vmiCopy.Status.MigrationState.TargetNodeDomainReadyTimestamp = &now
-
-		err := c.finalizeMigration(vmiCopy)
-		if err != nil {
-			return err
-		}
 	}
 
 	if !migrations.IsMigrating(vmi) {
@@ -3018,6 +3013,10 @@ func (c *VirtualMachineController) handleVMIState(vmi *v1.VirtualMachineInstance
 
 // handleRunningVMI contains the logic specifically for running VMs (hotplugging in running state, metrics, network updates)
 func (c *VirtualMachineController) handleRunningVMI(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, errorTolerantFeaturesError *[]error) error {
+	if wasMigrationSuccessful(vmi.Status.MigrationState) && !vmi.Status.MigrationState.Completed {
+		c.finalizeMigration(vmi)
+	}
+
 	if err := c.hotplugSriovInterfaces(vmi); err != nil {
 		log.Log.Object(vmi).Error(err.Error())
 	}
