@@ -30,6 +30,7 @@ import (
 	"libvirt.org/go/libvirtxml"
 
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -388,6 +389,11 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, completed b
 		}
 	}
 
+	if migrationMetadata.EndTimestamp != nil {
+		// the migration result has already been reported and should not be overwritten
+		return nil
+	}
+
 	l.metadataCache.Migration.WithSafeBlock(func(migrationMetadata *api.MigrationMetadata, _ bool) {
 		if abortStatus != "" {
 			migrationMetadata.AbortStatus = string(abortStatus)
@@ -400,7 +406,10 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, completed b
 		if completed {
 			migrationMetadata.Completed = true
 			now := metav1.Now()
-			migrationMetadata.EndTimestamp = &now
+		}
+
+		if string(abortStatus) != string(v1.MigrationAbortInProgress) {
+			migrationMetadata.EndTimestamp = pointer.P(metav1.Now())
 		}
 	})
 
