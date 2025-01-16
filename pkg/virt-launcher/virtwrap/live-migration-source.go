@@ -386,6 +386,11 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, completed b
 		}
 	}
 
+	if migrationMetadata.EndTimestamp != nil {
+		// the migration result has already been reported and should not be overwritten
+		return nil
+	}
+
 	l.metadataCache.Migration.WithSafeBlock(func(migrationMetadata *api.MigrationMetadata, _ bool) {
 		if failed {
 			migrationMetadata.Failed = true
