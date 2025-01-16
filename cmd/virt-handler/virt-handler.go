@@ -234,6 +234,7 @@ func (app *virtHandlerApp) Run() {
 	// Wire VirtualMachineInstance controller
 	factory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, nil, app.namespace)
 
+	vmiInformer := factory.VMI()
 	vmiSourceInformer := factory.VMISourceHost(app.HostOverride)
 	vmiTargetInformer := factory.VMITargetHost(app.HostOverride)
 
@@ -333,6 +334,7 @@ func (app *virtHandlerApp) Run() {
 		app.VirtShareDir,
 		app.VirtPrivateDir,
 		app.KubeletPodsDir,
+		vmiInformer,
 		vmiSourceInformer,
 		vmiTargetInformer,
 		domainSharedInformer,
