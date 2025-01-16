@@ -594,42 +594,14 @@ func (c *VirtualMachineController) setMigrationProgressStatus(vmi *v1.VirtualMac
 	vmi.Status.MigrationState.AbortStatus = v1.MigrationAbortStatus(migrationMetadata.AbortStatus)
 	vmi.Status.MigrationState.Failed = migrationMetadata.Failed
 	vmi.Status.MigrationState.Mode = migrationMetadata.Mode
-}
-
-func (c *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.VirtualMachineInstance, domain *api.Domain) error {
-
-	vmi := origVMI.DeepCopy()
-	oldStatus := vmi.DeepCopy().Status
-
-	// if a migration happens very quickly, it's possible parts of the in
-	// progress status wasn't set. We need to make sure we set this even
-	// if the migration has completed
-	c.setMigrationProgressStatus(vmi, domain)
-
-	// handle migrations differently than normal status updates.
-	//
-	// When a successful migration is detected, we must transfer ownership of the VMI
-	// from the source node (this node) to the target node (node the domain was migrated to).
-	//
-	// Transfer ownership by...
-	// 1. Marking vmi.Status.MigrationState as completed
-	// 2. Update the vmi.Status.NodeName to reflect the target node's name
-	// 3. Update the VMI's NodeNameLabel annotation to reflect the target node's name
-	// 4. Clear the LauncherContainerImageVersion which virt-controller will detect
-	//    and accurately based on the version used on the target pod
-	//
-	// After a migration, the VMI's phase is no longer owned by this node. Only the
-	// MigrationState status field is eligible to be mutated.
-	migrationHost := ""
-	if vmi.Status.MigrationState != nil {
-		migrationHost = vmi.Status.MigrationState.TargetNode
-	}
 
 	// If we can't detect where the migration went to, then we have no
 	// way of transferring ownership. The only option here is to move the
 	// vmi to failed.  The cluster vmi controller will then tear down the
 	// resulting pods.
-	if migrationHost == "" {
+	migrationHost := vmi.Status.MigrationState.TargetNode
+
+	if domainMigrated(domain) && migrationHost == "" {
 		// migrated to unknown host.
 		vmi.Status.Phase = v1.Failed
 		vmi.Status.MigrationState.Completed = true
@@ -652,6 +624,27 @@ func (c *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 		c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to node %s.", migrationHost))
 		log.Log.Object(vmi).Infof("migration completed to node %s", migrationHost)
 	}
+}
+
+func (c *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.VirtualMachineInstance, domain *api.Domain) error {
+	vmi := origVMI.DeepCopy()
+	oldStatus := vmi.DeepCopy().Status
+
+	// handle migrations differently than normal status updates.
+	//
+	// When a successful migration is detected, we must transfer ownership of the VMI
+	// from the source node (this node) to the target node (node the domain was migrated to).
+	//
+	// Transfer ownership by...
+	// 1. Marking vmi.Status.MigrationState as completed
+	// 2. Update the vmi.Status.NodeName to reflect the target node's name
+	// 3. Update the VMI's NodeNameLabel annotation to reflect the target node's name
+	// 4. Clear the LauncherContainerImageVersion which virt-controller will detect
+	//    and accurately based on the version used on the target pod
+	//
+	// After a migration, the VMI's phase is no longer owned by this node. Only the
+	// MigrationState status field is eligible to be mutated.
+	c.setMigrationProgressStatus(vmi, domain)
 
 	if !equality.Semantic.DeepEqual(oldStatus, vmi.Status) {
 		key := controller.VirtualMachineInstanceKey(vmi)
