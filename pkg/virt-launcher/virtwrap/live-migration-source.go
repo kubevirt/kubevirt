@@ -382,6 +382,11 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, completed b
 		return nil
 	}
 
+	if migrationMetadata.EndTimestamp != nil {
+		// the migration result has already been reported and should not be overwritten
+		return nil
+	}
+
 	if abortStatus != "" {
 		metaAbortStatus := migrationMetadata.AbortStatus
 		if metaAbortStatus == string(abortStatus) && metaAbortStatus == string(v1.MigrationAbortInProgress) {
