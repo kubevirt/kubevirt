@@ -3538,6 +3538,8 @@ func (c *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInsta
 		return fmt.Errorf("%s: %v", errorMessage, err)
 	}
 
+	vmi.Status.MigrationState.Completed = true
+
 	return nil
 }
 
