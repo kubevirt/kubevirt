@@ -118,6 +118,7 @@ func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int,
 }
 
 type validation func(*v1.VirtualMachineInstance) (err *errors.StatusError)
+type errorPostProcessing func(*v1.VirtualMachineInstance, error) (err error)
 type URLResolver func(*v1.VirtualMachineInstance, kubecli.VirtHandlerConn) (string, error)
 
 func (app *SubresourceAPIApp) prepareConnection(request *restful.Request, validate validation, getVirtHandlerURL URLResolver) (vmi *v1.VirtualMachineInstance, url string, conn kubecli.VirtHandlerConn, statusError *errors.StatusError) {
@@ -151,8 +152,13 @@ func (app *SubresourceAPIApp) fetchAndValidateVirtualMachineInstance(namespace, 
 	return
 }
 
-func (app *SubresourceAPIApp) putRequestHandler(request *restful.Request, response *restful.Response, validate validation, getVirtHandlerURL URLResolver, dryRun bool) {
-	_, url, conn, statusErr := app.prepareConnection(request, validate, getVirtHandlerURL)
+func (app *SubresourceAPIApp) putRequestHandler(request *restful.Request, response *restful.Response, preValidate validation, getVirtHandlerURL URLResolver, dryRun bool) {
+
+	app.putRequestHandlerWithErrorPostProcessing(request, response, preValidate, nil, getVirtHandlerURL, dryRun)
+}
+
+func (app *SubresourceAPIApp) putRequestHandlerWithErrorPostProcessing(request *restful.Request, response *restful.Response, preValidate validation, errorPostProcessing errorPostProcessing, getVirtHandlerURL URLResolver, dryRun bool) {
+	vmi, url, conn, statusErr := app.prepareConnection(request, preValidate, getVirtHandlerURL)
 	if statusErr != nil {
 		writeError(statusErr, response)
 		return
@@ -163,6 +169,9 @@ func (app *SubresourceAPIApp) putRequestHandler(request *restful.Request, respon
 	}
 	err := conn.Put(url, request.Request.Body)
 	if err != nil {
+		if errorPostProcessing != nil {
+			err = errorPostProcessing(vmi, err)
+		}
 		writeError(errors.NewInternalError(err), response)
 		return
 	}
@@ -790,18 +799,36 @@ func (app *SubresourceAPIApp) UnfreezeVMIRequestHandler(request *restful.Request
 
 func (app *SubresourceAPIApp) ResetVMIRequestHandler(request *restful.Request, response *restful.Response) {
 
-	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
-		if vmi.Status.Phase != v1.Running {
-			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("Unable to reset VMI because phase is %s instead of %s", v1.Running, vmi.Status.Phase))
+	// The VMI must be assigned to a node for us to forward
+	// the request to virt-handler. Forward the
+	preValidate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		if vmi.IsFinal() {
+			// VMI is in a terminated state, with no possiblity of returning.
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("Unable to reset terminated VMI"))
+		} else if !vmi.IsScheduled() && !vmi.IsRunning() {
+			// VMI hasn't been assigned to a node yet, so there's no virt-handler
+			// available to pass the reset request to.
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("Unable to reset unscheduled VMI"))
 		}
 		return nil
+	}
+
+	// Post process any error responses in order to append human
+	// readable explanation for why the reset may have failed.
+	errorPostProcessing := func(vmi *v1.VirtualMachineInstance, err error) error {
+		// VMI reset request could have been sent while VMI was in the process of transitioning
+		// from scheduled to running.
+		if !vmi.IsRunning() {
+			return fmt.Errorf("Failed to reset non-running VMI with phase %s: %v", vmi.Status.Phase, err)
+		}
+		return err
 	}
 
 	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
 		return conn.ResetURI(vmi)
 	}
 
-	app.putRequestHandler(request, response, validate, getURL, false)
+	app.putRequestHandlerWithErrorPostProcessing(request, response, preValidate, errorPostProcessing, getURL, false)
 }
 
 func (app *SubresourceAPIApp) SoftRebootVMIRequestHandler(request *restful.Request, response *restful.Response) {
