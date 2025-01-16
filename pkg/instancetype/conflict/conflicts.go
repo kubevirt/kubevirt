@@ -28,6 +28,7 @@ import (
 const conflictsErrorFmt = "VM field(s) %s conflicts with selected instance type"
 
 type Conflict struct {
+	Message string
 	k8sfield.Path
 }
 
@@ -43,6 +44,13 @@ func NewFromPath(path *k8sfield.Path) *Conflict {
 	}
 }
 
+func NewWithMessage(message, name string, moreNames ...string) *Conflict {
+	return &Conflict{
+		Path:    *k8sfield.NewPath(name, moreNames...),
+		Message: message,
+	}
+}
+
 func (c Conflict) NewChild(name string, moreNames ...string) *Conflict {
 	return &Conflict{
 		Path: *c.Child(name, moreNames...),
@@ -50,6 +58,9 @@ func (c Conflict) NewChild(name string, moreNames ...string) *Conflict {
 }
 
 func (c Conflict) Error() string {
+	if c.Message != "" {
+		return c.Message
+	}
 	return fmt.Sprintf(conflictsErrorFmt, c.String())
 }
 
