@@ -1563,7 +1563,7 @@ var _ = Describe("Manager", func() {
 				// job will run indefinitely until timeout
 				if migrationData <= 32479826519 {
 					return &libvirt.DomainJobInfo{
-						Type: libvirt.DOMAIN_JOB_COMPLETED,
+						Type: libvirt.DOMAIN_JOB_CANCELLED,
 					}
 				}
 
@@ -1613,7 +1613,7 @@ var _ = Describe("Manager", func() {
 				// job will run indefinitely until timeout
 				if migrationData <= 32479826519 {
 					return &libvirt.DomainJobInfo{
-						Type: libvirt.DOMAIN_JOB_COMPLETED,
+						Type: libvirt.DOMAIN_JOB_CANCELLED,
 					}
 				}
 
@@ -1676,7 +1676,7 @@ var _ = Describe("Manager", func() {
 				// job will run indefinitely until timeout
 				if migrationData <= 32479826519 {
 					return &libvirt.DomainJobInfo{
-						Type: libvirt.DOMAIN_JOB_COMPLETED,
+						Type: libvirt.DOMAIN_JOB_CANCELLED,
 					}
 				}
 
