@@ -211,6 +211,46 @@ var _ = Describe("Template", func() {
 
 			return vmi
 		}
+
+		Context("Use emulation", func() {
+			const (
+				testNamespace        = "default"
+				computeContainerName = "compute"
+				kvmResource          = "devices.kubevirt.io/kvm"
+				allowEmulationOption = "--allow-emulation"
+			)
+
+			It("should add the kvm resource when emulation is disabled", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.DeveloperConfiguration.UseEmulation = false
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
+				pod, err := svc.RenderLaunchManifest(libvmi.New(libvmi.WithNamespace(testNamespace)))
+				Expect(err).NotTo(HaveOccurred())
+
+				containers := pod.Spec.Containers
+				Expect(containers[0].Name).To(Equal(computeContainerName))
+				Expect(*containers[0].Resources.Limits.Name(kvmResource, resource.DecimalSI)).To(Equal(resource.MustParse("1")))
+				Expect(containers[0].Command).NotTo(ContainElements(allowEmulationOption))
+			})
+
+			It("should not add the kvm resource and add the allow-emulation option when emulation is enabled", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				kvConfig := kv.DeepCopy()
+				kvConfig.Spec.Configuration.DeveloperConfiguration.UseEmulation = true
+				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
+				pod, err := svc.RenderLaunchManifest(libvmi.New(libvmi.WithNamespace(testNamespace)))
+				Expect(err).NotTo(HaveOccurred())
+
+				containers := pod.Spec.Containers
+				Expect(containers[0].Name).To(Equal(computeContainerName))
+				Expect(containers[0].Resources.Limits.Name(kvmResource, resource.DecimalSI)).To(Equal(resource.NewQuantity(0, resource.DecimalSI)))
+				Expect(containers[0].Command).To(ContainElements(allowEmulationOption))
+			})
+		})
+
 		It("should not set seccomp profile by default", func() {
 			_, kvStore, svc = configFactory(defaultArch)
 			pod, err := svc.RenderLaunchManifest(newMinimalWithContainerDisk("random"))
