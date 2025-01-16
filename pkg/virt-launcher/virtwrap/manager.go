@@ -1258,9 +1258,15 @@ func (l *LibvirtDomainManager) syncNetworkHotplug(
 	if err := networkInterfaceManager.hotplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}, domain); err != nil {
 		return err
 	}
+
 	if err := networkInterfaceManager.hotUnplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}); err != nil {
 		return err
 	}
+
+	if err := networkInterfaceManager.setLinkUpDownVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}); err != nil {
+		return err
+	}
+
 	return nil
 }
 

@@ -100,6 +100,17 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 	vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
 	vmiCopy.Spec.Networks = networks
 
+	for _, vmIface := range vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces {
+		for i, vmiIface := range vmiCopy.Spec.Domain.Devices.Interfaces {
+			if vmIface.Name == vmiIface.Name {
+				if vmIface.State != vmiIface.State {
+					vmiCopy.Spec.Domain.Devices.Interfaces[i].State = vmIface.State
+				}
+				break
+			}
+		}
+	}
+
 	hasOrdinalIfaces, err := v.hasOrdinalNetworkInterfaces(vmi)
 	if err != nil {
 		return vm, &syncError{
