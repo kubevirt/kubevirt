@@ -180,19 +180,23 @@ func (StorageProfile) SwaggerDoc() map[string]string {
 
 func (StorageProfileSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                  "StorageProfileSpec defines specification for StorageProfile",
-		"cloneStrategy":     "CloneStrategy defines the preferred method for performing a CDI clone",
-		"claimPropertySets": "ClaimPropertySets is a provided set of properties applicable to PVC",
+		"":                           "StorageProfileSpec defines specification for StorageProfile",
+		"cloneStrategy":              "CloneStrategy defines the preferred method for performing a CDI clone",
+		"claimPropertySets":          "ClaimPropertySets is a provided set of properties applicable to PVC",
+		"dataImportCronSourceFormat": "DataImportCronSourceFormat defines the format of the DataImportCron-created disk image sources",
+		"snapshotClass":              "SnapshotClass is optional specific VolumeSnapshotClass for CloneStrategySnapshot. If not set, a VolumeSnapshotClass is chosen according to the provisioner.",
 	}
 }
 
 func (StorageProfileStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                  "StorageProfileStatus provides the most recently observed status of the StorageProfile",
-		"storageClass":      "The StorageClass name for which capabilities are defined",
-		"provisioner":       "The Storage class provisioner plugin name",
-		"cloneStrategy":     "CloneStrategy defines the preferred method for performing a CDI clone",
-		"claimPropertySets": "ClaimPropertySets computed from the spec and detected in the system",
+		"":                           "StorageProfileStatus provides the most recently observed status of the StorageProfile",
+		"storageClass":               "The StorageClass name for which capabilities are defined",
+		"provisioner":                "The Storage class provisioner plugin name",
+		"cloneStrategy":              "CloneStrategy defines the preferred method for performing a CDI clone",
+		"claimPropertySets":          "ClaimPropertySets computed from the spec and detected in the system",
+		"dataImportCronSourceFormat": "DataImportCronSourceFormat defines the format of the DataImportCron-created disk image sources",
+		"snapshotClass":              "SnapshotClass is optional specific VolumeSnapshotClass for CloneStrategySnapshot. If not set, a VolumeSnapshotClass is chosen according to the provisioner.",
 	}
 }
 
@@ -260,7 +264,7 @@ func (DataSourceList) SwaggerDoc() map[string]string {
 
 func (DataImportCron) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "DataImportCron defines a cron job for recurring polling/importing disk images as PVCs into a golden image namespace\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+kubebuilder:object:root=true\n+kubebuilder:storageversion\n+kubebuilder:resource:shortName=dic;dics,categories=all",
+		"": "DataImportCron defines a cron job for recurring polling/importing disk images as PVCs into a golden image namespace\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+kubebuilder:object:root=true\n+kubebuilder:storageversion\n+kubebuilder:resource:shortName=dic;dics,categories=all\n+kubebuilder:printcolumn:name=\"Format\",type=\"string\",JSONPath=\".status.sourceFormat\",description=\"The format in which created sources are saved\"",
 	}
 }
 
@@ -283,6 +287,7 @@ func (DataImportCronStatus) SwaggerDoc() map[string]string {
 		"lastImportedPVC":        "LastImportedPVC is the last imported PVC",
 		"lastExecutionTimestamp": "LastExecutionTimestamp is the time of the last polling",
 		"lastImportTimestamp":    "LastImportTimestamp is the time of the last import",
+		"sourceFormat":           "SourceFormat defines the format of the DataImportCron-created disk image sources",
 	}
 }
 
@@ -316,10 +321,13 @@ func (VolumeImportSource) SwaggerDoc() map[string]string {
 
 func (VolumeImportSourceSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":              "VolumeImportSourceSpec defines the Spec field for VolumeImportSource",
-		"source":        "Source is the src of the data to be imported in the target PVC",
-		"preallocation": "Preallocation controls whether storage for the target PVC should be allocated in advance.",
-		"contentType":   "ContentType represents the type of the imported data (Kubevirt or archive)",
+		"":                "VolumeImportSourceSpec defines the Spec field for VolumeImportSource",
+		"source":          "Source is the src of the data to be imported in the target PVC",
+		"preallocation":   "Preallocation controls whether storage for the target PVC should be allocated in advance.",
+		"contentType":     "ContentType represents the type of the imported data (Kubevirt or archive)",
+		"targetClaim":     "TargetClaim the name of the specific claim to be populated with a multistage import.",
+		"checkpoints":     "Checkpoints is a list of DataVolumeCheckpoints, representing stages in a multistage import.",
+		"finalCheckpoint": "FinalCheckpoint indicates whether the current DataVolumeCheckpoint is the final checkpoint.",
 	}
 }
 
@@ -467,9 +475,10 @@ func (CDIConfigSpec) SwaggerDoc() map[string]string {
 		"filesystemOverhead":       "FilesystemOverhead describes the space reserved for overhead when using Filesystem volumes. A value is between 0 and 1, if not defined it is 0.055 (5.5% overhead)",
 		"preallocation":            "Preallocation controls whether storage for DataVolumes should be allocated in advance.",
 		"insecureRegistries":       "InsecureRegistries is a list of TLS disabled registries",
-		"dataVolumeTTLSeconds":     "DataVolumeTTLSeconds is the time in seconds after DataVolume completion it can be garbage collected. The default is 0 sec. To disable GC use -1.\n+optional",
+		"dataVolumeTTLSeconds":     "DataVolumeTTLSeconds is the time in seconds after DataVolume completion it can be garbage collected. Disabled by default.\n+optional",
 		"tlsSecurityProfile":       "TLSSecurityProfile is used by operators to apply cluster-wide TLS security settings to operands.",
 		"imagePullSecrets":         "The imagePullSecrets used to pull the container images",
+		"logVerbosity":             "LogVerbosity overrides the default verbosity level used to initialize loggers\n+optional",
 	}
 }
 
