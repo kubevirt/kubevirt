@@ -339,8 +339,8 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 		} else {
 			// Don't allow the same migration UID to be executed twice.
 			// Migration attempts are like pods. One shot.
-			return false, fmt.Errorf("migration job %v already executed, finished at %v, completed: %t, failed: %t, abortStatus: %s",
-				migrationMetadata.UID, *migrationMetadata.EndTimestamp, migrationMetadata.Completed, migrationMetadata.Failed, migrationMetadata.AbortStatus)
+			return false, fmt.Errorf("migration job %v already executed, finished at %v, failed: %t, abortStatus: %s",
+				migrationMetadata.UID, *migrationMetadata.EndTimestamp, migrationMetadata.Failed, migrationMetadata.AbortStatus)
 		}
 	}
 
@@ -357,7 +357,7 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 
 func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) error {
 	migration, _ := l.metadataCache.Migration.Load()
-	if migration.Completed || migration.Failed || migration.StartTimestamp == nil {
+	if migration.EndTimestamp != nil || migration.Failed || migration.StartTimestamp == nil {
 		return fmt.Errorf(migrations.CancelMigrationFailedVmiNotMigratingErr)
 	}
 
@@ -372,7 +372,7 @@ func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) e
 	return nil
 }
 
-func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, completed bool, reason string, abortStatus v1.MigrationAbortStatus) error {
+func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, reason string, abortStatus v1.MigrationAbortStatus) error {
 	migrationMetadata, exists := l.metadataCache.Migration.Load()
 	if !exists {
 		// nothing to report if migration metadata is empty
@@ -396,9 +396,6 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, completed b
 			migrationMetadata.Failed = true
 			migrationMetadata.FailureReason = reason
 		}
-		if completed {
-			migrationMetadata.Completed = true
-		}
 
 		migrationMetadata.AbortStatus = string(abortStatus)
 
@@ -418,11 +415,11 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, completed b
 }
 
 func (l *LibvirtDomainManager) setMigrationResult(failed bool, reason string, abortStatus v1.MigrationAbortStatus) error {
-	return l.setMigrationResultHelper(failed, true, reason, abortStatus)
+	return l.setMigrationResultHelper(failed, reason, abortStatus)
 }
 
 func (l *LibvirtDomainManager) setMigrationAbortStatus(abortStatus v1.MigrationAbortStatus) error {
-	return l.setMigrationResultHelper(false, false, "", abortStatus)
+	return l.setMigrationResultHelper(false, "", abortStatus)
 }
 
 func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationErr chan error) *migrationMonitor {
