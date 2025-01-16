@@ -14960,6 +14960,10 @@
     "description": "MigrateOptions may be provided on migrate request.",
     "type": "object",
     "properties": {
+     "addedNodeSelectorTerm": {
+      "description": "AddedNodeSelectorTerm is applied additionally to the NodeAffinity specified on the VM. The scheduler will automatically attempt a reasonable migration, addition constraints on the one-off migration are required only in special cases. In order to be valid migration targets, Nodes need to satisfy existing NodeAffinity as defined on the VM. AND the expressions on this added NodeSelectorTerm. AddedNodeSelectorTerm is empty by default (all Nodes match). AddedNodeSelectorTerm can only restrict the set of Nodes that are valid target for the migration. When multiple nodeSelectorTerms are specified in nodeAffinity types, then the Pod can be scheduled onto a node if one of the specified terms can be satisfied (terms are ORed). When multiple expressions are specified in a single nodeSelectorTerms, then the Pod can be scheduled onto a node only if all the expressions are satisfied (expressions are ANDed). To obtain the expected result (restrict the set of Nodes that are valid target for the migration), all the expressions specified here are going to be added to all the NodeSelectorTerms defined on the VM.",
+      "$ref": "#/definitions/k8s.io.api.core.v1.NodeSelectorTerm"
+     },
      "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
       "type": "string"
@@ -16728,6 +16732,10 @@
    "v1.VirtualMachineInstanceMigrationSpec": {
     "type": "object",
     "properties": {
+     "addedNodeSelectorTerm": {
+      "description": "AddedNodeSelectorTerm is applied additionally to the NodeAffinity specified on the VM. The scheduler will automatically attempt a reasonable migration, addition constraints on the one-off migration are required only in special cases. In order to be valid migration targets, Nodes need to satisfy existing NodeAffinity as defined on the VM. AND the expressions on this added NodeSelectorTerm. AddedNodeSelectorTerm is empty by default (all Nodes match). AddedNodeSelectorTerm can only restrict the set of Nodes that are valid target for the migration. When multiple nodeSelectorTerms are specified in nodeAffinity types, then the Pod can be scheduled onto a node if one of the specified terms can be satisfied (terms are ORed). When multiple expressions are specified in a single nodeSelectorTerms, then the Pod can be scheduled onto a node only if all the expressions are satisfied (expressions are ANDed). To obtain the expected result (restrict the set of Nodes that are valid target for the migration), all the expressions specified here are going to be added to all the NodeSelectorTerms defined on the VM.",
+      "$ref": "#/definitions/k8s.io.api.core.v1.NodeSelectorTerm"
+     },
      "vmiName": {
       "description": "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",
       "type": "string"
