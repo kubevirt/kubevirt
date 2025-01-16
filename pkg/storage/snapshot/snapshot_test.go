@@ -2309,6 +2309,44 @@ var _ = Describe("Snapshot controlleer", func() {
 				Entry("for VolumeSnapshot", volumeSnapshotCRD),
 				Entry("for VolumeSnapshotClass", volumeSnapshotClassCRD),
 			)
+			It("should create VolumeSnapshot with specified VolumeSnapshotClass", func() {
+				vm := createLockedVM()
+				storageClass := createStorageClass()
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshot.Spec.VolumeSnapshotClassName = &volumeSnapshotClassName
+				pvcs := createPersistentVolumeClaims()
+				vmSnapshotContent := createVMSnapshotContent()
+				vmSnapshotContent.UID = contentUID
+
+				updatedContent := vmSnapshotContent.DeepCopy()
+				updatedContent.ResourceVersion = "1"
+				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+					ReadyToUse: pointer.P(false),
+				}
+
+				volumeSnapshots := createVolumeSnapshots(vmSnapshotContent)
+				for i := range volumeSnapshots {
+					vss := snapshotv1.VolumeSnapshotStatus{
+						VolumeSnapshotName: volumeSnapshots[i].Name,
+					}
+					updatedContent.Status.VolumeSnapshotStatus = append(updatedContent.Status.VolumeSnapshotStatus, vss)
+				}
+
+				vmSource.Add(vm)
+				storageClassSource.Add(storageClass)
+				for i := range pvcs {
+					pvcSource.Add(&pvcs[i])
+				}
+
+				snapshotCreates := expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClassName, vmSnapshotContent)
+				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+				vmSnapshotSource.Add(vmSnapshot)
+				controller.processVMSnapshotContentWorkItem()
+				testutils.ExpectEvent(recorder, "SuccessfulVolumeSnapshotCreate")
+				Expect(*updateStatusCalls).To(Equal(1))
+				Expect(*snapshotCreates).To(Equal(1))
+			})
 		})
 	})
 })
