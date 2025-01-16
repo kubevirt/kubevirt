@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/libkubevirt"
-	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/watcher"
@@ -1472,12 +1470,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(snapshot.Status.SnapshotVolumes.ExcludedVolumes[0]).Should(Equal("notsnapshotablevolume"))
 			})
 
-			It("Should also include backend PVC in the snapshot", Serial, func() {
-				By("Setting the VMState storage class to snapshot")
-				kv := libkubevirt.GetCurrentKv(virtClient)
-				kv.Spec.Configuration.VMStateStorageClass = snapshotStorageClass
-				config.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
-
+			It("Should also include backend PVC in the snapshot", func() {
 				By("Creating DV with snapshot supported storage class")
 				includedDataVolume := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
