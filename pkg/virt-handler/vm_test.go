@@ -158,6 +158,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		Expect(err).ToNot(HaveOccurred())
 
+		vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		vmiSourceInformer, vmiSource := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		vmiTargetInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		domainInformer, domainSource := testutils.NewFakeInformerFor(&api.Domain{})
@@ -207,6 +208,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			shareDir,
 			privateDir,
 			podsDir,
+			vmiInformer,
 			vmiSourceInformer,
 			vmiTargetInformer,
 			domainInformer,

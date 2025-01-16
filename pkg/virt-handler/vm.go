@@ -164,6 +164,7 @@ func NewController(
 	virtShareDir string,
 	virtPrivateDir string,
 	kubeletPodsDir string,
+	vmiInformer cache.SharedIndexInformer,
 	vmiSourceInformer cache.SharedIndexInformer,
 	vmiTargetInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
@@ -201,6 +202,7 @@ func NewController(
 		host:                             host,
 		migrationIpAddress:               migrationIpAddress,
 		virtShareDir:                     virtShareDir,
+		vmiStore:                         vmiInformer.GetStore(),
 		vmiSourceStore:                   vmiSourceInformer.GetStore(),
 		vmiTargetStore:                   vmiTargetInformer.GetStore(),
 		domainStore:                      domainInformer.GetStore(),
@@ -294,6 +296,7 @@ type VirtualMachineController struct {
 	virtShareDir             string
 	virtPrivateDir           string
 	queue                    workqueue.TypedRateLimitingInterface[string]
+	vmiStore                 cache.Store
 	vmiSourceStore           cache.Store
 	vmiTargetStore           cache.Store
 	domainStore              cache.Store
@@ -1736,6 +1739,16 @@ func (c *VirtualMachineController) getVMIFromCache(key string) (vmi *v1.VirtualM
 
 	if !exists {
 		obj, exists, err = c.vmiTargetStore.GetByKey(key)
+		if err != nil {
+			return nil, false, err
+		}
+	}
+
+	// Get it from the global store as during a migration
+	// the VMI could disappear momentarily from both the source store
+	// and the target store
+	if !exists {
+		obj, exists, err = c.vmiStore.GetByKey(key)
 		if err != nil {
 			return nil, false, err
 		}
