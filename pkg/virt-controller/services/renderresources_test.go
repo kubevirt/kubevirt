@@ -468,7 +468,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 
 var _ = Describe("GetMemoryOverhead calculation", func() {
 	// VirtLauncherMonitorOverhead + VirtLauncherOverhead + VirtlogdOverhead + VirtqemudOverhead + QemuOverhead + IothreadsOverhead
-	const staticOverheadString = "218Mi"
+	const staticOverheadString = "223Mi"
 	var (
 		vmi                     *v1.VirtualMachineInstance
 		staticOverhead          *resource.Quantity
