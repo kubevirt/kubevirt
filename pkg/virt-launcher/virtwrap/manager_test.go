@@ -1563,7 +1563,7 @@ var _ = Describe("Manager", func() {
 				// job will run indefinitely until timeout
 				if migrationData <= 32479826519 {
 					return &libvirt.DomainJobInfo{
-						Type: libvirt.DOMAIN_JOB_COMPLETED,
+						Type: libvirt.DOMAIN_JOB_CANCELLED,
 					}
 				}
 
@@ -1613,7 +1613,7 @@ var _ = Describe("Manager", func() {
 				// job will run indefinitely until timeout
 				if migrationData <= 32479826519 {
 					return &libvirt.DomainJobInfo{
-						Type: libvirt.DOMAIN_JOB_COMPLETED,
+						Type: libvirt.DOMAIN_JOB_CANCELLED,
 					}
 				}
 
@@ -1676,7 +1676,7 @@ var _ = Describe("Manager", func() {
 				// job will run indefinitely until timeout
 				if migrationData <= 32479826519 {
 					return &libvirt.DomainJobInfo{
-						Type: libvirt.DOMAIN_JOB_COMPLETED,
+						Type: libvirt.DOMAIN_JOB_CANCELLED,
 					}
 				}
 
@@ -1803,7 +1803,7 @@ var _ = Describe("Manager", func() {
 			time.Sleep(2 * time.Second)
 
 			migration, _ := metadataCache.Migration.Load()
-			Expect(migration.AbortStatus).To(Equal(string(v1.MigrationAbortInProgress)))
+			Expect(migration.AbortStatus).To(Equal(string(v1.MigrationAbortSucceeded)))
 		})
 
 		It("shouldn't be able to call cancel migration more than once", func() {
