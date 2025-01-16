@@ -856,7 +856,7 @@ func (vca *VirtControllerApp) initRestoreController() {
 func (vca *VirtControllerApp) initExportController() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "export-controller")
 	vca.exportController = &export.VMExportController{
-		TemplateService:             vca.templateService,
+		ManifestRenderer:            vca.templateService,
 		Client:                      vca.clientSet,
 		VMExportInformer:            vca.vmExportInformer,
 		PVCInformer:                 vca.persistentVolumeClaimInformer,

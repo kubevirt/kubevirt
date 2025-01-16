@@ -61,7 +61,6 @@ import (
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -176,11 +175,15 @@ func (sv *sourceVolumes) isSourceAvailable() bool {
 	return !sv.inUse && sv.isPopulated
 }
 
+type manifestRenderer interface {
+	RenderExporterManifest(vmExport *exportv1.VirtualMachineExport, namePrefix string) *corev1.Pod
+}
+
 // VMExportController is resonsible for exporting VMs
 type VMExportController struct {
 	Client kubecli.KubevirtClient
 
-	TemplateService services.TemplateService
+	ManifestRenderer manifestRenderer
 
 	VMExportInformer            cache.SharedIndexInformer
 	PVCInformer                 cache.SharedIndexInformer
@@ -902,7 +905,7 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 	}
 
 	deadline := certParams.Duration - certParams.RenewBefore
-	podManifest := ctrl.TemplateService.RenderExporterManifest(vmExport, exportPrefix)
+	podManifest := ctrl.ManifestRenderer.RenderExporterManifest(vmExport, exportPrefix)
 	podManifest.Labels = map[string]string{exportServiceLabel: ctrl.getExportLabelValue(vmExport)}
 	for key, value := range vmExport.Labels {
 		podManifest.Labels[key] = value
