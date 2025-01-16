@@ -669,7 +669,6 @@ func (c *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 		vmi.Status.NodeName = migrationHost
 		// clean the evacuation node name since have already migrated to a new node
 		vmi.Status.EvacuationNodeName = ""
-		vmi.Status.MigrationState.Completed = true
 		// update the vmi migrationTransport to indicate that next migration should use unix URI
 		// new workloads will set the migrationTransport on their creation, however, legacy workloads
 		// can make the switch only after the first migration
