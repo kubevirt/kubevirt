@@ -512,3 +512,19 @@ func WaitUntilMigrationMode(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMa
 		return ""
 	}, timeout, 1*time.Second).Should(Equal(expectedMode))
 }
+
+func WaitForMigrationPhase(virtClient kubecli.KubevirtClient, namespace, migrationName string, expectedPhase v1.VirtualMachineInstanceMigrationPhase, timeout time.Duration) {
+	Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
+		migration, err := virtClient.VirtualMachineInstanceMigration(namespace).Get(context.Background(), migrationName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return migration.Status.Phase
+	}, timeout, 1*time.Second).Should(Equal(expectedPhase))
+}
+
+func EnsureMigrationRemainsInPhase(virtClient kubecli.KubevirtClient, namespace, migrationName string, expectedPhase v1.VirtualMachineInstanceMigrationPhase, duration time.Duration) {
+	Consistently(func() v1.VirtualMachineInstanceMigrationPhase {
+		migration, err := virtClient.VirtualMachineInstanceMigration(namespace).Get(context.Background(), migrationName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return migration.Status.Phase
+	}, duration, 1*time.Second).Should(Equal(expectedPhase))
+}
