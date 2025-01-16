@@ -603,7 +603,6 @@ func (c *VirtualMachineController) setMigrationProgressStatus(vmi *v1.VirtualMac
 		vmi.Status.MigrationState.EndTimestamp = migrationMetadata.EndTimestamp
 	}
 	vmi.Status.MigrationState.AbortStatus = v1.MigrationAbortStatus(migrationMetadata.AbortStatus)
-	vmi.Status.MigrationState.Completed = migrationMetadata.Completed
 	vmi.Status.MigrationState.Failed = migrationMetadata.Failed
 	vmi.Status.MigrationState.Mode = migrationMetadata.Mode
 }
