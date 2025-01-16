@@ -124,14 +124,12 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 	}
 
 	// With the defaults now set we can check that the VM meets the requirements of any provided preference
-	if preferenceSpec != nil {
-		if conflicts, err := admitter.InstancetypeAdmitter.Check(instancetypeSpec, preferenceSpec, &vmCopy.Spec.Template.Spec); err != nil {
-			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{{
-				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: fmt.Sprintf("failure checking preference requirements: %v", err),
-				Field:   conflicts.String(),
-			}})
-		}
+	if conflicts, err := admitter.InstancetypeAdmitter.Check(instancetypeSpec, preferenceSpec, &vmCopy.Spec.Template.Spec); err != nil {
+		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotFound,
+			Message: fmt.Sprintf("failure checking preference requirements: %v", err),
+			Field:   conflicts.String(),
+		}})
 	}
 
 	if ar.Request.Operation == admissionv1.Create {
