@@ -509,42 +509,6 @@ func (c *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (hasEx
 	return
 }
 
-func (c *VirtualMachineController) hasTargetDetectedReadyDomain(vmi *v1.VirtualMachineInstance) (bool, int64) {
-	// give the target node 60 seconds to discover the libvirt domain via the domain informer
-	// before allowing the VMI to be processed. This closes the gap between the
-	// VMI's status getting updated to reflect the new source node, and the domain
-	// informer firing the event to alert the source node of the new domain.
-	migrationTargetDelayTimeout := 60
-
-	if vmi.Status.MigrationState != nil &&
-		vmi.Status.MigrationState.TargetNodeDomainDetected &&
-		vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
-
-		return true, 0
-	}
-
-	nowUnix := time.Now().UTC().Unix()
-	migrationEndUnix := vmi.Status.MigrationState.EndTimestamp.Time.UTC().Unix()
-
-	diff := nowUnix - migrationEndUnix
-
-	if diff > int64(migrationTargetDelayTimeout) {
-		return false, 0
-	}
-
-	timeLeft := int64(migrationTargetDelayTimeout) - diff
-
-	enqueueTime := timeLeft
-	if enqueueTime < 5 {
-		enqueueTime = 5
-	}
-
-	// re-enqueue the key to ensure it gets processed again within the right time.
-	c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Duration(enqueueTime)*time.Second)
-
-	return false, timeLeft
-}
-
 // teardownNetwork performs network cache cleanup for a specific VMI.
 func (c *VirtualMachineController) teardownNetwork(vmi *v1.VirtualMachineInstance) {
 	if string(vmi.UID) == "" {
@@ -661,7 +625,6 @@ func (c *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 		migrationHost = vmi.Status.MigrationState.TargetNode
 	}
 
-	targetNodeDetectedDomain, timeLeft := c.hasTargetDetectedReadyDomain(vmi)
 	// If we can't detect where the migration went to, then we have no
 	// way of transferring ownership. The only option here is to move the
 	// vmi to failed.  The cluster vmi controller will then tear down the
@@ -671,19 +634,8 @@ func (c *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 		vmi.Status.Phase = v1.Failed
 		vmi.Status.MigrationState.Completed = true
 		vmi.Status.MigrationState.Failed = true
-
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to unknown host."))
-	} else if !targetNodeDetectedDomain {
-		if timeLeft <= 0 {
-			vmi.Status.Phase = v1.Failed
-			vmi.Status.MigrationState.Completed = true
-			vmi.Status.MigrationState.Failed = true
-
-			c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance's domain was never observed on the target after the migration completed within the timeout period."))
-		} else {
-			log.Log.Object(vmi).Info("Waiting on the target node to observe the migrated domain before performing the handoff")
-		}
-	} else if vmi.Status.MigrationState != nil && targetNodeDetectedDomain {
+	} else if wasMigrationSuccessful(vmi.Status.MigrationState) {
 		// this is the migration ACK.
 		// At this point we know that the migration has completed and that
 		// the target node has seen the domain event.
@@ -2987,6 +2939,10 @@ func (c *VirtualMachineController) configureHousekeepingCgroup(vmi *v1.VirtualMa
 	}
 
 	return nil
+}
+
+func wasMigrationSuccessful(migrationState *v1.VirtualMachineInstanceMigrationState) bool {
+	return migrationState != nil && migrationState.EndTimestamp != nil && !migrationState.Failed
 }
 
 func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMachineInstance, domainExists bool) error {
