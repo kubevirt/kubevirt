@@ -28,8 +28,6 @@ const (
 	NonRootUID        = 107
 	NonRootUserString = "qemu"
 	RootUser          = 0
-
-	UnprivilegedContainerSELinuxLabel = "system_u:object_r:container_file_t:s0"
 )
 
 func IsNonRootVMI(vmi *v1.VirtualMachineInstance) bool {

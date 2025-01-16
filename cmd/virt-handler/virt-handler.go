@@ -386,7 +386,7 @@ func (app *virtHandlerApp) Run() {
 		if err != nil {
 			panic(err)
 		}
-		err = selinux.RelabelFiles(util.UnprivilegedContainerSELinuxLabel, se.IsPermissive(), devTun, devNull)
+		err = selinux.RelabelFilesUnprivileged(se.IsPermissive(), devTun, devNull)
 		if err != nil {
 			panic(fmt.Errorf("error relabeling required files: %v", err))
 		}
