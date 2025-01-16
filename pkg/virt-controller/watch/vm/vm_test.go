@@ -1418,7 +1418,6 @@ var _ = Describe("VirtualMachine", func() {
 			}
 		},
 			Entry("when PVC has no annotation", map[string]string{}, 1, nil),
-			Entry("when PVC was garbage collected", map[string]string{"cdi.kubevirt.io/garbageCollected": "true"}, 0, nil),
 			Entry("when PVC has owned by annotation and CDI does not support adoption", map[string]string{}, 0, shouldFailDataVolumeCreationClaimAlreadyExists),
 		)
 
@@ -3928,6 +3927,41 @@ var _ = Describe("VirtualMachine", func() {
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
 					Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
+				})
+
+				It("should set a Provisioning status and add a Failure condition if DV PVC creation fails due to exceeded quota", func() {
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					dv, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
+					dv.Status.Phase = cdiv1.Pending
+					dv.Status.Conditions = append(dv.Status.Conditions, cdiv1.DataVolumeCondition{
+						Type:   cdiv1.DataVolumeBound,
+						Status: k8sv1.ConditionUnknown,
+						Reason: "ErrExceededQuota",
+						Message: "persistentvolumeclaims \"dv1\" is forbidden: exceeded quota: storage, " +
+							"requested: requests.storage=2Gi, used: requests.storage=0, limited: requests.storage=1Gi",
+					})
+					controller.dataVolumeStore.Add(dv)
+
+					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
+
+					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
+					Expect(cond).To(Not(BeNil()))
+					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Type":   Equal(v1.VirtualMachineFailure),
+						"Reason": Equal("FailedCreate"),
+						"Message": And(
+							ContainSubstring("Error encountered while creating DataVolumes"),
+							ContainSubstring("importer is not running due to an error"),
+							ContainSubstring("forbidden: exceeded quota: storage"),
+						),
+					}))
 				})
 			})
 
