@@ -39,6 +39,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -386,18 +387,20 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, completed b
 	}
 
 	l.metadataCache.Migration.WithSafeBlock(func(migrationMetadata *api.MigrationMetadata, _ bool) {
-		if abortStatus != "" {
-			migrationMetadata.AbortStatus = string(abortStatus)
-		}
-
 		if failed {
 			migrationMetadata.Failed = true
 			migrationMetadata.FailureReason = reason
 		}
 		if completed {
 			migrationMetadata.Completed = true
-			now := metav1.Now()
-			migrationMetadata.EndTimestamp = &now
+		}
+
+		migrationMetadata.AbortStatus = string(abortStatus)
+
+		if abortStatus == "" || abortStatus == v1.MigrationAbortSucceeded {
+			// only mark the migration as complete if there was no abortion or
+			// the abortion succeeded
+			migrationMetadata.EndTimestamp = pointer.P(metav1.Now())
 		}
 	})
 
