@@ -682,14 +682,6 @@ func (m *migrationMonitor) startMonitor() {
 			}
 		case libvirt.DOMAIN_JOB_NONE:
 			completedJobInfo = m.determineNonRunningMigrationStatus(dom)
-		case libvirt.DOMAIN_JOB_COMPLETED:
-			logger.Info("Migration has been completed")
-			m.l.setMigrationResult(false, "", "")
-			return
-		case libvirt.DOMAIN_JOB_FAILED:
-			logger.Info("Migration job failed")
-			m.l.setMigrationResult(true, fmt.Sprintf("%v", m.migrationFailedWithError), "")
-			return
 		case libvirt.DOMAIN_JOB_CANCELLED:
 			logger.Info("Migration was canceled")
 			m.l.setMigrationResult(true, "Live migration aborted ", v1.MigrationAbortSucceeded)
@@ -741,6 +733,7 @@ func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstanc
 				l.setMigrationAbortStatus(v1.MigrationAbortFailed)
 				return
 			}
+			l.setMigrationResult(true, "Live migration aborted ", v1.MigrationAbortSucceeded)
 			log.Log.Object(vmi).Info("Live migration abort succeeded")
 		}
 		return
@@ -1009,8 +1002,13 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 
 	err = dom.MigrateToURI3(dstURI, params, migrateFlags)
 	if err != nil {
+		l.setMigrationResult(true, err.Error(), "")
+		log.Log.Object(vmi).Errorf("migration failed with error: %v", err)
 		return fmt.Errorf("error encountered during MigrateToURI3 libvirt api call: %v", err)
 	}
+
+	log.Log.Object(vmi).Errorf("migration completed successfully")
+	l.setMigrationResult(false, "", "")
 
 	return nil
 }
