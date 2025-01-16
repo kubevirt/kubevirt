@@ -637,11 +637,6 @@ func (c *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 		migrationHost = vmi.Status.MigrationState.TargetNode
 	}
 
-	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.EndTimestamp == nil {
-		now := metav1.NewTime(time.Now())
-		vmi.Status.MigrationState.EndTimestamp = &now
-	}
-
 	targetNodeDetectedDomain, timeLeft := c.hasTargetDetectedReadyDomain(vmi)
 	// If we can't detect where the migration went to, then we have no
 	// way of transferring ownership. The only option here is to move the
