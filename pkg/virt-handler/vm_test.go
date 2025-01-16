@@ -1889,7 +1889,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 				UID:            "123",
 				StartTimestamp: &now,
 				EndTimestamp:   &now,
-				Completed:      true,
 			}
 
 			addVMI(vmi, domain)
