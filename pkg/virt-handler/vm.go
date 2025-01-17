@@ -1936,9 +1936,7 @@ func (c *VirtualMachineController) defaultExecute(key string,
 			log.Log.Object(vmi).V(3).Info("Deleting domain for VirtualMachineInstance with deletion timestamp.")
 			shouldDelete = true
 		default:
-			if vmi.IsFinal() {
-				shouldCleanUp = true
-			}
+			shouldCleanUp = true
 		}
 	}
 
