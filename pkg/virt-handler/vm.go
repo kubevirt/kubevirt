@@ -3558,7 +3558,7 @@ func (c *VirtualMachineController) reportTargetTopologyForMigratingVMI(vmi *v1.V
 }
 
 func (c *VirtualMachineController) handleMigrationAbort(vmi *v1.VirtualMachineInstance, client cmdclient.LauncherClient) error {
-	if vmi.Status.MigrationState.AbortStatus == v1.MigrationAbortInProgress {
+	if vmi.Status.MigrationState.AbortStatus == v1.MigrationAbortInProgress || vmi.Status.MigrationState.AbortStatus == v1.MigrationAbortSucceeded {
 		return nil
 	}
 
@@ -3568,7 +3568,6 @@ func (c *VirtualMachineController) handleMigrationAbort(vmi *v1.VirtualMachineIn
 		log.Log.Object(vmi).Infof("skipping migration cancellation since vmi is not migrating")
 		return err
 	}
-
 	c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), VMIAbortingMigration)
 	return nil
 }
