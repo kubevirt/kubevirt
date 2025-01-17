@@ -10,20 +10,22 @@ import (
 
 	"github.com/povsister/scp"
 
+	"kubevirt.io/client-go/kubecli"
+
 	"kubevirt.io/kubevirt/pkg/virtctl/ssh"
 )
 
-func (o *SCP) nativeSCP(local *LocalArgument, remote *RemoteArgument, toRemote bool) error {
-	sshClient := ssh.NativeSSHConnection{
-		ClientConfig: o.clientConfig,
-		Options:      o.options,
+func (o *SCP) nativeSCP(local *LocalArgument, remote *RemoteArgument, toRemote bool, client kubecli.KubevirtClient) error {
+	conn := ssh.NativeSSHConnection{
+		Client:  client,
+		Options: o.options,
 	}
-	client, err := sshClient.PrepareSSHClient(remote.Kind, remote.Namespace, remote.Name)
+	sshClient, err := conn.PrepareSSHClient(remote.Kind, remote.Namespace, remote.Name)
 	if err != nil {
 		return err
 	}
 
-	scpClient, err := scp.NewClientFromExistingSSH(client, &scp.ClientOption{})
+	scpClient, err := scp.NewClientFromExistingSSH(sshClient, &scp.ClientOption{})
 	if err != nil {
 		return err
 	}

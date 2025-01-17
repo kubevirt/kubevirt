@@ -25,26 +25,21 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
-
 	kubevirtV1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 type virtCommand struct {
-	clientConfig clientcmd.ClientConfig
-	dryRun       bool
+	dryRun bool
 }
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	c := virtCommand{
-		clientConfig: clientConfig,
-	}
+func NewCommand() *cobra.Command {
+	c := virtCommand{}
 	cmd := &cobra.Command{
 		Use:   "unpause vm|vmi (VM)|(VMI)",
 		Short: "Unpause a virtual machine",
@@ -53,9 +48,7 @@ First argument is the resource type, possible types are (case insensitive, both 
 Second argument is the name of the resource.`,
 		Args:    cobra.ExactArgs(2),
 		Example: usage(),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return c.Run(args)
-		},
+		RunE:    c.Run,
 	}
 
 	cmd.Flags().BoolVar(&c.dryRun, "dry-run", false, "--dry-run=false: Flag used to set whether to perform a dry run or not. If true the command will be executed without performing any changes.")
@@ -68,15 +61,11 @@ func usage() string {
 	return "  # Unpause a virtualmachine called 'myvm':\n  {{ProgramName}} unpause vm myvm"
 }
 
-func (vc *virtCommand) Run(args []string) error {
+func (vc *virtCommand) Run(cmd *cobra.Command, args []string) error {
 	resourceType := strings.ToLower(args[0])
 	resourceName := args[1]
-	namespace, _, err := vc.clientConfig.Namespace()
-	if err != nil {
-		return err
-	}
 
-	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(vc.clientConfig)
+	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("Cannot obtain KubeVirt client: %v", err)
 	}

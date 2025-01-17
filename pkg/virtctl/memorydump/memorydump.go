@@ -26,20 +26,18 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
-
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 	"kubevirt.io/kubevirt/pkg/virtctl/vmexport"
 )
@@ -73,9 +71,7 @@ var (
 	outputFile   string
 )
 
-type command struct {
-	clientConfig clientcmd.ClientConfig
-}
+type command struct{}
 
 // WaitForMemoryDumpCompleteFn allows overriding the function to wait for the memory dump object to be complete (useful for unit testing)
 var WaitForMemoryDumpCompleteFn = WaitForMemoryDumpComplete
@@ -103,16 +99,14 @@ func usageMemoryDump() string {
 }
 
 // NewMemoryDumpCommand returns a cobra.Command to handle the memory dump process
-func NewMemoryDumpCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewMemoryDumpCommand() *cobra.Command {
+	c := command{}
 	cmd := &cobra.Command{
 		Use:     "memory-dump get/download/remove (VM)",
 		Short:   "Dump the memory of a running VM to a pvc",
 		Example: usageMemoryDump(),
 		Args:    cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := command{clientConfig: clientConfig}
-			return c.run(args)
-		},
+		RunE:    c.run,
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().StringVar(&claimName, ClaimNameFlag, "", "pvc name to contain the memory dump")
@@ -127,12 +121,8 @@ func NewMemoryDumpCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	return cmd
 }
 
-func (c *command) run(args []string) error {
-	namespace, _, err := c.clientConfig.Namespace()
-	if err != nil {
-		return err
-	}
-	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(c.clientConfig)
+func (c *command) run(cmd *cobra.Command, args []string) error {
+	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("cannot obtain KubeVirt client: %v", err)
 	}

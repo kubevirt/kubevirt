@@ -36,15 +36,14 @@ func newVirtctlCommand(extraArgs ...string) *cobra.Command {
 	if kubeconfig := flag.Lookup("kubeconfig"); kubeconfig != nil && kubeconfig.Value.String() != "" {
 		args = append(args, "--kubeconfig="+kubeconfig.Value.String())
 	}
-	cmd, _ := virtctl.NewVirtctlCommand()
+	cmd := virtctl.NewVirtctlCommand()
 	cmd.SetArgs(append(args, extraArgs...))
 	return cmd
 }
 
 func newRepeatableVirtctlCommand(args ...string) func() error {
 	return func() error {
-		cmd := newVirtctlCommand(args...)
-		return cmd.Execute()
+		return newVirtctlCommand(args...).Execute()
 	}
 }
 

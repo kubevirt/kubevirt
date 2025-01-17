@@ -13,6 +13,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/ssh",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/virtctl/clientconfig:go_default_library",
         "//pkg/virtctl/portforward:go_default_library",
         "//pkg/virtctl/templates:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
@@ -24,7 +25,6 @@ go_library(
         "//vendor/golang.org/x/crypto/ssh/agent:go_default_library",
         "//vendor/golang.org/x/crypto/ssh/knownhosts:go_default_library",
         "//vendor/golang.org/x/term:go_default_library",
-        "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
     ] + select({
         "@io_bazel_rules_go//go/platform:windows": [
             "//vendor/golang.org/x/sys/windows:go_default_library",

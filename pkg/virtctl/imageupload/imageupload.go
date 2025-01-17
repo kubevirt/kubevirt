@@ -34,7 +34,7 @@ import (
 	"strings"
 	"time"
 
-	pb "github.com/cheggaaa/pb/v3"
+	"github.com/cheggaaa/pb/v3"
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -42,19 +42,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 
+	instancetypeapi "kubevirt.io/api/instancetype"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	uploadcdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1"
 
-	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
-
-	instancetypeapi "kubevirt.io/api/instancetype"
-
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
@@ -104,7 +102,7 @@ var UploadProcessingCompleteFunc processingCompleteFunc = waitUploadProcessingCo
 var GetHTTPClientFn = GetHTTPClient
 
 // NewImageUploadCommand returns a cobra.Command for handling the uploading of VM images
-func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewImageUploadCommand() *cobra.Command {
 	c := command{}
 	cmd := &cobra.Command{
 		Use:     "image-upload",
@@ -112,14 +110,9 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Example: usage(),
 		Args:    cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			namespace, _, err := clientConfig.Namespace()
+			client, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 			if err != nil {
 				return err
-			}
-
-			client, err := kubecli.GetKubevirtClientFromClientConfig(clientConfig)
-			if err != nil {
-				return fmt.Errorf("cannot obtain KubeVirt client: %v", err)
 			}
 
 			c.cmd = cmd

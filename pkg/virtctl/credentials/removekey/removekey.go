@@ -8,23 +8,22 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/retry"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/credentials/common"
 )
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewCommand() *cobra.Command {
 	cmdFlags := &removeSSHKeyFlags{}
 	cmd := &cobra.Command{
 		Use:     "remove-ssh-key",
 		Short:   "Remove credentials from a virtual machine.",
 		Example: exampleUsage,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRemoveKeyCommand(clientConfig, cmdFlags, cmd, args)
-		},
+		RunE:    cmdFlags.runRemoveKeyCommand,
 	}
 	cmdFlags.AddToCommand(cmd)
 
@@ -53,23 +52,18 @@ func (r *removeSSHKeyFlags) AddToCommand(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&r.Force, "force", false, "Force update of secret, even if it's not owned by the VM.")
 }
 
-func runRemoveKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *removeSSHKeyFlags, cmd *cobra.Command, args []string) error {
+func (r *removeSSHKeyFlags) runRemoveKeyCommand(cmd *cobra.Command, args []string) error {
 	vmName := args[0]
 
-	vmNamespace, _, err := clientConfig.Namespace()
+	cli, vmNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
-		return fmt.Errorf("error getting namespace: %w", err)
+		return fmt.Errorf("error getting kubevirt client or namespace: %w", err)
 	}
 
 	// Reading the key before accessing cluster
-	sshKey, err := common.GetSSHKey(&cmdFlags.SSHCommandFlags)
+	sshKey, err := common.GetSSHKey(&r.SSHCommandFlags)
 	if err != nil {
 		return fmt.Errorf("error getting ssh key: %w", err)
-	}
-
-	cli, err := kubecli.GetKubevirtClientFromClientConfig(clientConfig)
-	if err != nil {
-		return fmt.Errorf("error getting kubevirt client: %w", err)
 	}
 
 	vm, err := cli.VirtualMachine(vmNamespace).Get(cmd.Context(), vmName, metav1.GetOptions{})
@@ -77,25 +71,25 @@ func runRemoveKeyCommand(clientConfig clientcmd.ClientConfig, cmdFlags *removeSS
 		return fmt.Errorf("error getting virtual machine: %w", err)
 	}
 
-	secrets := common.GetSSHSecretsForUser(vm.Spec.Template.Spec.AccessCredentials, cmdFlags.User)
+	secrets := common.GetSSHSecretsForUser(vm.Spec.Template.Spec.AccessCredentials, r.User)
 	if len(secrets) == 0 {
-		cmd.Printf("No secrets associated with user %s", cmdFlags.User)
+		cmd.Printf("No secrets associated with user %s", r.User)
 		return nil
 	}
 
 	var filteredSecrets []string
-	if cmdFlags.Secret == "" {
+	if r.Secret == "" {
 		filteredSecrets = secrets
 	} else {
-		if common.ContainsValue(secrets, cmdFlags.Secret) {
-			filteredSecrets = append(filteredSecrets, cmdFlags.Secret)
+		if common.ContainsValue(secrets, r.Secret) {
+			filteredSecrets = append(filteredSecrets, r.Secret)
 		} else {
-			return fmt.Errorf("secret %s is not associated with user %s", cmdFlags.Secret, cmdFlags.User)
+			return fmt.Errorf("secret %s is not associated with user %s", r.Secret, r.User)
 		}
 	}
 
 	for _, secretName := range filteredSecrets {
-		err := removeKeyFromSecret(cmd.Context(), cli, vm, secretName, sshKey, cmdFlags.Force)
+		err := removeKeyFromSecret(cmd.Context(), cli, vm, secretName, sshKey, r.Force)
 		if err != nil {
 			return err
 		}

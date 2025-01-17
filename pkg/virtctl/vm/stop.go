@@ -24,24 +24,23 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
+
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const COMMAND_STOP = "stop"
 
-func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewStopCommand() *cobra.Command {
+	c := Command{command: COMMAND_STOP}
 	cmd := &cobra.Command{
 		Use:     "stop (VM)",
 		Short:   "Stop a virtual machine.",
 		Example: usage(COMMAND_STOP),
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Command{command: COMMAND_STOP, clientConfig: clientConfig}
-			return c.stopRun(args, cmd)
-		},
+		RunE:    c.stopRun,
 	}
 
 	cmd.Flags().BoolVar(&forceRestart, forceArg, false, "--force=false: Only used when grace-period=0. If true, immediately remove VMI pod from API and bypass graceful deletion. Note that immediate deletion of some resources may result in inconsistency or data loss and requires confirmation.")
@@ -51,11 +50,11 @@ func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	return cmd
 }
 
-func (o *Command) stopRun(args []string, cmd *cobra.Command) error {
+func (o *Command) stopRun(cmd *cobra.Command, args []string) error {
 	vmiName := args[0]
 	errorFmt := "error stopping VirtualMachine %v"
 
-	virtClient, namespace, err := GetNamespaceAndClient(o.clientConfig)
+	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

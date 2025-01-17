@@ -20,18 +20,19 @@
 package clone
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/client-go/tools/clientcmd"
 	clone "kubevirt.io/api/clone/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"sigs.k8s.io/yaml"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 )
 
 const (
@@ -66,8 +67,6 @@ type createClone struct {
 	templateAnnotationFilters []string
 	newMacAddresses           []string
 	newSmbiosSerial           string
-
-	clientConfig clientcmd.ClientConfig
 }
 
 type cloneSpec clone.VirtualMachineCloneSpec
@@ -77,18 +76,13 @@ var optFns = map[string]optionFn{
 	NewMacAddressesFlag: withNewMacAddresses,
 }
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	c := createClone{
-		clientConfig: clientConfig,
-	}
-
+func NewCommand() *cobra.Command {
+	c := createClone{}
 	cmd := &cobra.Command{
 		Use:     Clone,
 		Short:   "Create a clone object manifest",
 		Example: c.usage(),
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return c.run(cmd)
-		},
+		RunE:    c.run,
 	}
 
 	const emptyValue = ""
@@ -225,8 +219,8 @@ func (c *createClone) applyFlags(cmd *cobra.Command, spec *clone.VirtualMachineC
 	return nil
 }
 
-func (c *createClone) run(cmd *cobra.Command) error {
-	if err := c.setDefaults(); err != nil {
+func (c *createClone) run(cmd *cobra.Command, _ []string) error {
+	if err := c.setDefaults(cmd.Context()); err != nil {
 		return err
 	}
 
@@ -298,8 +292,8 @@ func (c *createClone) typeToTypedLocalObjectReference(sourceOrTargetType, source
 	}, nil
 }
 
-func (c *createClone) setDefaults() error {
-	namespace, overridden, err := c.clientConfig.Namespace()
+func (c *createClone) setDefaults(ctx context.Context) error {
+	_, namespace, overridden, err := clientconfig.ClientAndNamespaceFromContext(ctx)
 	if err != nil {
 		return err
 	}

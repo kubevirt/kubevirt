@@ -29,10 +29,11 @@ import (
 
 	"github.com/spf13/cobra"
 	yml "k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/tools/clientcmd"
-	v1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/yaml"
 
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
@@ -51,16 +52,14 @@ var (
 	outputFormat string
 )
 
-func NewExpandCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewExpandCommand() *cobra.Command {
+	c := Command{}
 	cmd := &cobra.Command{
 		Use:     "expand (VM)",
 		Short:   "Return the VirtualMachine object with expanded instancetype and preference.",
 		Example: usageExpand(),
 		Args:    cobra.MatchAll(cobra.ExactArgs(0), expandArgs()),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Command{clientConfig: clientConfig}
-			return c.expandRun(args, cmd)
-		},
+		RunE:    c.expandRun,
 	}
 	cmd.Flags().StringVar(&vmName, vmArg, "", "Specify VirtualMachine name that should be expanded. Mutually exclusive with \"--file\" flag.")
 	cmd.Flags().StringVarP(&filePath, filePathArg, filePathArgShort, "", "If present, the Virtual Machine spec in provided file will be expanded. Mutually exclusive with \"--vm\" flag.")
@@ -70,11 +69,11 @@ func NewExpandCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	return cmd
 }
 
-func (o *Command) expandRun(args []string, cmd *cobra.Command) error {
+func (o *Command) expandRun(cmd *cobra.Command, args []string) error {
 	var expandedVm *v1.VirtualMachine
 	var err error
 
-	virtClient, namespace, err := GetNamespaceAndClient(o.clientConfig)
+	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

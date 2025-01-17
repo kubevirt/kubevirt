@@ -23,12 +23,12 @@ import (
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/yaml"
 
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/create/params"
 )
 
@@ -47,14 +47,10 @@ type createPreference struct {
 	cpuTopology           string
 	machineType           string
 	preferredStorageClass string
-
-	clientConfig clientcmd.ClientConfig
 }
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	c := createPreference{
-		clientConfig: clientConfig,
-	}
+func NewCommand() *cobra.Command {
+	c := createPreference{}
 	cmd := &cobra.Command{
 		Use:     "preference",
 		Short:   "Create a VirtualMachinePreference or VirtualMachineClusterPreference manifest.",
@@ -71,7 +67,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 }
 
 func (c *createPreference) setDefaults(cmd *cobra.Command) error {
-	namespace, overridden, err := c.clientConfig.Namespace()
+	_, namespace, overridden, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

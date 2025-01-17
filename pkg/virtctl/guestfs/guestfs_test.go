@@ -11,10 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/rest"
 	k8stesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/clientcmd"
-
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/guestfs"
@@ -50,7 +47,7 @@ var _ = Describe("Guestfs shell", func() {
 			VolumeMode: &mode,
 		},
 	}
-	fakeCreateClientPVC := func(config *rest.Config, virtClientConfig clientcmd.ClientConfig) (*guestfs.K8sClient, error) {
+	fakeCreateClientPVC := func(_ kubecli.KubevirtClient) (*guestfs.K8sClient, error) {
 		kubeClient = fake.NewSimpleClientset(pvc)
 		kubeClient.Fake.PrependReactor("get", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
 			podRunning := &v1.Pod{
@@ -76,7 +73,7 @@ var _ = Describe("Guestfs shell", func() {
 		})
 		return &guestfs.K8sClient{Client: kubeClient, VirtClient: kubevirtClient}, nil
 	}
-	fakeCreateClientPVCinUse := func(config *rest.Config, virtClientConfig clientcmd.ClientConfig) (*guestfs.K8sClient, error) {
+	fakeCreateClientPVCinUse := func(_ kubecli.KubevirtClient) (*guestfs.K8sClient, error) {
 		otherPod := &v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-pod",
@@ -99,7 +96,7 @@ var _ = Describe("Guestfs shell", func() {
 		kubeClient = fake.NewSimpleClientset(pvc, otherPod)
 		return &guestfs.K8sClient{Client: kubeClient, VirtClient: kubevirtClient}, nil
 	}
-	fakeCreateClient := func(config *rest.Config, virtClientConfig clientcmd.ClientConfig) (*guestfs.K8sClient, error) {
+	fakeCreateClient := func(_ kubecli.KubevirtClient) (*guestfs.K8sClient, error) {
 		kubeClient = fake.NewSimpleClientset()
 		return &guestfs.K8sClient{Client: kubeClient, VirtClient: kubevirtClient}, nil
 	}

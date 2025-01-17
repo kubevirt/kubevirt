@@ -25,32 +25,29 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const COMMAND_FSLIST = "fslist"
 
-func NewFSListCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewFSListCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "fslist (VMI)",
 		Short:   "Return full list of filesystems available on the guest machine.",
 		Example: usage(COMMAND_FSLIST),
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Command{clientConfig: clientConfig}
-			return c.fsListRun(args)
-		},
+		RunE:    fsListRun,
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 
-func (o *Command) fsListRun(args []string) error {
+func fsListRun(cmd *cobra.Command, args []string) error {
 	vmiName := args[0]
 
-	virtClient, namespace, err := GetNamespaceAndClient(o.clientConfig)
+	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

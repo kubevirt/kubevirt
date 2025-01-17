@@ -25,10 +25,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
 
-	"kubevirt.io/client-go/kubecli"
-
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
@@ -36,19 +34,14 @@ const (
 	COMMAND_SOFT_REBOOT = "soft-reboot"
 )
 
-func NewSoftRebootCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewSoftRebootCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "soft-reboot (VMI)",
 		Short:   "Soft reboot a virtual machine instance",
 		Long:    `Soft reboot a virtual machine instance`,
 		Args:    cobra.ExactArgs(1),
 		Example: usage(COMMAND_SOFT_REBOOT),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := SoftReboot{
-				clientConfig: clientConfig,
-			}
-			return c.Run(args)
-		},
+		RunE:    Run,
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
@@ -60,19 +53,10 @@ func usage(cmd string) string {
 	return usage
 }
 
-type SoftReboot struct {
-	clientConfig clientcmd.ClientConfig
-}
-
-func (o *SoftReboot) Run(args []string) error {
+func Run(cmd *cobra.Command, args []string) error {
 	vmi := args[0]
 
-	namespace, _, err := o.clientConfig.Namespace()
-	if err != nil {
-		return err
-	}
-
-	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(o.clientConfig)
+	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("Cannot obtain KubeVirt client: %v", err)
 	}
