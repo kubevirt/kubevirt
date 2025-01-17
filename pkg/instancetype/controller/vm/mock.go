@@ -1,4 +1,4 @@
-package controller
+package vm
 
 import (
 	virtv1 "kubevirt.io/api/core/v1"
