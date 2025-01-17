@@ -183,10 +183,6 @@ func HasKernelBootContainerImage(vmi *v1.VirtualMachineInstance) bool {
 	return true
 }
 
-func HasHugePages(vmi *v1.VirtualMachineInstance) bool {
-	return vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil
-}
-
 func IsReadOnlyDisk(disk *v1.Disk) bool {
 	isReadOnlyCDRom := disk.CDRom != nil && (disk.CDRom.ReadOnly == nil || *disk.CDRom.ReadOnly)
 
