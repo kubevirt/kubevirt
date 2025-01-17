@@ -3436,6 +3436,58 @@ var _ = Describe("VirtualMachineInstance", func() {
 			testutils.ExpectEvent(recorder, v1.Migrated.String())
 		})
 	})
+
+	Context("handleMigrationAbort", func() {
+		DescribeTable("should abort the migration with an abort request", func(vmi *v1.VirtualMachineInstance) {
+			client.EXPECT().CancelVirtualMachineMigration(vmi)
+			Expect(controller.handleMigrationAbort(vmi, client)).To(Succeed())
+			testutils.ExpectEvent(recorder, VMIAbortingMigration)
+		},
+			Entry("when the request failed", libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+						AbortRequested: true,
+						AbortStatus:    v1.MigrationAbortFailed,
+					})))),
+			),
+			Entry("when the request the abort status isn't set", libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+						AbortRequested: true,
+					})))),
+			),
+		)
+		DescribeTable("should do nothing", func(vmi *v1.VirtualMachineInstance) {
+
+			Expect(controller.handleMigrationAbort(vmi, client)).To(Succeed())
+		},
+			Entry("when the request succeeded", libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+						AbortRequested: true,
+						AbortStatus:    v1.MigrationAbortInProgress,
+					})))),
+			),
+			Entry("when the request is in progress", libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+						AbortRequested: true,
+						AbortStatus:    v1.MigrationAbortSucceeded,
+					})))),
+			),
+		)
+
+		It("should return an error if the migration cancellation failed", func() {
+			const errMsg = "some error"
+			vmi := libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+						AbortRequested: true,
+					}))))
+			client.EXPECT().CancelVirtualMachineMigration(vmi).Return(fmt.Errorf(errMsg))
+			Expect(controller.handleMigrationAbort(vmi, client)).To(MatchError(errMsg))
+		})
+	})
 })
 
 var _ = Describe("DomainNotifyServerRestarts", func() {
