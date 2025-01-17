@@ -101,11 +101,7 @@ func (a *admitter) ApplyToVM(vm *virtv1.VirtualMachine) (
 	}
 
 	if spreadConflict := validation.CheckSpreadCPUTopology(instancetypeSpec, preferenceSpec); spreadConflict != nil {
-		return nil, nil, []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: spreadConflict.Error(),
-			Field:   spreadConflict.String(),
-		}}
+		return nil, nil, spreadConflict.StatusCauses()
 	}
 
 	conflicts := a.ApplyToVMI(
@@ -120,13 +116,5 @@ func (a *admitter) ApplyToVM(vm *virtv1.VirtualMachine) (
 		return instancetypeSpec, preferenceSpec, nil
 	}
 
-	causes := make([]metav1.StatusCause, 0, len(conflicts))
-	for _, conflict := range conflicts {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: conflict.Error(),
-			Field:   conflict.String(),
-		})
-	}
-	return nil, nil, causes
+	return nil, nil, conflicts.StatusCauses()
 }
