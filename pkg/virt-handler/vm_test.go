@@ -549,11 +549,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			vmiFeeder.Add(vmi)
 
-			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
-			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+			client.EXPECT().Close()
 
 			sanityExecute()
-			testutils.ExpectEvent(recorder, VMIDefined)
+
+			testutils.ExpectEvent(recorder, VMICrashed)
 			Expect(mockQueue.Len()).To(Equal(0))
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 		})
