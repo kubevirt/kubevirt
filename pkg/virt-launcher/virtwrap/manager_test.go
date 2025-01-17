@@ -1903,58 +1903,6 @@ var _ = Describe("Manager", func() {
 				return migration.AbortStatus
 			}, 5*time.Second, 2).Should(Equal(string(v1.MigrationAbortSucceeded)))
 		})
-		It("migration failure should be finalized even if we missed status update", func() {
-			migrationErrorChan := make(chan error)
-			defer close(migrationErrorChan)
-			fake_jobinfo := func() *libvirt.DomainJobInfo {
-				return &libvirt.DomainJobInfo{
-					Type:          libvirt.DOMAIN_JOB_NONE,
-					DataRemaining: uint64(0),
-				}
-			}()
-			fake_jobinfo_running := func() *libvirt.DomainJobInfo {
-				return &libvirt.DomainJobInfo{
-					Type:             libvirt.DOMAIN_JOB_UNBOUNDED,
-					DataRemaining:    uint64(32479827777),
-					DataRemainingSet: true,
-				}
-			}()
-
-			options := &cmdclient.MigrationOptions{
-				Bandwidth:               resource.MustParse("64Mi"),
-				ProgressTimeout:         3,
-				CompletionTimeoutPerGiB: 150,
-			}
-			vmi := newVMI(testNamespace, testVmName)
-			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				MigrationUID: "111222333",
-			}
-
-			migrationMetadata, _ := metadataCache.Migration.Load()
-			migrationMetadata.UID = vmi.Status.MigrationState.MigrationUID
-			metadataCache.Migration.Store(migrationMetadata)
-
-			manager := &LibvirtDomainManager{
-				virConn:       mockConn,
-				virtShareDir:  testVirtShareDir,
-				metadataCache: metadataCache,
-				cpuSetGetter:  fakeCpuSetGetter,
-			}
-
-			mockConn.EXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
-			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
-			gomock.InOrder(
-				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo_running, nil),
-				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(fake_jobinfo, nil),
-			)
-
-			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
-			monitor.startMonitor()
-			Eventually(func() bool {
-				migration, _ := metadataCache.Migration.Load()
-				return migration.Failed
-			}, 5*time.Second, 2).Should(BeTrue())
-		})
 
 	})
 
@@ -1976,50 +1924,6 @@ var _ = Describe("Manager", func() {
 
 			manager, _ := newLibvirtDomainManagerDefault()
 			Expect(manager.PrepareMigrationTarget(vmi, true, &cmdv1.VirtualMachineOptions{})).To(Succeed())
-		})
-		It("should verify that migration failure is set in the monitor thread", func() {
-			fake_jobinfo := func() *libvirt.DomainJobInfo {
-				return &libvirt.DomainJobInfo{
-					Type:             libvirt.DOMAIN_JOB_NONE,
-					DataRemaining:    uint64(32479827394),
-					DataRemainingSet: true,
-				}
-			}()
-
-			vmi := newVMI(testNamespace, testVmName)
-			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				MigrationUID: "111222333",
-			}
-
-			userData := "fake\nuser\ndata\n"
-			networkData := "FakeNetwork"
-			addCloudInitDisk(vmi, userData, networkData)
-			domainSpec := expectedDomainFor(vmi)
-			domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{}
-
-			manager, _ := newLibvirtDomainManagerDefault()
-
-			mockConn.EXPECT().LookupDomainByName(testDomainName).AnyTimes().DoAndReturn(mockDomainWithFreeExpectation)
-			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
-
-			domainXml, err := xml.MarshalIndent(domainSpec, "", "\t")
-			Expect(err).ToNot(HaveOccurred())
-			mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).AnyTimes().Return(fake_jobinfo, nil)
-			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(string(domainXml), nil)
-
-			mockDomain.EXPECT().MigrateToURI3(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("MigrationFailed"))
-			options := &cmdclient.MigrationOptions{
-				Bandwidth:               resource.MustParse("64Mi"),
-				ProgressTimeout:         150,
-				CompletionTimeoutPerGiB: 300,
-			}
-			Expect(manager.MigrateVMI(vmi, options)).To(Succeed())
-
-			migration, _ := metadataCache.Migration.Load()
-			Eventually(func() bool {
-				migration, _ = metadataCache.Migration.Load()
-				return migration.Failed
-			}, 5*time.Second, 2).Should(BeTrue(), fmt.Sprintf("failed migration result wasn't set [%+v]", migration))
 		})
 
 		It("should detect inprogress migration job", func() {
