@@ -204,10 +204,6 @@ func AlignImageSizeTo1MiB(size int64, logger *log.FilteredLogger) int64 {
 
 }
 
-func MarkAsNonroot(vmi *v1.VirtualMachineInstance) {
-	vmi.Status.RuntimeUser = 107
-}
-
 func SetDefaultVolumeDisk(spec *v1.VirtualMachineInstanceSpec) {
 	diskAndFilesystemNames := make(map[string]struct{})
 
