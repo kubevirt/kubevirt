@@ -57,7 +57,6 @@ import (
 	"k8s.io/utils/trace"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -241,8 +240,6 @@ type instancetypeHandler interface {
 	synchronizer
 	ApplyToVM(*virtv1.VirtualMachine) error
 	ApplyToVMI(*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) error
-	Find(*virtv1.VirtualMachine) (*v1beta1.VirtualMachineInstancetypeSpec, error)
-	FindPreference(*virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
 	ApplyDevicePreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error
 }
 
