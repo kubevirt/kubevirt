@@ -36,7 +36,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/defaults"
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/util"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -111,7 +110,7 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		})
 
 		if !mutator.ClusterConfig.RootEnabled() {
-			util.MarkAsNonroot(newVMI)
+			markAsNonroot(newVMI)
 		}
 
 		patchSet.AddOption(
@@ -157,4 +156,8 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 	}
 
 	return response
+}
+
+func markAsNonroot(vmi *v1.VirtualMachineInstance) {
+	vmi.Status.RuntimeUser = 107
 }

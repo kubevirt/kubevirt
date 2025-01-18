@@ -183,16 +183,6 @@ func HasKernelBootContainerImage(vmi *v1.VirtualMachineInstance) bool {
 	return true
 }
 
-func HasHugePages(vmi *v1.VirtualMachineInstance) bool {
-	return vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil
-}
-
-func IsReadOnlyDisk(disk *v1.Disk) bool {
-	isReadOnlyCDRom := disk.CDRom != nil && (disk.CDRom.ReadOnly == nil || *disk.CDRom.ReadOnly)
-
-	return isReadOnlyCDRom
-}
-
 // AlignImageSizeTo1MiB rounds down the size to the nearest multiple of 1MiB
 // A warning or an error may get logged
 // The caller is responsible for ensuring the rounded-down size is not 0
@@ -212,10 +202,6 @@ func AlignImageSizeTo1MiB(size int64, logger *log.FilteredLogger) int64 {
 		return newSize
 	}
 
-}
-
-func MarkAsNonroot(vmi *v1.VirtualMachineInstance) {
-	vmi.Status.RuntimeUser = 107
 }
 
 func SetDefaultVolumeDisk(spec *v1.VirtualMachineInstanceSpec) {

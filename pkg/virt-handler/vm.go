@@ -2530,7 +2530,7 @@ func (c *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 		} else {
 			isVolumeUsedByReadOnlyDisk := false
 			for _, disk := range vmi.Spec.Domain.Devices.Disks {
-				if virtutil.IsReadOnlyDisk(&disk) && disk.Name == volume.Name {
+				if isReadOnlyDisk(&disk) && disk.Name == volume.Name {
 					isVolumeUsedByReadOnlyDisk = true
 					break
 				}
@@ -3707,4 +3707,10 @@ func configureParallelMigrationThreads(options *cmdclient.MigrationOptions, vm *
 	}
 
 	options.ParallelMigrationThreads = pointer.P(parallelMultifdMigrationThreads)
+}
+
+func isReadOnlyDisk(disk *v1.Disk) bool {
+	isReadOnlyCDRom := disk.CDRom != nil && (disk.CDRom.ReadOnly == nil || *disk.CDRom.ReadOnly)
+
+	return isReadOnlyCDRom
 }
