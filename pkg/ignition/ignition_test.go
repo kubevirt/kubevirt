@@ -53,13 +53,13 @@ var _ = Describe("Ignition", func() {
 
 	Describe("A new VirtualMachineInstance definition", func() {
 		Context("with ignition data", func() {
-			vmi = libvmi.New(
-				libvmi.WithNamespace(namespace),
-				libvmi.WithName(vmName),
-			)
 			It("should success", func() {
 				data := "{ \"ignition\": { \"config\": {}, \"version\": \"2.2.0\" }, \"networkd\": {}, \"storage\": { \"files\": [ { \"contents\": { \"source\": \"data:,test\", \"verification\": {} }, \"filesystem\": \"root\", \"mode\": 420, \"path\": \"/etc/hostname\" } ] }, \"systemd\": {} }"
-				vmi.Annotations = map[string]string{v1.IgnitionAnnotation: data}
+				vmi = libvmi.New(
+					libvmi.WithNamespace(namespace),
+					libvmi.WithName(vmName),
+					libvmi.WithAnnotation(v1.IgnitionAnnotation: data),
+				)
 				err := GenerateIgnitionLocalData(vmi, namespace)
 				Expect(err).ToNot(HaveOccurred())
 				_, err = os.Stat(fmt.Sprintf("%s/%s/%s/%s", tmpDir, namespace, vmName, IgnitionFile))
