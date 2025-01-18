@@ -58,8 +58,8 @@ var _ = Describe("Ignition", func() {
 				vmi = libvmi.New(
 					libvmi.WithNamespace(namespace),
 					libvmi.WithName(vmName),
-					libvmi.WithAnnotation(v1.IgnitionAnnotation: data),
 				)
+				vmi.Annotations = map[string]string{v1.IgnitionAnnotation: data}
 				err := GenerateIgnitionLocalData(vmi, namespace)
 				Expect(err).ToNot(HaveOccurred())
 				_, err = os.Stat(fmt.Sprintf("%s/%s/%s/%s", tmpDir, namespace, vmName, IgnitionFile))
