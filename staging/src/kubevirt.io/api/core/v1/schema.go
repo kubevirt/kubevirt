@@ -795,6 +795,10 @@ type SEVPolicy struct {
 	// Defaults to false.
 	// +optional
 	EncryptedState *bool `json:"encryptedState,omitempty"`
+	// SEV-SNP is required.
+	// Defaults to false.
+	// +optional
+	SecureNestedPaging *bool `json:"secureNestedPaging,omitempty"`
 }
 
 type SEVAttestation struct {

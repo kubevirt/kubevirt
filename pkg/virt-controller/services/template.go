@@ -716,9 +716,9 @@ func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		log.Log.V(4).Info("Add SEV-ES node label selector")
 		opts = append(opts, WithSEVESSelector())
 	}
-	if util.IsSecureExecutionVMI(vmi) {
-		log.Log.V(4).Info("Add Secure Execution node label selector")
-		opts = append(opts, WithSecureExecutionSelector())
+	if util.IsSEVSNPVMI(vmi) {
+		log.Log.V(4).Info("Add SEV-SNP node label selector")
+		opts = append(opts, WithSEVSNPSelector())
 	}
 
 	return NewNodeSelectorRenderer(
