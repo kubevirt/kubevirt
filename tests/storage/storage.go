@@ -296,8 +296,8 @@ var _ = SIGDescribe("Storage", func() {
 					By(checkingVMInstanceConsoleOut)
 					Expect(console.LoginToAlpine(vmi)).To(Succeed())
 				},
-					Entry("[test_id:3130]with Disk PVC", newRandomVMIWithPVC, "", nil, true),
-					Entry("[test_id:3131]with CDRom PVC", newRandomVMIWithCDRom, "", nil, true),
+					Entry("[test_id:3130]with Disk PVC", decorators.StorageCritical, newRandomVMIWithPVC, "", nil, true),
+					Entry("[test_id:3131]with CDRom PVC", decorators.StorageCritical, newRandomVMIWithCDRom, "", nil, true),
 					Entry("[test_id:4618]with NFS Disk PVC using ipv4 address of the NFS pod", newRandomVMIWithPVC, "nfs", k8sv1.IPv4Protocol, true),
 					Entry("[Serial]with NFS Disk PVC using ipv6 address of the NFS pod", Serial, newRandomVMIWithPVC, "nfs", k8sv1.IPv6Protocol, true),
 					Entry("[Serial]with NFS Disk PVC using ipv4 address of the NFS pod not owned by qemu", Serial, newRandomVMIWithPVC, "nfs", k8sv1.IPv4Protocol, false),
@@ -462,7 +462,7 @@ var _ = SIGDescribe("Storage", func() {
 					By(checkingVMInstanceConsoleOut)
 					Expect(console.LoginToAlpine(vmi)).To(Succeed())
 				},
-					Entry("[test_id:3136]with Ephemeral PVC", "", nil),
+					Entry("[test_id:3136]with Ephemeral PVC", decorators.StorageCritical, "", nil),
 					Entry("[test_id:4619]with Ephemeral PVC from NFS using ipv4 address of the NFS pod", "nfs", k8sv1.IPv4Protocol),
 					Entry("with Ephemeral PVC from NFS using ipv6 address of the NFS pod", "nfs", k8sv1.IPv6Protocol),
 				)

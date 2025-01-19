@@ -346,7 +346,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}
 			})
 
-			It("[test_id:3189]should be successfully started and stopped multiple times", func() {
+			It("[test_id:3189]should be successfully started and stopped multiple times", decorators.StorageCritical, func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
 					Skip("Skip test when Filesystem storage is not present")
@@ -1057,7 +1057,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}, 30*time.Second, 5*time.Second).Should(BeTrue())
 			})
 
-			DescribeTable("[storage-req] deny then allow clone request", decorators.StorageReq, func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool, cloneMutateFunc func(), fail bool) {
+			DescribeTable("[storage-req] deny then allow clone request", decorators.StorageCritical, decorators.StorageReq, func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool, cloneMutateFunc func(), fail bool) {
 				if cloneMutateFunc != nil {
 					cloneMutateFunc()
 				}

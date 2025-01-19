@@ -168,7 +168,7 @@ var _ = SIGDescribe("[rfe_id:6364]Guestfs", Label("guestfs"), func() {
 			Expect(guestfsCmd.Execute()).To(HaveOccurred())
 		})
 
-		It("[posneg:positive][test_id:6479]Should successfully run guestfs command on a block-based PVC", Label("guestfs", "Block"), decorators.RequiresBlockStorage, func() {
+		It("[posneg:positive][test_id:6479]Should successfully run guestfs command on a block-based PVC", decorators.StorageCritical, decorators.RequiresBlockStorage, Label("guestfs", "Block"), func() {
 			pvcClaim = "pvc-block"
 			libstorage.CreateBlockPVC(pvcClaim, ns, "500Mi")
 			runGuestfsOnPVC(f, pvcClaim, ns)
