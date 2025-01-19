@@ -43,7 +43,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	libvirtxmlstab "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/capabilities"
 )
 
 var nodeLabellerLabels = []string{
@@ -70,7 +69,7 @@ type NodeLabeller struct {
 	clusterConfig           *virtconfig.ClusterConfig
 	hypervFeatures          supportedFeatures
 	hostCapabilities        supportedFeatures
-	supportedMachines       []libvirtxmlstab.CapsGuestMachine
+	supportedMachines       []libvirtxml.CapsGuestMachine
 	queue                   workqueue.TypedRateLimitingInterface[string]
 	supportedFeatures       []string
 	cpuModelVendor          string

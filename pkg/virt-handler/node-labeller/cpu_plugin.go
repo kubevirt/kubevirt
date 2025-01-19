@@ -28,8 +28,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"libvirt.org/go/libvirtxml"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	libvirtxml "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/capabilities"
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
