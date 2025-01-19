@@ -155,26 +155,12 @@ var _ = Describe("Node-labeller ", func() {
 		Expect(node.Labels).To(HaveKey(v1.SEVESLabel))
 	})
 
-	It("should not add SecureExecution label", func() {
-		nlController.volumePath = "testdata/s390x"
-		Expect(nlController.loadAll()).Should(Succeed())
-
+	It("should add SEVSNP label", func() {
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
 
 		node := retrieveNode(kubeClient)
-		Expect(node.Labels).To(Not(HaveKey(v1.SecureExecutionLabel)))
-	})
-
-	It("should  add SecureExecution label", func() {
-		nlController.domCapabilitiesFileName = "s390x/domcapabilities_s390-pv.xml"
-		Expect(nlController.loadAll()).Should(Succeed())
-
-		res := nlController.execute()
-		Expect(res).To(BeTrue())
-
-		node := retrieveNode(kubeClient)
-		Expect(node.Labels).To(HaveKey(v1.SecureExecutionLabel))
+		Expect(node.Labels).To(HaveKey(v1.SEVSNPLabel))
 	})
 
 	It("should add usable cpu model labels for the host cpu model", func() {

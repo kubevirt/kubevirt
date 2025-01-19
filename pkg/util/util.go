@@ -83,8 +83,53 @@ func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-func UseLaunchSecurity(vmi *v1.VirtualMachineInstance) bool {
-	return IsSEVVMI(vmi) || IsSecureExecutionVMI(vmi)
+// Check if a VMI spec requests AMD SEV
+func IsSEVVMI(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Spec.Domain.LaunchSecurity != nil && vmi.Spec.Domain.LaunchSecurity.SEV != nil
+}
+
+// Check if a VMI spec requests AMD SEV-ES
+func IsSEVESVMI(vmi *v1.VirtualMachineInstance) bool {
+	return IsSEVVMI(vmi) &&
+		vmi.Spec.Domain.LaunchSecurity.SEV.Policy != nil &&
+		vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState != nil &&
+		*vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState
+}
+
+// Check if a VMI spec requests AMD SEV-SNP
+func IsSEVSNPVMI(vmi *v1.VirtualMachineInstance) bool {
+	return IsSEVVMI(vmi) &&
+		vmi.Spec.Domain.LaunchSecurity.SEV.Policy != nil &&
+		vmi.Spec.Domain.LaunchSecurity.SEV.Policy.SecureNestedPaging != nil &&
+		*vmi.Spec.Domain.LaunchSecurity.SEV.Policy.SecureNestedPaging
+}
+
+// Check if a VMI spec requests SEV with attestation
+func IsSEVAttestationRequested(vmi *v1.VirtualMachineInstance) bool {
+	return IsSEVVMI(vmi) && vmi.Spec.Domain.LaunchSecurity.SEV.Attestation != nil
+}
+
+// NeedVirtioNetDevice checks whether a VMI requires the presence of the "virtio" net device.
+// This happens when the VMI wants to use a "virtio" network interface, and software emulation is disallowed.
+func NeedVirtioNetDevice(vmi *v1.VirtualMachineInstance, allowEmulation bool) bool {
+	return wantVirtioNetDevice(vmi) && !allowEmulation
+}
+
+// wantVirtioNetDevice checks whether a VMI references at least one "virtio" network interface.
+// Note that the reference can be explicit or implicit (unspecified nic models defaults to "virtio").
+func wantVirtioNetDevice(vmi *v1.VirtualMachineInstance) bool {
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.Model == "" || iface.Model == v1.VirtIO {
+			return true
+		}
+	}
+	return false
+}
+
+func NeedTunDevice(vmi *v1.VirtualMachineInstance) bool {
+	return (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
+		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
+		(*vmi.Spec.Domain.Devices.AutoattachPodInterface)
 }
 
 func IsAutoAttachVSOCK(vmi *v1.VirtualMachineInstance) bool {

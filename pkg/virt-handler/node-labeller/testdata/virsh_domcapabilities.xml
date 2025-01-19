@@ -27,5 +27,11 @@
           <maxGuests>15</maxGuests>
           <maxESGuests>15</maxESGuests>
         </sev>
+        <launchSecurity supported='yes'>
+          <enum name='sectype'>
+            <value>sev</value>
+            <value>sev-snp</value>
+          </enum>
+        </launchSecurity>
     </features>
 </domainCapabilities>
