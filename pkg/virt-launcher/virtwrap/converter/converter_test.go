@@ -3538,6 +3538,21 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.LaunchSecurity.Policy).To(Equal("0x" + strconv.FormatUint(uint64(sev.SNPPolicySmt|sev.SNPPolicyReserved), 16)))
 		})
 
+		It("should set memory backing with memfd", func() {
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+				SEV: &v1.SEV{
+					Policy: &v1.SEVPolicy{
+						SecureNestedPaging: pointer.P(true),
+					},
+				},
+			}
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.MemoryBacking.Source).ToNot(BeNil())
+			Expect(domain.Spec.MemoryBacking.Source.Type).To(Equal("memfd"))
+			Expect(domain.Spec.MemoryBacking.Access.Mode).To(Equal("private"))
+		})
+
 		It("should set IOMMU attribute of the RngDriver", func() {
 			rng := &api.Rng{}
 			Expect(Convert_v1_Rng_To_api_Rng(&v1.Rng{}, rng, c)).To(Succeed())
