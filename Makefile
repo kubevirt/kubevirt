@@ -66,7 +66,7 @@ current-dir := $(realpath .)
 prom-rules-verify: build-prom-spec-dumper
 	./hack/prom-rule-ci/verify-rules.sh \
 		"${current-dir}/_out/rule-spec-dumper" \
-		"${current-dir}/hack/prom-rule-ci/prom-rules-tests.yaml"
+		"${current-dir}/hack/prom-rule-ci"
 
 install:
 	go install ./cmd/...

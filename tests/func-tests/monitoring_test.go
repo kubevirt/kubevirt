@@ -31,7 +31,7 @@ import (
 
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
 
-	hcoalerts "github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/rules/alerts"
+	hcoalerts "github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/hyperconverged/rules/alerts"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	tests "github.com/kubevirt/hyperconverged-cluster-operator/tests/func-tests"
 )

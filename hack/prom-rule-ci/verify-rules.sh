@@ -26,18 +26,28 @@ function unit_test() {
         test rules /tmp/rules.test
 }
 
-function main() {
-    local prom_spec_dumper="${1:?}"
-    local tests_file="${2:?}"
+function test() {
+    local tests_file_name="${1:?}"
+    local prom_spec_dumper="${2:?}"
+    local current_dir="${3:?}"
+
     local target_file
     target_file="$(mktemp --tmpdir -u tmp.prom_rules.XXXXX)"
     trap "cleanup $target_file" RETURN EXIT INT
-    "$prom_spec_dumper" "$target_file"
+    "$prom_spec_dumper" "${tests_file_name}" "$target_file"
     echo "INFO: Rules file content:"
     cat "$target_file"
     echo
     lint "$target_file"
-    unit_test "$target_file" "$tests_file"
+    unit_test "$target_file" "${current_dir}/${tests_file_name}-prom-rules-tests.yaml"
+}
+
+function main() {
+    local prom_spec_dumper="${1:?}"
+    local tests_files_dir="${2:?}"
+
+    test "hyperconverged" "$prom_spec_dumper" "${tests_files_dir}"
+    test "observability" "$prom_spec_dumper" "${tests_files_dir}"
 }
 
 main "$@"

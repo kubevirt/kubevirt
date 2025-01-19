@@ -1,0 +1,121 @@
+---
+rule_files:
+  - /tmp/rules.verify
+
+group_eval_order:
+  - kubevirt.hyperconverged.rules
+
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'instance:node_cpu_utilisation:rate1m{instance="n1.cnv.redhat.com"}'
+        values: "0.5+0x30"
+      - series: 'instance:node_cpu_utilisation:rate1m{instance="n2.cnv.redhat.com"}'
+        values: "stale+0x10 0.5+0x10 0.9+0x10"
+
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: HighCPUWorkload
+        exp_alerts: [ ]
+
+      - eval_time: 18m
+        alertname: HighCPUWorkload
+        exp_alerts: [ ]
+
+      - eval_time: 28m
+        alertname: HighCPUWorkload
+        exp_alerts:
+          - exp_annotations:
+              summary: "High CPU usage on host n2.cnv.redhat.com"
+              description: "CPU utilization for n2.cnv.redhat.com has been above 90% for more than 5 minutes."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/HighCPUWorkload"
+            exp_labels:
+              instance: "n2.cnv.redhat.com"
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "cnv-observability"
+
+
+  - interval: 1m
+    input_series:
+      # Control plane node - n1.cnv.redhat.com
+      - series: 'kube_node_role{node="n1.cnv.redhat.com",role="control-plane"}'
+        values: "1+0x30"
+      # Non-control plane node - n2.cnv.redhat.com
+      - series: 'kube_node_role{node="n2.cnv.redhat.com",role="worker"}'
+        values: "0+0x30"
+      # n1.cnv.redhat.com is ready for 10 minutes and then becomes not ready
+      - series: 'kube_node_status_condition{condition="Ready",status="true",node="n1.cnv.redhat.com"}'
+        values: "1+0x10 0+0x10"
+      # n2.cnv.redhat.com is always not ready but doesn't have the control-plane role
+      - series: 'kube_node_status_condition{condition="Ready",status="true",node="n2.cnv.redhat.com"}'
+        values: "0+0x20"
+
+    alert_rule_test:
+        - eval_time: 8m
+          alertname: HAControlPlaneDown
+          exp_alerts: [ ]
+
+        - eval_time: 18m
+          alertname: HAControlPlaneDown
+          exp_alerts:
+          - exp_annotations:
+              summary: "Control plane node n1.cnv.redhat.com is not ready"
+              description: "Control plane node n1.cnv.redhat.com has been not ready for more than 5 minutes."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/HAControlPlaneDown"
+            exp_labels:
+              node: "n1.cnv.redhat.com"
+              severity: "critical"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "cnv-observability"
+
+  - interval: 1m
+    input_series:
+      - series: 'node_network_up{instance="n1.cnv.redhat.com", device="eno0"}'
+        values: "1+0x10 0+0x10"
+      - series: 'node_network_up{instance="n2.cnv.redhat.com", device="eno0"}'
+        values: "1+0x10 0+0x10"
+      - series: 'node_network_up{instance="n2.cnv.redhat.com", device="eno1"}'
+        values: "0+0x20"
+
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: NodeNetworkInterfaceDown
+        exp_alerts:
+          - exp_annotations:
+              summary: "Network interfaces are down"
+              description: "1 network devices have been down on instance n2.cnv.redhat.com for more than 5 minutes."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/NodeNetworkInterfaceDown"
+            exp_labels:
+              instance: "n2.cnv.redhat.com"
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "cnv-observability"
+
+      - eval_time: 18m
+        alertname: NodeNetworkInterfaceDown
+        exp_alerts:
+          - exp_annotations:
+              summary: "Network interfaces are down"
+              description: "2 network devices have been down on instance n2.cnv.redhat.com for more than 5 minutes."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/NodeNetworkInterfaceDown"
+            exp_labels:
+              instance: "n2.cnv.redhat.com"
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "cnv-observability"
+
+          - exp_annotations:
+              summary: "Network interfaces are down"
+              description: "1 network devices have been down on instance n1.cnv.redhat.com for more than 5 minutes."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/NodeNetworkInterfaceDown"
+            exp_labels:
+              instance: "n1.cnv.redhat.com"
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "cnv-observability"

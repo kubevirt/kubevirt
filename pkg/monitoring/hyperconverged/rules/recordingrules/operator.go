@@ -7,7 +7,7 @@ import (
 	"github.com/machadovilaca/operator-observability/pkg/operatorrules"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/metrics"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/hyperconverged/metrics"
 )
 
 const (
