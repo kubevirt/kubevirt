@@ -1705,20 +1705,20 @@ func syncVolumeMigration(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineIn
 			recoveredOldVMVolumes = false
 		}
 	}
-	if recoveredOldVMVolumes {
+	if recoveredOldVMVolumes || (vm.Spec.UpdateVolumesStrategy == nil || *vm.Spec.UpdateVolumesStrategy != virtv1.UpdateVolumesStrategyMigration) {
 		vm.Status.VolumeUpdateState.VolumeMigrationState = nil
 		// Clean-up the volume change label when the volume set has been restored
 		vmCond.RemoveCondition(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange))
 		vmCond.RemoveCondition(vm, virtv1.VirtualMachineManualRecoveryRequired)
 		return
 	}
-	if vmi == nil {
+	if vmi == nil || vmi.IsFinal() {
 		if vmCond.HasConditionWithStatus(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange), k8score.ConditionTrue) {
 			// Something went wrong with the VMI while the volume migration was in progress
 			vmCond.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 				Type:   virtv1.VirtualMachineManualRecoveryRequired,
 				Status: k8score.ConditionTrue,
-				Reason: "VMI was removed during the volume migration",
+				Reason: "VMI was removed or was final during the volume migration",
 			})
 		}
 		return
