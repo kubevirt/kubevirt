@@ -1978,19 +1978,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Fail("Cluster has the HostDisk featuregate disabled, use skip for HostDiskGate")
 			}
 
-			sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
-			if !foundSC {
-				Fail(`Block storage is not present. You can filter by "blockrwo" label`)
-			}
-
-			dataVolume := libdv.NewDataVolume(
-				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-				libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithBlockVolumeMode()),
-			)
-			dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
-
 			tmpHostDiskDir := storage.RandHostDiskDir()
 			vmi := libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
