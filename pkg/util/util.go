@@ -96,6 +96,14 @@ func IsSEVESVMI(vmi *v1.VirtualMachineInstance) bool {
 		*vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState
 }
 
+// Check if a VMI spec requests AMD SEV-SNP
+func IsSEVSNPVMI(vmi *v1.VirtualMachineInstance) bool {
+	return IsSEVVMI(vmi) &&
+		vmi.Spec.Domain.LaunchSecurity.SEV.Policy != nil &&
+		vmi.Spec.Domain.LaunchSecurity.SEV.Policy.SecureNestedPaging != nil &&
+		*vmi.Spec.Domain.LaunchSecurity.SEV.Policy.SecureNestedPaging
+}
+
 // Check if a VMI spec requests SEV with attestation
 func IsSEVAttestationRequested(vmi *v1.VirtualMachineInstance) bool {
 	return IsSEVVMI(vmi) && vmi.Spec.Domain.LaunchSecurity.SEV.Attestation != nil
