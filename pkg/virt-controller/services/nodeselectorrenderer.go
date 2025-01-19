@@ -22,6 +22,7 @@ type NodeSelectorRenderer struct {
 	realtimeEnabled  bool
 	sevEnabled       bool
 	sevESEnabled     bool
+	sevSNPEnabled    bool
 }
 
 type NodeSelectorRendererOption func(renderer *NodeSelectorRenderer)
@@ -73,6 +74,9 @@ func (nsr *NodeSelectorRenderer) Render() map[string]string {
 	if nsr.sevESEnabled {
 		nsr.enableSelectorLabel(v1.SEVESLabel)
 	}
+	if nsr.sevSNPEnabled {
+		nsr.enableSelectorLabel(v1.SEVSNPLabel)
+	}
 
 	return nsr.podNodeSelectors
 }
@@ -98,6 +102,11 @@ func WithSEVSelector() NodeSelectorRendererOption {
 func WithSEVESSelector() NodeSelectorRendererOption {
 	return func(renderer *NodeSelectorRenderer) {
 		renderer.sevESEnabled = true
+	}
+}
+func WithSEVSNPSelector() NodeSelectorRendererOption {
+	return func(renderer *NodeSelectorRenderer) {
+		renderer.sevSNPEnabled = true
 	}
 }
 
