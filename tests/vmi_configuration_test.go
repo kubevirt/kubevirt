@@ -2030,7 +2030,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(disks[4].Driver.Cache).To(Equal(cacheNone))
 		})
 
-		It("[test_id:5360]should set appropriate IO modes", decorators.BlockRWO, func() {
+		It("[test_id:5360]should set appropriate IO modes", decorators.RequiresBlockStorage, func() {
 			By("Creating block Datavolume")
 			sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
 			if !foundSC {
@@ -2106,12 +2106,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 	Context("Block size configuration set", func() {
 
-		It("[test_id:6965]Should set BlockIO when using custom block sizes", decorators.SigStorage, decorators.BlockRWO, func() {
+		It("[test_id:6965]Should set BlockIO when using custom block sizes", decorators.SigStorage, decorators.RequiresBlockStorage, func() {
 
 			By("creating a block volume")
 			sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
 			if !foundSC {
-				Fail(`Block storage is not present. You can filter by "blockrwo" label`)
+				Fail(`Block storage is not present. You can filter by "RequiresBlockStorage" label`)
 			}
 
 			dataVolume := libdv.NewDataVolume(
@@ -2155,12 +2155,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(disks[0].BlockIO.PhysicalBlockSize).To(Equal(physicalSize))
 		})
 
-		It("[test_id:6966]Should set BlockIO when set to match volume block sizes on block devices", decorators.SigStorage, decorators.BlockRWO, func() {
+		It("[test_id:6966]Should set BlockIO when set to match volume block sizes on block devices", decorators.SigStorage, decorators.RequiresBlockStorage, func() {
 
 			By("creating a block volume")
 			sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
 			if !foundSC {
-				Fail(`Block storage is not present. You can skip by "blockrwo" label`)
+				Fail(`Block storage is not present. You can skip by "RequiresBlockStorage" label`)
 			}
 
 			dataVolume := libdv.NewDataVolume(

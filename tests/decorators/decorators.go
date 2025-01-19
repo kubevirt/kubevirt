@@ -65,7 +65,6 @@ var (
 	RequiresDualStackCluster             = Label("requires-dual-stack-cluster")
 	RequiresHugepages2Mi                 = Label("requireHugepages2Mi")
 	RequiresHugepages1Gi                 = Label("requireHugepages1Gi")
-	BlockRWO                             = Label("blockrwo")
 
 	// Storage classes
 	// Requires a storage class with support for snapshots
