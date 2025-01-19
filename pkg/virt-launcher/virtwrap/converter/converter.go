@@ -1658,6 +1658,19 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
+	// SEV-SNP must use memfd
+	if util.IsSEVSNPVMI(vmi) {
+		if domain.Spec.MemoryBacking == nil {
+			domain.Spec.MemoryBacking = &api.MemoryBacking{}
+		}
+		domain.Spec.MemoryBacking.Source = &api.MemoryBackingSource{
+			Type: "memfd",
+		}
+		domain.Spec.MemoryBacking.Access = &api.MemoryBackingAccess{
+			Mode: "private",
+		}
+	}
+
 	volumeIndices := map[string]int{}
 	volumes := map[string]*v1.Volume{}
 	for i, volume := range vmi.Spec.Volumes {
