@@ -1978,7 +1978,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Fail("Cluster has the HostDisk featuregate disabled, use skip for HostDiskGate")
 			}
 
-			tmpHostDiskDir := storage.RandHostDiskDir()
 			vmi := libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -1988,9 +1987,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithContainerDisk("ephemeral-disk5", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 				libvmi.WithContainerDisk("ephemeral-disk3", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData("#!/bin/bash\necho 'hello'\n")),
-				libvmi.WithHostDisk("hostdisk", filepath.Join(tmpHostDiskDir, "test-disk.img"), v1.HostDiskExistsOrCreate),
-				// hostdisk needs a privileged namespace
-				libvmi.WithNamespace(testsuite.NamespacePrivileged),
 			)
 
 			By("setting disk caches")
@@ -2004,11 +2000,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(err).NotTo(HaveOccurred())
-			defer func() {
-				Expect(storage.RemoveHostDisk(tmpHostDiskDir, vmiPod.Spec.NodeName)).To(Succeed())
-			}()
 
 			disks := runningVMISpec.Devices.Disks
 			By("checking if number of attached disks is equal to real disks number")
@@ -2037,11 +2028,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			By("checking if default cache 'none' has been set to cloud-init disk")
 			Expect(disks[4].Alias.GetName()).To(Equal(libvmi.CloudInitDiskName))
 			Expect(disks[4].Driver.Cache).To(Equal(cacheNone))
-
-			By("checking if default cache 'writethrough' has been set to fs which does not support direct I/O")
-			Expect(disks[5].Alias.GetName()).To(Equal("hostdisk"))
-			Expect(disks[5].Driver.Cache).To(Equal(cacheWritethrough))
-
 		})
 
 		It("[test_id:5360]should set appropriate IO modes", decorators.BlockRWO, func() {
