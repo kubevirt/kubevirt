@@ -27,14 +27,20 @@ const (
 	// Guest policy bits as defined in AMD SEV API specification
 	SEVPolicyNoDebug        uint = 1 << 0
 	SEVPolicyEncryptedState uint = 1 << 2
+
+	// SEV-SNP guest policy as defined in AMD SEV-SNP API specification
+	SNPPolicySmt      uint = 1 << 16
+	SNPPolicyReserved uint = 1 << 17
 )
 
 func SEVPolicyToBits(policy *v1.SEVPolicy) uint {
-	// NoDebug is always true
+	// NoDebug is always true for SEV and SEV-ES
 	bits := uint(SEVPolicyNoDebug)
 
 	if policy != nil {
-		if policy.EncryptedState != nil && *policy.EncryptedState {
+		if policy.SecureNestedPaging != nil && *policy.SecureNestedPaging {
+			return SNPPolicySmt | SNPPolicyReserved
+		} else if policy.EncryptedState != nil && *policy.EncryptedState {
 			bits = bits | SEVPolicyEncryptedState
 		}
 	}
