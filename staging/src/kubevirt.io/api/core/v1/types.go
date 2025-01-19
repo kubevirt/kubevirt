@@ -1273,8 +1273,8 @@ const (
 	// SEVESLabel marks the node as capable of running workloads with SEV-ES
 	SEVESLabel string = "kubevirt.io/sev-es"
 
-	// SecureExecutionLabel marks the node as capable of running workloads with IBM Secure Execution
-	SecureExecutionLabel string = "kubevirt.io/s390-pv"
+	// SEVSNPLabel marks the node as capable of running workloads with SEV-SNP
+	SEVSNPLabel string = "kubevirt.io/sev-snp"
 
 	// KSMEnabledLabel marks the node as KSM-handling enabled
 	KSMEnabledLabel string = "kubevirt.io/ksm-enabled"
