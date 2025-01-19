@@ -1270,7 +1270,22 @@ var _ = Describe("Template", func() {
 					Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue(v1.SEVESLabel, "true"))
 				})
 
-				DescribeTable("should not add SEV-ES node label selector", func(policy *v1.SEVPolicy) {
+				It("should add SEV and SEV-SNP node label selector with SEV-SNP workload", func() {
+					vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+						SEV: &v1.SEV{
+							Policy: &v1.SEVPolicy{
+								SecureNestedPaging: pointer.P(true),
+							},
+						},
+					}
+
+					pod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue(v1.SEVLabel, "true"))
+					Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue(v1.SEVSNPLabel, "true"))
+				})
+
+				DescribeTable("should not add SEV-ES or SEV-SNP node label selector", func(policy *v1.SEVPolicy) {
 					vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
 						SEV: &v1.SEV{
 							Policy: policy,
@@ -1279,6 +1294,7 @@ var _ = Describe("Template", func() {
 					pod, err := svc.RenderLaunchManifest(vmi)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.SEVESLabel))))
+					Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.SEVSNPLabel))))
 				},
 					Entry("when no SEV policy is set", &v1.SEVPolicy{}),
 					Entry("when no SEV-ES policy bit is set", &v1.SEVPolicy{EncryptedState: nil}),
