@@ -20,9 +20,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
-const DownwardmetricsRefreshDuration = 5 * time.Second
-const DownwardmetricsCollectionTimeout = collector.CollectionTimeout
-const qemuVersionUnknown = "qemu-unknown"
+const (
+	DownwardmetricsRefreshDuration   = 5 * time.Second
+	DownwardmetricsCollectionTimeout = collector.CollectionTimeout
+	qemuVersionUnknown               = "qemu-unknown"
+)
 
 type StaticHostMetrics struct {
 	HostName             string
@@ -101,7 +103,7 @@ func (r *DownwardMetricsReporter) Report(socketFile string) (*api.Metrics, error
 	// If it wakes up past the timeout, there is no point in send back any metric.
 	// In the best case the information is stale, in the worst case the information is stale *and*
 	// the reporting channel is already closed, leading to a possible panic - see below
-	elapsed := time.Now().Sub(ts)
+	elapsed := time.Since(ts)
 	if elapsed > collector.StatsMaxAge {
 		log.Log.Infof("took too long (%v) to collect stats from %s: ignored", elapsed, socketFile)
 		return nil, fmt.Errorf("took too long (%v) to collect stats from %s: ignored", elapsed, socketFile)
@@ -128,23 +130,19 @@ func guestCPUMetrics(vmStats *stats.DomainStats) []api.Metric {
 		cpuTimeTotal += vcpu.Time
 	}
 
+	const nanosecondsInSecond = 1e9
 	return []api.Metric{
-		metricspkg.MustToVMMetric(float64(cpuTimeTotal)/float64(1000000000), "TotalCPUTime", "s"),
+		metricspkg.MustToVMMetric(float64(cpuTimeTotal)/nanosecondsInSecond, "TotalCPUTime", "s"),
 		metricspkg.MustToVMMetric(vmStats.NrVirtCpu, "ResourceProcessorLimit", ""),
 	}
 }
 
 func guestMemoryMetrics(vmStats *stats.DomainStats) []api.Metric {
-
 	return []api.Metric{
 		metricspkg.MustToVMMetric(vmStats.Memory.ActualBalloon, "PhysicalMemoryAllocatedToVirtualSystem", "KiB"),
 		// Since we don't do active ballooning, ActualBalloon is the same as the memory limit
 		metricspkg.MustToVMMetric(vmStats.Memory.ActualBalloon, "ResourceMemoryLimit", "KiB"),
 	}
-}
-
-type Collector struct {
-	concCollector *collector.ConcurrentCollector
 }
 
 func NewReporter(nodeName string) *DownwardMetricsReporter {
@@ -158,12 +156,17 @@ func NewReporter(nodeName string) *DownwardMetricsReporter {
 	}
 }
 
-func RunDownwardMetricsCollector(context context.Context, nodeName string, vmiInformer cache.SharedIndexInformer, isolation isolation.PodIsolationDetector) error {
+func RunDownwardMetricsCollector(
+	ctx context.Context,
+	nodeName string,
+	vmiInformer cache.SharedIndexInformer,
+	isolationDetector isolation.PodIsolationDetector,
+) error {
 	scraper := &Scraper{
-		isolation: isolation,
+		isolation: isolationDetector,
 		reporter:  NewReporter(nodeName),
 	}
-	collector := collector.NewConcurrentCollector(1)
+	statsCollector := collector.NewConcurrentCollector(1)
 
 	go func() {
 		ticker := time.NewTicker(DownwardmetricsRefreshDuration)
@@ -173,7 +176,8 @@ func RunDownwardMetricsCollector(context context.Context, nodeName string, vmiIn
 			case <-ticker.C:
 				cachedObjs := vmiInformer.GetIndexer().List()
 				if len(cachedObjs) == 0 {
-					log.Log.V(4).Infof("No VMIs detected")
+					const debugVerbosityLevel = 4
+					log.Log.V(debugVerbosityLevel).Infof("No VMIs detected")
 					continue
 				}
 
@@ -182,8 +186,8 @@ func RunDownwardMetricsCollector(context context.Context, nodeName string, vmiIn
 				for _, obj := range cachedObjs {
 					vmis = append(vmis, obj.(*k6sv1.VirtualMachineInstance))
 				}
-				collector.Collect(vmis, scraper, DownwardmetricsCollectionTimeout)
-			case <-context.Done():
+				statsCollector.Collect(vmis, scraper, DownwardmetricsCollectionTimeout)
+			case <-ctx.Done():
 				return
 			}
 		}
