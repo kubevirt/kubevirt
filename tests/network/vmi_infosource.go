@@ -104,6 +104,8 @@ var _ = SIGDescribe("Infosource", func() {
 			infoSourceDomainAndGAAndMultusStatus := netvmispec.NewInfoSource(
 				netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent, netvmispec.InfoSourceMultusStatus)
 
+			const linkStateUp = "up"
+
 			expectedInterfaces := []kvirtv1.VirtualMachineInstanceNetworkInterface{
 				{
 					InfoSource:       netvmispec.InfoSourceDomain,
@@ -111,6 +113,7 @@ var _ = SIGDescribe("Infosource", func() {
 					Name:             primaryNetwork,
 					PodInterfaceName: namescheme.PrimaryPodInterfaceName,
 					QueueCount:       network.DefaultInterfaceQueueCount,
+					LinkState:        linkStateUp,
 				},
 				{
 					InfoSource:       infoSourceDomainAndGAAndMultusStatus,
@@ -119,6 +122,7 @@ var _ = SIGDescribe("Infosource", func() {
 					Name:             secondaryInterface1Name,
 					PodInterfaceName: namescheme.GenerateHashedInterfaceName(secondaryInterface1Name),
 					QueueCount:       network.DefaultInterfaceQueueCount,
+					LinkState:        linkStateUp,
 				},
 				{
 					InfoSource:       infoSourceDomainAndMultusStatus,
@@ -126,6 +130,7 @@ var _ = SIGDescribe("Infosource", func() {
 					Name:             secondaryInterface2Name,
 					PodInterfaceName: namescheme.GenerateHashedInterfaceName(secondaryInterface2Name),
 					QueueCount:       network.DefaultInterfaceQueueCount,
+					LinkState:        linkStateUp,
 				},
 				{
 					InfoSource:    netvmispec.InfoSourceGuestAgent,

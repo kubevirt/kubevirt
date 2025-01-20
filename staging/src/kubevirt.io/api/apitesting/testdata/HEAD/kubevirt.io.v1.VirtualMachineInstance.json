@@ -902,7 +902,8 @@
         "podInterfaceName": "podInterfaceNameValue",
         "interfaceName": "interfaceNameValue",
         "infoSource": "infoSourceValue",
-        "queueCount": -10
+        "queueCount": -10,
+        "linkState": "linkStateValue"
       }
     ],
     "guestOSInfo": {
