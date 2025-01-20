@@ -1280,7 +1280,11 @@ type Interface struct {
 	// +optional
 	ACPIIndex int `json:"acpiIndex,omitempty"`
 	// State represents the requested operational state of the interface.
-	// The (only) value supported is `absent`, expressing a request to remove the interface.
+	// The supported values are:
+	// `absent`, expressing a request to remove the interface.
+	// `down`, expressing a request to set the link down.
+	// `up`, expressing a request to set the link up.
+	// Empty value functions as `up`.
 	// +optional
 	State InterfaceState `json:"state,omitempty"`
 }
@@ -1288,7 +1292,9 @@ type Interface struct {
 type InterfaceState string
 
 const (
-	InterfaceStateAbsent InterfaceState = "absent"
+	InterfaceStateAbsent   InterfaceState = "absent"
+	InterfaceStateLinkUp   InterfaceState = "up"
+	InterfaceStateLinkDown InterfaceState = "down"
 )
 
 // Extra DHCP options to use in the interface.

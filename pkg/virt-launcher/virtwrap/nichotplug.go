@@ -51,7 +51,9 @@ type virtIOInterfaceManager struct {
 const (
 	// ReservedInterfaces represents the number of interfaces the domain
 	// should reserve for future hotplug additions.
-	ReservedInterfaces = 4
+	ReservedInterfaces            = 4
+	LibvirtInterfaceLinkStateUP   = "up"
+	LibvirtInterfaceLinkStateDown = "down"
 )
 
 func newVirtIOInterfaceManager(
@@ -81,6 +83,11 @@ func (vim *virtIOInterfaceManager) hotplugVirtioInterface(vmi *v1.VirtualMachine
 		if relevantIface.MAC != nil {
 			ifaceMAC = relevantIface.MAC.MAC
 		}
+		vmiIface := netvmispec.LookupInterfaceByName(vmi.Spec.Domain.Devices.Interfaces, relevantIface.Alias.GetName())
+		if vmiIface != nil && vmiIface.State == v1.InterfaceStateLinkDown {
+			relevantIface.LinkState = &api.LinkState{State: LibvirtInterfaceLinkStateDown}
+		}
+
 		log.Log.Infof("will hot plug %q with MAC %q", network.Name, ifaceMAC)
 		ifaceXML, err := xml.Marshal(relevantIface)
 		if err != nil {
@@ -90,6 +97,71 @@ func (vim *virtIOInterfaceManager) hotplugVirtioInterface(vmi *v1.VirtualMachine
 		if err := vim.dom.AttachDeviceFlags(strings.ToLower(string(ifaceXML)), affectDeviceLiveAndConfigLibvirtFlags); err != nil {
 			log.Log.Reason(err).Errorf("libvirt failed to attach interface %s: %v", network.Name, err)
 			return err
+		}
+	}
+	return nil
+}
+
+// normalizeDomainLinkState anything other than down is considered up
+func normalizeDomainLinkState(iface *api.Interface) v1.InterfaceState {
+	if iface.LinkState != nil && iface.LinkState.State == LibvirtInterfaceLinkStateDown {
+		return v1.InterfaceStateLinkDown
+	}
+	return v1.InterfaceStateLinkUp
+}
+
+// normalizeVMLinkState anything other than down is considered up
+func normalizeVMLinkState(iface *v1.Interface) v1.InterfaceState {
+	if iface.State == v1.InterfaceStateLinkDown {
+		return iface.State
+	}
+	return v1.InterfaceStateLinkUp
+}
+
+func requiredLinkAction(vmiIface v1.Interface, domIface api.Interface) v1.InterfaceState {
+	normalizedVMLinkState := normalizeVMLinkState(&vmiIface)
+	normalizedDomainLinkState := normalizeDomainLinkState(&domIface)
+	switch {
+	case normalizedVMLinkState == v1.InterfaceStateLinkUp && normalizedDomainLinkState == v1.InterfaceStateLinkDown:
+		return v1.InterfaceStateLinkUp
+	case normalizedVMLinkState == v1.InterfaceStateLinkDown && normalizedDomainLinkState == v1.InterfaceStateLinkUp:
+		return v1.InterfaceStateLinkDown
+	}
+	return ""
+}
+
+func (vim *virtIOInterfaceManager) updateDomainWithLinkState(domIfaceToPatch *api.Interface, targetState v1.InterfaceState) error {
+	if targetState == "" {
+		return nil
+	}
+	log.Log.Infof("preparing to set link %s for %s", domIfaceToPatch.Alias.GetName(), targetState)
+	linkTargetStateInDomain := LibvirtInterfaceLinkStateUP
+	//seems obvious but mapping kubevirt terminology to libvirt
+	if targetState == v1.InterfaceStateLinkDown {
+		linkTargetStateInDomain = LibvirtInterfaceLinkStateDown
+	}
+	domIfaceToPatch.LinkState = &api.LinkState{State: linkTargetStateInDomain}
+	ifaceXML, err := xml.Marshal(domIfaceToPatch)
+	if err != nil {
+		return err
+	}
+	if err = vim.dom.UpdateDeviceFlags(strings.ToLower(string(ifaceXML)), affectDeviceLiveAndConfigLibvirtFlags); err != nil {
+		log.Log.Reason(err).Errorf("libvirt failed to set interface %s to %s, %v", domIfaceToPatch.Alias.GetName(), targetState, err)
+		return err
+	}
+	return nil
+}
+func (vim *virtIOInterfaceManager) setLinkUpDownVirtioInterface(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain) error {
+
+	for _, vmiIface := range vmi.Spec.Domain.Devices.Interfaces {
+		for _, domIface := range currentDomain.Spec.Devices.Interfaces {
+			if vmiIface.Name == domIface.Alias.GetName() {
+				action := requiredLinkAction(vmiIface, domIface)
+				if err := vim.updateDomainWithLinkState(&domIface, action); err != nil {
+					return err
+				}
+				continue
+			}
 		}
 	}
 	return nil
@@ -109,6 +181,7 @@ func (vim *virtIOInterfaceManager) hotUnplugVirtioInterface(vmi *v1.VirtualMachi
 			return derr
 		}
 	}
+
 	return nil
 }
 
