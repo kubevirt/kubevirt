@@ -51,6 +51,8 @@ var _ = Describe("Validating VMI network spec", func() {
 	},
 		Entry("is empty", v1.InterfaceState("")),
 		Entry("is absent when bridge binding is used", v1.InterfaceStateAbsent),
+		Entry("is up when bridge binding is used", v1.InterfaceStateLinkUp),
+		Entry("is down when bridge binding is used", v1.InterfaceStateLinkDown),
 	)
 
 	It("network interface state value is invalid", func() {
@@ -62,6 +64,25 @@ var _ = Describe("Validating VMI network spec", func() {
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
 				Message: "logical foo interface state value is unsupported: foo",
+				Field:   "fake.domain.devices.interfaces[0].state",
+			}))
+	})
+
+	It("network interface state down is not supported for sriov", func() {
+		vm := api.NewMinimalVMI("testvm")
+		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+			Name:                   "foo",
+			State:                  v1.InterfaceStateLinkDown,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
+		}}
+		vm.Spec.Networks = []v1.Network{
+			{Name: "foo", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "net"}}},
+		}
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{})
+		Expect(validator.Validate()).To(
+			ConsistOf(metav1.StatusCause{
+				Type:    "FieldValueInvalid",
+				Message: "\"foo\" interface's state \"down\" is not supported for SR/IOV",
 				Field:   "fake.domain.devices.interfaces[0].state",
 			}))
 	})
