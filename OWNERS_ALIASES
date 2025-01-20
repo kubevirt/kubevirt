@@ -26,7 +26,6 @@ aliases:
     - dhiller # 2024-03-15
     - AlonaKaplan
   code-reviewers:
-    - stu-gott
     - vladikr
     - enp0s3
     - jean-edouard
@@ -45,7 +44,10 @@ aliases:
   # SIG Test
   #
   sig-test-reviewers:
-    - kbidarkar
+    - enp0s3
+    - xpivarc
+    - acardace
+    - 0xFelix
   sig-test-approvers:
     - kbidarkar
     - phoracek
