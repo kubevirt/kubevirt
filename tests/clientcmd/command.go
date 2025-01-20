@@ -52,7 +52,7 @@ func GetK8sCmdClient() string {
 	return "kubectl"
 }
 
-func SkipIfNoCmd(cmdName string) {
+func FailIfNoCmd(cmdName string) {
 	var cmdPath string
 	switch strings.ToLower(cmdName) {
 	case "oc":
@@ -65,7 +65,7 @@ func SkipIfNoCmd(cmdName string) {
 		cmdPath = flags.KubeVirtGoCliPath
 	}
 	if cmdPath == "" {
-		ginkgo.Skip(fmt.Sprintf("Skip test that requires %s binary", cmdName))
+		ginkgo.Fail(fmt.Sprintf("Test that requires %s binary", cmdName))
 	}
 }
 
