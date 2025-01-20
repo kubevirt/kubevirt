@@ -128,15 +128,13 @@ func podIsReadyComponent(pod *k8sv1.Pod) bool {
 		return false
 	}
 
-	if pod.Status.Phase != k8sv1.PodRunning {
+	if pod.Status.Phase != k8sv1.PodRunning || pod.DeletionTimestamp != nil {
 		return false
-	} else if pod.DeletionTimestamp != nil {
-		return false
-	} else {
-		for _, cond := range pod.Status.Conditions {
-			if cond.Type == k8sv1.PodReady && cond.Status == k8sv1.ConditionTrue {
-				return true
-			}
+	}
+
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == k8sv1.PodReady && cond.Status == k8sv1.ConditionTrue {
+			return true
 		}
 	}
 
