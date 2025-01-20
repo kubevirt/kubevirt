@@ -26,9 +26,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/client-go/api"
-
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
 )
 
 var tmpDir string
@@ -53,9 +53,12 @@ var _ = Describe("Ignition", func() {
 
 	Describe("A new VirtualMachineInstance definition", func() {
 		Context("with ignition data", func() {
-			vmi = api.NewMinimalVMI(vmName)
 			It("should success", func() {
 				data := "{ \"ignition\": { \"config\": {}, \"version\": \"2.2.0\" }, \"networkd\": {}, \"storage\": { \"files\": [ { \"contents\": { \"source\": \"data:,test\", \"verification\": {} }, \"filesystem\": \"root\", \"mode\": 420, \"path\": \"/etc/hostname\" } ] }, \"systemd\": {} }"
+				vmi = libvmi.New(
+					libvmi.WithNamespace(namespace),
+					libvmi.WithName(vmName),
+				)
 				vmi.Annotations = map[string]string{v1.IgnitionAnnotation: data}
 				err := GenerateIgnitionLocalData(vmi, namespace)
 				Expect(err).ToNot(HaveOccurred())
