@@ -616,11 +616,8 @@ func indexFromName(name string) (int, error) {
 	return strconv.Atoi(slice[len(slice)-1])
 }
 
-func indexVMSpec(spec *virtv1.VirtualMachineSpec, idx int) *virtv1.VirtualMachineSpec {
-
-	if len(spec.DataVolumeTemplates) == 0 {
-		return spec
-	}
+func indexVMSpec(poolSpec *poolv1.VirtualMachinePoolSpec, idx int) *virtv1.VirtualMachineSpec {
+	spec := poolSpec.VirtualMachineTemplate.Spec.DeepCopy()
 
 	dvNameMap := map[string]string{}
 	for i := range spec.DataVolumeTemplates {
@@ -629,6 +626,17 @@ func indexVMSpec(spec *virtv1.VirtualMachineSpec, idx int) *virtv1.VirtualMachin
 		dvNameMap[spec.DataVolumeTemplates[i].Name] = indexName
 
 		spec.DataVolumeTemplates[i].Name = indexName
+	}
+
+	appendIndexToConfigMapRefs := false
+	appendIndexToSecretRefs := false
+	if poolSpec.NameGeneration != nil {
+		if poolSpec.NameGeneration.AppendIndexToConfigMapRefs != nil {
+			appendIndexToConfigMapRefs = *poolSpec.NameGeneration.AppendIndexToConfigMapRefs
+		}
+		if poolSpec.NameGeneration.AppendIndexToSecretRefs != nil {
+			appendIndexToSecretRefs = *poolSpec.NameGeneration.AppendIndexToSecretRefs
+		}
 	}
 
 	for i, volume := range spec.Template.Spec.Volumes {
@@ -642,6 +650,10 @@ func indexVMSpec(spec *virtv1.VirtualMachineSpec, idx int) *virtv1.VirtualMachin
 			if ok {
 				spec.Template.Spec.Volumes[i].DataVolume.Name = indexName
 			}
+		} else if volume.VolumeSource.ConfigMap != nil && appendIndexToConfigMapRefs {
+			volume.VolumeSource.ConfigMap.Name += "-" + strconv.Itoa(idx)
+		} else if volume.VolumeSource.Secret != nil && appendIndexToSecretRefs {
+			volume.VolumeSource.Secret.SecretName += "-" + strconv.Itoa(idx)
 		}
 	}
 
@@ -767,7 +779,7 @@ func (c *Controller) scaleOut(pool *poolv1.VirtualMachinePool, count int) error 
 
 			vm.Labels = maps.Clone(pool.Spec.VirtualMachineTemplate.ObjectMeta.Labels)
 			vm.Annotations = maps.Clone(pool.Spec.VirtualMachineTemplate.ObjectMeta.Annotations)
-			vm.Spec = *indexVMSpec(pool.Spec.VirtualMachineTemplate.Spec.DeepCopy(), index)
+			vm.Spec = *indexVMSpec(&pool.Spec, index)
 			vm = injectPoolRevisionLabelsIntoVM(vm, revisionName)
 
 			vm.ObjectMeta.OwnerReferences = []metav1.OwnerReference{poolOwnerRef(pool)}
@@ -849,7 +861,7 @@ func (c *Controller) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vmOutd
 
 			vmCopy.Labels = maps.Clone(pool.Spec.VirtualMachineTemplate.ObjectMeta.Labels)
 			vmCopy.Annotations = maps.Clone(pool.Spec.VirtualMachineTemplate.ObjectMeta.Annotations)
-			vmCopy.Spec = *indexVMSpec(pool.Spec.VirtualMachineTemplate.Spec.DeepCopy(), index)
+			vmCopy.Spec = *indexVMSpec(&pool.Spec, index)
 			vmCopy = injectPoolRevisionLabelsIntoVM(vmCopy, revisionName)
 
 			_, err = c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})

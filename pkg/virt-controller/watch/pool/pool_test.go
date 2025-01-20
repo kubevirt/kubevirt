@@ -215,15 +215,20 @@ var _ = Describe("Pool", func() {
 			})
 		}
 
-		expectVMCreation := func(nameMatcher types.GomegaMatcher) {
+		expectVMCreationWithValidation := func(nameMatcher types.GomegaMatcher, validateFn func(machine *v1.VirtualMachine)) {
 			fakeVirtClient.Fake.PrependReactor("create", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				created, ok := action.(k8stesting.CreateAction)
 				Expect(ok).To(BeTrue())
 				createObj := created.GetObject().(*v1.VirtualMachine)
 				Expect(createObj.Name).To(nameMatcher)
 				Expect(createObj.GenerateName).To(Equal(""))
+				validateFn(createObj)
 				return true, created.GetObject(), nil
 			})
+		}
+
+		expectVMCreation := func(nameMatcher types.GomegaMatcher) {
+			expectVMCreationWithValidation(nameMatcher, func(_ *v1.VirtualMachine) {})
 		}
 
 		expectVMUpdate := func(revisionName string) {
@@ -707,6 +712,65 @@ var _ = Describe("Pool", func() {
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		})
+
+		DescribeTable("should respect name generation settings", func(appendIndex *bool) {
+			const (
+				cmName     = "configmap"
+				secretName = "secret"
+			)
+
+			pool, _ := DefaultPool(3)
+			pool.Spec.VirtualMachineTemplate.Spec.Template.Spec.Volumes = []v1.Volume{
+				{
+					Name: cmName,
+					VolumeSource: v1.VolumeSource{
+						ConfigMap: &v1.ConfigMapVolumeSource{
+							LocalObjectReference: k8sv1.LocalObjectReference{Name: cmName},
+						},
+					},
+				},
+				{
+					Name: secretName,
+					VolumeSource: v1.VolumeSource{
+						Secret: &v1.SecretVolumeSource{SecretName: secretName},
+					},
+				},
+			}
+			pool.Spec.NameGeneration = &poolv1.VirtualMachinePoolNameGeneration{
+				AppendIndexToConfigMapRefs: appendIndex,
+				AppendIndexToSecretRefs:    appendIndex,
+			}
+
+			addPool(pool)
+
+			poolRevision := createPoolRevision(pool)
+			expectControllerRevisionCreation(poolRevision)
+			expectVMCreationWithValidation(
+				HavePrefix(fmt.Sprintf("%s-", pool.Name)),
+				func(vm *v1.VirtualMachine) {
+					defer GinkgoRecover()
+					Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(cmName))
+					Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(secretName))
+					if appendIndex != nil && *appendIndex {
+						Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ConfigMap.Name).To(MatchRegexp(fmt.Sprintf("%s-\\d", cmName)))
+						Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.Secret.SecretName).To(MatchRegexp(fmt.Sprintf("%s-\\d", secretName)))
+					} else {
+						Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ConfigMap.Name).To(Equal(cmName))
+						Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.Secret.SecretName).To(Equal(secretName))
+					}
+				},
+			)
+
+			sanityExecute()
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
+		},
+			Entry("do not append index by default", nil),
+			Entry("do not append index if set to false", pointer.P(false)),
+			Entry("append index if set to true", pointer.P(true)),
+		)
 	})
 })
 
