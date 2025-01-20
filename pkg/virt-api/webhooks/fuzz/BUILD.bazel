@@ -8,6 +8,7 @@ go_test(
     ],
     tags = ["fuzz"],
     deps = [
+        "//pkg/instancetype/webhooks/vm:go_default_library",
         "//pkg/network/admitter:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-api/webhooks:go_default_library",

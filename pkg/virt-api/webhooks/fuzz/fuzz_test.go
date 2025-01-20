@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	v1 "kubevirt.io/api/core/v1"
 
+	instancetypeWebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks/vm"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -84,7 +85,7 @@ func FuzzAdmitter(f *testing.F) {
 				adm := &admitters.VMsAdmitter{
 					ClusterConfig:           config,
 					KubeVirtServiceAccounts: kubeVirtServiceAccounts,
-					InstancetypeMethods:     testutils.NewMockInstancetypeMethods(),
+					InstancetypeAdmitter:    instancetypeWebhooks.NewMockAdmitter(),
 				}
 				return adm.Admit(context.Background(), request)
 			},
@@ -98,7 +99,7 @@ func FuzzAdmitter(f *testing.F) {
 				adm := &admitters.VMsAdmitter{
 					ClusterConfig:           config,
 					KubeVirtServiceAccounts: kubeVirtServiceAccounts,
-					InstancetypeMethods:     testutils.NewMockInstancetypeMethods(),
+					InstancetypeAdmitter:    instancetypeWebhooks.NewMockAdmitter(),
 				}
 				return adm.Admit(context.Background(), request)
 			},

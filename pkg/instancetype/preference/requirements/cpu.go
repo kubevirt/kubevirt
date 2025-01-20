@@ -76,7 +76,7 @@ func checkCPU(
 					InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Sockets, preferenceSpec.Requirements.CPU.Guest, "sockets")
 		}
 	case v1beta1.DeprecatedPreferSpread, v1beta1.Spread:
-		return checkSpread(instancetypeSpec, preferenceSpec, vmiSpec)
+		return checkSpread(preferenceSpec, vmiSpec)
 	case v1beta1.DeprecatedPreferAny, v1beta1.Any:
 		cpuResources := vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Sockets * vmiSpec.Domain.CPU.Threads
 		if cpuResources < preferenceSpec.Requirements.CPU.Guest {
@@ -94,7 +94,6 @@ func checkCPU(
 }
 
 func checkSpread(
-	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 ) (conflict.Conflicts, error) {

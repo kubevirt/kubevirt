@@ -30,7 +30,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/instancetype"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook/mutators"
@@ -77,7 +76,7 @@ func serve(resp http.ResponseWriter, req *http.Request, m mutator) {
 }
 
 func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
-	serve(resp, req, &mutators.VMsMutator{ClusterConfig: clusterConfig, InstancetypeMethods: &instancetype.InstancetypeMethods{Clientset: virtCli}})
+	serve(resp, req, mutators.NewVMsMutator(clusterConfig, virtCli))
 }
 
 func ServeVMIs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, informers *webhooks.Informers, kubeVirtServiceAccounts map[string]struct{}) {

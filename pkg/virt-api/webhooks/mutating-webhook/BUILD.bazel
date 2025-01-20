@@ -6,7 +6,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/instancetype:go_default_library",
         "//pkg/util/webhooks:go_default_library",
         "//pkg/virt-api/webhooks:go_default_library",
         "//pkg/virt-api/webhooks/mutating-webhook/mutators:go_default_library",

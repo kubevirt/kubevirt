@@ -37,7 +37,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/defaults"
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
+	instancetypeWebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks/vm"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
@@ -51,11 +52,23 @@ import (
 
 var validRunStrategies = []v1.VirtualMachineRunStrategy{v1.RunStrategyHalted, v1.RunStrategyManual, v1.RunStrategyAlways, v1.RunStrategyRerunOnFailure, v1.RunStrategyOnce}
 
+type instancetypeVMsAdmitter interface {
+	ApplyToVM(vm *v1.VirtualMachine) (
+		*instancetypev1beta1.VirtualMachineInstancetypeSpec,
+		*instancetypev1beta1.VirtualMachinePreferenceSpec,
+		[]metav1.StatusCause,
+	)
+	Check(*instancetypev1beta1.VirtualMachineInstancetypeSpec,
+		*instancetypev1beta1.VirtualMachinePreferenceSpec,
+		*v1.VirtualMachineInstanceSpec,
+	) (conflict.Conflicts, error)
+}
+
 type VMsAdmitter struct {
 	VirtClient              kubecli.KubevirtClient
 	DataSourceInformer      cache.SharedIndexInformer
 	NamespaceInformer       cache.SharedIndexInformer
-	InstancetypeMethods     instancetype.Methods
+	InstancetypeAdmitter    instancetypeVMsAdmitter
 	ClusterConfig           *virtconfig.ClusterConfig
 	KubeVirtServiceAccounts map[string]struct{}
 }
@@ -65,7 +78,7 @@ func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.Kube
 		VirtClient:              client,
 		DataSourceInformer:      informers.DataSourceInformer,
 		NamespaceInformer:       informers.NamespaceInformer,
-		InstancetypeMethods:     &instancetype.InstancetypeMethods{Clientset: client},
+		InstancetypeAdmitter:    instancetypeWebhooks.NewAdmitter(client),
 		ClusterConfig:           clusterConfig,
 		KubeVirtServiceAccounts: kubeVirtServiceAccounts,
 	}
@@ -100,7 +113,7 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 	// validate the resulting VirtualMachineInstanceSpec below. As we don't want to persist these changes
 	// we pass a copy of the original VirtualMachine here and to the validation call below.
 	vmCopy := vm.DeepCopy()
-	instancetypeSpec, preferenceSpec, causes := admitter.applyInstancetypeToVm(vmCopy)
+	instancetypeSpec, preferenceSpec, causes := admitter.InstancetypeAdmitter.ApplyToVM(vmCopy)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -111,14 +124,12 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 	}
 
 	// With the defaults now set we can check that the VM meets the requirements of any provided preference
-	if preferenceSpec != nil {
-		if conflicts, err := admitter.InstancetypeMethods.CheckPreferenceRequirements(instancetypeSpec, preferenceSpec, &vmCopy.Spec.Template.Spec); err != nil {
-			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{{
-				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: fmt.Sprintf("failure checking preference requirements: %v", err),
-				Field:   conflicts.String(),
-			}})
-		}
+	if conflicts, err := admitter.InstancetypeAdmitter.Check(instancetypeSpec, preferenceSpec, &vmCopy.Spec.Template.Spec); err != nil {
+		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotFound,
+			Message: fmt.Sprintf("failure checking preference requirements: %v", err),
+			Field:   conflicts.String(),
+		}})
 	}
 
 	if ar.Request.Operation == admissionv1.Create {
@@ -193,89 +204,6 @@ func (admitter *VMsAdmitter) AdmitStatus(ctx context.Context, ar *admissionv1.Ad
 	reviewResponse := admissionv1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
-}
-
-const (
-	instancetypeCPUGuestPath              = "instancetype.spec.cpu.guest"
-	spreadAcrossSocketsCoresErrFmt        = "%d vCPUs provided by the instance type are not divisible by the Spec.PreferSpreadSocketToCoreRatio or Spec.CPU.PreferSpreadOptions.Ratio of %d provided by the preference"
-	spreadAcrossCoresThreadsErrFmt        = "%d vCPUs provided by the instance type are not divisible by the number of threads per core %d"
-	spreadAcrossSocketsCoresThreadsErrFmt = "%d vCPUs provided by the instance type are not divisible by the number of threads per core %d and Spec.PreferSpreadSocketToCoreRatio or Spec.CPU.PreferSpreadOptions.Ratio of %d"
-)
-
-func checkSpreadCPUTopology(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) []metav1.StatusCause {
-	if topology := instancetype.GetPreferredTopology(preferenceSpec); instancetypeSpec == nil || (topology != instancetypev1beta1.Spread && topology != instancetypev1beta1.DeprecatedPreferSpread) {
-		return nil
-	}
-
-	ratio, across := instancetype.GetSpreadOptions(preferenceSpec)
-	switch across {
-	case instancetypev1beta1.SpreadAcrossSocketsCores:
-		if (instancetypeSpec.CPU.Guest % ratio) > 0 {
-			return []metav1.StatusCause{{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf(spreadAcrossSocketsCoresErrFmt, instancetypeSpec.CPU.Guest, ratio),
-				Field:   k8sfield.NewPath(instancetypeCPUGuestPath).String(),
-			}}
-		}
-	case instancetypev1beta1.SpreadAcrossCoresThreads:
-		if (instancetypeSpec.CPU.Guest % ratio) > 0 {
-			return []metav1.StatusCause{{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf(spreadAcrossCoresThreadsErrFmt, instancetypeSpec.CPU.Guest, ratio),
-				Field:   k8sfield.NewPath(instancetypeCPUGuestPath).String(),
-			}}
-		}
-	case instancetypev1beta1.SpreadAcrossSocketsCoresThreads:
-		const threadsPerCore = 2
-		if (instancetypeSpec.CPU.Guest%threadsPerCore) > 0 || ((instancetypeSpec.CPU.Guest/threadsPerCore)%ratio) > 0 {
-			return []metav1.StatusCause{{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf(spreadAcrossSocketsCoresThreadsErrFmt, instancetypeSpec.CPU.Guest, threadsPerCore, ratio),
-				Field:   k8sfield.NewPath(instancetypeCPUGuestPath).String(),
-			}}
-		}
-	}
-	return nil
-}
-
-func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, *instancetypev1beta1.VirtualMachinePreferenceSpec, []metav1.StatusCause) {
-	instancetypeSpec, err := admitter.InstancetypeMethods.FindInstancetypeSpec(vm)
-	if err != nil {
-		return nil, nil, []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueNotFound,
-			Message: fmt.Sprintf("Failure to find instancetype: %v", err),
-			Field:   k8sfield.NewPath("spec", "instancetype").String(),
-		}}
-	}
-
-	preferenceSpec, err := admitter.InstancetypeMethods.FindPreferenceSpec(vm)
-	if err != nil {
-		return nil, nil, []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueNotFound,
-			Message: fmt.Sprintf("Failure to find preference: %v", err),
-			Field:   k8sfield.NewPath("spec", "preference").String(),
-		}}
-	}
-
-	if spreadConflicts := checkSpreadCPUTopology(instancetypeSpec, preferenceSpec); len(spreadConflicts) > 0 {
-		return nil, nil, spreadConflicts
-	}
-
-	conflicts := admitter.InstancetypeMethods.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec, &vm.Spec.Template.ObjectMeta)
-
-	if len(conflicts) == 0 {
-		return instancetypeSpec, preferenceSpec, nil
-	}
-
-	causes := make([]metav1.StatusCause, 0, len(conflicts))
-	for _, conflict := range conflicts {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: conflict.Error(),
-			Field:   conflict.String(),
-		})
-	}
-	return nil, nil, causes
 }
 
 func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpec, config *virtconfig.ClusterConfig, isKubeVirtServiceAccount bool) []metav1.StatusCause {
