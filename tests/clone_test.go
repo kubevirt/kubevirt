@@ -261,7 +261,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 			Expect(vm1Spec).To(Equal(vm2Spec), fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "spec not including mac adresses"))
 		}
 
-		createVM := func(options ...libvmi.Option) (vm *virtv1.VirtualMachine) {
+		createVM := func(options ...libvmi.Option) *virtv1.VirtualMachine {
 			defaultOptions := []libvmi.Option{
 				libvmi.WithLabel(key1, value1),
 				libvmi.WithLabel(key2, value2),
@@ -279,7 +279,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 			By(fmt.Sprintf("Creating VM %s", vm.Name))
 			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v1.CreateOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
-			return
+			return vm
 		}
 
 		generateCloneFromVM := func() *clone.VirtualMachineClone {
