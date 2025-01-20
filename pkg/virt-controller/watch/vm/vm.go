@@ -256,6 +256,8 @@ type Controller struct {
 	namespaceStore         cache.Store
 	pvcStore               cache.Store
 	crIndexer              cache.Indexer
+	migrationIndexer       cache.Indexer
+	launcherImage          string
 	instancetypeController instancetypeHandler
 	recorder               record.EventRecorder
 	expectations           *controller.UIDTrackingControllerExpectations

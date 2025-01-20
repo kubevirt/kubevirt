@@ -93,7 +93,9 @@ var (
 	// Virtctl related tests
 	Virtctl = Label("virtctl")
 
-	// NoFlakeChecker decorates tests that are not compatible with the check-tests-for-flakes test lane.
+	// NoFlakeCheck decorates tests that are not compatible with the check-tests-for-flakes test lane.
 	// This should only be used for legitimate purposes, like on tests that have a flake-checker-friendly clone.
 	NoFlakeCheck = Label("no-flake-check")
+	// FlakeCheck decorates tests that are dedicated to the check-tests-for-flakes test lane.
+	FlakeCheck = Label("flake-check")
 )
