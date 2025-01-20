@@ -30,8 +30,6 @@ func defaultExecFunc(binary string, args ...string) ([]byte, error) {
 	return exec.Command(binary, args...).CombinedOutput()
 }
 
-var POLICY_FILES = []string{"virt_launcher"}
-
 type SELinuxImpl struct {
 	Paths          []string
 	execFunc       execFunc
@@ -85,34 +83,6 @@ func lookupPath(binary string, prefix string, paths []string) (string, bool, err
 	return "", false, nil
 }
 
-func (se *SELinuxImpl) semodule(args ...string) (out []byte, err error) {
-	path, exists, err := lookupPath("semodule", se.procOnePrefix, se.Paths)
-	if err != nil {
-		return []byte{}, err
-	} else if !exists {
-		// on some environments some selinux related binaries are missing, e.g. when the cluster runs in containers (kind).
-		// In such a case, inform the admin, but continue.
-		if se.IsPermissive() {
-			log.DefaultLogger().Warning("Permissive mode, ignoring missing 'semodule' binary. SELinux policies will not be installed.")
-			return []byte{}, nil
-		}
-		return []byte{}, fmt.Errorf("could not find 'semodule' binary")
-	}
-
-	argsArray := []string{"--mount", virt_chroot.GetChrootMountNamespace(), "exec", "--", path}
-	for _, arg := range args {
-		argsArray = append(argsArray, arg)
-	}
-
-	out, err = se.execFunc(virt_chroot.GetChrootBinaryPath(), argsArray...)
-	if err != nil && se.IsPermissive() {
-		log.DefaultLogger().Warningf("Permissive mode, ignoring 'semodule' failure: out: %q, error: %v", string(out), err)
-		return []byte{}, nil
-	}
-
-	return out, err
-}
-
 func (se *SELinuxImpl) IsPermissive() bool {
 	return se.mode == "permissive"
 }
@@ -146,27 +116,7 @@ func defaultCopyPolicyFunc(policyName string, dir string) (err error) {
 	return nil
 }
 
-func (se *SELinuxImpl) InstallPolicy(dir string) (err error) {
-	for _, policyName := range POLICY_FILES {
-		fileDest := filepath.Join(dir, policyName+".cil")
-		err := se.copyPolicyFunc(policyName, dir)
-		if err != nil {
-			return fmt.Errorf("failed to copy policy %v - err: %v", fileDest, err)
-		}
-		out, err := se.semodule("-i", fileDest)
-		if err != nil {
-			if len(out) > 0 {
-				return fmt.Errorf("failed to install policy %v - out: %q, error: %v", fileDest, string(out), err)
-			} else {
-				return fmt.Errorf("failed to install policy %v - err: %v", fileDest, err)
-			}
-		}
-	}
-	return nil
-}
-
 type SELinux interface {
-	InstallPolicy(dir string) (err error)
 	Mode() string
 	IsPermissive() bool
 }

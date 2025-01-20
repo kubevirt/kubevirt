@@ -44,8 +44,6 @@ const (
 	ClusterProfiler            = "ClusterProfiler"
 	WorkloadEncryptionSEV      = "WorkloadEncryptionSEV"
 	VSOCKGate                  = "VSOCK"
-	// DisableCustomSELinuxPolicy disables the installation of the custom SELinux policy for virt-launcher
-	DisableCustomSELinuxPolicy = "DisableCustomSELinuxPolicy"
 	// KubevirtSeccompProfile indicate that Kubevirt will install its custom profile and
 	// user can tell Kubevirt to use it
 	KubevirtSeccompProfile = "KubevirtSeccompProfile"
@@ -195,10 +193,6 @@ func (config *ClusterConfig) DockerSELinuxMCSWorkaroundEnabled() bool {
 
 func (config *ClusterConfig) VSOCKEnabled() bool {
 	return config.isFeatureGateEnabled(VSOCKGate)
-}
-
-func (config *ClusterConfig) CustomSELinuxPolicyDisabled() bool {
-	return config.isFeatureGateEnabled(DisableCustomSELinuxPolicy)
 }
 
 func (config *ClusterConfig) MediatedDevicesHandlingDisabled() bool {
