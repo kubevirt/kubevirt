@@ -33,6 +33,7 @@ func ValidatePreferenceSpec(field *k8sfield.Path, spec *instancetypeapiv1beta1.V
 	var causes []metav1.StatusCause
 
 	causes = append(causes, validatePreferredCPUTopology(field, spec)...)
+	causes = append(causes, validatePreferredDevices(field, spec)...)
 	causes = append(causes, validateSpreadOptions(field, spec)...)
 	return causes
 }
@@ -142,4 +143,27 @@ func admitPreference(request *admissionv1.AdmissionRequest, resource string) *ad
 		Allowed:  true,
 		Warnings: checkForDeprecatedPreferredCPUTopology(preferenceSpec),
 	}
+}
+
+func validatePreferredDevices(field *k8sfield.Path, spec *instancetypeapiv1beta1.VirtualMachinePreferenceSpec) []metav1.StatusCause {
+	causes := make([]metav1.StatusCause, 0)
+	if spec.Devices == nil {
+		return causes
+	}
+	causes = append(causes, validatePreferredPanicDevices(field.Child("devices"), spec.Devices)...)
+
+	return causes
+}
+
+func validatePreferredPanicDevices(field *k8sfield.Path, devicePreferences *instancetypeapiv1beta1.DevicePreferences) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	if len(devicePreferences.PreferredPanicDevices) == 0 {
+		return causes
+	}
+	for idx, panicDevice := range devicePreferences.PreferredPanicDevices {
+		if cause := validatePanicDeviceModel(field.Child("preferredPanicDevices").Index(idx), panicDevice.Model); cause != nil {
+			causes = append(causes, *cause)
+		}
+	}
+	return causes
 }
