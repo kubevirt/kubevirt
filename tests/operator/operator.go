@@ -92,7 +92,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
-	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
@@ -139,7 +138,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	var k8sClient string
 
 	var (
-		generateMigratableVMIs func(int) []*v1.VirtualMachineInstance
 		verifyVMIsUpdated      func([]*v1.VirtualMachineInstance)
 	)
 
@@ -167,71 +165,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			const prefix = ":"
 			Expect(strings.HasPrefix(version, ":")).To(BeTrue(), fmt.Sprintf(errFmt, version, prefix))
 			originalOperatorVersion = strings.TrimPrefix(version, prefix)
-		}
-
-		generateMigratableVMIs = func(num int) []*v1.VirtualMachineInstance {
-			vmis := []*v1.VirtualMachineInstance{}
-			for i := 0; i < num; i++ {
-				configMapName := "configmap-" + rand.String(5)
-				secretName := "secret-" + rand.String(5)
-				downwardAPIName := "downwardapi-" + rand.String(5)
-
-				config_data := map[string]string{
-					"config1": "value1",
-					"config2": "value2",
-				}
-				cm := libconfigmap.New(configMapName, config_data)
-				cm, err = virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				secret := libsecret.New(secretName, libsecret.DataString{"user": "admin", "password": "community"})
-				secret, err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
-				if !errors.IsAlreadyExists(err) {
-					Expect(err).ToNot(HaveOccurred())
-				}
-
-				vmi := libvmifact.NewCirros(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithConfigMapDisk(configMapName, configMapName),
-					libvmi.WithSecretDisk(secretName, secretName),
-					libvmi.WithServiceAccountDisk("default"),
-					libvmi.WithDownwardAPIDisk(downwardAPIName),
-					libvmi.WithWatchdog(v1.WatchdogActionPoweroff),
-				)
-				// In case there are no existing labels add labels to add some data to the downwardAPI disk
-				if vmi.ObjectMeta.Labels == nil {
-					vmi.ObjectMeta.Labels = map[string]string{"downwardTestLabelKey": "downwardTestLabelVal"}
-				}
-
-				vmis = append(vmis, vmi)
-			}
-
-			lastVMIIndex := len(vmis) - 1
-			vmi := vmis[lastVMIIndex]
-			const nadName = "secondarynet"
-
-			Expect(libnet.CreateNAD(testsuite.GetTestNamespace(vmi), nadName)).To(Succeed())
-
-			const networkName = "tenant-blue"
-			vmi.Spec.Domain.Devices.Interfaces = append(
-				vmi.Spec.Domain.Devices.Interfaces,
-				v1.Interface{
-					Name:                   networkName,
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-				},
-			)
-			vmi.Spec.Networks = append(
-				vmi.Spec.Networks,
-				v1.Network{
-					Name: networkName,
-					NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{
-						NetworkName: nadName,
-					}},
-				},
-			)
-
-			return vmis
 		}
 
 		verifyVMIsUpdated = func(vmis []*v1.VirtualMachineInstance) {
@@ -835,7 +768,8 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			var migratableVMIs []*v1.VirtualMachineInstance
 			if createVMs {
-				migratableVMIs = generateMigratableVMIs(2)
+				migratableVMIs, err = generateMigratableVMIs(2)
+				Expect(err).NotTo(HaveOccurred())
 			}
 			if !flags.SkipShasumCheck {
 				launcherSha, err := getVirtLauncherSha(originalKv.Status.ObservedDeploymentConfig)
@@ -1139,7 +1073,8 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			By("Starting some vmis")
 			var vmis []*v1.VirtualMachineInstance
 			if checks.HasAtLeastTwoNodes() {
-				vmis = generateMigratableVMIs(2)
+				vmis, err = generateMigratableVMIs(2)
+				Expect(err).ToNot(HaveOccurred())
 				vmis = createRunningVMIs(vmis)
 			}
 
@@ -1333,7 +1268,8 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			var vmis []*v1.VirtualMachineInstance
 			if checks.HasAtLeastTwoNodes() {
-				vmis = generateMigratableVMIs(2)
+				vmis, err = generateMigratableVMIs(2)
+				Expect(err).NotTo(HaveOccurred())
 			}
 			vmisNonMigratable := []*v1.VirtualMachineInstance{libvmifact.NewCirros(), libvmifact.NewCirros()}
 
@@ -3219,4 +3155,51 @@ func verifyVMIsEvicted(vmis []*v1.VirtualMachineInstance) {
 		return nil
 	}, 320, 1).Should(Succeed(), "All VMIs should delete automatically")
 
+}
+
+func generateMigratableVMIs(num int) ([]*v1.VirtualMachineInstance, error) {
+	virtClient := kubevirt.Client()
+
+	var vmis []*v1.VirtualMachineInstance
+	for range num {
+		configMapName := "configmap-" + rand.String(5)
+		secretName := "secret-" + rand.String(5)
+		downwardAPIName := "downwardapi-" + rand.String(5)
+
+		configData := map[string]string{
+			"config1": "value1",
+			"config2": "value2",
+		}
+
+		var err error
+		cm := libconfigmap.New(configMapName, configData)
+		cm, err = virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		secret := libsecret.New(secretName, libsecret.DataString{"user": "admin", "password": "community"})
+		secret, err = kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return nil, err
+		}
+
+		vmi := libvmifact.NewCirros(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithConfigMapDisk(configMapName, configMapName),
+			libvmi.WithSecretDisk(secretName, secretName),
+			libvmi.WithServiceAccountDisk("default"),
+			libvmi.WithDownwardAPIDisk(downwardAPIName),
+			libvmi.WithWatchdog(v1.WatchdogActionPoweroff),
+		)
+		// In case there are no existing labels add labels to add some data to the downwardAPI disk
+		if vmi.ObjectMeta.Labels == nil {
+			vmi.ObjectMeta.Labels = map[string]string{"downwardTestLabelKey": "downwardTestLabelVal"}
+		}
+
+		vmis = append(vmis, vmi)
+	}
+
+	return vmis, nil
 }
