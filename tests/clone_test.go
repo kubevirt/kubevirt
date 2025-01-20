@@ -61,22 +61,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		format.MaxLength = 0
 	})
 
-	createVM := func(options ...libvmi.Option) (vm *virtv1.VirtualMachine) {
-		vmi := libvmifact.NewCirros(options...)
-		vmi.Namespace = testsuite.GetTestNamespace(nil)
-		vm = libvmi.NewVirtualMachine(vmi)
-		vm.Annotations = vmi.Annotations
-		vm.Labels = vmi.Labels
-		vm.Spec.Template.ObjectMeta.Annotations = vmi.Annotations
-		vm.Spec.Template.ObjectMeta.Labels = vmi.Labels
-
-		By(fmt.Sprintf("Creating VM %s", vm.Name))
-		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v1.CreateOptions{})
-		Expect(err).ShouldNot(HaveOccurred())
-
-		return
-	}
-
 	createSnapshot := func(vm *virtv1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
 		var err error
 
@@ -237,6 +221,12 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		var (
 			sourceVM, targetVM *virtv1.VirtualMachine
 			vmClone            *clone.VirtualMachineClone
+			defaultVMIOptions  = []libvmi.Option{
+				libvmi.WithLabel(key1, value1),
+				libvmi.WithLabel(key2, value2),
+				libvmi.WithAnnotation(key1, value1),
+				libvmi.WithAnnotation(key2, value2),
+			}
 		)
 
 		expectEqualStrMap := func(actual, expected map[string]string, expectationMsg string, keysToExclude ...string) {
@@ -277,18 +267,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 			Expect(vm1Spec).To(Equal(vm2Spec), fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "spec not including mac adresses"))
 		}
 
-		createVM := func(options ...libvmi.Option) (vm *virtv1.VirtualMachine) {
-			defaultOptions := []libvmi.Option{
-				libvmi.WithLabel(key1, value1),
-				libvmi.WithLabel(key2, value2),
-				libvmi.WithAnnotation(key1, value1),
-				libvmi.WithAnnotation(key2, value2),
-			}
-
-			options = append(options, defaultOptions...)
-			return createVM(options...)
-		}
-
 		generateCloneFromVM := func() *clone.VirtualMachineClone {
 			return generateCloneFromVMWithParams(sourceVM, targetVMName)
 		}
@@ -300,7 +278,8 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 			}
 
 			It("simple default clone", func() {
-				sourceVM = createVM()
+				sourceVM, err = createSourceVM(defaultVMIOptions...)
+				Expect(err).ShouldNot(HaveOccurred())
 				vmClone = generateCloneFromVM()
 
 				createCloneAndWaitForFinish(vmClone)
@@ -333,7 +312,8 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 
 			It("simple clone with snapshot source", func() {
 				By("Creating a VM")
-				sourceVM = createVM()
+				sourceVM, err = createSourceVM(defaultVMIOptions...)
+				Expect(err).ShouldNot(HaveOccurred())
 				Eventually(func() virtv1.VirtualMachinePrintableStatus {
 					sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), sourceVM.Name, v1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -371,7 +351,8 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 			})
 
 			It("clone with only some of labels/annotations", func() {
-				sourceVM = createVM()
+				sourceVM, err = createSourceVM(defaultVMIOptions...)
+				Expect(err).ShouldNot(HaveOccurred())
 				vmClone = generateCloneFromVM()
 
 				vmClone.Spec.LabelFilters = []string{
@@ -396,7 +377,8 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 			})
 
 			It("clone with only some of template.labels/template.annotations", func() {
-				sourceVM = createVM()
+				sourceVM, err = createSourceVM(defaultVMIOptions...)
+				Expect(err).ShouldNot(HaveOccurred())
 				vmClone = generateCloneFromVM()
 
 				vmClone.Spec.Template.LabelFilters = []string{
@@ -421,10 +403,13 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 
 			It("clone with changed MAC address", func() {
 				const newMacAddress = "BE-AD-00-00-BE-04"
-				sourceVM = createVM(
+				options := append(
+					defaultVMIOptions,
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 				)
+				sourceVM, err = createSourceVM(options...)
+				Expect(err).ShouldNot(HaveOccurred())
 
 				srcInterfaces := sourceVM.Spec.Template.Spec.Domain.Devices.Interfaces
 				Expect(srcInterfaces).ToNot(BeEmpty())
@@ -470,11 +455,12 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 					const sourceSerial = "source-serial"
 					const targetSerial = "target-serial"
 
-					sourceVM = createVM(
-						func(vmi *virtv1.VirtualMachineInstance) {
-							vmi.Spec.Domain.Firmware = &virtv1.Firmware{Serial: sourceSerial}
-						},
+					options := append(
+						defaultVMIOptions,
+						withFirmware(&virtv1.Firmware{Serial: sourceSerial}),
 					)
+					sourceVM, err = createSourceVM(options...)
+					Expect(err).ShouldNot(HaveOccurred())
 
 					vmClone = generateCloneFromVM()
 					vmClone.Spec.NewSMBiosSerial = pointer.P(targetSerial)
@@ -502,11 +488,12 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				It("should strip firmware UUID", func() {
 					const fakeFirmwareUUID = "fake-uuid"
 
-					sourceVM = createVM(
-						func(vmi *virtv1.VirtualMachineInstance) {
-							vmi.Spec.Domain.Firmware = &virtv1.Firmware{UUID: fakeFirmwareUUID}
-						},
+					options := append(
+						defaultVMIOptions,
+						withFirmware(&virtv1.Firmware{UUID: fakeFirmwareUUID}),
 					)
+					sourceVM, err = createSourceVM(options...)
+					Expect(err).ShouldNot(HaveOccurred())
 					vmClone = generateCloneFromVM()
 
 					createCloneAndWaitForFinish(vmClone)
@@ -868,4 +855,22 @@ func stopCloneVM(virtClient kubecli.KubevirtClient, vm *virtv1.VirtualMachine) (
 	}
 
 	return virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, v1.PatchOptions{})
+}
+
+func withFirmware(firmware *virtv1.Firmware) libvmi.Option {
+	return func(vmi *virtv1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Firmware = firmware
+	}
+}
+
+func createSourceVM(options ...libvmi.Option) (*virtv1.VirtualMachine, error) {
+	vmi := libvmifact.NewCirros(options...)
+	vmi.Namespace = testsuite.GetTestNamespace(nil)
+	vm := libvmi.NewVirtualMachine(vmi,
+		libvmi.WithAnnotations(vmi.Annotations),
+		libvmi.WithLabels(vmi.Labels))
+
+	By(fmt.Sprintf("Creating VM %s", vm.Name))
+	virtClient := kubevirt.Client()
+	return virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v1.CreateOptions{})
 }
