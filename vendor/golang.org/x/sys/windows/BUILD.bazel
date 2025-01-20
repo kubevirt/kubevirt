@@ -5,7 +5,6 @@ go_library(
     srcs = [
         "aliases.go",
         "dll_windows.go",
-        "empty.s",
         "env_windows.go",
         "eventlog.go",
         "exec_windows.go",
