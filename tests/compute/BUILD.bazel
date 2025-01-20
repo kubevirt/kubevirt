@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "console.go",
         "credentials.go",
+        "eviction.go",
         "framework.go",
         "vm_lifecycle.go",
         "vmidefaults.go",
@@ -36,6 +37,9 @@ go_library(
         "//vendor/github.com/google/goexpect:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/onsi/gomega/gstruct:go_default_library",
+        "//vendor/k8s.io/api/policy/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/watch:go_default_library",
     ],
