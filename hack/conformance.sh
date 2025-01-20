@@ -41,8 +41,14 @@ if [[ ! -z "$SKIP_OUTSIDE_CONN_TESTS" ]]; then
     add_to_label_filter "(!RequiresOutsideConnectivity)" "&&"
 fi
 
+# skip following tests on Arm64 conformance test lane
+# 1. skip outside connection test: outside connection not works in current Arm64 CI infra
+# 2. skip CDI related tests: currently we do not have CDI related multi-arch image
+# 3. skip ACPI related tests: ACPI is not support on Arm
+# 4. skip tests that use NewAlpineWithTestTooling image: currently we do not have Arm64 version NewAlpineWithTestTooling image
 if [[ ! -z "$RUN_ON_ARM64_INFRA" ]]; then
-    add_to_label_filter "(!(RequiresOutsideConnectivity && IPv6))" "&&"
+    add_to_label_filter "(!RequiresOutsideConnectivity)&&(!RequiresBlockStorage)&&(!RequiresSnapshotStorageClass)&&(!storage-req)&&(!ACPI)" "&&"
+    sonobuoy_args="${sonobuoy_args} --plugin-env kubevirt-conformance.E2E_SKIP=Alpine"
 fi
 
 if [[ ! -z "$SKIP_BLOCK_STORAGE_TESTS" ]]; then
