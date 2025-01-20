@@ -254,6 +254,12 @@ func wrapExecProbeWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv1.Pro
 		"--command", originalCommand[0],
 		"--",
 	}
+
+	// skip wrapping if command is already wrapped with "virt-probe" cli tool
+	if originalCommand[0] == wrappedCommand[0] {
+		return
+	}
+
 	wrappedCommand = append(wrappedCommand, originalCommand[1:]...)
 
 	probe.ProbeHandler.Exec.Command = wrappedCommand

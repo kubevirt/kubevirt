@@ -1,6 +1,8 @@
 package services
 
 import (
+	"strconv"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -241,6 +243,40 @@ var _ = Describe("Container spec renderer", func() {
 				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithLivelinessProbe(
 					vmiWithLivenessProbe(probe)))
 				Expect(specRenderer.Render(exampleCommand).LivenessProbe).To(Equal(probeWithDelay(probe)))
+			})
+		})
+
+		Context("liveness exec probe", func() {
+			var expectedExecCmd = []string{
+				"virt-probe",
+				"--domainName", "_",
+				"--timeoutSeconds", strconv.FormatInt(int64(dummyProbe().TimeoutSeconds), 10),
+				"--command", "dummy-cli",
+				"--",
+			}
+
+			It("its pod should feature the same exec probe but wrapped in a virt-probe command", func() {
+				probe := dummyProbe()
+				probe.Handler = v1.Handler{
+					Exec: &k8sv1.ExecAction{Command: []string{"dummy-cli"}},
+				}
+				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithLivelinessProbe(
+					vmiWithLivenessProbe(probe)))
+				Expect(specRenderer.Render(exampleCommand).LivenessProbe.Exec.Command).To(Equal(expectedExecCmd))
+			})
+		})
+
+		Context("pre-wrapped liveness exec probe", func() {
+			var expectedExecCmd = []string{"virt-probe", "--", "dummy-cli"}
+
+			It("its pod should feature the same exec probe without getting wrapped again", func() {
+				probe := dummyProbe()
+				probe.Handler = v1.Handler{
+					Exec: &k8sv1.ExecAction{Command: expectedExecCmd},
+				}
+				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithLivelinessProbe(
+					vmiWithLivenessProbe(probe)))
+				Expect(specRenderer.Render(exampleCommand).LivenessProbe.Exec.Command).To(Equal(expectedExecCmd))
 			})
 		})
 	})
