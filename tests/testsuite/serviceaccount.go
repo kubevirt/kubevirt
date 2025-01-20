@@ -40,6 +40,7 @@ const (
 	EditServiceAccountName                    = "kubevirt-edit-test-sa"
 	ViewServiceAccountName                    = "kubevirt-view-test-sa"
 	ViewInstancetypeServiceAccountName        = "kubevirt-instancetype-view-test-sa"
+	MigrateServiceAccountName                 = "kubevirt-migrate-test-sa"
 	SubresourceServiceAccountName             = "kubevirt-subresource-test-sa"
 	SubresourceUnprivilegedServiceAccountName = "kubevirt-subresource-test-unprivileged-sa"
 )
@@ -63,6 +64,9 @@ func createServiceAccounts() {
 	createServiceAccount(ViewInstancetypeServiceAccountName)
 	createClusterRoleBinding(ViewInstancetypeServiceAccountName, "instancetype.kubevirt.io:view")
 
+	createServiceAccount(MigrateServiceAccountName)
+	createRoleBinding(MigrateServiceAccountName, "kubevirt.io:migrate")
+
 	createServiceAccount(SubresourceServiceAccountName)
 	createSubresourceRole(SubresourceServiceAccountName)
 
@@ -73,6 +77,7 @@ func cleanupServiceAccounts() {
 	cleanupServiceAccount(AdminServiceAccountName)
 	cleanupServiceAccount(EditServiceAccountName)
 	cleanupServiceAccount(ViewServiceAccountName)
+	cleanupServiceAccount(MigrateServiceAccountName)
 	cleanupServiceAccount(ViewInstancetypeServiceAccountName)
 	cleanupServiceAccount(SubresourceServiceAccountName)
 	cleanupServiceAccount(SubresourceUnprivilegedServiceAccountName)
