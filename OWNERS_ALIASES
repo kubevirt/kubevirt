@@ -45,6 +45,10 @@ aliases:
   #
   sig-test-reviewers:
     - kbidarkar
+    - enp0s3
+    - xpivarc
+    - acardace
+    - 0xFelix
   sig-test-approvers:
     - kbidarkar
     - phoracek
