@@ -45,7 +45,6 @@ const (
 	strFmt                     = "%s/%s:%s"
 	kubevirtIoVM               = "kubevirt.io/vm"
 	vmName                     = "vm-${NAME}"
-	kubevirtIoOS               = "kubevirt.io/os"
 	kubevirtVM                 = "kubevirt-vm"
 	githubKubevirtIsVMTemplate = "miq.github.io/kubevirt-is-vm-template"
 	rhel74                     = "rhel-7.4"
