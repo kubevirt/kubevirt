@@ -50,16 +50,21 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	if resp := webhookutils.ValidateSchema(v1.VirtualMachineGroupVersionKind, ar.Request.Object.Raw); resp != nil {
-		return resp
-	}
-
 	raw := ar.Request.Object.Raw
 	vm := v1.VirtualMachine{}
 
 	err := json.Unmarshal(raw, &vm)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
+	}
+
+	marshaledVM, err := json.Marshal(&vm)
+	if err != nil {
+		return webhookutils.ToAdmissionResponseError(err)
+	}
+
+	if resp := webhookutils.ValidateSchema(v1.VirtualMachineGroupVersionKind, marshaledVM); resp != nil {
+		return resp
 	}
 
 	// If the VirtualMachine is being deleted return early and avoid racing any other in-flight resource deletions that might be happening
