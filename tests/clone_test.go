@@ -61,20 +61,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		format.MaxLength = 0
 	})
 
-	createVM := func(options ...libvmi.Option) (vm *virtv1.VirtualMachine) {
-		vmi := libvmifact.NewCirros(options...)
-		vmi.Namespace = testsuite.GetTestNamespace(nil)
-		vm = libvmi.NewVirtualMachine(vmi,
-			libvmi.WithAnnotations(vmi.Annotations),
-			libvmi.WithLabels(vmi.Labels))
-
-		By(fmt.Sprintf("Creating VM %s", vm.Name))
-		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v1.CreateOptions{})
-		Expect(err).ShouldNot(HaveOccurred())
-
-		return
-	}
-
 	createSnapshot := func(vm *virtv1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
 		var err error
 
@@ -284,7 +270,16 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 			}
 
 			options = append(options, defaultOptions...)
-			return createVM(options...)
+			vmi := libvmifact.NewCirros(options...)
+			vmi.Namespace = testsuite.GetTestNamespace(nil)
+			vm := libvmi.NewVirtualMachine(vmi,
+				libvmi.WithAnnotations(vmi.Annotations),
+				libvmi.WithLabels(vmi.Labels))
+
+			By(fmt.Sprintf("Creating VM %s", vm.Name))
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v1.CreateOptions{})
+			Expect(err).ShouldNot(HaveOccurred())
+			return
 		}
 
 		generateCloneFromVM := func() *clone.VirtualMachineClone {
