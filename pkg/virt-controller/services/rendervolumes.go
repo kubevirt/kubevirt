@@ -25,14 +25,15 @@ import (
 type VolumeRendererOption func(renderer *VolumeRenderer) error
 
 type VolumeRenderer struct {
-	containerDiskDir string
-	ephemeralDiskDir string
-	virtShareDir     string
-	namespace        string
-	vmiVolumes       []v1.Volume
-	podVolumes       []k8sv1.Volume
-	podVolumeMounts  []k8sv1.VolumeMount
-	volumeDevices    []k8sv1.VolumeDevice
+	containerDiskDir      string
+	ephemeralDiskDir      string
+	virtShareDir          string
+	namespace             string
+	vmiVolumes            []v1.Volume
+	podVolumes            []k8sv1.Volume
+	podVolumeMounts       []k8sv1.VolumeMount
+	sharedFilesystemPaths []string
+	volumeDevices         []k8sv1.VolumeDevice
 }
 
 func NewVolumeRenderer(namespace string, ephemeralDisk string, containerDiskDir string, virtShareDir string, volumeOptions ...VolumeRendererOption) (*VolumeRenderer, error) {
@@ -77,6 +78,10 @@ func (vr *VolumeRenderer) Volumes() []k8sv1.Volume {
 
 func (vr *VolumeRenderer) VolumeDevices() []k8sv1.VolumeDevice {
 	return vr.volumeDevices
+}
+
+func (vr *VolumeRenderer) SharedFilesystemPaths() []string {
+	return vr.sharedFilesystemPaths
 }
 
 func mountPath(name string, path string) k8sv1.VolumeMount {
@@ -525,7 +530,7 @@ func serviceAccount(volumes ...v1.Volume) string {
 
 func (vr *VolumeRenderer) addPVCToLaunchManifest(pvcStore cache.Store, volume v1.Volume, claimName string) error {
 	logger := log.DefaultLogger()
-	_, exists, isBlock, err := types.IsPVCBlockFromStore(pvcStore, vr.namespace, claimName)
+	pvc, exists, isBlock, err := types.IsPVCBlockFromStore(pvcStore, vr.namespace, claimName)
 	if err != nil {
 		logger.Errorf("error getting PVC: %v", claimName)
 		return err
@@ -540,11 +545,15 @@ func (vr *VolumeRenderer) addPVCToLaunchManifest(pvcStore cache.Store, volume v1
 		}
 		vr.volumeDevices = append(vr.volumeDevices, device)
 	} else {
+		path := hostdisk.GetMountedHostDiskDir(volume.Name)
 		volumeMount := k8sv1.VolumeMount{
 			Name:      volume.Name,
-			MountPath: hostdisk.GetMountedHostDiskDir(volume.Name),
+			MountPath: path,
 		}
 		vr.podVolumeMounts = append(vr.podVolumeMounts, volumeMount)
+		if types.HasSharedAccessMode(pvc.Spec.AccessModes) {
+			vr.sharedFilesystemPaths = append(vr.sharedFilesystemPaths, path)
+		}
 	}
 	return nil
 }
