@@ -30,6 +30,7 @@ import (
 	"libvirt.org/go/libvirtxml"
 
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -341,8 +342,8 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 		} else {
 			// Don't allow the same migration UID to be executed twice.
 			// Migration attempts are like pods. One shot.
-			return false, fmt.Errorf("migration job %v already executed, finished at %v, completed: %t, failed: %t, abortStatus: %s",
-				migrationMetadata.UID, *migrationMetadata.EndTimestamp, migrationMetadata.Completed, migrationMetadata.Failed, migrationMetadata.AbortStatus)
+			return false, fmt.Errorf("migration job %v already executed, finished at %v, failed: %t, abortStatus: %s",
+				migrationMetadata.UID, *migrationMetadata.EndTimestamp, migrationMetadata.Failed, migrationMetadata.AbortStatus)
 		}
 	}
 
@@ -359,7 +360,7 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 
 func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) error {
 	migration, _ := l.metadataCache.Migration.Load()
-	if migration.Completed || migration.Failed || migration.StartTimestamp == nil {
+	if migration.Failed || migration.StartTimestamp == nil {
 		return fmt.Errorf(migrations.CancelMigrationFailedVmiNotMigratingErr)
 	}
 
@@ -374,10 +375,15 @@ func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) e
 	return nil
 }
 
-func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, completed bool, reason string, abortStatus v1.MigrationAbortStatus) error {
+func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, reason string, abortStatus v1.MigrationAbortStatus) error {
 	migrationMetadata, exists := l.metadataCache.Migration.Load()
 	if !exists {
 		// nothing to report if migration metadata is empty
+		return nil
+	}
+
+	if migrationMetadata.EndTimestamp != nil {
+		// the migration result has already been reported and should not be overwritten
 		return nil
 	}
 
@@ -386,6 +392,11 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, completed b
 		if metaAbortStatus == string(abortStatus) && metaAbortStatus == string(v1.MigrationAbortInProgress) {
 			return domainerrors.MigrationAbortInProgressError
 		}
+	}
+
+	if migrationMetadata.EndTimestamp != nil {
+		// the migration result has already been reported and should not be overwritten
+		return nil
 	}
 
 	l.metadataCache.Migration.WithSafeBlock(func(migrationMetadata *api.MigrationMetadata, _ bool) {
@@ -397,10 +408,9 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, completed b
 			migrationMetadata.Failed = true
 			migrationMetadata.FailureReason = reason
 		}
-		if completed {
-			migrationMetadata.Completed = true
-			now := metav1.Now()
-			migrationMetadata.EndTimestamp = &now
+
+		if string(abortStatus) != string(v1.MigrationAbortInProgress) {
+			migrationMetadata.EndTimestamp = pointer.P(metav1.Now())
 		}
 	})
 
@@ -413,11 +423,11 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, completed b
 }
 
 func (l *LibvirtDomainManager) setMigrationResult(failed bool, reason string, abortStatus v1.MigrationAbortStatus) error {
-	return l.setMigrationResultHelper(failed, true, reason, abortStatus)
+	return l.setMigrationResultHelper(failed, reason, abortStatus)
 }
 
 func (l *LibvirtDomainManager) setMigrationAbortStatus(abortStatus v1.MigrationAbortStatus) error {
-	return l.setMigrationResultHelper(false, false, "", abortStatus)
+	return l.setMigrationResultHelper(false, "", abortStatus)
 }
 
 func newMigrationMonitor(vmi *v1.VirtualMachineInstance, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationErr chan error) *migrationMonitor {
@@ -673,14 +683,6 @@ func (m *migrationMonitor) startMonitor() {
 			}
 		case libvirt.DOMAIN_JOB_NONE:
 			completedJobInfo = m.determineNonRunningMigrationStatus(dom)
-		case libvirt.DOMAIN_JOB_COMPLETED:
-			logger.Info("Migration has been completed")
-			m.l.setMigrationResult(false, "", "")
-			return
-		case libvirt.DOMAIN_JOB_FAILED:
-			logger.Info("Migration job failed")
-			m.l.setMigrationResult(true, fmt.Sprintf("%v", m.migrationFailedWithError), "")
-			return
 		case libvirt.DOMAIN_JOB_CANCELLED:
 			logger.Info("Migration was canceled")
 			m.l.setMigrationResult(true, "Live migration aborted ", v1.MigrationAbortSucceeded)
@@ -984,8 +986,13 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 
 	err = dom.MigrateToURI3(dstURI, params, migrateFlags)
 	if err != nil {
+		l.setMigrationResult(true, err.Error(), "")
+		log.Log.Object(vmi).Errorf("migration failed with error: %v", err)
 		return fmt.Errorf("error encountered during MigrateToURI3 libvirt api call: %v", err)
 	}
+
+	log.Log.Object(vmi).Errorf("migration completed successfully")
+	l.setMigrationResult(false, "", "")
 
 	return nil
 }

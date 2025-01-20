@@ -158,6 +158,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		Expect(err).ToNot(HaveOccurred())
 
+		vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		vmiSourceInformer, vmiSource := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		vmiTargetInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		domainInformer, domainSource := testutils.NewFakeInformerFor(&api.Domain{})
@@ -207,6 +208,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			shareDir,
 			privateDir,
 			podsDir,
+			vmiInformer,
 			vmiSourceInformer,
 			vmiTargetInformer,
 			domainInformer,
@@ -469,12 +471,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			vmiFeeder.Add(vmi)
+			createVMI(vmi)
 
-			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
-			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+			client.EXPECT().Close()
 
 			sanityExecute()
-			testutils.ExpectEvent(recorder, VMIDefined)
+
+			testutils.ExpectEvent(recorder, VMICrashed)
 			Expect(mockQueue.Len()).To(Equal(0))
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 		})
@@ -1885,7 +1889,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			testutils.ExpectEvent(recorder, VMIAbortingMigration)
 		})
 
-		It("Handoff domain to other node after completed migration", func() {
+		It("migration should be acked when successful", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
@@ -1894,14 +1898,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.NodeName = host
 			vmi.Labels[v1.MigrationTargetNodeNameLabel] = "othernode"
 			vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
-			now := metav1.Time{Time: time.Unix(time.Now().UTC().Unix(), 0)}
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				TargetNode:                     "othernode",
 				TargetNodeAddress:              "127.0.0.1:12345",
 				SourceNode:                     host,
 				MigrationUID:                   "123",
 				TargetNodeDomainDetected:       true,
-				TargetNodeDomainReadyTimestamp: &now,
+				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
 			}
 
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
@@ -1910,12 +1913,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 				UID:            "123",
-				StartTimestamp: &now,
-				EndTimestamp:   &now,
-				Completed:      true,
+				StartTimestamp: pointer.P(metav1.Now()),
+				EndTimestamp:   pointer.P(metav1.Now()),
 			}
 
-			domainFeeder.Add(domain)
+			controller.domainStore.Add(domain)
 			vmiFeeder.Add(vmi)
 			createVMI(vmi)
 
@@ -1924,31 +1926,33 @@ var _ = Describe("VirtualMachineInstance", func() {
 			testutils.ExpectEvent(recorder, "The VirtualMachineInstance migrated to node")
 			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(updatedVMI.Status.MigrationTransport).To(Equal(v1.MigrationTransportUnix))
-			Expect(updatedVMI.Status.MigrationState.Completed).To(BeTrue())
-			Expect(updatedVMI.Status.MigrationState.StartTimestamp).To(Equal(&now))
-			Expect(updatedVMI.Status.MigrationState.EndTimestamp).To(Equal(&now))
-			Expect(updatedVMI.Status.NodeName).To(Equal("othernode"))
-			Expect(updatedVMI.Status.Interfaces).To(BeEmpty())
 			Expect(updatedVMI.Labels).To(HaveKeyWithValue(v1.NodeNameLabel, "othernode"))
+			Expect(updatedVMI.Labels).ToNot(HaveKey(v1.OutdatedLauncherImageLabel))
+			Expect(updatedVMI.Status.LauncherContainerImageVersion).To(BeEmpty())
+			Expect(updatedVMI.Status.NodeName).To(Equal("othernode"))
+			Expect(updatedVMI.Status.EvacuationNodeName).To(BeEmpty())
+			Expect(updatedVMI.Status.MigrationState.Completed).To(BeFalse())
+			Expect(updatedVMI.Status.MigrationTransport).To(Equal(v1.MigrationTransportUnix))
+			Expect(updatedVMI.Status.Interfaces).To(BeEmpty())
 		})
 
-		It("should apply post-migration operations on guest VM after migration completed", func() {
+		It("migration should be marked as completed after finalization", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
 			vmi.Labels = make(map[string]string)
-			vmi.Status.NodeName = "othernode"
+			vmi.Status.NodeName = host
 			vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
-			pastTime := metav1.NewTime(metav1.Now().Add(time.Duration(-10) * time.Second))
+			vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				TargetNode:               host,
-				TargetNodeAddress:        "127.0.0.1:12345",
-				SourceNode:               "othernode",
-				MigrationUID:             "123",
-				TargetNodeDomainDetected: false,
-				StartTimestamp:           &pastTime,
+				TargetNode:                     host,
+				TargetNodeAddress:              "127.0.0.1:12345",
+				SourceNode:                     "othernode",
+				MigrationUID:                   "123",
+				TargetNodeDomainDetected:       true,
+				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
+				EndTimestamp:                   pointer.P(metav1.Now()),
 			}
 
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
@@ -1956,23 +1960,25 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 				UID:            "123",
-				StartTimestamp: &pastTime,
+				StartTimestamp: pointer.P(metav1.Now()),
+				EndTimestamp:   pointer.P(metav1.Now()),
 			}
 
-			domainFeeder.Add(domain)
+			controller.domainStore.Add(domain)
 			vmiFeeder.Add(vmi)
 			createVMI(vmi)
 
 			client.EXPECT().Ping().AnyTimes()
-			client.EXPECT().FinalizeVirtualMachineMigration(gomock.Any(), gomock.Any())
+			client.EXPECT().FinalizeVirtualMachineMigration(gomock.Any(), gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
+			client.EXPECT().SyncVirtualMachine(gomock.Any(), gomock.Any())
 
 			sanityExecute()
 
 			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(updatedVMI.Status.MigrationState.TargetNodeDomainDetected).To(BeTrue())
-			Expect(updatedVMI.Status.MigrationState.TargetNodeDomainReadyTimestamp).ToNot(BeNil())
-			Expect(updatedVMI.Status.CurrentCPUTopology).To(BeNil())
+			Expect(updatedVMI.Status.MigrationState.Completed).To(BeTrue())
 		})
 
 		It("should hotplug CPU in post-migration when target pod has the required conditions", func() {
@@ -1981,16 +1987,18 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
 			vmi.Labels = make(map[string]string)
-			vmi.Status.NodeName = "othernode"
+			vmi.Status.NodeName = host
 			vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
 			pastTime := metav1.NewTime(metav1.Now().Add(time.Duration(-10) * time.Second))
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				TargetNode:               host,
-				TargetNodeAddress:        "127.0.0.1:12345",
-				SourceNode:               "othernode",
-				MigrationUID:             "123",
-				TargetNodeDomainDetected: false,
-				StartTimestamp:           &pastTime,
+				TargetNode:                     host,
+				TargetNodeAddress:              "127.0.0.1:12345",
+				SourceNode:                     "othernode",
+				MigrationUID:                   "123",
+				TargetNodeDomainDetected:       true,
+				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
+				StartTimestamp:                 &pastTime,
+				EndTimestamp:                   pointer.P(metav1.Now()),
 			}
 			cpuTopology := &v1.CPU{
 				Sockets: 1,
@@ -2011,6 +2019,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 				UID:            "123",
 				StartTimestamp: &pastTime,
+				EndTimestamp:   pointer.P(metav1.Now()),
 			}
 
 			domainFeeder.Add(domain)
@@ -2020,13 +2029,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 			client.EXPECT().Ping().AnyTimes()
 			client.EXPECT().FinalizeVirtualMachineMigration(gomock.Any(), gomock.Any())
 			client.EXPECT().SyncVirtualMachineCPUs(gomock.Any(), gomock.Any())
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
+			client.EXPECT().SyncVirtualMachine(gomock.Any(), gomock.Any())
 
 			sanityExecute()
 
 			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(updatedVMI.Status.MigrationState.TargetNodeDomainDetected).To(BeTrue())
-			Expect(updatedVMI.Status.MigrationState.TargetNodeDomainReadyTimestamp).ToNot(BeNil())
 			Expect(updatedVMI.Status.CurrentCPUTopology).NotTo(BeNil())
 			Expect(updatedVMI.Status.Conditions).NotTo(ContainElement(MatchFields(IgnoreExtras, Fields{
 				"Type": Equal(v1.VirtualMachineInstanceVCPUChange),
@@ -2152,16 +2162,18 @@ var _ = Describe("VirtualMachineInstance", func() {
 		vmi.ObjectMeta.ResourceVersion = "1"
 		vmi.Status.Phase = v1.Running
 		vmi.Labels = make(map[string]string)
-		vmi.Status.NodeName = "othernode"
-		vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
-		pastTime := metav1.NewTime(metav1.Now().Add(time.Duration(-10) * time.Second))
+		vmi.Status.NodeName = host
+		vmi.Labels[v1.NodeNameLabel] = host
+
 		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-			TargetNode:               host,
-			TargetNodeAddress:        "127.0.0.1:12345",
-			SourceNode:               "othernode",
-			MigrationUID:             "123",
-			TargetNodeDomainDetected: false,
-			StartTimestamp:           &pastTime,
+			TargetNode:                     host,
+			TargetNodeAddress:              "127.0.0.1:12345",
+			SourceNode:                     "othernode",
+			MigrationUID:                   "123",
+			TargetNodeDomainDetected:       true,
+			TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
+			StartTimestamp:                 pointer.P(metav1.Now()),
+			EndTimestamp:                   pointer.P(metav1.Now()),
 		}
 
 		cpuTopology := &v1.CPU{
@@ -2185,23 +2197,26 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 			UID:            "123",
-			StartTimestamp: &pastTime,
+			StartTimestamp: pointer.P(metav1.Now()),
+			EndTimestamp:   pointer.P(metav1.Now()),
 		}
-		domainFeeder.Add(domain)
+
+		controller.domainStore.Add(domain)
 		vmiFeeder.Add(vmi)
 		createVMI(vmi)
 
 		client.EXPECT().Ping().AnyTimes()
 		client.EXPECT().FinalizeVirtualMachineMigration(gomock.Any(), gomock.Any())
 		client.EXPECT().SyncVirtualMachineCPUs(gomock.Any(), gomock.Any()).Return(fmt.Errorf("some error"))
+		client.EXPECT().SyncVirtualMachine(gomock.Any(), gomock.Any())
+		mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), gomock.Any())
+		mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), gomock.Any())
 
 		sanityExecute()
 
 		testutils.ExpectEvent(recorder, "failed to change vCPUs")
 		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(updatedVMI.Status.MigrationState.TargetNodeDomainDetected).To(BeTrue())
-		Expect(updatedVMI.Status.MigrationState.TargetNodeDomainReadyTimestamp).ToNot(BeNil())
 		Expect(updatedVMI.Status.CurrentCPUTopology).NotTo(BeNil())
 		Expect(updatedVMI.Status.Conditions).NotTo(ContainElement(MatchFields(IgnoreExtras, Fields{
 			"Type": Equal(v1.VirtualMachineInstanceVCPUChange),

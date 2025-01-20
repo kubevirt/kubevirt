@@ -176,6 +176,7 @@ type LibvirtDomainManager struct {
 
 	metadataCache    *metadata.Cache
 	domainStatsCache *virtcache.TimeDefinedCache[*stats.DomainStats]
+	setTimeOnce      sync.Once
 }
 
 type pausedVMIs struct {
@@ -222,6 +223,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		cancelSafetyUnfreezeChan: make(chan struct{}),
 		migrateInfoStats:         &stats.DomainJobInfo{},
 		metadataCache:            metadataCache,
+		setTimeOnce:              sync.Once{},
 	}
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
@@ -336,7 +338,7 @@ func (l *LibvirtDomainManager) UpdateGuestMemory(vmi *v1.VirtualMachineInstance)
 	return nil
 }
 
-func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) error {
+func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) {
 	// Try to set VM time to the current value.  This is typically useful
 	// when clock wasn't running on the VM for some time (e.g. during
 	// suspension or migration), especially if the time delay exceeds NTP
@@ -345,16 +347,14 @@ func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) erro
 	// environment, especially QEMU agent presence) or that the set time is
 	// very precise (NTP in the guest should take care of it if needed).
 
-	domName := api.VMINamespaceKeyFunc(vmi)
-	dom, err := l.virConn.LookupDomainByName(domName)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error(failedSyncGuestTime)
-		return err
-	}
-
-	go func() {
+	go l.setTimeOnce.Do(func() {
+		domName := api.VMINamespaceKeyFunc(vmi)
+		dom, err := l.virConn.LookupDomainByName(domName)
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Error(failedSyncGuestTime)
+			return
+		}
 		defer dom.Free()
-
 		// Syncing the guest time is a best-effort. Therefore
 		// don't flood the logs
 		var latestErr error
@@ -411,9 +411,7 @@ func (l *LibvirtDomainManager) setGuestTime(vmi *v1.VirtualMachineInstance) erro
 				}
 			}
 		}
-	}()
-
-	return nil
+	})
 }
 
 func (l *LibvirtDomainManager) getGuestTimeContext() context.Context {
@@ -1667,10 +1665,7 @@ func (l *LibvirtDomainManager) UnpauseVMI(vmi *v1.VirtualMachineInstance) error 
 		l.paused.remove(vmi.UID)
 		// Try to set guest time after this commands execution.
 		// This operation is not disruptive.
-		if err := l.setGuestTime(vmi); err != nil {
-			return err
-		}
-
+		l.setGuestTime(vmi)
 	} else {
 		logger.Infof("Domain is not paused for %s", vmi.GetObjectMeta().GetName())
 	}
