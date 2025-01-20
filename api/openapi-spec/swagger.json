@@ -10999,7 +10999,7 @@
    "/healthz": {
     "get": {
      "description": "Health endpoint",
-     "operationId": "func13",
+     "operationId": "func14",
      "responses": {
       "401": {
        "description": "Unauthorized"
@@ -11016,6 +11016,22 @@
       "application/json"
      ],
      "operationId": "func6",
+     "responses": {
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    }
+   },
+   "/openapi/v3": {
+    "get": {
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "func7",
      "responses": {
       "401": {
        "description": "Unauthorized"
