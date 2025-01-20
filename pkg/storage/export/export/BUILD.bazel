@@ -25,7 +25,6 @@ go_library(
         "//pkg/storage/utils:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-config:go_default_library",
-        "//pkg/virt-controller/services:go_default_library",
         "//pkg/virt-controller/watch/util:go_default_library",
         "//pkg/virt-operator/resource/apply:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
