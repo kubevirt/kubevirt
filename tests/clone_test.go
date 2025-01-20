@@ -221,6 +221,12 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		var (
 			sourceVM, targetVM *virtv1.VirtualMachine
 			vmClone            *clone.VirtualMachineClone
+			defaultVMIOptions  = []libvmi.Option{
+				libvmi.WithLabel(key1, value1),
+				libvmi.WithLabel(key2, value2),
+				libvmi.WithAnnotation(key1, value1),
+				libvmi.WithAnnotation(key2, value2),
+			}
 		)
 
 		expectEqualStrMap := func(actual, expected map[string]string, expectationMsg string, keysToExclude ...string) {
@@ -262,14 +268,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		}
 
 		createVM := func(options ...libvmi.Option) *virtv1.VirtualMachine {
-			defaultOptions := []libvmi.Option{
-				libvmi.WithLabel(key1, value1),
-				libvmi.WithLabel(key2, value2),
-				libvmi.WithAnnotation(key1, value1),
-				libvmi.WithAnnotation(key2, value2),
-			}
-
-			options = append(options, defaultOptions...)
 			vmi := libvmifact.NewCirros(options...)
 			vmi.Namespace = testsuite.GetTestNamespace(nil)
 			vm := libvmi.NewVirtualMachine(vmi,
@@ -293,7 +291,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 			}
 
 			It("simple default clone", func() {
-				sourceVM = createVM()
+				sourceVM = createVM(defaultVMIOptions...)
 				vmClone = generateCloneFromVM()
 
 				createCloneAndWaitForFinish(vmClone)
@@ -326,7 +324,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 
 			It("simple clone with snapshot source", func() {
 				By("Creating a VM")
-				sourceVM = createVM()
+				sourceVM = createVM(defaultVMIOptions...)
 				Eventually(func() virtv1.VirtualMachinePrintableStatus {
 					sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), sourceVM.Name, v1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -364,7 +362,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 			})
 
 			It("clone with only some of labels/annotations", func() {
-				sourceVM = createVM()
+				sourceVM = createVM(defaultVMIOptions...)
 				vmClone = generateCloneFromVM()
 
 				vmClone.Spec.LabelFilters = []string{
@@ -389,7 +387,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 			})
 
 			It("clone with only some of template.labels/template.annotations", func() {
-				sourceVM = createVM()
+				sourceVM = createVM(defaultVMIOptions...)
 				vmClone = generateCloneFromVM()
 
 				vmClone.Spec.Template.LabelFilters = []string{
@@ -414,10 +412,12 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 
 			It("clone with changed MAC address", func() {
 				const newMacAddress = "BE-AD-00-00-BE-04"
-				sourceVM = createVM(
+				options := append(
+					defaultVMIOptions,
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 				)
+				sourceVM = createVM(options...)
 
 				srcInterfaces := sourceVM.Spec.Template.Spec.Domain.Devices.Interfaces
 				Expect(srcInterfaces).ToNot(BeEmpty())
@@ -463,9 +463,11 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 					const sourceSerial = "source-serial"
 					const targetSerial = "target-serial"
 
-					sourceVM = createVM(
+					options := append(
+						defaultVMIOptions,
 						withFirmware(&virtv1.Firmware{Serial: sourceSerial}),
 					)
+					sourceVM = createVM(options...)
 
 					vmClone = generateCloneFromVM()
 					vmClone.Spec.NewSMBiosSerial = pointer.P(targetSerial)
@@ -493,9 +495,11 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				It("should strip firmware UUID", func() {
 					const fakeFirmwareUUID = "fake-uuid"
 
-					sourceVM = createVM(
+					options := append(
+						defaultVMIOptions,
 						withFirmware(&virtv1.Firmware{UUID: fakeFirmwareUUID}),
 					)
+					sourceVM = createVM(options...)
 					vmClone = generateCloneFromVM()
 
 					createCloneAndWaitForFinish(vmClone)
