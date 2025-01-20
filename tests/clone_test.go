@@ -464,9 +464,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 					const targetSerial = "target-serial"
 
 					sourceVM = createVM(
-						func(vmi *virtv1.VirtualMachineInstance) {
-							vmi.Spec.Domain.Firmware = &virtv1.Firmware{Serial: sourceSerial}
-						},
+						withFirmware(&virtv1.Firmware{Serial: sourceSerial}),
 					)
 
 					vmClone = generateCloneFromVM()
@@ -496,9 +494,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 					const fakeFirmwareUUID = "fake-uuid"
 
 					sourceVM = createVM(
-						func(vmi *virtv1.VirtualMachineInstance) {
-							vmi.Spec.Domain.Firmware = &virtv1.Firmware{UUID: fakeFirmwareUUID}
-						},
+						withFirmware(&virtv1.Firmware{UUID: fakeFirmwareUUID}),
 					)
 					vmClone = generateCloneFromVM()
 
@@ -861,4 +857,10 @@ func stopCloneVM(virtClient kubecli.KubevirtClient, vm *virtv1.VirtualMachine) (
 	}
 
 	return virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, v1.PatchOptions{})
+}
+
+func withFirmware(firmware *virtv1.Firmware) libvmi.Option {
+	return func(vmi *virtv1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Firmware = firmware
+	}
 }
