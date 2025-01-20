@@ -1,0 +1,197 @@
+<capabilities>
+
+    <host>
+        <uuid>10d11e64-1953-4814-9b1a-fb599251c43a</uuid>
+        <cpu>
+            <arch>x86_64</arch>
+            <model>EPYC-Rome-v3</model>
+            <vendor>AMD</vendor>
+            <microcode version='175128839'/>
+            <signature family='25' model='116' stepping='1'/>
+            <counter name='tsc' frequency='3792840000' scaling='yes'/>
+            <topology sockets='1' dies='1' clusters='1' cores='6' threads='1'/>
+            <maxphysaddr mode='emulate' bits='48'/>
+            <feature name='x2apic'/>
+            <feature name='tsc-deadline'/>
+            <feature name='osxsave'/>
+            <feature name='hypervisor'/>
+            <feature name='ht'/>
+            <feature name='tsc_adjust'/>
+            <feature name='erms'/>
+            <feature name='invpcid'/>
+            <feature name='avx512f'/>
+            <feature name='avx512dq'/>
+            <feature name='avx512ifma'/>
+            <feature name='avx512cd'/>
+            <feature name='avx512bw'/>
+            <feature name='avx512vl'/>
+            <feature name='avx512vbmi'/>
+            <feature name='pku'/>
+            <feature name='ospke'/>
+            <feature name='avx512vbmi2'/>
+            <feature name='gfni'/>
+            <feature name='vaes'/>
+            <feature name='vpclmulqdq'/>
+            <feature name='avx512vnni'/>
+            <feature name='avx512bitalg'/>
+            <feature name='avx512-vpopcntdq'/>
+            <feature name='fsrm'/>
+            <feature name='spec-ctrl'/>
+            <feature name='stibp'/>
+            <feature name='flush-l1d'/>
+            <feature name='arch-capabilities'/>
+            <feature name='ssbd'/>
+            <feature name='avx512-bf16'/>
+            <feature name='cmp_legacy'/>
+            <feature name='invtsc'/>
+            <feature name='stibp-always-on'/>
+            <feature name='virt-ssbd'/>
+            <feature name='amd-psfd'/>
+            <feature name='lbrv'/>
+            <feature name='tsc-scale'/>
+            <feature name='vmcb-clean'/>
+            <feature name='flushbyasid'/>
+            <feature name='pause-filter'/>
+            <feature name='pfthreshold'/>
+            <feature name='vgif'/>
+            <feature name='vnmi'/>
+            <feature name='svme-addr-chk'/>
+            <feature name='no-nested-data-bp'/>
+            <feature name='lfence-always-serializing'/>
+            <feature name='null-sel-clr-base'/>
+            <feature name='auto-ibrs'/>
+            <feature name='rdctl-no'/>
+            <feature name='skip-l1dfl-vmentry'/>
+            <feature name='mds-no'/>
+            <feature name='pschange-mc-no'/>
+            <feature name='gds-no'/>
+            <feature name='rfds-no'/>
+            <pages unit='KiB' size='4'/>
+            <pages unit='KiB' size='2048'/>
+            <pages unit='KiB' size='1048576'/>
+        </cpu>
+        <power_management/>
+        <iommu support='yes'/>
+        <migration_features>
+            <live/>
+            <uri_transports>
+                <uri_transport>tcp</uri_transport>
+                <uri_transport>rdma</uri_transport>
+            </uri_transports>
+        </migration_features>
+        <topology>
+            <cells num='1'>
+                <cell id='0'>
+                    <memory unit='KiB'>16373160</memory>
+                    <pages unit='KiB' size='4'>4060522</pages>
+                    <pages unit='KiB' size='2048'>64</pages>
+                    <pages unit='KiB' size='1048576'>0</pages>
+                    <distances>
+                        <sibling id='0' value='10'/>
+                    </distances>
+                    <cpus num='6'>
+                        <cpu id='0' socket_id='0' die_id='0' cluster_id='65535' core_id='0' siblings='0'/>
+                        <cpu id='1' socket_id='0' die_id='0' cluster_id='65535' core_id='1' siblings='1'/>
+                        <cpu id='2' socket_id='0' die_id='0' cluster_id='65535' core_id='2' siblings='2'/>
+                        <cpu id='3' socket_id='0' die_id='0' cluster_id='65535' core_id='3' siblings='3'/>
+                        <cpu id='4' socket_id='0' die_id='0' cluster_id='65535' core_id='4' siblings='4'/>
+                        <cpu id='5' socket_id='0' die_id='0' cluster_id='65535' core_id='5' siblings='5'/>
+                    </cpus>
+                </cell>
+            </cells>
+        </topology>
+        <cache>
+            <bank id='0' level='2' type='both' size='512' unit='KiB' cpus='0'/>
+            <bank id='1' level='2' type='both' size='512' unit='KiB' cpus='1'/>
+            <bank id='2' level='2' type='both' size='512' unit='KiB' cpus='2'/>
+            <bank id='3' level='2' type='both' size='512' unit='KiB' cpus='3'/>
+            <bank id='4' level='2' type='both' size='512' unit='KiB' cpus='4'/>
+            <bank id='5' level='2' type='both' size='512' unit='KiB' cpus='5'/>
+            <bank id='0' level='3' type='both' size='16' unit='MiB' cpus='0-5'/>
+            <bank id='1' level='3' type='both' size='16' unit='MiB' cpus='0-5'/>
+            <bank id='2' level='3' type='both' size='16' unit='MiB' cpus='0-5'/>
+            <bank id='3' level='3' type='both' size='16' unit='MiB' cpus='0-5'/>
+            <bank id='4' level='3' type='both' size='16' unit='MiB' cpus='0-5'/>
+            <bank id='5' level='3' type='both' size='16' unit='MiB' cpus='0-5'/>
+        </cache>
+        <secmodel>
+            <model>none</model>
+            <doi>0</doi>
+        </secmodel>
+        <secmodel>
+            <model>dac</model>
+            <doi>0</doi>
+            <baselabel type='kvm'>+107:+107</baselabel>
+            <baselabel type='qemu'>+107:+107</baselabel>
+        </secmodel>
+    </host>
+
+    <guest>
+        <os_type>hvm</os_type>
+        <arch name='i686'>
+            <wordsize>32</wordsize>
+            <emulator>/usr/libexec/qemu-kvm</emulator>
+            <machine maxCpus='240' deprecated='yes'>pc-i440fx-rhel7.6.0</machine>
+            <machine canonical='pc-i440fx-rhel7.6.0' maxCpus='240' deprecated='yes'>pc</machine>
+            <machine maxCpus='4096'>pc-q35-rhel9.6.0</machine>
+            <machine canonical='pc-q35-rhel9.6.0' maxCpus='4096'>q35</machine>
+            <machine maxCpus='710' deprecated='yes'>pc-q35-rhel8.6.0</machine>
+            <machine maxCpus='710'>pc-q35-rhel9.4.0</machine>
+            <machine maxCpus='710' deprecated='yes'>pc-q35-rhel8.5.0</machine>
+            <machine maxCpus='710' deprecated='yes'>pc-q35-rhel8.3.0</machine>
+            <machine maxCpus='710' deprecated='yes'>pc-q35-rhel7.6.0</machine>
+            <machine maxCpus='710' deprecated='yes'>pc-q35-rhel8.4.0</machine>
+            <machine maxCpus='710'>pc-q35-rhel9.2.0</machine>
+            <machine maxCpus='710' deprecated='yes'>pc-q35-rhel8.2.0</machine>
+            <machine maxCpus='710'>pc-q35-rhel9.0.0</machine>
+            <machine maxCpus='710' deprecated='yes'>pc-q35-rhel8.0.0</machine>
+            <machine maxCpus='710' deprecated='yes'>pc-q35-rhel8.1.0</machine>
+            <domain type='qemu'/>
+            <domain type='kvm'/>
+        </arch>
+        <features>
+            <pae/>
+            <nonpae/>
+            <acpi default='on' toggle='yes'/>
+            <apic default='on' toggle='no'/>
+            <cpuselection/>
+            <deviceboot/>
+            <disksnapshot default='on' toggle='no'/>
+            <externalSnapshot/>
+        </features>
+    </guest>
+
+    <guest>
+        <os_type>hvm</os_type>
+        <arch name='x86_64'>
+            <wordsize>64</wordsize>
+            <emulator>/usr/libexec/qemu-kvm</emulator>
+            <machine maxCpus='240' deprecated='yes'>pc-i440fx-rhel7.6.0</machine>
+            <machine canonical='pc-i440fx-rhel7.6.0' maxCpus='240' deprecated='yes'>pc</machine>
+            <machine maxCpus='4096'>pc-q35-rhel9.6.0</machine>
+            <machine canonical='pc-q35-rhel9.6.0' maxCpus='4096'>q35</machine>
+            <machine maxCpus='710' deprecated='yes'>pc-q35-rhel8.6.0</machine>
+            <machine maxCpus='710'>pc-q35-rhel9.4.0</machine>
+            <machine maxCpus='710' deprecated='yes'>pc-q35-rhel8.5.0</machine>
+            <machine maxCpus='710' deprecated='yes'>pc-q35-rhel8.3.0</machine>
+            <machine maxCpus='710' deprecated='yes'>pc-q35-rhel7.6.0</machine>
+            <machine maxCpus='710' deprecated='yes'>pc-q35-rhel8.4.0</machine>
+            <machine maxCpus='710'>pc-q35-rhel9.2.0</machine>
+            <machine maxCpus='710' deprecated='yes'>pc-q35-rhel8.2.0</machine>
+            <machine maxCpus='710'>pc-q35-rhel9.0.0</machine>
+            <machine maxCpus='710' deprecated='yes'>pc-q35-rhel8.0.0</machine>
+            <machine maxCpus='710' deprecated='yes'>pc-q35-rhel8.1.0</machine>
+            <domain type='qemu'/>
+            <domain type='kvm'/>
+        </arch>
+        <features>
+            <acpi default='on' toggle='yes'/>
+            <apic default='on' toggle='no'/>
+            <cpuselection/>
+            <deviceboot/>
+            <disksnapshot default='on' toggle='no'/>
+            <externalSnapshot/>
+        </features>
+    </guest>
+
+</capabilities>
