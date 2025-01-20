@@ -51,6 +51,8 @@ var _ = Describe("Validating VMI network spec", func() {
 	},
 		Entry("is empty", v1.InterfaceState("")),
 		Entry("is absent when bridge binding is used", v1.InterfaceStateAbsent),
+		Entry("is up when bridge binding is used", v1.InterfaceStateLinkUp),
+		Entry("is down when bridge binding is used", v1.InterfaceStateLinkDown),
 	)
 
 	It("network interface state value is invalid", func() {
@@ -66,24 +68,25 @@ var _ = Describe("Validating VMI network spec", func() {
 			}))
 	})
 
-	It("network interface state value of absent is not supported when bridge-binding is not used", func() {
+	DescribeTable("network interface state ", func(state v1.InterfaceState, messageRegex string) {
 		vm := api.NewMinimalVMI("testvm")
 		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 			Name:                   "foo",
-			State:                  v1.InterfaceStateAbsent,
+			State:                  state,
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
 		}}
 		vm.Spec.Networks = []v1.Network{
 			{Name: "foo", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "net"}}},
 		}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{})
-		Expect(validator.Validate()).To(
-			ConsistOf(metav1.StatusCause{
-				Type:    "FieldValueInvalid",
-				Message: "\"foo\" interface's state \"absent\" is supported only for bridge binding",
-				Field:   "fake.domain.devices.interfaces[0].state",
-			}))
-	})
+		statusCause := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{}).Validate()
+		Expect(statusCause).To(HaveLen(1))
+		Expect(statusCause[0].Type).To(Equal(metav1.CauseType("FieldValueInvalid")))
+		Expect(statusCause[0].Field).To(Equal("fake.domain.devices.interfaces[0].state"))
+		Expect(statusCause[0].Message).To(MatchRegexp(messageRegex))
+	},
+		Entry("down is not supported for sriov", v1.InterfaceStateLinkDown, "down.+SR-IOV"),
+		Entry("absent is not supported when bridge-binding is not used", v1.InterfaceStateAbsent, "absent.+bridge"),
+	)
 
 	It("network interface state value of absent is not supported on the default network", func() {
 		vm := api.NewMinimalVMI("testvm")
