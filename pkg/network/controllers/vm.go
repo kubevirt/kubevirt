@@ -103,7 +103,7 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 	for _, vmIface := range vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces {
 		for i, vmiIface := range vmiCopy.Spec.Domain.Devices.Interfaces {
 			if vmIface.Name == vmiIface.Name {
-				if vmIface.State != vmiIface.State {
+				if vmIface.State != vmiIface.State && vmIface.State != v1.InterfaceStateAbsent {
 					vmiCopy.Spec.Domain.Devices.Interfaces[i].State = vmIface.State
 				}
 				break

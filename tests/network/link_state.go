@@ -39,6 +39,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -51,7 +52,7 @@ const bridgeInterfaceLinkDownName = "linux-bridge"
 var _ = SIGDescribe("interface state up/down", func() {
 
 	var virtClient kubecli.KubevirtClient
-	var vmi *v1.VirtualMachineInstance
+	var vm *v1.VirtualMachine
 	bridgeInterfaceLinkDown := v1.Interface{
 		Name: bridgeInterfaceLinkDownName,
 		InterfaceBindingMethod: v1.InterfaceBindingMethod{
@@ -69,11 +70,10 @@ var _ = SIGDescribe("interface state up/down", func() {
 	}
 
 	Context("VMI with one link up and another link down", func() {
-
 		BeforeEach(func() {
 			virtClient = kubevirt.Client()
 
-			vmi = libvmifact.NewFedora(
+			vmi := libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(bridgeInterfaceLinkDown),
@@ -81,19 +81,26 @@ var _ = SIGDescribe("interface state up/down", func() {
 				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(
 					cloudinit.CreateNetworkDataWithStaticIPsByIface("eth1", "10.1.1.2/24"),
 				)))
+
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+
 			netAttachDef := libnet.NewBridgeNetAttachDef(
 				bridgeInterfaceLinkDownName,
 				"br02",
 			)
+
 			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(nil), netAttachDef)
 			Expect(err).NotTo(HaveOccurred())
-
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
+			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
+
 		})
 
 		It("the guest should show one iface up and the other down", func() {
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 			const timeout = time.Second * 5
 			Expect(console.RunCommand(vmi, fmt.Sprintf("ip -one link show eth0 | grep -E %s\n", "'state[[:space:]]+UP'"), timeout)).To(Succeed())
 			Expect(console.RunCommand(vmi, fmt.Sprintf("ip -one link show eth1 | grep -E %s\n", "'state[[:space:]]+DOWN'"), timeout)).To(Succeed())
