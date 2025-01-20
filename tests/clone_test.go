@@ -67,8 +67,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		vm = libvmi.NewVirtualMachine(vmi)
 		vm.Annotations = vmi.Annotations
 		vm.Labels = vmi.Labels
-		vm.Spec.Template.ObjectMeta.Annotations = vmi.Annotations
-		vm.Spec.Template.ObjectMeta.Labels = vmi.Labels
 
 		By(fmt.Sprintf("Creating VM %s", vm.Name))
 		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v1.CreateOptions{})
