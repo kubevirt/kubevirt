@@ -243,7 +243,7 @@ func wrapExecProbeWithVirtProbe(vmi *v1.VirtualMachineInstance, probe *k8sv1.Pro
 	}
 
 	originalCommand := probe.ProbeHandler.Exec.Command
-	if len(originalCommand) < 1 {
+	if len(originalCommand) < 1 || originalCommand[0] == "virt-probe" {
 		return
 	}
 
