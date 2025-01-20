@@ -458,8 +458,8 @@ func (ctrl *VMSnapshotController) createVolumeSnapshot(
 			content.Namespace, volumeBackup.PersistentVolumeClaim.Name)
 	}
 
-	volumeSnapshotClass, err := ctrl.getVolumeSnapshotClass(*sc)
-	if err != nil {
+	volumeSnapshotClass, err := ctrl.getVolumeSnapshotClassName(*sc)
+	if err != nil || volumeSnapshotClass == "" {
 		log.Log.Warningf("Couldn't find VolumeSnapshotClass for %s", *sc)
 		return nil, err
 	}
@@ -621,7 +621,7 @@ func (ctrl *VMSnapshotController) getSnapshotPVC(namespace, volumeName string) (
 		return nil, nil
 	}
 
-	volumeSnapshotClass, err := ctrl.getVolumeSnapshotClass(*pvc.Spec.StorageClassName)
+	volumeSnapshotClass, err := ctrl.getVolumeSnapshotClassName(*pvc.Spec.StorageClassName)
 	if err != nil {
 		return nil, err
 	}
@@ -633,13 +633,29 @@ func (ctrl *VMSnapshotController) getSnapshotPVC(namespace, volumeName string) (
 	return nil, nil
 }
 
-func (ctrl *VMSnapshotController) getVolumeSnapshotClass(storageClassName string) (string, error) {
+func (ctrl *VMSnapshotController) getVolumeSnapshotClassName(storageClassName string) (string, error) {
 	obj, exists, err := ctrl.StorageClassInformer.GetStore().GetByKey(storageClassName)
 	if !exists || err != nil {
 		return "", err
 	}
 
 	storageClass := obj.(*storagev1.StorageClass).DeepCopy()
+
+	obj, exists, err = ctrl.StorageProfileInformer.GetStore().GetByKey(storageClassName)
+	if err != nil {
+		return "", err
+	}
+	if exists {
+		storageProfile := obj.(*cdiv1.StorageProfile)
+		defaultSCSnapClass := storageProfile.Status.SnapshotClass
+		if defaultSCSnapClass != nil && *defaultSCSnapClass != "" {
+			if vsc, err := ctrl.getVolumeSnapshotClass(*defaultSCSnapClass); err != nil || vsc == nil {
+				return "", err
+			}
+
+			return *defaultSCSnapClass, nil
+		}
+	}
 
 	var matches []vsv1.VolumeSnapshotClass
 	volumeSnapshotClasses := ctrl.getVolumeSnapshotClasses()
@@ -856,7 +872,7 @@ func (ctrl *VMSnapshotController) getVolumeSnapshotStatus(vm *kubevirtv1.Virtual
 		return kubevirtv1.VolumeSnapshotStatus{Name: volume.Name, Enabled: false, Reason: err.Error()}
 	}
 
-	snap, err := ctrl.getVolumeSnapshotClass(sc)
+	snap, err := ctrl.getVolumeSnapshotClassName(sc)
 	if err != nil {
 		return kubevirtv1.VolumeSnapshotStatus{Name: volume.Name, Enabled: false, Reason: err.Error()}
 	}
