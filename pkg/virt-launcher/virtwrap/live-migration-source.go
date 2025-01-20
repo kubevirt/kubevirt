@@ -22,6 +22,7 @@ package virtwrap
 import (
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -641,6 +642,12 @@ func (m *migrationMonitor) startMonitor() {
 			var abortStatus v1.MigrationAbortStatus
 			if strings.Contains(m.migrationFailedWithError.Error(), "canceled by client") {
 				abortStatus = v1.MigrationAbortSucceeded
+			}
+			// Improve the error message when the volume migration fails because the destination size is smaller then the source volume
+			if len(vmi.Status.MigratedVolumes) > 0 && errors.Is(m.migrationFailedWithError, errors.New("has to be smaller or equal to the  actual size of the containing file")) {
+				m.l.setMigrationResult(true, fmt.Sprintf("Volume migration cannot be performed because the destination volume is smaller then the source volume: %v",
+					m.migrationFailedWithError), abortStatus)
+				return
 			}
 			m.l.setMigrationResult(true, fmt.Sprintf("Live migration failed %v", m.migrationFailedWithError), abortStatus)
 			return
