@@ -30,11 +30,12 @@ import (
 type IOThreadsPolicy string
 
 const (
-	IOThreadsPolicyShared  IOThreadsPolicy = "shared"
-	IOThreadsPolicyAuto    IOThreadsPolicy = "auto"
-	CPUModeHostPassthrough                 = "host-passthrough"
-	CPUModeHostModel                       = "host-model"
-	DefaultCPUModel                        = CPUModeHostModel
+	IOThreadsPolicyShared           IOThreadsPolicy = "shared"
+	IOThreadsPolicyAuto             IOThreadsPolicy = "auto"
+	IOThreadsPolicySupplementalPool IOThreadsPolicy = "supplementalPool"
+	CPUModeHostPassthrough                          = "host-passthrough"
+	CPUModeHostModel                                = "host-model"
+	DefaultCPUModel                                 = CPUModeHostModel
 )
 
 const HotplugDiskDir = "/var/run/kubevirt/hotplug-disks/"
@@ -203,6 +204,9 @@ type DomainSpec struct {
 	// One of: shared, auto
 	// +optional
 	IOThreadsPolicy *IOThreadsPolicy `json:"ioThreadsPolicy,omitempty"`
+	// IOThreads specifies the IOThreads options.
+	// +optional
+	IOThreads *DiskIOThreads `json:"ioThreads,omitempty"`
 	// Chassis specifies the chassis info passed to the domain.
 	// +optional
 	Chassis *Chassis `json:"chassis,omitempty"`
@@ -858,7 +862,6 @@ type HotplugVolumeSource struct {
 
 type DataVolumeSource struct {
 	// Name of both the DataVolume and the PVC in the same namespace.
-	// After PVC population the DataVolume is garbage collected by default.
 	Name string `json:"name"`
 	// Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.
 	// +optional
@@ -1585,4 +1588,10 @@ type CPUTopology struct {
 	// Threads specifies the number of threads inside the vmi.
 	// Must be a value greater or equal 1.
 	Threads uint32 `json:"threads,omitempty"`
+}
+
+type DiskIOThreads struct {
+	// SupplementalPoolThreadCount specifies how many iothreads are allocated for the supplementalPool policy.
+	// +optional
+	SupplementalPoolThreadCount *uint32 `json:"supplementalPoolThreadCount,omitempty"`
 }

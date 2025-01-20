@@ -808,6 +808,8 @@ const (
 	MigrationPreCopy MigrationMode = "PreCopy"
 	// MigrationPostCopy means the VMI migrations that is currently running is in post copy mode
 	MigrationPostCopy MigrationMode = "PostCopy"
+	// MigrationPaused means that the VMI is currently paused and being migrated
+	MigrationPaused MigrationMode = "Paused"
 )
 
 type VirtualMachineInstanceMigrationTransport string
@@ -1796,9 +1798,6 @@ const (
 	DeprecatedSlirpInterface NetworkInterfaceType = "slirp"
 	// Virtual machine instance masquerade interface
 	MasqueradeInterface NetworkInterfaceType = "masquerade"
-	// Virtual machine instance passt interface is deprecated
-	// Deprecated: Removed in v1.3.
-	DeprecatedPasstInterface NetworkInterfaceType = "passt"
 )
 
 type DriverCache string
@@ -2536,7 +2535,8 @@ type KubeVirtConfiguration struct {
 	// LiveUpdateConfiguration holds defaults for live update features
 	LiveUpdateConfiguration *LiveUpdateConfiguration `json:"liveUpdateConfiguration,omitempty"`
 
-	// VMRolloutStrategy defines how changes to a VM object propagate to its VMI
+	// VMRolloutStrategy defines how live-updatable fields, like CPU sockets, memory,
+	// tolerations, and affinity, are propagated from a VM to its VMI.
 	// +nullable
 	// +kubebuilder:validation:Enum=Stage;LiveUpdate
 	VMRolloutStrategy *VMRolloutStrategy `json:"vmRolloutStrategy,omitempty"`
@@ -2713,8 +2713,8 @@ type MigrationConfiguration struct {
 	// The value is in quantity per second. Defaults to 0 (no limit)
 	BandwidthPerMigration *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
 	// CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
-	// If a live-migration takes longer to migrate than this value multiplied by the size of the VMI,
-	// the migration will be cancelled, unless AllowPostCopy is true. Defaults to 150
+	// If the timeout is reached, the migration will be either paused, switched
+	// to post-copy or cancelled depending on other settings. Defaults to 150
 	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
 	// ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress.
 	// Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is
@@ -2728,6 +2728,11 @@ type MigrationConfiguration struct {
 	// If set to true, migrations will still start in pre-copy, but switch to post-copy when
 	// CompletionTimeoutPerGiB triggers. Defaults to false
 	AllowPostCopy *bool `json:"allowPostCopy,omitempty"`
+	// AllowWorkloadDisruption indicates that the migration shouldn't be
+	// canceled after acceptableCompletionTime is exceeded. Instead, if
+	// permitted, migration will be switched to post-copy or the VMI will be
+	// paused to allow the migration to complete
+	AllowWorkloadDisruption *bool `json:"allowWorkloadDisruption,omitempty"`
 	// When set to true, DisableTLS will disable the additional layer of live migration encryption
 	// provided by KubeVirt. This is usually a bad idea. Defaults to false
 	DisableTLS *bool `json:"disableTLS,omitempty"`

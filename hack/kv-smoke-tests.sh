@@ -254,4 +254,5 @@ ${TESTS_BINARY} \
     -utility-container-tag="${KUBEVIRT_VERSION}" \
     -test.timeout=3h \
     -ginkgo.timeout=3h \
+    -ginkgo.label-filter='!software-emulation' \
     -artifacts=${ARTIFACT_DIR}/kubevirt_dump
