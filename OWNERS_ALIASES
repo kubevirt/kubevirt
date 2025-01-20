@@ -44,7 +44,6 @@ aliases:
   # SIG Test
   #
   sig-test-reviewers:
-    - kbidarkar
     - enp0s3
     - xpivarc
     - acardace
