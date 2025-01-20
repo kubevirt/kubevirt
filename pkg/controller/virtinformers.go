@@ -312,6 +312,9 @@ type KubeInformerFactory interface {
 	// PVC StorageClasses
 	StorageClass() cache.SharedIndexInformer
 
+	// Watch for CSI storage driver
+	CSIDriver() cache.SharedIndexInformer
+
 	// Pod returns an informer for ALL Pods in the system
 	Pod() cache.SharedIndexInformer
 
@@ -1377,6 +1380,14 @@ func (f *kubeInformerFactory) StorageClass() cache.SharedIndexInformer {
 		restClient := f.clientSet.StorageV1().RESTClient()
 		lw := cache.NewListWatchFromClient(restClient, "storageclasses", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &storagev1.StorageClass{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) CSIDriver() cache.SharedIndexInformer {
+	return f.getInformer("csiDriverInformer", func() cache.SharedIndexInformer {
+		restClient := f.clientSet.StorageV1().RESTClient()
+		lw := cache.NewListWatchFromClient(restClient, "csidrivers", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &storagev1.CSIDriver{}, f.defaultResync, cache.Indexers{})
 	})
 }
 

@@ -21,6 +21,7 @@ package types
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -28,11 +29,16 @@ import (
 	"github.com/golang/mock/gomock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/cache"
 
+	storagev1 "k8s.io/api/storage/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/libdv"
+	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
 var _ = Describe("DataVolume utils test", func() {
@@ -142,5 +148,89 @@ var _ = Describe("DataVolume utils test", func() {
 			Entry("sourceRef namespace not specified", "", "bar", "bar"),
 			Entry("everything specified", "foo", "bar", "bar"),
 		)
+	})
+
+	Context("IsStorageClassCSI", func() {
+		var (
+			dataVolumeStore cache.Store
+			scStore         cache.Store
+			csiDriverStore  cache.Store
+
+			dvCSI     *cdiv1.DataVolume
+			dvNoSCSI  *cdiv1.DataVolume
+			dvNoSc    *cdiv1.DataVolume
+			csiSC     *storagev1.StorageClass
+			noCSISc   *storagev1.StorageClass
+			csiDriver *storagev1.CSIDriver
+		)
+		const (
+			noCSIDVName   = "nocsi-dv"
+			csiDVName     = "csi-dv"
+			noSCDVName    = "no-sc-dv"
+			noCSISCName   = "nocsi"
+			csiSCName     = "csi-sc"
+			scNoExist     = "noexist"
+			csiDriverName = "csi-driver"
+			ns            = "test"
+		)
+		BeforeEach(func() {
+			dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+			scInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
+			csiDriverInformer, _ := testutils.NewFakeInformerFor(&storagev1.CSIDriver{})
+
+			dataVolumeStore = dataVolumeInformer.GetStore()
+			scStore = scInformer.GetStore()
+			csiDriverStore = csiDriverInformer.GetStore()
+
+			dvCSI = libdv.NewDataVolume(libdv.WithNamespace(ns), libdv.WithName(csiDVName),
+				libdv.WithStorage(libdv.StorageWithStorageClass(csiSCName)))
+			dvNoSCSI = libdv.NewDataVolume(libdv.WithNamespace(ns), libdv.WithName(noCSIDVName),
+				libdv.WithStorage(libdv.StorageWithStorageClass(noCSISCName)))
+			dvNoSc = libdv.NewDataVolume(libdv.WithNamespace(ns), libdv.WithName(noSCDVName),
+				libdv.WithStorage(libdv.StorageWithStorageClass(scNoExist)))
+
+			csiSC = &storagev1.StorageClass{
+				ObjectMeta:  metav1.ObjectMeta{Name: csiSCName},
+				Provisioner: csiDriverName,
+			}
+			noCSISc = &storagev1.StorageClass{
+				ObjectMeta:  metav1.ObjectMeta{Name: noCSISCName},
+				Provisioner: "kubernetes.io/no-provisioner",
+			}
+			csiDriver = &storagev1.CSIDriver{
+				ObjectMeta: metav1.ObjectMeta{Name: csiDriverName},
+			}
+
+			Expect(dataVolumeStore.Add(dvCSI)).To(Succeed())
+			Expect(dataVolumeStore.Add(dvNoSCSI)).To(Succeed())
+			Expect(dataVolumeStore.Add(dvNoSc)).To(Succeed())
+			Expect(scStore.Add(csiSC)).To(Succeed())
+			Expect(scStore.Add(noCSISc)).To(Succeed())
+			Expect(csiDriverStore.Add(csiDriver)).To(Succeed())
+		})
+
+		It("should return an error with not existing datavolumes", func() {
+			res, err := IsStorageClassCSI(ns, "noexist", dataVolumeStore, scStore, csiDriverStore)
+			Expect(err).To(MatchError(fmt.Sprintf("datavolume %s/noexist doesn't exist", ns)))
+			Expect(res).To(BeFalse())
+		})
+
+		It("should return an error with not existing storage class", func() {
+			res, err := IsStorageClassCSI(ns, noSCDVName, dataVolumeStore, scStore, csiDriverStore)
+			Expect(err).To(MatchError(fmt.Sprintf("storage class %s for datavolume %s/%s doesn't exist", scNoExist, ns, noSCDVName)))
+			Expect(res).To(BeFalse())
+		})
+
+		It("should return true if the datavolume storageclass is a csi driver", func() {
+			res, err := IsStorageClassCSI(ns, csiDVName, dataVolumeStore, scStore, csiDriverStore)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res).To(BeTrue())
+		})
+
+		It("should return false if the datavolume if the datavolume storageclass isn't a csi driver", func() {
+			res, err := IsStorageClassCSI(ns, noCSIDVName, dataVolumeStore, scStore, csiDriverStore)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res).To(BeFalse())
+		})
 	})
 })

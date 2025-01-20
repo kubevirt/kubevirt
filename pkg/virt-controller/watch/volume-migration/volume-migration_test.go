@@ -37,8 +37,13 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
 
+	storagev1 "k8s.io/api/storage/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	volumemigration "kubevirt.io/kubevirt/pkg/virt-controller/watch/volume-migration"
@@ -46,8 +51,61 @@ import (
 
 var _ = Describe("Volume Migration", func() {
 	Context("ValidateVolumes", func() {
+		var (
+			dataVolumeStore cache.Store
+			scStore         cache.Store
+			csiDriverStore  cache.Store
+
+			dvCSI     *cdiv1.DataVolume
+			dvNoSCSI  *cdiv1.DataVolume
+			csiSC     *storagev1.StorageClass
+			noCSISc   *storagev1.StorageClass
+			csiDriver *storagev1.CSIDriver
+		)
+		const (
+			noCSIDVName   = "nocsi-dv"
+			csiDVName     = "csi-dv"
+			noCSISCName   = "nocsi"
+			csiSCName     = "csi-sc"
+			csiDriverName = "csi-driver"
+			ns            = "test"
+			popAnn        = "cdi.kubevirt.io/storage.usePopulator"
+		)
+		BeforeEach(func() {
+			dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+			scInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
+			csiDriverInformer, _ := testutils.NewFakeInformerFor(&storagev1.CSIDriver{})
+
+			dataVolumeStore = dataVolumeInformer.GetStore()
+			scStore = scInformer.GetStore()
+			csiDriverStore = csiDriverInformer.GetStore()
+
+			dvCSI = libdv.NewDataVolume(libdv.WithNamespace(ns), libdv.WithName(csiDVName), libdv.WithAnnotation(popAnn, "true"),
+				libdv.WithStorage(libdv.StorageWithStorageClass(csiSCName)))
+			dvNoSCSI = libdv.NewDataVolume(libdv.WithNamespace(ns), libdv.WithName(noCSIDVName), libdv.WithAnnotation(popAnn, "true"),
+				libdv.WithStorage(libdv.StorageWithStorageClass(noCSISCName)))
+
+			csiSC = &storagev1.StorageClass{
+				ObjectMeta:  metav1.ObjectMeta{Name: csiSCName},
+				Provisioner: csiDriverName,
+			}
+			noCSISc = &storagev1.StorageClass{
+				ObjectMeta:  metav1.ObjectMeta{Name: noCSISCName},
+				Provisioner: "kubernetes.io/no-provisioner",
+			}
+			csiDriver = &storagev1.CSIDriver{
+				ObjectMeta: metav1.ObjectMeta{Name: csiDriverName},
+			}
+
+			Expect(dataVolumeStore.Add(dvCSI)).To(Succeed())
+			Expect(dataVolumeStore.Add(dvNoSCSI)).To(Succeed())
+			Expect(scStore.Add(csiSC)).To(Succeed())
+			Expect(scStore.Add(noCSISc)).To(Succeed())
+			Expect(csiDriverStore.Add(csiDriver)).To(Succeed())
+		})
+
 		DescribeTable("should validate the migrated volumes", func(vmi *v1.VirtualMachineInstance, vm *v1.VirtualMachine, expectError error) {
-			err := volumemigration.ValidateVolumes(vmi, vm)
+			err := volumemigration.ValidateVolumes(vmi, vm, dataVolumeStore, scStore, csiDriverStore)
 			if expectError != nil {
 				Expect(err).To(Equal(expectError))
 			} else {
@@ -86,6 +144,35 @@ var _ = Describe("Volume Migration", func() {
 			), libvmi.NewVirtualMachine(libvmi.New(
 				libvmi.WithPersistentVolumeClaim("disk0", "vol2"), withHotpluggedVolume("disk1", "vol4"),
 			)), nil),
+			Entry("with a DV with a csi storageclass", libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume("disk0", "vol0")),
+				libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume("disk0", csiDVName))), nil),
+			Entry("with a DV with a no-csi storageclass", libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume("disk0", "vol0")),
+				libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume("disk0", noCSIDVName))),
+				fmt.Errorf("invalid volumes to update with migration: DV storage class isn't a CSI or not using volume populators: [disk0]")),
+		)
+
+		DescribeTable("should validate the migrated volume with a DV", func(ann *string, expectError bool) {
+			const dvName = "testdv"
+			dv := libdv.NewDataVolume(libdv.WithNamespace(ns), libdv.WithName(dvName),
+				libdv.WithStorage(libdv.StorageWithStorageClass(csiSCName)))
+			if ann != nil {
+				dv.ObjectMeta.Annotations = make(map[string]string)
+				dv.ObjectMeta.Annotations[popAnn] = *ann
+			}
+			Expect(dataVolumeStore.Add(dv)).To(Succeed())
+			vmi := libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume("disk0", "vol0"))
+			vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume("disk0", dvName)))
+			err := volumemigration.ValidateVolumes(vmi, vm, dataVolumeStore, scStore, csiDriverStore)
+			if expectError {
+				Expect(err).To(MatchError(ContainSubstring("DV storage class isn't a CSI or not using volume populators")))
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		},
+			Entry("without the populator label", nil, false),
+			Entry("with the populator label set to true", pointer.P("true"), false),
+			Entry("with the populator label set to false", pointer.P("false"), true),
+			Entry("with wrong populator label", pointer.P("test"), false),
 		)
 	})
 

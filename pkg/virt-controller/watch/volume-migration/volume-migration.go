@@ -22,6 +22,7 @@ package volumemigration
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -49,12 +50,13 @@ type invalidVols struct {
 	fs         []string
 	shareable  []string
 	luns       []string
+	noCSIDVs   []string
 }
 
 func (vols *invalidVols) errorMessage() error {
 	var s strings.Builder
 	if len(vols.hotplugged) < 1 && len(vols.fs) < 1 &&
-		len(vols.shareable) < 1 && len(vols.luns) < 1 {
+		len(vols.shareable) < 1 && len(vols.luns) < 1 && len(vols.noCSIDVs) < 1 {
 		return nil
 	}
 	s.WriteString("invalid volumes to update with migration:")
@@ -69,6 +71,9 @@ func (vols *invalidVols) errorMessage() error {
 	}
 	if len(vols.luns) > 0 {
 		s.WriteString(fmt.Sprintf(" luns: %v", vols.luns))
+	}
+	if len(vols.noCSIDVs) > 0 {
+		s.WriteString(fmt.Sprintf(" DV storage class isn't a CSI or not using volume populators: %v", vols.noCSIDVs))
 	}
 
 	return fmt.Errorf(s.String())
@@ -98,7 +103,7 @@ func updatedVolumesMapping(vmi *virtv1.VirtualMachineInstance, vm *virtv1.Virtua
 }
 
 // ValidateVolumes checks that the volumes can be updated with the migration
-func ValidateVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) error {
+func ValidateVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine, dvStore, scStore, csiDriverStore cache.Store) error {
 	var invalidVols invalidVols
 	if vmi == nil {
 		return fmt.Errorf("cannot validate the migrated volumes for an empty VMI")
@@ -140,6 +145,34 @@ func ValidateVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachi
 			invalidVols.luns = append(invalidVols.luns, v.Name)
 			valid = false
 			continue
+		}
+
+		// DataVolumes with a no-csi storage class
+		if v.VolumeSource.DataVolume != nil {
+			dv, err := storagetypes.GetDataVolumeFromCache(vm.Namespace, v.VolumeSource.DataVolume.Name, dvStore)
+			if err != nil || dv == nil {
+				continue
+			}
+			boolUsePopulator := true
+			if usePopulator, ok := dv.Annotations["cdi.kubevirt.io/storage.usePopulator"]; ok {
+				var err error
+				boolUsePopulator, err = strconv.ParseBool(usePopulator)
+				if err != nil {
+					// if the string cannot be parsed correctly, something wrong was set there, then we simply evaluate the
+					// storage class
+					fmt.Printf("XXX error parsing\n")
+					boolUsePopulator = true
+				}
+			}
+			fmt.Printf("XXX boolUsePopulator %v\n", boolUsePopulator)
+			isCSISc, err := storagetypes.IsStorageClassCSI(vm.Namespace, v.VolumeSource.DataVolume.Name, dvStore, scStore, csiDriverStore)
+			if err != nil {
+				return err
+			}
+			if !isCSISc || !boolUsePopulator {
+				invalidVols.noCSIDVs = append(invalidVols.noCSIDVs, v.Name)
+				valid = false
+			}
 		}
 	}
 	if !valid {

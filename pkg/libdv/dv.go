@@ -71,6 +71,15 @@ func WithName(name string) dvOption {
 	}
 }
 
+func WithAnnotation(ann, val string) dvOption {
+	return func(dv *v1beta1.DataVolume) {
+		if dv.ObjectMeta.Annotations == nil {
+			dv.ObjectMeta.Annotations = make(map[string]string)
+		}
+		dv.ObjectMeta.Annotations[ann] = val
+	}
+}
+
 type pvcOption func(*corev1.PersistentVolumeClaimSpec)
 type storageOption func(*v1beta1.StorageSpec)
 

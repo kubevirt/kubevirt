@@ -33,6 +33,8 @@ import (
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	storagev1 "k8s.io/api/storage/v1"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
@@ -331,4 +333,69 @@ func (d *DataVolumeConditionManager) HasConditionWithStatus(dv *cdiv1.DataVolume
 func (d *DataVolumeConditionManager) HasConditionWithStatusAndReason(dv *cdiv1.DataVolume, cond cdiv1.DataVolumeConditionType, status v1.ConditionStatus, reason string) bool {
 	c := d.GetCondition(dv, cond)
 	return c != nil && c.Status == status && c.Reason == reason
+}
+
+func GetStorageClassFromCache(scName string, scStore cache.Store) (*storagev1.StorageClass, error) {
+	obj, exists, err := scStore.GetByKey(scName)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching the storageclass %s: %v", scName, err)
+	}
+	if !exists {
+		return nil, nil
+	}
+
+	sc, ok := obj.(*storagev1.StorageClass)
+	if !ok {
+		return nil, fmt.Errorf("error converting object to StorageClass: object is of type %T", obj)
+	}
+
+	return sc.DeepCopy(), nil
+}
+
+func GetCSIDriverFromCache(driver string, csiDriverStore cache.Store) (*storagev1.CSIDriver, error) {
+	obj, exists, err := csiDriverStore.GetByKey(driver)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching the csi driver %s: %v", driver, err)
+	}
+	if !exists {
+		return nil, nil
+	}
+
+	d, ok := obj.(*storagev1.CSIDriver)
+	if !ok {
+		return nil, fmt.Errorf("error converting object to storagev1.CSIDriver: object is of type %T", obj)
+	}
+
+	return d.DeepCopy(), nil
+}
+
+func IsStorageClassCSI(namespace, name string, dataVolumeStore, scStore, csiDriverStore cache.Store) (bool, error) {
+	dv, err := GetDataVolumeFromCache(namespace, name, dataVolumeStore)
+	if err != nil {
+		return false, err
+	}
+	if dv == nil {
+		return false, fmt.Errorf("datavolume %s/%s doesn't exist", namespace, name)
+	}
+	scName := ""
+	if dv.Spec.Storage != nil && dv.Spec.Storage.StorageClassName != nil {
+		scName = *dv.Spec.Storage.StorageClassName
+	} else if dv.Spec.PVC != nil && dv.Spec.PVC.StorageClassName != nil {
+		scName = *dv.Spec.PVC.StorageClassName
+	} else {
+		return false, fmt.Errorf("storage class for datavolume %s/%s is empty", namespace, name)
+	}
+	sc, err := GetStorageClassFromCache(scName, scStore)
+	if err != nil {
+		return false, err
+	}
+	if sc == nil {
+		return false, fmt.Errorf("storage class %s for datavolume %s/%s doesn't exist", scName, namespace, name)
+	}
+	driver, err := GetCSIDriverFromCache(sc.Provisioner, csiDriverStore)
+	if err != nil {
+		return false, err
+	}
+
+	return driver != nil, nil
 }
