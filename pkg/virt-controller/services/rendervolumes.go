@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	imagevolume "kubevirt.io/kubevirt/pkg/image-volume"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -166,6 +167,9 @@ func withVMIVolumes(pvcStore cache.Store, vmiSpecVolumes []v1.Volume, vmiVolumeS
 
 			if volume.CloudInitConfigDrive != nil {
 				renderer.handleCloudInitConfigDrive(volume)
+			}
+			if volume.Image != nil {
+				renderer.handleImage(volume)
 			}
 		}
 		return nil
@@ -509,6 +513,13 @@ func imgPullSecrets(volumes ...v1.Volume) []k8sv1.LocalObjectReference {
 			imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, k8sv1.LocalObjectReference{
 				Name: volume.ContainerDisk.ImagePullSecret,
 			})
+			continue
+		}
+		if volume.Image != nil && volume.Image.PullSecret != "" {
+			imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, k8sv1.LocalObjectReference{
+				Name: volume.Image.PullSecret,
+			})
+			continue
 		}
 	}
 	return imagePullSecrets
@@ -745,5 +756,22 @@ func (vr *VolumeRenderer) handleDownwardMetrics(volume v1.Volume) {
 	vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
 		Name:      volume.Name,
 		MountPath: config.DownwardMetricDisksDir,
+	})
+}
+
+func (vr *VolumeRenderer) handleImage(volume v1.Volume) {
+	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
+		Name: volume.Name,
+		VolumeSource: k8sv1.VolumeSource{
+			Image: &k8sv1.ImageVolumeSource{
+				Reference:  volume.Image.Image,
+				PullPolicy: volume.Image.PullPolicy,
+			},
+		},
+	})
+	vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
+		Name:      volume.Name,
+		ReadOnly:  true,
+		MountPath: imagevolume.GetImageVolumeSourcePath(volume.Name),
 	})
 }

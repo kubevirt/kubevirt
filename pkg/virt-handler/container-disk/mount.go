@@ -13,6 +13,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/checkpoint"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
+	utildisk "kubevirt.io/kubevirt/pkg/util/disk"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -57,7 +58,7 @@ type mounter struct {
 
 type Mounter interface {
 	ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitializedSince time.Time) (bool, error)
-	MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*containerdisk.DiskInfo, error)
+	MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*utildisk.DiskInfo, error)
 	Unmount(vmi *v1.VirtualMachineInstance) error
 	ComputeChecksums(vmi *v1.VirtualMachineInstance) (*DiskChecksums, error)
 }
@@ -219,9 +220,9 @@ func (m *mounter) setAddMountTargetRecordHelper(vmi *v1.VirtualMachineInstance, 
 
 // Mount takes a vmi and mounts all container disks of the VMI, so that they are visible for the qemu process.
 // Additionally qcow2 images are validated if "verify" is true. The validation happens with rlimits set, to avoid DOS.
-func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*containerdisk.DiskInfo, error) {
+func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*utildisk.DiskInfo, error) {
 	record := vmiMountTargetRecord{}
-	disksInfo := map[string]*containerdisk.DiskInfo{}
+	disksInfo := map[string]*utildisk.DiskInfo{}
 
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
@@ -297,7 +298,7 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*co
 			if err != nil {
 				return nil, fmt.Errorf("failed to get image info: %v", err)
 			}
-			if err := containerdisk.VerifyImage(imageInfo); err != nil {
+			if err := utildisk.VerifyImage(imageInfo); err != nil {
 				return nil, fmt.Errorf("invalid image in containerDisk %v: %v", volume.Name, err)
 			}
 			disksInfo[volume.Name] = imageInfo

@@ -77,6 +77,12 @@ const (
 	// InstancetypeReferencePolicy allows a cluster admin to control how a VirtualMachine references instance types and preferences
 	// through the kv.spec.configuration.instancetype.referencePolicy configurable.
 	InstancetypeReferencePolicy = "InstancetypeReferencePolicy"
+
+	// ImageVolume enables to mount OCI images as volumes within a virtual machine.
+	//
+	// This feature requires following Kubernetes feature gate "ImageVolume". The feature gate is available
+	// in Kubernetes 1.31 as Alpha.
+	ImageVolume = "ImageVolume"
 )
 
 func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
@@ -235,4 +241,8 @@ func (config *ClusterConfig) AlignCPUsEnabled() bool {
 
 func (config *ClusterConfig) NodeRestrictionEnabled() bool {
 	return config.isFeatureGateEnabled(NodeRestrictionGate)
+}
+
+func (config *ClusterConfig) ImageVolumeEnabled() bool {
+	return config.isFeatureGateEnabled(ImageVolume)
 }
