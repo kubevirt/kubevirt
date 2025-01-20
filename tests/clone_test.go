@@ -64,9 +64,9 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 	createVM := func(options ...libvmi.Option) (vm *virtv1.VirtualMachine) {
 		vmi := libvmifact.NewCirros(options...)
 		vmi.Namespace = testsuite.GetTestNamespace(nil)
-		vm = libvmi.NewVirtualMachine(vmi)
-		vm.Annotations = vmi.Annotations
-		vm.Labels = vmi.Labels
+		vm = libvmi.NewVirtualMachine(vmi,
+			libvmi.WithAnnotations(vmi.Annotations),
+			libvmi.WithLabels(vmi.Labels))
 
 		By(fmt.Sprintf("Creating VM %s", vm.Name))
 		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v1.CreateOptions{})
