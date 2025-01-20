@@ -60,6 +60,7 @@ go_test(
         "testdata/domain_s390x.xml.tmpl",
     ],
     deps = [
+        "//pkg/config:go_default_library",
         "//pkg/defaults:go_default_library",
         "//pkg/downwardmetrics:go_default_library",
         "//pkg/ephemeral-disk/fake:go_default_library",

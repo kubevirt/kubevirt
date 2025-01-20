@@ -1231,18 +1231,40 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 	}
 
 	if firmware.ACPI != nil {
-		if slicNameRef := firmware.ACPI.SlicNameRef; slicNameRef != "" {
-			path := fmt.Sprintf("/var/run/kubevirt-private/secret/%s/slic.bin", slicNameRef)
-			domain.Spec.OS.ACPI = &api.OSACPI{
-				Table: api.ACPITable{
-					Type: "slic",
-					Path: path,
-				},
-			}
+		path, err := getSlicMountedPath(vmi.Spec.Volumes, firmware.ACPI.SlicNameRef)
+		if err != nil {
+			log.Log.Object(vmi).Warningf("Failed to get supported path for Volume: %s", firmware.ACPI.SlicNameRef)
+			return err
+		}
+
+		domain.Spec.OS.ACPI = &api.OSACPI{
+			Table: api.ACPITable{
+				Type: "slic",
+				Path: path,
+			},
 		}
 	}
 
 	return nil
+}
+
+func getSlicMountedPath(volumes []v1.Volume, name string) (string, error) {
+	// We need to know the the volume type referred by @name
+	for _, volume := range volumes {
+		if volume.Name != name {
+			continue
+		}
+
+		if volume.Secret == nil {
+			return "", fmt.Errorf("Firmware's slic volume type is unsupported")
+		}
+
+		// Return path to slic binary data
+		sourcePath := config.GetSecretSourcePath(name)
+		return filepath.Join(sourcePath, "slic.bin"), nil
+	}
+
+	return "", fmt.Errorf("Firmware's slic volume type not found")
 }
 
 func hasIOThreads(vmi *v1.VirtualMachineInstance) bool {
