@@ -38,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	storagev1 "k8s.io/api/storage/v1"
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -57,6 +58,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdv"
@@ -75,6 +77,22 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 	var virtClient kubecli.KubevirtClient
 	var testSc string
 
+	getCSIStorageClass := libstorage.GetSnapshotStorageClass
+	createBlankDV := func(virtClient kubecli.KubevirtClient, ns, size string) *cdiv1.DataVolume {
+		dv := libdv.NewDataVolume(
+			libdv.WithBlankImageSource(),
+			libdv.WithStorage(libdv.StorageWithStorageClass(testSc),
+				libdv.StorageWithVolumeSize(size),
+				libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
+				libdv.StorageWithAccessMode(k8sv1.ReadWriteOnce),
+			),
+		)
+		_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(ns).Create(context.Background(),
+			dv, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return dv
+	}
+
 	BeforeEach(func() {
 		checks.SkipIfMigrationIsNotPossible()
 		virtClient = kubevirt.Client()
@@ -92,6 +110,28 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 			currentKv.ResourceVersion,
 			config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
 			time.Minute)
+		scName, err := getCSIStorageClass(virtClient)
+		Expect(err).ToNot(HaveOccurred())
+		if scName == "" {
+			Fail("Fail test when a CSI storage class is not present")
+		}
+
+		sc, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), scName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		wffcSc := sc.DeepCopy()
+		wffcSc.ObjectMeta = metav1.ObjectMeta{
+			GenerateName: fmt.Sprintf("%s-wffc", scName),
+			Labels: map[string]string{
+				cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)): "",
+			},
+		}
+		wffcSc.VolumeBindingMode = pointer.P(storagev1.VolumeBindingWaitForFirstConsumer)
+		sc, err = virtClient.StorageV1().StorageClasses().Create(context.Background(), wffcSc, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		testSc = sc.Name
+	})
+	AfterEach(func() {
+		virtClient.StorageV1().StorageClasses().Delete(context.Background(), testSc, metav1.DeleteOptions{})
 	})
 
 	Describe("Update volumes with the migration updateVolumesStrategy", func() {
@@ -360,18 +400,8 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				srcDV, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			sc, exist = libstorage.GetRWOFileSystemStorageClass()
-			Expect(exist).To(BeTrue())
-			destDV := libdv.NewDataVolume(
-				libdv.WithBlankImageSource(),
-				libdv.WithStorage(libdv.StorageWithStorageClass(sc),
-					libdv.StorageWithVolumeSize(size),
-					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
-				),
-			)
-			_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(ns).Create(context.Background(),
-				destDV, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
+			destDV := createBlankDV(virtClient, ns, size)
 			vm := createVMWithDV(srcDV, volName)
 			By("Update volumes")
 			updateVMWithDV(vm, volName, destDV.Name)
@@ -1123,23 +1153,6 @@ func createSmallImageForDestinationMigration(vm *virtv1.VirtualMachine, name, si
 	p, err := virtCli.CoreV1().Pods(vmi.Namespace).Create(context.Background(), &pod, metav1.CreateOptions{})
 	Expect(err).ShouldNot(HaveOccurred())
 	Eventually(matcher.ThisPod(p)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(matcher.HaveSucceeded())
-}
-
-func createBlankDV(virtClient kubecli.KubevirtClient, ns, size string) *cdiv1.DataVolume {
-	sc, exist := libstorage.GetRWOFileSystemStorageClass()
-	Expect(exist).To(BeTrue())
-	dv := libdv.NewDataVolume(
-		libdv.WithBlankImageSource(),
-		libdv.WithStorage(libdv.StorageWithStorageClass(sc),
-			libdv.StorageWithVolumeSize(size),
-			libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
-			libdv.StorageWithAccessMode(k8sv1.ReadWriteOnce),
-		),
-	)
-	_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(ns).Create(context.Background(),
-		dv, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-	return dv
 }
 
 func waitMigrationToExist(virtClient kubecli.KubevirtClient, vmiName, ns string) {
