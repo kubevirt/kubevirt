@@ -22,13 +22,9 @@ package plugin_test
 import (
 	"bytes"
 	"errors"
-	"fmt"
-	"net"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	vishnetlink "github.com/vishvananda/netlink"
 
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/plugins/pkg/ns"
@@ -45,7 +41,7 @@ var _ = Describe("passt-binding-plugin", func() {
 
 	Context("Add", func() {
 		It("succeeds", func() {
-			cmd := plugin.NewCmd(stubNetNS{}, stubSysCtl{}, stubNetLink{})
+			cmd := plugin.NewCmd(stubNetNS{}, stubSysCtl{})
 			args := &skel.CmdArgs{
 				ContainerID: "123456789",
 				Netns:       testNSPath,
@@ -60,27 +56,18 @@ var _ = Describe("passt-binding-plugin", func() {
 
 			var buf bytes.Buffer
 			Expect(versionedResult.PrintTo(&buf)).To(Succeed())
-			Expect(buf.String()).To(MatchJSON(fmt.Sprintf(`
+			Expect(buf.String()).To(MatchJSON(`
 			{
 				"cniVersion": "1.0.0",
-				"interfaces": [
-					{
-						"name": %q,
-						"mac": %q,
-						"sandbox": %q
-					}
-				],
 				"dns": {}
-			}
-		`, "eth0", testMACAddress, testNSPath)))
+			}`))
 		})
 
 		unprivPortErr := errors.New("unpriv port")
 		pingGroupErr := errors.New("ping group")
-		readLinkErr := errors.New("read link")
 
-		DescribeTable("fails to", func(sysCtl stubSysCtl, netLink stubNetLink, expectedErr error) {
-			cmd := plugin.NewCmd(stubNetNS{}, sysCtl, netLink)
+		DescribeTable("fails to", func(sysCtl stubSysCtl, expectedErr error) {
+			cmd := plugin.NewCmd(stubNetNS{}, sysCtl)
 			args := &skel.CmdArgs{
 				ContainerID: "123456789",
 				Netns:       testNSPath,
@@ -90,9 +77,8 @@ var _ = Describe("passt-binding-plugin", func() {
 			_, err := cmd.CmdAddResult(args)
 			Expect(err).To(MatchError(expectedErr))
 		},
-			Entry("set unprivileged port", stubSysCtl{unprivPortErr: unprivPortErr}, stubNetLink{}, unprivPortErr),
-			Entry("set ping port", stubSysCtl{pingGroupErr: pingGroupErr}, stubNetLink{}, pingGroupErr),
-			Entry("read link", stubSysCtl{}, stubNetLink{readLinkErr: readLinkErr}, readLinkErr),
+			Entry("set unprivileged port", stubSysCtl{unprivPortErr: unprivPortErr}, unprivPortErr),
+			Entry("set ping port", stubSysCtl{pingGroupErr: pingGroupErr}, pingGroupErr),
 		)
 	})
 
@@ -138,11 +124,4 @@ func (s stubSysCtl) IPv4SetPingGroupRange(from, to int) error {
 
 func (s stubSysCtl) IPv4SetUnprivilegedPortStart(port int) error {
 	return s.unprivPortErr
-}
-
-type stubNetLink struct{ readLinkErr error }
-
-func (s stubNetLink) ReadLink(name string) (vishnetlink.Link, error) {
-	dummyMac, _ := net.ParseMAC(testMACAddress)
-	return &vishnetlink.Dummy{LinkAttrs: vishnetlink.LinkAttrs{Name: name, HardwareAddr: dummyMac}}, s.readLinkErr
 }
