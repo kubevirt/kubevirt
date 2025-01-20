@@ -137,10 +137,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	var aggregatorClient *aggregatorclient.Clientset
 	var k8sClient string
 
-	var (
-		verifyVMIsUpdated      func([]*v1.VirtualMachineInstance)
-	)
-
 	deprecatedBeforeAll(func() {
 		virtClient = kubevirt.Client()
 		config, err := kubecli.GetKubevirtClientConfig()
@@ -165,73 +161,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			const prefix = ":"
 			Expect(strings.HasPrefix(version, ":")).To(BeTrue(), fmt.Sprintf(errFmt, version, prefix))
 			originalOperatorVersion = strings.TrimPrefix(version, prefix)
-		}
-
-		verifyVMIsUpdated = func(vmis []*v1.VirtualMachineInstance) {
-
-			Eventually(func() error {
-				for _, vmi := range vmis {
-					foundVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
-
-					if foundVMI.Status.MigrationState == nil {
-						return fmt.Errorf("waiting for vmi %s/%s to migrate as part of update", foundVMI.Namespace, foundVMI.Name)
-					} else if !foundVMI.Status.MigrationState.Completed {
-
-						var startTime time.Time
-						var endTime time.Time
-						now := time.Now()
-
-						if foundVMI.Status.MigrationState.StartTimestamp != nil {
-							startTime = foundVMI.Status.MigrationState.StartTimestamp.Time
-						}
-						if foundVMI.Status.MigrationState.EndTimestamp != nil {
-							endTime = foundVMI.Status.MigrationState.EndTimestamp.Time
-						}
-
-						return fmt.Errorf("waiting for migration %s to complete for vmi %s/%s. Source Node [%s], Target Node [%s], Start Time [%s], End Time [%s], Now [%s], Failed: %t",
-							string(foundVMI.Status.MigrationState.MigrationUID),
-							foundVMI.Namespace,
-							foundVMI.Name,
-							foundVMI.Status.MigrationState.SourceNode,
-							foundVMI.Status.MigrationState.TargetNode,
-							startTime.String(),
-							endTime.String(),
-							now.String(),
-							foundVMI.Status.MigrationState.Failed,
-						)
-					}
-
-					_, hasOutdatedLabel := foundVMI.Labels[v1.OutdatedLauncherImageLabel]
-					if hasOutdatedLabel {
-						return fmt.Errorf("waiting for vmi %s/%s to have update launcher image in status", foundVMI.Namespace, foundVMI.Name)
-					}
-				}
-				return nil
-			}, 500, 1).Should(Succeed(), "All VMIs should update via live migration")
-
-			// this is put in an eventually loop because it's possible for the VMI to complete
-			// migrating and for the migration object to briefly lag behind in reporting
-			// the results
-			Eventually(func(g Gomega) error {
-				By("Verifying only a single successful migration took place for each vmi")
-				migrationList, err := kubevirt.Client().VirtualMachineInstanceMigration(testsuite.GetTestNamespace(nil)).List(context.Background(), metav1.ListOptions{})
-				g.Expect(err).ToNot(HaveOccurred(), "retrieving migrations")
-				for _, vmi := range vmis {
-					count := 0
-					for _, migration := range migrationList.Items {
-						if migration.Spec.VMIName == vmi.Name && migration.Status.Phase == v1.MigrationSucceeded {
-							count++
-						}
-					}
-					if count != 1 {
-						return fmt.Errorf("vmi [%s] returned %d successful migrations", vmi.Name, count)
-					}
-				}
-				return nil
-			}, 10, 1).Should(Succeed(), "Expects only a single successful migration per workload update")
 		}
 	})
 
@@ -3202,4 +3131,60 @@ func generateMigratableVMIs(num int) ([]*v1.VirtualMachineInstance, error) {
 	}
 
 	return vmis, nil
+}
+
+func verifyVMIsUpdated(vmis []*v1.VirtualMachineInstance) {
+	Eventually(func(g Gomega) {
+		for _, vmi := range vmis {
+			foundVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			g.Expect(err).NotTo(HaveOccurred())
+
+			g.Expect(foundVMI.Status.MigrationState).ToNot(BeNil(), "waiting for vmi %s/%s to migrate as part of update", foundVMI.Namespace, foundVMI.Name)
+			g.Expect(foundVMI.Status.MigrationState.Completed).To(BeTrue(), func() string {
+				var startTime time.Time
+				var endTime time.Time
+				now := time.Now()
+
+				if foundVMI.Status.MigrationState.StartTimestamp != nil {
+					startTime = foundVMI.Status.MigrationState.StartTimestamp.Time
+				}
+				if foundVMI.Status.MigrationState.EndTimestamp != nil {
+					endTime = foundVMI.Status.MigrationState.EndTimestamp.Time
+				}
+
+				return fmt.Sprintf("waiting for migration %s to complete for vmi %s/%s. Source Node [%s], Target Node [%s], Start Time [%s], End Time [%s], Now [%s], Failed: %t",
+					string(foundVMI.Status.MigrationState.MigrationUID),
+					foundVMI.Namespace,
+					foundVMI.Name,
+					foundVMI.Status.MigrationState.SourceNode,
+					foundVMI.Status.MigrationState.TargetNode,
+					startTime.String(),
+					endTime.String(),
+					now.String(),
+					foundVMI.Status.MigrationState.Failed,
+				)
+			})
+
+			g.Expect(foundVMI.Labels).ToNot(HaveKey(v1.OutdatedLauncherImageLabel),
+				"waiting for vmi %s/%s to have update launcher image in status", foundVMI.Namespace, foundVMI.Name)
+		}
+	}).WithTimeout(500*time.Second).WithPolling(time.Second).Should(Succeed(), "All VMIs should update via live migration")
+
+	// this is put in an eventually loop because it's possible for the VMI to complete
+	// migrating and for the migration object to briefly lag behind in reporting
+	// the results
+	Eventually(func(g Gomega) {
+		By("Verifying only a single successful migration took place for each vmi")
+		migrationList, err := kubevirt.Client().VirtualMachineInstanceMigration(testsuite.GetTestNamespace(nil)).List(context.Background(), metav1.ListOptions{})
+		g.Expect(err).ToNot(HaveOccurred(), "retrieving migrations")
+		for _, vmi := range vmis {
+			count := 0
+			for _, migration := range migrationList.Items {
+				if migration.Spec.VMIName == vmi.Name && migration.Status.Phase == v1.MigrationSucceeded {
+					count++
+				}
+			}
+			g.Expect(count).To(Equal(1), "vmi [%s] returned %d successful migrations", vmi.Name, count)
+		}
+	}).WithTimeout(10*time.Second).WithPolling(time.Second).Should(Succeed(), "Expects only a single successful migration per workload update")
 }
