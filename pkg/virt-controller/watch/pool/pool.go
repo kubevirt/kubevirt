@@ -810,7 +810,7 @@ func (c *Controller) scale(pool *poolv1.VirtualMachinePool, vms []*virtv1.Virtua
 		if err != nil {
 			return common.NewSyncError(fmt.Errorf("Error during scale out: %v", err), FailedScaleOutReason), false
 		}
-	} else if diff > 0 {
+	} else {
 		err := c.scaleIn(pool, vms, maxDiff)
 		if err != nil {
 			return common.NewSyncError(fmt.Errorf("Error during scale in: %v", err), FailedScaleInReason), false
@@ -1084,9 +1084,7 @@ func (c *Controller) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, vms [
 
 	keys, err := c.revisionIndexer.IndexKeys("vmpool", string(pool.UID))
 	if err != nil {
-		if err != nil {
-			return common.NewSyncError(fmt.Errorf("Error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason)
-		}
+		return common.NewSyncError(fmt.Errorf("Error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason)
 	}
 
 	deletionMap := make(map[string]interface{})

@@ -686,7 +686,7 @@ func (c *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 		} else {
 			log.Log.Object(vmi).Info("Waiting on the target node to observe the migrated domain before performing the handoff")
 		}
-	} else if vmi.Status.MigrationState != nil && targetNodeDetectedDomain {
+	} else if vmi.Status.MigrationState != nil {
 		// this is the migration ACK.
 		// At this point we know that the migration has completed and that
 		// the target node has seen the domain event.
@@ -2877,9 +2877,6 @@ func (c *VirtualMachineController) affinePitThread(vmi *v1.VirtualMachineInstanc
 		return err
 	}
 	qemupid := qemuprocess.Pid()
-	if err != nil {
-		return err
-	}
 	if qemupid == -1 {
 		return nil
 	}

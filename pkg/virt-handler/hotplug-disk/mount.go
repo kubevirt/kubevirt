@@ -282,7 +282,7 @@ func (m *volumeMounter) mountHotplugVolume(
 ) error {
 	logger := log.DefaultLogger()
 	logger.V(4).Infof("Hotplug check volume name: %s", volumeName)
-	if sourceUID != types.UID("") {
+	if sourceUID != "" {
 		if m.isBlockVolume(&vmi.Status, volumeName) {
 			logger.V(4).Infof("Mounting block volume: %s", volumeName)
 			if err := m.mountBlockHotplugVolume(vmi, volumeName, sourceUID, record, cgroupManager); err != nil {
@@ -303,7 +303,7 @@ func (m *volumeMounter) mountHotplugVolume(
 }
 
 func (m *volumeMounter) Mount(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager) error {
-	return m.mountFromPod(vmi, types.UID(""), cgroupManager)
+	return m.mountFromPod(vmi, "", cgroupManager)
 }
 
 func (m *volumeMounter) MountFromPod(vmi *v1.VirtualMachineInstance, sourceUID types.UID, cgroupManager cgroup.Manager) error {
@@ -324,7 +324,7 @@ func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 		if volumeStatus.MemoryDumpVolume != nil {
 			mountDirectory = true
 		}
-		if sourceUID == types.UID("") {
+		if sourceUID == "" {
 			sourceUID = volumeStatus.HotplugVolume.AttachPodUID
 		}
 		if err := m.mountHotplugVolume(vmi, volumeStatus.Name, sourceUID, record, mountDirectory, cgroupManager); err != nil {
@@ -535,7 +535,7 @@ func (m *volumeMounter) findVirtlauncherUID(vmi *v1.VirtualMachineInstance) (uid
 		return
 	}
 	// Either no pods, or multiple pods, skip.
-	return types.UID("")
+	return ""
 }
 
 func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.VirtualMachineInstance, volume string) (*safepath.Path, error) {
