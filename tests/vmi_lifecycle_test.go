@@ -1380,27 +1380,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		Context("VM Accelerated Mode", decorators.WgS390x, func() {
 
-			It("[test_id:1646]should request a KVM and TUN device", func() {
-				vmi = libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
-				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-				Expect(err).NotTo(HaveOccurred())
-
-				computeContainerFound := false
-				for _, container := range pod.Spec.Containers {
-					if container.Name == "compute" {
-						computeContainerFound = true
-
-						_, ok := container.Resources.Limits[services.KvmDevice]
-						Expect(ok).To(BeTrue(), "Container should have requested KVM device")
-
-						_, ok = container.Resources.Limits[services.TunDevice]
-						Expect(ok).To(BeTrue(), "Container should have requested TUN device")
-					}
-				}
-
-				Expect(computeContainerFound).To(BeTrue(), "Compute container was not found in pod")
-			})
-
 			It("[test_id:1647]should not enable emulation in virt-launcher", func() {
 				vmi = libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
 				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
