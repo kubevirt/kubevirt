@@ -907,6 +907,28 @@ var _ = Describe("Clone", func() {
 			})
 		})
 
+		Context("Target VM name", func() {
+			expectTargetVMNameExist := func() {
+				restore, err := client.SnapshotV1beta1().VirtualMachineRestores(metav1.NamespaceDefault).Get(context.TODO(), testRestoreName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(restore.Spec.VirtualMachineSnapshotName).To(Equal(testSnapshotName))
+				patchedVM, err := offlinePatchVM(sourceVM, restore.Spec.Patches)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(patchedVM.Name).ToNot(BeNil())
+			}
+
+			It("should generate target vm name if it is not provided", func() {
+				vmClone.Spec.Target = &k8sv1.TypedLocalObjectReference{
+					APIGroup: pointer.P(vmAPIGroup),
+					Kind:     "VirtualMachine",
+				}
+				addClone(vmClone)
+				controller.Execute()
+				expectTargetVMNameExist()
+			})
+
+		})
+
 	})
 })
 
