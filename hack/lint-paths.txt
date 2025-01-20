@@ -33,6 +33,5 @@ tests/libvmifact
 tests/libvmops
 tests/libwait
 tests/numa
-tests/scale
 tests/usb
 tests/virtctl
