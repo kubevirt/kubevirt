@@ -56,6 +56,15 @@ func GetPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace st
 	return pod, nil
 }
 
+func GetTargetPodForMigration(migration *v1.VirtualMachineInstanceMigration) (*k8sv1.Pod, error) {
+	migrationLabelSelector := fmt.Sprintf("%s=%s", v1.MigrationJobLabel, migration.UID)
+	pod, err := lookupPodBySelector(migration.Namespace, migrationLabelSelector, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to find pod for migration %s (%s)", migration.Name, migration.UID)
+	}
+	return pod, nil
+}
+
 func lookupPodBySelector(namespace, labelSelector, fieldSelector string) (*k8sv1.Pod, error) {
 	virtCli := kubevirt.Client()
 	pods, err := virtCli.CoreV1().Pods(namespace).List(context.Background(),
