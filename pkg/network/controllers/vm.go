@@ -97,6 +97,7 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 	vmCopy.Spec.Template.Spec.Networks = networks
 
 	ifaces, networks = ClearDetachedInterfaces(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
+
 	vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
 	vmiCopy.Spec.Networks = networks
 

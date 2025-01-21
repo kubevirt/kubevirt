@@ -199,23 +199,35 @@ var _ = Describe("VM Network Controller", func() {
 		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(Equal(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces))
 	})
 
-	It("sync does not hotunplug interfaces when pod is not found", func() {
+	It("sync does not hotunplug interfaces when pod is not found, and up/down states are kept", func() {
 		clientset := fake.NewSimpleClientset()
 		c := controllers.NewVMController(
 			clientset,
 			stubPodGetter{pod: nil},
 		)
+		const (
+			ifaceInDownStateName = "down-net"
+			ifaceInUpStateName   = "up-net"
+		)
+
 		vmi := libvmi.New(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding("foonet")),
 			libvmi.WithNetwork(libvmi.MultusNetwork("foonet", "foonet-nad")),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(ifaceInDownStateName)),
+			libvmi.WithNetwork(libvmi.MultusNetwork(ifaceInDownStateName, ifaceInDownStateName+"-nad")),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(ifaceInUpStateName)),
+			libvmi.WithNetwork(libvmi.MultusNetwork(ifaceInUpStateName, ifaceInUpStateName+"-nad")),
 		)
+
 		// Make sure the interfaces are visible on the status as well (otherwise hotunplug is not triggered)
 		for _, net := range vmi.Spec.Networks {
 			vmi.Status.Interfaces = append(vmi.Status.Interfaces, v1.VirtualMachineInstanceNetworkInterface{Name: net.Name})
 		}
 
+		vmi = setLinkState4NetInterface(vmi, ifaceInDownStateName, v1.InterfaceStateLinkDown)
+		vmi = setLinkState4NetInterface(vmi, ifaceInUpStateName, v1.InterfaceStateLinkUp)
 		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
 
 		// Unplug the network interface at the VM (only).
@@ -242,6 +254,12 @@ var _ = Describe("VM Network Controller", func() {
 		iface := vmispec.LookupInterfaceByName(updatedVMI.Spec.Domain.Devices.Interfaces, unplugNetworkName)
 		Expect(iface).NotTo(BeNil())
 		Expect(iface.State).NotTo(Equal(v1.InterfaceStateAbsent))
+		iface = vmispec.LookupInterfaceByName(updatedVMI.Spec.Domain.Devices.Interfaces, ifaceInDownStateName)
+		Expect(iface).NotTo(BeNil())
+		Expect(iface.State).To(Equal(v1.InterfaceStateLinkDown))
+		iface = vmispec.LookupInterfaceByName(updatedVMI.Spec.Domain.Devices.Interfaces, ifaceInUpStateName)
+		Expect(iface).NotTo(BeNil())
+		Expect(iface.State).To(Equal(v1.InterfaceStateLinkUp))
 	})
 
 	It("sync does not hotunplug interfaces when legacy ordinal interface names are found", func() {
@@ -339,6 +357,14 @@ func unplugNetworkInterface(vm *v1.VirtualMachine, netName string) *v1.VirtualMa
 		iface.State = v1.InterfaceStateAbsent
 	}
 	return vm
+}
+
+func setLinkState4NetInterface(vmi *v1.VirtualMachineInstance, netName string, state v1.InterfaceState) *v1.VirtualMachineInstance {
+	iface := vmispec.LookupInterfaceByName(vmi.Spec.Domain.Devices.Interfaces, netName)
+	if iface != nil {
+		iface.State = state
+	}
+	return vmi
 }
 
 func newEmptyVM() *v1.VirtualMachine {
