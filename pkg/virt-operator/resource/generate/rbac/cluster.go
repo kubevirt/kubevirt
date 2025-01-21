@@ -20,6 +20,8 @@
 package rbac
 
 import (
+	"os"
+
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -27,6 +29,8 @@ import (
 	"kubevirt.io/api/export"
 	"kubevirt.io/api/pool"
 	"kubevirt.io/api/snapshot"
+
+	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 
 	"kubevirt.io/api/instancetype"
 
@@ -173,7 +177,7 @@ func newDefaultClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 }
 
 func newAdminClusterRole() *rbacv1.ClusterRole {
-	return &rbacv1.ClusterRole{
+	adminClusterRole := &rbacv1.ClusterRole{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: VersionNamev1,
 			Kind:       "ClusterRole",
@@ -182,7 +186,6 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 			Name: "kubevirt.io:admin",
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
-				"rbac.authorization.k8s.io/aggregate-to-admin": "true",
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -353,10 +356,14 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 			},
 		},
 	}
+	if !(os.Getenv(util.DisableRbacAggrEnvName) == "true") {
+		adminClusterRole.Labels["rbac.authorization.k8s.io/aggregate-to-admin"] = "true"
+	}
+	return adminClusterRole
 }
 
 func newEditClusterRole() *rbacv1.ClusterRole {
-	return &rbacv1.ClusterRole{
+	editClusterRole := &rbacv1.ClusterRole{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: VersionNamev1,
 			Kind:       "ClusterRole",
@@ -365,7 +372,6 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 			Name: "kubevirt.io:edit",
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
-				"rbac.authorization.k8s.io/aggregate-to-edit": "true",
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -547,10 +553,14 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 			},
 		},
 	}
+	if !(os.Getenv(util.DisableRbacAggrEnvName) == "true") {
+		editClusterRole.Labels["rbac.authorization.k8s.io/aggregate-to-edit"] = "true"
+	}
+	return editClusterRole
 }
 
 func newViewClusterRole() *rbacv1.ClusterRole {
-	return &rbacv1.ClusterRole{
+	viewClusterRole := &rbacv1.ClusterRole{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: VersionNamev1,
 			Kind:       "ClusterRole",
@@ -559,7 +569,6 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 			Name: "kubevirt.io:view",
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
-				"rbac.authorization.k8s.io/aggregate-to-view": "true",
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -689,6 +698,10 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 			},
 		},
 	}
+	if !(os.Getenv(util.DisableRbacAggrEnvName) == "true") {
+		viewClusterRole.Labels["rbac.authorization.k8s.io/aggregate-to-view"] = "true"
+	}
+	return viewClusterRole
 }
 func newInstancetypeViewClusterRole() *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
