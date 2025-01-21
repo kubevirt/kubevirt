@@ -1158,7 +1158,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		return nil, err
 	}
 
-	if err := l.syncNetworkHotplug(domain, oldSpec, dom, vmi, options); err != nil {
+	if err := l.syncNetwork(domain, oldSpec, dom, vmi, options); err != nil {
 		return nil, err
 	}
 
@@ -1238,7 +1238,7 @@ func (l *LibvirtDomainManager) syncDiskHotplug(
 	return nil
 }
 
-func (l *LibvirtDomainManager) syncNetworkHotplug(
+func (l *LibvirtDomainManager) syncNetwork(
 	domain *api.Domain,
 	oldSpec *api.DomainSpec,
 	dom cli.VirDomain,
@@ -1258,9 +1258,15 @@ func (l *LibvirtDomainManager) syncNetworkHotplug(
 	if err := networkInterfaceManager.hotplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}, domain); err != nil {
 		return err
 	}
+
 	if err := networkInterfaceManager.hotUnplugVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}); err != nil {
 		return err
 	}
+
+	if err := networkInterfaceManager.setLinkUpDownVirtioInterface(vmi, &api.Domain{Spec: *oldSpec}); err != nil {
+		return err
+	}
+
 	return nil
 }
 

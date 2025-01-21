@@ -22,6 +22,7 @@ package virtwrap
 import (
 	"encoding/xml"
 	"fmt"
+	"strings"
 
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 
@@ -249,6 +250,94 @@ var _ = Describe("nic hot-unplug on virt-launcher", func() {
 	)
 })
 
+var _ = Describe("set interface state up/down", func() {
+	const (
+		networkName = "n1"
+		nadName     = "nad"
+	)
+
+	DescribeTable("interface in vmi and domain",
+		func(vmi *v1.VirtualMachineInstance, domain *api.Domain, result libvirtClientResult) {
+			networkInterfaceManager := newVirtIOInterfaceManager(
+				mockLibvirtClient(gomock.NewController(GinkgoT()), result),
+				&fakeVMConfigurator{},
+			)
+			Expect(networkInterfaceManager.setLinkUpDownVirtioInterface(vmi, domain)).To(Succeed())
+		},
+
+		Entry("no state in vmi, no state in domain",
+			vmiWithSingleBridgeInterfaceWithPodInterfaceReady(networkName, nadName),
+			dummyDomain(networkName),
+			libvirtClientResult{},
+		),
+
+		Entry("down in vmi, down in domain",
+			func() *v1.VirtualMachineInstance {
+				vmi := vmiWithSingleBridgeInterfaceWithPodInterfaceReady(networkName, nadName)
+				vmi.Spec.Domain.Devices.Interfaces[0].State = v1.InterfaceStateLinkDown
+				return vmi
+			}(),
+			func() *api.Domain {
+				dom := dummyDomain(networkName)
+				dom.Spec.Devices.Interfaces[0].LinkState = &api.LinkState{State: LibvirtInterfaceLinkStateDown}
+				return dom
+			}(),
+			libvirtClientResult{},
+		),
+		Entry("up in vmi, up in domain",
+			func() *v1.VirtualMachineInstance {
+				vmi := vmiWithSingleBridgeInterfaceWithPodInterfaceReady(networkName, nadName)
+				vmi.Spec.Domain.Devices.Interfaces[0].State = v1.InterfaceStateLinkUp
+				return vmi
+			}(),
+			func() *api.Domain {
+				dom := dummyDomain(networkName)
+				dom.Spec.Devices.Interfaces[0].LinkState = &api.LinkState{State: LibvirtInterfaceLinkStateUP}
+				return dom
+			}(),
+			libvirtClientResult{},
+		),
+
+		Entry("down in vmi, no state in domain",
+			func() *v1.VirtualMachineInstance {
+				vmi := vmiWithSingleBridgeInterfaceWithPodInterfaceReady(networkName, nadName)
+				vmi.Spec.Domain.Devices.Interfaces[0].State = v1.InterfaceStateLinkDown
+				return vmi
+			}(),
+			dummyDomain(networkName),
+			libvirtClientResult{expectedUpdatedDevicesWithActionDown: 1},
+		),
+
+		Entry("up in vmi, down in domain",
+			func() *v1.VirtualMachineInstance {
+				vmi := vmiWithSingleBridgeInterfaceWithPodInterfaceReady(networkName, nadName)
+				vmi.Spec.Domain.Devices.Interfaces[0].State = v1.InterfaceStateLinkUp
+				return vmi
+			}(),
+			func() *api.Domain {
+				dom := dummyDomain(networkName)
+				dom.Spec.Devices.Interfaces[0].LinkState = &api.LinkState{State: LibvirtInterfaceLinkStateDown}
+				return dom
+			}(),
+			libvirtClientResult{expectedUpdatedDevicesWithActionUp: 1},
+		),
+
+		Entry("no state in vmi, down in domain",
+			func() *v1.VirtualMachineInstance {
+				vmi := vmiWithSingleBridgeInterfaceWithPodInterfaceReady(networkName, nadName)
+				vmi.Spec.Domain.Devices.Interfaces[0].State = v1.InterfaceStateLinkUp
+				return vmi
+			}(),
+			func() *api.Domain {
+				dom := dummyDomain(networkName)
+				dom.Spec.Devices.Interfaces[0].LinkState = &api.LinkState{State: LibvirtInterfaceLinkStateDown}
+				return dom
+			}(),
+			libvirtClientResult{expectedUpdatedDevicesWithActionUp: 1},
+		),
+	)
+})
+
 var _ = Describe("domain network interfaces resources", func() {
 
 	DescribeTable("are ignored when",
@@ -324,8 +413,22 @@ var _ = Describe("domain network interfaces resources", func() {
 })
 
 type libvirtClientResult struct {
-	expectedError           error
-	expectedAttachedDevices int
+	expectedError                        error
+	expectedAttachedDevices              int
+	expectedUpdatedDevicesWithActionUp   int
+	expectedUpdatedDevicesWithActionDown int
+}
+type containsMatcher struct {
+	substr string
+}
+
+func (c *containsMatcher) Matches(x interface{}) bool {
+	s, ok := x.(string)
+	return ok && strings.Contains(s, c.substr)
+}
+
+func (c *containsMatcher) String() string {
+	return fmt.Sprintf("a string containing '%s'", c.substr)
 }
 
 func mockLibvirtClient(mockController *gomock.Controller, clientResult libvirtClientResult) *cli.MockVirDomain {
@@ -335,6 +438,8 @@ func mockLibvirtClient(mockController *gomock.Controller, clientResult libvirtCl
 		return mockClient
 	}
 	mockClient.EXPECT().AttachDeviceFlags(gomock.Any(), gomock.Any()).Times(clientResult.expectedAttachedDevices).Return(nil)
+	mockClient.EXPECT().UpdateDeviceFlags(&containsMatcher{substr: "state=\"up\""}, gomock.Any()).Times(clientResult.expectedUpdatedDevicesWithActionUp).Return(nil)
+	mockClient.EXPECT().UpdateDeviceFlags(&containsMatcher{substr: "state=\"down\""}, gomock.Any()).Times(clientResult.expectedUpdatedDevicesWithActionDown).Return(nil)
 	return mockClient
 }
 
