@@ -84,7 +84,7 @@ func HandleRequest(client kubecli.KubevirtClient, vm *v1.VirtualMachine, vmi *v1
 			return err
 		}
 	case v1.MemoryDumpUnmounting, v1.MemoryDumpFailed:
-		if err := updatePVCMemoryDumpAnnotation(client, vm, pvcStore); err != nil {
+		if err := patchMemoryDumpPVCAnnotation(client, vm, pvcStore); err != nil {
 			return err
 		}
 		// Check if the memory dump is in the vmi list of volumes,
@@ -261,15 +261,7 @@ func applyMemoryDumpVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpe
 	return vmiSpec
 }
 
-func needUpdatePVCMemoryDumpAnnotation(pvc *k8score.PersistentVolumeClaim, request *v1.VirtualMachineMemoryDumpRequest) bool {
-	if pvc.GetAnnotations() == nil {
-		return true
-	}
-	annotation, hasAnnotation := pvc.Annotations[v1.PVCMemoryDumpAnnotation]
-	return !hasAnnotation || (request.Phase == v1.MemoryDumpUnmounting && annotation != *request.FileName) || (request.Phase == v1.MemoryDumpFailed && annotation != failed)
-}
-
-func updatePVCMemoryDumpAnnotation(client kubecli.KubevirtClient, vm *v1.VirtualMachine, pvcStore cache.Store) error {
+func patchMemoryDumpPVCAnnotation(client kubecli.KubevirtClient, vm *v1.VirtualMachine, pvcStore cache.Store) error {
 	request := vm.Status.MemoryDumpRequest
 	pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vm.Namespace, request.ClaimName, pvcStore)
 	if err != nil {
@@ -281,18 +273,39 @@ func updatePVCMemoryDumpAnnotation(client kubecli.KubevirtClient, vm *v1.Virtual
 		return fmt.Errorf("Error when trying to update memory dump annotation, pvc %s not found", request.ClaimName)
 	}
 
-	if needUpdatePVCMemoryDumpAnnotation(pvc, request) {
-		if pvc.GetAnnotations() == nil {
-			pvc.SetAnnotations(make(map[string]string))
+	var patchVal string
+	switch request.Phase {
+	case v1.MemoryDumpUnmounting:
+		// skip patching pvc annotation if file name
+		// is empty
+		if request.FileName == nil {
+			return nil
 		}
-		if request.Phase == v1.MemoryDumpUnmounting {
-			pvc.Annotations[v1.PVCMemoryDumpAnnotation] = *request.FileName
-		} else if request.Phase == v1.MemoryDumpFailed {
-			pvc.Annotations[v1.PVCMemoryDumpAnnotation] = failed
-		}
-		if _, err = client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(context.Background(), pvc, metav1.UpdateOptions{}); err != nil {
-			return err
-		}
+		patchVal = *request.FileName
+	case v1.MemoryDumpFailed:
+		patchVal = failed
+	default:
+		log.Log.Object(vm).Errorf("Unexpected phase when patching memory dump pvc annotation")
+		return nil
+	}
+
+	annoPatch := patch.New()
+	if len(pvc.Annotations) == 0 {
+		annoPatch.AddOption(patch.WithAdd("/metadata/annotations", map[string]string{v1.PVCMemoryDumpAnnotation: patchVal}))
+	} else if ann, ok := pvc.Annotations[v1.PVCMemoryDumpAnnotation]; ok && ann == patchVal {
+		return nil
+	} else {
+		annoPatch.AddOption(patch.WithReplace("/metadata/annotations/"+patch.EscapeJSONPointer(v1.PVCMemoryDumpAnnotation), patchVal))
+	}
+
+	annoPatchPayload, err := annoPatch.GeneratePayload()
+	if err != nil {
+		return err
+	}
+
+	_, err = client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Patch(context.Background(), pvc.Name, types.JSONPatchType, annoPatchPayload, metav1.PatchOptions{})
+	if err != nil {
+		log.Log.Object(vm).Errorf("failed to annotate memory dump PVC %s/%s, error: %s", pvc.Namespace, pvc.Name, err)
 	}
 
 	return nil

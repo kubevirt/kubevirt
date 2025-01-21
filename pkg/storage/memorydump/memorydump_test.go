@@ -20,7 +20,6 @@ package memorydump
 
 import (
 	"context"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -28,9 +27,7 @@ import (
 
 	k8score "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -71,22 +68,6 @@ var _ = Describe("MemoryDump", func() {
 		k8sClient = k8sfake.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 	})
-
-	expectPVCAnnotationUpdate := func(expectedAnnotation string, pvcAnnotationUpdated chan bool) {
-		virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
-		k8sClient.Fake.PrependReactor("update", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
-			update, ok := action.(testing.UpdateAction)
-			Expect(ok).To(BeTrue())
-
-			pvc, ok := update.GetObject().(*k8score.PersistentVolumeClaim)
-			Expect(ok).To(BeTrue())
-			Expect(pvc.Name).To(Equal(testPVCName))
-			Expect(pvc.Annotations[v1.PVCMemoryDumpAnnotation]).To(Equal(expectedAnnotation))
-			pvcAnnotationUpdated <- true
-
-			return true, nil, nil
-		})
-	}
 
 	Context("UpdateRequest", func() {
 		It("should update memory dump phase to InProgress when memory dump in vm volumes", func() {
@@ -199,18 +180,15 @@ var _ = Describe("MemoryDump", func() {
 		vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
-		pvc := k8score.PersistentVolumeClaim{
+		pvc := &k8score.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      testPVCName,
 				Namespace: vm.Namespace,
 			},
 		}
-		Expect(pvcStore.Add(&pvc)).To(Succeed())
-
-		pvcAnnotationUpdated := make(chan bool, 1)
-		defer close(pvcAnnotationUpdated)
-		// TODO: convert this to action check
-		expectPVCAnnotationUpdate(expectedAnnotation, pvcAnnotationUpdated)
+		pvc, err = k8sClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Create(context.TODO(), pvc, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(pvcStore.Add(pvc)).To(Succeed())
 
 		HandleRequest(virtClient, vm, vmi, pvcStore)
 
@@ -218,14 +196,9 @@ var _ = Describe("MemoryDump", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(vmi.Spec.Volumes).To(BeEmpty())
 
-		Eventually(func() bool {
-			select {
-			case updated := <-pvcAnnotationUpdated:
-				return updated
-			default:
-			}
-			return false
-		}, 10*time.Second, 2).Should(BeTrue(), "failed, pvc annotation wasn't updated")
+		pvc, err = k8sClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Get(context.TODO(), pvc.Name, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(pvc.Annotations[v1.PVCMemoryDumpAnnotation]).To(Equal(expectedAnnotation))
 	},
 		Entry("when phase is Unmounting", v1.MemoryDumpUnmounting, targetFileName),
 		Entry("when phase is Failed", v1.MemoryDumpFailed, "Memory dump failed"),
