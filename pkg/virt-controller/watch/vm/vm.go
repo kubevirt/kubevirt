@@ -1033,7 +1033,7 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 		}
 	case *vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration:
 		// Validate if the update volumes can be migrated
-		if err := volumemig.ValidateVolumes(vmi, vm); err != nil {
+		if err := volumemig.ValidateVolumes(vmi, vm, c.dataVolumeStore, c.pvcStore); err != nil {
 			log.Log.Object(vm).Errorf("cannot migrate the VM. Volumes are invalid: %v", err)
 			setRestartRequired(vm, err.Error())
 			return nil

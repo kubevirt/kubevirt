@@ -34,6 +34,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -49,12 +50,13 @@ type invalidVols struct {
 	fs         []string
 	shareable  []string
 	luns       []string
+	noCSIDVs   []string
 }
 
 func (vols *invalidVols) errorMessage() error {
 	var s strings.Builder
 	if len(vols.hotplugged) < 1 && len(vols.fs) < 1 &&
-		len(vols.shareable) < 1 && len(vols.luns) < 1 {
+		len(vols.shareable) < 1 && len(vols.luns) < 1 && len(vols.noCSIDVs) < 1 {
 		return nil
 	}
 	s.WriteString("invalid volumes to update with migration:")
@@ -69,6 +71,9 @@ func (vols *invalidVols) errorMessage() error {
 	}
 	if len(vols.luns) > 0 {
 		s.WriteString(fmt.Sprintf(" luns: %v", vols.luns))
+	}
+	if len(vols.noCSIDVs) > 0 {
+		s.WriteString(fmt.Sprintf(" DV storage class isn't a CSI or not using volume populators: %v", vols.noCSIDVs))
 	}
 
 	return fmt.Errorf(s.String())
@@ -98,7 +103,7 @@ func updatedVolumesMapping(vmi *virtv1.VirtualMachineInstance, vm *virtv1.Virtua
 }
 
 // ValidateVolumes checks that the volumes can be updated with the migration
-func ValidateVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) error {
+func ValidateVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine, dvStore, pvcStore cache.Store) error {
 	var invalidVols invalidVols
 	if vmi == nil {
 		return fmt.Errorf("cannot validate the migrated volumes for an empty VMI")
@@ -140,6 +145,34 @@ func ValidateVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachi
 			invalidVols.luns = append(invalidVols.luns, v.Name)
 			valid = false
 			continue
+		}
+
+		// DataVolumes with a no-csi storage class
+		if v.VolumeSource.DataVolume != nil {
+			dv, err := storagetypes.GetDataVolumeFromCache(vm.Namespace, v.VolumeSource.DataVolume.Name, dvStore)
+			if err != nil {
+				return err
+			}
+			if dv == nil {
+				return fmt.Errorf("the datavolume %s doesn't exist", v.VolumeSource.DataVolume.Name)
+			}
+
+			// if the dv is in succeeded state then it is safe to use since it has already been populated.
+			if dv.Status.Phase == cdiv1.Succeeded {
+				continue
+			}
+			pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vm.Namespace, dv.Name, pvcStore)
+			if err != nil {
+				return err
+			}
+			if pvc == nil {
+				return fmt.Errorf("the pvc %s doesn't exist", v.VolumeSource.DataVolume.Name)
+			}
+			// The dataSourceRef is set if the volume populators are supported
+			if pvc.Spec.DataSourceRef == nil {
+				invalidVols.noCSIDVs = append(invalidVols.noCSIDVs, v.Name)
+				valid = false
+			}
 		}
 	}
 	if !valid {
