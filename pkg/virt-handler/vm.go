@@ -72,6 +72,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	pvctypes "kubevirt.io/kubevirt/pkg/storage/types"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -1550,10 +1551,6 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonCPUModeNotMigratable), isBlockMigration
 	}
 
-	if util.IsVMIVirtiofsEnabled(vmi) {
-		return newNonMigratableCondition("VMI uses virtiofs", v1.VirtualMachineInstanceReasonVirtIOFSNotMigratable), isBlockMigration
-	}
-
 	if vmiContainsPCIHostDevice(vmi) {
 		return newNonMigratableCondition("VMI uses a PCI host devices", v1.VirtualMachineInstanceReasonHostDeviceNotMigratable), isBlockMigration
 	}
@@ -1635,10 +1632,6 @@ func (c *VirtualMachineController) calculateLiveStorageMigrationCondition(vmi *v
 
 	if err := c.isHostModelMigratable(vmi); err != nil {
 		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonCPUModeNotMigratable, err.Error())
-	}
-
-	if util.IsVMIVirtiofsEnabled(vmi) {
-		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonVirtIOFSNotMigratable, "VMI uses virtiofs")
 	}
 
 	if vmiContainsPCIHostDevice(vmi) {
@@ -2498,6 +2491,8 @@ func (c *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 		blockMigrate = true
 	}
 
+	filesystems := storagetypes.GetFilesystemsFromVolumes(vmi)
+
 	// Check if all VMI volumes can be shared between the source and the destination
 	// of a live migration. blockMigrate will be returned as false, only if all volumes
 	// are shared and the VMI has no local disks
@@ -2528,6 +2523,11 @@ func (c *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 				return true, fmt.Errorf("cannot migrate VMI with non-shared HostDisk")
 			}
 		} else {
+			if _, ok := filesystems[volume.Name]; ok {
+				log.Log.Object(vmi).Infof("Volume %s is shared with virtiofs, allow live migration", volume.Name)
+				continue
+			}
+
 			isVolumeUsedByReadOnlyDisk := false
 			for _, disk := range vmi.Spec.Domain.Devices.Disks {
 				if isReadOnlyDisk(&disk) && disk.Name == volume.Name {

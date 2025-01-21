@@ -2584,7 +2584,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Entry("don't exist migration should fail", ""),
 		)
 
-		It("should not be allowed to live-migrate if the VMI uses virtiofs ", func() {
+		It("should be allowed to live-migrate if the VMI uses virtiofs ", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Filesystems = []v1.Filesystem{
 				{
@@ -2596,8 +2596,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
 			Expect(isBlockMigration).To(BeFalse())
 			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
-			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonVirtIOFSNotMigratable))
+			Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
 		})
 
 		It("should not be allowed to live-migrate if the VMI has non-migratable interface", func() {
