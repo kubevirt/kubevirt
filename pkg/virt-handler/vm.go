@@ -931,8 +931,11 @@ func needToComputeChecksums(vmi *v1.VirtualMachineInstance) bool {
 }
 
 func (c *VirtualMachineController) updateChecksumInfo(vmi *v1.VirtualMachineInstance, syncError error) error {
-
-	if syncError != nil || vmi.DeletionTimestamp != nil || !needToComputeChecksums(vmi) {
+	containerDiskExist, err := c.containerDiskMounter.ContainerDiskExist(vmi)
+	if err != nil {
+		return err
+	}
+	if syncError != nil || vmi.DeletionTimestamp != nil || !needToComputeChecksums(vmi) || !containerDiskExist {
 		return nil
 	}
 
@@ -2768,35 +2771,42 @@ func (c *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	if err != nil {
 		return err
 	}
+	var containerDiskExist bool
+	containerDiskExist, err = c.containerDiskMounter.ContainerDiskExist(vmi)
+	if err != nil {
+		return nil
+	}
+	var disksInfo map[string]*containerdisk.DiskInfo
+	if containerDiskExist {
+		// give containerDisks some time to become ready before throwing errors on retries
+		info := c.getLauncherClientInfo(vmi)
+		if ready, err := c.containerDiskMounter.ContainerDisksReady(vmi, info.NotInitializedSince); !ready {
+			if err != nil {
+				return err
+			}
+			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+			return nil
+		}
 
-	// give containerDisks some time to become ready before throwing errors on retries
-	info := c.getLauncherClientInfo(vmi)
-	if ready, err := c.containerDiskMounter.ContainerDisksReady(vmi, info.NotInitializedSince); !ready {
+		// Verify container disks checksum
+		err = container_disk.VerifyChecksums(c.containerDiskMounter, vmi)
+		switch {
+		case goerror.Is(err, container_disk.ErrChecksumMissing):
+			// wait for checksum to be computed by the source virt-handler
+			return err
+		case goerror.Is(err, container_disk.ErrChecksumMismatch):
+			log.Log.Object(vmi).Infof("Containerdisk checksum mismatch, terminating target pod: %s", err)
+			c.recorder.Event(vmi, k8sv1.EventTypeNormal, "ContainerDiskFailedChecksum", "Aborting migration as the source and target containerdisks/kernelboot do not match")
+			return client.SignalTargetPodCleanup(vmi)
+		case err != nil:
+			return err
+		}
+
+		// Mount container disks
+		disksInfo, err = c.containerDiskMounter.MountAndVerify(vmi)
 		if err != nil {
 			return err
 		}
-		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
-		return nil
-	}
-
-	// Verify container disks checksum
-	err = container_disk.VerifyChecksums(c.containerDiskMounter, vmi)
-	switch {
-	case goerror.Is(err, container_disk.ErrChecksumMissing):
-		// wait for checksum to be computed by the source virt-handler
-		return err
-	case goerror.Is(err, container_disk.ErrChecksumMismatch):
-		log.Log.Object(vmi).Infof("Containerdisk checksum mismatch, terminating target pod: %s", err)
-		c.recorder.Event(vmi, k8sv1.EventTypeNormal, "ContainerDiskFailedChecksum", "Aborting migration as the source and target containerdisks/kernelboot do not match")
-		return client.SignalTargetPodCleanup(vmi)
-	case err != nil:
-		return err
-	}
-
-	// Mount container disks
-	disksInfo, err := c.containerDiskMounter.MountAndVerify(vmi)
-	if err != nil {
-		return err
 	}
 
 	// Mount hotplug disks
@@ -3008,18 +3018,25 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	disksInfo := map[string]*containerdisk.DiskInfo{}
 	if !vmi.IsRunning() && !vmi.IsFinal() {
 		// give containerDisks some time to become ready before throwing errors on retries
-		info := c.getLauncherClientInfo(vmi)
-		if ready, err := c.containerDiskMounter.ContainerDisksReady(vmi, info.NotInitializedSince); !ready {
+		var containerDiskExist bool
+		containerDiskExist, err = c.containerDiskMounter.ContainerDiskExist(vmi)
+		if err != nil {
+			return err
+		}
+		if containerDiskExist {
+			info := c.getLauncherClientInfo(vmi)
+			if ready, err := c.containerDiskMounter.ContainerDisksReady(vmi, info.NotInitializedSince); !ready {
+				if err != nil {
+					return err
+				}
+				c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+				return nil
+			}
+
+			disksInfo, err = c.containerDiskMounter.MountAndVerify(vmi)
 			if err != nil {
 				return err
 			}
-			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
-			return nil
-		}
-
-		disksInfo, err = c.containerDiskMounter.MountAndVerify(vmi)
-		if err != nil {
-			return err
 		}
 
 		// Try to mount hotplug volume if there is any during startup.

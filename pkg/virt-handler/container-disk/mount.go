@@ -49,6 +49,7 @@ type mounter struct {
 	mountRecords               map[types.UID]*vmiMountTargetRecord
 	mountRecordsLock           sync.Mutex
 	suppressWarningTimeout     time.Duration
+	containerDiskDetector      containerdisk.ContainerDiskDetector
 	socketPathGetter           containerdisk.SocketPathGetter
 	kernelBootSocketPathGetter containerdisk.KernelBootSocketPathGetter
 	clusterConfig              *virtconfig.ClusterConfig
@@ -60,6 +61,7 @@ type Mounter interface {
 	MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*containerdisk.DiskInfo, error)
 	Unmount(vmi *v1.VirtualMachineInstance) error
 	ComputeChecksums(vmi *v1.VirtualMachineInstance) (*DiskChecksums, error)
+	ContainerDiskExist(vmi *v1.VirtualMachineInstance) (bool, error)
 }
 
 type vmiMountTargetEntry struct {
@@ -93,6 +95,7 @@ func NewMounter(isoDetector isolation.PodIsolationDetector, mountStateDir string
 		podIsolationDetector:       isoDetector,
 		checkpointManager:          checkpoint.NewSimpleCheckpointManager(mountStateDir),
 		suppressWarningTimeout:     1 * time.Minute,
+		containerDiskDetector:      containerdisk.NewContainerDiskDetector(""),
 		socketPathGetter:           containerdisk.NewSocketPathGetter(""),
 		kernelBootSocketPathGetter: containerdisk.NewKernelBootSocketPathGetter(""),
 		clusterConfig:              clusterConfig,
@@ -216,6 +219,16 @@ func (m *mounter) setAddMountTargetRecordHelper(vmi *v1.VirtualMachineInstance, 
 
 	return nil
 }
+func (m *mounter) ContainerDiskExist(vmi *v1.VirtualMachineInstance) (bool, error) {
+	containerDiskExist, err := m.containerDiskDetector(vmi)
+	if err != nil {
+		return false, fmt.Errorf("fail to detect if containerDisk exist for vmi: %s in namespace: %v  err %v", vmi.Name, vmi.Namespace, err)
+	}
+	if !containerDiskExist {
+		return false, nil
+	}
+	return true, nil
+}
 
 // Mount takes a vmi and mounts all container disks of the VMI, so that they are visible for the qemu process.
 // Additionally qcow2 images are validated if "verify" is true. The validation happens with rlimits set, to avoid DOS.
@@ -267,6 +280,7 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*co
 
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
+
 			diskTargetDir, err := containerdisk.GetDiskTargetDirFromHostView(vmi)
 			if err != nil {
 				return nil, err

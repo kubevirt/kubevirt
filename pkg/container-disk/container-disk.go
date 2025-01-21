@@ -46,6 +46,7 @@ var podsBaseDir = util.KubeletPodsDir
 
 var mountBaseDir = filepath.Join(util.VirtShareDir, "/container-disks")
 
+type ContainerDiskDetector func(vmi *v1.VirtualMachineInstance) (bool, error)
 type SocketPathGetter func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error)
 type KernelBootSocketPathGetter func(vmi *v1.VirtualMachineInstance) (string, error)
 
@@ -160,6 +161,23 @@ func NewSocketPathGetter(baseDir string) SocketPathGetter {
 			}
 		}
 		return "", fmt.Errorf("container disk socket path not found for vmi \"%s\"", vmi.Name)
+	}
+}
+
+func NewContainerDiskDetector(baseDir string) ContainerDiskDetector {
+	return func(vmi *v1.VirtualMachineInstance) (bool, error) {
+		for podUID := range vmi.Status.ActivePods {
+			basePath := getContainersPath(baseDir, string(podUID))
+			containerDiskPath := filepath.Join(basePath, "volumecontainerdisk")
+			exists, err := diskutils.FileExists(containerDiskPath)
+			if err != nil {
+				return false, err
+			}
+			if exists {
+				return true, nil
+			}
+		}
+		return false, nil
 	}
 }
 
@@ -389,6 +407,10 @@ func CreateEphemeralImages(
 
 func getContainerDiskSocketBasePath(baseDir, podUID string) string {
 	return fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", baseDir, podUID)
+}
+
+func getContainersPath(baseDir, podUID string) string {
+	return fmt.Sprintf("%s/pods/%s/containers", baseDir, podUID)
 }
 
 // ExtractImageIDsFromSourcePod takes the VMI and its source pod to determine the exact image used by containerdisks and boot container images,
