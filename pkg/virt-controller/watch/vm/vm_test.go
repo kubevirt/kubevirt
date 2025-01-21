@@ -100,6 +100,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
 			pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 			namespaceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
+
 			ns1 := &k8sv1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "ns1",
