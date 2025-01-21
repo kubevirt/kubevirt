@@ -221,6 +221,8 @@ func Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(info *libvirt.DomainJo
 	}
 
 	return &stats.DomainJobInfo{
+		DataTotalSet:     info.DataTotalSet,
+		DataTotal:        info.DataTotal,
 		DataProcessedSet: info.DataProcessedSet,
 		DataProcessed:    info.DataProcessed,
 		MemoryBpsSet:     info.MemBpsSet,
