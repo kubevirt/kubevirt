@@ -1556,7 +1556,19 @@ var _ = Describe("Converter", func() {
 				},
 			}
 		})
+		It("Should set domain interface state down", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultBridgeNetworkInterface(),
+			}
+			vmi.Spec.Domain.Devices.Interfaces[0].State = v1.InterfaceStateLinkDown
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1))
+			Expect(domain.Spec.Devices.Interfaces[0].LinkState.State).To(Equal("down"))
+		})
 		It("Should set domain interface source correctly for multus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
