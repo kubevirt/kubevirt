@@ -208,7 +208,7 @@ func NewController(
 		heartBeatInterval:                1 * time.Minute,
 		migrationProxy:                   migrationProxy,
 		podIsolationDetector:             podIsolationDetector,
-		containerDiskMounter:             container_disk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
+		containerDiskMounter:             container_disk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig, host),
 		hotplugVolumeMounter:             hotplug_volume.NewVolumeMounter(hotplugState, kubeletPodsDir),
 		clusterConfig:                    clusterConfig,
 		virtLauncherFSRunDirPattern:      "/proc/%d/root/var/run",
@@ -913,7 +913,7 @@ func (c *VirtualMachineController) updateChecksumInfo(vmi *v1.VirtualMachineInst
 		log.Log.Errorf("cannot compute checksums as containerdisk/kernelboot containers seem to have been terminated")
 		return nil
 	}
-	if err != nil {
+	if err != nil || diskChecksums == nil {
 		return err
 	}
 

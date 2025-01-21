@@ -47,6 +47,7 @@ type mounter struct {
 	mountRecords               map[types.UID]*vmiMountTargetRecord
 	mountRecordsLock           sync.Mutex
 	suppressWarningTimeout     time.Duration
+	bindMountNeededDetector    containerdisk.BindMountNeededDetector
 	socketPathGetter           containerdisk.SocketPathGetter
 	kernelBootSocketPathGetter containerdisk.KernelBootSocketPathGetter
 	clusterConfig              *virtconfig.ClusterConfig
@@ -89,12 +90,13 @@ type KernelBootChecksum struct {
 	Kernel *uint32
 }
 
-func NewMounter(isoDetector isolation.PodIsolationDetector, mountStateDir string, clusterConfig *virtconfig.ClusterConfig) Mounter {
+func NewMounter(isoDetector isolation.PodIsolationDetector, mountStateDir string, clusterConfig *virtconfig.ClusterConfig, hostName string) Mounter {
 	return &mounter{
 		mountRecords:               make(map[types.UID]*vmiMountTargetRecord),
 		podIsolationDetector:       isoDetector,
 		checkpointManager:          checkpoint.NewSimpleCheckpointManager(mountStateDir),
 		suppressWarningTimeout:     1 * time.Minute,
+		bindMountNeededDetector:    containerdisk.NewBindMountNeededDetector("", hostName),
 		socketPathGetter:           containerdisk.NewSocketPathGetter(""),
 		kernelBootSocketPathGetter: containerdisk.NewKernelBootSocketPathGetter(""),
 		clusterConfig:              clusterConfig,
@@ -222,6 +224,13 @@ func (m *mounter) setAddMountTargetRecordHelper(vmi *v1.VirtualMachineInstance, 
 // Mount takes a vmi and mounts all container disks of the VMI, so that they are visible for the qemu process.
 // Additionally qcow2 images are validated if "verify" is true. The validation happens with rlimits set, to avoid DOS.
 func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) error {
+	bindMountNeeded, err := m.bindMountNeededDetector(vmi)
+	if err != nil {
+		return fmt.Errorf("fail to detect if bind mount needed for vmi: %s in namespace: %v  err %v", vmi.Name, vmi.Namespace, err)
+	}
+	if !bindMountNeeded {
+		return nil
+	}
 	record := vmiMountTargetRecord{}
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
@@ -289,7 +298,7 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) error {
 			}
 		}
 	}
-	err := m.mountKernelArtifacts(vmi, true)
+	err = m.mountKernelArtifacts(vmi, true)
 	if err != nil {
 		return fmt.Errorf("error mounting kernel artifacts: %v", err)
 	}
@@ -349,6 +358,13 @@ func (m *mounter) Unmount(vmi *v1.VirtualMachineInstance) error {
 }
 
 func (m *mounter) ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitializedSince time.Time) (bool, error) {
+	bindMountNeeded, err := m.bindMountNeededDetector(vmi)
+	if err != nil {
+		return false, fmt.Errorf("fail to detect if bind mount needed for vmi: %s in namespace: %v  err %v", vmi.Name, vmi.Namespace, err)
+	}
+	if !bindMountNeeded {
+		return true, nil
+	}
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk != nil {
 			sock, err := m.socketPathGetter(vmi, i)
@@ -663,6 +679,21 @@ func getDigest(imageFile *safepath.Path) (uint32, error) {
 }
 
 func (m *mounter) ComputeChecksums(vmi *v1.VirtualMachineInstance) (*DiskChecksums, error) {
+
+	bindMountNeeded, err := m.bindMountNeededDetector(vmi)
+	if err != nil {
+		return nil, fmt.Errorf("fail to detect if bind mount needed for vmi: %s in namespace: %v  err %v", vmi.Name, vmi.Namespace, err)
+	}
+
+	// ComputeChecksums is kept for compatibility with older virt-handlers
+	// that validate checksum calculations in vmi.status. This validation was
+	// removed in PR #14021, but we had to keep the checksum calculations for upgrades.
+	// Once we're sure old handlers won't interrupt upgrades, this can be removed.
+	// If the bind mount isn't needed, it means the imageVolume featureGate is enabled,
+	// so upgrade support for those VMIs isn't required, and we can skip the checksum calculation.
+	if !bindMountNeeded {
+		return nil, nil
+	}
 
 	diskChecksums := &DiskChecksums{
 		ContainerDiskChecksums: map[string]uint32{},
