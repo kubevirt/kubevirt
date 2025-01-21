@@ -51,7 +51,9 @@ type virtIOInterfaceManager struct {
 const (
 	// ReservedInterfaces represents the number of interfaces the domain
 	// should reserve for future hotplug additions.
-	ReservedInterfaces = 4
+	ReservedInterfaces            = 4
+	LibvirtInterfaceLinkStateUP   = "up"
+	LibvirtInterfaceLinkStateDown = "down"
 )
 
 func newVirtIOInterfaceManager(
@@ -81,6 +83,11 @@ func (vim *virtIOInterfaceManager) hotplugVirtioInterface(vmi *v1.VirtualMachine
 		if relevantIface.MAC != nil {
 			ifaceMAC = relevantIface.MAC.MAC
 		}
+		vmiIface := netvmispec.LookupInterfaceByName(vmi.Spec.Domain.Devices.Interfaces, relevantIface.Alias.GetName())
+		if vmiIface != nil && vmiIface.State == v1.InterfaceStateLinkDown {
+			relevantIface.LinkState = &api.LinkState{State: LibvirtInterfaceLinkStateDown}
+		}
+
 		log.Log.Infof("will hot plug %q with MAC %q", network.Name, ifaceMAC)
 		ifaceXML, err := xml.Marshal(relevantIface)
 		if err != nil {

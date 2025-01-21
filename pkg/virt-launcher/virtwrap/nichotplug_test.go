@@ -163,6 +163,16 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 			dummyDomain(networkName),
 			libvirtClientResult{expectedAttachedDevices: 1},
 		),
+		Entry("VMI with 1 network, and link state down (with the pod interface ready), not present in the domain",
+			func() *v1.VirtualMachineInstance {
+				vmi := vmiWithSingleBridgeInterfaceWithPodInterfaceReady(networkName, nadName)
+				vmi.Spec.Domain.Devices.Interfaces[0].State = v1.InterfaceStateLinkDown
+				return vmi
+			}(),
+			dummyDomain(),
+			dummyDomain(networkName),
+			libvirtClientResult{expectedAttachedDevices: 1},
+		),
 	)
 
 	DescribeTable(
