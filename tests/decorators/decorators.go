@@ -51,7 +51,6 @@ var (
 	HostDiskGate                         = Label("HostDiskGate")
 	VMX                                  = Label("VMX")
 	Upgrade                              = Label("Upgrade")
-	CustomSELinux                        = Label("CustomSELinux")
 	Istio                                = Label("Istio")
 	InPlaceHotplugNICs                   = Label("in-place-hotplug-NICs")
 	MigrationBasedHotplugNICs            = Label("migration-based-hotplug-NICs")

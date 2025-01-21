@@ -143,7 +143,6 @@ container_image(
     name = "version-container",
     directory = "/",
     files = [
-        ":virt_launcher.cil",
         "//:get-version",
     ],
     tars = select({
