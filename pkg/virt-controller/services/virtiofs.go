@@ -98,6 +98,16 @@ func generateContainerFromVolume(volume *v1.Volume, image string, resources k8sv
 
 	args := []string{socketPathArg, sourceArg, "--sandbox=none", "--cache=auto"}
 
+	// If some files cannot be migrated, let's allow the migration to finish.
+	// Mark these files as invalid, the guest will not be able to access any such files,
+	// receiving only errors
+	args = append(args, "--migration-on-error=guest-error")
+
+	// This mode look up its file references paths by reading the symlinks in /proc/self/fd,
+	// falling back to iterating through the shared directory (exhaustive search) to find those paths.
+	// This migration mode doesn't require any privileges.
+	args = append(args, "--migration-mode=find-paths")
+
 	volumeMounts := []k8sv1.VolumeMount{
 		// This is required to pass socket to compute
 		{
