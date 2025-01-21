@@ -909,9 +909,15 @@ func needToComputeChecksums(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+// updateChecksumInfo is kept for compatibility with older virt-handlers
+// that validate checksum calculations in vmi.status. This validation was
+// removed in PR #14021, but we had to keep the checksum calculations for upgrades.
+// Once we're sure old handlers won't interrupt upgrades, this can be removed.
 func (c *VirtualMachineController) updateChecksumInfo(vmi *v1.VirtualMachineInstance, syncError error) error {
-
-	if syncError != nil || vmi.DeletionTimestamp != nil || !needToComputeChecksums(vmi) {
+	// If the imageVolume feature gate is enabled, upgrade support isn't required,
+	// and we can skip the checksum calculation. By the time the feature gate is GA,
+	// the checksum calculation should be removed.
+	if syncError != nil || vmi.DeletionTimestamp != nil || !needToComputeChecksums(vmi) || c.clusterConfig.ImageVolumeEnabled() {
 		return nil
 	}
 
