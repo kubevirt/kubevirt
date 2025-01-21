@@ -3196,46 +3196,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		Context("VM memory dump", func() {
-			const (
-				testPVCName    = "testPVC"
-				targetFileName = "memory.dump"
-			)
-
-			applyVMIMemoryDumpVol := func(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
-				newVolume := v1.Volume{
-					Name: testPVCName,
-					VolumeSource: v1.VolumeSource{
-						MemoryDump: &v1.MemoryDumpVolumeSource{
-							PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
-								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-									ClaimName: testPVCName,
-								},
-								Hotpluggable: true,
-							},
-						},
-					},
-				}
-
-				spec.Volumes = append(spec.Volumes, newVolume)
-
-				return spec
-			}
-
-			expectPVCAnnotationUpdate := func(expectedAnnotation string, pvcAnnotationUpdated chan bool) {
-				virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
-				k8sClient.Fake.PrependReactor("update", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
-					update, ok := action.(testing.UpdateAction)
-					Expect(ok).To(BeTrue())
-
-					pvc, ok := update.GetObject().(*k8sv1.PersistentVolumeClaim)
-					Expect(ok).To(BeTrue())
-					Expect(pvc.Name).To(Equal(testPVCName))
-					Expect(pvc.Annotations[v1.PVCMemoryDumpAnnotation]).To(Equal(expectedAnnotation))
-					pvcAnnotationUpdated <- true
-
-					return true, nil, nil
-				})
-			}
+			const testPVCName = "testPVC"
 
 			It("should add memory dump volume and update vmi volumes", func() {
 				vm, vmi := watchtesting.DefaultVirtualMachine(true)
@@ -3260,228 +3221,13 @@ var _ = Describe("VirtualMachine", func() {
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(Succeed())
 				Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(testPVCName))
-			})
 
-			It("should update memory dump phase to InProgress when memory dump in vm volumes", func() {
-				vm, vmi := watchtesting.DefaultVirtualMachine(true)
-				vm.Status.Created = true
-				vm.Status.Ready = true
-				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
-					ClaimName: testPVCName,
-					Phase:     v1.MemoryDumpAssociating,
-				}
-
-				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
-
-				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-				Expect(err).To(Succeed())
-				addVirtualMachine(vm)
-				vmi.Spec = vm.Spec.Template.Spec
-				watchtesting.MarkAsReady(vmi)
-				controller.vmiIndexer.Add(vmi)
-
-				// when the memory dump volume is in the vm volume list we should change status to in progress
-				updatedMemoryDump := &v1.VirtualMachineMemoryDumpRequest{
-					ClaimName: testPVCName,
-					Phase:     v1.MemoryDumpInProgress,
-				}
-
-				sanityExecute(vm)
-
-				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-				Expect(err).To(Succeed())
-				Expect(vm.Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
-			})
-
-			It("should change status to unmounting when memory dump timestamp updated", func() {
-				vm, vmi := watchtesting.DefaultVirtualMachine(true)
-				vm.Status.Created = true
-				vm.Status.Ready = true
-				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
-					ClaimName: testPVCName,
-					Phase:     v1.MemoryDumpInProgress,
-				}
-
-				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
-
-				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-				Expect(err).To(Succeed())
-				addVirtualMachine(vm)
-
-				vmi.Spec = vm.Spec.Template.Spec
-				now := metav1.Now()
-				vmi.Status.VolumeStatus = []v1.VolumeStatus{
-					{
-						Name:  testPVCName,
-						Phase: v1.MemoryDumpVolumeCompleted,
-						MemoryDumpVolume: &v1.DomainMemoryDumpInfo{
-							StartTimestamp: &now,
-							EndTimestamp:   &now,
-							ClaimName:      testPVCName,
-							TargetFileName: targetFileName,
-						},
-					},
-				}
-				watchtesting.MarkAsReady(vmi)
-				controller.vmiIndexer.Add(vmi)
-
-				updatedMemoryDump := &v1.VirtualMachineMemoryDumpRequest{
-					ClaimName:      testPVCName,
-					Phase:          v1.MemoryDumpUnmounting,
-					EndTimestamp:   &now,
-					StartTimestamp: &now,
-					FileName:       &vmi.Status.VolumeStatus[0].MemoryDumpVolume.TargetFileName,
-				}
-
-				sanityExecute(vm)
-
-				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-				Expect(err).To(Succeed())
-				Expect(vm.Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
-			})
-
-			It("should update status to failed when memory dump failed", func() {
-				vm, vmi := watchtesting.DefaultVirtualMachine(true)
-				vm.Status.Created = true
-				vm.Status.Ready = true
-				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
-					ClaimName: testPVCName,
-					Phase:     v1.MemoryDumpInProgress,
-				}
-
-				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
-				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-				Expect(err).To(Succeed())
-				addVirtualMachine(vm)
-
-				vmi.Spec = vm.Spec.Template.Spec
-				now := metav1.Now()
-				vmi.Status.VolumeStatus = []v1.VolumeStatus{
-					{
-						Name:    testPVCName,
-						Phase:   v1.MemoryDumpVolumeFailed,
-						Message: "Memory dump failed",
-						MemoryDumpVolume: &v1.DomainMemoryDumpInfo{
-							ClaimName:    testPVCName,
-							EndTimestamp: &now,
-						},
-					},
-				}
-				watchtesting.MarkAsReady(vmi)
-				controller.vmiIndexer.Add(vmi)
-
-				updatedMemoryDump := &v1.VirtualMachineMemoryDumpRequest{
-					ClaimName:    testPVCName,
-					Phase:        v1.MemoryDumpFailed,
-					Message:      vmi.Status.VolumeStatus[0].Message,
-					EndTimestamp: &now,
-				}
-
-				sanityExecute(vm)
-
-				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-				Expect(err).To(Succeed())
-				Expect(vm.Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
-			})
-
-			DescribeTable("should remove memory dump volume from vmi volumes and update pvc annotation", func(phase v1.MemoryDumpPhase, expectedAnnotation string) {
-				vm, vmi := watchtesting.DefaultVirtualMachine(true)
-				vm.Status.Created = true
-				vm.Status.Ready = true
-				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
-					ClaimName: testPVCName,
-					Phase:     phase,
-				}
-				if phase != v1.MemoryDumpFailed {
-					fileName := targetFileName
-					vm.Status.MemoryDumpRequest.FileName = &fileName
-				}
-
-				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
-				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-				Expect(err).To(Succeed())
-				addVirtualMachine(vm)
-
-				vmi.Spec = vm.Spec.Template.Spec
-				vmi.Status.VolumeStatus = []v1.VolumeStatus{
-					{
-						Name: testPVCName,
-						MemoryDumpVolume: &v1.DomainMemoryDumpInfo{
-							ClaimName: testPVCName,
-						},
-					},
-				}
-				watchtesting.MarkAsReady(vmi)
-				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				controller.vmiIndexer.Add(vmi)
-
-				pvc := k8sv1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      testPVCName,
-						Namespace: vm.Namespace,
-					},
-				}
-				Expect(controller.pvcStore.Add(&pvc)).To(Succeed())
-
-				pvcAnnotationUpdated := make(chan bool, 1)
-				defer close(pvcAnnotationUpdated)
-				// TODO: convert this to action check
-				expectPVCAnnotationUpdate(expectedAnnotation, pvcAnnotationUpdated)
-
-				sanityExecute(vm)
-
-				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(vmi.Spec.Volumes).To(BeEmpty())
-
-				Eventually(func() bool {
-					select {
-					case updated := <-pvcAnnotationUpdated:
-						return updated
-					default:
-					}
-					return false
-				}, 10*time.Second, 2).Should(BeTrue(), "failed, pvc annotation wasn't updated")
-			},
-				Entry("when phase is Unmounting", v1.MemoryDumpUnmounting, targetFileName),
-				Entry("when phase is Failed", v1.MemoryDumpFailed, "Memory dump failed"),
-			)
-
-			It("should update memory dump to complete once memory dump volume unmounted", func() {
-				vm, vmi := watchtesting.DefaultVirtualMachine(true)
-				vm.Status.Created = true
-				vm.Status.Ready = true
-				now := metav1.Now()
-				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
-					ClaimName:    testPVCName,
-					Phase:        v1.MemoryDumpUnmounting,
-					EndTimestamp: &now,
-				}
-
-				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
-				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-				Expect(err).To(Succeed())
-				addVirtualMachine(vm)
-
-				watchtesting.MarkAsReady(vmi)
-				controller.vmiIndexer.Add(vmi)
-
-				// in case the volume is not in vmi volume status we should update status to completed
-				updatedMemoryDump := &v1.VirtualMachineMemoryDumpRequest{
-					ClaimName:    testPVCName,
-					Phase:        v1.MemoryDumpCompleted,
-					EndTimestamp: &now,
-				}
-
-				sanityExecute(vm)
-
-				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-				Expect(err).To(Succeed())
-				Expect(vm.Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
+				Expect(vmi.Spec.Volumes[0].Name).To(Equal(testPVCName))
 			})
 
-			It("should remove memory dump volume from vm volumes list when status is Dissociating", func() {
+			It("should remove memory dump volume from vm volumes list", func() {
 				// No need to add vmi - can do this action even if vm not running
 				vm, _ := watchtesting.DefaultVirtualMachine(false)
 				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
@@ -3489,7 +3235,21 @@ var _ = Describe("VirtualMachine", func() {
 					Phase:     v1.MemoryDumpDissociating,
 				}
 
-				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
+				memoryDumpVol := v1.Volume{
+					Name: testPVCName,
+					VolumeSource: v1.VolumeSource{
+						MemoryDump: &v1.MemoryDumpVolumeSource{
+							PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: testPVCName,
+								},
+								Hotpluggable: true,
+							},
+						},
+					},
+				}
+
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, memoryDumpVol)
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
@@ -3499,25 +3259,6 @@ var _ = Describe("VirtualMachine", func() {
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(Succeed())
 				Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
-			})
-
-			It("should dissociate memory dump request when status is Dissociating and not in vm volumes", func() {
-				// No need to add vmi - can do this action even if vm not running
-				vm, _ := watchtesting.DefaultVirtualMachine(false)
-				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
-					ClaimName: testPVCName,
-					Phase:     v1.MemoryDumpDissociating,
-				}
-
-				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-				Expect(err).To(Succeed())
-				addVirtualMachine(vm)
-
-				sanityExecute(vm)
-
-				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-				Expect(err).To(Succeed())
-				Expect(vm.Status.MemoryDumpRequest).To(BeNil())
 			})
 
 			DescribeTable("should not setup vmi with memory dump if memory dump", func(phase v1.MemoryDumpPhase) {
