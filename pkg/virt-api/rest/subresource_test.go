@@ -2240,7 +2240,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			app.ResetVMIRequestHandler(request, response)
 
-			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+			ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
 		})
 	})
 
