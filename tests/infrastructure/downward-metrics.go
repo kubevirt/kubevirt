@@ -23,30 +23,22 @@ import (
 	"context"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libinfra"
-	"kubevirt.io/kubevirt/tests/libvmops"
-
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-
-	"kubevirt.io/kubevirt/tests/libvmifact"
-
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libinfra"
+	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
 var _ = DescribeInfra("downwardMetrics", func() {
-	var virtClient kubecli.KubevirtClient
 	const vmiStartTimeout = 180
-	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-	})
 
 	DescribeTable("should start a vmi and get the metrics", func(via libvmi.Option, metricsGetter libinfra.MetricsGetter) {
 		vmi := libvmifact.NewFedora(via)
@@ -57,7 +49,7 @@ var _ = DescribeInfra("downwardMetrics", func() {
 		Expect(err).ToNot(HaveOccurred())
 		timestamp := libinfra.GetTimeFromMetrics(metrics)
 
-		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+		vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() int {
 			metrics, err = metricsGetter(vmi)
