@@ -3550,6 +3550,42 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Entry("succeed with software emulation disable", false),
 		)
 	})
+
+	Context("vmUpdateHelperMigrationTarget", func() {
+		It("should succeed if the vmi is migrating ", func() {
+			vmi := libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmi.WithLabel(v1.MigrationTargetNodeNameLabel, host),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+						StartTimestamp: pointer.P(metav1.Now()),
+					}))))
+			Expect(controller.vmUpdateHelperMigrationTarget(vmi)).To(Succeed())
+		})
+
+		It("should succeed if migration state isn't set", func() {
+			vmi := libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmi.WithLabel(v1.MigrationTargetNodeNameLabel, host),
+				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithMigrationState(
+					v1.VirtualMachineInstanceMigrationState{},
+				))))
+			client.EXPECT().SyncMigrationTarget(vmi, gomock.Any())
+
+			Expect(controller.vmUpdateHelperMigrationTarget(vmi)).To(Succeed())
+			testutils.ExpectEvent(recorder, VMIMigrationTargetPrepared)
+		})
+
+		It("should fail if sync with the migration target fails", func() {
+			vmi := libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmi.WithLabel(v1.MigrationTargetNodeNameLabel, host),
+				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithMigrationState(
+					v1.VirtualMachineInstanceMigrationState{},
+				))))
+			client.EXPECT().SyncMigrationTarget(vmi, gomock.Any()).Return(fmt.Errorf("some error"))
+
+			Expect(controller.vmUpdateHelperMigrationTarget(vmi)).To(MatchError(
+				ContainSubstring("syncing migration target failed")))
+		})
+	})
 })
 
 var _ = Describe("DomainNotifyServerRestarts", func() {
