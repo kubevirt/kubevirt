@@ -608,11 +608,6 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 	var volumeBackups []snapshotv1.VolumeBackup
 	pvcs, err := source.PersistentVolumeClaims()
 	if err != nil {
-		if storageutils.IsErrNoBackendPVC(err) {
-			// No backend pvc when we should have one, lets wait
-			// TODO: Improve this error handling
-			return nil
-		}
 		return err
 	}
 	for volumeName, pvcName := range pvcs {
@@ -684,7 +679,7 @@ func (ctrl *VMSnapshotController) getSnapshotPVC(namespace, volumeName string) (
 
 	pvc := obj.(*corev1.PersistentVolumeClaim).DeepCopy()
 
-	if pvc.Spec.VolumeName == "" {
+	if pvc.Status.Phase != corev1.ClaimBound {
 		log.Log.Warningf("Unbound PVC %s/%s", pvc.Namespace, pvc.Name)
 		return nil, nil
 	}
