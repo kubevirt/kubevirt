@@ -5,9 +5,10 @@ import (
 
 	admissionv1 "k8s.io/api/admission/v1"
 
+	"kubevirt.io/kubevirt/pkg/util/webhooks"
 	webhooks2 "kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 
-	"kubevirt.io/kubevirt/pkg/util/webhooks"
+	"libvmi" 
 )
 
 type StatusAdmitter struct {
@@ -18,11 +19,12 @@ func (s *StatusAdmitter) Admit(ctx context.Context, ar *admissionv1.AdmissionRev
 	if resp := webhooks.ValidateStatus(ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
-
+	// Check if the request resource is a VirtualMachine and handle it
 	if webhooks.ValidateRequestResource(ar.Request.Resource, webhooks2.VirtualMachineGroupVersionResource.Group, webhooks2.VirtualMachineGroupVersionResource.Resource) {
+		vmi := libvmi.New()
+
 		return s.VmsAdmitter.AdmitStatus(ctx, ar)
 	}
-
 	reviewResponse := admissionv1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
