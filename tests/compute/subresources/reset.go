@@ -56,9 +56,6 @@ var _ = compute.SIGDescribe("Reset subresource", func() {
 			start := time.Now().UTC().Unix()
 
 			By(fmt.Sprintf("Waiting for vmi %s reset", vmi.Name))
-			if vmi.Namespace == "" {
-				vmi.Namespace = testsuite.GetTestNamespace(vmi)
-			}
 			err := console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: ".*Hypervisor detected.*KVM.*"},

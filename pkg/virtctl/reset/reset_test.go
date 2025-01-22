@@ -42,11 +42,11 @@ var _ = Describe("Resetting", func() {
 		cmd := testing.NewRepeatableVirtctlCommand(reset.COMMAND_RESET, vmiName)
 		Expect(cmd()).To(Succeed())
 	})
-	It("should fail reset of VMI when server returns VM not found", func() {
+	It("should fail reset of VMI when server returns VMI not found", func() {
 		vmiName := "resetable-vmi"
 
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).Times(1)
-		vmiInterface.EXPECT().Reset(context.Background(), vmiName).Return(fmt.Errorf("vm not found")).Times(1)
+		vmiInterface.EXPECT().Reset(context.Background(), vmiName).Return(fmt.Errorf("vmi not found")).Times(1)
 
 		cmd := testing.NewRepeatableVirtctlCommand(reset.COMMAND_RESET, vmiName)
 		Expect(cmd()).To(MatchError(ContainSubstring("not found")))
