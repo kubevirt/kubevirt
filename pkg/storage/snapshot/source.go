@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
@@ -130,17 +131,37 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 		return true, nil
 	}
 
+	pvcNames, err := s.pvcNames()
+	if err != nil {
+		if storageutils.IsErrNoBackendPVC(err) {
+			// No backend pvc when we should have one, lets wait
+			// TODO: Improve this error handling
+			return false, nil
+		}
+		return false, err
+	}
+
+	volumesBound, err := s.verifyVolumesBound(pvcNames.List())
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			s.state.lockMsg += fmt.Sprintf(" source %s/%s has volumes that doesnt exist", s.vm.Namespace, s.vm.Name)
+			log.Log.Error(s.state.lockMsg)
+			return false, nil
+		}
+		return false, err
+	}
+	if !volumesBound {
+		s.state.lockMsg += fmt.Sprintf(" source %s/%s has unbound volumes", s.vm.Namespace, s.vm.Name)
+		log.Log.Error(s.state.lockMsg)
+		return false, nil
+	}
+
 	vmOnline, err := s.Online()
 	if err != nil {
 		return false, err
 	}
 
 	if !vmOnline {
-		pvcNames, err := s.pvcNames()
-		if err != nil {
-			return false, err
-		}
-
 		pods, err := watchutil.PodsUsingPVCs(s.controller.PodInformer, s.vm.Namespace, pvcNames)
 		if err != nil {
 			return false, err
@@ -218,6 +239,25 @@ func (s *vmSnapshotSource) Unlock() (bool, error) {
 	}
 
 	s.vm = vmCopy
+
+	return true, nil
+}
+
+func (s *vmSnapshotSource) verifyVolumesBound(pvcNames []string) (bool, error) {
+	for _, pvcName := range pvcNames {
+		obj, exists, err := s.controller.PVCInformer.GetStore().GetByKey(cacheKeyFunc(s.vm.Namespace, pvcName))
+		if err != nil {
+			return false, err
+		}
+		if !exists {
+			return false, k8serrors.NewNotFound(appsv1.Resource("persistentvolumeclaim"), pvcName)
+		}
+
+		pvc := obj.(*corev1.PersistentVolumeClaim).DeepCopy()
+		if pvc.Status.Phase != corev1.ClaimBound {
+			return false, nil
+		}
+	}
 
 	return true, nil
 }
@@ -437,7 +477,7 @@ func (s *vmSnapshotSource) PersistentVolumeClaims() (map[string]string, error) {
 func (s *vmSnapshotSource) pvcNames() (sets.String, error) {
 	ss := sets.NewString()
 	pvcs, err := s.PersistentVolumeClaims()
-	if err != nil && !storageutils.IsErrNoBackendPVC(err) {
+	if err != nil {
 		return ss, err
 	}
 	for _, pvc := range pvcs {
