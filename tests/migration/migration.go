@@ -31,6 +31,7 @@ import (
 	"time"
 
 	expect "github.com/google/goexpect"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -3138,6 +3139,114 @@ var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedula
 			migration := libmigration.New(vmi.Name, testsuite.GetTestNamespace(vmi))
 			migration = libmigration.RunMigration(virtClient, migration)
 			Eventually(matcher.ThisMigration(migration)).WithPolling(1 * time.Second).WithTimeout(60 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceMigrationRejectedByResourceQuota))
+		})
+	})
+
+	Context("Virtiofs", decorators.VirtioFS, func() {
+		It("should migrate with a shared ConfigMap", func() {
+			configMapName := "configmap-" + uuid.NewString()[:6]
+			data := map[string]string{
+				"option1": "value1",
+				"option2": "value2",
+				"option3": "value3",
+			}
+			testCommand := "cat /mnt/option1 /mnt/option2 /mnt/option3\n"
+			expectedOutput := "value1value2value3"
+
+			By("Creating ConfigMap")
+			cm := libconfigmap.New(configMapName, data)
+			cm, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi := libvmifact.NewAlpine(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithConfigMapFs(configMapName, configMapName),
+			)
+
+			By("Running VMI")
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+
+			By("Logging into the VMI")
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+			By("Checking mounted ConfigVolume")
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: fmt.Sprintf("mount -t virtiofs %s /mnt \n", configMapName)},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "echo $?\n"},
+				&expect.BExp{R: console.RetValue("0")},
+				&expect.BSnd{S: testCommand},
+				&expect.BExp{R: expectedOutput},
+			}, 200)).To(Succeed())
+
+			By("Starting the migration")
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+			libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+
+			By("Checking the ConfigVolume is still mounted and data integrity")
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: testCommand},
+				&expect.BExp{R: expectedOutput},
+			}, 200)).To(Succeed())
+		})
+
+		It("should migrate with a shared DV", func() {
+			sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
+
+			if !foundSC {
+				Skip("Skip test when Filesystem RWX storage is not present")
+			}
+
+			dataVolume := libdv.NewDataVolume(
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
+					libdv.StorageWithAccessMode(k8sv1.ReadWriteMany),
+					libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine))),
+				),
+				libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			)
+
+			dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libstorage.EventuallyDV(dataVolume, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
+
+			mountVirtiofsCommand := fmt.Sprintf(`#!/bin/bash
+                                      mount -t virtiofs %s /mnt
+									  touch /mnt/test_file
+								`, dataVolume.Name)
+
+			vmi := libvmifact.NewFedora(
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(mountVirtiofsCommand)),
+				libvmi.WithFilesystemPVC(dataVolume.Name),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(mountVirtiofsCommand)),
+			)
+
+			By("Starting VMI")
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+
+			By("Logging into the VMI")
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+			By("Starting the migration")
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+			libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+
+			By("Checking the DV is still mounted and testing file is accessible")
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "test -f /mnt/test_file \n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: "echo $?\n"},
+				&expect.BExp{R: console.RetValue("0")},
+			}, 200)).To(Succeed())
 		})
 	})
 })
