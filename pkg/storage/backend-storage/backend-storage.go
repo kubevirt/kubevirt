@@ -165,18 +165,26 @@ func (bs *BackendStorage) getAccessMode(storageClass string, mode v1.PersistentV
 	return accessMode
 }
 
-func updateVolumeStatus(vmi *corev1.VirtualMachineInstance, accessMode v1.PersistentVolumeAccessMode) {
+func (bs *BackendStorage) UpdateVolumeStatus(vmi *corev1.VirtualMachineInstance) {
+	if !IsBackendStorageNeededForVMI(&vmi.Spec) {
+		return
+	}
+	name := PVCForVMI(vmi)
+	obj, exists, err := bs.pvcIndexer.GetByKey(vmi.Namespace + "/" + name)
+	if err != nil || !exists {
+		return
+	}
 	if vmi.Status.VolumeStatus == nil {
 		vmi.Status.VolumeStatus = []corev1.VolumeStatus{}
 	}
-	name := PVCForVMI(vmi)
+	pvc := obj.(*v1.PersistentVolumeClaim)
 	for i := range vmi.Status.VolumeStatus {
 		if vmi.Status.VolumeStatus[i].Name == name {
 			if vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo == nil {
 				vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo = &corev1.PersistentVolumeClaimInfo{}
 			}
 			vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo.ClaimName = name
-			vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo.AccessModes = []v1.PersistentVolumeAccessMode{accessMode}
+			vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo.AccessModes = []v1.PersistentVolumeAccessMode{pvc.Spec.AccessModes[0]}
 			return
 		}
 	}
@@ -184,23 +192,21 @@ func updateVolumeStatus(vmi *corev1.VirtualMachineInstance, accessMode v1.Persis
 		Name: name,
 		PersistentVolumeClaimInfo: &corev1.PersistentVolumeClaimInfo{
 			ClaimName:   name,
-			AccessModes: []v1.PersistentVolumeAccessMode{accessMode},
+			AccessModes: []v1.PersistentVolumeAccessMode{pvc.Spec.AccessModes[0]},
 		},
 	})
 }
 
-func (bs *BackendStorage) CreateIfNeededAndUpdateVolumeStatus(vmi *corev1.VirtualMachineInstance) error {
+func (bs *BackendStorage) CreateIfNeeded(vmi *corev1.VirtualMachineInstance) error {
 	if !IsBackendStorageNeededForVMI(&vmi.Spec) {
 		return nil
 	}
 
-	obj, exists, err := bs.pvcIndexer.GetByKey(vmi.Namespace + "/" + PVCForVMI(vmi))
+	_, exists, err := bs.pvcIndexer.GetByKey(vmi.Namespace + "/" + PVCForVMI(vmi))
 	if err != nil {
 		return err
 	}
 	if exists {
-		pvc := obj.(*v1.PersistentVolumeClaim)
-		updateVolumeStatus(vmi, pvc.Spec.AccessModes[0])
 		return nil
 	}
 
@@ -234,8 +240,6 @@ func (bs *BackendStorage) CreateIfNeededAndUpdateVolumeStatus(vmi *corev1.Virtua
 			VolumeMode:       &mode,
 		},
 	}
-
-	updateVolumeStatus(vmi, accessMode)
 
 	pvc, err = bs.client.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 	if errors.IsAlreadyExists(err) {
