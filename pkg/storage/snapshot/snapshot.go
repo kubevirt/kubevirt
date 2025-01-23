@@ -408,28 +408,20 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 					return 0, fmt.Errorf("unable to get snapshot source")
 				}
 
-				frozen, err := source.Frozen()
-				if err != nil {
-					return 0, err
-				}
-
-				if !frozen {
-					err := source.Freeze()
-					if err != nil {
-						contentCpy.Status.Error = &snapshotv1.Error{
-							Time:    currentTime(),
-							Message: pointer.P(err.Error()),
-						}
-						contentCpy.Status.ReadyToUse = pointer.P(false)
-						// Retry again in 5 seconds
-						return 5 * time.Second, ctrl.updateVmSnapshotContentStatus(content, contentCpy)
+				if err := source.Freeze(); err != nil {
+					contentCpy.Status.Error = &snapshotv1.Error{
+						Time:    currentTime(),
+						Message: pointer.P(err.Error()),
 					}
-
-					// assuming that VM is frozen once Freeze() returns
-					// which should be the case
-					// if Freeze() were async, we'd have to return
-					// and only continue when source.Frozen() == true
+					contentCpy.Status.ReadyToUse = pointer.P(false)
+					// Retry again in 5 seconds
+					return 5 * time.Second, ctrl.updateVmSnapshotContentStatus(content, contentCpy)
 				}
+
+				// assuming that VM is frozen once Freeze() returns
+				// which should be the case
+				// if Freeze() were async, we'd have to return
+				// and only continue when source.Frozen() == true
 
 				didFreeze = true
 			}
@@ -843,20 +835,11 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 
 func updateVMSnapshotIndications(source snapshotSource) ([]snapshotv1.Indication, error) {
 	var indications []snapshotv1.Indication
-	online, err := source.Online()
-	if err != nil {
-		return indications, err
-	}
 
-	if online {
+	if source.Online() {
 		indications = append(indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
 
-		ga, err := source.GuestAgent()
-		if err != nil {
-			return indications, err
-		}
-
-		if ga {
+		if source.GuestAgent() {
 			indications = append(indications, snapshotv1.VMSnapshotGuestAgentIndication)
 		} else {
 			indications = append(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
@@ -1119,11 +1102,6 @@ func (ctrl *VMSnapshotController) getVMI(vm *kubevirtv1.VirtualMachine) (*kubevi
 	}
 
 	return obj.(*kubevirtv1.VirtualMachineInstance).DeepCopy(), true, nil
-}
-
-func (ctrl *VMSnapshotController) checkVMIRunning(vm *kubevirtv1.VirtualMachine) (bool, error) {
-	_, exists, err := ctrl.getVMI(vm)
-	return exists, err
 }
 
 func updateSnapshotCondition(ss *snapshotv1.VirtualMachineSnapshot, c snapshotv1.Condition) {

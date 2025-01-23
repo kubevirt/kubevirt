@@ -59,9 +59,9 @@ type snapshotSource interface {
 	LockMsg() string
 	Lock() (bool, error)
 	Unlock() (bool, error)
-	Online() (bool, error)
-	GuestAgent() (bool, error)
-	Frozen() (bool, error)
+	Online() bool
+	GuestAgent() bool
+	Frozen() bool
 	Freeze() error
 	Unfreeze() error
 	Spec() (snapshotv1.SourceSpec, error)
@@ -156,12 +156,7 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 		return false, nil
 	}
 
-	vmOnline, err := s.Online()
-	if err != nil {
-		return false, err
-	}
-
-	if !vmOnline {
+	if !s.Online() {
 		pods, err := watchutil.PodsUsingPVCs(s.controller.PodInformer, s.vm.Namespace, pvcNames)
 		if err != nil {
 			return false, err
@@ -362,15 +357,11 @@ func (s *vmSnapshotSource) captureInstancetypeControllerRevisions(vm *snapshotv1
 }
 
 func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
-	online, err := s.Online()
-	if err != nil {
-		return snapshotv1.SourceSpec{}, err
-	}
-
 	vmCpy := &snapshotv1.VirtualMachine{}
 	metaObj := *getSimplifiedMetaObject(s.vm.ObjectMeta)
 
-	if online {
+	if s.Online() {
+		var err error
 		vmCpy, err = s.getVMRevision()
 		if err != nil {
 			return snapshotv1.SourceSpec{}, err
@@ -385,7 +376,7 @@ func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
 		vmCpy.Status = kubevirtv1.VirtualMachineStatus{}
 	}
 
-	if err = s.captureInstancetypeControllerRevisions(vmCpy); err != nil {
+	if err := s.captureInstancetypeControllerRevisions(vmCpy); err != nil {
 		return snapshotv1.SourceSpec{}, err
 	}
 
@@ -394,74 +385,60 @@ func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
 	}, nil
 }
 
-func (s *vmSnapshotSource) Online() (bool, error) {
-	exists, err := s.controller.checkVMIRunning(s.vm)
-	if err != nil {
-		return false, err
-	}
-
-	return exists, nil
+func (s *vmSnapshotSource) Online() bool {
+	return s.state.online
 }
 
-func (s *vmSnapshotSource) GuestAgent() (bool, error) {
-	condManager := controller.NewVirtualMachineInstanceConditionManager()
-	vmi, exists, err := s.controller.getVMI(s.vm)
-	if err != nil || !exists {
-		return false, err
-	}
-
-	return condManager.HasCondition(vmi, kubevirtv1.VirtualMachineInstanceAgentConnected), nil
+func (s *vmSnapshotSource) GuestAgent() bool {
+	return s.state.guestAgent
 }
 
-func (s *vmSnapshotSource) Frozen() (bool, error) {
-	vmi, exists, err := s.controller.getVMI(s.vm)
-	if err != nil || !exists {
-		return false, err
-	}
-
-	return vmi.Status.FSFreezeStatus == launcherapi.FSFrozen, nil
+func (s *vmSnapshotSource) Frozen() bool {
+	return s.state.frozen
 }
 
 func (s *vmSnapshotSource) Freeze() error {
 	if !s.Locked() {
 		return fmt.Errorf("attempting to freeze unlocked VM")
 	}
+	if s.Frozen() {
+		return nil
+	}
 
-	exists, err := s.GuestAgent()
-	if !exists || err != nil {
-		return err
+	if !s.GuestAgent() {
+		if s.Online() {
+			log.Log.Warningf("Guest agent does not exist and VM %s is running. Snapshoting without freezing FS. This can result in inconsistent snapshot!", s.vm.Name)
+		}
+		return nil
 	}
 
 	log.Log.V(3).Infof("Freezing vm %s file system before taking the snapshot", s.vm.Name)
 
 	startTime := time.Now()
-	err = s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Freeze(context.Background(), s.vm.Name, getFailureDeadline(s.snapshot))
+	err := s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Freeze(context.Background(), s.vm.Name, getFailureDeadline(s.snapshot))
 	timeTrack(startTime, fmt.Sprintf("Freezing vmi %s", s.vm.Name))
 	if err != nil {
 		log.Log.Errorf("Freezing vm %s failed: %v", s.vm.Name, err.Error())
 		return err
 	}
+	s.state.frozen = true
 
 	return nil
 }
 
 func (s *vmSnapshotSource) Unfreeze() error {
-	if !s.Locked() {
+	if !s.Locked() || !s.GuestAgent() {
 		return nil
-	}
-
-	exists, err := s.GuestAgent()
-	if !exists || err != nil {
-		return err
 	}
 
 	log.Log.V(3).Infof("Unfreezing vm %s file system after taking the snapshot", s.vm.Name)
 
 	defer timeTrack(time.Now(), fmt.Sprintf("Unfreezing vmi %s", s.vm.Name))
-	err = s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Unfreeze(context.Background(), s.vm.Name)
+	err := s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Unfreeze(context.Background(), s.vm.Name)
 	if err != nil {
 		return err
 	}
+	s.state.frozen = false
 
 	return nil
 }
