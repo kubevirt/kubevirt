@@ -140,7 +140,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	var (
 		generateMigratableVMIs func(int) []*v1.VirtualMachineInstance
 		verifyVMIsUpdated      func([]*v1.VirtualMachineInstance)
-		verifyVMIsEvicted      func([]*v1.VirtualMachineInstance)
 	)
 
 	deprecatedBeforeAll(func() {
@@ -232,22 +231,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			)
 
 			return vmis
-		}
-
-		verifyVMIsEvicted = func(vmis []*v1.VirtualMachineInstance) {
-
-			Eventually(func() error {
-				for _, vmi := range vmis {
-					foundVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-					if err == nil && !foundVMI.IsFinal() {
-						return fmt.Errorf("waiting for vmi %s/%s to shutdown as part of update", foundVMI.Namespace, foundVMI.Name)
-					} else if !errors.IsNotFound(err) {
-						return err
-					}
-				}
-				return nil
-			}, 320, 1).Should(Succeed(), "All VMIs should delete automatically")
-
 		}
 
 		verifyVMIsUpdated = func(vmis []*v1.VirtualMachineInstance) {
@@ -3256,4 +3239,19 @@ func generateSnapshotsForVersion(vmYaml *vmYamlDefinition, version string, workD
 	})
 
 	return vmSnapshots, nil
+}
+
+func verifyVMIsEvicted(vmis []*v1.VirtualMachineInstance) {
+	Eventually(func() error {
+		for _, vmi := range vmis {
+			foundVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			if err == nil && !foundVMI.IsFinal() {
+				return fmt.Errorf("waiting for vmi %s/%s to shutdown as part of update", foundVMI.Namespace, foundVMI.Name)
+			} else if !errors.IsNotFound(err) {
+				return err
+			}
+		}
+		return nil
+	}, 320, 1).Should(Succeed(), "All VMIs should delete automatically")
+
 }
