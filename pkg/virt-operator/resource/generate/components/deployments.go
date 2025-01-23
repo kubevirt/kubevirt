@@ -319,6 +319,11 @@ func NewApiServerDeployment(namespace, repository, imagePrefix, version, product
 		return nil, err
 	}
 
+	if deployment.Spec.Template.Annotations == nil {
+		deployment.Spec.Template.Annotations = make(map[string]string)
+	}
+	deployment.Spec.Template.Annotations["openshift.io/required-scc"] = "restricted-v2"
+
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtApiCertSecretName, "/etc/virt-api/certificates")
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtHandlerCertSecretName, "/etc/virt-handler/clientcertificates")
 	attachProfileVolume(&deployment.Spec.Template.Spec)
@@ -396,6 +401,11 @@ func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersi
 	if err != nil {
 		return nil, err
 	}
+
+	if deployment.Spec.Template.Annotations == nil {
+		deployment.Spec.Template.Annotations = make(map[string]string)
+	}
+	deployment.Spec.Template.Annotations["openshift.io/required-scc"] = "restricted-v2"
 
 	if launcherImage == "" {
 		launcherImage = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", AddVersionSeparatorPrefix(launcherVersion))
@@ -618,6 +628,11 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 			},
 		},
 	}
+
+	if deployment.Spec.Template.Annotations == nil {
+		deployment.Spec.Template.Annotations = make(map[string]string)
+	}
+	deployment.Spec.Template.Annotations["openshift.io/required-scc"] = "restricted-v2"
 
 	envVars := generateVirtOperatorEnvVars(
 		virtApiShaEnv, virtControllerShaEnv, virtHandlerShaEnv, virtLauncherShaEnv, virtExportProxyShaEnv, virtExportServerShaEnv,
