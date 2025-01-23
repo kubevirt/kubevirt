@@ -25,15 +25,15 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"kubevirt.io/client-go/kubecli"
 
+	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/api/instancetype/v1beta1"
+
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/requirements"
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/validation"
-
-	virtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/api/instancetype/v1beta1"
 )
 
 type instancetypeFinder interface {
@@ -112,9 +112,9 @@ func (a *admitter) ApplyToVM(vm *virtv1.VirtualMachine) (
 		&vm.Spec.Template.ObjectMeta,
 	)
 
-	if len(conflicts) == 0 {
-		return instancetypeSpec, preferenceSpec, nil
+	if len(conflicts) > 0 {
+		return nil, nil, conflicts.StatusCauses()
 	}
 
-	return nil, nil, conflicts.StatusCauses()
+	return instancetypeSpec, preferenceSpec, nil
 }

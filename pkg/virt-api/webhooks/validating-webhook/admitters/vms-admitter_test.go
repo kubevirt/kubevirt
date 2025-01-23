@@ -43,7 +43,6 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
-	instancetypeapi "kubevirt.io/api/instancetype"
 	"kubevirt.io/api/instancetype/v1beta1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	fakeclientset "kubevirt.io/client-go/kubevirt/fake"
@@ -1281,10 +1280,6 @@ var _ = Describe("Validating VM Admitter", func() {
 
 			//TODO(lyarwood): Add WithNamespace to libinstancetype.builder and use here
 			testInstancetype = &instancetypev1beta1.VirtualMachineInstancetype{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       instancetypeapi.SingularResourceName,
-					APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      vm.Spec.Instancetype.Name,
 					Namespace: vm.Namespace,
@@ -1306,10 +1301,6 @@ var _ = Describe("Validating VM Admitter", func() {
 
 			//TODO(lyarwood): Add WithNamespace to libinstancetype.builder and use here
 			testPreference = &instancetypev1beta1.VirtualMachinePreference{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       instancetypeapi.SingularPreferenceResourceName,
-					APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      vm.Spec.Preference.Name,
 					Namespace: vm.Namespace,
