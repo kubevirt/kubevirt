@@ -782,6 +782,38 @@ var _ = Describe("Snapshot controlleer", func() {
 				Entry("when vm not running", false),
 			)
 
+			DescribeTable("should not lock source if volume PVCs", func(createPVCs bool, expectedReason string) {
+				vmSnapshot := createVMSnapshotInProgress()
+				vm := createVM()
+				vmSource.Add(vm)
+
+				pvcs := createPersistentVolumeClaims()
+				for i := range pvcs {
+					if createPVCs {
+						pvcs[i].Status.Phase = corev1.ClaimPending
+						pvcSource.Add(&pvcs[i])
+					} else {
+						pvcSource.Delete(&pvcs[i])
+					}
+				}
+
+				updatedSnapshot := vmSnapshot.DeepCopy()
+				updatedSnapshot.ResourceVersion = "1"
+				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
+					newProgressingCondition(corev1.ConditionFalse, expectedReason),
+					newReadyCondition(corev1.ConditionFalse, "Not ready"),
+				}
+				updatedSnapshot.Status.Indications = nil
+				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
+
+				addVirtualMachineSnapshot(vmSnapshot)
+				controller.processVMSnapshotWorkItem()
+				Expect(*updateStatusCalls).To(Equal(1))
+			},
+				Entry("doesnt exist", false, "Source not locked source default/testvm has volumes that doesnt exist"),
+				Entry("are not bound", true, "Source not locked source default/testvm has unbound volumes"),
+			)
+
 			It("should not lock source if pods using PVCs when vm not running", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createVM()
@@ -2546,6 +2578,9 @@ func createPVCsForVM(vm *v1.VirtualMachine) []corev1.PersistentVolumeClaim {
 				Name:      dv.Name,
 			},
 			Spec: *dv.Spec.PVC,
+			Status: corev1.PersistentVolumeClaimStatus{
+				Phase: corev1.ClaimBound,
+			},
 		}
 		pvc.Spec.VolumeName = fmt.Sprintf("volume%d", i+1)
 		pvc.ResourceVersion = "1"
@@ -2598,6 +2633,9 @@ func memoryDumpPVC() corev1.PersistentVolumeClaim {
 			},
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 			StorageClassName: &storageClassName,
+		},
+		Status: corev1.PersistentVolumeClaimStatus{
+			Phase: corev1.ClaimBound,
 		},
 	}
 	return pvc
