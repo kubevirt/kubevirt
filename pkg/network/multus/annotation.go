@@ -60,7 +60,7 @@ func GenerateCNIAnnotationFromNameScheme(
 	networkNameScheme map[string]string,
 	config *virtconfig.ClusterConfig,
 ) (string, error) {
-	multusNetworkAnnotationPool := NetworkAnnotationPool{}
+	multusNetworkAnnotationPool := networkAnnotationPool{}
 
 	for _, network := range networks {
 		if vmispec.IsSecondaryMultusNetwork(network) {
@@ -89,19 +89,19 @@ func GenerateCNIAnnotationFromNameScheme(
 	return "", nil
 }
 
-type NetworkAnnotationPool struct {
+type networkAnnotationPool struct {
 	pool []networkv1.NetworkSelectionElement
 }
 
-func (nap *NetworkAnnotationPool) Add(multusNetworkAnnotation networkv1.NetworkSelectionElement) {
+func (nap *networkAnnotationPool) Add(multusNetworkAnnotation networkv1.NetworkSelectionElement) {
 	nap.pool = append(nap.pool, multusNetworkAnnotation)
 }
 
-func (nap *NetworkAnnotationPool) IsEmpty() bool {
+func (nap *networkAnnotationPool) IsEmpty() bool {
 	return len(nap.pool) == 0
 }
 
-func (nap *NetworkAnnotationPool) ToString() (string, error) {
+func (nap *networkAnnotationPool) ToString() (string, error) {
 	multusNetworksAnnotation, err := json.Marshal(nap.pool)
 	if err != nil {
 		return "", fmt.Errorf("failed to create JSON list from multus interface pool %v", nap.pool)
