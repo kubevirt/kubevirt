@@ -1251,6 +1251,8 @@ spec:
             type: RollingUpdate
           template:
             metadata:
+              annotations:
+                openshift.io/required-scc: restricted-v2
               labels:
                 kubevirt.io: virt-operator
                 name: virt-operator
