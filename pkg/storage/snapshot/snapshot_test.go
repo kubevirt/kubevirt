@@ -2447,7 +2447,8 @@ func expectVMSnapshotUpdateStatus(client *kubevirtfake.Clientset, vmSnapshot *sn
 
 		calls++
 
-		return reflect.DeepEqual(updateObj.Status, vmSnapshot.Status), update.GetObject(), nil
+		Expect(updateObj.Status).To(Equal(vmSnapshot.Status))
+		return true, update.GetObject(), nil
 	})
 	return &calls
 }
