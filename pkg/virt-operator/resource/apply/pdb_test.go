@@ -76,7 +76,7 @@ var _ = Describe("Apply PDBs", func() {
 			Registry:        Registry,
 			KubeVirtVersion: Version,
 		}
-		deployment, err = components.NewApiServerDeployment(
+		deployment = components.NewApiServerDeployment(
 			Namespace,
 			virtApiConfig.GetImageRegistry(),
 			virtApiConfig.GetImagePrefix(),
@@ -89,7 +89,6 @@ var _ = Describe("Apply PDBs", func() {
 			virtApiConfig.GetImagePullSecrets(),
 			virtApiConfig.GetVerbosity(),
 			virtApiConfig.GetExtraEnv())
-		Expect(err).ToNot(HaveOccurred())
 
 		kv.Status.TargetKubeVirtRegistry = Registry
 		kv.Status.TargetKubeVirtVersion = Version
