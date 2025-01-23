@@ -30,7 +30,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libinstancetype"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libinstancetype/builder"
 	builderv1alpha1 "kubevirt.io/kubevirt/tests/libinstancetype/builder/v1alpha1"
 	builderv1alpha2 "kubevirt.io/kubevirt/tests/libinstancetype/builder/v1alpha2"
@@ -138,7 +138,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Expect(err).ToNot(HaveOccurred())
 
 		// Wait for the initial revisionNames to be populated before we start out tests
-		libinstancetype.WaitForVMInstanceTypeRevisionNames(vm.Name, virtClient)
+		Eventually(matcher.ThisVM(vm)).WithTimeout(timeout).WithPolling(time.Second).Should(matcher.HaveRevisionNames())
 	})
 
 	DescribeTable("should upgrade", func(generateControllerRevision func() (*appsv1.ControllerRevision, error), updateMatcher func(string), getVMRevisionName func() string) {

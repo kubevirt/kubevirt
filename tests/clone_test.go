@@ -19,6 +19,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	virtsnapshot "kubevirt.io/api/snapshot"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
@@ -695,13 +696,13 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 							libstorage.EventuallyDVWith(sourceVM.Namespace, dvt.Name, 180, HaveSucceeded())
 						}
 						By("Waiting until the source VM has instancetype and preference RevisionNames")
-						libinstancetype.WaitForVMInstanceTypeRevisionNames(sourceVM.Name, virtClient)
+						Eventually(matcher.ThisVM(sourceVM)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveRevisionNames())
 
 						vmClone = generateCloneFromVM()
 						createCloneAndWaitForFinish(vmClone)
 
 						By("Waiting until the targetVM has instancetype and preference RevisionNames")
-						libinstancetype.WaitForVMInstanceTypeRevisionNames(targetVMName, virtClient)
+						Eventually(matcher.ThisVMWith(testsuite.GetTestNamespace(sourceVM), targetVMName)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveRevisionNames())
 
 						By("Asserting that the targetVM has new instancetype and preference controllerRevisions")
 						sourceVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(sourceVM)).Get(context.Background(), sourceVM.Name, v1.GetOptions{})

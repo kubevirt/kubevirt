@@ -43,9 +43,10 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
+const timeout = 300 * time.Second
+
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Instancetype and Preferences", decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
-	const timeout = 300 * time.Second
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -546,14 +547,11 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for VirtualMachineInstancetypeSpec and VirtualMachinePreferenceSpec ControllerRevision to be referenced from the VirtualMachine")
-			Eventually(func(g Gomega) {
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(vm.Spec.Instancetype.RevisionName).ToNot(BeEmpty())
-				g.Expect(vm.Spec.Preference.RevisionName).ToNot(BeEmpty())
-			}, timeout, 1*time.Second).Should(Succeed())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(timeout).WithPolling(time.Second).Should(matcher.HaveRevisionNames())
 
 			By("Checking that ControllerRevisions have been created for the VirtualMachineInstancetype and VirtualMachinePreference")
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			instancetypeRevision, err := virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -600,14 +598,11 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			newVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), newVM, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Waiting for a VirtualMachineInstancetypeSpec ControllerRevision to be referenced from the new VirtualMachine")
-			Eventually(func() string {
-				newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(context.Background(), newVM.Name, metav1.GetOptions{})
-				if err != nil {
-					return ""
-				}
-				return newVM.Spec.Instancetype.RevisionName
-			}, 300*time.Second, 1*time.Second).ShouldNot(BeEmpty())
+			By("Waiting for a ControllerRevisions to be referenced from the new VirtualMachine")
+			Eventually(matcher.ThisVM(newVM)).WithTimeout(timeout).WithPolling(time.Second).Should(matcher.HaveRevisionNames())
+
+			newVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), newVM.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Ensuring the two VirtualMachines are using different ControllerRevisions of the same VirtualMachineInstancetype")
 			Expect(newVM.Spec.Instancetype.Name).To(Equal(vm.Spec.Instancetype.Name))
@@ -643,12 +638,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			vm = libvmops.StartVirtualMachine(vm)
 
-			By("Waiting for VirtualMachineInstancetypeSpec ControllerRevision to be referenced from the VirtualMachine")
-			Eventually(func(g Gomega) {
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(vm.Spec.Instancetype.RevisionName).ToNot(BeEmpty())
-			}, 5*time.Minute, time.Second).Should(Succeed())
+			By("Waiting for ControllerRevisions to be referenced from the VirtualMachine")
+			Eventually(matcher.ThisVM(vm)).WithTimeout(timeout).WithPolling(time.Second).Should(matcher.HaveInstancetypeRevisionName())
 
 			By("Checking that ControllerRevisions have been created for the VirtualMachineInstancetype and VirtualMachinePreference")
 			instancetypeRevision, err := virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})

@@ -6,6 +6,7 @@ go_library(
         "conditions.go",
         "existence.go",
         "getter.go",
+        "instancetype.go",
         "owner.go",
         "phase.go",
         "readiness.go",

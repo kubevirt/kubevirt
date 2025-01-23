@@ -647,7 +647,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting until the VM has instancetype and preference RevisionNames")
-				libinstancetype.WaitForVMInstanceTypeRevisionNames(vm.Name, virtClient)
+				Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveRevisionNames())
+
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				originalVMInstancetypeRevisionName := vm.Spec.Instancetype.RevisionName
@@ -690,7 +691,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting until the VM has instancetype and preference RevisionNames")
-				libinstancetype.WaitForVMInstanceTypeRevisionNames(vm.Name, virtClient)
+				Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveRevisionNames())
 
 				for _, dvt := range vm.Spec.DataVolumeTemplates {
 					libstorage.EventuallyDVWith(vm.Namespace, dvt.Name, 180, HaveSucceeded())
@@ -710,7 +711,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				_ = expectNewVMCreation(restoreVMName)
 
 				By("Waiting until the restoreVM has instancetype and preference RevisionNames")
-				libinstancetype.WaitForVMInstanceTypeRevisionNames(restoreVMName, virtClient)
+				Eventually(matcher.ThisVMWith(testsuite.GetTestNamespace(vm), restoreVMName)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveRevisionNames())
 
 				By("Asserting that the restoreVM has new instancetype and preference controllerRevisions")
 				sourceVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})

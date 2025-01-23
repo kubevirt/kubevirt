@@ -29,7 +29,6 @@ go_library(
         "//tests/decorators:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
-        "//tests/libinstancetype:go_default_library",
         "//tests/libinstancetype/builder:go_default_library",
         "//tests/libinstancetype/builder/v1alpha1:go_default_library",
         "//tests/libinstancetype/builder/v1alpha2:go_default_library",
