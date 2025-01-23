@@ -23,6 +23,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -50,8 +52,10 @@ const (
 )
 
 type snapshotSource interface {
+	UpdateSourceState() error
 	UID() types.UID
 	Locked() bool
+	LockMsg() string
 	Lock() (bool, error)
 	Unlock() (bool, error)
 	Online() (bool, error)
@@ -63,10 +67,50 @@ type snapshotSource interface {
 	PersistentVolumeClaims() (map[string]string, error)
 }
 
+type sourceState struct {
+	online     bool
+	guestAgent bool
+	frozen     bool
+	locked     bool
+	lockMsg    string
+}
+
 type vmSnapshotSource struct {
 	vm         *kubevirtv1.VirtualMachine
 	snapshot   *snapshotv1.VirtualMachineSnapshot
 	controller *VMSnapshotController
+	state      *sourceState
+}
+
+func (s *vmSnapshotSource) UpdateSourceState() error {
+	vmi, exists, err := s.controller.getVMI(s.vm)
+	if err != nil {
+		return err
+	}
+
+	online := exists
+
+	condManager := controller.NewVirtualMachineInstanceConditionManager()
+	guestAgent := exists && condManager.HasCondition(vmi, kubevirtv1.VirtualMachineInstanceAgentConnected)
+
+	locked := s.vm.Status.SnapshotInProgress != nil &&
+		*s.vm.Status.SnapshotInProgress == s.snapshot.Name &&
+		controller.HasFinalizer(s.vm, sourceFinalizer)
+	lockMsg := "Source not locked"
+	if locked {
+		lockMsg = "Source locked and operation in progress"
+	}
+	frozen := exists && vmi.Status.FSFreezeStatus == launcherapi.FSFrozen
+
+	s.state = &sourceState{
+		online:     online,
+		guestAgent: guestAgent,
+		locked:     locked,
+		frozen:     frozen,
+		lockMsg:    lockMsg,
+	}
+
+	return nil
 }
 
 func (s *vmSnapshotSource) UID() types.UID {
@@ -74,9 +118,11 @@ func (s *vmSnapshotSource) UID() types.UID {
 }
 
 func (s *vmSnapshotSource) Locked() bool {
-	return s.vm.Status.SnapshotInProgress != nil &&
-		*s.vm.Status.SnapshotInProgress == s.snapshot.Name &&
-		controller.HasFinalizer(s.vm, sourceFinalizer)
+	return s.state.locked
+}
+
+func (s *vmSnapshotSource) LockMsg() string {
+	return s.state.lockMsg
 }
 
 func (s *vmSnapshotSource) Lock() (bool, error) {
@@ -101,13 +147,15 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 		}
 
 		if len(pods) > 0 {
-			log.Log.V(3).Infof("Vm is offline but %d pods using PVCs %+v", len(pods), pvcNames)
+			s.state.lockMsg += fmt.Sprintf(" source is offline but %d pods using PVCs %+v", len(pods), slices.Collect(maps.Keys(pvcNames)))
+			log.Log.V(3).Info(s.state.lockMsg)
 			return false, nil
 		}
 	}
 
 	if s.vm.Status.SnapshotInProgress != nil && *s.vm.Status.SnapshotInProgress != s.snapshot.Name {
-		log.Log.V(3).Infof("Snapshot %s in progress", *s.vm.Status.SnapshotInProgress)
+		s.state.lockMsg += fmt.Sprintf(" snapshot %q in progress", *s.vm.Status.SnapshotInProgress)
+		log.Log.V(3).Info(s.state.lockMsg)
 		return false, nil
 	}
 
@@ -136,6 +184,8 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 	}
 
 	s.vm = vmCopy
+	s.state.locked = true
+	s.state.lockMsg = "Source locked and operation in progress"
 
 	return true, nil
 }

@@ -234,7 +234,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 		}
 	}
 
-	vmSnapshot, err = ctrl.updateSnapshotStatus(vmSnapshot)
+	vmSnapshot, err = ctrl.updateSnapshotStatus(vmSnapshot, source)
 	if err != nil {
 		return 0, err
 	}
@@ -584,12 +584,16 @@ func (ctrl *VMSnapshotController) getSnapshotSource(vmSnapshot *snapshotv1.Virtu
 		if vm == nil {
 			return nil, nil
 		}
-
-		return &vmSnapshotSource{
+		vmSource := &vmSnapshotSource{
 			vm:         vm,
 			snapshot:   vmSnapshot,
 			controller: ctrl,
-		}, nil
+		}
+
+		if err := vmSource.UpdateSourceState(); err != nil {
+			return nil, err
+		}
+		return vmSource, nil
 	}
 
 	return nil, fmt.Errorf("unknown source %+v", vmSnapshot.Spec.Source)
@@ -756,18 +760,13 @@ func (ctrl *VMSnapshotController) getVolumeSnapshotClassName(storageClassName st
 	return "", fmt.Errorf("%d matching VolumeSnapshotClasses for %s", len(matches), storageClassName)
 }
 
-func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (*snapshotv1.VirtualMachineSnapshot, error) {
+func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.VirtualMachineSnapshot, source snapshotSource) (*snapshotv1.VirtualMachineSnapshot, error) {
 	f := false
 	vmSnapshotCpy := vmSnapshot.DeepCopy()
 	if vmSnapshotCpy.Status == nil {
 		vmSnapshotCpy.Status = &snapshotv1.VirtualMachineSnapshotStatus{
 			ReadyToUse: &f,
 		}
-	}
-
-	source, err := ctrl.getSnapshotSource(vmSnapshot)
-	if err != nil {
-		return vmSnapshot, err
 	}
 
 	content, err := ctrl.getContent(vmSnapshot)
@@ -807,9 +806,9 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 		vmSnapshotCpy.Status.Phase = snapshotv1.InProgress
 		if source != nil {
 			if source.Locked() {
-				updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"))
+				updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionTrue, source.LockMsg()))
 			} else {
-				updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Source not locked"))
+				updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, source.LockMsg()))
 			}
 
 			indications, err := updateVMSnapshotIndications(source)
