@@ -66,7 +66,7 @@ func GenerateCNIAnnotationFromNameScheme(
 		if vmispec.IsSecondaryMultusNetwork(network) {
 			podInterfaceName := networkNameScheme[network.Name]
 			multusNetworkAnnotationPool.Add(
-				NewAnnotationData(namespace, interfaces, network, podInterfaceName))
+				newAnnotationData(namespace, interfaces, network, podInterfaceName))
 		}
 
 		if config != nil {
@@ -109,7 +109,7 @@ func (nap *networkAnnotationPool) ToString() (string, error) {
 	return string(multusNetworksAnnotation), nil
 }
 
-func NewAnnotationData(
+func newAnnotationData(
 	namespace string,
 	interfaces []v1.Interface,
 	network v1.Network,
