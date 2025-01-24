@@ -255,15 +255,12 @@ func ParseTarget(target string) (string, string, string, error) {
 	if target[len(target)-1] == '.' {
 		return "", "", "", errors.New("expected namespace after '.'")
 	}
-	subparts := strings.Split(target, ".")
-	if len(subparts) > 2 {
-		return "", "", "", errors.New("target is not valid with more than one '.'")
-	}
 
-	name := subparts[0]
+	name := target
 	namespace := ""
-	if len(subparts) == 2 {
-		namespace = subparts[1]
+	if lastDot := strings.LastIndex(target, "."); lastDot != -1 {
+		name = target[:lastDot]
+		namespace = target[lastDot+1:]
 	}
 
 	return kind, namespace, name, nil
