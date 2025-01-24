@@ -2,6 +2,7 @@ package services
 
 import (
 	"strconv"
+	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
 
@@ -20,19 +21,20 @@ const (
 )
 
 type ContainerSpecRenderer struct {
-	imgPullPolicy   k8sv1.PullPolicy
-	isPrivileged    bool
-	launcherImg     string
-	name            string
-	userID          int64
-	volumeDevices   []k8sv1.VolumeDevice
-	volumeMounts    []k8sv1.VolumeMount
-	resources       k8sv1.ResourceRequirements
-	liveninessProbe *k8sv1.Probe
-	readinessProbe  *k8sv1.Probe
-	ports           []k8sv1.ContainerPort
-	capabilities    *k8sv1.Capabilities
-	args            []string
+	imgPullPolicy     k8sv1.PullPolicy
+	isPrivileged      bool
+	launcherImg       string
+	name              string
+	userID            int64
+	volumeDevices     []k8sv1.VolumeDevice
+	volumeMounts      []k8sv1.VolumeMount
+	sharedFilesystems []string
+	resources         k8sv1.ResourceRequirements
+	liveninessProbe   *k8sv1.Probe
+	readinessProbe    *k8sv1.Probe
+	ports             []k8sv1.ContainerPort
+	capabilities      *k8sv1.Capabilities
+	args              []string
 }
 
 type Option func(*ContainerSpecRenderer)
@@ -68,10 +70,20 @@ func (csr *ContainerSpecRenderer) Render(cmd []string) k8sv1.Container {
 }
 
 func (csr *ContainerSpecRenderer) envVars() []k8sv1.EnvVar {
-	if csr.userID == 0 {
-		return nil
+	var env []k8sv1.EnvVar
+
+	if csr.userID != 0 {
+		env = append(env, xdgEnvironmentVariables()...)
 	}
-	return xdgEnvironmentVariables()
+
+	if len(csr.sharedFilesystems) != 0 {
+		env = append(env, k8sv1.EnvVar{
+			Name:  ENV_VAR_SHARED_FILESYSTEM_PATHS,
+			Value: strings.Join(csr.sharedFilesystems, ":"),
+		})
+	}
+
+	return env
 }
 
 func WithNonRoot(userID int64) Option {
@@ -127,6 +139,12 @@ func WithVolumeDevices(devices ...k8sv1.VolumeDevice) Option {
 func WithVolumeMounts(mounts ...k8sv1.VolumeMount) Option {
 	return func(renderer *ContainerSpecRenderer) {
 		renderer.volumeMounts = mounts
+	}
+}
+
+func WithSharedFilesystems(paths ...string) Option {
+	return func(renderer *ContainerSpecRenderer) {
+		renderer.sharedFilesystems = paths
 	}
 }
 

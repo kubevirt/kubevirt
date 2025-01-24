@@ -33,7 +33,7 @@ import (
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/onsi/gomega/gstruct"
+	"github.com/onsi/gomega/gstruct"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -4410,6 +4410,102 @@ var _ = Describe("Template", func() {
 				expectStateMounts(pod)
 			})
 		})
+
+		Context("with shared filesystem disks", func() {
+			createFSPVC := func(name string, accessMode k8sv1.PersistentVolumeAccessMode) *k8sv1.PersistentVolumeClaim {
+				return &k8sv1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      name,
+						Namespace: metav1.NamespaceDefault,
+					},
+					Spec: k8sv1.PersistentVolumeClaimSpec{
+						VolumeMode:  pointer.P(k8sv1.PersistentVolumeFilesystem),
+						AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
+					},
+				}
+			}
+
+			DescribeTable("should pick up shared filesystems correctly", func(vmi *v1.VirtualMachineInstance, expectedValue string, pvcs ...*k8sv1.PersistentVolumeClaim) {
+				for _, pvc := range pvcs {
+					err := pvcCache.Add(pvc)
+					Expect(err).NotTo(HaveOccurred())
+				}
+
+				config, kvStore, svc = configFactory(defaultArch)
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				computeContainer := pod.Spec.Containers[0]
+				if expectedValue != "" {
+					Expect(computeContainer.Env).To(ContainElement(k8sv1.EnvVar{Name: ENV_VAR_SHARED_FILESYSTEM_PATHS, Value: expectedValue}))
+				} else {
+					Expect(computeContainer.Env).ToNot(
+						ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+							"Name": Equal(ENV_VAR_SHARED_FILESYSTEM_PATHS),
+						})), "contains shared fs env var when it should not exist",
+					)
+				}
+			},
+				Entry("1 RWX DV disk",
+					libvmi.New(
+						libvmi.WithNamespace("default"),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithResourceMemory("128Mi"),
+						libvmi.WithDataVolume("disk0", "dv-disk0"),
+					),
+					"/var/run/kubevirt-private/vmi-disks/disk0",
+					createFSPVC("dv-disk0", k8sv1.ReadWriteMany),
+				),
+				Entry("1 RWX PVC disk",
+					libvmi.New(
+						libvmi.WithNamespace("default"),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithResourceMemory("128Mi"),
+						libvmi.WithPersistentVolumeClaim("disk0", "dv-disk0"),
+					),
+					"/var/run/kubevirt-private/vmi-disks/disk0",
+					createFSPVC("dv-disk0", k8sv1.ReadWriteMany),
+				),
+				Entry("Mixture of RWX/RWO DV disks",
+					libvmi.New(
+						libvmi.WithNamespace("default"),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithResourceMemory("128Mi"),
+						libvmi.WithDataVolume("disk0", "dv-disk0"),
+						libvmi.WithDataVolume("disk1", "dv-disk1"),
+						libvmi.WithDataVolume("disk1", "dv-disk2"),
+					),
+					"/var/run/kubevirt-private/vmi-disks/disk0:/var/run/kubevirt-private/vmi-disks/disk1",
+					createFSPVC("dv-disk0", k8sv1.ReadWriteMany),
+					createFSPVC("dv-disk1", k8sv1.ReadWriteMany),
+					createFSPVC("dv-disk2", k8sv1.ReadWriteOnce),
+				),
+				Entry("Mixture of RWX/RWO PVC disks",
+					libvmi.New(
+						libvmi.WithNamespace("default"),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithResourceMemory("128Mi"),
+						libvmi.WithPersistentVolumeClaim("disk0", "dv-disk0"),
+						libvmi.WithPersistentVolumeClaim("disk1", "dv-disk1"),
+						libvmi.WithPersistentVolumeClaim("disk1", "dv-disk2"),
+					),
+					"/var/run/kubevirt-private/vmi-disks/disk0:/var/run/kubevirt-private/vmi-disks/disk1",
+					createFSPVC("dv-disk0", k8sv1.ReadWriteMany),
+					createFSPVC("dv-disk1", k8sv1.ReadWriteMany),
+					createFSPVC("dv-disk2", k8sv1.ReadWriteOnce),
+				),
+				Entry("1 RWO DV disk",
+					libvmi.New(
+						libvmi.WithNamespace("default"),
+						libvmi.WithNetwork(v1.DefaultPodNetwork()),
+						libvmi.WithResourceMemory("128Mi"),
+						libvmi.WithDataVolume("disk0", "dv-disk0"),
+					),
+					"",
+					createFSPVC("dv-disk0", k8sv1.ReadWriteOnce),
+				),
+			)
+		})
 	})
 
 	Describe("ServiceAccountName", func() {
@@ -4964,7 +5060,7 @@ var _ = Describe("Template", func() {
 			pod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pod).ToNot(BeNil())
-			containCGL := ContainElement(MatchFields(IgnoreExtras, Fields{
+			containCGL := ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 				"Name": Equal("guest-console-log"),
 			}))
 			if expected {

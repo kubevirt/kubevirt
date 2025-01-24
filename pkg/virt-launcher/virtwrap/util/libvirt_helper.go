@@ -446,8 +446,18 @@ func configureQemuConf(qemuFilename string) (err error) {
 		return err
 	}
 
-	if envVarValue, ok := os.LookupEnv("VIRTIOFSD_DEBUG_LOGS"); ok && (envVarValue == "1") {
+	if debugLogsStr, ok := os.LookupEnv("VIRTIOFSD_DEBUG_LOGS"); ok && (debugLogsStr == "1") {
 		_, err = qemuConf.WriteString("virtiofsd_debug = 1\n")
+		if err != nil {
+			return err
+		}
+	}
+
+	if pathsStr, ok := os.LookupEnv(services.ENV_VAR_SHARED_FILESYSTEM_PATHS); ok {
+		paths := strings.Split(pathsStr, ":")
+		formatted := strings.Join(paths, "\", \"")
+		sharedFsEntry := fmt.Sprintf("shared_filesystems = [ \"%s\" ]\n", formatted)
+		_, err = qemuConf.WriteString(sharedFsEntry)
 		if err != nil {
 			return err
 		}
