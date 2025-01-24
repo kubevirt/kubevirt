@@ -138,6 +138,7 @@ if [ -n "$ARTIFACTS" ]; then
     fi
 fi
 
+
 if [[ "$ARTIFACTS" =~ \  ]]; then
     echo "Error: The path '$ARTIFACTS' contains spaces.please rename directory without spaces Exiting."
     exit 1
