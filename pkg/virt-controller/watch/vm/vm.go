@@ -3357,25 +3357,6 @@ func handleSynchronizerErr(err error) common.SyncError {
 	return common.NewSyncError(fmt.Errorf("unsupported error: %v", err), "UnsupportedSyncError")
 }
 
-func shouldExpandInstancetypeAndPreference(vm *virtv1.VirtualMachine, referencePolicy virtv1.InstancetypeReferencePolicy) bool {
-	// With Expand we only want to expand if we are using instance types and preferences with no revisionNames set
-	if referencePolicy == virtv1.Expand {
-		if vm.Spec.Instancetype == nil && vm.Spec.Preference == nil {
-			return false
-		}
-		if vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "" {
-			log.Log.Object(vm).Infof("not expanding as instance type already has revisionName")
-			return false
-		}
-		if vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "" {
-			log.Log.Object(vm).Infof("not expanding as preference already has revisionName")
-			return false
-		}
-	}
-	// Otherwise for ExpandAll we always expand
-	return true
-}
-
 // resolveControllerRef returns the controller referenced by a ControllerRef,
 // or nil if the ControllerRef could not be resolved to a matching controller
 // of the correct Kind.
