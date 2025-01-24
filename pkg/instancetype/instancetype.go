@@ -34,7 +34,6 @@ type Methods interface {
 	FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error)
 	ApplyToVmi(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) conflict.Conflicts
 	FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error)
-	StoreControllerRevisions(vm *virtv1.VirtualMachine) error
 	InferDefaultInstancetype(vm *virtv1.VirtualMachine) error
 	InferDefaultPreference(vm *virtv1.VirtualMachine) error
 	CheckPreferenceRequirements(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) (conflict.Conflicts, error)
@@ -83,15 +82,6 @@ func GetRevisionName(vmName, resourceName, resourceVersion string, resourceUID t
 
 func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) (*appsv1.ControllerRevision, error) {
 	return revision.CreateControllerRevision(vm, object)
-}
-
-func (m *InstancetypeMethods) StoreControllerRevisions(vm *virtv1.VirtualMachine) error {
-	return revision.New(
-		m.InstancetypeStore,
-		m.ClusterInstancetypeStore,
-		m.PreferenceStore,
-		m.ClusterInstancetypeStore,
-		m.Clientset).Store(vm)
 }
 
 func CompareRevisions(revisionA, revisionB *appsv1.ControllerRevision) (bool, error) {
