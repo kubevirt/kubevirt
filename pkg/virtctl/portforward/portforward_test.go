@@ -21,6 +21,8 @@ var _ = Describe("Port forward", func() {
 	},
 		Entry("only name", "testvmi", "", "testvmi", "vmi", ""),
 		Entry("name and namespace", "testvmi.default", "default", "testvmi", "vmi", ""),
+		Entry("name with dot and namespace", "testvmi.dot.default", "default", "testvmi.dot", "vmi", ""),
+		Entry("name with dots and namespace", "testvmi.with.dots.default", "default", "testvmi.with.dots", "vmi", ""),
 		Entry("kind vmi with name", "vmi/testvmi", "", "testvmi", "vmi", ""),
 		Entry("kind vmi with name and namespace", "vmi/testvmi.default", "default", "testvmi", "vmi", ""),
 		Entry("kind vm with name", "vm/testvm", "", "testvm", "vm", ""),
