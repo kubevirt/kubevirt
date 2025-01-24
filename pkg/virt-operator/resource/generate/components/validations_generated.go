@@ -8045,6 +8045,41 @@ var CRDsValidation map[string]string = map[string]string{
             updated through an Update() before ObservedGeneration in Status.
           format: int64
           type: integer
+        instancetypeRef:
+          description: InstancetypeRef captures the state of any referenced instance
+            type from the VirtualMachine
+          nullable: true
+          properties:
+            controllerRevisionRef:
+              description: |-
+                ControllerRef specifies the ControllerRevision storing a copy of the object captured
+                when it is first seen by the VirtualMachine controller
+              properties:
+                name:
+                  description: Name of the ControllerRevision
+                  type: string
+              required:
+              - name
+              type: object
+            inferFromVolume:
+              description: InferFromVolume lists the name of a volume that should
+                be used to infer or discover the resource
+              type: string
+            inferFromVolumeFailurePolicy:
+              description: InferFromVolumeFailurePolicy controls what should happen
+                on failure when inferring the resource
+              type: string
+            kind:
+              description: Kind specifies the kind of resource
+              type: string
+            name:
+              description: Name is the name of resource
+              type: string
+          required:
+          - controllerRevisionRef
+          - kind
+          - name
+          type: object
         memoryDumpRequest:
           description: |-
             MemoryDumpRequest tracks memory dump request phase and info of getting a memory
@@ -8086,6 +8121,41 @@ var CRDsValidation map[string]string = map[string]string{
             started.
           format: int64
           type: integer
+        preferenceRef:
+          description: PreferenceRef captures the state of any referenced preference
+            from the VirtualMachine
+          nullable: true
+          properties:
+            controllerRevisionRef:
+              description: |-
+                ControllerRef specifies the ControllerRevision storing a copy of the object captured
+                when it is first seen by the VirtualMachine controller
+              properties:
+                name:
+                  description: Name of the ControllerRevision
+                  type: string
+              required:
+              - name
+              type: object
+            inferFromVolume:
+              description: InferFromVolume lists the name of a volume that should
+                be used to infer or discover the resource
+              type: string
+            inferFromVolumeFailurePolicy:
+              description: InferFromVolumeFailurePolicy controls what should happen
+                on failure when inferring the resource
+              type: string
+            kind:
+              description: Kind specifies the kind of resource
+              type: string
+            name:
+              description: Name is the name of resource
+              type: string
+          required:
+          - controllerRevisionRef
+          - kind
+          - name
+          type: object
         printableStatus:
           default: Stopped
           description: PrintableStatus is a human readable, high-level representation
@@ -28617,6 +28687,41 @@ var CRDsValidation map[string]string = map[string]string{
                         updated through an Update() before ObservedGeneration in Status.
                       format: int64
                       type: integer
+                    instancetypeRef:
+                      description: InstancetypeRef captures the state of any referenced
+                        instance type from the VirtualMachine
+                      nullable: true
+                      properties:
+                        controllerRevisionRef:
+                          description: |-
+                            ControllerRef specifies the ControllerRevision storing a copy of the object captured
+                            when it is first seen by the VirtualMachine controller
+                          properties:
+                            name:
+                              description: Name of the ControllerRevision
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        inferFromVolume:
+                          description: InferFromVolume lists the name of a volume
+                            that should be used to infer or discover the resource
+                          type: string
+                        inferFromVolumeFailurePolicy:
+                          description: InferFromVolumeFailurePolicy controls what
+                            should happen on failure when inferring the resource
+                          type: string
+                        kind:
+                          description: Kind specifies the kind of resource
+                          type: string
+                        name:
+                          description: Name is the name of resource
+                          type: string
+                      required:
+                      - controllerRevisionRef
+                      - kind
+                      - name
+                      type: object
                     memoryDumpRequest:
                       description: |-
                         MemoryDumpRequest tracks memory dump request phase and info of getting a memory
@@ -28661,6 +28766,41 @@ var CRDsValidation map[string]string = map[string]string{
                         the vmi when started.
                       format: int64
                       type: integer
+                    preferenceRef:
+                      description: PreferenceRef captures the state of any referenced
+                        preference from the VirtualMachine
+                      nullable: true
+                      properties:
+                        controllerRevisionRef:
+                          description: |-
+                            ControllerRef specifies the ControllerRevision storing a copy of the object captured
+                            when it is first seen by the VirtualMachine controller
+                          properties:
+                            name:
+                              description: Name of the ControllerRevision
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        inferFromVolume:
+                          description: InferFromVolume lists the name of a volume
+                            that should be used to infer or discover the resource
+                          type: string
+                        inferFromVolumeFailurePolicy:
+                          description: InferFromVolumeFailurePolicy controls what
+                            should happen on failure when inferring the resource
+                          type: string
+                        kind:
+                          description: Kind specifies the kind of resource
+                          type: string
+                        name:
+                          description: Name is the name of resource
+                          type: string
+                      required:
+                      - controllerRevisionRef
+                      - kind
+                      - name
+                      type: object
                     printableStatus:
                       default: Stopped
                       description: PrintableStatus is a human readable, high-level
