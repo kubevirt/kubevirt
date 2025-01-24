@@ -781,6 +781,13 @@ status:
     type: typeValue
   created: true
   desiredGeneration: -17
+  instancetypeRef:
+    controllerRevisionRef:
+      name: nameValue
+    inferFromVolume: inferFromVolumeValue
+    inferFromVolumeFailurePolicy: inferFromVolumeFailurePolicyValue
+    kind: kindValue
+    name: nameValue
   memoryDumpRequest:
     claimName: claimNameValue
     endTimestamp: "1988-01-01T01:01:01Z"
@@ -790,6 +797,13 @@ status:
     remove: true
     startTimestamp: "1986-01-01T01:01:01Z"
   observedGeneration: -18
+  preferenceRef:
+    controllerRevisionRef:
+      name: nameValue
+    inferFromVolume: inferFromVolumeValue
+    inferFromVolumeFailurePolicy: inferFromVolumeFailurePolicyValue
+    kind: kindValue
+    name: nameValue
   printableStatus: printableStatusValue
   ready: true
   restoreInProgress: restoreInProgressValue
