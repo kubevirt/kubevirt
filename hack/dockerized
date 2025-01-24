@@ -138,6 +138,13 @@ if [ -n "$ARTIFACTS" ]; then
     fi
 fi
 
+if [[ "$ARTIFACTS" =~ \  ]]; then
+    echo "Error: The path '$ARTIFACTS' contains spaces.please rename directory without spaces Exiting."
+    exit 1
+else
+    echo "No spaces found in the path '$ARTIFACTS'. Proceeding."
+fi
+
 # Ensure that a bazel server which is running is the correct one
 if [ -n "$($KUBEVIRT_CRI ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
     # check if the image is correct
