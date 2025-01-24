@@ -1,4 +1,4 @@
-//nolint:dupl,lll
+//nolint:dupl
 package revision_test
 
 import (
@@ -59,22 +59,24 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 	)
 
 	expectControllerRevisionCreation := func(expectedControllerRevision *appsv1.ControllerRevision) {
-		k8sClient.Fake.PrependReactor("create", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			created, ok := action.(testing.CreateAction)
-			Expect(ok).To(BeTrue())
+		k8sClient.Fake.PrependReactor(
+			"create", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				created, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
 
-			createObj := created.GetObject().(*appsv1.ControllerRevision)
+				createObj := created.GetObject().(*appsv1.ControllerRevision)
 
-			// This is already covered by the below assertion but be explicit here to ensure coverage
-			Expect(createObj.Labels).To(HaveKey(apiinstancetype.ControllerRevisionObjectGenerationLabel))
-			Expect(createObj.Labels).To(HaveKey(apiinstancetype.ControllerRevisionObjectKindLabel))
-			Expect(createObj.Labels).To(HaveKey(apiinstancetype.ControllerRevisionObjectNameLabel))
-			Expect(createObj.Labels).To(HaveKey(apiinstancetype.ControllerRevisionObjectUIDLabel))
-			Expect(createObj.Labels).To(HaveKey(apiinstancetype.ControllerRevisionObjectVersionLabel))
-			Expect(createObj).To(Equal(expectedControllerRevision))
+				// This is already covered by the below assertion but be explicit here to ensure coverage
+				Expect(createObj.Labels).To(HaveKey(apiinstancetype.ControllerRevisionObjectGenerationLabel))
+				Expect(createObj.Labels).To(HaveKey(apiinstancetype.ControllerRevisionObjectKindLabel))
+				Expect(createObj.Labels).To(HaveKey(apiinstancetype.ControllerRevisionObjectNameLabel))
+				Expect(createObj.Labels).To(HaveKey(apiinstancetype.ControllerRevisionObjectUIDLabel))
+				Expect(createObj.Labels).To(HaveKey(apiinstancetype.ControllerRevisionObjectVersionLabel))
+				Expect(createObj).To(Equal(expectedControllerRevision))
 
-			return true, created.GetObject(), nil
-		})
+				return true, created.GetObject(), nil
+			},
+		)
 	}
 
 	BeforeEach(func() {
@@ -169,7 +171,8 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 					},
 				}
 
-				_, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
+				_, err := virtClient.VirtualMachineClusterInstancetype().Create(
+					context.Background(), clusterInstancetype, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				err = clusterInstancetypeInformerStore.Add(clusterInstancetype)
@@ -188,7 +191,8 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				expectedRevisionNamePatch, err := revision.GeneratePatch(clusterInstancetypeControllerRevision, nil)
 				Expect(err).ToNot(HaveOccurred())
 
-				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
+				vmInterface.EXPECT().Patch(
+					context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 				expectControllerRevisionCreation(clusterInstancetypeControllerRevision)
 
@@ -200,7 +204,8 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				clusterInstancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), clusterInstancetypeControllerRevision, metav1.CreateOptions{})
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+					context.Background(), clusterInstancetypeControllerRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
@@ -224,13 +229,15 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+					context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				expectedRevisionNamePatch, err := revision.GeneratePatch(instancetypeControllerRevision, nil)
 				Expect(err).ToNot(HaveOccurred())
 
-				vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
+				vmInterface.EXPECT().Patch(
+					context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 				Expect(storeHandler.Store(vm)).To(Succeed())
 				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
@@ -243,7 +250,8 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, unexpectedInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+					context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(storeHandler.Store(vm)).To(MatchError(ContainSubstring("found existing ControllerRevision with unexpected data")))
@@ -253,7 +261,8 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				vm.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{
 					Cores: 1,
 				}
-				Expect(storeHandler.Store(vm)).To(MatchError(conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "cpu", "cores")}))
+				Expect(storeHandler.Store(vm)).To(MatchError(
+					conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "cpu", "cores")}))
 			})
 		})
 	})
@@ -287,7 +296,8 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				},
 			}
 
-			_, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.Background(), fakeInstancetype, metav1.CreateOptions{})
+			_, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(
+				context.Background(), fakeInstancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			err = instancetypeInformerStore.Add(fakeInstancetype)
@@ -325,7 +335,8 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 			instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, fakeInstancetype)
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
+			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+				context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
@@ -342,7 +353,8 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 			instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, fakeInstancetype)
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
+			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+				context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			expectedRevisionNamePatch, err := revision.GeneratePatch(instancetypeControllerRevision, nil)
@@ -361,7 +373,8 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 			instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, unexpectedInstancetype)
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
+			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+				context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(storeHandler.Store(vm)).To(MatchError(ContainSubstring("found existing ControllerRevision with unexpected data")))
@@ -438,7 +451,8 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 			clusterPreferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterPreference)
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), clusterPreferenceControllerRevision, metav1.CreateOptions{})
+			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+				context.Background(), clusterPreferenceControllerRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vm.Spec.Preference.RevisionName = clusterPreferenceControllerRevision.Name
@@ -451,7 +465,8 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 			clusterPreferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterPreference)
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), clusterPreferenceControllerRevision, metav1.CreateOptions{})
+			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+				context.Background(), clusterPreferenceControllerRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			expectedRevisionNamePatch, err := revision.GeneratePatch(nil, clusterPreferenceControllerRevision)
@@ -471,7 +486,8 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 			clusterPreferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, unexpectedPreference)
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), clusterPreferenceControllerRevision, metav1.CreateOptions{})
+			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+				context.Background(), clusterPreferenceControllerRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(storeHandler.Store(vm)).To(MatchError(ContainSubstring("found existing ControllerRevision with unexpected data")))
@@ -542,7 +558,8 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 			preferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, preference)
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceControllerRevision, metav1.CreateOptions{})
+			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+				context.Background(), preferenceControllerRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vm.Spec.Preference.RevisionName = preferenceControllerRevision.Name
@@ -555,7 +572,8 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 			preferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, preference)
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceControllerRevision, metav1.CreateOptions{})
+			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+				context.Background(), preferenceControllerRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			expectedRevisionNamePatch, err := revision.GeneratePatch(nil, preferenceControllerRevision)
@@ -575,7 +593,8 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 			preferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, unexpectedPreference)
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceControllerRevision, metav1.CreateOptions{})
+			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+				context.Background(), preferenceControllerRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(storeHandler.Store(vm)).To(MatchError(ContainSubstring("found existing ControllerRevision with unexpected data")))
