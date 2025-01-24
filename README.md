@@ -99,7 +99,7 @@ of options:
  * [Kubernetes][k8s]
  * [Libvirt][libvirt]
  * [Cockpit][cockpit]
- * [Kubevirt-ansible][kubevirt-ansible]
+ * [kubevirt.core][kubevirt.core] Ansible collection
 
 ### Submitting patches
 
@@ -140,7 +140,7 @@ KubeVirt is distributed under the
    [ovirt]: https://www.ovirt.org
    [cockpit]: https://cockpit-project.org/
    [libvirt]: https://www.libvirt.org
-   [kubevirt-ansible]: https://github.com/kubevirt/kubevirt-ansible
+   [kubevirt.core]: https://github.com/kubevirt/kubevirt.core
 
 ## FOSSA Status
 
