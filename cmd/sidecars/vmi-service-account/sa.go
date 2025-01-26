@@ -59,6 +59,16 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 		Target: &libvirtxml.DomainFilesystemTarget{Dir: vmiSpec.Annotations[serviceAccountTargetDirAnnotation]},
 		Driver: &libvirtxml.DomainFilesystemDriver{Type: "virtiofs"}})
 
+	domainSpec.Devices.Shmems = append(domainSpec.Devices.Shmems, libvirtxml.DomainShmem{
+		Size: &libvirtxml.DomainShmemSize{
+			Value: 32,
+			Unit:  "M",
+		},
+		Model: &libvirtxml.DomainShmemModel{
+			Type: "ivshmem-plain",
+		},
+	})
+
 	newDomainXML, err := xml.Marshal(domainSpec)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal new Domain spec: %s %+v", err, domainSpec)
