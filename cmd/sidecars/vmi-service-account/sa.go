@@ -73,7 +73,7 @@ func main() {
 	pflag.StringVar(&domainXML, "domain", "", "Domain spec in XML format")
 	pflag.Parse()
 
-	logger := log.New(os.Stderr, "smbios", log.Ldate)
+	logger := log.New(os.Stderr, "serviceaccounts", log.Ldate)
 	if vmiJSON == "" || domainXML == "" {
 		logger.Printf("Bad input vmi=%d, domain=%d", len(vmiJSON), len(domainXML))
 		os.Exit(1)

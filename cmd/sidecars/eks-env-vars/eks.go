@@ -110,7 +110,7 @@ func main() {
 	pflag.StringVar(&cloudInitDataJSON, "cloud-init", "", "The CloudInitData, in JSON format")
 	pflag.Parse()
 
-	logger := log.New(os.Stderr, "cloudinit", log.Ldate)
+	logger := log.New(os.Stderr, "eks-env-vars", log.Ldate)
 	if vmiJSON == "" || cloudInitDataJSON == "" {
 		logger.Printf("Bad input vmi=%d, cloud-init=%d", len(vmiJSON), len(cloudInitDataJSON))
 		os.Exit(1)
