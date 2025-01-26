@@ -4188,7 +4188,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
-					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
+					Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
 				})
 
 				It("should apply preferredAutoattachPodInterface and skip adding default network interface", func() {
@@ -4235,7 +4235,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
-					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
+					Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
 				})
 
 				It("should apply preferences to default volume disk", func() {
@@ -4287,7 +4287,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
-					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
+					Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
 				})
 
 				It("should apply preferences to AutoattachInputDevice attached input device", func() {
@@ -4317,7 +4317,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
-					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
+					Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
 				})
 
 				It("should apply preferences to preferredAutoattachInputDevice attached input device", func() {
@@ -4363,7 +4363,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
-					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
+					Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
 				})
 
 				It("should apply preferredAutoattachInputDevice and skip adding default input device", func() {
@@ -4406,7 +4406,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
-					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
+					Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
 				})
 			})
 		})
