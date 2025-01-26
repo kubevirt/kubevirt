@@ -28,7 +28,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	ginkgo_reporters "github.com/onsi/ginkgo/v2/reporters"
+	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -104,8 +106,24 @@ var _ = SynchronizedBeforeSuite(testsuite.SynchronizedBeforeTestSetup, testsuite
 var _ = SynchronizedAfterSuite(testsuite.AfterTestSuiteCleanup, testsuite.SynchronizedAfterTestSuiteCleanup)
 
 var _ = AfterEach(func() {
-	testCleanup()
+	if !hasSkipGlobalCleanupLabel() {
+		testCleanup()
+	}
 })
+
+var _ = AfterEach(OncePerOrdered, func() {
+	if hasSkipGlobalCleanupLabel() {
+		testCleanup()
+	}
+})
+
+func hasSkipGlobalCleanupLabel() bool {
+	skipGlobalCleanupLabelText := decorators.SkipGlobalCleanup[0]
+	skipGlobalCleanup, err := CurrentSpecReport().MatchesLabelFilter(skipGlobalCleanupLabelText)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+
+	return skipGlobalCleanup
+}
 
 func getMaxFailsFromEnv() int {
 	maxFailsEnv := os.Getenv("REPORTER_MAX_FAILS")
