@@ -24,7 +24,7 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 	}
 
 	// Read the source socket file and its mount target from the VMI spec
-	if _, ok := vmiSpec.Annotations[serviceAccountTargetDirAnnotation]; ok {
+	if _, ok := vmiSpec.Annotations[serviceAccountTargetDirAnnotation]; !ok {
 		return "", fmt.Errorf("target directory annotation not set, exiting")
 	}
 
