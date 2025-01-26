@@ -34,7 +34,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 	BeforeEach(func() {
 
 		k8sClient = clientcmd.GetK8sCmdClient()
-		clientcmd.SkipIfNoCmd(k8sClient)
+		clientcmd.FailIfNoCmd(k8sClient)
 	})
 
 	DescribeTable("[test_id:3812]explain vm/vmi", func(resource string) {

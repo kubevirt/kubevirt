@@ -207,7 +207,7 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 	BeforeEach(func() {
 		k8sClient = clientcmd.GetK8sCmdClient()
-		clientcmd.SkipIfNoCmd(k8sClient)
+		clientcmd.FailIfNoCmd(k8sClient)
 		virtClient := kubevirt.Client()
 		var err error
 		authClient, err = authClientV1.NewForConfig(virtClient.Config())
