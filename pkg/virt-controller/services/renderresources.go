@@ -486,7 +486,7 @@ func getRequiredResources(vmi *v1.VirtualMachineInstance, allowEmulation bool) k
 	if util.NeedTunDevice(vmi) {
 		res[TunDevice] = resource.MustParse("1")
 	}
-	if util.NeedVirtioNetDevice(vmi, allowEmulation) {
+	if needVirtioNetDevice(vmi, allowEmulation) {
 		// Note that about network interface, allowEmulation does not make
 		// any difference on eventual Domain xml, but uniformly making
 		// /dev/vhost-net unavailable and libvirt implicitly fallback
@@ -748,4 +748,10 @@ func getMemoryLimitsRatio(namespace string, namespaceStore cache.Store) float64 
 	}
 
 	return limitRatioValue
+}
+
+// needVirtioNetDevice checks whether a VMI requires the presence of the "virtio" net device.
+// This happens when the VMI wants to use a "virtio" network interface, and software emulation is disallowed.
+func needVirtioNetDevice(vmi *v1.VirtualMachineInstance, allowEmulation bool) bool {
+	return util.WantVirtioNetDevice(vmi) && !allowEmulation
 }
