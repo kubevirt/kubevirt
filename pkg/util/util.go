@@ -104,12 +104,6 @@ func WantVirtioNetDevice(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-// NeedVirtioNetDevice checks whether a VMI requires the presence of the "virtio" net device.
-// This happens when the VMI wants to use a "virtio" network interface, and software emulation is disallowed.
-func NeedVirtioNetDevice(vmi *v1.VirtualMachineInstance, allowEmulation bool) bool {
-	return WantVirtioNetDevice(vmi) && !allowEmulation
-}
-
 func NeedTunDevice(vmi *v1.VirtualMachineInstance) bool {
 	return (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
 		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
