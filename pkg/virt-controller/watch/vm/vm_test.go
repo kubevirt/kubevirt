@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
@@ -5610,7 +5611,7 @@ var _ = Describe("VirtualMachine", func() {
 					Spec: v1.KubeVirtSpec{
 						Configuration: v1.KubeVirtConfiguration{
 							DeveloperConfiguration: &v1.DeveloperConfiguration{
-								FeatureGates: []string{virtconfig.InstancetypeReferencePolicy},
+								FeatureGates: []string{featuregate.InstancetypeReferencePolicy},
 							},
 							Instancetype: &v1.InstancetypeConfiguration{
 								ReferencePolicy: pointer.P(v1.Expand),
@@ -5623,7 +5624,7 @@ var _ = Describe("VirtualMachine", func() {
 					Spec: v1.KubeVirtSpec{
 						Configuration: v1.KubeVirtConfiguration{
 							DeveloperConfiguration: &v1.DeveloperConfiguration{
-								FeatureGates: []string{virtconfig.InstancetypeReferencePolicy},
+								FeatureGates: []string{featuregate.InstancetypeReferencePolicy},
 							},
 							Instancetype: &v1.InstancetypeConfiguration{
 								ReferencePolicy: pointer.P(v1.ExpandAll),
@@ -5699,14 +5700,14 @@ var _ = Describe("VirtualMachine", func() {
 					Entry("with FG enabled and default referencePolicy", &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{Configuration: v1.KubeVirtConfiguration{
 							DeveloperConfiguration: &v1.DeveloperConfiguration{
-								FeatureGates: []string{virtconfig.InstancetypeReferencePolicy},
+								FeatureGates: []string{featuregate.InstancetypeReferencePolicy},
 							},
 						}}}, func() {}),
 					Entry("with FG enabled and referencePolicy reference", &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
 								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.InstancetypeReferencePolicy},
+									FeatureGates: []string{featuregate.InstancetypeReferencePolicy},
 								},
 								Instancetype: &v1.InstancetypeConfiguration{
 									ReferencePolicy: pointer.P(v1.Reference),

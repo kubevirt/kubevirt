@@ -21,7 +21,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 type fuzzOption int
@@ -182,30 +182,30 @@ func fuzzKubeVirtConfig(seed int64) *virtconfig.ClusterConfig {
 		func(dc *v1.DeveloperConfiguration, c gofuzz.Continue) {
 			c.FuzzNoCustom(dc)
 			featureGates := []string{
-				virtconfig.ExpandDisksGate,
-				virtconfig.CPUManager,
-				deprecation.NUMAFeatureGate,
-				virtconfig.IgnitionGate,
-				deprecation.LiveMigrationGate,
-				deprecation.SRIOVLiveMigrationGate,
-				deprecation.CPUNodeDiscoveryGate,
-				virtconfig.HypervStrictCheckGate,
-				virtconfig.SidecarGate,
-				virtconfig.HostDevicesGate,
-				virtconfig.SnapshotGate,
-				virtconfig.VMExportGate,
-				virtconfig.HotplugVolumesGate,
-				virtconfig.HostDiskGate,
-				deprecation.MacvtapGate,
-				deprecation.PasstGate,
-				virtconfig.DownwardMetricsFeatureGate,
-				deprecation.NonRoot,
-				virtconfig.Root,
-				virtconfig.ClusterProfiler,
-				virtconfig.WorkloadEncryptionSEV,
-				deprecation.DockerSELinuxMCSWorkaround,
-				deprecation.PSA,
-				virtconfig.VSOCKGate,
+				featuregate.ExpandDisksGate,
+				featuregate.CPUManager,
+				featuregate.NUMAFeatureGate,
+				featuregate.IgnitionGate,
+				featuregate.LiveMigrationGate,
+				featuregate.SRIOVLiveMigrationGate,
+				featuregate.CPUNodeDiscoveryGate,
+				featuregate.HypervStrictCheckGate,
+				featuregate.SidecarGate,
+				featuregate.HostDevicesGate,
+				featuregate.SnapshotGate,
+				featuregate.VMExportGate,
+				featuregate.HotplugVolumesGate,
+				featuregate.HostDiskGate,
+				featuregate.MacvtapGate,
+				featuregate.PasstGate,
+				featuregate.DownwardMetricsFeatureGate,
+				featuregate.NonRoot,
+				featuregate.Root,
+				featuregate.ClusterProfiler,
+				featuregate.WorkloadEncryptionSEV,
+				featuregate.DockerSELinuxMCSWorkaround,
+				featuregate.PSA,
+				featuregate.VSOCKGate,
 			}
 
 			idxs := c.Perm(c.Int() % len(featureGates))

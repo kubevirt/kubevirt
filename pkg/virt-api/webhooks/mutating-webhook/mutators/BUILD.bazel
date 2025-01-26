@@ -54,7 +54,7 @@ go_test(
         "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-api/webhooks:go_default_library",
-        "//pkg/virt-config:go_default_library",
+        "//pkg/virt-config/featuregate:go_default_library",
         "//pkg/virt-handler/node-labeller/util:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//staging/src/kubevirt.io/api/clone:go_default_library",

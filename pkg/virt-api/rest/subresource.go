@@ -55,6 +55,7 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 const (
@@ -1519,7 +1520,7 @@ func (app *SubresourceAPIApp) RemoveMemoryDumpVMRequestHandler(request *restful.
 
 func (app *SubresourceAPIApp) ensureSEVEnabled(response *restful.Response) bool {
 	if !app.clusterConfig.WorkloadEncryptionSEVEnabled() {
-		writeError(errors.NewBadRequest(fmt.Sprintf(featureGateDisabledErrFmt, virtconfig.WorkloadEncryptionSEV)), response)
+		writeError(errors.NewBadRequest(fmt.Sprintf(featureGateDisabledErrFmt, featuregate.WorkloadEncryptionSEV)), response)
 		return false
 	}
 	return true

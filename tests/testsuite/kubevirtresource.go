@@ -37,7 +37,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -94,24 +94,24 @@ func AdjustKubeVirtResource() {
 	// Disable CPUManager Featuregate for s390x as it is not supported.
 	if translateBuildArch() != "s390x" {
 		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-			virtconfig.CPUManager,
+			featuregate.CPUManager,
 		)
 	}
 	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-		virtconfig.IgnitionGate,
-		virtconfig.SidecarGate,
-		virtconfig.SnapshotGate,
-		virtconfig.HostDiskGate,
-		virtconfig.VirtIOFSConfigVolumesGate,
-		virtconfig.VirtIOFSStorageVolumeGate,
-		virtconfig.HotplugVolumesGate,
-		virtconfig.DownwardMetricsFeatureGate,
-		virtconfig.ExpandDisksGate,
-		virtconfig.WorkloadEncryptionSEV,
-		virtconfig.VMExportGate,
-		virtconfig.KubevirtSeccompProfile,
-		virtconfig.VMPersistentState,
-		virtconfig.AutoResourceLimitsGate,
+		featuregate.IgnitionGate,
+		featuregate.SidecarGate,
+		featuregate.SnapshotGate,
+		featuregate.HostDiskGate,
+		featuregate.VirtIOFSConfigVolumesGate,
+		featuregate.VirtIOFSStorageVolumeGate,
+		featuregate.HotplugVolumesGate,
+		featuregate.DownwardMetricsFeatureGate,
+		featuregate.ExpandDisksGate,
+		featuregate.WorkloadEncryptionSEV,
+		featuregate.VMExportGate,
+		featuregate.KubevirtSeccompProfile,
+		featuregate.VMPersistentState,
+		featuregate.AutoResourceLimitsGate,
 	)
 
 	if kv.Spec.Configuration.NetworkConfiguration == nil {
@@ -133,7 +133,7 @@ func AdjustKubeVirtResource() {
 	adjustedKV, err := virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, []byte(patchData), metav1.PatchOptions{})
 	util.PanicOnError(err)
 	KubeVirtDefaultConfig = adjustedKV.Spec.Configuration
-	if checks.HasFeature(virtconfig.CPUManager) {
+	if checks.HasFeature(featuregate.CPUManager) {
 		// CPUManager is not enabled in the control-plane node(s)
 		nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: "!node-role.kubernetes.io/control-plane"})
 		Expect(err).NotTo(HaveOccurred())

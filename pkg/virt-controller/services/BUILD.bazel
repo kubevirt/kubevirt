@@ -78,7 +78,7 @@ go_test(
         "//pkg/testutils:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-config:go_default_library",
-        "//pkg/virt-config/deprecation:go_default_library",
+        "//pkg/virt-config/featuregate:go_default_library",
         "//pkg/virt-controller/watch/topology:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/api:go_default_library",

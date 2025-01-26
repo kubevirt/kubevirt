@@ -24,8 +24,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
-
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -36,6 +34,7 @@ import (
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 type VMIRSAdmitter struct {
@@ -65,7 +64,7 @@ func (admitter *VMIRSAdmitter) Admit(_ context.Context, ar *admissionv1.Admissio
 	if ar.Request.Operation == admissionv1.Create {
 		clusterCfg := admitter.ClusterConfig.GetConfig()
 		if devCfg := clusterCfg.DeveloperConfiguration; devCfg != nil {
-			causes = append(causes, deprecation.ValidateFeatureGates(devCfg.FeatureGates, &vmirs.Spec.Template.Spec)...)
+			causes = append(causes, featuregate.ValidateFeatureGates(devCfg.FeatureGates, &vmirs.Spec.Template.Spec)...)
 		}
 	}
 
