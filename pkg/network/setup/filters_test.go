@@ -186,4 +186,26 @@ var _ = Describe("Network setup filters", func() {
 			))
 		})
 	})
+
+	Context("FilterNetsForMigrationTarget", func() {
+		It("Should return a list of all networks - no matter their interface state", func() {
+			const absentNetName = "absent-net"
+			absentIface := libvmi.InterfaceDeviceWithBridgeBinding(absentNetName)
+			absentIface.State = v1.InterfaceStateAbsent
+
+			vmi := libvmi.New(
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(absentIface),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(absentNetName, "somenad")),
+			)
+
+			Expect(network.FilterNetsForMigrationTarget(vmi)).To(Equal(
+				[]v1.Network{
+					*v1.DefaultPodNetwork(),
+					*libvmi.MultusNetwork(absentNetName, "somenad"),
+				},
+			))
+		})
+	})
 })
