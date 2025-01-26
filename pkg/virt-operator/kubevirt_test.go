@@ -1218,16 +1218,16 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	all = append(all, components.NewApiServerService(NAMESPACE))
 	all = append(all, components.NewExportProxyService(NAMESPACE))
 
-	apiDeployment, _ := getDefaultVirtApiDeployment(NAMESPACE, config)
+	apiDeployment := getDefaultVirtApiDeployment(NAMESPACE, config)
 	apiDeploymentPdb := components.NewPodDisruptionBudgetForDeployment(apiDeployment)
-	controller, _ := getDefaultVirtControllerDeployment(NAMESPACE, config)
+	controller := getDefaultVirtControllerDeployment(NAMESPACE, config)
 	controllerPdb := components.NewPodDisruptionBudgetForDeployment(controller)
 
-	handler, _ := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
+	handler := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
 	all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
 
 	if exportProxyEnabled(kv) {
-		exportProxy, _ := getDefaultExportProxyDeployment(NAMESPACE, config)
+		exportProxy := getDefaultExportProxyDeployment(NAMESPACE, config)
 		exportProxyPdb := components.NewPodDisruptionBudgetForDeployment(exportProxy)
 		route := components.NewExportProxyRoute(NAMESPACE)
 		all = append(all, exportProxy, exportProxyPdb, route)
@@ -1335,8 +1335,7 @@ func (k *KubeVirtTestData) addAllButHandler(config *util.KubeVirtDeploymentConfi
 }
 
 func (k *KubeVirtTestData) addVirtHandler(config *util.KubeVirtDeploymentConfig, kv *v1.KubeVirt) {
-	handler, err := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
-	Expect(err).ToNot(HaveOccurred())
+	handler := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
 
 	c, _ := apply.NewCustomizer(kv.Spec.CustomizeComponents)
 
@@ -1556,7 +1555,7 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	// virt-controller
 	// virt-handler
 	var deployments []*appsv1.Deployment
-	apiDeployment, _ := getDefaultVirtApiDeployment(NAMESPACE, config)
+	apiDeployment := getDefaultVirtApiDeployment(NAMESPACE, config)
 
 	pod := &k8sv1.Pod{
 		ObjectMeta: apiDeployment.Spec.Template.ObjectMeta,
@@ -1573,7 +1572,7 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	k.addPod(pod)
 	deployments = append(deployments, apiDeployment)
 
-	controller, _ := getDefaultVirtControllerDeployment(NAMESPACE, config)
+	controller := getDefaultVirtControllerDeployment(NAMESPACE, config)
 	pod = &k8sv1.Pod{
 		ObjectMeta: controller.Spec.Template.ObjectMeta,
 		Spec:       controller.Spec.Template.Spec,
@@ -1589,7 +1588,7 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	k.addPod(pod)
 	deployments = append(deployments, controller)
 
-	handler, _ := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
+	handler := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
 	pod = &k8sv1.Pod{
 		ObjectMeta: handler.Spec.Template.ObjectMeta,
 		Spec:       handler.Spec.Template.Spec,
@@ -1607,7 +1606,7 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	k.addPod(pod)
 
 	if exportProxyEnabled(kv) {
-		exportProxy, _ := getDefaultExportProxyDeployment(NAMESPACE, config)
+		exportProxy := getDefaultExportProxyDeployment(NAMESPACE, config)
 		pod = &k8sv1.Pod{
 			ObjectMeta: exportProxy.Spec.Template.ObjectMeta,
 			Spec:       exportProxy.Spec.Template.Spec,
@@ -2170,8 +2169,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
 
-			apiDeployment, err := getDefaultVirtApiDeployment(NAMESPACE, config)
-			Expect(err).ToNot(HaveOccurred())
+			apiDeployment := getDefaultVirtApiDeployment(NAMESPACE, config)
 			Expect(apiDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
 		})
 
@@ -2185,8 +2183,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
 
-			controllerDeployment, err := getDefaultVirtControllerDeployment(NAMESPACE, config)
-			Expect(err).ToNot(HaveOccurred())
+			controllerDeployment := getDefaultVirtControllerDeployment(NAMESPACE, config)
 			Expect(controllerDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
 		})
 
@@ -2200,8 +2197,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
 
-			handlerDaemonset, err := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
-			Expect(err).ToNot(HaveOccurred())
+			handlerDaemonset := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
 			Expect(handlerDaemonset.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
 		})
 
@@ -3090,7 +3086,7 @@ func shouldExpectHCOConditions(kv *v1.KubeVirt, available k8sv1.ConditionStatus,
 	))
 }
 
-func getDefaultVirtApiDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*appsv1.Deployment, error) {
+func getDefaultVirtApiDeployment(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.Deployment {
 	return components.NewApiServerDeployment(
 		namespace,
 		config.GetImageRegistry(),
@@ -3106,7 +3102,7 @@ func getDefaultVirtApiDeployment(namespace string, config *util.KubeVirtDeployme
 		config.GetExtraEnv())
 }
 
-func getDefaultVirtControllerDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*appsv1.Deployment, error) {
+func getDefaultVirtControllerDeployment(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.Deployment {
 	return components.NewControllerDeployment(
 		namespace,
 		config.GetImageRegistry(),
@@ -3128,7 +3124,7 @@ func getDefaultVirtControllerDeployment(namespace string, config *util.KubeVirtD
 		config.GetExtraEnv())
 }
 
-func getDefaultVirtHandlerDaemonSet(namespace string, config *util.KubeVirtDeploymentConfig) (*appsv1.DaemonSet, error) {
+func getDefaultVirtHandlerDaemonSet(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.DaemonSet {
 	return components.NewHandlerDaemonSet(
 		namespace,
 		config.GetImageRegistry(),
@@ -3152,7 +3148,7 @@ func getDefaultVirtHandlerDaemonSet(namespace string, config *util.KubeVirtDeplo
 		false)
 }
 
-func getDefaultExportProxyDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*appsv1.Deployment, error) {
+func getDefaultExportProxyDeployment(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.Deployment {
 	return components.NewExportProxyDeployment(
 		namespace,
 		config.GetImageRegistry(),

@@ -122,7 +122,7 @@ var _ = Describe("Apply Apps", func() {
 				Registry:        Registry,
 				KubeVirtVersion: Version,
 			}
-			deployment, err = components.NewApiServerDeployment(
+			deployment = components.NewApiServerDeployment(
 				Namespace,
 				virtApiConfig.GetImageRegistry(),
 				virtApiConfig.GetImagePrefix(),
@@ -135,7 +135,6 @@ var _ = Describe("Apply Apps", func() {
 				virtApiConfig.GetImagePullSecrets(),
 				virtApiConfig.GetVerbosity(),
 				virtApiConfig.GetExtraEnv())
-			Expect(err).ToNot(HaveOccurred())
 
 			cachedPodDisruptionBudget = components.NewPodDisruptionBudgetForDeployment(deployment)
 		})
@@ -328,7 +327,7 @@ var _ = Describe("Apply Apps", func() {
 				Registry:        Registry,
 				KubeVirtVersion: Version,
 			}
-			daemonSet, err = components.NewHandlerDaemonSet(
+			daemonSet = components.NewHandlerDaemonSet(
 				Namespace,
 				virtHandlerConfig.GetImageRegistry(),
 				virtHandlerConfig.GetImagePrefix(),
@@ -349,7 +348,6 @@ var _ = Describe("Apply Apps", func() {
 				virtHandlerConfig.GetVerbosity(),
 				virtHandlerConfig.GetExtraEnv(),
 				false)
-			Expect(err).ToNot(HaveOccurred())
 			markHandlerReady(daemonSet)
 			daemonSet.UID = "random-id"
 		})
@@ -1192,7 +1190,7 @@ var _ = Describe("Apply Apps", func() {
 				KubeVirtVersion: Version,
 			}
 			var err error
-			strategyDeployment, err = components.NewControllerDeployment(
+			strategyDeployment = components.NewControllerDeployment(
 				Namespace,
 				virtControllerConfig.GetImageRegistry(),
 				virtControllerConfig.GetImagePrefix(),
@@ -1211,7 +1209,6 @@ var _ = Describe("Apply Apps", func() {
 				virtControllerConfig.GetImagePullSecrets(),
 				virtControllerConfig.GetVerbosity(),
 				virtControllerConfig.GetExtraEnv())
-			Expect(err).ToNot(HaveOccurred())
 
 			cachedDeployment = strategyDeployment.DeepCopy()
 			cachedDeployment.Generation = 2

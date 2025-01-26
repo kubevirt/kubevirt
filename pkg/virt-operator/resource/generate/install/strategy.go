@@ -562,30 +562,18 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.services = append(strategy.services, components.NewApiServerService(config.GetNamespace()))
 	strategy.services = append(strategy.services, components.NewOperatorWebhookService(operatorNamespace))
 	strategy.services = append(strategy.services, components.NewExportProxyService(config.GetNamespace()))
-	apiDeployment, err := components.NewApiServerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), productName, productVersion, productComponent, config.VirtApiImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
-	if err != nil {
-		return nil, fmt.Errorf("error generating virt-apiserver deployment %v", err)
-	}
+	apiDeployment := components.NewApiServerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), productName, productVersion, productComponent, config.VirtApiImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
 	strategy.deployments = append(strategy.deployments, apiDeployment)
 
-	controller, err := components.NewControllerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetExportServerVersion(), config.GetSidecarShimVersion(), productName, productVersion, productComponent, config.VirtControllerImage, config.VirtLauncherImage, config.VirtExportServerImage, config.SidecarShimImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
-	if err != nil {
-		return nil, fmt.Errorf("error generating virt-controller deployment %v", err)
-	}
+	controller := components.NewControllerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetExportServerVersion(), config.GetSidecarShimVersion(), productName, productVersion, productComponent, config.VirtControllerImage, config.VirtLauncherImage, config.VirtExportServerImage, config.SidecarShimImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
 	strategy.deployments = append(strategy.deployments, controller)
 
 	strategy.configMaps = append(strategy.configMaps, components.NewCAConfigMaps(operatorNamespace)...)
 
-	exportProxyDeployment, err := components.NewExportProxyDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetExportProxyVersion(), productName, productVersion, productComponent, config.VirtExportProxyImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
-	if err != nil {
-		return nil, fmt.Errorf("error generating export proxy deployment %v", err)
-	}
+	exportProxyDeployment := components.NewExportProxyDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetExportProxyVersion(), productName, productVersion, productComponent, config.VirtExportProxyImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
 	strategy.deployments = append(strategy.deployments, exportProxyDeployment)
 
-	handler, err := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetLauncherVersion(), config.GetPrHelperVersion(), config.GetSidecarShimVersion(), productName, productVersion, productComponent, config.VirtHandlerImage, config.VirtLauncherImage, config.PrHelperImage, config.SidecarShimImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetMigrationNetwork(), config.GetVerbosity(), config.GetExtraEnv(), config.PersistentReservationEnabled())
-	if err != nil {
-		return nil, fmt.Errorf("error generating virt-handler deployment %v", err)
-	}
+	handler := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetLauncherVersion(), config.GetPrHelperVersion(), config.GetSidecarShimVersion(), productName, productVersion, productComponent, config.VirtHandlerImage, config.VirtLauncherImage, config.PrHelperImage, config.SidecarShimImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetMigrationNetwork(), config.GetVerbosity(), config.GetExtraEnv(), config.PersistentReservationEnabled())
 
 	strategy.daemonSets = append(strategy.daemonSets, handler)
 	strategy.sccs = append(strategy.sccs, components.GetAllSCC(config.GetNamespace())...)
