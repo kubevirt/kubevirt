@@ -108,4 +108,8 @@ var (
 	NoFlakeCheck = Label("no-flake-check")
 	// FlakeCheck decorates tests that are dedicated to the check-tests-for-flakes test lane.
 	FlakeCheck = Label("flake-check")
+
+	// OncePerOrderedCleanup decorates Ordered tests to only cleanup after the last
+	// test in an Ordered container.
+	OncePerOrderedCleanup = Label("OncePerOrderedCleanup")
 )
