@@ -8,14 +8,11 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/golang/mock/gomock"
-	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	k8sfake "k8s.io/client-go/kubernetes/fake"
@@ -31,7 +28,6 @@ import (
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	fakeclientset "kubevirt.io/client-go/kubevirt/fake"
-	instancetypeclientv1beta1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
 )
 
 const (
@@ -46,47 +42,37 @@ type handler interface {
 
 var _ = Describe("Instancetype and Preferences revision handler", func() {
 	var (
-		storeHandler                     handler
-		vm                               *virtv1.VirtualMachine
-		virtClient                       *kubecli.MockKubevirtClient
-		vmInterface                      *kubecli.MockVirtualMachineInterface
-		k8sClient                        *k8sfake.Clientset
-		fakeInstancetypeClients          instancetypeclientv1beta1.InstancetypeV1beta1Interface
+		storeHandler handler
+		vm           *virtv1.VirtualMachine
+
+		virtClient *kubecli.MockKubevirtClient
+
 		instancetypeInformerStore        cache.Store
 		clusterInstancetypeInformerStore cache.Store
 		preferenceInformerStore          cache.Store
 		clusterPreferenceInformerStore   cache.Store
 	)
 
-	expectControllerRevisionCreation := func(expectedControllerRevision *appsv1.ControllerRevision) {
-		k8sClient.Fake.PrependReactor(
-			"create", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				created, ok := action.(testing.CreateAction)
-				Expect(ok).To(BeTrue())
-
-				createObj := created.GetObject().(*appsv1.ControllerRevision)
-
-				// This is already covered by the below assertion but be explicit here to ensure coverage
-				Expect(createObj.Labels).To(HaveKey(apiinstancetype.ControllerRevisionObjectGenerationLabel))
-				Expect(createObj.Labels).To(HaveKey(apiinstancetype.ControllerRevisionObjectKindLabel))
-				Expect(createObj.Labels).To(HaveKey(apiinstancetype.ControllerRevisionObjectNameLabel))
-				Expect(createObj.Labels).To(HaveKey(apiinstancetype.ControllerRevisionObjectUIDLabel))
-				Expect(createObj.Labels).To(HaveKey(apiinstancetype.ControllerRevisionObjectVersionLabel))
-				Expect(createObj).To(Equal(expectedControllerRevision))
-
-				return true, created.GetObject(), nil
-			},
-		)
-	}
-
 	BeforeEach(func() {
-		k8sClient = k8sfake.NewSimpleClientset()
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
-		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
-		virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
-		fakeInstancetypeClients = fakeclientset.NewSimpleClientset().InstancetypeV1beta1()
+
+		virtClient.EXPECT().AppsV1().Return(k8sfake.NewSimpleClientset().AppsV1()).AnyTimes()
+
+		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(
+			fakeclientset.NewSimpleClientset().KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
+
+		virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(
+			fakeclientset.NewSimpleClientset().InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+
+		virtClient.EXPECT().VirtualMachineInstancetype(metav1.NamespaceDefault).Return(
+			fakeclientset.NewSimpleClientset().InstancetypeV1beta1().VirtualMachineInstancetypes(metav1.NamespaceDefault)).AnyTimes()
+
+		virtClient.EXPECT().VirtualMachineClusterPreference().Return(
+			fakeclientset.NewSimpleClientset().InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+
+		virtClient.EXPECT().VirtualMachinePreference(metav1.NamespaceDefault).Return(
+			fakeclientset.NewSimpleClientset().InstancetypeV1beta1().VirtualMachinePreferences(metav1.NamespaceDefault)).AnyTimes()
 
 		instancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
 		instancetypeInformerStore = instancetypeInformer.GetStore()
@@ -114,6 +100,9 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 			},
 		}
 		vm.Namespace = k8sv1.NamespaceDefault
+
+		_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	Context("store preference", func() {
@@ -145,12 +134,8 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 
 		Context("using global ClusterInstancetype", func() {
 			var clusterInstancetype *instancetypev1beta1.VirtualMachineClusterInstancetype
-			var fakeClusterInstancetypeClient instancetypeclientv1beta1.VirtualMachineClusterInstancetypeInterface
 
 			BeforeEach(func() {
-				fakeClusterInstancetypeClient = fakeInstancetypeClients.VirtualMachineClusterInstancetypes()
-				virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(fakeClusterInstancetypeClient).AnyTimes()
-
 				clusterInstancetype = &instancetypev1beta1.VirtualMachineClusterInstancetype{
 					TypeMeta: metav1.TypeMeta{
 						Kind:       "VirtualMachineClusterInstancetype",
@@ -182,22 +167,23 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 					Name: clusterInstancetype.Name,
 					Kind: apiinstancetype.ClusterSingularResourceName,
 				}
+
+				_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("store VirtualMachineClusterInstancetype ControllerRevision", func() {
 				clusterInstancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := revision.GeneratePatch(clusterInstancetypeControllerRevision, nil)
-				Expect(err).ToNot(HaveOccurred())
-
-				vmInterface.EXPECT().Patch(
-					context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
-
-				expectControllerRevisionCreation(clusterInstancetypeControllerRevision)
-
 				Expect(storeHandler.Store(vm)).To(Succeed())
 				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(clusterInstancetypeControllerRevision.Name))
+
+				createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+					context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(createdCR).To(Equal(clusterInstancetypeControllerRevision))
 			})
 
 			It("store returns a nil revision when RevisionName already populated", func() {
@@ -233,12 +219,6 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 					context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedRevisionNamePatch, err := revision.GeneratePatch(instancetypeControllerRevision, nil)
-				Expect(err).ToNot(HaveOccurred())
-
-				vmInterface.EXPECT().Patch(
-					context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
-
 				Expect(storeHandler.Store(vm)).To(Succeed())
 				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
 			})
@@ -269,12 +249,8 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 
 	Context("using namespaced Instancetype", func() {
 		var fakeInstancetype *instancetypev1beta1.VirtualMachineInstancetype
-		var fakeInstancetypeClient instancetypeclientv1beta1.VirtualMachineInstancetypeInterface
 
 		BeforeEach(func() {
-			fakeInstancetypeClient = fakeInstancetypeClients.VirtualMachineInstancetypes(vm.Namespace)
-			virtClient.EXPECT().VirtualMachineInstancetype(gomock.Any()).Return(fakeInstancetypeClient).AnyTimes()
-
 			fakeInstancetype = &instancetypev1beta1.VirtualMachineInstancetype{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "VirtualMachineInstancetype",
@@ -307,21 +283,23 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Name: fakeInstancetype.Name,
 				Kind: apiinstancetype.SingularResourceName,
 			}
+
+			_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("store VirtualMachineInstancetype ControllerRevision", func() {
 			instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, fakeInstancetype)
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedRevisionNamePatch, err := revision.GeneratePatch(instancetypeControllerRevision, nil)
-			Expect(err).ToNot(HaveOccurred())
-
-			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
-
-			expectControllerRevisionCreation(instancetypeControllerRevision)
-
 			Expect(storeHandler.Store(vm)).To(Succeed())
 			Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
+
+			createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+				context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(createdCR).To(Equal(instancetypeControllerRevision))
 		})
 
 		It("store fails when instancetype does not exist", func() {
@@ -357,11 +335,6 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedRevisionNamePatch, err := revision.GeneratePatch(instancetypeControllerRevision, nil)
-			Expect(err).ToNot(HaveOccurred())
-
-			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
-
 			Expect(storeHandler.Store(vm)).To(Succeed())
 			Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
 		})
@@ -389,12 +362,8 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 	})
 	Context("using global ClusterPreference", func() {
 		var clusterPreference *instancetypev1beta1.VirtualMachineClusterPreference
-		var fakeClusterPreferenceClient instancetypeclientv1beta1.VirtualMachineClusterPreferenceInterface
 
 		BeforeEach(func() {
-			fakeClusterPreferenceClient = fakeInstancetypeClients.VirtualMachineClusterPreferences()
-			virtClient.EXPECT().VirtualMachineClusterPreference().Return(fakeClusterPreferenceClient).AnyTimes()
-
 			preferredCPUTopology := instancetypev1beta1.Cores
 			clusterPreference = &instancetypev1beta1.VirtualMachineClusterPreference{
 				TypeMeta: metav1.TypeMeta{
@@ -423,21 +392,23 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Name: clusterPreference.Name,
 				Kind: apiinstancetype.ClusterSingularPreferenceResourceName,
 			}
+
+			_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("store VirtualMachineClusterPreference ControllerRevision", func() {
 			clusterPreferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterPreference)
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedRevisionNamePatch, err := revision.GeneratePatch(nil, clusterPreferenceControllerRevision)
-			Expect(err).ToNot(HaveOccurred())
-
-			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
-
-			expectControllerRevisionCreation(clusterPreferenceControllerRevision)
-
 			Expect(storeHandler.Store(vm)).To(Succeed())
 			Expect(vm.Spec.Preference.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
+
+			createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+				context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(createdCR).To(Equal(clusterPreferenceControllerRevision))
 		})
 
 		It("store fails when VirtualMachineClusterPreference doesn't exist", func() {
@@ -469,11 +440,6 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				context.Background(), clusterPreferenceControllerRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedRevisionNamePatch, err := revision.GeneratePatch(nil, clusterPreferenceControllerRevision)
-			Expect(err).ToNot(HaveOccurred())
-
-			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
-
 			Expect(storeHandler.Store(vm)).To(Succeed())
 			Expect(vm.Spec.Preference.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
 		})
@@ -495,12 +461,8 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 	})
 	Context("using namespaced Preference", func() {
 		var preference *instancetypev1beta1.VirtualMachinePreference
-		var fakePreferenceClient instancetypeclientv1beta1.VirtualMachinePreferenceInterface
 
 		BeforeEach(func() {
-			fakePreferenceClient = fakeInstancetypeClients.VirtualMachinePreferences(vm.Namespace)
-			virtClient.EXPECT().VirtualMachinePreference(gomock.Any()).Return(fakePreferenceClient).AnyTimes()
-
 			preferredCPUTopology := instancetypev1beta1.Cores
 			preference = &instancetypev1beta1.VirtualMachinePreference{
 				TypeMeta: metav1.TypeMeta{
@@ -530,21 +492,23 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Name: preference.Name,
 				Kind: apiinstancetype.SingularPreferenceResourceName,
 			}
+
+			_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("store VirtualMachinePreference ControllerRevision", func() {
 			preferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, preference)
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedRevisionNamePatch, err := revision.GeneratePatch(nil, preferenceControllerRevision)
-			Expect(err).ToNot(HaveOccurred())
-
-			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
-
-			expectControllerRevisionCreation(preferenceControllerRevision)
-
 			Expect(storeHandler.Store(vm)).To(Succeed())
 			Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceControllerRevision.Name))
+
+			createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+				context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(createdCR).To(Equal(preferenceControllerRevision))
 		})
 
 		It("store fails when VirtualMachinePreference doesn't exist", func() {
@@ -575,11 +539,6 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
 				context.Background(), preferenceControllerRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-
-			expectedRevisionNamePatch, err := revision.GeneratePatch(nil, preferenceControllerRevision)
-			Expect(err).ToNot(HaveOccurred())
-
-			vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, expectedRevisionNamePatch, metav1.PatchOptions{})
 
 			Expect(storeHandler.Store(vm)).To(Succeed())
 			Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceControllerRevision.Name))
