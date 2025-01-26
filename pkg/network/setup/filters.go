@@ -47,3 +47,7 @@ func FilterNetsForLiveUpdate(vmi *v1.VirtualMachineInstance) []v1.Network {
 
 	return append(netsToHotplug, netsToHotunplug...)
 }
+
+func FilterNetsForMigrationTarget(vmi *v1.VirtualMachineInstance) []v1.Network {
+	return vmi.Spec.Networks
+}
