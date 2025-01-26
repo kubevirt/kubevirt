@@ -28,6 +28,8 @@ import (
 	network "kubevirt.io/kubevirt/pkg/network/setup"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 var _ = Describe("Network setup filters", func() {
@@ -45,6 +47,143 @@ var _ = Describe("Network setup filters", func() {
 			)
 
 			Expect(network.FilterNetsForVMStartup(vmi)).To(Equal([]v1.Network{*v1.DefaultPodNetwork()}))
+		})
+	})
+
+	Context("FilterNetsForLiveUpdate", func() {
+		const (
+			net1Name = "net1"
+			net2Name = "net2"
+			nad1Name = "nad1"
+			nad2Name = "nad2"
+		)
+
+		multusAndDomainInfoSource := vmispec.NewInfoSource(vmispec.InfoSourceMultusStatus, vmispec.InfoSourceDomain)
+
+		It("Should return an empty list when there are no networks to hot plug/unplug", func() {
+			vmi := libvmi.New(
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(net1Name)),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(net2Name)),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(net1Name, nad1Name)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(net2Name, nad2Name)),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       "default",
+							InfoSource: vmispec.InfoSourceDomain,
+						}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       net1Name,
+							InfoSource: multusAndDomainInfoSource,
+						}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       net2Name,
+							InfoSource: multusAndDomainInfoSource,
+						}),
+					),
+				),
+			)
+
+			Expect(network.FilterNetsForLiveUpdate(vmi)).To(BeEmpty())
+		})
+
+		It("Should return a network to hotplug when the interface exists in pod but not in the domain", func() {
+			multusAndDomainInfoSource := vmispec.NewInfoSource(vmispec.InfoSourceMultusStatus, vmispec.InfoSourceDomain)
+			vmi := libvmi.New(
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(net1Name)),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(net2Name)),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(net1Name, nad1Name)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(net2Name, nad2Name)),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       "default",
+							InfoSource: vmispec.InfoSourceDomain,
+						}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       net1Name,
+							InfoSource: multusAndDomainInfoSource,
+						}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       net2Name,
+							InfoSource: vmispec.InfoSourceMultusStatus,
+						}),
+					),
+				),
+			)
+
+			Expect(network.FilterNetsForLiveUpdate(vmi)).To(Equal([]v1.Network{*libvmi.MultusNetwork(net2Name, nad2Name)}))
+		})
+
+		It("Should return a network to hotunplug when its interface is marked as absent", func() {
+			absentIface := libvmi.InterfaceDeviceWithBridgeBinding(net1Name)
+			absentIface.State = v1.InterfaceStateAbsent
+
+			vmi := libvmi.New(
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(absentIface),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(net2Name)),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(net1Name, nad1Name)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(net2Name, nad2Name)),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       "default",
+							InfoSource: vmispec.InfoSourceDomain,
+						}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       net1Name,
+							InfoSource: multusAndDomainInfoSource,
+						}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       net2Name,
+							InfoSource: multusAndDomainInfoSource,
+						}),
+					),
+				),
+			)
+
+			Expect(network.FilterNetsForLiveUpdate(vmi)).To(Equal([]v1.Network{*libvmi.MultusNetwork(net1Name, nad1Name)}))
+		})
+
+		It("Should return networks to hotplug and hotunplug", func() {
+			absentIface := libvmi.InterfaceDeviceWithBridgeBinding(net1Name)
+			absentIface.State = v1.InterfaceStateAbsent
+
+			vmi := libvmi.New(
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(absentIface),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(net2Name)),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(net1Name, nad1Name)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(net2Name, nad2Name)),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       "default",
+							InfoSource: vmispec.InfoSourceDomain,
+						}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       net1Name,
+							InfoSource: multusAndDomainInfoSource,
+						}),
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       net2Name,
+							InfoSource: vmispec.InfoSourceMultusStatus,
+						}),
+					),
+				),
+			)
+
+			Expect(network.FilterNetsForLiveUpdate(vmi)).To(ConsistOf(
+				*libvmi.MultusNetwork(net1Name, nad1Name),
+				*libvmi.MultusNetwork(net2Name, nad2Name),
+			))
 		})
 	})
 })

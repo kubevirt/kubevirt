@@ -3121,19 +3121,7 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return err
 		}
 
-		netsToHotplug := netvmispec.NetworksToHotplugWhosePodIfacesAreReady(vmi)
-		nonAbsentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-			return iface.State != v1.InterfaceStateAbsent
-		})
-		netsToHotplug = netvmispec.FilterNetworksByInterfaces(netsToHotplug, nonAbsentIfaces)
-
-		ifacesToHotunplug := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-			return iface.State == v1.InterfaceStateAbsent
-		})
-		netsToHotunplug := netvmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, ifacesToHotunplug)
-
-		setupNets := append(netsToHotplug, netsToHotunplug...)
-		if err := c.setupNetwork(vmi, setupNets); err != nil {
+		if err := c.setupNetwork(vmi, netsetup.FilterNetsForLiveUpdate(vmi)); err != nil {
 			log.Log.Object(vmi).Error(err.Error())
 			c.recorder.Event(vmi, k8sv1.EventTypeWarning, "NicHotplug", err.Error())
 			errorTolerantFeaturesError = append(errorTolerantFeaturesError, err)

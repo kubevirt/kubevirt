@@ -32,3 +32,18 @@ func FilterNetsForVMStartup(vmi *v1.VirtualMachineInstance) []v1.Network {
 
 	return vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
 }
+
+func FilterNetsForLiveUpdate(vmi *v1.VirtualMachineInstance) []v1.Network {
+	netsToHotplug := vmispec.NetworksToHotplugWhosePodIfacesAreReady(vmi)
+	nonAbsentIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.State != v1.InterfaceStateAbsent
+	})
+	netsToHotplug = vmispec.FilterNetworksByInterfaces(netsToHotplug, nonAbsentIfaces)
+
+	ifacesToHotunplug := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.State == v1.InterfaceStateAbsent
+	})
+	netsToHotunplug := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, ifacesToHotunplug)
+
+	return append(netsToHotplug, netsToHotunplug...)
+}
