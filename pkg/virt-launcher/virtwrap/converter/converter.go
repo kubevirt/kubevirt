@@ -1406,7 +1406,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	kvmPath := "/dev/kvm"
-	if softwareEmulation, err := util.UseSoftwareEmulationForDevice(kvmPath, c.AllowEmulation); err != nil {
+	if softwareEmulation, err := useSoftwareEmulationForDevice(kvmPath, c.AllowEmulation); err != nil {
 		return err
 	} else if softwareEmulation {
 		logger := log.DefaultLogger()
@@ -2062,4 +2062,21 @@ func isEFIVMI(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.Firmware != nil &&
 		vmi.Spec.Domain.Firmware.Bootloader != nil &&
 		vmi.Spec.Domain.Firmware.Bootloader.EFI != nil
+}
+
+// useSoftwareEmulationForDevice determines whether to fallback to software emulation for the given device.
+// This happens when the given device doesn't exist, and software emulation is enabled.
+func useSoftwareEmulationForDevice(devicePath string, allowEmulation bool) (bool, error) {
+	if !allowEmulation {
+		return false, nil
+	}
+
+	_, err := os.Stat(devicePath)
+	if err == nil {
+		return false, nil
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return true, nil
+	}
+	return false, err
 }
