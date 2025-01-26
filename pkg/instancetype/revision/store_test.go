@@ -19,7 +19,6 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -173,7 +172,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 			})
 
 			It("store VirtualMachineClusterInstancetype ControllerRevision", func() {
-				clusterInstancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetype)
+				clusterInstancetypeControllerRevision, err := revision.CreateControllerRevision(vm, clusterInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(storeHandler.Store(vm)).To(Succeed())
@@ -187,7 +186,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 			})
 
 			It("store returns a nil revision when RevisionName already populated", func() {
-				clusterInstancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetype)
+				clusterInstancetypeControllerRevision, err := revision.CreateControllerRevision(vm, clusterInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -212,7 +211,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 			})
 
 			It("store ControllerRevision succeeds if a revision exists with expected data", func() {
-				instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetype)
+				instancetypeControllerRevision, err := revision.CreateControllerRevision(vm, clusterInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -227,7 +226,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				unexpectedInstancetype := clusterInstancetype.DeepCopy()
 				unexpectedInstancetype.Spec.CPU.Guest = 15
 
-				instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, unexpectedInstancetype)
+				instancetypeControllerRevision, err := revision.CreateControllerRevision(vm, unexpectedInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
 				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -289,7 +288,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 		})
 
 		It("store VirtualMachineInstancetype ControllerRevision", func() {
-			instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, fakeInstancetype)
+			instancetypeControllerRevision, err := revision.CreateControllerRevision(vm, fakeInstancetype)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(storeHandler.Store(vm)).To(Succeed())
@@ -310,7 +309,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 		})
 
 		It("store returns a nil revision when RevisionName already populated", func() {
-			instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, fakeInstancetype)
+			instancetypeControllerRevision, err := revision.CreateControllerRevision(vm, fakeInstancetype)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -328,7 +327,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 		})
 
 		It("store ControllerRevision succeeds if a revision exists with expected data", func() {
-			instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, fakeInstancetype)
+			instancetypeControllerRevision, err := revision.CreateControllerRevision(vm, fakeInstancetype)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -343,7 +342,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 			unexpectedInstancetype := fakeInstancetype.DeepCopy()
 			unexpectedInstancetype.Spec.CPU.Guest = 15
 
-			instancetypeControllerRevision, err := instancetype.CreateControllerRevision(vm, unexpectedInstancetype)
+			instancetypeControllerRevision, err := revision.CreateControllerRevision(vm, unexpectedInstancetype)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -398,7 +397,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 		})
 
 		It("store VirtualMachineClusterPreference ControllerRevision", func() {
-			clusterPreferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterPreference)
+			clusterPreferenceControllerRevision, err := revision.CreateControllerRevision(vm, clusterPreference)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(storeHandler.Store(vm)).To(Succeed())
@@ -419,7 +418,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 		})
 
 		It("store returns nil revision when RevisionName already populated", func() {
-			clusterPreferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterPreference)
+			clusterPreferenceControllerRevision, err := revision.CreateControllerRevision(vm, clusterPreference)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -433,7 +432,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 		})
 
 		It("store ControllerRevision succeeds if a revision exists with expected data", func() {
-			clusterPreferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, clusterPreference)
+			clusterPreferenceControllerRevision, err := revision.CreateControllerRevision(vm, clusterPreference)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -449,7 +448,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 			preferredCPUTopology := instancetypev1beta1.Threads
 			unexpectedPreference.Spec.CPU.PreferredCPUTopology = &preferredCPUTopology
 
-			clusterPreferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, unexpectedPreference)
+			clusterPreferenceControllerRevision, err := revision.CreateControllerRevision(vm, unexpectedPreference)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -498,7 +497,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 		})
 
 		It("store VirtualMachinePreference ControllerRevision", func() {
-			preferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, preference)
+			preferenceControllerRevision, err := revision.CreateControllerRevision(vm, preference)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(storeHandler.Store(vm)).To(Succeed())
@@ -519,7 +518,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 		})
 
 		It("store returns nil revision when RevisionName already populated", func() {
-			preferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, preference)
+			preferenceControllerRevision, err := revision.CreateControllerRevision(vm, preference)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -533,7 +532,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 		})
 
 		It("store ControllerRevision succeeds if a revision exists with expected data", func() {
-			preferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, preference)
+			preferenceControllerRevision, err := revision.CreateControllerRevision(vm, preference)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -549,7 +548,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 			preferredCPUTopology := instancetypev1beta1.Threads
 			unexpectedPreference.Spec.CPU.PreferredCPUTopology = &preferredCPUTopology
 
-			preferenceControllerRevision, err := instancetype.CreateControllerRevision(vm, unexpectedPreference)
+			preferenceControllerRevision, err := revision.CreateControllerRevision(vm, unexpectedPreference)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
