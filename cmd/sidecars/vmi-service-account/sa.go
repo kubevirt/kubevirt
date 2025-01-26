@@ -55,7 +55,7 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 				Slot:     &s,
 			},
 		},
-		Source: &libvirtxml.DomainFilesystemSource{File: &libvirtxml.DomainFilesystemSourceFile{File: vmiSpec.Annotations[virtioFsSocketDirAnnotation]}},
+		Source: &libvirtxml.DomainFilesystemSource{Mount: &libvirtxml.DomainFilesystemSourceMount{Dir: vmiSpec.Annotations[virtioFsSocketDirAnnotation]}},
 		Target: &libvirtxml.DomainFilesystemTarget{Dir: vmiSpec.Annotations[serviceAccountTargetDirAnnotation]},
 		Driver: &libvirtxml.DomainFilesystemDriver{Type: "virtiofs"}})
 
