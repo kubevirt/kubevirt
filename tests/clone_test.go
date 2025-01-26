@@ -696,13 +696,13 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 							libstorage.EventuallyDVWith(sourceVM.Namespace, dvt.Name, 180, HaveSucceeded())
 						}
 						By("Waiting until the source VM has instancetype and preference RevisionNames")
-						Eventually(matcher.ThisVM(sourceVM)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveRevisionNames())
+						Eventually(matcher.ThisVM(sourceVM)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveControllerRevisionRefs())
 
 						vmClone = generateCloneFromVM()
 						createCloneAndWaitForFinish(vmClone)
 
 						By("Waiting until the targetVM has instancetype and preference RevisionNames")
-						Eventually(matcher.ThisVMWith(testsuite.GetTestNamespace(sourceVM), targetVMName)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveRevisionNames())
+						Eventually(matcher.ThisVMWith(testsuite.GetTestNamespace(sourceVM), targetVMName)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveControllerRevisionRefs())
 
 						By("Asserting that the targetVM has new instancetype and preference controllerRevisions")
 						sourceVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(sourceVM)).Get(context.Background(), sourceVM.Name, v1.GetOptions{})
