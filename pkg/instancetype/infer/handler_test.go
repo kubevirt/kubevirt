@@ -1,4 +1,3 @@
-//nolint:gocritic
 package infer_test
 
 import (
@@ -644,7 +643,7 @@ var _ = Describe("InferFromVolume", func() {
 					},
 				},
 			},
-			fmt.Sprintf("persistentvolumeclaims \"%s\" not found", unknownPVCName),
+			fmt.Sprintf("persistentvolumeclaims %q not found", unknownPVCName),
 			&v1.InstancetypeMatcher{
 				InferFromVolume: inferVolumeName,
 			}, nil, false,
@@ -657,7 +656,7 @@ var _ = Describe("InferFromVolume", func() {
 					},
 				},
 			},
-			fmt.Sprintf("persistentvolumeclaims \"%s\" not found", unknownPVCName),
+			fmt.Sprintf("persistentvolumeclaims %q not found", unknownPVCName),
 			&v1.InstancetypeMatcher{
 				InferFromVolume:              inferVolumeName,
 				InferFromVolumeFailurePolicy: pointer.P(v1.IgnoreInferFromVolumeFailure),
@@ -671,7 +670,7 @@ var _ = Describe("InferFromVolume", func() {
 					},
 				},
 			},
-			fmt.Sprintf("persistentvolumeclaims \"%s\" not found", unknownPVCName),
+			fmt.Sprintf("persistentvolumeclaims %q not found", unknownPVCName),
 			&v1.InstancetypeMatcher{
 				InferFromVolume:              inferVolumeName,
 				InferFromVolumeFailurePolicy: pointer.P(v1.RejectInferFromVolumeFailure),
@@ -685,7 +684,7 @@ var _ = Describe("InferFromVolume", func() {
 					},
 				},
 			},
-			fmt.Sprintf("persistentvolumeclaims \"%s\" not found", unknownPVCName),
+			fmt.Sprintf("persistentvolumeclaims %q not found", unknownPVCName),
 			nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume: inferVolumeName,
@@ -699,7 +698,7 @@ var _ = Describe("InferFromVolume", func() {
 					},
 				},
 			},
-			fmt.Sprintf("persistentvolumeclaims \"%s\" not found", unknownPVCName),
+			fmt.Sprintf("persistentvolumeclaims %q not found", unknownPVCName),
 			nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume:              inferVolumeName,
@@ -714,7 +713,7 @@ var _ = Describe("InferFromVolume", func() {
 					},
 				},
 			},
-			fmt.Sprintf("persistentvolumeclaims \"%s\" not found", unknownPVCName),
+			fmt.Sprintf("persistentvolumeclaims %q not found", unknownPVCName),
 			nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume:              inferVolumeName,
@@ -726,7 +725,7 @@ var _ = Describe("InferFromVolume", func() {
 				DataVolume: &v1.DataVolumeSource{
 					Name: unknownDVName,
 				},
-			}, fmt.Sprintf("persistentvolumeclaims \"%s\" not found", unknownDVName),
+			}, fmt.Sprintf("persistentvolumeclaims %q not found", unknownDVName),
 			&v1.InstancetypeMatcher{
 				InferFromVolume: inferVolumeName,
 			}, nil, false,
@@ -736,7 +735,7 @@ var _ = Describe("InferFromVolume", func() {
 				DataVolume: &v1.DataVolumeSource{
 					Name: unknownDVName,
 				},
-			}, fmt.Sprintf("persistentvolumeclaims \"%s\" not found", unknownDVName),
+			}, fmt.Sprintf("persistentvolumeclaims %q not found", unknownDVName),
 			&v1.InstancetypeMatcher{
 				InferFromVolume:              inferVolumeName,
 				InferFromVolumeFailurePolicy: pointer.P(v1.IgnoreInferFromVolumeFailure),
@@ -747,7 +746,7 @@ var _ = Describe("InferFromVolume", func() {
 				DataVolume: &v1.DataVolumeSource{
 					Name: unknownDVName,
 				},
-			}, fmt.Sprintf("persistentvolumeclaims \"%s\" not found", unknownDVName),
+			}, fmt.Sprintf("persistentvolumeclaims %q not found", unknownDVName),
 			&v1.InstancetypeMatcher{
 				InferFromVolume:              inferVolumeName,
 				InferFromVolumeFailurePolicy: pointer.P(v1.RejectInferFromVolumeFailure),
@@ -758,7 +757,7 @@ var _ = Describe("InferFromVolume", func() {
 				DataVolume: &v1.DataVolumeSource{
 					Name: unknownDVName,
 				},
-			}, fmt.Sprintf("persistentvolumeclaims \"%s\" not found", unknownDVName),
+			}, fmt.Sprintf("persistentvolumeclaims %q not found", unknownDVName),
 			nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume: inferVolumeName,
@@ -769,7 +768,7 @@ var _ = Describe("InferFromVolume", func() {
 				DataVolume: &v1.DataVolumeSource{
 					Name: unknownDVName,
 				},
-			}, fmt.Sprintf("persistentvolumeclaims \"%s\" not found", unknownDVName),
+			}, fmt.Sprintf("persistentvolumeclaims %q not found", unknownDVName),
 			nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume:              inferVolumeName,
@@ -781,7 +780,7 @@ var _ = Describe("InferFromVolume", func() {
 				DataVolume: &v1.DataVolumeSource{
 					Name: unknownDVName,
 				},
-			}, fmt.Sprintf("persistentvolumeclaims \"%s\" not found", unknownDVName),
+			}, fmt.Sprintf("persistentvolumeclaims %q not found", unknownDVName),
 			nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume:              inferVolumeName,
