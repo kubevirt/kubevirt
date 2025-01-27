@@ -1,4 +1,4 @@
-//nolint:gocritic,lll,govet
+//nolint:gocritic,lll
 package infer_test
 
 import (
@@ -90,7 +90,8 @@ var _ = Describe("InferFromVolume", func() {
 				},
 			},
 		}
-		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Create(context.Background(), pvc, k8smetav1.CreateOptions{})
+		var err error
+		pvc, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Create(context.Background(), pvc, k8smetav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		dvWithSourcePVC = &cdiv1.DataVolume{
