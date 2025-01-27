@@ -169,7 +169,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(createdCR).To(Equal(clusterInstancetypeControllerRevision))
 			})
 
-			It("store returns a nil revision when RevisionName already populated", func() {
+			It("store succeeds when RevisionName already populated", func() {
 				clusterInstancetypeControllerRevision, err := revision.CreateControllerRevision(vm, clusterInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -291,7 +291,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 
-			It("store returns a nil revision when RevisionName already populated", func() {
+			It("store succeeds when RevisionName already populated", func() {
 				instancetypeControllerRevision, err := revision.CreateControllerRevision(vm, fakeInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -413,7 +413,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 
-			It("store returns nil revision when RevisionName already populated", func() {
+			It("store succeeds when RevisionName already populated", func() {
 				clusterPreferenceControllerRevision, err := revision.CreateControllerRevision(vm, clusterPreference)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -514,7 +514,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
 
-			It("store returns nil revision when RevisionName already populated", func() {
+			It("store succeeds when RevisionName already populated", func() {
 				preferenceControllerRevision, err := revision.CreateControllerRevision(vm, preference)
 				Expect(err).ToNot(HaveOccurred())
 
