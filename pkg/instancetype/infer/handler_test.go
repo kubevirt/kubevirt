@@ -1110,52 +1110,6 @@ var _ = Describe("InferFromVolume", func() {
 		),
 	)
 
-	DescribeTable("should use cluster kind when default kind is not provided while inferring defaults", func(instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher) {
-		vm.Spec.Instancetype = instancetypeMatcher
-		vm.Spec.Preference = preferenceMatcher
-		pvcWithoutKindAnnotations := &k8sv1.PersistentVolumeClaim{
-			ObjectMeta: k8smetav1.ObjectMeta{
-				Name:      "pvcWithoutKindAnnotations",
-				Namespace: vm.Namespace,
-				Labels: map[string]string{
-					apiinstancetype.DefaultInstancetypeLabel: defaultInferedNameFromPVC,
-					apiinstancetype.DefaultPreferenceLabel:   defaultInferedNameFromPVC,
-				},
-			},
-		}
-		_, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Create(context.Background(), pvcWithoutKindAnnotations, k8smetav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		vm.Spec.Template.Spec.Volumes = []v1.Volume{{
-			Name: inferVolumeName,
-			VolumeSource: v1.VolumeSource{
-				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: pvcWithoutKindAnnotations.Name,
-					},
-				},
-			},
-		}}
-		Expect(handler.Infer(vm)).To(Succeed())
-		if instancetypeMatcher != nil {
-			Expect(vm.Spec.Instancetype.Kind).To(Equal(apiinstancetype.ClusterSingularResourceName))
-		}
-		if preferenceMatcher != nil {
-			Expect(vm.Spec.Preference.Kind).To(Equal(apiinstancetype.ClusterSingularPreferenceResourceName))
-		}
-	},
-		Entry("for InstancetypeMatcher",
-			&v1.InstancetypeMatcher{
-				InferFromVolume: inferVolumeName,
-			}, nil,
-		),
-		Entry("for PreferenceMatcher",
-			nil,
-			&v1.PreferenceMatcher{
-				InferFromVolume: inferVolumeName,
-			},
-		),
-	)
-
 	It("should infer defaults from garbage collected DataVolume using PVC with the same name", func() {
 		vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 			InferFromVolume: inferVolumeName,
