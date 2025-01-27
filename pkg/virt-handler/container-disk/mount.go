@@ -307,7 +307,12 @@ func (m *mounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*co
 				}
 			}
 
-			imageInfo, err := isolation.GetImageInfo(containerdisk.GetDiskTargetPathFromLauncherView(i), vmiRes, m.clusterConfig.GetDiskVerification())
+			// if ImageVolume is enabled ContainerDiskExist would return false and we would never get here
+			diskPath, err := containerdisk.GetDiskTargetPathFromLauncherView(i, false, volume.ContainerDisk.Path)
+			if err != nil {
+				return nil, err
+			}
+			imageInfo, err := isolation.GetImageInfo(diskPath, vmiRes, m.clusterConfig.GetDiskVerification())
 			if err != nil {
 				return nil, fmt.Errorf("failed to get image info: %v", err)
 			}

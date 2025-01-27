@@ -1250,7 +1250,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					VirtualMachine: newVMI,
 					AllowEmulation: true,
 				}
-				err = converter.Convert_v1_VirtualMachineInstance_To_api_Domain(newVMI, domain, context)
+				err = converter.Convert_v1_VirtualMachineInstance_To_api_Domain(newVMI, domain, false, context)
 				Expect(err).ToNot(HaveOccurred())
 
 				expectedType := ""

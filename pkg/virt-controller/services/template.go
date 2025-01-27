@@ -427,6 +427,9 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		if nonRoot {
 			command = append(command, "--run-as-nonroot")
 		}
+		if t.clusterConfig.ImageVolumeEnabled() {
+			command = append(command, "--image-volume")
+		}
 		if customDebugFilters, exists := vmi.Annotations[v1.CustomLibvirtLogFiltersAnnotation]; exists {
 			log.Log.Object(vmi).Infof("Applying custom debug filters for vmi %s: %s", vmi.Name, customDebugFilters)
 			command = append(command, "--libvirt-log-filters", customDebugFilters)
@@ -810,12 +813,13 @@ func (t *templateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 }
 
 func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, namespace string, requestedHookSidecarList hooks.HookSidecarList, backendStoragePVCName string) (*VolumeRenderer, error) {
+	imageVolumeFeatureGateEnabled := t.clusterConfig.ImageVolumeEnabled()
 	volumeOpts := []VolumeRendererOption{
 		withVMIConfigVolumes(vmi.Spec.Domain.Devices.Disks, vmi.Spec.Volumes),
 		withVMIVolumes(t.persistentVolumeClaimStore, vmi.Spec.Volumes, vmi.Status.VolumeStatus),
 		withAccessCredentials(vmi.Spec.AccessCredentials),
 		withBackendStorage(vmi, backendStoragePVCName),
-		withImageVolumes(vmi, t.clusterConfig.ImageVolumeEnabled()),
+		withImageVolumes(vmi, imageVolumeFeatureGateEnabled),
 	}
 	if len(requestedHookSidecarList) != 0 {
 		volumeOpts = append(volumeOpts, withSidecarVolumes(requestedHookSidecarList))
@@ -843,6 +847,7 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 	}
 
 	volumeRenderer, err := NewVolumeRenderer(
+		imageVolumeFeatureGateEnabled,
 		namespace,
 		t.ephemeralDiskDir,
 		t.containerDiskDir,

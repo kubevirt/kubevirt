@@ -544,10 +544,10 @@ func Add_Agent_To_api_Channel() (channel api.Channel) {
 	return
 }
 
-func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *ConverterContext, diskIndex int) error {
+func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *ConverterContext, diskIndex int, imageVolumeFeatureGateEnabled bool) error {
 
 	if source.ContainerDisk != nil {
-		return Convert_v1_ContainerDiskSource_To_api_Disk(source.Name, source.ContainerDisk, disk, c, diskIndex)
+		return Convert_v1_ContainerDiskSource_To_api_Disk(source, source.ContainerDisk, disk, c, diskIndex, imageVolumeFeatureGateEnabled)
 	}
 
 	if source.CloudInitNoCloud != nil || source.CloudInitConfigDrive != nil {
@@ -798,7 +798,7 @@ func Convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSo
 	return nil
 }
 
-func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.ContainerDiskSource, disk *api.Disk, c *ConverterContext, diskIndex int) error {
+func Convert_v1_ContainerDiskSource_To_api_Disk(volume *v1.Volume, _ *v1.ContainerDiskSource, disk *api.Disk, c *ConverterContext, diskIndex int, imageVolumeFeatureGateEnabled bool) error {
 	if disk.Type == "lun" {
 		return fmt.Errorf(deviceTypeNotCompatibleFmt, disk.Alias.GetName())
 	}
@@ -806,13 +806,16 @@ func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.Contain
 	disk.Driver.Type = "qcow2"
 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
 	disk.Driver.Discard = "unmap"
-	disk.Source.File = c.EphemeraldiskCreator.GetFilePath(volumeName)
+	disk.Source.File = c.EphemeraldiskCreator.GetFilePath(volume.Name)
 	disk.BackingStore = &api.BackingStore{
 		Format: &api.BackingStoreFormat{},
 		Source: &api.DiskSource{},
 	}
 
-	backingFile := containerdisk.GetDiskTargetPathFromLauncherView(diskIndex)
+	backingFile, err := containerdisk.GetDiskTargetPathFromLauncherView(diskIndex, imageVolumeFeatureGateEnabled, volume.ContainerDisk.Path)
+	if err != nil {
+		return err
+	}
 	info, err := containerdisk.GetDiskInfo(backingFile)
 	if err != nil {
 		return err
@@ -1380,7 +1383,7 @@ func setIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus uint
 	}
 }
 
-func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) (err error) {
+func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *api.Domain, imageVolumeFeatureGateEnabled bool, c *ConverterContext) (err error) {
 	var controllerDriver *api.ControllerDriver
 
 	precond.MustNotBeNil(vmi)
@@ -1588,7 +1591,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 
 		if _, ok := c.HotplugVolumes[disk.Name]; !ok {
-			err = Convert_v1_Volume_To_api_Disk(volume, &newDisk, c, volumeIndices[disk.Name])
+			err = Convert_v1_Volume_To_api_Disk(volume, &newDisk, c, volumeIndices[disk.Name], imageVolumeFeatureGateEnabled)
 		} else {
 			err = Convert_v1_Hotplug_Volume_To_api_Disk(volume, &newDisk, c)
 		}
