@@ -102,20 +102,6 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	Context("store preference", func() {
-		It("store returns error when preferenceMatcher kind is invalid", func() {
-			vm.Spec.Preference = &virtv1.PreferenceMatcher{
-				Kind: "foobar",
-			}
-			Expect(storeHandler.Store(vm)).To(MatchError(ContainSubstring("got unexpected kind in PreferenceMatcher")))
-		})
-
-		It("store returns nil when no preference is specified", func() {
-			vm.Spec.Preference = nil
-			Expect(storeHandler.Store(vm)).To(Succeed())
-		})
-	})
-
 	Context("store instancetype", func() {
 		It("store returns error when instancetypeMatcher kind is invalid", func() {
 			vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
@@ -242,318 +228,332 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 					conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "cpu", "cores")}))
 			})
 		})
+
+		Context("using namespaced Instancetype", func() {
+			var fakeInstancetype *instancetypev1beta1.VirtualMachineInstancetype
+
+			BeforeEach(func() {
+				fakeInstancetype = &instancetypev1beta1.VirtualMachineInstancetype{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "VirtualMachineInstancetype",
+						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "test-instancetype",
+						Namespace:  vm.Namespace,
+						UID:        resourceUID,
+						Generation: resourceGeneration,
+					},
+					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1beta1.CPUInstancetype{
+							Guest: uint32(2),
+						},
+						Memory: instancetypev1beta1.MemoryInstancetype{
+							Guest: resource.MustParse("128Mi"),
+						},
+					},
+				}
+
+				_, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(
+					context.Background(), fakeInstancetype, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				err = instancetypeInformerStore.Add(fakeInstancetype)
+				Expect(err).ToNot(HaveOccurred())
+
+				vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
+					Name: fakeInstancetype.Name,
+					Kind: apiinstancetype.SingularResourceName,
+				}
+
+				_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("store VirtualMachineInstancetype ControllerRevision", func() {
+				instancetypeControllerRevision, err := revision.CreateControllerRevision(vm, fakeInstancetype)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
+
+				createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+					context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(createdCR).To(Equal(instancetypeControllerRevision))
+			})
+
+			It("store fails when instancetype does not exist", func() {
+				vm.Spec.Instancetype.Name = nonExistingResourceName
+				err := storeHandler.Store(vm)
+				Expect(err).To(HaveOccurred())
+				Expect(errors.IsNotFound(err)).To(BeTrue())
+			})
+
+			It("store returns a nil revision when RevisionName already populated", func() {
+				instancetypeControllerRevision, err := revision.CreateControllerRevision(vm, fakeInstancetype)
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+					context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
+					Name:         fakeInstancetype.Name,
+					RevisionName: instancetypeControllerRevision.Name,
+					Kind:         apiinstancetype.SingularResourceName,
+				}
+
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
+			})
+
+			It("store ControllerRevision succeeds if a revision exists with expected data", func() {
+				instancetypeControllerRevision, err := revision.CreateControllerRevision(vm, fakeInstancetype)
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+					context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
+			})
+
+			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
+				unexpectedInstancetype := fakeInstancetype.DeepCopy()
+				unexpectedInstancetype.Spec.CPU.Guest = 15
+
+				instancetypeControllerRevision, err := revision.CreateControllerRevision(vm, unexpectedInstancetype)
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+					context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(storeHandler.Store(vm)).To(MatchError(ContainSubstring("found existing ControllerRevision with unexpected data")))
+			})
+
+			It("store ControllerRevision fails if instancetype conflicts with vm", func() {
+				vm.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{
+					Cores: 1,
+				}
+				Expect(storeHandler.Store(vm)).To(MatchError(conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "cpu", "cores")}))
+			})
+		})
 	})
-
-	Context("using namespaced Instancetype", func() {
-		var fakeInstancetype *instancetypev1beta1.VirtualMachineInstancetype
-
-		BeforeEach(func() {
-			fakeInstancetype = &instancetypev1beta1.VirtualMachineInstancetype{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "VirtualMachineInstancetype",
-					APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "test-instancetype",
-					Namespace:  vm.Namespace,
-					UID:        resourceUID,
-					Generation: resourceGeneration,
-				},
-				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1beta1.CPUInstancetype{
-						Guest: uint32(2),
-					},
-					Memory: instancetypev1beta1.MemoryInstancetype{
-						Guest: resource.MustParse("128Mi"),
-					},
-				},
-			}
-
-			_, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(
-				context.Background(), fakeInstancetype, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			err = instancetypeInformerStore.Add(fakeInstancetype)
-			Expect(err).ToNot(HaveOccurred())
-
-			vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
-				Name: fakeInstancetype.Name,
-				Kind: apiinstancetype.SingularResourceName,
-			}
-
-			_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("store VirtualMachineInstancetype ControllerRevision", func() {
-			instancetypeControllerRevision, err := revision.CreateControllerRevision(vm, fakeInstancetype)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(storeHandler.Store(vm)).To(Succeed())
-			Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
-
-			createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
-				context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(createdCR).To(Equal(instancetypeControllerRevision))
-		})
-
-		It("store fails when instancetype does not exist", func() {
-			vm.Spec.Instancetype.Name = nonExistingResourceName
-			err := storeHandler.Store(vm)
-			Expect(err).To(HaveOccurred())
-			Expect(errors.IsNotFound(err)).To(BeTrue())
-		})
-
-		It("store returns a nil revision when RevisionName already populated", func() {
-			instancetypeControllerRevision, err := revision.CreateControllerRevision(vm, fakeInstancetype)
-			Expect(err).ToNot(HaveOccurred())
-
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
-				Name:         fakeInstancetype.Name,
-				RevisionName: instancetypeControllerRevision.Name,
-				Kind:         apiinstancetype.SingularResourceName,
-			}
-
-			Expect(storeHandler.Store(vm)).To(Succeed())
-			Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
-		})
-
-		It("store ControllerRevision succeeds if a revision exists with expected data", func() {
-			instancetypeControllerRevision, err := revision.CreateControllerRevision(vm, fakeInstancetype)
-			Expect(err).ToNot(HaveOccurred())
-
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(storeHandler.Store(vm)).To(Succeed())
-			Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
-		})
-
-		It("store ControllerRevision fails if a revision exists with unexpected data", func() {
-			unexpectedInstancetype := fakeInstancetype.DeepCopy()
-			unexpectedInstancetype.Spec.CPU.Guest = 15
-
-			instancetypeControllerRevision, err := revision.CreateControllerRevision(vm, unexpectedInstancetype)
-			Expect(err).ToNot(HaveOccurred())
-
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(storeHandler.Store(vm)).To(MatchError(ContainSubstring("found existing ControllerRevision with unexpected data")))
-		})
-
-		It("store ControllerRevision fails if instancetype conflicts with vm", func() {
-			vm.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{
-				Cores: 1,
-			}
-			Expect(storeHandler.Store(vm)).To(MatchError(conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "cpu", "cores")}))
-		})
-	})
-	Context("using global ClusterPreference", func() {
-		var clusterPreference *instancetypev1beta1.VirtualMachineClusterPreference
-
-		BeforeEach(func() {
-			preferredCPUTopology := instancetypev1beta1.Cores
-			clusterPreference = &instancetypev1beta1.VirtualMachineClusterPreference{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "VirtualMachineClusterPreference",
-					APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "test-cluster-preference",
-					UID:        resourceUID,
-					Generation: resourceGeneration,
-				},
-				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: &preferredCPUTopology,
-					},
-				},
-			}
-
-			_, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), clusterPreference, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			err = clusterPreferenceInformerStore.Add(clusterPreference)
-			Expect(err).ToNot(HaveOccurred())
-
+	Context("store preference", func() {
+		It("store returns error when preferenceMatcher kind is invalid", func() {
 			vm.Spec.Preference = &virtv1.PreferenceMatcher{
-				Name: clusterPreference.Name,
-				Kind: apiinstancetype.ClusterSingularPreferenceResourceName,
+				Kind: "foobar",
 			}
-
-			_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			Expect(storeHandler.Store(vm)).To(MatchError(ContainSubstring("got unexpected kind in PreferenceMatcher")))
 		})
 
-		It("store VirtualMachineClusterPreference ControllerRevision", func() {
-			clusterPreferenceControllerRevision, err := revision.CreateControllerRevision(vm, clusterPreference)
-			Expect(err).ToNot(HaveOccurred())
-
+		It("store returns nil when no preference is specified", func() {
+			vm.Spec.Preference = nil
 			Expect(storeHandler.Store(vm)).To(Succeed())
-			Expect(vm.Spec.Preference.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
-
-			createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
-				context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(createdCR).To(Equal(clusterPreferenceControllerRevision))
 		})
+		Context("using global ClusterPreference", func() {
+			var clusterPreference *instancetypev1beta1.VirtualMachineClusterPreference
 
-		It("store fails when VirtualMachineClusterPreference doesn't exist", func() {
-			vm.Spec.Preference.Name = nonExistingResourceName
-			err := storeHandler.Store(vm)
-			Expect(err).To(HaveOccurred())
-			Expect(errors.IsNotFound(err)).To(BeTrue())
-		})
-
-		It("store returns nil revision when RevisionName already populated", func() {
-			clusterPreferenceControllerRevision, err := revision.CreateControllerRevision(vm, clusterPreference)
-			Expect(err).ToNot(HaveOccurred())
-
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), clusterPreferenceControllerRevision, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			vm.Spec.Preference.RevisionName = clusterPreferenceControllerRevision.Name
-
-			Expect(storeHandler.Store(vm)).To(Succeed())
-			Expect(vm.Spec.Preference.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
-		})
-
-		It("store ControllerRevision succeeds if a revision exists with expected data", func() {
-			clusterPreferenceControllerRevision, err := revision.CreateControllerRevision(vm, clusterPreference)
-			Expect(err).ToNot(HaveOccurred())
-
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), clusterPreferenceControllerRevision, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(storeHandler.Store(vm)).To(Succeed())
-			Expect(vm.Spec.Preference.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
-		})
-
-		It("store ControllerRevision fails if a revision exists with unexpected data", func() {
-			unexpectedPreference := clusterPreference.DeepCopy()
-			preferredCPUTopology := instancetypev1beta1.Threads
-			unexpectedPreference.Spec.CPU.PreferredCPUTopology = &preferredCPUTopology
-
-			clusterPreferenceControllerRevision, err := revision.CreateControllerRevision(vm, unexpectedPreference)
-			Expect(err).ToNot(HaveOccurred())
-
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), clusterPreferenceControllerRevision, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(storeHandler.Store(vm)).To(MatchError(ContainSubstring("found existing ControllerRevision with unexpected data")))
-		})
-	})
-	Context("using namespaced Preference", func() {
-		var preference *instancetypev1beta1.VirtualMachinePreference
-
-		BeforeEach(func() {
-			preferredCPUTopology := instancetypev1beta1.Cores
-			preference = &instancetypev1beta1.VirtualMachinePreference{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "VirtualMachinePreference",
-					APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "test-preference",
-					Namespace:  vm.Namespace,
-					UID:        resourceUID,
-					Generation: resourceGeneration,
-				},
-				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: &preferredCPUTopology,
+			BeforeEach(func() {
+				preferredCPUTopology := instancetypev1beta1.Cores
+				clusterPreference = &instancetypev1beta1.VirtualMachineClusterPreference{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "VirtualMachineClusterPreference",
+						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
 					},
-				},
-			}
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "test-cluster-preference",
+						UID:        resourceUID,
+						Generation: resourceGeneration,
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1beta1.CPUPreferences{
+							PreferredCPUTopology: &preferredCPUTopology,
+						},
+					},
+				}
 
-			_, err := virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+				_, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), clusterPreference, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
-			err = preferenceInformerStore.Add(preference)
-			Expect(err).ToNot(HaveOccurred())
+				err = clusterPreferenceInformerStore.Add(clusterPreference)
+				Expect(err).ToNot(HaveOccurred())
 
-			vm.Spec.Preference = &virtv1.PreferenceMatcher{
-				Name: preference.Name,
-				Kind: apiinstancetype.SingularPreferenceResourceName,
-			}
+				vm.Spec.Preference = &virtv1.PreferenceMatcher{
+					Name: clusterPreference.Name,
+					Kind: apiinstancetype.ClusterSingularPreferenceResourceName,
+				}
 
-			_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+				_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("store VirtualMachineClusterPreference ControllerRevision", func() {
+				clusterPreferenceControllerRevision, err := revision.CreateControllerRevision(vm, clusterPreference)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Spec.Preference.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
+
+				createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+					context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(createdCR).To(Equal(clusterPreferenceControllerRevision))
+			})
+
+			It("store fails when VirtualMachineClusterPreference doesn't exist", func() {
+				vm.Spec.Preference.Name = nonExistingResourceName
+				err := storeHandler.Store(vm)
+				Expect(err).To(HaveOccurred())
+				Expect(errors.IsNotFound(err)).To(BeTrue())
+			})
+
+			It("store returns nil revision when RevisionName already populated", func() {
+				clusterPreferenceControllerRevision, err := revision.CreateControllerRevision(vm, clusterPreference)
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+					context.Background(), clusterPreferenceControllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vm.Spec.Preference.RevisionName = clusterPreferenceControllerRevision.Name
+
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Spec.Preference.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
+			})
+
+			It("store ControllerRevision succeeds if a revision exists with expected data", func() {
+				clusterPreferenceControllerRevision, err := revision.CreateControllerRevision(vm, clusterPreference)
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+					context.Background(), clusterPreferenceControllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Spec.Preference.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
+			})
+
+			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
+				unexpectedPreference := clusterPreference.DeepCopy()
+				preferredCPUTopology := instancetypev1beta1.Threads
+				unexpectedPreference.Spec.CPU.PreferredCPUTopology = &preferredCPUTopology
+
+				clusterPreferenceControllerRevision, err := revision.CreateControllerRevision(vm, unexpectedPreference)
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+					context.Background(), clusterPreferenceControllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(storeHandler.Store(vm)).To(MatchError(ContainSubstring("found existing ControllerRevision with unexpected data")))
+			})
 		})
 
-		It("store VirtualMachinePreference ControllerRevision", func() {
-			preferenceControllerRevision, err := revision.CreateControllerRevision(vm, preference)
-			Expect(err).ToNot(HaveOccurred())
+		Context("using namespaced Preference", func() {
+			var preference *instancetypev1beta1.VirtualMachinePreference
 
-			Expect(storeHandler.Store(vm)).To(Succeed())
-			Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceControllerRevision.Name))
+			BeforeEach(func() {
+				preferredCPUTopology := instancetypev1beta1.Cores
+				preference = &instancetypev1beta1.VirtualMachinePreference{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "VirtualMachinePreference",
+						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "test-preference",
+						Namespace:  vm.Namespace,
+						UID:        resourceUID,
+						Generation: resourceGeneration,
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1beta1.CPUPreferences{
+							PreferredCPUTopology: &preferredCPUTopology,
+						},
+					},
+				}
 
-			createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
-				context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
+				_, err := virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
-			Expect(createdCR).To(Equal(preferenceControllerRevision))
-		})
+				err = preferenceInformerStore.Add(preference)
+				Expect(err).ToNot(HaveOccurred())
 
-		It("store fails when VirtualMachinePreference doesn't exist", func() {
-			vm.Spec.Preference.Name = nonExistingResourceName
-			err := storeHandler.Store(vm)
-			Expect(err).To(HaveOccurred())
-			Expect(errors.IsNotFound(err)).To(BeTrue())
-		})
+				vm.Spec.Preference = &virtv1.PreferenceMatcher{
+					Name: preference.Name,
+					Kind: apiinstancetype.SingularPreferenceResourceName,
+				}
 
-		It("store returns nil revision when RevisionName already populated", func() {
-			preferenceControllerRevision, err := revision.CreateControllerRevision(vm, preference)
-			Expect(err).ToNot(HaveOccurred())
+				_, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			})
 
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), preferenceControllerRevision, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			It("store VirtualMachinePreference ControllerRevision", func() {
+				preferenceControllerRevision, err := revision.CreateControllerRevision(vm, preference)
+				Expect(err).ToNot(HaveOccurred())
 
-			vm.Spec.Preference.RevisionName = preferenceControllerRevision.Name
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceControllerRevision.Name))
 
-			Expect(storeHandler.Store(vm)).To(Succeed())
-			Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceControllerRevision.Name))
-		})
+				createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+					context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
-		It("store ControllerRevision succeeds if a revision exists with expected data", func() {
-			preferenceControllerRevision, err := revision.CreateControllerRevision(vm, preference)
-			Expect(err).ToNot(HaveOccurred())
+				Expect(createdCR).To(Equal(preferenceControllerRevision))
+			})
 
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), preferenceControllerRevision, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			It("store fails when VirtualMachinePreference doesn't exist", func() {
+				vm.Spec.Preference.Name = nonExistingResourceName
+				err := storeHandler.Store(vm)
+				Expect(err).To(HaveOccurred())
+				Expect(errors.IsNotFound(err)).To(BeTrue())
+			})
 
-			Expect(storeHandler.Store(vm)).To(Succeed())
-			Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceControllerRevision.Name))
-		})
+			It("store returns nil revision when RevisionName already populated", func() {
+				preferenceControllerRevision, err := revision.CreateControllerRevision(vm, preference)
+				Expect(err).ToNot(HaveOccurred())
 
-		It("store ControllerRevision fails if a revision exists with unexpected data", func() {
-			unexpectedPreference := preference.DeepCopy()
-			preferredCPUTopology := instancetypev1beta1.Threads
-			unexpectedPreference.Spec.CPU.PreferredCPUTopology = &preferredCPUTopology
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+					context.Background(), preferenceControllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
-			preferenceControllerRevision, err := revision.CreateControllerRevision(vm, unexpectedPreference)
-			Expect(err).ToNot(HaveOccurred())
+				vm.Spec.Preference.RevisionName = preferenceControllerRevision.Name
 
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), preferenceControllerRevision, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceControllerRevision.Name))
+			})
 
-			Expect(storeHandler.Store(vm)).To(MatchError(ContainSubstring("found existing ControllerRevision with unexpected data")))
+			It("store ControllerRevision succeeds if a revision exists with expected data", func() {
+				preferenceControllerRevision, err := revision.CreateControllerRevision(vm, preference)
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+					context.Background(), preferenceControllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceControllerRevision.Name))
+			})
+
+			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
+				unexpectedPreference := preference.DeepCopy()
+				preferredCPUTopology := instancetypev1beta1.Threads
+				unexpectedPreference.Spec.CPU.PreferredCPUTopology = &preferredCPUTopology
+
+				preferenceControllerRevision, err := revision.CreateControllerRevision(vm, unexpectedPreference)
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+					context.Background(), preferenceControllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(storeHandler.Store(vm)).To(MatchError(ContainSubstring("found existing ControllerRevision with unexpected data")))
+			})
 		})
 	})
 })
