@@ -61,29 +61,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		format.MaxLength = 0
 	})
 
-	createSnapshot := func(vm *virtv1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
-		var err error
-
-		snapshot := &snapshotv1.VirtualMachineSnapshot{
-			ObjectMeta: v1.ObjectMeta{
-				Name:      "snapshot-" + vm.Name,
-				Namespace: vm.Namespace,
-			},
-			Spec: snapshotv1.VirtualMachineSnapshotSpec{
-				Source: k8sv1.TypedLocalObjectReference{
-					APIGroup: pointer.P(vmAPIGroup),
-					Kind:     "VirtualMachine",
-					Name:     vm.Name,
-				},
-			},
-		}
-
-		snapshot, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, v1.CreateOptions{})
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-		return snapshot
-	}
-
 	waitSnapshotReady := func(snapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.VirtualMachineSnapshot {
 		var err error
 
@@ -873,4 +850,27 @@ func createSourceVM(options ...libvmi.Option) (*virtv1.VirtualMachine, error) {
 	By(fmt.Sprintf("Creating VM %s", vm.Name))
 	virtClient := kubevirt.Client()
 	return virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v1.CreateOptions{})
+}
+
+func createSnapshot(vm *virtv1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
+	var err error
+
+	snapshot := &snapshotv1.VirtualMachineSnapshot{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "snapshot-" + vm.Name,
+			Namespace: vm.Namespace,
+		},
+		Spec: snapshotv1.VirtualMachineSnapshotSpec{
+			Source: k8sv1.TypedLocalObjectReference{
+				APIGroup: pointer.P(vmAPIGroup),
+				Kind:     "VirtualMachine",
+				Name:     vm.Name,
+			},
+		},
+	}
+
+	snapshot, err = kubevirt.Client().VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, v1.CreateOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	return snapshot
 }
