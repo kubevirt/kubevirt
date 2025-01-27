@@ -61,18 +61,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		format.MaxLength = 0
 	})
 
-	filterOutIrrelevantKeys := func(in map[string]string) map[string]string {
-		out := make(map[string]string)
-
-		for key, val := range in {
-			if !strings.Contains(key, "kubevirt.io") && !strings.Contains(key, "kubemacpool.io") {
-				out[key] = val
-			}
-		}
-
-		return out
-	}
-
 	Context("VM clone", func() {
 
 		const (
@@ -874,4 +862,16 @@ func expectVMRunnable(vm *virtv1.VirtualMachine, login console.LoginToFunction) 
 	Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(Not(BeReady()))
 
 	return vm
+}
+
+func filterOutIrrelevantKeys(in map[string]string) map[string]string {
+	out := make(map[string]string)
+
+	for key, val := range in {
+		if !strings.Contains(key, "kubevirt.io") && !strings.Contains(key, "kubemacpool.io") {
+			out[key] = val
+		}
+	}
+
+	return out
 }
