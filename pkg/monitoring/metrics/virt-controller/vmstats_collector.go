@@ -212,8 +212,8 @@ func CollectVMsInfo(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResu
 			}
 		}
 
-		instanceType := getVMInstancetype(vm)
-		preference := getVMPreference(vm)
+		instanceType := instancetypeHandler.FetchNameFromVM(vm)
+		preference := instancetypeHandler.FetchPreferenceNameFromVM(vm)
 
 		results = append(results, operatormetrics.CollectorResult{
 			Metric: vmInfo,
@@ -228,42 +228,6 @@ func CollectVMsInfo(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResu
 	}
 
 	return results
-}
-
-func getVMInstancetype(vm *k6tv1.VirtualMachine) string {
-	instancetype := vm.Spec.Instancetype
-
-	if instancetype == nil {
-		return none
-	}
-
-	if instancetype.Kind == "VirtualMachineInstancetype" {
-		return fetchResourceName(instancetype.Name, instancetypeMethods.InstancetypeStore)
-	}
-
-	if instancetype.Kind == "VirtualMachineClusterInstancetype" {
-		return fetchResourceName(instancetype.Name, instancetypeMethods.ClusterInstancetypeStore)
-	}
-
-	return none
-}
-
-func getVMPreference(vm *k6tv1.VirtualMachine) string {
-	preference := vm.Spec.Preference
-
-	if preference == nil {
-		return none
-	}
-
-	if preference.Kind == "VirtualMachinePreference" {
-		return fetchResourceName(preference.Name, instancetypeMethods.PreferenceStore)
-	}
-
-	if preference.Kind == "VirtualMachineClusterPreference" {
-		return fetchResourceName(preference.Name, instancetypeMethods.ClusterPreferenceStore)
-	}
-
-	return none
 }
 
 func getVMStatusGroup(status k6tv1.VirtualMachinePrintableStatus) string {
@@ -289,7 +253,7 @@ func CollectResourceRequestsAndLimits(vms []*k6tv1.VirtualMachine) []operatormet
 	for _, vm := range vms {
 		// Apply any instance type and preference to a copy of the VM before proceeding
 		vmCopy := vm.DeepCopy()
-		_ = instancetypeMethods.ApplyToVM(vmCopy)
+		_ = instancetypeHandler.ApplyToVM(vmCopy)
 
 		// Memory requests and limits from domain resources
 		results = append(results, collectMemoryResourceRequestsFromDomainResources(vmCopy)...)

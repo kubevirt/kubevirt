@@ -18,7 +18,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/controller:go_default_library",
-        "//pkg/instancetype:go_default_library",
         "//pkg/monitoring/metrics/common/client:go_default_library",
         "//pkg/monitoring/metrics/common/workqueue:go_default_library",
         "//pkg/util/migrations:go_default_library",

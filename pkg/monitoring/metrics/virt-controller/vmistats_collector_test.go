@@ -32,7 +32,7 @@ import (
 	k6tv1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	instancetypemetrics "kubevirt.io/kubevirt/pkg/instancetype/controller/metrics"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -557,12 +557,13 @@ func setupTestCollector() {
 		ObjectMeta: newObjectMetaForInstancetypes("cp-managed", "kubevirt.io"),
 	})
 
-	instancetypeMethods = &instancetype.InstancetypeMethods{
-		InstancetypeStore:        instanceTypeInformer.GetStore(),
-		ClusterInstancetypeStore: clusterInstanceTypeInformer.GetStore(),
-		PreferenceStore:          preferenceInformer.GetStore(),
-		ClusterPreferenceStore:   clusterPreferenceInformer.GetStore(),
-	}
+	instancetypeHandler = instancetypemetrics.New(
+		instanceTypeInformer.GetStore(),
+		clusterInstanceTypeInformer.GetStore(),
+		preferenceInformer.GetStore(),
+		clusterPreferenceInformer.GetStore(),
+		nil, nil,
+	)
 
 	// Pod informer
 	kvPodInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
@@ -586,7 +587,7 @@ func setupTestCollector() {
 func newObjectMetaForInstancetypes(name, vendor string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name:   name,
-		Labels: map[string]string{instancetypeVendorLabel: vendor},
+		Labels: map[string]string{"instancetype.kubevirt.io/vendor": vendor},
 	}
 }
 

@@ -25,7 +25,6 @@ import (
 
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	k8sv1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
@@ -41,8 +40,7 @@ const (
 	none  = "<none>"
 	other = "<other>"
 
-	annotationPrefix        = "vm.kubevirt.io/"
-	instancetypeVendorLabel = "instancetype.kubevirt.io/vendor"
+	annotationPrefix = "vm.kubevirt.io/"
 )
 
 var (
@@ -149,8 +147,8 @@ func reportVmisStats(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Col
 
 func collectVMIInfo(vmi *k6tv1.VirtualMachineInstance) operatormetrics.CollectorResult {
 	os, workload, flavor := getSystemInfoFromAnnotations(vmi.Annotations)
-	instanceType := getVMIInstancetype(vmi)
-	preference := getVMIPreference(vmi)
+	instanceType := instancetypeHandler.FetchNameFromVMI(vmi)
+	preference := instancetypeHandler.FetchPreferenceNameFromVMI(vmi)
 	kernelRelease, guestOSMachineArch, name, versionID := getGuestOSInfo(vmi)
 	guestOSMachineType := getVMIMachine(vmi)
 	vmiPod := getVMIPod(vmi)
@@ -246,49 +244,6 @@ func getVMIPod(vmi *k6tv1.VirtualMachineInstance) string {
 	}
 
 	return none
-}
-
-func getVMIInstancetype(vmi *k6tv1.VirtualMachineInstance) string {
-	if instancetypeName, ok := vmi.Annotations[k6tv1.InstancetypeAnnotation]; ok {
-		return fetchResourceName(instancetypeName, instancetypeMethods.InstancetypeStore)
-	}
-
-	if instancetypeName, ok := vmi.Annotations[k6tv1.ClusterInstancetypeAnnotation]; ok {
-		return fetchResourceName(instancetypeName, instancetypeMethods.ClusterInstancetypeStore)
-	}
-
-	return none
-}
-
-func getVMIPreference(vmi *k6tv1.VirtualMachineInstance) string {
-	if instancetypeName, ok := vmi.Annotations[k6tv1.PreferenceAnnotation]; ok {
-		return fetchResourceName(instancetypeName, instancetypeMethods.PreferenceStore)
-	}
-
-	if instancetypeName, ok := vmi.Annotations[k6tv1.ClusterPreferenceAnnotation]; ok {
-		return fetchResourceName(instancetypeName, instancetypeMethods.ClusterPreferenceStore)
-	}
-
-	return none
-}
-
-func fetchResourceName(name string, store cache.Store) string {
-	obj, ok, err := store.GetByKey(name)
-	if err != nil || !ok {
-		return other
-	}
-
-	apiObj, ok := obj.(v1.Object)
-	if !ok {
-		return other
-	}
-
-	vendorName := apiObj.GetLabels()[instancetypeVendorLabel]
-	if _, isWhitelisted := whitelistedInstanceTypeVendors[vendorName]; isWhitelisted {
-		return name
-	}
-
-	return other
 }
 
 func getEvictionBlocker(vmi *k6tv1.VirtualMachineInstance) operatormetrics.CollectorResult {
