@@ -61,18 +61,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		format.MaxLength = 0
 	})
 
-	waitSnapshotReady := func(snapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.VirtualMachineSnapshot {
-		var err error
-
-		EventuallyWithOffset(1, func() bool {
-			snapshot, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Get(context.Background(), snapshot.Name, v1.GetOptions{})
-			ExpectWithOffset(1, err).ToNot(HaveOccurred())
-			return snapshot.Status != nil && snapshot.Status.ReadyToUse != nil && *snapshot.Status.ReadyToUse
-		}, 180*time.Second, time.Second).Should(BeTrue(), "snapshot should be ready")
-
-		return snapshot
-	}
-
 	waitSnapshotContentsExist := func(snapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.VirtualMachineSnapshot {
 		var contentsName string
 		EventuallyWithOffset(1, func() error {
@@ -869,6 +857,18 @@ func createSnapshot(vmName, vmNamespace string) *snapshotv1.VirtualMachineSnapsh
 
 	snapshot, err := kubevirt.Client().VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, v1.CreateOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	return snapshot
+}
+
+func waitSnapshotReady(snapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.VirtualMachineSnapshot {
+	var err error
+
+	EventuallyWithOffset(1, func() bool {
+		snapshot, err = kubevirt.Client().VirtualMachineSnapshot(snapshot.Namespace).Get(context.Background(), snapshot.Name, v1.GetOptions{})
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		return snapshot.Status != nil && snapshot.Status.ReadyToUse != nil && *snapshot.Status.ReadyToUse
+	}, 180*time.Second, time.Second).Should(BeTrue(), "snapshot should be ready")
 
 	return snapshot
 }
