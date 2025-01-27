@@ -568,7 +568,7 @@ var _ = Describe("InferFromVolume", func() {
 			vm.Spec.Preference = preferenceMatcher
 
 			// Remove all volumes to cause the failure
-			vm.Spec.Template.Spec.Volumes = []v1.Volume{}
+			vm.Spec.Template.Spec.Volumes = nil
 
 			Expect(handler.Infer(vm)).To(MatchError(ContainSubstring("unable to find volume %s to infer defaults", inferVolumeName)))
 		},
@@ -1221,8 +1221,7 @@ var _ = Describe("InferFromVolume", func() {
 			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())
 		} else {
 			Expect(vm.Spec.Template.Spec.Domain.Memory).ToNot(BeNil())
-			Expect(vm.Spec.Template.Spec.Domain.Memory.Guest).ToNot(BeNil())
-			Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(Equal(guestMemory))
+			Expect(*vm.Spec.Template.Spec.Domain.Memory.Guest).To(HaveValue(Equal(guestMemory)))
 		}
 	},
 		Entry("it should clear guest memory when ignoring inference failures", v1.IgnoreInferFromVolumeFailure, true),
