@@ -58,7 +58,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
@@ -148,8 +148,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 	Context("[storage-req]PVC expansion", decorators.StorageReq, decorators.RequiresVolumeExpansion, func() {
 		DescribeTable("PVC expansion is detected by VM and can be fully used", func(volumeMode k8sv1.PersistentVolumeMode) {
-			checks.SkipTestIfNoFeatureGate(virtconfig.ExpandDisksGate)
-
+			checks.SkipTestIfNoFeatureGate(featuregate.ExpandDisksGate)
 			var sc string
 			exists := false
 			if volumeMode == k8sv1.PersistentVolumeBlock {
@@ -228,7 +227,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		)
 
 		It("Check disk expansion accounts for actual usable size", func() {
-			checks.SkipTestIfNoFeatureGate(virtconfig.ExpandDisksGate)
+			checks.SkipTestIfNoFeatureGate(featuregate.ExpandDisksGate)
 
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {

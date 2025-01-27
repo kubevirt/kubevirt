@@ -278,6 +278,7 @@ func ifacesStatusFromDomainInterfaces(domainSpecIfaces []api.Interface) []v1.Vir
 			MAC:        domainSpecIface.MAC.MAC,
 			InfoSource: netvmispec.InfoSourceDomain,
 			QueueCount: domainInterfaceQueues(domainSpecIface.Driver),
+			LinkState:  linkStateFromDomain(domainSpecIface.LinkState),
 		})
 	}
 	return vmiStatusIfaces
@@ -289,6 +290,16 @@ func domainInterfaceQueues(driver *api.InterfaceDriver) int32 {
 	}
 
 	return DefaultInterfaceQueueCount
+}
+
+func linkStateFromDomain(linkState *api.LinkState) string {
+	const linkStateUp = "up"
+
+	if linkState == nil {
+		return linkStateUp
+	}
+
+	return linkState.State
 }
 
 func sriovIfacesStatusFromDomainHostDevices(hostDevices []api.HostDevice, vmiIfacesSpecByName map[string]v1.Interface) []v1.VirtualMachineInstanceNetworkInterface {

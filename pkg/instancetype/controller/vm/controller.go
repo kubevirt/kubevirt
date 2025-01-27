@@ -16,7 +16,7 @@
  * Copyright 2024 Red Hat, Inc.
  *
  */
-package controller
+package vm
 
 import (
 	"context"

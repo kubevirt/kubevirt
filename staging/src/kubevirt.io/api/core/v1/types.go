@@ -704,6 +704,8 @@ type VirtualMachineInstanceNetworkInterface struct {
 	InfoSource string `json:"infoSource,omitempty"`
 	// Specifies how many queues are allocated by MultiQueue
 	QueueCount int32 `json:"queueCount,omitempty"`
+	// LinkState Reports the current operational link state`. values: up, down.
+	LinkState string `json:"linkState,omitempty"`
 }
 
 type VirtualMachineInstanceGuestOSInfo struct {

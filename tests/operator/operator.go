@@ -72,7 +72,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -140,7 +140,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	var (
 		generateMigratableVMIs func(int) []*v1.VirtualMachineInstance
 		verifyVMIsUpdated      func([]*v1.VirtualMachineInstance)
-		verifyVMIsEvicted      func([]*v1.VirtualMachineInstance)
 	)
 
 	deprecatedBeforeAll(func() {
@@ -232,22 +231,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			)
 
 			return vmis
-		}
-
-		verifyVMIsEvicted = func(vmis []*v1.VirtualMachineInstance) {
-
-			Eventually(func() error {
-				for _, vmi := range vmis {
-					foundVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-					if err == nil && !foundVMI.IsFinal() {
-						return fmt.Errorf("waiting for vmi %s/%s to shutdown as part of update", foundVMI.Namespace, foundVMI.Name)
-					} else if !errors.IsNotFound(err) {
-						return err
-					}
-				}
-				return nil
-			}, 320, 1).Should(Succeed(), "All VMIs should delete automatically")
-
 		}
 
 		verifyVMIsUpdated = func(vmis []*v1.VirtualMachineInstance) {
@@ -2095,13 +2078,13 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	Context("with VMExport feature gate toggled", func() {
 
 		AfterEach(func() {
-			kvconfig.EnableFeatureGate(virtconfig.VMExportGate)
+			kvconfig.EnableFeatureGate(featuregate.VMExportGate)
 			testsuite.WaitExportProxyReady()
 		})
 
 		It("should delete and recreate virt-exportproxy", func() {
 			testsuite.WaitExportProxyReady()
-			kvconfig.DisableFeatureGate(virtconfig.VMExportGate)
+			kvconfig.DisableFeatureGate(featuregate.VMExportGate)
 
 			Eventually(func() error {
 				_, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
@@ -2119,14 +2102,14 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			enableSeccompFeature := func() {
 				//Disable feature first to simulate addition
-				kvconfig.DisableFeatureGate(virtconfig.KubevirtSeccompProfile)
-				kvconfig.EnableFeatureGate(virtconfig.KubevirtSeccompProfile)
+				kvconfig.DisableFeatureGate(featuregate.KubevirtSeccompProfile)
+				kvconfig.EnableFeatureGate(featuregate.KubevirtSeccompProfile)
 			}
 
 			disableSeccompFeature := func() {
 				//Enable feature first to simulate removal
-				kvconfig.EnableFeatureGate(virtconfig.KubevirtSeccompProfile)
-				kvconfig.DisableFeatureGate(virtconfig.KubevirtSeccompProfile)
+				kvconfig.EnableFeatureGate(featuregate.KubevirtSeccompProfile)
+				kvconfig.DisableFeatureGate(featuregate.KubevirtSeccompProfile)
 			}
 
 			enableKubevirtProfile := func(enable bool) {
@@ -3256,4 +3239,19 @@ func generateSnapshotsForVersion(vmYaml *vmYamlDefinition, version string, workD
 	})
 
 	return vmSnapshots, nil
+}
+
+func verifyVMIsEvicted(vmis []*v1.VirtualMachineInstance) {
+	Eventually(func() error {
+		for _, vmi := range vmis {
+			foundVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			if err == nil && !foundVMI.IsFinal() {
+				return fmt.Errorf("waiting for vmi %s/%s to shutdown as part of update", foundVMI.Namespace, foundVMI.Name)
+			} else if !errors.IsNotFound(err) {
+				return err
+			}
+		}
+		return nil
+	}, 320, 1).Should(Succeed(), "All VMIs should delete automatically")
+
 }

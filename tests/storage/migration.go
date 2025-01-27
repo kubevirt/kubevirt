@@ -52,7 +52,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -719,15 +720,15 @@ var _ = SIGDescribe("Volumes update with migration", decorators.RequiresTwoSched
 			var err error
 			virtClient, err = kubecli.GetKubevirtClient()
 			Expect(err).ToNot(HaveOccurred())
-			fgDisabled = !checks.HasFeature(virtconfig.HotplugVolumesGate)
+			fgDisabled = !checks.HasFeature(featuregate.HotplugVolumesGate)
 			if fgDisabled {
-				config.EnableFeatureGate(virtconfig.HotplugVolumesGate)
+				config.EnableFeatureGate(featuregate.HotplugVolumesGate)
 			}
 
 		})
 		AfterEach(func() {
 			if fgDisabled {
-				config.DisableFeatureGate(virtconfig.HotplugVolumesGate)
+				config.DisableFeatureGate(featuregate.HotplugVolumesGate)
 			}
 		})
 

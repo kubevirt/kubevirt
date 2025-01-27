@@ -36,6 +36,8 @@ import (
 var _ = Describe("netstat", func() {
 	var setup testSetup
 
+	const linkStateUp = "up"
+
 	BeforeEach(func() {
 		setup = newTestSetup()
 	})
@@ -116,6 +118,7 @@ var _ = Describe("netstat", func() {
 					IPs:        []string{primaryPodIPv4, primaryPodIPv6},
 					InfoSource: netvmispec.InfoSourceDomain,
 					QueueCount: netsetup.DefaultInterfaceQueueCount,
+					LinkState:  linkStateUp,
 				},
 				{
 					Name:       secondaryNetworkName,
@@ -123,6 +126,7 @@ var _ = Describe("netstat", func() {
 					IPs:        []string{secondaryPodIPv4, secondaryPodIPv6},
 					InfoSource: netvmispec.InfoSourceDomain,
 					QueueCount: netsetup.DefaultInterfaceQueueCount,
+					LinkState:  linkStateUp,
 				},
 			}), "the pod IP/s should be reported in the status")
 
@@ -153,6 +157,7 @@ var _ = Describe("netstat", func() {
 					IPs:        []string{primaryPodIPv4, primaryPodIPv6},
 					InfoSource: netvmispec.InfoSourceDomain,
 					QueueCount: int32(queueCount),
+					LinkState:  linkStateUp,
 				},
 			}), "queue count and the pod IP/s should be reported in the status")
 
@@ -195,6 +200,7 @@ var _ = Describe("netstat", func() {
 					MAC:           primaryMAC,
 					InfoSource:    netvmispec.InfoSourceDomainAndGA,
 					QueueCount:    netsetup.DefaultInterfaceQueueCount,
+					LinkState:     linkStateUp,
 				},
 				{
 					Name:          secondaryNetworkName,
@@ -202,6 +208,7 @@ var _ = Describe("netstat", func() {
 					MAC:           secondaryMAC,
 					InfoSource:    netvmispec.InfoSourceDomainAndGA,
 					QueueCount:    netsetup.DefaultInterfaceQueueCount,
+					LinkState:     linkStateUp,
 				},
 			}), "the pod & guest-agent IP/s should be reported in the status")
 
@@ -233,6 +240,7 @@ var _ = Describe("netstat", func() {
 					MAC:           primaryMAC,
 					InfoSource:    netvmispec.InfoSourceDomainAndGA,
 					QueueCount:    netsetup.DefaultInterfaceQueueCount,
+					LinkState:     linkStateUp,
 				},
 			}), "the guest-agent IP/s should be reported in the status")
 
@@ -284,6 +292,7 @@ var _ = Describe("netstat", func() {
 					MAC:           primaryMAC,
 					InfoSource:    infoSourceDomainGAMultus,
 					QueueCount:    netsetup.DefaultInterfaceQueueCount,
+					LinkState:     linkStateUp,
 				},
 				{
 					Name:          secondaryNetworkName,
@@ -293,6 +302,7 @@ var _ = Describe("netstat", func() {
 					MAC:           secondaryMAC,
 					InfoSource:    infoSourceDomainGAMultus,
 					QueueCount:    netsetup.DefaultInterfaceQueueCount,
+					LinkState:     linkStateUp,
 				},
 			}), "the pod IP/s should be reported in the status")
 
@@ -332,6 +342,7 @@ var _ = Describe("netstat", func() {
 					MAC:           primaryMAC,
 					InfoSource:    netvmispec.InfoSourceDomainAndGA,
 					QueueCount:    netsetup.DefaultInterfaceQueueCount,
+					LinkState:     linkStateUp,
 				},
 			}), "the pod IP/s should be reported in the status")
 
@@ -372,6 +383,7 @@ var _ = Describe("netstat", func() {
 					MAC:        newDomainMAC,
 					InfoSource: netvmispec.InfoSourceDomain,
 					QueueCount: netsetup.DefaultInterfaceQueueCount,
+					LinkState:  linkStateUp,
 				},
 			}), "the pod IP/s should be reported in the status")
 		})
@@ -441,6 +453,7 @@ var _ = Describe("netstat", func() {
 				MAC:           origMAC,
 				InfoSource:    netvmispec.InfoSourceDomainAndGA,
 				QueueCount:    netsetup.DefaultInterfaceQueueCount,
+				LinkState:     linkStateUp,
 			},
 		}), "the pod IP/s should be reported in the status")
 	})
@@ -502,6 +515,7 @@ var _ = Describe("netstat", func() {
 				IPs:        []string{primaryPodIPv4},
 				InfoSource: netvmispec.InfoSourceDomain,
 				QueueCount: netsetup.DefaultInterfaceQueueCount,
+				LinkState:  linkStateUp,
 			},
 			{
 				Name:       networkName,
@@ -597,6 +611,7 @@ var _ = Describe("netstat", func() {
 					MAC:        primaryMAC,
 					InfoSource: netvmispec.InfoSourceDomain,
 					QueueCount: netsetup.DefaultInterfaceQueueCount,
+					LinkState:  linkStateUp,
 				},
 				{
 					Name:       secondaryNetworkName,
@@ -605,6 +620,7 @@ var _ = Describe("netstat", func() {
 					MAC:        secondaryMAC,
 					InfoSource: netvmispec.InfoSourceDomain,
 					QueueCount: netsetup.DefaultInterfaceQueueCount,
+					LinkState:  linkStateUp,
 				},
 				{
 					Name:          "",
@@ -649,6 +665,7 @@ var _ = Describe("netstat", func() {
 					MAC:           primaryMAC,
 					InfoSource:    netvmispec.InfoSourceDomainAndGA,
 					QueueCount:    netsetup.DefaultInterfaceQueueCount,
+					LinkState:     linkStateUp,
 				},
 				{
 					Name:          secondaryNetworkName,
@@ -658,6 +675,7 @@ var _ = Describe("netstat", func() {
 					MAC:           secondaryMAC,
 					InfoSource:    netvmispec.InfoSourceDomainAndGA,
 					QueueCount:    netsetup.DefaultInterfaceQueueCount,
+					LinkState:     linkStateUp,
 				},
 				{
 					Name:          "",
@@ -682,6 +700,7 @@ var _ = Describe("netstat", func() {
 					MAC:        primaryMAC,
 					InfoSource: netvmispec.InfoSourceDomain,
 					QueueCount: netsetup.DefaultInterfaceQueueCount,
+					LinkState:  linkStateUp,
 				},
 				{
 					Name:       secondaryNetworkName,
@@ -690,6 +709,7 @@ var _ = Describe("netstat", func() {
 					MAC:        secondaryMAC,
 					InfoSource: netvmispec.InfoSourceDomain,
 					QueueCount: netsetup.DefaultInterfaceQueueCount,
+					LinkState:  linkStateUp,
 				},
 			}))
 		})
@@ -726,6 +746,7 @@ var _ = Describe("netstat", func() {
 					MAC:        primaryMAC,
 					InfoSource: netvmispec.InfoSourceDomain,
 					QueueCount: netsetup.DefaultInterfaceQueueCount,
+					LinkState:  linkStateUp,
 				},
 			}))
 		})
@@ -757,6 +778,7 @@ var _ = Describe("netstat", func() {
 					MAC:           primaryMAC,
 					InfoSource:    netvmispec.InfoSourceDomainAndGA,
 					QueueCount:    netsetup.DefaultInterfaceQueueCount,
+					LinkState:     linkStateUp,
 				},
 			}))
 		})
@@ -821,6 +843,7 @@ var _ = Describe("netstat", func() {
 					MAC:        MAC,
 					InfoSource: netvmispec.InfoSourceDomain,
 					QueueCount: netsetup.DefaultInterfaceQueueCount,
+					LinkState:  linkStateUp,
 				},
 				{
 					Name:       secNetworkName1,
@@ -829,6 +852,7 @@ var _ = Describe("netstat", func() {
 					MAC:        MAC1,
 					InfoSource: netvmispec.InfoSourceDomain,
 					QueueCount: netsetup.DefaultInterfaceQueueCount,
+					LinkState:  linkStateUp,
 				},
 				{
 					Name:       secNetworkName2,
@@ -837,6 +861,7 @@ var _ = Describe("netstat", func() {
 					MAC:        MAC2,
 					InfoSource: netvmispec.InfoSourceDomain,
 					QueueCount: netsetup.DefaultInterfaceQueueCount,
+					LinkState:  linkStateUp,
 				},
 			}))
 		},
@@ -890,6 +915,7 @@ var _ = Describe("netstat", func() {
 				MAC:           primaryMAC,
 				InfoSource:    infoSourceDomainGAMultus,
 				QueueCount:    netsetup.DefaultInterfaceQueueCount,
+				LinkState:     linkStateUp,
 			},
 			{
 				Name:       secondaryNetworkName,
@@ -941,6 +967,7 @@ var _ = Describe("netstat", func() {
 				MAC:           primaryMAC,
 				InfoSource:    infoSourceDomainGAMultus,
 				QueueCount:    netsetup.DefaultInterfaceQueueCount,
+				LinkState:     linkStateUp,
 			},
 		}), "only primary should exist in status since secondary iface not exist in spec")
 	})
@@ -987,6 +1014,7 @@ var _ = Describe("netstat", func() {
 				MAC:              primaryMAC,
 				InfoSource:       infoSourceDomainGA,
 				QueueCount:       netsetup.DefaultInterfaceQueueCount,
+				LinkState:        linkStateUp,
 			},
 		}))
 	})
@@ -1023,6 +1051,39 @@ var _ = Describe("netstat", func() {
 		}))
 	})
 
+	Context("Link state", func() {
+		const (
+			linkStateUp   = "up"
+			linkStateDown = "down"
+		)
+		DescribeTable("should report correct link state", func(linkState string) {
+			const (
+				networkName = "primary"
+				MAC         = "1C:CE:C0:01:BE:E7"
+			)
+
+			domainIface := newDomainSpecIface(networkName, MAC)
+			domainIface.LinkState = &api.LinkState{State: linkState}
+
+			setup.Domain.Spec.Devices.Interfaces = append(setup.Domain.Spec.Devices.Interfaces, domainIface)
+
+			Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+			Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+				{
+					Name:       networkName,
+					MAC:        MAC,
+					InfoSource: netvmispec.InfoSourceDomain,
+					QueueCount: netsetup.DefaultInterfaceQueueCount,
+					LinkState:  linkState,
+				},
+			}))
+		},
+			Entry("When link state is explicitly set to up", linkStateUp),
+			Entry("When link state is explicitly set to down", linkStateDown),
+		)
+	})
+
 	Context("misc scenario", func() {
 		const (
 			networkName = "primary"
@@ -1040,6 +1101,7 @@ var _ = Describe("netstat", func() {
 					MAC:        MAC,
 					InfoSource: netvmispec.InfoSourceDomain,
 					QueueCount: netsetup.DefaultInterfaceQueueCount,
+					LinkState:  linkStateUp,
 				},
 			}))
 		})
@@ -1066,6 +1128,7 @@ var _ = Describe("netstat", func() {
 					MAC:        MAC,
 					InfoSource: netvmispec.InfoSourceDomain,
 					QueueCount: netsetup.DefaultInterfaceQueueCount,
+					LinkState:  linkStateUp,
 				},
 			}))
 		})

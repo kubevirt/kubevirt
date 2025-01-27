@@ -54,8 +54,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 )
 
@@ -891,7 +890,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	Context("with Volume", func() {
 
 		BeforeEach(func() {
-			enableFeatureGate(virtconfig.HostDiskGate)
+			enableFeatureGate(featuregate.HostDiskGate)
 		})
 
 		AfterEach(func() {
@@ -1743,7 +1742,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: "Memory hotplug is not compatible with realtime VMs",
 				}),
 				Entry("launchSecurity is configured", func(vm *v1.VirtualMachine) {
-					enableFeatureGate(virtconfig.WorkloadEncryptionSEV)
+					enableFeatureGate(featuregate.WorkloadEncryptionSEV)
 					vm.Spec.Template.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
@@ -1808,7 +1807,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: fmt.Sprintf("Guest memory must be %s aligned", resource.NewQuantity(memory.Hotplug1GHugePagesBlockAlignmentBytes, resource.BinarySI)),
 				}),
 				Entry("architecture is not amd64 or arm64", func(vm *v1.VirtualMachine) {
-					enableFeatureGate(virtconfig.MultiArchitecture)
+					enableFeatureGate(featuregate.MultiArchitecture)
 					vm.Spec.Template.Spec.Architecture = "risc-v"
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
@@ -1829,14 +1828,13 @@ var _ = Describe("Validating VM Admitter", func() {
 
 	It("should raise a warning when Deprecated API is used", func() {
 		const testsFGName = "test-deprecated"
-		deprecation.RegisterFeatureGate(deprecation.FeatureGate{
+		featuregate.RegisterFeatureGate(featuregate.FeatureGate{
 			Name:        testsFGName,
-			State:       deprecation.Deprecated,
+			State:       featuregate.Deprecated,
 			VmiSpecUsed: func(_ *v1.VirtualMachineInstanceSpec) bool { return true },
 		})
-		DeferCleanup(deprecation.UnregisterFeatureGate, testsFGName)
+		DeferCleanup(featuregate.UnregisterFeatureGate, testsFGName)
 		enableFeatureGate(testsFGName)
-
 		vmi := api.NewMinimalVMI("testvmi")
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
@@ -1859,13 +1857,13 @@ var _ = Describe("Validating VM Admitter", func() {
 	It("should reject request when Discontinued feature is used", func() {
 		const fgName = "test-discontinued"
 		const fgMessage = "FG is discontinued"
-		deprecation.RegisterFeatureGate(deprecation.FeatureGate{
+		featuregate.RegisterFeatureGate(featuregate.FeatureGate{
 			Name:        fgName,
-			State:       deprecation.Discontinued,
+			State:       featuregate.Discontinued,
 			VmiSpecUsed: func(_ *v1.VirtualMachineInstanceSpec) bool { return true },
 			Message:     fgMessage,
 		})
-		DeferCleanup(deprecation.UnregisterFeatureGate, fgName)
+		DeferCleanup(featuregate.UnregisterFeatureGate, fgName)
 		enableFeatureGate(fgName)
 
 		vmi := api.NewMinimalVMI("testvmi")

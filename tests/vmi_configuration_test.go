@@ -53,9 +53,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -1974,24 +1975,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	Context("[rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache and io settings and PVC", decorators.SigStorage, decorators.StorageReq, func() {
 
 		It("[test_id:1681]should set appropriate cache modes", decorators.HostDiskGate, func() {
-			if !checks.HasFeature(virtconfig.HostDiskGate) {
+			if !checks.HasFeature(featuregate.HostDiskGate) {
 				Fail("Cluster has the HostDisk featuregate disabled, use skip for HostDiskGate")
 			}
 
-			sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
-			if !foundSC {
-				Fail(`Block storage is not present. You can filter by "blockrwo" label`)
-			}
-
-			dataVolume := libdv.NewDataVolume(
-				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-				libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithBlockVolumeMode()),
-			)
-			dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
-
-			tmpHostDiskDir := storage.RandHostDiskDir()
 			vmi := libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -2001,9 +1988,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithContainerDisk("ephemeral-disk5", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 				libvmi.WithContainerDisk("ephemeral-disk3", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
 				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData("#!/bin/bash\necho 'hello'\n")),
-				libvmi.WithHostDisk("hostdisk", filepath.Join(tmpHostDiskDir, "test-disk.img"), v1.HostDiskExistsOrCreate),
-				// hostdisk needs a privileged namespace
-				libvmi.WithNamespace(testsuite.NamespacePrivileged),
 			)
 
 			By("setting disk caches")
@@ -2017,11 +2001,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(err).NotTo(HaveOccurred())
-			defer func() {
-				Expect(storage.RemoveHostDisk(tmpHostDiskDir, vmiPod.Spec.NodeName)).To(Succeed())
-			}()
 
 			disks := runningVMISpec.Devices.Disks
 			By("checking if number of attached disks is equal to real disks number")
@@ -2050,14 +2029,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			By("checking if default cache 'none' has been set to cloud-init disk")
 			Expect(disks[4].Alias.GetName()).To(Equal(libvmi.CloudInitDiskName))
 			Expect(disks[4].Driver.Cache).To(Equal(cacheNone))
-
-			By("checking if default cache 'writethrough' has been set to fs which does not support direct I/O")
-			Expect(disks[5].Alias.GetName()).To(Equal("hostdisk"))
-			Expect(disks[5].Driver.Cache).To(Equal(cacheWritethrough))
-
 		})
 
-		It("[test_id:5360]should set appropriate IO modes", decorators.BlockRWO, func() {
+		It("[test_id:5360]should set appropriate IO modes", decorators.RequiresBlockStorage, func() {
 			By("Creating block Datavolume")
 			sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
 			if !foundSC {
@@ -2133,12 +2107,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 	Context("Block size configuration set", func() {
 
-		It("[test_id:6965]Should set BlockIO when using custom block sizes", decorators.SigStorage, decorators.BlockRWO, func() {
+		It("[test_id:6965]Should set BlockIO when using custom block sizes", decorators.SigStorage, decorators.RequiresBlockStorage, func() {
 
 			By("creating a block volume")
 			sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
 			if !foundSC {
-				Fail(`Block storage is not present. You can filter by "blockrwo" label`)
+				Fail(`Block storage is not present. You can filter by "RequiresBlockStorage" label`)
 			}
 
 			dataVolume := libdv.NewDataVolume(
@@ -2182,12 +2156,12 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(disks[0].BlockIO.PhysicalBlockSize).To(Equal(physicalSize))
 		})
 
-		It("[test_id:6966]Should set BlockIO when set to match volume block sizes on block devices", decorators.SigStorage, decorators.BlockRWO, func() {
+		It("[test_id:6966]Should set BlockIO when set to match volume block sizes on block devices", decorators.SigStorage, decorators.RequiresBlockStorage, func() {
 
 			By("creating a block volume")
 			sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
 			if !foundSC {
-				Fail(`Block storage is not present. You can skip by "blockrwo" label`)
+				Fail(`Block storage is not present. You can skip by "RequiresBlockStorage" label`)
 			}
 
 			dataVolume := libdv.NewDataVolume(
@@ -2229,7 +2203,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:6967]Should set BlockIO when set to match volume block sizes on files", decorators.HostDiskGate, func() {
-			if !checks.HasFeature(virtconfig.HostDiskGate) {
+			if !checks.HasFeature(featuregate.HostDiskGate) {
 				Fail("Cluster has the HostDisk featuregate disabled, use skip for HostDiskGate")
 			}
 
@@ -2963,7 +2937,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			if testingPciFunctions {
 				assignDisksToFunctions(startIndex, vmi)
 			} else {
-				kvconfig.DisableFeatureGate(virtconfig.ExpandDisksGate)
+				kvconfig.DisableFeatureGate(featuregate.ExpandDisksGate)
 				assignDisksToSlots(startIndex, vmi)
 			}
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})

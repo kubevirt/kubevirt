@@ -17,6 +17,19 @@
  *
  */
 
-package deprecation
+package featuregate
 
-const VirtioFsFeatureGateDeprecationMessage = "Virtiofs ExperimentalVirtiofsSupport feature gate is deprecated and will be removed in >= 1.6. Please use EnableVirtioFsConfigVolumes or EnableVirtioFsPVC feature gates instead"
+import (
+	v1 "kubevirt.io/api/core/v1"
+)
+
+const PasstDiscontinueMessage = "Passt network binding is discontinued since v1.3. Please refer to Kubevirt user guide for alternatives."
+
+func passtApiUsed(spec *v1.VirtualMachineInstanceSpec) bool {
+	for _, net := range spec.Domain.Devices.Interfaces {
+		if net.DeprecatedPasst != nil {
+			return true
+		}
+	}
+	return false
+}

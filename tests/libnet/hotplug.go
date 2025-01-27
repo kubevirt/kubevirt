@@ -42,19 +42,20 @@ func VerifyDynamicInterfaceChange(vmi *v1.VirtualMachineInstance, queueCount int
 	vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), metav1.GetOptions{})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
-	nonAbsentIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-		return iface.State != v1.InterfaceStateAbsent
+	secondaryNetsByName := vmispec.IndexNetworkSpecByName(vmispec.FilterMultusNonDefaultNetworks(vmi.Spec.Networks))
+
+	nonAbsentSecondaryIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		_, isSecondaryIface := secondaryNetsByName[iface.Name]
+		return iface.State != v1.InterfaceStateAbsent && isSecondaryIface
 	})
-	nonAbsentNets := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
-	var secondaryNetworksNames []string
-	for _, net := range vmispec.FilterMultusNonDefaultNetworks(nonAbsentNets) {
-		secondaryNetworksNames = append(secondaryNetworksNames, net.Name)
-	}
-	ExpectWithOffset(1, secondaryNetworksNames).NotTo(BeEmpty())
+	ExpectWithOffset(1, nonAbsentSecondaryIfaces).NotTo(BeEmpty())
+
 	EventuallyWithOffset(1, func() []v1.VirtualMachineInstanceNetworkInterface {
 		return cleanMACAddressesFromStatus(vmiCurrentInterfaces(vmi.GetNamespace(), vmi.GetName()))
 	}, 30*time.Second).Should(
-		ConsistOf(interfaceStatusFromInterfaceNames(queueCount, secondaryNetworksNames...)))
+		ConsistOf(
+			interfaceStatusFromInterfaces(queueCount, nonAbsentSecondaryIfaces),
+		))
 
 	vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.GetNamespace()).Get(context.Background(), vmi.GetName(), metav1.GetOptions{})
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
@@ -115,20 +116,32 @@ func cleanMACAddressesFromStatus(status []v1.VirtualMachineInstanceNetworkInterf
 	return status
 }
 
-func interfaceStatusFromInterfaceNames(queueCount int32, ifaceNames ...string) []v1.VirtualMachineInstanceNetworkInterface {
-	const initialIfacesInVMI = 1
-	var ifaceStatus []v1.VirtualMachineInstanceNetworkInterface
-	for i, ifaceName := range ifaceNames {
-		ifaceStatus = append(ifaceStatus, v1.VirtualMachineInstanceNetworkInterface{
-			Name:          ifaceName,
+func interfaceStatusFromInterfaces(queueCount int32, ifaces []v1.Interface) []v1.VirtualMachineInstanceNetworkInterface {
+	const (
+		initialIfacesInVMI = 1
+
+		linkStateUp = "up"
+	)
+	var ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface
+
+	for i, iface := range ifaces {
+		newIfaceStatus := v1.VirtualMachineInstanceNetworkInterface{
+			Name:          iface.Name,
 			InterfaceName: fmt.Sprintf("eth%d", i+initialIfacesInVMI),
 			InfoSource: vmispec.NewInfoSource(
 				vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent, vmispec.InfoSourceMultusStatus),
 			QueueCount:       queueCount,
-			PodInterfaceName: namescheme.GenerateHashedInterfaceName(ifaceName),
-		})
+			PodInterfaceName: namescheme.GenerateHashedInterfaceName(iface.Name),
+		}
+
+		if iface.SRIOV == nil {
+			newIfaceStatus.LinkState = linkStateUp
+		}
+
+		ifaceStatuses = append(ifaceStatuses, newIfaceStatus)
 	}
-	return ifaceStatus
+
+	return ifaceStatuses
 }
 
 func PatchVMWithNewInterface(vm *v1.VirtualMachine, newNetwork v1.Network, newIface v1.Interface) error {

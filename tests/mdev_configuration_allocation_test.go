@@ -21,7 +21,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -186,7 +187,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 
 			By("Adding feature gate to disable mdevs handling")
 
-			config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, virtconfig.DisableMediatedDevicesHandling)
+			config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, featuregate.DisableMediatedDevicesHandling)
 			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 			By("Removing the mediated devices configuration and expecting no devices being removed")

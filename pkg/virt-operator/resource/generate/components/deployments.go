@@ -150,7 +150,7 @@ func NewExportProxyService(namespace string) *corev1.Service {
 	}
 }
 
-func newPodTemplateSpec(podName, imageName, repository, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, podAffinity *corev1.Affinity, envVars *[]corev1.EnvVar) (*corev1.PodTemplateSpec, error) {
+func newPodTemplateSpec(podName, imageName, repository, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, podAffinity *corev1.Affinity, envVars *[]corev1.EnvVar) *corev1.PodTemplateSpec {
 
 	if image == "" {
 		image = fmt.Sprintf("%s/%s%s", repository, imageName, AddVersionSeparatorPrefix(version))
@@ -198,7 +198,7 @@ func newPodTemplateSpec(podName, imageName, repository, version, productName, pr
 		podTemplateSpec.Spec.Containers[0].Env = *envVars
 	}
 
-	return podTemplateSpec, nil
+	return podTemplateSpec
 }
 
 func attachProfileVolume(spec *corev1.PodSpec) {
@@ -239,12 +239,9 @@ func attachCertificateSecret(spec *corev1.PodSpec, secretName string, mountPath 
 	spec.Containers[0].VolumeMounts = append(spec.Containers[0].VolumeMounts, secretVolumeMount)
 }
 
-func newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, podAffinity *corev1.Affinity, envVars *[]corev1.EnvVar) (*appsv1.Deployment, error) {
+func newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, podAffinity *corev1.Affinity, envVars *[]corev1.EnvVar) *appsv1.Deployment {
 
-	podTemplateSpec, err := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, podAffinity, envVars)
-	if err != nil {
-		return nil, err
-	}
+	podTemplateSpec := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, podAffinity, envVars)
 
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -282,7 +279,7 @@ func newBaseDeployment(deploymentName, imageName, namespace, repository, version
 		deployment.ObjectMeta.Labels[virtv1.AppComponentLabel] = productComponent
 	}
 
-	return deployment, nil
+	return deployment
 }
 
 func newPodAntiAffinity(key, topologyKey string, operator metav1.LabelSelectorOperator, values []string) *corev1.Affinity {
@@ -309,15 +306,17 @@ func newPodAntiAffinity(key, topologyKey string, operator metav1.LabelSelectorOp
 	}
 }
 
-func NewApiServerDeployment(namespace, repository, imagePrefix, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
+func NewApiServerDeployment(namespace, repository, imagePrefix, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, verbosity string, extraEnv map[string]string) *appsv1.Deployment {
 	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, corev1.LabelHostname, metav1.LabelSelectorOpIn, []string{VirtAPIName})
 	deploymentName := VirtAPIName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
-	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, podAntiAffinity, env)
-	if err != nil {
-		return nil, err
+	deployment := newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, podAntiAffinity, env)
+
+	if deployment.Spec.Template.Annotations == nil {
+		deployment.Spec.Template.Annotations = make(map[string]string)
 	}
+	deployment.Spec.Template.Annotations["openshift.io/required-scc"] = "restricted-v2"
 
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtApiCertSecretName, "/etc/virt-api/certificates")
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtHandlerCertSecretName, "/etc/virt-handler/clientcertificates")
@@ -384,18 +383,20 @@ func NewApiServerDeployment(namespace, repository, imagePrefix, version, product
 		},
 		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 	}
-	return deployment, nil
+	return deployment
 }
 
-func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersion, launcherVersion, exportServerVersion, sidecarVersion, productName, productVersion, productComponent, image, launcherImage, exporterImage, sidecarImage string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
+func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersion, launcherVersion, exportServerVersion, sidecarVersion, productName, productVersion, productComponent, image, launcherImage, exporterImage, sidecarImage string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, verbosity string, extraEnv map[string]string) *appsv1.Deployment {
 	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, corev1.LabelHostname, metav1.LabelSelectorOpIn, []string{VirtControllerName})
 	deploymentName := VirtControllerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
-	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, controllerVersion, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, podAntiAffinity, env)
-	if err != nil {
-		return nil, err
+	deployment := newBaseDeployment(deploymentName, imageName, namespace, repository, controllerVersion, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, podAntiAffinity, env)
+
+	if deployment.Spec.Template.Annotations == nil {
+		deployment.Spec.Template.Annotations = make(map[string]string)
 	}
+	deployment.Spec.Template.Annotations["openshift.io/required-scc"] = "restricted-v2"
 
 	if launcherImage == "" {
 		launcherImage = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", AddVersionSeparatorPrefix(launcherVersion))
@@ -487,13 +488,13 @@ func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersi
 	}
 	container.Env = append(container.Env, corev1.EnvVar{Name: operatorutil.SidecarShimImageEnvName, Value: sidecarImage})
 
-	return deployment, nil
+	return deployment
 }
 
 // Used for manifest generation only
 func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosity, kubeVirtVersionEnv, virtApiShaEnv, virtControllerShaEnv, virtHandlerShaEnv, virtLauncherShaEnv, virtExportProxyShaEnv,
 	virtExportServerShaEnv, gsShaEnv, prHelperShaEnv, sidecarShimShaEnv, runbookURLTemplate, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv, virtExportServerImageEnv, gsImage, prHelperImage, sidecarShimImage,
-	image string, pullPolicy corev1.PullPolicy) (*appsv1.Deployment, error) {
+	image string, pullPolicy corev1.PullPolicy) *appsv1.Deployment {
 
 	const kubernetesOSLinux = "linux"
 	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, corev1.LabelHostname, metav1.LabelSelectorOpIn, []string{VirtOperatorName})
@@ -619,6 +620,11 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 		},
 	}
 
+	if deployment.Spec.Template.Annotations == nil {
+		deployment.Spec.Template.Annotations = make(map[string]string)
+	}
+	deployment.Spec.Template.Annotations["openshift.io/required-scc"] = "restricted-v2"
+
 	envVars := generateVirtOperatorEnvVars(
 		virtApiShaEnv, virtControllerShaEnv, virtHandlerShaEnv, virtLauncherShaEnv, virtExportProxyShaEnv, virtExportServerShaEnv,
 		gsShaEnv, prHelperShaEnv, sidecarShimShaEnv, runbookURLTemplate, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv,
@@ -632,18 +638,15 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtOperatorCertSecretName, "/etc/virt-operator/certificates")
 	attachProfileVolume(&deployment.Spec.Template.Spec)
 
-	return deployment, nil
+	return deployment
 }
 
-func NewExportProxyDeployment(namespace, repository, imagePrefix, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, verbosity string, extraEnv map[string]string) (*appsv1.Deployment, error) {
+func NewExportProxyDeployment(namespace, repository, imagePrefix, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, verbosity string, extraEnv map[string]string) *appsv1.Deployment {
 	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, corev1.LabelHostname, metav1.LabelSelectorOpIn, []string{VirtAPIName})
 	deploymentName := VirtExportProxyName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
-	deployment, err := newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, podAntiAffinity, env)
-	if err != nil {
-		return nil, err
-	}
+	deployment := newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, podAntiAffinity, env)
 
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtExportProxyCertSecretName, "/etc/virt-exportproxy/certificates")
 	attachProfileVolume(&deployment.Spec.Template.Spec)
@@ -700,7 +703,7 @@ func NewExportProxyDeployment(namespace, repository, imagePrefix, version, produ
 		},
 	}
 
-	return deployment, nil
+	return deployment
 }
 
 func criticalAddonsToleration() []corev1.Toleration {

@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -534,7 +534,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 		var snap *snapshotv1.VirtualMachineSnapshot
 
 		BeforeEach(func() {
-			config.EnableFeatureGate(virtconfig.SnapshotGate)
+			config.EnableFeatureGate(featuregate.SnapshotGate)
 			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -613,7 +613,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 		var restore *snapshotv1.VirtualMachineRestore
 
 		BeforeEach(func() {
-			config.EnableFeatureGate(virtconfig.SnapshotGate)
+			config.EnableFeatureGate(featuregate.SnapshotGate)
 
 			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})

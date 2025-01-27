@@ -80,6 +80,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 
+	"kubevirt.io/kubevirt/pkg/instancetype"
 	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
 	clientmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
@@ -436,13 +437,17 @@ func Execute() {
 		app.vmInformer,
 		app.vmiInformer,
 		app.persistentVolumeClaimInformer,
-		app.clusterInstancetypeInformer,
-		app.instancetypeInformer,
-		app.clusterPreferenceInformer,
-		app.preferenceInformer,
 		app.migrationInformer,
 		app.kvPodInformer,
 		app.clusterConfig,
+		&instancetype.InstancetypeMethods{
+			InstancetypeStore:        app.instancetypeInformer.GetStore(),
+			ClusterInstancetypeStore: app.clusterInstancetypeInformer.GetStore(),
+			PreferenceStore:          app.preferenceInformer.GetStore(),
+			ClusterPreferenceStore:   app.clusterInstancetypeInformer.GetStore(),
+			ControllerRevisionStore:  app.controllerRevisionInformer.GetStore(),
+			Clientset:                app.clientSet,
+		},
 	); err != nil {
 		golog.Fatal(err)
 	}
@@ -856,7 +861,7 @@ func (vca *VirtControllerApp) initRestoreController() {
 func (vca *VirtControllerApp) initExportController() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "export-controller")
 	vca.exportController = &export.VMExportController{
-		TemplateService:             vca.templateService,
+		ManifestRenderer:            vca.templateService,
 		Client:                      vca.clientSet,
 		VMExportInformer:            vca.vmExportInformer,
 		PVCInformer:                 vca.persistentVolumeClaimInformer,

@@ -16898,6 +16898,10 @@
        "default": ""
       }
      },
+     "linkState": {
+      "description": "LinkState Reports the current operational link state`. values: up, down.",
+      "type": "string"
+     },
      "mac": {
       "description": "Hardware address of a Virtual Machine interface",
       "type": "string"

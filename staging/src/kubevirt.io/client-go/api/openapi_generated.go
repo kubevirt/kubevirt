@@ -25901,6 +25901,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceNetworkInterface(ref co
 							Format:      "int32",
 						},
 					},
+					"linkState": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LinkState Reports the current operational link state`. values: up, down.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
