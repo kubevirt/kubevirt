@@ -20,13 +20,13 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/virtctl/templates:go_default_library",
-        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/yaml:go_default_library",
         "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
+        "//vendor/kubevirt.io/api/core/v1:go_default_library",
+        "//vendor/kubevirt.io/client-go/kubecli:go_default_library",
         "//vendor/sigs.k8s.io/yaml:go_default_library",
     ],
 )
@@ -48,10 +48,6 @@ go_test(
         "vm_suite_test.go",
     ],
     deps = [
-        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
-        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//tests/clientcmd:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
@@ -61,6 +57,10 @@ go_test(
         "//vendor/k8s.io/apimachinery/pkg/util/yaml:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
         "//vendor/k8s.io/utils/pointer:go_default_library",
+        "//vendor/kubevirt.io/api/core/v1:go_default_library",
+        "//vendor/kubevirt.io/client-go/generated/containerized-data-importer/clientset/versioned/fake:go_default_library",
+        "//vendor/kubevirt.io/client-go/kubecli:go_default_library",
+        "//vendor/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
     ],
 )

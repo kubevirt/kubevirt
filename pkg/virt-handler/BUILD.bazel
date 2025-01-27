@@ -53,9 +53,6 @@ go_library(
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virtiofs:go_default_library",
         "//pkg/watchdog:go_default_library",
-        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
-        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/mitchellh/go-ps:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/cgroups:go_default_library",
         "//vendor/golang.org/x/sys/unix:go_default_library",
@@ -70,6 +67,9 @@ go_library(
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/k8s.io/client-go/tools/record:go_default_library",
         "//vendor/k8s.io/client-go/util/workqueue:go_default_library",
+        "//vendor/kubevirt.io/api/core/v1:go_default_library",
+        "//vendor/kubevirt.io/client-go/kubecli:go_default_library",
+        "//vendor/kubevirt.io/client-go/log:go_default_library",
     ],
 )
 
@@ -110,11 +110,6 @@ go_test(
         "//pkg/virt-launcher/notify-client:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/watchdog:go_default_library",
-        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/api:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
-        "//staging/src/kubevirt.io/client-go/precond:go_default_library",
-        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
@@ -131,6 +126,11 @@ go_test(
         "//vendor/k8s.io/client-go/tools/cache/testing:go_default_library",
         "//vendor/k8s.io/client-go/tools/record:go_default_library",
         "//vendor/k8s.io/utils/pointer:go_default_library",
+        "//vendor/kubevirt.io/api/core/v1:go_default_library",
+        "//vendor/kubevirt.io/client-go/api:go_default_library",
+        "//vendor/kubevirt.io/client-go/kubecli:go_default_library",
+        "//vendor/kubevirt.io/client-go/precond:go_default_library",
+        "//vendor/kubevirt.io/client-go/testutils:go_default_library",
     ],
 )
 

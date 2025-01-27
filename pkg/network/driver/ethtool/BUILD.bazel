@@ -5,5 +5,5 @@ go_library(
     srcs = ["ethtool.go"],
     importpath = "kubevirt.io/kubevirt/pkg/network/driver/ethtool",
     visibility = ["//visibility:public"],
-    deps = ["//staging/src/kubevirt.io/client-go/log:go_default_library"],
+    deps = ["//vendor/kubevirt.io/client-go/log:go_default_library"],
 )

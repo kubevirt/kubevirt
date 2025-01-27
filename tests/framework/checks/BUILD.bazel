@@ -11,8 +11,6 @@ go_library(
     deps = [
         "//pkg/util/cluster:go_default_library",
         "//pkg/virt-config:go_default_library",
-        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/libnode:go_default_library",
         "//tests/util:go_default_library",
@@ -22,5 +20,7 @@ go_library(
         "//vendor/k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/kubevirt.io/api/core/v1:go_default_library",
+        "//vendor/kubevirt.io/client-go/kubecli:go_default_library",
     ],
 )

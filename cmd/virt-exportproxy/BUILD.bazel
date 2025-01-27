@@ -10,14 +10,14 @@ go_library(
         "//pkg/controller:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/util/tls:go_default_library",
-        "//staging/src/kubevirt.io/api/export/v1alpha1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
-        "//staging/src/kubevirt.io/client-go/log:go_default_library",
-        "//staging/src/kubevirt.io/client-go/util:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus/promhttp:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/k8s.io/client-go/util/certificate:go_default_library",
         "//vendor/k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset:go_default_library",
+        "//vendor/kubevirt.io/api/export/v1alpha1:go_default_library",
+        "//vendor/kubevirt.io/client-go/kubecli:go_default_library",
+        "//vendor/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/kubevirt.io/client-go/util:go_default_library",
     ],
 )
 

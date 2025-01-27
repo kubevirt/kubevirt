@@ -7,6 +7,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/network/dns:go_default_library",
-        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/kubevirt.io/client-go/log:go_default_library",
     ],
 )

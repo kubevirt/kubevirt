@@ -11,10 +11,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/virt-config:go_default_library",
-        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
-        "//staging/src/kubevirt.io/api/instancetype:go_default_library",
-        "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//tests:go_default_library",
         "//tests/console:go_default_library",
         "//tests/containerdisk:go_default_library",
@@ -30,5 +26,9 @@ go_library(
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/kubevirt.io/api/core/v1:go_default_library",
+        "//vendor/kubevirt.io/api/instancetype:go_default_library",
+        "//vendor/kubevirt.io/api/instancetype/v1beta1:go_default_library",
+        "//vendor/kubevirt.io/client-go/kubecli:go_default_library",
     ],
 )

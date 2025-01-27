@@ -6,7 +6,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/watcher",
     visibility = ["//visibility:public"],
     deps = [
-        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
@@ -17,5 +16,6 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/fields:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/watch:go_default_library",
+        "//vendor/kubevirt.io/client-go/log:go_default_library",
     ],
 )

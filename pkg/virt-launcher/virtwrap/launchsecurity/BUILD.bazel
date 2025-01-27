@@ -5,7 +5,7 @@ go_library(
     srcs = ["sev.go"],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity",
     visibility = ["//visibility:public"],
-    deps = ["//staging/src/kubevirt.io/api/core/v1:go_default_library"],
+    deps = ["//vendor/kubevirt.io/api/core/v1:go_default_library"],
 )
 
 go_test(
@@ -17,10 +17,10 @@ go_test(
     data = glob(["testdata/**"]),
     deps = [
         ":go_default_library",
-        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/k8s.io/utils/pointer:go_default_library",
+        "//vendor/kubevirt.io/api/core/v1:go_default_library",
+        "//vendor/kubevirt.io/client-go/testutils:go_default_library",
     ],
 )
