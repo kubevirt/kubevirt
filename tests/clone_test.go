@@ -61,32 +61,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		format.MaxLength = 0
 	})
 
-	waitSnapshotContentsExist := func(snapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.VirtualMachineSnapshot {
-		var contentsName string
-		EventuallyWithOffset(1, func() error {
-			snapshot, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Get(context.Background(), snapshot.Name, v1.GetOptions{})
-			ExpectWithOffset(2, err).ToNot(HaveOccurred())
-			if snapshot.Status == nil {
-				return fmt.Errorf("snapshot's status is nil")
-			}
-
-			if snapshot.Status.VirtualMachineSnapshotContentName != nil {
-				contentsName = *snapshot.Status.VirtualMachineSnapshotContentName
-			} else {
-				return fmt.Errorf("vm snapshot contents name is nil")
-			}
-
-			return nil
-		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
-		EventuallyWithOffset(1, func() error {
-			_, err := virtClient.VirtualMachineSnapshotContent(snapshot.Namespace).Get(context.Background(), contentsName, v1.GetOptions{})
-			return err
-		}).ShouldNot(HaveOccurred())
-
-		return snapshot
-	}
-
 	generateCloneFromVMWithParams := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clone.VirtualMachineClone {
 		vmClone := kubecli.NewMinimalCloneWithNS("testclone", sourceVM.Namespace)
 
@@ -870,6 +844,32 @@ func waitSnapshotReady(snapshotName, snapshotNamespace string) *snapshotv1.Virtu
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		return snapshot.Status != nil && snapshot.Status.ReadyToUse != nil && *snapshot.Status.ReadyToUse
 	}, 180*time.Second, time.Second).Should(BeTrue(), "snapshot should be ready")
+
+	return snapshot
+}
+
+func waitSnapshotContentsExist(snapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.VirtualMachineSnapshot {
+	var contentsName string
+	EventuallyWithOffset(1, func() error {
+		snapshot, err := kubevirt.Client().VirtualMachineSnapshot(snapshot.Namespace).Get(context.Background(), snapshot.Name, v1.GetOptions{})
+		ExpectWithOffset(2, err).ToNot(HaveOccurred())
+		if snapshot.Status == nil {
+			return fmt.Errorf("snapshot's status is nil")
+		}
+
+		if snapshot.Status.VirtualMachineSnapshotContentName != nil {
+			contentsName = *snapshot.Status.VirtualMachineSnapshotContentName
+		} else {
+			return fmt.Errorf("vm snapshot contents name is nil")
+		}
+
+		return nil
+	}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+	EventuallyWithOffset(1, func() error {
+		_, err := kubevirt.Client().VirtualMachineSnapshotContent(snapshot.Namespace).Get(context.Background(), contentsName, v1.GetOptions{})
+		return err
+	}).ShouldNot(HaveOccurred())
 
 	return snapshot
 }
