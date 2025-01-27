@@ -34,11 +34,11 @@ var _ = Describe("InferFromVolume", func() {
 		virtClient *kubecli.MockKubevirtClient
 		handler    inferHandler
 
-		pvc               *k8sv1.PersistentVolumeClaim
-		dvWithSourcePVC   *cdiv1.DataVolume
-		dvWithAnnotations *cdiv1.DataVolume
-		dsWithSourcePVC   *cdiv1.DataSource
-		dsWithAnnotations *cdiv1.DataSource
+		pvc             *k8sv1.PersistentVolumeClaim
+		dvWithSourcePVC *cdiv1.DataVolume
+		dvWithLabels    *cdiv1.DataVolume
+		dsWithSourcePVC *cdiv1.DataSource
+		dsWithLabels    *cdiv1.DataSource
 	)
 
 	const (
@@ -52,7 +52,7 @@ var _ = Describe("InferFromVolume", func() {
 		pvcName                   = "pvcName"
 		dvWithSourcePVCName       = "dvWithSourcePVCName"
 		dsWithSourcePVCName       = "dsWithSourcePVCName"
-		dsWithAnnotationsName     = "dsWithAnnotationsName"
+		dsWithLabelsName          = "dsWithLabelsName"
 		unknownPVCName            = "unknownPVCName"
 		unknownDVName             = "unknownDVName"
 	)
@@ -129,9 +129,9 @@ var _ = Describe("InferFromVolume", func() {
 			context.Background(), dsWithSourcePVC, k8smetav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		dsWithAnnotations = &cdiv1.DataSource{
+		dsWithLabels = &cdiv1.DataSource{
 			ObjectMeta: k8smetav1.ObjectMeta{
-				Name:      dsWithAnnotationsName,
+				Name:      dsWithLabelsName,
 				Namespace: vm.Namespace,
 				Labels: map[string]string{
 					apiinstancetype.DefaultInstancetypeLabel:     defaultInferedNameFromDS,
@@ -150,7 +150,7 @@ var _ = Describe("InferFromVolume", func() {
 			},
 		}
 		_, err = virtClient.CdiClient().CdiV1beta1().DataSources(vm.Namespace).Create(
-			context.Background(), dsWithAnnotations, k8smetav1.CreateOptions{})
+			context.Background(), dsWithLabels, k8smetav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		handler = infer.New(virtClient)
@@ -299,9 +299,9 @@ var _ = Describe("InferFromVolume", func() {
 		) {
 			vm.Spec.Instancetype = instancetypeMatcher
 			vm.Spec.Preference = preferenceMatcher
-			dvWithAnnotations = &cdiv1.DataVolume{
+			dvWithLabels = &cdiv1.DataVolume{
 				ObjectMeta: k8smetav1.ObjectMeta{
-					Name:      "dvWithAnnotations",
+					Name:      "dvWithLabels",
 					Namespace: vm.Namespace,
 					Labels: map[string]string{
 						apiinstancetype.DefaultInstancetypeLabel:     defaultInferedNameFromDV,
@@ -320,14 +320,14 @@ var _ = Describe("InferFromVolume", func() {
 				},
 			}
 			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(
-				context.Background(), dvWithAnnotations, k8smetav1.CreateOptions{})
+				context.Background(), dvWithLabels, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: inferVolumeName,
 				VolumeSource: v1.VolumeSource{
 					DataVolume: &v1.DataVolumeSource{
-						Name: dvWithAnnotations.Name,
+						Name: dvWithLabels.Name,
 					},
 				},
 			})
@@ -421,7 +421,7 @@ var _ = Describe("InferFromVolume", func() {
 			},
 		),
 		Entry("and DataSource with annotations for InstancetypeMatcher",
-			dsWithAnnotationsName, "DataSource", k8sv1.NamespaceDefault,
+			dsWithLabelsName, "DataSource", k8sv1.NamespaceDefault,
 			&v1.InstancetypeMatcher{
 				InferFromVolume: inferVolumeName,
 			},
@@ -431,7 +431,7 @@ var _ = Describe("InferFromVolume", func() {
 			}, nil, nil,
 		),
 		Entry("and DataSource with annotations for PreferenceMatcher",
-			dsWithAnnotationsName, "DataSource", k8sv1.NamespaceDefault,
+			dsWithLabelsName, "DataSource", k8sv1.NamespaceDefault,
 			nil, nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume: inferVolumeName,
@@ -463,7 +463,7 @@ var _ = Describe("InferFromVolume", func() {
 			},
 		),
 		Entry("and DataSource without namespace with annotations for InstancetypeMatcher",
-			dsWithAnnotationsName, "DataSource", "",
+			dsWithLabelsName, "DataSource", "",
 			&v1.InstancetypeMatcher{
 				InferFromVolume: inferVolumeName,
 			},
@@ -473,7 +473,7 @@ var _ = Describe("InferFromVolume", func() {
 			}, nil, nil,
 		),
 		Entry("and DataSource without namespace with annotations for PreferenceMatcher",
-			dsWithAnnotationsName, "DataSource", "",
+			dsWithLabelsName, "DataSource", "",
 			nil, nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume: inferVolumeName,
@@ -540,7 +540,7 @@ var _ = Describe("InferFromVolume", func() {
 			},
 		),
 		Entry("and DataSource with annotations for InstancetypeMatcher",
-			dsWithAnnotationsName, k8sv1.NamespaceDefault,
+			dsWithLabelsName, k8sv1.NamespaceDefault,
 			&v1.InstancetypeMatcher{
 				InferFromVolume: inferVolumeName,
 			},
@@ -550,7 +550,7 @@ var _ = Describe("InferFromVolume", func() {
 			}, nil, nil,
 		),
 		Entry("and DataSource with annotations for PreferenceMatcher",
-			dsWithAnnotationsName, k8sv1.NamespaceDefault,
+			dsWithLabelsName, k8sv1.NamespaceDefault,
 			nil, nil,
 			&v1.PreferenceMatcher{
 				InferFromVolume: inferVolumeName,
