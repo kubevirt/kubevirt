@@ -131,7 +131,6 @@ go_test(
         "//pkg/virt-handler/device-manager:go_default_library",
         "//pkg/virt-handler/node-labeller/util:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
-        "//pkg/virt-launcher/virtwrap/converter:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//staging/src/kubevirt.io/api/clone/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/api/core:go_default_library",
