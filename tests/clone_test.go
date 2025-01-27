@@ -61,25 +61,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		format.MaxLength = 0
 	})
 
-	expectVMRunnable := func(vm *virtv1.VirtualMachine, login console.LoginToFunction) *virtv1.VirtualMachine {
-		By(fmt.Sprintf("Starting VM %s", vm.Name))
-		vm, err = startCloneVM(virtClient, vm)
-		Expect(err).ShouldNot(HaveOccurred())
-		Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
-		targetVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, v1.GetOptions{})
-		Expect(err).ShouldNot(HaveOccurred())
-
-		err = login(targetVMI)
-		Expect(err).ShouldNot(HaveOccurred())
-
-		vm, err = stopCloneVM(virtClient, vm)
-		Expect(err).ShouldNot(HaveOccurred())
-		Eventually(ThisVMIWith(vm.Namespace, vm.Name), 300*time.Second, 1*time.Second).ShouldNot(Exist())
-		Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(Not(BeReady()))
-
-		return vm
-	}
-
 	filterOutIrrelevantKeys := func(in map[string]string) map[string]string {
 		out := make(map[string]string)
 
@@ -874,4 +855,23 @@ func createCloneAndWaitForFinish(vmClone *clone.VirtualMachineClone) {
 
 		return vmClone.Status.Phase
 	}, 3*time.Minute, 3*time.Second).Should(Equal(clone.Succeeded), "clone should finish successfully")
+}
+
+func expectVMRunnable(vm *virtv1.VirtualMachine, login console.LoginToFunction) *virtv1.VirtualMachine {
+	By(fmt.Sprintf("Starting VM %s", vm.Name))
+	vm, err := startCloneVM(kubevirt.Client(), vm)
+	Expect(err).ShouldNot(HaveOccurred())
+	Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
+	targetVMI, err := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, v1.GetOptions{})
+	Expect(err).ShouldNot(HaveOccurred())
+
+	err = login(targetVMI)
+	Expect(err).ShouldNot(HaveOccurred())
+
+	vm, err = stopCloneVM(kubevirt.Client(), vm)
+	Expect(err).ShouldNot(HaveOccurred())
+	Eventually(ThisVMIWith(vm.Namespace, vm.Name), 300*time.Second, 1*time.Second).ShouldNot(Exist())
+	Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(Not(BeReady()))
+
+	return vm
 }
