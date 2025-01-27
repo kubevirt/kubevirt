@@ -61,20 +61,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		format.MaxLength = 0
 	})
 
-	createCloneAndWaitForFinish := func(vmClone *clone.VirtualMachineClone) {
-		By(fmt.Sprintf("Creating clone object %s", vmClone.Name))
-		vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Create(context.Background(), vmClone, v1.CreateOptions{})
-		Expect(err).ShouldNot(HaveOccurred())
-
-		By(fmt.Sprintf("Waiting for the clone %s to finish", vmClone.Name))
-		Eventually(func() clone.VirtualMachineClonePhase {
-			vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Get(context.Background(), vmClone.Name, v1.GetOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
-
-			return vmClone.Status.Phase
-		}, 3*time.Minute, 3*time.Second).Should(Equal(clone.Succeeded), "clone should finish successfully")
-	}
-
 	expectVMRunnable := func(vm *virtv1.VirtualMachine, login console.LoginToFunction) *virtv1.VirtualMachine {
 		By(fmt.Sprintf("Starting VM %s", vm.Name))
 		vm, err = startCloneVM(virtClient, vm)
@@ -874,4 +860,18 @@ func generateCloneFromSnapshot(snapshotName, snapshotNamespace, targetVMName str
 	vmClone.Spec.Target = cloneTargetRef
 
 	return vmClone
+}
+
+func createCloneAndWaitForFinish(vmClone *clone.VirtualMachineClone) {
+	By(fmt.Sprintf("Creating clone object %s", vmClone.Name))
+	_, err := kubevirt.Client().VirtualMachineClone(vmClone.Namespace).Create(context.Background(), vmClone, v1.CreateOptions{})
+	Expect(err).ShouldNot(HaveOccurred())
+
+	By(fmt.Sprintf("Waiting for the clone %s to finish", vmClone.Name))
+	Eventually(func() clone.VirtualMachineClonePhase {
+		vmClone, err := kubevirt.Client().VirtualMachineClone(vmClone.Namespace).Get(context.Background(), vmClone.Name, v1.GetOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
+
+		return vmClone.Status.Phase
+	}, 3*time.Minute, 3*time.Second).Should(Equal(clone.Succeeded), "clone should finish successfully")
 }
