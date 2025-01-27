@@ -91,7 +91,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			CreationTime: timeFunc(),
 			Conditions: []snapshotv1.Condition{
 				newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
-				newReadyCondition(corev1.ConditionTrue, "Operation complete"),
+				newReadyCondition(corev1.ConditionTrue, "Ready"),
 			},
 			Phase: snapshotv1.Succeeded,
 		}
@@ -193,7 +193,7 @@ var _ = Describe("Snapshot controlleer", func() {
 		vms.Status.Indications = nil
 		vms.Status.Conditions = []snapshotv1.Condition{
 			newProgressingCondition(corev1.ConditionFalse, "In error state"),
-			newReadyCondition(corev1.ConditionFalse, "Error"),
+			newReadyCondition(corev1.ConditionFalse, "Not ready"),
 		}
 		vms.Status.Error = content.Status.Error
 		return vms
@@ -1023,7 +1023,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.Indications = nil
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
-					newReadyCondition(corev1.ConditionTrue, "Operation complete"),
+					newReadyCondition(corev1.ConditionTrue, "Ready"),
 				}
 				updatedSnapshot.Status.SnapshotVolumes = &snapshotv1.SnapshotVolumesLists{
 					IncludedVolumes: []string{diskName},
@@ -1065,7 +1065,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.Indications = nil
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
-					newReadyCondition(corev1.ConditionTrue, "Operation complete"),
+					newReadyCondition(corev1.ConditionTrue, "Ready"),
 				}
 				updatedSnapshot.Status.SnapshotVolumes = &snapshotv1.SnapshotVolumesLists{
 					IncludedVolumes: []string{diskName},
@@ -1145,7 +1145,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.Error = nil
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
-					newReadyCondition(corev1.ConditionFalse, "Error"),
+					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 
 				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
@@ -1180,9 +1180,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.Status.Phase = snapshotv1.Failed
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
-					newProgressingCondition(corev1.ConditionFalse, vmSnapshotDeadlineExceededError),
 					newFailureCondition(corev1.ConditionTrue, vmSnapshotDeadlineExceededError),
-					newReadyCondition(corev1.ConditionFalse, "Operation failed"),
+					newProgressingCondition(corev1.ConditionFalse, "Operation failed"),
+					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 
 				contentDeletes := expectVMSnapshotContentDelete(vmSnapshotClient, vmSnapshotContent.Name)
