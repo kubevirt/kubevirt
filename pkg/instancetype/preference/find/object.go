@@ -67,3 +67,21 @@ func (o *objectFinder) FindPreference(vm *virtv1.VirtualMachine) (metav1.Object,
 		return nil, fmt.Errorf(unexpectedKindFmt, vm.Spec.Preference.Kind)
 	}
 }
+
+func (o *objectFinder) FindPreferenceFromVMI(vmi *virtv1.VirtualMachineInstance) (metav1.Object, error) {
+	if _, ok := vmi.GetLabels()[virtv1.InstancetypeAnnotation]; ok {
+		instancetype, err := o.preferenceFinder.FindPreferenceFromVMI(vmi)
+		if err != nil {
+			return nil, err
+		}
+		return decode(instancetype)
+	}
+	if _, ok := vmi.GetLabels()[virtv1.ClusterInstancetypeAnnotation]; ok {
+		instancetype, err := o.clusterPreferenceFinder.FindPreferenceFromVMI(vmi)
+		if err != nil {
+			return nil, err
+		}
+		return decode(instancetype)
+	}
+	return nil, nil
+}

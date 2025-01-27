@@ -67,3 +67,21 @@ func (o *objectFinder) Find(vm *virtv1.VirtualMachine) (metav1.Object, error) {
 		return nil, fmt.Errorf(unexpectedKindFmt, vm.Spec.Instancetype.Kind)
 	}
 }
+
+func (o *objectFinder) FindFromVMI(vmi *virtv1.VirtualMachineInstance) (metav1.Object, error) {
+	if _, ok := vmi.GetLabels()[virtv1.InstancetypeAnnotation]; ok {
+		instancetype, err := o.instancetypeFinder.FindFromVMI(vmi)
+		if err != nil {
+			return nil, err
+		}
+		return decode(instancetype)
+	}
+	if _, ok := vmi.GetLabels()[virtv1.ClusterInstancetypeAnnotation]; ok {
+		instancetype, err := o.clusterInstancetypeFinder.FindFromVMI(vmi)
+		if err != nil {
+			return nil, err
+		}
+		return decode(instancetype)
+	}
+	return nil, nil
+}

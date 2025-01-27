@@ -45,18 +45,32 @@ func (f *clusterPreferenceFinder) FindPreference(vm *virtv1.VirtualMachine) (*v1
 	if vm.Spec.Preference == nil {
 		return nil, nil
 	}
+	return f.findByName(vm.Spec.Preference.Name)
+}
+
+func (f *clusterPreferenceFinder) FindPreferenceFromVMI(vmi *virtv1.VirtualMachineInstance) (
+	*v1beta1.VirtualMachineClusterPreference, error,
+) {
+	preferenceName, ok := vmi.GetLabels()[virtv1.ClusterPreferenceAnnotation]
+	if !ok {
+		return nil, fmt.Errorf("unable to find preference annotation on VMI")
+	}
+	return f.findByName(preferenceName)
+}
+
+func (f *clusterPreferenceFinder) findByName(name string) (*v1beta1.VirtualMachineClusterPreference, error) {
 	if f.store == nil {
 		return f.virtClient.VirtualMachineClusterPreference().Get(
-			context.Background(), vm.Spec.Preference.Name, metav1.GetOptions{})
+			context.Background(), name, metav1.GetOptions{})
 	}
 
-	obj, exists, err := f.store.GetByKey(vm.Spec.Preference.Name)
+	obj, exists, err := f.store.GetByKey(name)
 	if err != nil {
 		return nil, err
 	}
 	if !exists {
 		return f.virtClient.VirtualMachineClusterPreference().Get(
-			context.Background(), vm.Spec.Preference.Name, metav1.GetOptions{})
+			context.Background(), name, metav1.GetOptions{})
 	}
 	preference, ok := obj.(*v1beta1.VirtualMachineClusterPreference)
 	if !ok {
