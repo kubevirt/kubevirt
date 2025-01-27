@@ -9,7 +9,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -189,9 +189,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 
 			It("store fails when instancetype does not exist", func() {
 				vm.Spec.Instancetype.Name = nonExistingResourceName
-				err := storeHandler.Store(vm)
-				Expect(err).To(HaveOccurred())
-				Expect(errors.IsNotFound(err)).To(BeTrue())
+				Expect(storeHandler.Store(vm)).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 			})
 
 			It("store ControllerRevision succeeds if a revision exists with expected data", func() {
@@ -286,9 +284,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 
 			It("store fails when instancetype does not exist", func() {
 				vm.Spec.Instancetype.Name = nonExistingResourceName
-				err := storeHandler.Store(vm)
-				Expect(err).To(HaveOccurred())
-				Expect(errors.IsNotFound(err)).To(BeTrue())
+				Expect(storeHandler.Store(vm)).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 			})
 
 			It("store succeeds when RevisionName already populated", func() {
@@ -408,9 +404,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 
 			It("store fails when VirtualMachineClusterPreference doesn't exist", func() {
 				vm.Spec.Preference.Name = nonExistingResourceName
-				err := storeHandler.Store(vm)
-				Expect(err).To(HaveOccurred())
-				Expect(errors.IsNotFound(err)).To(BeTrue())
+				Expect(storeHandler.Store(vm)).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 			})
 
 			It("store succeeds when RevisionName already populated", func() {
@@ -509,9 +503,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 
 			It("store fails when VirtualMachinePreference doesn't exist", func() {
 				vm.Spec.Preference.Name = nonExistingResourceName
-				err := storeHandler.Store(vm)
-				Expect(err).To(HaveOccurred())
-				Expect(errors.IsNotFound(err)).To(BeTrue())
+				Expect(storeHandler.Store(vm)).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 			})
 
 			It("store succeeds when RevisionName already populated", func() {
