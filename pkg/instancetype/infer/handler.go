@@ -43,6 +43,16 @@ func shouldIgnoreFailure(ignoreFailurePolicy *virtv1.InferFromVolumeFailurePolic
 	return ignoreFailurePolicy != nil && *ignoreFailurePolicy == virtv1.IgnoreInferFromVolumeFailure
 }
 
+func (h *handler) Infer(vm *virtv1.VirtualMachine) error {
+	if err := h.Instancetype(vm); err != nil {
+		return err
+	}
+	if err := h.Preference(vm); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (h *handler) Instancetype(vm *virtv1.VirtualMachine) error {
 	if vm.Spec.Instancetype == nil {
 		return nil
