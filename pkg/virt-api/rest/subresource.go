@@ -45,12 +45,13 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/expand"
+	"kubevirt.io/kubevirt/pkg/instancetype/find"
+	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
@@ -79,6 +80,10 @@ const (
 	volumeMigrationManualRecoveryRequiredErr = "VM recovery required: Volume migration failed, leaving some volumes pointing to non-consistent targets; manual intervention is needed to reassign them to their original volumes."
 )
 
+type instancetypeVMExpander interface {
+	Expand(vm *v1.VirtualMachine) (*v1.VirtualMachine, error)
+}
+
 type SubresourceAPIApp struct {
 	virtCli                 kubecli.KubevirtClient
 	consoleServerPort       int
@@ -86,16 +91,20 @@ type SubresourceAPIApp struct {
 	handlerTLSConfiguration *tls.Config
 	credentialsLock         *sync.Mutex
 	clusterConfig           *virtconfig.ClusterConfig
-	instancetypeMethods     instancetype.Methods
+	instancetypeExpander    instancetypeVMExpander
 	handlerHttpClient       *http.Client
 }
 
 func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int, tlsConfiguration *tls.Config, clusterConfig *virtconfig.ClusterConfig) *SubresourceAPIApp {
 	// When this method is called from tools/openapispec.go when running 'make generate',
 	// the virtCli is nil, and accessing GeneratedKubeVirtClient() would cause nil dereference.
-	var instancetypeMethods instancetype.Methods
+	var instancetypeExpander instancetypeVMExpander
 	if virtCli != nil {
-		instancetypeMethods = &instancetype.InstancetypeMethods{Clientset: virtCli}
+		instancetypeExpander = expand.New(
+			clusterConfig,
+			find.NewSpecFinder(nil, nil, nil, virtCli),
+			preferenceFind.NewSpecFinder(nil, nil, nil, virtCli),
+		)
 	}
 
 	httpClient := &http.Client{
@@ -112,7 +121,7 @@ func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int,
 		credentialsLock:         &sync.Mutex{},
 		handlerTLSConfiguration: tlsConfiguration,
 		clusterConfig:           clusterConfig,
-		instancetypeMethods:     instancetypeMethods,
+		instancetypeExpander:    instancetypeExpander,
 		handlerHttpClient:       httpClient,
 	}
 }
