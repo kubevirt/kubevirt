@@ -610,7 +610,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 							"Type":   Equal(snapshotv1.ConditionProgressing),
 							"Status": Equal(corev1.ConditionFalse),
-							"Reason": Equal(snapshotDeadlineExceeded)}),
+							"Reason": Equal("Operation failed")}),
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 							"Type":   Equal(snapshotv1.ConditionReady),
 							"Status": Equal(corev1.ConditionFalse),
@@ -1303,7 +1303,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 							"Type":   Equal(snapshotv1.ConditionProgressing),
 							"Status": Equal(corev1.ConditionFalse),
-							"Reason": Equal(snapshotDeadlineExceeded)}),
+							"Reason": Equal("Operation failed")}),
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 							"Type":   Equal(snapshotv1.ConditionFailure),
 							"Status": Equal(corev1.ConditionTrue),

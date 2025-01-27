@@ -1467,7 +1467,7 @@ func CreateRestorePVCDefFromVMRestore(vmRestoreName, restorePVCName string, volu
 }
 
 func updateRestoreCondition(r *snapshotv1.VirtualMachineRestore, c snapshotv1.Condition) {
-	r.Status.Conditions = updateCondition(r.Status.Conditions, c, true)
+	r.Status.Conditions = updateCondition(r.Status.Conditions, c)
 }
 
 // Returns a set of volumes not for restore

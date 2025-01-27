@@ -777,14 +777,12 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 	// terminal phase 1 - failed
 	if vmSnapshotDeadlineExceeded(vmSnapshotCpy) {
 		vmSnapshotCpy.Status.Phase = snapshotv1.Failed
-		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, vmSnapshotDeadlineExceededError))
 		updateSnapshotCondition(vmSnapshotCpy, newFailureCondition(corev1.ConditionTrue, vmSnapshotDeadlineExceededError))
-		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionFalse, "Operation failed"))
+		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Operation failed"))
 		// terminal phase 2 - succeeded
 	} else if vmSnapshotSucceeded(vmSnapshotCpy) || vmSnapshotCpy.Status.CreationTime != nil {
 		vmSnapshotCpy.Status.Phase = snapshotv1.Succeeded
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Operation complete"))
-		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionTrue, "Operation complete"))
 		if err := ctrl.updateSnapshotSnapshotableVolumes(vmSnapshotCpy, content); err != nil {
 			return nil, err
 		}
@@ -1105,5 +1103,5 @@ func (ctrl *VMSnapshotController) getVMI(vm *kubevirtv1.VirtualMachine) (*kubevi
 }
 
 func updateSnapshotCondition(ss *snapshotv1.VirtualMachineSnapshot, c snapshotv1.Condition) {
-	ss.Status.Conditions = updateCondition(ss.Status.Conditions, c, false)
+	ss.Status.Conditions = updateCondition(ss.Status.Conditions, c)
 }
