@@ -114,10 +114,6 @@ var _ = Describe("Preference SpecFinder", func() {
 
 		BeforeEach(func() {
 			clusterInstancetype = &v1beta1.VirtualMachineClusterInstancetype{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "VirtualMachineClusterInstancetype",
-					APIVersion: v1beta1.SchemeGroupVersion.String(),
-				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-cluster-instancetype",
 				},
@@ -228,10 +224,6 @@ var _ = Describe("Preference SpecFinder", func() {
 
 		BeforeEach(func() {
 			fakeInstancetype = &v1beta1.VirtualMachineInstancetype{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "VirtualMachineInstancetype",
-					APIVersion: v1beta1.SchemeGroupVersion.String(),
-				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-instancetype",
 					Namespace: vm.Namespace,
