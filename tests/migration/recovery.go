@@ -172,7 +172,7 @@ func createPVCFor(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *k8s
 		Spec: k8score.PersistentVolumeClaimSpec{
 			AccessModes: []k8score.PersistentVolumeAccessMode{accessMode},
 			Resources: k8score.VolumeResourceRequirements{
-				Requests: k8score.ResourceList{k8score.ResourceStorage: resource.MustParse(backendstorage.PVCSize)},
+				Requests: k8score.ResourceList{k8score.ResourceStorage: resource.MustParse(backendstorage.DefaultPVCSize)},
 			},
 			StorageClassName: &storageClass,
 			VolumeMode:       &mode,
