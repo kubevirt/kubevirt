@@ -8,7 +8,7 @@ import (
 )
 
 var _ = Describe("SCP", func() {
-	DescribeTable("ParseArguments", func(arg0, arg1 string, expLocal *scp.LocalArgument, expRemote *scp.RemoteArgument, expToRemote bool) {
+	DescribeTable("ParseTarget", func(arg0, arg1 string, expLocal *scp.LocalArgument, expRemote *scp.RemoteArgument, expToRemote bool) {
 		local, remote, toRemote, err := scp.ParseTarget(arg0, arg1)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(local).To(Equal(expLocal))
