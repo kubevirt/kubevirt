@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	appsv1 "k8s.io/api/apps/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +27,7 @@ import (
 	"kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
@@ -84,26 +84,16 @@ var _ = Describe("Preference SpecFinder", func() {
 			controllerRevisionInformerStore,
 			virtClient,
 		)
-
-		vm = kubecli.NewMinimalVM("testvm")
-		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
-			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{},
-			},
-		}
-		vm.Namespace = k8sv1.NamespaceDefault
-
-		_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
 	})
 	It("find returns nil when no instancetype is specified", func() {
-		vm.Spec.Instancetype = nil
+		vm = libvmi.NewVirtualMachine(libvmi.New())
 		spec, err := finder.Find(vm)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(spec).To(BeNil())
 	})
 
 	It("find returns error when invalid Instancetype Kind is specified", func() {
+		vm = libvmi.NewVirtualMachine(libvmi.New())
 		vm.Spec.Instancetype = &v1.InstancetypeMatcher{
 			Name: "foo",
 			Kind: "bar",
@@ -137,10 +127,10 @@ var _ = Describe("Preference SpecFinder", func() {
 			err = clusterInstancetypeInformerStore.Add(clusterInstancetype)
 			Expect(err).ToNot(HaveOccurred())
 
-			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-				Name: clusterInstancetype.Name,
-				Kind: apiinstancetype.ClusterSingularResourceName,
-			}
+			vm = libvmi.NewVirtualMachine(
+				libvmi.New(libvmi.WithNamespace(metav1.NamespaceDefault)),
+				libvmi.WithClusterInstancetype(clusterInstancetype.Name),
+			)
 		})
 
 		It("returns expected instancetype", func() {
@@ -191,7 +181,7 @@ var _ = Describe("Preference SpecFinder", func() {
 		})
 
 		It("find fails when instancetype does not exist", func() {
-			vm.Spec.Instancetype.Name = nonExistingResourceName
+			vm = libvmi.NewVirtualMachine(libvmi.New(), libvmi.WithClusterInstancetype(nonExistingResourceName))
 			_, err := finder.Find(vm)
 			Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
 		})
@@ -226,14 +216,11 @@ var _ = Describe("Preference SpecFinder", func() {
 				},
 			}
 
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), controllerRevision, metav1.CreateOptions{})
+			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+				context.Background(), controllerRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-				Name:         clusterInstancetype.Name,
-				RevisionName: controllerRevision.Name,
-				Kind:         apiinstancetype.ClusterSingularResourceName,
-			}
+			vm.Spec.Instancetype.RevisionName = controllerRevision.Name
 
 			foundInstancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
@@ -248,7 +235,7 @@ var _ = Describe("Preference SpecFinder", func() {
 			fakeInstancetype = &v1beta1.VirtualMachineInstancetype{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-instancetype",
-					Namespace: vm.Namespace,
+					Namespace: metav1.NamespaceDefault,
 				},
 				Spec: v1beta1.VirtualMachineInstancetypeSpec{
 					CPU: v1beta1.CPUInstancetype{
@@ -260,16 +247,17 @@ var _ = Describe("Preference SpecFinder", func() {
 				},
 			}
 
-			_, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.Background(), fakeInstancetype, metav1.CreateOptions{})
+			_, err := virtClient.VirtualMachineInstancetype(metav1.NamespaceDefault).Create(
+				context.Background(), fakeInstancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			err = instancetypeInformerStore.Add(fakeInstancetype)
 			Expect(err).ToNot(HaveOccurred())
 
-			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-				Name: fakeInstancetype.Name,
-				Kind: apiinstancetype.SingularResourceName,
-			}
+			vm = libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace(metav1.NamespaceDefault)),
+				libvmi.WithInstancetype(fakeInstancetype.Name),
+			)
 		})
 
 		It("find returns expected instancetype", func() {
@@ -312,6 +300,7 @@ var _ = Describe("Preference SpecFinder", func() {
 		})
 
 		It("find fails when instancetype does not exist", func() {
+			libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(metav1.NamespaceDefault)), libvmi.WithInstancetype(nonExistingResourceName))
 			vm.Spec.Instancetype.Name = nonExistingResourceName
 			_, err := finder.Find(vm)
 			Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
@@ -350,11 +339,7 @@ var _ = Describe("Preference SpecFinder", func() {
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), controllerRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-				Name:         fakeInstancetype.Name,
-				RevisionName: controllerRevision.Name,
-				Kind:         apiinstancetype.SingularResourceName,
-			}
+			vm.Spec.Instancetype.RevisionName = controllerRevision.Name
 
 			foundInstancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())

@@ -7,7 +7,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	appsv1 "k8s.io/api/apps/v1"
-	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
@@ -23,6 +22,7 @@ import (
 	"kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/find"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -73,27 +73,17 @@ var _ = Describe("Preference SpecFinder", func() {
 		controllerRevisionInformerStore = controllerRevisionInformer.GetStore()
 
 		finder = find.NewSpecFinder(preferenceInformerStore, clusterPreferenceInformerStore, controllerRevisionInformerStore, virtClient)
-
-		vm = kubecli.NewMinimalVM("testvm")
-		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
-			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{},
-			},
-		}
-		vm.Namespace = k8sv1.NamespaceDefault
-
-		_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("find returns nil when no preference is specified", func() {
-		vm.Spec.Preference = nil
+		vm = libvmi.NewVirtualMachine(libvmi.New())
 		preference, err := finder.FindPreference(vm)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(preference).To(BeNil())
 	})
 
 	It("find returns error when invalid Preference Kind is specified", func() {
+		vm = libvmi.NewVirtualMachine(libvmi.New())
 		vm.Spec.Preference = &v1.PreferenceMatcher{
 			Name: "foo",
 			Kind: "bar",
@@ -125,10 +115,7 @@ var _ = Describe("Preference SpecFinder", func() {
 			err = clusterPreferenceInformerStore.Add(clusterPreference)
 			Expect(err).ToNot(HaveOccurred())
 
-			vm.Spec.Preference = &v1.PreferenceMatcher{
-				Name: clusterPreference.Name,
-				Kind: apiinstancetype.ClusterSingularPreferenceResourceName,
-			}
+			vm = libvmi.NewVirtualMachine(libvmi.New(), libvmi.WithClusterPreference(clusterPreference.Name))
 		})
 
 		It("find returns expected preference spec", func() {
@@ -178,7 +165,7 @@ var _ = Describe("Preference SpecFinder", func() {
 		})
 
 		It("find fails when preference does not exist", func() {
-			vm.Spec.Preference.Name = nonExistingResourceName
+			vm = libvmi.NewVirtualMachine(libvmi.New(), libvmi.WithClusterPreference(nonExistingResourceName))
 			_, err := finder.FindPreference(vm)
 			Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
 		})
@@ -192,7 +179,7 @@ var _ = Describe("Preference SpecFinder", func() {
 			preference = &v1beta1.VirtualMachinePreference{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-preference",
-					Namespace: vm.Namespace,
+					Namespace: metav1.NamespaceDefault,
 				},
 				Spec: v1beta1.VirtualMachinePreferenceSpec{
 					CPU: &v1beta1.CPUPreferences{
@@ -201,16 +188,14 @@ var _ = Describe("Preference SpecFinder", func() {
 				},
 			}
 
-			_, err := virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
+			_, err := virtClient.VirtualMachinePreference(metav1.NamespaceDefault).Create(
+				context.Background(), preference, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			err = preferenceInformerStore.Add(preference)
 			Expect(err).ToNot(HaveOccurred())
 
-			vm.Spec.Preference = &v1.PreferenceMatcher{
-				Name: preference.Name,
-				Kind: apiinstancetype.SingularPreferenceResourceName,
-			}
+			vm = libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(metav1.NamespaceDefault)), libvmi.WithPreference(preference.Name))
 		})
 
 		It("find returns expected preference spec", func() {
@@ -254,7 +239,10 @@ var _ = Describe("Preference SpecFinder", func() {
 		})
 
 		It("find fails when preference does not exist", func() {
-			vm.Spec.Preference.Name = nonExistingResourceName
+			vm = libvmi.NewVirtualMachine(
+				libvmi.New(libvmi.WithNamespace(metav1.NamespaceDefault)),
+				libvmi.WithPreference(nonExistingResourceName),
+			)
 			_, err := finder.FindPreference(vm)
 			Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
 		})
