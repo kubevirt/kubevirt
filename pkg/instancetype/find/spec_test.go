@@ -32,15 +32,15 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
-const (
-	nonExistingResourceName = "non-existing-resource"
-)
+var _ = Describe("Instance Type SpecFinder", func() {
+	const (
+		nonExistingResourceName = "non-existing-resource"
+	)
 
-type instancetypeSpecFinder interface {
-	Find(vm *v1.VirtualMachine) (*v1beta1.VirtualMachineInstancetypeSpec, error)
-}
+	type instancetypeSpecFinder interface {
+		Find(vm *v1.VirtualMachine) (*v1beta1.VirtualMachineInstancetypeSpec, error)
+	}
 
-var _ = Describe("Preference SpecFinder", func() {
 	var (
 		finder instancetypeSpecFinder
 		vm     *v1.VirtualMachine
@@ -85,6 +85,7 @@ var _ = Describe("Preference SpecFinder", func() {
 			virtClient,
 		)
 	})
+
 	It("find returns nil when no instancetype is specified", func() {
 		vm = libvmi.NewVirtualMachine(libvmi.New())
 		spec, err := finder.Find(vm)
