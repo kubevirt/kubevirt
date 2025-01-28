@@ -30,6 +30,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmops"
 
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -380,6 +381,73 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 
 			By("waiting for VMCannotBeEvicted alert")
 			libmonitoring.VerifyAlertExist(virtClient, "VMCannotBeEvicted")
+		})
+	})
+
+	Context("VM dirty rate metrics", func() {
+		getDirtyRateMetricValue := func(vm *v1.VirtualMachine) float64 {
+			const dirtyRateMetric = "kubevirt_vmi_dirty_rate_mbs"
+			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
+
+			var metricValue float64
+			var err error
+			EventuallyWithOffset(1, func() error {
+				metricValue, err = libmonitoring.GetMetricValueWithLabels(virtClient, dirtyRateMetric, metricLabels)
+				return err
+			}, 3*time.Minute, 20*time.Second).ShouldNot(HaveOccurred(), "error getting metric value")
+
+			return metricValue
+		}
+
+		It("should ensure a running VM has dirty rate metrics", func() {
+			By("Create a running VirtualMachine")
+			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(100 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+
+			By("Checking that the VM metrics are available")
+			getDirtyRateMetricValue(vm)
+		})
+
+		It("should ensure a stress VM has high dirty rate than a stale VM", func() {
+			By("Create a running stale VirtualMachine")
+			staleVM := libvmi.NewVirtualMachine(libvmifact.NewFedora(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			staleVM.Name = "stale-vm"
+			staleVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(staleVM)).Create(context.Background(), staleVM, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(staleVM)).WithTimeout(100 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+
+			By("Create a running stressed VirtualMachine")
+			stressedVM := libvmi.NewVirtualMachine(libvmifact.NewFedora(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			stressedVM.Name = "stressed-vm"
+			stressedVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(stressedVM)).Create(context.Background(), stressedVM, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(stressedVM)).WithTimeout(100 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+
+			By("Waiting for the stress guest agent to connect")
+			stressedVMI, err := virtClient.VirtualMachineInstance(stressedVM.Namespace).Get(context.Background(), stressedVM.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(matcher.ThisVMI(stressedVMI), 3*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			Expect(console.LoginToFedora(stressedVMI)).To(Succeed())
+
+			By("Run a stress test to dirty some pages and slow down the migration")
+			const stressCmd = "stress-ng --vm 1 --vm-bytes 250M --vm-keep &\n"
+			Expect(console.SafeExpectBatch(stressedVMI, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: stressCmd},
+				&expect.BExp{R: console.PromptExpression},
+			}, 15)).To(Succeed(), "should run a stress test")
+
+			By("Sleeping for 10 seconds to let the stress kick in")
+			time.Sleep(10 * time.Second)
+
+			By("Checking that the stressed VM's dirty rate is higher than the stale VM's dirty rate")
+			staleDirtyRate := getDirtyRateMetricValue(staleVM)
+			stressedDirtyRate := getDirtyRateMetricValue(stressedVM)
+			Expect(stressedDirtyRate).To(BeNumerically(">", staleDirtyRate), "stressed VM should have higher dirty rate than stale VM")
 		})
 	})
 })
