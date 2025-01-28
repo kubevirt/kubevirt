@@ -874,7 +874,6 @@ spec:
           - virtualmachines/restart
           - virtualmachines/addvolume
           - virtualmachines/removevolume
-          - virtualmachines/migrate
           - virtualmachines/memorydump
           verbs:
           - update
@@ -891,7 +890,6 @@ spec:
           - virtualmachineinstances
           - virtualmachineinstancepresets
           - virtualmachineinstancereplicasets
-          - virtualmachineinstancemigrations
           verbs:
           - get
           - delete
@@ -901,6 +899,14 @@ spec:
           - list
           - watch
           - deletecollection
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachineinstancemigrations
+          verbs:
+          - get
+          - list
+          - watch
         - apiGroups:
           - snapshot.kubevirt.io
           resources:
@@ -1023,7 +1029,6 @@ spec:
           - virtualmachines/restart
           - virtualmachines/addvolume
           - virtualmachines/removevolume
-          - virtualmachines/migrate
           - virtualmachines/memorydump
           verbs:
           - update
@@ -1040,13 +1045,20 @@ spec:
           - virtualmachineinstances
           - virtualmachineinstancepresets
           - virtualmachineinstancereplicasets
-          - virtualmachineinstancemigrations
           verbs:
           - get
           - delete
           - create
           - update
           - patch
+          - list
+          - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachineinstancemigrations
+          verbs:
+          - get
           - list
           - watch
         - apiGroups:
@@ -1227,6 +1239,25 @@ spec:
           - get
           - list
           - watch
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachines/migrate
+          verbs:
+          - update
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachineinstancemigrations
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+          - deletecollection
         - apiGroups:
           - authentication.k8s.io
           resources:
