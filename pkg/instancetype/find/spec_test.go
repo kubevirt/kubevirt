@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/golang/mock/gomock"
@@ -45,6 +46,7 @@ var _ = Describe("Preference SpecFinder", func() {
 		vm     *v1.VirtualMachine
 
 		virtClient                       *kubecli.MockKubevirtClient
+		fakeClientset                    *fake.Clientset
 		instancetypeInformerStore        cache.Store
 		clusterInstancetypeInformerStore cache.Store
 		controllerRevisionInformerStore  cache.Store
@@ -56,14 +58,16 @@ var _ = Describe("Preference SpecFinder", func() {
 
 		virtClient.EXPECT().AppsV1().Return(k8sfake.NewSimpleClientset().AppsV1()).AnyTimes()
 
+		fakeClientset = fake.NewSimpleClientset()
+
 		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(
-			fake.NewSimpleClientset().KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
+			fakeClientset.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachineInstancetype(metav1.NamespaceDefault).Return(
-			fake.NewSimpleClientset().InstancetypeV1beta1().VirtualMachineInstancetypes(metav1.NamespaceDefault)).AnyTimes()
+			fakeClientset.InstancetypeV1beta1().VirtualMachineInstancetypes(metav1.NamespaceDefault)).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(
-			fake.NewSimpleClientset().InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+			fakeClientset.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
 
 		instancetypeInformer, _ := testutils.NewFakeInformerFor(&v1beta1.VirtualMachineInstancetype{})
 		instancetypeInformerStore = instancetypeInformer.GetStore()
@@ -159,6 +163,15 @@ var _ = Describe("Preference SpecFinder", func() {
 			instancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(instancetypeSpec).To(HaveValue(Equal(clusterInstancetype.Spec)))
+			Expect(fakeClientset.Actions()).To(
+				ContainElement(
+					testing.NewGetAction(
+						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.ClusterPluralResourceName),
+						"",
+						vm.Spec.Instancetype.Name,
+					),
+				),
+			)
 		})
 
 		It("returns expected instancetype using only the client", func() {
@@ -166,6 +179,15 @@ var _ = Describe("Preference SpecFinder", func() {
 			instancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(instancetypeSpec).To(HaveValue(Equal(clusterInstancetype.Spec)))
+			Expect(fakeClientset.Actions()).To(
+				ContainElement(
+					testing.NewGetAction(
+						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.ClusterPluralResourceName),
+						"",
+						vm.Spec.Instancetype.Name,
+					),
+				),
+			)
 		})
 
 		It("find fails when instancetype does not exist", func() {
@@ -262,6 +284,15 @@ var _ = Describe("Preference SpecFinder", func() {
 			instancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(instancetypeSpec).To(HaveValue(Equal(fakeInstancetype.Spec)))
+			Expect(fakeClientset.Actions()).To(
+				ContainElement(
+					testing.NewGetAction(
+						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.PluralResourceName),
+						vm.Namespace,
+						vm.Spec.Instancetype.Name,
+					),
+				),
+			)
 		})
 
 		It("returns expected instancetype using only the client", func() {
@@ -269,6 +300,15 @@ var _ = Describe("Preference SpecFinder", func() {
 			instancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(instancetypeSpec).To(HaveValue(Equal(fakeInstancetype.Spec)))
+			Expect(fakeClientset.Actions()).To(
+				ContainElement(
+					testing.NewGetAction(
+						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.PluralResourceName),
+						vm.Namespace,
+						vm.Spec.Instancetype.Name,
+					),
+				),
+			)
 		})
 
 		It("find fails when instancetype does not exist", func() {

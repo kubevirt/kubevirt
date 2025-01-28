@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/golang/mock/gomock"
@@ -39,6 +40,7 @@ var _ = Describe("Preference SpecFinder", func() {
 		vm     *v1.VirtualMachine
 
 		virtClient                      *kubecli.MockKubevirtClient
+		fakeClientset                   *fake.Clientset
 		preferenceInformerStore         cache.Store
 		clusterPreferenceInformerStore  cache.Store
 		controllerRevisionInformerStore cache.Store
@@ -50,14 +52,16 @@ var _ = Describe("Preference SpecFinder", func() {
 
 		virtClient.EXPECT().AppsV1().Return(k8sfake.NewSimpleClientset().AppsV1()).AnyTimes()
 
+		fakeClientset = fake.NewSimpleClientset()
+
 		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(
-			fake.NewSimpleClientset().KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
+			fakeClientset.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachineClusterPreference().Return(
-			fake.NewSimpleClientset().InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+			fakeClientset.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachinePreference(metav1.NamespaceDefault).Return(
-			fake.NewSimpleClientset().InstancetypeV1beta1().VirtualMachinePreferences(metav1.NamespaceDefault)).AnyTimes()
+			fakeClientset.InstancetypeV1beta1().VirtualMachinePreferences(metav1.NamespaceDefault)).AnyTimes()
 
 		preferenceInformer, _ := testutils.NewFakeInformerFor(&v1beta1.VirtualMachinePreference{})
 		preferenceInformerStore = preferenceInformer.GetStore()
@@ -146,6 +150,15 @@ var _ = Describe("Preference SpecFinder", func() {
 			preferenceSpec, err := finder.FindPreference(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(preferenceSpec).To(HaveValue(Equal(clusterPreference.Spec)))
+			Expect(fakeClientset.Actions()).To(
+				ContainElement(
+					testing.NewGetAction(
+						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.ClusterPluralPreferenceResourceName),
+						"",
+						vm.Spec.Preference.Name,
+					),
+				),
+			)
 		})
 
 		It("returns expected preference using only the client", func() {
@@ -153,6 +166,15 @@ var _ = Describe("Preference SpecFinder", func() {
 			preferenceSpec, err := finder.FindPreference(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(preferenceSpec).To(HaveValue(Equal(clusterPreference.Spec)))
+			Expect(fakeClientset.Actions()).To(
+				ContainElement(
+					testing.NewGetAction(
+						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.ClusterPluralPreferenceResourceName),
+						"",
+						vm.Spec.Preference.Name,
+					),
+				),
+			)
 		})
 
 		It("find fails when preference does not exist", func() {
@@ -204,6 +226,15 @@ var _ = Describe("Preference SpecFinder", func() {
 			preferenceSpec, err := finder.FindPreference(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(preferenceSpec).To(HaveValue(Equal(preference.Spec)))
+			Expect(fakeClientset.Actions()).To(
+				ContainElement(
+					testing.NewGetAction(
+						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.PluralPreferenceResourceName),
+						vm.Namespace,
+						vm.Spec.Preference.Name,
+					),
+				),
+			)
 		})
 
 		It("returns expected preference using only the client", func() {
@@ -211,6 +242,15 @@ var _ = Describe("Preference SpecFinder", func() {
 			preferenceSpec, err := finder.FindPreference(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(preferenceSpec).To(HaveValue(Equal(preference.Spec)))
+			Expect(fakeClientset.Actions()).To(
+				ContainElement(
+					testing.NewGetAction(
+						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.PluralPreferenceResourceName),
+						vm.Namespace,
+						vm.Spec.Preference.Name,
+					),
+				),
+			)
 		})
 
 		It("find fails when preference does not exist", func() {
