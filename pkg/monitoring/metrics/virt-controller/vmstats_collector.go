@@ -22,6 +22,7 @@ package virt_controller
 import (
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
 
 	k6tv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -213,7 +214,11 @@ func getVMInstancetype(vm *k6tv1.VirtualMachine) string {
 	}
 
 	if instancetype.Kind == "VirtualMachineInstancetype" {
-		return fetchResourceName(instancetype.Name, instancetypeMethods.InstancetypeStore)
+		key := types.NamespacedName{
+			Namespace: vm.Namespace,
+			Name:      instancetype.Name,
+		}
+		return fetchResourceName(key.String(), instancetypeMethods.InstancetypeStore)
 	}
 
 	if instancetype.Kind == "VirtualMachineClusterInstancetype" {
@@ -231,7 +236,11 @@ func getVMPreference(vm *k6tv1.VirtualMachine) string {
 	}
 
 	if preference.Kind == "VirtualMachinePreference" {
-		return fetchResourceName(preference.Name, instancetypeMethods.PreferenceStore)
+		key := types.NamespacedName{
+			Namespace: vm.Namespace,
+			Name:      preference.Name,
+		}
+		return fetchResourceName(key.String(), instancetypeMethods.PreferenceStore)
 	}
 
 	if preference.Kind == "VirtualMachineClusterPreference" {

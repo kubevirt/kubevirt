@@ -224,30 +224,38 @@ func getVMIMachine(vmi *k6tv1.VirtualMachineInstance) (guestOSMachineType string
 
 func getVMIInstancetype(vmi *k6tv1.VirtualMachineInstance) string {
 	if instancetypeName, ok := vmi.Annotations[k6tv1.InstancetypeAnnotation]; ok {
-		return fetchResourceName(instancetypeName, instancetypeMethods.InstancetypeStore)
+		key := types.NamespacedName{
+			Namespace: vmi.Namespace,
+			Name:      instancetypeName,
+		}
+		return fetchResourceName(key.String(), instancetypeMethods.InstancetypeStore)
 	}
 
-	if instancetypeName, ok := vmi.Annotations[k6tv1.ClusterInstancetypeAnnotation]; ok {
-		return fetchResourceName(instancetypeName, instancetypeMethods.ClusterInstancetypeStore)
+	if clusterInstancetypeName, ok := vmi.Annotations[k6tv1.ClusterInstancetypeAnnotation]; ok {
+		return fetchResourceName(clusterInstancetypeName, instancetypeMethods.ClusterInstancetypeStore)
 	}
 
 	return none
 }
 
 func getVMIPreference(vmi *k6tv1.VirtualMachineInstance) string {
-	if instancetypeName, ok := vmi.Annotations[k6tv1.PreferenceAnnotation]; ok {
-		return fetchResourceName(instancetypeName, instancetypeMethods.PreferenceStore)
+	if preferenceName, ok := vmi.Annotations[k6tv1.PreferenceAnnotation]; ok {
+		key := types.NamespacedName{
+			Namespace: vmi.Namespace,
+			Name:      preferenceName,
+		}
+		return fetchResourceName(key.String(), instancetypeMethods.PreferenceStore)
 	}
 
-	if instancetypeName, ok := vmi.Annotations[k6tv1.ClusterPreferenceAnnotation]; ok {
-		return fetchResourceName(instancetypeName, instancetypeMethods.ClusterPreferenceStore)
+	if clusterPreferenceName, ok := vmi.Annotations[k6tv1.ClusterPreferenceAnnotation]; ok {
+		return fetchResourceName(clusterPreferenceName, instancetypeMethods.ClusterPreferenceStore)
 	}
 
 	return none
 }
 
-func fetchResourceName(name string, store cache.Store) string {
-	obj, ok, err := store.GetByKey(name)
+func fetchResourceName(key string, store cache.Store) string {
+	obj, ok, err := store.GetByKey(key)
 	if err != nil || !ok {
 		return other
 	}
@@ -259,7 +267,7 @@ func fetchResourceName(name string, store cache.Store) string {
 
 	vendorName := apiObj.GetLabels()[instancetypeVendorLabel]
 	if _, isWhitelisted := whitelistedInstanceTypeVendors[vendorName]; isWhitelisted {
-		return name
+		return apiObj.GetName()
 	}
 
 	return other
