@@ -279,7 +279,7 @@ var _ = Describe("Preference SpecFinder", func() {
 		})
 
 		It("uses client when instancetype not found within informer", func() {
-			err := clusterInstancetypeInformerStore.Delete(fakeInstancetype)
+			err := instancetypeInformerStore.Delete(fakeInstancetype)
 			Expect(err).ToNot(HaveOccurred())
 			instancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
