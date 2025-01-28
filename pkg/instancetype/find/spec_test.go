@@ -105,8 +105,7 @@ var _ = Describe("Preference SpecFinder", func() {
 			Kind: "bar",
 		}
 		spec, err := finder.Find(vm)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("got unexpected kind in InstancetypeMatcher"))
+		Expect(err).To(MatchError(ContainSubstring("got unexpected kind in InstancetypeMatcher")))
 		Expect(spec).To(BeNil())
 	})
 
@@ -176,8 +175,7 @@ var _ = Describe("Preference SpecFinder", func() {
 		It("find fails when instancetype does not exist", func() {
 			vm.Spec.Instancetype.Name = nonExistingResourceName
 			_, err := finder.Find(vm)
-			Expect(err).To(HaveOccurred())
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
 		})
 
 		It("find successfully decodes v1alpha1 SpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
@@ -284,8 +282,7 @@ var _ = Describe("Preference SpecFinder", func() {
 		It("find fails when instancetype does not exist", func() {
 			vm.Spec.Instancetype.Name = nonExistingResourceName
 			_, err := finder.Find(vm)
-			Expect(err).To(HaveOccurred())
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
 		})
 
 		It("find successfully decodes v1alpha1 SpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
