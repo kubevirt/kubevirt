@@ -15,7 +15,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
-	"kubevirt.io/kubevirt/pkg/instancetype/expand"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	"kubevirt.io/kubevirt/pkg/instancetype/infer"
 	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
@@ -23,7 +22,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/validation"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/instancetype/upgrade"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 type Methods interface {
@@ -34,7 +32,6 @@ type Methods interface {
 	InferDefaultInstancetype(vm *virtv1.VirtualMachine) error
 	InferDefaultPreference(vm *virtv1.VirtualMachine) error
 	ApplyToVM(vm *virtv1.VirtualMachine) error
-	Expand(vm *virtv1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig) (*virtv1.VirtualMachine, error)
 }
 
 type InstancetypeMethods struct {
@@ -47,12 +44,6 @@ type InstancetypeMethods struct {
 }
 
 var _ Methods = &InstancetypeMethods{}
-
-func (m *InstancetypeMethods) Expand(vm *virtv1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig) (*virtv1.VirtualMachine, error) {
-	instancetypeFinder := find.NewSpecFinder(m.InstancetypeStore, m.ClusterInstancetypeStore, m.ControllerRevisionStore, m.Clientset)
-	preferenceFinder := preferenceFind.NewSpecFinder(m.PreferenceStore, m.ClusterPreferenceStore, m.ControllerRevisionStore, m.Clientset)
-	return expand.New(clusterConfig, instancetypeFinder, preferenceFinder).Expand(vm)
-}
 
 func (m *InstancetypeMethods) ApplyToVM(vm *virtv1.VirtualMachine) error {
 	instancetypeFinder := find.NewSpecFinder(m.InstancetypeStore, m.ClusterInstancetypeStore, m.ControllerRevisionStore, m.Clientset)
