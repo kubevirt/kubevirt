@@ -95,8 +95,7 @@ var _ = Describe("Preference SpecFinder", func() {
 			Kind: "bar",
 		}
 		spec, err := finder.FindPreference(vm)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("got unexpected kind in PreferenceMatcher"))
+		Expect(err).To(MatchError(ContainSubstring("got unexpected kind in PreferenceMatcher")))
 		Expect(spec).To(BeNil())
 	})
 
@@ -163,8 +162,7 @@ var _ = Describe("Preference SpecFinder", func() {
 		It("find fails when preference does not exist", func() {
 			vm.Spec.Preference.Name = nonExistingResourceName
 			_, err := finder.FindPreference(vm)
-			Expect(err).To(HaveOccurred())
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
 		})
 	})
 
@@ -226,8 +224,7 @@ var _ = Describe("Preference SpecFinder", func() {
 		It("find fails when preference does not exist", func() {
 			vm.Spec.Preference.Name = nonExistingResourceName
 			_, err := finder.FindPreference(vm)
-			Expect(err).To(HaveOccurred())
-			Expect(errors.IsNotFound(err)).To(BeTrue())
+			Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
 		})
 	})
 })
