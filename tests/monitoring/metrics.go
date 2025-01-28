@@ -95,7 +95,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			err = virtapi.SetupMetrics()
 			Expect(err).ToNot(HaveOccurred())
 
-			err = virtcontroller.SetupMetrics(nil, nil, nil, nil, nil, nil, nil, nil)
+			err = virtcontroller.SetupMetrics(nil, nil, nil, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = virtcontroller.RegisterLeaderMetrics()

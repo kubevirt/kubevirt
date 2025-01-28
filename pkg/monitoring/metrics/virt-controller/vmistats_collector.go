@@ -204,11 +204,11 @@ func getVMIMachine(vmi *k6tv1.VirtualMachineInstance) (guestOSMachineType string
 
 func getVMIInstancetype(vmi *k6tv1.VirtualMachineInstance) string {
 	if instancetypeName, ok := vmi.Annotations[k6tv1.InstancetypeAnnotation]; ok {
-		return fetchResourceName(instancetypeName, instanceTypeInformer.GetIndexer())
+		return fetchResourceName(instancetypeName, instancetypeMethods.InstancetypeStore)
 	}
 
 	if instancetypeName, ok := vmi.Annotations[k6tv1.ClusterInstancetypeAnnotation]; ok {
-		return fetchResourceName(instancetypeName, clusterInstanceTypeInformer.GetIndexer())
+		return fetchResourceName(instancetypeName, instancetypeMethods.ClusterInstancetypeStore)
 	}
 
 	return none
@@ -216,18 +216,18 @@ func getVMIInstancetype(vmi *k6tv1.VirtualMachineInstance) string {
 
 func getVMIPreference(vmi *k6tv1.VirtualMachineInstance) string {
 	if instancetypeName, ok := vmi.Annotations[k6tv1.PreferenceAnnotation]; ok {
-		return fetchResourceName(instancetypeName, preferenceInformer.GetIndexer())
+		return fetchResourceName(instancetypeName, instancetypeMethods.PreferenceStore)
 	}
 
 	if instancetypeName, ok := vmi.Annotations[k6tv1.ClusterPreferenceAnnotation]; ok {
-		return fetchResourceName(instancetypeName, clusterPreferenceInformer.GetIndexer())
+		return fetchResourceName(instancetypeName, instancetypeMethods.ClusterPreferenceStore)
 	}
 
 	return none
 }
 
-func fetchResourceName(name string, indexer cache.Indexer) string {
-	obj, ok, err := indexer.GetByKey(name)
+func fetchResourceName(name string, store cache.Store) string {
+	obj, ok, err := store.GetByKey(name)
 	if err != nil || !ok {
 		return other
 	}
