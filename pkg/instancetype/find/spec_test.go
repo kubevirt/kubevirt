@@ -146,14 +146,14 @@ var _ = Describe("Preference SpecFinder", func() {
 		It("returns expected instancetype", func() {
 			instancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*instancetypeSpec).To(Equal(clusterInstancetype.Spec))
+			Expect(instancetypeSpec).To(HaveValue(Equal(clusterInstancetype.Spec)))
 		})
 
 		It("find returns expected instancetype spec with no kind provided", func() {
 			vm.Spec.Instancetype.Kind = ""
 			instancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*instancetypeSpec).To(Equal(clusterInstancetype.Spec))
+			Expect(instancetypeSpec).To(HaveValue(Equal(clusterInstancetype.Spec)))
 		})
 
 		It("uses client when instancetype not found within informer", func() {
@@ -162,14 +162,14 @@ var _ = Describe("Preference SpecFinder", func() {
 
 			instancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*instancetypeSpec).To(Equal(clusterInstancetype.Spec))
+			Expect(instancetypeSpec).To(HaveValue(Equal(clusterInstancetype.Spec)))
 		})
 
 		It("returns expected instancetype using only the client", func() {
 			finder = find.NewSpecFinder(nil, nil, nil, virtClient)
 			instancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*instancetypeSpec).To(Equal(clusterInstancetype.Spec))
+			Expect(instancetypeSpec).To(HaveValue(Equal(clusterInstancetype.Spec)))
 		})
 
 		It("find fails when instancetype does not exist", func() {
@@ -219,7 +219,7 @@ var _ = Describe("Preference SpecFinder", func() {
 
 			foundInstancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*foundInstancetypeSpec).To(Equal(clusterInstancetype.Spec))
+			Expect(foundInstancetypeSpec).To(HaveValue(Equal(clusterInstancetype.Spec)))
 		})
 	})
 
@@ -261,7 +261,7 @@ var _ = Describe("Preference SpecFinder", func() {
 		It("find returns expected instancetype", func() {
 			instancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*instancetypeSpec).To(Equal(fakeInstancetype.Spec))
+			Expect(instancetypeSpec).To(HaveValue(Equal(fakeInstancetype.Spec)))
 		})
 
 		It("uses client when instancetype not found within informer", func() {
@@ -269,14 +269,14 @@ var _ = Describe("Preference SpecFinder", func() {
 			Expect(err).ToNot(HaveOccurred())
 			instancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*instancetypeSpec).To(Equal(fakeInstancetype.Spec))
+			Expect(instancetypeSpec).To(HaveValue(Equal(fakeInstancetype.Spec)))
 		})
 
 		It("returns expected instancetype using only the client", func() {
 			finder = find.NewSpecFinder(nil, nil, nil, virtClient)
 			instancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*instancetypeSpec).To(Equal(fakeInstancetype.Spec))
+			Expect(instancetypeSpec).To(HaveValue(Equal(fakeInstancetype.Spec)))
 		})
 
 		It("find fails when instancetype does not exist", func() {
@@ -326,7 +326,7 @@ var _ = Describe("Preference SpecFinder", func() {
 
 			foundInstancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*foundInstancetypeSpec).To(Equal(fakeInstancetype.Spec))
+			Expect(foundInstancetypeSpec).To(HaveValue(Equal(fakeInstancetype.Spec)))
 		})
 	})
 })

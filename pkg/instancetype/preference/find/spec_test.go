@@ -134,14 +134,14 @@ var _ = Describe("Preference SpecFinder", func() {
 		It("find returns expected preference spec", func() {
 			s, err := finder.FindPreference(vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*s).To(Equal(clusterPreference.Spec))
+			Expect(s).To(HaveValue(Equal(clusterPreference.Spec)))
 		})
 
 		It("find returns expected preference spec with no kind provided", func() {
 			vm.Spec.Preference.Kind = ""
 			s, err := finder.FindPreference(vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*s).To(Equal(clusterPreference.Spec))
+			Expect(s).To(HaveValue(Equal(clusterPreference.Spec)))
 		})
 
 		It("uses client when preference not found within informer", func() {
@@ -149,14 +149,14 @@ var _ = Describe("Preference SpecFinder", func() {
 			Expect(err).ToNot(HaveOccurred())
 			preferenceSpec, err := finder.FindPreference(vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*preferenceSpec).To(Equal(clusterPreference.Spec))
+			Expect(preferenceSpec).To(HaveValue(Equal(clusterPreference.Spec)))
 		})
 
 		It("returns expected preference using only the client", func() {
 			finder = find.NewSpecFinder(nil, nil, nil, virtClient)
 			preferenceSpec, err := finder.FindPreference(vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*preferenceSpec).To(Equal(clusterPreference.Spec))
+			Expect(preferenceSpec).To(HaveValue(Equal(clusterPreference.Spec)))
 		})
 
 		It("find fails when preference does not exist", func() {
@@ -202,7 +202,7 @@ var _ = Describe("Preference SpecFinder", func() {
 		It("find returns expected preference spec", func() {
 			preferenceSpec, err := finder.FindPreference(vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*preferenceSpec).To(Equal(preference.Spec))
+			Expect(preferenceSpec).To(HaveValue(Equal(preference.Spec)))
 		})
 
 		It("uses client when preference not found within informer", func() {
@@ -211,14 +211,14 @@ var _ = Describe("Preference SpecFinder", func() {
 
 			preferenceSpec, err := finder.FindPreference(vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*preferenceSpec).To(Equal(preference.Spec))
+			Expect(preferenceSpec).To(HaveValue(Equal(preference.Spec)))
 		})
 
 		It("returns expected preference using only the client", func() {
 			finder = find.NewSpecFinder(nil, nil, nil, virtClient)
 			preferenceSpec, err := finder.FindPreference(vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(*preferenceSpec).To(Equal(preference.Spec))
+			Expect(preferenceSpec).To(HaveValue(Equal(preference.Spec)))
 		})
 
 		It("find fails when preference does not exist", func() {
