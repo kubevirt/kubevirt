@@ -28,6 +28,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/collector"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 type DomainstatsScraper struct {
@@ -112,6 +113,15 @@ func gatherMetrics(socketFile string) (bool, *VirtualMachineInstanceStats, error
 	vmStats.DomainStats, exists, err = cli.GetDomainStats()
 	if err != nil {
 		return false, nil, fmt.Errorf("failed to update domain stats from socket %s: %w", socketFile, err)
+	}
+
+	if vmStats.DomainStats.DirtyRate == nil {
+		vmStats.DomainStats.DirtyRate = &stats.DomainStatsDirtyRate{MegabytesPerSecondSet: true}
+	}
+
+	vmStats.DomainStats.DirtyRate.MegabytesPerSecond, err = cli.GetDomainDirtyRateStats()
+	if err != nil {
+		return false, nil, fmt.Errorf("failed to update dirty rate stats from socket %s: %w", socketFile, err)
 	}
 
 	vmStats.FsStats, err = cli.GetFilesystems()
