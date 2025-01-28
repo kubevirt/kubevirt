@@ -26,15 +26,15 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
-const (
-	nonExistingResourceName = "non-existing-resource"
-)
-
-type preferenceSpecFinder interface {
-	FindPreference(vm *v1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
-}
-
 var _ = Describe("Preference SpecFinder", func() {
+	const (
+		nonExistingResourceName = "non-existing-resource"
+	)
+
+	type preferenceSpecFinder interface {
+		FindPreference(vm *v1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
+	}
+
 	var (
 		finder preferenceSpecFinder
 		vm     *v1.VirtualMachine
@@ -119,16 +119,16 @@ var _ = Describe("Preference SpecFinder", func() {
 		})
 
 		It("find returns expected preference spec", func() {
-			s, err := finder.FindPreference(vm)
+			preferenceSpec, err := finder.FindPreference(vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(s).To(HaveValue(Equal(clusterPreference.Spec)))
+			Expect(preferenceSpec).To(HaveValue(Equal(clusterPreference.Spec)))
 		})
 
 		It("find returns expected preference spec with no kind provided", func() {
 			vm.Spec.Preference.Kind = ""
-			s, err := finder.FindPreference(vm)
+			preferenceSpec, err := finder.FindPreference(vm)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(s).To(HaveValue(Equal(clusterPreference.Spec)))
+			Expect(preferenceSpec).To(HaveValue(Equal(clusterPreference.Spec)))
 		})
 
 		It("uses client when preference not found within informer", func() {
