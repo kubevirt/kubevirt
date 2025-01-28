@@ -2,7 +2,6 @@
 package instancetype_test
 
 import (
-	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -11,12 +10,8 @@ import (
 	"github.com/golang/mock/gomock"
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/tools/cache"
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -33,16 +28,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
-	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	fakeclientset "kubevirt.io/client-go/kubevirt/fake"
-	instancetypeclientv1beta1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
-)
-
-const (
-	resourceUID             types.UID = "9160e5de-2540-476a-86d9-af0081aee68a"
-	resourceGeneration      int64     = 1
-	nonExistingResourceName           = "non-existing-resource"
 )
 
 var _ = Describe("Instancetype and Preferences", func() {
@@ -53,7 +39,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 		vmi                              *v1.VirtualMachineInstance
 		virtClient                       *kubecli.MockKubevirtClient
 		vmInterface                      *kubecli.MockVirtualMachineInterface
-		fakeInstancetypeClients          instancetypeclientv1beta1.InstancetypeV1beta1Interface
 		k8sClient                        *k8sfake.Clientset
 		instancetypeInformerStore        cache.Store
 		clusterInstancetypeInformerStore cache.Store
@@ -69,7 +54,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
 		virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
-		fakeInstancetypeClients = fakeclientset.NewSimpleClientset().InstancetypeV1beta1()
 
 		instancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
 		instancetypeInformerStore = instancetypeInformer.GetStore()
@@ -102,261 +86,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 			},
 		}
 		vm.Namespace = k8sv1.NamespaceDefault
-	})
-
-	Context("Find instancetype", func() {
-		It("find returns nil when no instancetype is specified", func() {
-			vm.Spec.Instancetype = nil
-			spec, err := instancetypeMethods.FindInstancetypeSpec(vm)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(spec).To(BeNil())
-		})
-
-		It("find returns error when invalid Instancetype Kind is specified", func() {
-			vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-				Name: "foo",
-				Kind: "bar",
-			}
-			spec, err := instancetypeMethods.FindInstancetypeSpec(vm)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("got unexpected kind in InstancetypeMatcher"))
-			Expect(spec).To(BeNil())
-		})
-
-		Context("Using global ClusterInstancetype", func() {
-			var clusterInstancetype *instancetypev1beta1.VirtualMachineClusterInstancetype
-			var fakeClusterInstancetypeClient instancetypeclientv1beta1.VirtualMachineClusterInstancetypeInterface
-
-			BeforeEach(func() {
-				fakeClusterInstancetypeClient = fakeInstancetypeClients.VirtualMachineClusterInstancetypes()
-				virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(fakeClusterInstancetypeClient).AnyTimes()
-
-				clusterInstancetype = &instancetypev1beta1.VirtualMachineClusterInstancetype{
-					TypeMeta: metav1.TypeMeta{
-						Kind:       "VirtualMachineClusterInstancetype",
-						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name:       "test-cluster-instancetype",
-						UID:        resourceUID,
-						Generation: resourceGeneration,
-					},
-					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-						CPU: instancetypev1beta1.CPUInstancetype{
-							Guest: uint32(2),
-						},
-						Memory: instancetypev1beta1.MemoryInstancetype{
-							Guest: resource.MustParse("128Mi"),
-						},
-					},
-				}
-
-				_, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				err = clusterInstancetypeInformerStore.Add(clusterInstancetype)
-				Expect(err).ToNot(HaveOccurred())
-
-				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-					Name: clusterInstancetype.Name,
-					Kind: apiinstancetype.ClusterSingularResourceName,
-				}
-			})
-
-			It("returns expected instancetype", func() {
-				instancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(*instancetypeSpec).To(Equal(clusterInstancetype.Spec))
-			})
-
-			It("find returns expected instancetype spec with no kind provided", func() {
-				vm.Spec.Instancetype.Kind = ""
-				instancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(*instancetypeSpec).To(Equal(clusterInstancetype.Spec))
-			})
-
-			It("uses client when instancetype not found within informer", func() {
-				err := clusterInstancetypeInformerStore.Delete(clusterInstancetype)
-				Expect(err).ToNot(HaveOccurred())
-
-				instancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(*instancetypeSpec).To(Equal(clusterInstancetype.Spec))
-			})
-
-			It("returns expected instancetype using only the client", func() {
-				instancetypeMethods = &instancetype.InstancetypeMethods{Clientset: virtClient}
-				instancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(*instancetypeSpec).To(Equal(clusterInstancetype.Spec))
-			})
-
-			It("find fails when instancetype does not exist", func() {
-				vm.Spec.Instancetype.Name = nonExistingResourceName
-				_, err := instancetypeMethods.FindInstancetypeSpec(vm)
-				Expect(err).To(HaveOccurred())
-				Expect(errors.IsNotFound(err)).To(BeTrue())
-			})
-
-			It("find successfully decodes v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
-				clusterInstancetype.Spec.CPU = instancetypev1beta1.CPUInstancetype{
-					Guest: uint32(2),
-					// Set the following values to be compatible with objects converted from v1alpha1
-					Model:                 pointer.P(""),
-					DedicatedCPUPlacement: pointer.P(false),
-					IsolateEmulatorThread: pointer.P(false),
-				}
-
-				specData, err := json.Marshal(clusterInstancetype.Spec)
-				Expect(err).ToNot(HaveOccurred())
-
-				// Do not set APIVersion as part of VirtualMachineInstancetypeSpecRevision in order to trigger bug #9261
-				specRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{
-					Spec: specData,
-				}
-				specRevisionData, err := json.Marshal(specRevision)
-				Expect(err).ToNot(HaveOccurred())
-
-				controllerRevision := &appsv1.ControllerRevision{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:            "crName",
-						Namespace:       vm.Namespace,
-						OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, v1.VirtualMachineGroupVersionKind)},
-					},
-					Data: runtime.RawExtension{
-						Raw: specRevisionData,
-					},
-				}
-
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), controllerRevision, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-					Name:         clusterInstancetype.Name,
-					RevisionName: controllerRevision.Name,
-					Kind:         apiinstancetype.ClusterSingularResourceName,
-				}
-
-				foundInstancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(*foundInstancetypeSpec).To(Equal(clusterInstancetype.Spec))
-			})
-		})
-
-		Context("Using namespaced Instancetype", func() {
-			var fakeInstancetype *instancetypev1beta1.VirtualMachineInstancetype
-			var fakeInstancetypeClient instancetypeclientv1beta1.VirtualMachineInstancetypeInterface
-
-			BeforeEach(func() {
-				fakeInstancetypeClient = fakeInstancetypeClients.VirtualMachineInstancetypes(vm.Namespace)
-				virtClient.EXPECT().VirtualMachineInstancetype(gomock.Any()).Return(fakeInstancetypeClient).AnyTimes()
-
-				fakeInstancetype = &instancetypev1beta1.VirtualMachineInstancetype{
-					TypeMeta: metav1.TypeMeta{
-						Kind:       "VirtualMachineInstancetype",
-						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						Name:       "test-instancetype",
-						Namespace:  vm.Namespace,
-						UID:        resourceUID,
-						Generation: resourceGeneration,
-					},
-					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-						CPU: instancetypev1beta1.CPUInstancetype{
-							Guest: uint32(2),
-						},
-						Memory: instancetypev1beta1.MemoryInstancetype{
-							Guest: resource.MustParse("128Mi"),
-						},
-					},
-				}
-
-				_, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.Background(), fakeInstancetype, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				err = instancetypeInformerStore.Add(fakeInstancetype)
-				Expect(err).ToNot(HaveOccurred())
-
-				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-					Name: fakeInstancetype.Name,
-					Kind: apiinstancetype.SingularResourceName,
-				}
-			})
-
-			It("find returns expected instancetype", func() {
-				instancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(*instancetypeSpec).To(Equal(fakeInstancetype.Spec))
-			})
-
-			It("uses client when instancetype not found within informer", func() {
-				err := clusterInstancetypeInformerStore.Delete(fakeInstancetype)
-				Expect(err).ToNot(HaveOccurred())
-				instancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(*instancetypeSpec).To(Equal(fakeInstancetype.Spec))
-			})
-
-			It("returns expected instancetype using only the client", func() {
-				instancetypeMethods = &instancetype.InstancetypeMethods{Clientset: virtClient}
-				instancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(*instancetypeSpec).To(Equal(fakeInstancetype.Spec))
-			})
-
-			It("find fails when instancetype does not exist", func() {
-				vm.Spec.Instancetype.Name = nonExistingResourceName
-				_, err := instancetypeMethods.FindInstancetypeSpec(vm)
-				Expect(err).To(HaveOccurred())
-				Expect(errors.IsNotFound(err)).To(BeTrue())
-			})
-
-			It("find successfully decodes v1alpha1 VirtualMachineInstancetypeSpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
-				fakeInstancetype.Spec.CPU = instancetypev1beta1.CPUInstancetype{
-					Guest: uint32(2),
-					// Set the following values to be compatible with objects converted from v1alpha1
-					Model:                 pointer.P(""),
-					DedicatedCPUPlacement: pointer.P(false),
-					IsolateEmulatorThread: pointer.P(false),
-				}
-
-				specData, err := json.Marshal(fakeInstancetype.Spec)
-				Expect(err).ToNot(HaveOccurred())
-
-				// Do not set APIVersion as part of VirtualMachineInstancetypeSpecRevision in order to trigger bug #9261
-				specRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{
-					Spec: specData,
-				}
-				specRevisionData, err := json.Marshal(specRevision)
-				Expect(err).ToNot(HaveOccurred())
-
-				controllerRevision := &appsv1.ControllerRevision{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:            "crName",
-						Namespace:       vm.Namespace,
-						OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, v1.VirtualMachineGroupVersionKind)},
-					},
-					Data: runtime.RawExtension{
-						Raw: specRevisionData,
-					},
-				}
-
-				_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), controllerRevision, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-					Name:         fakeInstancetype.Name,
-					RevisionName: controllerRevision.Name,
-					Kind:         apiinstancetype.SingularResourceName,
-				}
-
-				foundInstancetypeSpec, err := instancetypeMethods.FindInstancetypeSpec(vm)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(*foundInstancetypeSpec).To(Equal(fakeInstancetype.Spec))
-			})
-		})
 	})
 
 	Context("Add instancetype name annotations", func() {
