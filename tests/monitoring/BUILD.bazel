@@ -37,6 +37,7 @@ go_library(
         "//tests/libvmops:go_default_library",
         "//tests/libwait:go_default_library",
         "//tests/testsuite:go_default_library",
+        "//vendor/github.com/google/goexpect:go_default_library",
         "//vendor/github.com/machadovilaca/operator-observability/pkg/operatormetrics:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
