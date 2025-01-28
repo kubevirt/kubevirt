@@ -90,7 +90,7 @@ var _ = Describe("Instancetype and Preferences", func() {
 			InstancetypeStore:        instancetypeInformerStore,
 			ClusterInstancetypeStore: clusterInstancetypeInformerStore,
 			PreferenceStore:          preferenceInformerStore,
-			ClusterPreferenceStore:   clusterInstancetypeInformerStore,
+			ClusterPreferenceStore:   clusterPreferenceInformerStore,
 			ControllerRevisionStore:  controllerrevisionInformerStore,
 			Clientset:                virtClient,
 		}
