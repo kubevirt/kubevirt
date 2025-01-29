@@ -76,7 +76,7 @@ type ghostRecord struct {
 	UID        types.UID `json:"uid"`
 }
 
-var ghostRecordGlobalStore GhostRecordStore
+var GhostRecordGlobalStore GhostRecordStore
 
 type GhostRecordStore struct {
 	cache             map[string]ghostRecord
@@ -86,28 +86,28 @@ type GhostRecordStore struct {
 
 func InitializeGhostRecordCache(directoryPath string) (*GhostRecordStore, error) {
 	iterablecpm := newIterableCheckpointManager(directoryPath)
-	ghostRecordGlobalStore = GhostRecordStore{
+	GhostRecordGlobalStore = GhostRecordStore{
 		cache:             make(map[string]ghostRecord),
 		checkpointManager: iterablecpm,
 	}
 
 	err := util.MkdirAllWithNosec(directoryPath)
 	if err != nil {
-		return &ghostRecordGlobalStore, err
+		return &GhostRecordGlobalStore, err
 	}
 
 	keys := iterablecpm.ListKeys()
 	for _, key := range keys {
 		ghostRecord := ghostRecord{}
-		if err := ghostRecordGlobalStore.checkpointManager.Get(key, &ghostRecord); err != nil {
+		if err := GhostRecordGlobalStore.checkpointManager.Get(key, &ghostRecord); err != nil {
 			log.Log.Reason(err).Errorf("Unable to read ghost record checkpoint, %s", key)
 			continue
 		}
 		key := ghostRecord.Namespace + "/" + ghostRecord.Name
-		ghostRecordGlobalStore.cache[key] = ghostRecord
+		GhostRecordGlobalStore.cache[key] = ghostRecord
 		log.Log.Infof("Added ghost record for key %s", key)
 	}
-	return &ghostRecordGlobalStore, nil
+	return &GhostRecordGlobalStore, nil
 }
 
 func (store *GhostRecordStore) LastKnownUID(key string) types.UID {
@@ -122,17 +122,13 @@ func (store *GhostRecordStore) LastKnownUID(key string) types.UID {
 	return record.UID
 }
 
-func LastKnownUIDFromGhostRecordCache(key string) types.UID {
-	return ghostRecordGlobalStore.LastKnownUID(key)
-}
-
 func getGhostRecords() ([]ghostRecord, error) {
-	ghostRecordGlobalStore.Lock()
-	defer ghostRecordGlobalStore.Unlock()
+	GhostRecordGlobalStore.Lock()
+	defer GhostRecordGlobalStore.Unlock()
 
 	var records []ghostRecord
 
-	for _, record := range ghostRecordGlobalStore.cache {
+	for _, record := range GhostRecordGlobalStore.cache {
 		records = append(records, record)
 	}
 
@@ -140,10 +136,10 @@ func getGhostRecords() ([]ghostRecord, error) {
 }
 
 func findGhostRecordBySocket(socketFile string) (ghostRecord, bool) {
-	ghostRecordGlobalStore.Lock()
-	defer ghostRecordGlobalStore.Unlock()
+	GhostRecordGlobalStore.Lock()
+	defer GhostRecordGlobalStore.Unlock()
 
-	for _, record := range ghostRecordGlobalStore.cache {
+	for _, record := range GhostRecordGlobalStore.cache {
 		if record.SocketFile == socketFile {
 			return record, true
 		}
@@ -160,10 +156,6 @@ func (store *GhostRecordStore) Exists(namespace string, name string) bool {
 	_, ok := store.cache[key]
 
 	return ok
-}
-
-func HasGhostRecord(namespace string, name string) bool {
-	return ghostRecordGlobalStore.Exists(namespace, name)
 }
 
 func (store *GhostRecordStore) Add(namespace string, name string, socketFile string, uid types.UID) (err error) {
@@ -210,10 +202,6 @@ func (store *GhostRecordStore) Add(namespace string, name string, socketFile str
 	return nil
 }
 
-func AddGhostRecord(namespace string, name string, socketFile string, uid types.UID) (err error) {
-	return ghostRecordGlobalStore.Add(namespace, name, socketFile, uid)
-}
-
 func (store *GhostRecordStore) Delete(namespace string, name string) error {
 	store.Lock()
 	defer store.Unlock()
@@ -235,10 +223,6 @@ func (store *GhostRecordStore) Delete(namespace string, name string) error {
 	delete(store.cache, key)
 
 	return nil
-}
-
-func DeleteGhostRecord(namespace string, name string) error {
-	return ghostRecordGlobalStore.Delete(namespace, name)
 }
 
 func listSockets() ([]string, error) {
