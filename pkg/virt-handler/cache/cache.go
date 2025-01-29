@@ -122,7 +122,7 @@ func (store *GhostRecordStore) LastKnownUID(key string) types.UID {
 	return record.UID
 }
 
-func getGhostRecords() ([]ghostRecord, error) {
+func getGhostRecords() []ghostRecord {
 	GhostRecordGlobalStore.Lock()
 	defer GhostRecordGlobalStore.Unlock()
 
@@ -132,7 +132,7 @@ func getGhostRecords() ([]ghostRecord, error) {
 		records = append(records, record)
 	}
 
-	return records, nil
+	return records
 }
 
 func findGhostRecordBySocket(socketFile string) (ghostRecord, bool) {
@@ -232,10 +232,7 @@ func listSockets() ([]string, error) {
 	if err != nil {
 		return sockets, err
 	}
-	ghostRecords, err := getGhostRecords()
-	if err != nil {
-		return sockets, err
-	}
+	ghostRecords := getGhostRecords()
 
 	sockets = append(sockets, knownSocketFiles...)
 
