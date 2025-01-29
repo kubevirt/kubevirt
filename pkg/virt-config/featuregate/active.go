@@ -47,8 +47,6 @@ const (
 	// VMPersistentState enables persisting backend state files of VMs, such as the contents of the vTPM
 	VMPersistentState = "VMPersistentState"
 	MultiArchitecture = "MultiArchitecture"
-	// AutoResourceLimitsGate enables automatic setting of vmi limits if there is a ResourceQuota with limits associated with the vmi namespace.
-	AutoResourceLimitsGate = "AutoResourceLimitsGate"
 
 	// AlignCPUsGate allows emulator thread to assign two extra CPUs if needed to complete even parity.
 	AlignCPUsGate = "AlignCPUs"
@@ -92,7 +90,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PersistentReservation, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VMPersistentState, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MultiArchitecture, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: AutoResourceLimitsGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: AlignCPUsGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: NodeRestrictionGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: InstancetypeReferencePolicy, State: Alpha})

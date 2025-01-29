@@ -50,6 +50,10 @@ const (
 	// GA:    v1.4.0
 	BochsDisplayForEFIGuests = "BochsDisplayForEFIGuests"
 
+	// AutoResourceLimitsGate enables automatic setting of vmi limits if there is a ResourceQuota with limits associated with the vmi namespace.
+	// GA:    v1.5.0
+	AutoResourceLimitsGate = "AutoResourceLimitsGate"
+
 	// DockerSELinuxMCSWorkaround sets the SELinux level of all the non-compute virt-launcher containers to "s0".
 	// Deprecated: v1.4.0
 	DockerSELinuxMCSWorkaround = "DockerSELinuxMCSWorkaround"
@@ -97,6 +101,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VolumesUpdateStrategy, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VolumeMigration, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: DisableCustomSELinuxPolicy, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: AutoResourceLimitsGate, State: GA})
 
 	RegisterFeatureGate(FeatureGate{Name: DockerSELinuxMCSWorkaround, State: Deprecated, Message: fmt.Sprintf(
 		"DockerSELinuxMCSWorkaround has been deprecated since v1.4.")})
