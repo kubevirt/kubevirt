@@ -149,7 +149,7 @@ var _ = Describe("Domain informer", func() {
 			_, exists := ghostRecordGlobalStore.cache["test1-namespace/test1"]
 			Expect(exists).To(BeFalse())
 
-			err = InitializeGhostRecordCache(ghostCacheDir)
+			_, err = InitializeGhostRecordCache(ghostCacheDir)
 			Expect(err).ToNot(HaveOccurred())
 
 			record, exists := ghostRecordGlobalStore.cache["test1-namespace/test1"]
