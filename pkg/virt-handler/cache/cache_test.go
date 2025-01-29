@@ -73,8 +73,7 @@ var _ = Describe("Domain informer", func() {
 		ghostCacheDir, err = os.MkdirTemp("", "")
 		Expect(err).ToNot(HaveOccurred())
 
-		ghostRecordStore, err = InitializeGhostRecordCache(ghostCacheDir)
-		Expect(err).ToNot(HaveOccurred())
+		ghostRecordStore = InitializeGhostRecordCache(NewIterableCheckpointManager(ghostCacheDir))
 
 		cmdclient.SetPodsBaseDir(podsDir)
 
@@ -138,8 +137,7 @@ var _ = Describe("Domain informer", func() {
 			err = ghostRecordStore.Add("test2-namespace", "test2", "somefile2", "1234-2")
 			Expect(err).ToNot(HaveOccurred())
 
-			ghostRecordStore, err = InitializeGhostRecordCache(ghostCacheDir)
-			Expect(err).ToNot(HaveOccurred())
+			ghostRecordStore = InitializeGhostRecordCache(NewIterableCheckpointManager(ghostCacheDir))
 
 			record, exists := ghostRecordStore.cache["test1-namespace/test1"]
 			Expect(exists).To(BeTrue())
@@ -439,7 +437,7 @@ var _ = Describe("Domain informer", func() {
 
 var _ = Describe("Iterable checkpoint manager", func() {
 	It("should list all keys", func() {
-		icp := newIterableCheckpointManager(GinkgoT().TempDir())
+		icp := NewIterableCheckpointManager(GinkgoT().TempDir())
 
 		Expect(icp.Store("one", "hi")).To(Succeed())
 		Expect(icp.Store("two", "hey")).To(Succeed())

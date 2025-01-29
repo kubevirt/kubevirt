@@ -242,13 +242,15 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	// We keep a record on disk of every VMI virt-handler starts.
-	// That record isn't deleted from this node until the VMI
-	// is completely torn down.
-	_, err = virtcache.InitializeGhostRecordCache(filepath.Join(app.VirtPrivateDir, "ghost-records"))
+	checkpointPath := filepath.Join(app.VirtPrivateDir, "ghost-records")
+	err = util.MkdirAllWithNosec(checkpointPath)
 	if err != nil {
 		panic(err)
 	}
+	// We keep a record on disk of every VMI virt-handler starts.
+	// That record isn't deleted from this node until the VMI
+	// is completely torn down.
+	_ = virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(checkpointPath))
 
 	cmdclient.SetPodsBaseDir("/pods")
 	containerdisk.SetKubeletPodsDirectory(app.KubeletPodsDir)
