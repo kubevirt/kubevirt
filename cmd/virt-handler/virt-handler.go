@@ -238,13 +238,17 @@ func (app *virtHandlerApp) Run() {
 	vmiSourceInformer := factory.VMISourceHost(app.HostOverride)
 	vmiTargetInformer := factory.VMITargetHost(app.HostOverride)
 
-	// We keep a record on disk of every VMI virt-handler starts.
-	// That record isn't deleted from this node until the VMI
-	// is completely torn down.
-	ghostRecordCache, err := virtcache.InitializeGhostRecordCache(filepath.Join(app.VirtPrivateDir, "ghost-records"))
+	checkpointPath := filepath.Join(app.VirtPrivateDir, "ghost-records")
+	err = util.MkdirAllWithNosec(checkpointPath)
 	if err != nil {
 		panic(err)
 	}
+	iterableCPManager := virtcache.NewIterableCheckpointManager(checkpointPath)
+
+	// We keep a record on disk of every VMI virt-handler starts.
+	// That record isn't deleted from this node until the VMI
+	// is completely torn down.
+	ghostRecordCache := virtcache.InitializeGhostRecordCache(iterableCPManager)
 
 	// Wire Domain controller
 	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiSourceInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second, ghostRecordCache)

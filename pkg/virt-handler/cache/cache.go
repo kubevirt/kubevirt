@@ -33,7 +33,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/checkpoint"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -61,7 +60,7 @@ func (icp *iterableCheckpointManager) ListKeys() []string {
 
 }
 
-func newIterableCheckpointManager(base string) IterableCheckpointManager {
+func NewIterableCheckpointManager(base string) IterableCheckpointManager {
 	return &iterableCheckpointManager{
 		base,
 		checkpoint.NewSimpleCheckpointManager(base),
@@ -81,19 +80,14 @@ type GhostRecordStore struct {
 	sync.Mutex
 }
 
-func InitializeGhostRecordCache(directoryPath string) (*GhostRecordStore, error) {
-	iterablecpm := newIterableCheckpointManager(directoryPath)
+func InitializeGhostRecordCache(iterableCPManager IterableCheckpointManager) *GhostRecordStore {
+
 	ghostRecordStore := &GhostRecordStore{
 		cache:             make(map[string]ghostRecord),
-		checkpointManager: iterablecpm,
+		checkpointManager: iterableCPManager,
 	}
 
-	err := util.MkdirAllWithNosec(directoryPath)
-	if err != nil {
-		return ghostRecordStore, err
-	}
-
-	keys := iterablecpm.ListKeys()
+	keys := iterableCPManager.ListKeys()
 	for _, key := range keys {
 		ghostRecord := ghostRecord{}
 		if err := ghostRecordStore.checkpointManager.Get(key, &ghostRecord); err != nil {
@@ -104,7 +98,7 @@ func InitializeGhostRecordCache(directoryPath string) (*GhostRecordStore, error)
 		ghostRecordStore.cache[key] = ghostRecord
 		log.Log.Infof("Added ghost record for key %s", key)
 	}
-	return ghostRecordStore, nil
+	return ghostRecordStore
 }
 
 func (store *GhostRecordStore) LastKnownUID(key string) types.UID {
