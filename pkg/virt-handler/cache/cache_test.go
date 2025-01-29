@@ -81,7 +81,7 @@ var _ = Describe("Domain informer", func() {
 		socketPath = cmdclient.SocketFilePathOnHost(podUID)
 		os.MkdirAll(filepath.Dir(socketPath), 0755)
 
-		informer = NewSharedInformer(shareDir, 10, nil, nil, time.Duration(resyncPeriod)*time.Second)
+		informer = NewSharedInformer(shareDir, 10, nil, nil, time.Duration(resyncPeriod)*time.Second, ghostRecordStore)
 		Expect(err).ToNot(HaveOccurred())
 
 		ctrl = gomock.NewController(GinkgoT())
@@ -211,6 +211,7 @@ var _ = Describe("Domain informer", func() {
 			d := &domainWatcher{
 				backgroundWatcherStarted: false,
 				virtShareDir:             shareDir,
+				ghostRecordStore:         ghostRecordStore,
 			}
 
 			listResults, err := d.listAllKnownDomains()
@@ -240,6 +241,7 @@ var _ = Describe("Domain informer", func() {
 			d := &domainWatcher{
 				backgroundWatcherStarted: false,
 				virtShareDir:             shareDir,
+				ghostRecordStore:         ghostRecordStore,
 			}
 
 			listResults, err := d.listAllKnownDomains()
@@ -325,6 +327,7 @@ var _ = Describe("Domain informer", func() {
 				watchdogTimeout:          1,
 				unresponsiveSockets:      make(map[string]int64),
 				resyncPeriod:             time.Duration(1) * time.Hour,
+				ghostRecordStore:         ghostRecordStore,
 			}
 
 			err = d.startBackground()
@@ -371,6 +374,7 @@ var _ = Describe("Domain informer", func() {
 				watchdogTimeout:          1,
 				unresponsiveSockets:      make(map[string]int64),
 				resyncPeriod:             time.Duration(1) * time.Hour,
+				ghostRecordStore:         ghostRecordStore,
 			}
 
 			err = d.startBackground()

@@ -75,8 +75,6 @@ type ghostRecord struct {
 	UID        types.UID `json:"uid"`
 }
 
-var ghostRecordGlobalStore GhostRecordStore
-
 type GhostRecordStore struct {
 	cache             map[string]ghostRecord
 	checkpointManager checkpoint.CheckpointManager
@@ -85,28 +83,28 @@ type GhostRecordStore struct {
 
 func InitializeGhostRecordCache(directoryPath string) (*GhostRecordStore, error) {
 	iterablecpm := newIterableCheckpointManager(directoryPath)
-	ghostRecordGlobalStore = GhostRecordStore{
+	ghostRecordStore := &GhostRecordStore{
 		cache:             make(map[string]ghostRecord),
 		checkpointManager: iterablecpm,
 	}
 
 	err := util.MkdirAllWithNosec(directoryPath)
 	if err != nil {
-		return &ghostRecordGlobalStore, err
+		return ghostRecordStore, err
 	}
 
 	keys := iterablecpm.ListKeys()
 	for _, key := range keys {
 		ghostRecord := ghostRecord{}
-		if err := ghostRecordGlobalStore.checkpointManager.Get(key, &ghostRecord); err != nil {
+		if err := ghostRecordStore.checkpointManager.Get(key, &ghostRecord); err != nil {
 			log.Log.Reason(err).Errorf("Unable to read ghost record checkpoint, %s", key)
 			continue
 		}
 		key := ghostRecord.Namespace + "/" + ghostRecord.Name
-		ghostRecordGlobalStore.cache[key] = ghostRecord
+		ghostRecordStore.cache[key] = ghostRecord
 		log.Log.Infof("Added ghost record for key %s", key)
 	}
-	return &ghostRecordGlobalStore, nil
+	return ghostRecordStore, nil
 }
 
 func (store *GhostRecordStore) LastKnownUID(key string) types.UID {
@@ -224,7 +222,8 @@ func (store *GhostRecordStore) Delete(namespace string, name string) error {
 	return nil
 }
 
-func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.SharedInformer {
-	lw := newListWatchFromNotify(virtShareDir, watchdogTimeout, recorder, vmiStore, resyncPeriod)
+func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store,
+	resyncPeriod time.Duration, ghostRecordStore *GhostRecordStore) cache.SharedInformer {
+	lw := newListWatchFromNotify(virtShareDir, watchdogTimeout, recorder, vmiStore, resyncPeriod, ghostRecordStore)
 	return cache.NewSharedInformer(lw, &api.Domain{}, 0)
 }
