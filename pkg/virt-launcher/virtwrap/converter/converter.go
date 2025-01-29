@@ -88,6 +88,7 @@ type EFIConfiguration struct {
 type ConverterContext struct {
 	Architecture                    arch.Converter
 	AllowEmulation                  bool
+	DevKvmExists                    bool
 	Secrets                         map[string]*k8sv1.Secret
 	VirtualMachine                  *v1.VirtualMachineInstance
 	CPUSet                          []int
@@ -1426,17 +1427,14 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domainVCPUTopologyForHotplug(vmi, domain)
 	}
 
-	kvmPath := "/dev/kvm"
-	if _, err := os.Stat(kvmPath); errors.Is(err, os.ErrNotExist) {
+	if !c.DevKvmExists {
 		if c.AllowEmulation {
 			logger := log.DefaultLogger()
-			logger.Infof("Hardware emulation device '%s' not present. Using software emulation.", kvmPath)
+			logger.Infof("Hardware emulation device '/dev/kvm' not present. Using software emulation.")
 			domain.Spec.Type = "qemu"
 		} else {
-			return fmt.Errorf("hardware emulation device '%s' not present", kvmPath)
+			return fmt.Errorf("hardware emulation device '/dev/kvm' not present")
 		}
-	} else if err != nil {
-		return err
 	}
 
 	newChannel := Add_Agent_To_api_Channel()
