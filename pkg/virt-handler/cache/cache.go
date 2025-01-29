@@ -34,7 +34,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/checkpoint"
 	"kubevirt.io/kubevirt/pkg/util"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -223,33 +222,6 @@ func (store *GhostRecordStore) Delete(namespace string, name string) error {
 	delete(store.cache, key)
 
 	return nil
-}
-
-func listSockets() ([]string, error) {
-	var sockets []string
-
-	knownSocketFiles, err := cmdclient.ListAllSockets()
-	if err != nil {
-		return sockets, err
-	}
-	ghostRecords := GhostRecordGlobalStore.list()
-
-	sockets = append(sockets, knownSocketFiles...)
-
-	for _, record := range ghostRecords {
-		exists := false
-		for _, socket := range knownSocketFiles {
-			if record.SocketFile == socket {
-				exists = true
-				break
-			}
-		}
-		if !exists {
-			sockets = append(sockets, record.SocketFile)
-		}
-	}
-
-	return sockets, nil
 }
 
 func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.SharedInformer {

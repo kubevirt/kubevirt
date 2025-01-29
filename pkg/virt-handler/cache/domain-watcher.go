@@ -128,7 +128,7 @@ func (d *domainWatcher) startBackground() error {
 }
 
 func (d *domainWatcher) handleResync() {
-	socketFiles, err := listSockets()
+	socketFiles, err := listSockets(GhostRecordGlobalStore.list())
 	if err != nil {
 		log.Log.Reason(err).Error("failed to list sockets")
 		return
@@ -164,7 +164,7 @@ func (d *domainWatcher) handleResync() {
 func (d *domainWatcher) handleStaleSocketConnections() error {
 	var unresponsive []string
 
-	socketFiles, err := listSockets()
+	socketFiles, err := listSockets(GhostRecordGlobalStore.list())
 	if err != nil {
 		log.Log.Reason(err).Error("failed to list sockets")
 		return err
@@ -241,7 +241,7 @@ func (d *domainWatcher) handleStaleSocketConnections() error {
 func (d *domainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 	var domains []*api.Domain
 
-	socketFiles, err := listSockets()
+	socketFiles, err := listSockets(GhostRecordGlobalStore.list())
 	if err != nil {
 		return nil, err
 	}
@@ -336,4 +336,30 @@ func (d *domainWatcher) Stop() {
 
 func (d *domainWatcher) ResultChan() <-chan watch.Event {
 	return d.eventChan
+}
+
+func listSockets(ghostRecords []ghostRecord) ([]string, error) {
+	var sockets []string
+
+	knownSocketFiles, err := cmdclient.ListAllSockets()
+	if err != nil {
+		return sockets, err
+	}
+
+	sockets = append(sockets, knownSocketFiles...)
+
+	for _, record := range ghostRecords {
+		exists := false
+		for _, socket := range knownSocketFiles {
+			if record.SocketFile == socket {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			sockets = append(sockets, record.SocketFile)
+		}
+	}
+
+	return sockets, nil
 }
