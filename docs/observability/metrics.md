@@ -126,6 +126,9 @@ Total CPU time spent in all modes (sum of both vcpu and hypervisor usage). Type:
 ### kubevirt_vmi_cpu_user_usage_seconds_total
 Total CPU time spent in user mode. Type: Counter.
 
+### kubevirt_vmi_dirty_rate_bytes_per_second
+Guest dirty-rate in bytes per second. Type: Gauge.
+
 ### kubevirt_vmi_filesystem_capacity_bytes
 Total VM filesystem capacity in bytes. Type: Gauge.
 
