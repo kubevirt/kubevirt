@@ -212,7 +212,7 @@ func (d *domainWatcher) handleStaleSocketConnections() error {
 
 		if diff > int64(d.watchdogTimeout) {
 
-			record, exists := findGhostRecordBySocket(key)
+			record, exists := GhostRecordGlobalStore.findBySocket(key)
 
 			if !exists {
 				// ignore if info file doesn't exist
@@ -254,7 +254,7 @@ func (d *domainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 		}
 
 		if !exists {
-			record, recordExists := findGhostRecordBySocket(socketFile)
+			record, recordExists := GhostRecordGlobalStore.findBySocket(socketFile)
 			if recordExists {
 				domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
 				domain.ObjectMeta.UID = record.UID
