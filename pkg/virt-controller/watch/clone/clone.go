@@ -36,6 +36,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	virtsnapshot "kubevirt.io/kubevirt/pkg/storage/snapshot"
 )
 
@@ -130,16 +131,24 @@ func (ctrl *VMCloneController) execute(key string) error {
 func (ctrl *VMCloneController) sync(vmClone *clone.VirtualMachineClone) (syncInfoType, error) {
 	cloneInfo, err := ctrl.retrieveCloneInfo(vmClone)
 	if err != nil {
-		// If source does not exist we will wait for source
-		// to be created and then vmclone will get reconciled again.
-		if errors.Unwrap(err) == ErrSourceDoesntExist {
+		switch errors.Unwrap(err) {
+		case ErrSourceDoesntExist:
+			// If source does not exist we will wait for source
+			// to be created and then vmclone will get reconciled again.
 			return syncInfoType{
 				isClonePending: true,
 				event:          SourceDoesNotExist,
 				reason:         err.Error(),
 			}, nil
+		case ErrSourceWithBackendStorage:
+			return syncInfoType{
+				isCloneFailing: true,
+				event:          SourceWithBackendStorageInvalid,
+				reason:         err.Error(),
+			}, nil
+		default:
+			return syncInfoType{}, err
 		}
-		return syncInfoType{}, err
 	}
 
 	if ctrl.getTargetType(cloneInfo.vmClone) == targetTypeVM {
@@ -164,6 +173,9 @@ func (ctrl *VMCloneController) retrieveCloneInfo(vmClone *clone.VirtualMachineCl
 		}
 
 		sourceVM := sourceVMObj.(*k6tv1.VirtualMachine)
+		if backendstorage.IsBackendStorageNeededForVM(sourceVM) {
+			return nil, fmt.Errorf("%w: VM %s/%s", ErrSourceWithBackendStorage, vmClone.Namespace, sourceInfo.Name)
+		}
 		cloneInfo.sourceVm = sourceVM
 
 	case sourceTypeSnapshot:
@@ -293,7 +305,7 @@ func (ctrl *VMCloneController) updateStatus(origClone *clone.VirtualMachineClone
 		assignPhase(clone.Failed)
 		updateCloneConditions(vmClone,
 			newProgressingCondition(corev1.ConditionFalse, "Failed"),
-			newReadyCondition(corev1.ConditionFalse, "Failed"),
+			newReadyCondition(corev1.ConditionFalse, syncInfo.reason),
 		)
 	default:
 		updateCloneConditions(vmClone,
