@@ -33,7 +33,6 @@ const (
 
 	DownwardMetricsFeatureGate = "DownwardMetrics"
 	Root                       = "Root"
-	ClusterProfiler            = "ClusterProfiler"
 	WorkloadEncryptionSEV      = "WorkloadEncryptionSEV"
 	VSOCKGate                  = "VSOCK"
 	// KubevirtSeccompProfile indicate that Kubevirt will install its custom profile and
@@ -82,7 +81,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: HostDiskGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DownwardMetricsFeatureGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: Root, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: ClusterProfiler, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionSEV, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VSOCKGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: KubevirtSeccompProfile, State: Alpha})
