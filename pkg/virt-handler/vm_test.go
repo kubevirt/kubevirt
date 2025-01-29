@@ -139,7 +139,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		ghostCacheDir, err = os.MkdirTemp("", "")
 		Expect(err).ToNot(HaveOccurred())
 
-		err = virtcache.InitializeGhostRecordCache(ghostCacheDir)
+		_, err = virtcache.InitializeGhostRecordCache(ghostCacheDir)
 		Expect(err).ToNot(HaveOccurred())
 
 		os.MkdirAll(filepath.Join(vmiShareDir, "var", "run", "kubevirt"), 0755)

@@ -84,8 +84,7 @@ type GhostRecordStore struct {
 	sync.Mutex
 }
 
-func InitializeGhostRecordCache(directoryPath string) error {
-
+func InitializeGhostRecordCache(directoryPath string) (*GhostRecordStore, error) {
 	iterablecpm := newIterableCheckpointManager(directoryPath)
 	ghostRecordGlobalStore = GhostRecordStore{
 		cache:             make(map[string]ghostRecord),
@@ -94,7 +93,7 @@ func InitializeGhostRecordCache(directoryPath string) error {
 
 	err := util.MkdirAllWithNosec(directoryPath)
 	if err != nil {
-		return err
+		return &ghostRecordGlobalStore, err
 	}
 
 	keys := iterablecpm.ListKeys()
@@ -108,19 +107,23 @@ func InitializeGhostRecordCache(directoryPath string) error {
 		ghostRecordGlobalStore.cache[key] = ghostRecord
 		log.Log.Infof("Added ghost record for key %s", key)
 	}
-	return nil
+	return &ghostRecordGlobalStore, nil
 }
 
-func LastKnownUIDFromGhostRecordCache(key string) types.UID {
-	ghostRecordGlobalStore.Lock()
-	defer ghostRecordGlobalStore.Unlock()
+func (store *GhostRecordStore) LastKnownUID(key string) types.UID {
+	store.Lock()
+	defer store.Unlock()
 
-	record, ok := ghostRecordGlobalStore.cache[key]
+	record, ok := store.cache[key]
 	if !ok {
 		return ""
 	}
 
 	return record.UID
+}
+
+func LastKnownUIDFromGhostRecordCache(key string) types.UID {
+	return ghostRecordGlobalStore.LastKnownUID(key)
 }
 
 func getGhostRecords() ([]ghostRecord, error) {
@@ -149,19 +152,23 @@ func findGhostRecordBySocket(socketFile string) (ghostRecord, bool) {
 	return ghostRecord{}, false
 }
 
-func HasGhostRecord(namespace string, name string) bool {
-	ghostRecordGlobalStore.Lock()
-	defer ghostRecordGlobalStore.Unlock()
+func (store *GhostRecordStore) Exists(namespace string, name string) bool {
+	store.Lock()
+	defer store.Unlock()
 
 	key := namespace + "/" + name
-	_, ok := ghostRecordGlobalStore.cache[key]
+	_, ok := store.cache[key]
 
 	return ok
 }
 
-func AddGhostRecord(namespace string, name string, socketFile string, uid types.UID) (err error) {
-	ghostRecordGlobalStore.Lock()
-	defer ghostRecordGlobalStore.Unlock()
+func HasGhostRecord(namespace string, name string) bool {
+	return ghostRecordGlobalStore.Exists(namespace, name)
+}
+
+func (store *GhostRecordStore) Add(namespace string, name string, socketFile string, uid types.UID) (err error) {
+	store.Lock()
+	defer store.Unlock()
 	if name == "" {
 		return fmt.Errorf("can not add ghost record when 'name' is not provided")
 	} else if namespace == "" {
@@ -173,7 +180,7 @@ func AddGhostRecord(namespace string, name string, socketFile string, uid types.
 	}
 
 	key := namespace + "/" + name
-	record, ok := ghostRecordGlobalStore.cache[key]
+	record, ok := store.cache[key]
 	if !ok {
 		// record doesn't exist, so add new one.
 		record := ghostRecord{
@@ -182,10 +189,10 @@ func AddGhostRecord(namespace string, name string, socketFile string, uid types.
 			SocketFile: socketFile,
 			UID:        uid,
 		}
-		if err := ghostRecordGlobalStore.checkpointManager.Store(string(uid), &record); err != nil {
+		if err := store.checkpointManager.Store(string(uid), &record); err != nil {
 			return fmt.Errorf("failed to checkpoint %s, %w", uid, err)
 		}
-		ghostRecordGlobalStore.cache[key] = record
+		store.cache[key] = record
 	}
 
 	// This protects us from stomping on a previous ghost record
@@ -203,11 +210,15 @@ func AddGhostRecord(namespace string, name string, socketFile string, uid types.
 	return nil
 }
 
-func DeleteGhostRecord(namespace string, name string) error {
-	ghostRecordGlobalStore.Lock()
-	defer ghostRecordGlobalStore.Unlock()
+func AddGhostRecord(namespace string, name string, socketFile string, uid types.UID) (err error) {
+	return ghostRecordGlobalStore.Add(namespace, name, socketFile, uid)
+}
+
+func (store *GhostRecordStore) Delete(namespace string, name string) error {
+	store.Lock()
+	defer store.Unlock()
 	key := namespace + "/" + name
-	record, ok := ghostRecordGlobalStore.cache[key]
+	record, ok := store.cache[key]
 	if !ok {
 		// already deleted
 		return nil
@@ -217,13 +228,17 @@ func DeleteGhostRecord(namespace string, name string) error {
 		return fmt.Errorf("unable to remove ghost record with empty UID")
 	}
 
-	if err := ghostRecordGlobalStore.checkpointManager.Delete(string(record.UID)); err != nil {
+	if err := store.checkpointManager.Delete(string(record.UID)); err != nil {
 		return fmt.Errorf("failed to delete checkpoint %s, %w", record.UID, err)
 	}
 
-	delete(ghostRecordGlobalStore.cache, key)
+	delete(store.cache, key)
 
 	return nil
+}
+
+func DeleteGhostRecord(namespace string, name string) error {
+	return ghostRecordGlobalStore.Delete(namespace, name)
 }
 
 func listSockets() ([]string, error) {
