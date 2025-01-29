@@ -166,10 +166,6 @@ func (config *ClusterConfig) MultiArchitectureEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.MultiArchitecture)
 }
 
-func (config *ClusterConfig) AutoResourceLimitsEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.AutoResourceLimitsGate)
-}
-
 func (config *ClusterConfig) AlignCPUsEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.AlignCPUsGate)
 }

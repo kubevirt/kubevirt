@@ -1901,7 +1901,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
-	Context("with automatic resource limits FG enabled", decorators.AutoResourceLimitsGate, func() {
+	Context("using automatic resource limits", func() {
 
 		When("there is no ResourceQuota with memory and cpu limits associated with the creation namespace", func() {
 			It("[test_id:11215]should not automatically set memory limits in the virt-launcher pod", func() {
