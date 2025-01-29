@@ -247,7 +247,7 @@ func (app *virtHandlerApp) Run() {
 	// We keep a record on disk of every VMI virt-handler starts.
 	// That record isn't deleted from this node until the VMI
 	// is completely torn down.
-	_, err = virtcache.InitializeGhostRecordCache(filepath.Join(app.VirtPrivateDir, "ghost-records"))
+	ghostRecordCache, err := virtcache.InitializeGhostRecordCache(filepath.Join(app.VirtPrivateDir, "ghost-records"))
 	if err != nil {
 		panic(err)
 	}
@@ -347,6 +347,7 @@ func (app *virtHandlerApp) Run() {
 		netsetup.NewNetConf(app.clusterConfig),
 		netsetup.NewNetStat(),
 		netbinding.MemoryCalculator{},
+		ghostRecordCache,
 	)
 	if err != nil {
 		panic(err)

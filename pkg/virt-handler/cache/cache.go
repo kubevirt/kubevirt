@@ -122,10 +122,6 @@ func (store *GhostRecordStore) LastKnownUID(key string) types.UID {
 	return record.UID
 }
 
-func LastKnownUIDFromGhostRecordCache(key string) types.UID {
-	return ghostRecordGlobalStore.LastKnownUID(key)
-}
-
 func getGhostRecords() ([]ghostRecord, error) {
 	ghostRecordGlobalStore.Lock()
 	defer ghostRecordGlobalStore.Unlock()
@@ -160,10 +156,6 @@ func (store *GhostRecordStore) Exists(namespace string, name string) bool {
 	_, ok := store.cache[key]
 
 	return ok
-}
-
-func HasGhostRecord(namespace string, name string) bool {
-	return ghostRecordGlobalStore.Exists(namespace, name)
 }
 
 func (store *GhostRecordStore) Add(namespace string, name string, socketFile string, uid types.UID) (err error) {
@@ -210,10 +202,6 @@ func (store *GhostRecordStore) Add(namespace string, name string, socketFile str
 	return nil
 }
 
-func AddGhostRecord(namespace string, name string, socketFile string, uid types.UID) (err error) {
-	return ghostRecordGlobalStore.Add(namespace, name, socketFile, uid)
-}
-
 func (store *GhostRecordStore) Delete(namespace string, name string) error {
 	store.Lock()
 	defer store.Unlock()
@@ -235,10 +223,6 @@ func (store *GhostRecordStore) Delete(namespace string, name string) error {
 	delete(store.cache, key)
 
 	return nil
-}
-
-func DeleteGhostRecord(namespace string, name string) error {
-	return ghostRecordGlobalStore.Delete(namespace, name)
 }
 
 func listSockets() ([]string, error) {
