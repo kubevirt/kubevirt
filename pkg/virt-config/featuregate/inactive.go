@@ -82,6 +82,8 @@ const (
 
 	// DisableCustomSELinuxPolicy disables the installation of the custom SELinux policy for virt-launcher
 	DisableCustomSELinuxPolicy = "DisableCustomSELinuxPolicy"
+
+	ClusterProfiler = "ClusterProfiler"
 )
 
 func init() {
@@ -102,6 +104,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VolumeMigration, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: DisableCustomSELinuxPolicy, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: AutoResourceLimitsGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: ClusterProfiler, State: GA})
 
 	RegisterFeatureGate(FeatureGate{Name: DockerSELinuxMCSWorkaround, State: Deprecated, Message: fmt.Sprintf(
 		"DockerSELinuxMCSWorkaround has been deprecated since v1.4.")})

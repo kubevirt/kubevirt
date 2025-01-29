@@ -46,7 +46,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("Cluster Profiler Subresources", func() {
@@ -96,12 +95,13 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 		recorder = httptest.NewRecorder()
 		response = restful.NewResponse(recorder)
 	})
-	enableFeatureGate := func(featureGate string) {
+
+	enableClusterProfiler := func() {
 		kvConfig := kv.DeepCopy()
-		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
+		kvConfig.Spec.Configuration.DeveloperConfiguration.ClusterProfiler = true
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
-	disableFeatureGates := func() {
+	disableClusterProfiler := func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
 
@@ -155,7 +155,7 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 				),
 			)
 
-			enableFeatureGate(featuregate.ClusterProfiler)
+			enableClusterProfiler()
 			expectPodList()
 			fn(request, response)
 			Expect(recorder.Code).To(Equal(http.StatusOK))
@@ -181,7 +181,7 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 				),
 			)
 
-			enableFeatureGate(featuregate.ClusterProfiler)
+			enableClusterProfiler()
 			expectPodList()
 			fn(request, response)
 			Expect(recorder.Code).To(Equal(http.StatusOK))
@@ -227,7 +227,7 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 
 	AfterEach(func() {
 		server.Close()
-		disableFeatureGates()
+		disableClusterProfiler()
 		backend.Close()
 	})
 })
