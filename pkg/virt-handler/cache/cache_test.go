@@ -124,11 +124,11 @@ var _ = Describe("Domain informer", func() {
 			err := ghostRecordStore.Add("test1-namespace", "test1", "somefile1", "1234-1")
 			Expect(err).ToNot(HaveOccurred())
 
-			record, exists := findGhostRecordBySocket("somefile1")
+			record, exists := ghostRecordStore.findBySocket("somefile1")
 			Expect(exists).To(BeTrue())
 			Expect(record.Name).To(Equal("test1"))
 
-			record, exists = findGhostRecordBySocket("does-not-exist")
+			record, exists = ghostRecordStore.findBySocket("does-not-exist")
 			Expect(exists).To(BeFalse())
 		})
 
