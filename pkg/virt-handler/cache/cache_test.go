@@ -44,9 +44,9 @@ import (
 )
 
 func clearGhostRecordCache() {
-	ghostRecordGlobalMutex.Lock()
-	defer ghostRecordGlobalMutex.Unlock()
-	ghostRecordGlobalCache = make(map[string]ghostRecord)
+	ghostRecordGlobalStore.Lock()
+	defer ghostRecordGlobalStore.Unlock()
+	ghostRecordGlobalStore.cache = make(map[string]ghostRecord)
 }
 
 var _ = Describe("Domain informer", func() {
@@ -146,18 +146,18 @@ var _ = Describe("Domain informer", func() {
 
 			clearGhostRecordCache()
 
-			_, exists := ghostRecordGlobalCache["test1-namespace/test1"]
+			_, exists := ghostRecordGlobalStore.cache["test1-namespace/test1"]
 			Expect(exists).To(BeFalse())
 
 			err = InitializeGhostRecordCache(ghostCacheDir)
 			Expect(err).ToNot(HaveOccurred())
 
-			record, exists := ghostRecordGlobalCache["test1-namespace/test1"]
+			record, exists := ghostRecordGlobalStore.cache["test1-namespace/test1"]
 			Expect(exists).To(BeTrue())
 			Expect(string(record.UID)).To(Equal("1234-1"))
 			Expect(record.SocketFile).To(Equal("somefile1"))
 
-			record, exists = ghostRecordGlobalCache["test2-namespace/test2"]
+			record, exists = ghostRecordGlobalStore.cache["test2-namespace/test2"]
 			Expect(exists).To(BeTrue())
 			Expect(string(record.UID)).To(Equal("1234-2"))
 			Expect(record.SocketFile).To(Equal("somefile2"))
@@ -167,7 +167,7 @@ var _ = Describe("Domain informer", func() {
 			err := AddGhostRecord("test1-namespace", "test1", "somefile1", "1234-1")
 			Expect(err).ToNot(HaveOccurred())
 
-			_, exists := ghostRecordGlobalCache["test1-namespace/test1"]
+			_, exists := ghostRecordGlobalStore.cache["test1-namespace/test1"]
 			Expect(exists).To(BeTrue())
 
 			exists, err = diskutils.FileExists(filepath.Join(ghostCacheDir, "1234-1"))
@@ -177,7 +177,7 @@ var _ = Describe("Domain informer", func() {
 			err = DeleteGhostRecord("test1-namespace", "test1")
 			Expect(err).ToNot(HaveOccurred())
 
-			_, exists = ghostRecordGlobalCache["test1-namespace/test1"]
+			_, exists = ghostRecordGlobalStore.cache["test1-namespace/test1"]
 			Expect(exists).To(BeFalse())
 
 			exists, err = diskutils.FileExists(filepath.Join(ghostCacheDir, "1234-1"))
