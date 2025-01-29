@@ -265,6 +265,19 @@ var _ = Describe("Clone", func() {
 				expectCloneBeInPhase(clone.PhaseUnset)
 			})
 
+			It("clone should fail if source VM has backendstorage", func() {
+				sourceVM.Spec.Template.Spec.Domain.Devices.TPM = &virtv1.TPMDevice{
+					Persistent: pointer.P(true),
+				}
+				addVM(sourceVM)
+				vmClone.Status.Phase = clone.PhaseUnset
+				addClone(vmClone)
+
+				controller.Execute()
+				expectEvent(SourceWithBackendStorageInvalid)
+				expectCloneBeInPhase(clone.Failed)
+			})
+
 			It("should report event if VM volumeSnapshots are invalid", func() {
 				sourceVM.Spec.Template.Spec.Volumes = append(sourceVM.Spec.Template.Spec.Volumes, virtv1.Volume{
 					Name: "disk0",

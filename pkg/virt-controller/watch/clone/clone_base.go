@@ -37,17 +37,19 @@ const (
 	TargetVMCreated       Event = "TargetVMCreated"
 	PVCBound              Event = "PVCBound"
 
-	SnapshotDeleted          Event = "SnapshotDeleted"
-	SourceDoesNotExist       Event = "SourceDoesNotExist"
-	VMVolumeSnapshotsInvalid Event = "VMVolumeSnapshotsInvalid"
+	SnapshotDeleted                 Event = "SnapshotDeleted"
+	SourceDoesNotExist              Event = "SourceDoesNotExist"
+	SourceWithBackendStorageInvalid Event = "SourceVMWithBackendStorageInvalid"
+	VMVolumeSnapshotsInvalid        Event = "VMVolumeSnapshotsInvalid"
 )
 
 var (
 	ErrVolumeNotSnapshotable        = "Virtual Machine volume %s does not support snapshots"
 	ErrVolumeSnapshotSupportUnknown = "Virtual Machine volume %s snapshot support unknown"
-)
 
-var ErrSourceDoesntExist = errors.New("Source doesnt exist")
+	ErrSourceDoesntExist        = errors.New("Source doesnt exist")
+	ErrSourceWithBackendStorage = errors.New("Clone of source with backendstorage is not supported")
+)
 
 type VMCloneController struct {
 	client               kubecli.KubevirtClient
