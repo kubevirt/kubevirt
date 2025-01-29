@@ -26,11 +26,9 @@ package converter
 */
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -97,7 +95,6 @@ type ConverterContext struct {
 	HotplugVolumes                  map[string]v1.VolumeStatus
 	PermanentVolumes                map[string]v1.VolumeStatus
 	MigratedVolumes                 map[string]string
-	DisksInfo                       map[string]*cmdv1.DiskInfo
 	SMBios                          *cmdv1.SMBios
 	SRIOVDevices                    []api.HostDevice
 	GenericHostDevices              []api.HostDevice
@@ -429,7 +426,7 @@ func SetDriverCacheMode(disk *api.Disk, directIOChecker DirectIOChecker) error {
 }
 
 func IsPreAllocated(path string) bool {
-	diskInf, err := GetImageInfo(path)
+	diskInf, err := containerdisk.GetDiskInfo(path)
 	if err != nil {
 		return false
 	}
@@ -815,14 +812,20 @@ func Convert_v1_ContainerDiskSource_To_api_Disk(volumeName string, _ *v1.Contain
 		Source: &api.DiskSource{},
 	}
 
-	source := containerdisk.GetDiskTargetPathFromLauncherView(diskIndex)
-	if info := c.DisksInfo[volumeName]; info != nil {
-		disk.BackingStore.Format.Type = info.Format
-	} else {
-		return fmt.Errorf("no disk info provided for volume %s", volumeName)
+	backingFile := containerdisk.GetDiskTargetPathFromLauncherView(diskIndex)
+	info, err := containerdisk.GetDiskInfo(backingFile)
+	if err != nil {
+		return err
 	}
-	disk.BackingStore.Source.File = source
-	disk.BackingStore.Type = "file"
+	disk.BackingStore = &api.BackingStore{
+		Format: &api.BackingStoreFormat{
+			Type: info.Format,
+		},
+		Source: &api.DiskSource{
+			File: backingFile,
+		},
+		Type: "file",
+	}
 
 	return nil
 }
@@ -1922,23 +1925,6 @@ func boolToString(value *bool, defaultPositive bool, positive string, negative s
 		return toString(defaultPositive)
 	}
 	return toString(*value)
-}
-
-func GetImageInfo(imagePath string) (*containerdisk.DiskInfo, error) {
-
-	// #nosec No risk for attacket injection. Only get information about an image
-	out, err := exec.Command(
-		"/usr/bin/qemu-img", "info", imagePath, "--output", "json",
-	).Output()
-	if err != nil {
-		return nil, fmt.Errorf("failed to invoke qemu-img: %v", err)
-	}
-	info := &containerdisk.DiskInfo{}
-	err = json.Unmarshal(out, info)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse disk info: %v", err)
-	}
-	return info, err
 }
 
 func needsSCSIController(vmi *v1.VirtualMachineInstance) bool {

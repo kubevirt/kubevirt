@@ -20,8 +20,10 @@
 package containerdisk
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -382,7 +384,6 @@ func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, config *virtcon
 func CreateEphemeralImages(
 	vmi *v1.VirtualMachineInstance,
 	diskCreator ephemeraldisk.EphemeralDiskCreatorInterface,
-	disksInfo map[string]*DiskInfo,
 ) error {
 	// The domain is setup to use the COW image instead of the base image. What we have
 	// to do here is only create the image where the domain expects it (GetDiskTargetPartFromLauncherView)
@@ -390,9 +391,10 @@ func CreateEphemeralImages(
 
 	for i, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.ContainerDisk != nil {
-			info, _ := disksInfo[volume.Name]
-			if info == nil {
-				return fmt.Errorf("no disk info provided for volume %s", volume.Name)
+			backingFile := GetDiskTargetPathFromLauncherView(i)
+			info, err := GetDiskInfo(backingFile)
+			if err != nil {
+				return err
 			}
 			if backingFile, err := GetDiskTargetPartFromLauncherView(i); err != nil {
 				return err
@@ -441,6 +443,22 @@ func ExtractImageIDsFromSourcePod(vmi *v1.VirtualMachineInstance, sourcePod *kub
 		imageIDs[key] = toPullableImageReference(image, status.ImageID)
 	}
 	return
+}
+
+func GetDiskInfo(imagePath string) (*DiskInfo, error) {
+	// #nosec No risk for attacket injection. Only get information about an image
+	out, err := exec.Command(
+		"/usr/bin/qemu-img", "info", imagePath, "--output", "json",
+	).Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to invoke qemu-img: %v", err)
+	}
+	info := &DiskInfo{}
+	err = json.Unmarshal(out, info)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse disk info: %v", err)
+	}
+	return info, err
 }
 
 func toPullableImageReference(image string, imageID string) string {

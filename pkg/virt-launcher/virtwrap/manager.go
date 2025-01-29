@@ -170,7 +170,6 @@ type LibvirtDomainManager struct {
 	ovmfPath                 string
 	ephemeralDiskCreator     ephemeraldisk.EphemeralDiskCreatorInterface
 	directIOChecker          converter.DirectIOChecker
-	disksInfo                map[string]*cmdv1.DiskInfo
 	cancelSafetyUnfreezeChan chan struct{}
 	migrateInfoStats         *stats.DomainJobInfo
 
@@ -218,7 +217,6 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		efiEnvironment:           efi.DetectEFIEnvironment(runtime.GOARCH, ovmfPath),
 		ephemeralDiskCreator:     ephemeralDiskCreator,
 		directIOChecker:          directIOChecker,
-		disksInfo:                map[string]*cmdv1.DiskInfo{},
 		cancelSafetyUnfreezeChan: make(chan struct{}),
 		migrateInfoStats:         &stats.DomainJobInfo{},
 		metadataCache:            metadataCache,
@@ -722,18 +720,6 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	logger.Info("Executing PreStartHook on VMI pod environment")
 
-	disksInfo := map[string]*containerdisk.DiskInfo{}
-	for k, v := range l.disksInfo {
-		if v != nil {
-			disksInfo[k] = &containerdisk.DiskInfo{
-				Format:      v.Format,
-				BackingFile: v.BackingFile,
-				ActualSize:  int64(v.ActualSize),
-				VirtualSize: int64(v.VirtualSize),
-			}
-		}
-	}
-
 	// generate cloud-init data
 	cloudInitData, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, config.SecretSourceDir)
 	if err != nil {
@@ -783,7 +769,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	}
 
 	// Create ephemeral disk for container disks
-	err = containerdisk.CreateEphemeralImages(vmi, l.ephemeralDiskCreator, disksInfo)
+	err = containerdisk.CreateEphemeralImages(vmi, l.ephemeralDiskCreator)
 	if err != nil {
 		return domain, fmt.Errorf("preparing ephemeral container disk images failed: %v", err)
 	}
@@ -925,7 +911,7 @@ func getUsableDiskSize(path string) (int64, error) {
 	}
 
 	availableSize := int64(statfs.Bavail) * int64(statfs.Bsize)
-	diskInfo, err := converter.GetImageInfo(path)
+	diskInfo, err := containerdisk.GetDiskInfo(path)
 	if err != nil {
 		return int64(-1), err
 	}
@@ -942,7 +928,7 @@ func shouldExpandOffline(disk api.Disk) bool {
 		// Block devices don't need to be expanded
 		return false
 	}
-	diskInfo, err := converter.GetImageInfo(getSourceFile(disk))
+	diskInfo, err := containerdisk.GetDiskInfo(getSourceFile(disk))
 	if err != nil {
 		log.DefaultLogger().Reason(err).Warning("Failed to get image info")
 		return false
@@ -1043,10 +1029,6 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		// Add preallocated and thick-provisioned volumes for which we need to avoid the discard=unmap option
 		c.VolumesDiscardIgnore = options.PreallocatedVolumes
 
-		if len(options.DisksInfo) > 0 {
-			l.disksInfo = options.DisksInfo
-		}
-
 		if options.GetClusterConfig() != nil {
 			c.ExpandDisksEnabled = options.GetClusterConfig().GetExpandDisksEnabled()
 			c.FreePageReporting = isFreePageReportingEnabled(options.GetClusterConfig().GetFreePageReportingDisabled(), vmi)
@@ -1056,7 +1038,6 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 
 		c.DomainAttachmentByInterfaceName = options.GetInterfaceDomainAttachment()
 	}
-	c.DisksInfo = l.disksInfo
 
 	if !isMigrationTarget {
 		sriovDevices, err := sriov.CreateHostDevices(vmi)

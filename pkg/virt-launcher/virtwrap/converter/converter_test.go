@@ -1100,8 +1100,6 @@ var _ = Describe("Converter", func() {
 					},
 				},
 			})
-			c.DisksInfo = make(map[string]*cmdv1.DiskInfo)
-			c.DisksInfo[name] = &cmdv1.DiskInfo{}
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 			reserv := domainSpec.Devices.Disks[0].Source.Reservations
 			Expect(reserv.Managed).To(Equal("no"))
