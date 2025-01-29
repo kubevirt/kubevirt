@@ -810,6 +810,10 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 		return nil
 	}
 
+	if hasEphemeralHotplugVolumes(vm, vmi) {
+		return nil
+	}
+
 	// The pull policy for container disks are only set on the VMI spec and not on the VM spec.
 	// In order to correctly compare the volumes set, we need to set the pull policy on the VM spec as well.
 	vmCopy := vm.DeepCopy()
@@ -823,23 +827,11 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 			vmCopy.Spec.Template.Spec.Volumes[i].ContainerDisk.ImagePullPolicy = vmiVol.ContainerDisk.ImagePullPolicy
 		}
 	}
-	hotplugOp := false
-	volsVM := storagetypes.GetVolumesByName(&vmCopy.Spec.Template.Spec)
-	for _, volume := range vmi.Spec.Volumes {
-		hotpluggableVol := (volume.VolumeSource.PersistentVolumeClaim != nil &&
-			volume.VolumeSource.PersistentVolumeClaim.Hotpluggable) ||
-			(volume.VolumeSource.DataVolume != nil && volume.VolumeSource.DataVolume.Hotpluggable)
-		_, ok := volsVM[volume.Name]
-		if !ok && hotpluggableVol {
-			hotplugOp = true
-		}
-	}
-	if hotplugOp {
-		return nil
-	}
+
 	if equality.Semantic.DeepEqual(vmi.Spec.Volumes, vmCopy.Spec.Template.Spec.Volumes) {
 		return nil
 	}
+
 	vmConditions := controller.NewVirtualMachineConditionManager()
 	// Abort the volume migration if any of the previous migrated volumes
 	// has changed
@@ -3253,4 +3245,20 @@ func (c *Controller) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi *
 	log.Log.Object(vmi).Infof(logMsg)
 
 	return nil
+}
+
+func hasEphemeralHotplugVolumes(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	volsVM := storagetypes.GetVolumesByName(&vm.Spec.Template.Spec)
+
+	for _, volume := range vmi.Spec.Volumes {
+		hotpluggableVol := (volume.VolumeSource.PersistentVolumeClaim != nil &&
+			volume.VolumeSource.PersistentVolumeClaim.Hotpluggable) ||
+			(volume.VolumeSource.DataVolume != nil && volume.VolumeSource.DataVolume.Hotpluggable)
+		_, ok := volsVM[volume.Name]
+		if !ok && hotpluggableVol {
+			return true
+		}
+	}
+
+	return false
 }
