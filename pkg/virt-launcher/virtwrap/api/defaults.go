@@ -1,5 +1,7 @@
 package api
 
+import archdefaulter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api/arch-defaulter"
+
 const (
 	DefaultProtocol   = "TCP"
 	DefaultVMCIDR     = "10.0.2.0/24"
@@ -8,54 +10,25 @@ const (
 )
 
 func NewDefaulter(arch string) *Defaulter {
-	return &Defaulter{Architecture: arch}
+	return &Defaulter{
+		ArchDefaulter: archdefaulter.NewArchDefaulter(arch),
+	}
 }
 
 type Defaulter struct {
-	Architecture string
-}
-
-func (d *Defaulter) isPPC64() bool {
-	return d.Architecture == "ppc64le"
-}
-
-func (d *Defaulter) isARM64() bool {
-	return d.Architecture == "arm64"
-}
-
-func (d *Defaulter) isS390X() bool {
-	return d.Architecture == "s390x"
+	ArchDefaulter archdefaulter.ArchDefaulter
 }
 
 func (d *Defaulter) setDefaults_OSType(ostype *OSType) {
 	ostype.OS = "hvm"
 
 	if ostype.Arch == "" {
-		switch {
-		case d.isPPC64():
-			ostype.Arch = "ppc64le"
-		case d.isARM64():
-			ostype.Arch = "aarch64"
-		case d.isS390X():
-			ostype.Arch = "s390x"
-		default:
-			ostype.Arch = "x86_64"
-		}
+		ostype.Arch = d.ArchDefaulter.OSTypeArch()
 	}
 
-	// q35 is an alias of the newest q35 machine type.
 	// TODO: we probably want to select concrete type in the future for "future-backwards" compatibility.
 	if ostype.Machine == "" {
-		switch {
-		case d.isPPC64():
-			ostype.Machine = "pseries"
-		case d.isARM64():
-			ostype.Machine = "virt"
-		case d.isS390X():
-			ostype.Machine = "s390-ccw-virtio"
-		default:
-			ostype.Machine = "q35"
-		}
+		ostype.Machine = d.ArchDefaulter.OSTypeMachine()
 	}
 }
 
