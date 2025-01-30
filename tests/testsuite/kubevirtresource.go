@@ -111,7 +111,6 @@ func AdjustKubeVirtResource() {
 		featuregate.VMExportGate,
 		featuregate.KubevirtSeccompProfile,
 		featuregate.VMPersistentState,
-		featuregate.AutoResourceLimitsGate,
 	)
 
 	if kv.Spec.Configuration.NetworkConfiguration == nil {

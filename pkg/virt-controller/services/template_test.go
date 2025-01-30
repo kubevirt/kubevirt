@@ -4718,14 +4718,7 @@ var _ = Describe("Template", func() {
 			})
 		})
 
-		When("the auto resource limits feature gate is enabled", func() {
-			BeforeEach(func() {
-				By("enabling the auto resource limits feature gate")
-				kvConfig := kv.DeepCopy()
-				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.AutoResourceLimitsGate}
-				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
-			})
-
+		When("using auto resource limits", func() {
 			Context("when the creation namespace has a resource quota with CPU limits associated to it", func() {
 				When("vmi has CPU limits set", func() {
 					It("should not override limits", func() {
@@ -4796,7 +4789,6 @@ var _ = Describe("Template", func() {
 					kvConfig.Spec.Configuration.AutoCPULimitNamespaceLabelSelector = &metav1.LabelSelector{
 						MatchLabels: map[string]string{"testAutoLimits": "true"},
 					}
-					kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.AutoResourceLimitsGate}
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 				})
 
@@ -4872,41 +4864,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 		})
-
-		When("the auto resource limits feature gate is disabled", func() {
-
-			It("should not set memory limits", func() {
-				vmi := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: rqNamespace,
-						UID:       "1234",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
-							Resources: v1.ResourceRequirements{
-								Requests: k8sv1.ResourceList{k8sv1.ResourceMemory: guestMemory},
-							},
-						},
-					},
-				}
-
-				pod, err := svc.RenderLaunchManifest(&vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
-				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(BeZero())
-			})
-		})
-
-		When("the auto resource limits feature gate is enabled", func() {
-
-			BeforeEach(func() {
-				By("enabling the auto resource limits feature gate")
-				kvConfig := kv.DeepCopy()
-				kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.AutoResourceLimitsGate}
-				testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
-			})
-
+		When("using auto resource limits ", func() {
 			Context("when the creation namespace has a resource quota with memory limits associated to it", func() {
 
 				DescribeTable("should not override limits", func(withLimits, withDedicatedCPU bool) {

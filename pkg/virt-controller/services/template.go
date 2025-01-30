@@ -1507,9 +1507,6 @@ func (t *templateService) doesVMIRequireAutoMemoryLimits(vmi *v1.VirtualMachineI
 }
 
 func (t *templateService) doesVMIRequireAutoResourceLimits(vmi *v1.VirtualMachineInstance, resource k8sv1.ResourceName) bool {
-	if !t.clusterConfig.AutoResourceLimitsEnabled() {
-		return false
-	}
 	if _, resourceLimitsExists := vmi.Spec.Domain.Resources.Limits[resource]; resourceLimitsExists {
 		return false
 	}
