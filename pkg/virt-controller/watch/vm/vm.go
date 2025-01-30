@@ -63,6 +63,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/storage/memorydump"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -88,7 +89,6 @@ const (
 	failedCreateCRforVmErrMsg                 = "Failed to create controller revision for VirtualMachine."
 	failedProcessDeleteNotificationErrMsg     = "Failed to process delete notification"
 	failureDeletingVmiErrFormat               = "Failure attempting to delete VMI: %v"
-	failedMemoryDump                          = "Memory dump failed"
 	failedCleanupRestartRequired              = "Failed to delete RestartRequired condition or last-seen controller revisions"
 	failedManualRecoveryRequiredCondSetErrMsg = "cannot start the VM since it has the manual recovery required condtion set"
 
@@ -109,7 +109,6 @@ const (
 const (
 	hotplugVolumeErrorReason     = "HotPlugVolumeError"
 	hotplugCPUErrorReason        = "HotPlugCPUError"
-	memoryDumpErrorReason        = "MemoryDumpError"
 	failedUpdateErrorReason      = "FailedUpdateError"
 	failedCreateReason           = "FailedCreate"
 	vmiFailedDeleteReason        = "FailedDelete"
@@ -531,119 +530,6 @@ func (c *Controller) handleDataVolumes(vm *virtv1.VirtualMachine) (bool, error) 
 	return ready, nil
 }
 
-func removeMemoryDumpVolumeFromVMISpec(vmiSpec *virtv1.VirtualMachineInstanceSpec, claimName string) *virtv1.VirtualMachineInstanceSpec {
-	newVolumesList := []virtv1.Volume{}
-	for _, volume := range vmiSpec.Volumes {
-		if volume.Name != claimName {
-			newVolumesList = append(newVolumesList, volume)
-		}
-	}
-	vmiSpec.Volumes = newVolumesList
-	return vmiSpec
-}
-
-func applyMemoryDumpVolumeRequestOnVMISpec(vmiSpec *virtv1.VirtualMachineInstanceSpec, claimName string) *virtv1.VirtualMachineInstanceSpec {
-	for _, volume := range vmiSpec.Volumes {
-		if volume.Name == claimName {
-			return vmiSpec
-		}
-	}
-
-	memoryDumpVol := &virtv1.MemoryDumpVolumeSource{
-		PersistentVolumeClaimVolumeSource: virtv1.PersistentVolumeClaimVolumeSource{
-			PersistentVolumeClaimVolumeSource: k8score.PersistentVolumeClaimVolumeSource{
-				ClaimName: claimName,
-			},
-			Hotpluggable: true,
-		},
-	}
-
-	newVolume := virtv1.Volume{
-		Name: claimName,
-	}
-	newVolume.VolumeSource.MemoryDump = memoryDumpVol
-
-	vmiSpec.Volumes = append(vmiSpec.Volumes, newVolume)
-
-	return vmiSpec
-}
-
-func (c *Controller) generateVMIMemoryDumpVolumePatch(vmi *virtv1.VirtualMachineInstance, request *virtv1.VirtualMachineMemoryDumpRequest, addVolume bool) error {
-	foundRemoveVol := false
-	for _, volume := range vmi.Spec.Volumes {
-		if request.ClaimName == volume.Name {
-			if addVolume {
-				return fmt.Errorf("Unable to add volume [%s] because it already exists", volume.Name)
-			} else {
-				foundRemoveVol = true
-			}
-		}
-	}
-
-	if !foundRemoveVol && !addVolume {
-		return fmt.Errorf("Unable to remove volume [%s] because it does not exist", request.ClaimName)
-	}
-
-	vmiCopy := vmi.DeepCopy()
-	if addVolume {
-		vmiCopy.Spec = *applyMemoryDumpVolumeRequestOnVMISpec(&vmiCopy.Spec, request.ClaimName)
-	} else {
-		vmiCopy.Spec = *removeMemoryDumpVolumeFromVMISpec(&vmiCopy.Spec, request.ClaimName)
-	}
-	patchset := patch.New(
-		patch.WithTest("/spec/volumes", vmi.Spec.Volumes),
-	)
-	if len(vmi.Spec.Volumes) > 0 {
-		patchset.AddOption(patch.WithReplace("/spec/volumes", vmiCopy.Spec.Volumes))
-	} else {
-		patchset.AddOption(patch.WithAdd("/spec/volumes", vmiCopy.Spec.Volumes))
-	}
-
-	patchBytes, err := patchset.GeneratePayload()
-	if err != nil {
-		return err
-	}
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-	return err
-}
-
-func needUpdatePVCMemoryDumpAnnotation(pvc *k8score.PersistentVolumeClaim, request *virtv1.VirtualMachineMemoryDumpRequest) bool {
-	if pvc.GetAnnotations() == nil {
-		return true
-	}
-	annotation, hasAnnotation := pvc.Annotations[virtv1.PVCMemoryDumpAnnotation]
-	return !hasAnnotation || (request.Phase == virtv1.MemoryDumpUnmounting && annotation != *request.FileName) || (request.Phase == virtv1.MemoryDumpFailed && annotation != failedMemoryDump)
-}
-
-func (c *Controller) updatePVCMemoryDumpAnnotation(vm *virtv1.VirtualMachine) error {
-	request := vm.Status.MemoryDumpRequest
-	pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vm.Namespace, request.ClaimName, c.pvcStore)
-	if err != nil {
-		log.Log.Object(vm).Errorf("Error getting PersistentVolumeClaim to update memory dump annotation: %v", err)
-		return err
-	}
-	if pvc == nil {
-		log.Log.Object(vm).Errorf("Error getting PersistentVolumeClaim to update memory dump annotation: %v", err)
-		return fmt.Errorf("Error when trying to update memory dump annotation, pvc %s not found", request.ClaimName)
-	}
-
-	if needUpdatePVCMemoryDumpAnnotation(pvc, request) {
-		if pvc.GetAnnotations() == nil {
-			pvc.SetAnnotations(make(map[string]string))
-		}
-		if request.Phase == virtv1.MemoryDumpUnmounting {
-			pvc.Annotations[virtv1.PVCMemoryDumpAnnotation] = *request.FileName
-		} else if request.Phase == virtv1.MemoryDumpFailed {
-			pvc.Annotations[virtv1.PVCMemoryDumpAnnotation] = failedMemoryDump
-		}
-		if _, err = c.clientset.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(context.Background(), pvc, metav1.UpdateOptions{}); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (c *Controller) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
 	patchSet := patch.New(
 		patch.WithTest("/spec/domain/cpu/sockets", vmi.Spec.Domain.CPU.Sockets),
@@ -875,63 +761,6 @@ func (c *Controller) handleAffinityChangeRequest(vm *virtv1.VirtualMachine, vmi 
 			return err
 		}
 	}
-	return nil
-}
-
-func (c *Controller) handleMemoryDumpRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	if vm.Status.MemoryDumpRequest == nil {
-		return nil
-	}
-
-	vmiVolumeMap := make(map[string]virtv1.Volume)
-	if vmi != nil {
-		for _, volume := range vmi.Spec.Volumes {
-			vmiVolumeMap[volume.Name] = volume
-		}
-	}
-	switch vm.Status.MemoryDumpRequest.Phase {
-	case virtv1.MemoryDumpAssociating:
-		if vmi == nil || vmi.DeletionTimestamp != nil || !vmi.IsRunning() {
-			return nil
-		}
-		// When in state associating we want to add the memory dump pvc
-		// as a volume in the vm and in the vmi to trigger the mount
-		// to virt launcher and the memory dump
-		vm.Spec.Template.Spec = *applyMemoryDumpVolumeRequestOnVMISpec(&vm.Spec.Template.Spec, vm.Status.MemoryDumpRequest.ClaimName)
-		if _, exists := vmiVolumeMap[vm.Status.MemoryDumpRequest.ClaimName]; exists {
-			return nil
-		}
-		if err := c.generateVMIMemoryDumpVolumePatch(vmi, vm.Status.MemoryDumpRequest, true); err != nil {
-			log.Log.Object(vmi).Errorf("unable to patch vmi to add memory dump volume: %v", err)
-			return err
-		}
-	case virtv1.MemoryDumpUnmounting, virtv1.MemoryDumpFailed:
-		if err := c.updatePVCMemoryDumpAnnotation(vm); err != nil {
-			return err
-		}
-		// Check if the memory dump is in the vmi list of volumes,
-		// if it still there remove it to make it unmount from virt launcher
-		if _, exists := vmiVolumeMap[vm.Status.MemoryDumpRequest.ClaimName]; !exists {
-			return nil
-		}
-
-		if err := c.generateVMIMemoryDumpVolumePatch(vmi, vm.Status.MemoryDumpRequest, false); err != nil {
-			log.Log.Object(vmi).Errorf("unable to patch vmi to remove memory dump volume: %v", err)
-			return err
-		}
-	case virtv1.MemoryDumpDissociating:
-		// Check if the memory dump is in the vmi list of volumes,
-		// if it still there remove it to make it unmount from virt launcher
-		if _, exists := vmiVolumeMap[vm.Status.MemoryDumpRequest.ClaimName]; exists {
-			if err := c.generateVMIMemoryDumpVolumePatch(vmi, vm.Status.MemoryDumpRequest, false); err != nil {
-				log.Log.Object(vmi).Errorf("unable to patch vmi to remove memory dump volume: %v", err)
-				return err
-			}
-		}
-
-		vm.Spec.Template.Spec = *removeMemoryDumpVolumeFromVMISpec(&vm.Spec.Template.Spec, vm.Status.MemoryDumpRequest.ClaimName)
-	}
-
 	return nil
 }
 
@@ -1967,10 +1796,6 @@ func (c *Controller) createVMRevision(vm *virtv1.VirtualMachine) (string, error)
 	return cr.Name, nil
 }
 
-func hasCompletedMemoryDump(vm *virtv1.VirtualMachine) bool {
-	return vm.Status.MemoryDumpRequest != nil && vm.Status.MemoryDumpRequest.Phase != virtv1.MemoryDumpAssociating && vm.Status.MemoryDumpRequest.Phase != virtv1.MemoryDumpInProgress
-}
-
 // setupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
 func (c *Controller) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
 	vmi := virtv1.NewVMIReferenceFromNameWithNS(vm.ObjectMeta.Namespace, "")
@@ -1986,8 +1811,8 @@ func (c *Controller) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMa
 	}
 
 	// prevent from retriggering memory dump after shutdown if memory dump is complete
-	if hasCompletedMemoryDump(vm) {
-		vmi.Spec = *removeMemoryDumpVolumeFromVMISpec(&vmi.Spec, vm.Status.MemoryDumpRequest.ClaimName)
+	if memorydump.HasCompleted(vm) {
+		vmi.Spec = *memorydump.RemoveMemoryDumpVolumeFromVMISpec(&vmi.Spec, vm.Status.MemoryDumpRequest.ClaimName)
 	}
 
 	setupStableFirmwareUUID(vm, vmi)
@@ -2560,7 +2385,7 @@ func (c *Controller) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1
 	}
 
 	c.trimDoneVolumeRequests(vm)
-	c.updateMemoryDumpRequest(vm, vmi)
+	memorydump.UpdateRequest(vm, vmi)
 
 	if c.isTrimFirstChangeRequestNeeded(vm, vmi) {
 		popStateChangeRequest(vm)
@@ -2920,89 +2745,6 @@ func (c *Controller) isTrimFirstChangeRequestNeeded(vm *virtv1.VirtualMachine, v
 	return false
 }
 
-func (c *Controller) updateMemoryDumpRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
-	if vm.Status.MemoryDumpRequest == nil {
-		return
-	}
-
-	updatedMemoryDumpReq := vm.Status.MemoryDumpRequest.DeepCopy()
-
-	if vm.Status.MemoryDumpRequest.Remove {
-		updatedMemoryDumpReq.Phase = virtv1.MemoryDumpDissociating
-	}
-
-	switch vm.Status.MemoryDumpRequest.Phase {
-	case virtv1.MemoryDumpCompleted:
-		// Once memory dump completed, there is no update neeeded,
-		// A new update will come from the subresource API once
-		// a new request will be issued
-		return
-	case virtv1.MemoryDumpAssociating:
-		// Update Phase to InProgrees once the memory dump
-		// is in the list of vm volumes
-		for _, volume := range vm.Spec.Template.Spec.Volumes {
-			if vm.Status.MemoryDumpRequest.ClaimName == volume.Name {
-				updatedMemoryDumpReq.Phase = virtv1.MemoryDumpInProgress
-				break
-			}
-		}
-	case virtv1.MemoryDumpInProgress:
-		// Update to unmounting once getting update in the vmi volume status
-		// that the dump timestamp is updated
-		if vmi != nil && len(vmi.Status.VolumeStatus) > 0 {
-			for _, volumeStatus := range vmi.Status.VolumeStatus {
-				if volumeStatus.Name == vm.Status.MemoryDumpRequest.ClaimName &&
-					volumeStatus.MemoryDumpVolume != nil {
-					if volumeStatus.MemoryDumpVolume.StartTimestamp != nil {
-						updatedMemoryDumpReq.StartTimestamp = volumeStatus.MemoryDumpVolume.StartTimestamp
-					}
-					if volumeStatus.Phase == virtv1.MemoryDumpVolumeCompleted {
-						updatedMemoryDumpReq.Phase = virtv1.MemoryDumpUnmounting
-						updatedMemoryDumpReq.EndTimestamp = volumeStatus.MemoryDumpVolume.EndTimestamp
-						updatedMemoryDumpReq.FileName = &volumeStatus.MemoryDumpVolume.TargetFileName
-					} else if volumeStatus.Phase == virtv1.MemoryDumpVolumeFailed {
-						updatedMemoryDumpReq.Phase = virtv1.MemoryDumpFailed
-						updatedMemoryDumpReq.Message = volumeStatus.Message
-						updatedMemoryDumpReq.EndTimestamp = volumeStatus.MemoryDumpVolume.EndTimestamp
-					}
-				}
-			}
-		}
-	case virtv1.MemoryDumpUnmounting:
-		// Update memory dump as completed once the memory dump has been
-		// unmounted - not a part of the vmi volume status
-		if vmi != nil {
-			for _, volumeStatus := range vmi.Status.VolumeStatus {
-				// If we found the claim name in the vmi volume status
-				// then the pvc is still mounted
-				if volumeStatus.Name == vm.Status.MemoryDumpRequest.ClaimName {
-					return
-				}
-			}
-		}
-		updatedMemoryDumpReq.Phase = virtv1.MemoryDumpCompleted
-	case virtv1.MemoryDumpDissociating:
-		// Make sure the memory dump is not in the vmi list of volumes
-		if vmi != nil {
-			for _, volumeStatus := range vmi.Status.VolumeStatus {
-				if volumeStatus.Name == vm.Status.MemoryDumpRequest.ClaimName {
-					return
-				}
-			}
-		}
-		// Make sure the memory dump is not in the list of vm volumes
-		for _, volume := range vm.Spec.Template.Spec.Volumes {
-			if vm.Status.MemoryDumpRequest.ClaimName == volume.Name {
-				return
-			}
-		}
-		// Remove the memory dump request
-		updatedMemoryDumpReq = nil
-	}
-
-	vm.Status.MemoryDumpRequest = updatedMemoryDumpReq
-}
-
 func (c *Controller) trimDoneVolumeRequests(vm *virtv1.VirtualMachine) {
 	if len(vm.Status.VolumeRequests) == 0 {
 		return
@@ -3303,8 +3045,8 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling volume hotplug requests: %v", err), hotplugVolumeErrorReason), nil
 	}
 
-	if err := c.handleMemoryDumpRequest(vmCopy, vmi); err != nil {
-		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling memory dump request: %v", err), memoryDumpErrorReason), nil
+	if err := memorydump.HandleRequest(c.clientset, vmCopy, vmi, c.pvcStore); err != nil {
+		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling memory dump request: %v", err), memorydump.ErrorReason), nil
 	}
 
 	conditionManager := controller.NewVirtualMachineConditionManager()
