@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -885,6 +886,11 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 			}
 		}
 	case *vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyHotplug:
+		if !c.clusterConfig.DeclarativeVolumeHotplugEnabled() {
+			log.Log.Object(vm).Warningf("VM has Hotplug Volume Update Strategy but %s featuregate not enabled", featuregate.DeclarativeHotplugVolumeGate)
+			return nil
+		}
+
 		if err := c.patchHotplugVolumes(vm, vmi); err != nil {
 			log.Log.Object(vm).Errorf("failed to update hotplug volumes for vmi:%v", err)
 			return err
