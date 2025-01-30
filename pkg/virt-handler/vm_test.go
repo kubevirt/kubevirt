@@ -55,6 +55,7 @@ import (
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -2584,20 +2585,100 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Entry("don't exist migration should fail", ""),
 		)
 
-		It("should not be allowed to live-migrate if the VMI uses virtiofs ", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Devices.Filesystems = []v1.Filesystem{
-				{
-					Name:     "VIRTIOFS",
-					Virtiofs: &v1.FilesystemVirtiofs{},
+		Context("check that migration is supported when using Filesystem Devices", func() {
+			fsPvcVolume := v1.VolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "testpvc",
+					},
 				},
 			}
 
-			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
-			Expect(isBlockMigration).To(BeFalse())
-			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
-			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonVirtIOFSNotMigratable))
+			fsDvVolume := v1.VolumeSource{
+				DataVolume: &v1.DataVolumeSource{
+					Name: "testDV",
+				},
+			}
+
+			const errorMsg = "cannot migrate VMI: PVC %s is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode"
+
+			It("should be allowed to live-migrate if the VMI uses virtiofs ", func() {
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.Spec.Domain.Devices.Filesystems = []v1.Filesystem{
+					{
+						Name:     "VIRTIOFS",
+						Virtiofs: &v1.FilesystemVirtiofs{},
+					},
+				}
+
+				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+				Expect(isBlockMigration).To(BeFalse())
+				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+				Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+			})
+
+			DescribeTable("using virtiofs and a", func(volumeSource v1.VolumeSource, accessMode k8sv1.PersistentVolumeAccessMode, shouldFail bool, errorMsg string) {
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.Spec.Domain.Devices.Filesystems = []v1.Filesystem{
+					{
+						Name:     "VIRTIOFS",
+						Virtiofs: &v1.FilesystemVirtiofs{},
+					},
+				}
+
+				vmi.Spec.Volumes = []v1.Volume{
+					{
+						Name:         "VIRTIOFS",
+						VolumeSource: volumeSource,
+					},
+				}
+
+				vmi.Status.VolumeStatus = []v1.VolumeStatus{
+					{
+						Name: "VIRTIOFS",
+						PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+							AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
+							VolumeMode:  pointer.P(k8sv1.PersistentVolumeFilesystem),
+						},
+					},
+				}
+
+				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+
+				if shouldFail {
+					Expect(isBlockMigration).To(BeTrue())
+					Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+					Expect(condition.Message).To(ContainSubstring(errorMsg))
+					Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+				} else {
+					Expect(isBlockMigration).To(BeFalse())
+					Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+					Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+				}
+			},
+				Entry("PVC with access mode ReadWriteOne", fsPvcVolume, k8sv1.ReadWriteOnce, true, fmt.Sprintf(errorMsg, fsPvcVolume.PersistentVolumeClaim.PersistentVolumeClaimVolumeSource.ClaimName)),
+				Entry("PVC with access mode ReadOnlyMany", fsPvcVolume, k8sv1.ReadOnlyMany, true, fmt.Sprintf(errorMsg, fsPvcVolume.PersistentVolumeClaim.PersistentVolumeClaimVolumeSource.ClaimName)),
+				Entry("PVC with access mode ReadWriteMany", fsPvcVolume, k8sv1.ReadWriteMany, false, ""),
+				Entry("DV with access mode ReadWriteMany", fsDvVolume, k8sv1.ReadWriteMany, false, ""),
+				Entry("DV with access mode ReadOnlyMany", fsDvVolume, k8sv1.ReadOnlyMany, true, fmt.Sprintf(errorMsg, fsDvVolume.DataVolume.Name)),
+				Entry("DV with access mode ReadWriteOnce", fsDvVolume, k8sv1.ReadWriteOnce, true, fmt.Sprintf(errorMsg, fsDvVolume.DataVolume.Name)),
+			)
+
+			DescribeTable("sharing with virtiofs a", func(configVolume libvmi.Option) {
+				vmi := api2.NewMinimalVMI("testvmi")
+				configVolume(vmi)
+
+				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+
+				Expect(isBlockMigration).To(BeFalse())
+				Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+				Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
+			},
+				Entry("ConfigMap", libvmi.WithConfigMapFs("configmapTest", "configMapVolume")),
+				Entry("Secret", libvmi.WithSecretFs("secretTest", "secretVolume")),
+				Entry("ServiceAccount", libvmi.WithServiceAccountFs("serviceAccountTest", "serviceAccountVolume")),
+				Entry("DownwardAPI", libvmi.WithDownwardAPIFs("serviceAccountTest")),
+			)
 		})
 
 		It("should not be allowed to live-migrate if the VMI has non-migratable interface", func() {
