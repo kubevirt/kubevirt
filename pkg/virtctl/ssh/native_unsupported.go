@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/pflag"
+	"kubevirt.io/client-go/kubecli"
 )
 
 const (
@@ -21,6 +22,6 @@ func addAdditionalCommandlineArgs(flagset *pflag.FlagSet, opts *SSHOptions) {
 		fmt.Sprintf(`--%s="-o StrictHostKeyChecking=no" : Additional options to be passed to the local ssh`, additionalOpts))
 }
 
-func (o *SSH) nativeSSH(_, _, _ string) error {
+func (o *SSH) nativeSSH(_, _, _ string, _ kubecli.KubevirtClient) error {
 	panic("Native SSH is unsupported in this build!")
 }

@@ -35,8 +35,11 @@ const (
 )
 
 // WithContainerDisk specifies the disk name and the name of the container image to be used.
-func WithContainerDisk(diskName, imageName string) Option {
-	return WithContainerDiskAndPullPolicy(diskName, imageName, "")
+func WithContainerDisk(diskName, imageName string, options ...DiskOption) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDisk(vmi, newDisk(diskName, v1.DiskBusVirtio, options...))
+		addVolume(vmi, newContainerVolume(diskName, imageName, ""))
+	}
 }
 
 // WithContainerDiskAndPullPolicy specifies the disk name, the name of the container image and Pull Policy to be used.

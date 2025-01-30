@@ -84,9 +84,9 @@ const (
 
 	NAMESPACE = "kubevirt-test"
 
-	resourceCount = 77
+	resourceCount = 78
 	patchCount    = 50
-	updateCount   = 28
+	updateCount   = 29
 )
 
 type KubeVirtTestData struct {
@@ -2397,7 +2397,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources))
 
 			Expect(kvTestData.controller.stores.ServiceAccountCache.List()).To(HaveLen(4))
-			Expect(kvTestData.controller.stores.ClusterRoleCache.List()).To(HaveLen(9))
+			Expect(kvTestData.controller.stores.ClusterRoleCache.List()).To(HaveLen(10))
 			Expect(kvTestData.controller.stores.ClusterRoleBindingCache.List()).To(HaveLen(7))
 			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(5))
 			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(5))

@@ -222,11 +222,16 @@ var _ = DescribeSerialInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com
 		// but if the default disk is not vda, the test will break
 		// TODO: introspect the VMI and get the device name of this
 		// block device?
-		vmi := libvmifact.NewAlpine(libvmi.WithEmptyDisk("testdisk", v1.VirtIO, resource.MustParse("1G")))
-		if preferredNodeName != "" {
-			vmi = libvmifact.NewAlpine(libvmi.WithEmptyDisk("testdisk", v1.VirtIO, resource.MustParse("1G")),
-				libvmi.WithNodeSelectorFor(preferredNodeName))
+		options := []libvmi.Option{
+			libvmi.WithEmptyDisk("testdisk", v1.VirtIO, resource.MustParse("1G")),
 		}
+
+		if preferredNodeName != "" {
+			options = append(options, libvmi.WithNodeSelectorFor(preferredNodeName))
+		}
+
+		vmi := libvmifact.NewAlpine(options...)
+
 		const vmiStartTimeout = 30
 
 		vmi = libvmops.RunVMIAndExpectLaunch(vmi, vmiStartTimeout)
