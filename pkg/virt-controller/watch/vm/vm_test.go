@@ -5402,6 +5402,152 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 					Expect(cond.Message).To(ContainSubstring("invalid volumes to update with migration:"))
 				})
+
+				Context("declarative volume hotplug", func() {
+					addDisk := func(vmi *v1.VirtualMachineInstanceSpec, ordinals ...int) {
+						for _, ordinal := range ordinals {
+							vmi.Domain.Devices.Disks = append(vmi.Domain.Devices.Disks, v1.Disk{
+								Name: fmt.Sprintf("volume_%d", ordinal),
+								DiskDevice: v1.DiskDevice{
+									Disk: &v1.DiskTarget{},
+								},
+							})
+						}
+					}
+
+					addVolume := func(vmi *v1.VirtualMachineInstanceSpec, hotplug bool, ordinals ...int) {
+						for _, ordinal := range ordinals {
+							vmi.Volumes = append(vmi.Volumes, v1.Volume{
+								Name: fmt.Sprintf("volume_%d", ordinal),
+								VolumeSource: v1.VolumeSource{
+									DataVolume: &v1.DataVolumeSource{
+										Name:         fmt.Sprintf("datavolume_%d", ordinal),
+										Hotpluggable: hotplug,
+									},
+								},
+							})
+						}
+					}
+
+					addPair := func(vmi *v1.VirtualMachineInstanceSpec, hotplug bool, ordinals ...int) {
+						addDisk(vmi, ordinals...)
+						addVolume(vmi, hotplug, ordinals...)
+					}
+
+					getDisk := func(vmi *v1.VirtualMachineInstanceSpec, ordinal int) *v1.Disk {
+						for i := range vmi.Domain.Devices.Disks {
+							if vmi.Domain.Devices.Disks[i].Name == fmt.Sprintf("volume_%d", ordinal) {
+								return &vmi.Domain.Devices.Disks[i]
+							}
+						}
+						return nil
+					}
+
+					getVolume := func(vmi *v1.VirtualMachineInstanceSpec, ordinal int) *v1.Volume {
+						for i := range vmi.Volumes {
+							if vmi.Volumes[i].Name == fmt.Sprintf("volume_%d", ordinal) {
+								return &vmi.Volumes[i]
+							}
+						}
+						return nil
+					}
+
+					validateOrdinal := func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, ordinal int) {
+						Expect(getDisk(&vm.Spec.Template.Spec, ordinal)).To(Equal(getDisk(&vmi.Spec, ordinal)))
+						Expect(getVolume(&vm.Spec.Template.Spec, ordinal)).To(Equal(getVolume(&vmi.Spec, ordinal)))
+					}
+
+					handle := func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
+						vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+						Expect(err).NotTo(HaveOccurred())
+
+						vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+						Expect(err).NotTo(HaveOccurred())
+
+						Expect(controller.handleDeclarativeVolumeHotplug(vm, vmi)).To(Succeed())
+
+						vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+
+						return vmi
+					}
+
+					It("should add hotplug volume to VMI", func() {
+						vm, vmi := watchtesting.DefaultVirtualMachine(true)
+						addPair(&vm.Spec.Template.Spec, false, 1)
+						addPair(&vmi.Spec, false, 1)
+						addPair(&vm.Spec.Template.Spec, true, 2)
+
+						vmi = handle(vm, vmi)
+
+						Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(2))
+						Expect(vmi.Spec.Volumes).To(HaveLen(2))
+						validateOrdinal(vm, vmi, 1)
+						validateOrdinal(vm, vmi, 2)
+					})
+
+					It("should remove hotplug volume from VMI", func() {
+						vm, vmi := watchtesting.DefaultVirtualMachine(true)
+						addPair(&vm.Spec.Template.Spec, false, 1)
+						addPair(&vmi.Spec, false, 1)
+						addPair(&vmi.Spec, true, 2)
+
+						vmi = handle(vm, vmi)
+
+						Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(1))
+						Expect(vmi.Spec.Volumes).To(HaveLen(1))
+						validateOrdinal(vm, vmi, 1)
+					})
+
+					It("should not add hotplug volume to VMI if vmi has status for the volume", func() {
+						vm, vmi := watchtesting.DefaultVirtualMachine(true)
+						addPair(&vm.Spec.Template.Spec, false, 1)
+						addPair(&vmi.Spec, false, 1)
+						addPair(&vm.Spec.Template.Spec, true, 2)
+
+						vmi.Status.VolumeStatus = []v1.VolumeStatus{
+							{
+								Name: "volume_2",
+							},
+						}
+
+						vmi = handle(vm, vmi)
+
+						Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(1))
+						Expect(vmi.Spec.Volumes).To(HaveLen(1))
+						validateOrdinal(vm, vmi, 1)
+					})
+
+					It("should remove volume when volume changes", func() {
+						vm, vmi := watchtesting.DefaultVirtualMachine(true)
+						addPair(&vm.Spec.Template.Spec, false, 1)
+						addPair(&vmi.Spec, false, 1)
+						addPair(&vm.Spec.Template.Spec, true, 2)
+						addPair(&vmi.Spec, true, 2)
+
+						vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume.Name = "changed"
+
+						vmi = handle(vm, vmi)
+
+						Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(1))
+						Expect(vmi.Spec.Volumes).To(HaveLen(1))
+						validateOrdinal(vm, vmi, 1)
+					})
+
+					It("should not add hotplug volume to VMI with migration updatestrategy", func() {
+						vm, vmi := watchtesting.DefaultVirtualMachine(true)
+						vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyMigration)
+						addPair(&vm.Spec.Template.Spec, false, 1)
+						addPair(&vmi.Spec, false, 1)
+						addPair(&vm.Spec.Template.Spec, true, 2)
+
+						vmi = handle(vm, vmi)
+
+						Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(1))
+						Expect(vmi.Spec.Volumes).To(HaveLen(1))
+						validateOrdinal(vm, vmi, 1)
+					})
+				})
 			})
 
 			Context("Instance Types and Preferences", func() {
@@ -6124,7 +6270,6 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vmiList.Items).To(BeEmpty())
 			})
 		})
-
 	})
 	Context("syncConditions", func() {
 		var vm *v1.VirtualMachine
