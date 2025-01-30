@@ -67,6 +67,7 @@ import (
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
+	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -2811,7 +2812,7 @@ func (c *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	}
 
 	// configure network inside virt-launcher compute container
-	if err := c.setupNetwork(vmi, vmi.Spec.Networks); err != nil {
+	if err := c.setupNetwork(vmi, netsetup.FilterNetsForMigrationTarget(vmi)); err != nil {
 		return fmt.Errorf("failed to configure vmi network for migration target: %w", err)
 	}
 
@@ -3027,12 +3028,7 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return err
 		}
 
-		nonAbsentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-			return iface.State != v1.InterfaceStateAbsent
-		})
-		nonAbsentNets := netvmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
-
-		if err := c.setupNetwork(vmi, nonAbsentNets); err != nil {
+		if err := c.setupNetwork(vmi, netsetup.FilterNetsForVMStartup(vmi)); err != nil {
 			return fmt.Errorf("failed to configure vmi network: %w", err)
 		}
 
@@ -3125,19 +3121,7 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return err
 		}
 
-		netsToHotplug := netvmispec.NetworksToHotplugWhosePodIfacesAreReady(vmi)
-		nonAbsentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-			return iface.State != v1.InterfaceStateAbsent
-		})
-		netsToHotplug = netvmispec.FilterNetworksByInterfaces(netsToHotplug, nonAbsentIfaces)
-
-		ifacesToHotunplug := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-			return iface.State == v1.InterfaceStateAbsent
-		})
-		netsToHotunplug := netvmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, ifacesToHotunplug)
-
-		setupNets := append(netsToHotplug, netsToHotunplug...)
-		if err := c.setupNetwork(vmi, setupNets); err != nil {
+		if err := c.setupNetwork(vmi, netsetup.FilterNetsForLiveUpdate(vmi)); err != nil {
 			log.Log.Object(vmi).Error(err.Error())
 			c.recorder.Event(vmi, k8sv1.EventTypeWarning, "NicHotplug", err.Error())
 			errorTolerantFeaturesError = append(errorTolerantFeaturesError, err)
