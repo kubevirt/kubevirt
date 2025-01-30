@@ -118,6 +118,14 @@ func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int,
 }
 
 type validation func(*v1.VirtualMachineInstance) (err *errors.StatusError)
+
+// This function prototype is used with putRequestHandlerWithErrorPostProcessing.
+// The errorPostProcessing function will get called if an error occurs when attempting
+// to make a request to virt-handler. Depending on where in the stack the error occurred
+// the VMI might be nil.
+//
+// Use this function to inject more human readible context into the error response.
+type errorPostProcessing func(*v1.VirtualMachineInstance, error) (err error)
 type URLResolver func(*v1.VirtualMachineInstance, kubecli.VirtHandlerConn) (string, error)
 
 func (app *SubresourceAPIApp) prepareConnection(request *restful.Request, validate validation, getVirtHandlerURL URLResolver) (vmi *v1.VirtualMachineInstance, url string, conn kubecli.VirtHandlerConn, statusError *errors.StatusError) {
@@ -151,9 +159,24 @@ func (app *SubresourceAPIApp) fetchAndValidateVirtualMachineInstance(namespace, 
 	return
 }
 
-func (app *SubresourceAPIApp) putRequestHandler(request *restful.Request, response *restful.Response, validate validation, getVirtHandlerURL URLResolver, dryRun bool) {
-	_, url, conn, statusErr := app.prepareConnection(request, validate, getVirtHandlerURL)
+func (app *SubresourceAPIApp) putRequestHandler(request *restful.Request, response *restful.Response, preValidate validation, getVirtHandlerURL URLResolver, dryRun bool) {
+
+	app.putRequestHandlerWithErrorPostProcessing(request, response, preValidate, nil, getVirtHandlerURL, dryRun)
+}
+
+func (app *SubresourceAPIApp) putRequestHandlerWithErrorPostProcessing(request *restful.Request, response *restful.Response, preValidate validation, errorPostProcessing errorPostProcessing, getVirtHandlerURL URLResolver, dryRun bool) {
+
+	if preValidate == nil {
+		preValidate = func(vmi *v1.VirtualMachineInstance) *errors.StatusError { return nil }
+	}
+	if errorPostProcessing == nil {
+		errorPostProcessing = func(vmi *v1.VirtualMachineInstance, err error) error { return err }
+	}
+
+	vmi, url, conn, statusErr := app.prepareConnection(request, preValidate, getVirtHandlerURL)
 	if statusErr != nil {
+		err := errorPostProcessing(vmi, fmt.Errorf(statusErr.ErrStatus.Message))
+		statusErr.ErrStatus.Message = err.Error()
 		writeError(statusErr, response)
 		return
 	}
@@ -163,6 +186,7 @@ func (app *SubresourceAPIApp) putRequestHandler(request *restful.Request, respon
 	}
 	err := conn.Put(url, request.Request.Body)
 	if err != nil {
+		err = errorPostProcessing(vmi, err)
 		writeError(errors.NewInternalError(err), response)
 		return
 	}
@@ -786,6 +810,26 @@ func (app *SubresourceAPIApp) UnfreezeVMIRequestHandler(request *restful.Request
 	}
 	app.putRequestHandler(request, response, validate, getURL, false)
 
+}
+
+func (app *SubresourceAPIApp) ResetVMIRequestHandler(request *restful.Request, response *restful.Response) {
+
+	// Post process any error responses in order to append human
+	// readable explanation for why the reset may have failed.
+	errorPostProcessing := func(vmi *v1.VirtualMachineInstance, err error) error {
+		// VMI reset request could have been sent while VMI was in the process of transitioning
+		// from scheduled to running.
+		if vmi != nil && !vmi.IsRunning() {
+			return fmt.Errorf("Failed to reset non-running VMI with phase %s: %v", vmi.Status.Phase, err)
+		}
+		return err
+	}
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.ResetURI(vmi)
+	}
+
+	app.putRequestHandlerWithErrorPostProcessing(request, response, nil, errorPostProcessing, getURL, false)
 }
 
 func (app *SubresourceAPIApp) SoftRebootVMIRequestHandler(request *restful.Request, response *restful.Response) {
