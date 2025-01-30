@@ -1469,7 +1469,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 						}
 						vmi = migratingVMI
 						return true
-					}, 60*time.Second, 1*time.Second).Should(BeTrue())
+					}, 60*time.Second, 1*time.Second).Should(BeTrue(), "Timed out waiting for migration state to include TargetNodeAddress and TargetDirectMigrationNodePorts")
 
 					By("checking if we fail to connect with our own cert")
 					tlsConfig := temporaryTLSConfig()
