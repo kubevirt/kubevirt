@@ -27,13 +27,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/network/link"
 
-	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
-
-	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
-	"kubevirt.io/kubevirt/pkg/storage/snapshot"
-
 	admissionv1 "k8s.io/api/admission/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -224,19 +218,6 @@ func validateSource(ctx context.Context, client kubecli.KubevirtClient, vmClone 
 			Field:   sourceField.Child("Source").Child("Name").String(),
 		})
 	}
-	if source.Kind != "" && source.Name != "" {
-		switch source.Kind {
-		case virtualMachineKind:
-		case virtualMachineSnapshotKind:
-			causes = append(causes, validateCloneSourceSnapshot(ctx, client, source.Name, vmClone.Namespace, sourceField.Child("Source"))...)
-		default:
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "Source's Kind is invalid",
-				Field:   sourceField.Child("Source").String(),
-			})
-		}
-	}
 	return causes
 }
 
@@ -288,103 +269,4 @@ func doesSliceContainStr(slice []string, str string) (isFound bool) {
 	}
 
 	return isFound
-}
-
-func validateCloneSourceExists(clientGetErr error, sourceField *k8sfield.Path, kind, name, namespace string) []metav1.StatusCause {
-	if errors.IsNotFound(clientGetErr) {
-		return []metav1.StatusCause{
-			{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s %s does not exist in namespace %s", kind, name, namespace),
-				Field:   sourceField.String(),
-			},
-		}
-	} else if clientGetErr != nil {
-		return []metav1.StatusCause{
-			{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("error occurred while trying to get source %s: %v", kind, clientGetErr),
-				Field:   sourceField.String(),
-			},
-		}
-	}
-
-	return nil
-}
-
-func validateCloneSourceSnapshot(ctx context.Context, client kubecli.KubevirtClient, name, namespace string, sourceField *k8sfield.Path) []metav1.StatusCause {
-	vmSnapshot, err := client.VirtualMachineSnapshot(namespace).Get(ctx, name, metav1.GetOptions{})
-	causes := validateCloneSourceExists(err, sourceField, virtualMachineSnapshotKind, name, namespace)
-	if causes != nil {
-		return causes
-	}
-
-	snapshotContent, err := snapshot.GetSnapshotContents(vmSnapshot, client)
-	if err != nil {
-		return append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("cannot get snapshot contents: %v", err),
-			Field:   sourceField.String(),
-		})
-	}
-
-	causes = append(causes, validateCloneVolumeSnapshotSupportVMSnapshotContent(snapshotContent, sourceField)...)
-	return causes
-}
-
-func validateCloneVolumeSnapshotSupportVMSnapshotContent(snapshotContents *snapshotv1.VirtualMachineSnapshotContent, sourceField *k8sfield.Path) []metav1.StatusCause {
-	var result []metav1.StatusCause
-
-	if snapshotContents.Spec.VirtualMachineSnapshotName == nil {
-		return []metav1.StatusCause{
-			{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("cannot get snapshot name from content %s", snapshotContents.Name),
-				Field:   sourceField.String(),
-			},
-		}
-	}
-
-	snapshotName := *snapshotContents.Spec.VirtualMachineSnapshotName
-	vm := snapshotContents.Spec.Source.VirtualMachine
-
-	addVolumeIsNotBackedUpCause := func(volumeName string) {
-		result = append(result, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("volume %s is not backed up in snapshot %s", volumeName, snapshotName),
-			Field:   sourceField.String(),
-		})
-	}
-
-	if vm.Spec.Template == nil {
-		return nil
-	}
-
-	for _, volume := range vm.Spec.Template.Spec.Volumes {
-		if volume.PersistentVolumeClaim == nil && volume.DataVolume == nil {
-			continue
-		}
-
-		foundBackup := false
-		for _, volumeBackup := range snapshotContents.Spec.VolumeBackups {
-			if volume.Name == volumeBackup.VolumeName {
-				foundBackup = true
-				break
-			}
-		}
-
-		if !foundBackup {
-			addVolumeIsNotBackedUpCause(volume.Name)
-		}
-	}
-
-	if backendstorage.IsBackendStorageNeededForVMI(&vm.Spec.Template.Spec) {
-		result = append(result, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "Source Virtual Machine requires backend storage, operation not supported",
-			Field:   sourceField.String(),
-		})
-	}
-
-	return result
 }
