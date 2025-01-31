@@ -8,6 +8,7 @@ go_library(
         "dialers.go",
         "expand.go",
         "generated_mock_authorizer.go",
+        "lifecycle.go",
         "memorydump.go",
         "portforward.go",
         "profiler.go",
