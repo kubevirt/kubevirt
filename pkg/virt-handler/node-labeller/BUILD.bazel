@@ -3,12 +3,16 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "amd64.go",
+        "arch_labeller.go",
+        "arm64.go",
         "cpu_plugin.go",
         "kvm-caps-info-plugin_amd64.go",
         "kvm-caps-info-plugin_arm64.go",
         "kvm-caps-info-plugin_s390x.go",
         "model.go",
         "node_labeller.go",
+        "s390x.go",
     ],
     cgo = True,
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller",
@@ -34,21 +38,23 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "arch_labeller_test.go",
         "cpu_plugin_test.go",
         "node_labeller_suite_test.go",
         "node_labeller_test.go",
     ],
     data = glob(["testdata/**"]),
     embed = [":go_default_library"],
-    deps = select({
+    deps = [
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ] + select({
         "@io_bazel_rules_go//go/platform:amd64": [
             "//pkg/testutils:go_default_library",
             "//pkg/virt-handler/node-labeller/util:go_default_library",
             "//staging/src/kubevirt.io/api/core/v1:go_default_library",
             "//staging/src/kubevirt.io/client-go/log:go_default_library",
             "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
-            "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
-            "//vendor/github.com/onsi/gomega:go_default_library",
             "//vendor/k8s.io/api/core/v1:go_default_library",
             "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
             "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
@@ -63,8 +69,6 @@ go_test(
             "//staging/src/kubevirt.io/api/core/v1:go_default_library",
             "//staging/src/kubevirt.io/client-go/log:go_default_library",
             "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
-            "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
-            "//vendor/github.com/onsi/gomega:go_default_library",
             "//vendor/k8s.io/api/core/v1:go_default_library",
             "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
             "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",

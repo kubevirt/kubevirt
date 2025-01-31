@@ -64,7 +64,7 @@ var _ = Describe("Node-labeller config", func() {
 			domCapabilitiesFileName: "virsh_domcapabilities.xml",
 			cpuCounter:              nil,
 			hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool, 0)},
-			arch:                    runtime.GOARCH,
+			arch:                    newArchLabeller(runtime.GOARCH),
 		}
 	})
 
@@ -99,7 +99,7 @@ var _ = Describe("Node-labeller config", func() {
 	})
 
 	It("Should return the cpu features on s390x even without policy='require' property", func() {
-		nlController.arch = "s390x"
+		nlController.arch = newArchLabeller(s390x)
 		nlController.volumePath = "testdata/s390x"
 
 		err := nlController.loadHostSupportedFeatures()
@@ -110,7 +110,7 @@ var _ = Describe("Node-labeller config", func() {
 		Expect(cpuFeatures).To(HaveLen(89), "number of features doesn't match")
 	})
 	It("Should return the cpu features on amd64 only with policy='require' property", func() {
-		nlController.arch = "amd64"
+		nlController.arch = newArchLabeller(amd64)
 		nlController.volumePath = "testdata/s390x"
 
 		err := nlController.loadHostSupportedFeatures()
@@ -122,7 +122,7 @@ var _ = Describe("Node-labeller config", func() {
 	})
 
 	It("Should default to IBM as CPU Vendor on s390x if none is given", func() {
-		nlController.arch = "s390x"
+		nlController.arch = newArchLabeller(s390x)
 		nlController.volumePath = "testdata/s390x"
 
 		err := nlController.loadDomCapabilities()
