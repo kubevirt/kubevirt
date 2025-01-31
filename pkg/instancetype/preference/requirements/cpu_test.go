@@ -1,4 +1,3 @@
-//nolint:lll
 package requirements_test
 
 import (
@@ -18,11 +17,14 @@ import (
 var _ = Describe("Preferences - Requirement - CPU", func() {
 	requirementsChecker := requirements.New()
 
-	DescribeTable("should pass when sufficient resources are provided", func(instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) {
-		conflict, err := requirementsChecker.Check(instancetypeSpec, preferenceSpec, vmiSpec)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(conflict).ToNot(HaveOccurred())
-	},
+	DescribeTable("should pass when sufficient resources are provided",
+		func(instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+			vmiSpec *v1.VirtualMachineInstanceSpec,
+		) {
+			conflict, err := requirementsChecker.Check(instancetypeSpec, preferenceSpec, vmiSpec)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(conflict).ToNot(HaveOccurred())
+		},
 		Entry("by an instance type for vCPUs",
 			&v1beta1.VirtualMachineInstancetypeSpec{
 				CPU: v1beta1.CPUInstancetype{
@@ -192,12 +194,15 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 		),
 	)
 
-	DescribeTable("should be rejected when insufficient resources are provided", func(instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, expectedConflict conflict.Conflicts, errSubString string) {
-		conflicts, err := requirementsChecker.Check(instancetypeSpec, preferenceSpec, vmiSpec)
-		Expect(conflicts).To(Equal(expectedConflict))
-		Expect(err).To(HaveOccurred())
-		Expect(err).To(MatchError(errSubString))
-	},
+	DescribeTable("should be rejected when insufficient resources are provided",
+		func(instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+			vmiSpec *v1.VirtualMachineInstanceSpec, expectedConflict conflict.Conflicts, errSubString string,
+		) {
+			conflicts, err := requirementsChecker.Check(instancetypeSpec, preferenceSpec, vmiSpec)
+			Expect(conflicts).To(Equal(expectedConflict))
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(errSubString))
+		},
 		Entry("by an instance type for vCPUs",
 			&v1beta1.VirtualMachineInstancetypeSpec{
 				CPU: v1beta1.CPUInstancetype{
