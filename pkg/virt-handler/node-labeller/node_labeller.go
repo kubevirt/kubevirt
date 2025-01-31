@@ -76,7 +76,7 @@ type NodeLabeller struct {
 	cpuCounter              *libvirtxml.CapsHostCPUCounter
 	hostCPUModel            hostCPUModel
 	SEV                     SEVConfiguration
-	arch                    string
+	Arch                    archLabeller
 }
 
 func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter) (*NodeLabeller, error) {
@@ -98,7 +98,7 @@ func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.
 		domCapabilitiesFileName: "virsh_domcapabilities.xml",
 		cpuCounter:              cpuCounter,
 		hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool, 0)},
-		arch:                    runtime.GOARCH,
+		Arch:                    newArchLabeller(runtime.GOARCH),
 	}
 
 	err := n.loadAll()
@@ -157,7 +157,7 @@ func (n *NodeLabeller) execute() bool {
 func (n *NodeLabeller) loadAll() error {
 	// host supported features is only available on AMD64 and S390X nodes.
 	// This is because hypervisor-cpu-baseline virsh command doesnt work for ARM64 architecture.
-	if virtconfig.IsAMD64(n.arch) || virtconfig.IsS390X(n.arch) {
+	if n.Arch.hasHostSupportedFeatures() {
 		err := n.loadHostSupportedFeatures()
 		if err != nil {
 			n.logger.Errorf("node-labeller could not load supported features: " + err.Error())
