@@ -379,11 +379,17 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, reason stri
 		return nil
 	}
 
+	metaAbortStatus := migrationMetadata.AbortStatus
 	if abortStatus != "" {
-		metaAbortStatus := migrationMetadata.AbortStatus
 		if metaAbortStatus == string(abortStatus) && metaAbortStatus == string(v1.MigrationAbortInProgress) {
 			return domainerrors.MigrationAbortInProgressError
 		}
+	}
+
+	if metaAbortStatus == string(v1.MigrationAbortInProgress) &&
+		abortStatus != v1.MigrationAbortFailed &&
+		abortStatus != v1.MigrationAbortSucceeded {
+		return domainerrors.MigrationAbortInProgressError
 	}
 
 	if migrationMetadata.EndTimestamp != nil {
