@@ -77,21 +77,6 @@ var _ = Describe("Live migration source", func() {
 			Expect(migrationMetadata.Failed).To(BeFalse(), "migration has failed")
 		})
 
-		It("should return 'Aborting' if abortion is in progress", func() {
-			libvirtDomainManager.setMigrationResult(false, "", v1.MigrationAbortInProgress)
-			migrationMetadata, exists := libvirtDomainManager.metadataCache.Migration.Load()
-			Expect(exists).To(BeTrue(), "migrationMetadata not found")
-			Expect(migrationMetadata.EndTimestamp).To(BeNil(), "migration EndTimestamp is set")
-			Expect(migrationMetadata.Failed).To(BeFalse(), "migration has failed")
-
-			err := libvirtDomainManager.setMigrationResult(false, "", v1.MigrationAbortInProgress)
-			Expect(err).To(Equal(errors.MigrationAbortInProgressError))
-			migrationMetadata, exists = libvirtDomainManager.metadataCache.Migration.Load()
-			Expect(exists).To(BeTrue(), "migrationMetadata not found")
-			Expect(migrationMetadata.EndTimestamp).To(BeNil(), "migration EndTimestamp is set")
-			Expect(migrationMetadata.Failed).To(BeFalse(), "migration has failed")
-		})
-
 		DescribeTable("EndTimestamp", func(isFailed bool, abortStatus v1.MigrationAbortStatus, shouldEndTimestampBeSet bool) {
 			libvirtDomainManager.setMigrationResult(isFailed, "", abortStatus)
 			migrationMetadata, exists := libvirtDomainManager.metadataCache.Migration.Load()
@@ -109,6 +94,39 @@ var _ = Describe("Live migration source", func() {
 			Entry("should be set when the migration has been aborted", false, v1.MigrationAbortSucceeded, true),
 			Entry("should not be set when an abortion request does not succeed", false, v1.MigrationAbortFailed, false),
 			Entry("should not be set when an abortion request is still in progress", false, v1.MigrationAbortInProgress, false),
+		)
+
+		DescribeTable("when an abortion is in progress", func(isFailed bool, abortStatus v1.MigrationAbortStatus, shouldEndTimestampBeSet bool, expectedError error) {
+			// make it in progress first
+			libvirtDomainManager.setMigrationResult(false, "", v1.MigrationAbortInProgress)
+
+			err := libvirtDomainManager.setMigrationResult(isFailed, "", abortStatus)
+			if expectedError != nil {
+				Expect(err).To(Equal(expectedError))
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			migrationMetadata, exists := libvirtDomainManager.metadataCache.Migration.Load()
+			Expect(exists).To(BeTrue(), "migrationMetadata not found")
+
+			if shouldEndTimestampBeSet {
+				Expect(migrationMetadata.EndTimestamp).ToNot(BeNil(), "migration EndTimestamp not set")
+			} else {
+				Expect(migrationMetadata.EndTimestamp).To(BeNil(), "migration EndTimestamp is set")
+			}
+
+			if expectedError != nil {
+				Expect(migrationMetadata.Failed).To(BeFalse(), "migration has failed")
+			} else {
+				Expect(migrationMetadata.Failed).To(BeTrue(), "migration has not failed")
+			}
+		},
+			Entry("setting 'Aborting' should return an error", false, v1.MigrationAbortInProgress, false, errors.MigrationAbortInProgressError),
+			Entry("setting 'Succeeded' should return an error", true, v1.MigrationAbortSucceeded, true, nil),
+			Entry("setting 'Failed' should return an error", true, v1.MigrationAbortFailed, false, nil),
+			Entry("marking the migration as failed without an abortion result should return an error", true, v1.MigrationAbortStatus(""), false, errors.MigrationAbortInProgressError),
+			Entry("marking the migration as completed without an abortion result should return an error", false, v1.MigrationAbortStatus(""), false, errors.MigrationAbortInProgressError),
 		)
 	})
 
