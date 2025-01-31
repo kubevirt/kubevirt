@@ -31,8 +31,8 @@ var _ = Describe("Preferences - annotations", func() {
 
 		annotations.Set(vm, meta)
 
-		Expect(meta.Annotations[v1.PreferenceAnnotation]).To(Equal(preferenceName))
-		Expect(meta.Annotations[v1.ClusterPreferenceAnnotation]).To(BeEmpty())
+		Expect(meta.Annotations).To(HaveKeyWithValue(v1.PreferenceAnnotation, preferenceName))
+		Expect(meta.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
 	})
 
 	It("should add cluster preference name annotation", func() {
@@ -40,8 +40,8 @@ var _ = Describe("Preferences - annotations", func() {
 
 		annotations.Set(vm, meta)
 
-		Expect(meta.Annotations[v1.PreferenceAnnotation]).To(BeEmpty())
-		Expect(meta.Annotations[v1.ClusterPreferenceAnnotation]).To(Equal(preferenceName))
+		Expect(meta.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
+		Expect(meta.Annotations).To(HaveKeyWithValue(v1.ClusterPreferenceAnnotation, preferenceName))
 	})
 
 	It("should add cluster name annotation, if preference.kind is empty", func() {
@@ -49,7 +49,7 @@ var _ = Describe("Preferences - annotations", func() {
 
 		annotations.Set(vm, meta)
 
-		Expect(meta.Annotations[v1.PreferenceAnnotation]).To(BeEmpty())
-		Expect(meta.Annotations[v1.ClusterPreferenceAnnotation]).To(Equal(preferenceName))
+		Expect(meta.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
+		Expect(meta.Annotations).To(HaveKeyWithValue(v1.ClusterPreferenceAnnotation, preferenceName))
 	})
 })

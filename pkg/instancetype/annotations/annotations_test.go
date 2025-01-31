@@ -31,8 +31,8 @@ var _ = Describe("Annotations", func() {
 
 		annotations.Set(vm, meta)
 
-		Expect(meta.Annotations[v1.InstancetypeAnnotation]).To(Equal(instancetypeName))
-		Expect(meta.Annotations[v1.ClusterInstancetypeAnnotation]).To(Equal(""))
+		Expect(meta.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, instancetypeName))
+		Expect(meta.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
 	})
 
 	It("should add cluster instancetype name annotation", func() {
@@ -40,8 +40,8 @@ var _ = Describe("Annotations", func() {
 
 		annotations.Set(vm, meta)
 
-		Expect(meta.Annotations[v1.InstancetypeAnnotation]).To(Equal(""))
-		Expect(meta.Annotations[v1.ClusterInstancetypeAnnotation]).To(Equal(instancetypeName))
+		Expect(meta.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
+		Expect(meta.Annotations).To(HaveKeyWithValue(v1.ClusterInstancetypeAnnotation, instancetypeName))
 	})
 
 	It("should add cluster name annotation, if instancetype.kind is empty", func() {
@@ -49,7 +49,7 @@ var _ = Describe("Annotations", func() {
 
 		annotations.Set(vm, meta)
 
-		Expect(meta.Annotations[v1.InstancetypeAnnotation]).To(Equal(""))
-		Expect(meta.Annotations[v1.ClusterInstancetypeAnnotation]).To(Equal(instancetypeName))
+		Expect(meta.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
+		Expect(meta.Annotations).To(HaveKeyWithValue(v1.ClusterInstancetypeAnnotation, instancetypeName))
 	})
 })
