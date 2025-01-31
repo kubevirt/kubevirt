@@ -27,7 +27,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 
 	v1 "kubevirt.io/api/core/v1"
-	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 )
 
@@ -86,84 +85,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 			},
 		}
 		vm.Namespace = k8sv1.NamespaceDefault
-	})
-
-	Context("Add instancetype name annotations", func() {
-		const instancetypeName = "instancetype-name"
-
-		BeforeEach(func() {
-			vm = kubecli.NewMinimalVM("testvm")
-			vm.Spec.Instancetype = &v1.InstancetypeMatcher{Name: instancetypeName}
-		})
-
-		It("should add instancetype name annotation", func() {
-			vm.Spec.Instancetype.Kind = apiinstancetype.SingularResourceName
-
-			meta := &metav1.ObjectMeta{}
-			instancetype.AddInstancetypeNameAnnotations(vm, meta)
-
-			Expect(meta.Annotations[v1.InstancetypeAnnotation]).To(Equal(instancetypeName))
-			Expect(meta.Annotations[v1.ClusterInstancetypeAnnotation]).To(Equal(""))
-		})
-
-		It("should add cluster instancetype name annotation", func() {
-			vm.Spec.Instancetype.Kind = apiinstancetype.ClusterSingularResourceName
-
-			meta := &metav1.ObjectMeta{}
-			instancetype.AddInstancetypeNameAnnotations(vm, meta)
-
-			Expect(meta.Annotations[v1.InstancetypeAnnotation]).To(Equal(""))
-			Expect(meta.Annotations[v1.ClusterInstancetypeAnnotation]).To(Equal(instancetypeName))
-		})
-
-		It("should add cluster name annotation, if instancetype.kind is empty", func() {
-			vm.Spec.Instancetype.Kind = ""
-
-			meta := &metav1.ObjectMeta{}
-			instancetype.AddInstancetypeNameAnnotations(vm, meta)
-
-			Expect(meta.Annotations[v1.InstancetypeAnnotation]).To(Equal(""))
-			Expect(meta.Annotations[v1.ClusterInstancetypeAnnotation]).To(Equal(instancetypeName))
-		})
-	})
-
-	Context("Add preference name annotations", func() {
-		const preferenceName = "preference-name"
-
-		BeforeEach(func() {
-			vm = kubecli.NewMinimalVM("testvm")
-			vm.Spec.Preference = &v1.PreferenceMatcher{Name: preferenceName}
-		})
-
-		It("should add preference name annotation", func() {
-			vm.Spec.Preference.Kind = apiinstancetype.SingularPreferenceResourceName
-
-			meta := &metav1.ObjectMeta{}
-			instancetype.AddPreferenceNameAnnotations(vm, meta)
-
-			Expect(meta.Annotations[v1.PreferenceAnnotation]).To(Equal(preferenceName))
-			Expect(meta.Annotations[v1.ClusterPreferenceAnnotation]).To(Equal(""))
-		})
-
-		It("should add cluster preference name annotation", func() {
-			vm.Spec.Preference.Kind = apiinstancetype.ClusterSingularPreferenceResourceName
-
-			meta := &metav1.ObjectMeta{}
-			instancetype.AddPreferenceNameAnnotations(vm, meta)
-
-			Expect(meta.Annotations[v1.PreferenceAnnotation]).To(Equal(""))
-			Expect(meta.Annotations[v1.ClusterPreferenceAnnotation]).To(Equal(preferenceName))
-		})
-
-		It("should add cluster name annotation, if preference.kind is empty", func() {
-			vm.Spec.Preference.Kind = ""
-
-			meta := &metav1.ObjectMeta{}
-			instancetype.AddPreferenceNameAnnotations(vm, meta)
-
-			Expect(meta.Annotations[v1.PreferenceAnnotation]).To(Equal(""))
-			Expect(meta.Annotations[v1.ClusterPreferenceAnnotation]).To(Equal(preferenceName))
-		})
 	})
 
 	Context("Apply", func() {
