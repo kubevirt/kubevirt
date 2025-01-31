@@ -22,7 +22,6 @@ import (
 	preferenceAnnotations "kubevirt.io/kubevirt/pkg/instancetype/preference/annotations"
 	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
-	"kubevirt.io/kubevirt/pkg/instancetype/preference/requirements"
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/validation"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/instancetype/upgrade"
@@ -36,7 +35,6 @@ type Methods interface {
 	FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error)
 	InferDefaultInstancetype(vm *virtv1.VirtualMachine) error
 	InferDefaultPreference(vm *virtv1.VirtualMachine) error
-	CheckPreferenceRequirements(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) (conflict.Conflicts, error)
 	ApplyToVM(vm *virtv1.VirtualMachine) error
 	Expand(vm *virtv1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig) (*virtv1.VirtualMachine, error)
 }
@@ -86,11 +84,6 @@ func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) 
 
 func CompareRevisions(revisionA, revisionB *appsv1.ControllerRevision) (bool, error) {
 	return revision.Compare(revisionA, revisionB)
-}
-
-func (m *InstancetypeMethods) CheckPreferenceRequirements(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) (conflict.Conflicts, error) {
-	conflicts, err := requirements.New().Check(instancetypeSpec, preferenceSpec, vmiSpec)
-	return conflicts, err
 }
 
 func (m *InstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) conflict.Conflicts {
