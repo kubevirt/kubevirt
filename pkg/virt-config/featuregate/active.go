@@ -75,6 +75,10 @@ const (
 
 	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
 	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
+
+	// DeclarativeHotplugVolumes enables adding/removing volumes declaratively
+	// also implicitly handles inject/eject CDROM
+	DeclarativeHotplugVolumesGate = "DeclarativeHotplugVolumes"
 )
 
 func init() {
@@ -101,4 +105,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: NodeRestrictionGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: Alpha})
 }
