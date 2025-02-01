@@ -291,7 +291,6 @@ function _add_kubeadm_cpu_manager_config_patch() {
     kind: JoinConfiguration
     nodeRegistration:
       kubeletExtraArgs:
-        "feature-gates": "CPUManager=true"
         "cpu-manager-policy": "static"
         "kube-reserved": "cpu=500m"
         "system-reserved": "cpu=500m"
@@ -311,11 +310,17 @@ EOF
     done
 }
 
-function _add_kubeadm_config_patches() {
-    if [ $KUBEVIRT_WITH_KIND_ETCD_IN_MEMORY == "true" ]; then
-        cat <<EOF >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
+function _add_kubeadm_config_patches_header() {
+   cat <<EOF >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
 kubeadmConfigPatches:
 - |
+EOF
+}
+
+function _add_kubeadm_config_patches() {
+  _add_kubeadm_config_patches_header
+  if [ $KUBEVIRT_WITH_KIND_ETCD_IN_MEMORY == "true" ]; then
+    cat <<EOF >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
   kind: ClusterConfiguration
   metadata:
     name: config
@@ -323,8 +328,16 @@ kubeadmConfigPatches:
     local:
       dataDir: $ETCD_IN_MEMORY_DATA_DIR
 EOF
-        echo "KIND cluster etcd data will be mounted to RAM on kind nodes: $ETCD_IN_MEMORY_DATA_DIR"
-    fi
+    echo "KIND cluster etcd data will be mounted to RAM on kind nodes: $ETCD_IN_MEMORY_DATA_DIR"
+  fi
+  if [[ -n "$CONFIG_TOPOLOGY_MANAGER_POLICY" ]]; then
+     cat <<EOF >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
+  ---
+  kind: KubeletConfiguration
+  topologyManagerPolicy: ${CONFIG_TOPOLOGY_MANAGER_POLICY}
+  ---
+EOF
+  fi
 }
 
 function _setup_ipfamily() {
@@ -339,7 +352,9 @@ EOF
 
 function _prepare_kind_config() {
     _add_workers
-    _add_kubeadm_config_patches
+    if [[ "$KUBEVIRT_WITH_KIND_ETCD_IN_MEMORY" == "true" ||  -n "$CONFIG_TOPOLOGY_MANAGER_POLICY" ]]; then
+      _add_kubeadm_config_patches
+    fi
     _setup_ipfamily
     echo "Final KIND config:"
     cat ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
