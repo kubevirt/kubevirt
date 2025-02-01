@@ -680,12 +680,15 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		Entry("Should return 3 volumes if  1 hotplugged volume", makeVolumes(0, 1, 2, 3), makeStatus(4, 1), makeResult(0, 1, 2)),
 	)
 
-	testHotplugResponse := func(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, filesystems []v1.Filesystem, volumeStatuses []v1.VolumeStatus, expected *admissionv1.AdmissionResponse) {
+	testHotplugResponse := func(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, filesystems []v1.Filesystem, volumeStatuses []v1.VolumeStatus, expected *admissionv1.AdmissionResponse, featureGates ...string) {
 		newVMI := api.NewMinimalVMI("testvmi")
 		newVMI.Spec.Volumes = newVolumes
 		newVMI.Spec.Domain.Devices.Disks = newDisks
 		newVMI.Spec.Domain.Devices.Filesystems = filesystems
 
+		for _, featureGate := range featureGates {
+			enableFeatureGate(featureGate)
+		}
 		result := admitStorageUpdate(newVolumes, oldVolumes, newDisks, oldDisks, volumeStatuses, newVMI, vmiUpdateAdmitter.clusterConfig)
 		Expect(equality.Semantic.DeepEqual(result, expected)).To(BeTrue(), "result: %v and expected: %v do not match", result, expected)
 	}
@@ -706,7 +709,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeDisks(1),
 			makeFilesystems(),
 			makeStatus(0, 0),
-			makeExpected("number of disks and filesystems (1) does not equal the number of volumes (2)", "")),
+			makeExpected("mismatch between volumes declared (2) and required (1)", "")),
 		Entry("Should reject if we remove a permanent volume",
 			makeVolumes(),
 			makeVolumes(0),
@@ -787,14 +790,39 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeFilesystems(),
 			makeStatus(1, 0),
 			makeExpected("hotplugged Disk volume-name-1 does not use a scsi bus", "")),
-		Entry("Should reject if we add disk with neither Disk nor LUN type",
+		Entry("Should allow cd-rom",
 			makeVolumes(0, 1),
 			makeVolumes(0),
 			makeCDRomDisks(0, 1),
 			makeCDRomDisks(0),
 			makeFilesystems(),
 			makeStatus(1, 0),
-			makeExpected("Disk volume-name-1 requires diskDevice of type 'disk' or 'lun' to be hotplugged.", "")),
+			nil),
+		Entry("Should allow cd-rom inject",
+			makeVolumes(0, 1),
+			makeVolumes(0),
+			makeCDRomDisks(0, 1),
+			makeCDRomDisks(0, 1),
+			makeFilesystems(),
+			makeStatus(1, 0),
+			nil),
+		Entry("Should allow cd-rom eject",
+			makeVolumes(0),
+			makeVolumes(0, 1),
+			makeCDRomDisks(0, 1),
+			makeCDRomDisks(0, 1),
+			makeFilesystems(),
+			makeStatus(1, 0),
+			nil,
+			featuregate.DeclarativeHotplugVolumesGate),
+		Entry("Should reject cd-rom eject",
+			makeVolumes(0),
+			makeVolumes(0, 1),
+			makeCDRomDisks(0, 1),
+			makeCDRomDisks(0, 1),
+			makeFilesystems(),
+			makeStatus(1, 0),
+			makeExpected("mismatch between volumes declared (1) and required (2)", "")),
 		Entry("Should reject if we add disk with invalid boot order",
 			makeVolumes(0, 1),
 			makeVolumes(0),
@@ -818,7 +846,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			makeDisks(1),
 			makeFilesystems(),
 			makeStatus(0, 0),
-			makeExpected("number of disks and filesystems (1) does not equal the number of volumes (2)", "")),
+			makeExpected("mismatch between volumes declared (2) and required (1)", "")),
 	)
 
 	Context("with filesystem devices", func() {
@@ -843,7 +871,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				makeDisks(0),
 				makeFilesystems(1),
 				makeStatus(2, 0),
-				makeExpected("number of disks and filesystems (2) does not equal the number of volumes (3)", "")),
+				makeExpected("mismatch between volumes declared (3) and required (2)", "")),
 		)
 	})
 
