@@ -39,23 +39,6 @@ function wait_for_kwok_ready() {
     fi
 }
 
-function configure_cpu_manager() {
-    if [ ${KUBEVIRT_CPU_MANAGER_POLICY} == "static" ]; then
-        for node in $($kubectl get nodes -l "node-role.kubernetes.io/worker" --no-headers -o custom-columns=":metadata.name" | tr -d '\r'); do
-            # FIXME Replace with kubelet config drop ins once all providers are using k8s >= 1.28
-            # https://kubernetes.io/docs/tasks/administer-cluster/kubelet-config-file/#kubelet-conf-d
-            $kubectl drain ${node}
-            $ssh ${node} -- sudo systemctl stop kubelet
-            # FIXME ${ssh} is broken when using HereDocs, fix and replace this mess if possible.
-            # https://kubernetes.io/docs/tasks/administer-cluster/cpu-management-policies/#configuration
-            $ssh ${node} -- "sudo rm -f /var/lib/kubelet/cpu_manager_state && sudo echo -e 'cpuManagerPolicy: static\nkubeReserved:\n  cpu: \"1\"\n memory: \"1Gi\"\ncpuManagerPolicyOptions:\n  full-pcpus-only: \"true\"' | sudo tee -a /var/lib/kubelet/config.yaml && sudo sed -i 's/cpuManagerReconcilePeriod\:\ 0s/cpuManagerReconcilePeriod\:\ 5s/g' /var/lib/kubelet/config.yaml"
-            $ssh ${node} -- sudo systemctl start kubelet
-            $kubectl label --overwrite node/${node} cpumanager=true
-            $kubectl uncordon ${node}
-        done
-    fi
-}
-
 function up() {
     params=$(_add_common_params)
     if echo "$params" | grep -q ERROR; then
@@ -90,7 +73,6 @@ function up() {
     $kubectl label node -l $label node-role.kubernetes.io/worker=''
 
     configure_prometheus
-    configure_cpu_manager
 
     deploy_kwok
 
