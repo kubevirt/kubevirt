@@ -67,6 +67,10 @@ const (
 
 	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
 	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
+
+	// InjectEjectCDROMGate enables dynamic inject and eject of CDROMs
+	// and defining an empty CD-ROM device
+	InjectEjectCDROMGate = "InjectEjectCDROM"
 )
 
 func init() {
@@ -92,4 +96,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: NodeRestrictionGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: InjectEjectCDROMGate, State: Alpha})
 }

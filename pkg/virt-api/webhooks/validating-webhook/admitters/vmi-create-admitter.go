@@ -160,7 +160,6 @@ func warnDeprecatedAPIs(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.
 
 func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	volumeNameMap := make(map[string]*v1.Volume)
 
 	causes = append(causes, validateHostNameNotConformingToDNSLabelRules(field, spec)...)
 	causes = append(causes, validateSubdomainDNSSubdomainRules(field, spec)...)
@@ -188,7 +187,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	netValidator := netadmitter.NewValidator(field, spec, config)
 	causes = append(causes, netValidator.Validate()...)
 
-	causes = append(causes, validateBootOrder(field, spec, volumeNameMap)...)
+	causes = append(causes, validateBootOrder(field, spec, config)...)
 
 	causes = append(causes, validateInputDevices(field, spec)...)
 	causes = append(causes, validateIOThreadsPolicy(field, spec)...)
@@ -583,10 +582,11 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 	return causes
 }
 
-func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, volumeNameMap map[string]*v1.Volume) []metav1.StatusCause {
+func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	// used to validate uniqueness of boot orders among disks and interfaces
 	bootOrderMap := make(map[uint]bool)
+	volumeNameMap := make(map[string]*v1.Volume)
 
 	for i, volume := range spec.Volumes {
 		volumeNameMap[volume.Name] = &spec.Volumes[i]
@@ -599,11 +599,19 @@ func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec
 		matchingVolume, volumeExists := volumeNameMap[disk.Name]
 
 		if !volumeExists {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf(nameOfTypeNotFoundMessagePattern, field.Child("domain", "devices", "disks").Index(idx).Child("Name").String(), disk.Name),
-				Field:   field.Child("domain", "devices", "disks").Index(idx).Child("name").String(),
-			})
+			if disk.CDRom == nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf(nameOfTypeNotFoundMessagePattern, field.Child("domain", "devices", "disks").Index(idx).Child("Name").String(), disk.Name),
+					Field:   field.Child("domain", "devices", "disks").Index(idx).Child("name").String(),
+				})
+			} else if !config.InjectEjectCDROMEnabled() {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s feature gate not enabled, cannot define an empty CD-ROM disk", featuregate.InjectEjectCDROMGate),
+					Field:   field.Child("domain", "devices", "disks").Index(idx).Child("name").String(),
+				})
+			}
 		}
 
 		// Verify Lun disks are only mapped to network/block devices.
