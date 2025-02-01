@@ -1101,6 +1101,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				vmiFeeder.Add(vmi)
 				createVMI(vmi)
 				mockContainerDiskMounter.EXPECT().ContainerDisksReady(vmi, gomock.Any()).Return(false, nil)
+				mockContainerDiskMounter.EXPECT().ContainerDiskExist(gomock.Any()).AnyTimes().Return(true, nil)
 
 				sanityExecute()
 
@@ -1118,6 +1119,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(notReadySince.Before(time.Now())).To(BeTrue())
 					return false, fmt.Errorf("out of time")
 				})
+				mockContainerDiskMounter.EXPECT().ContainerDiskExist(gomock.Any()).AnyTimes().Return(true, nil)
 
 				sanityExecute()
 
@@ -1137,6 +1139,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					return true, nil
 				})
 				mockContainerDiskMounter.EXPECT().MountAndVerify(gomock.Any()).Return(nil, fmt.Errorf("aborting since we only want to reach this point"))
+				mockContainerDiskMounter.EXPECT().ContainerDiskExist(gomock.Any()).AnyTimes().Return(true, nil)
 
 				sanityExecute()
 
@@ -1184,7 +1187,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				mockContainerDiskMounter.EXPECT().ComputeChecksums(gomock.Any()).Return(fakeDiskChecksums, nil)
 				client.EXPECT().SyncVirtualMachine(gomock.Any(), gomock.Any()).Return(nil)
 				mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), gomock.Any()).Return(nil)
-
+				mockContainerDiskMounter.EXPECT().ContainerDiskExist(gomock.Any()).AnyTimes().Return(true, nil)
 				sanityExecute()
 
 				updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})

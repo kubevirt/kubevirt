@@ -26,6 +26,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
@@ -154,16 +156,19 @@ var _ = Describe("ContainerDisk", func() {
 				vmi := libvmi.New()
 				vmi.UID = "6789"
 
-				path, err := GetDiskTargetPartFromLauncherView(1)
-				Expect(err).To(HaveOccurred())
-				Expect(path).To(Equal(""))
+				path, err := GetDiskTargetPathFromLauncherView(1, false, "")
+				files, err := os.ReadDir(path)
+				Expect(err).To(HaveOccurred(), "failed to check disk target path %s: %v", path, err)
+				Expect(files).To(HaveLen(0), "file should exist in path:%s", path)
 
 				expectedPath := fmt.Sprintf("%s/disk_1.img", tmpDir)
 				_, err = os.Create(expectedPath)
 				Expect(err).ToNot(HaveOccurred())
 
-				path, err = GetDiskTargetPartFromLauncherView(1)
-				Expect(err).ToNot(HaveOccurred())
+				path, err = GetDiskTargetPathFromLauncherView(1, false, "")
+				exist, err := diskutils.FileExists(path)
+				Expect(err).ToNot(HaveOccurred(), "failed to check disk target path %s: %v", path, err)
+				Expect(exist).To(BeTrue(), "file should exist in path:%s", path)
 				Expect(path).To(Equal(expectedPath))
 			})
 

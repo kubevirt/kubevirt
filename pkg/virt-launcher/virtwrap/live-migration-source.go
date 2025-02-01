@@ -32,10 +32,9 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 
+	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -806,7 +805,7 @@ func getDiskVirtualSize(disk *libvirtxml.DomainDisk) (int64, error) {
 	default:
 		return -1, fmt.Errorf("not path set")
 	}
-	info, err := converter.GetImageInfo(path)
+	info, err := containerdisk.GetDiskInfo(path)
 	if err != nil {
 		return -1, err
 	}

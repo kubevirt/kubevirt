@@ -20,6 +20,7 @@ const (
 	ExtensionAPIServerAuthenticationConfigMap = "extension-apiserver-authentication"
 	RequestHeaderClientCAFileKey              = "requestheader-client-ca-file"
 	VirtShareDir                              = "/var/run/kubevirt"
+	VirtImageVolumeDir                        = "/var/run/kubevirt-image-volume"
 	VirtPrivateDir                            = "/var/run/kubevirt-private"
 	KubeletRoot                               = "/var/lib/kubelet"
 	KubeletPodsDir                            = KubeletRoot + "/pods"

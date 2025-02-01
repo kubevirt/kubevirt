@@ -75,3 +75,14 @@ func (_m *MockMounter) ComputeChecksums(vmi *v1.VirtualMachineInstance) (*DiskCh
 func (_mr *_MockMounterRecorder) ComputeChecksums(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ComputeChecksums", arg0)
 }
+
+func (_m *MockMounter) ContainerDiskExist(vmi *v1.VirtualMachineInstance) (bool, error) {
+	ret := _m.ctrl.Call(_m, "ContainerDiskExist", vmi)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockMounterRecorder) ContainerDiskExist(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ContainerDiskExist", arg0)
+}
