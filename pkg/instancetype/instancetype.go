@@ -13,13 +13,11 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/instancetype/annotations"
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/instancetype/expand"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	"kubevirt.io/kubevirt/pkg/instancetype/infer"
-	preferenceAnnotations "kubevirt.io/kubevirt/pkg/instancetype/preference/annotations"
 	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/validation"
@@ -105,14 +103,6 @@ func (m *InstancetypeMethods) InferDefaultInstancetype(vm *virtv1.VirtualMachine
 
 func (m *InstancetypeMethods) InferDefaultPreference(vm *virtv1.VirtualMachine) error {
 	return infer.New(m.Clientset).Preference(vm)
-}
-
-func AddInstancetypeNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Object) {
-	annotations.Set(vm, target)
-}
-
-func AddPreferenceNameAnnotations(vm *virtv1.VirtualMachine, target metav1.Object) {
-	preferenceAnnotations.Set(vm, target)
 }
 
 func ApplyDevicePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
