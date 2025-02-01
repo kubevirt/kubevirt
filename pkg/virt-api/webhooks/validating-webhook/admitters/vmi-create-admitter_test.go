@@ -565,6 +565,40 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].name"))
 		})
 
+		It("should allow cd-rom disk with missing volume and featuregate", func() {
+			vmi := api.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				DiskDevice: v1.DiskDevice{
+					CDRom: &v1.CDRomTarget{
+						Bus: v1.DiskBusSATA,
+					},
+				},
+				Name: "testdisk",
+			})
+
+			enableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject cd-rom disk with missing volume and featuregate", func() {
+			vmi := api.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				DiskDevice: v1.DiskDevice{
+					CDRom: &v1.CDRomTarget{
+						Bus: v1.DiskBusSATA,
+					},
+				},
+				Name: "testdisk",
+			})
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(Equal(fmt.Sprintf("%s feature gate not enabled, cannot define an empty CD-ROM disk", featuregate.DeclarativeHotplugVolumesGate)))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].name"))
+		})
 		It("should allow supported audio devices", func() {
 			supportedDevices := [...]string{"", "ich9", "ac97"}
 
@@ -638,8 +672,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Name: "testdisk",
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{},
-					CDRom: &v1.CDRomTarget{
-						Bus: v1.DiskBusSATA,
+					LUN: &v1.LunTarget{
+						Bus: v1.DiskBusSCSI,
 					},
 				},
 			})
