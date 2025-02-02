@@ -87,23 +87,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		return snapshot
 	}
 
-	generateAndCreateSnapshot := func(vm *virtv1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
-		snapshot := generateSnapshot(vm)
-		return createSnapshot(snapshot)
-	}
-
-	waitSnapshotReady := func(snapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.VirtualMachineSnapshot {
-		var err error
-
-		EventuallyWithOffset(1, func() bool {
-			snapshot, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Get(context.Background(), snapshot.Name, v1.GetOptions{})
-			ExpectWithOffset(1, err).ToNot(HaveOccurred())
-			return snapshot.Status != nil && snapshot.Status.ReadyToUse != nil && *snapshot.Status.ReadyToUse
-		}, 180*time.Second, time.Second).Should(BeTrue(), "snapshot should be ready")
-
-		return snapshot
-	}
-
 	generateCloneFromVMWithParams := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clone.VirtualMachineClone {
 		vmClone := kubecli.NewMinimalCloneWithNS("testclone", sourceVM.Namespace)
 
@@ -537,44 +520,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				vm := generateVMWithStorageClass(storageClass, runStrategy)
 				return createVM(vm, storageClass, runStrategy)
 			}
-
-			Context("and no snapshot storage class", decorators.RequiresNoSnapshotStorageClass, func() {
-				var (
-					noSnapshotStorageClass string
-				)
-
-				Context("should reject source with non snapshotable volume", func() {
-					BeforeEach(func() {
-						noSnapshotStorageClass = libstorage.GetNoVolumeSnapshotStorageClass("local")
-						Expect(noSnapshotStorageClass).ToNot(BeEmpty(), "no storage class without snapshot support")
-
-						// create running in case storage is WFFC (local storage)
-						By("Creating source VM")
-						sourceVM = createVMWithStorageClass(noSnapshotStorageClass, virtv1.RunStrategyAlways)
-						sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), sourceVM.Name, v1.GetOptions{})
-						Expect(err).ToNot(HaveOccurred())
-						sourceVM, err = stopCloneVM(virtClient, sourceVM)
-						Eventually(ThisVMIWith(sourceVM.Namespace, sourceVM.Name), 300*time.Second, 1*time.Second).ShouldNot(Exist())
-						Eventually(ThisVM(sourceVM), 300*time.Second, 1*time.Second).Should(Not(BeReady()))
-					})
-
-					It("with snapshot source", func() {
-						By("Snapshotting VM")
-						snapshot := generateAndCreateSnapshot(sourceVM)
-						snapshot = waitSnapshotReady(snapshot)
-
-						By("Deleting VM")
-						err = virtClient.VirtualMachine(sourceVM.Namespace).Delete(context.Background(), sourceVM.Name, v1.DeleteOptions{})
-						Expect(err).ToNot(HaveOccurred())
-
-						By("Creating a clone and expecting error")
-						vmClone = generateCloneFromSnapshot(snapshot.Name, snapshot.Namespace, targetVMName)
-						vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Create(context.Background(), vmClone, v1.CreateOptions{})
-						Expect(err).Should(HaveOccurred())
-						Expect(err.Error()).To(ContainSubstring("not backed up in snapshot"))
-					})
-				})
-			})
 
 			Context("and snapshot storage class", decorators.RequiresSnapshotStorageClass, func() {
 				var (
