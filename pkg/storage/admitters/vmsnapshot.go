@@ -26,7 +26,6 @@ import (
 
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -90,13 +89,7 @@ func (admitter *VMSnapshotAdmitter) Admit(ctx context.Context, ar *admissionv1.A
 
 		switch *vmSnapshot.Spec.Source.APIGroup {
 		case core.GroupName:
-			switch vmSnapshot.Spec.Source.Kind {
-			case "VirtualMachine":
-				causes, err = admitter.validateCreateVM(ctx, sourceField.Child("name"), ar.Request.Namespace, vmSnapshot.Spec.Source.Name)
-				if err != nil {
-					return webhookutils.ToAdmissionResponseError(err)
-				}
-			default:
+			if vmSnapshot.Spec.Source.Kind != "VirtualMachine" {
 				causes = []metav1.StatusCause{
 					{
 						Type:    metav1.CauseTypeFieldValueInvalid,
@@ -143,23 +136,4 @@ func (admitter *VMSnapshotAdmitter) Admit(ctx context.Context, ar *admissionv1.A
 		Allowed: true,
 	}
 	return &reviewResponse
-}
-
-func (admitter *VMSnapshotAdmitter) validateCreateVM(ctx context.Context, field *k8sfield.Path, namespace, name string) ([]metav1.StatusCause, error) {
-	_, err := admitter.Client.VirtualMachine(namespace).Get(ctx, name, metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		return []metav1.StatusCause{
-			{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("VirtualMachine %q does not exist", name),
-				Field:   field.String(),
-			},
-		}, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return []metav1.StatusCause{}, nil
 }
