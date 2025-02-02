@@ -684,6 +684,29 @@ var _ = Describe("Clone", func() {
 				expectCloneBeInPhase(clone.Failed)
 			})
 
+			It("should fail clone if snaphshot ready - but not all volumes were snapshoted", func() {
+				snapshot := createVirtualMachineSnapshot(sourceVM)
+				snapshot.Status.ReadyToUse = pointer.P(true)
+				snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
+				snapshotContent.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes = append(snapshotContent.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes, virtv1.Volume{
+					Name: "vol1",
+					VolumeSource: virtv1.VolumeSource{
+						DataVolume: &virtv1.DataVolumeSource{
+							Name: "dv1",
+						},
+					},
+				})
+				setSnapshotSource(vmClone, snapshot.Name)
+
+				addClone(vmClone)
+				addSnapshot(snapshot)
+				addSnapshotContent(snapshotContent)
+
+				sanityExecute()
+				expectEvent(SnapshotContentInvalid)
+				expectCloneBeInPhase(clone.Failed)
+			})
+
 			It("when snapshot is ready - should update status and create restore", func() {
 				snapshot := createVirtualMachineSnapshot(sourceVM)
 				snapshot.Status.ReadyToUse = pointer.P(true)
