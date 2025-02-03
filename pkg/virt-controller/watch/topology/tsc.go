@@ -5,8 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/util"
-
 	v1 "k8s.io/api/core/v1"
 
 	k6tv1 "kubevirt.io/api/core/v1"
@@ -142,7 +140,7 @@ func GetTscFrequencyRequirement(vmi *k6tv1.VirtualMachineInstance) TscFrequencyR
 	if vmiHasInvTSCFeature(vmi) {
 		return newRequirement(RequiredForBoot, "VMI with invtsc CPU feature must have tsc frequency defined in order to boot")
 	}
-	if util.IsVmiUsingHyperVReenlightenment(vmi) {
+	if isVmiUsingHyperVReenlightenment(vmi) {
 		return newRequirement(RequiredForMigration, "HyperV Reenlightenment VMIs cannot migrate when TSC Frequency is not exposed on the cluster: guest timers might be inconsistent")
 	}
 
@@ -162,4 +160,15 @@ func vmiHasInvTSCFeature(vmi *k6tv1.VirtualMachineInstance) bool {
 		}
 	}
 	return false
+}
+
+func isVmiUsingHyperVReenlightenment(vmi *k6tv1.VirtualMachineInstance) bool {
+	if vmi == nil {
+		return false
+	}
+
+	domainFeatures := vmi.Spec.Domain.Features
+
+	return domainFeatures != nil && domainFeatures.Hyperv != nil && domainFeatures.Hyperv.Reenlightenment != nil &&
+		domainFeatures.Hyperv.Reenlightenment.Enabled != nil && *domainFeatures.Hyperv.Reenlightenment.Enabled
 }

@@ -1177,7 +1177,7 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 		},
 	}
 
-	if util.IsEFIVMI(vmi) {
+	if isEFIVMI(vmi) {
 		domain.Spec.OS.BootLoader = &api.Loader{
 			Path:     c.EFIConfiguration.EFICode,
 			ReadOnly: "yes",
@@ -1406,14 +1406,14 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	kvmPath := "/dev/kvm"
-	if softwareEmulation, err := util.UseSoftwareEmulationForDevice(kvmPath, c.AllowEmulation); err != nil {
-		return err
-	} else if softwareEmulation {
-		logger := log.DefaultLogger()
-		logger.Infof("Hardware emulation device '%s' not present. Using software emulation.", kvmPath)
-		domain.Spec.Type = "qemu"
-	} else if _, err := os.Stat(kvmPath); errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("hardware emulation device '%s' not present", kvmPath)
+	if _, err := os.Stat(kvmPath); errors.Is(err, os.ErrNotExist) {
+		if c.AllowEmulation {
+			logger := log.DefaultLogger()
+			logger.Infof("Hardware emulation device '%s' not present. Using software emulation.", kvmPath)
+			domain.Spec.Type = "qemu"
+		} else {
+			return fmt.Errorf("hardware emulation device '%s' not present", kvmPath)
+		}
 	} else if err != nil {
 		return err
 	}
@@ -1809,7 +1809,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == nil || *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {
-		c.Architecture.AddGraphicsDevice(vmi, domain, c.BochsForEFIGuests && util.IsEFIVMI(vmi))
+		c.Architecture.AddGraphicsDevice(vmi, domain, c.BochsForEFIGuests && isEFIVMI(vmi))
 		domain.Spec.Devices.Graphics = []api.Graphics{
 			{
 				Listen: &api.GraphicsListen{
@@ -2056,4 +2056,10 @@ func domainVCPUTopologyForHotplug(vmi *v1.VirtualMachineInstance, domain *api.Do
 		Placement: "static",
 		CPUs:      cpuCount,
 	}
+}
+
+func isEFIVMI(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Spec.Domain.Firmware != nil &&
+		vmi.Spec.Domain.Firmware.Bootloader != nil &&
+		vmi.Spec.Domain.Firmware.Bootloader.EFI != nil
 }

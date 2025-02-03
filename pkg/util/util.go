@@ -2,10 +2,8 @@ package util
 
 import (
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"math/big"
-	"os"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -88,34 +86,9 @@ func IsSEVVMI(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.LaunchSecurity != nil && vmi.Spec.Domain.LaunchSecurity.SEV != nil
 }
 
-// Check if a VMI spec requests AMD SEV-ES
-func IsSEVESVMI(vmi *v1.VirtualMachineInstance) bool {
-	return IsSEVVMI(vmi) &&
-		vmi.Spec.Domain.LaunchSecurity.SEV.Policy != nil &&
-		vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState != nil &&
-		*vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState
-}
-
 // Check if a VMI spec requests SEV with attestation
 func IsSEVAttestationRequested(vmi *v1.VirtualMachineInstance) bool {
 	return IsSEVVMI(vmi) && vmi.Spec.Domain.LaunchSecurity.SEV.Attestation != nil
-}
-
-func IsEFIVMI(vmi *v1.VirtualMachineInstance) bool {
-	return vmi.Spec.Domain.Firmware != nil &&
-		vmi.Spec.Domain.Firmware.Bootloader != nil &&
-		vmi.Spec.Domain.Firmware.Bootloader.EFI != nil
-}
-
-func IsVmiUsingHyperVReenlightenment(vmi *v1.VirtualMachineInstance) bool {
-	if vmi == nil {
-		return false
-	}
-
-	domainFeatures := vmi.Spec.Domain.Features
-
-	return domainFeatures != nil && domainFeatures.Hyperv != nil && domainFeatures.Hyperv.Reenlightenment != nil &&
-		domainFeatures.Hyperv.Reenlightenment.Enabled != nil && *domainFeatures.Hyperv.Reenlightenment.Enabled
 }
 
 // WantVirtioNetDevice checks whether a VMI references at least one "virtio" network interface.
@@ -129,12 +102,6 @@ func WantVirtioNetDevice(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-// NeedVirtioNetDevice checks whether a VMI requires the presence of the "virtio" net device.
-// This happens when the VMI wants to use a "virtio" network interface, and software emulation is disallowed.
-func NeedVirtioNetDevice(vmi *v1.VirtualMachineInstance, allowEmulation bool) bool {
-	return WantVirtioNetDevice(vmi) && !allowEmulation
-}
-
 func NeedTunDevice(vmi *v1.VirtualMachineInstance) bool {
 	return (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
 		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
@@ -143,23 +110,6 @@ func NeedTunDevice(vmi *v1.VirtualMachineInstance) bool {
 
 func IsAutoAttachVSOCK(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.Devices.AutoattachVSOCK != nil && *vmi.Spec.Domain.Devices.AutoattachVSOCK
-}
-
-// UseSoftwareEmulationForDevice determines whether to fallback to software emulation for the given device.
-// This happens when the given device doesn't exist, and software emulation is enabled.
-func UseSoftwareEmulationForDevice(devicePath string, allowEmulation bool) (bool, error) {
-	if !allowEmulation {
-		return false, nil
-	}
-
-	_, err := os.Stat(devicePath)
-	if err == nil {
-		return false, nil
-	}
-	if errors.Is(err, os.ErrNotExist) {
-		return true, nil
-	}
-	return false, err
 }
 
 func ResourceNameToEnvVar(prefix string, resourceName string) string {
