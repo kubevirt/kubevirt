@@ -392,9 +392,8 @@ func getContainerDiskSocketBasePath(baseDir, podUID string) string {
 }
 
 // ExtractImageIDsFromSourcePod takes the VMI and its source pod to determine the exact image used by containerdisks and boot container images,
-// which is recorded in the status section of a started pod; if the status section does not contain this info the tag is used.
-// It returns a map where the key is the vlume name and the value is the imageID
-func ExtractImageIDsFromSourcePod(vmi *v1.VirtualMachineInstance, sourcePod *kubev1.Pod) (imageIDs map[string]string) {
+// which is recorded in the status section of a started pod
+func ExtractImageIDsFromSourcePod(vmi *v1.VirtualMachineInstance, sourcePod *kubev1.Pod) (imageIDs map[string]string, err error) {
 	imageIDs = map[string]string{}
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.ContainerDisk == nil {
@@ -416,12 +415,16 @@ func ExtractImageIDsFromSourcePod(vmi *v1.VirtualMachineInstance, sourcePod *kub
 		if !exists {
 			continue
 		}
-		imageIDs[key] = toPullableImageReference(image, status.ImageID)
+		imageID, err := toImageWithDigest(image, status.ImageID)
+		if err != nil {
+			return nil, err
+		}
+		imageIDs[key] = imageID
 	}
 	return
 }
 
-func toPullableImageReference(image string, imageID string) string {
+func toImageWithDigest(image string, imageID string) (string, error) {
 	baseImage := image
 	if strings.LastIndex(image, "@sha256:") != -1 {
 		baseImage = strings.Split(image, "@sha256:")[0]
@@ -431,11 +434,9 @@ func toPullableImageReference(image string, imageID string) string {
 
 	digestMatches := digestRegex.FindStringSubmatch(imageID)
 	if len(digestMatches) < 2 {
-		// failed to identify image digest for container, will use the image tag
-		// as virt-handler will anyway check the checksum of the root disk image
-		return image
+		return "", fmt.Errorf("failed to identify image digest for container %q with id %q", image, imageID)
 	}
-	return fmt.Sprintf("%s@sha256:%s", baseImage, digestMatches[1])
+	return fmt.Sprintf("%s@sha256:%s", baseImage, digestMatches[1]), nil
 }
 
 func isImageVolume(containerName string) bool {
