@@ -1641,7 +1641,7 @@ var _ = Describe("Converter", func() {
 			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2))
 			Expect(domain.Spec.Devices.Interfaces[0].BootOrder).NotTo(BeNil())
-			Expect(domain.Spec.Devices.Interfaces[0].BootOrder.Order).To(Equal(uint(bootOrder)))
+			Expect(domain.Spec.Devices.Interfaces[0].BootOrder.Order).To(Equal(bootOrder))
 			Expect(domain.Spec.Devices.Interfaces[1].BootOrder).To(BeNil())
 		})
 		It("Should create network configuration for masquerade interface", func() {
@@ -3395,12 +3395,12 @@ var _ = Describe("SetDriverCacheMode", func() {
 			Expect(disk.Driver.Cache).To(Equal(expectedCache))
 		}
 	},
-		Entry("detect 'none' with direct io", string(""), string(v1.CacheNone), expectCheckTrue),
-		Entry("detect 'writethrough' without direct io", string(""), string(v1.CacheWriteThrough), expectCheckFalse),
-		Entry("fallback to 'writethrough' on error", string(""), string(v1.CacheWriteThrough), expectCheckError),
+		Entry("detect 'none' with direct io", "", string(v1.CacheNone), expectCheckTrue),
+		Entry("detect 'writethrough' without direct io", "", string(v1.CacheWriteThrough), expectCheckFalse),
+		Entry("fallback to 'writethrough' on error", "", string(v1.CacheWriteThrough), expectCheckError),
 		Entry("keep 'none' with direct io", string(v1.CacheNone), string(v1.CacheNone), expectCheckTrue),
-		Entry("return error without direct io", string(v1.CacheNone), string(""), expectCheckFalse),
-		Entry("return error on error", string(v1.CacheNone), string(""), expectCheckError),
+		Entry("return error without direct io", string(v1.CacheNone), "", expectCheckFalse),
+		Entry("return error on error", string(v1.CacheNone), "", expectCheckError),
 		Entry("'writethrough' with direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckTrue),
 		Entry("'writethrough' without direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckFalse),
 		Entry("'writethrough' on error", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckError),
