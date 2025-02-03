@@ -2893,26 +2893,26 @@ func validLiveUpdateDisks(oldVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.Virtu
 	vols := storagetypes.GetVolumesByName(&vm.Spec.Template.Spec)
 	// Evaluate if any disk has changed or has been added
 	for _, newDisk := range vm.Spec.Template.Spec.Domain.Devices.Disks {
-		v := vols[newDisk.Name]
-		oldDisk, okOld := oldDisks[newDisk.Name]
+		newVolume, okNewVolume := vols[newDisk.Name]
+		oldDisk, okOldDisk := oldDisks[newDisk.Name]
 		switch {
 		// Changes for disks associated to a hotpluggable volume are valid
-		case storagetypes.IsHotplugVolume(v):
-			delete(oldDisks, v.Name)
+		case okNewVolume && storagetypes.IsHotplugVolume(newVolume):
+			delete(oldDisks, newDisk.Name)
 		// The disk has been freshly added
-		case !okOld:
+		case !okOldDisk:
 			return false
 		// The disk has changed
 		case !equality.Semantic.DeepEqual(*oldDisk, newDisk):
 			return false
 		default:
-			delete(oldDisks, v.Name)
+			delete(oldDisks, newDisk.Name)
 		}
 	}
 	// Evaluate if any disks were removed and they were hotplugged volumes
 	for _, d := range oldDisks {
-		v := oldVols[d.Name]
-		if !storagetypes.IsHotplugVolume(v) {
+		v, ok := oldVols[d.Name]
+		if ok && !storagetypes.IsHotplugVolume(v) {
 			return false
 		}
 	}
