@@ -189,7 +189,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		}
 
 		generateCloneFromVM := func() *clone.VirtualMachineClone {
-			return generateCloneFromVMWithParams(sourceVM, targetVMName)
+			return generateCloneFromVMWithParams(sourceVM.Name, sourceVM.Namespace, targetVMName)
 		}
 
 		Context("[sig-compute]simple VM and cloning operations", decorators.SigCompute, func() {
@@ -651,7 +651,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 						vmClone.Spec.Template.AnnotationFilters = filters
 					}
 					generateCloneWithFilters := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clone.VirtualMachineClone {
-						vmclone := generateCloneFromVMWithParams(sourceVM, targetVMName)
+						vmclone := generateCloneFromVMWithParams(sourceVM.Name, sourceVM.Namespace, targetVMName)
 						addCloneAnnotationAndLabelFilters(vmclone)
 						return vmclone
 					}
@@ -709,7 +709,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 							vmClone.Spec.Template.AnnotationFilters = filters
 						}
 						generateCloneWithFilters := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clone.VirtualMachineClone {
-							vmclone := generateCloneFromVMWithParams(sourceVM, targetVMName)
+							vmclone := generateCloneFromVMWithParams(sourceVM.Name, sourceVM.Namespace, targetVMName)
 							addCloneAnnotationAndLabelFilters(vmclone)
 							return vmclone
 						}
@@ -858,13 +858,13 @@ func waitSnapshotContentsExist(snapshotName, snapshotNamespace string) *snapshot
 	return snapshot
 }
 
-func generateCloneFromVMWithParams(sourceVM *virtv1.VirtualMachine, targetVMName string) *clone.VirtualMachineClone {
-	vmClone := kubecli.NewMinimalCloneWithNS("testclone", sourceVM.Namespace)
+func generateCloneFromVMWithParams(sourceVMName, sourceVMNamespace, targetVMName string) *clone.VirtualMachineClone {
+	vmClone := kubecli.NewMinimalCloneWithNS("testclone", sourceVMNamespace)
 
 	cloneSourceRef := &k8sv1.TypedLocalObjectReference{
 		APIGroup: pointer.P(vmAPIGroup),
 		Kind:     "VirtualMachine",
-		Name:     sourceVM.Name,
+		Name:     sourceVMName,
 	}
 
 	cloneTargetRef := cloneSourceRef.DeepCopy()
