@@ -79,7 +79,7 @@ var _ = Describe("USB Device", func() {
 				},
 			},
 			map[string][]*PluginDevices{
-				resourceName1: []*PluginDevices{
+				resourceName1: {
 					newPluginDevices(resourceName1, 0, []*USBDevice{usbs[0]}),
 				},
 			},
@@ -97,7 +97,7 @@ var _ = Describe("USB Device", func() {
 				},
 			},
 			map[string][]*PluginDevices{
-				resourceName1: []*PluginDevices{
+				resourceName1: {
 					newPluginDevices(resourceName1, 0, []*USBDevice{usbs[1]}),
 					newPluginDevices(resourceName1, 1, []*USBDevice{usbs[2]}),
 				},
@@ -120,7 +120,7 @@ var _ = Describe("USB Device", func() {
 				},
 			},
 			map[string][]*PluginDevices{
-				resourceName1: []*PluginDevices{
+				resourceName1: {
 					newPluginDevices(resourceName1, 0, []*USBDevice{usbs[0], usbs[1]}),
 				},
 			},
@@ -147,10 +147,10 @@ var _ = Describe("USB Device", func() {
 				},
 			},
 			map[string][]*PluginDevices{
-				resourceName1: []*PluginDevices{
+				resourceName1: {
 					newPluginDevices(resourceName1, 0, []*USBDevice{usbs[0]}),
 				},
-				resourceName2: []*PluginDevices{
+				resourceName2: {
 					newPluginDevices(resourceName2, 1, []*USBDevice{usbs[1]}),
 					newPluginDevices(resourceName2, 2, []*USBDevice{usbs[2]}),
 				},
@@ -179,7 +179,7 @@ var _ = Describe("USB Device", func() {
 				},
 			},
 			map[string][]*PluginDevices{
-				resourceName1: []*PluginDevices{
+				resourceName1: {
 					newPluginDevices(resourceName1, 0, []*USBDevice{usbs[0]}),
 				},
 			},
@@ -210,7 +210,7 @@ var _ = Describe("USB Device", func() {
 				},
 			},
 			map[string][]*PluginDevices{
-				resourceName1: []*PluginDevices{
+				resourceName1: {
 					newPluginDevices(resourceName1, 0, []*USBDevice{usbs[0]}),
 				},
 			},
