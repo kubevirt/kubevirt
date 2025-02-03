@@ -1186,6 +1186,29 @@ var _ = Describe("Converter", func() {
 			Expect(reserv.SourceReservations.Mode).To(Equal("client"))
 		})
 
+		It("should allow CD-ROM with no volume", func() {
+			name := "empty-cdrom"
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: name,
+				DiskDevice: v1.DiskDevice{
+					CDRom: &v1.CDRomTarget{
+						Bus: v1.DiskBusSATA,
+					},
+				},
+			})
+			dom := &api.Domain{}
+			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
+			Expect(dom.Spec.Devices.Disks).To(ContainElement(api.Disk{
+				Type:     "block",
+				Device:   "cdrom",
+				Driver:   &api.DiskDriver{Name: "qemu", Type: "raw", ErrorPolicy: "stop", Discard: "unmap"},
+				Target:   api.DiskTarget{Bus: "sata", Device: "sda"},
+				ReadOnly: &api.ReadOnly{},
+				Alias:    api.NewUserDefinedAlias(name),
+			}))
+		})
+
 		DescribeTable("should add a virtio-scsi controller if a scsci disk is present and iothreads set", func(arch, expectedModel string) {
 			c.Architecture = archconverter.NewConverter(arch)
 			one := uint(1)

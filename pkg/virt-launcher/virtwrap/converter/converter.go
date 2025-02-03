@@ -375,13 +375,16 @@ func SetDriverCacheMode(disk *api.Disk, directIOChecker DirectIOChecker) error {
 	mode := v1.DriverCache(disk.Driver.Cache)
 	isBlockDev := false
 
-	if disk.Source.File != "" {
+	switch {
+	case disk.Source.File != "":
 		path = disk.Source.File
-	} else if disk.Source.Dev != "" {
+	case disk.Source.Dev != "":
 		path = disk.Source.Dev
-		isBlockDev = true
-	} else {
-		return fmt.Errorf("Unable to set a driver cache mode, disk is neither a block device nor a file")
+	// handle empty cdrom
+	case disk.Device == "cdrom":
+		return nil
+	default:
+		return fmt.Errorf("unable to set a driver cache mode, disk is neither a block device nor a file")
 	}
 
 	if mode == "" || mode == v1.CacheNone {
@@ -614,6 +617,14 @@ func Convert_v1_Hotplug_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c 
 		return Convert_v1_Hotplug_DataVolume_To_api_Disk(source.Name, disk, c)
 	}
 	return fmt.Errorf("hotplug disk %s references an unsupported source", disk.Alias.GetName())
+}
+
+// Convert_v1_Missing_Volume_To_api_Disk sets defaults when no volume for disk (cdrom, floppy, etc) is provided
+func Convert_v1_Missing_Volume_To_api_Disk(disk *api.Disk) error {
+	disk.Type = "block"
+	disk.Driver.Type = "raw"
+	disk.Driver.Discard = "unmap"
+	return nil
 }
 
 func Convert_v1_Config_To_api_Disk(volumeName string, disk *api.Disk, configType config.Type) error {
@@ -1586,6 +1597,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	prefixMap := newDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := api.Disk{}
+		emptyCDRom := false
 
 		err := Convert_v1_Disk_To_api_Disk(c, &disk, &newDisk, prefixMap, numBlkQueues, volumeStatusMap)
 		if err != nil {
@@ -1593,14 +1605,22 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 		volume := volumes[disk.Name]
 		if volume == nil {
-			return fmt.Errorf("no matching volume with name %s found", disk.Name)
+			if disk.CDRom == nil {
+				return fmt.Errorf("no matching volume with name %s found", disk.Name)
+			}
+			emptyCDRom = true
 		}
 
-		if _, ok := c.HotplugVolumes[disk.Name]; !ok {
-			err = Convert_v1_Volume_To_api_Disk(volume, &newDisk, c, volumeIndices[disk.Name])
-		} else {
+		hpStatus, hpOk := c.HotplugVolumes[disk.Name]
+		switch {
+		case emptyCDRom:
+			err = Convert_v1_Missing_Volume_To_api_Disk(&newDisk)
+		case hpOk:
 			err = Convert_v1_Hotplug_Volume_To_api_Disk(volume, &newDisk, c)
+		default:
+			err = Convert_v1_Volume_To_api_Disk(volume, &newDisk, c, volumeIndices[disk.Name])
 		}
+
 		if err != nil {
 			return err
 		}
@@ -1609,9 +1629,12 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			return err
 		}
 
-		hpStatus, hpOk := c.HotplugVolumes[disk.Name]
+		_, isPermVolume := c.PermanentVolumes[disk.Name]
 		// if len(c.PermanentVolumes) == 0, it means the vmi is not ready yet, add all disks
-		if _, ok := c.PermanentVolumes[disk.Name]; ok || len(c.PermanentVolumes) == 0 || (hpOk && (hpStatus.Phase == v1.HotplugVolumeMounted || hpStatus.Phase == v1.VolumeReady)) {
+		permReady := isPermVolume || len(c.PermanentVolumes) == 0
+		hotplugReady := hpOk && (hpStatus.Phase == v1.HotplugVolumeMounted || hpStatus.Phase == v1.VolumeReady)
+
+		if permReady || hotplugReady || emptyCDRom {
 			domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)
 		}
 		if err := setErrorPolicy(&disk, &newDisk); err != nil {
