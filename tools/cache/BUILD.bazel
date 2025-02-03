@@ -5,7 +5,11 @@ go_library(
     srcs = ["time-defined-cache.go"],
     importpath = "kubevirt.io/kubevirt/tools/cache",
     visibility = ["//visibility:public"],
-    deps = ["//pkg/pointer:go_default_library"],
+    deps = [
+        "//pkg/pointer:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
+    ],
 )
 
 go_test(
