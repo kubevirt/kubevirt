@@ -540,7 +540,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 					It("with snapshot source", func() {
 						By("Snapshotting VM")
 						snapshot := createSnapshot(sourceVM.Name, sourceVM.Namespace)
-						snapshot = waitSnapshotReady(snapshot)
+						snapshot = waitSnapshotReady(snapshot.Name, snapshot.Namespace)
 
 						By("Deleting VM")
 						err = virtClient.VirtualMachine(sourceVM.Namespace).Delete(context.Background(), sourceVM.Name, v1.DeleteOptions{})
@@ -861,11 +861,12 @@ func createSnapshot(vmName, vmNamespace string) *snapshotv1.VirtualMachineSnapsh
 	return snapshot
 }
 
-func waitSnapshotReady(snapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.VirtualMachineSnapshot {
-	var err error
+func waitSnapshotReady(snapshotName, snapshotNamespace string) *snapshotv1.VirtualMachineSnapshot {
+	var snapshot *snapshotv1.VirtualMachineSnapshot
 
 	EventuallyWithOffset(1, func() bool {
-		snapshot, err = kubevirt.Client().VirtualMachineSnapshot(snapshot.Namespace).Get(context.Background(), snapshot.Name, v1.GetOptions{})
+		var err error
+		snapshot, err = kubevirt.Client().VirtualMachineSnapshot(snapshotNamespace).Get(context.Background(), snapshotName, v1.GetOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		return snapshot.Status != nil && snapshot.Status.ReadyToUse != nil && *snapshot.Status.ReadyToUse
 	}, 180*time.Second, time.Second).Should(BeTrue(), "snapshot should be ready")
