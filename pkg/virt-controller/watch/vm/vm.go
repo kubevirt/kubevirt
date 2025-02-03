@@ -809,8 +809,7 @@ func (c *Controller) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virtv1
 }
 
 func (c *Controller) handleDeclarativeVolumeHotplug(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	// TEMP as to not conflict with subresource
-	if len(vm.Status.VolumeRequests) > 0 {
+	if c.clusterConfig.HotplugVolumesEnabled() || !c.clusterConfig.DeclarativeHotplugVolumesEnabled() {
 		return nil
 	}
 
@@ -3379,13 +3378,26 @@ func filterHotplugVMIDisks(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachine
 	var disks []virtv1.Disk
 	vmiNewVolumesByName := volumesByName(vmiNewVolumes)
 	vmDisksByName := storagetypes.GetDisksByName(&vm.Spec.Template.Spec)
+	vmVolumesByName := storagetypes.GetVolumesByName(&vm.Spec.Template.Spec)
 
 	for _, vmiDisk := range vmi.Spec.Domain.Devices.Disks {
-		_, vmDiskExists := vmDisksByName[vmiDisk.Name]
 		_, vmiVolumeExists := vmiNewVolumesByName[vmiDisk.Name]
 
-		if !vmDiskExists || !vmiVolumeExists {
-			continue
+		if !vmiVolumeExists {
+			vmDisk, vmDiskExists := vmDisksByName[vmiDisk.Name]
+			_, vmVolumeExists := vmVolumesByName[vmiDisk.Name]
+			vmiIsCDRom := vmiDisk.CDRom != nil
+			vmIsCDRom := vmDiskExists && vmDisk.CDRom != nil
+
+			// disk and volume are gone
+			if !vmDiskExists {
+				continue
+			}
+
+			// vomume changed, remove if not CD-ROM
+			if vmVolumeExists && (!vmIsCDRom || !vmiIsCDRom) {
+				continue
+			}
 		}
 
 		disks = append(disks, *vmiDisk.DeepCopy())
