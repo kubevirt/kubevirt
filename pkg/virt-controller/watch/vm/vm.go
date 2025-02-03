@@ -3114,7 +3114,7 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling volume hotplug requests: %v", err), hotplugVolumeErrorReason), nil
 	}
 
-	if err := storagehotplug.HandleDeclarativeVolumes(c.clientset, vmCopy, vmi); err != nil {
+	if err := c.handleDeclarativeVolumeHotplug(vmCopy, vmi); err != nil {
 		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling declarative hotplug volumes: %v", err), hotplugVolumeErrorReason), nil
 	}
 
@@ -3326,4 +3326,12 @@ func (c *Controller) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi *
 	log.Log.Object(vmi).Infof(logMsg)
 
 	return nil
+}
+
+func (c *Controller) handleDeclarativeVolumeHotplug(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	if c.clusterConfig.HotplugVolumesEnabled() || !c.clusterConfig.DeclarativeHotplugVolumesEnabled() {
+		return nil
+	}
+
+	return storagehotplug.HandleDeclarativeVolumes(c.clientset, vm, vmi)
 }

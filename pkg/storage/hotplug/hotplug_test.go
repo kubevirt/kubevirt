@@ -153,6 +153,24 @@ var _ = Describe("Volume Hotplug", func() {
 			Entry("With three PVCs index 2", libvmi.WithHotplugPersistentVolumeClaim, 3, 2),
 		)
 
+		It("should not remove perm volume when deleted from VM", func() {
+			opts := []libvmi.Option{
+				libvmi.WithDataVolume("perm", "perm"),
+				libvmi.WithDataVolume("perm2", "perm2"),
+				libvmi.WithHotplugDataVolume("hotplugdisk_1", "hotplugvolume_1"),
+				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
+			}
+			origVMI := libvmi.New(opts...)
+			postVMI := origVMI.DeepCopy()
+			postVMI.Spec.Volumes = removeFromSlice(postVMI.Spec.Volumes, 1)
+			postVMI.Spec.Domain.Devices.Disks = removeFromSlice(postVMI.Spec.Domain.Devices.Disks, 1)
+			vm := libvmi.NewVirtualMachine(postVMI)
+			result := handle(vm, origVMI)
+			Expect(result.Spec).To(Equal(origVMI.Spec))
+			Expect(result.Spec.Domain.Devices.Disks).To(HaveLen(3))
+			Expect(result.Spec.Volumes).To(HaveLen(3))
+		})
+
 		It("should not add hotplug volume to VMI if vmi has status for the volume", func() {
 			opts := []libvmi.Option{
 				libvmi.WithDataVolume("perm", "perm"),
@@ -208,6 +226,99 @@ var _ = Describe("Volume Hotplug", func() {
 			result := handle(vm, origVMI)
 			Expect(result.Spec).To(Equal(origVMI.Spec))
 			Expect(result.Spec.Domain.Devices.Disks).To(HaveLen(1))
+			Expect(result.Spec.Volumes).To(HaveLen(1))
+		})
+
+		DescribeTable("should inject CD-ROM", func(numDisks int) {
+			origOpts := []libvmi.Option{
+				libvmi.WithDataVolume("perm", "perm"),
+				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
+			}
+			for i := 1; i <= numDisks; i++ {
+				origOpts = append(origOpts, libvmi.WithEmptyCDRom(v1.DiskBusSATA, fmt.Sprintf("cdrom_%d", i)))
+			}
+			postOpts := append([]libvmi.Option{}, origOpts[0:2]...)
+			for i := 1; i <= numDisks; i++ {
+				name := fmt.Sprintf("cdrom_%d", i)
+				postOpts = append(postOpts, libvmi.WithCDRomAndVolume(v1.DiskBusSATA, v1.Volume{
+					Name: name,
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name:         name,
+							Hotpluggable: true,
+						},
+					},
+				}))
+			}
+			origVMI := libvmi.New(origOpts...)
+			postVMI := libvmi.New(postOpts...)
+			postVMI.Name = origVMI.Name
+			vm := libvmi.NewVirtualMachine(postVMI)
+			result := handle(vm, origVMI)
+			Expect(result.Spec).To(Equal(postVMI.Spec))
+			Expect(result.Spec.Domain.Devices.Disks).To(HaveLen(numDisks + 1)) // +1 for the existing disk
+			Expect(result.Spec.Volumes).To(HaveLen(numDisks + 1))              // +1 for the existing volume
+		},
+			Entry("With one CD-ROM", 1),
+			Entry("With five CD-ROMs", 5),
+		)
+
+		DescribeTable("should eject CD-ROM", func(numDisks, index int) {
+			origOpts := []libvmi.Option{
+				libvmi.WithDataVolume("perm", "perm"),
+				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
+			}
+			for i := 1; i <= numDisks; i++ {
+				name := fmt.Sprintf("cdrom_%d", i)
+				origOpts = append(origOpts, libvmi.WithCDRomAndVolume(v1.DiskBusSATA, v1.Volume{
+					Name: name,
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name:         name,
+							Hotpluggable: true,
+						},
+					},
+				}))
+			}
+			origVMI := libvmi.New(origOpts...)
+			postVMI := origVMI.DeepCopy()
+			postVMI.Spec.Volumes = removeFromSlice(postVMI.Spec.Volumes, index+1)
+			vm := libvmi.NewVirtualMachine(postVMI)
+			result := handle(vm, origVMI)
+			Expect(result.Spec).To(Equal(postVMI.Spec))
+			Expect(result.Spec.Domain.Devices.Disks).To(HaveLen(numDisks + 1))
+			Expect(result.Spec.Volumes).To(HaveLen(numDisks))
+		},
+			Entry("With one CD-ROM", 1, 0),
+			Entry("With three CD-ROMs index 0", 3, 0),
+			Entry("With three CD-ROMs index 1", 3, 1),
+			Entry("With three CD-ROMs index 2", 3, 2),
+		)
+
+		It("should do nothing if non hotplug CD-ROM added", func() {
+			origOpts := []libvmi.Option{
+				libvmi.WithDataVolume("perm", "perm"),
+				libvmi.WithEmptyCDRom(v1.DiskBusSATA, "cdrom_1"),
+				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
+			}
+			postOpts := append([]libvmi.Option{}, origOpts[0:2]...)
+			postOpts = append(postOpts, libvmi.WithCDRomAndVolume(v1.DiskBusSATA, v1.Volume{
+				Name: "cdrom_1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "cdrom_1",
+					},
+				},
+			}))
+
+			origVMI := libvmi.New(origOpts...)
+			postVMI := libvmi.New(postOpts...)
+			postVMI.Name = origVMI.Name
+			postVMI.Name = origVMI.Name
+			vm := libvmi.NewVirtualMachine(postVMI)
+			result := handle(vm, origVMI)
+			Expect(result.Spec).To(Equal(origVMI.Spec))
+			Expect(result.Spec.Domain.Devices.Disks).To(HaveLen(2))
 			Expect(result.Spec.Volumes).To(HaveLen(1))
 		})
 	})

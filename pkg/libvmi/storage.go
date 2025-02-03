@@ -119,6 +119,13 @@ func WithCDRomAndVolume(bus v1.DiskBus, volume v1.Volume) Option {
 	}
 }
 
+// WithEmptyCDRom specifies a CDRom drive with no volume
+func WithEmptyCDRom(bus v1.DiskBus, name string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDisk(vmi, newCDRom(name, bus))
+	}
+}
+
 // WithEphemeralCDRom specifies a CDRom drive to be used.
 func WithEphemeralCDRom(cdRomName string, bus v1.DiskBus, claimName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
