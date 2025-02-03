@@ -235,7 +235,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating a clone with a snapshot source")
-				vmClone = generateCloneFromSnapshot(snapshot, targetVMName)
+				vmClone = generateCloneFromSnapshot(snapshot.Name, snapshot.Namespace, targetVMName)
 				createCloneAndWaitForFinish(vmClone)
 
 				By(fmt.Sprintf("Getting the target VM %s", targetVMName))
@@ -482,7 +482,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						By("Creating a clone and expecting error")
-						vmClone = generateCloneFromSnapshot(snapshot, targetVMName)
+						vmClone = generateCloneFromSnapshot(snapshot.Name, snapshot.Namespace, targetVMName)
 						vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Create(context.Background(), vmClone, v1.CreateOptions{})
 						Expect(err).Should(HaveOccurred())
 						Expect(err.Error()).To(ContainSubstring("not backed up in snapshot"))
@@ -855,13 +855,13 @@ func generateCloneFromVMWithParams(sourceVMName, sourceVMNamespace, targetVMName
 	return vmClone
 }
 
-func generateCloneFromSnapshot(snapshot *snapshotv1.VirtualMachineSnapshot, targetVMName string) *clone.VirtualMachineClone {
-	vmClone := kubecli.NewMinimalCloneWithNS("testclone", snapshot.Namespace)
+func generateCloneFromSnapshot(snapshotName, snapshotNamespace, targetVMName string) *clone.VirtualMachineClone {
+	vmClone := kubecli.NewMinimalCloneWithNS("testclone", snapshotNamespace)
 
 	cloneSourceRef := &k8sv1.TypedLocalObjectReference{
 		APIGroup: pointer.P(virtsnapshot.GroupName),
 		Kind:     "VirtualMachineSnapshot",
-		Name:     snapshot.Name,
+		Name:     snapshotName,
 	}
 
 	cloneTargetRef := &k8sv1.TypedLocalObjectReference{
