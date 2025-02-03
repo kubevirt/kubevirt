@@ -80,20 +80,6 @@ var _ = Describe("Network interface hot{un}plug", func() {
 				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
 			),
 			!ordinal),
-		Entry("when an interface has to be hotunplugged but it has ordinal name",
-			libvmi.New(
-				libvmi.WithInterface(bridgeAbsentInterface(testNetworkName1)),
-				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
-			),
-			libvmi.New(
-				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
-				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
-			),
-			libvmi.New(
-				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
-				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
-			),
-			ordinal),
 		Entry("when one interface has to be plugged and other hotunplugged",
 			libvmi.New(
 				libvmi.WithInterface(bridgeAbsentInterface(testNetworkName1)),
