@@ -23,7 +23,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -630,30 +629,4 @@ func main() {
 	service.Setup(app)
 	log.InitializeLogging("virt-handler")
 	app.Run()
-}
-
-func copy(sourceFile string, targetFile string) error {
-
-	if err := os.RemoveAll(targetFile); err != nil {
-		return fmt.Errorf("failed to remove target file: %v", err)
-	}
-	target, err := os.Create(targetFile)
-	if err != nil {
-		return fmt.Errorf("failed to crate target file: %v", err)
-	}
-	defer target.Close()
-	source, err := os.Open(sourceFile)
-	if err != nil {
-		return fmt.Errorf("failed to open source file: %v", err)
-	}
-	defer source.Close()
-	_, err = io.Copy(target, source)
-	if err != nil {
-		return fmt.Errorf("failed to copy file: %v", err)
-	}
-	err = os.Chmod(targetFile, 0555)
-	if err != nil {
-		return fmt.Errorf("failed to make file executable: %v", err)
-	}
-	return nil
 }
