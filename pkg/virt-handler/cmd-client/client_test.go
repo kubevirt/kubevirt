@@ -53,7 +53,7 @@ var _ = Describe("Virt remote commands", func() {
 
 	BeforeEach(func() {
 		vmi = api.NewMinimalVMI("testvmi")
-		vmi.UID = types.UID("1234")
+		vmi.UID = "1234"
 		vmi.Status = v1.VirtualMachineInstanceStatus{
 			ActivePods: map[types.UID]string{
 				types.UID(podUID): host,
