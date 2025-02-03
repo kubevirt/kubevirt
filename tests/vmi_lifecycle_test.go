@@ -1722,16 +1722,6 @@ func pkillVMI(client kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) err
 	return err
 }
 
-func addBootOrderToDisk(vmi *v1.VirtualMachineInstance, diskName string, bootorder *uint) *v1.VirtualMachineInstance {
-	for i, d := range vmi.Spec.Domain.Devices.Disks {
-		if d.Name == diskName {
-			vmi.Spec.Domain.Devices.Disks[i].BootOrder = bootorder
-			return vmi
-		}
-	}
-	return vmi
-}
-
 func waitForVMIRebooted(vmi *v1.VirtualMachineInstance, login console.LoginToFunction) {
 	By(fmt.Sprintf("Waiting for vmi %s rebooted", vmi.Name))
 	Expect(login(vmi)).To(Succeed())
