@@ -242,7 +242,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 	}
 
 	var err error
-	manager.domainStatsCache, err = virtcache.NewTimeDefinedCache(5*time.Second, true, reCalcDomainStats)
+	manager.domainStatsCache, err = virtcache.NewTimeDefinedCache(3250*time.Millisecond, true, reCalcDomainStats)
 	if err != nil {
 		return nil, err
 	}
