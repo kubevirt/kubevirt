@@ -43,6 +43,10 @@ import (
 )
 
 var _ = Describe("VM Network Controller", func() {
+	const (
+		secondaryNetName = "foonet"
+		nadName          = "foonet-nad"
+	)
 	DescribeTable("sync does nothing when", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, podGetter stubPodGetter) {
 		c := controllers.NewVMController(fake.NewSimpleClientset(), podGetter)
 		originalVM := vm.DeepCopy()
@@ -66,11 +70,15 @@ var _ = Describe("VM Network Controller", func() {
 			"the VM & VMI have identical interfaces",
 			libvmi.NewVirtualMachine(libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName, nadName)),
 			)),
 			libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName, nadName)),
 			),
 			stubPodGetter{pod: &k8sv1.Pod{}},
 		),
