@@ -77,10 +77,3 @@ type Informers struct {
 func IsARM64(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
 	return vmiSpec.Architecture == "arm64"
 }
-
-func IsPPC64(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
-	return vmiSpec.Architecture == "ppc64le"
-}
-func IsS390X(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
-	return vmiSpec.Architecture == "s390x"
-}
