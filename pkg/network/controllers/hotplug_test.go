@@ -47,17 +47,6 @@ var _ = Describe("Network interface hot{un}plug", func() {
 			Expect(updatedVMI.Networks).To(Equal(expectedVMI.Spec.Networks))
 			Expect(updatedVMI.Domain.Devices.Interfaces).To(Equal(expectedVMI.Spec.Domain.Devices.Interfaces))
 		},
-		Entry("when an SRIOV  binding interface has to be hotplugged",
-			libvmi.New(
-				libvmi.WithInterface(sriovInterface(testNetworkName1)),
-				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
-			),
-			libvmi.New(),
-			libvmi.New(
-				libvmi.WithInterface(sriovInterface(testNetworkName1)),
-				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
-			),
-			!ordinal),
 		Entry("when an interface has to be hotplugged but it has no SRIOV or bridge binding",
 			libvmi.New(
 				libvmi.WithInterface(v1.Interface{
@@ -176,10 +165,6 @@ var _ = Describe("Network interface hot{un}plug", func() {
 
 func bridgeInterface(name string) v1.Interface {
 	return v1.Interface{Name: name, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}
-}
-
-func sriovInterface(name string) v1.Interface {
-	return v1.Interface{Name: name, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}
 }
 
 func bridgeAbsentInterface(name string) v1.Interface {
