@@ -43,11 +43,6 @@ import (
 )
 
 var _ = Describe("VM Network Controller", func() {
-	It("sync does nothing when the hotplug FG is unset", func() {
-		c := controllers.NewVMController(fake.NewSimpleClientset(), stubPodGetter{})
-		Expect(c.Sync(newEmptyVM(), libvmi.New())).To(Equal(newEmptyVM()))
-	})
-
 	DescribeTable("sync does nothing when", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, podGetter stubPodGetter) {
 		c := controllers.NewVMController(fake.NewSimpleClientset(), podGetter)
 		originalVM := vm.DeepCopy()
