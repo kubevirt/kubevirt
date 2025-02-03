@@ -5181,29 +5181,26 @@ rpm(
 )
 
 rpm(
-    name = "passt-0__0__caret__20241121.g238c69f-1.el9.aarch64",
-    sha256 = "baac8d62c2ad9071e0db0a8e4e09c6e77e2871aa924fceefef8280cdd6c31fce",
+    name = "passt-0__0__caret__20250121.g4f2c8e7-3.el9.aarch64",
+    sha256 = "f6c44f7b74a1343042870be89d4f869548343102b81b7eb9d0b4d0def82339a1",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/passt-0%5E20241121.g238c69f-1.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/baac8d62c2ad9071e0db0a8e4e09c6e77e2871aa924fceefef8280cdd6c31fce",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/passt-0%5E20250121.g4f2c8e7-3.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "passt-0__0__caret__20241121.g238c69f-1.el9.s390x",
-    sha256 = "98320c435ab7008fe55b0d4fa783d4aa3a2f450d63e1520a1bd87bf7ab6474f9",
+    name = "passt-0__0__caret__20250121.g4f2c8e7-3.el9.s390x",
+    sha256 = "62bf2c732d0718023dab5fcf8103849ae6608c53b2a92855c3923a784fa2e445",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/passt-0%5E20241121.g238c69f-1.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/98320c435ab7008fe55b0d4fa783d4aa3a2f450d63e1520a1bd87bf7ab6474f9",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/passt-0%5E20250121.g4f2c8e7-3.el9.s390x.rpm",
     ],
 )
 
 rpm(
-    name = "passt-0__0__caret__20241121.g238c69f-1.el9.x86_64",
-    sha256 = "4f1f3faf4be7310ecefe4e2668bde73818f79ed3fd107be2b13e325facf7cb4b",
+    name = "passt-0__0__caret__20250121.g4f2c8e7-3.el9.x86_64",
+    sha256 = "dacf3034c6d12b1472d6031f4a012bbe26063a841cd6e6164a736472c8cfe9bf",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/passt-0%5E20241121.g238c69f-1.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/4f1f3faf4be7310ecefe4e2668bde73818f79ed3fd107be2b13e325facf7cb4b",
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/passt-0%5E20250121.g4f2c8e7-3.el9.x86_64.rpm",
     ],
 )
 
