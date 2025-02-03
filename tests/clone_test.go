@@ -262,7 +262,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 
 				By("Creating a snapshot from VM")
 				snapshot := createSnapshot(sourceVM.Name, sourceVM.Namespace)
-				snapshot = waitSnapshotContentsExist(snapshot)
+				snapshot = waitSnapshotContentsExist(snapshot.Name, snapshot.Namespace)
 				// "waitSnapshotReady" is not used here intentionally since it's okay for a snapshot source
 				// to not be ready when creating a clone. Therefore, it's not deterministic if snapshot would actually
 				// be ready for this test or not.
@@ -848,10 +848,12 @@ func waitSnapshotReady(snapshotName, snapshotNamespace string) *snapshotv1.Virtu
 	return snapshot
 }
 
-func waitSnapshotContentsExist(snapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.VirtualMachineSnapshot {
+func waitSnapshotContentsExist(snapshotName, snapshotNamespace string) *snapshotv1.VirtualMachineSnapshot {
 	var contentsName string
+	var snapshot *snapshotv1.VirtualMachineSnapshot
 	EventuallyWithOffset(1, func() error {
-		snapshot, err := kubevirt.Client().VirtualMachineSnapshot(snapshot.Namespace).Get(context.Background(), snapshot.Name, v1.GetOptions{})
+		var err error
+		snapshot, err = kubevirt.Client().VirtualMachineSnapshot(snapshotNamespace).Get(context.Background(), snapshotName, v1.GetOptions{})
 		ExpectWithOffset(2, err).ToNot(HaveOccurred())
 		if snapshot.Status == nil {
 			return fmt.Errorf("snapshot's status is nil")
@@ -867,7 +869,7 @@ func waitSnapshotContentsExist(snapshot *snapshotv1.VirtualMachineSnapshot) *sna
 	}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 	EventuallyWithOffset(1, func() error {
-		_, err := kubevirt.Client().VirtualMachineSnapshotContent(snapshot.Namespace).Get(context.Background(), contentsName, v1.GetOptions{})
+		_, err := kubevirt.Client().VirtualMachineSnapshotContent(snapshotNamespace).Get(context.Background(), contentsName, v1.GetOptions{})
 		return err
 	}).ShouldNot(HaveOccurred())
 
