@@ -427,7 +427,8 @@ func main() {
 
 	metadataCache := metadata.NewCache()
 
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache)
+	signalStopChan := make(chan struct{})
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache, signalStopChan)
 	if err != nil {
 		panic(err)
 	}
@@ -468,7 +469,6 @@ func main() {
 		syscall.SIGQUIT,
 	)
 
-	signalStopChan := make(chan struct{})
 	go func() {
 		s := <-c
 		log.Log.Infof("Received signal %s", s.String())
