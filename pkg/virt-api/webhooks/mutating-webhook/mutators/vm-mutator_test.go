@@ -48,7 +48,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	instancetypeVMWebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks/vm"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
 
 var _ = Describe("VirtualMachine Mutator", func() {
@@ -162,19 +161,15 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		Expect(resp.Patch).To(BeEmpty())
 	})
 
-	It("should apply defaults on VM create", func() {
-		vmSpec, _ := getVMSpecMetaFromResponseCreate(rt.GOARCH)
-		switch {
-		case webhooks.IsPPC64(&vmSpec.Template.Spec):
-			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("pseries"))
-		case webhooks.IsARM64(&vmSpec.Template.Spec):
-			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("virt"))
-		case webhooks.IsS390X(&vmSpec.Template.Spec):
-			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("s390-ccw-virtio"))
-		default:
-			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("q35"))
-		}
-	})
+	DescribeTable("should apply defaults on VM create", func(arch string, result string) {
+		vmSpec, _ := getVMSpecMetaFromResponseCreate(arch)
+		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(result))
+	},
+		Entry("ppc64le", "ppc64le", "pseries"),
+		Entry("arm64", "arm64", "virt"),
+		Entry("s390x", "s390x", "s390-ccw-virtio"),
+		Entry("amd64", "amd64", "q35"),
+	)
 
 	DescribeTable("should apply configurable defaults on VM create", func(arch string, amd64MachineType string, arm64MachineType string, ppc64leMachineType string, s390xMachineType string, result string) {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
