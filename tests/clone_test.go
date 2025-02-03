@@ -299,7 +299,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				}, 30*time.Second, 1*time.Second).Should(Equal(virtv1.VirtualMachineStatusStopped))
 
 				By("Creating a snapshot from VM")
-				snapshot := createSnapshot(sourceVM)
+				snapshot := createSnapshot(sourceVM.Name, sourceVM.Namespace)
 				snapshot = waitSnapshotContentsExist(snapshot)
 				// "waitSnapshotReady" is not used here intentionally since it's okay for a snapshot source
 				// to not be ready when creating a clone. Therefore, it's not deterministic if snapshot would actually
@@ -551,7 +551,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 
 					It("with snapshot source", func() {
 						By("Snapshotting VM")
-						snapshot := createSnapshot(sourceVM)
+						snapshot := createSnapshot(sourceVM.Name, sourceVM.Namespace)
 						snapshot = waitSnapshotReady(snapshot)
 
 						By("Deleting VM")
@@ -852,24 +852,22 @@ func createSourceVM(options ...libvmi.Option) (*virtv1.VirtualMachine, error) {
 	return virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v1.CreateOptions{})
 }
 
-func createSnapshot(vm *virtv1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
-	var err error
-
+func createSnapshot(vmName, vmNamespace string) *snapshotv1.VirtualMachineSnapshot {
 	snapshot := &snapshotv1.VirtualMachineSnapshot{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "snapshot-" + vm.Name,
-			Namespace: vm.Namespace,
+			Name:      "snapshot-" + vmName,
+			Namespace: vmNamespace,
 		},
 		Spec: snapshotv1.VirtualMachineSnapshotSpec{
 			Source: k8sv1.TypedLocalObjectReference{
 				APIGroup: pointer.P(vmAPIGroup),
 				Kind:     "VirtualMachine",
-				Name:     vm.Name,
+				Name:     vmName,
 			},
 		},
 	}
 
-	snapshot, err = kubevirt.Client().VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, v1.CreateOptions{})
+	snapshot, err := kubevirt.Client().VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, v1.CreateOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	return snapshot
