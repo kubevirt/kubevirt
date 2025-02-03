@@ -6462,6 +6462,17 @@ var _ = Describe("VirtualMachine", func() {
 						}
 					}
 
+					addCDRom := func(vmi *v1.VirtualMachineInstanceSpec, ordinals ...int) {
+						for _, ordinal := range ordinals {
+							vmi.Domain.Devices.Disks = append(vmi.Domain.Devices.Disks, v1.Disk{
+								Name: fmt.Sprintf("volume_%d", ordinal),
+								DiskDevice: v1.DiskDevice{
+									CDRom: &v1.CDRomTarget{},
+								},
+							})
+						}
+					}
+
 					addVolume := func(vmi *v1.VirtualMachineInstanceSpec, hotplug bool, ordinals ...int) {
 						for _, ordinal := range ordinals {
 							vmi.Volumes = append(vmi.Volumes, v1.Volume{
@@ -6519,6 +6530,18 @@ var _ = Describe("VirtualMachine", func() {
 						return vmi
 					}
 
+					BeforeEach(func() {
+						testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+							Spec: v1.KubeVirtSpec{
+								Configuration: v1.KubeVirtConfiguration{
+									DeveloperConfiguration: &v1.DeveloperConfiguration{
+										FeatureGates: []string{featuregate.DeclarativeHotplugVolumeGate},
+									},
+								},
+							},
+						})
+					})
+
 					It("should add hotplug volume to VMI", func() {
 						vm, vmi := watchtesting.DefaultVirtualMachine(true)
 						vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyHotplug)
@@ -6532,6 +6555,34 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmi.Spec.Volumes).To(HaveLen(2))
 						validateOrdinal(vm, vmi, 1)
 						validateOrdinal(vm, vmi, 2)
+					})
+
+					It("should not add non hotplug volume to VMI", func() {
+						vm, vmi := watchtesting.DefaultVirtualMachine(true)
+						vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyHotplug)
+						addPair(&vm.Spec.Template.Spec, false, 1)
+						addPair(&vmi.Spec, false, 1)
+						addPair(&vm.Spec.Template.Spec, false, 2)
+
+						vmi = handle(vm, vmi)
+
+						Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(1))
+						Expect(vmi.Spec.Volumes).To(HaveLen(1))
+						validateOrdinal(vm, vmi, 1)
+					})
+
+					It("should not remove non hotplug volume from VMI", func() {
+						vm, vmi := watchtesting.DefaultVirtualMachine(true)
+						vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyHotplug)
+						addPair(&vm.Spec.Template.Spec, false, 1)
+						addPair(&vmi.Spec, false, 1)
+						addPair(&vmi.Spec, false, 2)
+
+						vmi = handle(vm, vmi)
+
+						Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(2))
+						Expect(vmi.Spec.Volumes).To(HaveLen(2))
+						validateOrdinal(vm, vmi, 1)
 					})
 
 					It("should remove hotplug volume from VMI", func() {
@@ -6583,6 +6634,40 @@ var _ = Describe("VirtualMachine", func() {
 						Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(1))
 						Expect(vmi.Spec.Volumes).To(HaveLen(1))
 						validateOrdinal(vm, vmi, 1)
+					})
+
+					It("should inject CD-ROM", func() {
+						vm, vmi := watchtesting.DefaultVirtualMachine(true)
+						vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyHotplug)
+						addPair(&vm.Spec.Template.Spec, false, 1)
+						addPair(&vmi.Spec, false, 1)
+						addCDRom(&vm.Spec.Template.Spec, 2)
+						addCDRom(&vmi.Spec, 2)
+						addVolume(&vm.Spec.Template.Spec, true, 2)
+
+						vmi = handle(vm, vmi)
+
+						Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(2))
+						Expect(vmi.Spec.Volumes).To(HaveLen(2))
+						validateOrdinal(vm, vmi, 1)
+						validateOrdinal(vm, vmi, 2)
+					})
+
+					It("should eject CD-ROM", func() {
+						vm, vmi := watchtesting.DefaultVirtualMachine(true)
+						vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyHotplug)
+						addPair(&vm.Spec.Template.Spec, false, 1)
+						addPair(&vmi.Spec, false, 1)
+						addCDRom(&vm.Spec.Template.Spec, 2)
+						addCDRom(&vmi.Spec, 2)
+						addVolume(&vmi.Spec, true, 2)
+
+						vmi = handle(vm, vmi)
+
+						Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(2))
+						Expect(vmi.Spec.Volumes).To(HaveLen(1))
+						validateOrdinal(vm, vmi, 1)
+						Expect(getDisk(&vm.Spec.Template.Spec, 2)).To(Equal(getDisk(&vmi.Spec, 2)))
 					})
 				})
 			})
