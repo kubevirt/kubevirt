@@ -187,7 +187,7 @@ func MarkSocketUnresponsive(socket string) error {
 }
 
 func SocketDirectoryOnHost(podUID string) string {
-	return fmt.Sprintf("/%s/%s/volumes/kubernetes.io~empty-dir/sockets", podsBaseDir, string(podUID))
+	return fmt.Sprintf("/%s/%s/volumes/kubernetes.io~empty-dir/sockets", podsBaseDir, podUID)
 }
 
 func SocketFilePathOnHost(podUID string) string {
@@ -688,7 +688,7 @@ func (c *VirtLauncherClient) Exec(domainName, command string, args []string, tim
 		DomainName:     domainName,
 		Command:        command,
 		Args:           args,
-		TimeoutSeconds: int32(timeoutSeconds),
+		TimeoutSeconds: timeoutSeconds,
 	}
 	exitCode := -1
 	stdOut := ""

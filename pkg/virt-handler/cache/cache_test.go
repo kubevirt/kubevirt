@@ -155,12 +155,12 @@ var _ = Describe("Domain informer", func() {
 			record, exists := ghostRecordGlobalCache["test1-namespace/test1"]
 			Expect(exists).To(BeTrue())
 			Expect(string(record.UID)).To(Equal("1234-1"))
-			Expect(string(record.SocketFile)).To(Equal("somefile1"))
+			Expect(record.SocketFile).To(Equal("somefile1"))
 
 			record, exists = ghostRecordGlobalCache["test2-namespace/test2"]
 			Expect(exists).To(BeTrue())
 			Expect(string(record.UID)).To(Equal("1234-2"))
-			Expect(string(record.SocketFile)).To(Equal("somefile2"))
+			Expect(record.SocketFile).To(Equal("somefile2"))
 		})
 
 		It("Should delete ghost record from cache and disk", func() {
