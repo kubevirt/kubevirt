@@ -910,6 +910,7 @@ func GetCSVBase(params *CSVBaseParams) *csvv1alpha1.ClusterServiceVersion {
 				"features.operators.openshift.io/token-auth-aws":   "false",
 				"features.operators.openshift.io/token-auth-azure": "false",
 				"features.operators.openshift.io/token-auth-gcp":   "false",
+				"openshift.io/required-scc":                        "restricted-v2",
 			},
 		},
 		Spec: csvv1alpha1.ClusterServiceVersionSpec{

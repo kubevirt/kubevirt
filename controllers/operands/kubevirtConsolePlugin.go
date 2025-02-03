@@ -146,6 +146,9 @@ func getKvUIDeployment(hc *hcov1beta1.HyperConverged, deploymentName string, ima
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
+					Annotations: map[string]string{
+						"openshift.io/required-scc": "restricted-v2",
+					},
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: "default",
