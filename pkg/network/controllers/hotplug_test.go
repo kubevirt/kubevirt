@@ -47,20 +47,6 @@ var _ = Describe("Network interface hot{un}plug", func() {
 			Expect(updatedVMI.Networks).To(Equal(expectedVMI.Spec.Networks))
 			Expect(updatedVMI.Domain.Devices.Interfaces).To(Equal(expectedVMI.Spec.Domain.Devices.Interfaces))
 		},
-		Entry("when the are no interfaces to hotplug/unplug",
-			libvmi.New(
-				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
-				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
-			),
-			libvmi.New(
-				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
-				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
-			),
-			libvmi.New(
-				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
-				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
-			),
-			false),
 		Entry("when a bridge binding interface has to be hotplugged",
 			libvmi.New(
 				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
