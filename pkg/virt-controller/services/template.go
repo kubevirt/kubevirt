@@ -143,8 +143,6 @@ type TemplateService interface {
 	RenderExporterManifest(vmExport *exportv1.VirtualMachineExport, namePrefix string) *k8sv1.Pod
 	GetLauncherImage() string
 	IsPPC64() bool
-	IsARM64() bool
-	IsS390X() bool
 }
 
 type templateService struct {
@@ -317,14 +315,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 func (t *templateService) IsPPC64() bool {
 	return t.clusterConfig.GetClusterCPUArch() == "ppc64le"
-}
-
-func (t *templateService) IsARM64() bool {
-	return t.clusterConfig.GetClusterCPUArch() == "arm64"
-}
-
-func (t *templateService) IsS390X() bool {
-	return t.clusterConfig.GetClusterCPUArch() == "s390x"
 }
 
 func generateQemuTimeoutWithJitter(qemuTimeoutBaseSeconds int) string {
