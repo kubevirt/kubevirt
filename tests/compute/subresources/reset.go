@@ -21,12 +21,12 @@ package subresources
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/tests/compute"
 	"kubevirt.io/kubevirt/tests/console"
@@ -43,35 +43,33 @@ var _ = compute.SIGDescribe("Reset subresource", func() {
 
 		It("should succeed", func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpineWithTestTooling(), vmiLaunchTimeout)
+			oldUID := vmi.UID
 
 			By("Checking that the VirtualMachineInstance console has expected output")
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
-			errChan := make(chan error)
-			go func() {
-				time.Sleep(5)
-				errChan <- kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Reset(context.Background(), vmi.Name)
-			}()
-
-			start := time.Now().UTC().Unix()
-
-			By(fmt.Sprintf("Waiting for vmi %s reset", vmi.Name))
+			By("Create a file that is not expected to survive the reset request")
 			err := console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: ".*Hypervisor detected.*KVM.*"},
-			}, 300)
-
-			end := time.Now().UTC().Unix()
-
-			if err != nil {
-				err = fmt.Errorf("start [%d] end [%d] err: %v", start, end, err)
-			}
+				&expect.BSnd{S: "touch non-persistent-file\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: console.EchoLastReturnValue},
+				&expect.BExp{R: console.ShellSuccess},
+			}, 120)
 			Expect(err).ToNot(HaveOccurred())
 
-			select {
-			case err := <-errChan:
-				Expect(err).ToNot(HaveOccurred())
-			}
+			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Reset(context.Background(), vmi.Name)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+			err = console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "ls non-persistent-file\n"},
+				&expect.BExp{R: `non-persistent-file: No such file or director`},
+			}, 20)
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmi.UID).To(Equal(oldUID))
 		})
 	})
 })
