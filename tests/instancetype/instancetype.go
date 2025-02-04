@@ -757,7 +757,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		BeforeEach(func() {
 			if !libstorage.HasCDI() {
-				Skip("instance type and preference inferFromVolume tests require CDI to be installed providing the DataVolume and DataSource CRDs")
+				Fail("instance type and preference inferFromVolume tests require CDI to be installed providing the DataVolume and DataSource CRDs")
 			}
 
 			namespace = testsuite.GetTestNamespace(nil)

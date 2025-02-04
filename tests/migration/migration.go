@@ -364,7 +364,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedula
 			It("should migrate vmi and use Live Migration method with read-only disks", func() {
 				By("Defining a VMI with PVC disk and read-only CDRoms")
 				if !libstorage.HasCDI() {
-					Skip("Skip DataVolume tests when CDI is not present")
+					Fail("Fail DataVolume tests when CDI is not present")
 				}
 				sc, exists := libstorage.GetRWXBlockStorageClass()
 				if !exists {
@@ -841,7 +841,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedula
 		Context("with an Alpine DataVolume", func() {
 			BeforeEach(func() {
 				if !libstorage.HasCDI() {
-					Skip("Skip DataVolume tests when CDI is not present")
+					Fail("Fail DataVolume tests when CDI is not present")
 				}
 			})
 
@@ -1824,7 +1824,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedula
 
 			newVirtualMachineInstanceWithFedoraRWXBlockDisk := func() *v1.VirtualMachineInstance {
 				if !libstorage.HasCDI() {
-					Skip("Skip DataVolume tests when CDI is not present")
+					Fail("Fail DataVolume tests when CDI is not present")
 				}
 
 				sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteMany)
