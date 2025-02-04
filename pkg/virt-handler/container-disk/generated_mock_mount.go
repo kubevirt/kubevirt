@@ -8,8 +8,6 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	v1 "kubevirt.io/api/core/v1"
-
-	container_disk "kubevirt.io/kubevirt/pkg/container-disk"
 )
 
 // Mock of Mounter interface
@@ -44,11 +42,10 @@ func (_mr *_MockMounterRecorder) ContainerDisksReady(arg0, arg1 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ContainerDisksReady", arg0, arg1)
 }
 
-func (_m *MockMounter) MountAndVerify(vmi *v1.VirtualMachineInstance) (map[string]*container_disk.DiskInfo, error) {
+func (_m *MockMounter) MountAndVerify(vmi *v1.VirtualMachineInstance) error {
 	ret := _m.ctrl.Call(_m, "MountAndVerify", vmi)
-	ret0, _ := ret[0].(map[string]*container_disk.DiskInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 func (_mr *_MockMounterRecorder) MountAndVerify(arg0 interface{}) *gomock.Call {

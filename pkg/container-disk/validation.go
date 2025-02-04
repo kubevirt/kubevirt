@@ -2,20 +2,15 @@ package containerdisk
 
 import (
 	"fmt"
+
+	"kubevirt.io/kubevirt/pkg/os/disk"
 )
 
 const (
 	DiskSourceFallbackPath = "/disk"
 )
 
-type DiskInfo struct {
-	Format      string `json:"format"`
-	BackingFile string `json:"backing-filename"`
-	ActualSize  int64  `json:"actual-size"`
-	VirtualSize int64  `json:"virtual-size"`
-}
-
-func VerifyQCOW2(diskInfo *DiskInfo) error {
+func VerifyQCOW2(diskInfo *disk.DiskInfo) error {
 	if diskInfo.Format != "qcow2" {
 		return fmt.Errorf("expected a disk format of qcow2, but got '%v'", diskInfo.Format)
 	}
@@ -26,7 +21,7 @@ func VerifyQCOW2(diskInfo *DiskInfo) error {
 	return nil
 }
 
-func VerifyImage(diskInfo *DiskInfo) error {
+func VerifyImage(diskInfo *disk.DiskInfo) error {
 	switch diskInfo.Format {
 	case "qcow2":
 		return VerifyQCOW2(diskInfo)
