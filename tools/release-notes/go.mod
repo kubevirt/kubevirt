@@ -5,7 +5,7 @@ go 1.23.2
 require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/go-git/go-git/v5 v5.13.0
-	github.com/golang/glog v1.2.3
+	github.com/golang/glog v1.2.4
 	github.com/google/go-github/v32 v32.1.0
 	github.com/joho/godotenv v1.5.1
 	golang.org/x/oauth2 v0.24.0
