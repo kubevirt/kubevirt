@@ -44,6 +44,7 @@ const (
 	CirrosVolumeSize = "512Mi"
 	AlpineVolumeSize = "512Mi"
 	BlankVolumeSize  = "16Mi"
+	VirtioVolumeSize = "750Mi"
 )
 
 // ContainerDiskFor takes the name of an image and returns the full
