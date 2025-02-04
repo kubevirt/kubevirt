@@ -45,6 +45,7 @@ func WaitSnapshotSucceeded(virtClient kubecli.KubevirtClient, namespace string, 
 		Expect(err).ToNot(HaveOccurred())
 		return snapshot.Status
 	}, 180*time.Second, 2*time.Second).Should(gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		"ReadyToUse": gstruct.PointTo(BeTrue()),
 		"Conditions": ContainElements(
 			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 				"Type":   Equal(snapshotv1.ConditionReady),
