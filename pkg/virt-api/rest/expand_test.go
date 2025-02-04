@@ -14,9 +14,9 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
@@ -26,7 +26,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
 
-	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -63,7 +62,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		virtClient.EXPECT().VirtualMachineClusterPreference().Return(fakeInstancetypeClients.VirtualMachineClusterPreferences()).AnyTimes()
 
 		kv := &v1.KubeVirt{
-			ObjectMeta: k8smetav1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
 				Namespace: "kubevirt",
 			},
@@ -77,12 +76,15 @@ var _ = Describe("Instancetype expansion subresources", func() {
 			},
 		}
 
-		app = NewSubresourceAPIApp(virtClient, 0, nil, nil)
-		app.instancetypeMethods = &instancetype.InstancetypeMethods{
-			Clientset: virtClient,
-		}
 		config, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
-		app.clusterConfig = config
+
+		instanceTypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
+		clusterInstanceTypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
+		preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
+		clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
+		controllerRevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
+
+		app = NewSubresourceAPIApp(virtClient, 0, nil, config, instanceTypeInformer, clusterInstanceTypeInformer, preferenceInformer, clusterPreferenceInformer, controllerRevisionInformer)
 
 		request = restful.NewRequest(&http.Request{})
 		recorder = httptest.NewRecorder()

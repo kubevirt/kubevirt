@@ -30,11 +30,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	authclientv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
 
 	"kubevirt.io/client-go/kubecli"
@@ -77,6 +81,18 @@ var _ = Describe("Virt-api", func() {
 		http.DefaultServeMux = new(http.ServeMux)
 		restful.DefaultContainer = restful.NewContainer()
 		restful.DefaultContainer.ServeMux = http.DefaultServeMux
+
+		instanceTypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
+		clusterInstanceTypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
+		preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
+		clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
+		controllerRevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
+
+		app.instancetypeInformer = instanceTypeInformer
+		app.clusterInstancetypeInformer = clusterInstanceTypeInformer
+		app.preferenceInformer = preferenceInformer
+		app.clusterPreferenceInformer = clusterPreferenceInformer
+		app.controllerRevisionInformer = controllerRevisionInformer
 	})
 
 	Context("Virt api server", func() {

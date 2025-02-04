@@ -136,6 +136,12 @@ type virtAPIApp struct {
 	reloadableRateLimiter        *ratelimiter.ReloadableRateLimiter
 	reloadableWebhookRateLimiter *ratelimiter.ReloadableRateLimiter
 
+	instancetypeInformer        cache.SharedIndexInformer
+	clusterInstancetypeInformer cache.SharedIndexInformer
+	preferenceInformer          cache.SharedIndexInformer
+	clusterPreferenceInformer   cache.SharedIndexInformer
+	controllerRevisionInformer  cache.SharedIndexInformer
+
 	// indicates if controllers were started with or without CDI/DataSource support
 	hasCDIDataSource bool
 	// the channel used to trigger re-initialization.
@@ -239,7 +245,10 @@ func (app *virtAPIApp) composeSubresources() {
 		subws.Doc(fmt.Sprintf("KubeVirt \"%s\" Subresource API.", version.Version))
 		subws.Path(definitions.GroupVersionBasePath(version))
 
-		subresourceApp := rest.NewSubresourceAPIApp(app.virtCli, app.consoleServerPort, app.handlerTLSConfiguration, app.clusterConfig)
+		subresourceApp := rest.NewSubresourceAPIApp(app.virtCli, app.consoleServerPort,
+			app.handlerTLSConfiguration, app.clusterConfig, app.instancetypeInformer,
+			app.clusterInstancetypeInformer, app.preferenceInformer, app.clusterPreferenceInformer,
+			app.controllerRevisionInformer)
 
 		restartRouteBuilder := subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("restart")).
 			To(subresourceApp.RestartVMRequestHandler).
@@ -1090,6 +1099,12 @@ func (app *virtAPIApp) Run() {
 	vmiPresetInformer := kubeInformerFactory.VirtualMachinePreset()
 	vmRestoreInformer := kubeInformerFactory.VirtualMachineRestore()
 	namespaceInformer := kubeInformerFactory.Namespace()
+
+	app.instancetypeInformer = kubeInformerFactory.VirtualMachineInstancetype()
+	app.clusterInstancetypeInformer = kubeInformerFactory.VirtualMachineClusterInstancetype()
+	app.preferenceInformer = kubeInformerFactory.VirtualMachinePreference()
+	app.clusterPreferenceInformer = kubeInformerFactory.VirtualMachineClusterPreference()
+	app.controllerRevisionInformer = kubeInformerFactory.ControllerRevision()
 
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)

@@ -41,16 +41,22 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	virtv1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	instancetypeexpand "kubevirt.io/kubevirt/pkg/instancetype/expand"
+	instancetypefind "kubevirt.io/kubevirt/pkg/instancetype/find"
+	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
@@ -79,6 +85,18 @@ const (
 	volumeMigrationManualRecoveryRequiredErr = "VM recovery required: Volume migration failed, leaving some volumes pointing to non-consistent targets; manual intervention is needed to reassign them to their original volumes."
 )
 
+type instancetypeVMHandler interface {
+	Expand(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error)
+}
+
+type instancetypeSpecFinder interface {
+	Find(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachineInstancetypeSpec, error)
+}
+
+type preferenceSpecFinder interface {
+	FindPreference(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
+}
+
 type SubresourceAPIApp struct {
 	virtCli                 kubecli.KubevirtClient
 	consoleServerPort       int
@@ -86,23 +104,42 @@ type SubresourceAPIApp struct {
 	handlerTLSConfiguration *tls.Config
 	credentialsLock         *sync.Mutex
 	clusterConfig           *virtconfig.ClusterConfig
-	instancetypeMethods     instancetype.Methods
+	instancetypeHandler     instancetypeVMHandler
 	handlerHttpClient       *http.Client
 }
 
-func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int, tlsConfiguration *tls.Config, clusterConfig *virtconfig.ClusterConfig) *SubresourceAPIApp {
-	// When this method is called from tools/openapispec.go when running 'make generate',
-	// the virtCli is nil, and accessing GeneratedKubeVirtClient() would cause nil dereference.
-	var instancetypeMethods instancetype.Methods
-	if virtCli != nil {
-		instancetypeMethods = &instancetype.InstancetypeMethods{Clientset: virtCli}
-	}
-
+func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int,
+	tlsConfiguration *tls.Config, clusterConfig *virtconfig.ClusterConfig,
+	instancetypeInformer, clusterInstancetypeInformer, preferenceInformer, clusterpreferenceInformer,
+	controllerRevisionInformer cache.SharedIndexInformer,
+) *SubresourceAPIApp {
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: tlsConfiguration,
 		},
 		Timeout: 10 * time.Second,
+	}
+
+	// When this method is called from tools/openapispec.go when running 'make generate',
+	// the virtCli is nil, and accessing instancetypeFinder and preferenceFinder would cause nil pointer dereference.
+	var (
+		instancetypeFinder instancetypeSpecFinder
+		preferenceFinder   preferenceSpecFinder
+	)
+
+	if virtCli != nil {
+		instancetypeFinder = instancetypefind.NewSpecFinder(
+			instancetypeInformer.GetStore(),
+			clusterInstancetypeInformer.GetStore(),
+			controllerRevisionInformer.GetStore(),
+			virtCli,
+		)
+		preferenceFinder = preferenceFind.NewSpecFinder(
+			preferenceInformer.GetStore(),
+			clusterpreferenceInformer.GetStore(),
+			controllerRevisionInformer.GetStore(),
+			virtCli,
+		)
 	}
 
 	return &SubresourceAPIApp{
@@ -112,8 +149,12 @@ func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int,
 		credentialsLock:         &sync.Mutex{},
 		handlerTLSConfiguration: tlsConfiguration,
 		clusterConfig:           clusterConfig,
-		instancetypeMethods:     instancetypeMethods,
 		handlerHttpClient:       httpClient,
+		instancetypeHandler: instancetypeexpand.New(
+			clusterConfig,
+			instancetypeFinder,
+			preferenceFinder,
+		),
 	}
 }
 
