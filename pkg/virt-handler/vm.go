@@ -57,7 +57,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/config"
-	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/executor"
@@ -2795,7 +2794,7 @@ func (c *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	}
 
 	// Mount container disks
-	disksInfo, err := c.containerDiskMounter.MountAndVerify(vmi)
+	err = c.containerDiskMounter.MountAndVerify(vmi)
 	if err != nil {
 		return err
 	}
@@ -2851,7 +2850,7 @@ func (c *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		}
 	}
 
-	options := virtualMachineOptions(nil, 0, nil, c.capabilities, disksInfo, c.clusterConfig)
+	options := virtualMachineOptions(nil, 0, nil, c.capabilities, c.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
 
 	if err := client.SyncMigrationTarget(vmi, options); err != nil {
@@ -3001,8 +3000,7 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	}
 
 	var errorTolerantFeaturesError []error
-	disksInfo := map[string]*containerdisk.DiskInfo{}
-	readyToProceed, err := c.handleVMIState(vmi, cgroupManager, &disksInfo, &errorTolerantFeaturesError)
+	readyToProceed, err := c.handleVMIState(vmi, cgroupManager, &errorTolerantFeaturesError)
 	if err != nil {
 		return err
 	}
@@ -3012,7 +3010,7 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	}
 
 	// Synchronize the VirtualMachineInstance state
-	err = c.syncVirtualMachine(client, vmi, preallocatedVolumes, disksInfo)
+	err = c.syncVirtualMachine(client, vmi, preallocatedVolumes)
 	if err != nil {
 		return err
 	}
@@ -3027,11 +3025,11 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 }
 
 // handleVMIState: Decides whether to call handleRunningVMI or handleStartingVMI based on the VMI's state.
-func (c *VirtualMachineController) handleVMIState(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, disksInfo *map[string]*containerdisk.DiskInfo, errorTolerantFeaturesError *[]error) (bool, error) {
+func (c *VirtualMachineController) handleVMIState(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, errorTolerantFeaturesError *[]error) (bool, error) {
 	if vmi.IsRunning() {
 		return true, c.handleRunningVMI(vmi, cgroupManager, errorTolerantFeaturesError)
 	} else if !vmi.IsFinal() {
-		return c.handleStartingVMI(vmi, cgroupManager, disksInfo)
+		return c.handleStartingVMI(vmi, cgroupManager)
 	}
 	return true, nil
 }
@@ -3072,7 +3070,6 @@ func (c *VirtualMachineController) handleRunningVMI(vmi *v1.VirtualMachineInstan
 func (c *VirtualMachineController) handleStartingVMI(
 	vmi *v1.VirtualMachineInstance,
 	cgroupManager cgroup.Manager,
-	disksInfo *map[string]*containerdisk.DiskInfo,
 ) (bool, error) {
 	// give containerDisks some time to become ready before throwing errors on retries
 	info := c.getLauncherClientInfo(vmi)
@@ -3085,7 +3082,7 @@ func (c *VirtualMachineController) handleStartingVMI(
 	}
 
 	var err error
-	*disksInfo, err = c.containerDiskMounter.MountAndVerify(vmi)
+	err = c.containerDiskMounter.MountAndVerify(vmi)
 	if err != nil {
 		return false, err
 	}
@@ -3212,11 +3209,11 @@ func (c *VirtualMachineController) configureVirtioFS(vmi *v1.VirtualMachineInsta
 	return nil
 }
 
-func (c *VirtualMachineController) syncVirtualMachine(client cmdclient.LauncherClient, vmi *v1.VirtualMachineInstance, preallocatedVolumes []string, disksInfo map[string]*containerdisk.DiskInfo) error {
+func (c *VirtualMachineController) syncVirtualMachine(client cmdclient.LauncherClient, vmi *v1.VirtualMachineInstance, preallocatedVolumes []string) error {
 	smbios := c.clusterConfig.GetSMBIOS()
 	period := c.clusterConfig.GetMemBalloonStatsPeriod()
 
-	options := virtualMachineOptions(smbios, period, preallocatedVolumes, c.capabilities, disksInfo, c.clusterConfig)
+	options := virtualMachineOptions(smbios, period, preallocatedVolumes, c.capabilities, c.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
 
 	err := client.SyncVirtualMachine(vmi, options)
@@ -3596,7 +3593,7 @@ func (c *VirtualMachineController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.
 }
 
 func (c *VirtualMachineController) reportTargetTopologyForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
-	options := virtualMachineOptions(nil, 0, nil, c.capabilities, map[string]*containerdisk.DiskInfo{}, c.clusterConfig)
+	options := virtualMachineOptions(nil, 0, nil, c.capabilities, c.clusterConfig)
 	topology, err := json.Marshal(options.Topology)
 	if err != nil {
 		return err
@@ -3669,7 +3666,6 @@ func (c *VirtualMachineController) hotplugCPU(vmi *v1.VirtualMachineInstance, cl
 		0,
 		nil,
 		c.capabilities,
-		nil,
 		c.clusterConfig)
 
 	if err := client.SyncVirtualMachineCPUs(vmi, options); err != nil {
@@ -3720,7 +3716,7 @@ func (c *VirtualMachineController) hotplugMemory(vmi *v1.VirtualMachineInstance,
 		return fmt.Errorf("amount of requested guest memory (%s) exceeds the launcher memory request (%s)", vmi.Spec.Domain.Memory.Guest.String(), podMemReqStr)
 	}
 
-	options := virtualMachineOptions(nil, 0, nil, c.capabilities, nil, c.clusterConfig)
+	options := virtualMachineOptions(nil, 0, nil, c.capabilities, c.clusterConfig)
 
 	if err := client.SyncVirtualMachineMemory(vmi, options); err != nil {
 		// mark hotplug as failed
