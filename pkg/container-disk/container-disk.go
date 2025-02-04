@@ -31,6 +31,7 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/safepath"
 
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
@@ -364,7 +365,7 @@ func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, config *virtcon
 func CreateEphemeralImages(
 	vmi *v1.VirtualMachineInstance,
 	diskCreator ephemeraldisk.EphemeralDiskCreatorInterface,
-	disksInfo map[string]*DiskInfo,
+	disksInfo map[string]*disk.DiskInfo,
 ) error {
 	// The domain is setup to use the COW image instead of the base image. What we have
 	// to do here is only create the image where the domain expects it (GetDiskTargetPartFromLauncherView)
