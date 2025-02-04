@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
@@ -1485,4 +1486,62 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			)
 		})
 	})
+	DescribeTable("should truncate serial disk with scsi and ownerReference", func(ownerReference []k8smetav1.OwnerReference, disk v1.Disk, expectTruncated bool) {
+		vmi.SetOwnerReferences(ownerReference)
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, disk)
+
+		serial := disk.Serial
+
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+
+		Expect(len(vmiSpec.Domain.Devices.Disks)).To(Equal(1))
+		newSerial := vmiSpec.Domain.Devices.Disks[0].Serial
+
+		if expectTruncated {
+			Expect(len(serial)).Should(BeNumerically(">", len(newSerial)))
+			Expect(len(newSerial)).Should(BeNumerically("<=", hwutil.MaxSCSISerialLen))
+		} else {
+			Expect(serial).Should(Equal(newSerial))
+		}
+	},
+		Entry("Should mutate because serial greater than 36",
+			[]k8smetav1.OwnerReference{{APIVersion: "kubevirt.io/v1"}},
+			v1.Disk{
+				Name: "a",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: v1.DiskBusSCSI,
+					},
+				},
+				Serial: "disk-serial-length-greater-than-36-characters",
+			},
+			true,
+		),
+		Entry("Shouldn't mutate because serial is less than 36",
+			[]k8smetav1.OwnerReference{{APIVersion: "kubevirt.io/v1"}},
+			v1.Disk{
+				Name: "b",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: v1.DiskBusSCSI,
+					},
+				},
+				Serial: "valid-serial",
+			},
+			false,
+		),
+		Entry("Shouldn't mutate because serial is greater than 36, but ownerReference is not set",
+			[]k8smetav1.OwnerReference{{APIVersion: "some.other.api/v1"}},
+			v1.Disk{
+				Name: "c",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: v1.DiskBusSCSI,
+					},
+				},
+				Serial: "disk-serial-length-greater-than-36-characters",
+			},
+			false,
+		),
+	)
 })

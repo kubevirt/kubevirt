@@ -59,7 +59,6 @@ const requiredFieldFmt = "%s is a required field"
 
 const (
 	maxStrLen = 256
-
 	// Should be a power of 2
 	minCustomBlockSize = 512
 	maxCustomBlockSize = 2097152 // 2 MB
@@ -2040,13 +2039,22 @@ func validateSerialNumValue(field *k8sfield.Path, idx int, disk v1.Disk) []metav
 
 func validateSerialNumLength(field *k8sfield.Path, idx int, disk v1.Disk) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	if disk.Serial != "" && len([]rune(disk.Serial)) > maxStrLen {
+
+	if disk.Disk != nil && disk.Disk.Bus == v1.DiskBusSCSI && len(disk.Serial) > hwutil.MaxSCSISerialLen {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must be less than or equal to %d in length for SCSI devices, if specified", field.Index(idx).String(), hwutil.MaxSCSISerialLen),
+			Field:   field.Index(idx).Child("serial").String(),
+		})
+
+	} else if len(disk.Serial) > maxStrLen {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s must be less than or equal to %d in length, if specified", field.Index(idx).String(), maxStrLen),
 			Field:   field.Index(idx).Child("serial").String(),
 		})
 	}
+
 	return causes
 }
 

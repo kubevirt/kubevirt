@@ -111,6 +111,7 @@ go_test(
         "//pkg/liveupdate/memory:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
+        "//pkg/util/hardware:go_default_library",
         "//pkg/util/webhooks:go_default_library",
         "//pkg/virt-api/webhooks:go_default_library",
         "//pkg/virt-config:go_default_library",
