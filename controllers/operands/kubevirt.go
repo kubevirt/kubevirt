@@ -284,6 +284,7 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtcorev1
 
 	controlPlaneHighlyAvailable := hcoutil.GetClusterInfo().IsControlPlaneHighlyAvailable()
 	controlPlaneNodeExists := hcoutil.GetClusterInfo().IsControlPlaneNodeExists()
+	infraHighlyAvailable := hcoutil.GetClusterInfo().IsInfrastructureHighlyAvailable()
 
 	uninstallStrategy := kubevirtcorev1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist
 	if hc.Spec.UninstallStrategy == hcov1beta1.HyperConvergedUninstallStrategyRemoveWorkloads {
@@ -292,8 +293,8 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtcorev1
 
 	spec := kubevirtcorev1.KubeVirtSpec{
 		UninstallStrategy:           uninstallStrategy,
-		Infra:                       hcoConfig2KvConfig(hc.Spec.Infra, controlPlaneHighlyAvailable, controlPlaneNodeExists),
-		Workloads:                   hcoConfig2KvConfig(hc.Spec.Workloads, true, true),
+		Infra:                       hcoConfig2KvConfig(hc.Spec.Infra, infraHighlyAvailable, controlPlaneHighlyAvailable, controlPlaneNodeExists),
+		Workloads:                   hcoConfig2KvConfig(hc.Spec.Workloads, true, true, true),
 		Configuration:               *config,
 		CertificateRotationStrategy: *kvCertConfig,
 		WorkloadUpdateStrategy:      hcWorkloadUpdateStrategyToKv(&hc.Spec.WorkloadUpdateStrategy),
@@ -803,22 +804,29 @@ func NewKubeVirtWithNameOnly(hc *hcov1beta1.HyperConverged, opts ...string) *kub
 	}
 }
 
-func hcoConfig2KvConfig(hcoConfig hcov1beta1.HyperConvergedConfig, controlPlaneHighlyAvailable, controlPlaneNodeExists bool) *kubevirtcorev1.ComponentConfig {
+func hcoConfig2KvConfig(
+	hcoConfig hcov1beta1.HyperConvergedConfig, infraHighlyAvailable, controlPlaneHighlyAvailable, controlPlaneNodeExists bool) *kubevirtcorev1.ComponentConfig {
 	if hcoConfig.NodePlacement == nil && controlPlaneHighlyAvailable {
 		return nil
 	}
 
 	kvConfig := &kubevirtcorev1.ComponentConfig{}
-	if !controlPlaneHighlyAvailable {
-		kvConfig.Replicas = ptr.To[uint8](1)
-	}
 
 	// In case there are no control plane / master nodes in the cluster, we're setting
 	// an empty struct for NodePlacement so that kubevirt control plane pods won't have
 	// any affinity rules, and they could get scheduled onto worker nodes.
 	if hcoConfig.NodePlacement == nil && !controlPlaneNodeExists {
 		kvConfig.NodePlacement = &kubevirtcorev1.NodePlacement{}
+		if !infraHighlyAvailable {
+			// if there is only one worker node and no control plane nodes,
+			// set the kubevirt control plane replica count to 1.
+			kvConfig.Replicas = ptr.To[uint8](1)
+		}
 		return kvConfig
+	}
+
+	if !controlPlaneHighlyAvailable {
+		kvConfig.Replicas = ptr.To[uint8](1)
 	}
 
 	if hcoConfig.NodePlacement != nil {
