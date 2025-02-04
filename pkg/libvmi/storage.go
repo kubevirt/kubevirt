@@ -119,6 +119,13 @@ func WithEphemeralCDRom(cdRomName string, bus v1.DiskBus, claimName string) Opti
 	}
 }
 
+// WithEmptyCDRom specifies a CDRom drive with no volume
+func WithEmptyCDRom(bus v1.DiskBus, name string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDisk(vmi, newCDRom(name, bus))
+	}
+}
+
 // WithFilesystemPVC specifies a filesystem backed by a PVC to be used.
 func WithFilesystemPVC(claimName string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
