@@ -669,7 +669,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		})
 	})
 
-	Context("WFFC storage", func() {
+	Context("WFFC storage", decorators.RequiresWFFCStorageClass, func() {
 		var (
 			vm *v1.VirtualMachine
 			sc string
@@ -682,7 +682,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			var exists bool
 			sc, exists = libstorage.GetRWOFileSystemStorageClass()
 			if !exists || !libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
-				Skip("Skip no wffc storage class available")
+				Fail("fail test, no wffc storage class available")
 			}
 			libstorage.CheckNoProvisionerStorageClassPVs(sc, numPVs)
 

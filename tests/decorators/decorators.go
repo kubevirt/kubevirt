@@ -71,6 +71,8 @@ var (
 
 	// RequiresSnapshotStorageClass requires a storage class with support for snapshots
 	RequiresSnapshotStorageClass = Label("RequiresSnapshotStorageClass")
+	// RequiresWFFCStorageClass requires a storage class with support for WFFC bindingMode
+	RequiresWFFCStorageClass = Label("RequiresWFFCStorageClass")
 	// RequiresNoSnapshotStorageClass requires a storage class without support for snapshots
 	RequiresNoSnapshotStorageClass = Label("RequiresNoSnapshotStorageClass")
 	// RequiresRWXBlock requires a storage class with ReadWriteMany Block support

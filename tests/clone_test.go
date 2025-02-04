@@ -787,11 +787,13 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 					expectEqualTemplateAnnotations(targetVMCloneFromClone, sourceVM)
 				})
 
-				Context("with WaitForFirstConsumer binding mode", func() {
+				Context("with WaitForFirstConsumer binding mode", decorators.RequiresWFFCStorageClass, func() {
 					BeforeEach(func() {
 						snapshotStorageClass, err = libstorage.GetWFFCStorageSnapshotClass(virtClient)
 						Expect(err).ToNot(HaveOccurred())
-						Expect(snapshotStorageClass).ToNot(BeEmpty(), "no storage class with snapshot support and wffc binding mode")
+						if snapshotStorageClass == "" {
+							Fail("Failing test, no storage class with snapshot support and wffc binding mode")
+						}
 					})
 
 					It("should not delete the vmsnapshot and vmrestore until all the pvc(s) are bound", func() {
