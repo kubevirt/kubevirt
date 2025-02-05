@@ -177,7 +177,7 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 	}
 	supportedQEMUGuestAgentVersions := strings.Split(strings.TrimRight(SupportedGuestAgentVersions, ","), ",")
 	defaultDiskVerification := &v1.DiskVerification{
-		MemoryLimit: resource.NewScaledQuantity(DefaultDiskVerificationMemoryLimitMBytes, resource.Mega),
+		MemoryLimit: resource.NewQuantity(DefaultDiskVerificationMemoryLimitBytes, resource.BinarySI),
 	}
 	defaultEvictionStrategy := v1.EvictionStrategyNone
 
