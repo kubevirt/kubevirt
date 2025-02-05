@@ -112,9 +112,9 @@ var _ = VirtctlDescribe("[sig-compute]SSH", decorators.SigCompute, func() {
 		By("ssh into the VM")
 		cmdFn(vmi.Name)
 	},
-		Entry("using the native ssh method", decorators.NativeSSH, cmdNative),
-		Entry("using the local ssh method with --local-ssh flag", decorators.NativeSSH, cmdLocal(true)),
-		Entry("using the local ssh method without --local-ssh flag", decorators.ExcludeNativeSSH, cmdLocal(false)),
+		Entry("using the local ssh method", cmdLocal(false)),
+		Entry("using the local ssh method with --local-ssh=true flag", decorators.NativeSSH, cmdLocal(true)),
+		Entry("using the native ssh method with --local-ssh=false flag", decorators.NativeSSH, cmdNative),
 	)
 
 	It("[test_id:11666]local-ssh flag should be unavailable in virtctl", decorators.ExcludeNativeSSH, func() {

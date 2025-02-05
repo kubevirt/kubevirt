@@ -126,9 +126,9 @@ var _ = VirtctlDescribe("[sig-compute]SCP", decorators.SigCompute, func() {
 		By("comparing the two files")
 		compareFile(keyFile, copyBackFile)
 	},
-		Entry("using the native scp method", decorators.NativeSSH, copyNative),
-		Entry("using the local scp method with --local-ssh flag", decorators.NativeSSH, copyLocal(true)),
-		Entry("using the local scp method without --local-ssh flag", decorators.ExcludeNativeSSH, copyLocal(false)),
+		Entry("using the local scp method", copyLocal(false)),
+		Entry("using the local scp method with --local-ssh=true flag", decorators.NativeSSH, copyLocal(true)),
+		Entry("using the native scp method with --local-ssh=false flag", decorators.NativeSSH, copyNative),
 	)
 
 	DescribeTable("[test_id:11660]should copy a local directory back and forth", func(copyFn func(string, string, bool)) {
@@ -163,9 +163,9 @@ var _ = VirtctlDescribe("[sig-compute]SCP", decorators.SigCompute, func() {
 		compareFile(filepath.Join(copyFromDir, "file1"), filepath.Join(copyToDir, "file1"))
 		compareFile(filepath.Join(copyFromDir, "file2"), filepath.Join(copyToDir, "file2"))
 	},
-		Entry("using the native scp method", decorators.NativeSSH, copyNative),
-		Entry("using the local scp method with --local-ssh flag", decorators.NativeSSH, copyLocal(true)),
-		Entry("using the local scp method without --local-ssh flag", decorators.ExcludeNativeSSH, copyLocal(false)),
+		Entry("using the local scp method", copyLocal(false)),
+		Entry("using the local scp method with --local-ssh=true flag", decorators.NativeSSH, copyLocal(true)),
+		Entry("using the native scp method with --local-ssh=false flag", decorators.NativeSSH, copyNative),
 	)
 
 	It("[test_id:11665]local-ssh flag should be unavailable in virtctl", decorators.ExcludeNativeSSH, func() {

@@ -92,7 +92,7 @@ func DefaultSSHOptions() SSHOptions {
 		KnownHostsFilePath:        "",
 		KnownHostsFilePathDefault: "",
 		AdditionalSSHLocalOptions: []string{},
-		WrapLocalSSH:              wrapLocalSSHDefault,
+		WrapLocalSSH:              true,
 		LocalClientName:           "ssh",
 	}
 
@@ -130,6 +130,9 @@ func (o *SSH) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if cmd.Flags().Changed(wrapLocalSSHFlag) {
+		cmd.PrintErrln("The --local-ssh flag is deprecated and now defaults to true.")
+	}
 	if o.options.WrapLocalSSH {
 		clientArgs := o.buildSSHTarget(kind, namespace, name)
 		return RunLocalClient(kind, namespace, name, &o.options, clientArgs)
