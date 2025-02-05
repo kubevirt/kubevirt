@@ -104,3 +104,10 @@ func (c *FakeVirtualMachines) RemoveVolume(ctx context.Context, name string, rem
 func (c *FakeVirtualMachines) PortForward(name string, port int, protocol string) (kubevirtv1.StreamInterface, error) {
 	return nil, nil
 }
+
+func (c *FakeVirtualMachines) ObjectGraph(ctx context.Context, name string) (v1.ObjectGraphNode, error) {
+	obj, err := c.Fake.
+		Invokes(fake2.NewPutSubresourceAction(virtualmachinesResource, c.ns, "objectgraph", name, struct{}{}), nil)
+
+	return *obj.(*v1.ObjectGraphNode), err
+}
