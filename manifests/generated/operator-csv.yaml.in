@@ -358,6 +358,7 @@ spec:
           - persistentvolumeclaims
           verbs:
           - get
+          - list
         - apiGroups:
           - kubevirt.io
           resources:
@@ -852,6 +853,8 @@ spec:
           - virtualmachineinstances/sev/fetchcertchain
           - virtualmachineinstances/sev/querylaunchmeasurement
           - virtualmachineinstances/usbredir
+          - virtualmachines/objectgraph
+          - virtualmachineinstances/objectgraph
           verbs:
           - get
         - apiGroups:
@@ -1008,6 +1011,8 @@ spec:
           - virtualmachineinstances/sev/fetchcertchain
           - virtualmachineinstances/sev/querylaunchmeasurement
           - virtualmachineinstances/usbredir
+          - virtualmachines/objectgraph
+          - virtualmachineinstances/objectgraph
           verbs:
           - get
         - apiGroups:
@@ -1168,6 +1173,8 @@ spec:
           - virtualmachineinstances/userlist
           - virtualmachineinstances/sev/fetchcertchain
           - virtualmachineinstances/sev/querylaunchmeasurement
+          - virtualmachines/objectgraph
+          - virtualmachineinstances/objectgraph
           verbs:
           - get
         - apiGroups:

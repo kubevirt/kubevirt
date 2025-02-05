@@ -64,6 +64,7 @@ const (
 	apiVMRemoveVolume = "virtualmachines/removevolume"
 	apiVMMigrate      = "virtualmachines/migrate"
 	apiVMMemoryDump   = "virtualmachines/memorydump"
+	apiVMObjectGraph  = "virtualmachines/objectgraph"
 
 	apiVMInstancesConsole                   = "virtualmachineinstances/console"
 	apiVMInstancesVNC                       = "virtualmachineinstances/vnc"
@@ -85,6 +86,7 @@ const (
 	apiVMInstancesSEVSetupSession           = "virtualmachineinstances/sev/setupsession"
 	apiVMInstancesSEVInjectLaunchSecret     = "virtualmachineinstances/sev/injectlaunchsecret"
 	apiVMInstancesUSBRedir                  = "virtualmachineinstances/usbredir"
+	apiVMInstancesObjectGraph               = "virtualmachineinstances/objectgraph"
 )
 
 func GetAllCluster() []runtime.Object {
@@ -203,6 +205,8 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					apiVMInstancesSEVFetchCertChain,
 					apiVMInstancesSEVQueryLaunchMeasurement,
 					apiVMInstancesUSBRedir,
+					apiVMObjectGraph,
+					apiVMInstancesObjectGraph,
 				},
 				Verbs: []string{
 					"get",
@@ -396,6 +400,8 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					apiVMInstancesSEVFetchCertChain,
 					apiVMInstancesSEVQueryLaunchMeasurement,
 					apiVMInstancesUSBRedir,
+					apiVMObjectGraph,
+					apiVMInstancesObjectGraph,
 				},
 				Verbs: []string{
 					"get",
@@ -646,6 +652,8 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 					apiVMInstancesUserList,
 					apiVMInstancesSEVFetchCertChain,
 					apiVMInstancesSEVQueryLaunchMeasurement,
+					apiVMObjectGraph,
+					apiVMInstancesObjectGraph,
 				},
 				Verbs: []string{
 					"get",
