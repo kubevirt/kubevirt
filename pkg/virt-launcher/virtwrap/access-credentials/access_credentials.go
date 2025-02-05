@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -71,14 +72,26 @@ type AccessCredentialManager struct {
 
 	domainModifyLock *sync.Mutex
 	metadataCache    *metadata.Cache
+
+	eventSent   bool
+	eventSender EventSender
 }
 
-func NewManager(connection cli.Connection, domainModifyLock *sync.Mutex, metadataCache *metadata.Cache) *AccessCredentialManager {
+type EventSender interface {
+	SendK8sEvent(vmi *v1.VirtualMachineInstance, severity, reason, message string) error
+}
+
+func NewManager(connection cli.Connection,
+	domainModifyLock *sync.Mutex,
+	metadataCache *metadata.Cache,
+	eventSender EventSender,
+) *AccessCredentialManager {
 	return &AccessCredentialManager{
 		virConn:                    connection,
 		resyncCheckIntervalSeconds: 15,
 		domainModifyLock:           domainModifyLock,
 		metadataCache:              metadataCache,
+		eventSender:                eventSender,
 	}
 }
 
@@ -292,7 +305,8 @@ func (l *AccessCredentialManager) pingAgent(domName string) error {
 	return err
 }
 
-func (l *AccessCredentialManager) agentSetAuthorizedKeys(domName, user string, authorizedKeys []string) error {
+// agentSetAuthorizedKeys sets the SSH keys and returns "true" if the old deprecated flow was used.
+func (l *AccessCredentialManager) agentSetAuthorizedKeys(domName, user string, authorizedKeys []string) (bool, error) {
 	err := func() (err error) {
 		domain, err := l.virConn.LookupDomainByName(domName)
 		if err != nil {
@@ -304,7 +318,7 @@ func (l *AccessCredentialManager) agentSetAuthorizedKeys(domName, user string, a
 		return domain.AuthorizedSSHKeysSet(user, authorizedKeys, 0)
 	}()
 	if err == nil {
-		return nil
+		return false, nil
 	}
 
 	log.Log.V(logVerbosityDebug).Infof("Could not set SSH key using guest-ssh-add-authorized-keys: %v", err)
@@ -313,10 +327,10 @@ func (l *AccessCredentialManager) agentSetAuthorizedKeys(domName, user string, a
 	desiredAuthorizedKeys := strings.Join(authorizedKeys, "\n")
 	secondErr := l.agentWriteAuthorizedKeysFile(domName, user, desiredAuthorizedKeys)
 	if secondErr == nil {
-		return nil
+		return true, nil
 	}
 
-	return fmt.Errorf(
+	return false, fmt.Errorf(
 		"failed to set SSH keys: error from guest-ssh-add-authorized-keys: %w; error from using guest-file-write: %w",
 		err,
 		secondErr,
@@ -391,13 +405,36 @@ func getSecret(accessCred *v1.AccessCredential) string {
 	return secretName
 }
 
-func (l *AccessCredentialManager) reportAccessCredentialResult(succeeded bool, message string) {
+func (l *AccessCredentialManager) reportAccessCredentialResult(
+	vmi *v1.VirtualMachineInstance,
+	succeeded bool,
+	message string,
+	usedDeprecatedFlow bool,
+) {
 	acMetadata := api.AccessCredentialMetadata{
 		Succeeded: succeeded,
 		Message:   message,
 	}
 	l.metadataCache.AccessCredential.Store(acMetadata)
 	log.Log.V(logVerbosityDebug).Infof("Access credential set in metadata: %v", acMetadata)
+
+	if !succeeded || !usedDeprecatedFlow {
+		l.eventSent = false
+	}
+
+	if succeeded && usedDeprecatedFlow && !l.eventSent {
+		err := l.eventSender.SendK8sEvent(
+			vmi,
+			k8sv1.EventTypeWarning,
+			v1.AccessCredentialsSyncSuccess.String(),
+			"Used deprecated method to set SSH keys. It will be removed in a future release. Update qemu guest agent to 5.2 or newer to keep SSH key injection working.", //nolint:lll
+		)
+		if err != nil {
+			log.Log.Reason(err).Errorf("Error encountered sending k8s event about using deperecated flow to update SSH key.")
+		} else {
+			l.eventSent = true
+		}
+	}
 }
 
 func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
@@ -451,12 +488,13 @@ func (l *AccessCredentialManager) watchSecrets(vmi *v1.VirtualMachineInstance) {
 func (l *AccessCredentialManager) reloadCredentialFiles(vmi *v1.VirtualMachineInstance, domName string, logger *log.FilteredLogger) bool {
 	err := l.pingAgent(domName)
 	if err != nil {
-		l.reportAccessCredentialResult(false, "Guest agent is offline")
+		l.reportAccessCredentialResult(vmi, false, "Guest agent is offline", false)
 		return true
 	}
 
 	reload := false
 	reportedErr := false
+	usedDeprecatedFlow := false
 
 	credentialInfo := newAccessCredentialsInfo()
 
@@ -468,7 +506,7 @@ func (l *AccessCredentialManager) reloadCredentialFiles(vmi *v1.VirtualMachineIn
 			reload = true
 			reportedErr = true
 			logger.Reason(err).Errorf("Error encountered")
-			l.reportAccessCredentialResult(false, err.Error())
+			l.reportAccessCredentialResult(vmi, false, err.Error(), false)
 		}
 	}
 
@@ -480,15 +518,18 @@ func (l *AccessCredentialManager) reloadCredentialFiles(vmi *v1.VirtualMachineIn
 			allAuthorizedKeys = append(allAuthorizedKeys, pubKeys...)
 		}
 
-		err := l.agentSetAuthorizedKeys(domName, user, allAuthorizedKeys)
+		deprecated, err := l.agentSetAuthorizedKeys(domName, user, allAuthorizedKeys)
 		if err != nil {
 			// if writing failed, reset reload to true so this change will be retried again
 			reload = true
 			reportedErr = true
 			logger.Reason(err).Errorf("Error encountered writing access credentials using guest agent")
-			l.reportAccessCredentialResult(false, fmt.Sprintf(
+			l.reportAccessCredentialResult(vmi, false, fmt.Sprintf(
 				"Error encountered writing ssh pub key access credentials for user [%s]: %v",
-				user, err))
+				user, err), false)
+		}
+		if deprecated {
+			usedDeprecatedFlow = true
 		}
 	}
 
@@ -501,11 +542,11 @@ func (l *AccessCredentialManager) reloadCredentialFiles(vmi *v1.VirtualMachineIn
 			reportedErr = true
 			logger.Reason(err).Errorf("Error encountered setting password for user [%s]", user)
 
-			l.reportAccessCredentialResult(false, fmt.Sprintf("Error encountered setting password for user [%s]: %v", user, err))
+			l.reportAccessCredentialResult(vmi, false, fmt.Sprintf("Error encountered setting password for user [%s]: %v", user, err), false)
 		}
 	}
 	if !reportedErr {
-		l.reportAccessCredentialResult(true, "")
+		l.reportAccessCredentialResult(vmi, true, "", usedDeprecatedFlow)
 	}
 
 	return reload
