@@ -353,15 +353,16 @@ func getDICT() hcov1beta1.DataImportCronTemplate {
 			Name: "custom",
 		},
 		Spec: &cdiv1beta1.DataImportCronSpec{
+			RetentionPolicy:   ptr.To(cdiv1beta1.DataImportCronRetainNone),
 			GarbageCollect:    ptr.To(cdiv1beta1.DataImportCronGarbageCollectOutdated),
-			ManagedDataSource: "centos7",
+			ManagedDataSource: "centos10",
 			Schedule:          "18 1/12 * * *",
 			Template: cdiv1beta1.DataVolume{
 				Spec: cdiv1beta1.DataVolumeSpec{
 					Source: &cdiv1beta1.DataVolumeSource{
 						Registry: &cdiv1beta1.DataVolumeSourceRegistry{
 							PullMethod: ptr.To(cdiv1beta1.RegistryPullNode),
-							URL:        ptr.To("docker://quay.io/containerdisks/centos:7-2009"),
+							URL:        ptr.To("docker://quay.io/containerdisks/centos-stream:10"),
 						},
 					},
 					Storage: &cdiv1beta1.StorageSpec{
