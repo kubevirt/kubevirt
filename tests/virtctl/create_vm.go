@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	"kubevirt.io/kubevirt/pkg/virtctl/create/vm"
+	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -831,7 +832,9 @@ func createAnnotatedSourcePVC(instancetypeName, preferenceName string) *k8sv1.Pe
 
 func runSSHCommand(namespace, name, user, keyFile string) {
 	libssh.DisableSSHAgent()
-	err := newRepeatableVirtctlCommand(
+	// The virtctl binary needs to run here because of the way local SSH client wrapping works.
+	// Running the command through newRepeatableVirtctlCommand does not suffice.
+	_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.GetTestNamespace(nil), "virtctl",
 		"ssh",
 		"--namespace", namespace,
 		"--username", user,
@@ -841,6 +844,9 @@ func runSSHCommand(namespace, name, user, keyFile string) {
 		"-t", "-o UserKnownHostsFile=/dev/null",
 		"--command", "true",
 		name,
-	)()
+	)
 	Expect(err).ToNot(HaveOccurred())
+	out, err := cmd.CombinedOutput()
+	Expect(err).ToNot(HaveOccurred())
+	Expect(out).ToNot(BeEmpty())
 }
