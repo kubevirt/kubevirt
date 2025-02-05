@@ -22,6 +22,7 @@ package snapshot
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -39,6 +40,7 @@ import (
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/log"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -50,6 +52,12 @@ import (
 
 const (
 	sourceFinalizer = "snapshot.kubevirt.io/snapshot-source-protection"
+)
+
+var (
+	ErrVolumeDoesntExist  = errors.New("volume doesnt exist")
+	ErrVolumeNotBound     = errors.New("volume not bound")
+	ErrVolumeNotPopulated = errors.New("volume not populated")
 )
 
 type snapshotSource interface {
@@ -141,19 +149,16 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 		return false, err
 	}
 
-	volumesBound, err := s.verifyVolumesBound(pvcNames.List())
+	err = s.verifyVolumes(pvcNames.List())
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			s.state.lockMsg += fmt.Sprintf(" source %s/%s has volumes that doesnt exist", s.vm.Namespace, s.vm.Name)
+		switch errors.Unwrap(err) {
+		case ErrVolumeDoesntExist, ErrVolumeNotBound, ErrVolumeNotPopulated:
+			s.state.lockMsg += fmt.Sprintf(" source %s/%s %s", s.vm.Namespace, s.vm.Name, err.Error())
 			log.Log.Error(s.state.lockMsg)
 			return false, nil
+		default:
+			return false, err
 		}
-		return false, err
-	}
-	if !volumesBound {
-		s.state.lockMsg += fmt.Sprintf(" source %s/%s has unbound volumes", s.vm.Namespace, s.vm.Name)
-		log.Log.Error(s.state.lockMsg)
-		return false, nil
 	}
 
 	if !s.Online() {
@@ -238,23 +243,39 @@ func (s *vmSnapshotSource) Unlock() (bool, error) {
 	return true, nil
 }
 
-func (s *vmSnapshotSource) verifyVolumesBound(pvcNames []string) (bool, error) {
+func (s *vmSnapshotSource) verifyVolumes(pvcNames []string) error {
 	for _, pvcName := range pvcNames {
 		obj, exists, err := s.controller.PVCInformer.GetStore().GetByKey(cacheKeyFunc(s.vm.Namespace, pvcName))
 		if err != nil {
-			return false, err
+			return err
 		}
 		if !exists {
-			return false, k8serrors.NewNotFound(appsv1.Resource("persistentvolumeclaim"), pvcName)
+			return fmt.Errorf("%w: %s", ErrVolumeDoesntExist, pvcName)
 		}
 
 		pvc := obj.(*corev1.PersistentVolumeClaim).DeepCopy()
 		if pvc.Status.Phase != corev1.ClaimBound {
-			return false, nil
+			return fmt.Errorf("%w: %s", ErrVolumeNotBound, pvcName)
+		}
+		getDVFunc := func(name, namespace string) (*cdiv1.DataVolume, error) {
+			dv, err := storagetypes.GetDataVolumeFromCache(namespace, name, s.controller.DVInformer.GetStore())
+			if err != nil {
+				return nil, err
+			}
+			if dv == nil {
+				return nil, fmt.Errorf("Data volume %s/%s doesnt exist", namespace, name)
+			}
+			return dv, err
+		}
+		if populated, err := cdiv1.IsPopulated(pvc, getDVFunc); !populated || err != nil {
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf("%w: %s", ErrVolumeNotPopulated, pvcName)
 		}
 	}
 
-	return true, nil
+	return nil
 }
 
 func (s *vmSnapshotSource) getVMRevision() (*snapshotv1.VirtualMachine, error) {

@@ -782,7 +782,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				Entry("when vm not running", false),
 			)
 
-			DescribeTable("should not lock source if volume PVCs", func(createPVCs bool, expectedReason string) {
+			DescribeTable("should not lock source if volume PVCs", func(createPVCs, boundPVCs bool, expectedReason string) {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createVM()
 				vmSource.Add(vm)
@@ -790,7 +790,27 @@ var _ = Describe("Snapshot controlleer", func() {
 				pvcs := createPersistentVolumeClaims()
 				for i := range pvcs {
 					if createPVCs {
-						pvcs[i].Status.Phase = corev1.ClaimPending
+						if !boundPVCs {
+							pvcs[i].Status.Phase = corev1.ClaimPending
+						} else {
+							dv := &cdiv1.DataVolume{
+								ObjectMeta: metav1.ObjectMeta{
+									Name:      pvcs[i].Name,
+									Namespace: pvcs[i].Namespace,
+								},
+								Status: cdiv1.DataVolumeStatus{
+									Phase: cdiv1.WaitForFirstConsumer,
+								},
+							}
+							dvSource.Add(dv)
+							pvcs[i].OwnerReferences = []metav1.OwnerReference{
+								*metav1.NewControllerRef(dv, schema.GroupVersionKind{
+									Group:   cdiv1.SchemeGroupVersion.Group,
+									Version: cdiv1.SchemeGroupVersion.Version,
+									Kind:    "DataVolume",
+								}),
+							}
+						}
 						pvcSource.Add(&pvcs[i])
 					} else {
 						pvcSource.Delete(&pvcs[i])
@@ -799,6 +819,7 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
+				expectedReason = fmt.Sprintf("Source not locked source default/testvm %s: alpine-dv", expectedReason)
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, expectedReason),
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
@@ -810,8 +831,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				controller.processVMSnapshotWorkItem()
 				Expect(*updateStatusCalls).To(Equal(1))
 			},
-				Entry("doesnt exist", false, "Source not locked source default/testvm has volumes that doesnt exist"),
-				Entry("are not bound", true, "Source not locked source default/testvm has unbound volumes"),
+				Entry("doesnt exist", false, false, "volume doesnt exist"),
+				Entry("are not bound", true, false, "volume not bound"),
+				Entry("are not populated", true, true, "volume not populated"),
 			)
 
 			It("should not lock source if pods using PVCs when vm not running", func() {
