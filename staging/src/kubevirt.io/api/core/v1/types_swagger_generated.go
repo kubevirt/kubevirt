@@ -1071,3 +1071,15 @@ func (SEVSecretOptions) SwaggerDoc() map[string]string {
 		"secret": "Base64 encoded encrypted launch secret.",
 	}
 }
+
+func (ObjectGraphNode) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "ObjectGraphNode represents a node in the object graph.",
+	}
+}
+
+func (ObjectGraphNodeList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "ObjectGraphNodeList represents a list of object graph nodes.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+	}
+}

@@ -3161,3 +3161,18 @@ type SEVSecretOptions struct {
 	// Base64 encoded encrypted launch secret.
 	Secret string `json:"secret,omitempty"`
 }
+
+// ObjectGraphNode represents a node in the object graph.
+type ObjectGraphNode struct {
+	ObjectReference k8sv1.TypedObjectReference `json:"objectReference"`
+	Labels          map[string]string          `json:"labels,omitempty"`
+}
+
+// ObjectGraphNodeList represents a list of object graph nodes.
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type ObjectGraphNodeList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ObjectGraphNode `json:"items"`
+}
