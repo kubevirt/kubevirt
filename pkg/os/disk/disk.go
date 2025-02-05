@@ -13,11 +13,14 @@ type DiskInfo struct {
 	VirtualSize int64  `json:"virtual-size"`
 }
 
+const (
+	QEMUIMGPath = "/usr/bin/qemu-img"
+)
+
 func GetDiskInfo(imagePath string) (*DiskInfo, error) {
 	// #nosec No risk for attacket injection. Only get information about an image
-	out, err := exec.Command(
-		"/usr/bin/qemu-img", "info", imagePath, "--output", "json",
-	).Output()
+	args := []string{"info", imagePath, "--output", "json"}
+	out, err := exec.Command(QEMUIMGPath, args...).Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to invoke qemu-img: %v", err)
 	}

@@ -175,6 +175,7 @@ type LibvirtDomainManager struct {
 	disksInfo                map[string]*osdisk.DiskInfo
 	cancelSafetyUnfreezeChan chan struct{}
 	migrateInfoStats         *stats.DomainJobInfo
+	diskMemoryLimitBytes     int64
 
 	metadataCache    *metadata.Cache
 	domainStatsCache *virtcache.TimeDefinedCache[*stats.DomainStats]
@@ -204,17 +205,18 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 }
 
 func NewLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore,
-	ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, metadataCache *metadata.Cache, stopChan chan struct{}) (DomainManager, error) {
+	ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, metadataCache *metadata.Cache, stopChan chan struct{}, diskMemoryLimitBytes int64) (DomainManager, error) {
 	directIOChecker := converter.NewDirectIOChecker()
-	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache, stopChan)
+	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache, stopChan, diskMemoryLimitBytes)
 }
 
 func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string,
-	ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker, metadataCache *metadata.Cache, stopChan chan struct{}) (DomainManager, error) {
+	ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker, metadataCache *metadata.Cache, stopChan chan struct{}, diskMemoryLimitBytes int64) (DomainManager, error) {
 	manager := LibvirtDomainManager{
-		virConn:          connection,
-		virtShareDir:     virtShareDir,
-		ephemeralDiskDir: ephemeralDiskDir,
+		diskMemoryLimitBytes: diskMemoryLimitBytes,
+		virConn:              connection,
+		virtShareDir:         virtShareDir,
+		ephemeralDiskDir:     ephemeralDiskDir,
 		paused: pausedVMIs{
 			paused: make(map[types.UID]bool, 0),
 		},
@@ -997,9 +999,12 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 
 		_, existInCache := l.disksInfo[volume.Name]
 		if volume.ContainerDisk != nil && !existInCache {
-			info, err := osdisk.GetDiskInfo(containerdisk.GetDiskTargetPathFromLauncherView(diskIndex))
+			info, err := osdisk.GetDiskInfoWithValidation(containerdisk.GetDiskTargetPathFromLauncherView(diskIndex), l.diskMemoryLimitBytes)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get container disk info: %v", err)
+			}
+			if err := osdisk.VerifyImage(info); err != nil {
+				return nil, fmt.Errorf("invalid image in containerDisk %v: %v", volume.Name, err)
 			}
 			l.disksInfo[volume.Name] = info
 		}
