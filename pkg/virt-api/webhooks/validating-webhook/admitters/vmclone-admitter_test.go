@@ -353,6 +353,12 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 
 			admitter.admitAndExpect(vmClone, false)
 		})
+
+		It("should reject if vmsnapshot contents include vmSpec with backend storage PVC", func() {
+			vmClone.Spec.Source.Kind = virtualMachineSnapshotKind
+			vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+			admitter.admitAndExpect(vmClone, false)
+		})
 	})
 
 	Context("Annotations and labels filters", func() {
