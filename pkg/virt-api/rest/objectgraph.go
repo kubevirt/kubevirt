@@ -92,8 +92,8 @@ func (og *ObjectGraph) GetObjectGraph(obj interface{}) (v1.ObjectGraphNodeList, 
 
 func (og *ObjectGraph) virtualMachineObjectGraph(vm *v1.VirtualMachine) (v1.ObjectGraphNodeList, error) {
 	var resources []v1.ObjectGraphNode
+	var errs []error
 	var err error
-	namespace := vm.GetNamespace()
 
 	if vm.Spec.Instancetype != nil {
 		resources = og.addInstanceType(*vm.Spec.Instancetype, vm.GetNamespace(), resources)
@@ -101,16 +101,13 @@ func (og *ObjectGraph) virtualMachineObjectGraph(vm *v1.VirtualMachine) (v1.Obje
 	if vm.Spec.Preference != nil {
 		resources = og.addPreferenceType(*vm.Spec.Preference, vm.GetNamespace(), resources)
 	}
-
-	var errs []error
 	if vm.Status.Created {
-		resources = og.addGraphNode(vm.GetName(), namespace, "virtualmachineinstances", resources)
+		resources = og.addGraphNode(vm.GetName(), vm.GetNamespace(), "virtualmachineinstances", resources)
 		resources, err = og.addLauncherPod(vm.GetName(), vm.GetNamespace(), resources)
 		if err != nil {
 			errs = append(errs, err)
 		}
 	}
-
 	resources = og.addAccessCredentials(vm.Spec.Template.Spec.AccessCredentials, vm.GetNamespace(), resources)
 	resources, err = og.addVolumeGraph(vm, vm.GetNamespace(), resources)
 	if err != nil {
@@ -124,7 +121,6 @@ func (og *ObjectGraph) virtualMachineObjectGraph(vm *v1.VirtualMachine) (v1.Obje
 	if len(errs) > 0 {
 		return objectGraph, k8serrors.NewAggregate(errs)
 	}
-
 	return objectGraph, nil
 }
 
@@ -149,7 +145,6 @@ func (og *ObjectGraph) virtualMachineInstanceObjectGraph(vmi *v1.VirtualMachineI
 	if len(errs) > 0 {
 		return objectGraph, k8serrors.NewAggregate(errs)
 	}
-
 	return objectGraph, nil
 }
 
@@ -230,3 +225,5 @@ func (og *ObjectGraph) addPreferenceType(preference v1.PreferenceMatcher, namesp
 	resources = og.addGraphNode(preference.RevisionName, namespace, "controllerrevisions", resources)
 	return resources
 }
+
+// TODO: Add more as needed

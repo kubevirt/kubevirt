@@ -1270,6 +1270,17 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) FilesystemList(arg0, ar
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "FilesystemList", arg0, arg1)
 }
 
+func (_m *MockVirtualMachineInstanceInterface) ObjectGraph(ctx context.Context, name string) (v121.ObjectGraphNodeList, error) {
+	ret := _m.ctrl.Call(_m, "ObjectGraph", ctx, name)
+	ret0, _ := ret[0].(v121.ObjectGraphNodeList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) ObjectGraph(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ObjectGraph", arg0, arg1)
+}
+
 func (_m *MockVirtualMachineInstanceInterface) AddVolume(ctx context.Context, name string, addVolumeOptions *v121.AddVolumeOptions) error {
 	ret := _m.ctrl.Call(_m, "AddVolume", ctx, name, addVolumeOptions)
 	ret0, _ := ret[0].(error)
@@ -1845,6 +1856,17 @@ func (_m *MockVirtualMachineInterface) RemoveMemoryDump(ctx context.Context, nam
 
 func (_mr *_MockVirtualMachineInterfaceRecorder) RemoveMemoryDump(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveMemoryDump", arg0, arg1)
+}
+
+func (_m *MockVirtualMachineInterface) ObjectGraph(ctx context.Context, name string) (v121.ObjectGraphNodeList, error) {
+	ret := _m.ctrl.Call(_m, "ObjectGraph", ctx, name)
+	ret0, _ := ret[0].(v121.ObjectGraphNodeList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) ObjectGraph(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ObjectGraph", arg0, arg1)
 }
 
 // Mock of VirtualMachineInstanceMigrationInterface interface

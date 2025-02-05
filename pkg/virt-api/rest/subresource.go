@@ -980,6 +980,52 @@ func (app *SubresourceAPIApp) FilesystemList(request *restful.Request, response 
 	app.httpGetRequestHandler(request, response, validate, getURL, v1.VirtualMachineInstanceFileSystemList{})
 }
 
+// VMIObjectGraph handles the subresource for providing guest object graph
+func (app *SubresourceAPIApp) VMIObjectGraph(request *restful.Request, response *restful.Response) {
+	name := request.PathParameter("name")
+	namespace := request.PathParameter("namespace")
+
+	vmi, statErr := app.FetchVirtualMachineInstance(namespace, name)
+	if statErr != nil {
+		writeError(statErr, response)
+		return
+	}
+
+	objectGraph := NewObjectGraph(app.virtCli)
+	graph, err := objectGraph.GetObjectGraph(vmi)
+	if err != nil {
+		writeError(errors.NewInternalError(err), response)
+		return
+	}
+
+	if err = response.WriteEntity(graph); err != nil {
+		log.Log.Reason(err).Error("Failed to write http response.")
+	}
+}
+
+// VMObjectGraph handles the subresource for providing guest object graph
+func (app *SubresourceAPIApp) VMObjectGraph(request *restful.Request, response *restful.Response) {
+	name := request.PathParameter("name")
+	namespace := request.PathParameter("namespace")
+
+	vm, statErr := app.fetchVirtualMachine(name, namespace)
+	if statErr != nil {
+		writeError(statErr, response)
+		return
+	}
+
+	objectGraph := NewObjectGraph(app.virtCli)
+	graph, err := objectGraph.GetObjectGraph(vm)
+	if err != nil {
+		writeError(errors.NewInternalError(err), response)
+		return
+	}
+
+	if err = response.WriteEntity(graph); err != nil {
+		log.Log.Reason(err).Error("Failed to write http response.")
+	}
+}
+
 func generateVMVolumeRequestPatch(vm *v1.VirtualMachine, volumeRequest *v1.VirtualMachineVolumeRequest) ([]byte, error) {
 	vmCopy := vm.DeepCopy()
 
