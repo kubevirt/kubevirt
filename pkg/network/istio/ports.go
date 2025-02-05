@@ -30,7 +30,7 @@ const (
 	EnvoyHealthCheckPort               = 15021
 	EnvoyDNSPort                       = 15053
 	EnvoyPrometheusTelemetryPort       = 15090
-	SshPort                            = 22
+	SSHPort                            = 22
 )
 
 func ReservedPorts() []int {
@@ -50,6 +50,6 @@ func ReservedPorts() []int {
 
 func NonProxiedPorts() []int {
 	return []int{
-		SshPort,
+		SSHPort,
 	}
 }
