@@ -942,6 +942,28 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("in scheduled state", virtv1.Scheduled),
 			Entry("in scheduling state", virtv1.Scheduling),
 		)
+
+		It("should delete finalized pods on VMI deletion", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+
+			vmi.Status.Phase = virtv1.Failed
+			vmi.DeletionTimestamp = pointer.P(metav1.Now())
+
+			finalizedPod := newPodForVirtualMachine(vmi, k8sv1.PodSucceeded)
+			finalizedPod.UID = "finalized-123"
+			finalizedPod.Name = "finalized-pod"
+
+			addVirtualMachine(vmi)
+			addPod(finalizedPod)
+			addActivePods(vmi, finalizedPod.UID, "")
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, kvcontroller.SuccessfulDeletePodReason)
+
+			expectPodDoesNotExist(finalizedPod.Namespace, finalizedPod.Name)
+		})
+
 		It("should not try to delete a pod again, which is already marked for deletion and go to failed state, when in scheduling state", func() {
 			vmi := newPendingVirtualMachine("testvmi")
 			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.GuestNotRunningReason)
