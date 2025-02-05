@@ -6,6 +6,7 @@ go_library(
         "evacuation.go",
         "eviction_strategy.go",
         "framework.go",
+        "host_model.go",
         "migration.go",
         "migration_policy.go",
         "paused.go",
