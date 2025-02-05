@@ -832,6 +832,32 @@ var _ = Describe("VirtualMachineInstance", func() {
 				))
 			})
 
+			It("should add condition and warning when deprecated method is used for credentials update", func() {
+				const message = "used deprecated method"
+				domain.Spec.Metadata.KubeVirt.AccessCredential = &api.AccessCredentialMetadata{
+					Succeeded:        true,
+					Message:          message,
+					DeprecatedMethod: true,
+				}
+
+				prepare()
+
+				sanityExecute()
+
+				eventSubstring := fmt.Sprintf("%s %s Access credentials sync successful: %s", k8sv1.EventTypeWarning, v1.AccessCredentialsSyncSuccess, message)
+				expectEvent(eventSubstring, true)
+
+				updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updatedVMI.Status.Conditions).To(ContainElement(
+					MatchFields(IgnoreExtras, Fields{
+						"Type":    Equal(v1.VirtualMachineInstanceAccessCredentialsSynchronized),
+						"Status":  Equal(k8sv1.ConditionTrue),
+						"Message": Equal(message)},
+					),
+				))
+			})
+
 			It("should do nothing if condition already exists", func() {
 				vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{
 					Type:          v1.VirtualMachineInstanceAccessCredentialsSynchronized,

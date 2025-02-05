@@ -393,8 +393,9 @@ type KubeVirtMetadata struct {
 }
 
 type AccessCredentialMetadata struct {
-	Succeeded bool   `xml:"succeeded,omitempty"`
-	Message   string `xml:"message,omitempty"`
+	Succeeded        bool   `xml:"succeeded,omitempty"`
+	Message          string `xml:"message,omitempty"`
+	DeprecatedMethod bool   `xml:"deprecatedMethod,omitempty"`
 }
 
 type MemoryDumpMetadata struct {
