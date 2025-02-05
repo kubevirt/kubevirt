@@ -22,6 +22,7 @@ const (
 	kubeletPodsPath = "/var/lib/kubelet/pods"
 	PrHelperName    = "pr-helper"
 	prVolumeName    = "pr-helper-socket-vol"
+	devDirVol       = "dev-dir"
 	SidecarShimName = "sidecar-shim"
 )
 
@@ -40,6 +41,11 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 				Name:             prVolumeName,
 				MountPath:        reservation.GetPrHelperSocketDir(),
 				MountPropagation: &bidi,
+			},
+			{
+				Name:             devDirVol,
+				MountPath:        "/dev",
+				MountPropagation: pointer.P(corev1.MountPropagationHostToContainer),
 			},
 		},
 		SecurityContext: &corev1.SecurityContext{
@@ -342,6 +348,12 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 				HostPath: &corev1.HostPathVolumeSource{
 					Path: reservation.GetPrHelperSocketDir(),
 					Type: &directoryOrCreate,
+				},
+			}}, corev1.Volume{
+			Name: devDirVol,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "/dev",
 				},
 			},
 		})
