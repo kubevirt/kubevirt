@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/nginx-120
+FROM registry.access.redhat.com/ubi9/nginx-124
 
 WORKDIR /opt/app-root/src
 
@@ -6,6 +6,7 @@ COPY hack/config /tmp/config
 
 USER 0
 RUN dnf -y install zip file && \
+    sed -i -E '/^ +location.*$/a\        }\n\n        location = /health {\n            access_log off;\n            return 200;' /etc/nginx/nginx.conf && \
     sed '/^\s*listen\s*\[::\]:8080/d' /etc/nginx/nginx.conf > /etc/nginx/nginx.conf.ipv4 && \
     sed '/^\s*listen\s*8080/d' /etc/nginx/nginx.conf > /etc/nginx/nginx.conf.ipv6
 USER 1001

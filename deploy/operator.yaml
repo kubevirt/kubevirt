@@ -224,10 +224,26 @@ spec:
       containers:
       - image: quay.io/kubevirt/virt-artifacts-server:1.15.0-unstable
         imagePullPolicy: Always
+        livenessProbe:
+          failureThreshold: 1
+          httpGet:
+            path: /health
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 5
         name: server
         ports:
         - containerPort: 8080
           protocol: TCP
+        readinessProbe:
+          failureThreshold: 1
+          httpGet:
+            path: /health
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
         resources:
           requests:
             cpu: 10m

@@ -183,8 +183,8 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 						Image:           params.Image,
 						ImagePullPolicy: corev1.PullPolicy(params.ImagePullPolicy),
 						Command:         stringListToSlice(hcoName),
-						ReadinessProbe:  getReadinessProbe(),
-						LivenessProbe:   getLivenessProbe(),
+						ReadinessProbe:  getReadinessProbe(hcoutil.ReadinessEndpointName, hcoutil.HealthProbePort),
+						LivenessProbe:   getLivenessProbe(hcoutil.LivenessEndpointName, hcoutil.HealthProbePort),
 						Env:             envs,
 						Resources: v1.ResourceRequirements{
 							Requests: map[v1.ResourceName]resource.Quantity{
@@ -343,6 +343,8 @@ func GetDeploymentSpecCliDownloads(params *DeploymentOperatorParams) appsv1.Depl
 							},
 						},
 						SecurityContext: GetStdContainerSecurityContext(),
+						ReadinessProbe:  getReadinessProbe("/health", 8080),
+						LivenessProbe:   getLivenessProbe("/health", 8080),
 					},
 				},
 				PriorityClassName: "system-cluster-critical",
@@ -414,8 +416,8 @@ func GetDeploymentSpecWebhook(namespace, image, imagePullPolicy, hcoKvIoVersion 
 						Image:           image,
 						ImagePullPolicy: corev1.PullPolicy(imagePullPolicy),
 						Command:         stringListToSlice(hcoNameWebhook),
-						ReadinessProbe:  getReadinessProbe(),
-						LivenessProbe:   getLivenessProbe(),
+						ReadinessProbe:  getReadinessProbe(hcoutil.ReadinessEndpointName, hcoutil.HealthProbePort),
+						LivenessProbe:   getLivenessProbe(hcoutil.LivenessEndpointName, hcoutil.HealthProbePort),
 						Env: append([]corev1.EnvVar{
 							{
 								// deprecated: left here for CI test.
@@ -1098,14 +1100,14 @@ func InjectVolumesForWebHookCerts(deploy *appsv1.Deployment) {
 	}
 }
 
-func getReadinessProbe() *corev1.Probe {
+func getReadinessProbe(endpoint string, port int32) *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Path: hcoutil.ReadinessEndpointName,
+				Path: endpoint,
 				Port: intstr.IntOrString{
 					Type:   intstr.Int,
-					IntVal: hcoutil.HealthProbePort,
+					IntVal: port,
 				},
 				Scheme: corev1.URISchemeHTTP,
 			},
@@ -1116,14 +1118,14 @@ func getReadinessProbe() *corev1.Probe {
 	}
 }
 
-func getLivenessProbe() *corev1.Probe {
+func getLivenessProbe(endpoint string, port int32) *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Path: hcoutil.LivenessEndpointName,
+				Path: endpoint,
 				Port: intstr.IntOrString{
 					Type:   intstr.Int,
-					IntVal: hcoutil.HealthProbePort,
+					IntVal: port,
 				},
 				Scheme: corev1.URISchemeHTTP,
 			},

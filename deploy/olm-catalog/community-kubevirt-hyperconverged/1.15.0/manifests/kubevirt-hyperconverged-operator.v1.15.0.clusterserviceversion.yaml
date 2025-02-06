@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.15.0-unstable
-    createdAt: "2025-02-03 15:50:10"
+    createdAt: "2025-02-04 10:25:52"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     features.operators.openshift.io/cnf: "false"
@@ -3337,10 +3337,26 @@ spec:
               containers:
               - image: quay.io/kubevirt/virt-artifacts-server:1.15.0-unstable
                 imagePullPolicy: IfNotPresent
+                livenessProbe:
+                  failureThreshold: 1
+                  httpGet:
+                    path: /health
+                    port: 8080
+                    scheme: HTTP
+                  initialDelaySeconds: 30
+                  periodSeconds: 5
                 name: server
                 ports:
                 - containerPort: 8080
                   protocol: TCP
+                readinessProbe:
+                  failureThreshold: 1
+                  httpGet:
+                    path: /health
+                    port: 8080
+                    scheme: HTTP
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
                 resources:
                   requests:
                     cpu: 10m
