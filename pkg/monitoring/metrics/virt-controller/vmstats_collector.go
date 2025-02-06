@@ -571,40 +571,82 @@ func collectDiskMetricsFromPVC(vm *k6tv1.VirtualMachine) []operatormetrics.Colle
 	var cr []operatormetrics.CollectorResult
 
 	for _, vol := range vm.Spec.Template.Spec.Volumes {
-		if vol.PersistentVolumeClaim != nil {
-			diskName := vol.Name
-			pvcName := vol.PersistentVolumeClaim.ClaimName
-
-			key := controller.NamespacedKey(vm.Namespace, pvcName)
-			obj, exists, err := persistentVolumeClaimInformer.GetStore().GetByKey(key)
-			if err != nil {
-				log.Log.Errorf("Error retrieving PVC %s in namespace %s: %v", pvcName, vm.Namespace, err)
-				continue
-			}
-			if !exists {
-				log.Log.Warningf("PVC %s in namespace %s does not exist", pvcName, vm.Namespace)
-				continue
-			}
-			pvc, ok := obj.(*k8sv1.PersistentVolumeClaim)
-			if !ok {
-				log.Log.Warningf("Object for PVC %s in namespace %s is not of expected type", pvcName, vm.Namespace)
-				continue
-			}
-
-			pvcSize := pvc.Spec.Resources.Requests.Storage()
-			volumeMode := "null"
-			if pvc.Spec.VolumeMode != nil {
-				volumeMode = string(*pvc.Spec.VolumeMode)
-			}
-			cr = append(cr, operatormetrics.CollectorResult{
-				Metric: vmDiskAllocatedSize,
-				Value:  float64(pvcSize.Value()),
-				Labels: []string{vm.Name, vm.Namespace, pvcName, volumeMode, diskName},
-			})
+		pvcName, diskName, isDataVolume := getPVCAndDiskName(vol)
+		if pvcName == "" {
+			continue
 		}
+
+		key := controller.NamespacedKey(vm.Namespace, pvcName)
+		obj, exists, err := persistentVolumeClaimInformer.GetStore().GetByKey(key)
+		if err != nil {
+			log.Log.Errorf("Error retrieving PVC %s in namespace %s: %v", pvcName, vm.Namespace, err)
+			continue
+		}
+
+		if !exists {
+			log.Log.Warningf("PVC %s in namespace %s does not exist", pvcName, vm.Namespace)
+			continue
+		}
+
+		pvc, ok := obj.(*k8sv1.PersistentVolumeClaim)
+		if !ok {
+			log.Log.Warningf("Object for PVC %s in namespace %s is not of expected type", pvcName, vm.Namespace)
+			continue
+		}
+
+		cr = append(cr, getDiskSizeValues(vm, pvc, diskName, isDataVolume))
 	}
 
 	return cr
+}
+
+func getPVCAndDiskName(vol k6tv1.Volume) (pvcName, diskName string, isDataVolume bool) {
+	if vol.PersistentVolumeClaim != nil {
+		return vol.PersistentVolumeClaim.ClaimName, vol.Name, false
+	}
+
+	if vol.DataVolume != nil {
+		return vol.DataVolume.Name, vol.Name, true
+	}
+
+	return "", "", false
+}
+
+func getDiskSizeValues(vm *k6tv1.VirtualMachine, pvc *k8sv1.PersistentVolumeClaim, diskName string, isDataVolume bool) operatormetrics.CollectorResult {
+	var pvcSize *resource.Quantity
+
+	if isDataVolume {
+		pvcSize = getSizeFromDataVolumeTemplates(vm, pvc.Name)
+	}
+
+	if pvcSize == nil {
+		pvcSize = pvc.Spec.Resources.Requests.Storage()
+	}
+
+	volumeMode := "<none>"
+	if pvc.Spec.VolumeMode != nil {
+		volumeMode = string(*pvc.Spec.VolumeMode)
+	}
+
+	return operatormetrics.CollectorResult{
+		Metric: vmDiskAllocatedSize,
+		Value:  float64(pvcSize.Value()),
+		Labels: []string{vm.Name, vm.Namespace, pvc.Name, volumeMode, diskName},
+	}
+}
+
+func getSizeFromDataVolumeTemplates(vm *k6tv1.VirtualMachine, dataVolumeName string) *resource.Quantity {
+	for _, dvTemplate := range vm.Spec.DataVolumeTemplates {
+		if dvTemplate.Name == dataVolumeName {
+			if dvTemplate.Spec.PVC != nil {
+				return dvTemplate.Spec.PVC.Resources.Requests.Storage()
+			}
+
+			break
+		}
+	}
+
+	return nil
 }
 
 func collectVMCreationTimestamp(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {

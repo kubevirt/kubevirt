@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	k6tv1 "kubevirt.io/api/core/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -540,7 +541,59 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(results).ToNot(BeEmpty())
 			Expect(results[0].Metric.GetOpts().Name).To(Equal("kubevirt_vm_disk_allocated_size_bytes"))
 			Expect(results[0].Value).To(Equal(float64(3 * 1024 * 1024 * 1024)))
-			Expect(results[0].Labels).To(Equal([]string{"test-vm-nil-mode", "default", "test-vm-pvc-nil-mode", "null", "rootdisk"}))
+			Expect(results[0].Labels).To(Equal([]string{"test-vm-nil-mode", "default", "test-vm-pvc-nil-mode", "<none>", "rootdisk"}))
+		})
+
+		It("should prioritize DataVolume template size over PVC size", func() {
+			pvc := createPVC("default", "test-dv-pvc", resource.MustParse("5Gi"), pointer.P(k8sv1.PersistentVolumeFilesystem))
+			err := persistentVolumeClaimInformer.GetIndexer().Add(pvc)
+			Expect(err).ToNot(HaveOccurred())
+
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "test-vm-dv",
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					DataVolumeTemplates: []k6tv1.DataVolumeTemplateSpec{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "test-dv-pvc",
+							},
+							Spec: cdiv1.DataVolumeSpec{
+								PVC: &k8sv1.PersistentVolumeClaimSpec{
+									Resources: k8sv1.VolumeResourceRequirements{
+										Requests: k8sv1.ResourceList{
+											k8sv1.ResourceStorage: resource.MustParse("2Gi"),
+										},
+									},
+								},
+							},
+						},
+					},
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
+						Spec: k6tv1.VirtualMachineInstanceSpec{
+							Volumes: []k6tv1.Volume{
+								{
+									Name: "datavolumedisk",
+									VolumeSource: k6tv1.VolumeSource{
+										DataVolume: &k6tv1.DataVolumeSource{
+											Name: "test-dv-pvc",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			results := CollectDiskAllocatedSize([]*k6tv1.VirtualMachine{vm})
+
+			Expect(results).ToNot(BeEmpty())
+			Expect(results[0].Metric.GetOpts().Name).To(Equal("kubevirt_vm_disk_allocated_size_bytes"))
+			Expect(results[0].Value).To(Equal(float64(2 * 1024 * 1024 * 1024)))
+			Expect(results[0].Labels).To(Equal([]string{"test-vm-dv", "default", "test-dv-pvc", "Filesystem", "datavolumedisk"}))
 		})
 	})
 
