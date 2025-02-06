@@ -21,7 +21,9 @@ go_library(
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/controller:go_default_library",
-        "//pkg/instancetype:go_default_library",
+        "//pkg/instancetype/expand:go_default_library",
+        "//pkg/instancetype/find:go_default_library",
+        "//pkg/instancetype/preference/find:go_default_library",
         "//pkg/monitoring/metrics/virt-api:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/storage/types:go_default_library",
@@ -73,7 +75,6 @@ go_test(
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/controller:go_default_library",
-        "//pkg/instancetype:go_default_library",
         "//pkg/instancetype/conflict:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",
