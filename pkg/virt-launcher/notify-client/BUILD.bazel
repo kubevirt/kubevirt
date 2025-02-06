@@ -11,6 +11,7 @@ go_library(
         "//pkg/handler-launcher-com:go_default_library",
         "//pkg/handler-launcher-com/notify/info:go_default_library",
         "//pkg/handler-launcher-com/notify/v1:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//pkg/util/net/grpc:go_default_library",
         "//pkg/virt-launcher/metadata:go_default_library",
         "//pkg/virt-launcher/virtwrap/agent-poller:go_default_library",
