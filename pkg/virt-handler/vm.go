@@ -749,6 +749,14 @@ func (c *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 		cm.RemoveCondition(vmi, v1.VirtualMachineInstanceMigrationRequired)
 	}
 
+	if domainExists &&
+		domain.Spec.Metadata.KubeVirt.Migration != nil &&
+		domain.Spec.Metadata.KubeVirt.Migration.EndTimestamp != nil &&
+		vmi.Status.MigrationState.EndTimestamp == nil {
+		log.Log.Object(vmi).Info("The target node detected that the migration has completed")
+		vmi.Status.MigrationState.EndTimestamp = domain.Spec.Metadata.KubeVirt.Migration.EndTimestamp
+	}
+
 	if !migrations.IsMigrating(vmi) {
 		destSrcPortsMap := c.migrationProxy.GetTargetListenerPorts(string(vmi.UID))
 		if len(destSrcPortsMap) == 0 {
