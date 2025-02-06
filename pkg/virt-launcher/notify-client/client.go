@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 
 	"google.golang.org/grpc"
@@ -345,6 +346,28 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 				updateEvents(event, domain, events)
 			} else if libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_STARTED && libvirt.DomainEventStartedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_STARTED_MIGRATED {
 				event := watch.Event{Type: watch.Added, Object: domain}
+				client.SendDomainEvent(event)
+				updateEvents(event, domain, events)
+			} else if (libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_RESUMED && libvirt.DomainEventResumedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_RESUMED_MIGRATED) ||
+				(libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_SUSPENDED && libvirt.DomainEventSuspendedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_SUSPENDED_PAUSED) {
+				// This is a libvirt event that only the target can see, and it means that the migration has completed
+				// we just set the EndTimestamp here so that the source can finalize the migration.
+				// Usually this is performed by the source launcher/handler. However, in case of upgrade, this is not
+				// guaranteed as the cluster will have an updated virt-handler together with outdated launchers, this
+				// makes sure that migrations actually finish in those cases.
+				migrationMetadata, exists := metadataCache.Migration.Load()
+				if exists && migrationMetadata.EndTimestamp == nil {
+					metadataCache.Migration.WithSafeBlock(func(migrationMetadata *api.MigrationMetadata, _ bool) {
+						migrationMetadata.EndTimestamp = pointer.P(metav1.Now())
+					})
+				} else if !exists {
+					migrationMetadata := api.MigrationMetadata{
+						EndTimestamp: pointer.P(metav1.Now()),
+					}
+					metadataCache.Migration.Store(migrationMetadata)
+				}
+
+				event := watch.Event{Type: watch.Modified, Object: domain}
 				client.SendDomainEvent(event)
 				updateEvents(event, domain, events)
 			}
