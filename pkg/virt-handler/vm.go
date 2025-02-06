@@ -576,6 +576,10 @@ func canUpdateToUnmounted(currentPhase v1.VolumePhase) bool {
 	return currentPhase == v1.VolumeReady || currentPhase == v1.HotplugVolumeMounted || currentPhase == v1.HotplugVolumeAttachedToNode
 }
 
+func wasMigrationSuccessful(migrationState *v1.VirtualMachineInstanceMigrationState) bool {
+	return migrationState != nil && migrationState.EndTimestamp != nil && !migrationState.Failed
+}
+
 func (c *VirtualMachineController) setMigrationProgressStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	if domain == nil ||
 		domain.Spec.Metadata.KubeVirt.Migration == nil ||
@@ -658,7 +662,7 @@ func (c *VirtualMachineController) migrationSourceUpdateVMIStatus(origVMI *v1.Vi
 		} else {
 			log.Log.Object(vmi).Info("Waiting on the target node to observe the migrated domain before performing the handoff")
 		}
-	} else if vmi.Status.MigrationState != nil {
+	} else if wasMigrationSuccessful(vmi.Status.MigrationState) {
 		// this is the migration ACK.
 		// At this point we know that the migration has completed and that
 		// the target node has seen the domain event.
