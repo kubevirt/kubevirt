@@ -554,6 +554,14 @@ spec:
 EOF
 fi
 
+# Populate nodes with the VM images
+if [[ ${CI} == "true" && $KUBEVIRT_PROVIDER =~ k8s.* ]]; then
+  CRI_BIN="$(determine_cri_bin)"
+  for i in $(seq 1 ${KUBEVIRT_NUM_NODES}); do
+    n="$(printf "%02d" ${i})"
+    ${CRI_BIN} exec -it ${JOB_NAME}-node${n} ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -q -i vagrant.key -p 22 vagrant@192.168.66.1${n} -- sudo crictl pull registry:5000/kubevirt/fedora-with-test-tooling-container-disk:devel
+  done
+fi
 
 # Run functional tests
 FUNC_TEST_ARGS=$ginko_params FUNC_TEST_LABEL_FILTER='--label-filter='${label_filter} make functest
