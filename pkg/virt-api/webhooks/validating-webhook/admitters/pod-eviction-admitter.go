@@ -92,6 +92,8 @@ func (admitter *PodEvictionAdmitter) Admit(ctx context.Context, ar *admissionv1.
 		markForEviction = true
 	}
 
+	// This message format is expected from descheduler.
+	const evictionFmt = "Eviction triggered evacuation of VMI \"%s/%s\""
 	if markForEviction && !vmi.IsMarkedForEviction() && vmi.Status.NodeName == pod.Spec.NodeName {
 		err := admitter.markVMI(ctx, vmi.Namespace, vmi.Name, vmi.Status.NodeName, isDryRun(ar))
 		if err != nil {
@@ -99,7 +101,7 @@ func (admitter *PodEvictionAdmitter) Admit(ctx context.Context, ar *admissionv1.
 			return denied(fmt.Sprintf("kubevirt failed marking the vmi for eviction: %s", err.Error()))
 		}
 
-		return denied(fmt.Sprintf("Eviction triggered evacuation of VMI \"%s/%s\"", vmi.Namespace, vmi.Name))
+		return denied(fmt.Sprintf(evictionFmt, vmi.Namespace, vmi.Name))
 	}
 
 	// We can let the request go through because the pod is protected by a PDB if the VMI wants to be live-migrated on
