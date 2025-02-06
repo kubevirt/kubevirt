@@ -3,8 +3,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "evacuation.go",
         "eviction_strategy.go",
         "framework.go",
+        "host_model.go",
         "migration.go",
         "migration_policy.go",
         "paused.go",
