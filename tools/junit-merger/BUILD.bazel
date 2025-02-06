@@ -6,9 +6,9 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tools/junit-merger",
     visibility = ["//visibility:private"],
     deps = [
-        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2/reporters:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
+        "//vendor/kubevirt.io/client-go/log:go_default_library",
     ],
 )
 

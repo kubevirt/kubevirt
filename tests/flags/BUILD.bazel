@@ -5,5 +5,5 @@ go_library(
     srcs = ["flags.go"],
     importpath = "kubevirt.io/kubevirt/tests/flags",
     visibility = ["//visibility:public"],
-    deps = ["//staging/src/kubevirt.io/client-go/kubecli:go_default_library"],
+    deps = ["//vendor/kubevirt.io/client-go/kubecli:go_default_library"],
 )
