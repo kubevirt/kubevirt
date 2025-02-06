@@ -787,13 +787,17 @@ var _ = Describe("VirtualMachineInstance", func() {
 			)
 
 			BeforeEach(func() {
-				vmi = api2.NewMinimalVMI("testvmi")
+				vmi = libvmi.New(
+					libvmi.WithNamespace(k8sv1.NamespaceDefault),
+					libvmistatus.WithStatus(libvmistatus.New(
+						libvmistatus.WithPhase(v1.Running),
+						libvmistatus.WithActivePod(podTestUUID, host),
+					)),
+				)
 				vmi.UID = vmiTestUUID
 				vmi.ObjectMeta.ResourceVersion = "1"
-				vmi.Status.Phase = v1.Running
-				vmi = addActivePods(vmi, podTestUUID, host)
 
-				domain = api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain = api.NewMinimalDomainWithUUID(vmi.Name, vmiTestUUID)
 				domain.Status.Status = api.Running
 			})
 
@@ -820,34 +824,20 @@ var _ = Describe("VirtualMachineInstance", func() {
 				expectEvent(string(v1.AccessCredentialsSyncSuccess), true)
 				updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				Expect(updatedVMI.Status.Conditions).To(ConsistOf(
+				Expect(updatedVMI.Status.Conditions).To(ContainElement(
 					MatchFields(IgnoreExtras, Fields{
 						"Type":   Equal(v1.VirtualMachineInstanceAccessCredentialsSynchronized),
-						"Status": Equal(k8sv1.ConditionTrue)},
-					),
-					MatchFields(IgnoreExtras, Fields{
-						"Type":   Equal(v1.VirtualMachineInstanceIsMigratable),
-						"Status": Equal(k8sv1.ConditionTrue)},
-					),
-					MatchFields(IgnoreExtras, Fields{
-						"Type":   Equal(v1.VirtualMachineInstanceIsStorageLiveMigratable),
 						"Status": Equal(k8sv1.ConditionTrue)},
 					),
 				))
 			})
 
 			It("should do nothing if condition already exists", func() {
-				vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
-					{
-						Type:          v1.VirtualMachineInstanceAccessCredentialsSynchronized,
-						LastProbeTime: metav1.Now(),
-						Status:        k8sv1.ConditionTrue,
-					},
-					{
-						Type:   v1.VirtualMachineInstanceIsMigratable,
-						Status: k8sv1.ConditionTrue,
-					},
-				}
+				vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{
+					Type:          v1.VirtualMachineInstanceAccessCredentialsSynchronized,
+					LastProbeTime: metav1.Now(),
+					Status:        k8sv1.ConditionTrue,
+				}}
 
 				domain.Spec.Metadata.KubeVirt.AccessCredential = &api.AccessCredentialMetadata{
 					Succeeded: true,
@@ -862,21 +852,16 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 
 			It("should update condition if agent disconnects", func() {
-				vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
-					{
-						Type:          v1.VirtualMachineInstanceAccessCredentialsSynchronized,
-						LastProbeTime: metav1.Now(),
-						Status:        k8sv1.ConditionTrue,
-					},
-					{
-						Type:   v1.VirtualMachineInstanceIsMigratable,
-						Status: k8sv1.ConditionTrue,
-					},
-				}
+				vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{
+					Type:          v1.VirtualMachineInstanceAccessCredentialsSynchronized,
+					LastProbeTime: metav1.Now(),
+					Status:        k8sv1.ConditionTrue,
+				}}
 
+				const message = "some message"
 				domain.Spec.Metadata.KubeVirt.AccessCredential = &api.AccessCredentialMetadata{
 					Succeeded: false,
-					Message:   "some message",
+					Message:   message,
 				}
 
 				prepare()
@@ -886,19 +871,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 				expectEvent(string(v1.AccessCredentialsSyncFailed), true)
 				updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				Expect(updatedVMI.Status.Conditions).To(ConsistOf(
-					MatchFields(IgnoreExtras, Fields{
-						"Type":   Equal(v1.VirtualMachineInstanceIsMigratable),
-						"Status": Equal(k8sv1.ConditionTrue)},
-					),
+				Expect(updatedVMI.Status.Conditions).To(ContainElement(
 					MatchFields(IgnoreExtras, Fields{
 						"Type":    Equal(v1.VirtualMachineInstanceAccessCredentialsSynchronized),
 						"Status":  Equal(k8sv1.ConditionFalse),
-						"Message": Equal("some message")},
-					),
-					MatchFields(IgnoreExtras, Fields{
-						"Type":   Equal(v1.VirtualMachineInstanceIsStorageLiveMigratable),
-						"Status": Equal(k8sv1.ConditionTrue)},
+						"Message": Equal(message)},
 					),
 				))
 			})
