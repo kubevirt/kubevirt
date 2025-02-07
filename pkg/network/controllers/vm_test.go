@@ -43,11 +43,10 @@ import (
 )
 
 var _ = Describe("VM Network Controller", func() {
-	It("sync does nothing when the hotplug FG is unset", func() {
-		c := controllers.NewVMController(fake.NewSimpleClientset(), stubPodGetter{})
-		Expect(c.Sync(newEmptyVM(), libvmi.New())).To(Equal(newEmptyVM()))
-	})
-
+	const (
+		secondaryNetName = "foonet"
+		nadName          = "foonet-nad"
+	)
 	DescribeTable("sync does nothing when", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, podGetter stubPodGetter) {
 		c := controllers.NewVMController(fake.NewSimpleClientset(), podGetter)
 		originalVM := vm.DeepCopy()
@@ -71,11 +70,15 @@ var _ = Describe("VM Network Controller", func() {
 			"the VM & VMI have identical interfaces",
 			libvmi.NewVirtualMachine(libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName, nadName)),
 			)),
 			libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName, nadName)),
 			),
 			stubPodGetter{pod: &k8sv1.Pod{}},
 		),
@@ -113,7 +116,7 @@ var _ = Describe("VM Network Controller", func() {
 		)
 		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
 
-		vm = plugNetworkInterface(vm, "foonet")
+		vm = plugNetworkInterface(vm, libvmi.InterfaceDeviceWithBridgeBinding("foonet"))
 
 		// Simulate the existence of the VMI on the server (to allow the Sync to patch it).
 		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
@@ -126,7 +129,7 @@ var _ = Describe("VM Network Controller", func() {
 		Expect(updatedVM).To(Equal(originalVM))
 	})
 
-	It("sync succeeds to hotplug new interface", func() {
+	DescribeTable("sync succeeds to hotplug new interface", func(ifaceToPlug v1.Interface) {
 		clientset := fake.NewSimpleClientset()
 		c := controllers.NewVMController(
 			clientset,
@@ -138,7 +141,7 @@ var _ = Describe("VM Network Controller", func() {
 		)
 		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
 
-		vm = plugNetworkInterface(vm, "foonet")
+		vm = plugNetworkInterface(vm, ifaceToPlug)
 
 		// Simulate the existence of the VMI on the server (to allow the Sync to patch it).
 		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
@@ -158,7 +161,10 @@ var _ = Describe("VM Network Controller", func() {
 
 		Expect(updatedVMI.Spec.Networks).To(Equal(updatedVM.Spec.Template.Spec.Networks))
 		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(Equal(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces))
-	})
+	},
+		Entry("when the plugged interface uses bridge binding", libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)),
+		Entry("when the plugged interface uses SR-IOV binding", libvmi.InterfaceDeviceWithSRIOVBinding(secondaryNetName)),
+	)
 
 	It("sync succeeds to clear hotunplug interfaces", func() {
 		clientset := fake.NewSimpleClientset()
@@ -321,11 +327,13 @@ func isSyncErrorType(e error) bool {
 	return errors.As(e, &errWithReason)
 }
 
-func plugNetworkInterface(vm *v1.VirtualMachine, netName string) *v1.VirtualMachine {
+func plugNetworkInterface(vm *v1.VirtualMachine, ifaceToPlug v1.Interface) *v1.VirtualMachine {
 	vm.Spec.Template.Spec.Domain.Devices.Interfaces = append(
 		vm.Spec.Template.Spec.Domain.Devices.Interfaces,
-		libvmi.InterfaceDeviceWithBridgeBinding(netName),
+		ifaceToPlug,
 	)
+
+	netName := ifaceToPlug.Name
 	vm.Spec.Template.Spec.Networks = append(
 		vm.Spec.Template.Spec.Networks,
 		*libvmi.MultusNetwork(netName, netName+"-nad"),
