@@ -111,9 +111,11 @@ func (e *expander) Expand(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, er
 		return nil, err
 	}
 
-	// Remove InstancetypeMatcher and PreferenceMatcher, so the returned VM object can be used and not cause a conflict
+	// Remove {Instancetype,Preference}Matcher and {Instancetype,Preference}Ref
 	expandedVM.Spec.Instancetype = nil
+	expandedVM.Status.InstancetypeRef = nil
 	expandedVM.Spec.Preference = nil
+	expandedVM.Status.PreferenceRef = nil
 
 	return expandedVM, nil
 }
