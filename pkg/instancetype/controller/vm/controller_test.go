@@ -903,8 +903,16 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				context.Background(), preferenceRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vm.Spec.Instancetype.RevisionName = instancetypeRevision.Name
-			vm.Spec.Preference.RevisionName = preferenceRevision.Name
+			vm.Status.InstancetypeRef = &virtv1.InstancetypeStatusRef{
+				ControllerRevisionRef: &virtv1.ControllerRevisionRef{
+					Name: instancetypeRevision.Name,
+				},
+			}
+			vm.Status.PreferenceRef = &virtv1.InstancetypeStatusRef{
+				ControllerRevisionRef: &virtv1.ControllerRevisionRef{
+					Name: preferenceRevision.Name,
+				},
+			}
 		}
 
 		kvWithFGEnabledReferencePolicyExpand := &virtv1.KubeVirt{
