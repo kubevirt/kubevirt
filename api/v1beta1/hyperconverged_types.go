@@ -211,8 +211,8 @@ type HyperConvergedSpec struct {
 	VMStateStorageClass *string `json:"vmStateStorageClass,omitempty"`
 
 	// VirtualMachineOptions holds the cluster level information regarding the virtual machine.
-	// +kubebuilder:default={"disableFreePageReporting": false, "disableSerialConsoleLog": true}
-	// +default={"disableFreePageReporting": false, "disableSerialConsoleLog": true}
+	// +kubebuilder:default={"disableFreePageReporting": false, "disableSerialConsoleLog": false}
+	// +default={"disableFreePageReporting": false, "disableSerialConsoleLog": false}
 	// +optional
 	VirtualMachineOptions *VirtualMachineOptions `json:"virtualMachineOptions,omitempty"`
 
@@ -388,8 +388,8 @@ type VirtualMachineOptions struct {
 	// If not set, serial console logs will be written to a file and then streamed from a container named `guest-console-log`.
 	// The value can be individually overridden for each VM, not relevant if AutoattachSerialConsole is disabled for the VM.
 	// +optional
-	// +kubebuilder:default=true
-	// +default=true
+	// +kubebuilder:default=false
+	// +default=false
 	DisableSerialConsoleLog *bool `json:"disableSerialConsoleLog,omitempty"`
 }
 
@@ -847,7 +847,7 @@ type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"downwardMetrics": false, "enableCommonBootImageImport": true, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "disableMDevConfiguration": false, "persistentReservation": false, "autoResourceLimits": false, "enableApplicationAwareQuota": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 150, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist", "virtualMachineOptions": {"disableFreePageReporting": false, "disableSerialConsoleLog": true}}
+	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"downwardMetrics": false, "enableCommonBootImageImport": true, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "disableMDevConfiguration": false, "persistentReservation": false, "autoResourceLimits": false, "enableApplicationAwareQuota": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 150, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist", "virtualMachineOptions": {"disableFreePageReporting": false, "disableSerialConsoleLog": false}}
 	// +optional
 	Spec   HyperConvergedSpec   `json:"spec,omitempty"`
 	Status HyperConvergedStatus `json:"status,omitempty"`

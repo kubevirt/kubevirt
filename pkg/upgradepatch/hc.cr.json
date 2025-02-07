@@ -47,7 +47,7 @@
     "uninstallStrategy": "BlockUninstallIfWorkloadsExist",
     "virtualMachineOptions": {
       "disableFreePageReporting": false,
-      "disableSerialConsoleLog": true
+      "disableSerialConsoleLog": false
     },
     "higherWorkloadDensity": {
       "memoryOvercommitPercentage": 100

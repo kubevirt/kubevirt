@@ -144,7 +144,7 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 		in.Spec.UninstallStrategy = "BlockUninstallIfWorkloadsExist"
 	}
 	if in.Spec.VirtualMachineOptions == nil {
-		if err := json.Unmarshal([]byte(`{"disableFreePageReporting": false, "disableSerialConsoleLog": true}`), &in.Spec.VirtualMachineOptions); err != nil {
+		if err := json.Unmarshal([]byte(`{"disableFreePageReporting": false, "disableSerialConsoleLog": false}`), &in.Spec.VirtualMachineOptions); err != nil {
 			panic(err)
 		}
 	}
@@ -154,7 +154,7 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 			in.Spec.VirtualMachineOptions.DisableFreePageReporting = &ptrVar1
 		}
 		if in.Spec.VirtualMachineOptions.DisableSerialConsoleLog == nil {
-			var ptrVar1 bool = true
+			var ptrVar1 bool = false
 			in.Spec.VirtualMachineOptions.DisableSerialConsoleLog = &ptrVar1
 		}
 	}
