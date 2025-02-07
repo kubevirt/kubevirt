@@ -58,6 +58,7 @@ var (
 			vmiAddresses,
 			vmiMigrationStartTime,
 			vmiMigrationEndTime,
+			vmiVnicInfo,
 		},
 		CollectCallback: vmiStatsCollectorCallback,
 	}
@@ -116,6 +117,15 @@ var (
 		},
 		[]string{"node", "namespace", "name", "migration_name", "status"},
 	)
+
+	vmiVnicInfo = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_vnic_info",
+			Help: "Details of VirtualMachineInstance (VMI) vNIC interfaces, such as vNIC name, binding type, " +
+				"network name, and binding name for each vNIC of a running instance.",
+		},
+		[]string{"name", "namespace", "vnic_name", "binding_type", "network", "binding_name"},
+	)
 )
 
 func vmiStatsCollectorCallback() []operatormetrics.CollectorResult {
@@ -142,6 +152,7 @@ func reportVmisStats(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Col
 		crs = append(crs, getEvictionBlocker(vmi))
 		crs = append(crs, collectVMIInterfacesInfo(vmi)...)
 		crs = append(crs, collectVMIMigrationTime(vmi)...)
+		crs = append(crs, CollectVmisVnicInfo(vmi)...)
 	}
 
 	return crs
@@ -410,4 +421,35 @@ func getMigrationNameFromMigrationUID(namespace string, migrationUID types.UID) 
 	}
 
 	return none
+}
+
+func CollectVmisVnicInfo(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
+	var results []operatormetrics.CollectorResult
+
+	interfaces := vmi.Spec.Domain.Devices.Interfaces
+	networks := vmi.Spec.Networks
+
+	for _, iface := range interfaces {
+		bindingType, bindingName := getBinding(iface)
+		networkName, matchFound := getNetworkName(iface.Name, networks)
+
+		if !matchFound {
+			continue
+		}
+
+		results = append(results, operatormetrics.CollectorResult{
+			Metric: vmiVnicInfo,
+			Labels: []string{
+				vmi.Name,
+				vmi.Namespace,
+				iface.Name,
+				bindingType,
+				networkName,
+				bindingName,
+			},
+			Value: 1.0,
+		})
+	}
+
+	return results
 }

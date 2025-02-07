@@ -480,6 +480,104 @@ var _ = Describe("VMI Stats Collector", func() {
 			})
 		})
 	})
+
+	Context("VMI vNIC info", func() {
+		It("should collect kubevirt_vmi_vnic_info metric with correct labels", func() {
+			vmi := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "test-vmi",
+				},
+				Spec: k6tv1.VirtualMachineInstanceSpec{
+					Domain: k6tv1.DomainSpec{
+						Devices: k6tv1.Devices{
+							Interfaces: []k6tv1.Interface{
+								{
+									Name: "iface1",
+									InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
+										Bridge: &k6tv1.InterfaceBridge{},
+									},
+								},
+								{
+									Name: "iface2",
+									InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
+										Masquerade: &k6tv1.InterfaceMasquerade{},
+									},
+								},
+								{
+									Name: "iface3",
+									InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
+										SRIOV: &k6tv1.InterfaceSRIOV{},
+									},
+								},
+								{
+									Name:    "iface4",
+									Binding: &k6tv1.PluginBinding{Name: "custom-plugin"},
+								},
+							},
+						},
+					},
+					Networks: []k6tv1.Network{
+						{
+							Name:          "iface1",
+							NetworkSource: k6tv1.NetworkSource{Pod: &k6tv1.PodNetwork{}},
+						},
+						{
+							Name:          "iface2",
+							NetworkSource: k6tv1.NetworkSource{Pod: &k6tv1.PodNetwork{}},
+						},
+						{
+							Name:          "iface3",
+							NetworkSource: k6tv1.NetworkSource{Multus: &k6tv1.MultusNetwork{NetworkName: "multus-net"}},
+						},
+						{
+							Name:          "iface4",
+							NetworkSource: k6tv1.NetworkSource{Multus: &k6tv1.MultusNetwork{NetworkName: "custom-net"}},
+						},
+					},
+				},
+			}
+
+			metrics := CollectVmisVnicInfo(vmi)
+			Expect(metrics).To(HaveLen(4))
+
+			Expect(metrics[0].Labels).To(Equal([]string{"test-vmi", "test-ns", "iface1", "core", "pod networking", "bridge"}))
+			Expect(metrics[1].Labels).To(Equal([]string{"test-vmi", "test-ns", "iface2", "core", "pod networking", "masquerade"}))
+			Expect(metrics[2].Labels).To(Equal([]string{"test-vmi", "test-ns", "iface3", "core", "multus-net", "sriov"}))
+			Expect(metrics[3].Labels).To(Equal([]string{"test-vmi", "test-ns", "iface4", "plugin", "custom-net", "custom-plugin"}))
+		})
+		It("should not collect kubevirt_vmi_vnic_info metric when interface name is not matching network name", func() {
+			vmi := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "test-vmi",
+				},
+				Spec: k6tv1.VirtualMachineInstanceSpec{
+					Domain: k6tv1.DomainSpec{
+						Devices: k6tv1.Devices{
+							Interfaces: []k6tv1.Interface{
+								{
+									Name: "iface1",
+									InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
+										Bridge: &k6tv1.InterfaceBridge{},
+									},
+								},
+							},
+						},
+					},
+					Networks: []k6tv1.Network{
+						{
+							Name:          "iface2",
+							NetworkSource: k6tv1.NetworkSource{Pod: &k6tv1.PodNetwork{}},
+						},
+					},
+				},
+			}
+
+			metrics := CollectVmisVnicInfo(vmi)
+			Expect(metrics).To(BeEmpty())
+		})
+	})
 })
 
 func interfacesFor(values [][]string) []k6tv1.VirtualMachineInstanceNetworkInterface {
