@@ -16,6 +16,7 @@
  * Copyright The KubeVirt Authors
  *
  */
+
 package upgrade
 
 import (
@@ -136,13 +137,14 @@ func (u *upgrader) upgradeControllerRevision(
 
 	log.Log.Object(vm).Infof("upgrading instancetype.kubevirt.io ControllerRevision %s (%s)", crName, jsonPath)
 
+	upgradedCR := original.DeepCopy()
 	// Upgrade the stashed object to the latest version
-	err = compatibility.Decode(original)
+	err = compatibility.Decode(upgradedCR)
 	if err != nil {
 		return nil, err
 	}
 
-	newCR, err := revision.CreateControllerRevision(vm, original.Data.Object)
+	newCR, err := revision.CreateControllerRevision(vm, upgradedCR.Data.Object)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +157,7 @@ func (u *upgrader) upgradeControllerRevision(
 
 	// Add the patches to the VM patchset
 	vmPatchSet.AddOption(
-		patch.WithTest(jsonPath, original.Name),
+		patch.WithTest(jsonPath, upgradedCR.Name),
 		patch.WithReplace(jsonPath, newCR.Name),
 	)
 
