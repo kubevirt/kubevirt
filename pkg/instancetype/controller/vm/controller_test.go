@@ -1041,9 +1041,11 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Spec.Instancetype).To(BeNil())
+			Expect(vm.Status.InstancetypeRef).To(BeNil())
+			Expect(vm.Spec.Preference).To(BeNil())
+			Expect(vm.Status.PreferenceRef).To(BeNil())
 			Expect(vm.Spec.Template.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
 			Expect(vm.Spec.Template.Spec.Domain.Memory.Guest.Value()).To(Equal(instancetypeObj.Spec.Memory.Guest.Value()))
-			Expect(vm.Spec.Preference).To(BeNil())
 
 			// Assert that the original ControllerRevisions have been cleaned up
 			if originalVM.Spec.Instancetype.RevisionName != "" {
