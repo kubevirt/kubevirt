@@ -3191,7 +3191,7 @@ spec:
                 - name: NETWORK_ADDONS_VERSION
                   value: v0.98.0
                 - name: SSP_VERSION
-                  value: v0.22.1
+                  value: v0.22.2
                 - name: HPPO_VERSION
                   value: v0.21.0
                 - name: AAQ_VERSION
@@ -3646,15 +3646,15 @@ spec:
                 - /manager
                 env:
                 - name: VALIDATOR_IMAGE
-                  value: quay.io/kubevirt/kubevirt-template-validator@sha256:a8d15be0336b43bef23aa127d69b040ddfba917c6ae5a83f2226cdb7ae27ccc5
+                  value: quay.io/kubevirt/kubevirt-template-validator@sha256:b227679f8ccc7c53469574ee5f58c9cc39eb6c54ec01377e4b3df3205a2f4ab4
                 - name: OPERATOR_VERSION
-                  value: v0.22.1
+                  value: v0.22.2
                 - name: VM_CONSOLE_PROXY_IMAGE
                 - name: POD_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.namespace
-                image: quay.io/kubevirt/ssp-operator@sha256:4e37f106d2ab188c53ca743cd9226703f1f8640ad8628e80bdd249f48ab905cc
+                image: quay.io/kubevirt/ssp-operator@sha256:61ac0c182528a9b54d84755fc0931ad8d408ae74e7e4b644316a5e9e630ab360
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -4734,7 +4734,7 @@ spec:
     name: kubevirt-apiserver-proxy
   - image: quay.io/kubevirt-ui/kubevirt-plugin@sha256:902af624e05eca764c17137c27813b1618f388e4b1a53b27b54665e8735251a2
     name: kubevirt-plugin
-  - image: quay.io/kubevirt/kubevirt-template-validator@sha256:a8d15be0336b43bef23aa127d69b040ddfba917c6ae5a83f2226cdb7ae27ccc5
+  - image: quay.io/kubevirt/kubevirt-template-validator@sha256:b227679f8ccc7c53469574ee5f58c9cc39eb6c54ec01377e4b3df3205a2f4ab4
     name: kubevirt-template-validator
   - image: quay.io/kubevirt/libguestfs-tools@sha256:47c4ed562b11f690ebe67acd59b795b776f27cea151bde67c43e2faad1a35b08
     name: libguestfs-tools
@@ -4758,7 +4758,7 @@ spec:
     name: pr-helper
   - image: quay.io/kubevirt/sidecar-shim@sha256:a219492c4c9f1232926d3599ccc51f8a6d44e9727d5101df3e040e932ff2181a
     name: sidecar-shim
-  - image: quay.io/kubevirt/ssp-operator@sha256:4e37f106d2ab188c53ca743cd9226703f1f8640ad8628e80bdd249f48ab905cc
+  - image: quay.io/kubevirt/ssp-operator@sha256:61ac0c182528a9b54d84755fc0931ad8d408ae74e7e4b644316a5e9e630ab360
     name: ssp-operator
   - image: quay.io/kubevirt/virt-api@sha256:2aba364d55454906cd5c247a29e62f751d27cfc5fa1fb064872f08135d5b0ca0
     name: virt-api
