@@ -50,6 +50,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
+func deepCopyList(objects []interface{}) []interface{} {
+	for i := range objects {
+		objects[i] = objects[i].(runtime.Object).DeepCopyObject()
+	}
+	return objects
+}
+
 var _ = Describe("ControllerRevision upgrades", func() {
 	type upgrader interface {
 		Upgrade(vm *virtv1.VirtualMachine) error
@@ -63,6 +70,22 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		upgradeHandler                  upgrader
 		controllerrevisionInformerStore cache.Store
 	)
+
+	sanityUpgrade := func(vm *virtv1.VirtualMachine) error {
+		stores := []cache.Store{controllerrevisionInformerStore}
+		var listOfObjects [][]interface{}
+
+		for _, store := range stores {
+			listOfObjects = append(listOfObjects, deepCopyList(store.List()))
+		}
+
+		err := upgradeHandler.Upgrade(vm)
+
+		for i, objects := range listOfObjects {
+			ExpectWithOffset(1, stores[i].List()).To(ConsistOf(objects...))
+		}
+		return err
+	}
 
 	BeforeEach(func() {
 		controllerrevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
@@ -112,7 +135,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(upgradeHandler.Upgrade(vm)).To(Succeed())
+		Expect(sanityUpgrade(vm)).To(Succeed())
 
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -448,7 +471,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(upgradeHandler.Upgrade(vm)).To(Succeed())
+		Expect(sanityUpgrade(vm)).To(Succeed())
 
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -457,7 +480,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		Expect(vm.Spec.Preference.RevisionName).To(Equal(originalPreferenceCR.Name))
 
 		// Repeat the Upgrade call to show it is idempotent
-		Expect(upgradeHandler.Upgrade(vm)).To(Succeed())
+		Expect(sanityUpgrade(vm)).To(Succeed())
 
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
