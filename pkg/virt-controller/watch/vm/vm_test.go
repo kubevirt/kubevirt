@@ -42,6 +42,7 @@ import (
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
+	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -4125,6 +4126,44 @@ var _ = Describe("VirtualMachine", func() {
 
 				err = preferenceInformerStore.Add(preference)
 				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("should capture instance type and preference RevisionNames in VirtualMachine ControllerRevision", func() {
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name: instancetypeObj.Name,
+					Kind: instancetypeapi.SingularResourceName,
+				}
+				vm.Spec.Preference = &v1.PreferenceMatcher{
+					Name: preference.Name,
+					Kind: instancetypeapi.SingularPreferenceResourceName,
+				}
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				addVirtualMachine(vm)
+				sanityExecute(vm)
+
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(revision.HasControllerRevisionRef(vm.Status.InstancetypeRef)).To(BeTrue())
+				Expect(revision.HasControllerRevisionRef(vm.Status.PreferenceRef)).To(BeTrue())
+
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.VirtualMachineRevisionName).ToNot(BeEmpty())
+
+				vmRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+					context.Background(), vmi.Status.VirtualMachineRevisionName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmRevision).ToNot(BeNil())
+
+				revisionData := &VirtualMachineRevisionData{}
+				Expect(json.Unmarshal(vmRevision.Data.Raw, revisionData)).To(Succeed())
+				Expect(revisionData.Spec.Instancetype).ToNot(BeNil())
+				Expect(revisionData.Spec.Instancetype.RevisionName).To(Equal(vm.Status.InstancetypeRef.ControllerRevisionRef.Name))
+				Expect(revisionData.Spec.Preference).ToNot(BeNil())
+				Expect(revisionData.Spec.Preference.RevisionName).To(Equal(vm.Status.PreferenceRef.ControllerRevisionRef.Name))
 			})
 
 			Context("preference", func() {
