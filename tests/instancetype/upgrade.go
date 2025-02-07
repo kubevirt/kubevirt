@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
@@ -23,8 +22,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	instancetypepkg "kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	utils "kubevirt.io/kubevirt/pkg/util"
 
@@ -76,22 +75,20 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	}
 
 	updateInstancetypeMatcher := func(revisionName string) {
-		vmPatch, err := patch.New(
-			patch.WithReplace("/spec/instancetype/revisionName", revisionName),
-		).GeneratePayload()
+		var err error
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-
-		vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, vmPatch, metav1.PatchOptions{})
+		vm.Status.InstancetypeRef.ControllerRevisionRef.Name = revisionName
+		vm, err = virtClient.VirtualMachine(vm.Namespace).UpdateStatus(context.Background(), vm, metav1.UpdateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	updatePreferenceMatcher := func(revisionName string) {
-		vmPatch, err := patch.New(
-			patch.WithReplace("/spec/preference/revisionName", revisionName),
-		).GeneratePayload()
+		var err error
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-
-		vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, vmPatch, metav1.PatchOptions{})
+		vm.Status.PreferenceRef.ControllerRevisionRef.Name = revisionName
+		vm, err = virtClient.VirtualMachine(vm.Namespace).UpdateStatus(context.Background(), vm, metav1.UpdateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -99,18 +96,18 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		var err error
 		vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(vm.Spec.Instancetype).ToNot(BeNil())
-		Expect(vm.Spec.Instancetype.RevisionName).ToNot(BeEmpty())
-		return vm.Spec.Instancetype.RevisionName
+		Expect(revision.HasControllerRevisionRef(vm.Status.InstancetypeRef)).ToNot(BeNil())
+		Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).ToNot(BeEmpty())
+		return vm.Status.InstancetypeRef.ControllerRevisionRef.Name
 	}
 
 	getPreferenceRevisionName := func() string {
 		var err error
 		vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(vm.Spec.Preference).ToNot(BeNil())
-		Expect(vm.Spec.Preference.RevisionName).ToNot(BeEmpty())
-		return vm.Spec.Preference.RevisionName
+		Expect(revision.HasControllerRevisionRef(vm.Status.PreferenceRef)).ToNot(BeNil())
+		Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).ToNot(BeEmpty())
+		return vm.Status.PreferenceRef.ControllerRevisionRef.Name
 	}
 
 	BeforeEach(func() {
