@@ -20,6 +20,9 @@
 package scp
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/spf13/cobra"
 
 	"k8s.io/client-go/tools/clientcmd"
@@ -73,31 +76,45 @@ func (o *SCP) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	if o.options.WrapLocalSSH {
-		clientArgs := o.buildSCPTarget(local, remote, toRemote)
+		clientArgs := o.buildSCPTarget(*local, *remote, toRemote)
 		return ssh.RunLocalClient(remote.Kind, remote.Namespace, remote.Name, &o.options, clientArgs)
 	}
 
-	return o.nativeSCP(local, remote, toRemote)
+	return o.nativeSCP(*local, *remote, toRemote)
 }
 
-func PrepareCommand(cmd *cobra.Command, clientConfig clientcmd.ClientConfig, opts *ssh.SSHOptions, args []string) (local templates.LocalSCPArgument, remote templates.RemoteSCPArgument, toRemote bool, err error) {
+type LocalArgument struct {
+	Path string
+}
+
+type RemoteArgument struct {
+	Kind      string
+	Namespace string
+	Name      string
+	Username  string
+	Path      string
+}
+
+func PrepareCommand(cmd *cobra.Command, clientConfig clientcmd.ClientConfig, opts *ssh.SSHOptions, args []string) (*LocalArgument, *RemoteArgument, bool, error) {
 	opts.IdentityFilePathProvided = cmd.Flags().Changed(ssh.IdentityFilePathFlag)
-	local, remote, toRemote, err = templates.ParseSCPArguments(args[0], args[1])
+
+	local, remote, toRemote, err := ParseTarget(args[0], args[1])
 	if err != nil {
-		return
+		return nil, nil, false, err
 	}
 
 	if len(remote.Namespace) < 1 {
 		remote.Namespace, _, err = clientConfig.Namespace()
 		if err != nil {
-			return
+			return nil, nil, false, err
 		}
 	}
 
 	if len(remote.Username) > 0 {
 		opts.SSHUsername = remote.Username
 	}
-	return
+
+	return local, remote, toRemote, nil
 }
 
 func usage() string {
@@ -115,4 +132,46 @@ func usage() string {
 
   # Copy a file from the remote location to a local folder
   {{ProgramName}} scp jdoe@testvmi:myfile.bin ~/myfile.bin`
+}
+
+func ParseTarget(source, destination string) (*LocalArgument, *RemoteArgument, bool, error) {
+	if strings.Contains(source, ":") && strings.Contains(destination, ":") {
+		return nil, nil, false, fmt.Errorf(
+			"copying from a remote location to another remote location is not supported: %q to %q",
+			source, destination,
+		)
+	}
+
+	if !strings.Contains(source, ":") && !strings.Contains(destination, ":") {
+		return nil, nil, false, fmt.Errorf(
+			"none of the two provided locations seems to be a remote location: %q to %q",
+			source, destination,
+		)
+	}
+
+	var toRemote bool
+	if strings.Contains(destination, ":") {
+		source, destination = destination, source
+		toRemote = true
+	}
+
+	split := strings.SplitN(source, ":", 2)
+	if len(split) != 2 {
+		return nil, nil, toRemote, fmt.Errorf("invalid remote argument format: %q", source)
+	}
+
+	remote := &RemoteArgument{
+		Path: split[1],
+	}
+	local := &LocalArgument{
+		Path: destination,
+	}
+	var err error
+	remote.Kind, remote.Namespace, remote.Name, remote.Username, err = ssh.ParseTarget(split[0])
+
+	if err != nil {
+		return nil, nil, false, err
+	}
+
+	return local, remote, toRemote, nil
 }
