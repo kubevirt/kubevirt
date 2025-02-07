@@ -619,6 +619,13 @@ func (vr *VolumeRenderer) handlePVCVolume(volume v1.Volume, pvcStore cache.Store
 }
 
 func (vr *VolumeRenderer) handleEphemeralVolume(volume v1.Volume, pvcStore cache.Store) error {
+	fmt.Println(volume)
+	if volume.Ephemeral == nil {
+		return fmt.Errorf("volume.Ephemeral was nil")
+	}
+	if volume.Ephemeral.PersistentVolumeClaim == nil {
+		return fmt.Errorf("volume.Ephemeral.PersistentVolumeClaim was nil")
+	}
 	claimName := volume.Ephemeral.PersistentVolumeClaim.ClaimName
 	if err := vr.addPVCToLaunchManifest(pvcStore, volume, claimName); err != nil {
 		return err
