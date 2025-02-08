@@ -60,6 +60,7 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 		Driver: &libvirtxml.DomainFilesystemDriver{Type: "virtiofs"}})
 
 	domainSpec.Devices.Shmems = append(domainSpec.Devices.Shmems, libvirtxml.DomainShmem{
+		Name: "shmem1",
 		Size: &libvirtxml.DomainShmemSize{
 			Value: 32,
 			Unit:  "M",
