@@ -59,16 +59,37 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 		Target: &libvirtxml.DomainFilesystemTarget{Dir: vmiSpec.Annotations[serviceAccountTargetDirAnnotation]},
 		Driver: &libvirtxml.DomainFilesystemDriver{Type: "virtiofs"}})
 
-	domainSpec.Devices.Shmems = append(domainSpec.Devices.Shmems, libvirtxml.DomainShmem{
-		Name: "shmem1",
-		Size: &libvirtxml.DomainShmemSize{
-			Value: 32,
-			Unit:  "M",
+	domainSpec.MemoryBacking = &libvirtxml.DomainMemoryBacking{
+		MemorySource: &libvirtxml.DomainMemorySource{
+			Type: "memfd",
 		},
-		Model: &libvirtxml.DomainShmemModel{
-			Type: "ivshmem-plain",
+		MemoryAccess: &libvirtxml.DomainMemoryAccess{
+			Mode: "shared",
 		},
-	})
+	}
+	var id uint = 0
+
+	domainSpec.CPU.Numa = &libvirtxml.DomainNuma{
+		Cell: []libvirtxml.DomainCell{
+			{
+				ID:     &id,
+				CPUs:   fmt.Sprintf("0-%d", domainSpec.VCPU.Value-1),
+				Memory: 30,
+				Unit:   "KiB",
+			},
+		},
+	}
+
+	// domainSpec.Devices.Shmems = append(domainSpec.Devices.Shmems, libvirtxml.DomainShmem{
+	// 	Name: "shmem1",
+	// 	Size: &libvirtxml.DomainShmemSize{
+	// 		Value: 32,
+	// 		Unit:  "M",
+	// 	},
+	// 	Model: &libvirtxml.DomainShmemModel{
+	// 		Type: "ivshmem-plain",
+	// 	},
+	// })
 
 	newDomainXML, err := xml.Marshal(domainSpec)
 	if err != nil {
