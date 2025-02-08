@@ -2988,13 +2988,7 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	}
 
 	vmi := origVMI.DeepCopy()
-	// Find preallocated volumes
-	var preallocatedVolumes []string
-	for _, volumeStatus := range vmi.Status.VolumeStatus {
-		if volumeStatus.PersistentVolumeClaimInfo != nil && volumeStatus.PersistentVolumeClaimInfo.Preallocated {
-			preallocatedVolumes = append(preallocatedVolumes, volumeStatus.Name)
-		}
-	}
+	preallocatedVolumes := c.getPreallocatedVolumes(vmi)
 
 	err = hostdisk.ReplacePVCByHostDisk(vmi)
 	if err != nil {
@@ -3172,6 +3166,16 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		}
 	}
 	return errors.NewAggregate(errorTolerantFeaturesError)
+}
+
+func (c *VirtualMachineController) getPreallocatedVolumes(vmi *v1.VirtualMachineInstance) []string {
+	preallocatedVolumes := []string{}
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		if volumeStatus.PersistentVolumeClaimInfo != nil && volumeStatus.PersistentVolumeClaimInfo.Preallocated {
+			preallocatedVolumes = append(preallocatedVolumes, volumeStatus.Name)
+		}
+	}
+	return preallocatedVolumes
 }
 
 func (c *VirtualMachineController) hotplugSriovInterfaces(vmi *v1.VirtualMachineInstance) error {
