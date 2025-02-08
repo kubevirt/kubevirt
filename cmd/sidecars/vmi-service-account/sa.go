@@ -37,6 +37,27 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 		return "", fmt.Errorf("failed to unmarshal given domain spec: %s %s", err, string(domainXML))
 	}
 
+	domainSpec.MemoryBacking = &libvirtxml.DomainMemoryBacking{
+		MemorySource: &libvirtxml.DomainMemorySource{
+			Type: "memfd",
+		},
+		MemoryAccess: &libvirtxml.DomainMemoryAccess{
+			Mode: "shared",
+		},
+	}
+
+	var id uint = 0
+	domainSpec.CPU.Numa = &libvirtxml.DomainNuma{
+		Cell: []libvirtxml.DomainCell{
+			{
+				ID:     &id,
+				CPUs:   fmt.Sprintf("0-%d", domainSpec.VCPU.Value-1),
+				Memory: 30, // todo: make it dynamic
+				Unit:   "KiB",
+			},
+		},
+	}
+
 	// TODO: Verify if this configuration applies to everything
 	var (
 		d uint = 0x0000
@@ -46,38 +67,29 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 	)
 
 	// Create a libvirt domain entry for a virtio filesystem that maps to the socket file of the service account mounted from the pod
-	domainSpec.Devices.Filesystems = append(domainSpec.Devices.Filesystems, libvirtxml.DomainFilesystem{
-		Address: &libvirtxml.DomainAddress{
-			PCI: &libvirtxml.DomainAddressPCI{
-				Domain:   &d,
-				Bus:      &b,
-				Function: &f,
-				Slot:     &s,
-			},
-		},
-		Source: &libvirtxml.DomainFilesystemSource{Mount: &libvirtxml.DomainFilesystemSourceMount{Dir: vmiSpec.Annotations[virtioFsSocketDirAnnotation]}},
-		Target: &libvirtxml.DomainFilesystemTarget{Dir: vmiSpec.Annotations[serviceAccountTargetDirAnnotation]},
-		Driver: &libvirtxml.DomainFilesystemDriver{Type: "virtiofs"}})
-
-	domainSpec.MemoryBacking = &libvirtxml.DomainMemoryBacking{
-		MemorySource: &libvirtxml.DomainMemorySource{
-			Type: "memfd",
-		},
-		MemoryAccess: &libvirtxml.DomainMemoryAccess{
-			Mode: "shared",
-		},
+	fsFound := false
+	for _, fs := range domainSpec.Devices.Filesystems {
+		if fs.Source != nil && fs.Source.Mount != nil &&
+			fs.Target != nil && vmiSpec.Annotations != nil {
+			if fs.Source.Mount.Dir == vmiSpec.Annotations[virtioFsSocketDirAnnotation] && fs.Target.Dir == vmiSpec.Annotations[serviceAccountTargetDirAnnotation] {
+				fsFound = true
+			}
+		}
 	}
-	var id uint = 0
 
-	domainSpec.CPU.Numa = &libvirtxml.DomainNuma{
-		Cell: []libvirtxml.DomainCell{
-			{
-				ID:     &id,
-				CPUs:   fmt.Sprintf("0-%d", domainSpec.VCPU.Value-1),
-				Memory: 30,
-				Unit:   "KiB",
+	if !fsFound {
+		domainSpec.Devices.Filesystems = append(domainSpec.Devices.Filesystems, libvirtxml.DomainFilesystem{
+			Address: &libvirtxml.DomainAddress{
+				PCI: &libvirtxml.DomainAddressPCI{
+					Domain:   &d,
+					Bus:      &b,
+					Function: &f,
+					Slot:     &s,
+				},
 			},
-		},
+			Source: &libvirtxml.DomainFilesystemSource{Mount: &libvirtxml.DomainFilesystemSourceMount{Dir: vmiSpec.Annotations[virtioFsSocketDirAnnotation]}},
+			Target: &libvirtxml.DomainFilesystemTarget{Dir: vmiSpec.Annotations[serviceAccountTargetDirAnnotation]},
+			Driver: &libvirtxml.DomainFilesystemDriver{Type: "virtiofs"}})
 	}
 
 	newDomainXML, err := xml.Marshal(domainSpec)
