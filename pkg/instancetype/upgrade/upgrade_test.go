@@ -29,12 +29,11 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -43,6 +42,7 @@ import (
 	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
+	fakeclientset "kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/instancetype/upgrade"
@@ -58,9 +58,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 	var (
 		vm *virtv1.VirtualMachine
 
-		virtClient  *kubecli.MockKubevirtClient
-		vmInterface *kubecli.MockVirtualMachineInterface
-		k8sClient   *k8sfake.Clientset
+		virtClient *kubecli.MockKubevirtClient
 
 		upgradeHandler                  upgrader
 		controllerrevisionInformerStore cache.Store
@@ -72,54 +70,17 @@ var _ = Describe("ControllerRevision upgrades", func() {
 
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
-		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
 
-		k8sClient = k8sfake.NewSimpleClientset()
-		virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
+		virtClient.EXPECT().AppsV1().Return(k8sfake.NewSimpleClientset().AppsV1()).AnyTimes()
+
+		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(
+			fakeclientset.NewSimpleClientset().KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
 
 		vm = kubecli.NewMinimalVM("testvm")
 		vm.Namespace = k8sv1.NamespaceDefault
 
 		upgradeHandler = upgrade.New(controllerrevisionInformerStore, virtClient)
 	})
-
-	expectControllerRevisionCreation := func() {
-		k8sClient.Fake.PrependReactor("create", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			created, ok := action.(testing.CreateAction)
-			Expect(ok).To(BeTrue())
-
-			createdObj := created.GetObject()
-			createdCR, ok := createdObj.(*appsv1.ControllerRevision)
-			Expect(ok).To(BeTrue())
-
-			Expect(upgrade.IsObjectLatestVersion(createdCR)).To(BeTrue())
-
-			Expect(controllerrevisionInformerStore.Add(createdCR)).To(Succeed())
-			return true, createdObj, nil
-		})
-	}
-
-	expectVirtualMachineRevisionNamePatch := func() {
-		vmInterface.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{})
-	}
-
-	crKeyFunc := func(namespace, name string) string {
-		return types.NamespacedName{Namespace: namespace, Name: name}.String()
-	}
-
-	expectControllerRevisionDeletion := func() {
-		k8sClient.Fake.PrependReactor("delete", "controllerrevisions", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			deleted, ok := action.(testing.DeleteAction)
-			Expect(ok).To(BeTrue())
-
-			deletedObj, exists, err := controllerrevisionInformerStore.GetByKey(crKeyFunc(deleted.GetNamespace(), deleted.GetName()))
-			Expect(exists).To(BeTrue())
-			Expect(err).ToNot(HaveOccurred())
-			Expect(controllerrevisionInformerStore.Delete(deletedObj)).To(Succeed())
-			return true, nil, nil
-		})
-	}
 
 	createControllerRevisionFromObject := func(obj runtime.Object) *appsv1.ControllerRevision {
 		originalCR, err := revision.CreateControllerRevision(vm, obj)
@@ -147,39 +108,39 @@ var _ = Describe("ControllerRevision upgrades", func() {
 			RevisionName: originalPreferenceCR.Name,
 		}
 
-		expectControllerRevisionCreation()
-		expectControllerRevisionCreation()
-
-		expectVirtualMachineRevisionNamePatch()
-
-		expectControllerRevisionDeletion()
-		expectControllerRevisionDeletion()
+		var err error
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
 		Expect(upgradeHandler.Upgrade(vm)).To(Succeed())
 
-		Expect(controllerrevisionInformerStore.List()).To(HaveLen(2))
-
-		Expect(vm.Spec.Instancetype.Name).ToNot(Equal(originalInstancetypeCR.Name))
-		Expect(vm.Spec.Preference.Name).ToNot(Equal(originalPreferenceCR.Name))
-
-		newObj, exists, err := controllerrevisionInformerStore.GetByKey(crKeyFunc(vm.Namespace, vm.Spec.Instancetype.RevisionName))
-		Expect(exists).To(BeTrue())
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		newInstancetypeCR, ok := newObj.(*appsv1.ControllerRevision)
-		Expect(ok).To(BeTrue())
+		Expect(vm.Spec.Instancetype.RevisionName).ToNot(Equal(originalInstancetypeCR.Name))
+
+		_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+			context.Background(), originalInstancetypeCR.Name, metav1.GetOptions{})
+		Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+
+		newInstancetypeCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+			context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
 		Expect(upgrade.IsObjectLatestVersion(newInstancetypeCR)).To(BeTrue())
 		if originalKindLabel, hasLabel := originalInstancetypeCR.Labels[instancetypeapi.ControllerRevisionObjectKindLabel]; hasLabel {
 			Expect(newInstancetypeCR.Labels).To(HaveKeyWithValue(instancetypeapi.ControllerRevisionObjectKindLabel, originalKindLabel))
 		}
 
-		newObj, exists, err = controllerrevisionInformerStore.GetByKey(crKeyFunc(vm.Namespace, vm.Spec.Preference.RevisionName))
-		Expect(exists).To(BeTrue())
-		Expect(err).ToNot(HaveOccurred())
+		Expect(vm.Spec.Preference.RevisionName).ToNot(Equal(originalPreferenceCR.Name))
 
-		newPreferenceCR, ok := newObj.(*appsv1.ControllerRevision)
-		Expect(ok).To(BeTrue())
+		_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+			context.Background(), originalPreferenceCR.Name, metav1.GetOptions{})
+		Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+
+		newPreferenceCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+			context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
 		Expect(upgrade.IsObjectLatestVersion(newPreferenceCR)).To(BeTrue())
 		if originalKindLabel, hasLabel := originalPreferenceCR.Labels[instancetypeapi.ControllerRevisionObjectKindLabel]; hasLabel {
@@ -483,13 +444,23 @@ var _ = Describe("ControllerRevision upgrades", func() {
 			RevisionName: originalPreferenceCR.Name,
 		}
 
+		var err error
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
 		Expect(upgradeHandler.Upgrade(vm)).To(Succeed())
+
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
 		Expect(vm.Spec.Instancetype.RevisionName).To(Equal(originalInstancetypeCR.Name))
 		Expect(vm.Spec.Preference.RevisionName).To(Equal(originalPreferenceCR.Name))
 
 		// Repeat the Upgrade call to show it is idempotent
 		Expect(upgradeHandler.Upgrade(vm)).To(Succeed())
+
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
 		Expect(vm.Spec.Instancetype.RevisionName).To(Equal(originalInstancetypeCR.Name))
 		Expect(vm.Spec.Preference.RevisionName).To(Equal(originalPreferenceCR.Name))
