@@ -75,7 +75,7 @@ func (vcpuMetrics) Collect(vmiReport *VirtualMachineInstanceReport) []operatorme
 				"id":    stringVcpuIdx,
 				"state": humanReadableState(vcpu.State),
 			}
-			crs = append(crs, vmiReport.newCollectorResultWithLabels(vcpuSeconds, microsecondsToSeconds(vcpu.Time), additionalLabels))
+			crs = append(crs, vmiReport.newCollectorResultWithLabels(vcpuSeconds, nanosecondsToSeconds(vcpu.Time), additionalLabels))
 		}
 
 		if vcpu.WaitSet {
