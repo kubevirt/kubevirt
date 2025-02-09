@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.15.0-unstable
-    createdAt: "2025-02-09 05:58:09"
+    createdAt: "2025-02-09 09:42:58"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     features.operators.openshift.io/cnf: "false"
@@ -3197,7 +3197,7 @@ spec:
                 - name: AAQ_VERSION
                   value: v1.3.0
                 - name: KV_CONSOLE_PLUGIN_IMAGE
-                  value: quay.io/kubevirt-ui/kubevirt-plugin@sha256:902af624e05eca764c17137c27813b1618f388e4b1a53b27b54665e8735251a2
+                  value: quay.io/kubevirt-ui/kubevirt-plugin@sha256:9656716bf6aca3ae2b81d28de6d228c1797d3f81934ccd862854be62a895cc2a
                 - name: KV_CONSOLE_PROXY_IMAGE
                   value: quay.io/kubevirt-ui/kubevirt-apiserver-proxy@sha256:935475c2850466aa5ac57e4de627fb177515cb2c402a95842ead095d82b6df5f
                 - name: PRIMARY_UDN_SIDECAR_IMAGE
@@ -4732,7 +4732,7 @@ spec:
     name: kubesecondarydns
   - image: quay.io/kubevirt-ui/kubevirt-apiserver-proxy@sha256:935475c2850466aa5ac57e4de627fb177515cb2c402a95842ead095d82b6df5f
     name: kubevirt-apiserver-proxy
-  - image: quay.io/kubevirt-ui/kubevirt-plugin@sha256:902af624e05eca764c17137c27813b1618f388e4b1a53b27b54665e8735251a2
+  - image: quay.io/kubevirt-ui/kubevirt-plugin@sha256:9656716bf6aca3ae2b81d28de6d228c1797d3f81934ccd862854be62a895cc2a
     name: kubevirt-plugin
   - image: quay.io/kubevirt/kubevirt-template-validator@sha256:b227679f8ccc7c53469574ee5f58c9cc39eb6c54ec01377e4b3df3205a2f4ab4
     name: kubevirt-template-validator
