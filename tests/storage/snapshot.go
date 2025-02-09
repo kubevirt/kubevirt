@@ -320,7 +320,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				return vm, vmi
 			}
 
-			checkVMFreeze := func(snapshot *snapshotv1.VirtualMachineSnapshot, vmi *v1.VirtualMachineInstance, hasGuestAgent, shouldFreeze bool) {
+			checkVMFreeze := func(snapshot *snapshotv1.VirtualMachineSnapshot, vmi *v1.VirtualMachineInstance, hasGuestAgent bool, assertionFunc func(*v1.VirtualMachineInstance)) {
 				var expectedIndications []snapshotv1.Indication
 				if hasGuestAgent {
 					expectedIndications = []snapshotv1.Indication{snapshotv1.VMSnapshotOnlineSnapshotIndication, snapshotv1.VMSnapshotGuestAgentIndication}
@@ -334,35 +334,19 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(snapshot).To(matcher.HaveConditionMissingOrFalse(snapshotv1.ConditionProgressing))
 				Expect(snapshot).To(matcher.HaveConditionTrue(snapshotv1.ConditionReady))
 
-				Expect(console.LoginToFedora(vmi)).To(Succeed())
-				journalctlCheck := "journalctl --file /var/log/journal/*/system.journal"
-				expectedFreezeOutput := "executing fsfreeze hook with arg 'freeze'"
-				expectedThawOutput := "executing fsfreeze hook with arg 'thaw'"
+				assertionFunc(vmi)
+
+				// Sanity - ensure the tests are not lying about the image's guest agent availability
+				expectResult := console.ShellFail
 				if hasGuestAgent {
-					if shouldFreeze {
-						Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-							&expect.BSnd{S: fmt.Sprintf(grepCmd, journalctlCheck, expectedFreezeOutput)},
-							&expect.BExp{R: fmt.Sprintf(qemuGa, expectedFreezeOutput)},
-							&expect.BSnd{S: console.EchoLastReturnValue},
-							&expect.BExp{R: console.RetValue("0")},
-							&expect.BSnd{S: fmt.Sprintf(grepCmd, journalctlCheck, expectedThawOutput)},
-							&expect.BExp{R: fmt.Sprintf(qemuGa, expectedThawOutput)},
-							&expect.BSnd{S: console.EchoLastReturnValue},
-							&expect.BExp{R: console.RetValue("0")},
-							&expect.BSnd{S: fmt.Sprintf(grepCmdWithCount, journalctlCheck, expectedThawOutput)},
-							&expect.BExp{R: console.RetValue("1")},
-							&expect.BSnd{S: console.EchoLastReturnValue},
-							&expect.BExp{R: console.RetValue("0")},
-						}, 30)).To(Succeed())
-					} else {
-						Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-							&expect.BSnd{S: fmt.Sprintf(grepCmd, journalctlCheck, expectedFreezeOutput)},
-							&expect.BExp{R: console.PromptExpression},
-							&expect.BSnd{S: console.EchoLastReturnValue},
-							&expect.BExp{R: console.RetValue("1")},
-						}, 30)).To(Succeed())
-					}
+					expectResult = console.ShellSuccess
 				}
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "qemu-ga --version\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: console.EchoLastReturnValue},
+					&expect.BExp{R: expectResult},
+				}, 30)).To(Succeed())
 			}
 
 			checkContentSourceAndMemory := func(vm *v1.VirtualMachine, contentName string, expectedMemory resource.Quantity) {
@@ -384,6 +368,43 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 					commandSlice = append(commandSlice, strings.Trim(c, "\" "))
 				}
 				return exec.ExecuteCommandOnPodWithResults(pod, pod.Annotations[annoContainer], commandSlice)
+			}
+
+			ensureFreezeFedora := func(vmi *v1.VirtualMachineInstance) {
+				Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+				journalctlCheck := "journalctl --file /var/log/journal/*/system.journal"
+				expectedFreezeOutput := "executing fsfreeze hook with arg 'freeze'"
+				expectedThawOutput := "executing fsfreeze hook with arg 'thaw'"
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: fmt.Sprintf(grepCmd, journalctlCheck, expectedFreezeOutput)},
+					&expect.BExp{R: fmt.Sprintf(qemuGa, expectedFreezeOutput)},
+					&expect.BSnd{S: console.EchoLastReturnValue},
+					&expect.BExp{R: console.RetValue("0")},
+					&expect.BSnd{S: fmt.Sprintf(grepCmd, journalctlCheck, expectedThawOutput)},
+					&expect.BExp{R: fmt.Sprintf(qemuGa, expectedThawOutput)},
+					&expect.BSnd{S: console.EchoLastReturnValue},
+					&expect.BExp{R: console.RetValue("0")},
+					&expect.BSnd{S: fmt.Sprintf(grepCmdWithCount, journalctlCheck, expectedThawOutput)},
+					&expect.BExp{R: console.RetValue("1")},
+					&expect.BSnd{S: console.EchoLastReturnValue},
+					&expect.BExp{R: console.RetValue("0")},
+				}, 30)).To(Succeed())
+			}
+
+			ensureNoFreezeAlpine := func(vmi *v1.VirtualMachineInstance) {
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				syslogCheck := "cat /var/log/messages"
+				expectedFreezeOutput := "guest-fsfreeze called"
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "ls /var/log/messages\n"},
+					&expect.BExp{R: "/var/log/messages"},
+					&expect.BSnd{S: fmt.Sprintf(grepCmd, syslogCheck, expectedFreezeOutput)},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: console.EchoLastReturnValue},
+					&expect.BExp{R: console.RetValue("1")},
+				}, 30)).To(Succeed())
 			}
 
 			It("[test_id:6767]with volumes and guest agent available", func() {
@@ -448,8 +469,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				waitSnapshotReady()
-				shouldFreeze := true
-				checkVMFreeze(snapshot, vmi, true, shouldFreeze)
+				checkVMFreeze(snapshot, vmi, true, ensureFreezeFedora)
 
 				Expect(snapshot.Status.CreationTime).ToNot(BeNil())
 				contentName := *snapshot.Status.VirtualMachineSnapshotContentName
@@ -459,7 +479,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			It("[test_id:6768]with volumes and no guest agent available", func() {
 				quantity, err := resource.ParseQuantity("1Gi")
 				Expect(err).ToNot(HaveOccurred())
-				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
+				vmi := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking())
 				vmi.Namespace = testsuite.GetTestNamespace(nil)
 				vm = libvmi.NewVirtualMachine(vmi)
 				dvName := "dv-" + vm.Name
@@ -500,8 +520,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				waitSnapshotReady()
-				shouldFreeze := false
-				checkVMFreeze(snapshot, vmi, false, shouldFreeze)
+				checkVMFreeze(snapshot, vmi, false, ensureNoFreezeAlpine)
 
 				Expect(snapshot.Status.CreationTime).ToNot(BeNil())
 				contentName := *snapshot.Status.VirtualMachineSnapshotContentName
@@ -509,7 +528,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			})
 
 			It("[test_id:6769]without volumes with guest agent available", func() {
-				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
+				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 				vmi.Namespace = testsuite.GetTestNamespace(nil)
 				vm = libvmi.NewVirtualMachine(vmi)
 
@@ -525,8 +544,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				waitSnapshotReady()
-				shouldFreeze := false
-				checkVMFreeze(snapshot, vmi, true, shouldFreeze)
+				checkVMFreeze(snapshot, vmi, true, ensureNoFreezeAlpine)
 
 				Expect(snapshot.Status.CreationTime).ToNot(BeNil())
 				contentName := *snapshot.Status.VirtualMachineSnapshotContentName
