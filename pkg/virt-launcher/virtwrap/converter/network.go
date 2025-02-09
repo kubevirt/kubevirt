@@ -100,6 +100,10 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext)
 				}
 			}
 		}
+
+		if iface.State == v1.InterfaceStateLinkDown {
+			domainIface.LinkState = &api.LinkState{State: "down"}
+		}
 		domainInterfaces = append(domainInterfaces, domainIface)
 	}
 

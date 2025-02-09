@@ -47,6 +47,10 @@ func ApplyDynamicIfaceRequestOnVMI(
 			vmiIface := vmispec.LookupInterfaceByName(vmiSpecCopy.Domain.Devices.Interfaces, vmIface.Name)
 			vmiIface.State = v1.InterfaceStateAbsent
 		}
+		if vmIface.State == v1.InterfaceStateLinkDown || vmIface.State == v1.InterfaceStateLinkUp {
+			vmiIface := vmispec.LookupInterfaceByName(vmiSpecCopy.Domain.Devices.Interfaces, vmIface.Name)
+			vmiIface.State = vmIface.State
+		}
 	}
 	return vmiSpecCopy
 }
@@ -65,4 +69,15 @@ func ClearDetachedInterfaces(
 	}
 
 	return ifaces, vmispec.FilterNetworksByInterfaces(specNets, ifaces)
+}
+
+func UpdateInterfaceState(filteredVMIIfaces, vmIfaces []v1.Interface) {
+	for i, vmiIface := range filteredVMIIfaces {
+		for _, vmIface := range vmIfaces {
+			if vmIface.Name == vmiIface.Name {
+				filteredVMIIfaces[i].State = vmIface.State
+				break
+			}
+		}
+	}
 }

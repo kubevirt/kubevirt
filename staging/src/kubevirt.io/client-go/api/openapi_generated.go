@@ -20709,7 +20709,7 @@ func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) commo
 					},
 					"state": {
 						SchemaProps: spec.SchemaProps{
-							Description: "State represents the requested operational state of the interface. The (only) value supported is `absent`, expressing a request to remove the interface.",
+							Description: "State represents the requested operational state of the interface. The supported values are: `absent`, expressing a request to remove the interface. `down`, expressing a request to set the link down. `up`, expressing a request to set the link up. Empty value functions as `up`.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
