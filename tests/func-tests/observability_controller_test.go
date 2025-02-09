@@ -2,8 +2,6 @@ package tests_test
 
 import (
 	"context"
-	"errors"
-	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,15 +25,6 @@ var _ = Describe("Observability Controller", Label(tests.OpenshiftLabel, testNam
 	})
 
 	Context("PodDisruptionBudgetAtLimit", func() {
-		BeforeEach(func(ctx context.Context) {
-			certExists, err := serviceAccountTlsCertPathExists()
-			Expect(err).ToNot(HaveOccurred())
-
-			if !certExists {
-				Fail("Service account TLS certificate path does not exist")
-			}
-		})
-
 		It("should be silenced", func(ctx context.Context) {
 			httpClient, err := observability.NewHTTPClient()
 			Expect(err).ToNot(HaveOccurred())
@@ -74,15 +63,3 @@ var _ = Describe("Observability Controller", Label(tests.OpenshiftLabel, testNam
 		})
 	})
 })
-
-func serviceAccountTlsCertPathExists() (bool, error) {
-	_, err := os.Stat(observability.ServiceAccountTlsCertPath)
-	if errors.Is(err, os.ErrNotExist) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-
-	return true, nil
-}
