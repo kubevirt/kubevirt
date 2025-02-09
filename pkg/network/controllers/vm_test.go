@@ -226,6 +226,38 @@ var _ = Describe("VM Network Controller", func() {
 		Entry("when the current iface state is absent", v1.InterfaceStateAbsent),
 	)
 
+	It("sync does not hotplug a new interface when it uses binding other than bridge or SR-IOV", func() {
+		clientset := fake.NewSimpleClientset()
+		c := controllers.NewVMController(
+			clientset,
+			stubPodGetter{pod: &k8sv1.Pod{}},
+		)
+
+		vmi := libvmi.New()
+		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
+
+		plugNetworkInterface(vm, libvmi.InterfaceWithBindingPlugin(secondaryNetName, v1.PluginBinding{Name: "someplugin"}))
+
+		// Simulate the existence of the VMI on the server (to allow the Sync to patch it).
+		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		originalVM := vm.DeepCopy()
+		updatedVM, err := c.Sync(vm, vmi)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(updatedVM).To(Equal(originalVM))
+
+		// Assert that the hotunplug had not reached the VMI
+		updatedVMI, err := clientset.KubevirtV1().
+			VirtualMachineInstances(vmi.Namespace).
+			Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(updatedVMI.Spec.Networks).To(BeEmpty())
+		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(BeEmpty())
+	})
+
 	It("sync succeeds to clear hotunplug interfaces", func() {
 		clientset := fake.NewSimpleClientset()
 		c := controllers.NewVMController(
