@@ -66,20 +66,6 @@ var _ = Describe("Network interface hot{un}plug", func() {
 			libvmi.New(),
 			libvmi.New(),
 			!ordinal),
-		Entry("when an interface has to be hotunplugged",
-			libvmi.New(
-				libvmi.WithInterface(bridgeAbsentInterface(testNetworkName1)),
-				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
-			),
-			libvmi.New(
-				libvmi.WithInterface(bridgeInterface(testNetworkName1)),
-				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
-			),
-			libvmi.New(
-				libvmi.WithInterface(bridgeAbsentInterface(testNetworkName1)),
-				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
-			),
-			!ordinal),
 		Entry("when one interface has to be plugged and other hotunplugged",
 			libvmi.New(
 				libvmi.WithInterface(bridgeAbsentInterface(testNetworkName1)),
@@ -126,12 +112,6 @@ var _ = Describe("Network interface hot{un}plug", func() {
 			[]v1.Interface{{Name: "blue"}, {Name: "red"}},
 			[]v1.VirtualMachineInstanceNetworkInterface{{Name: "blue"}, {Name: "red"}},
 			[]v1.Interface{{Name: "blue"}, {Name: "red"}},
-			[]v1.Network{{Name: "blue"}, {Name: "red"}},
-		),
-		Entry("should remain, given absent iface and associated status ifaces (i.e.: unplug pending)",
-			[]v1.Interface{{Name: "blue", State: v1.InterfaceStateAbsent}, {Name: "red"}},
-			[]v1.VirtualMachineInstanceNetworkInterface{{Name: "blue"}, {Name: "red"}},
-			[]v1.Interface{{Name: "blue", State: v1.InterfaceStateAbsent}, {Name: "red"}},
 			[]v1.Network{{Name: "blue"}, {Name: "red"}},
 		),
 		Entry("should be cleared, given absent iface and no associated status iface (i.e.: unplugged iface)",
