@@ -61,7 +61,7 @@ spec:
         - name: CDI_VERSION
           value: v1.61.1
         - name: NETWORK_ADDONS_VERSION
-          value: v0.98.0
+          value: v0.98.1
         - name: SSP_VERSION
           value: v0.22.2
         - name: HPPO_VERSION
@@ -298,7 +298,7 @@ spec:
         - name: LINUX_BRIDGE_MARKER_IMAGE
           value: quay.io/kubevirt/bridge-marker@sha256:e492ca4a6d1234781928aedefb096941d95babee4116baaba4d2a3834813826a
         - name: OVS_CNI_IMAGE
-          value: ghcr.io/k8snetworkplumbingwg/ovs-cni-plugin@sha256:d088e47f181007fe4823f0384ebae071950d105cd36c9187f9d06fd815288990
+          value: ghcr.io/k8snetworkplumbingwg/ovs-cni-plugin@sha256:a45708d23af7db5d46203bd6d5ebf5aef05da0e02763e105fe3cc915f61b3158
         - name: KUBEMACPOOL_IMAGE
           value: quay.io/kubevirt/kubemacpool@sha256:477a781717cebdb3ce7b63338c44abb9e34058ca9849f932d6d5cef8950b532e
         - name: MACVTAP_CNI_IMAGE
@@ -310,15 +310,15 @@ spec:
         - name: CORE_DNS_IMAGE
           value: registry.k8s.io/coredns/coredns@sha256:a0ead06651cf580044aeb0a0feba63591858fb2e43ade8c9dea45a6a89ae7e5e
         - name: KUBEVIRT_IPAM_CONTROLLER_IMAGE
-          value: ghcr.io/kubevirt/ipam-controller@sha256:b1a25c8f60775e176c3dd0911fe9ffec0f5bf2f5687d2d3aee5c4d1702532071
+          value: ghcr.io/kubevirt/ipam-controller@sha256:9c756a568ec6c5988767d98f69d18a333915805f9cf72bd16c2d7b78e561ef54
         - name: PASST_BINDING_CNI_IMAGE
-          value: ghcr.io/kubevirt/passt-binding-cni@sha256:7ebfa89a30965c5297f86a12cf799346a71439a197553eca322e064c5d8e1ff0
+          value: ghcr.io/kubevirt/passt-binding-cni@sha256:e3112f70dec1adc7ce531250f1207f03152722df80e3f671946d47dce0a5ddbc
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/cluster-network-addons-operator@sha256:e9f468359e6f8fb560e2051cc28294842fb556964dc053fde4903fb4c3a60994
+          value: quay.io/kubevirt/cluster-network-addons-operator@sha256:4ef3d2cc550554b903674423f630cbaf67a45db4b4ead48ee3f33366c97b516f
         - name: OPERATOR_NAME
           value: cluster-network-addons-operator
         - name: OPERATOR_VERSION
-          value: v0.98.0
+          value: v0.98.1
         - name: OPERATOR_NAMESPACE
           valueFrom:
             fieldRef:
@@ -338,7 +338,7 @@ spec:
           value: prometheus-k8s
         - name: RUNBOOK_URL_TEMPLATE
           value: https://kubevirt.io/monitoring/runbooks/%s
-        image: quay.io/kubevirt/cluster-network-addons-operator@sha256:e9f468359e6f8fb560e2051cc28294842fb556964dc053fde4903fb4c3a60994
+        image: quay.io/kubevirt/cluster-network-addons-operator@sha256:4ef3d2cc550554b903674423f630cbaf67a45db4b4ead48ee3f33366c97b516f
         imagePullPolicy: IfNotPresent
         name: cluster-network-addons-operator
         resources:
