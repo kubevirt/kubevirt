@@ -67,6 +67,7 @@ go_test(
     embed = [":go_default_library"],
     tags = ["cov"],
     deps = [
+        "//pkg/apimachinery/patch:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/monitoring/rules:go_default_library",
@@ -82,6 +83,7 @@ go_test(
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubevirt/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/prometheusoperator/fake:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testing:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//staging/src/kubevirt.io/client-go/version:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
