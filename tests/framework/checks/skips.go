@@ -74,13 +74,6 @@ func SkipIfPrometheusRuleIsNotEnabled(virtClient kubecli.KubevirtClient) {
 	}
 }
 
-// Deprecated: SkipIfOpenShift should be converted to check & fail
-func SkipIfOpenShift(message string) {
-	if IsOpenShift() {
-		ginkgo.Skip("Openshift detected: " + message)
-	}
-}
-
 // Deprecated: SkipIfOpenShift4 should be converted to check & fail
 func SkipIfOpenShift4(message string) {
 	virtClient := kubevirt.Client()
