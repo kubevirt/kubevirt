@@ -424,6 +424,38 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeRevision.Name))
 		})
 
+		It("should store VirtualMachineClusterInstancetype as ControllerRevision on Sync", func() {
+			vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
+				Name: clusterInstancetypeObj.Name,
+				Kind: instancetypeapi.ClusterSingularResourceName,
+			}
+
+			var err error
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedRevisionName := instancetype.GetRevisionName(
+				vm.Name, clusterInstancetypeObj.Name, clusterInstancetypeObj.GroupVersionKind().Version,
+				clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation)
+			expectedRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetypeObj)
+			Expect(err).ToNot(HaveOccurred())
+
+			sanitySync(vm, vmi)
+
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vm.Spec.Instancetype.RevisionName).To(Equal(expectedRevision.Name))
+
+			revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+				context.Background(), expectedRevisionName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			revisionInstancetype, ok := revision.Data.Object.(*v1beta1.VirtualMachineClusterInstancetype)
+			Expect(ok).To(BeTrue(), "Expected Instancetype in ControllerRevision")
+
+			Expect(revisionInstancetype.Spec).To(Equal(clusterInstancetypeObj.Spec))
+		})
+
 		It("should apply VirtualMachineClusterInstancetype from ControllerRevision to VirtualMachineInstance", func() {
 			instancetypeRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetypeObj)
 			Expect(err).ToNot(HaveOccurred())
