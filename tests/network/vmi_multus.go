@@ -38,7 +38,6 @@ import (
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 
@@ -234,7 +233,6 @@ var _ = SIGDescribe("Multus", Serial, decorators.Multus, func() {
 			})
 
 			It("[test_id:1752]should create a virtual machine with one interface with network definition from different namespace", func() {
-				checks.SkipIfOpenShift4("OpenShift 4 does not support usage of the network definition from the different namespace")
 				By("checking virtual machine instance can ping using ptp cni plugin")
 				detachedVMI := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
