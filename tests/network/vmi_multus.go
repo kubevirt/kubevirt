@@ -443,16 +443,22 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 
 			BeforeEach(func() {
 				By("Creating a VM with Linux bridge CNI network interface and default MAC address.")
+				networkData, err := cloudinit.NewNetworkData(
+					cloudinit.WithEthernet("eth1",
+						cloudinit.WithAddresses(ptpSubnetIP2+ptpSubnetMask),
+					),
+				)
+				Expect(err).NotTo(HaveOccurred())
+
 				vmiTwo := libvmifact.NewFedora(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(linuxBridgeInterface),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
-					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(
-						cloudinit.CreateNetworkDataWithStaticIPsByIface("eth1", ptpSubnetIP2+ptpSubnetMask),
-					)),
-					libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
-				vmiTwo, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiTwo)).Create(context.Background(), vmiTwo, metav1.CreateOptions{})
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
+					libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
+				)
+				vmiTwo, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiTwo)).Create(context.Background(), vmiTwo, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitUntilVMIReady(vmiTwo, console.LoginToFedora)
 			})
@@ -461,16 +467,25 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 				By("Creating another VM with custom MAC address on its Linux bridge CNI interface.")
 				linuxBridgeInterfaceWithCustomMac := linuxBridgeInterface
 				linuxBridgeInterfaceWithCustomMac.MacAddress = customMacAddress
+
+				networkData, err := cloudinit.NewNetworkData(
+					cloudinit.WithEthernet("eth1",
+						cloudinit.WithAddresses(ptpSubnetIP1+ptpSubnetMask),
+						cloudinit.WithMatchingMAC(linuxBridgeInterfaceWithCustomMac.MacAddress),
+					),
+				)
+				Expect(err).NotTo(HaveOccurred())
+
 				vmiOne := libvmifact.NewFedora(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
 					libvmi.WithNetwork(&linuxBridgeNetwork),
-					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(
-						cloudinit.CreateNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, customMacAddress, ptpSubnetIP1+ptpSubnetMask),
-					)),
-					libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
-				vmiOne, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiOne)).Create(context.Background(), vmiOne, metav1.CreateOptions{})
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
+					libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
+				)
+
+				vmiOne, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiOne)).Create(context.Background(), vmiOne, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vmiOne = libwait.WaitUntilVMIReady(vmiOne, console.LoginToFedora)
