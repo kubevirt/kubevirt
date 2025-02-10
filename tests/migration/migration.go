@@ -2534,7 +2534,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedula
 			nad := libmigration.GenerateMigrationCNINetworkAttachmentDefinition()
 			Expect(virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(flags.KubeVirtInstallNamespace).Delete(context.TODO(), nad.Name, metav1.DeleteOptions{})).To(Succeed(), "Failed to delete the Network Attachment Definition")
 		})
-		It("Should migrate over that network", func() {
+		FIt("Should migrate over that network", func() {
 			vmi := libvmifact.NewAlpine(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -2549,6 +2549,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedula
 			By("Checking if the migration happened, and over the right network")
 			vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			Expect(vmi.Status.MigrationState.TargetNodeAddress).To(HavePrefix("172.21.42."), "The migration did not appear to go over the dedicated migration network")
+			Fail("debug")
 		})
 	})
 
