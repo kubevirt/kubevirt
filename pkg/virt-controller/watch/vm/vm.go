@@ -3059,12 +3059,7 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	if err != nil {
 		return vm, vmi, handleSynchronizerErr(err), nil
 	}
-	if !equality.Semantic.DeepEqual(vm.Spec, syncedVM.Spec) {
-		return syncedVM, vmi, nil, nil
-	}
-
-	vm.ObjectMeta = syncedVM.ObjectMeta
-	vm.Spec = syncedVM.Spec
+	vm = syncedVM
 
 	// eventually, would like the condition to be `== "true"`, but for now we need to support legacy behavior by default
 	if vm.Annotations[virtv1.ImmediateDataVolumeCreation] != "false" {

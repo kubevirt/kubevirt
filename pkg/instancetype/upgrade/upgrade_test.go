@@ -145,9 +145,6 @@ var _ = Describe("ControllerRevision upgrades", func() {
 
 		Expect(sanityUpgrade(vm)).To(Succeed())
 
-		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
 		Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).ToNot(Equal(originalInstancetypeCR.Name))
 
 		_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
