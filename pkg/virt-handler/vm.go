@@ -1958,6 +1958,11 @@ func (c *VirtualMachineController) defaultExecute(key string,
 		shouldCleanUp = true
 	}
 
+	if !domainAlive && domainExists && !vmi.IsFinal() {
+		log.Log.Object(vmi).V(3).Info("Deleting inactive domain for vmi.")
+		shouldDelete = true
+	}
+
 	// Determine if an active (or about to be active) VirtualMachineInstance should be updated.
 	if vmiExists && !vmi.IsFinal() {
 		// requiring the phase of the domain and VirtualMachineInstance to be in sync is an
