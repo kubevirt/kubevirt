@@ -119,8 +119,6 @@ func cleanMACAddressesFromStatus(status []v1.VirtualMachineInstanceNetworkInterf
 func interfaceStatusFromInterfaces(queueCount int32, ifaces []v1.Interface) []v1.VirtualMachineInstanceNetworkInterface {
 	const (
 		initialIfacesInVMI = 1
-
-		linkStateUp = "up"
 	)
 	var ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface
 
@@ -133,15 +131,20 @@ func interfaceStatusFromInterfaces(queueCount int32, ifaces []v1.Interface) []v1
 			QueueCount:       queueCount,
 			PodInterfaceName: namescheme.GenerateHashedInterfaceName(iface.Name),
 		}
-
 		if iface.SRIOV == nil {
-			newIfaceStatus.LinkState = linkStateUp
+			newIfaceStatus.LinkState = normalizeState(iface.State)
 		}
-
 		ifaceStatuses = append(ifaceStatuses, newIfaceStatus)
 	}
 
 	return ifaceStatuses
+}
+
+func normalizeState(state v1.InterfaceState) string {
+	if state == "" {
+		return "up"
+	}
+	return string(state)
 }
 
 func PatchVMWithNewInterface(vm *v1.VirtualMachine, newNetwork v1.Network, newIface v1.Interface) error {
