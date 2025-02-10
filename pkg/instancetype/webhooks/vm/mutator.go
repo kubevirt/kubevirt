@@ -21,7 +21,6 @@ package vm
 
 import (
 	"fmt"
-	"net/http"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -31,45 +30,28 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/instancetype/infer"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
-
-type inferHandler interface {
-	Instancetype(vm *virtv1.VirtualMachine) error
-	Preference(vm *virtv1.VirtualMachine) error
-}
 
 type findPreferenceSpecHandler interface {
 	FindPreference(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error)
 }
 
 type mutator struct {
-	inferHandler
 	findPreferenceSpecHandler
 }
 
 func NewMutator(virtClient kubecli.KubevirtClient) *mutator {
 	return &mutator{
-		inferHandler: infer.New(virtClient),
 		// TODO(lyarwood): Wire up informers for use here to speed up lookups
 		findPreferenceSpecHandler: preferenceFind.NewSpecFinder(nil, nil, nil, virtClient),
 	}
 }
 
 func (m *mutator) Mutate(vm, oldVM *virtv1.VirtualMachine, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	if response := m.validateMatchers(vm, oldVM, ar); response != nil {
-		return response
-	}
-
-	if response := m.inferMatchers(vm); response != nil {
-		return response
-	}
-
-	return nil
+	return m.validateMatchers(vm, oldVM, ar)
 }
 
 func (m *mutator) validateMatchers(vm, oldVM *virtv1.VirtualMachine, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -222,28 +204,4 @@ func validatePreferenceMatcher(vm *virtv1.VirtualMachine) []metav1.StatusCause {
 		}
 	}
 	return causes
-}
-
-func (m *mutator) inferMatchers(vm *virtv1.VirtualMachine) *admissionv1.AdmissionResponse {
-	if err := m.inferHandler.Instancetype(vm); err != nil {
-		log.Log.Reason(err).Error("admission failed, unable to set default instancetype")
-		return &admissionv1.AdmissionResponse{
-			Result: &metav1.Status{
-				Message: err.Error(),
-				Code:    http.StatusBadRequest,
-			},
-		}
-	}
-
-	if err := m.inferHandler.Preference(vm); err != nil {
-		log.Log.Reason(err).Error("admission failed, unable to set default preference")
-		return &admissionv1.AdmissionResponse{
-			Result: &metav1.Status{
-				Message: err.Error(),
-				Code:    http.StatusBadRequest,
-			},
-		}
-	}
-
-	return nil
 }

@@ -68,21 +68,17 @@ func (h *handler) Instancetype(vm *virtv1.VirtualMachine) error {
 	if err != nil {
 		var ignoreableInferenceErr *IgnoreableInferenceError
 		if errors.As(err, &ignoreableInferenceErr) && ignoreFailure {
-			log.Log.Object(vm).V(logVerbosityLevel).Info("Ignored error during inference of instancetype, clearing matcher.")
-			vm.Spec.Instancetype = nil
+			log.Log.Object(vm).V(logVerbosityLevel).Info("Ignored error during inference of instancetype")
 			return nil
 		}
 		return err
 	}
 
-	if ignoreFailure {
-		vm.Spec.Template.Spec.Domain.Memory = nil
-	}
-
-	vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
+	vm.Status.InstancetypeRef = &virtv1.InstancetypeStatusRef{
 		Name: defaultName,
 		Kind: defaultKind,
 	}
+
 	return nil
 }
 
@@ -102,15 +98,15 @@ func (h *handler) Preference(vm *virtv1.VirtualMachine) error {
 		var ignoreableInferenceErr *IgnoreableInferenceError
 		if errors.As(err, &ignoreableInferenceErr) && ignoreFailure {
 			log.Log.Object(vm).V(logVerbosityLevel).Info("Ignored error during inference of preference, clearing matcher.")
-			vm.Spec.Preference = nil
 			return nil
 		}
 		return err
 	}
 
-	vm.Spec.Preference = &virtv1.PreferenceMatcher{
+	vm.Status.PreferenceRef = &virtv1.InstancetypeStatusRef{
 		Name: defaultName,
 		Kind: defaultKind,
 	}
+
 	return nil
 }

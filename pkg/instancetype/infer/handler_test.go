@@ -158,8 +158,10 @@ var _ = Describe("InferFromVolume", func() {
 
 	DescribeTable("should infer defaults from VolumeSource and PersistentVolumeClaim",
 		func(
-			instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher,
-			preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher,
+			instancetypeMatcher *v1.InstancetypeMatcher,
+			expectedInstancetypeRef *v1.InstancetypeStatusRef,
+			preferenceMatcher *v1.PreferenceMatcher,
+			expectedPreferenceRef *v1.InstancetypeStatusRef,
 		) {
 			vm.Spec.Instancetype = instancetypeMatcher
 			vm.Spec.Preference = preferenceMatcher
@@ -174,14 +176,14 @@ var _ = Describe("InferFromVolume", func() {
 				},
 			}}
 			Expect(handler.Infer(vm)).To(Succeed())
-			Expect(vm.Spec.Instancetype).To(Equal(expectedInstancetypeMatcher))
-			Expect(vm.Spec.Preference).To(Equal(expectedPreferenceMatcher))
+			Expect(vm.Status.InstancetypeRef).To(Equal(expectedInstancetypeRef))
+			Expect(vm.Status.PreferenceRef).To(Equal(expectedPreferenceRef))
 		},
 		Entry("for InstancetypeMatcher",
 			&v1.InstancetypeMatcher{
 				InferFromVolume: inferVolumeName,
 			},
-			&v1.InstancetypeMatcher{
+			&v1.InstancetypeStatusRef{
 				Name: defaultInferedNameFromPVC,
 				Kind: defaultInferedKindFromPVC,
 			}, nil, nil,
@@ -191,7 +193,7 @@ var _ = Describe("InferFromVolume", func() {
 			&v1.PreferenceMatcher{
 				InferFromVolume: inferVolumeName,
 			},
-			&v1.PreferenceMatcher{
+			&v1.InstancetypeStatusRef{
 				Name: defaultInferedNameFromPVC,
 				Kind: defaultInferedKindFromPVC,
 			},
@@ -200,8 +202,10 @@ var _ = Describe("InferFromVolume", func() {
 
 	DescribeTable("should infer defaults from DataVolumeSource and PersistentVolumeClaim",
 		func(
-			instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher,
-			preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher,
+			instancetypeMatcher *v1.InstancetypeMatcher,
+			expectedInstancetypeRef *v1.InstancetypeStatusRef,
+			preferenceMatcher *v1.PreferenceMatcher,
+			expectedPreferenceRef *v1.InstancetypeStatusRef,
 		) {
 			vm.Spec.Instancetype = instancetypeMatcher
 			vm.Spec.Preference = preferenceMatcher
@@ -215,14 +219,14 @@ var _ = Describe("InferFromVolume", func() {
 			}}
 
 			Expect(handler.Infer(vm)).To(Succeed())
-			Expect(vm.Spec.Instancetype).To(Equal(expectedInstancetypeMatcher))
-			Expect(vm.Spec.Preference).To(Equal(expectedPreferenceMatcher))
+			Expect(vm.Status.InstancetypeRef).To(Equal(expectedInstancetypeRef))
+			Expect(vm.Status.PreferenceRef).To(Equal(expectedPreferenceRef))
 		},
 		Entry("for InstancetypeMatcher",
 			&v1.InstancetypeMatcher{
 				InferFromVolume: inferVolumeName,
 			},
-			&v1.InstancetypeMatcher{
+			&v1.InstancetypeStatusRef{
 				Name: defaultInferedNameFromPVC,
 				Kind: defaultInferedKindFromPVC,
 			}, nil, nil,
@@ -232,7 +236,7 @@ var _ = Describe("InferFromVolume", func() {
 			&v1.PreferenceMatcher{
 				InferFromVolume: inferVolumeName,
 			},
-			&v1.PreferenceMatcher{
+			&v1.InstancetypeStatusRef{
 				Name: defaultInferedNameFromPVC,
 				Kind: defaultInferedKindFromPVC,
 			},
@@ -241,8 +245,10 @@ var _ = Describe("InferFromVolume", func() {
 
 	DescribeTable("should infer defaults from DataVolumeTemplate, DataVolumeSourcePVC and PersistentVolumeClaim",
 		func(
-			instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher,
-			preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher,
+			instancetypeMatcher *v1.InstancetypeMatcher,
+			expectedInstancetypeRef *v1.InstancetypeStatusRef,
+			preferenceMatcher *v1.PreferenceMatcher,
+			expectedPreferenceRef *v1.InstancetypeStatusRef,
 		) {
 			vm.Spec.Instancetype = instancetypeMatcher
 			vm.Spec.Preference = preferenceMatcher
@@ -269,14 +275,14 @@ var _ = Describe("InferFromVolume", func() {
 			}}
 
 			Expect(handler.Infer(vm)).To(Succeed())
-			Expect(vm.Spec.Instancetype).To(Equal(expectedInstancetypeMatcher))
-			Expect(vm.Spec.Preference).To(Equal(expectedPreferenceMatcher))
+			Expect(vm.Status.InstancetypeRef).To(Equal(expectedInstancetypeRef))
+			Expect(vm.Status.PreferenceRef).To(Equal(expectedPreferenceRef))
 		},
 		Entry("for InstancetypeMatcher",
 			&v1.InstancetypeMatcher{
 				InferFromVolume: inferVolumeName,
 			},
-			&v1.InstancetypeMatcher{
+			&v1.InstancetypeStatusRef{
 				Name: defaultInferedNameFromPVC,
 				Kind: defaultInferedKindFromPVC,
 			}, nil, nil,
@@ -286,7 +292,7 @@ var _ = Describe("InferFromVolume", func() {
 			&v1.PreferenceMatcher{
 				InferFromVolume: inferVolumeName,
 			},
-			&v1.PreferenceMatcher{
+			&v1.InstancetypeStatusRef{
 				Name: defaultInferedNameFromPVC,
 				Kind: defaultInferedKindFromPVC,
 			},
@@ -294,8 +300,10 @@ var _ = Describe("InferFromVolume", func() {
 	)
 	DescribeTable("should infer defaults from DataVolume with labels",
 		func(
-			instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher,
-			preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher,
+			instancetypeMatcher *v1.InstancetypeMatcher,
+			expectedInstancetypeRef *v1.InstancetypeStatusRef,
+			preferenceMatcher *v1.PreferenceMatcher,
+			expectedPreferenceRef *v1.InstancetypeStatusRef,
 		) {
 			vm.Spec.Instancetype = instancetypeMatcher
 			vm.Spec.Preference = preferenceMatcher
@@ -333,14 +341,14 @@ var _ = Describe("InferFromVolume", func() {
 			})
 
 			Expect(handler.Infer(vm)).To(Succeed())
-			Expect(vm.Spec.Instancetype).To(Equal(expectedInstancetypeMatcher))
-			Expect(vm.Spec.Preference).To(Equal(expectedPreferenceMatcher))
+			Expect(vm.Status.InstancetypeRef).To(Equal(expectedInstancetypeRef))
+			Expect(vm.Status.PreferenceRef).To(Equal(expectedPreferenceRef))
 		},
 		Entry("for InstancetypeMatcher",
 			&v1.InstancetypeMatcher{
 				InferFromVolume: inferVolumeName,
 			},
-			&v1.InstancetypeMatcher{
+			&v1.InstancetypeStatusRef{
 				Name: defaultInferedNameFromDV,
 				Kind: defaultInferedKindFromDV,
 			}, nil, nil,
@@ -350,7 +358,7 @@ var _ = Describe("InferFromVolume", func() {
 			&v1.PreferenceMatcher{
 				InferFromVolume: inferVolumeName,
 			},
-			&v1.PreferenceMatcher{
+			&v1.InstancetypeStatusRef{
 				Name: defaultInferedNameFromDV,
 				Kind: defaultInferedKindFromDV,
 			},
@@ -360,8 +368,10 @@ var _ = Describe("InferFromVolume", func() {
 	DescribeTable("should infer defaults from DataVolume, DataVolumeSourceRef",
 		func(
 			sourceRefName, sourceRefKind, sourceRefNamespace string,
-			instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher,
-			preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher,
+			instancetypeMatcher *v1.InstancetypeMatcher,
+			expectedInstancetypeRef *v1.InstancetypeStatusRef,
+			preferenceMatcher *v1.PreferenceMatcher,
+			expectedPreferenceRef *v1.InstancetypeStatusRef,
 		) {
 			vm.Spec.Instancetype = instancetypeMatcher
 			vm.Spec.Preference = preferenceMatcher
@@ -396,15 +406,15 @@ var _ = Describe("InferFromVolume", func() {
 			}}
 
 			Expect(handler.Infer(vm)).To(Succeed())
-			Expect(vm.Spec.Instancetype).To(Equal(expectedInstancetypeMatcher))
-			Expect(vm.Spec.Preference).To(Equal(expectedPreferenceMatcher))
+			Expect(vm.Status.InstancetypeRef).To(Equal(expectedInstancetypeRef))
+			Expect(vm.Status.PreferenceRef).To(Equal(expectedPreferenceRef))
 		},
 		Entry(",DataSource and PersistentVolumeClaim for InstancetypeMatcher",
 			dsWithSourcePVCName, "DataSource", k8sv1.NamespaceDefault,
 			&v1.InstancetypeMatcher{
 				InferFromVolume: inferVolumeName,
 			},
-			&v1.InstancetypeMatcher{
+			&v1.InstancetypeStatusRef{
 				Name: defaultInferedNameFromPVC,
 				Kind: defaultInferedKindFromPVC,
 			}, nil, nil,
@@ -415,7 +425,7 @@ var _ = Describe("InferFromVolume", func() {
 			&v1.PreferenceMatcher{
 				InferFromVolume: inferVolumeName,
 			},
-			&v1.PreferenceMatcher{
+			&v1.InstancetypeStatusRef{
 				Name: defaultInferedNameFromPVC,
 				Kind: defaultInferedKindFromPVC,
 			},
@@ -425,7 +435,7 @@ var _ = Describe("InferFromVolume", func() {
 			&v1.InstancetypeMatcher{
 				InferFromVolume: inferVolumeName,
 			},
-			&v1.InstancetypeMatcher{
+			&v1.InstancetypeStatusRef{
 				Name: defaultInferedNameFromDS,
 				Kind: defaultInferedKindFromDS,
 			}, nil, nil,
@@ -436,7 +446,7 @@ var _ = Describe("InferFromVolume", func() {
 			&v1.PreferenceMatcher{
 				InferFromVolume: inferVolumeName,
 			},
-			&v1.PreferenceMatcher{
+			&v1.InstancetypeStatusRef{
 				Name: defaultInferedNameFromDS,
 				Kind: defaultInferedKindFromDS,
 			},
@@ -446,7 +456,7 @@ var _ = Describe("InferFromVolume", func() {
 			&v1.InstancetypeMatcher{
 				InferFromVolume: inferVolumeName,
 			},
-			&v1.InstancetypeMatcher{
+			&v1.InstancetypeStatusRef{
 				Name: defaultInferedNameFromPVC,
 				Kind: defaultInferedKindFromPVC,
 			}, nil, nil,
@@ -457,7 +467,7 @@ var _ = Describe("InferFromVolume", func() {
 			&v1.PreferenceMatcher{
 				InferFromVolume: inferVolumeName,
 			},
-			&v1.PreferenceMatcher{
+			&v1.InstancetypeStatusRef{
 				Name: defaultInferedNameFromPVC,
 				Kind: defaultInferedKindFromPVC,
 			},
@@ -467,7 +477,7 @@ var _ = Describe("InferFromVolume", func() {
 			&v1.InstancetypeMatcher{
 				InferFromVolume: inferVolumeName,
 			},
-			&v1.InstancetypeMatcher{
+			&v1.InstancetypeStatusRef{
 				Name: defaultInferedNameFromDS,
 				Kind: defaultInferedKindFromDS,
 			}, nil, nil,
@@ -478,7 +488,7 @@ var _ = Describe("InferFromVolume", func() {
 			&v1.PreferenceMatcher{
 				InferFromVolume: inferVolumeName,
 			},
-			&v1.PreferenceMatcher{
+			&v1.InstancetypeStatusRef{
 				Name: defaultInferedNameFromDS,
 				Kind: defaultInferedKindFromDS,
 			},
@@ -488,8 +498,10 @@ var _ = Describe("InferFromVolume", func() {
 	DescribeTable("should infer defaults from DataVolumeTemplate, DataVolumeSourceRef, DataSource and PersistentVolumeClaim",
 		func(
 			sourceRefName, sourceRefNamespace string,
-			instancetypeMatcher, expectedInstancetypeMatcher *v1.InstancetypeMatcher,
-			preferenceMatcher, expectedPreferenceMatcher *v1.PreferenceMatcher,
+			instancetypeMatcher *v1.InstancetypeMatcher,
+			expectedInstancetypeRef *v1.InstancetypeStatusRef,
+			preferenceMatcher *v1.PreferenceMatcher,
+			expectedPreferenceRef *v1.InstancetypeStatusRef,
 		) {
 			vm.Spec.Instancetype = instancetypeMatcher
 			vm.Spec.Preference = preferenceMatcher
@@ -515,15 +527,15 @@ var _ = Describe("InferFromVolume", func() {
 			}}
 
 			Expect(handler.Infer(vm)).To(Succeed())
-			Expect(vm.Spec.Instancetype).To(Equal(expectedInstancetypeMatcher))
-			Expect(vm.Spec.Preference).To(Equal(expectedPreferenceMatcher))
+			Expect(vm.Status.InstancetypeRef).To(Equal(expectedInstancetypeRef))
+			Expect(vm.Status.PreferenceRef).To(Equal(expectedPreferenceRef))
 		},
 		Entry("for InstancetypeMatcher",
 			dsWithSourcePVCName, k8sv1.NamespaceDefault,
 			&v1.InstancetypeMatcher{
 				InferFromVolume: inferVolumeName,
 			},
-			&v1.InstancetypeMatcher{
+			&v1.InstancetypeStatusRef{
 				Name: defaultInferedNameFromPVC,
 				Kind: defaultInferedKindFromPVC,
 			}, nil, nil,
@@ -534,7 +546,7 @@ var _ = Describe("InferFromVolume", func() {
 			&v1.PreferenceMatcher{
 				InferFromVolume: inferVolumeName,
 			},
-			&v1.PreferenceMatcher{
+			&v1.InstancetypeStatusRef{
 				Name: defaultInferedNameFromPVC,
 				Kind: defaultInferedKindFromPVC,
 			},
@@ -544,7 +556,7 @@ var _ = Describe("InferFromVolume", func() {
 			&v1.InstancetypeMatcher{
 				InferFromVolume: inferVolumeName,
 			},
-			&v1.InstancetypeMatcher{
+			&v1.InstancetypeStatusRef{
 				Name: defaultInferedNameFromDS,
 				Kind: defaultInferedKindFromDS,
 			}, nil, nil,
@@ -555,7 +567,7 @@ var _ = Describe("InferFromVolume", func() {
 			&v1.PreferenceMatcher{
 				InferFromVolume: inferVolumeName,
 			},
-			&v1.PreferenceMatcher{
+			&v1.InstancetypeStatusRef{
 				Name: defaultInferedNameFromDS,
 				Kind: defaultInferedKindFromDS,
 			},
@@ -629,8 +641,8 @@ var _ = Describe("InferFromVolume", func() {
 			if allowed {
 				// Expect matchers to be cleared on failure during inference
 				Expect(handler.Infer(vm)).To(Succeed())
-				Expect(vm.Spec.Instancetype).To(BeNil())
-				Expect(vm.Spec.Preference).To(BeNil())
+				Expect(vm.Status.InstancetypeRef).To(BeNil())
+				Expect(vm.Status.PreferenceRef).To(BeNil())
 			} else {
 				Expect(handler.Infer(vm)).To(MatchError(ContainSubstring(messageSubstring)))
 			}
@@ -878,8 +890,8 @@ var _ = Describe("InferFromVolume", func() {
 			if allowed {
 				// Expect matchers to be cleared on failure during inference
 				Expect(handler.Infer(vm)).To(Succeed())
-				Expect(vm.Spec.Instancetype).To(BeNil())
-				Expect(vm.Spec.Preference).To(BeNil())
+				Expect(vm.Status.InstancetypeRef).To(BeNil())
+				Expect(vm.Status.PreferenceRef).To(BeNil())
 			} else {
 				Expect(handler.Infer(vm)).To(
 					MatchError(ContainSubstring("unable to infer defaults from DataVolumeSpec as DataVolumeSource is not supported")))
@@ -955,8 +967,8 @@ var _ = Describe("InferFromVolume", func() {
 			if allowed {
 				// Expect matchers to be cleared on failure during inference
 				Expect(handler.Infer(vm)).To(Succeed())
-				Expect(vm.Spec.Instancetype).To(BeNil())
-				Expect(vm.Spec.Preference).To(BeNil())
+				Expect(vm.Status.InstancetypeRef).To(BeNil())
+				Expect(vm.Status.PreferenceRef).To(BeNil())
 			} else {
 				Expect(handler.Infer(vm)).To(
 					MatchError(ContainSubstring("unable to infer defaults from DataVolumeSourceRef as Kind foo is not supported")))
@@ -1042,8 +1054,8 @@ var _ = Describe("InferFromVolume", func() {
 			if allowed {
 				// Expect matchers to be cleared on failure during inference
 				Expect(handler.Infer(vm)).To(Succeed())
-				Expect(vm.Spec.Instancetype).To(BeNil())
-				Expect(vm.Spec.Preference).To(BeNil())
+				Expect(vm.Status.InstancetypeRef).To(BeNil())
+				Expect(vm.Status.PreferenceRef).To(BeNil())
 			} else {
 				Expect(handler.Infer(vm)).To(
 					MatchError(ContainSubstring("unable to infer defaults from DataSource that doesn't provide DataVolumeSourcePVC")))
@@ -1115,8 +1127,8 @@ var _ = Describe("InferFromVolume", func() {
 			if allowed {
 				// Expect matchers to be cleared on failure during inference
 				Expect(handler.Infer(vm)).To(Succeed())
-				Expect(vm.Spec.Instancetype).To(BeNil())
-				Expect(vm.Spec.Preference).To(BeNil())
+				Expect(vm.Status.InstancetypeRef).To(BeNil())
+				Expect(vm.Status.PreferenceRef).To(BeNil())
 			} else {
 				Expect(handler.Infer(vm)).To(MatchError(ContainSubstring("unable to find required %s label on the volume", requiredLabel)))
 			}
@@ -1177,11 +1189,11 @@ var _ = Describe("InferFromVolume", func() {
 			},
 		}}
 		Expect(handler.Infer(vm)).To(Succeed())
-		Expect(vm.Spec.Instancetype).To(Equal(&v1.InstancetypeMatcher{
+		Expect(vm.Status.InstancetypeRef).To(Equal(&v1.InstancetypeStatusRef{
 			Name: defaultInferedNameFromPVC,
 			Kind: defaultInferedKindFromPVC,
 		}))
-		Expect(vm.Spec.Preference).To(Equal(&v1.PreferenceMatcher{
+		Expect(vm.Status.PreferenceRef).To(Equal(&v1.InstancetypeStatusRef{
 			Name: defaultInferedNameFromPVC,
 			Kind: defaultInferedKindFromPVC,
 		}))
@@ -1211,11 +1223,10 @@ var _ = Describe("InferFromVolume", func() {
 		}}
 		Expect(handler.Infer(vm)).To(Succeed())
 
-		expectedInstancetypeMatcher := &v1.InstancetypeMatcher{
+		Expect(vm.Status.InstancetypeRef).To(Equal(&v1.InstancetypeStatusRef{
 			Name: defaultInferedNameFromPVC,
 			Kind: defaultInferedKindFromPVC,
-		}
-		Expect(vm.Spec.Instancetype).To(Equal(expectedInstancetypeMatcher))
+		}))
 
 		if expectMemoryCleared {
 			Expect(vm.Spec.Template.Spec.Domain.Memory).To(BeNil())

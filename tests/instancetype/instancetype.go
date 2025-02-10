@@ -720,14 +720,20 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Validating the VirtualMachine")
-			Expect(vm.Spec.Instancetype.Name).To(Equal(instancetype.Name))
-			Expect(vm.Spec.Instancetype.Kind).To(Equal(instancetypeapi.SingularResourceName))
-			Expect(vm.Spec.Instancetype.InferFromVolume).To(BeEmpty())
-			Expect(vm.Spec.Instancetype.InferFromVolumeFailurePolicy).To(BeNil())
-			Expect(vm.Spec.Preference.Name).To(Equal(preference.Name))
-			Expect(vm.Spec.Preference.Kind).To(Equal(instancetypeapi.SingularPreferenceResourceName))
-			Expect(vm.Spec.Preference.InferFromVolume).To(BeEmpty())
-			Expect(vm.Spec.Preference.InferFromVolumeFailurePolicy).To(BeNil())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(timeout).WithPolling(time.Second).Should(matcher.HaveControllerRevisionRefs())
+
+			vm, err = virtClient.VirtualMachine(namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vm.Status.InstancetypeRef.Name).To(Equal(instancetype.Name))
+			Expect(vm.Status.InstancetypeRef.Kind).To(Equal(instancetypeapi.SingularResourceName))
+			Expect(vm.Status.InstancetypeRef.InferFromVolume).To(Equal(vm.Spec.Instancetype.InferFromVolume))
+			Expect(vm.Status.InstancetypeRef.InferFromVolumeFailurePolicy).To(
+				HaveValue(Equal(*vm.Spec.Instancetype.InferFromVolumeFailurePolicy)))
+			Expect(vm.Status.PreferenceRef.Name).To(Equal(preference.Name))
+			Expect(vm.Status.PreferenceRef.Kind).To(Equal(instancetypeapi.SingularPreferenceResourceName))
+			Expect(vm.Status.PreferenceRef.InferFromVolume).To(BeEmpty())
+			Expect(vm.Status.PreferenceRef.InferFromVolumeFailurePolicy).To(
+				HaveValue(Equal(*vm.Spec.Preference.InferFromVolumeFailurePolicy)))
 
 			Eventually(matcher.ThisVM(vm)).WithTimeout(timeout).WithPolling(time.Second).Should(matcher.BeReady())
 
