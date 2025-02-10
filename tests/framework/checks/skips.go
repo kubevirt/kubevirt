@@ -14,8 +14,6 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/util/cluster"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/util"
 )
 
@@ -57,24 +55,6 @@ func SkipIfPrometheusRuleIsNotEnabled(virtClient kubecli.KubevirtClient) {
 		ginkgo.Skip("Skip monitoring tests when PrometheusRule CRD is not available in the cluster")
 	} else if err != nil {
 		util.PanicOnError(err)
-	}
-}
-
-// Deprecated: SkipIfOpenShift should be converted to check & fail
-func SkipIfOpenShift(message string) {
-	if IsOpenShift() {
-		ginkgo.Skip("Openshift detected: " + message)
-	}
-}
-
-// Deprecated: SkipIfOpenShift4 should be converted to check & fail
-func SkipIfOpenShift4(message string) {
-	virtClient := kubevirt.Client()
-
-	if t, err := cluster.IsOnOpenShift(virtClient); err != nil {
-		util.PanicOnError(err)
-	} else if t && cluster.GetOpenShiftMajorVersion(virtClient) == cluster.OpenShift4Major {
-		ginkgo.Skip(message)
 	}
 }
 
