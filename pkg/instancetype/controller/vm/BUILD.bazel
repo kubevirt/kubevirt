@@ -13,6 +13,7 @@ go_library(
         "//pkg/instancetype/apply:go_default_library",
         "//pkg/instancetype/expand:go_default_library",
         "//pkg/instancetype/find:go_default_library",
+        "//pkg/instancetype/infer:go_default_library",
         "//pkg/instancetype/preference/annotations:go_default_library",
         "//pkg/instancetype/preference/apply:go_default_library",
         "//pkg/instancetype/preference/find:go_default_library",

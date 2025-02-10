@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/expand"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
+	"kubevirt.io/kubevirt/pkg/instancetype/infer"
 	preferenceannotations "kubevirt.io/kubevirt/pkg/instancetype/preference/annotations"
 	preferenceapply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
@@ -73,6 +74,10 @@ type upgradeHandler interface {
 	Upgrade(*virtv1.VirtualMachine) error
 }
 
+type inferHandler interface {
+	Infer(*virtv1.VirtualMachine) error
+}
+
 type controller struct {
 	applyVMHandler
 	storeHandler
@@ -80,6 +85,7 @@ type controller struct {
 	upgradeHandler
 	instancetypeFindHandler
 	preferenceFindHandler
+	inferHandler
 
 	clientset     kubecli.KubevirtClient
 	clusterConfig *virtconfig.ClusterConfig
@@ -99,6 +105,7 @@ func New(
 		storeHandler:            revision.New(instancetypeStore, clusterInstancetypeStore, preferenceStore, clusterPreferenceStore, virtClient),
 		expandHandler:           expand.New(clusterConfig, finder, prefFinder),
 		upgradeHandler:          upgrade.New(revisionStore, virtClient),
+		inferHandler:            infer.New(virtClient),
 		clientset:               virtClient,
 		clusterConfig:           clusterConfig,
 		recorder:                recorder,
@@ -106,6 +113,7 @@ func New(
 }
 
 const (
+	inferErrFmt                     = "error encountered while inferring instancetype.kubevirt.io defaults: %v"
 	storeControllerRevisionErrFmt   = "error encountered while storing instancetype.kubevirt.io controllerRevisions: %v"
 	upgradeControllerRevisionErrFmt = "error encountered while upgrading instancetype.kubevirt.io controllerRevisions: %v"
 	cleanControllerRevisionErrFmt   = "error encountered cleaning controllerRevision %s after successfully expanding VirtualMachine %s: %v"
@@ -114,6 +122,12 @@ const (
 func (c *controller) Sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error) {
 	if vm.Spec.Instancetype == nil && vm.Spec.Preference == nil {
 		return vm, nil
+	}
+
+	if err := c.Infer(vm); err != nil {
+		log.Log.Object(vm).Errorf(inferErrFmt, err)
+		c.recorder.Eventf(vm, corev1.EventTypeWarning, common.FailedCreateVirtualMachineReason, inferErrFmt, err)
+		return vm, common.NewSyncError(fmt.Errorf(inferErrFmt, err), common.FailedCreateVirtualMachineReason)
 	}
 
 	referencePolicy := c.clusterConfig.GetInstancetypeReferencePolicy()
