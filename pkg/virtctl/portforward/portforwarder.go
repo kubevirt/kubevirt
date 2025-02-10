@@ -5,17 +5,14 @@ import (
 	"net"
 	"strings"
 
-	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 )
 
 type portForwarder struct {
-	kind, namespace, name string
-	resource              portforwardableResource
-}
-
-type portforwardableResource interface {
-	PortForward(name string, port int, protocol string) (kvcorev1.StreamInterface, error)
+	namespace string
+	name      string
+	client    kubecli.KubevirtClient
 }
 
 func (p *portForwarder) startForwarding(address *net.IPAddr, port forwardedPort) error {

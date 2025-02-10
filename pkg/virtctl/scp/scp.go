@@ -25,6 +25,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/ssh"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -65,19 +67,19 @@ type SCP struct {
 }
 
 func (o *SCP) Run(cmd *cobra.Command, args []string) error {
-	client, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	client, namespace, changed, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}
 
-	local, remote, toRemote, err := PrepareCommand(cmd, namespace, &o.options, args)
+	local, remote, toRemote, err := PrepareCommand(cmd, namespace, changed, &o.options, args)
 	if err != nil {
 		return err
 	}
 
 	if o.options.WrapLocalSSH {
 		clientArgs := o.buildSCPTarget(local, remote, toRemote)
-		return ssh.RunLocalClient(remote.Kind, remote.Namespace, remote.Name, &o.options, clientArgs)
+		return ssh.RunLocalClient(remote.Namespace, remote.Name, &o.options, clientArgs)
 	}
 
 	return o.nativeSCP(local, remote, toRemote, client)
@@ -88,14 +90,13 @@ type LocalArgument struct {
 }
 
 type RemoteArgument struct {
-	Kind      string
 	Namespace string
 	Name      string
 	Username  string
 	Path      string
 }
 
-func PrepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *ssh.SSHOptions, args []string) (*LocalArgument, *RemoteArgument, bool, error) {
+func PrepareCommand(cmd *cobra.Command, clientNamespace string, namespaceChanged bool, opts *ssh.SSHOptions, args []string) (*LocalArgument, *RemoteArgument, bool, error) {
 	opts.IdentityFilePathProvided = cmd.Flags().Changed(ssh.IdentityFilePathFlag)
 
 	local, remote, toRemote, err := ParseTarget(args[0], args[1])
@@ -103,8 +104,11 @@ func PrepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *ssh.SSHO
 		return nil, nil, false, err
 	}
 
-	if len(remote.Namespace) < 1 {
-		remote.Namespace = fallbackNamespace
+	if remote.Namespace == "" {
+		remote.Namespace = clientNamespace
+	} else if namespaceChanged {
+		log.Log.Infof("Overriding remote namespace '%s' with namespace '%s' from commandline", remote.Namespace, clientNamespace)
+		remote.Namespace = clientNamespace
 	}
 
 	if len(remote.Username) > 0 {
@@ -125,7 +129,7 @@ func usage() string {
   {{ProgramName}} scp myfile.bin jdoe@testvmi:.
 
   # Copy a file to 'testvm' in 'mynamespace' namespace
-  {{ProgramName}} scp myfile.bin jdoe@testvmi.mynamespace:myfile.bin
+  {{ProgramName}} scp myfile.bin jdoe@mynamespace/testvmi:myfile.bin
 
   # Copy a file from the remote location to a local folder
   {{ProgramName}} scp jdoe@testvmi:myfile.bin ~/myfile.bin`
@@ -146,7 +150,7 @@ func ParseTarget(source, destination string) (*LocalArgument, *RemoteArgument, b
 		)
 	}
 
-	var toRemote bool
+	toRemote := false
 	if strings.Contains(destination, ":") {
 		source, destination = destination, source
 		toRemote = true
@@ -157,17 +161,19 @@ func ParseTarget(source, destination string) (*LocalArgument, *RemoteArgument, b
 		return nil, nil, toRemote, fmt.Errorf("invalid remote argument format: %q", source)
 	}
 
-	remote := &RemoteArgument{
-		Path: split[1],
+	namespace, name, username, err := ssh.ParseTarget(split[0])
+	if err != nil {
+		return nil, nil, false, err
 	}
+
 	local := &LocalArgument{
 		Path: destination,
 	}
-	var err error
-	remote.Kind, remote.Namespace, remote.Name, remote.Username, err = ssh.ParseTarget(split[0])
-
-	if err != nil {
-		return nil, nil, false, err
+	remote := &RemoteArgument{
+		Namespace: namespace,
+		Name:      name,
+		Username:  username,
+		Path:      split[1],
 	}
 
 	return local, remote, toRemote, nil

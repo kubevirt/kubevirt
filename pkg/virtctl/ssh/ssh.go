@@ -120,34 +120,37 @@ type SSHOptions struct {
 }
 
 func (o *SSH) Run(cmd *cobra.Command, args []string) error {
-	client, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	client, namespace, changed, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}
 
-	kind, namespace, name, err := PrepareCommand(cmd, namespace, &o.options, args)
+	namespace, name, err := PrepareCommand(cmd, namespace, changed, &o.options, args)
 	if err != nil {
 		return err
 	}
 
 	if o.options.WrapLocalSSH {
-		clientArgs := o.buildSSHTarget(kind, namespace, name)
-		return RunLocalClient(kind, namespace, name, &o.options, clientArgs)
+		clientArgs := o.buildSSHTarget(namespace, name)
+		return RunLocalClient(namespace, name, &o.options, clientArgs)
 	}
 
-	return o.nativeSSH(kind, namespace, name, client)
+	return o.nativeSSH(namespace, name, client)
 }
 
-func PrepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *SSHOptions, args []string) (kind, namespace, name string, err error) {
+func PrepareCommand(cmd *cobra.Command, clientNamespace string, namespaceChanged bool, opts *SSHOptions, args []string) (namespace, name string, err error) {
 	opts.IdentityFilePathProvided = cmd.Flags().Changed(IdentityFilePathFlag)
 	var targetUsername string
-	kind, namespace, name, targetUsername, err = ParseTarget(args[0])
+	namespace, name, targetUsername, err = ParseTarget(args[0])
 	if err != nil {
 		return
 	}
 
-	if len(namespace) < 1 {
-		namespace = fallbackNamespace
+	if namespace == "" {
+		namespace = clientNamespace
+	} else if namespaceChanged {
+		log.Log.Infof("Overriding target namespace '%s' with namespace '%s' from commandline", namespace, clientNamespace)
+		namespace = clientNamespace
 	}
 
 	if len(targetUsername) > 0 {
@@ -161,7 +164,7 @@ func usage() string {
   {{ProgramName}} ssh jdoe@testvmi [--%s]
 
   # Connect to 'testvm' in 'mynamespace' namespace
-  {{ProgramName}} ssh jdoe@vm/testvm.mynamespace [--%s]
+  {{ProgramName}} ssh jdoe@mynamespace/testvm [--%s]
 
   # Specify a username and namespace:
   {{ProgramName}} ssh --namespace=mynamespace --%s=jdoe testvmi`,
@@ -186,23 +189,22 @@ func defaultUsername() string {
 }
 
 // ParseTarget SSH Target argument supporting the form of username@vmi/name.namespace (or simpler)
-func ParseTarget(arg string) (string, string, string, string, error) {
-	kind := "vmi"
+func ParseTarget(arg string) (string, string, string, error) {
 	username := ""
 
 	usernameAndTarget := strings.Split(arg, "@")
 	if len(usernameAndTarget) > 1 {
 		username = usernameAndTarget[0]
 		if username == "" {
-			return "", "", "", "", errors.New("expected username before '@'")
+			return "", "", "", errors.New("expected username before '@'")
 		}
 		arg = usernameAndTarget[1]
 	}
 
 	if arg == "" {
-		return "", "", "", "", errors.New("expected target after '@'")
+		return "", "", "", errors.New("target cannot be empty or expected target after '@'")
 	}
 
-	kind, namespace, name, err := portforward.ParseTarget(arg)
-	return kind, namespace, name, username, err
+	namespace, name, err := portforward.ParseTarget(arg)
+	return namespace, name, username, err
 }

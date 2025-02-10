@@ -20,7 +20,7 @@ func (o *SCP) nativeSCP(local *LocalArgument, remote *RemoteArgument, toRemote b
 		Client:  client,
 		Options: o.options,
 	}
-	sshClient, err := conn.PrepareSSHClient(remote.Kind, remote.Namespace, remote.Name)
+	sshClient, err := conn.PrepareSSHClient(remote.Namespace, remote.Name)
 	if err != nil {
 		return err
 	}

@@ -26,9 +26,9 @@ func (p *portForwarder) startForwardingUDP(address *net.IPAddr, port forwardedPo
 		listener: listener,
 		remoteDialer: func() (net.Conn, error) {
 			log.Log.Infof("opening new udp tunnel to %d", port.remote)
-			stream, err := p.resource.PortForward(p.name, port.remote, port.protocol)
+			stream, err := p.client.VirtualMachineInstance(p.namespace).PortForward(p.name, port.remote, port.protocol)
 			if err != nil {
-				log.Log.Errorf("can't access %s/%s.%s: %v", p.kind, p.name, p.namespace, err)
+				log.Log.Errorf("can't access VMI %s/%s: %v", p.namespace, p.name, err)
 				return nil, err
 			}
 			return stream.AsConn(), nil

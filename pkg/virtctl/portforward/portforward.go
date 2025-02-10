@@ -25,6 +25,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -75,23 +76,21 @@ func NewCommand() *cobra.Command {
 }
 
 type PortForward struct {
-	address  *net.IPAddr
-	resource portforwardableResource
+	address *net.IPAddr
+	client  kubecli.KubevirtClient
 }
 
 func (o *PortForward) Run(cmd *cobra.Command, args []string) error {
 	setOutput(cmd)
 
-	client, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	client, namespace, changed, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}
+	o.client = client
 
-	kind, namespace, name, ports, err := o.prepareCommand(args, namespace)
+	namespace, name, ports, err := o.prepareCommand(args, namespace, changed)
 	if err != nil {
-		return err
-	}
-	if err := o.setResource(kind, namespace, client); err != nil {
 		return err
 	}
 
@@ -107,7 +106,7 @@ func (o *PortForward) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := o.startPortForwards(kind, namespace, name, ports); err != nil {
+	if err := o.startPortForwards(namespace, name, ports); err != nil {
 		return err
 	}
 
@@ -118,38 +117,29 @@ func (o *PortForward) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (o *PortForward) prepareCommand(args []string, fallbackNamespace string) (kind string, namespace string, name string, ports []forwardedPort, err error) {
-	kind, namespace, name, err = ParseTarget(args[0])
+func (o *PortForward) prepareCommand(args []string, clientNamespace string, namespaceChanged bool) (string, string, []forwardedPort, error) {
+	namespace, name, err := ParseTarget(args[0])
 	if err != nil {
-		return
+		return "", "", nil, err
 	}
 
-	ports, err = parsePorts(args[1:])
+	ports, err := parsePorts(args[1:])
 	if err != nil {
-		return
+		return "", "", nil, err
 	}
 
-	if len(namespace) < 1 {
-		namespace = fallbackNamespace
+	if namespace == "" {
+		namespace = clientNamespace
+	} else if namespaceChanged {
+		log.Log.Infof("Overriding target namespace '%s' with namespace '%s' from commandline", namespace, clientNamespace)
+		namespace = clientNamespace
 	}
 
-	return
-}
-
-func (o *PortForward) setResource(kind, namespace string, client kubecli.KubevirtClient) error {
-	if kindIsVMI(kind) {
-		o.resource = client.VirtualMachineInstance(namespace)
-	} else if kindIsVM(kind) {
-		o.resource = client.VirtualMachine(namespace)
-	} else {
-		return errors.New("unsupported resource kind " + kind)
-	}
-
-	return nil
+	return namespace, name, ports, nil
 }
 
 func (o *PortForward) startStdoutStream(namespace, name string, port forwardedPort) error {
-	streamer, err := o.resource.PortForward(name, port.remote, port.protocol)
+	streamer, err := o.client.VirtualMachineInstance(namespace).PortForward(name, port.remote, port.protocol)
 	if err != nil {
 		return err
 	}
@@ -165,13 +155,12 @@ func (o *PortForward) startStdoutStream(namespace, name string, port forwardedPo
 	return nil
 }
 
-func (o *PortForward) startPortForwards(kind, namespace, name string, ports []forwardedPort) error {
+func (o *PortForward) startPortForwards(namespace, name string, ports []forwardedPort) error {
 	for _, port := range ports {
 		forwarder := portForwarder{
-			kind:      kind,
 			namespace: namespace,
 			name:      name,
-			resource:  o.resource,
+			client:    o.client,
 		}
 		if err := forwarder.startForwarding(o.address, port); err != nil {
 			return err
@@ -206,75 +195,81 @@ Usage can be restricted by the cluster administrator through the /portforward su
 
 func examples() string {
 	return `  # Forward the local port 8080 to the vmi port:
-  {{ProgramName}} port-forward vmi/testvmi 8080
+  {{ProgramName}} port-forward testvmi 8080
 
   # Forward the local port 8080 to the vmi port 9090:
-  {{ProgramName}} port-forward vmi/testvmi 8080:9090
+  {{ProgramName}} port-forward testvmi 8080:9090
 
   # Forward the local port 8080 to the vmi port 9090 as a UDP connection:
-  {{ProgramName}} port-forward vmi/testvmi.mynamespace udp/8080:9090
+  {{ProgramName}} port-forward mynamespace/testvmi udp/8080:9090
 
   # Forward the local port 8080 to the vm port
-  {{ProgramName}} port-forward vm/testvm 8080
+  {{ProgramName}} port-forward testvm 8080
 
   # Forward the local port 8080 to the vm port in mynamespace
-  {{ProgramName}} port-forward vm/testvm.mynamespace 8080
+  {{ProgramName}} port-forward mynamespace/testvm 8080
 
   # Note: {{ProgramName}} port-forward sends all traffic over the Kubernetes API Server. 
   # This means any traffic will add additional pressure to the control plane.
   # For continous traffic intensive connections, consider using a dedicated Kubernetes Service.
 
   # Open an SSH connection using PortForward and ProxyCommand:
-  ssh -o 'ProxyCommand={{ProgramName}} port-forward --stdio=true testvmi.mynamespace 22' user@testvmi.mynamespace
+  ssh -o 'ProxyCommand={{ProgramName}} port-forward --stdio=true mynamespace/testvmi 22' user@mynamespace/testvmi
 
   # Use as SCP ProxyCommand:
-  scp -o 'ProxyCommand={{ProgramName}} port-forward --stdio=true testvmi.mynamespace 22' local.file user@testvmi.mynamespace`
+  scp -o 'ProxyCommand={{ProgramName}} port-forward --stdio=true mynamespace/testvmi 22' local.file user@mynamespace/testvmi`
 }
 
-// ParseTarget argument supporting the form of vmi/name.namespace (or simpler)
-func ParseTarget(target string) (string, string, string, error) {
-	kind := "vmi"
+// ParseTarget argument supporting the form of $namespace/$name or vmi/$name.$namespace (legacy)
+func ParseTarget(target string) (string, string, error) {
+	namespace := ""
+	name := target
 
-	parts := strings.Split(target, "/")
+	parts := strings.Split(name, "/")
 	if len(parts) > 2 {
-		return "", "", "", errors.New("target is not valid with more than one '/'")
+		return "", "", errors.New("target is not valid with more than one '/'")
 	}
 	if len(parts) == 2 {
-		kind = parts[0]
-		if !kindIsVM(kind) && !kindIsVMI(kind) {
-			return "", "", "", errors.New("unsupported resource kind " + kind)
+		namespace = parts[0]
+		name = parts[1]
+
+		if namespace == "" {
+			return "", "", errors.New("namespace cannot be empty")
 		}
-		target = parts[1]
-	}
-	if target == "" {
-		return "", "", "", errors.New("expected name after '/'")
-	}
-	if target[0] == '.' {
-		return "", "", "", errors.New("expected name before '.'")
-	}
-	if target[len(target)-1] == '.' {
-		return "", "", "", errors.New("expected namespace after '.'")
 	}
 
-	name := target
-	namespace := ""
-	if lastDot := strings.LastIndex(target, "."); lastDot != -1 {
-		name = target[:lastDot]
-		namespace = target[lastDot+1:]
+	if name == "" {
+		return "", "", errors.New("name cannot be empty or expected name after '/'")
 	}
 
-	return kind, namespace, name, nil
-}
-func kindIsVMI(kind string) bool {
-	return kind == "vmi" ||
-		kind == "vmis" ||
-		kind == "virtualmachineinstance" ||
-		kind == "virtualmachineinstances"
+	if namespaceReserved(namespace) {
+		log.Log.Warningf("Parsing target '%s' in legacy mode, support for this syntax will go away in a future release", target)
+		return parseTargetLegacy(name)
+	}
+
+	return namespace, name, nil
 }
 
-func kindIsVM(kind string) bool {
-	return kind == "vm" ||
-		kind == "vms" ||
-		kind == "virtualmachine" ||
-		kind == "virtualmachines"
+func namespaceReserved(namespace string) bool {
+	reserved := []string{
+		"vmi", "vmis", "virtualmachineinstance", "virtualmachineinstances",
+		"vm", "vms", "virtualmachine", "virtualmachines",
+	}
+	return slices.Contains(reserved, namespace)
+}
+
+func parseTargetLegacy(name string) (string, string, error) {
+	if name[0] == '.' {
+		return "", "", errors.New("expected name before '.'")
+	}
+
+	if name[len(name)-1] == '.' {
+		return "", "", errors.New("expected namespace after '.'")
+	}
+
+	if lastDot := strings.LastIndex(name, "."); lastDot != -1 {
+		return name[lastDot+1:], name[:lastDot], nil
+	}
+
+	return "", name, nil
 }

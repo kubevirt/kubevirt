@@ -14,7 +14,6 @@ import (
 	"golang.org/x/term"
 
 	"kubevirt.io/client-go/kubecli"
-	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 )
 
@@ -42,27 +41,27 @@ type NativeSSHConnection struct {
 	Options SSHOptions
 }
 
-func (o *SSH) nativeSSH(kind, namespace, name string, client kubecli.KubevirtClient) error {
+func (o *SSH) nativeSSH(namespace, name string, client kubecli.KubevirtClient) error {
 	conn := NativeSSHConnection{
 		Client:  client,
 		Options: o.options,
 	}
-	sshClient, err := conn.PrepareSSHClient(kind, namespace, name)
+	sshClient, err := conn.PrepareSSHClient(namespace, name)
 	if err != nil {
 		return err
 	}
 	return conn.StartSession(sshClient, o.command)
 }
 
-func (o *NativeSSHConnection) PrepareSSHClient(kind, namespace, name string) (*ssh.Client, error) {
-	streamer, err := o.prepareSSHTunnel(kind, namespace, name)
+func (o *NativeSSHConnection) PrepareSSHClient(namespace, name string) (*ssh.Client, error) {
+	streamer, err := o.Client.VirtualMachineInstance(namespace).PortForward(name, o.Options.SSHPort, "tcp")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("can't access VMI %s: %w", name, err)
 	}
 
 	conn := streamer.AsConn()
-	addr := fmt.Sprintf("%s/%s.%s:%d", kind, name, namespace, o.Options.SSHPort)
-	authMethods := o.getAuthMethods(kind, namespace, name)
+	addr := fmt.Sprintf("%s/%s:%d", namespace, name, o.Options.SSHPort)
+	authMethods := o.getAuthMethods(namespace, name)
 
 	hostKeyCallback := ssh.InsecureIgnoreHostKey()
 	if len(o.Options.KnownHostsFilePath) > 0 {
@@ -89,14 +88,14 @@ func (o *NativeSSHConnection) PrepareSSHClient(kind, namespace, name string) (*s
 	return ssh.NewClient(sshConn, chans, reqs), nil
 }
 
-func (o *NativeSSHConnection) getAuthMethods(kind, namespace, name string) []ssh.AuthMethod {
+func (o *NativeSSHConnection) getAuthMethods(namespace, name string) []ssh.AuthMethod {
 	var methods []ssh.AuthMethod
 
 	methods = o.trySSHAgent(methods)
 	methods = o.tryPrivateKey(methods)
 
 	methods = append(methods, ssh.PasswordCallback(func() (secret string, err error) {
-		password, err := readPassword(fmt.Sprintf("%s@%s/%s.%s's password: ", o.Options.SSHUsername, kind, name, namespace))
+		password, err := readPassword(fmt.Sprintf("%s@%s/%s's password: ", o.Options.SSHUsername, namespace, name))
 		fmt.Println()
 		return string(password), err
 	}))
@@ -200,24 +199,4 @@ func (o *NativeSSHConnection) StartSession(client *ssh.Client, command string) e
 		return err
 	}
 	return nil
-}
-
-func (o *NativeSSHConnection) prepareSSHTunnel(kind, namespace, name string) (kvcorev1.StreamInterface, error) {
-	var (
-		stream kvcorev1.StreamInterface
-		err    error
-	)
-	if kind == "vmi" {
-		stream, err = o.Client.VirtualMachineInstance(namespace).PortForward(name, o.Options.SSHPort, "tcp")
-		if err != nil {
-			return nil, fmt.Errorf("can't access VMI %s: %w", name, err)
-		}
-	} else if kind == "vm" {
-		stream, err = o.Client.VirtualMachine(namespace).PortForward(name, o.Options.SSHPort, "tcp")
-		if err != nil {
-			return nil, fmt.Errorf("can't access VM %s: %w", name, err)
-		}
-	}
-
-	return stream, nil
 }
