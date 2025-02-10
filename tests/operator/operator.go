@@ -185,7 +185,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		}
 
 		By("Waiting for original KV to stabilize")
-		waitForKvWithTimeout(originalKv, 420)
+		testsuite.EnsureKubevirtReadyWithTimeout(originalKv, 420*time.Second)
 		allKvInfraPodsAreReady(originalKv)
 
 		// make sure virt deployments use shasums again after each test
@@ -202,7 +202,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		kv := libkubevirt.GetCurrentKv(virtClient)
 
 		By("verifying that created and available condition is present")
-		waitForKv(kv)
+		testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 	})
 
 	Describe("should reconcile components", Serial, func() {
@@ -445,7 +445,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
-			waitForKvWithTimeout(kv, 120)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 120*time.Second)
 
 			By("Test that worker nodes have the correct allocatable kvm devices according to virtualMachineInstancesPerNode setting")
 			Eventually(func() error {
@@ -468,7 +468,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
-			waitForKvWithTimeout(kv, 120)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 120*time.Second)
 
 			By("Check that worker nodes resumed the default amount of allocatable kvm devices")
 			const defaultKvmDevices = "1k"
@@ -523,7 +523,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(vc.Spec.Template.ObjectMeta.Annotations[annotationPatchKey]).To(Equal(annotationPatchValue))
 
 			By("Waiting for virt-operator to apply changes to component")
-			waitForKvWithTimeout(kv, 120)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 120*time.Second)
 
 			By("Check that KubeVirt CR generation does not get updated when applying patch")
 			kv, err = virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
@@ -552,7 +552,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(vc.Spec.Template.ObjectMeta.Annotations[annotationPatchKey]).To(BeEmpty())
 
 			By("Waiting for virt-operator to apply changes to component")
-			waitForKvWithTimeout(kv, 120)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 120*time.Second)
 		})
 	})
 
@@ -641,7 +641,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
-			waitForKv(kv)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 
 			By("Ensuring that all virt components have expected image pull secrets")
 			checkVirtComponents(imagePullSecrets)
@@ -663,7 +663,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
-			waitForKv(kv)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 
 			By("Ensuring that all virt components have empty image pull secrets")
 			checkVirtComponents(nil)
@@ -773,7 +773,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			// wait 7 minutes because this test involves pulling containers
 			// over the internet related to the latest kubevirt release
 			By("Waiting for KV to stabilize")
-			waitForKvWithTimeout(kv, 420)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 420*time.Second)
 
 			By("Verifying infrastructure is Ready")
 			allKvInfraPodsAreReady(kv)
@@ -858,7 +858,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			waitForUpdateCondition(kv)
 
 			By("Waiting for KV to stabilize")
-			waitForKvWithTimeout(kv, 420)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 420*time.Second)
 
 			By("Verifying infrastructure Is Updated")
 			allKvInfraPodsAreReady(kv)
@@ -1030,7 +1030,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			createKv(copyOriginalKv(originalKv))
 
 			By("Creating KubeVirt Object Created and Ready Condition")
-			waitForKv(originalKv)
+			testsuite.EnsureKubevirtReadyWithTimeout(originalKv, 300*time.Second)
 
 			By("Verifying infrastructure is Ready")
 			allKvInfraPodsAreReady(originalKv)
@@ -1107,7 +1107,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			createKv(kv)
 
 			By("Creating KubeVirt Object Created and Ready Condition")
-			waitForKv(kv)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 
 			By("Verifying infrastructure is Ready")
 			allKvInfraPodsAreReady(kv)
@@ -1142,7 +1142,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			waitForUpdateCondition(kv)
 
 			By("Waiting for KV to stabilize")
-			waitForKv(kv)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 
 			By("Verifying infrastructure Is Updated")
 			allKvInfraPodsAreReady(kv)
@@ -1183,7 +1183,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			waitForUpdateCondition(kv)
 
 			By("Waiting for KV to stabilize")
-			waitForKv(kv)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 
 			By("Verifying infrastructure Is Restored to original version")
 			allKvInfraPodsAreReady(kv)
@@ -1223,7 +1223,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			createKv(kv)
 
 			By("Creating KubeVirt Object Created and Ready Condition")
-			waitForKv(kv)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 
 			By("Verifying infrastructure is Ready")
 			allKvInfraPodsAreReady(kv)
@@ -1243,7 +1243,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			waitForUpdateCondition(kv)
 
 			By("Waiting for KV to stabilize")
-			waitForKv(kv)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 
 			By("Verifying infrastructure Is Updated")
 			allKvInfraPodsAreReady(kv)
@@ -1284,7 +1284,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			waitForUpdateCondition(kv)
 
 			By("Waiting for KV to stabilize")
-			waitForKv(kv)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 
 			By("Verifying infrastructure Is Updated")
 			allKvInfraPodsAreReady(kv)
@@ -1297,7 +1297,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			waitForUpdateCondition(kv)
 
 			By("Waiting for KV to stabilize")
-			waitForKv(kv)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 
 			By("Verifying infrastructure Is Restored to original version")
 			allKvInfraPodsAreReady(kv)
@@ -2637,56 +2637,6 @@ func waitForUpdateCondition(kv *v1.KubeVirt) {
 			matcher.HaveConditionTrue(v1.KubeVirtConditionDegraded),
 		),
 	)
-}
-
-func waitForKvWithTimeout(newKv *v1.KubeVirt, timeoutSeconds int) {
-	Eventually(func() error {
-		kv, err := kubevirt.Client().KubeVirt(newKv.Namespace).Get(context.Background(), newKv.Name, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-
-		if kv.Status.Phase != v1.KubeVirtPhaseDeployed {
-			return fmt.Errorf("waiting for phase to be deployed (current phase: %+v)", kv.Status.Phase)
-		}
-
-		available := false
-		progressing := true
-		degraded := true
-		created := false
-		for _, condition := range kv.Status.Conditions {
-			if condition.Type == v1.KubeVirtConditionAvailable && condition.Status == k8sv1.ConditionTrue {
-				available = true
-			} else if condition.Type == v1.KubeVirtConditionProgressing && condition.Status == k8sv1.ConditionFalse {
-				progressing = false
-			} else if condition.Type == v1.KubeVirtConditionDegraded && condition.Status == k8sv1.ConditionFalse {
-				degraded = false
-			} else if condition.Type == v1.KubeVirtConditionCreated && condition.Status == k8sv1.ConditionTrue {
-				created = true
-			}
-		}
-
-		if !available || progressing || degraded || !created {
-			if kv.Status.ObservedGeneration != nil {
-				if *kv.Status.ObservedGeneration == kv.ObjectMeta.Generation {
-					return fmt.Errorf("observed generation must not match the current configuration")
-				}
-			}
-			return fmt.Errorf("waiting for conditions to indicate deployment (conditions: %+v)", kv.Status.Conditions)
-		}
-
-		if kv.Status.ObservedGeneration != nil {
-			if *kv.Status.ObservedGeneration != kv.ObjectMeta.Generation {
-				return fmt.Errorf("the observed generation must match the current generation")
-			}
-		}
-
-		return nil
-	}).WithTimeout(time.Duration(timeoutSeconds) * time.Second).WithPolling(1 * time.Second).Should(Succeed())
-}
-
-func waitForKv(newKv *v1.KubeVirt) {
-	waitForKvWithTimeout(newKv, 300)
 }
 
 func patchKV(name string, patches *patch.PatchSet) {
