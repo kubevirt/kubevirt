@@ -3103,71 +3103,100 @@ func (c *VirtualMachineController) handleStartingVMI(
 		return false, fmt.Errorf(failedDetectIsolationFmt, err)
 	}
 
+	if err := c.setupDevicesOwnerships(vmi, isolationRes); err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func (c *VirtualMachineController) setupDevicesOwnerships(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult) error {
 	virtLauncherRootMount, err := isolationRes.MountRoot()
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	err = c.claimDeviceOwnership(virtLauncherRootMount, "kvm")
 	if err != nil {
-		return false, fmt.Errorf("failed to set up file ownership for /dev/kvm: %v", err)
+		return fmt.Errorf("failed to set up file ownership for /dev/kvm: %v", err)
 	}
+
 	if virtutil.IsAutoAttachVSOCK(vmi) {
 		if err := c.claimDeviceOwnership(virtLauncherRootMount, "vhost-vsock"); err != nil {
-			return false, fmt.Errorf("failed to set up file ownership for /dev/vhost-vsock: %v", err)
+			return fmt.Errorf("failed to set up file ownership for /dev/vhost-vsock: %v", err)
 		}
 	}
 
-	lessPVCSpaceToleration := c.clusterConfig.GetLessPVCSpaceToleration()
-	minimumPVCReserveBytes := c.clusterConfig.GetMinimumReservePVCBytes()
-
-	// initialize disks images for empty PVC
-	hostDiskCreator := hostdisk.NewHostDiskCreator(c.recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, virtLauncherRootMount)
-	err = hostDiskCreator.Create(vmi)
-	if err != nil {
-		return false, fmt.Errorf("preparing host-disks failed: %v", err)
+	if err := c.configureHostDisks(vmi, isolationRes, virtLauncherRootMount); err != nil {
+		return err
 	}
 
-	if virtutil.IsSEVVMI(vmi) {
-		sevDevice, err := safepath.JoinNoFollow(virtLauncherRootMount, filepath.Join("dev", "sev"))
-		if err != nil {
-			return false, err
-		}
-		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(sevDevice); err != nil {
-			return fmt.Errorf("failed to set SEV device owner: %v", err)
-		}
+	if err := c.configureSEVDeviceOwnership(vmi, isolationRes, virtLauncherRootMount); err != nil {
+		return err
 	}
 
 	if virtutil.IsNonRootVMI(vmi) {
-		if err := c.nonRootSetup(origVMI); err != nil {
-			return false, err
+		if err := c.nonRootSetup(vmi); err != nil {
+			return err
 		}
 	}
-	for _, fs := range vmi.Spec.Domain.Devices.Filesystems {
-		socketPath, err := isolation.SafeJoin(isolationRes, virtiofs.VirtioFSSocketPath(fs.Name))
-		if err != nil {
-			return false, err
-		}
-		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(socketPath); err != nil {
-			return false, err
-		}
+
+	if err := c.configureVirtioFS(vmi, isolationRes); err != nil {
+		return err
 	}
 
 	// set runtime limits as needed
 	err = c.podIsolationDetector.AdjustResources(vmi, c.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
 	if err != nil {
-		return false, fmt.Errorf("failed to adjust resources: %v", err)
+		return fmt.Errorf("failed to adjust resources: %v", err)
 	}
 
 	if util.IsSEVAttestationRequested(vmi) {
 		sev := vmi.Spec.Domain.LaunchSecurity.SEV
 		if sev.Session == "" || sev.DHCert == "" {
 			// Wait for the session parameters to be provided
-			return false, nil
+			return nil
 		}
 	}
 
-	return true, nil
+	return nil
+}
+
+func (c *VirtualMachineController) configureHostDisks(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult, virtLauncherRootMount *safepath.Path) error {
+	lessPVCSpaceToleration := c.clusterConfig.GetLessPVCSpaceToleration()
+	minimumPVCReserveBytes := c.clusterConfig.GetMinimumReservePVCBytes()
+
+	hostDiskCreator := hostdisk.NewHostDiskCreator(c.recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, virtLauncherRootMount)
+	if err := hostDiskCreator.Create(vmi); err != nil {
+		return fmt.Errorf("preparing host-disks failed: %v", err)
+	}
+	return nil
+}
+
+func (c *VirtualMachineController) configureSEVDeviceOwnership(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult, virtLauncherRootMount *safepath.Path) error {
+	if virtutil.IsSEVVMI(vmi) {
+		sevDevice, err := safepath.JoinNoFollow(virtLauncherRootMount, filepath.Join("dev", "sev"))
+		if err != nil {
+			return err
+		}
+		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(sevDevice); err != nil {
+			return fmt.Errorf("failed to set SEV device owner: %v", err)
+		}
+	}
+	return nil
+}
+
+func (c *VirtualMachineController) configureVirtioFS(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult) error {
+	for _, fs := range vmi.Spec.Domain.Devices.Filesystems {
+		socketPath, err := isolation.SafeJoin(isolationRes, virtiofs.VirtioFSSocketPath(fs.Name))
+		if err != nil {
+			return err
+		}
+		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(socketPath); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 
