@@ -156,9 +156,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 		}
 		_, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.Background(), instancetypeObj, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
-
-		err = instancetypeInformerStore.Add(instancetypeObj)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(instancetypeInformerStore.Add(instancetypeObj)).To(Succeed())
 
 		preference = &v1beta1.VirtualMachinePreference{
 			ObjectMeta: metav1.ObjectMeta{
@@ -185,9 +183,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 		}
 		_, err = virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
-
-		err = preferenceInformerStore.Add(preference)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(preferenceInformerStore.Add(preference)).To(Succeed())
 	})
 
 	deepCopyList := func(objects []interface{}) []interface{} {
@@ -258,7 +254,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 
 			var err error
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 
 			expectedRevisionName := instancetype.GetRevisionName(
 				vm.Name, instancetypeObj.Name, instancetypeObj.GroupVersionKind().Version, instancetypeObj.UID, instancetypeObj.Generation)
@@ -268,7 +264,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			sanitySync(vm, vmi)
 
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Spec.Instancetype.RevisionName).To(Equal(expectedRevision.Name))
 
 			revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
@@ -302,28 +298,26 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 					RevisionName: instancetypeRevision.Name,
 				}
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-				Expect(err).To(Succeed())
+				Expect(err).ToNot(HaveOccurred())
 
 				Expect(instancetypeController.ApplyToVMI(vm, vmi)).To(Succeed())
 
 				Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
-				Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(instancetypeObj.Spec.Memory.Guest))
+				Expect(vmi.Spec.Domain.Memory.Guest).To(HaveValue(Equal(instancetypeObj.Spec.Memory.Guest)))
 				Expect(vmi.Annotations).To(HaveKeyWithValue(virtv1.InstancetypeAnnotation, instancetypeObj.Name))
 				Expect(vmi.Annotations).ToNot(HaveKey(virtv1.PreferenceAnnotation))
 				Expect(vmi.Annotations).ToNot(HaveKey(virtv1.ClusterInstancetypeAnnotation))
 				Expect(vmi.Annotations).ToNot(HaveKey(virtv1.ClusterPreferenceAnnotation))
 			},
 			Entry("using v1alpha1 and VirtualMachineInstancetypeSpecRevision with APIVersion", func() []byte {
-				v1alpha1instancetypeSpec := v1alpha1.VirtualMachineInstancetypeSpec{
+				specBytes, err := json.Marshal(&v1alpha1.VirtualMachineInstancetypeSpec{
 					CPU: v1alpha1.CPUInstancetype{
 						Guest: instancetypeObj.Spec.CPU.Guest,
 					},
 					Memory: v1alpha1.MemoryInstancetype{
 						Guest: instancetypeObj.Spec.Memory.Guest,
 					},
-				}
-
-				specBytes, err := json.Marshal(&v1alpha1instancetypeSpec)
+				})
 				Expect(err).ToNot(HaveOccurred())
 
 				specRevision := v1alpha1.VirtualMachineInstancetypeSpecRevision{
@@ -336,16 +330,14 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				return specRevisionBytes
 			}),
 			Entry("using v1alpha1 and VirtualMachineInstancetypeSpecRevision without APIVersion", func() []byte {
-				v1alpha1instancetypeSpec := v1alpha1.VirtualMachineInstancetypeSpec{
+				specBytes, err := json.Marshal(&v1alpha1.VirtualMachineInstancetypeSpec{
 					CPU: v1alpha1.CPUInstancetype{
 						Guest: instancetypeObj.Spec.CPU.Guest,
 					},
 					Memory: v1alpha1.MemoryInstancetype{
 						Guest: instancetypeObj.Spec.Memory.Guest,
 					},
-				}
-
-				specBytes, err := json.Marshal(&v1alpha1instancetypeSpec)
+				})
 				Expect(err).ToNot(HaveOccurred())
 
 				specRevision := v1alpha1.VirtualMachineInstancetypeSpecRevision{
@@ -358,7 +350,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				return specRevisionBytes
 			}),
 			Entry("using v1alpha1", func() []byte {
-				v1alpha1instancetype := &v1alpha1.VirtualMachineInstancetype{
+				instancetypeBytes, err := json.Marshal(&v1alpha1.VirtualMachineInstancetype{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: v1alpha1.SchemeGroupVersion.String(),
 						Kind:       "VirtualMachineInstancetype",
@@ -374,14 +366,13 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 							Guest: instancetypeObj.Spec.Memory.Guest,
 						},
 					},
-				}
-				instancetypeBytes, err := json.Marshal(v1alpha1instancetype)
+				})
 				Expect(err).ToNot(HaveOccurred())
 
 				return instancetypeBytes
 			}),
 			Entry("using v1alpha2", func() []byte {
-				v1alpha2instancetype := &v1alpha2.VirtualMachineInstancetype{
+				instancetypeBytes, err := json.Marshal(&v1alpha2.VirtualMachineInstancetype{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: v1alpha2.SchemeGroupVersion.String(),
 						Kind:       "VirtualMachineInstancetype",
@@ -397,8 +388,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 							Guest: instancetypeObj.Spec.Memory.Guest,
 						},
 					},
-				}
-				instancetypeBytes, err := json.Marshal(v1alpha2instancetype)
+				})
 				Expect(err).ToNot(HaveOccurred())
 
 				return instancetypeBytes
@@ -425,12 +415,12 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			}
 
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 
 			sanitySync(vm, vmi)
 
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeRevision.Name))
 		})
 
@@ -449,12 +439,12 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			}
 
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(instancetypeController.ApplyToVMI(vm, vmi)).To(Succeed())
 
 			Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(clusterInstancetypeObj.Spec.CPU.Guest))
-			Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(clusterInstancetypeObj.Spec.Memory.Guest))
+			Expect(vmi.Spec.Domain.Memory.Guest).To(HaveValue(Equal(clusterInstancetypeObj.Spec.Memory.Guest)))
 			Expect(vmi.Annotations).To(HaveKeyWithValue(virtv1.ClusterInstancetypeAnnotation, clusterInstancetypeObj.Name))
 			Expect(vmi.Annotations).ToNot(HaveKey(virtv1.PreferenceAnnotation))
 			Expect(vmi.Annotations).ToNot(HaveKey(virtv1.InstancetypeAnnotation))
@@ -574,7 +564,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 
 			var err error
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 
 			expectedPreferenceRevisionName := instancetype.GetRevisionName(
 				vm.Name, preference.Name, preference.GroupVersionKind().Version, preference.UID, preference.Generation)
@@ -584,7 +574,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			sanitySync(vm, vmi)
 
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
 
 			preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
@@ -618,7 +608,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				}
 
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-				Expect(err).To(Succeed())
+				Expect(err).ToNot(HaveOccurred())
 
 				Expect(instancetypeController.ApplyToVMI(vm, vmi)).To(Succeed())
 
@@ -629,7 +619,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				Expect(vmi.Annotations).ToNot(HaveKey(virtv1.ClusterPreferenceAnnotation))
 			},
 			Entry("using v1alpha1 and VirtualMachinePreferenceSpecRevision with APIVersion", func() []byte {
-				v1alpha1preferenceSpec := v1alpha1.VirtualMachinePreferenceSpec{
+				specBytes, err := json.Marshal(&v1alpha1.VirtualMachinePreferenceSpec{
 					Firmware: &v1alpha1.FirmwarePreferences{
 						PreferredUseEfi: pointer.P(true),
 					},
@@ -639,9 +629,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 						PreferredInputBus:       virtv1.InputBusUSB,
 						PreferredInputType:      virtv1.InputTypeTablet,
 					},
-				}
-
-				specBytes, err := json.Marshal(&v1alpha1preferenceSpec)
+				})
 				Expect(err).ToNot(HaveOccurred())
 
 				specRevision := v1alpha1.VirtualMachinePreferenceSpecRevision{
@@ -654,7 +642,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				return specRevisionBytes
 			}),
 			Entry("using v1alpha1 and VirtualMachinePreferenceSpecRevision without APIVersion", func() []byte {
-				v1alpha1preferenceSpec := v1alpha1.VirtualMachinePreferenceSpec{
+				specBytes, err := json.Marshal(&v1alpha1.VirtualMachinePreferenceSpec{
 					Firmware: &v1alpha1.FirmwarePreferences{
 						PreferredUseEfi: pointer.P(true),
 					},
@@ -664,9 +652,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 						PreferredInputBus:       virtv1.InputBusUSB,
 						PreferredInputType:      virtv1.InputTypeTablet,
 					},
-				}
-
-				specBytes, err := json.Marshal(&v1alpha1preferenceSpec)
+				})
 				Expect(err).ToNot(HaveOccurred())
 
 				specRevision := v1alpha1.VirtualMachinePreferenceSpecRevision{
@@ -679,7 +665,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				return specRevisionBytes
 			}),
 			Entry("using v1alpha1", func() []byte {
-				v1alpha1preference := &v1alpha1.VirtualMachinePreference{
+				preferenceBytes, err := json.Marshal(&v1alpha1.VirtualMachinePreference{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: v1alpha1.SchemeGroupVersion.String(),
 						Kind:       "VirtualMachinePreference",
@@ -698,14 +684,13 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 							PreferredInputType:      virtv1.InputTypeTablet,
 						},
 					},
-				}
-				preferenceBytes, err := json.Marshal(v1alpha1preference)
+				})
 				Expect(err).ToNot(HaveOccurred())
 
 				return preferenceBytes
 			}),
 			Entry("using v1alpha2", func() []byte {
-				v1alpha2preference := &v1alpha2.VirtualMachinePreference{
+				preferenceBytes, err := json.Marshal(&v1alpha2.VirtualMachinePreference{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: v1alpha2.SchemeGroupVersion.String(),
 						Kind:       "VirtualMachinePreference",
@@ -724,8 +709,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 							PreferredInputType:      virtv1.InputTypeTablet,
 						},
 					},
-				}
-				preferenceBytes, err := json.Marshal(v1alpha2preference)
+				})
 				Expect(err).ToNot(HaveOccurred())
 
 				return preferenceBytes
@@ -752,12 +736,12 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			}
 
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 
 			sanitySync(vm, vmi)
 
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceRevision.Name))
 		})
 
@@ -769,7 +753,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 
 			var err error
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 
 			expectedPreferenceRevisionName := instancetype.GetRevisionName(
 				vm.Name, clusterPreference.Name, clusterPreference.GroupVersionKind().Version, clusterPreference.UID,
@@ -780,7 +764,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			sanitySync(vm, vmi)
 
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
 
 			preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
@@ -807,7 +791,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			}
 
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(instancetypeController.ApplyToVMI(vm, vmi)).To(Succeed())
 
@@ -939,13 +923,13 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			var err error
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(
 				context.TODO(), vm, metav1.CreateOptions{})
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 
 			sanitySync(vm, vmi)
 
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(
 				context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Spec.Instancetype).ToNot(BeNil())
 			Expect(vm.Spec.Instancetype.Name).To(Equal(instancetypeObj.Name))
 			Expect(vm.Spec.Instancetype.RevisionName).ToNot(BeEmpty())
@@ -1019,13 +1003,13 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			var err error
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(
 				context.TODO(), vm, metav1.CreateOptions{})
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 
 			sanitySync(vm, vmi)
 
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(
 				context.TODO(), vm.Name, metav1.GetOptions{})
-			Expect(err).To(Succeed())
+			Expect(err).ToNot(HaveOccurred())
 			Expect(vm.Spec.Instancetype).To(BeNil())
 			Expect(vm.Spec.Template.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
 			Expect(vm.Spec.Template.Spec.Domain.Memory.Guest.Value()).To(Equal(instancetypeObj.Spec.Memory.Guest.Value()))
