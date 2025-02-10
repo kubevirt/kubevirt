@@ -2644,48 +2644,29 @@ func waitForUpdateCondition(kv *v1.KubeVirt) {
 }
 
 func waitForKvWithTimeout(newKv *v1.KubeVirt, timeoutSeconds int) {
-	Eventually(func() error {
+	Eventually(func(g Gomega) {
 		kv, err := kubevirt.Client().KubeVirt(newKv.Namespace).Get(context.Background(), newKv.Name, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
+		g.Expect(err).ToNot(HaveOccurred())
 
-		if kv.Status.Phase != v1.KubeVirtPhaseDeployed {
-			return fmt.Errorf("waiting for phase to be deployed (current phase: %+v)", kv.Status.Phase)
-		}
+		g.Expect(kv).To(BeInPhase(v1.KubeVirtPhaseDeployed),
+			"waiting for phase to be deployed (current phase: %+v)", kv.Status.Phase)
 
-		available := false
-		progressing := true
-		degraded := true
-		created := false
-		for _, condition := range kv.Status.Conditions {
-			if condition.Type == v1.KubeVirtConditionAvailable && condition.Status == k8sv1.ConditionTrue {
-				available = true
-			} else if condition.Type == v1.KubeVirtConditionProgressing && condition.Status == k8sv1.ConditionFalse {
-				progressing = false
-			} else if condition.Type == v1.KubeVirtConditionDegraded && condition.Status == k8sv1.ConditionFalse {
-				degraded = false
-			} else if condition.Type == v1.KubeVirtConditionCreated && condition.Status == k8sv1.ConditionTrue {
-				created = true
-			}
-		}
-
-		if !available || progressing || degraded || !created {
+		g.Expect(kv).To(SatisfyAll(
+			matcher.HaveConditionTrue(v1.KubeVirtConditionAvailable),
+			matcher.HaveConditionFalse(v1.KubeVirtConditionProgressing),
+			matcher.HaveConditionFalse(v1.KubeVirtConditionDegraded),
+			matcher.HaveConditionTrue(v1.KubeVirtConditionCreated),
+		), func() string { // failure description function
 			if kv.Status.ObservedGeneration != nil {
 				if *kv.Status.ObservedGeneration == kv.ObjectMeta.Generation {
-					return fmt.Errorf("observed generation must not match the current configuration")
+					return "observed generation must not match the current configuration"
 				}
 			}
-			return fmt.Errorf("waiting for conditions to indicate deployment (conditions: %+v)", kv.Status.Conditions)
-		}
+			return fmt.Sprintf("waiting for conditions to indicate deployment (conditions: %+v)", kv.Status.Conditions)
+		})
 
-		if kv.Status.ObservedGeneration != nil {
-			if *kv.Status.ObservedGeneration != kv.ObjectMeta.Generation {
-				return fmt.Errorf("the observed generation must match the current generation")
-			}
-		}
-
-		return nil
+		g.Expect(kv.Status.ObservedGeneration).To(HaveValue(Equal(kv.ObjectMeta.Generation)),
+			"the observed generation must match the current generation")
 	}).WithTimeout(time.Duration(timeoutSeconds) * time.Second).WithPolling(1 * time.Second).Should(Succeed())
 }
 
