@@ -35,7 +35,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -46,7 +45,6 @@ import (
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
-	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -255,25 +253,3 @@ var _ = Describe("[sig-compute]SecurityFeatures", decorators.SigCompute, func() 
 		})
 	})
 })
-
-func runOnAllSchedulableNodes(virtClient kubecli.KubevirtClient, command []string, forbiddenString string) error {
-	nodes := libnode.GetAllSchedulableNodes(virtClient)
-	for _, node := range nodes.Items {
-		pod, err := libnode.GetVirtHandlerPod(virtClient, node.Name)
-		if err != nil {
-			return err
-		}
-		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, components.VirtHandlerName, command)
-		if err != nil {
-			_, _ = GinkgoWriter.Write([]byte(stderr))
-			return err
-		}
-		if forbiddenString != "" {
-			if strings.Contains(stdout, forbiddenString) {
-				return fmt.Errorf("found unexpected %s on node %s", forbiddenString, node.Name)
-			}
-		}
-	}
-
-	return nil
-}
