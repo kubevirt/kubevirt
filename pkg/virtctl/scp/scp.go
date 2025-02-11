@@ -116,19 +116,19 @@ func PrepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *ssh.SSHO
 
 func usage() string {
 	return `  # Copy a file to the remote home folder of user jdoe
-  {{ProgramName}} scp myfile.bin jdoe@testvmi:myfile.bin
+  {{ProgramName}} scp myfile.bin jdoe@vmi/testvmi:myfile.bin
 
   # Copy a directory to the remote home folder of user jdoe
-  {{ProgramName}} scp --recursive ~/mydir/ jdoe@testvmi:./mydir
+  {{ProgramName}} scp --recursive ~/mydir/ jdoe@vmi/testvmi:./mydir
 
   # Copy a file to the remote home folder of user jdoe without specifying a file name on the target
-  {{ProgramName}} scp myfile.bin jdoe@testvmi:.
+  {{ProgramName}} scp myfile.bin jdoe@vmi/testvmi:.
 
   # Copy a file to 'testvm' in 'mynamespace' namespace
-  {{ProgramName}} scp myfile.bin jdoe@testvmi.mynamespace:myfile.bin
+  {{ProgramName}} scp myfile.bin jdoe@vmi/testvmi.mynamespace:myfile.bin
 
   # Copy a file from the remote location to a local folder
-  {{ProgramName}} scp jdoe@testvmi:myfile.bin ~/myfile.bin`
+  {{ProgramName}} scp jdoe@vmi/testvmi:myfile.bin ~/myfile.bin`
 }
 
 func ParseTarget(source, destination string) (*LocalArgument, *RemoteArgument, bool, error) {

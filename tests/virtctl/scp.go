@@ -116,12 +116,14 @@ var _ = VirtctlDescribe("[sig-compute]SCP", decorators.SigCompute, func() {
 
 		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
+		remoteFile := "vmi/" + vmi.Name + ":./keyfile"
+
 		By("copying a file to the VMI")
-		copyFn(keyFile, vmi.Name+":"+"./keyfile", false)
+		copyFn(keyFile, remoteFile, false)
 
 		By("copying the file back")
 		copyBackFile := filepath.Join(GinkgoT().TempDir(), "remote_id_rsa")
-		copyFn(vmi.Name+":"+"./keyfile", copyBackFile, false)
+		copyFn(remoteFile, copyBackFile, false)
 
 		By("comparing the two files")
 		compareFile(keyFile, copyBackFile)
@@ -154,10 +156,10 @@ var _ = VirtctlDescribe("[sig-compute]SCP", decorators.SigCompute, func() {
 		Expect(os.WriteFile(filepath.Join(copyFromDir, "file2"), []byte("test1"), permRW)).To(Succeed())
 
 		By("copying a file to the VMI")
-		copyFn(copyFromDir, vmi.Name+":"+"./sourcedir", true)
+		copyFn(copyFromDir, "vmi/"+vmi.Name+":"+"./sourcedir", true)
 
 		By("copying the file back")
-		copyFn(vmi.Name+":"+"./sourcedir", copyToDir, true)
+		copyFn("vmi/"+vmi.Name+":"+"./sourcedir", copyToDir, true)
 
 		By("comparing the two directories")
 		compareFile(filepath.Join(copyFromDir, "file1"), filepath.Join(copyToDir, "file1"))
