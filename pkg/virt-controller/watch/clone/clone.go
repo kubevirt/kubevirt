@@ -442,10 +442,77 @@ func (ctrl *VMCloneController) verifySnapshotReady(vmClone *clone.VirtualMachine
 		return snapshot, syncInfo
 	}
 
+	if err := ctrl.verifySnapshotContent(snapshot); err != nil {
+		// At this point the snapshot is already succeded and ready.
+		// If there is an issue with the snapshot content something is not right
+		// and the clone should fail
+		syncInfo.isCloneFailing = true
+		syncInfo.event = SnapshotContentInvalid
+		syncInfo.reason = err.Error()
+		return nil, syncInfo
+	}
+
 	ctrl.logAndRecord(vmClone, SnapshotReady, fmt.Sprintf("snapshot %s for clone %s is ready to use", snapshot.Name, vmClone.Name))
 	syncInfo.snapshotReady = true
 
 	return snapshot, syncInfo
+}
+
+func (ctrl *VMCloneController) getSnapshotContent(snapshot *snapshotv1.VirtualMachineSnapshot) (*snapshotv1.VirtualMachineSnapshotContent, error) {
+	contentName := virtsnapshot.GetVMSnapshotContentName(snapshot)
+	contentKey := getKey(contentName, snapshot.Namespace)
+
+	contentObj, exists, err := ctrl.snapshotContentStore.GetByKey(contentKey)
+	if !exists {
+		return nil, fmt.Errorf("snapshot content %s in namespace %s does not exist", contentName, snapshot.Namespace)
+	} else if err != nil {
+		return nil, err
+	}
+
+	return contentObj.(*snapshotv1.VirtualMachineSnapshotContent), nil
+}
+
+func (ctrl *VMCloneController) verifySnapshotContent(snapshot *snapshotv1.VirtualMachineSnapshot) error {
+	content, err := ctrl.getSnapshotContent(snapshot)
+	if err != nil {
+		return err
+	}
+
+	if content.Spec.VirtualMachineSnapshotName == nil {
+		return fmt.Errorf("cannot get snapshot name from content %s", content.Name)
+	}
+
+	snapshotName := *content.Spec.VirtualMachineSnapshotName
+	vm := content.Spec.Source.VirtualMachine
+
+	if vm.Spec.Template == nil {
+		return nil
+	}
+
+	if backendstorage.IsBackendStorageNeededForVMI(&vm.Spec.Template.Spec) {
+		return fmt.Errorf("%w: snapshot %s/%s", ErrSourceWithBackendStorage, snapshot.Namespace, snapshot.Name)
+	}
+
+	var volumesNotBackedUpErr error
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		if volume.PersistentVolumeClaim == nil && volume.DataVolume == nil {
+			continue
+		}
+
+		foundBackup := false
+		for _, volumeBackup := range content.Spec.VolumeBackups {
+			if volume.Name == volumeBackup.VolumeName {
+				foundBackup = true
+				break
+			}
+		}
+
+		if !foundBackup {
+			volumesNotBackedUpErr = errors.Join(volumesNotBackedUpErr, fmt.Errorf(ErrVolumeNotBackedUp, volume.Name, snapshotName))
+		}
+	}
+
+	return volumesNotBackedUpErr
 }
 
 // This method assumes the snapshot exists. If it doesn't - syncInfo is updated accordingly.
@@ -622,17 +689,11 @@ func (ctrl *VMCloneController) getSource(vmClone *clone.VirtualMachineClone, nam
 }
 
 func (ctrl *VMCloneController) getVmFromSnapshot(snapshot *snapshotv1.VirtualMachineSnapshot) (*k6tv1.VirtualMachine, error) {
-	contentName := virtsnapshot.GetVMSnapshotContentName(snapshot)
-	contentKey := getKey(contentName, snapshot.Namespace)
-
-	contentObj, exists, err := ctrl.snapshotContentStore.GetByKey(contentKey)
-	if !exists {
-		return nil, fmt.Errorf("snapshot content %s in namespace %s does not exist", contentName, snapshot.Namespace)
-	} else if err != nil {
+	content, err := ctrl.getSnapshotContent(snapshot)
+	if err != nil {
 		return nil, err
 	}
 
-	content := contentObj.(*snapshotv1.VirtualMachineSnapshotContent)
 	contentVmSpec := content.Spec.Source.VirtualMachine
 
 	vm := &k6tv1.VirtualMachine{
