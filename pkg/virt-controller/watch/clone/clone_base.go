@@ -38,6 +38,7 @@ const (
 	PVCBound              Event = "PVCBound"
 
 	SnapshotDeleted                 Event = "SnapshotDeleted"
+	SnapshotContentInvalid          Event = "SnapshotContentInvalid"
 	SourceDoesNotExist              Event = "SourceDoesNotExist"
 	SourceWithBackendStorageInvalid Event = "SourceVMWithBackendStorageInvalid"
 	VMVolumeSnapshotsInvalid        Event = "VMVolumeSnapshotsInvalid"
@@ -46,6 +47,7 @@ const (
 var (
 	ErrVolumeNotSnapshotable        = "Virtual Machine volume %s does not support snapshots"
 	ErrVolumeSnapshotSupportUnknown = "Virtual Machine volume %s snapshot support unknown"
+	ErrVolumeNotBackedUp            = "volume %s is not backed up in snapshot %s"
 
 	ErrSourceDoesntExist        = errors.New("Source doesnt exist")
 	ErrSourceWithBackendStorage = errors.New("Clone of source with backendstorage is not supported")
