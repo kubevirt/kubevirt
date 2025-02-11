@@ -1267,7 +1267,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			})))
 		})
 
-		It("[test_id:6952]snapshot wait for volume bound, then continues, succeeds and then should not fail", func() {
+		It("snapshot create before source wait for volume bound, then continues, succeeds and then should not fail", func() {
 			wffc := libstorage.IsStorageClassBindingModeWaitForFirstConsumer(snapshotStorageClass)
 			// Stand alone dv
 			dv := libdv.NewDataVolume(
@@ -1299,11 +1299,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				libvmi.WithRunStrategy(v1.RunStrategyHalted),
 			)
 
-			By("Create offline VM")
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Create Snapshot")
+			By("Create Snapshot before source VM")
 			webhook = createDenyVolumeSnapshotCreateWebhook(virtClient, vm.Name)
 			snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
 			snapshot.Spec.FailureDeadline = &metav1.Duration{Duration: time.Minute}
@@ -1311,7 +1307,28 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
+			By("Wait Snapshot conditions to reflect source doesnt exist")
+			Eventually(func() *snapshotv1.VirtualMachineSnapshotStatus {
+				snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				return snapshot.Status
+			}, 30*time.Second, 2*time.Second).Should(gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"Conditions": ContainElements(
+					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Type":   Equal(snapshotv1.ConditionProgressing),
+						"Status": Equal(corev1.ConditionFalse),
+						"Reason": Equal("Source does not exist")}),
+					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Type":   Equal(snapshotv1.ConditionReady),
+						"Status": Equal(corev1.ConditionFalse)}),
+				),
+				"Phase": Equal(snapshotv1.InProgress),
+			})))
+
+			By("Create offline VM")
+			vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			if wffc {
 				By("Wait Snapshot conditions to reflect wait for volume bound")
