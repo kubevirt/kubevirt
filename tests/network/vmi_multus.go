@@ -627,24 +627,37 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					linuxBridgeInterfaceWithCustomMac := linuxBridgeInterfaceWithMACSpoofCheck
 					libvmi.InterfaceWithMac(&linuxBridgeInterfaceWithCustomMac, initialMacAddressStr)
 
+					networkData, err := cloudinit.NewNetworkData(
+						cloudinit.WithEthernet(linuxBridgeInterfaceWithCustomMac.Name,
+							cloudinit.WithAddresses(vmUnderTestIPAddress+bridgeSubnetMask),
+							cloudinit.WithMatchingMAC(linuxBridgeInterfaceWithCustomMac.MacAddress),
+						),
+					)
+					Expect(err).NotTo(HaveOccurred())
+
 					vmiUnderTest := libvmifact.NewFedora(
 						libvmi.WithInterface(linuxBridgeInterfaceWithCustomMac),
 						libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
-						libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(
-							cloudinit.CreateNetworkDataWithStaticIPsByMac(linuxBridgeInterfaceWithCustomMac.Name, linuxBridgeInterfaceWithCustomMac.MacAddress, vmUnderTestIPAddress+bridgeSubnetMask),
-						)),
-						libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
+						libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
+						libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
+					)
 					vmiUnderTest, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiUnderTest)).Create(context.Background(), vmiUnderTest, metav1.CreateOptions{})
 					ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 					By("Creating a target VM with Linux bridge CNI network interface and default MAC address.")
+					targetNetworkData, err := cloudinit.NewNetworkData(
+						cloudinit.WithEthernet("eth0",
+							cloudinit.WithAddresses(targetVMIPAddress+bridgeSubnetMask),
+						),
+					)
+					Expect(err).NotTo(HaveOccurred())
+
 					targetVmi := libvmifact.NewFedora(
 						libvmi.WithInterface(linuxBridgeInterfaceWithMACSpoofCheck),
 						libvmi.WithNetwork(libvmi.MultusNetwork(linuxBridgeWithMACSpoofCheckNetwork, linuxBridgeWithMACSpoofCheckNetwork)),
-						libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(
-							cloudinit.CreateNetworkDataWithStaticIPsByIface("eth0", targetVMIPAddress+bridgeSubnetMask),
-						)),
-						libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
+						libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(targetNetworkData)),
+						libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
+					)
 					targetVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(targetVmi)).Create(context.Background(), targetVmi, metav1.CreateOptions{})
 					ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
