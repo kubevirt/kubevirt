@@ -85,10 +85,7 @@ func syncStatusWithMatcher(
 		statusRef.ControllerRevisionRef = nil
 	}
 
-	matcherInferFromVolumeFailurePolicy := matcher.GetInferFromVolumeFailurePolicy()
-	if matcherInferFromVolumeFailurePolicy != nil && *matcherInferFromVolumeFailurePolicy != *statusRef.InferFromVolumeFailurePolicy {
-		statusRef.InferFromVolumeFailurePolicy = pointer.P(*matcherInferFromVolumeFailurePolicy)
-	}
+	syncInferFromVolumeFailurePolicy(matcher, statusRef)
 
 	matcherRevisionName := matcher.GetRevisionName()
 	if matcherRevisionName != "" {
@@ -110,6 +107,16 @@ func syncStatusWithMatcher(
 		}
 	}
 	return nil
+}
+
+func syncInferFromVolumeFailurePolicy(matcher virtv1.Matcher, statusRef *virtv1.InstancetypeStatusRef) {
+	matcherInferFromVolumeFailurePolicy := matcher.GetInferFromVolumeFailurePolicy()
+	if matcherInferFromVolumeFailurePolicy != nil {
+		if statusRef.InferFromVolumeFailurePolicy == nil || (statusRef.InferFromVolumeFailurePolicy != nil &&
+			*matcherInferFromVolumeFailurePolicy != *statusRef.InferFromVolumeFailurePolicy) {
+			statusRef.InferFromVolumeFailurePolicy = pointer.P(*matcherInferFromVolumeFailurePolicy)
+		}
+	}
 }
 
 func (h *revisionHandler) storeInstancetypeRevision(vm *virtv1.VirtualMachine) (*virtv1.InstancetypeStatusRef, error) {
