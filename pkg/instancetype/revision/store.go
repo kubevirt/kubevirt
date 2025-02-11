@@ -86,8 +86,11 @@ func syncStatusWithMatcher(
 	}
 
 	matcherInferFromVolumeFailurePolicy := matcher.GetInferFromVolumeFailurePolicy()
-	if matcherInferFromVolumeFailurePolicy != nil && *matcherInferFromVolumeFailurePolicy != *statusRef.InferFromVolumeFailurePolicy {
-		statusRef.InferFromVolumeFailurePolicy = pointer.P(*matcherInferFromVolumeFailurePolicy)
+	if matcherInferFromVolumeFailurePolicy != nil {
+		if statusRef.InferFromVolumeFailurePolicy == nil || (statusRef.InferFromVolumeFailurePolicy != nil &&
+			*matcherInferFromVolumeFailurePolicy != *statusRef.InferFromVolumeFailurePolicy) {
+			statusRef.InferFromVolumeFailurePolicy = pointer.P(*matcherInferFromVolumeFailurePolicy)
+		}
 	}
 
 	matcherRevisionName := matcher.GetRevisionName()
