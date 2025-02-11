@@ -24,6 +24,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -264,6 +265,21 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(storeHandler.Store(vm)).To(MatchError(
 					conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "cpu", "cores")}))
 			})
+			It("store InferFromVolumeFailurePolicy when missing from InstancetypeRef", func() {
+				vm.Spec.Instancetype.InferFromVolumeFailurePolicy = pointer.P(virtv1.IgnoreInferFromVolumeFailure)
+				vm.Status.InstancetypeRef = nil
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Status.InstancetypeRef.InferFromVolumeFailurePolicy).To(HaveValue(Equal(virtv1.IgnoreInferFromVolumeFailure)))
+			})
+
+			It("store InferFromVolumeFailurePolicy when different to PreferenceRef", func() {
+				vm.Spec.Instancetype.InferFromVolumeFailurePolicy = pointer.P(virtv1.IgnoreInferFromVolumeFailure)
+				vm.Status.InstancetypeRef = &virtv1.InstancetypeStatusRef{
+					InferFromVolumeFailurePolicy: pointer.P(virtv1.RejectInferFromVolumeFailure),
+				}
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Status.InstancetypeRef.InferFromVolumeFailurePolicy).To(HaveValue(Equal(virtv1.IgnoreInferFromVolumeFailure)))
+			})
 		})
 
 		Context("using namespaced Instancetype", func() {
@@ -487,6 +503,21 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(storeHandler.Store(vm)).To(MatchError(ContainSubstring("found existing ControllerRevision with unexpected data")))
+			})
+			It("store InferFromVolumeFailurePolicy when missing from PreferenceRef", func() {
+				vm.Spec.Preference.InferFromVolumeFailurePolicy = pointer.P(virtv1.IgnoreInferFromVolumeFailure)
+				vm.Status.PreferenceRef = nil
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Status.PreferenceRef.InferFromVolumeFailurePolicy).To(HaveValue(Equal(virtv1.IgnoreInferFromVolumeFailure)))
+			})
+
+			It("store InferFromVolumeFailurePolicy when different to PreferenceRef", func() {
+				vm.Spec.Preference.InferFromVolumeFailurePolicy = pointer.P(virtv1.IgnoreInferFromVolumeFailure)
+				vm.Status.PreferenceRef = &virtv1.InstancetypeStatusRef{
+					InferFromVolumeFailurePolicy: pointer.P(virtv1.RejectInferFromVolumeFailure),
+				}
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Status.PreferenceRef.InferFromVolumeFailurePolicy).To(HaveValue(Equal(virtv1.IgnoreInferFromVolumeFailure)))
 			})
 		})
 
