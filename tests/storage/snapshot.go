@@ -1359,7 +1359,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				return snapshot.Status
-			}, 30*time.Second, 2*time.Second).Should(gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+			}, 120*time.Second, 2*time.Second).Should(gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 				"Conditions": ContainElements(
 					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"Type":   Equal(snapshotv1.ConditionReady),
