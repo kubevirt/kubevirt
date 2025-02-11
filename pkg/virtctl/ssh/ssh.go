@@ -158,13 +158,13 @@ func PrepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *SSHOptio
 
 func usage() string {
 	return fmt.Sprintf(`  # Connect to 'testvmi':
-  {{ProgramName}} ssh jdoe@testvmi [--%s]
+  {{ProgramName}} ssh jdoe@vmi/testvmi [--%s]
 
   # Connect to 'testvm' in 'mynamespace' namespace
   {{ProgramName}} ssh jdoe@vm/testvm.mynamespace [--%s]
 
   # Specify a username and namespace:
-  {{ProgramName}} ssh --namespace=mynamespace --%s=jdoe testvmi`,
+  {{ProgramName}} ssh --namespace=mynamespace --%s=jdoe vmi/testvmi`,
 		IdentityFilePathFlag,
 		IdentityFilePathFlag,
 		usernameFlag,
