@@ -50,7 +50,7 @@ func NewCommand() *cobra.Command {
 	log.InitializeLogging("portforward")
 	c := PortForward{}
 	cmd := &cobra.Command{
-		Use:     "port-forward [kind/]name[.namespace] [protocol/]localPort[:targetPort]...",
+		Use:     "port-forward [type/]name[.namespace] [protocol/]localPort[:targetPort]...",
 		Short:   "Forward local ports to a virtualmachine or virtualmachineinstance.",
 		Long:    usage(),
 		Example: examples(),
@@ -245,6 +245,9 @@ func ParseTarget(target string) (string, string, string, error) {
 			return "", "", "", errors.New("unsupported resource kind " + kind)
 		}
 		target = parts[1]
+	} else {
+		log.Log.Warningf("Defaulting to type '%s'.\nOmitting the type in the target is deprecated."+
+			"\nSpecifying the type will become mandatory with the next release.", kind)
 	}
 	if target == "" {
 		return "", "", "", errors.New("expected name after '/'")

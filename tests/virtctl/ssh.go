@@ -58,7 +58,7 @@ var _ = VirtctlDescribe("[sig-compute]SSH", decorators.SigCompute, func() {
 			"--identity-file", keyFile,
 			"--known-hosts=",
 			"--command", "true",
-			vmiName,
+			"vmi/"+vmiName,
 		)()).To(Succeed())
 	}
 
@@ -76,7 +76,7 @@ var _ = VirtctlDescribe("[sig-compute]SSH", decorators.SigCompute, func() {
 			if appendLocalSSH {
 				args = append(args, "--local-ssh=true")
 			}
-			args = append(args, vmiName)
+			args = append(args, "vmi/"+vmiName)
 
 			// The virtctl binary needs to run here because of the way local SSH client wrapping works.
 			// Running the command through newRepeatableVirtctlCommand does not suffice.
