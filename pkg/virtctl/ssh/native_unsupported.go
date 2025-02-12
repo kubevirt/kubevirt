@@ -9,10 +9,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-const (
-	wrapLocalSSHDefault = true
-)
-
 func additionalUsage() string {
 	return ""
 }
