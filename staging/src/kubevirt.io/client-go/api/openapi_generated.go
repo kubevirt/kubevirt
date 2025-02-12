@@ -24984,15 +24984,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceFileSystemDisk(ref comm
 							Format: "",
 						},
 					},
-					"busType": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
 				},
-				Required: []string{"busType"},
 			},
 		},
 	}

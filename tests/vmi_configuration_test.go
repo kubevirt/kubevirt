@@ -1328,7 +1328,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					}
 
 					return len(fsList.Items) > 0 && fsList.Items[0].DiskName != "" && fsList.Items[0].MountPoint != "" &&
-						len(fsList.Items[0].Disk) > 0 && fsList.Items[0].Disk[0].BusType != ""
+						len(fsList.Items[0].Disk) > 0
 
 				}, 240*time.Second, 2).Should(BeTrue(), "Should have some filesystem")
 			})

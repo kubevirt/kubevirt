@@ -158,8 +158,7 @@ type FSFreeze struct {
 }
 
 type FSDisk struct {
-	Serial  string
-	BusType string
+	Serial string
 }
 
 type Filesystem struct {
