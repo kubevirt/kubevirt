@@ -160,13 +160,14 @@ func (c *controller) handleExpand(
 
 	// Only update the VM if we have changed something by applying an instance type and preference
 	if !equality.Semantic.DeepEqual(vm, expandVMCopy) {
-		_, err := c.clientset.VirtualMachine(expandVMCopy.Namespace).Update(
+		updatedVM, err := c.clientset.VirtualMachine(expandVMCopy.Namespace).Update(
 			context.Background(), expandVMCopy, metav1.UpdateOptions{})
 		if err != nil {
 			return vm, fmt.Errorf("error encountered when trying to update expanded VirtualMachine: %v", err)
 		}
-		updatedVM, err := c.clientset.VirtualMachine(expandVMCopy.Namespace).UpdateStatus(
-			context.Background(), expandVMCopy, metav1.UpdateOptions{})
+		updatedVM.Status = expandVMCopy.Status
+		updatedVM, err = c.clientset.VirtualMachine(updatedVM.Namespace).UpdateStatus(
+			context.Background(), updatedVM, metav1.UpdateOptions{})
 		if err != nil {
 			return vm, fmt.Errorf("error encountered when trying to update expanded VirtualMachine Status: %v", err)
 		}
