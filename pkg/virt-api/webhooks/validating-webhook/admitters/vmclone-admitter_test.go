@@ -243,11 +243,6 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		}),
 	)
 
-	It("should reject clone with source that uses backend storage", func() {
-		vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
-		admitter.admitAndExpect(vmClone, false)
-	})
-
 	Context("source types", func() {
 
 		DescribeTable("should allow legal types", func(kind string) {
@@ -269,9 +264,9 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		admitter.admitAndExpect(vmClone, false)
 	})
 
-	It("Should reject a source VM that does not exist", func() {
+	It("Should allow source VM that does not exist", func() {
 		vmClone.Spec.Source.Name = "vm-that-doesnt-exist"
-		admitter.admitAndExpect(vmClone, false)
+		admitter.admitAndExpect(vmClone, true)
 	})
 
 	When("Both source and target kinds are VirtualMachine", func() {
@@ -299,9 +294,9 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		admitter.admitAndExpect(vmClone, false)
 	})
 
-	DescribeTable("Should reject a source volume not Snapshot-able", func(index int) {
+	DescribeTable("Should allow a source volume not Snapshot-able", func(index int) {
 		vm.Status.VolumeSnapshotStatuses[index].Enabled = false
-		admitter.admitAndExpect(vmClone, false)
+		admitter.admitAndExpect(vmClone, true)
 	},
 		Entry("DataVolume", 0),
 		Entry("PersistentVolumeClaim", 1),
@@ -330,7 +325,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			for i := range vm.Status.VolumeSnapshotStatuses {
 				vm.Status.VolumeSnapshotStatuses[i].Enabled = false
 			}
-			admitter.admitAndExpect(vmClone, false)
+			admitter.admitAndExpect(vmClone, true)
 		})
 
 		It("should reject if vmsnapshot contents don't include a volume's backup", func() {

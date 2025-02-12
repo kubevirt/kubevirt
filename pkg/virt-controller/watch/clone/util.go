@@ -166,7 +166,7 @@ func updateCondition(conditions []clone.Condition, c clone.Condition, includeRea
 
 func updateCloneConditions(vmClone *clone.VirtualMachineClone, conditions ...clone.Condition) {
 	for _, cond := range conditions {
-		vmClone.Status.Conditions = updateCondition(vmClone.Status.Conditions, cond, false)
+		vmClone.Status.Conditions = updateCondition(vmClone.Status.Conditions, cond, true)
 	}
 }
 

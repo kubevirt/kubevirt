@@ -256,6 +256,70 @@ var _ = Describe("Clone", func() {
 
 	Context("basic controller operations", func() {
 		Context("with source VM", func() {
+			It("should report event if source VM doesn't exist, phase shouldn't change", func() {
+				vmClone.Status.Phase = clone.PhaseUnset
+				addClone(vmClone)
+
+				controller.Execute()
+				expectEvent(SourceDoesNotExist)
+				expectCloneBeInPhase(clone.PhaseUnset)
+			})
+
+			It("clone should fail if source VM has backendstorage", func() {
+				sourceVM.Spec.Template.Spec.Domain.Devices.TPM = &virtv1.TPMDevice{
+					Persistent: pointer.P(true),
+				}
+				addVM(sourceVM)
+				vmClone.Status.Phase = clone.PhaseUnset
+				addClone(vmClone)
+
+				controller.Execute()
+				expectEvent(SourceWithBackendStorageInvalid)
+				expectCloneBeInPhase(clone.Failed)
+			})
+
+			It("should report event if VM volumeSnapshots are invalid", func() {
+				sourceVM.Spec.Template.Spec.Volumes = append(sourceVM.Spec.Template.Spec.Volumes, virtv1.Volume{
+					Name: "disk0",
+					VolumeSource: virtv1.VolumeSource{
+						DataVolume: &virtv1.DataVolumeSource{
+							Name: "testdv",
+						},
+					},
+				})
+				addVM(sourceVM)
+				vmClone.Status.Phase = clone.PhaseUnset
+				addClone(vmClone)
+
+				controller.Execute()
+				expectEvent(VMVolumeSnapshotsInvalid)
+				expectCloneBeInPhase(clone.PhaseUnset)
+			})
+
+			It("should report event if VM volumeSnapshots are not snapshotable", func() {
+				sourceVM.Spec.Template.Spec.Volumes = append(sourceVM.Spec.Template.Spec.Volumes, virtv1.Volume{
+					Name: "disk0",
+					VolumeSource: virtv1.VolumeSource{
+						DataVolume: &virtv1.DataVolumeSource{
+							Name: "testdv",
+						},
+					},
+				})
+				sourceVM.Status.VolumeSnapshotStatuses = []virtv1.VolumeSnapshotStatus{
+					{
+						Name:    "disk0",
+						Enabled: false,
+					},
+				}
+				addVM(sourceVM)
+				vmClone.Status.Phase = clone.PhaseUnset
+				addClone(vmClone)
+
+				controller.Execute()
+				expectEvent(VMVolumeSnapshotsInvalid)
+				expectCloneBeInPhase(clone.PhaseUnset)
+			})
+
 			DescribeTable("should create snapshot if not exists yet", func(phase clone.VirtualMachineClonePhase) {
 				vmClone.Status.Phase = phase
 
