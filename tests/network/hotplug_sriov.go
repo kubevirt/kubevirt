@@ -146,7 +146,7 @@ func addSRIOVInterface(vm *v1.VirtualMachine, name, netAttachDefName string) err
 		return err
 	}
 	newIface.MacAddress = mac.String()
-	return libnet.PatchVMWithNewInterface(vm, newNetwork, newIface)
+	return libnet.PatchVMWithNewInterfaces(vm, []v1.Network{newNetwork}, []v1.Interface{newIface})
 }
 
 func verifySriovDynamicInterfaceChange(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
