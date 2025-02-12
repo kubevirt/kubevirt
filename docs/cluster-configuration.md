@@ -188,17 +188,6 @@ VMI example:
 
 **Default**: `false`
 
-### autoResourceLimits Feature Gate
-Set the `autoResourceLimits` feature gate to true in order to enable KubeVirt to set automatic limits when they are needed.
-If ResourceQuota with set memory limits is associated with a namespace, each pod in that namespace must have memory limits set.
-By default, KubeVirt does not set such limits to the virt-launcher pod.
-When this feature gate is enabled, KubeVirt will set limits to the virt-launcher pod if they are not set manually
-and if a resource quota with memory limits is associated with the creation namespace.
-
-**Note**: this feature is in Developer Preview.
-
-**Default**: `false`
-
 ### alignCPUs Feature Gate
 Set the `alignCPUs` feature gate to enable KubeVirt
 to request up to two additional dedicated CPUs in order to complete the total CPU count

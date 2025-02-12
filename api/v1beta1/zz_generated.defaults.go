@@ -64,10 +64,6 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 		var ptrVar1 bool = false
 		in.Spec.FeatureGates.PersistentReservation = &ptrVar1
 	}
-	if in.Spec.FeatureGates.AutoResourceLimits == nil {
-		var ptrVar1 bool = false
-		in.Spec.FeatureGates.AutoResourceLimits = &ptrVar1
-	}
 	if in.Spec.FeatureGates.AlignCPUs == nil {
 		var ptrVar1 bool = false
 		in.Spec.FeatureGates.AlignCPUs = &ptrVar1

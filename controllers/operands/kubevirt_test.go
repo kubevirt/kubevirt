@@ -1962,60 +1962,6 @@ Version: 1.2.3`)
 					})
 				})
 
-				It("should add the AutoResourceLimitsGate feature gate if AutoResourceLimits is true in HyperConverged CR", func() {
-					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						AutoResourceLimits: ptr.To(true),
-					}
-
-					existingResource, err := NewKubeVirt(hco)
-					Expect(err).ToNot(HaveOccurred())
-					By("KV CR should contain the AutoResourceLimitsGate feature gate", func() {
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(kvAutoResourceLimits))
-					})
-				})
-
-				It("should not add the AutoResourceLimitsGate feature gate if AutoResourceLimits is not set in HyperConverged CR", func() {
-					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						AutoResourceLimits: nil,
-					}
-
-					existingResource, err := NewKubeVirt(hco)
-					Expect(err).ToNot(HaveOccurred())
-					By("KV CR should not contain the AutoResourceLimitsGate feature gate", func() {
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(kvAutoResourceLimits))
-					})
-				})
-
-				It("should not add the AutoResourceLimitsGate feature gate if AutoResourceLimits is false in HyperConverged CR", func() {
-					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						AutoResourceLimits: ptr.To(false),
-					}
-
-					existingResource, err := NewKubeVirt(hco)
-					Expect(err).ToNot(HaveOccurred())
-					By("KV CR should not contain the AutoResourceLimitsGate feature gate", func() {
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).ToNot(ContainElement(kvAutoResourceLimits))
-					})
-				})
-
-				It("should add the AlignCPUs feature gate if AlignCPUs is true in HyperConverged CR", func() {
-					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						AlignCPUs: ptr.To(true),
-					}
-
-					existingResource, err := NewKubeVirt(hco)
-					Expect(err).ToNot(HaveOccurred())
-					By("KV CR should contain the AutoResourceLimitsGate feature gate", func() {
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).To(ContainElement(kvAlignCPUs))
-					})
-
-					Expect(existingResource.Annotations).To(HaveKeyWithValue(kubevirtcorev1.EmulatorThreadCompleteToEvenParity, ""))
-				})
-
 				It("should not add the AlignCPUs feature gate if AlignCPUs is false in HyperConverged CR", func() {
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
 						AlignCPUs: ptr.To(false),
@@ -2119,8 +2065,8 @@ Version: 1.2.3`)
 					Expect(err).ToNot(HaveOccurred())
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						DownwardMetrics:    ptr.To(true),
-						AutoResourceLimits: ptr.To(true),
+						DownwardMetrics:       ptr.To(true),
+						PersistentReservation: ptr.To(true),
 					}
 
 					cl := commontestutils.InitClient([]client.Object{hco, existingResource})
@@ -2141,7 +2087,7 @@ Version: 1.2.3`)
 					By("KV CR should contain the HC enabled managed feature gates", func() {
 						Expect(foundResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
 						Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).
-							To(ContainElements(kvDownwardMetrics, kvAutoResourceLimits))
+							To(ContainElements(kvDownwardMetrics, kvPersistentReservation))
 					})
 				})
 
@@ -2213,20 +2159,14 @@ Version: 1.2.3`)
 				It("should keep FG if already exist", func() {
 					mandatoryKvFeatureGates = getMandatoryKvFeatureGates(true)
 					fgs := getKvFeatureGateList(&hco.Spec.FeatureGates)
-					fgs = append(fgs, kvAutoResourceLimits)
+					fgs = append(fgs, kvPersistentReservation)
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
 					existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates = fgs
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						AutoResourceLimits: ptr.To(true),
+						PersistentReservation: ptr.To(true),
 					}
-
-					By("Make sure the existing KV is with the the expected FGs", func() {
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).
-							To(ContainElements(kvAutoResourceLimits))
-					})
 
 					cl := commontestutils.InitClient([]client.Object{hco, existingResource})
 					handler := (*genericOperand)(newKubevirtHandler(cl, commontestutils.GetScheme()))
@@ -2245,7 +2185,7 @@ Version: 1.2.3`)
 
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration).NotTo(BeNil())
 					Expect(foundResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).
-						To(ContainElements(kvAutoResourceLimits))
+						To(ContainElements(kvPersistentReservation))
 
 				})
 
@@ -2254,17 +2194,11 @@ Version: 1.2.3`)
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
 					existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtcorev1.DeveloperConfiguration{
-						FeatureGates: []string{kvAutoResourceLimits},
+						FeatureGates: []string{kvPersistentReservation},
 					}
 
-					By("Make sure the existing KV is with the the expected FGs", func() {
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).
-							To(ContainElements(kvAutoResourceLimits))
-					})
-
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{
-						WithHostPassthroughCPU: ptr.To(false),
+						PersistentReservation: ptr.To(false),
 					}
 
 					cl := commontestutils.InitClient([]client.Object{hco, existingResource})
@@ -2293,14 +2227,8 @@ Version: 1.2.3`)
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
 					existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtcorev1.DeveloperConfiguration{
-						FeatureGates: []string{kvAutoResourceLimits},
+						FeatureGates: []string{kvPersistentReservation},
 					}
-
-					By("Make sure the existing KV is with the the expected FGs", func() {
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).
-							To(ContainElements(kvAutoResourceLimits))
-					})
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{}
 
@@ -2330,14 +2258,8 @@ Version: 1.2.3`)
 					existingResource, err := NewKubeVirt(hco)
 					Expect(err).ToNot(HaveOccurred())
 					existingResource.Spec.Configuration.DeveloperConfiguration = &kubevirtcorev1.DeveloperConfiguration{
-						FeatureGates: []string{kvAutoResourceLimits},
+						FeatureGates: []string{kvPersistentReservation},
 					}
-
-					By("Make sure the existing KV is with the the expected FGs", func() {
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration).ToNot(BeNil())
-						Expect(existingResource.Spec.Configuration.DeveloperConfiguration.FeatureGates).
-							To(ContainElements(kvAutoResourceLimits))
-					})
 
 					hco.Spec.FeatureGates = hcov1beta1.HyperConvergedFeatureGates{}
 

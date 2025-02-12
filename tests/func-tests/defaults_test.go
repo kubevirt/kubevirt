@@ -72,7 +72,6 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 			DisableMDevConfiguration:    ptr.To(false),
 			EnableCommonBootImageImport: ptr.To(true),
 			PersistentReservation:       ptr.To(false),
-			AutoResourceLimits:          ptr.To(false),
 			AlignCPUs:                   ptr.To(false),
 			EnableApplicationAwareQuota: ptr.To(false),
 		}
@@ -93,7 +92,6 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 			Entry("when removing /spec/featureGates/deployVmConsoleProxy", "/spec/featureGates/deployVmConsoleProxy"),
 			Entry("when removing /spec/featureGates/enableCommonBootImageImport", "/spec/featureGates/enableCommonBootImageImport"),
 			Entry("when removing /spec/featureGates/persistentReservation", "/spec/featureGates/persistentReservation"),
-			Entry("when removing /spec/featureGates/autoResourceLimits", "/spec/featureGates/autoResourceLimits"),
 			Entry("when removing /spec/featureGates/alignCPUs", "/spec/featureGates/alignCPUs"),
 			Entry("when removing /spec/featureGates", "/spec/featureGates"),
 			Entry("when removing /spec", "/spec"),

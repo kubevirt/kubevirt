@@ -13,7 +13,6 @@ spec:
       renewBefore: 12h0m0s
   featureGates:
     alignCPUs: false
-    autoResourceLimits: false
     deployKubeSecondaryDNS: false
     deployVmConsoleProxy: false
     disableMDevConfiguration: false

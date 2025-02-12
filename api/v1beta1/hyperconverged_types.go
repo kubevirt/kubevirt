@@ -66,7 +66,7 @@ type HyperConvergedSpec struct {
 
 	// featureGates is a map of feature gate flags. Setting a flag to `true` will enable
 	// the feature. Setting `false` or removing the feature gate, disables the feature.
-	// +kubebuilder:default={"downwardMetrics": false, "enableCommonBootImageImport": true, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "disableMDevConfiguration": false, "persistentReservation": false, "autoResourceLimits": false, "enableApplicationAwareQuota": false}
+	// +kubebuilder:default={"downwardMetrics": false, "enableCommonBootImageImport": true, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "disableMDevConfiguration": false, "persistentReservation": false, "enableApplicationAwareQuota": false}
 	// +optional
 	FeatureGates HyperConvergedFeatureGates `json:"featureGates,omitempty"`
 
@@ -457,15 +457,7 @@ type HyperConvergedFeatureGates struct {
 
 	// TODO update description to also include cpu limits as well, after 4.14
 
-	// Enable KubeVirt to set automatic limits when they are needed.
-	// If ResourceQuota with set memory limits is associated with a namespace, each pod in that namespace must have memory limits set.
-	// By default, KubeVirt does not set such limits to the virt-launcher pod.
-	// When this feature gate is enabled, KubeVirt will set limits to the virt-launcher pod if they are not set manually
-	// and if a resource quota with memory limits is associated with the creation namespace.
-	// Note: this feature is in Developer Preview.
-	// +optional
-	// +kubebuilder:default=false
-	// +default=false
+	// Deprecated: this field is ignored and will be removed in the next version of the API.
 	AutoResourceLimits *bool `json:"autoResourceLimits,omitempty"`
 
 	// Enable KubeVirt to request up to two additional dedicated CPUs
@@ -847,7 +839,7 @@ type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"downwardMetrics": false, "enableCommonBootImageImport": true, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "disableMDevConfiguration": false, "persistentReservation": false, "autoResourceLimits": false, "enableApplicationAwareQuota": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 150, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist", "virtualMachineOptions": {"disableFreePageReporting": false, "disableSerialConsoleLog": false}}
+	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"downwardMetrics": false, "enableCommonBootImageImport": true, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "disableMDevConfiguration": false, "persistentReservation": false, "enableApplicationAwareQuota": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 150, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist", "virtualMachineOptions": {"disableFreePageReporting": false, "disableSerialConsoleLog": false}}
 	// +optional
 	Spec   HyperConvergedSpec   `json:"spec,omitempty"`
 	Status HyperConvergedStatus `json:"status,omitempty"`

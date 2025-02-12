@@ -168,7 +168,6 @@ const (
 	kvDownwardMetrics       = "DownwardMetrics"
 	kvDisableMDevConfig     = "DisableMDEVConfiguration"
 	kvPersistentReservation = "PersistentReservation"
-	kvAutoResourceLimits    = "AutoResourceLimitsGate"
 	kvAlignCPUs             = "AlignCPUs"
 )
 
@@ -861,9 +860,6 @@ func getFeatureGateChecks(featureGates *hcov1beta1.HyperConvergedFeatureGates) [
 	}
 	if featureGates.PersistentReservation != nil && *featureGates.PersistentReservation {
 		fgs = append(fgs, kvPersistentReservation)
-	}
-	if featureGates.AutoResourceLimits != nil && *featureGates.AutoResourceLimits {
-		fgs = append(fgs, kvAutoResourceLimits)
 	}
 	if featureGates.AlignCPUs != nil && *featureGates.AlignCPUs {
 		fgs = append(fgs, kvAlignCPUs)
