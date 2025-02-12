@@ -67,21 +67,28 @@ func syncStatusWithMatcher(
 	statusRef *virtv1.InstancetypeStatusRef,
 	createRevisionFunc func(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error),
 ) error {
+	var clearControllerRevisionRef bool
 	matcherName := matcher.GetName()
 	if matcherName != "" && matcherName != statusRef.Name {
 		statusRef.Name = matcherName
-		statusRef.ControllerRevisionRef = nil
+		clearControllerRevisionRef = true
 	}
 
 	matcherKind := matcher.GetKind()
 	if matcherKind != "" && matcherKind != statusRef.Kind {
 		statusRef.Kind = matcherKind
-		statusRef.ControllerRevisionRef = nil
+		clearControllerRevisionRef = true
 	}
 
 	matcherInferFromVolume := matcher.GetInferFromVolume()
 	if matcherInferFromVolume != "" && matcherInferFromVolume != statusRef.InferFromVolume {
 		statusRef.InferFromVolume = matcherInferFromVolume
+		clearControllerRevisionRef = true
+	}
+
+	// If the name, kind or inferFromVolume matcher values have changed we need to clear ControllerRevisionRef to either use RevisionName
+	// from the matcher or to store a copy of the new resource the matcher is pointing at.
+	if clearControllerRevisionRef {
 		statusRef.ControllerRevisionRef = nil
 	}
 
