@@ -46,10 +46,28 @@ func (f *instancetypeFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMa
 	if vm.Spec.Instancetype == nil {
 		return nil, nil
 	}
-	namespacedName := types.NamespacedName{
-		Namespace: vm.Namespace,
-		Name:      vm.Spec.Instancetype.Name,
+	return f.findByNamespacedName(
+		types.NamespacedName{
+			Namespace: vm.Namespace,
+			Name:      vm.Spec.Instancetype.Name,
+		},
+	)
+}
+
+func (f *instancetypeFinder) FindFromVMI(vmi *virtv1.VirtualMachineInstance) (*v1beta1.VirtualMachineInstancetype, error) {
+	instancetypeName, ok := vmi.GetLabels()[virtv1.InstancetypeAnnotation]
+	if !ok {
+		return nil, fmt.Errorf("unable to find instance type annotation on VMI")
 	}
+	return f.findByNamespacedName(
+		types.NamespacedName{
+			Namespace: vmi.Namespace,
+			Name:      instancetypeName,
+		},
+	)
+}
+
+func (f *instancetypeFinder) findByNamespacedName(namespacedName types.NamespacedName) (*v1beta1.VirtualMachineInstancetype, error) {
 	if f.store == nil {
 		return f.virtClient.VirtualMachineInstancetype(namespacedName.Namespace).Get(
 			context.Background(), namespacedName.Name, metav1.GetOptions{})

@@ -27,11 +27,20 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	virtv1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
+
+type instancetypeMetricsHandler interface {
+	ApplyToVM(*virtv1.VirtualMachine) error
+	FetchNameFromVM(vm *virtv1.VirtualMachine) string
+	FetchPreferenceNameFromVM(vm *virtv1.VirtualMachine) string
+	FetchNameFromVMI(vmi *virtv1.VirtualMachineInstance) string
+	FetchPreferenceNameFromVMI(vmi *virtv1.VirtualMachineInstance) string
+}
 
 var (
 	metrics = [][]operatormetrics.Metric{
@@ -48,7 +57,7 @@ var (
 	vmiMigrationInformer          cache.SharedIndexInformer
 	kvPodInformer                 cache.SharedIndexInformer
 	clusterConfig                 *virtconfig.ClusterConfig
-	instancetypeMethods           *instancetype.InstancetypeMethods
+	instancetypeHandler           instancetypeMetricsHandler
 )
 
 func SetupMetrics(
@@ -58,7 +67,7 @@ func SetupMetrics(
 	vmiMigration cache.SharedIndexInformer,
 	pod cache.SharedIndexInformer,
 	virtClusterConfig *virtconfig.ClusterConfig,
-	methods *instancetype.InstancetypeMethods,
+	handler instancetypeMetricsHandler,
 ) error {
 	vmInformer = vm
 	vmiInformer = vmi
@@ -66,7 +75,7 @@ func SetupMetrics(
 	vmiMigrationInformer = vmiMigration
 	kvPodInformer = pod
 	clusterConfig = virtClusterConfig
-	instancetypeMethods = methods
+	instancetypeHandler = handler
 
 	if err := client.SetupMetrics(); err != nil {
 		return err

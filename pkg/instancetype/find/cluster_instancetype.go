@@ -45,18 +45,30 @@ func (f *clusterInstancetypeFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.Vi
 	if vm.Spec.Instancetype == nil {
 		return nil, nil
 	}
+	return f.findByName(vm.Spec.Instancetype.Name)
+}
+
+func (f *clusterInstancetypeFinder) FindFromVMI(vmi *virtv1.VirtualMachineInstance) (*v1beta1.VirtualMachineClusterInstancetype, error) {
+	instancetypeName, ok := vmi.GetLabels()[virtv1.ClusterInstancetypeAnnotation]
+	if !ok {
+		return nil, fmt.Errorf("unable to find instance type annotation on VMI")
+	}
+	return f.findByName(instancetypeName)
+}
+
+func (f *clusterInstancetypeFinder) findByName(name string) (*v1beta1.VirtualMachineClusterInstancetype, error) {
 	if f.store == nil {
 		return f.virtClient.VirtualMachineClusterInstancetype().Get(
-			context.Background(), vm.Spec.Instancetype.Name, metav1.GetOptions{})
+			context.Background(), name, metav1.GetOptions{})
 	}
 
-	obj, exists, err := f.store.GetByKey(vm.Spec.Instancetype.Name)
+	obj, exists, err := f.store.GetByKey(name)
 	if err != nil {
 		return nil, err
 	}
 	if !exists {
 		return f.virtClient.VirtualMachineClusterInstancetype().Get(
-			context.Background(), vm.Spec.Instancetype.Name, metav1.GetOptions{})
+			context.Background(), name, metav1.GetOptions{})
 	}
 	instancetype, ok := obj.(*v1beta1.VirtualMachineClusterInstancetype)
 	if !ok {

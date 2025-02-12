@@ -46,10 +46,28 @@ func (f *preferenceFinder) FindPreference(vm *virtv1.VirtualMachine) (*v1beta1.V
 	if vm.Spec.Preference == nil {
 		return nil, nil
 	}
-	namespacedName := types.NamespacedName{
-		Namespace: vm.Namespace,
-		Name:      vm.Spec.Preference.Name,
+	return f.findByNamespacedName(
+		types.NamespacedName{
+			Namespace: vm.Namespace,
+			Name:      vm.Spec.Preference.Name,
+		},
+	)
+}
+
+func (f *preferenceFinder) FindPreferenceFromVMI(vmi *virtv1.VirtualMachineInstance) (*v1beta1.VirtualMachinePreference, error) {
+	preferenceName, ok := vmi.GetLabels()[virtv1.PreferenceAnnotation]
+	if !ok {
+		return nil, fmt.Errorf("unable to find preference annotation on VMI")
 	}
+	return f.findByNamespacedName(
+		types.NamespacedName{
+			Namespace: vmi.Namespace,
+			Name:      preferenceName,
+		},
+	)
+}
+
+func (f *preferenceFinder) findByNamespacedName(namespacedName types.NamespacedName) (*v1beta1.VirtualMachinePreference, error) {
 	if f.store == nil {
 		return f.virtClient.VirtualMachinePreference(namespacedName.Namespace).Get(
 			context.Background(), namespacedName.Name, metav1.GetOptions{})
