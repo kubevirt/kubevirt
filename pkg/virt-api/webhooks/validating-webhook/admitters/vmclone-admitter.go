@@ -442,5 +442,13 @@ func validateCloneVolumeSnapshotSupportVMSnapshotContent(snapshotContents *snaps
 		}
 	}
 
+	if backendstorage.IsBackendStorageNeededForVMI(&vm.Spec.Template.Spec) {
+		result = append(result, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Source Virtual Machine requires backend storage, operation not supported",
+			Field:   sourceField.String(),
+		})
+	}
+
 	return result
 }
