@@ -32,6 +32,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -91,7 +92,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
-	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
@@ -137,11 +137,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	var aggregatorClient *aggregatorclient.Clientset
 	var k8sClient string
 
-	var (
-		generateMigratableVMIs func(int) []*v1.VirtualMachineInstance
-		verifyVMIsUpdated      func([]*v1.VirtualMachineInstance)
-	)
-
 	deprecatedBeforeAll(func() {
 		virtClient = kubevirt.Client()
 		config, err := kubecli.GetKubevirtClientConfig()
@@ -166,138 +161,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			const prefix = ":"
 			Expect(strings.HasPrefix(version, ":")).To(BeTrue(), fmt.Sprintf(errFmt, version, prefix))
 			originalOperatorVersion = strings.TrimPrefix(version, prefix)
-		}
-
-		generateMigratableVMIs = func(num int) []*v1.VirtualMachineInstance {
-			vmis := []*v1.VirtualMachineInstance{}
-			for i := 0; i < num; i++ {
-				configMapName := "configmap-" + rand.String(5)
-				secretName := "secret-" + rand.String(5)
-				downwardAPIName := "downwardapi-" + rand.String(5)
-
-				config_data := map[string]string{
-					"config1": "value1",
-					"config2": "value2",
-				}
-				cm := libconfigmap.New(configMapName, config_data)
-				cm, err = virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				secret := libsecret.New(secretName, libsecret.DataString{"user": "admin", "password": "community"})
-				secret, err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
-				if !errors.IsAlreadyExists(err) {
-					Expect(err).ToNot(HaveOccurred())
-				}
-
-				vmi := libvmifact.NewCirros(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithConfigMapDisk(configMapName, configMapName),
-					libvmi.WithSecretDisk(secretName, secretName),
-					libvmi.WithServiceAccountDisk("default"),
-					libvmi.WithDownwardAPIDisk(downwardAPIName),
-					libvmi.WithWatchdog(v1.WatchdogActionPoweroff),
-				)
-				// In case there are no existing labels add labels to add some data to the downwardAPI disk
-				if vmi.ObjectMeta.Labels == nil {
-					vmi.ObjectMeta.Labels = map[string]string{"downwardTestLabelKey": "downwardTestLabelVal"}
-				}
-
-				vmis = append(vmis, vmi)
-			}
-
-			lastVMIIndex := len(vmis) - 1
-			vmi := vmis[lastVMIIndex]
-			const nadName = "secondarynet"
-
-			Expect(libnet.CreateNAD(testsuite.GetTestNamespace(vmi), nadName)).To(Succeed())
-
-			const networkName = "tenant-blue"
-			vmi.Spec.Domain.Devices.Interfaces = append(
-				vmi.Spec.Domain.Devices.Interfaces,
-				v1.Interface{
-					Name:                   networkName,
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-				},
-			)
-			vmi.Spec.Networks = append(
-				vmi.Spec.Networks,
-				v1.Network{
-					Name: networkName,
-					NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{
-						NetworkName: nadName,
-					}},
-				},
-			)
-
-			return vmis
-		}
-
-		verifyVMIsUpdated = func(vmis []*v1.VirtualMachineInstance) {
-
-			Eventually(func() error {
-				for _, vmi := range vmis {
-					foundVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
-
-					if foundVMI.Status.MigrationState == nil {
-						return fmt.Errorf("waiting for vmi %s/%s to migrate as part of update", foundVMI.Namespace, foundVMI.Name)
-					} else if !foundVMI.Status.MigrationState.Completed {
-
-						var startTime time.Time
-						var endTime time.Time
-						now := time.Now()
-
-						if foundVMI.Status.MigrationState.StartTimestamp != nil {
-							startTime = foundVMI.Status.MigrationState.StartTimestamp.Time
-						}
-						if foundVMI.Status.MigrationState.EndTimestamp != nil {
-							endTime = foundVMI.Status.MigrationState.EndTimestamp.Time
-						}
-
-						return fmt.Errorf("waiting for migration %s to complete for vmi %s/%s. Source Node [%s], Target Node [%s], Start Time [%s], End Time [%s], Now [%s], Failed: %t",
-							string(foundVMI.Status.MigrationState.MigrationUID),
-							foundVMI.Namespace,
-							foundVMI.Name,
-							foundVMI.Status.MigrationState.SourceNode,
-							foundVMI.Status.MigrationState.TargetNode,
-							startTime.String(),
-							endTime.String(),
-							now.String(),
-							foundVMI.Status.MigrationState.Failed,
-						)
-					}
-
-					_, hasOutdatedLabel := foundVMI.Labels[v1.OutdatedLauncherImageLabel]
-					if hasOutdatedLabel {
-						return fmt.Errorf("waiting for vmi %s/%s to have update launcher image in status", foundVMI.Namespace, foundVMI.Name)
-					}
-				}
-				return nil
-			}, 500, 1).Should(Succeed(), "All VMIs should update via live migration")
-
-			// this is put in an eventually loop because it's possible for the VMI to complete
-			// migrating and for the migration object to briefly lag behind in reporting
-			// the results
-			Eventually(func(g Gomega) error {
-				By("Verifying only a single successful migration took place for each vmi")
-				migrationList, err := kubevirt.Client().VirtualMachineInstanceMigration(testsuite.GetTestNamespace(nil)).List(context.Background(), metav1.ListOptions{})
-				g.Expect(err).ToNot(HaveOccurred(), "retrieving migrations")
-				for _, vmi := range vmis {
-					count := 0
-					for _, migration := range migrationList.Items {
-						if migration.Spec.VMIName == vmi.Name && migration.Status.Phase == v1.MigrationSucceeded {
-							count++
-						}
-					}
-					if count != 1 {
-						return fmt.Errorf("vmi [%s] returned %d successful migrations", vmi.Name, count)
-					}
-				}
-				return nil
-			}, 10, 1).Should(Succeed(), "Expects only a single successful migration per workload update")
 		}
 	})
 
@@ -413,13 +276,9 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					for _, env := range vc.Spec.Template.Spec.Containers[0].Env {
-						if env.Name == envVarDeploymentKeyToUpdate {
-							return false
-						}
-					}
-
-					return true
+					return !slices.ContainsFunc(vc.Spec.Template.Spec.Containers[0].Env, func(env k8sv1.EnvVar) bool {
+						return env.Name == envVarDeploymentKeyToUpdate
+					})
 				}),
 
 			Entry("[test_id:6255] customresourcedefinitions",
@@ -445,13 +304,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					vmcrd, err := virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), crdName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					for _, sn := range vmcrd.Spec.Names.ShortNames {
-						if sn == shortNameAdded {
-							return false
-						}
-					}
-
-					return true
+					return !slices.Contains(vmcrd.Spec.Names.ShortNames, shortNameAdded)
 				}),
 			Entry("[test_id:6256] poddisruptionbudgets", decorators.MultiReplica,
 				func() {
@@ -516,13 +369,9 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					vc, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), daemonSetName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					for _, env := range vc.Spec.Template.Spec.Containers[0].Env {
-						if env.Name == envVarDeploymentKeyToUpdate {
-							return false
-						}
-					}
-
-					return true
+					return !slices.ContainsFunc(vc.Spec.Template.Spec.Containers[0].Env, func(env k8sv1.EnvVar) bool {
+						return env.Name == envVarDeploymentKeyToUpdate
+					})
 				}),
 		)
 
@@ -539,12 +388,12 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(service.Spec.Ports[0].Port).To(Equal(int32(123)))
 
 			By("Test that the port is revered to the original")
-			Eventually(func() bool {
+			Eventually(func() int32 {
 				service, err := virtClient.CoreV1().Services(originalKv.Namespace).Get(context.Background(), "virt-api", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				return service.Spec.Ports[0].Port == originalPort
-			}, 120*time.Second, 5*time.Second).Should(BeTrue(), "waiting for service to revert to original state")
+				return service.Spec.Ports[0].Port
+			}).WithTimeout(120*time.Second).WithPolling(5*time.Second).Should(Equal(originalPort), "waiting for service to revert to original state")
 
 			By("Test that the revert of the service stays consistent")
 			Consistently(func() int32 {
@@ -552,7 +401,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				Expect(err).ToNot(HaveOccurred())
 
 				return service.Spec.Ports[0].Port
-			}, 20*time.Second, 5*time.Second).Should(Equal(originalPort))
+			}).WithTimeout(20 * time.Second).WithPolling(5 * time.Second).Should(Equal(originalPort))
 		})
 	})
 
@@ -571,7 +420,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			By("getting virt-launcher")
 			uid := vmi.GetObjectMeta().GetUID()
-			labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
+			labelSelector := fmt.Sprintf("%s=%v", v1.CreatedByLabel, uid)
 			pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 			Expect(err).ToNot(HaveOccurred(), "Should list pods")
 			Expect(pods.Items).To(HaveLen(1))
@@ -623,17 +472,16 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			waitForKvWithTimeout(kv, 120)
 
 			By("Check that worker nodes resumed the default amount of allocatable kvm devices")
-			defaultKvmDevices := "1k"
-			Eventually(func() error {
+			const defaultKvmDevices = "1k"
+			defaultKvmDevicesQuant := resource.MustParse(defaultKvmDevices)
+			kvmDeviceKey := k8sv1.ResourceName(services.KvmDevice)
+
+			Eventually(func(g Gomega) {
 				nodesWithKvm := libnode.GetNodesWithKVM()
 				for _, node := range nodesWithKvm {
-					kvmDevices, _ := node.Status.Allocatable[services.KvmDevice]
-					if kvmDevices != resource.MustParse(defaultKvmDevices) {
-						return fmt.Errorf("node %s does not have the expected allocatable kvm devices: %s, got: %d", node.Name, defaultKvmDevices, kvmDevices.Value())
-					}
+					g.Expect(node.Status.Allocatable).To(HaveKeyWithValue(kvmDeviceKey, defaultKvmDevicesQuant), "node %s does not have the expected allocatable kvm devices", node.Name)
 				}
-				return nil
-			}, 60*time.Second, 5*time.Second).ShouldNot(HaveOccurred())
+			}).WithTimeout(60 * time.Second).WithPolling(5 * time.Second).Should(Succeed())
 		})
 	})
 
@@ -849,7 +697,8 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			var migratableVMIs []*v1.VirtualMachineInstance
 			if createVMs {
-				migratableVMIs = generateMigratableVMIs(2)
+				migratableVMIs, err = generateMigratableVMIs(2)
+				Expect(err).NotTo(HaveOccurred())
 			}
 			if !flags.SkipShasumCheck {
 				launcherSha, err := getVirtLauncherSha(originalKv.Status.ObservedDeploymentConfig)
@@ -1153,7 +1002,8 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			By("Starting some vmis")
 			var vmis []*v1.VirtualMachineInstance
 			if checks.HasAtLeastTwoNodes() {
-				vmis = generateMigratableVMIs(2)
+				vmis, err = generateMigratableVMIs(2)
+				Expect(err).ToNot(HaveOccurred())
 				vmis = createRunningVMIs(vmis)
 			}
 
@@ -1347,7 +1197,8 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			var vmis []*v1.VirtualMachineInstance
 			if checks.HasAtLeastTwoNodes() {
-				vmis = generateMigratableVMIs(2)
+				vmis, err = generateMigratableVMIs(2)
+				Expect(err).NotTo(HaveOccurred())
 			}
 			vmisNonMigratable := []*v1.VirtualMachineInstance{libvmifact.NewCirros(), libvmifact.NewCirros()}
 
@@ -3233,4 +3084,107 @@ func verifyVMIsEvicted(vmis []*v1.VirtualMachineInstance) {
 		return nil
 	}, 320, 1).Should(Succeed(), "All VMIs should delete automatically")
 
+}
+
+func generateMigratableVMIs(num int) ([]*v1.VirtualMachineInstance, error) {
+	virtClient := kubevirt.Client()
+
+	var vmis []*v1.VirtualMachineInstance
+	for range num {
+		configMapName := "configmap-" + rand.String(5)
+		secretName := "secret-" + rand.String(5)
+		downwardAPIName := "downwardapi-" + rand.String(5)
+
+		configData := map[string]string{
+			"config1": "value1",
+			"config2": "value2",
+		}
+
+		var err error
+		cm := libconfigmap.New(configMapName, configData)
+		cm, err = virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		secret := libsecret.New(secretName, libsecret.DataString{"user": "admin", "password": "community"})
+		secret, err = kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return nil, err
+		}
+
+		vmi := libvmifact.NewCirros(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithConfigMapDisk(configMapName, configMapName),
+			libvmi.WithSecretDisk(secretName, secretName),
+			libvmi.WithServiceAccountDisk("default"),
+			libvmi.WithDownwardAPIDisk(downwardAPIName),
+			libvmi.WithWatchdog(v1.WatchdogActionPoweroff),
+		)
+		// In case there are no existing labels add labels to add some data to the downwardAPI disk
+		if vmi.ObjectMeta.Labels == nil {
+			vmi.ObjectMeta.Labels = map[string]string{"downwardTestLabelKey": "downwardTestLabelVal"}
+		}
+
+		vmis = append(vmis, vmi)
+	}
+
+	return vmis, nil
+}
+
+func verifyVMIsUpdated(vmis []*v1.VirtualMachineInstance) {
+	Eventually(func(g Gomega) {
+		for _, vmi := range vmis {
+			foundVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			g.Expect(err).NotTo(HaveOccurred())
+
+			g.Expect(foundVMI.Status.MigrationState).ToNot(BeNil(), "waiting for vmi %s/%s to migrate as part of update", foundVMI.Namespace, foundVMI.Name)
+			g.Expect(foundVMI.Status.MigrationState.Completed).To(BeTrue(), func() string {
+				var startTime time.Time
+				var endTime time.Time
+				now := time.Now()
+
+				if foundVMI.Status.MigrationState.StartTimestamp != nil {
+					startTime = foundVMI.Status.MigrationState.StartTimestamp.Time
+				}
+				if foundVMI.Status.MigrationState.EndTimestamp != nil {
+					endTime = foundVMI.Status.MigrationState.EndTimestamp.Time
+				}
+
+				return fmt.Sprintf("waiting for migration %s to complete for vmi %s/%s. Source Node [%s], Target Node [%s], Start Time [%s], End Time [%s], Now [%s], Failed: %t",
+					string(foundVMI.Status.MigrationState.MigrationUID),
+					foundVMI.Namespace,
+					foundVMI.Name,
+					foundVMI.Status.MigrationState.SourceNode,
+					foundVMI.Status.MigrationState.TargetNode,
+					startTime.String(),
+					endTime.String(),
+					now.String(),
+					foundVMI.Status.MigrationState.Failed,
+				)
+			})
+
+			g.Expect(foundVMI.Labels).ToNot(HaveKey(v1.OutdatedLauncherImageLabel),
+				"waiting for vmi %s/%s to have update launcher image in status", foundVMI.Namespace, foundVMI.Name)
+		}
+	}).WithTimeout(500*time.Second).WithPolling(time.Second).Should(Succeed(), "All VMIs should update via live migration")
+
+	// this is put in an eventually loop because it's possible for the VMI to complete
+	// migrating and for the migration object to briefly lag behind in reporting
+	// the results
+	Eventually(func(g Gomega) {
+		By("Verifying only a single successful migration took place for each vmi")
+		migrationList, err := kubevirt.Client().VirtualMachineInstanceMigration(testsuite.GetTestNamespace(nil)).List(context.Background(), metav1.ListOptions{})
+		g.Expect(err).ToNot(HaveOccurred(), "retrieving migrations")
+		for _, vmi := range vmis {
+			count := 0
+			for _, migration := range migrationList.Items {
+				if migration.Spec.VMIName == vmi.Name && migration.Status.Phase == v1.MigrationSucceeded {
+					count++
+				}
+			}
+			g.Expect(count).To(Equal(1), "vmi [%s] returned %d successful migrations", vmi.Name, count)
+		}
+	}).WithTimeout(10*time.Second).WithPolling(time.Second).Should(Succeed(), "Expects only a single successful migration per workload update")
 }
