@@ -20973,7 +20973,7 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 					},
 					"vmStateStorageClass": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM. The storage class must support RWX in filesystem mode.",
+							Description: "VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
