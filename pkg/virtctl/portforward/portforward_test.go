@@ -37,6 +37,15 @@ var _ = Describe("Port forward", func() {
 		Entry("two slashes", "//", "", "", "", "namespace cannot be empty"),
 		Entry("only dot", ".", "", "", "", "target must contain type and name separated by '/'"),
 		Entry("only separators", "/.", "", "", "", "unsupported resource type ''"),
+		// Normalization of type
+		Entry("kind vmi", "vmi/testvmi", "", "testvmi", "vmi", ""),
+		Entry("kind vmis", "vmis/testvmi", "", "testvmi", "vmi", ""),
+		Entry("kind virtualmachineinstance", "virtualmachineinstance/testvmi", "", "testvmi", "vmi", ""),
+		Entry("kind virtualmachineinstances", "virtualmachineinstances/testvmi", "", "testvmi", "vmi", ""),
+		Entry("kind vm", "vm/testvm", "", "testvm", "vm", ""),
+		Entry("kind vms", "vms/testvm", "", "testvm", "vm", ""),
+		Entry("kind virtualmachine", "virtualmachine/testvm", "", "testvm", "vm", ""),
+		Entry("kind virtualmachines", "virtualmachines/testvm", "", "testvm", "vm", ""),
 		// Legacy parsing
 		Entry("name with dots", "vmi/testvmi.with.dots", "dots", "testvmi.with", "vmi", ""),
 		Entry("kind vmi with name and namespace (legacy)", "vmi/testvmi.default", "default", "testvmi", "vmi", ""),

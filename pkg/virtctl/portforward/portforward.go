@@ -39,6 +39,9 @@ import (
 const (
 	forwardToStdioFlag = "stdio"
 	addressFlag        = "address"
+
+	vm  = "vm"
+	vmi = "vmi"
 )
 
 var (
@@ -137,12 +140,12 @@ func (o *PortForward) prepareCommand(args []string, fallbackNamespace string) (k
 }
 
 func (o *PortForward) setResource(kind, namespace string, client kubecli.KubevirtClient) error {
-	if kindIsVMI(kind) {
+	if kind == vmi {
 		o.resource = client.VirtualMachineInstance(namespace)
-	} else if kindIsVM(kind) {
+	} else if kind == vm {
 		o.resource = client.VirtualMachine(namespace)
 	} else {
-		return errors.New("unsupported resource kind " + kind)
+		return errors.New("unsupported resource type " + kind)
 	}
 
 	return nil
@@ -253,8 +256,9 @@ func ParseTarget(target string) (kind string, namespace string, name string, err
 		return "", "", "", errors.New("target is not valid with more than two '/'")
 	}
 
-	if !kindIsVM(kind) && !kindIsVMI(kind) {
-		return "", "", "", fmt.Errorf("unsupported resource type '%s'", kind)
+	kind, err = normalizeKind(kind)
+	if err != nil {
+		return "", "", "", err
 	}
 
 	if name == "" {
@@ -271,16 +275,12 @@ func ParseTarget(target string) (kind string, namespace string, name string, err
 	return kind, namespace, name, nil
 }
 
-func kindIsVMI(kind string) bool {
-	return kind == "vmi" ||
-		kind == "vmis" ||
-		kind == "virtualmachineinstance" ||
-		kind == "virtualmachineinstances"
-}
-
-func kindIsVM(kind string) bool {
-	return kind == "vm" ||
-		kind == "vms" ||
-		kind == "virtualmachine" ||
-		kind == "virtualmachines"
+func normalizeKind(kind string) (string, error) {
+	switch strings.ToLower(kind) {
+	case vm, "vms", "virtualmachine", "virtualmachines":
+		return vm, nil
+	case vmi, "vmis", "virtualmachineinstance", "virtualmachineinstances":
+		return vmi, nil
+	}
+	return "", fmt.Errorf("unsupported resource type '%s'", kind)
 }
