@@ -36,10 +36,10 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("profiler manager http handler callbacks", func() {
-	It("should deny request when ClusterProfiler feature gate is not enabled", func() {
+	It("should deny request when ClusterProfiler is not enabled", func() {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 			DeveloperConfiguration: &v1.DeveloperConfiguration{
-				FeatureGates: []string{"MadeUpGate"},
+				ClusterProfiler: false,
 			},
 		})
 

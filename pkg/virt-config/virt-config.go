@@ -495,3 +495,8 @@ func (c *ClusterConfig) GetInstancetypeReferencePolicy() v1.InstancetypeReferenc
 	}
 	return policy
 }
+
+func (c *ClusterConfig) ClusterProfilerEnabled() bool {
+	return c.GetConfig().DeveloperConfiguration.ClusterProfiler ||
+		c.isFeatureGateDefined(featuregate.ClusterProfiler)
+}

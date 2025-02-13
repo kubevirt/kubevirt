@@ -89,6 +89,7 @@ spec:
     cpuRequest: "0"
     defaultRuntimeClass: defaultRuntimeClassValue
     developerConfiguration:
+      clusterProfiler: true
       cpuAllocationRatio: -18
       diskVerification:
         memoryLimit: "0"

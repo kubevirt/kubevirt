@@ -202,7 +202,6 @@ func fuzzKubeVirtConfig(seed int64) *virtconfig.ClusterConfig {
 				featuregate.DownwardMetricsFeatureGate,
 				featuregate.NonRoot,
 				featuregate.Root,
-				featuregate.ClusterProfiler,
 				featuregate.WorkloadEncryptionSEV,
 				featuregate.DockerSELinuxMCSWorkaround,
 				featuregate.PSA,
