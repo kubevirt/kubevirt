@@ -843,7 +843,7 @@ func runSSHCommand(namespace, name, user, keyFile string) {
 		"-t", "-o StrictHostKeyChecking=no",
 		"-t", "-o UserKnownHostsFile=/dev/null",
 		"--command", "true",
-		name,
+		"vm/"+name,
 	)
 	Expect(err).ToNot(HaveOccurred())
 	out, err := cmd.CombinedOutput()
