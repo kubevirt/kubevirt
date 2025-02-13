@@ -276,7 +276,7 @@ func checkAndRunVNCViewer(doneChan chan struct{}, viewResChan chan error, port i
 		err = fmt.Errorf("No supported VNC app found in %s", osType)
 	} else {
 		log.Log.V(4).Infof("Executing commandline: '%s %v'", vncBin, args)
-		// #nosec No risk for attacket injection. vncBin and args include predefined strings
+		// #nosec No risk for attacker injection. vncBin and args include predefined strings
 		cmnd := exec.Command(vncBin, args...)
 		output, err := cmnd.CombinedOutput()
 		if err != nil {
