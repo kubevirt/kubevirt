@@ -159,6 +159,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		Expect(err).ToNot(HaveOccurred())
 
+		vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		vmiSourceInformer, vmiSource := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		vmiTargetInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		domainInformer, domainSource := testutils.NewFakeInformerFor(&api.Domain{})
@@ -208,6 +209,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			shareDir,
 			privateDir,
 			podsDir,
+			vmiInformer,
 			vmiSourceInformer,
 			vmiTargetInformer,
 			domainInformer,
@@ -239,11 +241,16 @@ var _ = Describe("VirtualMachineInstance", func() {
 		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
 		domainFeeder = testutils.NewDomainFeeder(mockQueue, domainSource)
 
-		wg.Add(4)
+		wg.Add(5)
 		go func() { vmiSourceInformer.Run(stop); wg.Done() }()
 		go func() { vmiTargetInformer.Run(stop); wg.Done() }()
+		go func() { vmiInformer.Run(stop); wg.Done() }()
 		go func() { domainInformer.Run(stop); wg.Done() }()
-		Expect(cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, vmiTargetInformer.HasSynced, domainInformer.HasSynced)).To(BeTrue())
+		Expect(cache.WaitForCacheSync(stop,
+			vmiSourceInformer.HasSynced,
+			vmiTargetInformer.HasSynced,
+			domainInformer.HasSynced,
+			vmiInformer.HasSynced)).To(BeTrue())
 
 		go func() {
 			notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
@@ -277,13 +284,20 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	sanityExecute := func() {
 		controllertesting.SanityExecute(controller, []cache.Store{
-			controller.vmiSourceStore, controller.vmiTargetStore, controller.domainStore,
+			controller.vmiSourceStore, controller.vmiTargetStore, controller.domainStore, controller.vmiStore,
 		}, Default)
 	}
 
 	createVMI := func(vmi *v1.VirtualMachineInstance) {
+		controller.vmiStore.Add(vmi)
+		vmiFeeder.Add(vmi)
 		_, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.TODO(), vmi, metav1.CreateOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	}
+
+	addVMI := func(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+		controller.domainStore.Add(domain)
+		createVMI(vmi)
 	}
 
 	expectEvent := func(substring string, shouldExist bool) {
@@ -341,8 +355,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			initGracePeriodHelper(1, vmi, domain)
 
 			client.EXPECT().Ping()
-			client.EXPECT().DeleteDomain(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
-			domainFeeder.Add(domain)
+			client.EXPECT().DeleteDomain(vmi)
+			addVMI(vmi, domain)
 
 			sanityExecute()
 			testutils.ExpectEvent(recorder, VMISignalDeletion)
@@ -359,6 +373,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			client.EXPECT().Ping()
 			client.EXPECT().ShutdownVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
+
 			domainFeeder.Add(domain)
 
 			sanityExecute()
@@ -374,8 +389,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Status.Status = api.Running
 
 			initGracePeriodHelper(1, vmi, domain)
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+			addVMI(vmi, domain)
 
 			sanityExecute()
 			Expect(mockQueue.Len()).To(Equal(0))
@@ -389,7 +403,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			sockFile = cmdclient.SocketFilePathOnHost("notexisingpoduid")
 			Expect(os.MkdirAll(filepath.Dir(sockFile), 0755)).To(Succeed())
 
-			vmiFeeder.Add(vmi)
 			createVMI(vmi)
 
 			//Did not initialize yet
@@ -416,7 +429,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			sockFile = cmdclient.SocketFilePathOnHost("notexisingpoduid")
 			Expect(os.MkdirAll(filepath.Dir(sockFile), 0755)).To(Succeed())
 
-			vmiFeeder.Add(vmi)
 			createVMI(vmi)
 
 			//Did not initialize yet
@@ -443,7 +455,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.UID = vmiTestUUID
 			vmi.Status.Phase = v1.Succeeded
 
-			vmiFeeder.Add(vmi)
+			createVMI(vmi)
 			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
 			client.EXPECT().Close()
 			sanityExecute()
@@ -469,13 +481,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 				},
 			}
 
-			vmiFeeder.Add(vmi)
+			createVMI(vmi)
 
-			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
-			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+			client.EXPECT().Close()
 
 			sanityExecute()
-			testutils.ExpectEvent(recorder, VMIDefined)
+
+			testutils.ExpectEvent(recorder, VMICrashed)
 			Expect(mockQueue.Len()).To(Equal(0))
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 		})
@@ -534,7 +547,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 			vmi = addActivePods(vmi, podTestUUID, host)
 
-			vmiFeeder.Add(vmi)
+			createVMI(vmi)
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
 				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
 				Expect(options.VirtualMachineSMBios.Product).To(Equal(virtconfig.SmbiosConfigDefaultProduct))
@@ -562,9 +575,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Status.Status = api.Running
 			domain.Spec.OS.Type.Machine = "q35-123"
 
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
-			createVMI(vmi)
+			addVMI(vmi, domain)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
 				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
@@ -591,9 +602,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
-			createVMI(vmi)
+
+			addVMI(vmi, domain)
 
 			node := &k8sv1.Node{
 				Status: k8sv1.NodeStatus{
@@ -648,9 +658,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				},
 			}
 
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
-			createVMI(vmi)
+			addVMI(vmi, domain)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
 				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
@@ -721,8 +729,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				},
 			}
 
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+			addVMI(vmi, domain)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
 				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
@@ -766,9 +773,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				},
 			}
 
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
-			createVMI(vmi)
+			addVMI(vmi, domain)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
 				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
@@ -808,9 +813,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Message:   "",
 			}
 
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
-			createVMI(vmi)
+			addVMI(vmi, domain)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
@@ -862,8 +865,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Message:   "",
 			}
 
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+			addVMI(vmi, domain)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
@@ -899,9 +901,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Message:   "some message",
 			}
 
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
-			createVMI(vmi)
+			addVMI(vmi, domain)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
@@ -942,9 +942,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Status.Status = api.Paused
 			domain.Status.Reason = api.ReasonPausedUser
 
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
-			createVMI(vmi)
+			addVMI(vmi, domain)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
@@ -974,7 +972,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Status.Reason = ""
 
 			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
@@ -1003,7 +1000,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.UID = vmiTestUUID
 			vmi.Status.Phase = v1.Scheduled
 
-			vmiFeeder.Add(vmi)
 			createVMI(vmi)
 
 			sanityExecute()
@@ -1020,7 +1016,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.UID = vmiTestUUID
 			vmi.Status.Phase = v1.Running
 
-			vmiFeeder.Add(vmi)
 			createVMI(vmi)
 
 			sanityExecute()
@@ -1040,7 +1035,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Spec.Networks = []v1.Network{{Name: "foo"}}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "foo"}}
 
-			vmiFeeder.Add(vmi)
 			createVMI(vmi)
 			controller.netConf = &netConfStub{SetupError: &neterrors.CriticalNetworkError{}}
 
@@ -1067,7 +1061,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 			vmi = addActivePods(vmi, podTestUUID, host)
 
-			vmiFeeder.Add(vmi)
 			createVMI(vmi)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
@@ -1098,7 +1091,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			It("should retry silently if a containerDisk is not yet ready", func() {
 				vmi := NewScheduledVMIWithContainerDisk(vmiTestUUID, podTestUUID, host)
 
-				vmiFeeder.Add(vmi)
 				createVMI(vmi)
 				mockContainerDiskMounter.EXPECT().ContainerDisksReady(vmi, gomock.Any()).Return(false, nil)
 
@@ -1112,7 +1104,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			It("should retry noisy if a containerDisk is not yet ready and the suppress timeout is over", func() {
 				vmi := NewScheduledVMIWithContainerDisk(vmiTestUUID, podTestUUID, host)
 
-				vmiFeeder.Add(vmi)
 				createVMI(vmi)
 				mockContainerDiskMounter.EXPECT().ContainerDisksReady(vmi, gomock.Any()).DoAndReturn(func(vmi *v1.VirtualMachineInstance, notReadySince time.Time) (bool, error) {
 					Expect(notReadySince.Before(time.Now())).To(BeTrue())
@@ -1130,7 +1121,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			It("should continue to mount containerDisks if the containerDisks are ready", func() {
 				vmi := NewScheduledVMIWithContainerDisk(vmiTestUUID, podTestUUID, host)
 
-				vmiFeeder.Add(vmi)
 				createVMI(vmi)
 				mockContainerDiskMounter.EXPECT().ContainerDisksReady(vmi, gomock.Any()).DoAndReturn(func(vmi *v1.VirtualMachineInstance, notReadySince time.Time) (bool, error) {
 					Expect(notReadySince.Before(time.Now())).To(BeTrue())
@@ -1165,10 +1155,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				domain.Status.Status = api.Running
-				domainFeeder.Add(domain)
 
-				vmiFeeder.Add(vmi)
-				createVMI(vmi)
+				addVMI(vmi, domain)
 
 				fakeDiskChecksums := &containerdisk.DiskChecksums{
 					ContainerDiskChecksums: map[string]uint32{
@@ -1209,8 +1197,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 				vmi := api2.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
 				vmi.Status.Phase = v1.Scheduled
-				vmiFeeder.Add(vmi)
+
 				createVMI(vmi)
+
 				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
 				client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 
@@ -1224,9 +1213,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 				vmi.Status.Phase = v1.Running
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				domain.Status.Status = api.Running
-				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
-				createVMI(vmi)
+
+				addVMI(vmi, domain)
+
 				mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
 				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
 				client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
@@ -1240,9 +1229,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 				vmi.Status.Phase = v1.Running
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				domain.Status.Status = api.Running
-				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
-				createVMI(vmi)
+
+				addVMI(vmi, domain)
+
 				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(fmt.Errorf("Error"))
 
 				sanityExecute()
@@ -1255,8 +1244,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 				vmi.Status.Phase = v1.Running
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				domain.Status.Status = api.Running
-				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
+
+				addVMI(vmi, domain)
+
 				mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
 				client.EXPECT().Close()
 				controller.processVmCleanup(vmi)
@@ -1273,8 +1263,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				})
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				domain.Status.Status = api.Running
-				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
+				addVMI(vmi, domain)
 				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
 				Expect(hasHotplug).To(BeFalse())
 			})
@@ -1293,8 +1282,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				})
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				domain.Status.Status = api.Running
-				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
+				addVMI(vmi, domain)
 				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
 				testutils.ExpectEvent(recorder, VolumeReadyReason)
 				Expect(hasHotplug).To(BeTrue())
@@ -1323,8 +1311,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Alias:  api.NewUserDefinedAlias("test"),
 					Target: api.DiskTarget{},
 				})
-				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
+				addVMI(vmi, domain)
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
 				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
 				Expect(hasHotplug).To(BeTrue())
@@ -1359,8 +1346,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Alias:  api.NewUserDefinedAlias("test"),
 					Target: api.DiskTarget{},
 				})
-				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
+				addVMI(vmi, domain)
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(false, nil)
 				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
 				Expect(hasHotplug).To(BeTrue())
@@ -1400,8 +1386,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 						Device: "vdbbb",
 					},
 				})
-				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
+				addVMI(vmi, domain)
 				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
 				Expect(hasHotplug).To(BeTrue())
 				Expect(vmi.Status.VolumeStatus[0].Phase).To(Equal(v1.VolumeReady))
@@ -1464,8 +1449,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, volumeStatus)
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				domain.Status.Status = api.Running
-				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
+				addVMI(vmi, domain)
 
 				updatedVolumeStatus := *volumeStatus.DeepCopy()
 				updatedVolumeStatus.MemoryDumpVolume.TargetFileName = dumpTargetFile(vmi.Name, volumeStatus.Name)
@@ -1512,8 +1496,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Completed:      true,
 				}
 				domain.Status.Status = api.Running
-				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
+				addVMI(vmi, domain)
 
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
 				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
@@ -1561,8 +1544,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Failed:         true,
 					FailureReason:  failureReason,
 				}
-				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
+				addVMI(vmi, domain)
 
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
 				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
@@ -1582,7 +1564,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		DescribeTable("should leave the VirtualMachineInstance alone if it is in the final phase", func(phase v1.VirtualMachineInstancePhase) {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.Status.Phase = phase
-			vmiFeeder.Add(vmi)
+			createVMI(vmi)
 			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
 			sanityExecute()
 			// expect no errors and no mock interactions
@@ -1602,7 +1584,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			// equal to controller.host's node, so we know that this node
 			// does not own the vmi right now.
 
-			vmiFeeder.Add(vmi)
+			createVMI(vmi)
 			sanityExecute()
 		})
 
@@ -1620,8 +1602,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 				MigrationUID: "123",
 			}
 			vmi = addActivePods(vmi, podTestUUID, host)
-
-			vmiFeeder.Add(vmi)
 
 			// something has to be listening to the cmd socket
 			// for the proxy to work.
@@ -1667,7 +1647,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 			vmi = addActivePods(vmi, podTestUUID, host)
 
-			vmiFeeder.Add(vmi)
+			createVMI(vmi)
 
 			client.EXPECT().Ping()
 			client.EXPECT().SignalTargetPodCleanup(vmi)
@@ -1694,7 +1674,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.DeletionTimestamp = &now
 			vmi = addActivePods(vmi, podTestUUID, host)
 
-			vmiFeeder.Add(vmi)
+			createVMI(vmi)
 
 			// something has to be listening to the cmd socket
 			// for the proxy to work.
@@ -1740,7 +1720,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi = addActivePods(vmi, podTestUUID, host)
 			vmi = addActivePods(vmi, stalePodUUID, host)
 
-			vmiFeeder.Add(vmi)
+			createVMI(vmi)
 
 			// Create stale socket ghost file
 			err := virtcache.AddGhostRecord(vmi.Namespace, vmi.Name, "made/up/path", vmi.UID)
@@ -1794,8 +1774,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
-			domainFeeder.Add(domain)
-			vmiFeeder.Add(vmi)
+			addVMI(vmi, domain)
 			options := &cmdclient.MigrationOptions{
 				Bandwidth:                resource.MustParse("0Mi"),
 				ProgressTimeout:          virtconfig.MigrationProgressTimeout,
@@ -1841,8 +1820,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				StartTimestamp: &startTimestamp,
 				UID:            "123",
 			}
-			domainFeeder.Add(domain)
-			vmiFeeder.Add(vmi)
+			addVMI(vmi, domain)
 			sanityExecute()
 		})
 
@@ -1877,16 +1855,15 @@ var _ = Describe("VirtualMachineInstance", func() {
 				UID:            "123",
 				StartTimestamp: &now,
 			}
-			domainFeeder.Add(domain)
-			vmiFeeder.Add(vmi)
-			createVMI(vmi)
+
+			addVMI(vmi, domain)
 
 			client.EXPECT().CancelVirtualMachineMigration(vmi)
 			sanityExecute()
 			testutils.ExpectEvent(recorder, VMIAbortingMigration)
 		})
 
-		It("Handoff domain to other node after completed migration", func() {
+		It("migration should be acked when successful", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
@@ -1895,14 +1872,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.NodeName = host
 			vmi.Labels[v1.MigrationTargetNodeNameLabel] = "othernode"
 			vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
-			now := metav1.Time{Time: time.Unix(time.Now().UTC().Unix(), 0)}
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				TargetNode:                     "othernode",
 				TargetNodeAddress:              "127.0.0.1:12345",
 				SourceNode:                     host,
 				MigrationUID:                   "123",
 				TargetNodeDomainDetected:       true,
-				TargetNodeDomainReadyTimestamp: &now,
+				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
 			}
 
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
@@ -1911,45 +1887,44 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 				UID:            "123",
-				StartTimestamp: &now,
-				EndTimestamp:   &now,
-				Completed:      true,
+				StartTimestamp: pointer.P(metav1.Now()),
+				EndTimestamp:   pointer.P(metav1.Now()),
 			}
 
-			domainFeeder.Add(domain)
-			vmiFeeder.Add(vmi)
-			createVMI(vmi)
+			addVMI(vmi, domain)
 
 			sanityExecute()
 
 			testutils.ExpectEvent(recorder, "The VirtualMachineInstance migrated to node")
 			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(updatedVMI.Status.MigrationTransport).To(Equal(v1.MigrationTransportUnix))
-			Expect(updatedVMI.Status.MigrationState.Completed).To(BeTrue())
-			Expect(updatedVMI.Status.MigrationState.StartTimestamp).To(Equal(&now))
-			Expect(updatedVMI.Status.MigrationState.EndTimestamp).To(Equal(&now))
-			Expect(updatedVMI.Status.NodeName).To(Equal("othernode"))
-			Expect(updatedVMI.Status.Interfaces).To(BeEmpty())
 			Expect(updatedVMI.Labels).To(HaveKeyWithValue(v1.NodeNameLabel, "othernode"))
+			Expect(updatedVMI.Labels).ToNot(HaveKey(v1.OutdatedLauncherImageLabel))
+			Expect(updatedVMI.Status.LauncherContainerImageVersion).To(BeEmpty())
+			Expect(updatedVMI.Status.NodeName).To(Equal("othernode"))
+			Expect(updatedVMI.Status.EvacuationNodeName).To(BeEmpty())
+			Expect(updatedVMI.Status.MigrationState.Completed).To(BeFalse())
+			Expect(updatedVMI.Status.MigrationTransport).To(Equal(v1.MigrationTransportUnix))
+			Expect(updatedVMI.Status.Interfaces).To(BeEmpty())
 		})
 
-		It("should apply post-migration operations on guest VM after migration completed", func() {
+		It("migration should be marked as completed after finalization", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.UID = vmiTestUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
 			vmi.Labels = make(map[string]string)
-			vmi.Status.NodeName = "othernode"
+			vmi.Status.NodeName = host
 			vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
-			pastTime := metav1.NewTime(metav1.Now().Add(time.Duration(-10) * time.Second))
+			vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				TargetNode:               host,
-				TargetNodeAddress:        "127.0.0.1:12345",
-				SourceNode:               "othernode",
-				MigrationUID:             "123",
-				TargetNodeDomainDetected: false,
-				StartTimestamp:           &pastTime,
+				TargetNode:                     host,
+				TargetNodeAddress:              "127.0.0.1:12345",
+				SourceNode:                     "othernode",
+				MigrationUID:                   "123",
+				TargetNodeDomainDetected:       true,
+				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
+				EndTimestamp:                   pointer.P(metav1.Now()),
 			}
 
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
@@ -1957,23 +1932,23 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 				UID:            "123",
-				StartTimestamp: &pastTime,
+				StartTimestamp: pointer.P(metav1.Now()),
+				EndTimestamp:   pointer.P(metav1.Now()),
 			}
 
-			domainFeeder.Add(domain)
-			vmiFeeder.Add(vmi)
-			createVMI(vmi)
+			addVMI(vmi, domain)
 
 			client.EXPECT().Ping().AnyTimes()
-			client.EXPECT().FinalizeVirtualMachineMigration(gomock.Any(), gomock.Any())
+			client.EXPECT().FinalizeVirtualMachineMigration(gomock.Any(), gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
+			client.EXPECT().SyncVirtualMachine(gomock.Any(), gomock.Any())
 
 			sanityExecute()
 
 			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(updatedVMI.Status.MigrationState.TargetNodeDomainDetected).To(BeTrue())
-			Expect(updatedVMI.Status.MigrationState.TargetNodeDomainReadyTimestamp).ToNot(BeNil())
-			Expect(updatedVMI.Status.CurrentCPUTopology).To(BeNil())
+			Expect(updatedVMI.Status.MigrationState.Completed).To(BeTrue())
 		})
 
 		It("should hotplug CPU in post-migration when target pod has the required conditions", func() {
@@ -1982,16 +1957,18 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
 			vmi.Labels = make(map[string]string)
-			vmi.Status.NodeName = "othernode"
+			vmi.Status.NodeName = host
 			vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
 			pastTime := metav1.NewTime(metav1.Now().Add(time.Duration(-10) * time.Second))
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				TargetNode:               host,
-				TargetNodeAddress:        "127.0.0.1:12345",
-				SourceNode:               "othernode",
-				MigrationUID:             "123",
-				TargetNodeDomainDetected: false,
-				StartTimestamp:           &pastTime,
+				TargetNode:                     host,
+				TargetNodeAddress:              "127.0.0.1:12345",
+				SourceNode:                     "othernode",
+				MigrationUID:                   "123",
+				TargetNodeDomainDetected:       true,
+				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
+				StartTimestamp:                 &pastTime,
+				EndTimestamp:                   pointer.P(metav1.Now()),
 			}
 			cpuTopology := &v1.CPU{
 				Sockets: 1,
@@ -2012,22 +1989,22 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 				UID:            "123",
 				StartTimestamp: &pastTime,
+				EndTimestamp:   pointer.P(metav1.Now()),
 			}
 
-			domainFeeder.Add(domain)
-			vmiFeeder.Add(vmi)
-			createVMI(vmi)
+			addVMI(vmi, domain)
 
 			client.EXPECT().Ping().AnyTimes()
 			client.EXPECT().FinalizeVirtualMachineMigration(gomock.Any(), gomock.Any())
 			client.EXPECT().SyncVirtualMachineCPUs(gomock.Any(), gomock.Any())
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
+			client.EXPECT().SyncVirtualMachine(gomock.Any(), gomock.Any())
 
 			sanityExecute()
 
 			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(updatedVMI.Status.MigrationState.TargetNodeDomainDetected).To(BeTrue())
-			Expect(updatedVMI.Status.MigrationState.TargetNodeDomainReadyTimestamp).ToNot(BeNil())
 			Expect(updatedVMI.Status.CurrentCPUTopology).NotTo(BeNil())
 			Expect(updatedVMI.Status.Conditions).NotTo(ContainElement(MatchFields(IgnoreExtras, Fields{
 				"Type": Equal(v1.VirtualMachineInstanceVCPUChange),
@@ -2153,16 +2130,18 @@ var _ = Describe("VirtualMachineInstance", func() {
 		vmi.ObjectMeta.ResourceVersion = "1"
 		vmi.Status.Phase = v1.Running
 		vmi.Labels = make(map[string]string)
-		vmi.Status.NodeName = "othernode"
-		vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
-		pastTime := metav1.NewTime(metav1.Now().Add(time.Duration(-10) * time.Second))
+		vmi.Status.NodeName = host
+		vmi.Labels[v1.NodeNameLabel] = host
+
 		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-			TargetNode:               host,
-			TargetNodeAddress:        "127.0.0.1:12345",
-			SourceNode:               "othernode",
-			MigrationUID:             "123",
-			TargetNodeDomainDetected: false,
-			StartTimestamp:           &pastTime,
+			TargetNode:                     host,
+			TargetNodeAddress:              "127.0.0.1:12345",
+			SourceNode:                     "othernode",
+			MigrationUID:                   "123",
+			TargetNodeDomainDetected:       true,
+			TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
+			StartTimestamp:                 pointer.P(metav1.Now()),
+			EndTimestamp:                   pointer.P(metav1.Now()),
 		}
 
 		cpuTopology := &v1.CPU{
@@ -2186,23 +2165,24 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 			UID:            "123",
-			StartTimestamp: &pastTime,
+			StartTimestamp: pointer.P(metav1.Now()),
+			EndTimestamp:   pointer.P(metav1.Now()),
 		}
-		domainFeeder.Add(domain)
-		vmiFeeder.Add(vmi)
-		createVMI(vmi)
+
+		addVMI(vmi, domain)
 
 		client.EXPECT().Ping().AnyTimes()
 		client.EXPECT().FinalizeVirtualMachineMigration(gomock.Any(), gomock.Any())
 		client.EXPECT().SyncVirtualMachineCPUs(gomock.Any(), gomock.Any()).Return(fmt.Errorf("some error"))
+		client.EXPECT().SyncVirtualMachine(gomock.Any(), gomock.Any())
+		mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), gomock.Any())
+		mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), gomock.Any())
 
 		sanityExecute()
 
 		testutils.ExpectEvent(recorder, "failed to change vCPUs")
 		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(updatedVMI.Status.MigrationState.TargetNodeDomainDetected).To(BeTrue())
-		Expect(updatedVMI.Status.MigrationState.TargetNodeDomainReadyTimestamp).ToNot(BeNil())
 		Expect(updatedVMI.Status.CurrentCPUTopology).NotTo(BeNil())
 		Expect(updatedVMI.Status.Conditions).NotTo(ContainElement(MatchFields(IgnoreExtras, Fields{
 			"Type": Equal(v1.VirtualMachineInstanceVCPUChange),
@@ -2927,9 +2907,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain = api.NewMinimalDomainWithUUID(vmiName, vmiTestUUID)
 			domain.Status.Status = api.Running
 
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
-			createVMI(vmi)
+			addVMI(vmi, domain)
 
 			domain.Status.Interfaces = append(domain.Status.Interfaces, api.InterfaceStatus{
 				Mac:           "01:00:00:00:00:10",
@@ -2988,9 +2966,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				KernelVersion: guestOSKernelVersion,
 			}
 
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
-			createVMI(vmi)
+			addVMI(vmi, domain)
 
 			sanityExecute()
 
@@ -3019,9 +2995,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			domain.Status.FSFreezeStatus = api.FSFreeze{Status: guestFSFreeezeStatus}
 
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
-			createVMI(vmi)
+			addVMI(vmi, domain)
 
 			sanityExecute()
 
@@ -3043,9 +3017,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			domain.Status.FSFreezeStatus = api.FSFreeze{Status: guestFSFreeezeStatus}
 
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
-			createVMI(vmi)
+			addVMI(vmi, domain)
 
 			sanityExecute()
 
@@ -3073,9 +3045,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Unit:  "KiB",
 			}
 
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
-			createVMI(vmi)
+			addVMI(vmi, domain)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
@@ -3157,9 +3127,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				},
 			}
 
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
-			createVMI(vmi)
+			addVMI(vmi, domain)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
@@ -3345,8 +3313,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 				domain = api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				domain.Status.Status = api.Running
-				domainFeeder.Add(domain)
-				vmiFeeder.Add(vmi)
+				addVMI(vmi, domain)
 
 			})
 
