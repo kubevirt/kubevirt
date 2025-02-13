@@ -3635,10 +3635,6 @@ func (nc *netConfStub) Teardown(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
-func (nc *netConfStub) HotUnplugInterfaces(vmi *v1.VirtualMachineInstance) error {
-	return nil
-}
-
 type netStatStub struct{}
 
 func (ns *netStatStub) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
