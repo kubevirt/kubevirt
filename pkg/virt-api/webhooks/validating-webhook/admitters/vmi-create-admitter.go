@@ -2460,6 +2460,15 @@ func validatePanicDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 	if len(spec.Domain.Devices.PanicDevices) == 0 {
 		return causes
 	}
+	if spec.Domain.Devices.PanicDevices != nil && !config.PanicDevicesEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Panic Devices feature gate is not enabled in kubevirt-config",
+			Field:   field.Child("domain", "devices", "panicDevices").String(),
+		})
+		return causes
+	}
+
 	arch := spec.Architecture
 	if arch == "" {
 		arch = config.GetDefaultArchitecture()

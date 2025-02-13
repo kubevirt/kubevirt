@@ -1417,32 +1417,45 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Message).To(Equal("either fake.startStrategy or fake.livenessProbe should be provided.Pausing VMI with LivenessProbe is not supported"))
 		})
 
-		It("should allow valid panic device model", func() {
-			vmi := api.NewMinimalVMI("testvm")
-			vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: pointer.P(v1.Hyperv)}}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(BeEmpty())
-		})
+		Context("with panic devices defined", func() {
+			It("should fail when PanicDevices featuregate is disabled", func() {
+				vmi := api.NewMinimalVMI("testvm")
+				vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: pointer.P(v1.Hyperv)}}
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Field).To(Equal("fake.domain.devices.panicDevices"))
+				Expect(causes[0].Message).To(Equal("Panic Devices feature gate is not enabled in kubevirt-config"))
+			})
 
-		It("should reject invalid panic device model", func() {
-			vmi := api.NewMinimalVMI("testvm")
-			panicDeviceModel := v1.PanicDeviceModel("bad")
-			vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: &panicDeviceModel}}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.devices.panicDevices[0].model"))
-			Expect(causes[0].Message).To(Equal(fmt.Sprintf(invalidPanicDeviceModelErrFmt, panicDeviceModel)))
-		})
+			It("should allow valid panic device model", func() {
+				enableFeatureGates(featuregate.PanicDevicesGate)
+				vmi := api.NewMinimalVMI("testvm")
+				vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: pointer.P(v1.Hyperv)}}
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
 
-		It("should reject panic devices on s390x architecture", func() {
-			enableFeatureGates(featuregate.MultiArchitecture)
-			vmi := api.NewMinimalVMI("testvm")
-			vmi.Spec.Architecture = "s390x"
-			vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: pointer.P(v1.Isa)}}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.devices.panicDevices"))
-			Expect(causes[0].Message).To(Equal("custom panic devices are not supported on s390x architecture"))
+			It("should reject invalid panic device model", func() {
+				enableFeatureGates(featuregate.PanicDevicesGate)
+				vmi := api.NewMinimalVMI("testvm")
+				panicDeviceModel := v1.PanicDeviceModel("bad")
+				vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: &panicDeviceModel}}
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Field).To(Equal("fake.domain.devices.panicDevices[0].model"))
+				Expect(causes[0].Message).To(Equal(fmt.Sprintf(invalidPanicDeviceModelErrFmt, panicDeviceModel)))
+			})
+
+			It("should reject panic devices on s390x architecture", func() {
+				enableFeatureGates(featuregate.MultiArchitecture, featuregate.PanicDevicesGate)
+				vmi := api.NewMinimalVMI("testvm")
+				vmi.Spec.Architecture = "s390x"
+				vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: pointer.P(v1.Isa)}}
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Field).To(Equal("fake.domain.devices.panicDevices"))
+				Expect(causes[0].Message).To(Equal("custom panic devices are not supported on s390x architecture"))
+			})
 		})
 
 		Context("with kernel boot defined", func() {
