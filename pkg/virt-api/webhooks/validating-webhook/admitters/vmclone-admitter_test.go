@@ -321,14 +321,14 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 			admitter.admitAndExpect(vmClone, true)
 		})
 
-		It("should reject PVC/DV volumes with disabled volume snapshot status", func() {
+		It("should allow PVC/DV volumes with disabled volume snapshot status", func() {
 			for i := range vm.Status.VolumeSnapshotStatuses {
 				vm.Status.VolumeSnapshotStatuses[i].Enabled = false
 			}
 			admitter.admitAndExpect(vmClone, true)
 		})
 
-		It("should reject if vmsnapshot contents don't include a volume's backup", func() {
+		It("should allow if vmsnapshot contents don't include a volume's backup", func() {
 			vmClone.Spec.Source.Kind = virtualMachineSnapshotKind
 
 			kubevirtClient.Fake.PrependReactor("get", "virtualmachinesnapshotcontents", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -346,13 +346,7 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 				return true, contents, nil
 			})
 
-			admitter.admitAndExpect(vmClone, false)
-		})
-
-		It("should reject if vmsnapshot contents include vmSpec with backend storage PVC", func() {
-			vmClone.Spec.Source.Kind = virtualMachineSnapshotKind
-			vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
-			admitter.admitAndExpect(vmClone, false)
+			admitter.admitAndExpect(vmClone, true)
 		})
 	})
 

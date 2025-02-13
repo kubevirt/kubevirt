@@ -559,6 +559,7 @@ var _ = Describe("Clone", func() {
 				It("should update the clone phase", func() {
 					snapshot := createVirtualMachineSnapshot(sourceVM)
 					snapshot.Status.ReadyToUse = pointer.P(true)
+					snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
 
 					restore := createVirtualMachineRestore(sourceVM, snapshot.Name)
 
@@ -569,6 +570,7 @@ var _ = Describe("Clone", func() {
 					addVM(sourceVM)
 					addClone(vmClone)
 					addSnapshot(snapshot)
+					addSnapshotContent(snapshotContent)
 					addRestore(restore)
 
 					sanityExecute()
@@ -618,6 +620,17 @@ var _ = Describe("Clone", func() {
 		})
 
 		Context("with source snapshot", func() {
+			It("should report event if source Snapshot doesn't exist, phase shouldn't change", func() {
+				snapshot := createVirtualMachineSnapshot(sourceVM)
+				setSnapshotSource(vmClone, snapshot.Name)
+
+				addClone(vmClone)
+
+				sanityExecute()
+				expectEvent(SourceDoesNotExist)
+				expectCloneBeInPhase(clone.PhaseUnset)
+			})
+
 			It("when snapshot is not ready yet - should not do anything", func() {
 				snapshot := createVirtualMachineSnapshot(sourceVM)
 				snapshot.Status.ReadyToUse = pointer.P(false)
@@ -634,6 +647,64 @@ var _ = Describe("Clone", func() {
 				Expect(recorder.Events).To(BeEmpty())
 				expectCloneBeInPhase(clone.SnapshotInProgress)
 				expectRestoreDoesNotExist()
+			})
+
+			It("should fail clone if snaphshot ready - but snapshotcontent is invalid", func() {
+				snapshot := createVirtualMachineSnapshot(sourceVM)
+				snapshot.Status.ReadyToUse = pointer.P(true)
+				snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
+				snapshotContent.Spec.VirtualMachineSnapshotName = nil
+				setSnapshotSource(vmClone, snapshot.Name)
+
+				addClone(vmClone)
+				addSnapshot(snapshot)
+				addSnapshotContent(snapshotContent)
+
+				sanityExecute()
+				expectEvent(SnapshotContentInvalid)
+				expectCloneBeInPhase(clone.Failed)
+			})
+
+			It("clone should fail if source VMSnapshot has backendstorage", func() {
+				snapshot := createVirtualMachineSnapshot(sourceVM)
+				snapshot.Status.ReadyToUse = pointer.P(true)
+				snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
+				snapshotContent.Spec.Source.VirtualMachine.Spec.Template.Spec.Domain.Devices.TPM = &virtv1.TPMDevice{
+					Persistent: pointer.P(true),
+				}
+
+				setSnapshotSource(vmClone, snapshot.Name)
+
+				addClone(vmClone)
+				addSnapshot(snapshot)
+				addSnapshotContent(snapshotContent)
+
+				sanityExecute()
+				expectEvent(SnapshotContentInvalid)
+				expectCloneBeInPhase(clone.Failed)
+			})
+
+			It("should fail clone if snaphshot ready - but not all volumes were snapshoted", func() {
+				snapshot := createVirtualMachineSnapshot(sourceVM)
+				snapshot.Status.ReadyToUse = pointer.P(true)
+				snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
+				snapshotContent.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes = append(snapshotContent.Spec.Source.VirtualMachine.Spec.Template.Spec.Volumes, virtv1.Volume{
+					Name: "vol1",
+					VolumeSource: virtv1.VolumeSource{
+						DataVolume: &virtv1.DataVolumeSource{
+							Name: "dv1",
+						},
+					},
+				})
+				setSnapshotSource(vmClone, snapshot.Name)
+
+				addClone(vmClone)
+				addSnapshot(snapshot)
+				addSnapshotContent(snapshotContent)
+
+				sanityExecute()
+				expectEvent(SnapshotContentInvalid)
+				expectCloneBeInPhase(clone.Failed)
 			})
 
 			It("when snapshot is ready - should update status and create restore", func() {
@@ -656,6 +727,7 @@ var _ = Describe("Clone", func() {
 			It("when restore already exists and vmclone is not update yet - should update the clone phase", func() {
 				snapshot := createVirtualMachineSnapshot(sourceVM)
 				snapshot.Status.ReadyToUse = pointer.P(true)
+				snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
 
 				setSnapshotSource(vmClone, snapshot.Name)
 
@@ -666,6 +738,7 @@ var _ = Describe("Clone", func() {
 
 				addClone(vmClone)
 				addSnapshot(snapshot)
+				addSnapshotContent(snapshotContent)
 				addRestore(restore)
 
 				sanityExecute()
@@ -1030,6 +1103,7 @@ func createVirtualMachineSnapshotContent(vm *virtv1.VirtualMachine) *snapshotv1.
 					Status:     vm.Status,
 				},
 			},
+			VirtualMachineSnapshotName: pointer.P(testSnapshotName),
 		},
 	}
 }

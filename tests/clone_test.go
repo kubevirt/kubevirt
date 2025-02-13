@@ -63,9 +63,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		format.MaxLength = 0
 	})
 
-	createSnapshot := func(vm *virtv1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
-		var err error
-
+	generateSnapshot := func(vm *virtv1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
 		snapshot := &snapshotv1.VirtualMachineSnapshot{
 			ObjectMeta: v1.ObjectMeta{
 				Name:      "snapshot-" + vm.Name,
@@ -79,47 +77,12 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				},
 			},
 		}
+		return snapshot
+	}
 
-		snapshot, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, v1.CreateOptions{})
+	createSnapshot := func(snapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.VirtualMachineSnapshot {
+		snapshot, err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, v1.CreateOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-		return snapshot
-	}
-
-	waitSnapshotReady := func(snapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.VirtualMachineSnapshot {
-		var err error
-
-		EventuallyWithOffset(1, func() bool {
-			snapshot, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Get(context.Background(), snapshot.Name, v1.GetOptions{})
-			ExpectWithOffset(1, err).ToNot(HaveOccurred())
-			return snapshot.Status != nil && snapshot.Status.ReadyToUse != nil && *snapshot.Status.ReadyToUse
-		}, 180*time.Second, time.Second).Should(BeTrue(), "snapshot should be ready")
-
-		return snapshot
-	}
-
-	waitSnapshotContentsExist := func(snapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.VirtualMachineSnapshot {
-		var contentsName string
-		EventuallyWithOffset(1, func() error {
-			snapshot, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Get(context.Background(), snapshot.Name, v1.GetOptions{})
-			ExpectWithOffset(2, err).ToNot(HaveOccurred())
-			if snapshot.Status == nil {
-				return fmt.Errorf("snapshot's status is nil")
-			}
-
-			if snapshot.Status.VirtualMachineSnapshotContentName != nil {
-				contentsName = *snapshot.Status.VirtualMachineSnapshotContentName
-			} else {
-				return fmt.Errorf("vm snapshot contents name is nil")
-			}
-
-			return nil
-		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
-		EventuallyWithOffset(1, func() error {
-			_, err := virtClient.VirtualMachineSnapshotContent(snapshot.Namespace).Get(context.Background(), contentsName, v1.GetOptions{})
-			return err
-		}).ShouldNot(HaveOccurred())
 
 		return snapshot
 	}
@@ -142,13 +105,13 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		return vmClone
 	}
 
-	generateCloneFromSnapshot := func(snapshot *snapshotv1.VirtualMachineSnapshot, targetVMName string) *clone.VirtualMachineClone {
-		vmClone := kubecli.NewMinimalCloneWithNS("testclone", snapshot.Namespace)
+	generateCloneFromSnapshot := func(snapshotName, namespace, targetVMName string) *clone.VirtualMachineClone {
+		vmClone := kubecli.NewMinimalCloneWithNS("testclone", namespace)
 
 		cloneSourceRef := &k8sv1.TypedLocalObjectReference{
 			APIGroup: pointer.P(virtsnapshot.GroupName),
 			Kind:     "VirtualMachineSnapshot",
-			Name:     snapshot.Name,
+			Name:     snapshotName,
 		}
 
 		cloneTargetRef := &k8sv1.TypedLocalObjectReference{
@@ -319,7 +282,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				}, 120*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "VM clone should be successfully deleted")
 			})
 
-			It("simple clone with snapshot source", func() {
+			It("simple clone with snapshot source, create clone before snapshot", func() {
 				By("Creating a VM")
 				sourceVM, err = createSourceVM(defaultVMIOptions...)
 				Expect(err).ShouldNot(HaveOccurred())
@@ -330,22 +293,17 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 					return sourceVM.Status.PrintableStatus
 				}, 30*time.Second, 1*time.Second).Should(Equal(virtv1.VirtualMachineStatusStopped))
 
+				snapshot := generateSnapshot(sourceVM)
+				By("Creating a clone before snapshot source created")
+				vmClone = generateCloneFromSnapshot(snapshot.Name, snapshot.Namespace, targetVMName)
+				vmClone = createClone(vmClone)
+
+				events.ExpectEvent(vmClone, k8sv1.EventTypeNormal, "SourceDoesNotExist")
+
 				By("Creating a snapshot from VM")
-				snapshot := createSnapshot(sourceVM)
-				snapshot = waitSnapshotContentsExist(snapshot)
-				// "waitSnapshotReady" is not used here intentionally since it's okay for a snapshot source
-				// to not be ready when creating a clone. Therefore, it's not deterministic if snapshot would actually
-				// be ready for this test or not.
-				// TODO: use snapshot's createDenyVolumeSnapshotCreateWebhook() once it's refactored to work outside
-				// of snapshot tests scope.
+				snapshot = createSnapshot(snapshot)
 
-				By("Deleting VM")
-				err = virtClient.VirtualMachine(sourceVM.Namespace).Delete(context.Background(), sourceVM.Name, v1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Creating a clone with a snapshot source")
-				vmClone = generateCloneFromSnapshot(snapshot, targetVMName)
-				createCloneAndWaitForCompletion(vmClone)
+				waitCloneSucceeded(vmClone)
 
 				By(fmt.Sprintf("Getting the target VM %s", targetVMName))
 				targetVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), targetVMName, v1.GetOptions{})
@@ -354,7 +312,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				By("Making sure target is runnable")
 				targetVM = expectVMRunnable(targetVM)
 
-				By("Making sure snapshot source is not being deleted")
+				By("Making sure snapshot source was not deleted when clone completed")
 				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Get(context.Background(), snapshot.Name, v1.GetOptions{})
 				Expect(err).ShouldNot(HaveOccurred())
 			})
@@ -562,44 +520,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				vm := generateVMWithStorageClass(storageClass, runStrategy)
 				return createVM(vm, storageClass, runStrategy)
 			}
-
-			Context("and no snapshot storage class", decorators.RequiresNoSnapshotStorageClass, func() {
-				var (
-					noSnapshotStorageClass string
-				)
-
-				Context("should reject source with non snapshotable volume", func() {
-					BeforeEach(func() {
-						noSnapshotStorageClass = libstorage.GetNoVolumeSnapshotStorageClass("local")
-						Expect(noSnapshotStorageClass).ToNot(BeEmpty(), "no storage class without snapshot support")
-
-						// create running in case storage is WFFC (local storage)
-						By("Creating source VM")
-						sourceVM = createVMWithStorageClass(noSnapshotStorageClass, virtv1.RunStrategyAlways)
-						sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), sourceVM.Name, v1.GetOptions{})
-						Expect(err).ToNot(HaveOccurred())
-						sourceVM, err = stopCloneVM(virtClient, sourceVM)
-						Eventually(ThisVMIWith(sourceVM.Namespace, sourceVM.Name), 300*time.Second, 1*time.Second).ShouldNot(Exist())
-						Eventually(ThisVM(sourceVM), 300*time.Second, 1*time.Second).Should(Not(BeReady()))
-					})
-
-					It("with snapshot source", func() {
-						By("Snapshotting VM")
-						snapshot := createSnapshot(sourceVM)
-						snapshot = waitSnapshotReady(snapshot)
-
-						By("Deleting VM")
-						err = virtClient.VirtualMachine(sourceVM.Namespace).Delete(context.Background(), sourceVM.Name, v1.DeleteOptions{})
-						Expect(err).ToNot(HaveOccurred())
-
-						By("Creating a clone and expecting error")
-						vmClone = generateCloneFromSnapshot(snapshot, targetVMName)
-						vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Create(context.Background(), vmClone, v1.CreateOptions{})
-						Expect(err).Should(HaveOccurred())
-						Expect(err.Error()).To(ContainSubstring("not backed up in snapshot"))
-					})
-				})
-			})
 
 			Context("and snapshot storage class", decorators.RequiresSnapshotStorageClass, func() {
 				var (
