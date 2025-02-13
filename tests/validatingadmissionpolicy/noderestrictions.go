@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -147,6 +148,7 @@ var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdm
 			Expect(err).ToNot(HaveOccurred())
 			_, err = handlerClient.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.JSONPatchType, nodePatch, metav1.PatchOptions{})
 			Expect(err).To(HaveOccurred(), fmt.Sprintf("%s should fail on node specific node restriction", description))
+			Expect(err).To(MatchError(errors.IsForbidden, "k8serrors.IsForbidden"))
 			Expect(err.Error()).To(ContainSubstring(patchItem.expectedError), fmt.Sprintf("%s should match specific error", description))
 		}
 	})
