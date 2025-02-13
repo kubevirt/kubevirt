@@ -265,11 +265,11 @@ func getVMIInstancetype(vmi *k6tv1.VirtualMachineInstance) string {
 			Namespace: vmi.Namespace,
 			Name:      instancetypeName,
 		}
-		return fetchResourceName(key.String(), instancetypeMethods.InstancetypeStore)
+		return fetchResourceName(key.String(), instancetypeStore)
 	}
 
 	if clusterInstancetypeName, ok := vmi.Annotations[k6tv1.ClusterInstancetypeAnnotation]; ok {
-		return fetchResourceName(clusterInstancetypeName, instancetypeMethods.ClusterInstancetypeStore)
+		return fetchResourceName(clusterInstancetypeName, clusterInstancetypeStore)
 	}
 
 	return none
@@ -281,11 +281,11 @@ func getVMIPreference(vmi *k6tv1.VirtualMachineInstance) string {
 			Namespace: vmi.Namespace,
 			Name:      preferenceName,
 		}
-		return fetchResourceName(key.String(), instancetypeMethods.PreferenceStore)
+		return fetchResourceName(key.String(), preferenceStore)
 	}
 
 	if clusterPreferenceName, ok := vmi.Annotations[k6tv1.ClusterPreferenceAnnotation]; ok {
-		return fetchResourceName(clusterPreferenceName, instancetypeMethods.ClusterPreferenceStore)
+		return fetchResourceName(clusterPreferenceName, clusterPreferenceStore)
 	}
 
 	return none

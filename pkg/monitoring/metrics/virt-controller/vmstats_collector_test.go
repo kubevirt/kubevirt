@@ -99,7 +99,9 @@ var _ = Describe("VM Stats Collector", func() {
 	})
 
 	Context("VM info", func() {
-		setupTestCollector()
+		BeforeEach(func() {
+			setupTestCollector()
+		})
 
 		It("should handle no VMs", func() {
 			cr := CollectVMsInfo([]*k6tv1.VirtualMachine{})

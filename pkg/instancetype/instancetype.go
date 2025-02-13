@@ -31,7 +31,6 @@ type Methods interface {
 	FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error)
 	InferDefaultInstancetype(vm *virtv1.VirtualMachine) error
 	InferDefaultPreference(vm *virtv1.VirtualMachine) error
-	ApplyToVM(vm *virtv1.VirtualMachine) error
 }
 
 type InstancetypeMethods struct {
@@ -44,12 +43,6 @@ type InstancetypeMethods struct {
 }
 
 var _ Methods = &InstancetypeMethods{}
-
-func (m *InstancetypeMethods) ApplyToVM(vm *virtv1.VirtualMachine) error {
-	instancetypeFinder := find.NewSpecFinder(m.InstancetypeStore, m.ClusterInstancetypeStore, m.ControllerRevisionStore, m.Clientset)
-	preferenceFinder := preferenceFind.NewSpecFinder(m.PreferenceStore, m.ClusterPreferenceStore, m.ControllerRevisionStore, m.Clientset)
-	return apply.NewVMApplier(instancetypeFinder, preferenceFinder).ApplyToVM(vm)
-}
 
 func GetPreferredTopology(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) instancetypev1beta1.PreferredCPUTopology {
 	return preferenceApply.GetPreferredTopology(preferenceSpec)
