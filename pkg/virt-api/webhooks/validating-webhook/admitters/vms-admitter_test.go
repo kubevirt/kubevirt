@@ -920,6 +920,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			Entry("with configMap volume source", v1.VolumeSource{ConfigMap: &v1.ConfigMapVolumeSource{LocalObjectReference: k8sv1.LocalObjectReference{Name: "fake"}}}),
 			Entry("with secret volume source", v1.VolumeSource{Secret: &v1.SecretVolumeSource{SecretName: "fake"}}),
 			Entry("with serviceAccount volume source", v1.VolumeSource{ServiceAccount: &v1.ServiceAccountVolumeSource{ServiceAccountName: "fake"}}),
+			Entry("with image volume source", v1.VolumeSource{Image: testutils.NewFakeImageVolumeSource()}),
 		)
 		It("should allow create a vm using a DataVolume when cdi doesnt exist", func() {
 			vmi := api.NewMinimalVMI("testvmi")

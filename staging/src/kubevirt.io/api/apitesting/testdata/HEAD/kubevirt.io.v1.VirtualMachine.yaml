@@ -750,6 +750,13 @@ spec:
           path: pathValue
           shared: true
           type: typeValue
+        image:
+          image: imageValue
+          mountMode: mountModeValue
+          path: pathValue
+          pullPolicy: pullPolicyValue
+          pullSecret: pullSecretValue
+          readOnly: true
         memoryDump:
           claimName: claimNameValue
           hotpluggable: true

@@ -843,6 +843,10 @@ type VolumeSource struct {
 	DownwardMetrics *DownwardMetricsVolumeSource `json:"downwardMetrics,omitempty"`
 	// MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi
 	MemoryDump *MemoryDumpVolumeSource `json:"memoryDump,omitempty"`
+	// Image represents an image volume resource.
+	// Directly attached to the vmi via qemu.
+	// +optional
+	Image *ImageVolumeSource `json:"image,omitempty"`
 }
 
 // HotplugVolumeSource Represents the source of a volume to mount which are capable
@@ -914,6 +918,50 @@ type ContainerDiskSource struct {
 	// More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
 	// +optional
 	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy,omitempty"`
+}
+
+// ImageVolumeMountMode defines how the image should be mounted.
+// +enum
+// +kubebuilder:validation:Enum=Ephemeral;IsoArtifact
+type ImageVolumeMountMode string
+
+const (
+	// ImageVolumeMountModeEphemeral defines create ephemeral image before mounting.
+	ImageVolumeMountModeEphemeral ImageVolumeMountMode = "Ephemeral"
+
+	// ImageVolumeMountModeIsoArtifact defines generating an ISO artifact from the OCI image.
+	// This ISO artifact is then mounted instead of the original image.
+	ImageVolumeMountModeIsoArtifact ImageVolumeMountMode = "IsoArtifact"
+)
+
+// ImageVolumeSource represents an image volume resource.
+// Directly attached to the VMI via QEMU.
+type ImageVolumeSource struct {
+	// MountMode defines how the image should be mounted.
+	// Cannot be updated.
+	// - Ephemeral: Create ephemeral image and mounts it.
+	// - IsoArtifact: Generates an ISO artifact from the OCI image and mounts it.
+	// +kubebuilder:default=Ephemeral
+	MountMode ImageVolumeMountMode `json:"mountMode"`
+	// Image or artifact reference to be used.
+	// +kubebuilder:validation:MinLength=1
+	Image string `json:"image"`
+	// Image pull policy.
+	// One of Always, Never, IfNotPresent.
+	// Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
+	// Cannot be updated.
+	// More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+	// +optional
+	PullPolicy v1.PullPolicy `json:"pullPolicy,omitempty"`
+	// PullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.
+	// +optional
+	PullSecret string `json:"pullSecret,omitempty"`
+	// Path defines the path to the disk file in the container.
+	// +optional
+	Path string `json:"path,omitempty"`
+	// ReadOnly defines the mount mode of the image. Defaults to false.
+	// +optional
+	ReadOnly bool `json:"readOnly,omitempty"`
 }
 
 // Exactly one of its members must be set.

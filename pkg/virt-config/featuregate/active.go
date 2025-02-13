@@ -66,6 +66,12 @@ const (
 
 	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
 	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
+
+	// ImageVolume enables to mount OCI images as volumes within a virtual machine.
+	//
+	// This feature requires following Kubernetes feature gate "ImageVolume". The feature gate is available
+	// in Kubernetes 1.31 as Alpha.
+	ImageVolume = "ImageVolume"
 )
 
 func init() {

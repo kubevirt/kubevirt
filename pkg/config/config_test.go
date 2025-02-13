@@ -24,6 +24,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	utildisk "kubevirt.io/kubevirt/pkg/util/disk"
 )
 
 func mockCreateISOImage(output string, _ string, _ []string) error {
@@ -65,7 +67,7 @@ var _ = Describe("Creating config images", func() {
 		})
 
 		It("Should create an appropriate file system layout for iso image", func() {
-			fsLayout, err := getFilesLayout(tempConfDir)
+			fsLayout, err := utildisk.GetFilesLayoutForISO(tempConfDir)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(fsLayout).To(Equal(expectedLayout))
 		})
