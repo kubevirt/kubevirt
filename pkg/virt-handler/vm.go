@@ -2988,13 +2988,7 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	}
 
 	vmi := origVMI.DeepCopy()
-	// Find preallocated volumes
-	var preallocatedVolumes []string
-	for _, volumeStatus := range vmi.Status.VolumeStatus {
-		if volumeStatus.PersistentVolumeClaimInfo != nil && volumeStatus.PersistentVolumeClaimInfo.Preallocated {
-			preallocatedVolumes = append(preallocatedVolumes, volumeStatus.Name)
-		}
-	}
+	preallocatedVolumes := c.getPreallocatedVolumes(vmi)
 
 	err = hostdisk.ReplacePVCByHostDisk(vmi)
 	if err != nil {
@@ -3005,150 +2999,246 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 	if err != nil {
 		return err
 	}
+
 	var errorTolerantFeaturesError []error
 	disksInfo := map[string]*containerdisk.DiskInfo{}
-	if !vmi.IsRunning() && !vmi.IsFinal() {
-		// give containerDisks some time to become ready before throwing errors on retries
-		info := c.getLauncherClientInfo(vmi)
-		if ready, err := c.containerDiskMounter.ContainerDisksReady(vmi, info.NotInitializedSince); !ready {
-			if err != nil {
-				return err
-			}
-			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+	readyToProceed, err := c.handleVMIState(vmi, cgroupManager, &disksInfo, &errorTolerantFeaturesError)
+	if err != nil {
+		return err
+	}
+
+	if !readyToProceed {
+		return nil
+	}
+
+	// Synchronize the VirtualMachineInstance state
+	err = c.syncVirtualMachine(client, vmi, preallocatedVolumes, disksInfo)
+	if err != nil {
+		return err
+	}
+
+	// Post-sync housekeeping
+	err = c.handleHousekeeping(vmi, cgroupManager, domainExists)
+	if err != nil {
+		return err
+	}
+
+	return errors.NewAggregate(errorTolerantFeaturesError)
+}
+
+// handleVMIState: Decides whether to call handleRunningVMI or handleStartingVMI based on the VMI's state.
+func (c *VirtualMachineController) handleVMIState(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, disksInfo *map[string]*containerdisk.DiskInfo, errorTolerantFeaturesError *[]error) (bool, error) {
+	if vmi.IsRunning() {
+		return true, c.handleRunningVMI(vmi, cgroupManager, errorTolerantFeaturesError)
+	} else if !vmi.IsFinal() {
+		return c.handleStartingVMI(vmi, cgroupManager, disksInfo)
+	}
+	return true, nil
+}
+
+// handleRunningVMI contains the logic specifically for running VMs (hotplugging in running state, metrics, network updates)
+func (c *VirtualMachineController) handleRunningVMI(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, errorTolerantFeaturesError *[]error) error {
+	if err := c.hotplugSriovInterfaces(vmi); err != nil {
+		log.Log.Object(vmi).Error(err.Error())
+	}
+
+	if err := c.hotplugVolumeMounter.Mount(vmi, cgroupManager); err != nil {
+		return err
+	}
+
+	if err := c.getMemoryDump(vmi); err != nil {
+		return err
+	}
+
+	isolationRes, err := c.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return fmt.Errorf(failedDetectIsolationFmt, err)
+	}
+
+	if err := c.downwardMetricsManager.StartServer(vmi, isolationRes.Pid()); err != nil {
+		return err
+	}
+
+	if err := c.setupNetwork(vmi, netsetup.FilterNetsForLiveUpdate(vmi)); err != nil {
+		log.Log.Object(vmi).Error(err.Error())
+		c.recorder.Event(vmi, k8sv1.EventTypeWarning, "NicHotplug", err.Error())
+		*errorTolerantFeaturesError = append(*errorTolerantFeaturesError, err)
+	}
+
+	return nil
+}
+
+// handleStartingVMI: Contains the logic for starting VMs (container disks, initial network setup, device ownership).
+func (c *VirtualMachineController) handleStartingVMI(
+	vmi *v1.VirtualMachineInstance,
+	cgroupManager cgroup.Manager,
+	disksInfo *map[string]*containerdisk.DiskInfo,
+) (bool, error) {
+	// give containerDisks some time to become ready before throwing errors on retries
+	info := c.getLauncherClientInfo(vmi)
+	if ready, err := c.containerDiskMounter.ContainerDisksReady(vmi, info.NotInitializedSince); !ready {
+		if err != nil {
+			return false, err
+		}
+		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+		return false, nil
+	}
+
+	var err error
+	*disksInfo, err = c.containerDiskMounter.MountAndVerify(vmi)
+	if err != nil {
+		return false, err
+	}
+
+	if err := c.hotplugVolumeMounter.Mount(vmi, cgroupManager); err != nil {
+		return false, err
+	}
+
+	if err := c.setupNetwork(vmi, netsetup.FilterNetsForVMStartup(vmi)); err != nil {
+		return false, fmt.Errorf("failed to configure vmi network: %w", err)
+	}
+
+	isolationRes, err := c.podIsolationDetector.Detect(vmi)
+	if err != nil {
+		return false, fmt.Errorf(failedDetectIsolationFmt, err)
+	}
+
+	if err := c.setupDevicesOwnerships(vmi, isolationRes); err != nil {
+		return false, err
+	}
+
+	if err := c.adjustResources(vmi); err != nil {
+		return false, err
+	}
+
+	if err := c.waitForSEVAttestation(vmi); err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func (c *VirtualMachineController) adjustResources(vmi *v1.VirtualMachineInstance) error {
+	err := c.podIsolationDetector.AdjustResources(vmi, c.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
+	if err != nil {
+		return fmt.Errorf("failed to adjust resources: %v", err)
+	}
+	return nil
+}
+
+func (c *VirtualMachineController) waitForSEVAttestation(vmi *v1.VirtualMachineInstance) error {
+	if util.IsSEVAttestationRequested(vmi) {
+		sev := vmi.Spec.Domain.LaunchSecurity.SEV
+		if sev.Session == "" || sev.DHCert == "" {
+			// Wait for the session parameters to be provided
 			return nil
 		}
+	}
+	return nil
+}
 
-		disksInfo, err = c.containerDiskMounter.MountAndVerify(vmi)
-		if err != nil {
-			return err
-		}
+func (c *VirtualMachineController) setupDevicesOwnerships(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult) error {
+	virtLauncherRootMount, err := isolationRes.MountRoot()
+	if err != nil {
+		return err
+	}
 
-		// Try to mount hotplug volume if there is any during startup.
-		if err := c.hotplugVolumeMounter.Mount(vmi, cgroupManager); err != nil {
-			return err
-		}
+	err = c.claimDeviceOwnership(virtLauncherRootMount, "kvm")
+	if err != nil {
+		return fmt.Errorf("failed to set up file ownership for /dev/kvm: %v", err)
+	}
 
-		if err := c.setupNetwork(vmi, netsetup.FilterNetsForVMStartup(vmi)); err != nil {
-			return fmt.Errorf("failed to configure vmi network: %w", err)
-		}
-
-		isolationRes, err := c.podIsolationDetector.Detect(vmi)
-		if err != nil {
-			return fmt.Errorf(failedDetectIsolationFmt, err)
-		}
-		virtLauncherRootMount, err := isolationRes.MountRoot()
-		if err != nil {
-			return err
-		}
-
-		err = c.claimDeviceOwnership(virtLauncherRootMount, "kvm")
-		if err != nil {
-			return fmt.Errorf("failed to set up file ownership for /dev/kvm: %v", err)
-		}
-		if virtutil.IsAutoAttachVSOCK(vmi) {
-			if err := c.claimDeviceOwnership(virtLauncherRootMount, "vhost-vsock"); err != nil {
-				return fmt.Errorf("failed to set up file ownership for /dev/vhost-vsock: %v", err)
-			}
-		}
-
-		lessPVCSpaceToleration := c.clusterConfig.GetLessPVCSpaceToleration()
-		minimumPVCReserveBytes := c.clusterConfig.GetMinimumReservePVCBytes()
-
-		// initialize disks images for empty PVC
-		hostDiskCreator := hostdisk.NewHostDiskCreator(c.recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, virtLauncherRootMount)
-		err = hostDiskCreator.Create(vmi)
-		if err != nil {
-			return fmt.Errorf("preparing host-disks failed: %v", err)
-		}
-
-		if virtutil.IsSEVVMI(vmi) {
-			sevDevice, err := safepath.JoinNoFollow(virtLauncherRootMount, filepath.Join("dev", "sev"))
-			if err != nil {
-				return err
-			}
-			if err := diskutils.DefaultOwnershipManager.SetFileOwnership(sevDevice); err != nil {
-				return fmt.Errorf("failed to set SEV device owner: %v", err)
-			}
-		}
-
-		if virtutil.IsNonRootVMI(vmi) {
-			if err := c.nonRootSetup(origVMI); err != nil {
-				return err
-			}
-		}
-		for _, fs := range vmi.Spec.Domain.Devices.Filesystems {
-			socketPath, err := isolation.SafeJoin(isolationRes, virtiofs.VirtioFSSocketPath(fs.Name))
-			if err != nil {
-				return err
-			}
-			if err := diskutils.DefaultOwnershipManager.SetFileOwnership(socketPath); err != nil {
-				return err
-			}
-		}
-
-		// set runtime limits as needed
-		err = c.podIsolationDetector.AdjustResources(vmi, c.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
-		if err != nil {
-			return fmt.Errorf("failed to adjust resources: %v", err)
-		}
-
-		if util.IsSEVAttestationRequested(vmi) {
-			sev := vmi.Spec.Domain.LaunchSecurity.SEV
-			if sev.Session == "" || sev.DHCert == "" {
-				// Wait for the session parameters to be provided
-				return nil
-			}
-		}
-	} else if vmi.IsRunning() {
-		if err := c.hotplugSriovInterfaces(vmi); err != nil {
-			log.Log.Object(vmi).Error(err.Error())
-		}
-
-		if err := c.hotplugVolumeMounter.Mount(vmi, cgroupManager); err != nil {
-			return err
-		}
-
-		if err := c.getMemoryDump(vmi); err != nil {
-			return err
-		}
-
-		isolationRes, err := c.podIsolationDetector.Detect(vmi)
-		if err != nil {
-			return fmt.Errorf(failedDetectIsolationFmt, err)
-		}
-
-		if err := c.downwardMetricsManager.StartServer(vmi, isolationRes.Pid()); err != nil {
-			return err
-		}
-
-		if err := c.setupNetwork(vmi, netsetup.FilterNetsForLiveUpdate(vmi)); err != nil {
-			log.Log.Object(vmi).Error(err.Error())
-			c.recorder.Event(vmi, k8sv1.EventTypeWarning, "NicHotplug", err.Error())
-			errorTolerantFeaturesError = append(errorTolerantFeaturesError, err)
+	if virtutil.IsAutoAttachVSOCK(vmi) {
+		if err := c.claimDeviceOwnership(virtLauncherRootMount, "vhost-vsock"); err != nil {
+			return fmt.Errorf("failed to set up file ownership for /dev/vhost-vsock: %v", err)
 		}
 	}
 
+	if err := c.configureHostDisks(vmi, isolationRes, virtLauncherRootMount); err != nil {
+		return err
+	}
+
+	if err := c.configureSEVDeviceOwnership(vmi, isolationRes, virtLauncherRootMount); err != nil {
+		return err
+	}
+
+	if virtutil.IsNonRootVMI(vmi) {
+		if err := c.nonRootSetup(vmi); err != nil {
+			return err
+		}
+	}
+
+	if err := c.configureVirtioFS(vmi, isolationRes); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *VirtualMachineController) configureHostDisks(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult, virtLauncherRootMount *safepath.Path) error {
+	lessPVCSpaceToleration := c.clusterConfig.GetLessPVCSpaceToleration()
+	minimumPVCReserveBytes := c.clusterConfig.GetMinimumReservePVCBytes()
+
+	hostDiskCreator := hostdisk.NewHostDiskCreator(c.recorder, lessPVCSpaceToleration, minimumPVCReserveBytes, virtLauncherRootMount)
+	if err := hostDiskCreator.Create(vmi); err != nil {
+		return fmt.Errorf("preparing host-disks failed: %v", err)
+	}
+	return nil
+}
+
+func (c *VirtualMachineController) configureSEVDeviceOwnership(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult, virtLauncherRootMount *safepath.Path) error {
+	if virtutil.IsSEVVMI(vmi) {
+		sevDevice, err := safepath.JoinNoFollow(virtLauncherRootMount, filepath.Join("dev", "sev"))
+		if err != nil {
+			return err
+		}
+		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(sevDevice); err != nil {
+			return fmt.Errorf("failed to set SEV device owner: %v", err)
+		}
+	}
+	return nil
+}
+
+func (c *VirtualMachineController) configureVirtioFS(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult) error {
+	for _, fs := range vmi.Spec.Domain.Devices.Filesystems {
+		socketPath, err := isolation.SafeJoin(isolationRes, virtiofs.VirtioFSSocketPath(fs.Name))
+		if err != nil {
+			return err
+		}
+		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(socketPath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *VirtualMachineController) syncVirtualMachine(client cmdclient.LauncherClient, vmi *v1.VirtualMachineInstance, preallocatedVolumes []string, disksInfo map[string]*containerdisk.DiskInfo) error {
 	smbios := c.clusterConfig.GetSMBIOS()
 	period := c.clusterConfig.GetMemBalloonStatsPeriod()
 
 	options := virtualMachineOptions(smbios, period, preallocatedVolumes, c.capabilities, disksInfo, c.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
 
-	err = client.SyncVirtualMachine(vmi, options)
+	err := client.SyncVirtualMachine(vmi, options)
 	if err != nil {
-		isSecbootError := strings.Contains(err.Error(), "EFI OVMF rom missing")
-		if isSecbootError {
+		if strings.Contains(err.Error(), "EFI OVMF rom missing") {
 			return &virtLauncherCriticalSecurebootError{fmt.Sprintf("mismatch of Secure Boot setting and bootloaders: %v", err)}
 		}
-		return err
 	}
 
+	return err
+}
+
+func (c *VirtualMachineController) handleHousekeeping(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, domainExists bool) error {
+
 	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-		err = c.configureHousekeepingCgroup(vmi, cgroupManager)
+		err := c.configureHousekeepingCgroup(vmi, cgroupManager)
 		if err != nil {
 			return err
 		}
 	}
+
+	// Configure vcpu scheduler for realtime workloads and affine PIT thread for dedicated CPU
 	if vmi.IsRealtimeEnabled() && !vmi.IsRunning() && !vmi.IsFinal() {
 		log.Log.Object(vmi).Info("Configuring vcpus for real time workloads")
 		if err := c.configureVCPUScheduler(vmi); err != nil {
@@ -3171,7 +3261,17 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 			return err
 		}
 	}
-	return errors.NewAggregate(errorTolerantFeaturesError)
+	return nil
+}
+
+func (c *VirtualMachineController) getPreallocatedVolumes(vmi *v1.VirtualMachineInstance) []string {
+	preallocatedVolumes := []string{}
+	for _, volumeStatus := range vmi.Status.VolumeStatus {
+		if volumeStatus.PersistentVolumeClaimInfo != nil && volumeStatus.PersistentVolumeClaimInfo.Preallocated {
+			preallocatedVolumes = append(preallocatedVolumes, volumeStatus.Name)
+		}
+	}
+	return preallocatedVolumes
 }
 
 func (c *VirtualMachineController) hotplugSriovInterfaces(vmi *v1.VirtualMachineInstance) error {
