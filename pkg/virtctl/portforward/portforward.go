@@ -50,7 +50,7 @@ func NewCommand() *cobra.Command {
 	log.InitializeLogging("portforward")
 	c := PortForward{}
 	cmd := &cobra.Command{
-		Use:     "port-forward [type/]name[.namespace] [protocol/]localPort[:targetPort]...",
+		Use:     "port-forward type/name[/namespace] [protocol/]localPort[:targetPort]...",
 		Short:   "Forward local ports to a virtualmachine or virtualmachineinstance.",
 		Long:    usage(),
 		Example: examples(),
@@ -193,8 +193,12 @@ func setOutput(cmd *cobra.Command) {
 func usage() string {
 	return `Forward local ports to a virtualmachine or virtualmachineinstance.
 	
-The target argument supports the syntax kind/name.namespace with kind/ and .namespace as optional fields.
-Kind accepts any of vmi (default), vmis, vm, vms, virtualmachineinstance, virtualmachine, virtualmachineinstances, virtualmachines.
+The target argument supports the syntax target/name[/namespace] with /namespace as optional field.
+Kind accepts any of vmi, vmis, vm, vms, virtualmachineinstance, virtualmachine, virtualmachineinstances, virtualmachines.
+
+A dot in target without specifying a namespace activates legacy parsing of name and namespace using
+the old type/name.namespace syntax. This is to avoid breaking existing scripts using the old syntax.
+A warning will be emitted instead. This behavior will be removed in the next release.
 
 The port argument supports the syntax protocol/localPort:targetPort with protocol/ and :targetPort as optional fields.
 Protocol supports TCP (default) and UDP.
@@ -212,56 +216,61 @@ func examples() string {
   {{ProgramName}} port-forward vmi/testvmi 8080:9090
 
   # Forward the local port 8080 to the vmi port 9090 as a UDP connection:
-  {{ProgramName}} port-forward vmi/testvmi.mynamespace udp/8080:9090
+  {{ProgramName}} port-forward vmi/testvmi/mynamespace udp/8080:9090
 
   # Forward the local port 8080 to the vm port
   {{ProgramName}} port-forward vm/testvm 8080
 
   # Forward the local port 8080 to the vm port in mynamespace
-  {{ProgramName}} port-forward vm/testvm.mynamespace 8080
+  {{ProgramName}} port-forward vm/testvm/mynamespace 8080
 
   # Note: {{ProgramName}} port-forward sends all traffic over the Kubernetes API Server. 
   # This means any traffic will add additional pressure to the control plane.
   # For continous traffic intensive connections, consider using a dedicated Kubernetes Service.`
 }
 
-// ParseTarget argument supporting the form of vmi/name.namespace (or simpler)
-func ParseTarget(target string) (string, string, string, error) {
-	kind := "vmi"
+// ParseTarget argument supporting the form of type/name[/namespace] or the legacy form of type/name.namespace
+func ParseTarget(target string) (kind string, namespace string, name string, err error) {
+	if target == "" {
+		return "", "", "", errors.New("target cannot be empty")
+	}
 
 	parts := strings.Split(target, "/")
-	if len(parts) > 2 {
-		return "", "", "", errors.New("target is not valid with more than one '/'")
-	}
-	if len(parts) == 2 {
+	switch len(parts) {
+	case 1:
+		return "", "", "", errors.New("target must contain type and name separated by '/'")
+	case 2:
 		kind = parts[0]
-		if !kindIsVM(kind) && !kindIsVMI(kind) {
-			return "", "", "", errors.New("unsupported resource kind " + kind)
+		name = parts[1]
+	case 3:
+		kind = parts[0]
+		name = parts[1]
+		namespace = parts[2]
+		if namespace == "" {
+			return "", "", "", errors.New("namespace cannot be empty")
 		}
-		target = parts[1]
-	} else {
-		log.Log.Warningf("Defaulting to type '%s'.\nOmitting the type in the target is deprecated."+
-			"\nSpecifying the type will become mandatory with the next release.", kind)
-	}
-	if target == "" {
-		return "", "", "", errors.New("expected name after '/'")
-	}
-	if target[0] == '.' {
-		return "", "", "", errors.New("expected name before '.'")
-	}
-	if target[len(target)-1] == '.' {
-		return "", "", "", errors.New("expected namespace after '.'")
+	default:
+		return "", "", "", errors.New("target is not valid with more than two '/'")
 	}
 
-	name := target
-	namespace := ""
-	if lastDot := strings.LastIndex(target, "."); lastDot != -1 {
-		name = target[:lastDot]
-		namespace = target[lastDot+1:]
+	if !kindIsVM(kind) && !kindIsVMI(kind) {
+		return "", "", "", fmt.Errorf("unsupported resource type '%s'", kind)
+	}
+
+	if name == "" {
+		return "", "", "", errors.New("name cannot be empty")
+	}
+
+	if lastDot := strings.LastIndex(parts[1], "."); len(parts) == 2 && lastDot > -1 {
+		log.Log.Warning("A dot in target without specifying a namespace activates legacy parsing of name and namespace.\n" +
+			"This behavior will be removed in the next release.")
+		name = parts[1][:lastDot]
+		namespace = parts[1][lastDot+1:]
 	}
 
 	return kind, namespace, name, nil
 }
+
 func kindIsVMI(kind string) bool {
 	return kind == "vmi" ||
 		kind == "vmis" ||

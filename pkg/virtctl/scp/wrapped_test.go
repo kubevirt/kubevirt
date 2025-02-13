@@ -20,6 +20,7 @@ var _ = Describe("Wrapped SCP", func() {
 			Path: "/local/fakepath",
 		}
 		fakeRemote = &RemoteArgument{
+			Kind:      "fake-kind",
 			Namespace: "fake-ns",
 			Name:      "fake-name",
 			Path:      "/remote/fakepath",
@@ -33,12 +34,12 @@ var _ = Describe("Wrapped SCP", func() {
 		It("with SCP username", func() {
 			scp.options = ssh.SSHOptions{SSHUsername: "testuser"}
 			scpTarget := scp.buildSCPTarget(fakeLocal, fakeRemote, fakeToRemote)
-			Expect(scpTarget[0]).To(Equal("testuser@fake-name.fake-ns:/remote/fakepath"))
+			Expect(scpTarget[0]).To(Equal("testuser@fake-kind.fake-name.fake-ns:/remote/fakepath"))
 		})
 
 		It("without SCP username", func() {
 			scpTarget := scp.buildSCPTarget(fakeLocal, fakeRemote, fakeToRemote)
-			Expect(scpTarget[0]).To(Equal("fake-name.fake-ns:/remote/fakepath"))
+			Expect(scpTarget[0]).To(Equal("fake-kind.fake-name.fake-ns:/remote/fakepath"))
 		})
 
 		It("with recursive", func() {
@@ -63,7 +64,7 @@ var _ = Describe("Wrapped SCP", func() {
 
 		It("toRemote = false", func() {
 			scpTarget := scp.buildSCPTarget(fakeLocal, fakeRemote, fakeToRemote)
-			Expect(scpTarget[0]).To(Equal("fake-name.fake-ns:/remote/fakepath"))
+			Expect(scpTarget[0]).To(Equal("fake-kind.fake-name.fake-ns:/remote/fakepath"))
 			Expect(scpTarget[1]).To(Equal("/local/fakepath"))
 		})
 
@@ -71,7 +72,7 @@ var _ = Describe("Wrapped SCP", func() {
 			fakeToRemote = true
 			scpTarget := scp.buildSCPTarget(fakeLocal, fakeRemote, fakeToRemote)
 			Expect(scpTarget[0]).To(Equal("/local/fakepath"))
-			Expect(scpTarget[1]).To(Equal("fake-name.fake-ns:/remote/fakepath"))
+			Expect(scpTarget[1]).To(Equal("fake-kind.fake-name.fake-ns:/remote/fakepath"))
 		})
 	})
 })
