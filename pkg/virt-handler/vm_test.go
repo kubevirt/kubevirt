@@ -81,11 +81,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var virtClient *kubecli.MockKubevirtClient
 	var virtfakeClient *kubevirtfake.Clientset
 
-	var ctrl *gomock.Controller
 	var controller *VirtualMachineController
 	var mockQueue *testutils.MockWorkQueue[string]
-	var mockIsolationDetector *isolation.MockPodIsolationDetector
-	var mockIsolationResult *isolation.MockIsolationResult
 	var mockContainerDiskMounter *containerdisk.MockMounter
 	var mockHotplugVolumeMounter *hotplugvolume.MockVolumeMounter
 	var mockCgroupManager *cgroup.MockManager
@@ -95,19 +92,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	var recorder *record.FakeRecorder
 
-	var shareDir string
-	var privateDir string
-	var vmiShareDir string
-	var podsDir string
 	var sockFile string
-	var ghostCacheDir string
 	var vmiTestUUID types.UID
 	var podTestUUID types.UID
 	var stop chan struct{}
 	var wg *sync.WaitGroup
 	var eventChan chan watch.Event
-
-	var certDir string
 
 	var networkBindingPluginMemoryCalculator *stubNetBindingPluginMemoryCalculator
 
@@ -119,24 +109,20 @@ var _ = Describe("VirtualMachineInstance", func() {
 	}
 
 	BeforeEach(func() {
-		var err error
 		diskutils.MockDefaultOwnershipManager()
 
 		wg = &sync.WaitGroup{}
 		stop = make(chan struct{})
 		eventChan = make(chan watch.Event, 100)
-		shareDir, err = os.MkdirTemp("", "")
+		shareDir := GinkgoT().TempDir()
+		privateDir := GinkgoT().TempDir()
+		podsDir, err := os.MkdirTemp("", "")
 		Expect(err).ToNot(HaveOccurred())
-		privateDir, err = os.MkdirTemp("", "")
-		Expect(err).ToNot(HaveOccurred())
-		podsDir, err = os.MkdirTemp("", "")
-		Expect(err).ToNot(HaveOccurred())
-		certDir, err = os.MkdirTemp("", "migrationproxytest")
-		Expect(err).ToNot(HaveOccurred())
-		vmiShareDir, err = os.MkdirTemp("", "")
-		Expect(err).ToNot(HaveOccurred())
-		ghostCacheDir, err = os.MkdirTemp("", "")
-		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(os.RemoveAll, podsDir)
+		certDir := GinkgoT().TempDir()
+
+		vmiShareDir := GinkgoT().TempDir()
+		ghostCacheDir := GinkgoT().TempDir()
 
 		err = virtcache.InitializeGhostRecordCache(ghostCacheDir)
 		Expect(err).ToNot(HaveOccurred())
@@ -167,7 +153,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		k8sfakeClient := fake.NewSimpleClientset()
 		virtfakeClient = kubevirtfake.NewSimpleClientset()
-		ctrl = gomock.NewController(GinkgoT())
+		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		virtClient.EXPECT().CoreV1().Return(k8sfakeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
@@ -182,13 +168,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 		Expect(err).ToNot(HaveOccurred())
 		f.Close()
 
-		mockIsolationResult = isolation.NewMockIsolationResult(ctrl)
+		mockIsolationResult := isolation.NewMockIsolationResult(ctrl)
 		mockIsolationResult.EXPECT().Pid().Return(1).AnyTimes()
 		rootDir, err := safepath.JoinAndResolveWithRelativeRoot(vmiShareDir)
 		Expect(err).ToNot(HaveOccurred())
 		mockIsolationResult.EXPECT().MountRoot().Return(rootDir, nil).AnyTimes()
 
-		mockIsolationDetector = isolation.NewMockPodIsolationDetector(ctrl)
+		mockIsolationDetector := isolation.NewMockPodIsolationDetector(ctrl)
 		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(mockIsolationResult, nil).AnyTimes()
 		mockIsolationDetector.EXPECT().AdjustResources(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
@@ -265,12 +251,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	AfterEach(func() {
 		close(stop)
 		wg.Wait()
-		os.RemoveAll(shareDir)
-		os.RemoveAll(privateDir)
-		os.RemoveAll(vmiShareDir)
-		os.RemoveAll(podsDir)
-		os.RemoveAll(certDir)
-		os.RemoveAll(ghostCacheDir)
+
 		// Ensure that we add checks for expected events to every test
 		Expect(recorder.Events).To(BeEmpty())
 	})
