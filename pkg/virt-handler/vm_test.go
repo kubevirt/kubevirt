@@ -88,7 +88,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var mockCgroupManager *cgroup.MockManager
 
 	var vmiFeeder *testutils.VirtualMachineFeeder[string]
-	var domainFeeder *testutils.DomainFeeder[string]
 
 	var recorder *record.FakeRecorder
 
@@ -147,7 +146,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		vmiSourceInformer, vmiSource := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		vmiTargetInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
-		domainInformer, domainSource := testutils.NewFakeInformerFor(&api.Domain{})
+		domainInformer, _ := testutils.NewFakeInformerFor(&api.Domain{})
 		recorder = record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
@@ -223,13 +222,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 		controller.queue = mockQueue
 
 		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
-		domainFeeder = testutils.NewDomainFeeder(mockQueue, domainSource)
 
-		wg.Add(4)
+		wg.Add(3)
 		go func() { vmiSourceInformer.Run(stop); wg.Done() }()
 		go func() { vmiTargetInformer.Run(stop); wg.Done() }()
-		go func() { domainInformer.Run(stop); wg.Done() }()
-		Expect(cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, vmiTargetInformer.HasSynced, domainInformer.HasSynced)).To(BeTrue())
+		Expect(cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, vmiTargetInformer.HasSynced)).To(BeTrue())
 
 		go func() {
 			notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
@@ -255,6 +252,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 		// Ensure that we add checks for expected events to every test
 		Expect(recorder.Events).To(BeEmpty())
 	})
+
+	addDomain := func(domain *api.Domain) {
+		controller.domainStore.Add(domain)
+		key, err := virtcontroller.KeyFunc(domain)
+		Expect(err).To(Not(HaveOccurred()))
+		controller.queue.Add(key)
+	}
 
 	sanityExecute := func() {
 		controllertesting.SanityExecute(controller, []cache.Store{
@@ -291,7 +295,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should delete non-running Domains if no cluster wide equivalent and no grace period info exists", func() {
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
-			domainFeeder.Add(domain)
+			addDomain(domain)
 
 			client.EXPECT().Ping()
 			client.EXPECT().DeleteDomain(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
@@ -302,7 +306,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		It("should delete running Domains if no cluster wide equivalent exists and no grace period info exists", func() {
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
-			domainFeeder.Add(domain)
+			addDomain(domain)
 
 			client.EXPECT().Ping()
 			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
@@ -323,7 +327,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			client.EXPECT().Ping()
 			client.EXPECT().DeleteDomain(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
-			domainFeeder.Add(domain)
+			addDomain(domain)
 
 			sanityExecute()
 			testutils.ExpectEvent(recorder, VMISignalDeletion)
@@ -340,7 +344,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			client.EXPECT().Ping()
 			client.EXPECT().ShutdownVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
-			domainFeeder.Add(domain)
+			addDomain(domain)
 
 			sanityExecute()
 			testutils.ExpectEvent(recorder, VMIGracefulShutdown)
@@ -356,7 +360,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			initGracePeriodHelper(1, vmi, domain)
 			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+			addDomain(domain)
 
 			sanityExecute()
 			Expect(mockQueue.Len()).To(Equal(0))
@@ -474,7 +478,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			client.EXPECT().Ping()
 			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
-			domainFeeder.Add(domain)
+			addDomain(domain)
 
 			sanityExecute()
 			testutils.ExpectEvent(recorder, VMIStopping)
@@ -490,7 +494,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			client.EXPECT().Ping()
 			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
-			domainFeeder.Add(domain)
+			addDomain(domain)
 			sanityExecute()
 			testutils.ExpectEvent(recorder, VMIStopping)
 		})
@@ -544,7 +548,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Spec.OS.Type.Machine = "q35-123"
 
 			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+			addDomain(domain)
 			createVMI(vmi)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
@@ -573,7 +577,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
 			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+			addDomain(domain)
 			createVMI(vmi)
 
 			node := &k8sv1.Node{
@@ -630,7 +634,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+			addDomain(domain)
 			createVMI(vmi)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
@@ -703,7 +707,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+			addDomain(domain)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
 				Expect(options.VirtualMachineSMBios.Family).To(Equal(virtconfig.SmbiosConfigDefaultFamily))
@@ -748,7 +752,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+			addDomain(domain)
 			createVMI(vmi)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) {
@@ -790,7 +794,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+			addDomain(domain)
 			createVMI(vmi)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
@@ -844,7 +848,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+			addDomain(domain)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
@@ -881,7 +885,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+			addDomain(domain)
 			createVMI(vmi)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
@@ -924,7 +928,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Status.Reason = api.ReasonPausedUser
 
 			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+			addDomain(domain)
 			createVMI(vmi)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
@@ -955,7 +959,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Status.Reason = ""
 
 			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+			addDomain(domain)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
 			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
@@ -1153,7 +1157,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				domain.Status.Status = api.Running
 				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
+				addDomain(domain)
 				createVMI(vmi)
 				mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
 				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
@@ -1169,7 +1173,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				domain.Status.Status = api.Running
 				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
+				addDomain(domain)
 				createVMI(vmi)
 				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(fmt.Errorf("Error"))
 
@@ -1184,7 +1188,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				domain.Status.Status = api.Running
 				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
+				addDomain(domain)
 				mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
 				client.EXPECT().Close()
 				controller.processVmCleanup(vmi)
@@ -1202,7 +1206,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				domain.Status.Status = api.Running
 				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
+				addDomain(domain)
 				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
 				Expect(hasHotplug).To(BeFalse())
 			})
@@ -1222,7 +1226,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				domain.Status.Status = api.Running
 				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
+				addDomain(domain)
 				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
 				testutils.ExpectEvent(recorder, VolumeReadyReason)
 				Expect(hasHotplug).To(BeTrue())
@@ -1252,7 +1256,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Target: api.DiskTarget{},
 				})
 				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
+				addDomain(domain)
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
 				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
 				Expect(hasHotplug).To(BeTrue())
@@ -1288,7 +1292,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Target: api.DiskTarget{},
 				})
 				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
+				addDomain(domain)
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(false, nil)
 				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
 				Expect(hasHotplug).To(BeTrue())
@@ -1329,7 +1333,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					},
 				})
 				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
+				addDomain(domain)
 				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
 				Expect(hasHotplug).To(BeTrue())
 				Expect(vmi.Status.VolumeStatus[0].Phase).To(Equal(v1.VolumeReady))
@@ -1393,7 +1397,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				domain.Status.Status = api.Running
 				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
+				addDomain(domain)
 
 				updatedVolumeStatus := *volumeStatus.DeepCopy()
 				updatedVolumeStatus.MemoryDumpVolume.TargetFileName = dumpTargetFile(vmi.Name, volumeStatus.Name)
@@ -1441,7 +1445,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				}
 				domain.Status.Status = api.Running
 				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
+				addDomain(domain)
 
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
 				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
@@ -1490,7 +1494,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					FailureReason:  failureReason,
 				}
 				vmiFeeder.Add(vmi)
-				domainFeeder.Add(domain)
+				addDomain(domain)
 
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
 				hasHotplug := controller.updateVolumeStatusesFromDomain(vmi, domain)
@@ -1722,7 +1726,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Running
-			domainFeeder.Add(domain)
+			addDomain(domain)
 			vmiFeeder.Add(vmi)
 			options := &cmdclient.MigrationOptions{
 				Bandwidth:                resource.MustParse("0Mi"),
@@ -1769,7 +1773,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				StartTimestamp: &startTimestamp,
 				UID:            "123",
 			}
-			domainFeeder.Add(domain)
+			addDomain(domain)
 			vmiFeeder.Add(vmi)
 			sanityExecute()
 		})
@@ -1805,7 +1809,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				UID:            "123",
 				StartTimestamp: &now,
 			}
-			domainFeeder.Add(domain)
+			addDomain(domain)
 			vmiFeeder.Add(vmi)
 			createVMI(vmi)
 
@@ -1844,7 +1848,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Completed:      true,
 			}
 
-			domainFeeder.Add(domain)
+			addDomain(domain)
 			vmiFeeder.Add(vmi)
 			createVMI(vmi)
 
@@ -1888,7 +1892,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				StartTimestamp: &pastTime,
 			}
 
-			domainFeeder.Add(domain)
+			addDomain(domain)
 			vmiFeeder.Add(vmi)
 			createVMI(vmi)
 
@@ -1942,7 +1946,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				StartTimestamp: &pastTime,
 			}
 
-			domainFeeder.Add(domain)
+			addDomain(domain)
 			vmiFeeder.Add(vmi)
 			createVMI(vmi)
 
@@ -2116,7 +2120,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			UID:            "123",
 			StartTimestamp: &pastTime,
 		}
-		domainFeeder.Add(domain)
+		addDomain(domain)
 		vmiFeeder.Add(vmi)
 		createVMI(vmi)
 
@@ -2856,7 +2860,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Status.Status = api.Running
 
 			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+			addDomain(domain)
 			createVMI(vmi)
 
 			domain.Status.Interfaces = append(domain.Status.Interfaces, api.InterfaceStatus{
@@ -2917,7 +2921,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+			addDomain(domain)
 			createVMI(vmi)
 
 			sanityExecute()
@@ -2948,7 +2952,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Status.FSFreezeStatus = api.FSFreeze{Status: guestFSFreeezeStatus}
 
 			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+			addDomain(domain)
 			createVMI(vmi)
 
 			sanityExecute()
@@ -2972,7 +2976,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Status.FSFreezeStatus = api.FSFreeze{Status: guestFSFreeezeStatus}
 
 			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+			addDomain(domain)
 			createVMI(vmi)
 
 			sanityExecute()
@@ -3002,7 +3006,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+			addDomain(domain)
 			createVMI(vmi)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
@@ -3086,7 +3090,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+			addDomain(domain)
 			createVMI(vmi)
 
 			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
@@ -3273,7 +3277,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 				domain = api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 				domain.Status.Status = api.Running
-				domainFeeder.Add(domain)
+				addDomain(domain)
 				vmiFeeder.Add(vmi)
 
 			})
