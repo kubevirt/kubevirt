@@ -3623,7 +3623,7 @@ type netConfStub struct {
 	SetupError error
 }
 
-func (nc *netConfStub) Setup(vmi *v1.VirtualMachineInstance, _ []v1.Network, launcherPid int, preSetup func() error) error {
+func (nc *netConfStub) Setup(vmi *v1.VirtualMachineInstance, _ []v1.Network, launcherPid int) error {
 	if nc.SetupError != nil {
 		return nc.SetupError
 	}

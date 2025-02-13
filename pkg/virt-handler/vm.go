@@ -96,7 +96,7 @@ import (
 )
 
 type netconf interface {
-	Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int, preSetup func() error) error
+	Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int) error
 	Teardown(vmi *v1.VirtualMachineInstance) error
 }
 
@@ -565,9 +565,7 @@ func (c *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance, 
 		return fmt.Errorf(failedDetectIsolationFmt, err)
 	}
 
-	return c.netConf.Setup(vmi, networks, isolationRes.Pid(), func() error {
-		return nil
-	})
+	return c.netConf.Setup(vmi, networks, isolationRes.Pid())
 }
 
 func domainPausedFailedPostCopy(domain *api.Domain) bool {
