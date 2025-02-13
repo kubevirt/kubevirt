@@ -20,19 +20,25 @@
 package virt_controller
 
 import (
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	"github.com/prometheus/client_golang/prometheus"
+	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	k6tv1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
+
+	"kubevirt.io/kubevirt/pkg/instancetype/apply"
+	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -43,7 +49,9 @@ var _ = Describe("VMI Stats Collector", func() {
 	clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKV(&k6tv1.KubeVirt{})
 
 	Context("VMI info", func() {
-		setupTestCollector()
+		BeforeEach(func() {
+			setupTestCollector()
+		})
 
 		It("should handle no VMIs", func() {
 			cr := reportVmisStats([]*k6tv1.VirtualMachineInstance{})
@@ -623,6 +631,10 @@ func setupTestCollector() {
 	clusterInstanceTypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
 	preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
 	clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
+	controllerRevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
+
+	ctrl := gomock.NewController(GinkgoT())
+	virtClient := kubecli.NewMockKubevirtClient(ctrl)
 
 	_ = instanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineInstancetype{
 		ObjectMeta: newObjectMetaForInstancetypes("i-managed", "test-ns", "kubevirt.io"),
@@ -657,12 +669,20 @@ func setupTestCollector() {
 		ObjectMeta: newObjectMetaForInstancetypes("cp-managed", "", "kubevirt.io"),
 	})
 
-	instancetypeMethods = &instancetype.InstancetypeMethods{
-		InstancetypeStore:        instanceTypeInformer.GetStore(),
-		ClusterInstancetypeStore: clusterInstanceTypeInformer.GetStore(),
-		PreferenceStore:          preferenceInformer.GetStore(),
-		ClusterPreferenceStore:   clusterPreferenceInformer.GetStore(),
-	}
+	vmApplier = apply.NewVMApplier(
+		find.NewSpecFinder(
+			instanceTypeInformer.GetStore(),
+			clusterInstanceTypeInformer.GetStore(),
+			controllerRevisionInformer.GetStore(),
+			virtClient,
+		),
+		preferenceFind.NewSpecFinder(
+			preferenceInformer.GetStore(),
+			clusterPreferenceInformer.GetStore(),
+			controllerRevisionInformer.GetStore(),
+			virtClient,
+		),
+	)
 
 	// Pod informer
 	kvPodInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})

@@ -27,11 +27,36 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/pkg/instancetype/apply"
+	"kubevirt.io/kubevirt/pkg/instancetype/find"
+	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
+
+type vmApplyHandler interface {
+	ApplyToVM(vm *virtv1.VirtualMachine) error
+}
+
+type Informers struct {
+	Vm                    cache.SharedIndexInformer
+	Vmi                   cache.SharedIndexInformer
+	PersistentVolumeClaim cache.SharedIndexInformer
+	VmiMigration          cache.SharedIndexInformer
+	KvPod                 cache.SharedIndexInformer
+}
+
+type Stores struct {
+	Instancetype        cache.Store
+	ClusterInstancetype cache.Store
+	Preference          cache.Store
+	ClusterPreference   cache.Store
+	ControllerRevision  cache.Store
+}
 
 var (
 	metrics = [][]operatormetrics.Metric{
@@ -48,25 +73,48 @@ var (
 	vmiMigrationInformer          cache.SharedIndexInformer
 	kvPodInformer                 cache.SharedIndexInformer
 	clusterConfig                 *virtconfig.ClusterConfig
-	instancetypeMethods           *instancetype.InstancetypeMethods
+	vmApplier                     vmApplyHandler
+
+	instancetypeStore        cache.Store
+	clusterInstancetypeStore cache.Store
+	preferenceStore          cache.Store
+	clusterPreferenceStore   cache.Store
+	controllerRevision       cache.Store
 )
 
 func SetupMetrics(
-	vm cache.SharedIndexInformer,
-	vmi cache.SharedIndexInformer,
-	pvc cache.SharedIndexInformer,
-	vmiMigration cache.SharedIndexInformer,
-	pod cache.SharedIndexInformer,
+	informers *Informers,
+	stores *Stores,
 	virtClusterConfig *virtconfig.ClusterConfig,
-	methods *instancetype.InstancetypeMethods,
+	clientset kubecli.KubevirtClient,
 ) error {
-	vmInformer = vm
-	vmiInformer = vmi
-	persistentVolumeClaimInformer = pvc
-	vmiMigrationInformer = vmiMigration
-	kvPodInformer = pod
+	vmInformer = informers.Vm
+	vmiInformer = informers.Vmi
+	persistentVolumeClaimInformer = informers.PersistentVolumeClaim
+	vmiMigrationInformer = informers.VmiMigration
+	kvPodInformer = informers.KvPod
 	clusterConfig = virtClusterConfig
-	instancetypeMethods = methods
+
+	instancetypeStore = stores.Instancetype
+	clusterInstancetypeStore = stores.ClusterInstancetype
+	preferenceStore = stores.Preference
+	clusterPreferenceStore = stores.ClusterPreference
+	controllerRevision = stores.ControllerRevision
+
+	vmApplier = apply.NewVMApplier(
+		find.NewSpecFinder(
+			instancetypeStore,
+			clusterInstancetypeStore,
+			controllerRevision,
+			clientset,
+		),
+		preferenceFind.NewSpecFinder(
+			preferenceStore,
+			clusterPreferenceStore,
+			controllerRevision,
+			clientset,
+		),
+	)
 
 	if err := client.SetupMetrics(); err != nil {
 		return err

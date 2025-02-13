@@ -249,15 +249,17 @@ func getVMInstancetype(vm *k6tv1.VirtualMachine) string {
 	}
 
 	if instancetype.Kind == "VirtualMachineInstancetype" {
+
 		key := types.NamespacedName{
 			Namespace: vm.Namespace,
 			Name:      instancetype.Name,
 		}
-		return fetchResourceName(key.String(), instancetypeMethods.InstancetypeStore)
+
+		return fetchResourceName(key.String(), instancetypeStore)
 	}
 
 	if instancetype.Kind == "VirtualMachineClusterInstancetype" {
-		return fetchResourceName(instancetype.Name, instancetypeMethods.ClusterInstancetypeStore)
+		return fetchResourceName(instancetype.Name, clusterInstancetypeStore)
 	}
 
 	return none
@@ -275,11 +277,12 @@ func getVMPreference(vm *k6tv1.VirtualMachine) string {
 			Namespace: vm.Namespace,
 			Name:      preference.Name,
 		}
-		return fetchResourceName(key.String(), instancetypeMethods.PreferenceStore)
+
+		return fetchResourceName(key.String(), preferenceStore)
 	}
 
 	if preference.Kind == "VirtualMachineClusterPreference" {
-		return fetchResourceName(preference.Name, instancetypeMethods.ClusterPreferenceStore)
+		return fetchResourceName(preference.Name, clusterPreferenceStore)
 	}
 
 	return none
@@ -308,7 +311,7 @@ func CollectResourceRequestsAndLimits(vms []*k6tv1.VirtualMachine) []operatormet
 	for _, vm := range vms {
 		// Apply any instance type and preference to a copy of the VM before proceeding
 		vmCopy := vm.DeepCopy()
-		_ = instancetypeMethods.ApplyToVM(vmCopy)
+		_ = vmApplier.ApplyToVM(vmCopy)
 
 		// Memory requests and limits from domain resources
 		results = append(results, collectMemoryResourceRequestsFromDomainResources(vmCopy)...)
