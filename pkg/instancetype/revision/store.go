@@ -16,6 +16,7 @@
  * Copyright The KubeVirt Authors
  *
  */
+//nolint:dupl
 package revision
 
 import (
@@ -24,6 +25,7 @@ import (
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,37 +41,111 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
 func (h *revisionHandler) Store(vm *virtv1.VirtualMachine) error {
-	instancetypeRevision, err := h.storeInstancetypeRevision(vm)
+	instancetypeStatusRef, err := h.storeInstancetypeRevision(vm)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error("Failed to store ControllerRevision of VirtualMachineInstancetypeSpec for the Virtualmachine.")
 		return err
 	}
 
-	preferenceRevision, err := h.storePreferenceRevision(vm)
+	preferenceStatusRef, err := h.storePreferenceRevision(vm)
 	if err != nil {
 		log.Log.Object(vm).Reason(err).Error("Failed to store ControllerRevision of VirtualMachinePreferenceSpec for the Virtualmachine.")
 		return err
 	}
 
-	return h.patchVM(instancetypeRevision, preferenceRevision, vm)
+	return h.patchVM(instancetypeStatusRef, preferenceStatusRef, vm)
 }
 
-func (h *revisionHandler) storeInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
-	if vm.Spec.Instancetype == nil || vm.Spec.Instancetype.RevisionName != "" {
+func syncStatusWithMatcher(
+	vm *virtv1.VirtualMachine,
+	matcher virtv1.Matcher,
+	statusRef *virtv1.InstancetypeStatusRef,
+	createRevisionFunc func(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error),
+) error {
+	var clearControllerRevisionRef bool
+	matcherName := matcher.GetName()
+	if matcherName != "" && matcherName != statusRef.Name {
+		statusRef.Name = matcherName
+		clearControllerRevisionRef = true
+	}
+
+	matcherKind := matcher.GetKind()
+	if matcherKind != "" && matcherKind != statusRef.Kind {
+		statusRef.Kind = matcherKind
+		clearControllerRevisionRef = true
+	}
+
+	matcherInferFromVolume := matcher.GetInferFromVolume()
+	if matcherInferFromVolume != "" && matcherInferFromVolume != statusRef.InferFromVolume {
+		statusRef.InferFromVolume = matcherInferFromVolume
+		clearControllerRevisionRef = true
+	}
+
+	// If the name, kind or inferFromVolume matcher values have changed we need to clear ControllerRevisionRef to either use RevisionName
+	// from the matcher or to store a copy of the new resource the matcher is pointing at.
+	if clearControllerRevisionRef {
+		statusRef.ControllerRevisionRef = nil
+	}
+
+	syncInferFromVolumeFailurePolicy(matcher, statusRef)
+
+	matcherRevisionName := matcher.GetRevisionName()
+	if matcherRevisionName != "" {
+		if statusRef.ControllerRevisionRef == nil || statusRef.ControllerRevisionRef.Name != matcherRevisionName {
+			statusRef.ControllerRevisionRef = &virtv1.ControllerRevisionRef{
+				Name: matcherRevisionName,
+			}
+		}
+	}
+
+	if statusRef.ControllerRevisionRef == nil {
+		storedRevision, err := createRevisionFunc(vm)
+		if err != nil {
+			return err
+		}
+
+		statusRef.ControllerRevisionRef = &virtv1.ControllerRevisionRef{
+			Name: storedRevision.Name,
+		}
+	}
+	return nil
+}
+
+func syncInferFromVolumeFailurePolicy(matcher virtv1.Matcher, statusRef *virtv1.InstancetypeStatusRef) {
+	matcherInferFromVolumeFailurePolicy := matcher.GetInferFromVolumeFailurePolicy()
+	if matcherInferFromVolumeFailurePolicy != nil {
+		if statusRef.InferFromVolumeFailurePolicy == nil || (statusRef.InferFromVolumeFailurePolicy != nil &&
+			*matcherInferFromVolumeFailurePolicy != *statusRef.InferFromVolumeFailurePolicy) {
+			statusRef.InferFromVolumeFailurePolicy = pointer.P(*matcherInferFromVolumeFailurePolicy)
+		}
+	}
+}
+
+func (h *revisionHandler) storeInstancetypeRevision(vm *virtv1.VirtualMachine) (*virtv1.InstancetypeStatusRef, error) {
+	if vm.Spec.Instancetype == nil {
 		return nil, nil
 	}
 
-	storedRevision, err := h.createInstancetypeRevision(vm)
-	if err != nil {
+	if vm.Status.InstancetypeRef == nil {
+		vm.Status.InstancetypeRef = &virtv1.InstancetypeStatusRef{}
+	}
+	statusRef := vm.Status.InstancetypeRef.DeepCopy()
+
+	if err := syncStatusWithMatcher(vm, vm.Spec.Instancetype, statusRef, h.createInstancetypeRevision); err != nil {
 		return nil, err
 	}
 
-	vm.Spec.Instancetype.RevisionName = storedRevision.Name
-	return storedRevision, nil
+	if equality.Semantic.DeepEqual(vm.Status.InstancetypeRef, statusRef) {
+		return nil, nil
+	}
+
+	vm.Status.InstancetypeRef = statusRef
+	return vm.Status.InstancetypeRef, nil
 }
 
 func (h *revisionHandler) createInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
@@ -123,18 +199,26 @@ func (h *revisionHandler) checkForInstancetypeConflicts(
 	return nil
 }
 
-func (h *revisionHandler) storePreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
-	if vm.Spec.Preference == nil || vm.Spec.Preference.RevisionName != "" {
+func (h *revisionHandler) storePreferenceRevision(vm *virtv1.VirtualMachine) (*virtv1.InstancetypeStatusRef, error) {
+	if vm.Spec.Preference == nil {
 		return nil, nil
 	}
 
-	storedRevision, err := h.createPreferenceRevision(vm)
-	if err != nil {
+	if vm.Status.PreferenceRef == nil {
+		vm.Status.PreferenceRef = &virtv1.InstancetypeStatusRef{}
+	}
+	statusRef := vm.Status.PreferenceRef.DeepCopy()
+
+	if err := syncStatusWithMatcher(vm, vm.Spec.Preference, statusRef, h.createPreferenceRevision); err != nil {
 		return nil, err
 	}
 
-	vm.Spec.Preference.RevisionName = storedRevision.Name
-	return storedRevision, nil
+	if equality.Semantic.DeepEqual(vm.Status.PreferenceRef, statusRef) {
+		return nil, nil
+	}
+
+	vm.Status.PreferenceRef = statusRef
+	return vm.Status.PreferenceRef, nil
 }
 
 func (h *revisionHandler) createPreferenceRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
