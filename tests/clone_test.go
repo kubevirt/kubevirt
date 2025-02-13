@@ -630,13 +630,13 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 							libstorage.EventuallyDVWith(sourceVM.Namespace, dvt.Name, 180, HaveSucceeded())
 						}
 						By("Waiting until the source VM has instancetype and preference RevisionNames")
-						Eventually(matcher.ThisVM(sourceVM)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveRevisionNames())
+						Eventually(matcher.ThisVM(sourceVM)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveControllerRevisionRefs())
 
 						vmClone = generateCloneFromVM()
 						createCloneAndWaitForCompletion(vmClone)
 
 						By("Waiting until the targetVM has instancetype and preference RevisionNames")
-						Eventually(matcher.ThisVMWith(testsuite.GetTestNamespace(sourceVM), targetVMName)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveRevisionNames())
+						Eventually(matcher.ThisVMWith(testsuite.GetTestNamespace(sourceVM), targetVMName)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveControllerRevisionRefs())
 
 						By("Asserting that the targetVM has new instancetype and preference controllerRevisions")
 						sourceVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(sourceVM)).Get(context.Background(), sourceVM.Name, v1.GetOptions{})
@@ -644,12 +644,12 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 						targetVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(sourceVM)).Get(context.Background(), targetVMName, v1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
-						Expect(targetVM.Spec.Instancetype.RevisionName).ToNot(Equal(sourceVM.Spec.Instancetype.RevisionName), "source and target instancetype revision names should not be equal")
-						Expect(targetVM.Spec.Preference.RevisionName).ToNot(Equal(sourceVM.Spec.Preference.RevisionName), "source and target preference revision names should not be equal")
+						Expect(targetVM.Status.InstancetypeRef.ControllerRevisionRef.Name).ToNot(Equal(sourceVM.Status.InstancetypeRef.ControllerRevisionRef.Name), "source and target instancetype revision names should not be equal")
+						Expect(targetVM.Status.PreferenceRef.ControllerRevisionRef.Name).ToNot(Equal(sourceVM.Status.PreferenceRef.ControllerRevisionRef.Name), "source and target preference revision names should not be equal")
 
 						By("Asserting that the source and target ControllerRevisions contain the same Object")
-						Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Instancetype.RevisionName, targetVM.Spec.Instancetype.RevisionName, virtClient)).To(BeTrue(), "source and target instance type controller revisions are expected to be equal")
-						Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Preference.RevisionName, targetVM.Spec.Preference.RevisionName, virtClient)).To(BeTrue(), "source and target preference controller revisions are expected to be equal")
+						Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Status.InstancetypeRef.ControllerRevisionRef.Name, targetVM.Status.InstancetypeRef.ControllerRevisionRef.Name, virtClient)).To(BeTrue(), "source and target instance type controller revisions are expected to be equal")
+						Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Status.PreferenceRef.ControllerRevisionRef.Name, targetVM.Status.PreferenceRef.ControllerRevisionRef.Name, virtClient)).To(BeTrue(), "source and target preference controller revisions are expected to be equal")
 					},
 						Entry("with a running VM", virtv1.RunStrategyAlways),
 						Entry("with a stopped VM", virtv1.RunStrategyHalted),

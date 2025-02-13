@@ -408,6 +408,24 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"desiredGeneration":      "DesiredGeneration is the generation which is desired for the VMI.\nThis will be used in comparisons with ObservedGeneration to understand when\nthe VMI is out of sync. This will be changed at the same time as\nObservedGeneration to remove errors which could occur if Generation is\nupdated through an Update() before ObservedGeneration in Status.\n+optional",
 		"runStrategy":            "RunStrategy tracks the last recorded RunStrategy used by the VM.\nThis is needed to correctly process the next strategy (for now only the RerunOnFailure)",
 		"volumeUpdateState":      "VolumeUpdateState contains the information about the volumes set\nupdates related to the volumeUpdateStrategy",
+		"instancetypeRef":        "InstancetypeRef captures the state of any referenced instance type from the VirtualMachine\n+nullable\n+optional",
+		"preferenceRef":          "PreferenceRef captures the state of any referenced preference from the VirtualMachine\n+nullable\n+optional",
+	}
+}
+
+func (ControllerRevisionRef) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"name": "Name of the ControllerRevision",
+	}
+}
+
+func (InstancetypeStatusRef) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"name":                         "Name is the name of resource",
+		"kind":                         "Kind specifies the kind of resource",
+		"controllerRevisionRef":        "ControllerRef specifies the ControllerRevision storing a copy of the object captured\nwhen it is first seen by the VirtualMachine controller",
+		"inferFromVolume":              "InferFromVolume lists the name of a volume that should be used to infer or discover the resource\n\n+optional",
+		"inferFromVolumeFailurePolicy": "InferFromVolumeFailurePolicy controls what should happen on failure when inferring the resource\n\n+optional",
 	}
 }
 

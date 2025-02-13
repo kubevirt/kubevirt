@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/expand"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
+	"kubevirt.io/kubevirt/pkg/instancetype/infer"
 	preferenceannotations "kubevirt.io/kubevirt/pkg/instancetype/preference/annotations"
 	preferenceapply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
@@ -73,6 +74,10 @@ type upgradeHandler interface {
 	Upgrade(*virtv1.VirtualMachine) error
 }
 
+type inferHandler interface {
+	Infer(*virtv1.VirtualMachine) error
+}
+
 type controller struct {
 	applyVMHandler
 	storeHandler
@@ -80,6 +85,7 @@ type controller struct {
 	upgradeHandler
 	instancetypeFindHandler
 	preferenceFindHandler
+	inferHandler
 
 	clientset     kubecli.KubevirtClient
 	clusterConfig *virtconfig.ClusterConfig
@@ -99,6 +105,7 @@ func New(
 		storeHandler:            revision.New(instancetypeStore, clusterInstancetypeStore, preferenceStore, clusterPreferenceStore, virtClient),
 		expandHandler:           expand.New(clusterConfig, finder, prefFinder),
 		upgradeHandler:          upgrade.New(revisionStore, virtClient),
+		inferHandler:            infer.New(virtClient),
 		clientset:               virtClient,
 		clusterConfig:           clusterConfig,
 		recorder:                recorder,
@@ -106,6 +113,7 @@ func New(
 }
 
 const (
+	inferErrFmt                     = "error encountered while inferring instancetype.kubevirt.io defaults: %v"
 	storeControllerRevisionErrFmt   = "error encountered while storing instancetype.kubevirt.io controllerRevisions: %v"
 	upgradeControllerRevisionErrFmt = "error encountered while upgrading instancetype.kubevirt.io controllerRevisions: %v"
 	cleanControllerRevisionErrFmt   = "error encountered cleaning controllerRevision %s after successfully expanding VirtualMachine %s: %v"
@@ -114,6 +122,12 @@ const (
 func (c *controller) Sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error) {
 	if vm.Spec.Instancetype == nil && vm.Spec.Preference == nil {
 		return vm, nil
+	}
+
+	if err := c.Infer(vm); err != nil {
+		log.Log.Object(vm).Errorf(inferErrFmt, err)
+		c.recorder.Eventf(vm, corev1.EventTypeWarning, common.FailedCreateVirtualMachineReason, inferErrFmt, err)
+		return vm, common.NewSyncError(fmt.Errorf(inferErrFmt, err), common.FailedCreateVirtualMachineReason)
 	}
 
 	referencePolicy := c.clusterConfig.GetInstancetypeReferencePolicy()
@@ -143,11 +157,11 @@ func (c *controller) handleExpand(
 	referencePolicy virtv1.InstancetypeReferencePolicy,
 ) (*virtv1.VirtualMachine, error) {
 	if referencePolicy == virtv1.Expand {
-		if vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "" {
+		if revision.HasControllerRevisionRef(vm.Status.InstancetypeRef) {
 			log.Log.Object(vm).Infof("not expanding as instance type already has revisionName")
 			return vm, nil
 		}
-		if vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "" {
+		if revision.HasControllerRevisionRef(vm.Status.PreferenceRef) {
 			log.Log.Object(vm).Infof("not expanding as preference already has revisionName")
 			return vm, nil
 		}
@@ -159,27 +173,35 @@ func (c *controller) handleExpand(
 	}
 
 	// Only update the VM if we have changed something by applying an instance type and preference
-	if !equality.Semantic.DeepEqual(vm.Spec, expandVMCopy.Spec) {
-		updatedVM, err := c.clientset.VirtualMachine(expandVMCopy.Namespace).Update(context.Background(), expandVMCopy, metav1.UpdateOptions{})
+	if !equality.Semantic.DeepEqual(vm, expandVMCopy) {
+		_, err := c.clientset.VirtualMachine(expandVMCopy.Namespace).Update(
+			context.Background(), expandVMCopy, metav1.UpdateOptions{})
 		if err != nil {
 			return vm, fmt.Errorf("error encountered when trying to update expanded VirtualMachine: %v", err)
 		}
+		updatedVM, err := c.clientset.VirtualMachine(expandVMCopy.Namespace).UpdateStatus(
+			context.Background(), expandVMCopy, metav1.UpdateOptions{})
+		if err != nil {
+			return vm, fmt.Errorf("error encountered when trying to update expanded VirtualMachine Status: %v", err)
+		}
 		// We should clean up any instance type or preference controllerRevisions after successfully expanding the VM
-		if vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "" {
-			revisionName := vm.Spec.Instancetype.RevisionName
+		if revision.HasControllerRevisionRef(vm.Status.InstancetypeRef) {
 			if err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(
-				context.Background(), revisionName, metav1.DeleteOptions{}); err != nil {
+				context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.DeleteOptions{}); err != nil {
 				return nil, common.NewSyncError(
-					fmt.Errorf(cleanControllerRevisionErrFmt, revisionName, vm.Name, err), common.FailedCreateVirtualMachineReason)
+					fmt.Errorf(cleanControllerRevisionErrFmt, vm.Status.InstancetypeRef.ControllerRevisionRef.Name, vm.Name, err),
+					common.FailedCreateVirtualMachineReason,
+				)
 			}
 		}
 
-		if vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "" {
-			revisionName := vm.Spec.Preference.RevisionName
+		if revision.HasControllerRevisionRef(vm.Status.PreferenceRef) {
 			if err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(
-				context.Background(), revisionName, metav1.DeleteOptions{}); err != nil {
+				context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.DeleteOptions{}); err != nil {
 				return nil, common.NewSyncError(
-					fmt.Errorf(cleanControllerRevisionErrFmt, revisionName, vm.Name, err), common.FailedCreateVirtualMachineReason)
+					fmt.Errorf(cleanControllerRevisionErrFmt, vm.Status.PreferenceRef.ControllerRevisionRef.Name, vm.Name, err),
+					common.FailedCreateVirtualMachineReason,
+				)
 			}
 		}
 		return updatedVM, nil

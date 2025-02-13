@@ -28,7 +28,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
@@ -38,8 +37,6 @@ import (
 )
 
 func SetVirtualMachineDefaults(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) {
-	setDefaultInstancetypeKind(vm)
-	setDefaultPreferenceKind(vm)
 	setDefaultArchitecture(clusterConfig, &vm.Spec.Template.Spec)
 	setVMDefaultMachineType(vm, preferenceSpec, clusterConfig)
 	setPreferenceStorageClassName(vm, preferenceSpec)
@@ -84,26 +81,6 @@ func setPreferenceStorageClassName(vm *v1.VirtualMachine, preferenceSpec *instan
 				dv.Spec.Storage.StorageClassName = &preferenceSpec.Volumes.PreferredStorageClassName
 			}
 		}
-	}
-}
-
-func setDefaultInstancetypeKind(vm *v1.VirtualMachine) {
-	if vm.Spec.Instancetype == nil {
-		return
-	}
-
-	if vm.Spec.Instancetype.Kind == "" {
-		vm.Spec.Instancetype.Kind = apiinstancetype.ClusterSingularResourceName
-	}
-}
-
-func setDefaultPreferenceKind(vm *v1.VirtualMachine) {
-	if vm.Spec.Preference == nil {
-		return
-	}
-
-	if vm.Spec.Preference.Kind == "" {
-		vm.Spec.Preference.Kind = apiinstancetype.ClusterSingularPreferenceResourceName
 	}
 }
 

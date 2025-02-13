@@ -5,23 +5,25 @@ import (
 	"github.com/onsi/gomega/types"
 )
 
-func HaveRevisionNames() types.GomegaMatcher {
+func HaveControllerRevisionRefs() types.GomegaMatcher {
 	return And(
-		HaveInstancetypeRevisionName(),
-		HavePreferenceRevisionName(),
+		HaveInstancetypeControllerRevisionRef(),
+		HavePreferenceControllerRevisionRef(),
 	)
 }
 
-func HaveInstancetypeRevisionName() types.GomegaMatcher {
+func HaveInstancetypeControllerRevisionRef() types.GomegaMatcher {
 	return And(
-		HaveField("Spec.Instancetype", Not(BeNil())),
-		HaveField("Spec.Instancetype.RevisionName", Not(BeEmpty())),
+		HaveField("Status.InstancetypeRef", Not(BeNil())),
+		HaveField("Status.InstancetypeRef.ControllerRevisionRef", Not(BeNil())),
+		HaveField("Status.InstancetypeRef.ControllerRevisionRef.Name", Not(BeEmpty())),
 	)
 }
 
-func HavePreferenceRevisionName() types.GomegaMatcher {
+func HavePreferenceControllerRevisionRef() types.GomegaMatcher {
 	return And(
-		HaveField("Spec.Preference", Not(BeNil())),
-		HaveField("Spec.Preference.RevisionName", Not(BeEmpty())),
+		HaveField("Status.PreferenceRef", Not(BeNil())),
+		HaveField("Status.PreferenceRef.ControllerRevisionRef", Not(BeNil())),
+		HaveField("Status.PreferenceRef.ControllerRevisionRef.Name", Not(BeEmpty())),
 	)
 }

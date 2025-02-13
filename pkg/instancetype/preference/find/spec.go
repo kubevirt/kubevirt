@@ -53,11 +53,11 @@ func (f *specFinder) FindPreference(vm *virtv1.VirtualMachine) (*v1beta1.Virtual
 		return nil, nil
 	}
 
-	if vm.Spec.Preference.RevisionName != "" {
-		revision, err := f.revisionFinder.FindPreference(vm)
-		if err != nil {
-			return nil, err
-		}
+	revision, err := f.revisionFinder.FindPreference(vm)
+	if err != nil {
+		return nil, err
+	}
+	if revision != nil {
 		return compatibility.GetPreferenceSpec(revision)
 	}
 

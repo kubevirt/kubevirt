@@ -54,11 +54,12 @@ func (h *handler) Infer(vm *virtv1.VirtualMachine) error {
 }
 
 func (h *handler) Instancetype(vm *virtv1.VirtualMachine) error {
-	if vm.Spec.Instancetype == nil {
+	if vm.Spec.Instancetype == nil || vm.Spec.Instancetype.InferFromVolume == "" {
 		return nil
 	}
-	// Leave matcher unchanged when inference is disabled
-	if vm.Spec.Instancetype.InferFromVolume == "" {
+
+	// If we have InstancetypeRef we should only infer again if InferFromVolume changes
+	if vm.Status.InstancetypeRef != nil && vm.Spec.Instancetype.InferFromVolume == vm.Status.InstancetypeRef.InferFromVolume {
 		return nil
 	}
 
@@ -68,30 +69,31 @@ func (h *handler) Instancetype(vm *virtv1.VirtualMachine) error {
 	if err != nil {
 		var ignoreableInferenceErr *IgnoreableInferenceError
 		if errors.As(err, &ignoreableInferenceErr) && ignoreFailure {
-			log.Log.Object(vm).V(logVerbosityLevel).Info("Ignored error during inference of instancetype, clearing matcher.")
-			vm.Spec.Instancetype = nil
+			log.Log.Object(vm).V(logVerbosityLevel).Info("Ignored error during inference of instancetype")
+			vm.Status.InstancetypeRef = &virtv1.InstancetypeStatusRef{
+				InferFromVolume: vm.Spec.Instancetype.InferFromVolume,
+			}
 			return nil
 		}
 		return err
 	}
 
-	if ignoreFailure {
-		vm.Spec.Template.Spec.Domain.Memory = nil
+	vm.Status.InstancetypeRef = &virtv1.InstancetypeStatusRef{
+		Name:            defaultName,
+		Kind:            defaultKind,
+		InferFromVolume: vm.Spec.Instancetype.InferFromVolume,
 	}
 
-	vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
-		Name: defaultName,
-		Kind: defaultKind,
-	}
 	return nil
 }
 
 func (h *handler) Preference(vm *virtv1.VirtualMachine) error {
-	if vm.Spec.Preference == nil {
+	if vm.Spec.Preference == nil || vm.Spec.Preference.InferFromVolume == "" {
 		return nil
 	}
-	// Leave matcher unchanged when inference is disabled
-	if vm.Spec.Preference.InferFromVolume == "" {
+
+	// If we have InstancetypeRef we should only infer again if InferFromVolume changes
+	if vm.Status.PreferenceRef != nil && vm.Spec.Preference.InferFromVolume == vm.Status.PreferenceRef.InferFromVolume {
 		return nil
 	}
 
@@ -101,16 +103,20 @@ func (h *handler) Preference(vm *virtv1.VirtualMachine) error {
 	if err != nil {
 		var ignoreableInferenceErr *IgnoreableInferenceError
 		if errors.As(err, &ignoreableInferenceErr) && ignoreFailure {
-			log.Log.Object(vm).V(logVerbosityLevel).Info("Ignored error during inference of preference, clearing matcher.")
-			vm.Spec.Preference = nil
+			log.Log.Object(vm).V(logVerbosityLevel).Info("Ignored error during inference of preference")
+			vm.Status.PreferenceRef = &virtv1.InstancetypeStatusRef{
+				InferFromVolume: vm.Spec.Preference.InferFromVolume,
+			}
 			return nil
 		}
 		return err
 	}
 
-	vm.Spec.Preference = &virtv1.PreferenceMatcher{
-		Name: defaultName,
-		Kind: defaultKind,
+	vm.Status.PreferenceRef = &virtv1.InstancetypeStatusRef{
+		Name:            defaultName,
+		Kind:            defaultKind,
+		InferFromVolume: vm.Spec.Preference.InferFromVolume,
 	}
+
 	return nil
 }
