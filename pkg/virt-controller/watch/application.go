@@ -433,11 +433,11 @@ func Execute() {
 	app.onOpenshift = onOpenShift
 
 	metricsInformers := &metrics.Informers{
-		Vm:                    app.vmInformer,
-		Vmi:                   app.vmiInformer,
+		VM:                    app.vmInformer,
+		VMI:                   app.vmiInformer,
 		PersistentVolumeClaim: app.persistentVolumeClaimInformer,
-		VmiMigration:          app.migrationInformer,
-		KvPod:                 app.kvPodInformer,
+		VMIMigration:          app.migrationInformer,
+		KVPod:                 app.kvPodInformer,
 	}
 
 	metricsStores := &metrics.Stores{

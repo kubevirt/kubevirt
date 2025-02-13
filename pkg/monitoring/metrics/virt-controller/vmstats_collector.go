@@ -188,7 +188,7 @@ var (
 )
 
 func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
-	cachedObjs := vmInformer.GetIndexer().List()
+	cachedObjs := informers.VM.GetIndexer().List()
 	if len(cachedObjs) == 0 {
 		log.Log.V(4).Infof("No VMs detected")
 		return []operatormetrics.CollectorResult{}
@@ -249,17 +249,16 @@ func getVMInstancetype(vm *k6tv1.VirtualMachine) string {
 	}
 
 	if instancetype.Kind == "VirtualMachineInstancetype" {
-
 		key := types.NamespacedName{
 			Namespace: vm.Namespace,
 			Name:      instancetype.Name,
 		}
 
-		return fetchResourceName(key.String(), instancetypeStore)
+		return fetchResourceName(key.String(), stores.Instancetype)
 	}
 
 	if instancetype.Kind == "VirtualMachineClusterInstancetype" {
-		return fetchResourceName(instancetype.Name, clusterInstancetypeStore)
+		return fetchResourceName(instancetype.Name, stores.ClusterInstancetype)
 	}
 
 	return none
@@ -278,11 +277,11 @@ func getVMPreference(vm *k6tv1.VirtualMachine) string {
 			Name:      preference.Name,
 		}
 
-		return fetchResourceName(key.String(), preferenceStore)
+		return fetchResourceName(key.String(), stores.Preference)
 	}
 
 	if preference.Kind == "VirtualMachineClusterPreference" {
-		return fetchResourceName(preference.Name, clusterPreferenceStore)
+		return fetchResourceName(preference.Name, stores.ClusterPreference)
 	}
 
 	return none
@@ -589,7 +588,7 @@ func collectDiskMetricsFromPVC(vm *k6tv1.VirtualMachine) []operatormetrics.Colle
 		}
 
 		key := controller.NamespacedKey(vm.Namespace, pvcName)
-		obj, exists, err := persistentVolumeClaimInformer.GetStore().GetByKey(key)
+		obj, exists, err := informers.PersistentVolumeClaim.GetStore().GetByKey(key)
 		if err != nil {
 			log.Log.Errorf("Error retrieving PVC %s in namespace %s: %v", pvcName, vm.Namespace, err)
 			continue

@@ -6,7 +6,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/instancetype",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/instancetype/apply:go_default_library",
         "//pkg/instancetype/find:go_default_library",
         "//pkg/instancetype/infer:go_default_library",
         "//pkg/instancetype/preference/apply:go_default_library",

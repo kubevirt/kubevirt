@@ -20,7 +20,6 @@
 package virt_controller
 
 import (
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -33,12 +32,10 @@ import (
 
 	k6tv1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	"kubevirt.io/client-go/kubecli"
-
-	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
+	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -49,9 +46,7 @@ var _ = Describe("VMI Stats Collector", func() {
 	clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKV(&k6tv1.KubeVirt{})
 
 	Context("VMI info", func() {
-		BeforeEach(func() {
-			setupTestCollector()
-		})
+		setupTestCollector()
 
 		It("should handle no VMIs", func() {
 			cr := reportVmisStats([]*k6tv1.VirtualMachineInstance{})
@@ -177,8 +172,8 @@ var _ = Describe("VMI Stats Collector", func() {
 				},
 			}
 
-			_ = kvPodInformer.GetStore().Add(originalPod)
-			_ = kvPodInformer.GetStore().Add(targetPod)
+			_ = informers.KVPod.GetStore().Add(originalPod)
+			_ = informers.KVPod.GetStore().Add(targetPod)
 
 			vmi := &k6tv1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
@@ -226,8 +221,8 @@ var _ = Describe("VMI Stats Collector", func() {
 				},
 			}
 
-			_ = kvPodInformer.GetStore().Add(originalPod)
-			_ = kvPodInformer.GetStore().Add(targetPod)
+			_ = informers.KVPod.GetStore().Add(originalPod)
+			_ = informers.KVPod.GetStore().Add(targetPod)
 
 			vmi := &k6tv1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
@@ -334,7 +329,7 @@ var _ = Describe("VMI Stats Collector", func() {
 
 		liveMigrateEvictPolicy := k6tv1.EvictionStrategyLiveMigrate
 		DescribeTable("Add eviction alert metrics", func(evictionPolicy *k6tv1.EvictionStrategy, migrateCondStatus k8sv1.ConditionStatus, expectedVal float64) {
-			vmiInformer, _ = testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstance{})
+			informers.VMI, _ = testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstance{})
 
 			ch := make(chan prometheus.Metric, 1)
 			defer close(ch)
@@ -633,9 +628,6 @@ func setupTestCollector() {
 	clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 	controllerRevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 
-	ctrl := gomock.NewController(GinkgoT())
-	virtClient := kubecli.NewMockKubevirtClient(ctrl)
-
 	_ = instanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineInstancetype{
 		ObjectMeta: newObjectMetaForInstancetypes("i-managed", "test-ns", "kubevirt.io"),
 	})
@@ -669,32 +661,42 @@ func setupTestCollector() {
 		ObjectMeta: newObjectMetaForInstancetypes("cp-managed", "", "kubevirt.io"),
 	})
 
+	stores = &Stores{
+		Instancetype:        instanceTypeInformer.GetStore(),
+		ClusterInstancetype: clusterInstanceTypeInformer.GetStore(),
+		Preference:          preferenceInformer.GetStore(),
+		ClusterPreference:   clusterPreferenceInformer.GetStore(),
+		ControllerRevision:  controllerRevisionInformer.GetStore(),
+	}
+
 	vmApplier = apply.NewVMApplier(
 		find.NewSpecFinder(
 			instanceTypeInformer.GetStore(),
 			clusterInstanceTypeInformer.GetStore(),
 			controllerRevisionInformer.GetStore(),
-			virtClient,
+			nil,
 		),
-		preferenceFind.NewSpecFinder(
+		preferencefind.NewSpecFinder(
 			preferenceInformer.GetStore(),
 			clusterPreferenceInformer.GetStore(),
 			controllerRevisionInformer.GetStore(),
-			virtClient,
+			nil,
 		),
 	)
 
-	// Pod informer
-	kvPodInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+	informers = &Informers{}
 
-	_ = kvPodInformer.GetStore().Add(&k8sv1.Pod{
+	// Pod informer
+	informers.KVPod, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+
+	_ = informers.KVPod.GetStore().Add(&k8sv1.Pod{
 		ObjectMeta: newPodMetaForInformer("virt-launcher-testpod", "test-ns", "test-vmi-uid"),
 	})
 
 	// VMI Migration informer
-	vmiMigrationInformer, _ = testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstanceMigration{})
+	informers.VMIMigration, _ = testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstanceMigration{})
 
-	_ = vmiMigrationInformer.GetStore().Add(&k6tv1.VirtualMachineInstanceMigration{
+	_ = informers.VMIMigration.GetStore().Add(&k6tv1.VirtualMachineInstanceMigration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-migration",
 			Namespace: "test-ns",
