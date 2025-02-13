@@ -164,7 +164,7 @@ func usage() string {
   {{ProgramName}} ssh jdoe@vmi/testvmi [--%s]
 
   # Connect to 'testvm' in 'mynamespace' namespace
-  {{ProgramName}} ssh jdoe@vm/testvm.mynamespace [--%s]
+  {{ProgramName}} ssh jdoe@vm/testvm/mynamespace [--%s]
 
   # Specify a username and namespace:
   {{ProgramName}} ssh --namespace=mynamespace --%s=jdoe vmi/testvmi`,
@@ -188,9 +188,9 @@ func defaultUsername() string {
 	return ""
 }
 
-// ParseTarget SSH Target argument supporting the form of username@vmi/name.namespace (or simpler)
+// ParseTarget SSH Target argument supporting the form of [username@]type/name[/namespace]
+// or the legacy form of [username@]type/name.namespace
 func ParseTarget(arg string) (string, string, string, string, error) {
-	kind := "vmi"
 	username := ""
 
 	usernameAndTarget := strings.Split(arg, "@")
@@ -207,5 +207,9 @@ func ParseTarget(arg string) (string, string, string, string, error) {
 	}
 
 	kind, namespace, name, err := portforward.ParseTarget(arg)
+	if err != nil {
+		return "", "", "", "", err
+	}
+
 	return kind, namespace, name, username, err
 }
