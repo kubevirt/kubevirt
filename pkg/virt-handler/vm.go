@@ -564,22 +564,8 @@ func (c *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance, 
 	if err != nil {
 		return fmt.Errorf(failedDetectIsolationFmt, err)
 	}
-	rootMount, err := isolationRes.MountRoot()
-	if err != nil {
-		return err
-	}
 
 	return c.netConf.Setup(vmi, networks, isolationRes.Pid(), func() error {
-		if virtutil.WantVirtioNetDevice(vmi) {
-			if err := c.claimDeviceOwnership(rootMount, "vhost-net"); err != nil {
-				return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up vhost-net device, %s", err))
-			}
-		}
-		if virtutil.NeedTunDevice(vmi) {
-			if err := c.claimDeviceOwnership(rootMount, "/net/tun"); err != nil {
-				return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up tun device, %s", err))
-			}
-		}
 		return nil
 	})
 }
