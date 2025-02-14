@@ -330,18 +330,57 @@ func (app *virtHandlerApp) Run() {
 
 	launcherClientsManager := launcher_clients.NewLauncherClientsManager(app.VirtShareDir, podIsolationDetector)
 
+	netConf := netsetup.NewNetConf(app.clusterConfig)
+
+	migrationSourceController, err := virthandler.NewMigrationSourceController(
+		recorder,
+		app.virtCli,
+		app.HostOverride,
+		app.VirtShareDir,
+		launcherClientsManager,
+		vmiSourceInformer,
+		domainSharedInformer,
+		app.clusterConfig,
+		podIsolationDetector,
+		migrationProxy,
+		&capabilities,
+		"/proc/%d/root/var/run",
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	migrationTargetController, err := virthandler.NewMigrationTargetController(
+		recorder,
+		app.virtCli,
+		app.HostOverride,
+		app.VirtPrivateDir,
+		app.KubeletPodsDir,
+		migrationIpAddress,
+		launcherClientsManager,
+		vmiTargetInformer,
+		domainSharedInformer,
+		app.clusterConfig,
+		podIsolationDetector,
+		migrationProxy,
+		&capabilities,
+		netConf,
+		netsetup.NewNetStat(),
+		netbinding.MemoryCalculator{},
+	)
+	if err != nil {
+		panic(err)
+	}
+
 	vmController, err := virthandler.NewVirtualMachineController(
 		recorder,
 		app.virtCli,
 		app.HostOverride,
-		migrationIpAddress,
-		app.VirtShareDir,
 		app.VirtPrivateDir,
 		app.KubeletPodsDir,
 		launcherClientsManager,
-		vmiInformer,
 		vmiSourceInformer,
-		vmiTargetInformer,
+		vmiInformer.GetStore(),
 		domainSharedInformer,
 		app.MaxDevices,
 		app.clusterConfig,
@@ -350,9 +389,8 @@ func (app *virtHandlerApp) Run() {
 		downwardMetricsManager,
 		&capabilities,
 		hostCpuModel,
-		netsetup.NewNetConf(app.clusterConfig),
+		netConf,
 		netsetup.NewNetStat(),
-		netbinding.MemoryCalculator{},
 	)
 	if err != nil {
 		panic(err)
@@ -396,7 +434,16 @@ func (app *virtHandlerApp) Run() {
 		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
 	}
 
-	cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, factory.CRD().HasSynced, factory.KubeVirt().HasSynced)
+	cache.WaitForCacheSync(
+		stop,
+		vmiInformer.HasSynced,
+		vmiSourceInformer.HasSynced,
+		vmiTargetInformer.HasSynced,
+		vmiInformer.HasSynced,
+		domainSharedInformer.HasSynced,
+		factory.CRD().HasSynced,
+		factory.KubeVirt().HasSynced,
+	)
 
 	if err := metrics.SetupMetrics(app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer); err != nil {
 		panic(err)
@@ -406,6 +453,8 @@ func (app *virtHandlerApp) Run() {
 		panic(fmt.Errorf("failed to set up the downwardMetrics collector: %v", err))
 	}
 
+	go migrationSourceController.Run(10, stop)
+	go migrationTargetController.Run(10, stop)
 	go vmController.Run(10, stop)
 
 	doneCh := make(chan string)
