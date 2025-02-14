@@ -25,7 +25,6 @@ import (
 var _ = Describe("Webhook", func() {
 	var admitter *KubeVirtDeletionAdmitter
 	var fakeClient *kubevirtfake.Clientset
-	var vmInterface *kubecli.MockVirtualMachineInterface
 
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
@@ -54,8 +53,11 @@ var _ = Describe("Webhook", func() {
 			VirtualMachineInstance(k8sv1.NamespaceAll).
 			Return(fakeClient.KubevirtV1().VirtualMachineInstances(k8sv1.NamespaceAll)).
 			AnyTimes()
-		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
-		kubeCli.EXPECT().VirtualMachine(k8sv1.NamespaceAll).Return(vmInterface).AnyTimes()
+		kubeCli.
+			EXPECT().
+			VirtualMachine(k8sv1.NamespaceAll).
+			Return(fakeClient.KubevirtV1().VirtualMachines(k8sv1.NamespaceAll)).
+			AnyTimes()
 	})
 
 	Context("if uninstall strategy is BlockUninstallIfWorkloadExists", func() {
@@ -64,8 +66,6 @@ var _ = Describe("Webhook", func() {
 		})
 
 		It("should allow the deletion if no workload exists", func() {
-			vmInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&v1.VirtualMachineList{}, nil)
-
 			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
 			Expect(response.Allowed).To(BeTrue())
 		})
@@ -79,7 +79,8 @@ var _ = Describe("Webhook", func() {
 		})
 
 		It("should deny the deletion if a VM exists", func() {
-			vmInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&v1.VirtualMachineList{Items: []v1.VirtualMachine{{}}}, nil)
+			_, err := fakeClient.KubevirtV1().VirtualMachines(k8sv1.NamespaceDefault).Create(context.TODO(), &v1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "vm"}}, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
 			Expect(response.Allowed).To(BeFalse())
@@ -88,7 +89,6 @@ var _ = Describe("Webhook", func() {
 		It("should deny the deletion if a VMIRS exists", func() {
 			_, err := fakeClient.KubevirtV1().VirtualMachineInstanceReplicaSets(k8sv1.NamespaceDefault).Create(context.TODO(), &v1.VirtualMachineInstanceReplicaSet{ObjectMeta: metav1.ObjectMeta{Name: "rs"}}, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vmInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&v1.VirtualMachineList{}, nil)
 
 			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
 			Expect(response.Allowed).To(BeFalse())
@@ -104,7 +104,9 @@ var _ = Describe("Webhook", func() {
 		})
 
 		It("should deny the deletion if checking VMs fails", func() {
-			vmInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&v1.VirtualMachineList{}, fmt.Errorf("whatever"))
+			fakeClient.PrependReactor("list", "virtualmachines", func(action k8stesting.Action) (bool, runtime.Object, error) {
+				return true, &v1.VirtualMachineList{}, fmt.Errorf("whatever")
+			})
 
 			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
 			Expect(response.Allowed).To(BeFalse())
@@ -114,7 +116,6 @@ var _ = Describe("Webhook", func() {
 			fakeClient.PrependReactor("list", "virtualmachineinstancereplicasets", func(action k8stesting.Action) (bool, runtime.Object, error) {
 				return true, &v1.VirtualMachineInstanceReplicaSetList{}, fmt.Errorf("whatever")
 			})
-			vmInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&v1.VirtualMachineList{}, nil)
 
 			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
 			Expect(response.Allowed).To(BeFalse())
