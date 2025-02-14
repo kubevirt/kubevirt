@@ -45,12 +45,19 @@ func NewRevisionFinder(store cache.Store, virtClient kubecli.KubevirtClient) *re
 }
 
 func (f *revisionFinder) FindPreference(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
-	if vm.Spec.Preference == nil {
-		return nil, nil
+	// Avoid a race with Store() here and use RevisionName if already provided over Whatever is in ControllerRevisionRef
+	if vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "" {
+		return f.controllerRevisionFinder.Find(types.NamespacedName{
+			Namespace: vm.Namespace,
+			Name:      vm.Spec.Preference.RevisionName,
+		})
 	}
-	namespacedName := types.NamespacedName{
-		Namespace: vm.Namespace,
-		Name:      vm.Spec.Preference.RevisionName,
+	ref := vm.Status.PreferenceRef
+	if ref != nil && ref.ControllerRevisionRef != nil && ref.ControllerRevisionRef.Name != "" {
+		return f.controllerRevisionFinder.Find(types.NamespacedName{
+			Namespace: vm.Namespace,
+			Name:      ref.ControllerRevisionRef.Name,
+		})
 	}
-	return f.controllerRevisionFinder.Find(namespacedName)
+	return nil, nil
 }
