@@ -25,8 +25,11 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/openshift/library-go/pkg/build/naming"
+
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	validation "k8s.io/apimachinery/pkg/util/validation"
 	v1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
@@ -168,7 +171,7 @@ func createBackendPVCVolume(pvcName, vmName string) *v1.Volume {
 // BackendPVCVolumeName return the name of the volume that will be arbitrarily used to represent
 // the backend PVC during volume enumeration.
 func BackendPVCVolumeName(vmName string) string {
-	return fmt.Sprintf("%s-%s", backendstorage.PVCPrefix, vmName)
+	return naming.GetName(backendstorage.PVCPrefix, vmName, validation.DNS1035LabelMaxLength)
 }
 
 // Helper function to select the newest non-terminating PVC
