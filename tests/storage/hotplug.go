@@ -476,12 +476,11 @@ var _ = SIGDescribe("Hotplug", func() {
 				libdv.StorageWithAccessMode(accessMode),
 				libdv.StorageWithVolumeMode(volumeMode),
 			),
-			libdv.WithForceBindAnnotation(),
 		)
 
 		dvBlock, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(dvBlock)).Create(context.Background(), dvBlock, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		libstorage.EventuallyDV(dvBlock, 240, matcher.HaveSucceeded())
+		libstorage.EventuallyDV(dvBlock, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
 		return dvBlock
 	}
 
@@ -1382,7 +1381,6 @@ var _ = SIGDescribe("Hotplug", func() {
 						libdv.StorageWithReadWriteManyAccessMode(),
 						libdv.StorageWithVolumeMode(volumeMode),
 					),
-					libdv.WithForceBindAnnotation(),
 				)
 			}
 			vmi := libvmifact.NewCirros()
@@ -1396,7 +1394,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(hpvolume.Namespace).Create(context.Background(), hpvolume, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			By("waiting for the dv import to pvc to finish")
-			libstorage.EventuallyDV(dv, 180, matcher.HaveSucceeded())
+			libstorage.EventuallyDV(dv, 180, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
