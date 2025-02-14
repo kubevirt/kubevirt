@@ -2,7 +2,6 @@ package migrations
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -64,7 +63,7 @@ func IsMigrating(vmi *v1.VirtualMachineInstance) bool {
 		return false
 	}
 
-	now := v12.Now()
+	now := metav1.Now()
 
 	running := false
 	if vmi.Status.MigrationState != nil {

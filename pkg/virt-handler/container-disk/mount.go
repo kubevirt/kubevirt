@@ -36,6 +36,9 @@ const (
 )
 
 var (
+	ErrWaitingForDisks   = errors.New("waiting for containerdisks")
+	ErrChecksumMissing   = errors.New("missing checksum")
+	ErrChecksumMismatch  = errors.New("checksum mismatch")
 	ErrDiskContainerGone = errors.New("disk container is gone")
 )
 
