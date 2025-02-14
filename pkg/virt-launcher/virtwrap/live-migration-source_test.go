@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2023 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -57,7 +57,19 @@ var _ = Describe("Live migration source", func() {
 			ephemeralDiskCreatorMock := &fake.MockEphemeralDiskImageCreator{}
 			metadataCache := metadata.NewCache()
 
-			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter)
+			manager, _ := NewLibvirtDomainManager(
+				mockConn,
+				testVirtShareDir,
+				testEphemeralDiskDir,
+				nil, // agent store
+				"/usr/share/OVMF",
+				ephemeralDiskCreatorMock,
+				metadataCache,
+				nil, //stop chn
+				virtconfig.DefaultDiskVerificationMemoryLimitBytes,
+				fakeCpuSetGetter,
+				false, // image volume enabled
+			)
 			libvirtDomainManager = manager.(*LibvirtDomainManager)
 			libvirtDomainManager.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
 		})

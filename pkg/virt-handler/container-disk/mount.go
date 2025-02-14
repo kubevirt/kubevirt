@@ -36,6 +36,7 @@ const (
 )
 
 var (
+	ErrWaitingForDisks   = errors.New("waiting for containerdisks")
 	ErrDiskContainerGone = errors.New("disk container is gone")
 )
 
