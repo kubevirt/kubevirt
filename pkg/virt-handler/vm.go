@@ -1575,6 +1575,7 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 	return &v1.VirtualMachineInstanceCondition{
 		Type:   v1.VirtualMachineInstanceIsMigratable,
 		Status: k8sv1.ConditionTrue,
+		LastTransitionTime: metav1.Now(),
 	}, isBlockMigration
 }
 
