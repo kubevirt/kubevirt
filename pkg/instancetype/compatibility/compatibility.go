@@ -88,56 +88,99 @@ func decodeControllerRevisionObject(revision *appsv1.ControllerRevision) error {
 	case *v1beta1.VirtualMachineInstancetype, *v1beta1.VirtualMachineClusterInstancetype, *v1beta1.VirtualMachinePreference, *v1beta1.VirtualMachineClusterPreference:
 		return nil
 	case *v1alpha2.VirtualMachineInstancetype:
-		dest := &v1beta1.VirtualMachineInstancetype{}
-		if err := v1alpha2.Convert_v1alpha2_VirtualMachineInstancetype_To_v1beta1_VirtualMachineInstancetype(obj, dest, nil); err != nil {
-			return err
-		}
-		revision.Data.Object = dest
+		return convertVirtualMachineInstancetype(obj, revision)
 	case *v1alpha2.VirtualMachineClusterInstancetype:
-		dest := &v1beta1.VirtualMachineClusterInstancetype{}
-		if err := v1alpha2.Convert_v1alpha2_VirtualMachineClusterInstancetype_To_v1beta1_VirtualMachineClusterInstancetype(obj, dest, nil); err != nil {
-			return err
-		}
-		revision.Data.Object = dest
+		return convertVirtualMachineClusterInstancetype(obj, revision)
 	case *v1alpha2.VirtualMachinePreference:
-		dest := &v1beta1.VirtualMachinePreference{}
-		if err := v1alpha2.Convert_v1alpha2_VirtualMachinePreference_To_v1beta1_VirtualMachinePreference(obj, dest, nil); err != nil {
-			return err
-		}
-		revision.Data.Object = dest
+		return convertVirtualMachinePreference(obj, revision)
 	case *v1alpha2.VirtualMachineClusterPreference:
-		dest := &v1beta1.VirtualMachineClusterPreference{}
-		if err := v1alpha2.Convert_v1alpha2_VirtualMachineClusterPreference_To_v1beta1_VirtualMachineClusterPreference(obj, dest, nil); err != nil {
-			return err
-		}
-		revision.Data.Object = dest
+		return convertVirtualMachineClusterPreference(obj, revision)
 	case *v1alpha1.VirtualMachineInstancetype:
-		dest := &v1beta1.VirtualMachineInstancetype{}
-		if err := v1alpha1.Convert_v1alpha1_VirtualMachineInstancetype_To_v1beta1_VirtualMachineInstancetype(obj, dest, nil); err != nil {
-			return err
-		}
-		revision.Data.Object = dest
+		return convertVirtualMachineInstancetype(obj, revision)
 	case *v1alpha1.VirtualMachineClusterInstancetype:
-		dest := &v1beta1.VirtualMachineClusterInstancetype{}
-		if err := v1alpha1.Convert_v1alpha1_VirtualMachineClusterInstancetype_To_v1beta1_VirtualMachineClusterInstancetype(obj, dest, nil); err != nil {
-			return err
-		}
-		revision.Data.Object = dest
+		return convertVirtualMachineClusterInstancetype(obj, revision)
 	case *v1alpha1.VirtualMachinePreference:
-		dest := &v1beta1.VirtualMachinePreference{}
-		if err := v1alpha1.Convert_v1alpha1_VirtualMachinePreference_To_v1beta1_VirtualMachinePreference(obj, dest, nil); err != nil {
-			return err
-		}
-		revision.Data.Object = dest
+		return convertVirtualMachinePreference(obj, revision)
 	case *v1alpha1.VirtualMachineClusterPreference:
-		dest := &v1beta1.VirtualMachineClusterPreference{}
-		if err := v1alpha1.Convert_v1alpha1_VirtualMachineClusterPreference_To_v1beta1_VirtualMachineClusterPreference(obj, dest, nil); err != nil {
-			return err
-		}
-		revision.Data.Object = dest
+		return convertVirtualMachineClusterPreference(obj, revision)
 	default:
 		return fmt.Errorf("unexpected type in ControllerRevision: %T", obj)
 	}
+}
+
+func convertVirtualMachineInstancetype(obj interface{}, revision *appsv1.ControllerRevision) error {
+	dest := &v1beta1.VirtualMachineInstancetype{}
+
+	switch v := obj.(type) {
+	case *v1alpha2.VirtualMachineInstancetype:
+		if err := v1alpha2.Convert_v1alpha2_VirtualMachineInstancetype_To_v1beta1_VirtualMachineInstancetype(v, dest, nil); err != nil {
+			return err
+		}
+	case *v1alpha1.VirtualMachineInstancetype:
+		if err := v1alpha1.Convert_v1alpha1_VirtualMachineInstancetype_To_v1beta1_VirtualMachineInstancetype(v, dest, nil); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unexpected type for VirtualMachineInstancetype conversion: %T", v)
+	}
+	revision.Data.Object = dest
+	return nil
+}
+
+func convertVirtualMachineClusterInstancetype(obj interface{}, revision *appsv1.ControllerRevision) error {
+	dest := &v1beta1.VirtualMachineClusterInstancetype{}
+
+	switch v := obj.(type) {
+	case *v1alpha2.VirtualMachineClusterInstancetype:
+		if err := v1alpha2.Convert_v1alpha2_VirtualMachineClusterInstancetype_To_v1beta1_VirtualMachineClusterInstancetype(v, dest, nil); err != nil {
+			return err
+		}
+	case *v1alpha1.VirtualMachineClusterInstancetype:
+		if err := v1alpha1.Convert_v1alpha1_VirtualMachineClusterInstancetype_To_v1beta1_VirtualMachineClusterInstancetype(v, dest, nil); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unexpected type for VirtualMachineClusterInstancetype conversion: %T", v)
+	}
+	revision.Data.Object = dest
+	return nil
+}
+
+func convertVirtualMachinePreference(obj interface{}, revision *appsv1.ControllerRevision) error {
+	dest := &v1beta1.VirtualMachinePreference{}
+
+	switch v := obj.(type) {
+	case *v1alpha2.VirtualMachinePreference:
+		if err := v1alpha2.Convert_v1alpha2_VirtualMachinePreference_To_v1beta1_VirtualMachinePreference(v, dest, nil); err != nil {
+			return err
+		}
+	case *v1alpha1.VirtualMachinePreference:
+		if err := v1alpha1.Convert_v1alpha1_VirtualMachinePreference_To_v1beta1_VirtualMachinePreference(v, dest, nil); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unexpected type for VirtualMachinePreference conversion: %T", v)
+	}
+	revision.Data.Object = dest
+	return nil
+}
+
+func convertVirtualMachineClusterPreference(obj interface{}, revision *appsv1.ControllerRevision) error {
+	dest := &v1beta1.VirtualMachineClusterPreference{}
+
+	switch v := obj.(type) {
+	case *v1alpha2.VirtualMachineClusterPreference:
+		if err := v1alpha2.Convert_v1alpha2_VirtualMachineClusterPreference_To_v1beta1_VirtualMachineClusterPreference(v, dest, nil); err != nil {
+			return err
+		}
+	case *v1alpha1.VirtualMachineClusterPreference:
+		if err := v1alpha1.Convert_v1alpha1_VirtualMachineClusterPreference_To_v1beta1_VirtualMachineClusterPreference(v, dest, nil); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unexpected type for VirtualMachineClusterPreference conversion: %T", v)
+	}
+	revision.Data.Object = dest
 	return nil
 }
 
