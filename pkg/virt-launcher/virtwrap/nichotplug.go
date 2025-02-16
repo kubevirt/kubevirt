@@ -24,18 +24,17 @@ import (
 	"fmt"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
-
 	"libvirt.org/go/libvirt"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
+	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
@@ -214,7 +213,7 @@ func appendPlaceholderInterfacesToTheDomain(vmi *v1.VirtualMachineInstance, doma
 	for i := 0; i < interfacePlaceholderCount; i++ {
 		domainSpecWithIfacesResource.Devices.Interfaces = append(
 			domainSpecWithIfacesResource.Devices.Interfaces,
-			newInterfacePlaceholder(i, converter.InterpretTransitionalModelType(vmi.Spec.Domain.Devices.UseVirtioTransitional, vmi.Spec.Architecture)),
+			newInterfacePlaceholder(i, arch.InterpretTransitionalModelType(vmi.Spec.Domain.Devices.UseVirtioTransitional, vmi.Spec.Architecture)),
 		)
 	}
 	return domainSpecWithIfacesResource

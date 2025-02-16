@@ -147,7 +147,7 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 			disk.Address = addr
 		}
 		if diskDevice.Disk.Bus == v1.DiskBusVirtio {
-			disk.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
+			disk.Model = arch.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
 		}
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
 		disk.Serial = diskDevice.Serial
@@ -779,7 +779,7 @@ func Convert_v1_DownwardMetricSource_To_api_Disk(disk *api.Disk, c *ConverterCon
 		Name: "qemu",
 	}
 	// This disk always needs `virtio`. Validation ensures that bus is unset or is already virtio
-	disk.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
+	disk.Model = arch.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
 	disk.Source = api.DiskSource{
 		File: config.DownwardMetricDisk,
 	}
@@ -867,7 +867,7 @@ func Convert_v1_Watchdog_To_api_Watchdog(source *v1.Watchdog, watchdog *api.Watc
 func Convert_v1_Rng_To_api_Rng(_ *v1.Rng, rng *api.Rng, c *ConverterContext) error {
 
 	// default rng model for KVM/QEMU virtualization
-	rng.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
+	rng.Model = arch.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
 
 	// default backend model, random
 	rng.Backend = &api.RngBackend{
@@ -1107,7 +1107,7 @@ func ConvertV1ToAPIBalloning(source *v1.Devices, ballooning *api.MemBalloon, c *
 		ballooning.Model = "none"
 		ballooning.Stats = nil
 	} else {
-		ballooning.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
+		ballooning.Model = arch.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
 		if c.MemBalloonStatsPeriod != 0 {
 			ballooning.Stats = &api.Stats{Period: c.MemBalloonStatsPeriod}
 		}
@@ -1683,7 +1683,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, usbController)
 
 	if needsSCSIController(vmi) {
-		scsiController := c.Architecture.ScsiController(InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()), controllerDriver)
+		scsiController := c.Architecture.ScsiController(arch.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()), controllerDriver)
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, scsiController)
 	}
 
@@ -1790,7 +1790,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
 			Type:   "virtio-serial",
 			Index:  "0",
-			Model:  InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()),
+			Model:  arch.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()),
 			Driver: controllerDriver,
 		})
 
@@ -2041,11 +2041,6 @@ func GracePeriodSeconds(vmi *v1.VirtualMachineInstance) int64 {
 		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
 	}
 	return gracePeriodSeconds
-}
-
-func InterpretTransitionalModelType(useVirtioTransitional *bool, archString string) string {
-	vtenabled := useVirtioTransitional != nil && *useVirtioTransitional
-	return arch.NewConverter(archString).TransitionalModelType(vtenabled)
 }
 
 func domainVCPUTopologyForHotplug(vmi *v1.VirtualMachineInstance, domain *api.Domain) {

@@ -155,7 +155,7 @@ func isTrue(networkInterfaceMultiQueue *bool) bool {
 
 func translateModel(useVirtioTransitional *bool, bus string, archString string) string {
 	if bus == v1.VirtIO {
-		return InterpretTransitionalModelType(useVirtioTransitional, archString)
+		return arch.InterpretTransitionalModelType(useVirtioTransitional, archString)
 	}
 	return bus
 }
