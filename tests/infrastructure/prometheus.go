@@ -121,7 +121,7 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 		var ep *k8sv1.Endpoints
 		By("finding Prometheus endpoint")
 		Eventually(func() bool {
-			ep, err = virtClient.CoreV1().Endpoints("monitoring").Get(context.Background(), "prometheus-k8s", metav1.GetOptions{})
+			ep, err = virtClient.CoreV1().Endpoints(flags.PrometheusNamespace).Get(context.Background(), "prometheus-k8s", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred(), "failed to retrieve Prometheus endpoint")
 
 			if len(ep.Subsets) == 0 || len(ep.Subsets[0].Addresses) == 0 {
@@ -129,6 +129,11 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 			}
 			return true
 		}, 10*time.Second, time.Second).Should(BeTrue())
+
+		urlSchema := "https"
+		if flags.PrometheusNamespace == "monitoring" {
+			urlSchema = "http"
+		}
 
 		promIP := ep.Subsets[0].Addresses[0].IP
 		Expect(promIP).ToNot(Equal(""), "could not get Prometheus IP from endpoint")
@@ -149,7 +154,7 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 			"curl",
 			"-L",
 			"-k",
-			fmt.Sprintf("http://%s:%d/api/v1/query", promIP, promPort),
+			fmt.Sprintf("%s://%s:%d/api/v1/query", urlSchema, promIP, promPort),
 			"-H",
 			fmt.Sprintf("Authorization: Bearer %s", token),
 			"--data-urlencode",
