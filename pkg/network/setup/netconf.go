@@ -106,7 +106,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 	if util.IsNonRootVMI(vmi) {
 		ownerID = util.NonRootUID
 	}
-	queuesCapacity := int(network.NetworkQueuesCapacity(vmi))
+	queuesCapacity := int(network.QueuesCapacity(vmi))
 	netpod := netpod.NewNetPod(
 		networks,
 		vmispec.FilterInterfacesByNetworks(vmi.Spec.Domain.Devices.Interfaces, networks),

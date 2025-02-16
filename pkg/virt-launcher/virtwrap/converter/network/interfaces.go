@@ -123,10 +123,10 @@ func CalculateNetworkQueues(vmi *v1.VirtualMachineInstance, ifaceType string) ui
 	if ifaceType != v1.VirtIO {
 		return 0
 	}
-	return NetworkQueuesCapacity(vmi)
+	return QueuesCapacity(vmi)
 }
 
-func NetworkQueuesCapacity(vmi *v1.VirtualMachineInstance) uint32 {
+func QueuesCapacity(vmi *v1.VirtualMachineInstance) uint32 {
 	if !isTrue(vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue) {
 		return 0
 	}
