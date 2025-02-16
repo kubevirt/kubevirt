@@ -253,18 +253,13 @@ var _ = SIGDescribe("Multus", Serial, decorators.Multus, func() {
 
 			It("[test_id:1753]should create a virtual machine with two interfaces", func() {
 				By("checking virtual machine instance can ping using ptp cni plugin")
-				detachedVMI := libvmifact.NewCirros()
-
-				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{
-					defaultInterface,
-					{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
-				}
-				detachedVMI.Spec.Networks = []v1.Network{
-					defaultNetwork,
-					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: ptpConf1},
-					}},
-				}
+				const secondaryNetName = "ptp"
+				detachedVMI := libvmifact.NewCirros(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName, ptpConf1)),
+				)
 
 				detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), detachedVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
