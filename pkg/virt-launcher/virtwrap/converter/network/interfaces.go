@@ -17,7 +17,7 @@
  *
  */
 
-package converter
+package network
 
 import (
 	"fmt"
@@ -32,7 +32,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
-const multiQueueMaxQueues = uint32(256)
+const MultiQueueMaxQueues = uint32(256)
 
 func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domainAttachmentByInterfaceName map[string]string, useLaunchSecurity bool) ([]api.Interface, error) {
 	var domainInterfaces []api.Interface
@@ -142,9 +142,9 @@ func NetworkQueuesCapacity(vmi *v1.VirtualMachineInstance) uint32 {
 	cpuTopology := vcpu.GetCPUTopology(vmi)
 	queueNumber := vcpu.CalculateRequestedVCPUs(cpuTopology)
 
-	if queueNumber > multiQueueMaxQueues {
-		log.Log.V(3).Infof("Capped the number of queues to be the current maximum of tap device queues: %d", multiQueueMaxQueues)
-		queueNumber = multiQueueMaxQueues
+	if queueNumber > MultiQueueMaxQueues {
+		log.Log.V(3).Infof("Capped the number of queues to be the current maximum of tap device queues: %d", MultiQueueMaxQueues)
+		queueNumber = MultiQueueMaxQueues
 	}
 	return queueNumber
 }
