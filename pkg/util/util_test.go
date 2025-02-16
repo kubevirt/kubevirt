@@ -36,16 +36,8 @@ var _ = Describe("Test general utilities", func() {
 			const expectedNs = "mynamespace"
 			_ = os.Setenv(OperatorNamespaceEnv, expectedNs)
 
-			ns, err := GetOperatorNamespaceFromEnv()
-			Expect(err).ToNot(HaveOccurred())
+			ns := GetOperatorNamespaceFromEnv()
 			Expect(ns).To(Equal(expectedNs))
-		})
-
-		It("should return an error if the OPERATOR_NAMESPACE env var is not set", func() {
-			_ = os.Unsetenv(OperatorNamespaceEnv)
-
-			_, err := GetOperatorNamespaceFromEnv()
-			Expect(err).To(HaveOccurred())
 		})
 	})
 

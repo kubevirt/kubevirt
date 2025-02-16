@@ -72,12 +72,9 @@ func NewReconciler(mgr ctrl.Manager, namespace string, ownerDeployment *appsv1.D
 func SetupWithManager(mgr ctrl.Manager, ownerDeployment *appsv1.Deployment) error {
 	log.Info("Setting up controller")
 
-	namespace, err := util.GetOperatorNamespaceFromEnv()
-	if err != nil {
-		return fmt.Errorf("failed to get operator namespace: %v", err)
-	}
+	namespace := util.GetOperatorNamespaceFromEnv()
 
-	err = rules.SetupRules()
+	err := rules.SetupRules()
 	if err != nil {
 		return fmt.Errorf("failed to setup Prometheus rules: %v", err)
 	}

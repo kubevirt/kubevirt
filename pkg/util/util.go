@@ -48,12 +48,8 @@ var ErrNoNamespace = fmt.Errorf("namespace not found for current environment")
 // is returned by functions that only work on operators running in cluster mode)
 var ErrRunLocal = fmt.Errorf("operator run mode forced to local")
 
-func GetOperatorNamespaceFromEnv() (string, error) {
-	if namespace, ok := os.LookupEnv(OperatorNamespaceEnv); ok {
-		return namespace, nil
-	}
-
-	return "", fmt.Errorf("%s unset or empty in environment", OperatorNamespaceEnv)
+func GetOperatorNamespaceFromEnv() string {
+	return os.Getenv(OperatorNamespaceEnv)
 }
 
 func CheckPrimaryUDNImageEnvExists() error {

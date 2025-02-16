@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -54,6 +55,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/crd"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/descheduler"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/hyperconverged"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/ingresscluster"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/nodes"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/observability"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
@@ -98,8 +100,7 @@ var (
 func main() {
 	cmdHelper.InitiateCommand()
 
-	operatorNamespace, err := hcoutil.GetOperatorNamespaceFromEnv()
-	cmdHelper.ExitOnError(err, "can't get operator expected namespace")
+	operatorNamespace := hcoutil.GetOperatorNamespaceFromEnv()
 
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
@@ -176,16 +177,20 @@ func main() {
 	upgradeableCondition, err = hcoutil.NewOperatorCondition(ci, mgr.GetClient(), operatorsapiv2.Upgradeable)
 	cmdHelper.ExitOnError(err, "Cannot create Upgradeable Operator Condition")
 
-	// a channel to trigger a restart of the operator
-	// via a clean cancel of the manager
-	restartCh := make(chan struct{})
+	ingressEventCh := make(chan event.TypedGenericEvent[client.Object], 10)
+	defer close(ingressEventCh)
 
 	// Create a new reconciler
-	if err := hyperconverged.RegisterReconciler(mgr, ci, upgradeableCondition); err != nil {
+	if err := hyperconverged.RegisterReconciler(mgr, ci, upgradeableCondition, ingressEventCh); err != nil {
 		logger.Error(err, "failed to register the HyperConverged controller")
 		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to register HyperConverged controller; "+err.Error())
 		os.Exit(1)
 	}
+
+	// a channel to trigger a restart of the operator
+	// via a clean cancel of the manager
+	restartCh := make(chan struct{})
+	defer close(restartCh)
 
 	// Create a new CRD reconciler
 	if err := crd.RegisterReconciler(mgr, restartCh); err != nil {
@@ -215,6 +220,14 @@ func main() {
 		logger.Error(err, "failed to register the Nodes controller")
 		eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to register Nodes controller; "+err.Error())
 		os.Exit(1)
+	}
+
+	if ci.IsOpenshift() {
+		if err = ingresscluster.RegisterReconciler(mgr, ingressEventCh); err != nil {
+			logger.Error(err, "failed to register the IngressCluster controller")
+			eventEmitter.EmitEvent(nil, corev1.EventTypeWarning, "InitError", "Unable to register Ingress controller; "+err.Error())
+			os.Exit(1)
+		}
 	}
 
 	err = createPriorityClass(ctx, mgr)

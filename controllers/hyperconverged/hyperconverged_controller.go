@@ -11,7 +11,6 @@ import (
 	"github.com/blang/semver/v4"
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
-	"github.com/google/uuid"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	imagev1 "github.com/openshift/api/image/v1"
@@ -32,6 +31,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -49,6 +49,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/alerts"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/reqresolver"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/hyperconverged/metrics"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/upgradepatch"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
@@ -56,8 +57,7 @@ import (
 )
 
 var (
-	log               = logf.Log.WithName("controller_hyperconverged")
-	randomConstSuffix = ""
+	log = logf.Log.WithName("controller_hyperconverged")
 )
 
 const (
@@ -81,9 +81,7 @@ const (
 	systemHealthStatusWarning   = "warning"
 	systemHealthStatusError     = "error"
 
-	hcoVersionName    = "operator"
-	secondaryCRPrefix = "hco-controlled-cr-"
-	apiServerCRPrefix = "api-server-cr-"
+	hcoVersionName = "operator"
 
 	requestedStatusKey = "requested status"
 )
@@ -98,8 +96,8 @@ var JSONPatchAnnotationNames = []string{
 }
 
 // RegisterReconciler creates a new HyperConverged Reconciler and registers it into manager.
-func RegisterReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo, upgradeableCond hcoutil.Condition) error {
-	return add(mgr, newReconciler(mgr, ci, upgradeableCond), ci)
+func RegisterReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo, upgradeableCond hcoutil.Condition, ingressEventCh <-chan event.TypedGenericEvent[client.Object]) error {
+	return add(mgr, newReconciler(mgr, ci, upgradeableCond), ci, ingressEventCh)
 }
 
 // newReconciler returns a new reconcile.Reconciler
@@ -126,7 +124,7 @@ func newReconciler(mgr manager.Manager, ci hcoutil.ClusterInfo, upgradeableCond 
 }
 
 // newCRDremover returns a new CRDRemover
-func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) error {
+func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo, ingressEventCh <-chan event.TypedGenericEvent[client.Object]) error {
 	// Create a new controller
 	c, err := controller.New("hyperconverged-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
@@ -141,11 +139,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 			predicate.Or[client.Object](predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{},
 				predicate.ResourceVersionChangedPredicate{}),
 		))
-	if err != nil {
-		return err
-	}
-
-	secCRPlaceholder, err := getSecondaryCRPlaceholder()
 	if err != nil {
 		return err
 	}
@@ -196,7 +189,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 					// on a secondary CR controlled by HCO
 					log.Info(msg)
 					return []reconcile.Request{
-						{NamespacedName: secCRPlaceholder},
+						reqresolver.GetSecondaryCRRequest(),
 					}
 				}),
 			))
@@ -205,15 +198,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 		}
 	}
 
-	apiServerCRPlaceholder, err := getAPIServerCRPlaceholder()
-	if err != nil {
-		return err
-	}
-
 	if ci.IsOpenshift() {
-		// Watch openshiftconfigv1.APIServer separately
-		msg := "Reconciling for openshiftconfigv1.APIServer"
-
 		err = c.Watch(
 			source.Kind(
 				mgr.GetCache(),
@@ -222,9 +207,26 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 					// enqueue using a placeholder to signal that the change is not
 					// directly on HCO CR but on the APIServer CR that we want to reload
 					// only if really changed
-					log.Info(msg)
+					log.Info("Reconciling for openshiftconfigv1.APIServer")
 					return []reconcile.Request{
-						{NamespacedName: apiServerCRPlaceholder},
+						reqresolver.GetAPIServerCRRequest(),
+					}
+				}),
+			))
+		if err != nil {
+			return err
+		}
+
+		err = c.Watch(
+			source.Channel(
+				ingressEventCh,
+				handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, a client.Object) []reconcile.Request {
+					// the ingress-cluster controller initiate this by pushing an event to the ingressEventCh channel
+					// This will force this controller to update the URL of the cli download route, if the user
+					// customized the hostname.
+					log.Info("Reconciling for openshiftconfigv1.Ingress")
+					return []reconcile.Request{
+						reqresolver.GetIngressCRResource(),
 					}
 				}),
 			))
@@ -232,6 +234,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, ci hcoutil.ClusterInfo) er
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -259,11 +262,12 @@ type ReconcileHyperConverged struct {
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileHyperConverged) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	logger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-
-	resolvedRequest, hcoTriggered, err := r.resolveReconcileRequest(ctx, logger, request)
+	err := r.refreshAPIServerCR(ctx, logger, request)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
+	resolvedRequest, hcoTriggered := reqresolver.ResolveReconcileRequest(log, request)
 	hcoRequest := common.NewHcoRequest(ctx, resolvedRequest, log, r.upgradeMode, hcoTriggered)
 
 	if hcoTriggered {
@@ -318,75 +322,23 @@ func (r *ReconcileHyperConverged) Reconcile(ctx context.Context, request reconci
 	return result, err
 }
 
-// resolveReconcileRequest returns a reconcile.Request to be used throughout the reconciliation cycle,
-// regardless of which resource has triggered it.
-func (r *ReconcileHyperConverged) resolveReconcileRequest(ctx context.Context, logger logr.Logger, originalRequest reconcile.Request) (reconcile.Request, bool, error) {
-
-	hcoTriggered, err := isTriggeredByHyperConverged(originalRequest)
-	if err != nil {
-		return reconcile.Request{}, hcoTriggered, err
-	}
-	if hcoTriggered {
-		logger.Info("Reconciling HyperConverged operator")
-		return originalRequest, hcoTriggered, nil
+// refreshAPIServerCR refreshes the APIServer cR, if the request is triggered by this CR.
+func (r *ReconcileHyperConverged) refreshAPIServerCR(ctx context.Context, logger logr.Logger, originalRequest reconcile.Request) error {
+	if reqresolver.IsTriggeredByAPIServerCR(originalRequest) {
+		logger.Info("Refreshing the ApiServer CR")
+		return hcoutil.GetClusterInfo().RefreshAPIServerCR(ctx, r.client)
 	}
 
-	hc, err := getHyperConvergedNamespacedName()
-	if err != nil {
-		return reconcile.Request{}, hcoTriggered, err
-	}
-	resolvedRequest := reconcile.Request{
-		NamespacedName: hc,
-	}
-
-	apiServerCRTriggered, err := isTriggeredByAPIServerCR(originalRequest)
-	if err != nil {
-		return reconcile.Request{}, hcoTriggered, err
-	}
-	if apiServerCRTriggered {
-		logger.Info("Triggered by ApiServer CR, refreshing it")
-		err = hcoutil.GetClusterInfo().RefreshAPIServerCR(ctx, r.client)
-		if err != nil {
-			return reconcile.Request{}, hcoTriggered, err
-		}
-		// consider a change in APIServerCr like a change in HCO
-		hcoTriggered = true
-		return resolvedRequest, hcoTriggered, nil
-	}
-
-	logger.Info("The reconciliation got triggered by a secondary CR object")
-	return resolvedRequest, hcoTriggered, nil
-}
-
-func isTriggeredByHyperConverged(request reconcile.Request) (bool, error) {
-	placeholder, err := getSecondaryCRPlaceholder()
-	if err != nil {
-		return false, err
-	}
-	apiServerPlaceholder, err := getAPIServerCRPlaceholder()
-	if err != nil {
-		return false, err
-	}
-
-	isHyperConverged := request.NamespacedName != placeholder && request.NamespacedName != apiServerPlaceholder
-	return isHyperConverged, nil
-}
-
-func isTriggeredByAPIServerCR(request reconcile.Request) (bool, error) {
-	placeholder, err := getAPIServerCRPlaceholder()
-	if err != nil {
-		return false, err
-	}
-
-	return request.NamespacedName == placeholder, nil
+	return nil
 }
 
 func (r *ReconcileHyperConverged) doReconcile(req *common.HcoRequest) (reconcile.Result, error) {
 
-	valid, err := r.validateNamespace(req)
+	valid := r.validateNamespace(req)
 	if !valid {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, nil
 	}
+
 	// Add conditions if there are none
 	init := req.Instance.Status.Conditions == nil
 	if init {
@@ -567,27 +519,22 @@ func (r *ReconcileHyperConverged) updateHyperConvergedStatus(request *common.Hco
 	return r.client.Status().Update(request.Ctx, request.Instance)
 }
 
-func (r *ReconcileHyperConverged) validateNamespace(req *common.HcoRequest) (bool, error) {
-	hco, err := getHyperConvergedNamespacedName()
-	if err != nil {
-		req.Logger.Error(err, "Failed to get HyperConverged namespaced name")
-		return false, err
-	}
-
+func (r *ReconcileHyperConverged) validateNamespace(req *common.HcoRequest) bool {
 	// Ignore invalid requests
-	if req.NamespacedName != hco {
-		req.Logger.Info("Invalid request", "HyperConverged.Namespace", hco.Namespace, "HyperConverged.Name", hco.Name)
+	if !reqresolver.IsTriggeredByHyperConverged(req.NamespacedName) {
+		req.Logger.Info("Invalid request", "HyperConverged.Namespace", req.NamespacedName.Namespace, "HyperConverged.Name", req.NamespacedName.Name)
+		hc := reqresolver.GetHyperConvergedNamespacedName()
 		req.Conditions.SetStatusCondition(metav1.Condition{
 			Type:               hcov1beta1.ConditionReconcileComplete,
 			Status:             metav1.ConditionFalse,
 			Reason:             invalidRequestReason,
-			Message:            fmt.Sprintf(invalidRequestMessageFormat, hco.Name, hco.Namespace),
+			Message:            fmt.Sprintf(invalidRequestMessageFormat, hc.Name, hc.Namespace),
 			ObservedGeneration: req.Instance.Generation,
 		})
 		r.updateConditions(req)
-		return false, nil
+		return false
 	}
-	return true, nil
+	return true
 }
 
 func (r *ReconcileHyperConverged) setInitialConditions(req *common.HcoRequest) {
@@ -1255,52 +1202,6 @@ func removeRelatedObject(req *common.HcoRequest, cl client.Client, gvk schema.Gr
 
 }
 
-// getHyperConvergedNamespacedName returns the name/namespace of the HyperConverged resource
-func getHyperConvergedNamespacedName() (types.NamespacedName, error) {
-	hco := types.NamespacedName{
-		Name: hcoutil.HyperConvergedName,
-	}
-
-	namespace, err := hcoutil.GetOperatorNamespaceFromEnv()
-	if err != nil {
-		return hco, err
-	}
-	hco.Namespace = namespace
-
-	return hco, nil
-}
-
-// getOtherCrPlaceholder returns a placeholder to be able to discriminate
-// reconciliation requests triggered by secondary watched resources
-// use a random generated suffix for security reasons
-func getSecondaryCRPlaceholder() (types.NamespacedName, error) {
-	fakeHco := types.NamespacedName{
-		Name: secondaryCRPrefix + randomConstSuffix,
-	}
-
-	namespace, err := hcoutil.GetOperatorNamespaceFromEnv()
-	if err != nil {
-		return fakeHco, err
-	}
-	fakeHco.Namespace = namespace
-
-	return fakeHco, nil
-}
-
-func getAPIServerCRPlaceholder() (types.NamespacedName, error) {
-	fakeHco := types.NamespacedName{
-		Name: apiServerCRPrefix + randomConstSuffix,
-	}
-
-	namespace, err := hcoutil.GetOperatorNamespaceFromEnv()
-	if err != nil {
-		return fakeHco, err
-	}
-	fakeHco.Namespace = namespace
-
-	return fakeHco, nil
-}
-
 func drop(slice []string, s string) ([]string, bool) {
 	var newSlice []string
 	dropped := false
@@ -1312,10 +1213,6 @@ func drop(slice []string, s string) ([]string, bool) {
 		}
 	}
 	return newSlice, dropped
-}
-
-func init() {
-	randomConstSuffix = uuid.New().String()
 }
 
 func checkFinalizers(req *common.HcoRequest) bool {

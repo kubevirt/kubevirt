@@ -29,11 +29,7 @@ var (
 )
 
 func SetupWebhookWithManager(ctx context.Context, mgr ctrl.Manager, isOpenshift bool, hcoTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile) error {
-	operatorNsEnv, nserr := hcoutil.GetOperatorNamespaceFromEnv()
-	if nserr != nil {
-		logger.Error(nserr, "failed to get operator namespace from the environment")
-		return nserr
-	}
+	operatorNsEnv := hcoutil.GetOperatorNamespaceFromEnv()
 
 	decoder := admission.NewDecoder(mgr.GetScheme())
 

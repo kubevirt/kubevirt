@@ -846,14 +846,8 @@ rules:
   - ""
   resources:
   - pods
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - nodes
+  - secrets
   verbs:
   - get
   - list
@@ -982,11 +976,24 @@ rules:
   resources:
   - clusterversions
   - infrastructures
-  - ingresses
   - networks
   verbs:
   - get
   - list
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - ingresses/status
+  verbs:
+  - update
 - apiGroups:
   - config.openshift.io
   resources:
@@ -1032,6 +1039,14 @@ rules:
   - create
   - update
   - delete
+  - patch
+- apiGroups:
+  - route.openshift.io
+  resources:
+  - routes/custom-host
+  verbs:
+  - create
+  - update
   - patch
 - apiGroups:
   - operators.coreos.com

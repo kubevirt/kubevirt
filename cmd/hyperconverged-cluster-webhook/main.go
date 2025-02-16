@@ -66,8 +66,7 @@ func main() {
 
 	cmdHelper.InitiateCommand()
 
-	operatorNamespace, err := hcoutil.GetOperatorNamespaceFromEnv()
-	cmdHelper.ExitOnError(err, "can't get operator expected namespace")
+	operatorNamespace := hcoutil.GetOperatorNamespaceFromEnv()
 
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()

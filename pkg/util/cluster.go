@@ -28,7 +28,6 @@ type ClusterInfo interface {
 	Init(ctx context.Context, cl client.Client, logger logr.Logger) error
 	IsOpenshift() bool
 	IsRunningLocally() bool
-	GetDomain() string
 	GetBaseDomain() string
 	IsManagedByOLM() bool
 	IsControlPlaneHighlyAvailable() bool
@@ -60,7 +59,6 @@ type ClusterInfoImp struct {
 	monitoringAvailable           bool
 	deschedulerAvailable          bool
 	singlestackipv6               bool
-	domain                        string
 	baseDomain                    string
 	ownResources                  *OwnResources
 	logger                        logr.Logger
@@ -228,10 +226,6 @@ func (c *ClusterInfoImp) SetHighAvailabilityMode(ctx context.Context, cl client.
 	return nil
 }
 
-func (c *ClusterInfoImp) GetDomain() string {
-	return c.domain
-}
-
 func (c *ClusterInfoImp) GetBaseDomain() string {
 	return c.baseDomain
 }
@@ -246,19 +240,6 @@ func (c *ClusterInfoImp) GetDeployment() *appsv1.Deployment {
 
 func (c *ClusterInfoImp) GetCSV() *csvv1alpha1.ClusterServiceVersion {
 	return c.ownResources.GetCSV()
-}
-
-func getClusterDomain(ctx context.Context, cl client.Client) (string, error) {
-	clusterIngress := &openshiftconfigv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "cluster",
-		},
-	}
-	if err := cl.Get(ctx, client.ObjectKeyFromObject(clusterIngress), clusterIngress); err != nil {
-		return "", err
-	}
-	return clusterIngress.Spec.Domain, nil
-
 }
 
 func getClusterBaseDomain(ctx context.Context, cl client.Client) (string, error) {
@@ -318,10 +299,6 @@ func (c *ClusterInfoImp) queryCluster(ctx context.Context, cl client.Client) err
 	} else {
 		c.runningInOpenshift = true
 		c.logger.Info("Cluster type = openshift", "version", clusterVersion.Status.Desired.Version)
-		c.domain, err = getClusterDomain(ctx, cl)
-		if err != nil {
-			return err
-		}
 		c.baseDomain, err = getClusterBaseDomain(ctx, cl)
 		if err != nil {
 			return err

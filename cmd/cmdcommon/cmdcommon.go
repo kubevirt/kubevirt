@@ -8,16 +8,16 @@ import (
 	"net/http/pprof"
 	"os"
 	"runtime"
-
-	apiruntime "k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+	"slices"
 
 	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
+	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 // list of namespace allowed for HCO installations (for tests)
@@ -121,7 +121,7 @@ func (h HcCmdHelper) printVersion() {
 
 func (h HcCmdHelper) checkNameSpace() {
 	// Get the namespace that we should be deployed in.
-	requiredNS, err := hcoutil.GetOperatorNamespaceFromEnv()
+	requiredNS, err := getOperatorNamespaceFromEnv()
 	h.ExitOnError(err, "Failed to get namespace from the environment")
 
 	// Get the namespace we are currently deployed in.
@@ -144,7 +144,7 @@ func (h HcCmdHelper) checkNameSpace() {
 		communityHubNamespace,
 		communityHubTargetNamespace,
 	}
-	if !StringInSlice(actualNS, nsAllowList) {
+	if !slices.Contains(nsAllowList, actualNS) {
 		err := fmt.Errorf("%s is running in different namespace than expected", h.Name)
 		msg := fmt.Sprintf("Please re-deploy this %s into %v namespace", h.Name, requiredNS)
 		h.ExitOnError(err, msg, "Expected.Namespace", requiredNS, "Deployed.Namespace", actualNS)
@@ -166,11 +166,11 @@ func updateFlagSet(flags ...*flag.FlagSet) {
 	}
 }
 
-func StringInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
+func getOperatorNamespaceFromEnv() (string, error) {
+	namespace := os.Getenv(hcoutil.OperatorNamespaceEnv)
+	if len(namespace) == 0 {
+		return "", fmt.Errorf("%s unset or empty in environment", hcoutil.OperatorNamespaceEnv)
 	}
-	return false
+
+	return namespace, nil
 }

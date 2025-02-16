@@ -303,9 +303,6 @@ func (ClusterInfoMock) IsInfrastructureHighlyAvailable() bool {
 func (ClusterInfoMock) SetHighAvailabilityMode(_ context.Context, _ client.Client) error {
 	return nil
 }
-func (ClusterInfoMock) GetDomain() string {
-	return "domain"
-}
 func (ClusterInfoMock) GetBaseDomain() string {
 	return BaseDomain
 }
@@ -377,9 +374,6 @@ func (ClusterInfoSNOMock) IsInfrastructureHighlyAvailable() bool {
 }
 func (ClusterInfoSNOMock) SetHighAvailabilityMode(_ context.Context, _ client.Client) error {
 	return nil
-}
-func (ClusterInfoSNOMock) GetDomain() string {
-	return "domain"
 }
 func (ClusterInfoSNOMock) GetBaseDomain() string {
 	return BaseDomain
@@ -463,9 +457,6 @@ func (ClusterInfoSRCPHAIMock) GetDeployment() *appsv1.Deployment {
 
 func (ClusterInfoSRCPHAIMock) GetCSV() *csvv1alpha1.ClusterServiceVersion {
 	return csv
-}
-func (ClusterInfoSRCPHAIMock) GetDomain() string {
-	return "domain"
 }
 func (ClusterInfoSRCPHAIMock) GetBaseDomain() string {
 	return BaseDomain

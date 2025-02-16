@@ -18,6 +18,7 @@ import (
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/downloadhost"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
@@ -333,6 +334,33 @@ var _ = Describe("Cli Downloads Route", func() {
 				}
 			}),
 		)
+
+		Context("Customize Download Link", func() {
+			var origHost downloadhost.CLIDownloadHost
+
+			BeforeEach(func() {
+				origHost = downloadhost.Get()
+				DeferCleanup(func() {
+					downloadhost.Set(origHost)
+				})
+			})
+
+			It("should use modified URL, certificate and keys, if exists", func() {
+
+				downloadhost.Set(downloadhost.CLIDownloadHost{
+					DefaultHost: "default-host.com",
+					CurrentHost: "cli-dl.example.com",
+					Cert:        "crt",
+					Key:         "key",
+				})
+
+				expectedResource := NewCliDownloadsRoute(hco)
+
+				Expect(expectedResource.Spec.Host).To(Equal("cli-dl.example.com"))
+				Expect(expectedResource.Spec.TLS.Certificate).To(Equal("crt"))
+				Expect(expectedResource.Spec.TLS.Key).To(Equal("key"))
+			})
+		})
 
 	})
 })

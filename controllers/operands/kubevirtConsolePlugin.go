@@ -6,6 +6,7 @@ import (
 	"maps"
 	"os"
 	"reflect"
+	"slices"
 
 	"k8s.io/utils/ptr"
 
@@ -22,7 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
-	"github.com/kubevirt/hyperconverged-cluster-operator/cmd/cmdcommon"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
@@ -544,7 +544,7 @@ func (h consoleHandler) ensure(req *common.HcoRequest) *EnsureResult {
 		}
 	}
 
-	if !cmdcommon.StringInSlice(kvUIPluginName, consoleObj.Spec.Plugins) {
+	if !slices.Contains(consoleObj.Spec.Plugins, kvUIPluginName) {
 		req.Logger.Info("Enabling kubevirt plugin in Console")
 		consoleObj.Spec.Plugins = append(consoleObj.Spec.Plugins, kvUIPluginName)
 		err := h.Client.Update(req.Ctx, consoleObj)

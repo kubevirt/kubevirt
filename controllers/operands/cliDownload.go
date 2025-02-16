@@ -17,14 +17,14 @@ import (
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/downloadhost"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 const (
-	cliDownloadsServiceName = "hyperconverged-cluster-cli-download"
-	descriptionText         = "The virtctl client is a supplemental command-line utility for managing virtualization resources from the command line."
-	displayName             = "virtctl - KubeVirt command line interface"
+	descriptionText = "The virtctl client is a supplemental command-line utility for managing virtualization resources from the command line."
+	displayName     = "virtctl - KubeVirt command line interface"
 )
 
 // **** Handler for ConsoleCliDownload ****
@@ -77,7 +77,8 @@ func (*cliDownloadHooks) updateCr(req *common.HcoRequest, Client client.Client, 
 func (*cliDownloadHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 func NewConsoleCLIDownload(hc *hcov1beta1.HyperConverged) *consolev1.ConsoleCLIDownload {
-	baseURL := "https://" + cliDownloadsServiceName + "-" + hc.Namespace + "." + hcoutil.GetClusterInfo().GetDomain()
+	host := string(downloadhost.Get().CurrentHost)
+	baseURL := "https://" + host
 
 	return &consolev1.ConsoleCLIDownload{
 		ObjectMeta: metav1.ObjectMeta{
@@ -129,20 +130,20 @@ func NewCliDownloadsService(hc *hcov1beta1.HyperConverged) *corev1.Service {
 
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cliDownloadsServiceName,
+			Name:      downloadhost.CLIDownloadsServiceName,
 			Namespace: hc.Namespace,
 			Labels:    getLabels(hc, hcoutil.AppComponentCompute),
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"name": cliDownloadsServiceName,
+				"name": downloadhost.CLIDownloadsServiceName,
 			},
 			Ports: []corev1.ServicePort{
 				{
 					Name:       strconv.Itoa(util.CliDownloadsServerPort),
 					Port:       util.CliDownloadsServerPort,
 					Protocol:   corev1.ProtocolTCP,
-					TargetPort: intstr.FromInt(util.CliDownloadsServerPort),
+					TargetPort: intstr.FromInt32(util.CliDownloadsServerPort),
 				},
 			},
 		},
@@ -172,7 +173,7 @@ func (cliDownloadsRouteHooks) getEmptyCr() client.Object {
 	return &routev1.Route{}
 }
 
-func (*cliDownloadsRouteHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
+func (cliDownloadsRouteHooks) updateCr(req *common.HcoRequest, Client client.Client, exists runtime.Object, required runtime.Object) (bool, bool, error) {
 	route, ok1 := required.(*routev1.Route)
 	found, ok2 := exists.(*routev1.Route)
 	if !ok1 || !ok2 {
@@ -198,13 +199,16 @@ func (*cliDownloadsRouteHooks) updateCr(req *common.HcoRequest, Client client.Cl
 func (cliDownloadsRouteHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
 func NewCliDownloadsRoute(hc *hcov1beta1.HyperConverged) *routev1.Route {
-	return &routev1.Route{
+	host := downloadhost.Get()
+
+	route := &routev1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cliDownloadsServiceName,
+			Name:      downloadhost.CLIDownloadsServiceName,
 			Namespace: hc.Namespace,
 			Labels:    getLabels(hc, hcoutil.AppComponentCompute),
 		},
 		Spec: routev1.RouteSpec{
+			Host: string(downloadhost.Get().CurrentHost),
 			Port: &routev1.RoutePort{
 				TargetPort: intstr.IntOrString{IntVal: util.CliDownloadsServerPort},
 			},
@@ -214,11 +218,18 @@ func NewCliDownloadsRoute(hc *hcov1beta1.HyperConverged) *routev1.Route {
 			},
 			To: routev1.RouteTargetReference{
 				Kind:   "Service",
-				Name:   cliDownloadsServiceName,
+				Name:   downloadhost.CLIDownloadsServiceName,
 				Weight: ptr.To[int32](100),
 			},
 		},
 	}
+
+	if len(host.Cert) > 0 && len(host.Key) > 0 {
+		route.Spec.TLS.Certificate = host.Cert
+		route.Spec.TLS.Key = host.Key
+	}
+
+	return route
 }
 
 // We need to check only certain fields of Route object. Since there
@@ -229,5 +240,6 @@ func hasRouteRightFields(found *routev1.Route, required *routev1.Route) bool {
 	return reflect.DeepEqual(found.Labels, required.Labels) &&
 		reflect.DeepEqual(found.Spec.Port, required.Spec.Port) &&
 		reflect.DeepEqual(found.Spec.TLS, required.Spec.TLS) &&
-		reflect.DeepEqual(found.Spec.To, required.Spec.To)
+		reflect.DeepEqual(found.Spec.To, required.Spec.To) &&
+		found.Spec.Host == required.Spec.Host
 }

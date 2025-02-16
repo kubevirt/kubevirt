@@ -104,10 +104,7 @@ func (r *ReconcileNodeCounter) Reconcile(ctx context.Context, _ reconcile.Reques
 	}
 
 	hco := &hcov1beta1.HyperConverged{}
-	namespace, err := hcoutil.GetOperatorNamespaceFromEnv()
-	if err != nil {
-		return reconcile.Result{}, err
-	}
+	namespace := hcoutil.GetOperatorNamespaceFromEnv()
 	hcoKey := types.NamespacedName{
 		Name:      hcoutil.HyperConvergedName,
 		Namespace: namespace,

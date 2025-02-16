@@ -512,12 +512,7 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 		roleWithAllPermissions("", stringListToSlice("services")),
 		{
 			APIGroups: emptyAPIGroup,
-			Resources: stringListToSlice("pods"),
-			Verbs:     stringListToSlice("get", "list", "watch"),
-		},
-		{
-			APIGroups: emptyAPIGroup,
-			Resources: stringListToSlice("nodes"),
+			Resources: stringListToSlice("pods", "nodes", "secrets"),
 			Verbs:     stringListToSlice("get", "list", "watch"),
 		},
 		{
@@ -565,8 +560,18 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 		roleWithAllPermissions("console.openshift.io", stringListToSlice("consoleclidownloads", "consolequickstarts")),
 		{
 			APIGroups: stringListToSlice(configOpenshiftIO),
-			Resources: stringListToSlice("clusterversions", "infrastructures", "ingresses", "networks"),
+			Resources: stringListToSlice("clusterversions", "infrastructures", "networks"),
 			Verbs:     stringListToSlice("get", "list"),
+		},
+		{
+			APIGroups: stringListToSlice(configOpenshiftIO),
+			Resources: stringListToSlice("ingresses"),
+			Verbs:     stringListToSlice("get", "list", "watch"),
+		},
+		{
+			APIGroups: stringListToSlice(configOpenshiftIO),
+			Resources: stringListToSlice("ingresses/status"),
+			Verbs:     stringListToSlice("update"),
 		},
 		{
 			APIGroups: stringListToSlice(configOpenshiftIO),
@@ -585,6 +590,11 @@ func GetClusterPermissions() []rbacv1.PolicyRule {
 		},
 		roleWithAllPermissions("coordination.k8s.io", stringListToSlice("leases")),
 		roleWithAllPermissions("route.openshift.io", stringListToSlice("routes")),
+		{
+			APIGroups: stringListToSlice("route.openshift.io"),
+			Resources: stringListToSlice("routes/custom-host"),
+			Verbs:     stringListToSlice("create", "update", "patch"),
+		},
 		{
 			APIGroups: stringListToSlice("operators.coreos.com"),
 			Resources: stringListToSlice("operatorconditions"),

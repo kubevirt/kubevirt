@@ -43,6 +43,7 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
+	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/reqresolver"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/hyperconverged/metrics"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	"github.com/kubevirt/hyperconverged-cluster-operator/version"
@@ -83,6 +84,8 @@ var _ = Describe("HyperconvergedController", func() {
 				_ = os.Setenv("OPERATOR_NAMESPACE", namespace)
 				_ = os.Setenv(hcoutil.HcoKvIoVersionName, version.Version)
 				hcoNamespace = commontestutils.NewHcoNamespace()
+
+				reqresolver.GeneratePlaceHolders()
 			})
 
 			It("should handle not found", func() {
@@ -383,13 +386,10 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(cl.Update(context.TODO(), foundKubevirt)).ToNot(HaveOccurred())
 
 				// mock a reconciliation triggered by a change in secondary CR
-				ph, err := getSecondaryCRPlaceholder()
-				Expect(err).ToNot(HaveOccurred())
-				rq := request
-				rq.NamespacedName = ph
+				rq := reqresolver.GetSecondaryCRRequest()
 
 				// Reconcile again to update HCO's status
-				res, err = r.Reconcile(context.TODO(), request)
+				res, err = r.Reconcile(context.TODO(), rq)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res).To(Equal(reconcile.Result{}))
 
@@ -470,13 +470,10 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(cl.Update(context.TODO(), foundKubevirt)).ToNot(HaveOccurred())
 
 				// mock a reconciliation triggered by a change in secondary CR
-				ph, err := getSecondaryCRPlaceholder()
-				Expect(err).ToNot(HaveOccurred())
-				rq := request
-				rq.NamespacedName = ph
+				rq := reqresolver.GetSecondaryCRRequest()
 
 				// Reconcile again to update HCO's status
-				res, err = r.Reconcile(context.TODO(), request)
+				res, err = r.Reconcile(context.TODO(), rq)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res).To(Equal(reconcile.Result{}))
 
@@ -515,13 +512,10 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(cl.Update(context.TODO(), foundKubevirt)).ToNot(HaveOccurred())
 
 				// mock a reconciliation triggered by a change in secondary CR
-				ph, err := getSecondaryCRPlaceholder()
-				Expect(err).ToNot(HaveOccurred())
-				rq := request
-				rq.NamespacedName = ph
+				rq := reqresolver.GetSecondaryCRRequest()
 
 				// Reconcile again to update HCO's status
-				res, err = r.Reconcile(context.TODO(), request)
+				res, err = r.Reconcile(context.TODO(), rq)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(res).To(Equal(reconcile.Result{}))
 
@@ -644,10 +638,7 @@ var _ = Describe("HyperconvergedController", func() {
 				r := initReconciler(cl, nil)
 
 				// mock a reconciliation triggered by a change in secondary CR
-				ph, err := getSecondaryCRPlaceholder()
-				Expect(err).ToNot(HaveOccurred())
-				rq := request
-				rq.NamespacedName = ph
+				rq := reqresolver.GetSecondaryCRRequest()
 
 				counterValueBefore, err := metrics.GetOverwrittenModificationsCount(existingResource.Kind, existingResource.Name)
 				Expect(err).ToNot(HaveOccurred())
@@ -1127,10 +1118,7 @@ var _ = Describe("HyperconvergedController", func() {
 				Expect(hcoutil.GetClusterInfo().GetTLSSecurityProfile(expected.hco.Spec.TLSSecurityProfile)).To(Equal(initialTLSSecurityProfile), "should still return the cached value (initial value)")
 
 				// mock a reconciliation triggered by a change in the APIServer CR
-				ph, err := getAPIServerCRPlaceholder()
-				Expect(err).ToNot(HaveOccurred())
-				rq := request
-				rq.NamespacedName = ph
+				rq := reqresolver.GetAPIServerCRRequest()
 
 				// Reconcile again to refresh ApiServer CR in memory
 				res, err = r.Reconcile(context.TODO(), rq)
@@ -1391,11 +1379,7 @@ var _ = Describe("HyperconvergedController", func() {
 				cl := expected.initClient()
 				r := initReconciler(cl, nil)
 
-				ph, err := getSecondaryCRPlaceholder()
-				Expect(err).ToNot(HaveOccurred())
-				rq := reconcile.Request{
-					NamespacedName: ph,
-				}
+				rq := reqresolver.GetSecondaryCRRequest()
 
 				counterValueBefore, err := metrics.GetOverwrittenModificationsCount(expected.cdi.Kind, expected.cdi.Name)
 				Expect(err).ToNot(HaveOccurred())
