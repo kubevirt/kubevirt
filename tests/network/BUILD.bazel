@@ -7,6 +7,7 @@ go_library(
         "bindingplugin_macvtap.go",
         "bindingplugin_passt.go",
         "bindingplugin_slirp.go",
+        "demo_link_state.go",
         "dual_stack_cluster.go",
         "framework.go",
         "hotplug_bridge.go",
