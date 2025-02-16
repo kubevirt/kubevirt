@@ -159,12 +159,6 @@ func (c *VirtualMachineController) prepareNetwork(vmi *v1.VirtualMachineInstance
 		}
 	}
 
-	if virtutil.NeedTunDevice(vmi) {
-		if err := c.claimDeviceOwnership(rootMount, "/net/tun"); err != nil {
-			return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up tun device, %s", err))
-		}
-	}
-
 	return nil
 }
 
