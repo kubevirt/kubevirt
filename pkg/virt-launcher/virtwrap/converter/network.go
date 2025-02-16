@@ -32,7 +32,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
-func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext) ([]api.Interface, error) {
+func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domainAttachmentByInterfaceName map[string]string, useLaunchSecurity bool) ([]api.Interface, error) {
 	var domainInterfaces []api.Interface
 
 	nonAbsentIfaces := netvmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
@@ -48,7 +48,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext)
 			return nil, fmt.Errorf("failed to find network %s", iface.Name)
 		}
 
-		if (iface.Binding != nil && c.DomainAttachmentByInterfaceName[iface.Name] != string(v1.Tap)) || iface.SRIOV != nil {
+		if (iface.Binding != nil && domainAttachmentByInterfaceName[iface.Name] != string(v1.Tap)) || iface.SRIOV != nil {
 			continue
 		}
 
@@ -77,7 +77,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext)
 			domainIface.ACPI = &api.ACPI{Index: uint(iface.ACPIIndex)}
 		}
 
-		if c.DomainAttachmentByInterfaceName[iface.Name] == string(v1.Tap) {
+		if domainAttachmentByInterfaceName[iface.Name] == string(v1.Tap) {
 			// use "ethernet" interface type, since we're using pre-configured tap devices
 			// https://libvirt.org/formatdomain.html#elementsNICSEthernet
 			domainIface.Type = "ethernet"
@@ -89,7 +89,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, c *ConverterContext)
 			}
 		}
 
-		if c.UseLaunchSecurity {
+		if useLaunchSecurity {
 			// It's necessary to disable the iPXE option ROM as iPXE is not aware of SEV
 			domainIface.Rom = &api.Rom{Enabled: "no"}
 			if ifaceType == v1.VirtIO {
