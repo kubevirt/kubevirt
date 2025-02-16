@@ -109,4 +109,45 @@ var _ = Describe("time defined cache", func() {
 		Expect(firstCallBarrier).To(BeEmpty(), "ensure no other go routine called the re-calculation funtion")
 	})
 
+	Context("keep value updated", func() {
+		It("should keep value updated if method is used", func() {
+			By("creating a cache with a refresh duration")
+			cache, err := virtcache.NewTimeDefinedCache(100*time.Millisecond, false, getMockCalcFunc())
+			Expect(err).ToNot(HaveOccurred())
+
+			By("using the KeepValueUpdated() method")
+			stopChannel := make(chan struct{})
+			err = cache.KeepValueUpdated(stopChannel)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("ensuring the value is updated")
+			time.Sleep(320 * time.Millisecond)
+			value, err := cache.Get()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(value).To(BeNumerically(">=", 3))
+
+			By("stopping the value update")
+			close(stopChannel)
+			value, err = cache.Get()
+			Expect(err).ToNot(HaveOccurred())
+
+			By("ensuring the value is not updated anymore")
+			time.Sleep(120 * time.Millisecond)
+			newValue, err := cache.Get()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(value + 1).To(Equal(newValue))
+		})
+
+		It("should return an error if the refresh duration is zero", func() {
+			cache, err := virtcache.NewTimeDefinedCache(0, false, getMockCalcFunc())
+			Expect(err).ToNot(HaveOccurred())
+
+			stopChannel := make(chan struct{})
+			err = cache.KeepValueUpdated(stopChannel)
+			Expect(err).To(HaveOccurred(), "it should be illegal to use KeepValueUpdated() with a zero refresh duration")
+		})
+	})
+
 })

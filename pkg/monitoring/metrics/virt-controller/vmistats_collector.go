@@ -26,6 +26,7 @@ import (
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	k8sv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/client-go/log"
@@ -55,6 +56,9 @@ var (
 			vmiInfo,
 			vmiEvictionBlocker,
 			vmiAddresses,
+			vmiMigrationStartTime,
+			vmiMigrationEndTime,
+			vmiVnicInfo,
 		},
 		CollectCallback: vmiStatsCollectorCallback,
 	}
@@ -75,6 +79,8 @@ var (
 			"guest_os_kernel_release", "guest_os_machine", "guest_os_arch", "guest_os_name", "guest_os_version_id",
 			// State info
 			"evictable", "outdated",
+			// Pod info
+			"vmi_pod",
 		},
 	)
 
@@ -93,7 +99,32 @@ var (
 				"interface associated with the VMI in the 'address' label, and about the type of address, such as " +
 				"internal IP, in the 'type' label.",
 		},
-		[]string{"node", "namespace", "name", "address", "type"},
+		[]string{"node", "namespace", "name", "network_name", "address", "type"},
+	)
+
+	vmiMigrationStartTime = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_migration_start_time_seconds",
+			Help: "The time at which the migration started.",
+		},
+		[]string{"node", "namespace", "name", "migration_name"},
+	)
+
+	vmiMigrationEndTime = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_migration_end_time_seconds",
+			Help: "The time at which the migration ended.",
+		},
+		[]string{"node", "namespace", "name", "migration_name", "status"},
+	)
+
+	vmiVnicInfo = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_vnic_info",
+			Help: "Details of VirtualMachineInstance (VMI) vNIC interfaces, such as vNIC name, binding type, " +
+				"network name, and binding name for each vNIC of a running instance.",
+		},
+		[]string{"name", "namespace", "vnic_name", "binding_type", "network", "binding_name"},
 	)
 )
 
@@ -120,6 +151,8 @@ func reportVmisStats(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Col
 		crs = append(crs, collectVMIInfo(vmi))
 		crs = append(crs, getEvictionBlocker(vmi))
 		crs = append(crs, collectVMIInterfacesInfo(vmi)...)
+		crs = append(crs, collectVMIMigrationTime(vmi)...)
+		crs = append(crs, CollectVmisVnicInfo(vmi)...)
 	}
 
 	return crs
@@ -131,6 +164,7 @@ func collectVMIInfo(vmi *k6tv1.VirtualMachineInstance) operatormetrics.Collector
 	preference := getVMIPreference(vmi)
 	kernelRelease, guestOSMachineArch, name, versionID := getGuestOSInfo(vmi)
 	guestOSMachineType := getVMIMachine(vmi)
+	vmiPod := getVMIPod(vmi)
 
 	return operatormetrics.CollectorResult{
 		Metric: vmiInfo,
@@ -140,6 +174,7 @@ func collectVMIInfo(vmi *k6tv1.VirtualMachineInstance) operatormetrics.Collector
 			kernelRelease, guestOSMachineType, guestOSMachineArch, name, versionID,
 			strconv.FormatBool(isVMEvictable(vmi)),
 			strconv.FormatBool(isVMIOutdated(vmi)),
+			vmiPod,
 		},
 		Value: 1.0,
 	}
@@ -202,32 +237,62 @@ func getVMIMachine(vmi *k6tv1.VirtualMachineInstance) (guestOSMachineType string
 	return
 }
 
-func getVMIInstancetype(vmi *k6tv1.VirtualMachineInstance) string {
-	if instancetypeName, ok := vmi.Annotations[k6tv1.InstancetypeAnnotation]; ok {
-		return fetchResourceName(instancetypeName, instanceTypeInformer.GetIndexer())
+func getVMIPod(vmi *k6tv1.VirtualMachineInstance) string {
+	objs, err := kvPodInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
+	if err != nil {
+		return none
 	}
 
-	if instancetypeName, ok := vmi.Annotations[k6tv1.ClusterInstancetypeAnnotation]; ok {
-		return fetchResourceName(instancetypeName, clusterInstanceTypeInformer.GetIndexer())
+	for _, obj := range objs {
+		pod, ok := obj.(*k8sv1.Pod)
+		if !ok {
+			continue
+		}
+
+		if pod.Labels["kubevirt.io/created-by"] == string(vmi.UID) && pod.Status.Phase == k8sv1.PodRunning {
+			if vmi.Status.NodeName == pod.Spec.NodeName {
+				return pod.Name
+			}
+		}
+	}
+
+	return none
+}
+
+func getVMIInstancetype(vmi *k6tv1.VirtualMachineInstance) string {
+	if instancetypeName, ok := vmi.Annotations[k6tv1.InstancetypeAnnotation]; ok {
+		key := types.NamespacedName{
+			Namespace: vmi.Namespace,
+			Name:      instancetypeName,
+		}
+		return fetchResourceName(key.String(), instancetypeMethods.InstancetypeStore)
+	}
+
+	if clusterInstancetypeName, ok := vmi.Annotations[k6tv1.ClusterInstancetypeAnnotation]; ok {
+		return fetchResourceName(clusterInstancetypeName, instancetypeMethods.ClusterInstancetypeStore)
 	}
 
 	return none
 }
 
 func getVMIPreference(vmi *k6tv1.VirtualMachineInstance) string {
-	if instancetypeName, ok := vmi.Annotations[k6tv1.PreferenceAnnotation]; ok {
-		return fetchResourceName(instancetypeName, preferenceInformer.GetIndexer())
+	if preferenceName, ok := vmi.Annotations[k6tv1.PreferenceAnnotation]; ok {
+		key := types.NamespacedName{
+			Namespace: vmi.Namespace,
+			Name:      preferenceName,
+		}
+		return fetchResourceName(key.String(), instancetypeMethods.PreferenceStore)
 	}
 
-	if instancetypeName, ok := vmi.Annotations[k6tv1.ClusterPreferenceAnnotation]; ok {
-		return fetchResourceName(instancetypeName, clusterPreferenceInformer.GetIndexer())
+	if clusterPreferenceName, ok := vmi.Annotations[k6tv1.ClusterPreferenceAnnotation]; ok {
+		return fetchResourceName(clusterPreferenceName, instancetypeMethods.ClusterPreferenceStore)
 	}
 
 	return none
 }
 
-func fetchResourceName(name string, indexer cache.Indexer) string {
-	obj, ok, err := indexer.GetByKey(name)
+func fetchResourceName(key string, store cache.Store) string {
+	obj, ok, err := store.GetByKey(key)
 	if err != nil || !ok {
 		return other
 	}
@@ -239,7 +304,7 @@ func fetchResourceName(name string, indexer cache.Indexer) string {
 
 	vendorName := apiObj.GetLabels()[instancetypeVendorLabel]
 	if _, isWhitelisted := whitelistedInstanceTypeVendors[vendorName]; isWhitelisted {
-		return name
+		return apiObj.GetName()
 	}
 
 	return other
@@ -282,19 +347,117 @@ func collectVMIInterfacesInfo(vmi *k6tv1.VirtualMachineInstance) []operatormetri
 	var crs []operatormetrics.CollectorResult
 
 	for _, iface := range vmi.Status.Interfaces {
-		crs = append(crs, collectVMIInterfaceInfo(vmi, iface))
+		if cr := collectVMIInterfaceInfo(vmi, iface); cr != nil {
+			crs = append(crs, *cr)
+		}
 	}
 
 	return crs
 }
 
-func collectVMIInterfaceInfo(vmi *k6tv1.VirtualMachineInstance, iface k6tv1.VirtualMachineInstanceNetworkInterface) operatormetrics.CollectorResult {
-	return operatormetrics.CollectorResult{
+func collectVMIInterfaceInfo(vmi *k6tv1.VirtualMachineInstance, iface k6tv1.VirtualMachineInstanceNetworkInterface) *operatormetrics.CollectorResult {
+	if iface.IP == "" && iface.Name == "" {
+		return nil
+	}
+
+	return &operatormetrics.CollectorResult{
 		Metric: vmiAddresses,
 		Labels: []string{
 			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-			iface.IP, "InternalIP",
+			iface.Name, iface.IP, "InternalIP",
 		},
 		Value: 1.0,
 	}
+}
+
+func collectVMIMigrationTime(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+	var migrationName string
+
+	if vmi.Status.MigrationState == nil {
+		return cr
+	}
+
+	migrationName = getMigrationNameFromMigrationUID(vmi.Namespace, vmi.Status.MigrationState.MigrationUID)
+
+	if vmi.Status.MigrationState.StartTimestamp != nil {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmiMigrationStartTime,
+			Value:  float64(vmi.Status.MigrationState.StartTimestamp.Time.Unix()),
+			Labels: []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, migrationName},
+		})
+	}
+
+	if vmi.Status.MigrationState.EndTimestamp != nil {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmiMigrationEndTime,
+			Value:  float64(vmi.Status.MigrationState.EndTimestamp.Time.Unix()),
+			Labels: []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, migrationName,
+				calculateMigrationStatus(vmi.Status.MigrationState),
+			},
+		})
+	}
+
+	return cr
+}
+
+func calculateMigrationStatus(migrationState *k6tv1.VirtualMachineInstanceMigrationState) string {
+	if !migrationState.Completed {
+		return ""
+	}
+
+	if migrationState.Failed {
+		return "failed"
+	}
+
+	return "succeeded"
+}
+
+func getMigrationNameFromMigrationUID(namespace string, migrationUID types.UID) string {
+	objs, err := vmiMigrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	if err != nil {
+		return none
+	}
+
+	for _, obj := range objs {
+		curMigration := obj.(*k6tv1.VirtualMachineInstanceMigration)
+		if curMigration.UID != migrationUID {
+			continue
+		}
+
+		return curMigration.Name
+	}
+
+	return none
+}
+
+func CollectVmisVnicInfo(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
+	var results []operatormetrics.CollectorResult
+
+	interfaces := vmi.Spec.Domain.Devices.Interfaces
+	networks := vmi.Spec.Networks
+
+	for _, iface := range interfaces {
+		bindingType, bindingName := getBinding(iface)
+		networkName, matchFound := getNetworkName(iface.Name, networks)
+
+		if !matchFound {
+			continue
+		}
+
+		results = append(results, operatormetrics.CollectorResult{
+			Metric: vmiVnicInfo,
+			Labels: []string{
+				vmi.Name,
+				vmi.Namespace,
+				iface.Name,
+				bindingType,
+				networkName,
+				bindingName,
+			},
+			Value: 1.0,
+		})
+	}
+
+	return results
 }

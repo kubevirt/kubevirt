@@ -20,17 +20,18 @@
 package ssh
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-
-	"k8s.io/client-go/tools/clientcmd"
-
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
+	"kubevirt.io/kubevirt/pkg/virtctl/portforward"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
@@ -44,11 +45,10 @@ const (
 	additionalOpts, additionalOptsShort             = "local-ssh-opts", "t"
 )
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewCommand() *cobra.Command {
 	log.InitializeLogging("ssh")
 	c := &SSH{
-		clientConfig: clientConfig,
-		options:      DefaultSSHOptions(),
+		options: DefaultSSHOptions(),
 	}
 
 	cmd := &cobra.Command{
@@ -56,9 +56,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Short:   "Open a SSH connection to a virtual machine instance.",
 		Example: usage(),
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return c.Run(cmd, args)
-		},
+		RunE:    c.Run,
 	}
 
 	AddCommandlineArgs(cmd.Flags(), &c.options)
@@ -94,7 +92,7 @@ func DefaultSSHOptions() SSHOptions {
 		KnownHostsFilePath:        "",
 		KnownHostsFilePathDefault: "",
 		AdditionalSSHLocalOptions: []string{},
-		WrapLocalSSH:              wrapLocalSSHDefault,
+		WrapLocalSSH:              true,
 		LocalClientName:           "ssh",
 	}
 
@@ -105,9 +103,8 @@ func DefaultSSHOptions() SSHOptions {
 }
 
 type SSH struct {
-	clientConfig clientcmd.ClientConfig
-	options      SSHOptions
-	command      string
+	options SSHOptions
+	command string
 }
 
 type SSHOptions struct {
@@ -123,32 +120,37 @@ type SSHOptions struct {
 }
 
 func (o *SSH) Run(cmd *cobra.Command, args []string) error {
-	kind, namespace, name, err := PrepareCommand(cmd, o.clientConfig, &o.options, args)
+	client, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}
 
+	kind, namespace, name, err := PrepareCommand(cmd, namespace, &o.options, args)
+	if err != nil {
+		return err
+	}
+
+	if cmd.Flags().Changed(wrapLocalSSHFlag) {
+		cmd.PrintErrln("The --local-ssh flag is deprecated and now defaults to true.")
+	}
 	if o.options.WrapLocalSSH {
 		clientArgs := o.buildSSHTarget(kind, namespace, name)
 		return RunLocalClient(kind, namespace, name, &o.options, clientArgs)
 	}
 
-	return o.nativeSSH(kind, namespace, name)
+	return o.nativeSSH(kind, namespace, name, client)
 }
 
-func PrepareCommand(cmd *cobra.Command, clientConfig clientcmd.ClientConfig, opts *SSHOptions, args []string) (kind, namespace, name string, err error) {
+func PrepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *SSHOptions, args []string) (kind, namespace, name string, err error) {
 	opts.IdentityFilePathProvided = cmd.Flags().Changed(IdentityFilePathFlag)
 	var targetUsername string
-	kind, namespace, name, targetUsername, err = templates.ParseSSHTarget(args[0])
+	kind, namespace, name, targetUsername, err = ParseTarget(args[0])
 	if err != nil {
 		return
 	}
 
 	if len(namespace) < 1 {
-		namespace, _, err = clientConfig.Namespace()
-		if err != nil {
-			return
-		}
+		namespace = fallbackNamespace
 	}
 
 	if len(targetUsername) > 0 {
@@ -159,13 +161,13 @@ func PrepareCommand(cmd *cobra.Command, clientConfig clientcmd.ClientConfig, opt
 
 func usage() string {
 	return fmt.Sprintf(`  # Connect to 'testvmi':
-  {{ProgramName}} ssh jdoe@testvmi [--%s]
+  {{ProgramName}} ssh jdoe@vmi/testvmi [--%s]
 
   # Connect to 'testvm' in 'mynamespace' namespace
   {{ProgramName}} ssh jdoe@vm/testvm.mynamespace [--%s]
 
   # Specify a username and namespace:
-  {{ProgramName}} ssh --namespace=mynamespace --%s=jdoe testvmi`,
+  {{ProgramName}} ssh --namespace=mynamespace --%s=jdoe vmi/testvmi`,
 		IdentityFilePathFlag,
 		IdentityFilePathFlag,
 		usernameFlag,
@@ -184,4 +186,26 @@ func defaultUsername() string {
 		}
 	}
 	return ""
+}
+
+// ParseTarget SSH Target argument supporting the form of username@vmi/name.namespace (or simpler)
+func ParseTarget(arg string) (string, string, string, string, error) {
+	kind := "vmi"
+	username := ""
+
+	usernameAndTarget := strings.Split(arg, "@")
+	if len(usernameAndTarget) > 1 {
+		username = usernameAndTarget[0]
+		if username == "" {
+			return "", "", "", "", errors.New("expected username before '@'")
+		}
+		arg = usernameAndTarget[1]
+	}
+
+	if arg == "" {
+		return "", "", "", "", errors.New("expected target after '@'")
+	}
+
+	kind, namespace, name, err := portforward.ParseTarget(arg)
+	return kind, namespace, name, username, err
 }

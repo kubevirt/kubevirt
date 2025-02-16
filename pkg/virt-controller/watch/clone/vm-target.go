@@ -27,13 +27,13 @@ import (
 
 	"kubevirt.io/client-go/log"
 
-	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	clone "kubevirt.io/api/clone/v1beta1"
 	k6tv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
-func generatePatches(source *k6tv1.VirtualMachine, cloneSpec *clonev1alpha1.VirtualMachineCloneSpec) ([]string, error) {
+func generatePatches(source *k6tv1.VirtualMachine, cloneSpec *clone.VirtualMachineCloneSpec) ([]string, error) {
 	patchSet := patch.New()
 	addMacAddressPatches(patchSet, source.Spec.Template.Spec.Domain.Devices.Interfaces, cloneSpec.NewMacAddresses)
 	addSmbiosSerialPatches(patchSet, source.Spec.Template.Spec.Domain.Firmware, cloneSpec.NewSMBiosSerial)

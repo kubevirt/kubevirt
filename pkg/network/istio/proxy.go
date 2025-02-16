@@ -27,7 +27,7 @@ import (
 
 func ProxyInjectionEnabled(vmi *v1.VirtualMachineInstance) bool {
 	if val, ok := vmi.GetAnnotations()[InjectSidecarAnnotation]; ok {
-		return strings.ToLower(val) == "true"
+		return strings.EqualFold(val, "true")
 	}
 	return false
 }

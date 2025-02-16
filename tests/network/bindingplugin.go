@@ -31,7 +31,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -44,26 +43,25 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCustomBindingPlugins, func() {
-
-	BeforeEach(func() {
-		config.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
-	})
-
+var _ = SIGDescribe("network binding plugin", Serial, decorators.NetCustomBindingPlugins, func() {
 	Context("with CNI and Sidecar", func() {
+		const passtNetAttDefName = "netbindingpasst"
+
 		BeforeEach(func() {
 			const passtBindingName = "passt"
 			passtSidecarImage := libregistry.GetUtilityImageFromRegistry("network-passt-binding")
 
 			err := config.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
 				SidecarImage:                passtSidecarImage,
-				NetworkAttachmentDefinition: libnet.PasstNetAttDef,
+				NetworkAttachmentDefinition: passtNetAttDefName,
 			})
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		BeforeEach(func() {
-			Expect(libnet.CreatePasstNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil))).To(Succeed())
+			netAttachDef := libnet.NewPasstNetAttachDef(passtNetAttDefName)
+			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(nil), netAttachDef)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("can be used by a VMI as its primary network", func() {
@@ -98,17 +96,15 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 
 	Context("with domain attachment tap type", func() {
 		const (
-			macvtapNetworkConfNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s", "annotations": {"k8s.v1.cni.cncf.io/resourceName": "macvtap.network.kubevirt.io/%s"}},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"%s\", \"type\": \"macvtap\"}"}}`
-			macvtapBindingName    = "macvtap"
-			macvtapLowerDevice    = "eth0"
-			macvtapNetworkName    = "net1"
+			macvtapBindingName = "macvtap"
+			macvtapLowerDevice = "eth0"
+			macvtapNetworkName = "net1"
 		)
 
 		BeforeEach(func() {
-			macvtapNad := fmt.Sprintf(macvtapNetworkConfNAD, macvtapNetworkName, testsuite.GetTestNamespace(nil), macvtapLowerDevice, macvtapNetworkName)
-			namespace := testsuite.GetTestNamespace(nil)
-			Expect(libnet.CreateNetworkAttachmentDefinition(macvtapNetworkName, namespace, macvtapNad)).
-				To(Succeed(), "A macvtap network named %s should be provisioned", macvtapNetworkName)
+			netAttachDef := libnet.NewMacvtapNetAttachDef(macvtapNetworkName, macvtapLowerDevice)
+			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(nil), netAttachDef)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		BeforeEach(func() {
@@ -185,22 +181,29 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 			Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
 			nodeName := nodeList.Items[0].Name
 
-			const (
-				linuxBridgeConfNAD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"bridge\", \"bridge\": \"%s\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"%s\" }}]}"}}`
-				linuxBridgeNADName = "bridge0"
-			)
+			const linuxBridgeNADName = "bridge0"
 			namespace := testsuite.GetTestNamespace(nil)
-			bridgeNAD := fmt.Sprintf(linuxBridgeConfNAD, linuxBridgeNADName, namespace, "br10", "10.1.1.0/24")
-			Expect(libnet.CreateNetworkAttachmentDefinition(linuxBridgeNADName, namespace, bridgeNAD)).To(Succeed())
+			netAttachDef := libnet.NewBridgeNetAttachDef(
+				linuxBridgeNADName,
+				"br10",
+				libnet.WithIPAM(map[string]string{
+					"type":   "host-local",
+					"subnet": "10.1.1.0/24",
+				}),
+			)
+			_, err := libnet.CreateNetAttachDef(context.Background(), namespace, netAttachDef)
+			Expect(err).ToNot(HaveOccurred())
 
 			primaryIface := libvmi.InterfaceWithBindingPlugin(
 				"mynet1", v1.PluginBinding{Name: bindingName},
 			)
 			primaryNetwork := v1.Network{
 				Name: "mynet1",
-				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{
-					NetworkName: fmt.Sprintf("%s/%s", namespace, linuxBridgeNADName),
-					Default:     true},
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{
+						NetworkName: fmt.Sprintf("%s/%s", namespace, linuxBridgeNADName),
+						Default:     true,
+					},
 				},
 			}
 			primaryIface.MacAddress = "de:ad:00:00:be:af"
@@ -219,7 +222,6 @@ var _ = SIGDescribe("[Serial]network binding plugin", Serial, decorators.NetCust
 			}
 			clientVMI := libvmifact.NewAlpineWithTestTooling(opts...)
 
-			var err error
 			ns := testsuite.GetTestNamespace(nil)
 			serverVMI, err = kubevirt.Client().VirtualMachineInstance(ns).Create(context.Background(), serverVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())

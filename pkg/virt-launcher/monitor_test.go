@@ -46,37 +46,36 @@ var _ = Describe("VirtLauncher", func() {
 	var pidDir string
 	var processStarted bool
 
-	StartProcess := func() {
+	startProcess := func() {
 		cmd = exec.Command(fakeQEMUBinary, "--uuid", uuid.New().String(), "--pidfile", filepath.Join(pidDir, "fakens_fakevmi.pid"))
 		err := cmd.Start()
-		Expect(err).ToNot(HaveOccurred())
+		ExpectWithOffset(1, err).ToNot(HaveOccurred(), "command failed to start")
 
 		currentPid := cmd.Process.Pid
-		Expect(currentPid).ToNot(Equal(0))
+		ExpectWithOffset(1, currentPid).ToNot(Equal(0), "no PID")
 
 		processStarted = true
 	}
 
-	StopProcess := func() {
-		cmd.Process.Kill()
+	stopProcess := func() {
+		err := cmd.Process.Kill()
+		ExpectWithOffset(1, err).ToNot(HaveOccurred(), "failed to kill process")
 
 		processStarted = false
 	}
 
-	VerifyProcessStarted := func() {
-		Eventually(func() bool {
+	verifyProcessStarted := func() {
+		EventuallyWithOffset(1, func() bool {
 			mon.refresh()
 			return mon.pid != 0
-		}).Should(BeTrue())
-
+		}).WithTimeout(10*time.Second).WithPolling(100*time.Millisecond).Should(BeTrue(), "process did not start")
 	}
 
-	VerifyProcessStopped := func() {
-		Eventually(func() bool {
+	verifyProcessStopped := func() {
+		EventuallyWithOffset(1, func() bool {
 			mon.refresh()
 			return mon.pid == 0 && mon.isDone
-		}).Should(BeTrue())
-
+		}).WithTimeout(10*time.Second).WithPolling(100*time.Millisecond).Should(BeTrue(), "process did not stop")
 	}
 
 	BeforeEach(func() {
@@ -108,28 +107,28 @@ var _ = Describe("VirtLauncher", func() {
 
 	AfterEach(func() {
 		if processStarted {
-			StopProcess()
+			stopProcess()
 		}
-		cmd.Wait()
+		_ = cmd.Wait()
 	})
 
 	Describe("VirtLauncher", func() {
 		Context("process monitor", func() {
 			It("verify pid detection works", func() {
-				StartProcess()
-				VerifyProcessStarted()
-				StopProcess()
-				VerifyProcessStopped()
+				startProcess()
+				verifyProcessStarted()
+				stopProcess()
+				verifyProcessStopped()
 			})
 
 			It("verify zombie pid detection works", func() {
-				StartProcess()
-				VerifyProcessStarted()
-				StopProcess()
-				VerifyProcessStopped()
+				startProcess()
+				verifyProcessStarted()
+				stopProcess()
+				verifyProcessStopped()
 
 				// cleanup after stopping ensures zombie process is detected
-				cmd.Wait()
+				_ = cmd.Wait()
 			})
 
 			It("verify start timeout works", func() {
@@ -166,8 +165,8 @@ var _ = Describe("VirtLauncher", func() {
 				stopChan := make(chan struct{})
 				done := make(chan string)
 
-				StartProcess()
-				VerifyProcessStarted()
+				startProcess()
+				verifyProcessStarted()
 
 				go func() {
 					defer GinkgoRecover()
@@ -184,8 +183,8 @@ var _ = Describe("VirtLauncher", func() {
 				stopChan := make(chan struct{})
 				done := make(chan string)
 
-				StartProcess()
-				VerifyProcessStarted()
+				startProcess()
+				verifyProcessStarted()
 				go func() {
 					defer GinkgoRecover()
 					mon.gracePeriod = 1

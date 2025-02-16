@@ -95,7 +95,7 @@ var migrationBackoffError = errors.New(controller.MigrationBackoffReason)
 type Controller struct {
 	templateService      services.TemplateService
 	clientset            kubecli.KubevirtClient
-	Queue                workqueue.RateLimitingInterface
+	Queue                workqueue.TypedRateLimitingInterface[string]
 	vmiStore             cache.Store
 	podIndexer           cache.Indexer
 	migrationIndexer     cache.Indexer
@@ -139,8 +139,11 @@ func NewController(templateService services.TemplateService,
 ) (*Controller, error) {
 
 	c := &Controller{
-		templateService:      templateService,
-		Queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-migration"),
+		templateService: templateService,
+		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-migration"},
+		),
 		vmiStore:             vmiInformer.GetStore(),
 		podIndexer:           podInformer.GetIndexer(),
 		migrationIndexer:     migrationInformer.GetIndexer(),
@@ -243,7 +246,7 @@ func (c *Controller) Execute() bool {
 		return false
 	}
 	defer c.Queue.Done(key)
-	err := c.execute(key.(string))
+	err := c.execute(key)
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing Migration %v", key)
@@ -441,8 +444,11 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 
 	// Remove the finalizer and conditions if the migration has already completed
 	if migration.IsFinal() {
-		// store the finalized migration state data from the VMI status in the migration object
-		migrationCopy.Status.MigrationState = vmi.Status.MigrationState
+
+		if vmi.Status.MigrationState != nil && migration.UID == vmi.Status.MigrationState.MigrationUID {
+			// Store the finalized migration state data from the VMI status in the migration object
+			migrationCopy.Status.MigrationState = vmi.Status.MigrationState
+		}
 
 		// remove the migration finalizer
 		controller.RemoveFinalizer(migrationCopy, virtv1.VirtualMachineInstanceMigrationFinalizer)
@@ -1580,7 +1586,7 @@ func (c *Controller) resolveControllerRef(namespace string, controllerRef *v1.Ow
 	if controllerRef.Kind != virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Kind {
 		return nil
 	}
-	migration, exists, err := c.migrationIndexer.GetByKey(namespace + "/" + controllerRef.Name)
+	migration, exists, err := c.migrationIndexer.GetByKey(controller.NamespacedKey(namespace, controllerRef.Name))
 	if err != nil {
 		return nil
 	}
@@ -1779,7 +1785,7 @@ func (c *Controller) addPVC(obj interface{}) {
 	if !exists {
 		return
 	}
-	migrationKey := pvc.Namespace + "/" + migrationName
+	migrationKey := controller.NamespacedKey(pvc.Namespace, migrationName)
 	c.pvcExpectations.CreationObserved(migrationKey)
 	c.Queue.Add(migrationKey)
 }
@@ -1959,7 +1965,8 @@ func (c *Controller) deleteVMI(obj interface{}) {
 func (c *Controller) outboundMigrationsOnNode(node string, runningMigrations []*virtv1.VirtualMachineInstanceMigration) (int, error) {
 	sum := 0
 	for _, migration := range runningMigrations {
-		if vmi, exists, _ := c.vmiStore.GetByKey(migration.Namespace + "/" + migration.Spec.VMIName); exists {
+		key := controller.NamespacedKey(migration.Namespace, migration.Spec.VMIName)
+		if vmi, exists, _ := c.vmiStore.GetByKey(key); exists {
 			if vmi.(*virtv1.VirtualMachineInstance).Status.NodeName == node {
 				sum = sum + 1
 			}
@@ -1981,7 +1988,8 @@ func (c *Controller) findRunningMigrations() ([]*virtv1.VirtualMachineInstanceMi
 			runningMigrations = append(runningMigrations, migration)
 			continue
 		}
-		vmi, exists, err := c.vmiStore.GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
+		key := controller.NamespacedKey(migration.Namespace, migration.Spec.VMIName)
+		vmi, exists, err := c.vmiStore.GetByKey(key)
 		if err != nil {
 			return nil, err
 		}

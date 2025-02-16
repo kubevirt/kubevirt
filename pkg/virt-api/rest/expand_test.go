@@ -26,7 +26,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
 
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
@@ -76,12 +76,8 @@ var _ = Describe("Instancetype expansion subresources", func() {
 			},
 		}
 
-		app = NewSubresourceAPIApp(virtClient, 0, nil, nil)
-		app.instancetypeMethods = &instancetype.InstancetypeMethods{
-			Clientset: virtClient,
-		}
 		config, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
-		app.clusterConfig = config
+		app = NewSubresourceAPIApp(virtClient, 0, nil, config)
 
 		request = restful.NewRequest(&http.Request{})
 		recorder = httptest.NewRecorder()
@@ -239,7 +235,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 
 			recorder := callExpandSpecApi(vm)
 			statusErr := ExpectStatusErrorWithCode(recorder, expectedStatusError)
-			Expect(statusErr.Status().Message).To(ContainSubstring(fmt.Sprintf(instancetype.VMFieldsConflictsErrorFmt, "spec.template.spec.domain.cpu.sockets")))
+			Expect(statusErr.Status().Message).To(ContainSubstring(conflict.New("spec.template.spec.domain.cpu.sockets").Error()))
 		})
 	}
 

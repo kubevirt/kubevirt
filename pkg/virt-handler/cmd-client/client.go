@@ -68,8 +68,6 @@ const StandardLauncherSocketFileName = "launcher-sock"
 const StandardInitLauncherSocketFileName = "launcher-init-sock"
 const StandardLauncherUnresponsiveFileName = "launcher-unresponsive"
 
-const MultiThreadedQemuMigrationAnnotation = "kubevirt.io/multiThreadedQemuMigration"
-
 type MigrationOptions struct {
 	Bandwidth                resource.Quantity
 	ProgressTimeout          int64
@@ -78,6 +76,7 @@ type MigrationOptions struct {
 	AllowAutoConverge        bool
 	AllowPostCopy            bool
 	ParallelMigrationThreads *uint
+	AllowWorkloadDisruption  bool
 }
 
 type LauncherClient interface {
@@ -87,6 +86,7 @@ type LauncherClient interface {
 	FreezeVirtualMachine(vmi *v1.VirtualMachineInstance, unfreezeTimeoutSeconds int32) error
 	UnfreezeVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	SyncMigrationTarget(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
+	ResetVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	SoftRebootVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	SignalTargetPodCleanup(vmi *v1.VirtualMachineInstance) error
 	ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error
@@ -187,7 +187,7 @@ func MarkSocketUnresponsive(socket string) error {
 }
 
 func SocketDirectoryOnHost(podUID string) string {
-	return fmt.Sprintf("/%s/%s/volumes/kubernetes.io~empty-dir/sockets", podsBaseDir, string(podUID))
+	return fmt.Sprintf("/%s/%s/volumes/kubernetes.io~empty-dir/sockets", podsBaseDir, podUID)
 }
 
 func SocketFilePathOnHost(podUID string) string {
@@ -432,6 +432,10 @@ func (c *VirtLauncherClient) VirtualMachineMemoryDump(vmi *v1.VirtualMachineInst
 
 func (c *VirtLauncherClient) SoftRebootVirtualMachine(vmi *v1.VirtualMachineInstance) error {
 	return c.genericSendVMICmd("SoftReboot", c.v1client.SoftRebootVirtualMachine, vmi, &cmdv1.VirtualMachineOptions{})
+}
+
+func (c *VirtLauncherClient) ResetVirtualMachine(vmi *v1.VirtualMachineInstance) error {
+	return c.genericSendVMICmd("Reset", c.v1client.ResetVirtualMachine, vmi, &cmdv1.VirtualMachineOptions{})
 }
 
 func (c *VirtLauncherClient) ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error {
@@ -684,7 +688,7 @@ func (c *VirtLauncherClient) Exec(domainName, command string, args []string, tim
 		DomainName:     domainName,
 		Command:        command,
 		Args:           args,
-		TimeoutSeconds: int32(timeoutSeconds),
+		TimeoutSeconds: timeoutSeconds,
 	}
 	exitCode := -1
 	stdOut := ""

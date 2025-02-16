@@ -59,14 +59,17 @@ type VMRestoreController struct {
 
 	Recorder record.EventRecorder
 
-	vmRestoreQueue workqueue.RateLimitingInterface
+	vmRestoreQueue workqueue.TypedRateLimitingInterface[string]
 
 	VMRestoreStatusUpdater *status.VMRestoreStatusUpdater
 }
 
 // Init initializes the restore controller
 func (ctrl *VMRestoreController) Init() error {
-	ctrl.vmRestoreQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-restore-vmrestore")
+	ctrl.vmRestoreQueue = workqueue.NewTypedRateLimitingQueueWithConfig[string](
+		workqueue.DefaultTypedControllerRateLimiter[string](),
+		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-restore-vmrestore"},
+	)
 
 	_, err := ctrl.VMRestoreInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{

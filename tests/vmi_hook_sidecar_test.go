@@ -41,11 +41,11 @@ import (
 	hooksv1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	hooksv1alpha3 "kubevirt.io/kubevirt/pkg/hooks/v1alpha3"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -98,7 +98,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 				kvconfig.UpdateKubeVirtConfigValueAndWait(originalConfig)
 			})
 
-			It("[test_id:3155][serial]should successfully start with hook sidecar annotation", Serial, func() {
+			It("[test_id:3155]should successfully start with hook sidecar annotation", Serial, func() {
 				resources := v1.ResourceRequirementsWithoutClaims{
 					Requests: k8sv1.ResourceList{
 						k8sv1.ResourceCPU:    resource.MustParse("1m"),
@@ -224,9 +224,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 					fmt.Sprintf("container %s should terminate", sidecarContainerName))
 			})
 
-			DescribeTable("migrate VMI with sidecar", func(hookVersion string, sidecarShouldTerminate bool) {
-				checks.SkipIfMigrationIsNotPossible()
-
+			DescribeTable("migrate VMI with sidecar", decorators.RequiresTwoSchedulableNodes, func(hookVersion string, sidecarShouldTerminate bool) {
 				vmi.ObjectMeta.Annotations = RenderSidecar(hookVersion)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 360)
 
@@ -278,7 +276,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 
 		Context("with ConfigMap in sidecar hook annotation", func() {
 
-			DescribeTable("[test_id:9833]should update domain XML with SM BIOS properties", func(withImage bool) {
+			DescribeTable("should update domain XML with SM BIOS properties", func(withImage bool) {
 				cm, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(vmi)).Create(context.TODO(), RenderConfigMap(), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				if withImage {
@@ -298,9 +296,9 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 			)
 		})
 
-		Context("[Serial]with sidecar feature gate disabled", Serial, func() {
+		Context("with sidecar feature gate disabled", Serial, func() {
 			BeforeEach(func() {
-				kvconfig.DisableFeatureGate(virtconfig.SidecarGate)
+				kvconfig.DisableFeatureGate(featuregate.SidecarGate)
 			})
 
 			It("[test_id:2666]should not start with hook sidecar annotation", func() {

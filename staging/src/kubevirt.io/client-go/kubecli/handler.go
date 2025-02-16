@@ -26,6 +26,7 @@ const (
 	unpauseTemplateURI        = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unpause"
 	freezeTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/freeze"
 	unfreezeTemplateURI       = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unfreeze"
+	resetTemplateURI          = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/reset"
 	softRebootTemplateURI     = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/softreboot"
 	guestInfoTemplateURI      = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/guestosinfo"
 	userListTemplateURI       = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/userlist"
@@ -61,6 +62,7 @@ type VirtHandlerConn interface {
 	UnpauseURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	FreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UnfreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	ResetURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	SoftRebootURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	SEVFetchCertChainURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	SEVQueryLaunchMeasurementURI(vmi *virtv1.VirtualMachineInstance) (string, error)
@@ -201,6 +203,10 @@ func (v *virtHandlerConn) UnfreezeURI(vmi *virtv1.VirtualMachineInstance) (strin
 	return v.formatURI(unfreezeTemplateURI, vmi)
 }
 
+func (v *virtHandlerConn) ResetURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	return v.formatURI(resetTemplateURI, vmi)
+}
+
 func (v *virtHandlerConn) SoftRebootURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
 	return v.formatURI(softRebootTemplateURI, vmi)
 }
@@ -229,7 +235,11 @@ func (v *virtHandlerConn) doRequest(req *http.Request) (response string, err err
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return "", fmt.Errorf("unexpected return code %d (%s)", resp.StatusCode, resp.Status)
+		responseBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return "", fmt.Errorf("unexpected return code %d (%s)", resp.StatusCode, resp.Status)
+		}
+		return "", fmt.Errorf("unexpected return code %d (%s), message: %s", resp.StatusCode, resp.Status, string(responseBytes))
 	}
 
 	responseBytes, err := io.ReadAll(resp.Body)

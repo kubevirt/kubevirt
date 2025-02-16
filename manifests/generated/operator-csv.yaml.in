@@ -577,6 +577,7 @@ spec:
           resources:
           - virtualmachinesnapshots
           - virtualmachinesnapshots/status
+          - virtualmachinesnapshots/finalizers
           - virtualmachinesnapshotcontents
           - virtualmachinesnapshotcontents/status
           - virtualmachinesnapshotcontents/finalizers
@@ -629,15 +630,18 @@ spec:
           - kubevirt.io
           resources:
           - virtualmachines/finalizers
+          - virtualmachineinstances/finalizers
           verbs:
           - update
         - apiGroups:
           - subresources.kubevirt.io
           resources:
+          - virtualmachines/stop
           - virtualmachineinstances/addvolume
           - virtualmachineinstances/removevolume
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
+          - virtualmachineinstances/reset
           - virtualmachineinstances/softreboot
           - virtualmachineinstances/sev/setupsession
           - virtualmachineinstances/sev/injectlaunchsecret
@@ -852,6 +856,7 @@ spec:
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
           - virtualmachineinstances/softreboot
+          - virtualmachineinstances/reset
           - virtualmachineinstances/sev/setupsession
           - virtualmachineinstances/sev/injectlaunchsecret
           verbs:
@@ -871,7 +876,6 @@ spec:
           - virtualmachines/restart
           - virtualmachines/addvolume
           - virtualmachines/removevolume
-          - virtualmachines/migrate
           - virtualmachines/memorydump
           verbs:
           - update
@@ -888,7 +892,6 @@ spec:
           - virtualmachineinstances
           - virtualmachineinstancepresets
           - virtualmachineinstancereplicasets
-          - virtualmachineinstancemigrations
           verbs:
           - get
           - delete
@@ -898,6 +901,14 @@ spec:
           - list
           - watch
           - deletecollection
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachineinstancemigrations
+          verbs:
+          - get
+          - list
+          - watch
         - apiGroups:
           - snapshot.kubevirt.io
           resources:
@@ -1001,6 +1012,7 @@ spec:
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
           - virtualmachineinstances/softreboot
+          - virtualmachineinstances/reset
           - virtualmachineinstances/sev/setupsession
           - virtualmachineinstances/sev/injectlaunchsecret
           verbs:
@@ -1020,7 +1032,6 @@ spec:
           - virtualmachines/restart
           - virtualmachines/addvolume
           - virtualmachines/removevolume
-          - virtualmachines/migrate
           - virtualmachines/memorydump
           verbs:
           - update
@@ -1037,13 +1048,20 @@ spec:
           - virtualmachineinstances
           - virtualmachineinstancepresets
           - virtualmachineinstancereplicasets
-          - virtualmachineinstancemigrations
           verbs:
           - get
           - delete
           - create
           - update
           - patch
+          - list
+          - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachineinstancemigrations
+          verbs:
+          - get
           - list
           - watch
         - apiGroups:
@@ -1225,6 +1243,25 @@ spec:
           - list
           - watch
         - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachines/migrate
+          verbs:
+          - update
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - virtualmachineinstancemigrations
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+          - deletecollection
+        - apiGroups:
           - authentication.k8s.io
           resources:
           - tokenreviews
@@ -1248,6 +1285,8 @@ spec:
             type: RollingUpdate
           template:
             metadata:
+              annotations:
+                openshift.io/required-scc: restricted-v2
               labels:
                 kubevirt.io: virt-operator
                 name: virt-operator

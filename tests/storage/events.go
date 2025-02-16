@@ -45,13 +45,10 @@ import (
 )
 
 const (
-	ioerrorPV  = "ioerror-pv"
-	ioerrorPVC = "ioerror-pvc"
 	deviceName = "errdev0"
-	diskName   = "disk0"
 )
 
-var _ = SIGDescribe("[Serial]K8s IO events", Serial, func() {
+var _ = SIGDescribe("K8s IO events", Serial, func() {
 	var (
 		nodeName   string
 		virtClient kubecli.KubevirtClient

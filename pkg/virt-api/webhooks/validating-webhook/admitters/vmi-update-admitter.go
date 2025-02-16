@@ -32,7 +32,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
@@ -101,9 +100,10 @@ func (admitter *VMIUpdateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 	}
 
 	// Reject VMI update if VMI spec changed
+	_, isKubeVirtServiceAccount := admitter.kubeVirtServiceAccounts[ar.Request.UserInfo.Username]
 	if !equality.Semantic.DeepEqual(newVMI.Spec, oldVMI.Spec) {
 		// Only allow the KubeVirt SA to modify the VMI spec, since that means it went through the sub resource.
-		if _, isKubeVirtServiceAccount := admitter.kubeVirtServiceAccounts[ar.Request.UserInfo.Username]; isKubeVirtServiceAccount {
+		if isKubeVirtServiceAccount {
 			hotplugResponse := admitHotplug(oldVMI, newVMI, admitter.clusterConfig)
 			if hotplugResponse != nil {
 				return hotplugResponse
@@ -118,8 +118,10 @@ func (admitter *VMIUpdateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 		}
 	}
 
-	if reviewResponse := admitVMILabelsUpdate(newVMI, oldVMI, ar); reviewResponse != nil {
-		return reviewResponse
+	if !isKubeVirtServiceAccount {
+		if reviewResponse := admitVMILabelsUpdate(newVMI, oldVMI); reviewResponse != nil {
+			return reviewResponse
+		}
 	}
 
 	return &admissionv1.AdmissionResponse{
@@ -164,7 +166,7 @@ func admitStorageUpdate(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks [
 		return permanentAr
 	}
 
-	hotplugAr := verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap, newDiskMap, oldDiskMap)
+	hotplugAr := verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap, newDiskMap, oldDiskMap, migratedVolumeMap)
 	if hotplugAr != nil {
 		return hotplugAr
 	}
@@ -177,11 +179,13 @@ func admitStorageUpdate(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks [
 	return nil
 }
 
-func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1.Volume, newDisks, oldDisks map[string]v1.Disk) *admissionv1.AdmissionResponse {
+func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1.Volume, newDisks, oldDisks map[string]v1.Disk,
+	migratedVols map[string]bool) *admissionv1.AdmissionResponse {
 	for k, v := range newHotplugVolumeMap {
 		if _, ok := oldHotplugVolumeMap[k]; ok {
+			_, okMigVol := migratedVols[k]
 			// New and old have same volume, ensure they are the same
-			if !equality.Semantic.DeepEqual(v, oldHotplugVolumeMap[k]) {
+			if !equality.Semantic.DeepEqual(v, oldHotplugVolumeMap[k]) && !okMigVol {
 				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 					{
 						Type:    metav1.CauseTypeFieldValueInvalid,
@@ -366,12 +370,7 @@ func getMigratedVolumeMaps(migratedDisks []v1.StorageMigratedVolumeInfo) map[str
 func admitVMILabelsUpdate(
 	newVMI *v1.VirtualMachineInstance,
 	oldVMI *v1.VirtualMachineInstance,
-	ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-
-	if webhooks.IsKubeVirtServiceAccount(ar.Request.UserInfo.Username) {
-		return nil
-	}
-
+) *admissionv1.AdmissionResponse {
 	oldLabels := filterKubevirtLabels(oldVMI.ObjectMeta.Labels)
 	newLabels := filterKubevirtLabels(newVMI.ObjectMeta.Labels)
 

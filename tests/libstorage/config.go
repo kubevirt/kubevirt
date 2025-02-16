@@ -44,6 +44,8 @@ type KubeVirtTestsConfiguration struct {
 	StorageRWOBlock string `json:"storageRWOBlock"`
 	// StorageClass supporting snapshot
 	StorageSnapshot string `json:"storageSnapshot"`
+	// StorageVMState is the storage class for backend PVCs (TPM/EFI)
+	StorageVMState string `json:"storageVMState"`
 }
 
 const kubevirtIoTest = "kubevirt.io/test"

@@ -30,8 +30,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	expect "github.com/google/goexpect"
-	k8snetworkplumbingwgv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
-
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,10 +42,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/network/istio"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -138,17 +134,16 @@ var istioTests = func(vmType VmType) {
 			)
 		}
 		BeforeEach(func() {
-			virtClient = kubevirt.Client()
-
 			libnet.SkipWhenClusterNotSupportIpv4()
 
 			By("Create NetworkAttachmentDefinition")
-			nad := generateIstioCNINetworkAttachmentDefinition()
-			_, err = virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(namespace).Create(context.TODO(), nad, metav1.CreateOptions{})
+			nad := libnet.NewNetAttachDef("istio-cni", "")
+			_, err = libnet.CreateNetAttachDef(context.Background(), namespace, nad)
 			Expect(err).ShouldNot(HaveOccurred())
 
 			By("Creating k8s service for the VMI")
 
+			virtClient = kubevirt.Client()
 			serviceName := fmt.Sprintf("%s-service", vmiAppSelectorValue)
 			service := netservice.BuildSpec(serviceName, svcDeclaredTestPort, svcDeclaredTestPort, vmiAppSelectorKey, vmiAppSelectorValue)
 			_, err = virtClient.CoreV1().Services(namespace).Create(context.Background(), service, metav1.CreateOptions{})
@@ -170,10 +165,8 @@ var istioTests = func(vmType VmType) {
 			By("Waiting for VMI to be ready")
 			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 		})
-		Describe("Live Migration", decorators.SigComputeMigrations, func() {
-			var (
-				sourcePodName string
-			)
+		Describe("Live Migration", decorators.RequiresTwoSchedulableNodes, decorators.SigComputeMigrations, func() {
+			var sourcePodName string
 			allContainersCompleted := func(podName string) error {
 				pod, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 				if err != nil {
@@ -186,9 +179,6 @@ var istioTests = func(vmType VmType) {
 				}
 				return nil
 			}
-			BeforeEach(func() {
-				checks.SkipIfMigrationIsNotPossible()
-			})
 			JustBeforeEach(func() {
 				sourcePod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).ToNot(HaveOccurred())
@@ -390,10 +380,9 @@ var istioTests = func(vmType VmType) {
 				ingressGatewayService, err := virtClient.CoreV1().Services(istioNamespace).Get(context.TODO(), "istio-ingressgateway", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				ingressGatewayServiceIP = ingressGatewayService.Spec.ClusterIP
-
 			})
 
-			checkHTTPServiceReturnCode := func(ingressGatewayAddress string, returnCode string) error {
+			checkHTTPServiceReturnCode := func(ingressGatewayAddress, returnCode string) error {
 				return console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: console.PromptExpression},
@@ -468,9 +457,7 @@ var istioTestsWithMasqueradeBinding = func() {
 }
 
 var istioTestsWithPasstBinding = func() {
-	BeforeEach(func() {
-		config.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
-	})
+	const passtNetAttDefName = "netbindingpasst"
 
 	BeforeEach(func() {
 		const passtBindingName = "passt"
@@ -478,22 +465,24 @@ var istioTestsWithPasstBinding = func() {
 
 		err := config.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
 			SidecarImage:                passtSidecarImage,
-			NetworkAttachmentDefinition: libnet.PasstNetAttDef,
+			NetworkAttachmentDefinition: passtNetAttDefName,
 			Migration:                   &v1.InterfaceBindingMigration{Method: v1.LinkRefresh},
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	BeforeEach(func() {
-		Expect(libnet.CreatePasstNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil))).To(Succeed())
+		netAttachDef := libnet.NewPasstNetAttachDef(passtNetAttDefName)
+		_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(nil), netAttachDef)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	istioTests(Passt)
 }
 
-var _ = SIGDescribe("[Serial] Istio with masquerade binding", decorators.Istio, Serial, istioTestsWithMasqueradeBinding)
+var _ = SIGDescribe(" Istio with masquerade binding", decorators.Istio, Serial, istioTestsWithMasqueradeBinding)
 
-var _ = SIGDescribe("[Serial] Istio with passt binding", decorators.Istio, decorators.NetCustomBindingPlugins, Serial, istioTestsWithPasstBinding)
+var _ = SIGDescribe(" Istio with passt binding", decorators.Istio, decorators.NetCustomBindingPlugins, Serial, istioTestsWithPasstBinding)
 
 func istioServiceMeshDeployed() bool {
 	return strings.ToLower(os.Getenv(istioDeployedEnvVariable)) == "true"
@@ -502,7 +491,6 @@ func istioServiceMeshDeployed() bool {
 func newVMIWithIstioSidecar(ports []v1.Port, vmType VmType) (*v1.VirtualMachineInstance, error) {
 	if vmType == Masquerade {
 		return createMasqueradeVm(ports), nil
-
 	}
 	if vmType == Passt {
 		return createPasstVm(ports), nil
@@ -536,15 +524,6 @@ func createPasstVm(ports []v1.Port) *v1.VirtualMachineInstance {
 		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(enablePasswordAuth)),
 	)
 	return vmi
-}
-
-func generateIstioCNINetworkAttachmentDefinition() *k8snetworkplumbingwgv1.NetworkAttachmentDefinition {
-	return &k8snetworkplumbingwgv1.NetworkAttachmentDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "istio-cni",
-		},
-		Spec: k8snetworkplumbingwgv1.NetworkAttachmentDefinitionSpec{},
-	}
 }
 
 func generateStrictPeerAuthentication() *unstructured.Unstructured {

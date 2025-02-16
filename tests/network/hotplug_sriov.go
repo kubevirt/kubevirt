@@ -21,7 +21,6 @@ package network
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -38,14 +37,13 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libvmifact"
-	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("[Serial] SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
-
+var _ = SIGDescribe(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 	sriovResourceName := readSRIOVResourceName()
 
 	BeforeEach(func() {
@@ -74,12 +72,10 @@ var _ = SIGDescribe("[Serial] SRIOV nic-hotplug", Serial, decorators.SRIOV, func
 			var err error
 			hotPluggedVM, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), hotPluggedVM, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Eventually(func() error {
-				var err error
-				hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(hotPluggedVM.Namespace).Get(context.Background(), hotPluggedVM.GetName(), metav1.GetOptions{})
-				return err
-			}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-			libwait.WaitUntilVMIReady(hotPluggedVMI, console.LoginToAlpine)
+			Eventually(matcher.ThisVM(hotPluggedVM)).WithTimeout(6 * time.Minute).WithPolling(3 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			hotPluggedVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), hotPluggedVM.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(console.LoginToAlpine(hotPluggedVMI)).To(Succeed())
 
 			By("Creating a NAD")
 			Expect(createSRIOVNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), nadName, sriovResourceName)).To(Succeed())
@@ -120,12 +116,11 @@ var _ = SIGDescribe("[Serial] SRIOV nic-hotplug", Serial, decorators.SRIOV, func
 	})
 })
 
-func createSRIOVNetworkAttachmentDefinition(namespace, networkName string, sriovResourceName string) error {
-	return libnet.CreateNetworkAttachmentDefinition(
-		networkName,
-		namespace,
-		fmt.Sprintf(sriovConfNAD, networkName, namespace, sriovResourceName),
-	)
+func createSRIOVNetworkAttachmentDefinition(namespace, networkName, sriovResourceName string) error {
+	netAttachDef := libnet.NewSriovNetAttachDef(networkName, 0)
+	netAttachDef.Annotations = map[string]string{libnet.ResourceNameAnnotation: sriovResourceName}
+	_, err := libnet.CreateNetAttachDef(context.Background(), namespace, netAttachDef)
+	return err
 }
 
 func newSRIOVNetworkInterface(name, netAttachDefName string) (v1.Network, v1.Interface) {

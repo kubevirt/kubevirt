@@ -244,6 +244,11 @@ func GetRWXBlockStorageClass() (string, bool) {
 	return storageRWXBlock, storageRWXBlock != ""
 }
 
+func GetVMStateStorageClass() (string, bool) {
+	storageVMState := Config.StorageVMState
+	return storageVMState, storageVMState != ""
+}
+
 func GetBlockStorageClass(accessMode k8sv1.PersistentVolumeAccessMode) (string, bool) {
 	sc, foundSC := GetRWOBlockStorageClass()
 	if accessMode == k8sv1.ReadWriteMany {

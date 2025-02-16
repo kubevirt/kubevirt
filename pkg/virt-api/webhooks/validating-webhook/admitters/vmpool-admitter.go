@@ -24,8 +24,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
-
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,10 +36,12 @@ import (
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 type VMPoolAdmitter struct {
-	ClusterConfig *virtconfig.ClusterConfig
+	ClusterConfig           *virtconfig.ClusterConfig
+	KubeVirtServiceAccounts map[string]struct{}
 }
 
 func (admitter *VMPoolAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -78,14 +78,15 @@ func (admitter *VMPoolAdmitter) Admit(_ context.Context, ar *admissionv1.Admissi
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	causes := ValidateVMPoolSpec(ar, k8sfield.NewPath("spec"), &pool, admitter.ClusterConfig)
+	_, isKubeVirtServiceAccount := admitter.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]
+	causes := ValidateVMPoolSpec(ar, k8sfield.NewPath("spec"), &pool, admitter.ClusterConfig, isKubeVirtServiceAccount)
 
 	if ar.Request.Operation == admissionv1.Create {
 		clusterCfg := admitter.ClusterConfig.GetConfig()
 		if devCfg := clusterCfg.DeveloperConfiguration; devCfg != nil {
 			causes = append(
 				causes,
-				deprecation.ValidateFeatureGates(devCfg.FeatureGates, &pool.Spec.VirtualMachineTemplate.Spec.Template.Spec)...,
+				featuregate.ValidateFeatureGates(devCfg.FeatureGates, &pool.Spec.VirtualMachineTemplate.Spec.Template.Spec)...,
 			)
 		}
 	}
@@ -100,7 +101,7 @@ func (admitter *VMPoolAdmitter) Admit(_ context.Context, ar *admissionv1.Admissi
 	}
 }
 
-func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, pool *poolv1.VirtualMachinePool, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, pool *poolv1.VirtualMachinePool, config *virtconfig.ClusterConfig, isKubeVirtServiceAccount bool) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	spec := &pool.Spec
@@ -113,8 +114,7 @@ func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, p
 		})
 	}
 
-	accountName := ar.Request.UserInfo.Username
-	causes = append(causes, ValidateVirtualMachineSpec(field.Child("virtualMachineTemplate", "spec"), &spec.VirtualMachineTemplate.Spec, config, accountName)...)
+	causes = append(causes, ValidateVirtualMachineSpec(field.Child("virtualMachineTemplate", "spec"), &spec.VirtualMachineTemplate.Spec, config, isKubeVirtServiceAccount)...)
 
 	selector, err := metav1.LabelSelectorAsSelector(spec.Selector)
 	if err != nil {

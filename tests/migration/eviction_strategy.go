@@ -26,6 +26,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
+	"github.com/onsi/gomega/types"
 
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
@@ -40,7 +42,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -56,11 +57,26 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGMigrationDescribe("Live Migration", func() {
+func vmiIsMigratedFrom(originalNode string) types.GomegaMatcher {
+	return gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+			"NodeName": Not(Equal(originalNode)),
+		}),
+	}))
+}
+
+func evacuationIsClear() types.GomegaMatcher {
+	return gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		"Status": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+			"EvacuationNodeName": BeEmpty(),
+		}),
+	}))
+}
+
+var _ = SIGMigrationDescribe("Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
-		checks.SkipIfMigrationIsNotPossible()
 		virtClient = kubevirt.Client()
 	})
 
@@ -69,36 +85,28 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 			It("[test_id:3242]should block the eviction api and migrate", decorators.Conformance, func() {
 				vmi := libvmops.RunVMIAndExpectLaunch(alpineVMIWithEvictionStrategy(), 180)
-				vmiNodeOrig := vmi.Status.NodeName
+
+				originalNode := vmi.Status.NodeName
+
 				pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
+
+				By("Evicting the VMI")
 				err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 				Expect(errors.IsTooManyRequests(err)).To(BeTrue())
 
 				By("Ensuring the VMI has migrated and lives on another node")
-				Eventually(func() error {
-					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
-
-					if vmi.Status.NodeName == vmiNodeOrig {
-						return fmt.Errorf("VMI is still on the same node")
-					}
-
-					if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.SourceNode != vmiNodeOrig {
-						return fmt.Errorf("VMI did not migrate yet")
-					}
-
-					if vmi.Status.EvacuationNodeName != "" {
-						return fmt.Errorf("VMI is still evacuating: %v", vmi.Status.EvacuationNodeName)
-					}
-
-					return nil
-				}, 360*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-				resVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				Expect(err).ShouldNot(HaveOccurred())
-				Expect(resVMI.Status.EvacuationNodeName).To(Equal(""), "vmi evacuation state should be clean")
+				Eventually(matcher.ThisVMI(vmi)).WithTimeout(time.Minute).WithPolling(time.Second).Should(
+					SatisfyAll(
+						vmiIsMigratedFrom(originalNode),
+						evacuationIsClear(),
+						haveMigrationState(gstruct.PointTo(gstruct.MatchFields(
+							gstruct.IgnoreExtras, gstruct.Fields{
+								"SourceNode": Equal(originalNode),
+							},
+						))),
+					),
+				)
 			})
 
 			It("[sig-compute][test_id:3243]should recreate the PDB if VMIs with similar names are recreated", func() {
@@ -187,7 +195,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-				runStressTest(vmi, stressDefaultVMSize, stressDefaultSleepDuration)
+				runStressTest(vmi, stressDefaultVMSize)
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
@@ -231,7 +239,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				}, 180*time.Second, 500*time.Millisecond).Should(Equal(v1.MigrationSucceeded))
 			})
 
-			Context("[Serial] with node tainted during node drain", Serial, func() {
+			Context(" with node tainted during node drain", Serial, func() {
 
 				var (
 					nodeAffinity     *k8sv1.NodeAffinity
@@ -323,7 +331,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 					// Put VMI under load
-					runStressTest(vmi, stressDefaultVMSize, stressDefaultSleepDuration)
+					runStressTest(vmi, stressDefaultVMSize)
 
 					node := vmi.Status.NodeName
 					libnode.TemporaryNodeDrain(node)
@@ -453,7 +461,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 				})
 			})
 		})
-		Context("[Serial]with multiple VMIs with eviction policies set", Serial, func() {
+		Context("with multiple VMIs with eviction policies set", Serial, func() {
 
 			It("[release-blocker][test_id:3245]should not migrate more than two VMIs at the same time from a node", func() {
 				var vmis []*v1.VirtualMachineInstance
@@ -534,7 +542,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 		})
 	})
 
-	Describe("[Serial] with a cluster-wide live-migrate eviction strategy set", Serial, func() {
+	Describe(" with a cluster-wide live-migrate eviction strategy set", Serial, func() {
 		var originalKV *v1.KubeVirt
 
 		BeforeEach(func() {
@@ -604,6 +612,7 @@ var _ = SIGMigrationDescribe("Live Migration", func() {
 					Expect(err).NotTo(HaveOccurred())
 					err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 					Expect(err).ToNot(HaveOccurred())
+					Expect(matcher.ThisVMI(vmi)()).To(evacuationIsClear())
 				})
 			})
 		})

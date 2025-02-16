@@ -9,7 +9,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/cmd/cniplugins/passt-binding/pkg/plugin",
     visibility = ["//visibility:public"],
     deps = [
-        "//cmd/cniplugins/passt-binding/pkg/plugin/netlink:go_default_library",
         "//cmd/cniplugins/passt-binding/pkg/plugin/sysctl:go_default_library",
         "//vendor/github.com/containernetworking/cni/pkg/skel:go_default_library",
         "//vendor/github.com/containernetworking/cni/pkg/types:go_default_library",
@@ -31,6 +30,5 @@ go_test(
         "//vendor/github.com/containernetworking/plugins/pkg/ns:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
-        "//vendor/github.com/vishvananda/netlink:go_default_library",
     ],
 )

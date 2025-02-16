@@ -41,7 +41,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -61,12 +60,10 @@ const (
 	bytesInKib          = 1024
 )
 
-var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes, Serial, decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
-		checks.SkipIfMigrationIsNotPossible()
-
 		virtClient = kubevirt.Client()
 
 		nodes := libnode.GetAllSchedulableNodes(virtClient)
@@ -215,8 +212,8 @@ var _ = Describe("[Serial][sig-compute]SwapTest", Serial, decorators.SigCompute,
 })
 
 func getMemInfoByString(node v1.Node, field string) int {
-	stdout, stderr, err := libnode.ExecuteCommandOnNodeThroughVirtHandler(node.Name, []string{"grep", field, "/proc/meminfo"})
-	ExpectWithOffset(2, err).ToNot(HaveOccurred(), fmt.Sprintf("stderr: %v \n", stderr))
+	stdout, err := libnode.ExecuteCommandInVirtHandlerPod(node.Name, []string{"grep", field, "/proc/meminfo"})
+	ExpectWithOffset(2, err).ToNot(HaveOccurred())
 	fields := strings.Fields(stdout)
 	size, err := strconv.Atoi(fields[1])
 	ExpectWithOffset(2, err).ToNot(HaveOccurred())

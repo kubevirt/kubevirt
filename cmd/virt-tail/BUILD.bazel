@@ -6,6 +6,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/cmd/virt-tail",
     visibility = ["//visibility:private"],
     deps = [
+        "//pkg/apimachinery/wait:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/fsnotify/fsnotify:go_default_library",
         "//vendor/github.com/nxadm/tail:go_default_library",

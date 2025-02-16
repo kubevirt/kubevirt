@@ -37,7 +37,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -53,24 +52,22 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("[Serial] VirtualMachineInstance with passt network binding plugin", decorators.NetCustomBindingPlugins, Serial, func() {
-	var err error
+var _ = SIGDescribe(" VirtualMachineInstance with passt network binding plugin", decorators.NetCustomBindingPlugins, Serial, func() {
+	const passtNetAttDefName = "netbindingpasst"
 
-	BeforeEach(func() {
-		config.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
-	})
+	var err error
 
 	BeforeEach(func() {
 		const passtBindingName = "passt"
 
-		var passtComputeMemoryOverheadWhenAllPortsAreForwarded = resource.MustParse("500Mi")
+		passtComputeMemoryOverheadWhenAllPortsAreForwarded := resource.MustParse("500Mi")
 
 		passtSidecarImage := libregistry.GetUtilityImageFromRegistry("network-passt-binding")
 
 		err := config.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
 			SidecarImage:                passtSidecarImage,
-			NetworkAttachmentDefinition: libnet.PasstNetAttDef,
-			Migration:                   &v1.InterfaceBindingMigration{Method: v1.LinkRefresh},
+			NetworkAttachmentDefinition: passtNetAttDefName,
+			Migration:                   &v1.InterfaceBindingMigration{},
 			ComputeResourceOverhead: &v1.ResourceRequirementsWithoutClaims{
 				Requests: map[k8sv1.ResourceName]resource.Quantity{
 					k8sv1.ResourceMemory: passtComputeMemoryOverheadWhenAllPortsAreForwarded,
@@ -81,7 +78,9 @@ var _ = SIGDescribe("[Serial] VirtualMachineInstance with passt network binding 
 	})
 
 	BeforeEach(func() {
-		Expect(libnet.CreatePasstNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil))).To(Succeed())
+		netAttachDef := libnet.NewPasstNetAttachDef(passtNetAttDefName)
+		_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(nil), netAttachDef)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("should apply the interface configuration", func() {
@@ -138,7 +137,7 @@ var _ = SIGDescribe("[Serial] VirtualMachineInstance with passt network binding 
 			}
 
 			Context("TCP", func() {
-				verifyClientServerConnectivity := func(clientVMI *v1.VirtualMachineInstance, serverVMI *v1.VirtualMachineInstance, tcpPort int, ipFamily k8sv1.IPFamily) error {
+				verifyClientServerConnectivity := func(clientVMI, serverVMI *v1.VirtualMachineInstance, tcpPort int, ipFamily k8sv1.IPFamily) error {
 					serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
 					err := libnet.PingFromVMConsole(clientVMI, serverIP)
 					if err != nil {
@@ -275,7 +274,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 			})
 		})
 
-		It("[outside_connectivity]should be able to reach the outside world [IPv4]", func() {
+		It("should be able to reach the outside world [IPv4]", Label("RequiresOutsideConnectivity"), func() {
 			libnet.SkipWhenClusterNotSupportIpv4()
 			ipv4Address := "8.8.8.8"
 			if flags.IPV4ConnectivityCheckAddress != "" {
@@ -303,7 +302,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 			Expect(libnet.PingFromVMConsole(vmi, dns, "-c 5", "-w 15")).To(Succeed())
 		})
 
-		It("[outside_connectivity]should be able to reach the outside world [IPv6]", func() {
+		It("should be able to reach the outside world", Label("RequiresOutsideConnectivity", "IPv6"), func() {
 			libnet.SkipWhenClusterNotSupportIpv6()
 			// Cluster nodes subnet (docker network gateway)
 			// Docker network subnet cidr definition:
@@ -335,11 +334,11 @@ EOL`, inetSuffix, serverIP, serverPort)
 			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
 			By("Starting a VMI")
-			migrateVMI := startPasstVMI(libvmifact.NewFedora, console.LoginToFedora)
+			migrateVMI := startPasstVMI()
 			beforeMigNodeName := migrateVMI.Status.NodeName
 
 			By("Starting another VMI")
-			anotherVMI := startPasstVMI(libvmifact.NewAlpine, console.LoginToAlpine)
+			anotherVMI := startPasstVMI()
 
 			By("Verify the VMIs can ping each other")
 			migrateVmiBeforeMigIP := libnet.GetVmiPrimaryIPByFamily(migrateVMI, ipFamily)
@@ -367,15 +366,6 @@ EOL`, inetSuffix, serverIP, serverPort)
 				return migrateVmiAfterMigIP
 			}, 30*time.Second).ShouldNot(Equal(migrateVmiBeforeMigIP), "the VMI status should get a new IP after migration")
 
-			By("Verify the guest renewed the IP")
-			/// We renew the IP to avoid issues such as
-			// another pod in the cluster gets the IP of the old pod
-			// a user wants the internal and exteranl IP on the VM to be same
-			ipValidation := fmt.Sprintf("ip addr show eth0 | grep %s", migrateVmiAfterMigIP)
-			Eventually(func() error {
-				return console.RunCommand(migrateVMI, ipValidation, time.Second*5)
-			}, 30*time.Second).Should(Succeed())
-
 			By("Verify the VMIs can ping each other after migration")
 			Expect(libnet.PingFromVMConsole(migrateVMI, anotherVmiIP)).To(Succeed())
 			Expect(libnet.PingFromVMConsole(anotherVMI, migrateVmiAfterMigIP)).To(Succeed())
@@ -398,7 +388,7 @@ func assertSourcePodContainersTerminate(labelSelector, fieldSelector string, vmi
 	}, 30*time.Second).Should(Equal(k8sv1.PodSucceeded))
 }
 
-func startPasstVMI(vmiBuilder func(opts ...libvmi.Option) *v1.VirtualMachineInstance, loginTo console.LoginToFunction) *v1.VirtualMachineInstance {
+func startPasstVMI() *v1.VirtualMachineInstance {
 	networkData, err := cloudinit.NewNetworkData(
 		cloudinit.WithEthernet("eth0",
 			cloudinit.WithDHCP4Enabled(),

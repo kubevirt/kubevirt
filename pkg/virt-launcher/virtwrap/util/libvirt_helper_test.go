@@ -6,26 +6,28 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
-
-	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/hooks"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	"github.com/go-kit/kit/log"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
 	kubevirtlog "kubevirt.io/client-go/log"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 )
 
 const (
@@ -218,7 +220,7 @@ var _ = Describe("LibvirtHelper", func() {
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 		domain := &api.Domain{}
 		c := &converter.ConverterContext{
-			Architecture:     runtime.GOARCH,
+			Architecture:     arch.NewConverter(runtime.GOARCH),
 			VirtualMachine:   vmi,
 			AllowEmulation:   true,
 			SMBios:           &cmdv1.SMBios{},
@@ -317,6 +319,39 @@ var _ = Describe("LibvirtHelper", func() {
 			)
 
 		})
+
+	})
+
+	Context("configureQemuConf()", func() {
+		DescribeTable("should set shared_filesystem on qemu.conf according to env", func(envInput string, expected string) {
+			confPath := filepath.Join(GinkgoT().TempDir(), "qemu.conf")
+			file, err := os.Create(confPath)
+			Expect(err).ToNot(HaveOccurred())
+			// Random content to ensure we append properly
+			file.WriteString("dummy = 1\n")
+			Expect(file.Close()).To(Succeed())
+			Expect(os.Setenv(services.ENV_VAR_SHARED_FILESYSTEM_PATHS, envInput)).To(Succeed())
+			DeferCleanup(func() {
+				Expect(os.Unsetenv(services.ENV_VAR_SHARED_FILESYSTEM_PATHS)).To(Succeed())
+				Expect(os.RemoveAll(confPath)).To(Succeed())
+			})
+
+			Expect(configureQemuConf(confPath)).To(Succeed())
+
+			file, err = os.OpenFile(confPath, os.O_RDONLY, 0644)
+			Expect(err).ToNot(HaveOccurred())
+			fileInfo, err := file.Stat()
+			Expect(err).ToNot(HaveOccurred())
+			buf := make([]byte, fileInfo.Size())
+			_, err = file.Read(buf)
+			Expect(err).ToNot(HaveOccurred())
+
+			lines := strings.Split(string(buf), "\n")
+			Expect(lines).To(ContainElement(expected))
+		},
+			Entry("single shared filesystem", "/foo/bar", "shared_filesystems = [ \"/foo/bar\" ]"),
+			Entry("multiple shared filesystems", "/foo/bar1:/foo/bar2", "shared_filesystems = [ \"/foo/bar1\", \"/foo/bar2\" ]"),
+		)
 
 	})
 })

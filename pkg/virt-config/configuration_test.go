@@ -17,6 +17,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
@@ -748,21 +749,16 @@ var _ = Describe("test configuration", func() {
 			`{"defaultNetworkInterface":"bridge","permitSlirpInterface":true,"permitBridgeInterfaceOnPodNetwork":false}`),
 	)
 
-	DescribeTable("when ClusterProfiler feature-gate", func(openFeatureGates []string, isEnabled bool) {
+	DescribeTable("when ClusterProfiler config", func(config *v1.DeveloperConfiguration, isEnabled bool) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
-			DeveloperConfiguration: &v1.DeveloperConfiguration{
-				FeatureGates: openFeatureGates,
-			},
+			DeveloperConfiguration: config,
 		})
 
 		Expect(clusterConfig.ClusterProfilerEnabled()).To(Equal(isEnabled))
 	},
-		Entry("ClusterProfiler feature gate not set should result in cluster profiler being disabled",
-			nil, false),
-		Entry("ClusterProfiler feature gate empty should result in cluster profiler being disabled",
-			[]string{}, false),
-		Entry("ClusterProfiler feature gate enabled should result in cluster profiler being enabled",
-			[]string{virtconfig.ClusterProfiler}, true),
+		Entry("is not set it should result in cluster profiler being disabled", &v1.DeveloperConfiguration{ClusterProfiler: false}, false),
+		Entry("is empty it should result in cluster profiler being disabled", &v1.DeveloperConfiguration{}, false),
+		Entry("is enabled it should result in cluster profiler being enabled", &v1.DeveloperConfiguration{ClusterProfiler: true}, true),
 	)
 
 	Context("GAed feature gates should be considered as enabled by default", func() {
@@ -786,7 +782,7 @@ var _ = Describe("test configuration", func() {
 	})
 
 	disableInstancetypeRferencePolicyFG := []string{}
-	enableInstancetypeReferencePolicyFG := []string{virtconfig.InstancetypeReferencePolicy}
+	enableInstancetypeReferencePolicyFG := []string{featuregate.InstancetypeReferencePolicy}
 
 	DescribeTable("GetInstancetypeReferencePolicy should return", func(
 		instancetypeConfig *v1.InstancetypeConfiguration, featureGates []string, expectedPolicy v1.InstancetypeReferencePolicy) {

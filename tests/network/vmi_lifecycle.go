@@ -47,7 +47,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:component]", func() {
+var _ = SIGDescribe("[crit:high][vendor:cnv-qe@redhat.com][level:component]", decorators.WgArm64, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -56,7 +56,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 
 	Describe("[crit:high][vendor:cnv-qe@redhat.com][level:component]Creating a VirtualMachineInstance", func() {
 		Context("when virt-handler is responsive", func() {
-			DescribeTable("[Serial]VMIs shouldn't fail after the kubelet restarts", func(bridgeNetworking bool) {
+			DescribeTable("VMIs shouldn't fail after the kubelet restarts", func(bridgeNetworking bool) {
 				var vmiOptions []libvmi.Option
 
 				if bridgeNetworking {
@@ -82,7 +82,7 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 				}
 
 				By("restarting kubelet")
-				pod := renderPkillAllPod("kubelet")
+				pod := libpod.RenderPrivilegedPod("vmi-killer", []string{"pkill"}, []string{"-9", "kubelet"})
 				pod.Spec.NodeName = nodeName
 				pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -138,10 +138,6 @@ var _ = SIGDescribe("[crit:high][arm64][vendor:cnv-qe@redhat.com][level:componen
 		})
 	})
 })
-
-func renderPkillAllPod(processName string) *k8sv1.Pod {
-	return libpod.RenderPrivilegedPod("vmi-killer", []string{"pkill"}, []string{"-9", processName})
-}
 
 func verifyDummyNicForBridgeNetwork(vmi *v1.VirtualMachineInstance) {
 	output := libpod.RunCommandOnVmiPod(vmi, []string{"/bin/bash", "-c", "/usr/sbin/ip link show|grep DOWN|grep -c eth0"})

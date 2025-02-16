@@ -78,6 +78,9 @@ The current available memory of the VM containers based on the rss. Type: Gauge.
 ### kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes
 The current available memory of the VM containers based on the working set. Type: Gauge.
 
+### kubevirt_vm_create_date_timestamp_seconds
+Virtual Machine creation timestamp. Type: Gauge.
+
 ### kubevirt_vm_created_by_pod_total
 The total number of VMs created by namespace and virt-api pod, since install. Type: Counter.
 
@@ -110,6 +113,9 @@ Virtual Machine last transition timestamp to running status. Type: Counter.
 
 ### kubevirt_vm_starting_status_last_transition_timestamp_seconds
 Virtual Machine last transition timestamp to starting status. Type: Counter.
+
+### kubevirt_vm_vnic_info
+Details of Virtual Machine (VM) vNIC interfaces, such as vNIC name, binding type, network name, and binding name for each vNIC defined in the VM's configuration. Type: Gauge.
 
 ### kubevirt_vmi_cpu_system_usage_seconds_total
 Total CPU time spent in system mode. Type: Counter.
@@ -177,17 +183,26 @@ The total Guest OS data processed and migrated to the new VM. Type: Gauge.
 ### kubevirt_vmi_migration_data_remaining_bytes
 The remaining guest OS data to be migrated to the new VM. Type: Gauge.
 
+### kubevirt_vmi_migration_data_total_bytes
+The total Guest OS data to be migrated to the new VM. Type: Counter.
+
 ### kubevirt_vmi_migration_dirty_memory_rate_bytes
 The rate of memory being dirty in the Guest OS. Type: Gauge.
 
 ### kubevirt_vmi_migration_disk_transfer_rate_bytes
 The rate at which the memory is being transferred. Type: Gauge.
 
+### kubevirt_vmi_migration_end_time_seconds
+The time at which the migration ended. Type: Gauge.
+
 ### kubevirt_vmi_migration_failed
 Indicates if the VMI migration failed. Type: Gauge.
 
 ### kubevirt_vmi_migration_phase_transition_time_from_creation_seconds
 Histogram of VM migration phase transitions duration from creation time in seconds. Type: Histogram.
+
+### kubevirt_vmi_migration_start_time_seconds
+The time at which the migration started. Type: Gauge.
 
 ### kubevirt_vmi_migration_succeeded
 Indicates if the VMI migration succeeded. Type: Gauge.
@@ -284,6 +299,9 @@ Total amount of time spent in each state by each vcpu (cpu_time excluding hyperv
 
 ### kubevirt_vmi_vcpu_wait_seconds_total
 Amount of time spent by each vcpu while waiting on I/O. Type: Counter.
+
+### kubevirt_vmi_vnic_info
+Details of VirtualMachineInstance (VMI) vNIC interfaces, such as vNIC name, binding type, network name, and binding name for each vNIC of a running instance. Type: Gauge.
 
 ### kubevirt_vmsnapshot_disks_restored_from_source
 Returns the total number of virtual machine disks restored from the source virtual machine. Type: Gauge.

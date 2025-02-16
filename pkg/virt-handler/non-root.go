@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
 
@@ -14,11 +12,8 @@ import (
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
-	"kubevirt.io/kubevirt/pkg/network/domainspec"
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/types"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
@@ -101,109 +96,14 @@ func changeOwnershipOfHostDisks(vmiWithAllPVCs *v1.VirtualMachineInstance, res i
 	return nil
 }
 
-func (d *VirtualMachineController) prepareStorage(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
+func (c *VirtualMachineController) prepareStorage(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
 	if err := changeOwnershipOfBlockDevices(vmi, res); err != nil {
 		return err
 	}
 	return changeOwnershipOfHostDisks(vmi, res)
 }
 
-func getTapDevices(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance, networkBindings map[string]v1.InterfaceBindingPlugin) (map[string]string, error) {
-	tapNetworks := map[string]struct{}{}
-	domainAttachmentByInterfaceName := domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, networkBindings)
-	for _, inf := range vmi.Spec.Domain.Devices.Interfaces {
-		if domainAttachmentByInterfaceName[inf.Name] == string(v1.Tap) {
-			tapNetworks[inf.Name] = struct{}{}
-		}
-	}
-
-	networkNameScheme := namescheme.CreateHashedNetworkNameScheme(vmi.Spec.Networks)
-	if clusterConfig.DynamicPodInterfaceNamingEnabled() {
-		networkNameScheme = namescheme.UpdatePrimaryPodIfaceNameFromVMIStatus(networkNameScheme, vmi.Spec.Networks, vmi.Status.Interfaces)
-	}
-
-	tapDevices := map[string]string{}
-	for _, net := range vmi.Spec.Networks {
-		_, isTapNetwork := tapNetworks[net.Name]
-		if podInterfaceName, exists := networkNameScheme[net.Name]; isTapNetwork && exists {
-			tapDevices[net.Name] = podInterfaceName
-		} else if isTapNetwork && !exists {
-			return nil, fmt.Errorf("network %q not found in naming scheme: this should never happen", net.Name)
-		}
-	}
-	return tapDevices, nil
-}
-
-func (d *VirtualMachineController) prepareTap(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
-	networkToTapDeviceNames, err := getTapDevices(d.clusterConfig, vmi, d.clusterConfig.GetNetworkBindings())
-	if err != nil {
-		return err
-	}
-	for networkName, tapName := range networkToTapDeviceNames {
-		path, err := FindInterfaceIndexPath(res, tapName, networkName, vmi.Spec.Networks)
-		if err != nil {
-			return err
-		}
-		index, err := func(path *safepath.Path) (int, error) {
-			df, err := safepath.OpenAtNoFollow(path)
-			if err != nil {
-				return 0, err
-			}
-			defer df.Close()
-			b, err := os.ReadFile(df.SafePath())
-			if err != nil {
-				return 0, fmt.Errorf("Failed to read if index, %v", err)
-			}
-
-			return strconv.Atoi(strings.TrimSpace(string(b)))
-		}(path)
-		if err != nil {
-			return err
-		}
-
-		pathToTap, err := isolation.SafeJoin(res, "dev", fmt.Sprintf("tap%d", index))
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				return nil
-			}
-			return err
-		}
-
-		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(pathToTap); err != nil {
-			return err
-		}
-	}
-	return nil
-
-}
-
-// FindInterfaceIndexPath return the ifindex path of the given interface name (e.g.: enp0f1p2 -> /sys/class/net/enp0f1p2/ifindex).
-// If path not found it will try to find the path using ordinal interface name based on its position in the given
-// networks slice (e.g.: net1 -> /sys/class/net/net1/ifindex).
-func FindInterfaceIndexPath(res isolation.IsolationResult, podIfaceName string, networkName string, networks []v1.Network) (*safepath.Path, error) {
-	var errs []string
-	path, err := isolation.SafeJoin(res, "sys", "class", "net", podIfaceName, "ifindex")
-	if err == nil {
-		return path, nil
-	}
-	errs = append(errs, err.Error())
-
-	// fall back to ordinal pod interface names
-	ordinalPodIfaceName := namescheme.OrdinalPodInterfaceName(networkName, networks)
-	if ordinalPodIfaceName == "" {
-		errs = append(errs, fmt.Sprintf("failed to find network %q pod interface name", networkName))
-	} else {
-		path, err := isolation.SafeJoin(res, "sys", "class", "net", ordinalPodIfaceName, "ifindex")
-		if err == nil {
-			return path, nil
-		}
-		errs = append(errs, err.Error())
-	}
-
-	return nil, fmt.Errorf(strings.Join(errs, ", "))
-}
-
-func (*VirtualMachineController) prepareVFIO(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
+func (*VirtualMachineController) prepareVFIO(res isolation.IsolationResult) error {
 	vfioBasePath, err := isolation.SafeJoin(res, "dev", "vfio")
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -245,18 +145,15 @@ func (*VirtualMachineController) prepareVFIO(vmi *v1.VirtualMachineInstance, res
 	return nil
 }
 
-func (d *VirtualMachineController) nonRootSetup(origVMI, vmi *v1.VirtualMachineInstance) error {
-	res, err := d.podIsolationDetector.Detect(origVMI)
+func (c *VirtualMachineController) nonRootSetup(origVMI *v1.VirtualMachineInstance) error {
+	res, err := c.podIsolationDetector.Detect(origVMI)
 	if err != nil {
 		return err
 	}
-	if err := d.prepareStorage(origVMI, res); err != nil {
+	if err := c.prepareStorage(origVMI, res); err != nil {
 		return err
 	}
-	if err := d.prepareTap(origVMI, res); err != nil {
-		return err
-	}
-	if err := d.prepareVFIO(origVMI, res); err != nil {
+	if err := c.prepareVFIO(res); err != nil {
 		return err
 	}
 	return nil

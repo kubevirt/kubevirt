@@ -316,6 +316,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"virtualmachinesnapshots",
 					"virtualmachinesnapshots/status",
+					"virtualmachinesnapshots/finalizers",
 					"virtualmachinesnapshotcontents",
 					"virtualmachinesnapshotcontents/status",
 					"virtualmachinesnapshotcontents/finalizers",
@@ -378,6 +379,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					"virtualmachines/finalizers",
+					"virtualmachineinstances/finalizers",
 				},
 				Verbs: []string{
 					"update",
@@ -388,10 +390,12 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"subresources.kubevirt.io",
 				},
 				Resources: []string{
+					"virtualmachines/stop",
 					"virtualmachineinstances/addvolume",
 					"virtualmachineinstances/removevolume",
 					"virtualmachineinstances/freeze",
 					"virtualmachineinstances/unfreeze",
+					"virtualmachineinstances/reset",
 					"virtualmachineinstances/softreboot",
 					"virtualmachineinstances/sev/setupsession",
 					"virtualmachineinstances/sev/injectlaunchsecret",

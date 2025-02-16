@@ -33,51 +33,19 @@ import (
 )
 
 var _ = Describe("Network Status", func() {
-	Context("NonDefaultNetworkStatusIndexedByPodIfaceName", func() {
-		DescribeTable("It should return empty", func(networkStatuses []networkv1.NetworkStatus) {
-			Expect(multus.NonDefaultNetworkStatusIndexedByPodIfaceName(networkStatuses)).To(BeEmpty())
-		},
-			Entry("when network-status is empty", []networkv1.NetworkStatus{}),
-			Entry("when network-status contains only pod network",
-				[]networkv1.NetworkStatus{
-					{
-						Name:    "k8s-pod-network",
-						IPs:     []string{"10.244.196.146", "fd10:244::c491"},
-						Default: true,
-						DNS:     networkv1.DNS{},
-					},
-				},
-			),
-		)
-
-		It("Should return a map of pod interface name to network status containing just secondary networks", func() {
+	Context("NetworkStatusesByPodIfaceName", func() {
+		It("Should map network statuses by pod interface name with multiple networks", func() {
 			networkStatuses := []networkv1.NetworkStatus{
-				{
-					Name:    "k8s-pod-network",
-					IPs:     []string{"10.244.196.146", "fd10:244::c491"},
-					Default: true,
-					DNS:     networkv1.DNS{},
-				},
-				{
-					Name:      "meganet",
-					Interface: "pod7e0055a6880",
-					Mac:       "8a:37:d9:e7:0f:18",
-					DNS:       networkv1.DNS{},
-				},
+				{Name: "cluster-default", Interface: "eth0"},
+				{Name: "meganet", Interface: "pod7e0055a6880"},
 			}
 
-			result := multus.NonDefaultNetworkStatusIndexedByPodIfaceName(networkStatuses)
-
-			expectedResult := map[string]networkv1.NetworkStatus{
-				"pod7e0055a6880": {
-					Name:      "meganet",
-					Interface: "pod7e0055a6880",
-					Mac:       "8a:37:d9:e7:0f:18",
-					Default:   false,
-				},
+			expected := map[string]networkv1.NetworkStatus{
+				"eth0":           {Name: "cluster-default", Interface: "eth0"},
+				"pod7e0055a6880": {Name: "meganet", Interface: "pod7e0055a6880"},
 			}
 
-			Expect(result).To(Equal(expectedResult))
+			Expect(multus.NetworkStatusesByPodIfaceName(networkStatuses)).To(Equal(expected))
 		})
 	})
 

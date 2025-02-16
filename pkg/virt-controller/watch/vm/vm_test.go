@@ -15,13 +15,11 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -29,8 +27,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
-	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/api"
 	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
@@ -43,7 +39,10 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
+	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -70,7 +69,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		var controller *Controller
 		var recorder *record.FakeRecorder
-		var mockQueue *testutils.MockWorkQueue
+		var mockQueue *testutils.MockWorkQueue[string]
 		var cdiClient *cdifake.Clientset
 		var k8sClient *k8sfake.Clientset
 		var virtClient *kubecli.MockKubevirtClient
@@ -100,6 +99,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
 			pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 			namespaceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
+
 			ns1 := &k8sv1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "ns1",
@@ -126,8 +126,6 @@ var _ = Describe("VirtualMachine", func() {
 			})
 			podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 
-			instancetypeMethods := testutils.NewMockInstancetypeMethods()
-
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
 
@@ -141,11 +139,11 @@ var _ = Describe("VirtualMachine", func() {
 				pvcInformer,
 				crInformer,
 				podInformer,
-				instancetypeMethods,
 				recorder,
 				virtClient,
 				config,
 				nil,
+				instancetypecontroller.NewMockController(),
 			)
 
 			// Wrap our workqueue to have a way to detect when we are done processing updates
@@ -311,9 +309,10 @@ var _ = Describe("VirtualMachine", func() {
 		}
 
 		sanityExecute := func(vm *v1.VirtualMachine) {
-			added := vm.DeepCopy()
-			controller.Execute()
-			Expect(equality.Semantic.DeepEqual(vm, added)).To(BeTrue(), "A cached VM was modified")
+			controllertesting.SanityExecute(controller, []cache.Store{
+				controller.vmiIndexer, controller.vmIndexer, controller.dataSourceStore, controller.dataVolumeStore,
+				controller.namespaceStore, controller.pvcStore, controller.crIndexer,
+			}, Default)
 		}
 
 		It("should update conditions when failed creating DataVolume for virtualMachineInstance", func() {
@@ -1417,7 +1416,6 @@ var _ = Describe("VirtualMachine", func() {
 			}
 		},
 			Entry("when PVC has no annotation", map[string]string{}, 1, nil),
-			Entry("when PVC was garbage collected", map[string]string{"cdi.kubevirt.io/garbageCollected": "true"}, 0, nil),
 			Entry("when PVC has owned by annotation and CDI does not support adoption", map[string]string{}, 0, shouldFailDataVolumeCreationClaimAlreadyExists),
 		)
 
@@ -3197,46 +3195,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		Context("VM memory dump", func() {
-			const (
-				testPVCName    = "testPVC"
-				targetFileName = "memory.dump"
-			)
-
-			applyVMIMemoryDumpVol := func(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
-				newVolume := v1.Volume{
-					Name: testPVCName,
-					VolumeSource: v1.VolumeSource{
-						MemoryDump: &v1.MemoryDumpVolumeSource{
-							PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
-								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-									ClaimName: testPVCName,
-								},
-								Hotpluggable: true,
-							},
-						},
-					},
-				}
-
-				spec.Volumes = append(spec.Volumes, newVolume)
-
-				return spec
-			}
-
-			expectPVCAnnotationUpdate := func(expectedAnnotation string, pvcAnnotationUpdated chan bool) {
-				virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
-				k8sClient.Fake.PrependReactor("update", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
-					update, ok := action.(testing.UpdateAction)
-					Expect(ok).To(BeTrue())
-
-					pvc, ok := update.GetObject().(*k8sv1.PersistentVolumeClaim)
-					Expect(ok).To(BeTrue())
-					Expect(pvc.Name).To(Equal(testPVCName))
-					Expect(pvc.Annotations[v1.PVCMemoryDumpAnnotation]).To(Equal(expectedAnnotation))
-					pvcAnnotationUpdated <- true
-
-					return true, nil, nil
-				})
-			}
+			const testPVCName = "testPVC"
 
 			It("should add memory dump volume and update vmi volumes", func() {
 				vm, vmi := watchtesting.DefaultVirtualMachine(true)
@@ -3261,228 +3220,13 @@ var _ = Describe("VirtualMachine", func() {
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(Succeed())
 				Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(testPVCName))
-			})
 
-			It("should update memory dump phase to InProgress when memory dump in vm volumes", func() {
-				vm, vmi := watchtesting.DefaultVirtualMachine(true)
-				vm.Status.Created = true
-				vm.Status.Ready = true
-				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
-					ClaimName: testPVCName,
-					Phase:     v1.MemoryDumpAssociating,
-				}
-
-				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
-
-				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-				Expect(err).To(Succeed())
-				addVirtualMachine(vm)
-				vmi.Spec = vm.Spec.Template.Spec
-				watchtesting.MarkAsReady(vmi)
-				controller.vmiIndexer.Add(vmi)
-
-				// when the memory dump volume is in the vm volume list we should change status to in progress
-				updatedMemoryDump := &v1.VirtualMachineMemoryDumpRequest{
-					ClaimName: testPVCName,
-					Phase:     v1.MemoryDumpInProgress,
-				}
-
-				sanityExecute(vm)
-
-				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-				Expect(err).To(Succeed())
-				Expect(vm.Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
-			})
-
-			It("should change status to unmounting when memory dump timestamp updated", func() {
-				vm, vmi := watchtesting.DefaultVirtualMachine(true)
-				vm.Status.Created = true
-				vm.Status.Ready = true
-				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
-					ClaimName: testPVCName,
-					Phase:     v1.MemoryDumpInProgress,
-				}
-
-				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
-
-				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-				Expect(err).To(Succeed())
-				addVirtualMachine(vm)
-
-				vmi.Spec = vm.Spec.Template.Spec
-				now := metav1.Now()
-				vmi.Status.VolumeStatus = []v1.VolumeStatus{
-					{
-						Name:  testPVCName,
-						Phase: v1.MemoryDumpVolumeCompleted,
-						MemoryDumpVolume: &v1.DomainMemoryDumpInfo{
-							StartTimestamp: &now,
-							EndTimestamp:   &now,
-							ClaimName:      testPVCName,
-							TargetFileName: targetFileName,
-						},
-					},
-				}
-				watchtesting.MarkAsReady(vmi)
-				controller.vmiIndexer.Add(vmi)
-
-				updatedMemoryDump := &v1.VirtualMachineMemoryDumpRequest{
-					ClaimName:      testPVCName,
-					Phase:          v1.MemoryDumpUnmounting,
-					EndTimestamp:   &now,
-					StartTimestamp: &now,
-					FileName:       &vmi.Status.VolumeStatus[0].MemoryDumpVolume.TargetFileName,
-				}
-
-				sanityExecute(vm)
-
-				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-				Expect(err).To(Succeed())
-				Expect(vm.Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
-			})
-
-			It("should update status to failed when memory dump failed", func() {
-				vm, vmi := watchtesting.DefaultVirtualMachine(true)
-				vm.Status.Created = true
-				vm.Status.Ready = true
-				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
-					ClaimName: testPVCName,
-					Phase:     v1.MemoryDumpInProgress,
-				}
-
-				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
-				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-				Expect(err).To(Succeed())
-				addVirtualMachine(vm)
-
-				vmi.Spec = vm.Spec.Template.Spec
-				now := metav1.Now()
-				vmi.Status.VolumeStatus = []v1.VolumeStatus{
-					{
-						Name:    testPVCName,
-						Phase:   v1.MemoryDumpVolumeFailed,
-						Message: "Memory dump failed",
-						MemoryDumpVolume: &v1.DomainMemoryDumpInfo{
-							ClaimName:    testPVCName,
-							EndTimestamp: &now,
-						},
-					},
-				}
-				watchtesting.MarkAsReady(vmi)
-				controller.vmiIndexer.Add(vmi)
-
-				updatedMemoryDump := &v1.VirtualMachineMemoryDumpRequest{
-					ClaimName:    testPVCName,
-					Phase:        v1.MemoryDumpFailed,
-					Message:      vmi.Status.VolumeStatus[0].Message,
-					EndTimestamp: &now,
-				}
-
-				sanityExecute(vm)
-
-				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-				Expect(err).To(Succeed())
-				Expect(vm.Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
-			})
-
-			DescribeTable("should remove memory dump volume from vmi volumes and update pvc annotation", func(phase v1.MemoryDumpPhase, expectedAnnotation string) {
-				vm, vmi := watchtesting.DefaultVirtualMachine(true)
-				vm.Status.Created = true
-				vm.Status.Ready = true
-				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
-					ClaimName: testPVCName,
-					Phase:     phase,
-				}
-				if phase != v1.MemoryDumpFailed {
-					fileName := targetFileName
-					vm.Status.MemoryDumpRequest.FileName = &fileName
-				}
-
-				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
-				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-				Expect(err).To(Succeed())
-				addVirtualMachine(vm)
-
-				vmi.Spec = vm.Spec.Template.Spec
-				vmi.Status.VolumeStatus = []v1.VolumeStatus{
-					{
-						Name: testPVCName,
-						MemoryDumpVolume: &v1.DomainMemoryDumpInfo{
-							ClaimName: testPVCName,
-						},
-					},
-				}
-				watchtesting.MarkAsReady(vmi)
-				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
-				controller.vmiIndexer.Add(vmi)
-
-				pvc := k8sv1.PersistentVolumeClaim{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      testPVCName,
-						Namespace: vm.Namespace,
-					},
-				}
-				Expect(controller.pvcStore.Add(&pvc)).To(Succeed())
-
-				pvcAnnotationUpdated := make(chan bool, 1)
-				defer close(pvcAnnotationUpdated)
-				// TODO: convert this to action check
-				expectPVCAnnotationUpdate(expectedAnnotation, pvcAnnotationUpdated)
-
-				sanityExecute(vm)
-
-				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(vmi.Spec.Volumes).To(BeEmpty())
-
-				Eventually(func() bool {
-					select {
-					case updated := <-pvcAnnotationUpdated:
-						return updated
-					default:
-					}
-					return false
-				}, 10*time.Second, 2).Should(BeTrue(), "failed, pvc annotation wasn't updated")
-			},
-				Entry("when phase is Unmounting", v1.MemoryDumpUnmounting, targetFileName),
-				Entry("when phase is Failed", v1.MemoryDumpFailed, "Memory dump failed"),
-			)
-
-			It("should update memory dump to complete once memory dump volume unmounted", func() {
-				vm, vmi := watchtesting.DefaultVirtualMachine(true)
-				vm.Status.Created = true
-				vm.Status.Ready = true
-				now := metav1.Now()
-				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
-					ClaimName:    testPVCName,
-					Phase:        v1.MemoryDumpUnmounting,
-					EndTimestamp: &now,
-				}
-
-				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
-				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-				Expect(err).To(Succeed())
-				addVirtualMachine(vm)
-
-				watchtesting.MarkAsReady(vmi)
-				controller.vmiIndexer.Add(vmi)
-
-				// in case the volume is not in vmi volume status we should update status to completed
-				updatedMemoryDump := &v1.VirtualMachineMemoryDumpRequest{
-					ClaimName:    testPVCName,
-					Phase:        v1.MemoryDumpCompleted,
-					EndTimestamp: &now,
-				}
-
-				sanityExecute(vm)
-
-				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-				Expect(err).To(Succeed())
-				Expect(vm.Status.MemoryDumpRequest).To(Equal(updatedMemoryDump))
+				Expect(vmi.Spec.Volumes[0].Name).To(Equal(testPVCName))
 			})
 
-			It("should remove memory dump volume from vm volumes list when status is Dissociating", func() {
+			It("should remove memory dump volume from vm volumes list", func() {
 				// No need to add vmi - can do this action even if vm not running
 				vm, _ := watchtesting.DefaultVirtualMachine(false)
 				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
@@ -3490,7 +3234,21 @@ var _ = Describe("VirtualMachine", func() {
 					Phase:     v1.MemoryDumpDissociating,
 				}
 
-				vm.Spec.Template.Spec = *applyVMIMemoryDumpVol(&vm.Spec.Template.Spec)
+				memoryDumpVol := v1.Volume{
+					Name: testPVCName,
+					VolumeSource: v1.VolumeSource{
+						MemoryDump: &v1.MemoryDumpVolumeSource{
+							PersistentVolumeClaimVolumeSource: v1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: testPVCName,
+								},
+								Hotpluggable: true,
+							},
+						},
+					},
+				}
+
+				vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, memoryDumpVol)
 				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
@@ -3500,25 +3258,6 @@ var _ = Describe("VirtualMachine", func() {
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(Succeed())
 				Expect(vm.Spec.Template.Spec.Volumes).To(BeEmpty())
-			})
-
-			It("should dissociate memory dump request when status is Dissociating and not in vm volumes", func() {
-				// No need to add vmi - can do this action even if vm not running
-				vm, _ := watchtesting.DefaultVirtualMachine(false)
-				vm.Status.MemoryDumpRequest = &v1.VirtualMachineMemoryDumpRequest{
-					ClaimName: testPVCName,
-					Phase:     v1.MemoryDumpDissociating,
-				}
-
-				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-				Expect(err).To(Succeed())
-				addVirtualMachine(vm)
-
-				sanityExecute(vm)
-
-				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-				Expect(err).To(Succeed())
-				Expect(vm.Status.MemoryDumpRequest).To(BeNil())
 			})
 
 			DescribeTable("should not setup vmi with memory dump if memory dump", func(phase v1.MemoryDumpPhase) {
@@ -3757,7 +3496,11 @@ var _ = Describe("VirtualMachine", func() {
 				})
 
 				DescribeTable("Should set a appropriate status when DataVolume exists but not bound", func(running bool, phase cdiv1.DataVolumePhase, status v1.VirtualMachinePrintableStatus) {
-					vm.Spec.Running = &running
+					if running {
+						vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+					} else {
+						vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
+					}
 
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 					Expect(err).To(Succeed())
@@ -3923,6 +3666,41 @@ var _ = Describe("VirtualMachine", func() {
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
 					Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
+				})
+
+				It("should set a Provisioning status and add a Failure condition if DV PVC creation fails due to exceeded quota", func() {
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					dv, _ := watchutil.CreateDataVolumeManifest(virtClient, vm.Spec.DataVolumeTemplates[0], vm)
+					dv.Status.Phase = cdiv1.Pending
+					dv.Status.Conditions = append(dv.Status.Conditions, cdiv1.DataVolumeCondition{
+						Type:   cdiv1.DataVolumeBound,
+						Status: k8sv1.ConditionUnknown,
+						Reason: "ErrExceededQuota",
+						Message: "persistentvolumeclaims \"dv1\" is forbidden: exceeded quota: storage, " +
+							"requested: requests.storage=2Gi, used: requests.storage=0, limited: requests.storage=1Gi",
+					})
+					controller.dataVolumeStore.Add(dv)
+
+					sanityExecute(vm)
+
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusProvisioning))
+
+					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
+					Expect(cond).To(Not(BeNil()))
+					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+						"Type":   Equal(v1.VirtualMachineFailure),
+						"Reason": Equal("FailedCreate"),
+						"Message": And(
+							ContainSubstring("Error encountered while creating DataVolumes"),
+							ContainSubstring("importer is not running due to an error"),
+							ContainSubstring("forbidden: exceeded quota: storage"),
+						),
+					}))
 				})
 			})
 
@@ -4283,14 +4061,16 @@ var _ = Describe("VirtualMachine", func() {
 				controllerrevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 				controllerrevisionInformerStore = controllerrevisionInformer.GetStore()
 
-				controller.instancetypeMethods = &instancetype.InstancetypeMethods{
-					InstancetypeStore:        instancetypeInformerStore,
-					ClusterInstancetypeStore: clusterInstancetypeInformerStore,
-					PreferenceStore:          preferenceInformerStore,
-					ClusterPreferenceStore:   clusterPreferenceInformerStore,
-					ControllerRevisionStore:  controllerrevisionInformerStore,
-					Clientset:                virtClient,
-				}
+				controller.instancetypeController = instancetypecontroller.New(
+					instancetypeInformerStore,
+					clusterInstancetypeInformerStore,
+					preferenceInformerStore,
+					clusterPreferenceInformerStore,
+					controllerrevisionInformerStore,
+					virtClient,
+					config,
+					controller.recorder,
+				)
 
 				instancetypeObj = &instancetypev1beta1.VirtualMachineInstancetype{
 					TypeMeta: metav1.TypeMeta{
@@ -4331,7 +4111,7 @@ var _ = Describe("VirtualMachine", func() {
 					},
 					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 						Firmware: &instancetypev1beta1.FirmwarePreferences{
-							PreferredUseEfi: pointer.P(true),
+							DeprecatedPreferredUseEfi: pointer.P(true),
 						},
 						Devices: &instancetypev1beta1.DevicePreferences{
 							PreferredDiskBus:        v1.DiskBusVirtio,
@@ -4348,493 +4128,42 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			Context("instancetype", func() {
-				var (
-					clusterInstancetypeObj *instancetypev1beta1.VirtualMachineClusterInstancetype
-				)
-
-				BeforeEach(func() {
-					clusterInstancetypeObj = &instancetypev1beta1.VirtualMachineClusterInstancetype{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:       "clusterInstancetype",
-							UID:        resourceUID,
-							Generation: resourceGeneration,
-						},
-						TypeMeta: metav1.TypeMeta{
-							APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-							Kind:       "VirtualMachineClusterInstancetype",
-						},
-						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-							CPU: instancetypev1beta1.CPUInstancetype{
-								Guest: uint32(2),
-							},
-							Memory: instancetypev1beta1.MemoryInstancetype{
-								Guest: resource.MustParse("128M"),
-							},
-						},
-					}
-					_, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), clusterInstancetypeObj, metav1.CreateOptions{})
-					Expect(err).NotTo(HaveOccurred())
-
-					err = clusterInstancetypeInformerStore.Add(clusterInstancetypeObj)
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("should apply VirtualMachineInstancetype to VirtualMachineInstance", func() {
-
-					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-						Name: instancetypeObj.Name,
-						Kind: instancetypeapi.SingularResourceName,
-					}
-
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					expectedRevisionName := instancetype.GetRevisionName(vm.Name, instancetypeObj.Name, instancetypeObj.GroupVersionKind().Version, instancetypeObj.UID, instancetypeObj.Generation)
-					expectedRevision, err := instancetype.CreateControllerRevision(vm, instancetypeObj)
-					Expect(err).ToNot(HaveOccurred())
-
-					sanityExecute(vm)
-
-					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
-					Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(instancetypeObj.Spec.Memory.Guest))
-					Expect(vmi.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, instancetypeObj.Name))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-					Expect(vm.Spec.Instancetype.RevisionName).To(Equal(expectedRevision.Name))
-
-					revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedRevisionName, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					revisionInstancetype, ok := revision.Data.Object.(*instancetypev1beta1.VirtualMachineInstancetype)
-					Expect(ok).To(BeTrue(), "Expected Instancetype in ControllerRevision")
-
-					Expect(revisionInstancetype.Spec).To(Equal(instancetypeObj.Spec))
-				})
-
-				DescribeTable("should apply VirtualMachineInstancetype from ControllerRevision to VirtualMachineInstance", func(getRevisionData func() []byte) {
-					instancetypeRevision := &appsv1.ControllerRevision{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "crName",
-						},
-						Data: runtime.RawExtension{
-							Raw: getRevisionData(),
-						},
-					}
-
-					instancetypeRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-						Name:         instancetypeObj.Name,
-						Kind:         instancetypeapi.SingularResourceName,
-						RevisionName: instancetypeRevision.Name,
-					}
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					sanityExecute(vm)
-
-					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
-					Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(instancetypeObj.Spec.Memory.Guest))
-					Expect(vmi.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, instancetypeObj.Name))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
-				},
-					Entry("using v1alpha1 and VirtualMachineInstancetypeSpecRevision with APIVersion", func() []byte {
-						v1alpha1instancetypeSpec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{
-							CPU: instancetypev1alpha1.CPUInstancetype{
-								Guest: instancetypeObj.Spec.CPU.Guest,
-							},
-							Memory: instancetypev1alpha1.MemoryInstancetype{
-								Guest: instancetypeObj.Spec.Memory.Guest,
-							},
-						}
-
-						specBytes, err := json.Marshal(&v1alpha1instancetypeSpec)
-						Expect(err).ToNot(HaveOccurred())
-
-						specRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{
-							APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
-							Spec:       specBytes,
-						}
-						specRevisionBytes, err := json.Marshal(specRevision)
-						Expect(err).ToNot(HaveOccurred())
-
-						return specRevisionBytes
-					}),
-					Entry("using v1alpha1 and VirtualMachineInstancetypeSpecRevision without APIVersion", func() []byte {
-						v1alpha1instancetypeSpec := instancetypev1alpha1.VirtualMachineInstancetypeSpec{
-							CPU: instancetypev1alpha1.CPUInstancetype{
-								Guest: instancetypeObj.Spec.CPU.Guest,
-							},
-							Memory: instancetypev1alpha1.MemoryInstancetype{
-								Guest: instancetypeObj.Spec.Memory.Guest,
-							},
-						}
-
-						specBytes, err := json.Marshal(&v1alpha1instancetypeSpec)
-						Expect(err).ToNot(HaveOccurred())
-
-						specRevision := instancetypev1alpha1.VirtualMachineInstancetypeSpecRevision{
-							APIVersion: "",
-							Spec:       specBytes,
-						}
-						specRevisionBytes, err := json.Marshal(specRevision)
-						Expect(err).ToNot(HaveOccurred())
-
-						return specRevisionBytes
-					}),
-					Entry("using v1alpha1", func() []byte {
-						v1alpha1instancetype := &instancetypev1alpha1.VirtualMachineInstancetype{
-							TypeMeta: metav1.TypeMeta{
-								APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
-								Kind:       "VirtualMachineInstancetype",
-							},
-							ObjectMeta: metav1.ObjectMeta{
-								Name: instancetypeObj.Name,
-							},
-							Spec: instancetypev1alpha1.VirtualMachineInstancetypeSpec{
-								CPU: instancetypev1alpha1.CPUInstancetype{
-									Guest: instancetypeObj.Spec.CPU.Guest,
-								},
-								Memory: instancetypev1alpha1.MemoryInstancetype{
-									Guest: instancetypeObj.Spec.Memory.Guest,
-								},
-							},
-						}
-						instancetypeBytes, err := json.Marshal(v1alpha1instancetype)
-						Expect(err).ToNot(HaveOccurred())
-
-						return instancetypeBytes
-					}),
-					Entry("using v1alpha2", func() []byte {
-						v1alpha2instancetype := &instancetypev1alpha2.VirtualMachineInstancetype{
-							TypeMeta: metav1.TypeMeta{
-								APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
-								Kind:       "VirtualMachineInstancetype",
-							},
-							ObjectMeta: metav1.ObjectMeta{
-								Name: instancetypeObj.Name,
-							},
-							Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-								CPU: instancetypev1alpha2.CPUInstancetype{
-									Guest: instancetypeObj.Spec.CPU.Guest,
-								},
-								Memory: instancetypev1alpha2.MemoryInstancetype{
-									Guest: instancetypeObj.Spec.Memory.Guest,
-								},
-							},
-						}
-						instancetypeBytes, err := json.Marshal(v1alpha2instancetype)
-						Expect(err).ToNot(HaveOccurred())
-
-						return instancetypeBytes
-					}),
-					Entry("using v1beta1", func() []byte {
-						instancetypeBytes, err := json.Marshal(instancetypeObj)
-						Expect(err).ToNot(HaveOccurred())
-
-						return instancetypeBytes
-					}),
-				)
-
-				It("should apply VirtualMachineInstancetype to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by InstancetypeMatcher", func() {
-					instancetypeRevision, err := instancetype.CreateControllerRevision(vm, instancetypeObj)
-					Expect(err).ToNot(HaveOccurred())
-
-					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-						Name: instancetypeObj.Name,
-						Kind: instancetypeapi.SingularResourceName,
-					}
-
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					sanityExecute(vm)
-
-					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
-					Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(instancetypeObj.Spec.Memory.Guest))
-					Expect(vmi.Annotations).To(HaveKeyWithValue(v1.InstancetypeAnnotation, instancetypeObj.Name))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-					Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeRevision.Name))
-
-				})
-
-				It("should apply VirtualMachineClusterInstancetype to VirtualMachineInstance", func() {
-
-					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-						Name: clusterInstancetypeObj.Name,
-						Kind: instancetypeapi.ClusterSingularResourceName,
-					}
-
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					expectedRevisionName := instancetype.GetRevisionName(vm.Name, clusterInstancetypeObj.Name, clusterInstancetypeObj.GroupVersionKind().Version, clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation)
-					expectedRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetypeObj)
-					Expect(err).ToNot(HaveOccurred())
-
-					sanityExecute(vm)
-
-					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(clusterInstancetypeObj.Spec.CPU.Guest))
-					Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(clusterInstancetypeObj.Spec.Memory.Guest))
-					Expect(vmi.Annotations).To(HaveKeyWithValue(v1.ClusterInstancetypeAnnotation, clusterInstancetypeObj.Name))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-					Expect(vm.Spec.Instancetype.RevisionName).To(Equal(expectedRevision.Name))
-
-					revision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedRevisionName, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					revisionClusterInstancetype, ok := revision.Data.Object.(*instancetypev1beta1.VirtualMachineClusterInstancetype)
-					Expect(ok).To(BeTrue(), "Expected ClusterInstancetype in ControllerRevision")
-
-					Expect(revisionClusterInstancetype.Spec).To(Equal(clusterInstancetypeObj.Spec))
-				})
-
-				It("should apply VirtualMachineClusterInstancetype from ControllerRevision to VirtualMachineInstance", func() {
-					instancetypeRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetypeObj)
-					Expect(err).ToNot(HaveOccurred())
-
-					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-						Name:         clusterInstancetypeObj.Name,
-						Kind:         instancetypeapi.ClusterSingularResourceName,
-						RevisionName: instancetypeRevision.Name,
-					}
-
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					sanityExecute(vm)
-
-					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(clusterInstancetypeObj.Spec.CPU.Guest))
-					Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(clusterInstancetypeObj.Spec.Memory.Guest))
-					Expect(vmi.Annotations).To(HaveKeyWithValue(v1.ClusterInstancetypeAnnotation, clusterInstancetypeObj.Name))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
-
-				})
-
-				It("should apply VirtualMachineClusterInstancetype to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by InstancetypeMatcher", func() {
-					instancetypeRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetypeObj)
-					Expect(err).ToNot(HaveOccurred())
-
-					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-						Name: clusterInstancetypeObj.Name,
-						Kind: instancetypeapi.ClusterSingularResourceName,
-					}
-
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					sanityExecute(vm)
-
-					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(clusterInstancetypeObj.Spec.CPU.Guest))
-					Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(clusterInstancetypeObj.Spec.Memory.Guest))
-					Expect(vmi.Annotations).To(HaveKeyWithValue(v1.ClusterInstancetypeAnnotation, clusterInstancetypeObj.Name))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-					Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeRevision.Name))
-				})
-
-				It("should reject request if an invalid InstancetypeMatcher Kind is provided", func() {
-
-					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-						Name: instancetypeObj.Name,
-						Kind: "foobar",
-					}
-
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					sanityExecute(vm)
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
-					Expect(cond).To(Not(BeNil()))
-					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Type":    Equal(v1.VirtualMachineFailure),
-						"Reason":  Equal("FailedCreate"),
-						"Message": ContainSubstring("got unexpected kind in InstancetypeMatcher"),
-						"Status":  Equal(k8sv1.ConditionTrue),
-					}))
-
-					testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
-
-				})
-
-				It("should reject the request if a VirtualMachineInstancetype cannot be found", func() {
-
-					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-						Name: "foobar",
-						Kind: instancetypeapi.SingularResourceName,
-					}
-
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					sanityExecute(vm)
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
-					Expect(cond).To(Not(BeNil()))
-					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Type":   Equal(v1.VirtualMachineFailure),
-						"Reason": Equal("FailedCreate"),
-					}))
-
-					testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
-
-				})
-
-				It("should reject the request if a VirtualMachineClusterInstancetype cannot be found", func() {
-
-					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-						Name: "foobar",
-						Kind: instancetypeapi.ClusterSingularResourceName,
-					}
-
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					sanityExecute(vm)
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
-					Expect(cond).To(Not(BeNil()))
-					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Type":   Equal(v1.VirtualMachineFailure),
-						"Reason": Equal("FailedCreate"),
-					}))
-
-					testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
-
-				})
-
-				It("should fail if the VirtualMachineInstancetype conflicts with the VirtualMachineInstance", func() {
-
-					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-						Name: instancetypeObj.Name,
-						Kind: instancetypeapi.SingularResourceName,
-					}
-
-					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
-						Sockets: uint32(1),
-						Cores:   uint32(4),
-						Threads: uint32(1),
-					}
-
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					sanityExecute(vm)
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
-					Expect(cond).To(Not(BeNil()))
-					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Type":   Equal(v1.VirtualMachineFailure),
-						"Reason": Equal("FailedCreate"),
-						"Message": And(
-							ContainSubstring("Error encountered while storing Instancetype ControllerRevisions"),
-							ContainSubstring(instancetype.VMFieldsConflictsErrorFmt, instancetype.Conflicts{
-								field.NewPath("spec.template.spec.domain.cpu.sockets"),
-								field.NewPath("spec.template.spec.domain.cpu.cores"),
-								field.NewPath("spec.template.spec.domain.cpu.threads"),
-							}),
-						),
-					}))
-					testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
-				})
-
-				It("should reject if an existing ControllerRevision is found with unexpected VirtualMachineInstancetypeSpec data", func() {
-					unexpectedInstancetype := instancetypeObj.DeepCopy()
-					unexpectedInstancetype.Spec.CPU.Guest = 15
-
-					instancetypeRevision, err := instancetype.CreateControllerRevision(vm, unexpectedInstancetype)
-					Expect(err).ToNot(HaveOccurred())
-
-					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), instancetypeRevision, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-						Name: instancetypeObj.Name,
-						Kind: instancetypeapi.SingularResourceName,
-					}
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					sanityExecute(vm)
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
-					Expect(cond).To(Not(BeNil()))
-					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Type":    Equal(v1.VirtualMachineFailure),
-						"Reason":  Equal("FailedCreate"),
-						"Message": ContainSubstring("found existing ControllerRevision with unexpected data"),
-					}))
-
-					testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
-				})
-
+			It("should capture instance type and preference RevisionNames in VirtualMachine ControllerRevision", func() {
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name: instancetypeObj.Name,
+					Kind: instancetypeapi.SingularResourceName,
+				}
+				vm.Spec.Preference = &v1.PreferenceMatcher{
+					Name: preference.Name,
+					Kind: instancetypeapi.SingularPreferenceResourceName,
+				}
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				addVirtualMachine(vm)
+				sanityExecute(vm)
+
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(revision.HasControllerRevisionRef(vm.Status.InstancetypeRef)).To(BeTrue())
+				Expect(revision.HasControllerRevisionRef(vm.Status.PreferenceRef)).To(BeTrue())
+
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.VirtualMachineRevisionName).ToNot(BeEmpty())
+
+				vmRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+					context.Background(), vmi.Status.VirtualMachineRevisionName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmRevision).ToNot(BeNil())
+
+				revisionData := &VirtualMachineRevisionData{}
+				Expect(json.Unmarshal(vmRevision.Data.Raw, revisionData)).To(Succeed())
+				Expect(revisionData.Spec.Instancetype).ToNot(BeNil())
+				Expect(revisionData.Spec.Instancetype.RevisionName).To(Equal(vm.Status.InstancetypeRef.ControllerRevisionRef.Name))
+				Expect(revisionData.Spec.Preference).ToNot(BeNil())
+				Expect(revisionData.Spec.Preference.RevisionName).To(Equal(vm.Status.PreferenceRef.ControllerRevisionRef.Name))
 			})
 
 			Context("preference", func() {
@@ -4855,7 +4184,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
 							Firmware: &instancetypev1beta1.FirmwarePreferences{
-								PreferredUseEfi: pointer.P(true),
+								DeprecatedPreferredUseEfi: pointer.P(true),
 							},
 							Devices: &instancetypev1beta1.DevicePreferences{
 								PreferredDiskBus:        v1.DiskBusVirtio,
@@ -4870,431 +4199,6 @@ var _ = Describe("VirtualMachine", func() {
 
 					err = clusterPreferenceInformerStore.Add(clusterPreference)
 					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("should apply VirtualMachinePreference to VirtualMachineInstance", func() {
-
-					vm.Spec.Preference = &v1.PreferenceMatcher{
-						Name: preference.Name,
-						Kind: instancetypeapi.SingularPreferenceResourceName,
-					}
-
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, preference.Name, preference.GroupVersionKind().Version, preference.UID, preference.Generation)
-					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
-					Expect(err).ToNot(HaveOccurred())
-
-					sanityExecute(vm)
-
-					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
-					Expect(vmi.Annotations).To(HaveKeyWithValue(v1.PreferenceAnnotation, preference.Name))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
-
-					preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedPreferenceRevisionName, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					preferenceRevisionObj, ok := preferenceRevision.Data.Object.(*instancetypev1beta1.VirtualMachinePreference)
-					Expect(ok).To(BeTrue(), "Expected Preference in ControllerRevision")
-					Expect(preferenceRevisionObj.Spec).To(Equal(preference.Spec))
-				})
-
-				DescribeTable("should apply VirtualMachinePreference from ControllerRevision to VirtualMachineInstance", func(getRevisionData func() []byte) {
-					preferenceRevision := &appsv1.ControllerRevision{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "crName",
-						},
-						Data: runtime.RawExtension{
-							Raw: getRevisionData(),
-						},
-					}
-
-					preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					vm.Spec.Preference = &v1.PreferenceMatcher{
-						Name:         preference.Name,
-						Kind:         instancetypeapi.SingularPreferenceResourceName,
-						RevisionName: preferenceRevision.Name,
-					}
-
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					sanityExecute(vm)
-
-					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
-					Expect(vmi.Annotations).To(HaveKeyWithValue(v1.PreferenceAnnotation, preference.Name))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
-
-				},
-					Entry("using v1alpha1 and VirtualMachinePreferenceSpecRevision with APIVersion", func() []byte {
-						v1alpha1preferenceSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{
-							Firmware: &instancetypev1alpha1.FirmwarePreferences{
-								PreferredUseEfi: pointer.P(true),
-							},
-							Devices: &instancetypev1alpha1.DevicePreferences{
-								PreferredDiskBus:        v1.DiskBusVirtio,
-								PreferredInterfaceModel: "virtio",
-								PreferredInputBus:       v1.InputBusUSB,
-								PreferredInputType:      v1.InputTypeTablet,
-							},
-						}
-
-						specBytes, err := json.Marshal(&v1alpha1preferenceSpec)
-						Expect(err).ToNot(HaveOccurred())
-
-						specRevision := instancetypev1alpha1.VirtualMachinePreferenceSpecRevision{
-							APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
-							Spec:       specBytes,
-						}
-						specRevisionBytes, err := json.Marshal(specRevision)
-						Expect(err).ToNot(HaveOccurred())
-
-						return specRevisionBytes
-					}),
-					Entry("using v1alpha1 and VirtualMachinePreferenceSpecRevision without APIVersion", func() []byte {
-						v1alpha1preferenceSpec := instancetypev1alpha1.VirtualMachinePreferenceSpec{
-							Firmware: &instancetypev1alpha1.FirmwarePreferences{
-								PreferredUseEfi: pointer.P(true),
-							},
-							Devices: &instancetypev1alpha1.DevicePreferences{
-								PreferredDiskBus:        v1.DiskBusVirtio,
-								PreferredInterfaceModel: "virtio",
-								PreferredInputBus:       v1.InputBusUSB,
-								PreferredInputType:      v1.InputTypeTablet,
-							},
-						}
-
-						specBytes, err := json.Marshal(&v1alpha1preferenceSpec)
-						Expect(err).ToNot(HaveOccurred())
-
-						specRevision := instancetypev1alpha1.VirtualMachinePreferenceSpecRevision{
-							APIVersion: "",
-							Spec:       specBytes,
-						}
-						specRevisionBytes, err := json.Marshal(specRevision)
-						Expect(err).ToNot(HaveOccurred())
-
-						return specRevisionBytes
-					}),
-					Entry("using v1alpha1", func() []byte {
-						v1alpha1preference := &instancetypev1alpha1.VirtualMachinePreference{
-							TypeMeta: metav1.TypeMeta{
-								APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
-								Kind:       "VirtualMachinePreference",
-							},
-							ObjectMeta: metav1.ObjectMeta{
-								Name: preference.Name,
-							},
-							Spec: instancetypev1alpha1.VirtualMachinePreferenceSpec{
-								Firmware: &instancetypev1alpha1.FirmwarePreferences{
-									PreferredUseEfi: pointer.P(true),
-								},
-								Devices: &instancetypev1alpha1.DevicePreferences{
-									PreferredDiskBus:        v1.DiskBusVirtio,
-									PreferredInterfaceModel: "virtio",
-									PreferredInputBus:       v1.InputBusUSB,
-									PreferredInputType:      v1.InputTypeTablet,
-								},
-							},
-						}
-						preferenceBytes, err := json.Marshal(v1alpha1preference)
-						Expect(err).ToNot(HaveOccurred())
-
-						return preferenceBytes
-					}),
-					Entry("using v1alpha2", func() []byte {
-						v1alpha2preference := &instancetypev1alpha2.VirtualMachinePreference{
-							TypeMeta: metav1.TypeMeta{
-								APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
-								Kind:       "VirtualMachinePreference",
-							},
-							ObjectMeta: metav1.ObjectMeta{
-								Name: preference.Name,
-							},
-							Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
-								Firmware: &instancetypev1alpha2.FirmwarePreferences{
-									PreferredUseEfi: pointer.P(true),
-								},
-								Devices: &instancetypev1alpha2.DevicePreferences{
-									PreferredDiskBus:        v1.DiskBusVirtio,
-									PreferredInterfaceModel: "virtio",
-									PreferredInputBus:       v1.InputBusUSB,
-									PreferredInputType:      v1.InputTypeTablet,
-								},
-							},
-						}
-						preferenceBytes, err := json.Marshal(v1alpha2preference)
-						Expect(err).ToNot(HaveOccurred())
-
-						return preferenceBytes
-					}),
-					Entry("using v1beta1", func() []byte {
-						preferenceBytes, err := json.Marshal(preference)
-						Expect(err).ToNot(HaveOccurred())
-
-						return preferenceBytes
-					}),
-				)
-
-				It("should apply VirtualMachinePreference to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by PreferenceMatcher", func() {
-					preferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
-					Expect(err).ToNot(HaveOccurred())
-
-					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					vm.Spec.Preference = &v1.PreferenceMatcher{
-						Name: preference.Name,
-						Kind: instancetypeapi.SingularPreferenceResourceName,
-					}
-
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					sanityExecute(vm)
-
-					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
-					Expect(vmi.Annotations).To(HaveKeyWithValue(v1.PreferenceAnnotation, preference.Name))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.ClusterPreferenceAnnotation))
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-					Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceRevision.Name))
-				})
-
-				It("should apply VirtualMachineClusterPreference to VirtualMachineInstance", func() {
-
-					vm.Spec.Preference = &v1.PreferenceMatcher{
-						Name: clusterPreference.Name,
-						Kind: instancetypeapi.ClusterSingularPreferenceResourceName,
-					}
-
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					expectedPreferenceRevisionName := instancetype.GetRevisionName(vm.Name, clusterPreference.Name, clusterPreference.GroupVersionKind().Version, clusterPreference.UID, clusterPreference.Generation)
-					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, clusterPreference)
-					Expect(err).ToNot(HaveOccurred())
-
-					sanityExecute(vm)
-
-					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
-					Expect(vmi.Annotations).To(HaveKeyWithValue(v1.ClusterPreferenceAnnotation, clusterPreference.Name))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
-
-					preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), expectedPreferenceRevisionName, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					preferenceRevisionObj, ok := preferenceRevision.Data.Object.(*instancetypev1beta1.VirtualMachineClusterPreference)
-					Expect(ok).To(BeTrue(), "Expected Preference in ControllerRevision")
-					Expect(preferenceRevisionObj.Spec).To(Equal(clusterPreference.Spec))
-				})
-
-				It("should apply VirtualMachineClusterPreference from ControllerRevision to VirtualMachineInstance", func() {
-					preferenceRevision, err := instancetype.CreateControllerRevision(vm, clusterPreference)
-					Expect(err).ToNot(HaveOccurred())
-
-					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					vm.Spec.Preference = &v1.PreferenceMatcher{
-						Name:         clusterPreference.Name,
-						Kind:         instancetypeapi.ClusterSingularPreferenceResourceName,
-						RevisionName: preferenceRevision.Name,
-					}
-
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					sanityExecute(vm)
-
-					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
-					Expect(vmi.Annotations).To(HaveKeyWithValue(v1.ClusterPreferenceAnnotation, clusterPreference.Name))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-
-				})
-
-				It("should apply VirtualMachineClusterPreference to VirtualMachineInstance if an existing ControllerRevision is present but not referenced by PreferenceMatcher", func() {
-					preferenceRevision, err := instancetype.CreateControllerRevision(vm, clusterPreference)
-					Expect(err).ToNot(HaveOccurred())
-
-					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					vm.Spec.Preference = &v1.PreferenceMatcher{
-						Name: clusterPreference.Name,
-						Kind: instancetypeapi.ClusterSingularPreferenceResourceName,
-					}
-
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					sanityExecute(vm)
-
-					vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).NotTo(HaveOccurred())
-					Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI).ToNot(BeNil())
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.InstancetypeAnnotation))
-					Expect(vmi.Annotations).To(HaveKeyWithValue(v1.ClusterPreferenceAnnotation, clusterPreference.Name))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.ClusterInstancetypeAnnotation))
-					Expect(vmi.Annotations).ToNot(HaveKey(v1.PreferenceAnnotation))
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-					Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceRevision.Name))
-				})
-
-				It("should reject the request if an invalid PreferenceMatcher Kind is provided", func() {
-
-					vm.Spec.Preference = &v1.PreferenceMatcher{
-						Name: preference.Name,
-						Kind: "foobar",
-					}
-
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					sanityExecute(vm)
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
-					Expect(cond).To(Not(BeNil()))
-					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Type":    Equal(v1.VirtualMachineFailure),
-						"Reason":  Equal("FailedCreate"),
-						"Message": ContainSubstring("got unexpected kind in PreferenceMatcher"),
-					}))
-
-					testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
-				})
-
-				It("should reject the request if a VirtualMachinePreference cannot be found", func() {
-
-					vm.Spec.Preference = &v1.PreferenceMatcher{
-						Name: "foobar",
-						Kind: instancetypeapi.SingularPreferenceResourceName,
-					}
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					sanityExecute(vm)
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
-					Expect(cond).To(Not(BeNil()))
-					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Type":   Equal(v1.VirtualMachineFailure),
-						"Reason": Equal("FailedCreate"),
-					}))
-
-					testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
-				})
-
-				It("should reject the request if a VirtualMachineClusterPreference cannot be found", func() {
-
-					vm.Spec.Preference = &v1.PreferenceMatcher{
-						Name: "foobar",
-						Kind: instancetypeapi.ClusterSingularPreferenceResourceName,
-					}
-
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					sanityExecute(vm)
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
-					Expect(cond).To(Not(BeNil()))
-					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Type":   Equal(v1.VirtualMachineFailure),
-						"Reason": Equal("FailedCreate"),
-					}))
-
-					testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
-
-				})
-
-				It("should reject if an existing ControllerRevision is found with unexpected VirtualMachinePreferenceSpec data", func() {
-					unexpectedPreference := preference.DeepCopy()
-					unexpectedPreference.Spec.Firmware = &instancetypev1beta1.FirmwarePreferences{
-						PreferredUseBios: pointer.P(true),
-					}
-
-					preferenceRevision, err := instancetype.CreateControllerRevision(vm, unexpectedPreference)
-					Expect(err).ToNot(HaveOccurred())
-
-					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), preferenceRevision, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					vm.Spec.Preference = &v1.PreferenceMatcher{
-						Name: preference.Name,
-						Kind: instancetypeapi.SingularPreferenceResourceName,
-					}
-
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-
-					sanityExecute(vm)
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineFailure)
-					Expect(cond).To(Not(BeNil()))
-					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Type":    Equal(v1.VirtualMachineFailure),
-						"Reason":  Equal("FailedCreate"),
-						"Message": ContainSubstring("found existing ControllerRevision with unexpected data"),
-					}))
-
-					testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
 				})
 
 				It("should apply preferences to default network interface", func() {
@@ -5323,7 +4227,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
-					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
+					Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
 				})
 
 				It("should apply preferredAutoattachPodInterface and skip adding default network interface", func() {
@@ -5370,7 +4274,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
-					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
+					Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
 				})
 
 				It("should apply preferences to default volume disk", func() {
@@ -5422,7 +4326,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
-					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
+					Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
 				})
 
 				It("should apply preferences to AutoattachInputDevice attached input device", func() {
@@ -5452,7 +4356,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
-					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
+					Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
 				})
 
 				It("should apply preferences to preferredAutoattachInputDevice attached input device", func() {
@@ -5498,7 +4402,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
-					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
+					Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
 				})
 
 				It("should apply preferredAutoattachInputDevice and skip adding default input device", func() {
@@ -5541,180 +4445,8 @@ var _ = Describe("VirtualMachine", func() {
 
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
-					Expect(vm.Spec.Preference.RevisionName).To(Equal(expectedPreferenceRevision.Name))
+					Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(expectedPreferenceRevision.Name))
 				})
-			})
-
-			Context("InstancetypeReferencePolicy", func() {
-
-				addRevisionsToVMFunc := func() {
-					instancetypeRevision, err := instancetype.CreateControllerRevision(vm, instancetypeObj)
-					Expect(err).ToNot(HaveOccurred())
-
-					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-						context.Background(), instancetypeRevision, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					preferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
-					Expect(err).ToNot(HaveOccurred())
-
-					_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-						context.Background(), preferenceRevision, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					vm.Spec.Instancetype.RevisionName = instancetypeRevision.Name
-					vm.Spec.Preference.RevisionName = preferenceRevision.Name
-				}
-
-				kvWithFGEnabledReferencePolicyExpand := &v1.KubeVirt{
-					Spec: v1.KubeVirtSpec{
-						Configuration: v1.KubeVirtConfiguration{
-							DeveloperConfiguration: &v1.DeveloperConfiguration{
-								FeatureGates: []string{virtconfig.InstancetypeReferencePolicy},
-							},
-							Instancetype: &v1.InstancetypeConfiguration{
-								ReferencePolicy: pointer.P(v1.Expand),
-							},
-						},
-					},
-				}
-
-				kvWithFGEnabledReferencePolicyExpandAll := &v1.KubeVirt{
-					Spec: v1.KubeVirtSpec{
-						Configuration: v1.KubeVirtConfiguration{
-							DeveloperConfiguration: &v1.DeveloperConfiguration{
-								FeatureGates: []string{virtconfig.InstancetypeReferencePolicy},
-							},
-							Instancetype: &v1.InstancetypeConfiguration{
-								ReferencePolicy: pointer.P(v1.ExpandAll),
-							},
-						},
-					},
-				}
-
-				BeforeEach(func() {
-					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
-						Name: instancetypeObj.Name,
-						Kind: instancetypeapi.SingularResourceName,
-					}
-					vm.Spec.Preference = &v1.PreferenceMatcher{
-						Name: preference.Name,
-						Kind: instancetypeapi.SingularPreferenceResourceName,
-					}
-				})
-
-				DescribeTable("should not expand and update VM ", func(kv *v1.KubeVirt, updateVMFunc func()) {
-					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
-					updateVMFunc()
-
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(
-						context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-
-					addVirtualMachine(vm)
-					sanityExecute(vm)
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(
-						context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-					Expect(vm.Spec.Instancetype).ToNot(BeNil())
-					Expect(vm.Spec.Instancetype.Name).To(Equal(instancetypeObj.Name))
-					Expect(vm.Spec.Instancetype.RevisionName).ToNot(BeEmpty())
-					Expect(vm.Spec.Preference).ToNot(BeNil())
-					Expect(vm.Spec.Preference.Name).To(Equal(preference.Name))
-					Expect(vm.Spec.Preference.RevisionName).ToNot(BeEmpty())
-				},
-					Entry("with FG disabled and default referencePolicy",
-						&v1.KubeVirt{Spec: v1.KubeVirtSpec{Configuration: v1.KubeVirtConfiguration{}}}, func() {}),
-					Entry("with FG disabled and referencePolicy reference",
-						&v1.KubeVirt{
-							Spec: v1.KubeVirtSpec{
-								Configuration: v1.KubeVirtConfiguration{
-									Instancetype: &v1.InstancetypeConfiguration{
-										ReferencePolicy: pointer.P(v1.Reference),
-									},
-								},
-							},
-						}, func() {}),
-					Entry("with FG disabled and referencePolicy expand",
-						&v1.KubeVirt{
-							Spec: v1.KubeVirtSpec{
-								Configuration: v1.KubeVirtConfiguration{
-									Instancetype: &v1.InstancetypeConfiguration{
-										ReferencePolicy: pointer.P(v1.Expand),
-									},
-								},
-							},
-						}, func() {}),
-					Entry("with FG disabled and referencePolicy expandAll",
-						&v1.KubeVirt{
-							Spec: v1.KubeVirtSpec{
-								Configuration: v1.KubeVirtConfiguration{
-									Instancetype: &v1.InstancetypeConfiguration{
-										ReferencePolicy: pointer.P(v1.ExpandAll),
-									},
-								},
-							},
-						}, func() {}),
-					Entry("with FG enabled and default referencePolicy", &v1.KubeVirt{
-						Spec: v1.KubeVirtSpec{Configuration: v1.KubeVirtConfiguration{
-							DeveloperConfiguration: &v1.DeveloperConfiguration{
-								FeatureGates: []string{virtconfig.InstancetypeReferencePolicy},
-							},
-						}}}, func() {}),
-					Entry("with FG enabled and referencePolicy reference", &v1.KubeVirt{
-						Spec: v1.KubeVirtSpec{
-							Configuration: v1.KubeVirtConfiguration{
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{virtconfig.InstancetypeReferencePolicy},
-								},
-								Instancetype: &v1.InstancetypeConfiguration{
-									ReferencePolicy: pointer.P(v1.Reference),
-								},
-							},
-						},
-					}, func() {}),
-					Entry("with FG enabled, referencePolicy expand and revisionNames already captured",
-						kvWithFGEnabledReferencePolicyExpand, addRevisionsToVMFunc,
-					),
-				)
-
-				DescribeTable("should expand and update VM", func(kv *v1.KubeVirt, updateVMFunc func()) {
-					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
-					updateVMFunc()
-
-					// Stash a copy of the original VM to assert ControllerRevision removal later
-					originalVM := vm.DeepCopy()
-
-					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(
-						context.TODO(), vm, metav1.CreateOptions{})
-					Expect(err).To(Succeed())
-					addVirtualMachine(vm)
-					sanityExecute(vm)
-
-					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(
-						context.TODO(), vm.Name, metav1.GetOptions{})
-					Expect(err).To(Succeed())
-					Expect(vm.Spec.Instancetype).To(BeNil())
-					Expect(vm.Spec.Template.Spec.Domain.CPU.Sockets).To(Equal(instancetypeObj.Spec.CPU.Guest))
-					Expect(vm.Spec.Template.Spec.Domain.Memory.Guest.Value()).To(Equal(instancetypeObj.Spec.Memory.Guest.Value()))
-					Expect(vm.Spec.Preference).To(BeNil())
-
-					// Assert that the original ControllerRevisions have been cleaned up
-					if originalVM.Spec.Instancetype.RevisionName != "" {
-						_, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.TODO(), originalVM.Spec.Instancetype.RevisionName, metav1.GetOptions{})
-						Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
-					}
-					if originalVM.Spec.Preference.RevisionName != "" {
-						_, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.TODO(), originalVM.Spec.Preference.RevisionName, metav1.GetOptions{})
-						Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
-					}
-				},
-					Entry("with FG enabled and referencePolicy expand", kvWithFGEnabledReferencePolicyExpand, func() {}),
-					Entry("with FG enabled and referencePolicy expandAll", kvWithFGEnabledReferencePolicyExpandAll, func() {}),
-					Entry("with FG enabled and referencePolicy expandAll and revisionNames already captured",
-						kvWithFGEnabledReferencePolicyExpandAll, addRevisionsToVMFunc),
-				)
 			})
 		})
 
@@ -6607,11 +5339,6 @@ var _ = Describe("VirtualMachine", func() {
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
 								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{
-										virtconfig.VolumesUpdateStrategy,
-									},
-								},
 							},
 						},
 					})
@@ -6636,12 +5363,6 @@ var _ = Describe("VirtualMachine", func() {
 						Spec: v1.KubeVirtSpec{
 							Configuration: v1.KubeVirtConfiguration{
 								VMRolloutStrategy: &liveUpdate,
-								DeveloperConfiguration: &v1.DeveloperConfiguration{
-									FeatureGates: []string{
-										virtconfig.VolumesUpdateStrategy,
-										virtconfig.VolumeMigration,
-									},
-								},
 							},
 						},
 					})
@@ -6686,6 +5407,7 @@ var _ = Describe("VirtualMachine", func() {
 				var (
 					originalVM *v1.VirtualMachine
 					updatedVM  *v1.VirtualMachine
+					vmi        *v1.VirtualMachineInstance
 
 					controllerrevisionInformerStore cache.Store
 
@@ -6693,7 +5415,7 @@ var _ = Describe("VirtualMachine", func() {
 				)
 
 				BeforeEach(func() {
-					originalVM, _ = watchtesting.DefaultVirtualMachine(true)
+					originalVM, vmi = watchtesting.DefaultVirtualMachine(true)
 					originalVM.Spec.Template.Spec.Domain = v1.DomainSpec{}
 
 					controllerrevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
@@ -6732,10 +5454,16 @@ var _ = Describe("VirtualMachine", func() {
 						RevisionName: revision.Name,
 					}
 
-					controller.instancetypeMethods = &instancetype.InstancetypeMethods{
-						ControllerRevisionStore: controllerrevisionInformerStore,
-						Clientset:               virtClient,
-					}
+					controller.instancetypeController = instancetypecontroller.New(
+						nil,
+						nil,
+						nil,
+						nil,
+						controllerrevisionInformerStore,
+						virtClient,
+						config,
+						controller.recorder,
+					)
 
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
@@ -6763,8 +5491,7 @@ var _ = Describe("VirtualMachine", func() {
 						Kind:         instancetypeapi.SingularResourceName,
 						RevisionName: updatedRevision.Name,
 					}
-
-					Expect(controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM)).To(BeFalse())
+					Expect(controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM, vmi)).To(BeFalse())
 					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
 					Expect(vmConditionController.HasCondition(updatedVM, v1.VirtualMachineRestartRequired)).To(BeFalse())
 				})
@@ -6789,7 +5516,7 @@ var _ = Describe("VirtualMachine", func() {
 						RevisionName: updatedRevision.Name,
 					}
 
-					Expect(controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM)).To(BeTrue())
+					Expect(controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM, vmi)).To(BeTrue())
 					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
 					Expect(vmConditionController.HasCondition(updatedVM, v1.VirtualMachineRestartRequired)).To(BeTrue())
 				})
@@ -7044,6 +5771,93 @@ var _ = Describe("VirtualMachine", func() {
 				Entry("should not appear if VM rollout strategy is set to LiveUpdate",
 					&liveUpdate, Not(restartRequiredMatcher(k8sv1.ConditionTrue))),
 			)
+
+			Context("for hotplugged volumes", func() {
+				BeforeEach(func() {
+					kv.Spec.Configuration.VMRolloutStrategy = pointer.P(stage)
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+
+				})
+
+				addVolume := func() {
+					hpSource := v1.HotplugVolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name:         "hotplug-dv",
+							Hotpluggable: true,
+						},
+					}
+					disk := v1.Disk{
+						Name: "hotplug",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
+						}}
+					vm.Status.VolumeRequests = append(vm.Status.VolumeRequests, v1.VirtualMachineVolumeRequest{
+						AddVolumeOptions: &v1.AddVolumeOptions{
+							Name:         "hotplug",
+							VolumeSource: &hpSource,
+							Disk:         &disk,
+						},
+					})
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+				}
+
+				It("shouldn't appear with the stage rollout strategy and when a volume is added with a hotplug volume request", func() {
+					By("Creating a VM")
+					vmi = controller.setupVMIFromVM(vm)
+					controller.vmiIndexer.Add(vmi)
+
+					By("Creating a Controller Revision")
+					controller.crIndexer.Add(createVMRevision(vm))
+
+					By("Adding an hotplugged volume to the VM")
+					addVolume()
+
+					By("Executing the controller expecting the RestartRequired not to appear")
+					sanityExecute(vm)
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(virtcontroller.NewVirtualMachineConditionManager().HasCondition(vm,
+						v1.VirtualMachineRestartRequired)).To(BeFalse())
+				})
+
+				It("should appear when the volume is directly added to the spec", func() {
+					By("Creating a VM")
+					vmi = controller.setupVMIFromVM(vm)
+					controller.vmiIndexer.Add(vmi)
+
+					By("Creating a Controller Revision")
+					controller.crIndexer.Add(createVMRevision(vm))
+
+					By("Adding an hotplugged volume to the VM")
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+						Name: "hotplug",
+						VolumeSource: v1.VolumeSource{
+							DataVolume: &v1.DataVolumeSource{
+								Name:         "hotplug-dv",
+								Hotpluggable: true,
+							},
+						},
+					})
+					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+						Name: "hotplug",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
+						}})
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					By("Executing the controller expecting the RestartRequired not to appear")
+					sanityExecute(vm)
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+					Expect(virtcontroller.NewVirtualMachineConditionManager().HasCondition(vm,
+						v1.VirtualMachineRestartRequired)).To(BeTrue())
+				})
+			})
 		})
 
 		Context("RunStrategy", func() {
@@ -7460,7 +6274,8 @@ var _ = Describe("VirtualMachine", func() {
 				Reason: reason,
 			}
 		}
-		DescribeTable("", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, expectedVolumeMigrationState *v1.VolumeMigrationState, expectCond bool) {
+		DescribeTable("and UpdateVolumesStrategy set to Migration", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, expectedVolumeMigrationState *v1.VolumeMigrationState, expectCond bool) {
+			vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyMigration)
 			syncVolumeMigration(vm, vmi)
 			Expect(vm.Status.VolumeUpdateState.VolumeMigrationState).To(Equal(expectedVolumeMigrationState))
 			Expect(controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm,

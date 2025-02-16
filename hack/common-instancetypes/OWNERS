@@ -1,0 +1,10 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+approvers:
+  - sig-compute-approvers
+  - sig-compute-instancetype-approvers
+reviewers:
+  - sig-compute-reviewers
+  - sig-compute-instancetype-reviewers
+labels:
+  - sig/compute
+  - area/instancetype

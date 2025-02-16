@@ -44,7 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
@@ -121,7 +121,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		}
 
 		Context("with Node Restriction feature gate enabled", func() {
-			BeforeEach(func() { enableFeatureGate(virtconfig.NodeRestrictionGate) })
+			BeforeEach(func() { enableFeatureGate(featuregate.NodeRestrictionGate) })
 
 			shouldNotAllowCrossNodeRequest := And(
 				WithTransform(func(resp *admissionv1.AdmissionResponse) bool { return resp.Allowed },
@@ -317,8 +317,8 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 					Operation: admissionv1.Update,
 				},
 			}
-			resp := admitVMILabelsUpdate(updateVmi, vmi, ar)
-			Expect(resp).To(BeNil())
+			resp := vmiUpdateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue())
 		},
 		Entry("Update of an existing label",
 			map[string]string{"kubevirt.io/l": "someValue", "other-label/l": "value"},
@@ -360,8 +360,9 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 					Operation: admissionv1.Update,
 				},
 			}
-			resp := admitVMILabelsUpdate(updateVmi, vmi, ar)
-			Expect(resp).To(BeNil())
+
+			resp := vmiUpdateAdmitter.Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeTrue())
 		},
 		Entry("Update by API",
 			map[string]string{v1.NodeNameLabel: "someValue"},
@@ -402,7 +403,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 					Operation: admissionv1.Update,
 				},
 			}
-			resp := admitVMILabelsUpdate(updateVmi, vmi, ar)
+			resp := vmiUpdateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
 			Expect(resp.Result.Details.Causes[0].Message).To(Equal("modification of the following reserved kubevirt.io/ labels on a VMI object is prohibited"))
@@ -822,7 +823,8 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 
 	Context("with filesystem devices", func() {
 		BeforeEach(func() {
-			enableFeatureGate(virtconfig.VirtIOFSGate)
+			enableFeatureGate(featuregate.VirtIOFSConfigVolumesGate)
+			enableFeatureGate(featuregate.VirtIOFSStorageVolumeGate)
 		})
 
 		DescribeTable("Should return proper admission response", testHotplugResponse,
@@ -944,7 +946,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		Expect(resp.Allowed).To(BeFalse())
 	})
 
-	It("should allow change for a persistent volume if it is a migrated volume", func() {
+	DescribeTable("should allow change for a persistent volume if it is a migrated volume", func(hotpluggable bool) {
 		disks := []v1.Disk{
 			{
 				Name:       "vol0",
@@ -961,6 +963,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				VolumeSource: v1.VolumeSource{
 					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc0"},
+						Hotpluggable:                      hotpluggable,
 					},
 				},
 			},
@@ -969,6 +972,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				VolumeSource: v1.VolumeSource{
 					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc1"},
+						Hotpluggable:                      hotpluggable,
 					},
 				},
 			},
@@ -979,6 +983,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				VolumeSource: v1.VolumeSource{
 					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc0"},
+						Hotpluggable:                      hotpluggable,
 					},
 				},
 			},
@@ -987,6 +992,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 				VolumeSource: v1.VolumeSource{
 					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc2"},
+						Hotpluggable:                      hotpluggable,
 					},
 				},
 			},
@@ -1004,5 +1010,8 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			},
 		}
 		Expect(admitStorageUpdate(newVols, oldVols, disks, disks, volumeStatuses, vmi, vmiUpdateAdmitter.clusterConfig)).To(BeNil())
-	})
+	},
+		Entry("and not hotpluggable", false),
+		Entry("and hotpluggable", true),
+	)
 })

@@ -35,7 +35,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -173,6 +172,15 @@ func CreateFSPVC(name, namespace, size string, labels map[string]string) *k8sv1.
 	for key, value := range labels {
 		pvc.Labels[key] = value
 	}
+
+	return createPVC(pvc, namespace)
+}
+
+func CreateRWXFSPVC(name, namespace, size string) *k8sv1.PersistentVolumeClaim {
+	sc, _ := GetRWXFileSystemStorageClass()
+	pvc := NewPVC(name, size, sc)
+	pvc.Spec.VolumeMode = pointer.P(k8sv1.PersistentVolumeFilesystem)
+	pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}
 
 	return createPVC(pvc, namespace)
 }
@@ -367,82 +375,5 @@ func DeletePV(os string) {
 	err := virtCli.CoreV1().PersistentVolumes().Delete(context.Background(), name, metav1.DeleteOptions{})
 	if !errors.IsNotFound(err) {
 		util.PanicOnError(err)
-	}
-}
-
-func CreateNFSPvAndPvc(name string, namespace string, size string, nfsTargetIP string, os string) {
-	virtCli := kubevirt.Client()
-
-	_, err := virtCli.CoreV1().PersistentVolumes().Create(context.Background(), newNFSPV(name, namespace, size, nfsTargetIP, os), metav1.CreateOptions{})
-	if !errors.IsAlreadyExists(err) {
-		util.PanicOnError(err)
-	}
-
-	_, err = virtCli.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), newNFSPVC(name, namespace, size, os), metav1.CreateOptions{})
-	if !errors.IsAlreadyExists(err) {
-		util.PanicOnError(err)
-	}
-}
-
-func newNFSPV(name string, namespace string, size string, nfsTargetIP string, os string) *k8sv1.PersistentVolume {
-	quantity := resource.MustParse(size)
-
-	storageClass, _ := GetRWOFileSystemStorageClass()
-	volumeMode := k8sv1.PersistentVolumeFilesystem
-
-	nfsTargetIP = ip.NormalizeIPAddress(nfsTargetIP)
-
-	return &k8sv1.PersistentVolume{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{
-				util.KubevirtIoTest:                      os,
-				cleanup.TestLabelForNamespace(namespace): "",
-			},
-		},
-		Spec: k8sv1.PersistentVolumeSpec{
-			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
-			Capacity: k8sv1.ResourceList{
-				"storage": quantity,
-			},
-			StorageClassName: storageClass,
-			VolumeMode:       &volumeMode,
-			PersistentVolumeSource: k8sv1.PersistentVolumeSource{
-				NFS: &k8sv1.NFSVolumeSource{
-					Server: nfsTargetIP,
-					Path:   "/",
-				},
-			},
-		},
-	}
-}
-
-func newNFSPVC(name string, namespace string, size string, os string) *k8sv1.PersistentVolumeClaim {
-	quantity, err := resource.ParseQuantity(size)
-	util.PanicOnError(err)
-
-	storageClass, _ := GetRWOFileSystemStorageClass()
-	volumeMode := k8sv1.PersistentVolumeFilesystem
-
-	return &k8sv1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Spec: k8sv1.PersistentVolumeClaimSpec{
-			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
-			Resources: k8sv1.VolumeResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					"storage": quantity,
-				},
-			},
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					util.KubevirtIoTest:                      os,
-					cleanup.TestLabelForNamespace(namespace): "",
-				},
-			},
-			StorageClassName: &storageClass,
-			VolumeMode:       &volumeMode,
-		},
 	}
 }

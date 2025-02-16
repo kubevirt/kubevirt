@@ -21,7 +21,7 @@ set -e
 
 DOCKER_TAG=${DOCKER_TAG:-devel}
 DOCKER_TAG_ALT=${DOCKER_TAG_ALT:-devel_alt}
-KUBEVIRT_E2E_PARALLEL_NODES=${KUBEVIRT_E2E_PARALLEL_NODES:-3}
+KUBEVIRT_E2E_PARALLEL_NODES=${KUBEVIRT_E2E_PARALLEL_NODES:-4}
 KUBEVIRT_FUNC_TEST_GINKGO_ARGS=${FUNC_TEST_ARGS:-${KUBEVIRT_FUNC_TEST_GINKGO_ARGS}}
 KUBEVIRT_FUNC_TEST_LABEL_FILTER=${FUNC_TEST_LABEL_FILTER:-${KUBEVIRT_FUNC_TEST_LABEL_FILTER}}
 KUBEVIRT_FUNC_TEST_GINKGO_TIMEOUT=${KUBEVIRT_FUNC_TEST_GINKGO_TIMEOUT:-4h}
@@ -34,12 +34,6 @@ _default_previous_release_registry="quay.io/kubevirt"
 previous_release_registry=${PREVIOUS_RELEASE_REGISTRY:-$_default_previous_release_registry}
 
 functest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
-
-kubevirt_test_config="${KUBEVIRT_DIR}/tests/default-config.json"
-
-if [[ ${KUBEVIRT_STORAGE} == rook-ceph* ]]; then
-    kubevirt_test_config="${KUBEVIRT_DIR}/tests/default-ceph-config.json"
-fi
 
 echo "Using $kubevirt_test_config as test configuration"
 
@@ -60,7 +54,6 @@ function functest() {
 	    -conn-check-ipv6-address=${conn_check_ipv6_address} \
 	    -conn-check-dns=${conn_check_dns} \
 	    -migration-network-nic=${migration_network_nic} \
-	    -disable-custom-selinux-policy \
 	    ${KUBEVIRT_FUNC_TEST_SUITE_ARGS}"
     if [[ ${KUBEVIRT_PROVIDER} =~ .*(k8s-sriov).* ]] || [[ ${KUBEVIRT_SINGLE_STACK} == "true" ]]; then
         echo "Will skip test asserting the cluster is in dual-stack mode."

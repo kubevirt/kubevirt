@@ -3,14 +3,15 @@ package expose_test
 import (
 	"context"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/golang/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/fake"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
@@ -18,7 +19,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
-	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/pkg/virtctl/testing"
+)
+
+const (
+	labelKey   = "my-key"
+	labelValue = "my-value"
 )
 
 var _ = Describe("Expose", func() {
@@ -103,57 +109,20 @@ var _ = Describe("Expose", func() {
 			Expect(err).To(MatchError("couldn't find port via --port flag or introspection"))
 		})
 
-		Context("when labels are missing", func() {
-			It("with VirtualMachineInstance", func() {
-				vmi := libvmi.New()
-				vmi, err := virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				err = runCommand("vmi", vmi.Name, "--name", "my-service")
-				Expect(err).To(MatchError(ContainSubstring("cannot expose vmi without any label")))
-			})
-
-			It("with VirtualMachineInstance and unwanted labels", func() {
-				vmi := libvmi.New(
-					libvmi.WithLabel(v1.NodeNameLabel, "value"),
-					libvmi.WithLabel(v1.VirtualMachinePoolRevisionName, "value"),
-					libvmi.WithLabel(v1.MigrationTargetNodeNameLabel, "value"),
-				)
-				vmi, err := virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				err = runCommand("vmi", vmi.Name, "--name", "my-service")
-				Expect(err).To(MatchError(ContainSubstring("cannot expose vmi without any label")))
-			})
-
-			It("with VirtualMachine", func() {
-				vm := libvmi.NewVirtualMachine(libvmi.New())
-				vm, err := virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				err = runCommand("vm", vm.Name, "--name", "my-service")
-				Expect(err).To(MatchError(ContainSubstring("cannot expose vm without any label")))
-			})
-
-			It("with VirtualMachine and unwanted labels", func() {
-				vm := libvmi.NewVirtualMachine(libvmi.New(
-					libvmi.WithLabel(v1.VirtualMachinePoolRevisionName, "value"),
-				))
-				vm, err := virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				err = runCommand("vm", vm.Name, "--name", "my-service")
-				Expect(err).To(MatchError(ContainSubstring("cannot expose vm without any label")))
-			})
-
-			It("with VirtualMachineInstanceReplicaSet", func() {
-				vmirs := kubecli.NewMinimalVirtualMachineInstanceReplicaSet("vmirs")
-				vmirs, err := virtClient.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Create(context.Background(), vmirs, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				err = runCommand("vmirs", vmirs.Name, "--name", "my-service")
-				Expect(err).To(MatchError(ContainSubstring("cannot expose vmirs without any label")))
-			})
+		It("when labels are missing with VirtualMachineInstanceReplicaSet", func() {
+			vmirs := kubecli.NewMinimalVirtualMachineInstanceReplicaSet("vmirs")
+			vmirs, err := virtClient.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Create(context.Background(), vmirs, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = runCommand("vmirs", vmirs.Name, "--name", "my-service")
+			Expect(err).To(MatchError(ContainSubstring("cannot expose VirtualMachineInstanceReplicaSet without any selector labels")))
 		})
 
 		It("when VirtualMachineInstanceReplicaSet has MatchExpressions", func() {
 			vmirs := kubecli.NewMinimalVirtualMachineInstanceReplicaSet("vmirs")
 			vmirs.Spec.Selector = &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"something": "something",
+				},
 				MatchExpressions: []metav1.LabelSelectorRequirement{
 					{Key: "test"},
 				},
@@ -167,9 +136,6 @@ var _ = Describe("Expose", func() {
 
 	Context("should succeed", func() {
 		const (
-			labelKey   = "my-key"
-			labelValue = "my-value"
-
 			serviceName    = "my-service"
 			servicePort    = int32(9999)
 			servicePortStr = "9999"
@@ -196,8 +162,8 @@ var _ = Describe("Expose", func() {
 		}
 
 		BeforeEach(func() {
-			vmi = libvmi.New(libvmi.WithLabel(labelKey, labelValue))
-			vmi, err := virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+			var err error
+			vmi, err = virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.Background(), libvmi.New(), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vm, err = virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault).Create(context.Background(), libvmi.NewVirtualMachine(vmi), metav1.CreateOptions{})
@@ -215,13 +181,15 @@ var _ = Describe("Expose", func() {
 		})
 
 		DescribeTable("creating a service with default settings", func(resType string) {
-			err := runCommand(resType, getResName(resType), "--name", serviceName, "--port", servicePortStr)
+			resName := getResName(resType)
+			err := runCommand(resType, resName, "--name", serviceName, "--port", servicePortStr)
 			Expect(err).ToNot(HaveOccurred())
 
 			service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(service.Spec.Selector).To(HaveLen(1))
-			Expect(service.Spec.Selector).To(HaveKeyWithValue(labelKey, labelValue))
+			key, value := getSelectorKeyAndValue(resType, resName)
+			Expect(service.Spec.Selector).To(HaveKeyWithValue(key, value))
 			Expect(service.Spec.Ports).To(HaveLen(1))
 			Expect(service.Spec.Ports[0].Port).To(Equal(servicePort))
 			Expect(service.Spec.Ports[0].Protocol).To(Equal(k8sv1.ProtocolTCP))
@@ -257,13 +225,15 @@ var _ = Describe("Expose", func() {
 			})
 
 			DescribeTable("to create a service", func(resType string) {
-				err := runCommand(resType, getResName(resType), "--name", serviceName)
+				resName := getResName(resType)
+				err := runCommand(resType, resName, "--name", serviceName)
 				Expect(err).ToNot(HaveOccurred())
 
 				service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(service.Spec.Selector).To(HaveLen(1))
-				Expect(service.Spec.Selector).To(HaveKeyWithValue(labelKey, labelValue))
+				key, value := getSelectorKeyAndValue(resType, resName)
+				Expect(service.Spec.Selector).To(HaveKeyWithValue(key, value))
 				Expect(service.Spec.Ports).To(ConsistOf(
 					k8sv1.ServicePort{Name: "port-1", Protocol: "TCP", Port: 80},
 					k8sv1.ServicePort{Name: "port-2", Protocol: "UDP", Port: 81},
@@ -277,13 +247,15 @@ var _ = Describe("Expose", func() {
 
 		DescribeTable("creating a service with cluster-ip", func(resType string) {
 			const clusterIP = "1.2.3.4"
-			err := runCommand(resType, getResName(resType), "--name", serviceName, "--port", servicePortStr, "--cluster-ip", clusterIP)
+			resName := getResName(resType)
+			err := runCommand(resType, resName, "--name", serviceName, "--port", servicePortStr, "--cluster-ip", clusterIP)
 			Expect(err).ToNot(HaveOccurred())
 
 			service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(service.Spec.Selector).To(HaveLen(1))
-			Expect(service.Spec.Selector).To(HaveKeyWithValue(labelKey, labelValue))
+			key, value := getSelectorKeyAndValue(resType, resName)
+			Expect(service.Spec.Selector).To(HaveKeyWithValue(key, value))
 			Expect(service.Spec.ClusterIP).To(Equal(clusterIP))
 		},
 			Entry("with VirtualMachineInstance", "vmi"),
@@ -293,13 +265,15 @@ var _ = Describe("Expose", func() {
 
 		DescribeTable("creating a service with external-ip", func(resType string) {
 			const externalIP = "1.2.3.4"
-			err := runCommand(resType, getResName(resType), "--name", serviceName, "--port", servicePortStr, "--external-ip", externalIP)
+			resName := getResName(resType)
+			err := runCommand(resType, resName, "--name", serviceName, "--port", servicePortStr, "--external-ip", externalIP)
 			Expect(err).ToNot(HaveOccurred())
 
 			service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(service.Spec.Selector).To(HaveLen(1))
-			Expect(service.Spec.Selector).To(HaveKeyWithValue(labelKey, labelValue))
+			key, value := getSelectorKeyAndValue(resType, resName)
+			Expect(service.Spec.Selector).To(HaveKeyWithValue(key, value))
 			Expect(service.Spec.ExternalIPs).To(ConsistOf(externalIP))
 		},
 			Entry("with VirtualMachineInstance", "vmi"),
@@ -308,13 +282,15 @@ var _ = Describe("Expose", func() {
 		)
 
 		DescribeTable("creating a service", func(resType string, protocol k8sv1.Protocol) {
-			err := runCommand(resType, getResName(resType), "--name", serviceName, "--port", servicePortStr, "--protocol", string(protocol))
+			resName := getResName(resType)
+			err := runCommand(resType, resName, "--name", serviceName, "--port", servicePortStr, "--protocol", string(protocol))
 			Expect(err).ToNot(HaveOccurred())
 
 			service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(service.Spec.Selector).To(HaveLen(1))
-			Expect(service.Spec.Selector).To(HaveKeyWithValue(labelKey, labelValue))
+			key, value := getSelectorKeyAndValue(resType, resName)
+			Expect(service.Spec.Selector).To(HaveKeyWithValue(key, value))
 			Expect(service.Spec.Ports).To(HaveLen(1))
 			Expect(service.Spec.Ports[0].Protocol).To(Equal(protocol))
 		},
@@ -327,13 +303,15 @@ var _ = Describe("Expose", func() {
 		)
 
 		DescribeTable("creating a service", func(resType string, targetPort string, expected intstr.IntOrString) {
-			err := runCommand(resType, getResName(resType), "--name", serviceName, "--port", servicePortStr, "--target-port", targetPort)
+			resName := getResName(resType)
+			err := runCommand(resType, resName, "--name", serviceName, "--port", servicePortStr, "--target-port", targetPort)
 			Expect(err).ToNot(HaveOccurred())
 
 			service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(service.Spec.Selector).To(HaveLen(1))
-			Expect(service.Spec.Selector).To(HaveKeyWithValue(labelKey, labelValue))
+			key, value := getSelectorKeyAndValue(resType, resName)
+			Expect(service.Spec.Selector).To(HaveKeyWithValue(key, value))
 			Expect(service.Spec.Ports).To(HaveLen(1))
 			Expect(service.Spec.Ports[0].TargetPort).To(Equal(expected))
 		},
@@ -346,13 +324,15 @@ var _ = Describe("Expose", func() {
 		)
 
 		DescribeTable("creating a service", func(resType string, serviceType k8sv1.ServiceType) {
-			err := runCommand(resType, getResName(resType), "--name", serviceName, "--port", servicePortStr, "--type", string(serviceType))
+			resName := getResName(resType)
+			err := runCommand(resType, resName, "--name", serviceName, "--port", servicePortStr, "--type", string(serviceType))
 			Expect(err).ToNot(HaveOccurred())
 
 			service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(service.Spec.Selector).To(HaveLen(1))
-			Expect(service.Spec.Selector).To(HaveKeyWithValue(labelKey, labelValue))
+			key, value := getSelectorKeyAndValue(resType, resName)
+			Expect(service.Spec.Selector).To(HaveKeyWithValue(key, value))
 			Expect(service.Spec.Ports).To(HaveLen(1))
 			Expect(service.Spec.Ports[0].Port).To(Equal(servicePort))
 		},
@@ -369,13 +349,15 @@ var _ = Describe("Expose", func() {
 
 		DescribeTable("creating a service with named port", func(resType string) {
 			const portName = "test-port"
-			err := runCommand(resType, getResName(resType), "--name", serviceName, "--port", servicePortStr, "--port-name", portName)
+			resName := getResName(resType)
+			err := runCommand(resType, resName, "--name", serviceName, "--port", servicePortStr, "--port-name", portName)
 			Expect(err).ToNot(HaveOccurred())
 
 			service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(service.Spec.Selector).To(HaveLen(1))
-			Expect(service.Spec.Selector).To(HaveKeyWithValue(labelKey, labelValue))
+			key, value := getSelectorKeyAndValue(resType, resName)
+			Expect(service.Spec.Selector).To(HaveKeyWithValue(key, value))
 			Expect(service.Spec.Ports).To(HaveLen(1))
 			Expect(service.Spec.Ports[0].Name).To(Equal(portName))
 		},
@@ -385,13 +367,15 @@ var _ = Describe("Expose", func() {
 		)
 
 		DescribeTable("creating a service selecting a suitable default IPFamilyPolicy", func(resType, ipFamily string, ipFamilyPolicy *k8sv1.IPFamilyPolicy, expected ...k8sv1.IPFamily) {
-			err := runCommand(resType, getResName(resType), "--name", serviceName, "--port", servicePortStr, "--ip-family", ipFamily)
+			resName := getResName(resType)
+			err := runCommand(resType, resName, "--name", serviceName, "--port", servicePortStr, "--ip-family", ipFamily)
 			Expect(err).ToNot(HaveOccurred())
 
 			service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(service.Spec.Selector).To(HaveLen(1))
-			Expect(service.Spec.Selector).To(HaveKeyWithValue(labelKey, labelValue))
+			key, value := getSelectorKeyAndValue(resType, resName)
+			Expect(service.Spec.Selector).To(HaveKeyWithValue(key, value))
 			Expect(service.Spec.IPFamilies).To(ConsistOf(expected))
 			if ipFamilyPolicy != nil {
 				Expect(*service.Spec.IPFamilyPolicy).To(Equal(*ipFamilyPolicy))
@@ -414,13 +398,15 @@ var _ = Describe("Expose", func() {
 		)
 
 		DescribeTable("creating a service", func(resType string, ipFamilyPolicy k8sv1.IPFamilyPolicy) {
-			err := runCommand(resType, getResName(resType), "--name", serviceName, "--port", servicePortStr, "--ip-family-policy", string(ipFamilyPolicy))
+			resName := getResName(resType)
+			err := runCommand(resType, resName, "--name", serviceName, "--port", servicePortStr, "--ip-family-policy", string(ipFamilyPolicy))
 			Expect(err).ToNot(HaveOccurred())
 
 			service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(service.Spec.Selector).To(HaveLen(1))
-			Expect(service.Spec.Selector).To(HaveKeyWithValue(labelKey, labelValue))
+			key, value := getSelectorKeyAndValue(resType, resName)
+			Expect(service.Spec.Selector).To(HaveKeyWithValue(key, value))
 			Expect(*service.Spec.IPFamilyPolicy).To(Equal(ipFamilyPolicy))
 
 		},
@@ -438,5 +424,13 @@ var _ = Describe("Expose", func() {
 })
 
 func runCommand(args ...string) error {
-	return clientcmd.NewRepeatableVirtctlCommand(append([]string{expose.COMMAND_EXPOSE}, args...)...)()
+	return testing.NewRepeatableVirtctlCommand(append([]string{expose.COMMAND_EXPOSE}, args...)...)()
+}
+
+func getSelectorKeyAndValue(resType, resName string) (string, string) {
+	if resType == "vmirs" {
+		return labelKey, labelValue
+	} else {
+		return v1.VirtualMachineNameLabel, resName
+	}
 }

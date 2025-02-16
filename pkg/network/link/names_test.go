@@ -23,6 +23,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	v1 "kubevirt.io/api/core/v1"
+
 	virtnetlink "kubevirt.io/kubevirt/pkg/network/link"
 )
 
@@ -30,17 +32,23 @@ var _ = Describe("Common Methods", func() {
 	const maxInterfaceNameLength = 15
 
 	Context("GenerateTapDeviceName function", func() {
-		It("Should return a tap device name with one digit suffix", func() {
-			Expect(virtnetlink.GenerateTapDeviceName("eth0")).To(Equal("tap0"))
+		DescribeTable("Should return tap0 for the primary network", func(network v1.Network) {
+			Expect(virtnetlink.GenerateTapDeviceName("eth0", network)).To(Equal("tap0"))
+		},
+			Entry("When connected to pod network",
+				v1.Network{Name: "somenet", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+			),
+			Entry("When connected to default Multus network",
+				v1.Network{Name: "somenet", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{Default: true}}},
+			),
+		)
+		It("Should return an ordinal name when using ordinal naming scheme", func() {
+			secondaryNet := v1.Network{Name: "secondary", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}}
+			Expect(virtnetlink.GenerateTapDeviceName("net1", secondaryNet)).To(Equal("tap1"))
 		})
-		It("Should return another tap device name with one digits suffix", func() {
-			Expect(virtnetlink.GenerateTapDeviceName("net1")).To(Equal("tap1"))
-		})
-		It("Should return a tap device name with three digits suffix", func() {
-			Expect(virtnetlink.GenerateTapDeviceName("eth123")).To(Equal("tap123"))
-		})
-		It("Should return hash network name tap device name", func() {
-			hashedIfaceName := virtnetlink.GenerateTapDeviceName("pod16477688c0e")
+		It("Should return hashed name when using hanshed naming scheme", func() {
+			secondaryNet := v1.Network{Name: "secondary", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}}
+			hashedIfaceName := virtnetlink.GenerateTapDeviceName("pod16477688c0e", secondaryNet)
 			Expect(len(hashedIfaceName)).To(BeNumerically("<=", maxInterfaceNameLength))
 			Expect(hashedIfaceName).To(Equal("tap16477688c0e"))
 		})

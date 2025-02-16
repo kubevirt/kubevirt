@@ -35,11 +35,11 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -251,11 +251,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		}, tikBase64, tekBase64
 	}
 
-	BeforeEach(func() {
-		checks.SkipTestIfNoFeatureGate(virtconfig.WorkloadEncryptionSEV)
-	})
-
-	Context("[Serial]device management", Serial, func() {
+	Context("device management", Serial, func() {
 		const (
 			sevResourceName = "devices.kubevirt.io/sev"
 			sevDevicePath   = "/proc/1/root/dev/sev"
@@ -276,7 +272,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 
 			checkCmd := []string{"ls", sevDevicePath}
 			_, err = libnode.ExecuteCommandInVirtHandlerPod(nodeName, checkCmd)
-			isDevicePresent = (err == nil)
+			isDevicePresent = err == nil
 
 			if !isDevicePresent {
 				By(fmt.Sprintf("Creating a fake SEV device on %s", nodeName))
@@ -303,8 +299,8 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		})
 
 		It("should reset SEV allocatable devices when the feature gate is disabled", func() {
-			By(fmt.Sprintf("Disabling %s feature gate", virtconfig.WorkloadEncryptionSEV))
-			config.DisableFeatureGate(virtconfig.WorkloadEncryptionSEV)
+			By(fmt.Sprintf("Disabling %s feature gate", featuregate.WorkloadEncryptionSEV))
+			config.DisableFeatureGate(featuregate.WorkloadEncryptionSEV)
 			Eventually(func() bool {
 				node, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -315,15 +311,9 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 	})
 
 	Context("lifecycle", func() {
-		BeforeEach(func() {
-			checks.SkipTestIfNotSEVCapable()
-		})
 
 		DescribeTable("should start a SEV or SEV-ES VM",
 			func(withES bool, sevstr string) {
-				if withES {
-					checks.SkipTestIfNotSEVESCapable()
-				}
 				vmi := newSEVFedora(withES)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
 
@@ -344,7 +334,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			// SEV-ES disabled, SEV enabled
 			Entry("It should launch with base SEV features enabled", false, "SEV"),
 			// SEV-ES enabled
-			Entry("It should launch with SEV-ES features enabled", true, "SEV SEV-ES"),
+			Entry("It should launch with SEV-ES features enabled", decorators.SEVES, true, "SEV SEV-ES"),
 		)
 
 		It("should run guest attestation", func() {

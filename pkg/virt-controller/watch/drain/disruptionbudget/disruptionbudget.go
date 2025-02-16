@@ -47,7 +47,7 @@ const (
 type DisruptionBudgetController struct {
 	clientset                       kubecli.KubevirtClient
 	clusterConfig                   *virtconfig.ClusterConfig
-	Queue                           workqueue.RateLimitingInterface
+	Queue                           workqueue.TypedRateLimitingInterface[string]
 	vmiStore                        cache.Store
 	pdbIndexer                      cache.Indexer
 	podIndexer                      cache.Indexer
@@ -68,7 +68,10 @@ func NewDisruptionBudgetController(
 ) (*DisruptionBudgetController, error) {
 
 	c := &DisruptionBudgetController{
-		Queue:                           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-disruption-budget"),
+		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-disruption-budget"},
+		),
 		vmiStore:                        vmiInformer.GetStore(),
 		pdbIndexer:                      pdbInformer.GetIndexer(),
 		podIndexer:                      podInformer.GetIndexer(),
@@ -355,7 +358,7 @@ func (c *DisruptionBudgetController) Execute() bool {
 		return false
 	}
 	defer c.Queue.Done(key)
-	err := c.execute(key.(string))
+	err := c.execute(key)
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing VirtualMachineInstance %v", key)

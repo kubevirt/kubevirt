@@ -412,6 +412,9 @@
             }
           },
           "ioThreadsPolicy": "ioThreadsPolicyValue",
+          "ioThreads": {
+            "supplementalPoolThreadCount": 4294967269
+          },
           "chassis": {
             "manufacturer": "manufacturerValue",
             "version": "versionValue",
@@ -1098,13 +1101,7 @@
               },
               "requests": {
                 "requestsKey": "0"
-              },
-              "claims": [
-                {
-                  "name": "nameValue",
-                  "request": "requestValue"
-                }
-              ]
+              }
             },
             "volumeName": "volumeNameValue",
             "storageClassName": "storageClassNameValue",
@@ -1286,6 +1283,24 @@
           }
         ]
       }
+    },
+    "instancetypeRef": {
+      "name": "nameValue",
+      "kind": "kindValue",
+      "controllerRevisionRef": {
+        "name": "nameValue"
+      },
+      "inferFromVolume": "inferFromVolumeValue",
+      "inferFromVolumeFailurePolicy": "inferFromVolumeFailurePolicyValue"
+    },
+    "preferenceRef": {
+      "name": "nameValue",
+      "kind": "kindValue",
+      "controllerRevisionRef": {
+        "name": "nameValue"
+      },
+      "inferFromVolume": "inferFromVolumeValue",
+      "inferFromVolumeFailurePolicy": "inferFromVolumeFailurePolicyValue"
     }
   }
 }

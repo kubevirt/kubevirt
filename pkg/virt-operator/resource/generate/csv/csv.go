@@ -159,7 +159,7 @@ KubeVirt is distributed under the
 
 func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.ClusterServiceVersion, error) {
 
-	deployment, err := components.NewOperatorDeployment(
+	deployment := components.NewOperatorDeployment(
 		data.Namespace,
 		data.DockerPrefix,
 		data.ImagePrefix,
@@ -187,9 +187,6 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 		data.SidecarShimImage,
 		data.VirtOperatorImage,
 		v1.PullPolicy(data.ImagePullPolicy))
-	if err != nil {
-		return nil, err
-	}
 
 	imageVersion := components.AddVersionSeparatorPrefix(data.OperatorImageVersion)
 

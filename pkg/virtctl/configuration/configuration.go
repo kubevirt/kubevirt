@@ -6,25 +6,19 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kubevirt.io/client-go/kubecli"
-
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
-func NewListPermittedDevices(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewListPermittedDevices() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "permitted-devices",
 		Short:   "List the permitted devices for vmis.",
 		Example: usage(),
 		Args:    cobra.ExactArgs(0),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := command{clientConfig: clientConfig}
-			return c.run()
-		},
+		RunE:    run,
 	}
 
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -37,18 +31,8 @@ func usage() string {
 	return usage
 }
 
-type command struct {
-	clientConfig clientcmd.ClientConfig
-}
-
-func (c *command) run() error {
-
-	namespace, _, err := c.clientConfig.Namespace()
-	if err != nil {
-		return err
-	}
-
-	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(c.clientConfig)
+func run(cmd *cobra.Command, _ []string) error {
+	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("cannot obtain KubeVirt client: %v", err)
 	}

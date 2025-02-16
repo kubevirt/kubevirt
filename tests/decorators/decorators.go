@@ -7,7 +7,8 @@ var (
 	Periodic    = Label("PERIODIC")
 	Conformance = Label("conformance")
 
-	// SIGs
+	/* SIGs */
+
 	SigCompute           = Label("sig-compute")
 	SigOperator          = Label("sig-operator")
 	SigNetwork           = Label("sig-network")
@@ -15,32 +16,44 @@ var (
 	SigComputeRealtime   = Label("sig-compute-realtime")
 	SigComputeMigrations = Label("sig-compute-migrations")
 	SigMonitoring        = Label("sig-monitoring")
+	SigPerformance       = Label("sig-performance")
 
-	// HW
+	/* HW */
+
 	GPU         = Label("GPU")
 	VGPU        = Label("VGPU")
 	SEV         = Label("SEV")
+	SEVES       = Label("SEVES")
 	SRIOV       = Label("SRIOV")
 	StorageReq  = Label("storage-req")
 	Multus      = Label("Multus")
 	Macvtap     = Label("Macvtap")
 	Invtsc      = Label("Invtsc")
 	KSMRequired = Label("KSM-required")
+	ACPI        = Label("ACPI")
 
-	// Features
+	/* Deployment */
+
+	SingleReplica = Label("single-replica")
+	MultiReplica  = Label("multi-replica")
+
+	/* Features */
+
+	CPUModel                             = Label("cpumodel")
+	VSOCK                                = Label("vsock")
+	VirtioFS                             = Label("virtiofs")
 	Sysprep                              = Label("Sysprep")
 	Windows                              = Label("Windows")
 	Networking                           = Label("Networking")
 	VMIlifecycle                         = Label("VMIlifecycle")
 	Expose                               = Label("Expose")
-	NativeSsh                            = Label("native-ssh")
-	ExcludeNativeSsh                     = Label("exclude-native-ssh")
+	NativeSSH                            = Label("native-ssh")
+	ExcludeNativeSSH                     = Label("exclude-native-ssh")
 	Reenlightenment                      = Label("Reenlightenment")
 	TscFrequencies                       = Label("TscFrequencies")
-	PasstGate                            = Label("PasstGate")
+	HostDiskGate                         = Label("HostDiskGate")
 	VMX                                  = Label("VMX")
 	Upgrade                              = Label("Upgrade")
-	CustomSELinux                        = Label("CustomSELinux")
 	Istio                                = Label("Istio")
 	InPlaceHotplugNICs                   = Label("in-place-hotplug-NICs")
 	MigrationBasedHotplugNICs            = Label("migration-based-hotplug-NICs")
@@ -48,26 +61,46 @@ var (
 	RequiresTwoSchedulableNodes          = Label("requires-two-schedulable-nodes")
 	VMLiveUpdateRolloutStrategy          = Label("VMLiveUpdateRolloutStrategy")
 	USB                                  = Label("USB")
-	AutoResourceLimitsGate               = Label("AutoResourceLimitsGate")
 	RequiresTwoWorkerNodesWithCPUManager = Label("requires-two-worker-nodes-with-cpu-manager")
+	RequiresNodeWithCPUManager           = Label("requires-node-with-cpu-manager")
 	RequiresDualStackCluster             = Label("requires-dual-stack-cluster")
 	RequiresHugepages2Mi                 = Label("requireHugepages2Mi")
+	RequiresHugepages1Gi                 = Label("requireHugepages1Gi")
 
-	// Storage classes
-	// Requires a storage class with support for snapshots
+	/* Storage classes */
+
+	// RequiresSnapshotStorageClass requires a storage class with support for snapshots
 	RequiresSnapshotStorageClass = Label("RequiresSnapshotStorageClass")
-	// Requires a storage class without support for snapshots
+	// RequiresNoSnapshotStorageClass requires a storage class without support for snapshots
 	RequiresNoSnapshotStorageClass = Label("RequiresNoSnapshotStorageClass")
-	// Requires a storage class with ReadWriteMany Block support
+	// RequiresRWXBlock requires a storage class with ReadWriteMany Block support
 	RequiresRWXBlock = Label("RequiresRWXBlock")
-	// Requires a storage class with Block storage support
+	// RequiresRWOFsVMStateStorageClass requires the VMStateStorageClass to be set to ReadWriteOnce Filesystem storage class
+	RequiresRWOFsVMStateStorageClass = Label("RequiresRWOFsVMStateStorageClass")
+	// RequiresRWXFsVMStateStorageClass requires the VMStateStorageClass to be set to ReadWriteMany Filesystem storage class
+	RequiresRWXFsVMStateStorageClass = Label("RequiresRWXFsVMStateStorageClass")
+
+	// RequiresBlockStorage requires a storage class with Block storage support
 	RequiresBlockStorage = Label("RequiresBlockStorage")
+	// StorageCritical tests that ensure sig-storage functionality which are conformance-unready
+	StorageCritical = Label("StorageCritical")
+	// RequiresVolumeExpansion requires a storage class with volume expansion support
+	RequiresVolumeExpansion = Label("RequiresVolumeExpansion")
+
+	/* Kubernetes versions */
+
 	// Kubernetes versions
 	Kubernetes130 = Label("kubernetes130")
-	// WG archs
-	WgS390x = Label("wg-s390x")
 
-	// NoFlakeChecker decorates tests that are not compatible with the check-tests-for-flakes test lane.
+	/* architecture working groups */
+
+	WgS390x = Label("wg-s390x")
+	WgArm64 = Label("wg-arm64")
+
+	// Virtctl related tests
+	Virtctl = Label("virtctl")
+
+	// NoFlakeCheck decorates tests that are not compatible with the check-tests-for-flakes test lane.
 	// This should only be used for legitimate purposes, like on tests that have a flake-checker-friendly clone.
 	NoFlakeCheck = Label("no-flake-check")
 )

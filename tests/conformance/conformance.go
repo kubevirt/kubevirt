@@ -36,17 +36,22 @@ func execute() error {
 	} else {
 		args = append(args, "--ginkgo.skip", "\\[Disruptive\\]")
 	}
-	if value, exists := os.LookupEnv("E2E_FOCUS"); exists {
+
+	if value, exists := os.LookupEnv("E2E_LABEL"); exists {
+		args = append(args, "--ginkgo.label-filter", value)
+	} else if value, exists := os.LookupEnv("E2E_FOCUS"); exists {
 		args = append(args, "--ginkgo.focus", value)
 	} else {
 		args = append(args, "--ginkgo.focus", "\\[Conformance\\]")
 	}
+
 	if value, exists := os.LookupEnv("CONTAINER_PREFIX"); exists {
 		args = append(args, "--container-prefix", value)
 	}
 	if value, exists := os.LookupEnv("CONTAINER_TAG"); exists {
 		args = append(args, "--container-tag", value)
 	}
+
 	args = append(args, "--config", "/conformance-config.json")
 
 	cmd := exec.Command("/usr/bin/go_default_test", args...)

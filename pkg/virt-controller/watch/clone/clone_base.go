@@ -1,18 +1,20 @@
 package clone
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	k8scorev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	"kubevirt.io/api/clone"
-	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	clonebase "kubevirt.io/api/clone"
+	clone "kubevirt.io/api/clone/v1beta1"
 	virtv1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
@@ -35,8 +37,20 @@ const (
 	TargetVMCreated       Event = "TargetVMCreated"
 	PVCBound              Event = "PVCBound"
 
-	SnapshotDeleted    Event = "SnapshotDeleted"
-	SourceDoesNotExist Event = "SourceDoesNotExist"
+	SnapshotDeleted                 Event = "SnapshotDeleted"
+	SnapshotContentInvalid          Event = "SnapshotContentInvalid"
+	SourceDoesNotExist              Event = "SourceDoesNotExist"
+	SourceWithBackendStorageInvalid Event = "SourceVMWithBackendStorageInvalid"
+	VMVolumeSnapshotsInvalid        Event = "VMVolumeSnapshotsInvalid"
+)
+
+var (
+	ErrVolumeNotSnapshotable        = "Virtual Machine volume %s does not support snapshots"
+	ErrVolumeSnapshotSupportUnknown = "Virtual Machine volume %s snapshot support unknown"
+	ErrVolumeNotBackedUp            = "volume %s is not backed up in snapshot %s"
+
+	ErrSourceDoesntExist        = errors.New("Source doesnt exist")
+	ErrSourceWithBackendStorage = errors.New("Clone of source with backendstorage is not supported")
 )
 
 type VMCloneController struct {
@@ -49,7 +63,7 @@ type VMCloneController struct {
 	pvcStore             cache.Store
 	recorder             record.EventRecorder
 
-	vmCloneQueue workqueue.RateLimitingInterface
+	vmCloneQueue workqueue.TypedRateLimitingInterface[string]
 	hasSynced    func() bool
 }
 
@@ -63,7 +77,10 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 		snapshotContentStore: snapshotContentInformer.GetStore(),
 		pvcStore:             pvcInformer.GetStore(),
 		recorder:             recorder,
-		vmCloneQueue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmclone"),
+		vmCloneQueue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vmclone"},
+		),
 	}
 
 	ctrl.hasSynced = func() bool {
@@ -121,7 +138,9 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 
 	_, err = vmInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
-			DeleteFunc: ctrl.handleDeleteVM,
+			AddFunc:    ctrl.handleAddedSourceVM,
+			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleUpdateSourceVM(oldObj, newObj) },
+			DeleteFunc: ctrl.handleDeletedTargetVM,
 		},
 	)
 
@@ -136,9 +155,9 @@ func (ctrl *VMCloneController) handleVMClone(obj interface{}) {
 		obj = unknown.Obj
 	}
 
-	vmClone, ok := obj.(*clonev1alpha1.VirtualMachineClone)
+	vmClone, ok := obj.(*clone.VirtualMachineClone)
 	if !ok {
-		log.Log.Errorf(unknownTypeErrFmt, clone.ResourceVMCloneSingular)
+		log.Log.Errorf(unknownTypeErrFmt, clonebase.ResourceVMCloneSingular)
 		return
 	}
 
@@ -179,9 +198,9 @@ func (ctrl *VMCloneController) handleSnapshot(obj interface{}) {
 		return
 	}
 
-	snapshotWaitingKeys, err := ctrl.vmCloneIndexer.IndexKeys(string(clonev1alpha1.SnapshotInProgress), snapshotKey)
+	snapshotWaitingKeys, err := ctrl.vmCloneIndexer.IndexKeys(string(clone.SnapshotInProgress), snapshotKey)
 	if err != nil {
-		log.Log.Object(snapshot).Reason(err).Error("cannot get clone snapshotWaitingKeys from " + string(clonev1alpha1.SnapshotInProgress) + " indexer")
+		log.Log.Object(snapshot).Reason(err).Error("cannot get clone snapshotWaitingKeys from " + string(clone.SnapshotInProgress) + " indexer")
 		return
 	}
 
@@ -211,9 +230,9 @@ func (ctrl *VMCloneController) handleRestore(obj interface{}) {
 		return
 	}
 
-	restoreWaitingKeys, err := ctrl.vmCloneIndexer.IndexKeys(string(clonev1alpha1.RestoreInProgress), restoreKey)
+	restoreWaitingKeys, err := ctrl.vmCloneIndexer.IndexKeys(string(clone.RestoreInProgress), restoreKey)
 	if err != nil {
-		log.Log.Object(restore).Reason(err).Error("cannot get clone restoreWaitingKeys from " + string(clonev1alpha1.RestoreInProgress) + " indexer")
+		log.Log.Object(restore).Reason(err).Error("cannot get clone restoreWaitingKeys from " + string(clone.RestoreInProgress) + " indexer")
 		return
 	}
 
@@ -248,9 +267,9 @@ func (ctrl *VMCloneController) handlePVC(obj interface{}) {
 
 	restoreKey := getKey(restoreName, pvc.Namespace)
 
-	succeededWaitingKeys, err := ctrl.vmCloneIndexer.IndexKeys(string(clonev1alpha1.Succeeded), restoreKey)
+	succeededWaitingKeys, err := ctrl.vmCloneIndexer.IndexKeys(string(clone.Succeeded), restoreKey)
 	if err != nil {
-		log.Log.Object(pvc).Reason(err).Error("cannot get clone succeededWaitingKeys from " + string(clonev1alpha1.Succeeded) + " indexer")
+		log.Log.Object(pvc).Reason(err).Error("cannot get clone succeededWaitingKeys from " + string(clone.Succeeded) + " indexer")
 		return
 	}
 
@@ -259,7 +278,63 @@ func (ctrl *VMCloneController) handlePVC(obj interface{}) {
 	}
 }
 
-func (ctrl *VMCloneController) handleDeleteVM(obj interface{}) {
+func (ctrl *VMCloneController) handleAddedSourceVM(obj interface{}) {
+	vm, ok := obj.(*virtv1.VirtualMachine)
+	if !ok {
+		log.Log.Reason(fmt.Errorf("unexpected obj %#v", obj)).Error("Failed to process notification")
+		return
+	}
+	vmKey, err := cache.MetaNamespaceKeyFunc(vm)
+	if err != nil {
+		log.Log.Object(vm).Reason(err).Error("cannot get vm key")
+		return
+	}
+	keys, err := ctrl.vmCloneIndexer.IndexKeys("vmSource", vmKey)
+	if err != nil {
+		log.Log.Object(vm).Reason(err).Error("cannot get clone from vmSource indexer")
+		return
+	}
+
+	for _, k := range keys {
+		ctrl.vmCloneQueue.Add(k)
+	}
+}
+
+func (ctrl *VMCloneController) handleUpdateSourceVM(oldObj, newObj interface{}) {
+	oldVM, ok := oldObj.(*virtv1.VirtualMachine)
+	if !ok {
+		log.Log.Reason(fmt.Errorf("unexpected old obj %#v", oldObj)).Error("Failed to process notification")
+		return
+	}
+	newVM, ok := newObj.(*virtv1.VirtualMachine)
+	if !ok {
+		log.Log.Reason(fmt.Errorf("unexpected new obj %#v", newObj)).Error("Failed to process notification")
+		return
+	}
+
+	// we care only for updates in a vmsource volumeSnapshotStatuses
+	if equality.Semantic.DeepEqual(newVM.Status.VolumeSnapshotStatuses, oldVM.Status.VolumeSnapshotStatuses) {
+		return
+	}
+
+	vmKey, err := cache.MetaNamespaceKeyFunc(newVM)
+	if err != nil {
+		log.Log.Object(newVM).Reason(err).Error("cannot get vm key")
+		return
+	}
+
+	keys, err := ctrl.vmCloneIndexer.IndexKeys("vmSource", vmKey)
+	if err != nil {
+		log.Log.Object(newVM).Reason(err).Error("cannot get clone from vmSource indexer")
+		return
+	}
+
+	for _, k := range keys {
+		ctrl.vmCloneQueue.Add(k)
+	}
+}
+
+func (ctrl *VMCloneController) handleDeletedTargetVM(obj interface{}) {
 	vm, ok := obj.(*virtv1.VirtualMachine)
 	// When a delete is dropped, the relist will notice a vm in the store not
 	// in the list, leading to the insertion of a tombstone object which contains
@@ -276,23 +351,20 @@ func (ctrl *VMCloneController) handleDeleteVM(obj interface{}) {
 			return
 		}
 	}
-	vmCloneList, err := ctrl.listVmCloneMatchingVM(vm.Namespace, vm.Name)
+	vmKey, err := cache.MetaNamespaceKeyFunc(vm)
 	if err != nil {
-		log.Log.Errorf("error retrieving vm clone list: %v", err.Error())
+		log.Log.Object(vm).Reason(err).Error("cannot get vm key")
 		return
 	}
-	log.Log.V(4).Object(vm).Infof("vm clone lis: %v", vmCloneList)
-	for _, vmClone := range vmCloneList {
-		log.Log.V(4).Object(vm).Infof("vm deleted for vm clone %s", vmClone.Name)
-		objName, err := cache.DeletionHandlingMetaNamespaceKeyFunc(vmClone)
-		if err != nil {
-			log.Log.Errorf("vm clone controller failed to get key from object: %v, %v", err, vmClone)
-			return
-		}
-		ctrl.vmCloneQueue.AddRateLimited(objName)
+	keys, err := ctrl.vmCloneIndexer.IndexKeys("vmTarget", vmKey)
+	if err != nil {
+		log.Log.Object(vm).Reason(err).Error("cannot get clone from vmTarget indexer")
+		return
 	}
 
-	return
+	for _, k := range keys {
+		ctrl.vmCloneQueue.Add(k)
+	}
 }
 
 func (ctrl *VMCloneController) Run(threadiness int, stopCh <-chan struct{}) error {
@@ -324,7 +396,7 @@ func (ctrl *VMCloneController) Execute() bool {
 	}
 	defer ctrl.vmCloneQueue.Done(key)
 
-	err := ctrl.execute(key.(string))
+	err := ctrl.execute(key)
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing clone %v", key)
@@ -339,28 +411,4 @@ func (ctrl *VMCloneController) Execute() bool {
 func (ctrl *VMCloneController) runWorker() {
 	for ctrl.Execute() {
 	}
-}
-
-// takes a namespace and returns all vm clone with the specified target vm name
-func (ctrl *VMCloneController) listVmCloneMatchingVM(namespace, name string) ([]*clonev1alpha1.VirtualMachineClone, error) {
-	return ctrl.filterVmClone(namespace, func(vmClone *clonev1alpha1.VirtualMachineClone) bool {
-		return vmClone.Spec.Target.Name == name
-	})
-}
-
-func (ctrl *VMCloneController) filterVmClone(namespace string, filter func(*clonev1alpha1.VirtualMachineClone) bool) ([]*clonev1alpha1.VirtualMachineClone, error) {
-	objs, err := ctrl.vmCloneIndexer.ByIndex(cache.NamespaceIndex, namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	var vmClones []*clonev1alpha1.VirtualMachineClone
-	for _, obj := range objs {
-		vmClone := obj.(*clonev1alpha1.VirtualMachineClone)
-
-		if filter(vmClone) {
-			vmClones = append(vmClones, vmClone)
-		}
-	}
-	return vmClones, nil
 }

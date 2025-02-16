@@ -80,7 +80,7 @@ func (app *SubresourceAPIApp) ExpandSpecVMRequestHandler(request *restful.Reques
 }
 
 func (app *SubresourceAPIApp) expandSpecResponse(vm *v1.VirtualMachine, errorFunc func(error) *errors.StatusError, response *restful.Response) {
-	expandedVM, err := app.instancetypeMethods.Expand(vm, app.clusterConfig)
+	expandedVM, err := app.instancetypeExpander.Expand(vm)
 	if err != nil {
 		writeError(errorFunc(err), response)
 		return

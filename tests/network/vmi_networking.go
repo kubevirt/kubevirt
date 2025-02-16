@@ -41,13 +41,11 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -62,22 +60,11 @@ import (
 )
 
 var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Networking", decorators.Networking, func() {
-
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
-
-	checkNetworkVendor := func(vmi *v1.VirtualMachineInstance, expectedVendor string) {
-		err := console.SafeExpectBatch(vmi, []expect.Batcher{
-			&expect.BSnd{S: "\n"},
-			&expect.BExp{R: console.PromptExpression},
-			&expect.BSnd{S: "cat /sys/class/net/eth0/device/vendor\n"},
-			&expect.BExp{R: expectedVendor},
-		}, 15)
-		Expect(err).ToNot(HaveOccurred())
-	}
 
 	checkLearningState := func(vmi *v1.VirtualMachineInstance, expectedValue string) {
 		output := libpod.RunCommandOnVmiPod(vmi, []string{"cat", "/sys/class/net/eth0-nic/brport/learning"})
@@ -104,11 +91,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			})
 
 			DescribeTable("should be able to reach", func(vmiRef **v1.VirtualMachineInstance) {
-				vmi := *vmiRef
-				if vmiHasCustomMacAddress(vmi) {
-					checks.SkipIfOpenShift("Custom MAC addresses on pod networks are not supported")
-				}
-				vmi = runVMI(vmi)
+				vmi := runVMI(*vmiRef)
 				addr := vmi.Status.Interfaces[0].IP
 
 				payloadSize := 0
@@ -116,6 +99,8 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 				vmiPod, err := libpod.GetPodByVirtualMachineInstance(outboundVMI, outboundVMI.Namespace)
 				Expect(err).NotTo(HaveOccurred())
+
+				Expect(libnet.ValidateVMIandPodIPMatch(outboundVMI, vmiPod)).To(Succeed(), "Should have matching IP/s between pod and vmi")
 
 				var mtu int
 				for _, ifaceName := range []string{"k6t-eth0", "tap0"} {
@@ -175,147 +160,111 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					Expect(vmi.Status.Interfaces[0].MAC).To(Equal(vmi.Spec.Domain.Devices.Interfaces[0].MacAddress))
 				}
 				Expect(libnet.CheckMacAddress(vmi, "eth0", vmi.Status.Interfaces[0].MAC)).To(Succeed())
-
 			},
-				Entry("[test_id:1539]the Inbound VirtualMachineInstance", &inboundVMI),
+				Entry("[test_id:1539]the Inbound VirtualMachineInstance with default (implicit) binding", &inboundVMI),
 				Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", &inboundVMIWithPodNetworkSet),
 				Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", &inboundVMIWithCustomMacAddress),
 			)
 		})
 
-		Context("with propagated IP from a pod", func() {
+		It("clients should be able to reach VM workload, with propagated IP from a pod", func() {
+			inboundVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewCirros(), metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
+			const testPort = 1500
+			vmnetserver.StartTCPServer(inboundVMI, testPort, console.LoginToCirros)
 
-			DescribeTable("should be able to reach", func(op k8sv1.NodeSelectorOperator, hostNetwork bool) {
-				namespace := testsuite.GetTestNamespace(nil)
-				if hostNetwork {
-					namespace = testsuite.NamespacePrivileged
-				}
+			ip := inboundVMI.Status.Interfaces[0].IP
 
-				inboundVMI, err := virtClient.VirtualMachineInstance(namespace).Create(context.Background(), libvmifact.NewCirros(), metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
-				const testPort = 1500
-				vmnetserver.StartTCPServer(inboundVMI, testPort, console.LoginToCirros)
+			By("start connectivity job on the same node as the VM")
+			localNodeTCPJob := job.NewHelloWorldJobTCP(ip, strconv.Itoa(testPort))
+			localNodeTCPJob.Spec.Template.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: newNodeAffinity(k8sv1.NodeSelectorOpIn, inboundVMI.Status.NodeName)}
+			localNodeTCPJob, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), localNodeTCPJob, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-				ip := inboundVMI.Status.Interfaces[0].IP
+			By("start connectivity job on different node")
+			remoteNodeTCPJob := job.NewHelloWorldJobTCP(ip, strconv.Itoa(testPort))
+			remoteNodeTCPJob.Spec.Template.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: newNodeAffinity(k8sv1.NodeSelectorOpNotIn, inboundVMI.Status.NodeName)}
+			remoteNodeTCPJob, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), remoteNodeTCPJob, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-				//TODO if node count 1, skip the nv12.NodeSelectorOpOut
-				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(nodes.Items).ToNot(BeEmpty())
-				if len(nodes.Items) == 1 && op == k8sv1.NodeSelectorOpNotIn {
-					Skip("Skip network test that requires multiple nodes when only one node is present.")
-				}
-
-				tcpJob := job.NewHelloWorldJobTCP(ip, strconv.Itoa(testPort))
-				tcpJob.Spec.Template.Spec.Affinity = &k8sv1.Affinity{
-					NodeAffinity: &k8sv1.NodeAffinity{
-						RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
-							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
-								{
-									MatchExpressions: []k8sv1.NodeSelectorRequirement{
-										{Key: k8sv1.LabelHostname, Operator: op, Values: []string{inboundVMI.Status.NodeName}},
-									},
-								},
-							},
-						},
-					},
-				}
-				tcpJob.Spec.Template.Spec.HostNetwork = hostNetwork
-
-				tcpJob, err = virtClient.BatchV1().Jobs(inboundVMI.ObjectMeta.Namespace).Create(context.Background(), tcpJob, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(job.WaitForJobToSucceed(tcpJob, 90*time.Second)).To(Succeed())
-			},
-				Entry("[test_id:1543]on the same node from Pod", k8sv1.NodeSelectorOpIn, false),
-				Entry("[test_id:1544]on a different node from Pod", k8sv1.NodeSelectorOpNotIn, false),
-				Entry("[test_id:1545]on the same node from Node", k8sv1.NodeSelectorOpIn, true),
-				Entry("[test_id:1546]on a different node from Node", k8sv1.NodeSelectorOpNotIn, true),
-			)
-		})
-
-		Context("VirtualMachineInstance with default interface model", func() {
-			BeforeEach(func() {
-				libnet.SkipWhenClusterNotSupportIpv4()
-
-				var err error
-				inboundVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewCirros(), metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				outboundVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewCirros(), metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToCirros)
-				outboundVMI = libwait.WaitUntilVMIReady(outboundVMI, console.LoginToCirros)
-			})
-
-			// Unless an explicit interface model is specified, the default interface model is virtio.
-			It("[test_id:1550]should expose the right device type to the guest", func() {
-				By("checking the device vendor in /sys/class")
-
-				// Taken from https://wiki.osdev.org/Virtio#Technical_Details
-				virtio_vid := "0x1af4"
-
-				for _, networkVMI := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI} {
-					// as defined in https://vendev.org/pci/ven_1af4/
-					checkNetworkVendor(networkVMI, virtio_vid)
-				}
-			})
+			Expect(job.WaitForJobToSucceed(localNodeTCPJob, 90*time.Second)).To(Succeed(), "should be able to reach VM workload from a pod on the same node")
+			Expect(job.WaitForJobToSucceed(remoteNodeTCPJob, 90*time.Second)).To(Succeed(), "should be able to reach VM workload from a pod on different node")
 		})
 	})
 
-	Context("VirtualMachineInstance with custom interface model", func() {
+	Context("VirtualMachineInstance with custom and default interface models", func() {
+		const nadName = "simple-bridge"
+
+		BeforeEach(func() {
+			const bridgeName = "br10"
+			netAttachDef := libnet.NewBridgeNetAttachDef(nadName, bridgeName)
+			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(nil), netAttachDef)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		It("[test_id:1770]should expose the right device type to the guest", func() {
 			By("checking the device vendor in /sys/class")
 			// Create a machine with e1000 interface model
 			// Use alpine because cirros dhcp client starts prematurely before link is ready
-			masqIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
-			masqIface.Model = "e1000"
-			e1000VMI := libvmifact.NewAlpine(
-				libvmi.WithInterface(masqIface),
+			e1000ModelIface := libvmi.InterfaceDeviceWithMasqueradeBinding()
+			e1000ModelIface.Model = "e1000"
+			e1000ModelIface.PciAddress = "0000:02:01.0"
+
+			const secondaryNetName = "secondary-net"
+			defaultModelIface := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)
+			defaultModelIface.PciAddress = "0000:03:00.0"
+			vmi := libvmifact.NewAlpine(
+				libvmi.WithInterface(e1000ModelIface),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithInterface(defaultModelIface),
+				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName, nadName)),
 			)
-			var err error
-			e1000VMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), e1000VMI, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
 
-			libwait.WaitUntilVMIReady(e1000VMI, console.LoginToAlpine)
-			// as defined in https://vendev.org/pci/ven_8086/
-			checkNetworkVendor(e1000VMI, "0x8086")
-		})
-	})
-
-	Context("VirtualMachineInstance with disabled automatic attachment of interfaces", func() {
-		It("[test_id:1774]should not configure any external interfaces", func() {
-			By("checking loopback is the only guest interface")
-			autoAttach := false
-			detachedVMI := libvmifact.NewAlpine()
-			// Remove the masquerade interface to use the default bridge one
-			detachedVMI.Spec.Domain.Devices.Interfaces = nil
-			detachedVMI.Spec.Networks = nil
-			detachedVMI.Spec.Domain.Devices.AutoattachPodInterface = &autoAttach
-
-			var err error
-			detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), detachedVMI, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
-
-			err = console.SafeExpectBatch(detachedVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: "ls /sys/class/net/ | wc -l\n"},
-				&expect.BExp{R: "1"},
-			}, 15)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("[test_id:1775]should start a VMI with no network", func() {
-			vmi := libvmifact.NewAlpine()
-			vmi.Spec.Domain.Devices.AutoattachPodInterface = pointer.P(false)
 			var err error
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+
+			By("verifying vendors for respective PCI devices")
+			const (
+				vendorCmd = "cat /sys/bus/pci/devices/%s/vendor\n"
+				// https://admin.pci-ids.ucw.cz/read/PC/8086
+				intelVendorID = "0x8086"
+				// https://admin.pci-ids.ucw.cz/read/PC/1af4
+				redhatVendorID = "0x1af4"
+			)
+
+			err = console.SafeExpectBatch(vmi, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: fmt.Sprintf(vendorCmd, e1000ModelIface.PciAddress)},
+				&expect.BExp{R: intelVendorID},
+				&expect.BSnd{S: fmt.Sprintf(vendorCmd, defaultModelIface.PciAddress)},
+				&expect.BExp{R: redhatVendorID},
+			}, 40)
+			Expect(err).ToNot(HaveOccurred())
 		})
+	})
+
+	It("[test_id:1774]should not configure any external interfaces when a VMI has no networks and auto attachment is disabled", func() {
+		vmi := libvmifact.NewAlpine(libvmi.WithAutoAttachPodInterface(false))
+
+		var err error
+		vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+
+		Expect(vmi.Spec.Domain.Devices.Interfaces).To(BeEmpty())
+
+		By("checking that loopback is the only guest interface")
+		err = console.SafeExpectBatch(vmi, []expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: console.PromptExpression},
+			&expect.BSnd{S: "ls /sys/class/net/ | wc -l\n"},
+			&expect.BExp{R: "1"},
+		}, 15)
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("VMI with an interface that has ACPI Index set", func() {
@@ -496,7 +445,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			// For more details please see: https://github.com/kubevirt/kubevirt/issues/6498
 			const cidrWithLeadingZeros = "10.10.010.0/24"
 
-			verifyClientServerConnectivity := func(clientVMI *v1.VirtualMachineInstance, serverVMI *v1.VirtualMachineInstance, tcpPort int, ipFamily k8sv1.IPFamily) error {
+			verifyClientServerConnectivity := func(clientVMI, serverVMI *v1.VirtualMachineInstance, tcpPort int, ipFamily k8sv1.IPFamily) error {
 				serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
 				err := libnet.PingFromVMConsole(clientVMI, serverIP)
 				if err != nil {
@@ -551,11 +500,10 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Entry("with a specific port number [IPv4]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
 				Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, ""),
 				Entry("without a specific port number [IPv4]", []v1.Port{}, 8080, ""),
-				Entry("with custom CIDR [IPv4]", []v1.Port{}, 8080, "10.10.10.0/24"),
 				Entry("with custom CIDR [IPv4] containing leading zeros", []v1.Port{}, 8080, cidrWithLeadingZeros),
 			)
 
-			It("[outside_connectivity]should be able to reach the outside world [IPv4]", func() {
+			It("should be able to reach the outside world [IPv4]", Label("RequiresOutsideConnectivity"), func() {
 				libnet.SkipWhenClusterNotSupportIpv4()
 				ipv4Address := "8.8.8.8"
 				if flags.IPV4ConnectivityCheckAddress != "" {
@@ -608,7 +556,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Entry("with custom CIDR [IPv6]", []v1.Port{}, 8080, "fd10:10:10::2/120"),
 			)
 
-			It("[outside_connectivity]should be able to reach the outside world [IPv6]", func() {
+			It("should be able to reach the outside world", Label("RequiresOutsideConnectivity", "IPv6"), func() {
 				libnet.SkipWhenClusterNotSupportIpv6()
 				// Cluster nodes subnet (docker network gateway)
 				// Docker network subnet cidr definition:
@@ -629,7 +577,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			})
 		})
 
-		When("performing migration", func() {
+		When("performing migration", decorators.RequiresTwoSchedulableNodes, func() {
 			var vmi *v1.VirtualMachineInstance
 
 			ping := func(ipAddr string) error {
@@ -644,10 +592,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				}
 				return pod, nil
 			}
-
-			BeforeEach(func() {
-				checks.SkipIfMigrationIsNotPossible()
-			})
 
 			DescribeTable("[Conformance] preserves connectivity - IPv4", func(ports []v1.Port) {
 				libnet.SkipWhenClusterNotSupportIpv4()
@@ -857,14 +801,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 	})
 })
 
-func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) *v1.VirtualMachineInstance {
-	vmi = libwait.WaitForSuccessfulVMIStart(vmi)
-
-	// make sure that the OS is up by waiting until we can login
-	Expect(loginTo(vmi)).To(Succeed())
-	return vmi
-}
-
 func createExpectConnectToServer(serverIP string, tcpPort int, expectSuccess bool) []expect.Batcher {
 	expectResult := console.ShellFail
 	if expectSuccess {
@@ -924,4 +860,20 @@ func vmiWithCustomMacAddress(mac string) *v1.VirtualMachineInstance {
 	return libvmifact.NewCirros(
 		libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultBridgeNetworkInterface(), mac)),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()))
+}
+
+func newNodeAffinity(selector k8sv1.NodeSelectorOperator, nodeName string) *k8sv1.NodeAffinity {
+	req := k8sv1.NodeSelectorRequirement{
+		Key:      k8sv1.LabelHostname,
+		Operator: selector,
+		Values:   []string{nodeName},
+	}
+	term := []k8sv1.NodeSelectorTerm{
+		{
+			MatchExpressions: []k8sv1.NodeSelectorRequirement{req},
+		},
+	}
+	return &k8sv1.NodeAffinity{RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+		NodeSelectorTerms: term,
+	}}
 }

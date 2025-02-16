@@ -35,6 +35,7 @@ default_targets="
     fedora-with-test-tooling-container-disk
     vm-killer
     sidecar-shim
+    disks-images-provider
 "
 
 case ${ARCHITECTURE} in
@@ -53,8 +54,6 @@ case ${ARCHITECTURE} in
         alpine-ext-kernel-boot-demo
         alpine-with-test-tooling-container-disk
         fedora-realtime-container-disk
-        disks-images-provider
-        nfs-server
         winrmcli
         network-slirp-binding
         network-passt-binding

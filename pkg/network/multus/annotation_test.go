@@ -104,61 +104,6 @@ var _ = Describe("Multus annotations", func() {
 	})
 })
 
-var _ = Describe("Multus annotations", func() {
-	var multusAnnotationPool multus.NetworkAnnotationPool
-	var vmi v1.VirtualMachineInstance
-	var network v1.Network
-
-	BeforeEach(func() {
-		vmi = v1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "testvmi", Namespace: "namespace1", UID: "1234",
-			},
-		}
-		network = v1.Network{
-			NetworkSource: v1.NetworkSource{
-				Multus: &v1.MultusNetwork{NetworkName: "test1"},
-			},
-		}
-	})
-
-	Context("a multus annotation pool with no elements", func() {
-		BeforeEach(func() {
-			multusAnnotationPool = multus.NetworkAnnotationPool{}
-		})
-
-		It("is empty", func() {
-			Expect(multusAnnotationPool.IsEmpty()).To(BeTrue())
-		})
-
-		It("when added an element, is no longer empty", func() {
-			podIfaceName := "net1"
-			multusAnnotationPool.Add(multus.NewAnnotationData(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, network, podIfaceName))
-			Expect(multusAnnotationPool.IsEmpty()).To(BeFalse())
-		})
-
-		It("generate a null string", func() {
-			Expect(multusAnnotationPool.ToString()).To(BeIdenticalTo("null"))
-		})
-	})
-
-	Context("a multus annotation pool with elements", func() {
-		BeforeEach(func() {
-			multusAnnotationPool = multus.NetworkAnnotationPool{}
-			multusAnnotationPool.Add(multus.NewAnnotationData(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, network, "net1"))
-		})
-
-		It("is not empty", func() {
-			Expect(multusAnnotationPool.IsEmpty()).To(BeFalse())
-		})
-
-		It("generates a json serialized string representing the annotation", func() {
-			expectedString := `[{"name":"test1","namespace":"namespace1","interface":"net1"}]`
-			Expect(multusAnnotationPool.ToString()).To(BeIdenticalTo(expectedString))
-		})
-	})
-})
-
 func testsClusterConfig(plugins map[string]v1.InterfaceBindingPlugin) *virtconfig.ClusterConfig {
 	kvConfig := &v1.KubeVirtConfiguration{
 		DeveloperConfiguration: &v1.DeveloperConfiguration{

@@ -34,28 +34,26 @@ import (
 	"strings"
 	"time"
 
-	pb "github.com/cheggaaa/pb/v3"
+	"github.com/cheggaaa/pb/v3"
 	"github.com/spf13/cobra"
-
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 	kubectlutil "k8s.io/kubectl/pkg/util"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
-	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
-
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
@@ -108,8 +106,6 @@ const (
 	exportTokenHeader = "x-kubevirt-export-token"
 	// secretTokenKey is the entry used to store the token in the virtualMachineExport secret
 	secretTokenKey = "token"
-	// secretTokenLenght is the lenght of the randomly generated token
-	secretTokenLenght = 20
 
 	// ErrRequiredFlag serves as error message when a mandatory flag is missing
 	ErrRequiredFlag = "need to specify the '%s' flag when using '%s'"
@@ -179,8 +175,7 @@ type VMExportInfo struct {
 }
 
 type command struct {
-	clientConfig clientcmd.ClientConfig
-	cmd          *cobra.Command
+	cmd *cobra.Command
 }
 
 // WaitForVirtualMachineExportFn allows overriding the function to wait for the export object to be ready (useful for unit testing)
@@ -232,16 +227,14 @@ func usage() string {
 }
 
 // NewVirtualMachineExportCommand returns a cobra.Command to handle the export process
-func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewVirtualMachineExportCommand() *cobra.Command {
+	c := command{}
 	cmd := &cobra.Command{
 		Use:     "vmexport",
 		Short:   "Export a VM volume.",
 		Example: usage(),
 		Args:    cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			v := command{clientConfig: clientConfig, cmd: cmd}
-			return v.run(args)
-		},
+		RunE:    c.run,
 	}
 
 	shouldCreate = false
@@ -274,7 +267,9 @@ func NewVirtualMachineExportCommand(clientConfig clientcmd.ClientConfig) *cobra.
 }
 
 // run serves as entrypoint for the vmexport command
-func (c *command) run(args []string) error {
+func (c *command) run(cmd *cobra.Command, args []string) error {
+	c.cmd = cmd
+
 	var vmeInfo VMExportInfo
 	if err := c.parseExportArguments(args, &vmeInfo); err != nil {
 		return err
@@ -284,16 +279,11 @@ func (c *command) run(args []string) error {
 		defer util.CloseIOAndCheckErr(closer, nil)
 	}
 
-	namespace, _, err := c.clientConfig.Namespace()
+	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}
 	vmeInfo.Namespace = namespace
-
-	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(c.clientConfig)
-	if err != nil {
-		return fmt.Errorf("cannot obtain KubeVirt client: %v", err)
-	}
 
 	// Finally, run the vmexport function (create|delete|download)
 	if err := exportFunction(virtClient, &vmeInfo); err != nil {
@@ -722,7 +712,7 @@ func GetManifestUrlsFromVirtualMachineExport(vmexport *exportv1.VirtualMachineEx
 
 // WaitForVirtualMachineExport waits for the VirtualMachineExport status and external links to be ready
 func WaitForVirtualMachineExport(client kubecli.KubevirtClient, vmeInfo *VMExportInfo, interval, timeout time.Duration) error {
-	err := wait.PollUntilContextTimeout(context.Background(), interval, timeout, true, func(ctx context.Context) (bool, error) {
+	err := virtwait.PollImmediately(interval, timeout, func(_ context.Context) (bool, error) {
 		vmexport, err := getVirtualMachineExport(client, vmeInfo)
 		if err != nil {
 			return false, err
@@ -834,7 +824,7 @@ func copyFileWithProgressBar(output io.Writer, resp *http.Response, decompress b
 // getOrCreateTokenSecret obtains a token secret to be used along with the virtualMachineExport
 func getOrCreateTokenSecret(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport) (*k8sv1.Secret, error) {
 	// Securely randomize a 20 char string to be used as a token
-	token, err := util.GenerateSecureRandomString(secretTokenLenght)
+	token, err := util.GenerateVMExportToken()
 	if err != nil {
 		return nil, err
 	}
@@ -1082,7 +1072,7 @@ func translateServicePortToTargetPort(localPort string, remotePort string, svc k
 func waitForExportServiceToBeReady(client kubecli.KubevirtClient, vmeInfo *VMExportInfo, interval, timeout time.Duration) (*k8sv1.Service, error) {
 	service := &k8sv1.Service{}
 	serviceName := fmt.Sprintf("virt-export-%s", vmeInfo.Name)
-	err := wait.PollUntilContextTimeout(context.Background(), interval, timeout, true, func(ctx context.Context) (bool, error) {
+	err := virtwait.PollImmediately(interval, timeout, func(ctx context.Context) (bool, error) {
 		vmexport, err := getVirtualMachineExport(client, vmeInfo)
 		if err != nil || vmexport == nil {
 			return false, err

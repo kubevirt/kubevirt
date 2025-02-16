@@ -33,12 +33,11 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
 
-	"kubevirt.io/client-go/kubecli"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 	"kubevirt.io/kubevirt/pkg/virtctl/vnc/screenshot"
 )
@@ -68,43 +67,34 @@ var listenAddress = "127.0.0.1"
 var proxyOnly bool
 var customPort = 0
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewCommand() *cobra.Command {
 	log.InitializeLogging("vnc")
+	c := VNC{}
 	cmd := &cobra.Command{
 		Use:     "vnc (VMI)",
 		Short:   "Open a vnc connection to a virtual machine instance.",
 		Example: usage(),
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := VNC{clientConfig: clientConfig}
-			return c.Run(cmd, args)
-		},
+		RunE:    c.Run,
 	}
 	cmd.Flags().StringVar(&listenAddress, "address", listenAddress, "--address=127.0.0.1: Setting this will change the listening address of the VNC server. Example: --address=0.0.0.0 will make the server listen on all interfaces.")
 	cmd.Flags().BoolVar(&proxyOnly, "proxy-only", proxyOnly, "--proxy-only=false: Setting this true will run only the virtctl vnc proxy and show the port where VNC viewers can connect")
 	cmd.Flags().IntVar(&customPort, "port", customPort,
 		"--port=0: Assigning a port value to this will try to run the proxy on the given port if the port is accessible; If unassigned, the proxy will run on a random port")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
-	cmd.AddCommand(screenshot.NewScreenshotCommand(clientConfig))
+	cmd.AddCommand(screenshot.NewScreenshotCommand())
 	return cmd
 }
 
-type VNC struct {
-	clientConfig clientcmd.ClientConfig
-}
+type VNC struct{}
 
 func (o *VNC) Run(cmd *cobra.Command, args []string) error {
-	namespace, _, err := o.clientConfig.Namespace()
+	virtCli, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}
 
 	vmi := args[0]
-
-	virtCli, err := kubecli.GetKubevirtClientFromClientConfig(o.clientConfig)
-	if err != nil {
-		return err
-	}
 
 	// setup connection with VM
 	vnc, err := virtCli.VirtualMachineInstance(namespace).VNC(vmi)

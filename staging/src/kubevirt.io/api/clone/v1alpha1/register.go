@@ -29,10 +29,10 @@ import (
 
 var (
 	// SchemeGroupVersion is group version used to register these objects
-	SchemeGroupVersion = schema.GroupVersion{Group: clone.GroupName, Version: clone.LatestVersion}
+	SchemeGroupVersion = schema.GroupVersion{Group: clone.GroupName, Version: clone.LatestAlphaVersion}
 
-	VirtualMachineCloneKind     = schema.GroupVersionKind{Group: clone.GroupName, Version: clone.LatestVersion, Kind: clone.Kind}
-	VirtualMachineCloneListKind = schema.GroupVersionKind{Group: clone.GroupName, Version: clone.LatestVersion, Kind: clone.ListKind}
+	VirtualMachineCloneKind     = schema.GroupVersionKind{Group: clone.GroupName, Version: clone.LatestAlphaVersion, Kind: clone.Kind}
+	VirtualMachineCloneListKind = schema.GroupVersionKind{Group: clone.GroupName, Version: clone.LatestAlphaVersion, Kind: clone.ListKind}
 )
 
 // Kind takes an unqualified kind and returns back a Group qualified GroupKind

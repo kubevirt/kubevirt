@@ -29,15 +29,12 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	v1 "kubevirt.io/api/core/v1"
 
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -56,10 +53,6 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 	)
 
 	BeforeEach(func() {
-		config.EnableFeatureGate(virtconfig.NetworkBindingPlugingsGate)
-	})
-
-	BeforeEach(func() {
 		const macvtapBindingName = "macvtap"
 		err := config.WithNetBindingPlugin(macvtapBindingName, v1.InterfaceBindingPlugin{
 			DomainAttachmentType: v1.Tap,
@@ -68,9 +61,9 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 	})
 
 	BeforeEach(func() {
-		ns := testsuite.GetTestNamespace(nil)
-		Expect(libnet.CreateMacvtapNetworkAttachmentDefinition(ns, macvtapNetworkName, macvtapLowerDevice)).To(Succeed(),
-			"A macvtap network named %s should be provisioned", macvtapNetworkName)
+		netAttachDef := libnet.NewMacvtapNetAttachDef(macvtapNetworkName, macvtapLowerDevice)
+		_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(nil), netAttachDef)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	var serverMAC, clientMAC string
@@ -118,10 +111,8 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 		Expect(libnet.PingFromVMConsole(clientVMI, serverIPAddr)).To(Succeed())
 	})
 
-	Context("VMI migration", func() {
+	Context("VMI migration", decorators.RequiresTwoSchedulableNodes, func() {
 		var clientVMI *v1.VirtualMachineInstance
-
-		BeforeEach(checks.SkipIfMigrationIsNotPossible)
 
 		BeforeEach(func() {
 			clientVMI = libvmifact.NewAlpineWithTestTooling(
@@ -195,7 +186,7 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 	})
 })
 
-func waitForPodCompleted(podNamespace string, podName string) error {
+func waitForPodCompleted(podNamespace, podName string) error {
 	pod, err := kubevirt.Client().CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
 	if err != nil {
 		return err
@@ -208,8 +199,8 @@ func waitForPodCompleted(podNamespace string, podName string) error {
 
 func waitVMMacvtapIfaceIPReport(vmi *v1.VirtualMachineInstance, macAddress string, timeout time.Duration) (string, error) {
 	var vmiIP string
-	err := wait.PollImmediate(time.Second, timeout, func() (done bool, err error) {
-		vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+	err := virtwait.PollImmediately(time.Second, timeout, func(ctx context.Context) (done bool, err error) {
+		vmi, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(ctx, vmi.Name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}

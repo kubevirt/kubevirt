@@ -41,9 +41,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 
@@ -55,13 +54,12 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 )
 
-var _ = Describe("[Serial][sig-compute]VSOCK", Serial, decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators.VSOCK, func() {
 	var virtClient kubecli.KubevirtClient
 	var err error
 
 	BeforeEach(func() {
-		config.EnableFeatureGate(virtconfig.VSOCKGate)
-		checks.SkipTestIfNoFeatureGate(virtconfig.VSOCKGate)
+		config.EnableFeatureGate(featuregate.VSOCKGate)
 		virtClient = kubevirt.Client()
 	})
 
@@ -122,7 +120,7 @@ var _ = Describe("[Serial][sig-compute]VSOCK", Serial, decorators.SigCompute, fu
 			}
 		}
 
-		It("should retain the CID for migration target", func() {
+		It("should retain the CID for migration target", decorators.RequiresTwoSchedulableNodes, func() {
 			By("Creating a VMI with VSOCK enabled")
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
@@ -151,7 +149,6 @@ var _ = Describe("[Serial][sig-compute]VSOCK", Serial, decorators.SigCompute, fu
 			Expect(domSpec2.Devices.VSOCK.CID.Address).To(Equal(*vmi2.Status.VSOCKCID))
 
 			By("Migrating the 2nd VMI")
-			checks.SkipIfMigrationIsNotPossible()
 			migration := libmigration.New(vmi2.Name, vmi2.Namespace)
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
@@ -268,7 +265,7 @@ var _ = Describe("[Serial][sig-compute]VSOCK", Serial, decorators.SigCompute, fu
 func copyExampleGuestAgent(vmi *v1.VirtualMachineInstance) {
 	const port = 4444
 
-	err := console.RunCommand(vmi, fmt.Sprintf("netcat-openbsd -vl %d > /usr/bin/example-guest-agent &", port), 60*time.Second)
+	err := console.RunCommand(vmi, fmt.Sprintf("netcat-openbsd -vl %d > /usr/bin/example-guest-agent < /dev/null &", port), 60*time.Second)
 	Expect(err).ToNot(HaveOccurred())
 
 	file, err := os.Open(flags.KubeVirtExampleGuestAgentPath)
@@ -288,7 +285,7 @@ func copyExampleGuestAgent(vmi *v1.VirtualMachineInstance) {
 	Expect(err).ToNot(HaveOccurred())
 
 	// Wait for netcat to exit
-	err = console.RunCommand(vmi, "while sleep 3; lsof /usr/bin/example-guest-agent > /dev/null 2>&1; do true; done", 60*time.Second)
+	err = console.RunCommand(vmi, "while pgrep netcat; do sleep 3; done", 60*time.Second)
 	Expect(err).ToNot(HaveOccurred())
 }
 

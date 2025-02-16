@@ -47,8 +47,8 @@ import (
 
 type ConsoleHandler struct {
 	podIsolationDetector isolation.PodIsolationDetector
-	serialStopChans      map[types.UID](chan struct{})
-	vncStopChans         map[types.UID](chan struct{})
+	serialStopChans      map[types.UID]chan struct{}
+	vncStopChans         map[types.UID]chan struct{}
 	serialLock           *sync.Mutex
 	vncLock              *sync.Mutex
 	vmiStore             cache.Store
@@ -58,14 +58,14 @@ type ConsoleHandler struct {
 }
 
 type UsbredirHandlerVMI struct {
-	stopChans map[int](chan struct{})
+	stopChans map[int]chan struct{}
 }
 
 func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiStore cache.Store, certManager certificate.Manager) *ConsoleHandler {
 	return &ConsoleHandler{
 		podIsolationDetector: podIsolationDetector,
-		serialStopChans:      make(map[types.UID](chan struct{})),
-		vncStopChans:         make(map[types.UID](chan struct{})),
+		serialStopChans:      make(map[types.UID]chan struct{}),
+		vncStopChans:         make(map[types.UID]chan struct{}),
 		serialLock:           &sync.Mutex{},
 		vncLock:              &sync.Mutex{},
 		usbredirLock:         &sync.Mutex{},
@@ -96,7 +96,7 @@ func (t *ConsoleHandler) USBRedirHandler(request *restful.Request, response *res
 		if _, exists := t.usbredir[uid]; !exists {
 			// Initialize
 			t.usbredir[uid] = UsbredirHandlerVMI{
-				stopChans: make(map[int](chan struct{})),
+				stopChans: make(map[int]chan struct{}),
 			}
 		}
 
@@ -240,7 +240,7 @@ func (t *ConsoleHandler) VSOCKHandler(request *restful.Request, response *restfu
 	}, make(chan struct{})) // It is legitimate and up to the guest-application to accept multiple connections.
 }
 
-func newStopChan(uid types.UID, lock *sync.Mutex, stopChans map[types.UID](chan struct{})) chan struct{} {
+func newStopChan(uid types.UID, lock *sync.Mutex, stopChans map[types.UID]chan struct{}) chan struct{} {
 	lock.Lock()
 	defer lock.Unlock()
 	// close current connection, if exists
@@ -254,7 +254,7 @@ func newStopChan(uid types.UID, lock *sync.Mutex, stopChans map[types.UID](chan 
 	return stopCh
 }
 
-func deleteStopChan(uid types.UID, stopChn chan struct{}, lock *sync.Mutex, stopChans map[types.UID](chan struct{})) {
+func deleteStopChan(uid types.UID, stopChn chan struct{}, lock *sync.Mutex, stopChans map[types.UID]chan struct{}) {
 	lock.Lock()
 	defer lock.Unlock()
 	// delete the stop channel from the cache if needed

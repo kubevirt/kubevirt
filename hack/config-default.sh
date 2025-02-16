@@ -21,7 +21,6 @@ docker_images="
     ${binaries_and_docker_images}
     images/disks-images-provider
     images/vm-killer
-    images/nfs-server
     images/winrmcli
     tests/conformance
 "
@@ -37,16 +36,15 @@ cdi_namespace=cdi
 image_pull_policy=${IMAGE_PULL_POLICY:-IfNotPresent}
 verbosity=${VERBOSITY:-2}
 package_name=${PACKAGE_NAME:-kubevirt-dev}
-kubevirtci_git_hash="2411081234-d4d136be"
+kubevirtci_git_hash="2502072021-f3ed3dc0"
 conn_check_ipv4_address=${CONN_CHECK_IPV4_ADDRESS:-""}
 conn_check_ipv6_address=${CONN_CHECK_IPV6_ADDRESS:-""}
 conn_check_dns=${CONN_CHECK_DNS:-""}
 migration_network_nic=${MIGRATION_NETWORK_NIC:-"eth1"}
 infra_replicas=${KUBEVIRT_INFRA_REPLICAS:-0}
 test_image_replicas=${KUBEVIRT_E2E_PARALLEL_NODES:-6}
-common_instancetypes_version=${COMMON_INSTANCETYPES_VERSION:-"v1.2.0"}
-cluster_instancetypes_sha256=${CLUSTER_INSTANCETYPES_SHA256:-"837b18da58bfa6bab07f8383606bee02b77fdaa4dbd534203f10dbb1987569a7"}
-cluster_preferences_sha256=${CLUSTER_PREFERENCES_SHA256:-"a07d3305ee005364fad3d07d007c6640241383a526d1f749d9db909bcade70bc"}
+base_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+kubevirt_test_config=${KUBEVIRT_TEST_CONFIG:-$(if [[ "${KUBEVIRT_STORAGE:-}" == rook-ceph* ]]; then echo "${base_dir}/tests/default-ceph-config.json"; else echo "${base_dir}/tests/default-config.json"; fi)}
 
 # try to derive csv_version from docker tag. But it must start with x.y.z, without leading v
 default_csv_version="${docker_tag/latest/0.0.0}"

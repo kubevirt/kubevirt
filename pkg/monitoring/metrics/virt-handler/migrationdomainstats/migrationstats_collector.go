@@ -29,6 +29,7 @@ var (
 
 	MigrationStatsCollector = operatormetrics.Collector{
 		Metrics: []operatormetrics.Metric{
+			migrateVMIDataTotal,
 			migrateVMIDataRemaining,
 			migrateVMIDataProcessed,
 			migrateVmiDirtyMemoryRate,
@@ -36,6 +37,13 @@ var (
 		},
 		CollectCallback: migrationStatsCollectorCallback,
 	}
+
+	migrateVMIDataTotal = operatormetrics.NewCounter(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_migration_data_total_bytes",
+			Help: "The total Guest OS data to be migrated to the new VM.",
+		},
+	)
 
 	migrateVMIDataRemaining = operatormetrics.NewGauge(
 		operatormetrics.MetricOpts{
@@ -92,6 +100,10 @@ func parse(r *result) []operatormetrics.CollectorResult {
 
 	jobInfo := r.domainJobInfo
 
+	if jobInfo.DataTotalSet {
+		crs = append(crs, newCR(r, migrateVMIDataTotal, float64(jobInfo.DataTotal)))
+	}
+
 	if jobInfo.DataRemainingSet {
 		crs = append(crs, newCR(r, migrateVMIDataRemaining, float64(jobInfo.DataRemaining)))
 	}
@@ -115,6 +127,7 @@ func newCR(r *result, metric operatormetrics.Metric, value float64) operatormetr
 	vmiLabels := map[string]string{
 		"namespace": r.namespace,
 		"name":      r.vmi,
+		"node":      r.node,
 	}
 
 	return operatormetrics.CollectorResult{

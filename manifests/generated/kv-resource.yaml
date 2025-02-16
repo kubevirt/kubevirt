@@ -288,6 +288,10 @@ spec:
                   developerConfiguration:
                     description: DeveloperConfiguration holds developer options
                     properties:
+                      clusterProfiler:
+                        description: Enable the ability to pprof profile KubeVirt
+                          control plane
+                        type: boolean
                       cpuAllocationRatio:
                         description: |-
                           For each requested virtual CPU, CPUAllocationRatio defines how much physical CPU to request per VMI
@@ -594,6 +598,13 @@ spec:
                           If set to true, migrations will still start in pre-copy, but switch to post-copy when
                           CompletionTimeoutPerGiB triggers. Defaults to false
                         type: boolean
+                      allowWorkloadDisruption:
+                        description: |-
+                          AllowWorkloadDisruption indicates that the migration shouldn't be
+                          canceled after acceptableCompletionTime is exceeded. Instead, if
+                          permitted, migration will be switched to post-copy or the VMI will be
+                          paused to allow the migration to complete
+                        type: boolean
                       bandwidthPerMigration:
                         anyOf:
                         - type: integer
@@ -606,8 +617,8 @@ spec:
                       completionTimeoutPerGiB:
                         description: |-
                           CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
-                          If a live-migration takes longer to migrate than this value multiplied by the size of the VMI,
-                          the migration will be cancelled, unless AllowPostCopy is true. Defaults to 150
+                          If the timeout is reached, the migration will be either paused, switched
+                          to post-copy or cancelled depending on other settings. Defaults to 150
                         format: int64
                         type: integer
                       disableTLS:
@@ -965,17 +976,17 @@ spec:
                         type: object
                     type: object
                   vmRolloutStrategy:
-                    description: VMRolloutStrategy defines how changes to a VM object
-                      propagate to its VMI
+                    description: |-
+                      VMRolloutStrategy defines how live-updatable fields, like CPU sockets, memory,
+                      tolerations, and affinity, are propagated from a VM to its VMI.
                     enum:
                     - Stage
                     - LiveUpdate
                     nullable: true
                     type: string
                   vmStateStorageClass:
-                    description: |-
-                      VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.
-                      The storage class must support RWX in filesystem mode.
+                    description: VMStateStorageClass is the name of the storage class
+                      to use for the PVCs created to preserve VM state, like TPM.
                     type: string
                   webhookConfiguration:
                     description: |-
@@ -3545,6 +3556,10 @@ spec:
                   developerConfiguration:
                     description: DeveloperConfiguration holds developer options
                     properties:
+                      clusterProfiler:
+                        description: Enable the ability to pprof profile KubeVirt
+                          control plane
+                        type: boolean
                       cpuAllocationRatio:
                         description: |-
                           For each requested virtual CPU, CPUAllocationRatio defines how much physical CPU to request per VMI
@@ -3851,6 +3866,13 @@ spec:
                           If set to true, migrations will still start in pre-copy, but switch to post-copy when
                           CompletionTimeoutPerGiB triggers. Defaults to false
                         type: boolean
+                      allowWorkloadDisruption:
+                        description: |-
+                          AllowWorkloadDisruption indicates that the migration shouldn't be
+                          canceled after acceptableCompletionTime is exceeded. Instead, if
+                          permitted, migration will be switched to post-copy or the VMI will be
+                          paused to allow the migration to complete
+                        type: boolean
                       bandwidthPerMigration:
                         anyOf:
                         - type: integer
@@ -3863,8 +3885,8 @@ spec:
                       completionTimeoutPerGiB:
                         description: |-
                           CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
-                          If a live-migration takes longer to migrate than this value multiplied by the size of the VMI,
-                          the migration will be cancelled, unless AllowPostCopy is true. Defaults to 150
+                          If the timeout is reached, the migration will be either paused, switched
+                          to post-copy or cancelled depending on other settings. Defaults to 150
                         format: int64
                         type: integer
                       disableTLS:
@@ -4222,17 +4244,17 @@ spec:
                         type: object
                     type: object
                   vmRolloutStrategy:
-                    description: VMRolloutStrategy defines how changes to a VM object
-                      propagate to its VMI
+                    description: |-
+                      VMRolloutStrategy defines how live-updatable fields, like CPU sockets, memory,
+                      tolerations, and affinity, are propagated from a VM to its VMI.
                     enum:
                     - Stage
                     - LiveUpdate
                     nullable: true
                     type: string
                   vmStateStorageClass:
-                    description: |-
-                      VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.
-                      The storage class must support RWX in filesystem mode.
+                    description: VMStateStorageClass is the name of the storage class
+                      to use for the PVCs created to preserve VM state, like TPM.
                     type: string
                   webhookConfiguration:
                     description: |-

@@ -40,7 +40,7 @@ const (
 
 type EvacuationController struct {
 	clientset             kubecli.KubevirtClient
-	Queue                 workqueue.RateLimitingInterface
+	Queue                 workqueue.TypedRateLimitingInterface[string]
 	vmiIndexer            cache.Indexer
 	vmiPodIndexer         cache.Indexer
 	migrationStore        cache.Store
@@ -62,7 +62,10 @@ func NewEvacuationController(
 ) (*EvacuationController, error) {
 
 	c := &EvacuationController{
-		Queue:                 workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-evacuation"),
+		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-evacuation"},
+		),
 		vmiIndexer:            vmiInformer.GetIndexer(),
 		migrationStore:        migrationInformer.GetStore(),
 		nodeStore:             nodeInformer.GetStore(),
@@ -201,7 +204,7 @@ func (c *EvacuationController) addMigration(obj interface{}) {
 		c.migrationExpectations.CreationObserved(key)
 		node = key
 	} else {
-		o, exists, err := c.vmiIndexer.GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
+		o, exists, err := c.vmiIndexer.GetByKey(controller.NamespacedKey(migration.Namespace, migration.Spec.VMIName))
 		if err != nil {
 			return
 		}
@@ -242,7 +245,7 @@ func (c *EvacuationController) enqueueMigration(obj interface{}) {
 			return
 		}
 	}
-	o, exists, err := c.vmiIndexer.GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
+	o, exists, err := c.vmiIndexer.GetByKey(controller.NamespacedKey(migration.Namespace, migration.Spec.VMIName))
 	if err != nil {
 		return
 	}
@@ -271,7 +274,7 @@ func (c *EvacuationController) resolveControllerRef(namespace string, controller
 	if controllerRef == nil || controllerRef.Kind != virtv1.VirtualMachineInstanceGroupVersionKind.Kind {
 		return nil
 	}
-	vmi, exists, err := c.vmiIndexer.GetByKey(namespace + "/" + controllerRef.Name)
+	vmi, exists, err := c.vmiIndexer.GetByKey(controller.NamespacedKey(namespace, controllerRef.Name))
 	if err != nil {
 		return nil
 	}
@@ -311,7 +314,7 @@ func (c *EvacuationController) Execute() bool {
 		return false
 	}
 	defer c.Queue.Done(key)
-	err := c.execute(key.(string))
+	err := c.execute(key)
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing VirtualMachineInstance %v", key)

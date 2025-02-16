@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/client-go/testing"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	testutils "kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
@@ -90,7 +91,7 @@ var _ = Describe("Pool", func() {
 
 		var controller *Controller
 		var recorder *record.FakeRecorder
-		var mockQueue *testutils.MockWorkQueue
+		var mockQueue *testutils.MockWorkQueue[string]
 		var fakeVirtClient *kubevirtfake.Clientset
 		var k8sClient *k8sfake.Clientset
 
@@ -214,15 +215,20 @@ var _ = Describe("Pool", func() {
 			})
 		}
 
-		expectVMCreation := func(nameMatcher types.GomegaMatcher) {
+		expectVMCreationWithValidation := func(nameMatcher types.GomegaMatcher, validateFn func(machine *v1.VirtualMachine)) {
 			fakeVirtClient.Fake.PrependReactor("create", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				created, ok := action.(k8stesting.CreateAction)
 				Expect(ok).To(BeTrue())
 				createObj := created.GetObject().(*v1.VirtualMachine)
 				Expect(createObj.Name).To(nameMatcher)
 				Expect(createObj.GenerateName).To(Equal(""))
+				validateFn(createObj)
 				return true, created.GetObject(), nil
 			})
+		}
+
+		expectVMCreation := func(nameMatcher types.GomegaMatcher) {
+			expectVMCreationWithValidation(nameMatcher, func(_ *v1.VirtualMachine) {})
 		}
 
 		expectVMUpdate := func(revisionName string) {
@@ -235,6 +241,12 @@ var _ = Describe("Pool", func() {
 			})
 		}
 
+		sanityExecute := func() {
+			controllertesting.SanityExecute(controller, []cache.Store{
+				controller.vmiStore, controller.vmIndexer, controller.poolIndexer, controller.revisionIndexer,
+			}, Default)
+		}
+
 		It("should create missing VMs", func() {
 			pool, _ := DefaultPool(3)
 
@@ -244,7 +256,7 @@ var _ = Describe("Pool", func() {
 			expectControllerRevisionCreation(poolRevision)
 			expectVMCreation(HavePrefix(fmt.Sprintf("%s-", pool.Name)))
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
@@ -289,7 +301,7 @@ var _ = Describe("Pool", func() {
 			expectControllerRevisionCreation(newPoolRevision)
 			expectVMUpdate(newPoolRevision.Name)
 
-			controller.Execute()
+			sanityExecute()
 
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(BeEmpty())
 		})
@@ -305,7 +317,7 @@ var _ = Describe("Pool", func() {
 			addCR(poolRevision)
 
 			expectControllerRevisionDeletion(poolRevision)
-			controller.Execute()
+			sanityExecute()
 		})
 
 		It("should update VM and VMI with both VM and VMI template change", func() {
@@ -352,7 +364,7 @@ var _ = Describe("Pool", func() {
 				return true, nil, nil
 			})
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(HaveLen(1))
@@ -372,7 +384,7 @@ var _ = Describe("Pool", func() {
 			addVM(vm)
 			addCR(poolRevision)
 
-			controller.Execute()
+			sanityExecute()
 		})
 
 		It("should prune unused controller revisions", func() {
@@ -394,7 +406,7 @@ var _ = Describe("Pool", func() {
 			addCR(oldPoolRevision)
 
 			expectControllerRevisionDeletion(oldPoolRevision)
-			controller.Execute()
+			sanityExecute()
 		})
 
 		It("should not create missing VMs when it is paused and add paused condition", func() {
@@ -418,7 +430,7 @@ var _ = Describe("Pool", func() {
 				return true, update.GetObject(), nil
 			})
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, SuccessfulPausedPoolReason)
 			// Expect pool to be updated with paused condition
@@ -452,7 +464,7 @@ var _ = Describe("Pool", func() {
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, common.FailedCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, FailedScaleOutReason)
@@ -485,7 +497,7 @@ var _ = Describe("Pool", func() {
 				return true, update.GetObject(), nil
 			})
 
-			controller.Execute()
+			sanityExecute()
 		})
 
 		It("should create missing VMs when pool is resumed", func() {
@@ -519,7 +531,7 @@ var _ = Describe("Pool", func() {
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
@@ -538,7 +550,7 @@ var _ = Describe("Pool", func() {
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
 
-			controller.Execute()
+			sanityExecute()
 
 			for x := 0; x < 10; x++ {
 				testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
@@ -571,7 +583,7 @@ var _ = Describe("Pool", func() {
 				return true, nil, nil
 			})
 
-			controller.Execute()
+			sanityExecute()
 
 			for x := 0; x < 10; x++ {
 				testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
@@ -609,7 +621,7 @@ var _ = Describe("Pool", func() {
 			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachines", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				return true, nil, nil
 			})
-			controller.Execute()
+			sanityExecute()
 
 			for x := 0; x < 5; x++ {
 				testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
@@ -635,7 +647,7 @@ var _ = Describe("Pool", func() {
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
@@ -663,7 +675,7 @@ var _ = Describe("Pool", func() {
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 
@@ -694,12 +706,71 @@ var _ = Describe("Pool", func() {
 			poolRevision := createPoolRevision(pool)
 			expectControllerRevisionCreation(poolRevision)
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
 		})
+
+		DescribeTable("should respect name generation settings", func(appendIndex *bool) {
+			const (
+				cmName     = "configmap"
+				secretName = "secret"
+			)
+
+			pool, _ := DefaultPool(3)
+			pool.Spec.VirtualMachineTemplate.Spec.Template.Spec.Volumes = []v1.Volume{
+				{
+					Name: cmName,
+					VolumeSource: v1.VolumeSource{
+						ConfigMap: &v1.ConfigMapVolumeSource{
+							LocalObjectReference: k8sv1.LocalObjectReference{Name: cmName},
+						},
+					},
+				},
+				{
+					Name: secretName,
+					VolumeSource: v1.VolumeSource{
+						Secret: &v1.SecretVolumeSource{SecretName: secretName},
+					},
+				},
+			}
+			pool.Spec.NameGeneration = &poolv1.VirtualMachinePoolNameGeneration{
+				AppendIndexToConfigMapRefs: appendIndex,
+				AppendIndexToSecretRefs:    appendIndex,
+			}
+
+			addPool(pool)
+
+			poolRevision := createPoolRevision(pool)
+			expectControllerRevisionCreation(poolRevision)
+			expectVMCreationWithValidation(
+				HavePrefix(fmt.Sprintf("%s-", pool.Name)),
+				func(vm *v1.VirtualMachine) {
+					defer GinkgoRecover()
+					Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal(cmName))
+					Expect(vm.Spec.Template.Spec.Volumes[1].Name).To(Equal(secretName))
+					if appendIndex != nil && *appendIndex {
+						Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ConfigMap.Name).To(MatchRegexp(fmt.Sprintf("%s-\\d", cmName)))
+						Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.Secret.SecretName).To(MatchRegexp(fmt.Sprintf("%s-\\d", secretName)))
+					} else {
+						Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.ConfigMap.Name).To(Equal(cmName))
+						Expect(vm.Spec.Template.Spec.Volumes[1].VolumeSource.Secret.SecretName).To(Equal(secretName))
+					}
+				},
+			)
+
+			sanityExecute()
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
+		},
+			Entry("do not append index by default", nil),
+			Entry("do not append index if set to false", pointer.P(false)),
+			Entry("append index if set to true", pointer.P(true)),
+		)
 	})
 })
 

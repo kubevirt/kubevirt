@@ -312,6 +312,7 @@ type Features struct {
 	KVM        *FeatureKVM        `xml:"kvm,omitempty"`
 	PVSpinlock *FeaturePVSpinlock `xml:"pvspinlock,omitempty"`
 	PMU        *FeatureState      `xml:"pmu,omitempty"`
+	VMPort     *FeatureState      `xml:"vmport,omitempty"`
 }
 
 const HypervModePassthrough = "passthrough"
@@ -714,9 +715,18 @@ type DiskDriver struct {
 	Name        string             `xml:"name,attr"`
 	Type        string             `xml:"type,attr"`
 	IOThread    *uint              `xml:"iothread,attr,omitempty"`
+	IOThreads   *DiskIOThreads     `xml:"iothreads"`
 	Queues      *uint              `xml:"queues,attr,omitempty"`
 	Discard     string             `xml:"discard,attr,omitempty"`
 	IOMMU       string             `xml:"iommu,attr,omitempty"`
+}
+
+type DiskIOThreads struct {
+	IOThread []DiskIOThread `xml:"iothread"`
+}
+
+type DiskIOThread struct {
+	Id uint32 `xml:"id,attr"`
 }
 
 type DiskSourceHost struct {

@@ -43,9 +43,10 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -54,8 +55,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	storageframework "kubevirt.io/kubevirt/tests/framework/storage"
-	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -100,11 +99,9 @@ var _ = SIGDescribe("Storage", func() {
 
 	Describe("Starting a VirtualMachineInstance", func() {
 		var vmi *v1.VirtualMachineInstance
-		var targetImagePath string
 
 		BeforeEach(func() {
 			vmi = nil
-			targetImagePath = testsuite.HostPathAlpine
 		})
 
 		isPausedOnIOError := func(conditions []v1.VirtualMachineInstanceCondition) bool {
@@ -114,18 +111,6 @@ var _ = SIGDescribe("Storage", func() {
 				}
 			}
 			return false
-		}
-
-		createNFSPvAndPvc := func(ipFamily k8sv1.IPFamily, nfsPod *k8sv1.Pod) string {
-			pvName := fmt.Sprintf("test-nfs%s", rand.String(48))
-
-			// create a new PV and PVC (PVs can't be reused)
-			By("create a new NFS PV and PVC")
-			nfsIP := libnet.GetPodIPByFamily(nfsPod, ipFamily)
-			ExpectWithOffset(1, nfsIP).NotTo(BeEmpty())
-			os := string(cd.ContainerDiskAlpine)
-			libstorage.CreateNFSPvAndPvc(pvName, testsuite.GetTestNamespace(nil), "1Gi", nfsIP, os)
-			return pvName
 		}
 
 		setShareable := func(vmi *v1.VirtualMachineInstance, diskName string) {
@@ -147,7 +132,7 @@ var _ = SIGDescribe("Storage", func() {
 			return libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running}, libwait.WithTimeout(timeoutSec))
 		}
 
-		Context("[Serial]with error disk", Serial, func() {
+		Context("with error disk", Serial, func() {
 			var (
 				nodeName, address, device string
 
@@ -258,49 +243,25 @@ var _ = SIGDescribe("Storage", func() {
 			}
 
 			Context("should be successfully", func() {
-				var pvName string
-				var nfsPod *k8sv1.Pod
-				AfterEach(func() {
-					// Ensure VMI is deleted before bringing down the NFS server
-					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
-					Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
-					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
-
-					if targetImagePath != testsuite.HostPathAlpine {
-						deleteAlpineWithNonQEMUPermissions()
+				DescribeTable("started", decorators.Conformance, func(newVMI VMICreationFunc, imageOwnedByQEMU bool) {
+					pvcName := diskAlpineHostPath
+					if !imageOwnedByQEMU {
+						// Setup hostpath PV that points at non-root owned image with chmod 640
+						libstorage.CreateHostPathPv(customHostPath, testsuite.GetTestNamespace(nil), testsuite.HostPathAlpineNoPriv)
+						libstorage.CreateHostPathPVC(customHostPath, testsuite.GetTestNamespace(nil), "1Gi")
+						pvcName = diskCustomHostPath
 					}
-				})
-				DescribeTable("started", func(newVMI VMICreationFunc, storageEngine string, family k8sv1.IPFamily, imageOwnedByQEMU bool) {
-					libnet.SkipWhenClusterNotSupportIPFamily(family)
-
-					var nodeName string
 					// Start the VirtualMachineInstance with the PVC attached
-					if storageEngine == "nfs" {
-						if !imageOwnedByQEMU {
-							targetImagePath, nodeName = copyAlpineWithNonQEMUPermissions()
-						}
-						nfsPod, err = storageframework.InitNFS(targetImagePath, nodeName)
-						Expect(err).ToNot(HaveOccurred())
-						pvName = createNFSPvAndPvc(family, nfsPod)
-					} else {
-						pvName = diskAlpineHostPath
-					}
-					vmi = newVMI(pvName)
+					vmi = newVMI(pvcName)
 
-					if storageEngine == "nfs" {
-						vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
-					} else {
-						vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
-					}
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
 
 					By(checkingVMInstanceConsoleOut)
 					Expect(console.LoginToAlpine(vmi)).To(Succeed())
 				},
-					Entry("[test_id:3130]with Disk PVC", newRandomVMIWithPVC, "", nil, true),
-					Entry("[test_id:3131]with CDRom PVC", newRandomVMIWithCDRom, "", nil, true),
-					Entry("[test_id:4618]with NFS Disk PVC using ipv4 address of the NFS pod", newRandomVMIWithPVC, "nfs", k8sv1.IPv4Protocol, true),
-					Entry("[Serial]with NFS Disk PVC using ipv6 address of the NFS pod", Serial, newRandomVMIWithPVC, "nfs", k8sv1.IPv6Protocol, true),
-					Entry("[Serial]with NFS Disk PVC using ipv4 address of the NFS pod not owned by qemu", Serial, newRandomVMIWithPVC, "nfs", k8sv1.IPv4Protocol, false),
+					Entry("[test_id:3130]with Disk PVC", newRandomVMIWithPVC, true),
+					Entry("[test_id:3131]with CDRom PVC", newRandomVMIWithCDRom, true),
+					Entry("hostpath disk image file not owned by qemu", newRandomVMIWithPVC, false),
 				)
 			})
 
@@ -410,10 +371,8 @@ var _ = SIGDescribe("Storage", func() {
 
 			Context("should be successfully", func() {
 				var pvName string
-				var nfsPod *k8sv1.Pod
 
 				BeforeEach(func() {
-					nfsPod = nil
 					pvName = ""
 				})
 
@@ -436,36 +395,19 @@ var _ = SIGDescribe("Storage", func() {
 				})
 
 				// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
-				DescribeTable("started", func(storageEngine string, family k8sv1.IPFamily) {
-					libnet.SkipWhenClusterNotSupportIPFamily(family)
-
-					// Start the VirtualMachineInstance with the PVC attached
-					if storageEngine == "nfs" {
-						nfsPod, err = storageframework.InitNFS(testsuite.HostPathAlpine, "")
-						Expect(err).ToNot(HaveOccurred())
-						pvName = createNFSPvAndPvc(family, nfsPod)
-					} else {
-						pvName = diskAlpineHostPath
-					}
+				It("[test_id:3136]started with Ephemeral PVC", decorators.Conformance, func() {
+					pvName = diskAlpineHostPath
 
 					vmi = libvmi.New(
 						libvmi.WithResourceMemory("256Mi"),
 						libvmi.WithEphemeralPersistentVolumeClaim("disk0", pvName),
 					)
 
-					if storageEngine == "nfs" {
-						vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 120)
-					} else {
-						vmi = libvmops.RunVMIAndExpectLaunch(vmi, 120)
-					}
+					vmi = libvmops.RunVMIAndExpectLaunch(vmi, 120)
 
 					By(checkingVMInstanceConsoleOut)
 					Expect(console.LoginToAlpine(vmi)).To(Succeed())
-				},
-					Entry("[test_id:3136]with Ephemeral PVC", "", nil),
-					Entry("[test_id:4619]with Ephemeral PVC from NFS using ipv4 address of the NFS pod", "nfs", k8sv1.IPv4Protocol),
-					Entry("with Ephemeral PVC from NFS using ipv6 address of the NFS pod", "nfs", k8sv1.IPv6Protocol),
-				)
+				})
 			})
 
 			// Not a candidate for testing on NFS because the VMI is restarted and NFS PVC can't be re-used
@@ -568,9 +510,9 @@ var _ = SIGDescribe("Storage", func() {
 			})
 		})
 
-		Context("[Serial]With feature gates disabled for", Serial, func() {
+		Context("With feature gates disabled for", Serial, func() {
 			It("[test_id:4620]HostDisk, it should fail to start a VMI", func() {
-				config.DisableFeatureGate(virtconfig.HostDiskGate)
+				config.DisableFeatureGate(featuregate.HostDiskGate)
 				vmi = libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -589,7 +531,7 @@ var _ = SIGDescribe("Storage", func() {
 		Context("[rfe_id:2298][crit:medium][vendor:cnv-qe@redhat.com][level:component] With HostDisk and PVC initialization", func() {
 
 			BeforeEach(func() {
-				if !checks.HasFeature(virtconfig.HostDiskGate) {
+				if !checks.HasFeature(featuregate.HostDiskGate) {
 					Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
 				}
 			})
@@ -887,7 +829,7 @@ var _ = SIGDescribe("Storage", func() {
 				}
 
 				// Not a candidate for NFS test due to usage of host disk
-				It("[Serial][test_id:3108]Should not initialize an empty PVC with a disk.img when disk is too small even with toleration", Serial, func() {
+				It("[test_id:3108]Should not initialize an empty PVC with a disk.img when disk is too small even with toleration", Serial, func() {
 
 					configureToleration(10)
 
@@ -914,7 +856,7 @@ var _ = SIGDescribe("Storage", func() {
 				})
 
 				// Not a candidate for NFS test due to usage of host disk
-				It("[Serial][test_id:3109]Should initialize an empty PVC with a disk.img when disk is too small but within toleration", Serial, func() {
+				It("[test_id:3109]Should initialize an empty PVC with a disk.img when disk is too small but within toleration", Serial, func() {
 
 					configureToleration(30)
 
@@ -942,7 +884,7 @@ var _ = SIGDescribe("Storage", func() {
 			})
 		})
 
-		Context("[rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component][storage-req] With Cirros BlockMode PVC", decorators.StorageReq, func() {
+		Context("[rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component][storage-req] With Cirros BlockMode PVC", decorators.RequiresBlockStorage, decorators.StorageReq, func() {
 			var dataVolume *cdiv1.DataVolume
 			var err error
 
@@ -950,7 +892,7 @@ var _ = SIGDescribe("Storage", func() {
 				// create a new PV and PVC (PVs can't be reused)
 				sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
 				if !foundSC {
-					Skip("Skip test when Block storage is not present")
+					Fail("Fail test when Block storage is not present")
 				}
 
 				dataVolume = libdv.NewDataVolume(
@@ -960,10 +902,6 @@ var _ = SIGDescribe("Storage", func() {
 				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
-			})
-
-			AfterEach(func() {
-				libstorage.DeleteDataVolume(&dataVolume)
 			})
 
 			// Not a candidate for NFS because local volumes are used in test
@@ -982,13 +920,13 @@ var _ = SIGDescribe("Storage", func() {
 			})
 		})
 
-		Context("[storage-req][rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component]With Alpine block volume PVC", decorators.StorageReq, func() {
+		Context("[storage-req][rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component]With Alpine block volume PVC", decorators.RequiresRWXBlock, decorators.StorageReq, func() {
 
 			It("[test_id:3139]should be successfully started", func() {
 				By("Create a VMIWithPVC")
 				sc, exists := libstorage.GetRWXBlockStorageClass()
 				if !exists {
-					Skip("Skip test when Block storage is not present")
+					Fail("Fail test when Block storage is not present")
 				}
 
 				// Start the VirtualMachineInstance with the PVC attached
@@ -1012,7 +950,7 @@ var _ = SIGDescribe("Storage", func() {
 			})
 		})
 
-		Context("[rfe_id:2288][crit:high][arm64][vendor:cnv-qe@redhat.com][level:component] With not existing PVC", decorators.WgS390x, func() {
+		Context("[rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component] With not existing PVC", decorators.WgS390x, decorators.WgArm64, func() {
 			// Not a candidate for NFS because the PVC in question doesn't actually exist
 			It("[test_id:1040] should get unschedulable condition", func() {
 				// Start the VirtualMachineInstance
@@ -1107,14 +1045,14 @@ var _ = SIGDescribe("Storage", func() {
 
 		})
 
-		Context("[storage-req] With a volumeMode block backed ephemeral disk", decorators.StorageReq, func() {
+		Context("[storage-req] With a volumeMode block backed ephemeral disk", decorators.RequiresBlockStorage, decorators.StorageReq, func() {
 			var dataVolume *cdiv1.DataVolume
 			var err error
 
 			BeforeEach(func() {
 				sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
 				if !foundSC {
-					Skip("Skip test when Block storage is not present")
+					Fail("Fail test when Block storage is not present")
 				}
 
 				dataVolume = libdv.NewDataVolume(
@@ -1125,10 +1063,6 @@ var _ = SIGDescribe("Storage", func() {
 				Expect(err).ToNot(HaveOccurred())
 				libstorage.EventuallyDV(dataVolume, 240, Or(HaveSucceeded(), WaitForFirstConsumer()))
 				vmi = nil
-			})
-
-			AfterEach(func() {
-				libstorage.DeleteDataVolume(&dataVolume)
 			})
 
 			It("should generate the pod with the volumeDevice", func() {
@@ -1156,7 +1090,7 @@ var _ = SIGDescribe("Storage", func() {
 			BeforeEach(func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				dv = libdv.NewDataVolume(
@@ -1218,7 +1152,7 @@ var _ = SIGDescribe("Storage", func() {
 			})
 		})
 		Context("write and read data from a shared disk", func() {
-			It("should successfully write and read data", func() {
+			It("should successfully write and read data", decorators.RequiresBlockStorage, func() {
 				const diskName = "disk1"
 				const pvcClaim = "pvc-test-disk1"
 				const labelKey = "testshareablekey"
@@ -1286,7 +1220,7 @@ var _ = SIGDescribe("Storage", func() {
 			})
 		})
 
-		Context("[Serial]with lun disk", Serial, func() {
+		Context("with lun disk", Serial, func() {
 			var (
 				nodeName, address, device string
 				pvc                       *k8sv1.PersistentVolumeClaim
@@ -1467,24 +1401,4 @@ func runPodAndExpectPhase(pod *k8sv1.Pod, phase k8sv1.PodPhase) *k8sv1.Pod {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(pod).ToNot(BeNil())
 	return pod
-}
-
-func copyAlpineWithNonQEMUPermissions() (dstPath, nodeName string) {
-	dstPath = testsuite.HostPathAlpine + "-nopriv"
-	args := []string{fmt.Sprintf(`mkdir -p %[1]s-nopriv && cp %[1]s/disk.img %[1]s-nopriv/ && chmod 640 %[1]s-nopriv/disk.img  && chown root:root %[1]s-nopriv/disk.img`, testsuite.HostPathAlpine)}
-
-	By("creating an image with without qemu permissions")
-	pod := libpod.RenderHostPathPod("tmp-image-create-job", testsuite.HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
-
-	nodeName = runPodAndExpectPhase(pod, k8sv1.PodSucceeded).Spec.NodeName
-	return
-}
-
-func deleteAlpineWithNonQEMUPermissions() {
-	nonQemuAlpinePath := testsuite.HostPathAlpine + "-nopriv"
-	args := []string{fmt.Sprintf(`rm -rf %s`, nonQemuAlpinePath)}
-
-	pod := libpod.RenderHostPathPod("remove-tmp-image-job", testsuite.HostPathBase, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
-
-	runPodAndExpectPhase(pod, k8sv1.PodSucceeded)
 }

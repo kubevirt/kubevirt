@@ -23,52 +23,37 @@ import (
 	"context"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libvmifact"
-
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/tests/libwait"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
-
-	"kubevirt.io/kubevirt/tests/flags"
 )
 
-var _ = DescribeInfra("Start a VirtualMachineInstance", func() {
-
-	var (
-		virtClient kubecli.KubevirtClient
-	)
-
-	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-	})
-
+var _ = DescribeSerialInfra("Start a VirtualMachineInstance", func() {
 	Context("when the controller pod is not running and an election happens", func() {
 		It("[test_id:4642]should elect a new controller pod", func() {
+			virtClient := kubevirt.Client()
 			By("Deleting the virt-controller leader pod")
 			leaderPodName := libinfra.GetLeader()
-			Expect(virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Delete(context.Background(), leaderPodName, metav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Delete(
+				context.Background(), leaderPodName,
+				metav1.DeleteOptions{})).To(Succeed())
 
 			By("Expecting a new leader to get elected")
 			Eventually(libinfra.GetLeader, 30*time.Second, 5*time.Second).ShouldNot(Equal(leaderPodName))
 
 			By("Starting a new VirtualMachineInstance")
-			vmi := libvmifact.NewAlpine()
-			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Get()
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
+				context.Background(), libvmifact.NewGuestless(), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vmiObj, ok := obj.(*v1.VirtualMachineInstance)
-			Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-			libwait.WaitForSuccessfulVMIStart(vmiObj)
+			libwait.WaitForSuccessfulVMIStart(vmi)
 		})
 	})
-
 })

@@ -31,6 +31,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
@@ -57,14 +58,13 @@ import (
 	"k8s.io/utils/trace"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/storage/memorydump"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -90,7 +90,6 @@ const (
 	failedCreateCRforVmErrMsg                 = "Failed to create controller revision for VirtualMachine."
 	failedProcessDeleteNotificationErrMsg     = "Failed to process delete notification"
 	failureDeletingVmiErrFormat               = "Failure attempting to delete VMI: %v"
-	failedMemoryDump                          = "Memory dump failed"
 	failedCleanupRestartRequired              = "Failed to delete RestartRequired condition or last-seen controller revisions"
 	failedManualRecoveryRequiredCondSetErrMsg = "cannot start the VM since it has the manual recovery required condtion set"
 
@@ -111,7 +110,6 @@ const (
 const (
 	hotplugVolumeErrorReason     = "HotPlugVolumeError"
 	hotplugCPUErrorReason        = "HotPlugCPUError"
-	memoryDumpErrorReason        = "MemoryDumpError"
 	failedUpdateErrorReason      = "FailedUpdateError"
 	failedCreateReason           = "FailedCreate"
 	vmiFailedDeleteReason        = "FailedDelete"
@@ -131,15 +129,18 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
-	instancetypeMethods instancetype.Methods,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
 	netSynchronizer synchronizer,
+	instancetypeController instancetypeHandler,
 ) (*Controller, error) {
 
 	c := &Controller{
-		Queue:                  workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vm"),
+		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vm"},
+		),
 		vmiIndexer:             vmiInformer.GetIndexer(),
 		vmIndexer:              vmInformer.GetIndexer(),
 		dataVolumeStore:        dataVolumeInformer.GetStore(),
@@ -147,7 +148,7 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 		namespaceStore:         namespaceStore,
 		pvcStore:               pvcInformer.GetStore(),
 		crIndexer:              crInformer.GetIndexer(),
-		instancetypeMethods:    instancetypeMethods,
+		instancetypeController: instancetypeController,
 		recorder:               recorder,
 		clientset:              clientset,
 		expectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -235,9 +236,16 @@ type synchronizer interface {
 	Sync(*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error)
 }
 
+type instancetypeHandler interface {
+	synchronizer
+	ApplyToVM(*virtv1.VirtualMachine) error
+	ApplyToVMI(*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) error
+	ApplyDevicePreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error
+}
+
 type Controller struct {
 	clientset              kubecli.KubevirtClient
-	Queue                  workqueue.RateLimitingInterface
+	Queue                  workqueue.TypedRateLimitingInterface[string]
 	vmiIndexer             cache.Indexer
 	vmIndexer              cache.Indexer
 	dataVolumeStore        cache.Store
@@ -245,7 +253,7 @@ type Controller struct {
 	namespaceStore         cache.Store
 	pvcStore               cache.Store
 	crIndexer              cache.Indexer
-	instancetypeMethods    instancetype.Methods
+	instancetypeController instancetypeHandler
 	recorder               record.EventRecorder
 	expectations           *controller.UIDTrackingControllerExpectations
 	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
@@ -290,12 +298,12 @@ func (c *Controller) Execute() bool {
 		return false
 	}
 
-	virtControllerVMWorkQueueTracer.StartTrace(key.(string), "virt-controller VM workqueue", trace.Field{Key: "Workqueue Key", Value: key})
-	defer virtControllerVMWorkQueueTracer.StopTrace(key.(string))
+	virtControllerVMWorkQueueTracer.StartTrace(key, "virt-controller VM workqueue", trace.Field{Key: "Workqueue Key", Value: key})
+	defer virtControllerVMWorkQueueTracer.StopTrace(key)
 
 	defer c.Queue.Done(key)
 
-	if err := c.execute(key.(string)); err != nil {
+	if err := c.execute(key); err != nil {
 		log.Log.Reason(err).Infof("re-enqueuing VirtualMachine %v", key)
 		c.Queue.AddRateLimited(key)
 	} else {
@@ -478,13 +486,6 @@ func (c *Controller) handleDataVolumes(vm *virtv1.VirtualMachine) (bool, error) 
 				return false, err
 			}
 
-			if pvc != nil {
-				// don't want to keep creating DataVolumes that will be garbage collected
-				if storagetypes.IsDataVolumeGarbageCollected(pvc) {
-					continue
-				}
-			}
-
 			// ready = false because encountered DataVolume that is not created yet
 			ready = false
 			newDataVolume, err := watchutil.CreateDataVolumeManifest(c.clientset, template, vm)
@@ -511,130 +512,23 @@ func (c *Controller) handleDataVolumes(vm *virtv1.VirtualMachine) (bool, error) 
 				return ready, fmt.Errorf("failed to create DataVolume: %v", err)
 			}
 			c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDataVolumeCreateReason, "Created DataVolume %s", curDataVolume.Name)
-		} else if curDataVolume.Status.Phase != cdiv1.Succeeded &&
-			curDataVolume.Status.Phase != cdiv1.WaitForFirstConsumer &&
-			curDataVolume.Status.Phase != cdiv1.PendingPopulation {
+		} else {
+			switch curDataVolume.Status.Phase {
+			case cdiv1.Succeeded, cdiv1.WaitForFirstConsumer, cdiv1.PendingPopulation:
+				continue
+			case cdiv1.Failed:
+				c.recorder.Eventf(vm, k8score.EventTypeWarning, controller.FailedDataVolumeImportReason, "DataVolume %s failed to import disk image", curDataVolume.Name)
+			case cdiv1.Pending:
+				if err := storagetypes.HasDataVolumeExceededQuotaError(curDataVolume); err != nil {
+					c.recorder.Eventf(vm, k8score.EventTypeWarning, controller.FailedDataVolumeImportReason, "DataVolume %s exceeds quota limits", curDataVolume.Name)
+					return false, err
+				}
+			}
 			// ready = false because encountered DataVolume that is not populated yet
 			ready = false
-			if curDataVolume.Status.Phase == cdiv1.Failed {
-				c.recorder.Eventf(vm, k8score.EventTypeWarning, controller.FailedDataVolumeImportReason, "DataVolume %s failed to import disk image", curDataVolume.Name)
-			}
 		}
 	}
 	return ready, nil
-}
-
-func removeMemoryDumpVolumeFromVMISpec(vmiSpec *virtv1.VirtualMachineInstanceSpec, claimName string) *virtv1.VirtualMachineInstanceSpec {
-	newVolumesList := []virtv1.Volume{}
-	for _, volume := range vmiSpec.Volumes {
-		if volume.Name != claimName {
-			newVolumesList = append(newVolumesList, volume)
-		}
-	}
-	vmiSpec.Volumes = newVolumesList
-	return vmiSpec
-}
-
-func applyMemoryDumpVolumeRequestOnVMISpec(vmiSpec *virtv1.VirtualMachineInstanceSpec, claimName string) *virtv1.VirtualMachineInstanceSpec {
-	for _, volume := range vmiSpec.Volumes {
-		if volume.Name == claimName {
-			return vmiSpec
-		}
-	}
-
-	memoryDumpVol := &virtv1.MemoryDumpVolumeSource{
-		PersistentVolumeClaimVolumeSource: virtv1.PersistentVolumeClaimVolumeSource{
-			PersistentVolumeClaimVolumeSource: k8score.PersistentVolumeClaimVolumeSource{
-				ClaimName: claimName,
-			},
-			Hotpluggable: true,
-		},
-	}
-
-	newVolume := virtv1.Volume{
-		Name: claimName,
-	}
-	newVolume.VolumeSource.MemoryDump = memoryDumpVol
-
-	vmiSpec.Volumes = append(vmiSpec.Volumes, newVolume)
-
-	return vmiSpec
-}
-
-func (c *Controller) generateVMIMemoryDumpVolumePatch(vmi *virtv1.VirtualMachineInstance, request *virtv1.VirtualMachineMemoryDumpRequest, addVolume bool) error {
-	foundRemoveVol := false
-	for _, volume := range vmi.Spec.Volumes {
-		if request.ClaimName == volume.Name {
-			if addVolume {
-				return fmt.Errorf("Unable to add volume [%s] because it already exists", volume.Name)
-			} else {
-				foundRemoveVol = true
-			}
-		}
-	}
-
-	if !foundRemoveVol && !addVolume {
-		return fmt.Errorf("Unable to remove volume [%s] because it does not exist", request.ClaimName)
-	}
-
-	vmiCopy := vmi.DeepCopy()
-	if addVolume {
-		vmiCopy.Spec = *applyMemoryDumpVolumeRequestOnVMISpec(&vmiCopy.Spec, request.ClaimName)
-	} else {
-		vmiCopy.Spec = *removeMemoryDumpVolumeFromVMISpec(&vmiCopy.Spec, request.ClaimName)
-	}
-	patchset := patch.New(
-		patch.WithTest("/spec/volumes", vmi.Spec.Volumes),
-	)
-	if len(vmi.Spec.Volumes) > 0 {
-		patchset.AddOption(patch.WithReplace("/spec/volumes", vmiCopy.Spec.Volumes))
-	} else {
-		patchset.AddOption(patch.WithAdd("/spec/volumes", vmiCopy.Spec.Volumes))
-	}
-
-	patchBytes, err := patchset.GeneratePayload()
-	if err != nil {
-		return err
-	}
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-	return err
-}
-
-func needUpdatePVCMemoryDumpAnnotation(pvc *k8score.PersistentVolumeClaim, request *virtv1.VirtualMachineMemoryDumpRequest) bool {
-	if pvc.GetAnnotations() == nil {
-		return true
-	}
-	annotation, hasAnnotation := pvc.Annotations[virtv1.PVCMemoryDumpAnnotation]
-	return !hasAnnotation || (request.Phase == virtv1.MemoryDumpUnmounting && annotation != *request.FileName) || (request.Phase == virtv1.MemoryDumpFailed && annotation != failedMemoryDump)
-}
-
-func (c *Controller) updatePVCMemoryDumpAnnotation(vm *virtv1.VirtualMachine) error {
-	request := vm.Status.MemoryDumpRequest
-	pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vm.Namespace, request.ClaimName, c.pvcStore)
-	if err != nil {
-		log.Log.Object(vm).Errorf("Error getting PersistentVolumeClaim to update memory dump annotation: %v", err)
-		return err
-	}
-	if pvc == nil {
-		log.Log.Object(vm).Errorf("Error getting PersistentVolumeClaim to update memory dump annotation: %v", err)
-		return fmt.Errorf("Error when trying to update memory dump annotation, pvc %s not found", request.ClaimName)
-	}
-
-	if needUpdatePVCMemoryDumpAnnotation(pvc, request) {
-		if pvc.GetAnnotations() == nil {
-			pvc.SetAnnotations(make(map[string]string))
-		}
-		if request.Phase == virtv1.MemoryDumpUnmounting {
-			pvc.Annotations[virtv1.PVCMemoryDumpAnnotation] = *request.FileName
-		} else if request.Phase == virtv1.MemoryDumpFailed {
-			pvc.Annotations[virtv1.PVCMemoryDumpAnnotation] = failedMemoryDump
-		}
-		if _, err = c.clientset.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(context.Background(), pvc, metav1.UpdateOptions{}); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (c *Controller) VMICPUsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
@@ -690,7 +584,7 @@ func (c *Controller) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *virt
 	}
 
 	vmCopyWithInstancetype := vm.DeepCopy()
-	if err := c.instancetypeMethods.ApplyToVM(vmCopyWithInstancetype); err != nil {
+	if err := c.instancetypeController.ApplyToVM(vmCopyWithInstancetype); err != nil {
 		return err
 	}
 
@@ -818,7 +712,7 @@ func (c *Controller) handleTolerationsChangeRequest(vm *virtv1.VirtualMachine, v
 	}
 
 	vmCopyWithInstancetype := vm.DeepCopy()
-	if err := c.instancetypeMethods.ApplyToVM(vmCopyWithInstancetype); err != nil {
+	if err := c.instancetypeController.ApplyToVM(vmCopyWithInstancetype); err != nil {
 		return err
 	}
 
@@ -844,7 +738,7 @@ func (c *Controller) handleAffinityChangeRequest(vm *virtv1.VirtualMachine, vmi 
 	}
 
 	vmCopyWithInstancetype := vm.DeepCopy()
-	if err := c.instancetypeMethods.ApplyToVM(vmCopyWithInstancetype); err != nil {
+	if err := c.instancetypeController.ApplyToVM(vmCopyWithInstancetype); err != nil {
 		return err
 	}
 
@@ -868,63 +762,6 @@ func (c *Controller) handleAffinityChangeRequest(vm *virtv1.VirtualMachine, vmi 
 			return err
 		}
 	}
-	return nil
-}
-
-func (c *Controller) handleMemoryDumpRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	if vm.Status.MemoryDumpRequest == nil {
-		return nil
-	}
-
-	vmiVolumeMap := make(map[string]virtv1.Volume)
-	if vmi != nil {
-		for _, volume := range vmi.Spec.Volumes {
-			vmiVolumeMap[volume.Name] = volume
-		}
-	}
-	switch vm.Status.MemoryDumpRequest.Phase {
-	case virtv1.MemoryDumpAssociating:
-		if vmi == nil || vmi.DeletionTimestamp != nil || !vmi.IsRunning() {
-			return nil
-		}
-		// When in state associating we want to add the memory dump pvc
-		// as a volume in the vm and in the vmi to trigger the mount
-		// to virt launcher and the memory dump
-		vm.Spec.Template.Spec = *applyMemoryDumpVolumeRequestOnVMISpec(&vm.Spec.Template.Spec, vm.Status.MemoryDumpRequest.ClaimName)
-		if _, exists := vmiVolumeMap[vm.Status.MemoryDumpRequest.ClaimName]; exists {
-			return nil
-		}
-		if err := c.generateVMIMemoryDumpVolumePatch(vmi, vm.Status.MemoryDumpRequest, true); err != nil {
-			log.Log.Object(vmi).Errorf("unable to patch vmi to add memory dump volume: %v", err)
-			return err
-		}
-	case virtv1.MemoryDumpUnmounting, virtv1.MemoryDumpFailed:
-		if err := c.updatePVCMemoryDumpAnnotation(vm); err != nil {
-			return err
-		}
-		// Check if the memory dump is in the vmi list of volumes,
-		// if it still there remove it to make it unmount from virt launcher
-		if _, exists := vmiVolumeMap[vm.Status.MemoryDumpRequest.ClaimName]; !exists {
-			return nil
-		}
-
-		if err := c.generateVMIMemoryDumpVolumePatch(vmi, vm.Status.MemoryDumpRequest, false); err != nil {
-			log.Log.Object(vmi).Errorf("unable to patch vmi to remove memory dump volume: %v", err)
-			return err
-		}
-	case virtv1.MemoryDumpDissociating:
-		// Check if the memory dump is in the vmi list of volumes,
-		// if it still there remove it to make it unmount from virt launcher
-		if _, exists := vmiVolumeMap[vm.Status.MemoryDumpRequest.ClaimName]; exists {
-			if err := c.generateVMIMemoryDumpVolumePatch(vmi, vm.Status.MemoryDumpRequest, false); err != nil {
-				log.Log.Object(vmi).Errorf("unable to patch vmi to remove memory dump volume: %v", err)
-				return err
-			}
-		}
-
-		vm.Spec.Template.Spec = *removeMemoryDumpVolumeFromVMISpec(&vm.Spec.Template.Spec, vm.Status.MemoryDumpRequest.ClaimName)
-	}
-
 	return nil
 }
 
@@ -970,9 +807,6 @@ func (c *Controller) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virtv1
 }
 
 func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	if !c.clusterConfig.VolumesUpdateStrategyEnabled() {
-		return nil
-	}
 	if vmi == nil {
 		return nil
 	}
@@ -1025,11 +859,8 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 			setRestartRequired(vm, "the volumes replacement is effective only after restart")
 		}
 	case *vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration:
-		if !c.clusterConfig.VolumeMigrationEnabled() {
-			return nil
-		}
 		// Validate if the update volumes can be migrated
-		if err := volumemig.ValidateVolumes(vmi, vm); err != nil {
+		if err := volumemig.ValidateVolumes(vmi, vm, c.dataVolumeStore, c.pvcStore); err != nil {
 			log.Log.Object(vm).Errorf("cannot migrate the VM. Volumes are invalid: %v", err)
 			setRestartRequired(vm, err.Error())
 			return nil
@@ -1376,8 +1207,7 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 
 	// We need to apply device preferences before any new network or input devices are added. Doing so allows
 	// any autoAttach preferences we might have to be applied, either enabling or disabling the attachment of these devices.
-	preferenceSpec, err := c.applyDevicePreferences(vm, vmi)
-	if err != nil {
+	if err := c.instancetypeController.ApplyDevicePreferences(vm, vmi); err != nil {
 		log.Log.Object(vm).Infof("Failed to apply device preferences again to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error applying device preferences again: %v", err)
 		return vm, err
@@ -1392,8 +1222,7 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 		return vm, err
 	}
 
-	err = c.applyInstancetypeToVmi(vm, vmi, preferenceSpec)
-	if err != nil {
+	if err = c.instancetypeController.ApplyToVMI(vm, vmi); err != nil {
 		log.Log.Object(vm).Infof("Failed to apply instancetype to VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
 		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error creating virtual machine instance: Failed to apply instancetype: %v", err)
 		return vm, err
@@ -1569,7 +1398,7 @@ func calculateStartBackoffTime(failCount int, maxDelay int) int {
 		interval = minInterval
 	}
 
-	delaySeconds = (interval * multiplier)
+	delaySeconds = interval * multiplier
 	randomRange := (delaySeconds / 2) + 1
 	// add randomized seconds to offset multiple failing VMs from one another
 	delaySeconds += rand.Intn(randomRange)
@@ -1705,20 +1534,20 @@ func syncVolumeMigration(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineIn
 			recoveredOldVMVolumes = false
 		}
 	}
-	if recoveredOldVMVolumes {
+	if recoveredOldVMVolumes || (vm.Spec.UpdateVolumesStrategy == nil || *vm.Spec.UpdateVolumesStrategy != virtv1.UpdateVolumesStrategyMigration) {
 		vm.Status.VolumeUpdateState.VolumeMigrationState = nil
 		// Clean-up the volume change label when the volume set has been restored
 		vmCond.RemoveCondition(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange))
 		vmCond.RemoveCondition(vm, virtv1.VirtualMachineManualRecoveryRequired)
 		return
 	}
-	if vmi == nil {
+	if vmi == nil || vmi.IsFinal() {
 		if vmCond.HasConditionWithStatus(vm, virtv1.VirtualMachineConditionType(virtv1.VirtualMachineInstanceVolumesChange), k8score.ConditionTrue) {
 			// Something went wrong with the VMI while the volume migration was in progress
 			vmCond.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 				Type:   virtv1.VirtualMachineManualRecoveryRequired,
 				Status: k8score.ConditionTrue,
-				Reason: "VMI was removed during the volume migration",
+				Reason: "VMI was removed or was final during the volume migration",
 			})
 		}
 		return
@@ -1782,7 +1611,14 @@ func getVMRevisionName(vmUID types.UID, generation int64) string {
 }
 
 func patchVMRevision(vm *virtv1.VirtualMachine) ([]byte, error) {
-	vmBytes, err := json.Marshal(vm)
+	vmCopy := vm.DeepCopy()
+	if revision.HasControllerRevisionRef(vmCopy.Status.InstancetypeRef) {
+		vmCopy.Spec.Instancetype.RevisionName = vmCopy.Status.InstancetypeRef.ControllerRevisionRef.Name
+	}
+	if revision.HasControllerRevisionRef(vm.Status.PreferenceRef) {
+		vmCopy.Spec.Preference.RevisionName = vm.Status.PreferenceRef.ControllerRevisionRef.Name
+	}
+	vmBytes, err := json.Marshal(vmCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -1968,10 +1804,6 @@ func (c *Controller) createVMRevision(vm *virtv1.VirtualMachine) (string, error)
 	return cr.Name, nil
 }
 
-func hasCompletedMemoryDump(vm *virtv1.VirtualMachine) bool {
-	return vm.Status.MemoryDumpRequest != nil && vm.Status.MemoryDumpRequest.Phase != virtv1.MemoryDumpAssociating && vm.Status.MemoryDumpRequest.Phase != virtv1.MemoryDumpInProgress
-}
-
 // setupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
 func (c *Controller) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
 	vmi := virtv1.NewVMIReferenceFromNameWithNS(vm.ObjectMeta.Namespace, "")
@@ -1987,8 +1819,8 @@ func (c *Controller) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMa
 	}
 
 	// prevent from retriggering memory dump after shutdown if memory dump is complete
-	if hasCompletedMemoryDump(vm) {
-		vmi.Spec = *removeMemoryDumpVolumeFromVMISpec(&vmi.Spec, vm.Status.MemoryDumpRequest.ClaimName)
+	if memorydump.HasCompleted(vm) {
+		vmi.Spec = *memorydump.RemoveMemoryDumpVolumeFromVMISpec(&vmi.Spec, vm.Status.MemoryDumpRequest.ClaimName)
 	}
 
 	setupStableFirmwareUUID(vm, vmi)
@@ -2000,27 +1832,6 @@ func (c *Controller) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMa
 	}
 
 	return vmi
-}
-
-func (c *Controller) applyInstancetypeToVmi(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
-
-	instancetypeSpec, err := c.instancetypeMethods.FindInstancetypeSpec(vm)
-	if err != nil {
-		return err
-	}
-
-	if instancetypeSpec == nil && preferenceSpec == nil {
-		return nil
-	}
-
-	instancetype.AddInstancetypeNameAnnotations(vm, vmi)
-	instancetype.AddPreferenceNameAnnotations(vm, vmi)
-
-	if conflicts := c.instancetypeMethods.ApplyToVmi(k8sfield.NewPath("spec"), instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta); len(conflicts) > 0 {
-		return fmt.Errorf("VMI conflicts with instancetype spec in fields: [%s]", conflicts.String())
-	}
-
-	return nil
 }
 
 func hasStartPausedRequest(vm *virtv1.VirtualMachine) bool {
@@ -2582,7 +2393,7 @@ func (c *Controller) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1
 	}
 
 	c.trimDoneVolumeRequests(vm)
-	c.updateMemoryDumpRequest(vm, vmi)
+	memorydump.UpdateRequest(vm, vmi)
 
 	if c.isTrimFirstChangeRequestNeeded(vm, vmi) {
 		popStateChangeRequest(vm)
@@ -2942,89 +2753,6 @@ func (c *Controller) isTrimFirstChangeRequestNeeded(vm *virtv1.VirtualMachine, v
 	return false
 }
 
-func (c *Controller) updateMemoryDumpRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
-	if vm.Status.MemoryDumpRequest == nil {
-		return
-	}
-
-	updatedMemoryDumpReq := vm.Status.MemoryDumpRequest.DeepCopy()
-
-	if vm.Status.MemoryDumpRequest.Remove {
-		updatedMemoryDumpReq.Phase = virtv1.MemoryDumpDissociating
-	}
-
-	switch vm.Status.MemoryDumpRequest.Phase {
-	case virtv1.MemoryDumpCompleted:
-		// Once memory dump completed, there is no update neeeded,
-		// A new update will come from the subresource API once
-		// a new request will be issued
-		return
-	case virtv1.MemoryDumpAssociating:
-		// Update Phase to InProgrees once the memory dump
-		// is in the list of vm volumes
-		for _, volume := range vm.Spec.Template.Spec.Volumes {
-			if vm.Status.MemoryDumpRequest.ClaimName == volume.Name {
-				updatedMemoryDumpReq.Phase = virtv1.MemoryDumpInProgress
-				break
-			}
-		}
-	case virtv1.MemoryDumpInProgress:
-		// Update to unmounting once getting update in the vmi volume status
-		// that the dump timestamp is updated
-		if vmi != nil && len(vmi.Status.VolumeStatus) > 0 {
-			for _, volumeStatus := range vmi.Status.VolumeStatus {
-				if volumeStatus.Name == vm.Status.MemoryDumpRequest.ClaimName &&
-					volumeStatus.MemoryDumpVolume != nil {
-					if volumeStatus.MemoryDumpVolume.StartTimestamp != nil {
-						updatedMemoryDumpReq.StartTimestamp = volumeStatus.MemoryDumpVolume.StartTimestamp
-					}
-					if volumeStatus.Phase == virtv1.MemoryDumpVolumeCompleted {
-						updatedMemoryDumpReq.Phase = virtv1.MemoryDumpUnmounting
-						updatedMemoryDumpReq.EndTimestamp = volumeStatus.MemoryDumpVolume.EndTimestamp
-						updatedMemoryDumpReq.FileName = &volumeStatus.MemoryDumpVolume.TargetFileName
-					} else if volumeStatus.Phase == virtv1.MemoryDumpVolumeFailed {
-						updatedMemoryDumpReq.Phase = virtv1.MemoryDumpFailed
-						updatedMemoryDumpReq.Message = volumeStatus.Message
-						updatedMemoryDumpReq.EndTimestamp = volumeStatus.MemoryDumpVolume.EndTimestamp
-					}
-				}
-			}
-		}
-	case virtv1.MemoryDumpUnmounting:
-		// Update memory dump as completed once the memory dump has been
-		// unmounted - not a part of the vmi volume status
-		if vmi != nil {
-			for _, volumeStatus := range vmi.Status.VolumeStatus {
-				// If we found the claim name in the vmi volume status
-				// then the pvc is still mounted
-				if volumeStatus.Name == vm.Status.MemoryDumpRequest.ClaimName {
-					return
-				}
-			}
-		}
-		updatedMemoryDumpReq.Phase = virtv1.MemoryDumpCompleted
-	case virtv1.MemoryDumpDissociating:
-		// Make sure the memory dump is not in the vmi list of volumes
-		if vmi != nil {
-			for _, volumeStatus := range vmi.Status.VolumeStatus {
-				if volumeStatus.Name == vm.Status.MemoryDumpRequest.ClaimName {
-					return
-				}
-			}
-		}
-		// Make sure the memory dump is not in the list of vm volumes
-		for _, volume := range vm.Spec.Template.Spec.Volumes {
-			if vm.Status.MemoryDumpRequest.ClaimName == volume.Name {
-				return
-			}
-		}
-		// Remove the memory dump request
-		updatedMemoryDumpReq = nil
-	}
-
-	vm.Status.MemoryDumpRequest = updatedMemoryDumpReq
-}
-
 func (c *Controller) trimDoneVolumeRequests(vm *virtv1.VirtualMachine) {
 	if len(vm.Status.VolumeRequests) == 0 {
 		return
@@ -3151,14 +2879,14 @@ func setRestartRequired(vm *virtv1.VirtualMachine, message string) {
 }
 
 // addRestartRequiredIfNeeded adds the restartRequired condition to the VM if any non-live-updatable field was changed
-func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine) bool {
+func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	if lastSeenVMSpec == nil {
 		return false
 	}
 
 	// Expand any instance types and preferences associated with lastSeenVMSpec or the current VM before working out if things are live-updatable
 	currentVM := vm.DeepCopy()
-	if err := c.instancetypeMethods.ApplyToVM(currentVM); err != nil {
+	if err := c.instancetypeController.ApplyToVM(currentVM); err != nil {
 		return false
 	}
 	lastSeenVM := &virtv1.VirtualMachine{
@@ -3166,7 +2894,7 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 		ObjectMeta: currentVM.DeepCopy().ObjectMeta,
 		Spec:       *lastSeenVMSpec,
 	}
-	if err := c.instancetypeMethods.ApplyToVM(lastSeenVM); err != nil {
+	if err := c.instancetypeController.ApplyToVM(lastSeenVM); err != nil {
 		return false
 	}
 
@@ -3194,6 +2922,19 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 		lastSeenVM.Spec.Template.Spec.NodeSelector = currentVM.Spec.Template.Spec.NodeSelector
 		lastSeenVM.Spec.Template.Spec.Affinity = currentVM.Spec.Template.Spec.Affinity
 		lastSeenVM.Spec.Template.Spec.Tolerations = currentVM.Spec.Template.Spec.Tolerations
+	} else {
+		// In the case live-updates aren't enable the volume set of the VM can be still changed by volume hotplugging.
+		// For imperative volume hotplug, first the VM status with the request AND the VMI spec are updated, then in the
+		// next iteration, the VM spec is updated as well. Here, we're in this iteration where the currentVM has for the first
+		// time the updated hotplugged volumes. Hence, we can compare the current VM volumes and disks with the ones belonging
+		// to the VMI.
+		// In case of a declarative update, the flow is the opposite, first we update the VM spec and then the VMI. Therefore, if
+		// the change was declarative, then the VMI would still not have the update.
+		if equality.Semantic.DeepEqual(currentVM.Spec.Template.Spec.Volumes, vmi.Spec.Volumes) &&
+			equality.Semantic.DeepEqual(currentVM.Spec.Template.Spec.Domain.Devices.Disks, vmi.Spec.Domain.Devices.Disks) {
+			lastSeenVMSpec.Template.Spec.Volumes = currentVM.Spec.Template.Spec.Volumes
+			lastSeenVMSpec.Template.Spec.Domain.Devices.Disks = currentVM.Spec.Template.Spec.Domain.Devices.Disks
+		}
 	}
 
 	if !equality.Semantic.DeepEqual(lastSeenVM.Spec.Template.Spec, currentVM.Spec.Template.Spec) {
@@ -3257,11 +2998,17 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		return vm, vmi, common.NewSyncError(fmt.Errorf(fetchingRunStrategyErrFmt, err), failedCreateReason), err
 	}
 
-	// TODO(lyarwood): Extract all instance type logic into a handler
-	vm, syncErr = c.syncInstancetypes(vm)
-	if syncErr != nil {
-		return vm, vmi, syncErr, nil
+	// FIXME(lyarwood): Move alongside netSynchronizer
+	syncedVM, err := c.instancetypeController.Sync(vm, vmi)
+	if err != nil {
+		return vm, vmi, handleSynchronizerErr(err), nil
 	}
+	if !equality.Semantic.DeepEqual(vm.Spec, syncedVM.Spec) {
+		return syncedVM, vmi, nil, nil
+	}
+
+	vm.ObjectMeta = syncedVM.ObjectMeta
+	vm.Spec = syncedVM.Spec
 
 	// eventually, would like the condition to be `== "true"`, but for now we need to support legacy behavior by default
 	if vm.Annotations[virtv1.ImmediateDataVolumeCreation] != "false" {
@@ -3282,7 +3029,7 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		return vm, vmi, syncErr, nil
 	}
 
-	restartRequired := c.addRestartRequiredIfNeeded(startVMSpec, vm)
+	restartRequired := c.addRestartRequiredIfNeeded(startVMSpec, vm, vmi)
 
 	// Must check satisfiedExpectations again here because a VMI can be created or
 	// deleted in the startStop function which impacts how we process
@@ -3294,13 +3041,9 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	vmCopy := vm.DeepCopy()
 
 	if c.netSynchronizer != nil {
-		syncedVM, errSync := c.netSynchronizer.Sync(vmCopy, vmi)
-		var errWithReason common.SyncError
-		if errSync != nil {
-			if errors.As(errSync, &errWithReason) {
-				return vm, vmi, errWithReason, nil
-			}
-			return vm, vmi, common.NewSyncError(fmt.Errorf("unsupported error: %v", errSync), "UnsupportedSyncError"), nil
+		syncedVM, err := c.netSynchronizer.Sync(vmCopy, vmi)
+		if err != nil {
+			return vm, vmi, handleSynchronizerErr(err), nil
 		}
 		vmCopy.ObjectMeta = syncedVM.ObjectMeta
 		vmCopy.Spec = syncedVM.Spec
@@ -3310,8 +3053,8 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling volume hotplug requests: %v", err), hotplugVolumeErrorReason), nil
 	}
 
-	if err := c.handleMemoryDumpRequest(vmCopy, vmi); err != nil {
-		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling memory dump request: %v", err), memoryDumpErrorReason), nil
+	if err := memorydump.HandleRequest(c.clientset, vmCopy, vmi, c.pvcStore); err != nil {
+		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling memory dump request: %v", err), memorydump.ErrorReason), nil
 	}
 
 	conditionManager := controller.NewVirtualMachineConditionManager()
@@ -3350,91 +3093,15 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	return vm, vmi, nil, nil
 }
 
-func (c *Controller) syncInstancetypes(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, common.SyncError) {
-	if vm.Spec.Instancetype == nil && vm.Spec.Preference == nil {
-		return vm, nil
+func handleSynchronizerErr(err error) common.SyncError {
+	if err == nil {
+		return nil
 	}
-
-	referencePolicy := c.clusterConfig.GetInstancetypeReferencePolicy()
-	switch referencePolicy {
-	case virtv1.Reference:
-		// Ensure we have ControllerRevisions of any instancetype or preferences referenced by the VM
-		if err := c.instancetypeMethods.StoreControllerRevisions(vm); err != nil {
-			log.Log.Object(vm).Infof("failed to store Instancetype ControllerRevisions for VirtualMachine: %s/%s", vm.Namespace, vm.Name)
-			c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "Error encountered while storing Instancetype ControllerRevisions: %v", err)
-			return vm, common.NewSyncError(fmt.Errorf("Error encountered while storing Instancetype ControllerRevisions: %v", err), common.FailedCreateVirtualMachineReason)
-		}
-	case virtv1.Expand, virtv1.ExpandAll:
-		if !shouldExpandInstancetypeAndPreference(vm, referencePolicy) {
-			break
-		}
-
-		expandVMCopy, err := c.instancetypeMethods.Expand(vm, c.clusterConfig)
-		if err != nil {
-			return vm, common.NewSyncError(fmt.Errorf("error encountered while expanding instance type into VirtualMachine: %v", err), common.FailedCreateVirtualMachineReason)
-		}
-
-		// Only update the VM if we have changed something by applying an instance type and preference
-		if !equality.Semantic.DeepEqual(vm.Spec, expandVMCopy.Spec) {
-			updatedVm, err := c.clientset.VirtualMachine(expandVMCopy.Namespace).Update(context.Background(), expandVMCopy, metav1.UpdateOptions{})
-			if err != nil {
-				return vm, common.NewSyncError(fmt.Errorf("error encountered when trying to update VirtualMachine with expanded instance type and preference: %v", err), failedUpdateErrorReason)
-			}
-
-			// We should clean up any instance type or preference ControllerRevisions after successfully expanding the VM
-			if vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "" {
-				revisionName := vm.Spec.Instancetype.RevisionName
-				if err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(
-					context.Background(), revisionName, metav1.DeleteOptions{}); err != nil {
-					return nil, common.NewSyncError(
-						fmt.Errorf("error encountered cleaning up instance type ControllerRevision %s after successfully expanding VirtualMachine %s: %v", revisionName, vm.Name, err),
-						failedUpdateErrorReason,
-					)
-				}
-			}
-
-			if vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "" {
-				revisionName := vm.Spec.Preference.RevisionName
-				if err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(
-					context.Background(), revisionName, metav1.DeleteOptions{}); err != nil {
-					return nil, common.NewSyncError(
-						fmt.Errorf("error encountered cleaning up preference ControllerRevision %s after successfully expanding VirtualMachine %s: %v", revisionName, vm.Name, err),
-						failedUpdateErrorReason,
-					)
-				}
-			}
-
-			// Return at this point as the update will trigger another sync
-			return updatedVm, nil
-		}
+	var errWithReason common.SyncError
+	if errors.As(err, &errWithReason) {
+		return errWithReason
 	}
-
-	// If we have ControllerRevisions make sure they are fully up to date before proceeding
-	if err := c.instancetypeMethods.Upgrade(vm); err != nil {
-		log.Log.Object(vm).Reason(err).Errorf("failed to upgrade instancetype.kubevirt.io ControllerRevisions for VirtualMachine: %s/%s", vm.Namespace, vm.Name)
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, common.FailedCreateVirtualMachineReason, "error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err)
-		return vm, common.NewSyncError(fmt.Errorf("error encountered while upgrading instancetype.kubevirt.io ControllerRevisions: %v", err), common.FailedCreateVirtualMachineReason)
-	}
-	return vm, nil
-}
-
-func shouldExpandInstancetypeAndPreference(vm *virtv1.VirtualMachine, referencePolicy virtv1.InstancetypeReferencePolicy) bool {
-	// With Expand we only want to expand if we are using instance types and preferences with no revisionNames set
-	if referencePolicy == virtv1.Expand {
-		if vm.Spec.Instancetype == nil && vm.Spec.Preference == nil {
-			return false
-		}
-		if vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "" {
-			log.Log.Object(vm).Infof("not expanding as instance type already has revisionName")
-			return false
-		}
-		if vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "" {
-			log.Log.Object(vm).Infof("not expanding as preference already has revisionName")
-			return false
-		}
-	}
-	// Otherwise for ExpandAll we always expand
-	return true
+	return common.NewSyncError(fmt.Errorf("unsupported error: %v", err), "UnsupportedSyncError")
 }
 
 // resolveControllerRef returns the controller referenced by a ControllerRef,
@@ -3446,7 +3113,7 @@ func (c *Controller) resolveControllerRef(namespace string, controllerRef *metav
 	if controllerRef.Kind != virtv1.VirtualMachineGroupVersionKind.Kind {
 		return nil
 	}
-	vm, exists, err := c.vmIndexer.GetByKey(namespace + "/" + controllerRef.Name)
+	vm, exists, err := c.vmIndexer.GetByKey(controller.NamespacedKey(namespace, controllerRef.Name))
 	if err != nil {
 		return nil
 	}
@@ -3478,26 +3145,13 @@ func autoAttachInputDevice(vmi *virtv1.VirtualMachineInstance) {
 	)
 }
 
-func (c *Controller) applyDevicePreferences(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
-	if vm.Spec.Preference != nil {
-		preferenceSpec, err := c.instancetypeMethods.FindPreferenceSpec(vm)
-		if err != nil {
-			return nil, err
-		}
-		instancetype.ApplyDevicePreferences(preferenceSpec, &vmi.Spec)
-
-		return preferenceSpec, nil
-	}
-	return nil, nil
-}
-
 func (c *Controller) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
 	if vmi == nil || vmi.DeletionTimestamp != nil {
 		return nil
 	}
 
 	vmCopyWithInstancetype := vm.DeepCopy()
-	if err := c.instancetypeMethods.ApplyToVM(vmCopyWithInstancetype); err != nil {
+	if err := c.instancetypeController.ApplyToVM(vmCopyWithInstancetype); err != nil {
 		return err
 	}
 

@@ -6,6 +6,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/cmd/virt-handler",
     visibility = ["//visibility:private"],
     deps = [
+        "//pkg/apimachinery/wait:go_default_library",
         "//pkg/certificates/bootstrap:go_default_library",
         "//pkg/container-disk:go_default_library",
         "//pkg/controller:go_default_library",
@@ -44,7 +45,6 @@ go_library(
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/scheme:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/typed/core/v1:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
@@ -143,7 +143,6 @@ container_image(
     name = "version-container",
     directory = "/",
     files = [
-        ":virt_launcher.cil",
         "//:get-version",
     ],
     tars = select({
@@ -177,7 +176,6 @@ container_image(
     entrypoint = ["/usr/bin/virt-handler"],
     files = [
         ":virt-handler",
-        "//cmd/container-disk-v2alpha:container-disk",
         "//cmd/virt-chroot",
     ],
     visibility = ["//visibility:public"],

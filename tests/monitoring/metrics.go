@@ -85,6 +85,9 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			"kubevirt_vmi_migration_data_processed_bytes":                        true,
 			"kubevirt_vmi_migration_dirty_memory_rate_bytes":                     true,
 			"kubevirt_vmi_migration_disk_transfer_rate_bytes":                    true,
+			"kubevirt_vmi_migration_data_total_bytes":                            true,
+			"kubevirt_vmi_migration_start_time_seconds":                          true,
+			"kubevirt_vmi_migration_end_time_seconds":                            true,
 		}
 
 		It("should contain virt components metrics", func() {
@@ -97,7 +100,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			err = virtapi.SetupMetrics()
 			Expect(err).ToNot(HaveOccurred())
 
-			err = virtcontroller.SetupMetrics(nil, nil, nil, nil, nil, nil, nil, nil, nil)
+			err = virtcontroller.SetupMetrics(nil, nil, nil, nil, nil, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = virtcontroller.RegisterLeaderMetrics()
@@ -149,6 +152,26 @@ func basicVMLifecycle(virtClient kubecli.KubevirtClient) {
 		},
 		0, ">", 0)
 
+	By("Verifying kubevirt_vm_vnic_info metric")
+	libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vm_vnic_info", 1,
+		map[string]string{
+			"namespace":    vm.Namespace,
+			"name":         vm.Name,
+			"binding_type": "core",
+			"network":      "pod networking",
+			"binding_name": "masquerade",
+		}, 0)
+
+	By("Verifying kubevirt_vmi_vnic_info metric")
+	libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_vnic_info", 1,
+		map[string]string{
+			"namespace":    vm.Namespace,
+			"name":         vm.Name,
+			"binding_type": "core",
+			"network":      "pod networking",
+			"binding_name": "masquerade",
+		}, 0)
+
 	By("Deleting the VirtualMachine")
 	err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 	Expect(err).ToNot(HaveOccurred())
@@ -160,11 +183,14 @@ func basicVMLifecycle(virtClient kubecli.KubevirtClient) {
 func createAndRunVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 	vmDiskPVC := "test-vm-pvc"
 	pvc := libstorage.CreateFSPVC(vmDiskPVC, testsuite.GetTestNamespace(nil), "512Mi", nil)
+	iface := *v1.DefaultMasqueradeNetworkInterface()
 
 	vmi := libvmifact.NewFedora(
 		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 		libvmi.WithLimitMemory("512Mi"),
 		libvmi.WithPersistentVolumeClaim("testdisk", pvc.Name),
+		libvmi.WithInterface(iface),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
 
 	vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))

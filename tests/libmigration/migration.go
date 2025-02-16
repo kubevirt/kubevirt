@@ -414,28 +414,24 @@ func ConfirmVMIPostMigrationAborted(vmi *v1.VirtualMachineInstance, migrationUID
 }
 
 func RunMigrationAndExpectFailure(migration *v1.VirtualMachineInstanceMigration, timeout int) string {
-	var err error
+
 	virtClient := kubevirt.Client()
 	By("Starting a Migration")
-	Eventually(func() error {
-		migration, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
-		return err
-	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
-	By("Waiting until the Migration Completes")
+	createdMigration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
 
-	uid := ""
+	By("Waiting until the Migration Completes")
 	Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
-		migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+		migration, err := virtClient.VirtualMachineInstanceMigration(createdMigration.Namespace).Get(context.Background(), createdMigration.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		phase := migration.Status.Phase
 		Expect(phase).NotTo(Equal(v1.MigrationSucceeded))
 
-		uid = string(migration.UID)
 		return phase
 
 	}, timeout, 1*time.Second).Should(Equal(v1.MigrationFailed))
-	return uid
+	return string(createdMigration.UID)
 }
 
 func RunMigrationAndCollectMigrationMetrics(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration) {
@@ -444,6 +440,7 @@ func RunMigrationAndCollectMigrationMetrics(vmi *v1.VirtualMachineInstance, migr
 	var pod *k8sv1.Pod
 	var metricsIPs []string
 	var migrationMetrics = []string{
+		"kubevirt_vmi_migration_data_total_bytes",
 		"kubevirt_vmi_migration_data_remaining_bytes",
 		"kubevirt_vmi_migration_data_processed_bytes",
 		"kubevirt_vmi_migration_dirty_memory_rate_bytes",
@@ -502,4 +499,17 @@ func ConfirmMigrationMode(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMach
 
 	By("Verifying the VMI's migration mode")
 	ExpectWithOffset(1, vmi.Status.MigrationState.Mode).To(Equal(expectedMode), fmt.Sprintf("expected migration state: %v got :%v \n", vmi.Status.MigrationState.Mode, expectedMode))
+}
+
+func WaitUntilMigrationMode(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, expectedMode v1.MigrationMode, timeout time.Duration) {
+	By("Waiting until migration status")
+	EventuallyWithOffset(1, func() v1.MigrationMode {
+		By("Retrieving the VMI to check its migration mode")
+		newVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		if newVMI.Status.MigrationState != nil {
+			return newVMI.Status.MigrationState.Mode
+		}
+		return ""
+	}, timeout, 1*time.Second).Should(Equal(expectedMode))
 }

@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "configstatecache.go",
+        "filters.go",
         "netconf.go",
         "netstat.go",
         "network.go",
@@ -38,6 +39,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "configstatecache_test.go",
+        "filters_test.go",
         "netconf_test.go",
         "netstat_test.go",
         "network_suite_test.go",
@@ -47,6 +49,8 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//pkg/ephemeral-disk-utils:go_default_library",
+        "//pkg/libvmi:go_default_library",
+        "//pkg/libvmi/status:go_default_library",
         "//pkg/network/cache:go_default_library",
         "//pkg/network/deviceinfo:go_default_library",
         "//pkg/network/dhcp:go_default_library",

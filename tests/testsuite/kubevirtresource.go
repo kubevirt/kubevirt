@@ -23,6 +23,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -33,11 +35,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	putil "kubevirt.io/kubevirt/pkg/util"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -92,31 +92,26 @@ func AdjustKubeVirtResource() {
 		},
 	}
 	// Disable CPUManager Featuregate for s390x as it is not supported.
-	if putil.TranslateBuildArch() != "s390x" {
+	if translateBuildArch() != "s390x" {
 		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-			virtconfig.CPUManager,
+			featuregate.CPUManager,
 		)
 	}
 	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-		virtconfig.IgnitionGate,
-		virtconfig.SidecarGate,
-		virtconfig.SnapshotGate,
-		virtconfig.HostDiskGate,
-		virtconfig.VirtIOFSGate,
-		virtconfig.HotplugVolumesGate,
-		virtconfig.DownwardMetricsFeatureGate,
-		virtconfig.ExpandDisksGate,
-		virtconfig.WorkloadEncryptionSEV,
-		virtconfig.VMExportGate,
-		virtconfig.KubevirtSeccompProfile,
-		virtconfig.VMPersistentState,
-		virtconfig.AutoResourceLimitsGate,
+		featuregate.IgnitionGate,
+		featuregate.SidecarGate,
+		featuregate.SnapshotGate,
+		featuregate.HostDiskGate,
+		featuregate.VirtIOFSConfigVolumesGate,
+		featuregate.VirtIOFSStorageVolumeGate,
+		featuregate.HotplugVolumesGate,
+		featuregate.DownwardMetricsFeatureGate,
+		featuregate.ExpandDisksGate,
+		featuregate.WorkloadEncryptionSEV,
+		featuregate.VMExportGate,
+		featuregate.KubevirtSeccompProfile,
+		featuregate.VMPersistentState,
 	)
-	if flags.DisableCustomSELinuxPolicy {
-		kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates,
-			virtconfig.DisableCustomSELinuxPolicy,
-		)
-	}
 
 	if kv.Spec.Configuration.NetworkConfiguration == nil {
 		testDefaultPermitSlirpInterface := true
@@ -126,7 +121,7 @@ func AdjustKubeVirtResource() {
 		}
 	}
 
-	storageClass, exists := libstorage.GetRWXFileSystemStorageClass()
+	storageClass, exists := libstorage.GetVMStateStorageClass()
 	if exists {
 		kv.Spec.Configuration.VMStateStorageClass = storageClass
 	}
@@ -137,7 +132,7 @@ func AdjustKubeVirtResource() {
 	adjustedKV, err := virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, []byte(patchData), metav1.PatchOptions{})
 	util.PanicOnError(err)
 	KubeVirtDefaultConfig = adjustedKV.Spec.Configuration
-	if checks.HasFeature(virtconfig.CPUManager) {
+	if checks.HasFeature(featuregate.CPUManager) {
 		// CPUManager is not enabled in the control-plane node(s)
 		nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: "!node-role.kubernetes.io/control-plane"})
 		Expect(err).NotTo(HaveOccurred())
@@ -163,17 +158,6 @@ func RestoreKubeVirtResource() {
 		_, err = virtClient.KubeVirt(originalKV.Namespace).Patch(context.Background(), originalKV.Name, types.JSONPatchType, []byte(patchData), metav1.PatchOptions{})
 		util.PanicOnError(err)
 	}
-}
-
-func ShouldAllowEmulation(virtClient kubecli.KubevirtClient) bool {
-	allowEmulation := false
-
-	kv := libkubevirt.GetCurrentKv(virtClient)
-	if kv.Spec.Configuration.DeveloperConfiguration != nil {
-		allowEmulation = kv.Spec.Configuration.DeveloperConfiguration.UseEmulation
-	}
-
-	return allowEmulation
 }
 
 // UpdateKubeVirtConfigValue updates the given configuration in the kubevirt custom resource
@@ -203,4 +187,25 @@ func UpdateKubeVirtConfigValue(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
 	Expect(err).ToNot(HaveOccurred())
 
 	return kv
+}
+
+/*
+translateBuildArch translates the build_arch to arch
+
+	case1:
+	  build_arch is crossbuild-s390x, which will be translated to s390x arch
+	case2:
+	  build_arch is s390x, which will be translated to s390x arch
+*/
+func translateBuildArch() string {
+	buildArch := os.Getenv("BUILD_ARCH")
+
+	if buildArch == "" {
+		return ""
+	}
+	archElements := strings.Split(buildArch, "-")
+	if len(archElements) == 2 {
+		return archElements[1]
+	}
+	return archElements[0]
 }

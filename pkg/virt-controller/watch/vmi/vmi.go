@@ -27,15 +27,11 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/virt-controller/network"
-
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vsock"
 
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
-
-	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -56,9 +52,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
-	"kubevirt.io/kubevirt/pkg/network/multus"
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -89,11 +82,15 @@ func NewController(templateService services.TemplateService,
 	topologyHinter topology.Hinter,
 	netAnnotationsGenerator annotationsGenerator,
 	netStatusUpdater statusUpdater,
+	netSpecValidator specValidator,
 ) (*Controller, error) {
 
 	c := &Controller{
-		templateService:         templateService,
-		Queue:                   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-vmi"),
+		templateService: templateService,
+		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vmi"},
+		),
 		vmiIndexer:              vmiInformer.GetIndexer(),
 		vmStore:                 vmInformer.GetStore(),
 		podIndexer:              podInformer.GetIndexer(),
@@ -112,6 +109,7 @@ func NewController(templateService services.TemplateService,
 		backendStorage:          backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
 		netAnnotationsGenerator: netAnnotationsGenerator,
 		updateNetworkStatus:     netStatusUpdater,
+		validateNetworkSpec:     netSpecValidator,
 	}
 
 	c.hasSynced = func() bool {
@@ -179,12 +177,14 @@ type annotationsGenerator interface {
 	GenerateFromActivePod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) map[string]string
 }
 
-type statusUpdater func(clusterConfig *virtconfig.ClusterConfig, vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error
+type statusUpdater func(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error
+
+type specValidator func(*k8sfield.Path, *virtv1.VirtualMachineInstanceSpec, *virtconfig.ClusterConfig) []v1.StatusCause
 
 type Controller struct {
 	templateService         services.TemplateService
 	clientset               kubecli.KubevirtClient
-	Queue                   workqueue.RateLimitingInterface
+	Queue                   workqueue.TypedRateLimitingInterface[string]
 	vmiIndexer              cache.Indexer
 	vmStore                 cache.Store
 	podIndexer              cache.Indexer
@@ -203,6 +203,7 @@ type Controller struct {
 	hasSynced               func() bool
 	netAnnotationsGenerator annotationsGenerator
 	updateNetworkStatus     statusUpdater
+	validateNetworkSpec     specValidator
 }
 
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
@@ -243,11 +244,11 @@ func (c *Controller) Execute() bool {
 		return false
 	}
 
-	virtControllerVMIWorkQueueTracer.StartTrace(key.(string), "virt-controller VMI workqueue", trace.Field{Key: "Workqueue Key", Value: key})
-	defer virtControllerVMIWorkQueueTracer.StopTrace(key.(string))
+	virtControllerVMIWorkQueueTracer.StartTrace(key, "virt-controller VMI workqueue", trace.Field{Key: "Workqueue Key", Value: key})
+	defer virtControllerVMIWorkQueueTracer.StopTrace(key)
 
 	defer c.Queue.Done(key)
-	err := c.execute(key.(string))
+	err := c.execute(key)
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing VirtualMachineInstance %v", key)
@@ -392,7 +393,7 @@ func (c *Controller) syncDynamicLabelsToPod(vmi *virtv1.VirtualMachineInstance, 
 func (c *Controller) syncPodAnnotations(pod *k8sv1.Pod, newAnnotations map[string]string) (*k8sv1.Pod, error) {
 	patchSet := patch.New()
 	for key, newValue := range newAnnotations {
-		if podAnnotationValue, keyExist := pod.Annotations[key]; !keyExist || (keyExist && podAnnotationValue != newValue) {
+		if podAnnotationValue, keyExist := pod.Annotations[key]; !keyExist || podAnnotationValue != newValue {
 			patchSet.AddOption(
 				patch.WithAdd(fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(key)), newValue),
 			)
@@ -440,7 +441,7 @@ func (c *Controller) hasOwnerVM(vmi *virtv1.VirtualMachineInstance) bool {
 		return false
 	}
 
-	obj, exists, _ := c.vmStore.GetByKey(vmi.Namespace + "/" + controllerRef.Name)
+	obj, exists, _ := c.vmStore.GetByKey(controller.NamespacedKey(vmi.Namespace, controllerRef.Name))
 	if !exists {
 		return false
 	}
@@ -555,8 +556,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceProvisioning) {
 			conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceProvisioning)
 		}
-		switch {
-		case vmiPodExists:
+		if vmiPodExists {
 			// ensure that the QOS class on the VMI matches to Pods QOS class
 			if pod.Status.QOSClass == "" {
 				vmiCopy.Status.QOSClass = nil
@@ -594,7 +594,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 					return err
 				}
 
-				if err := c.updateNetworkStatus(c.clusterConfig, vmiCopy, pod); err != nil {
+				if err := c.updateNetworkStatus(vmiCopy, pod); err != nil {
 					log.Log.Errorf("failed to update the interface status: %v", err)
 				}
 
@@ -624,7 +624,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			} else if controller.IsPodDownOrGoingDown(pod) {
 				vmiCopy.Status.Phase = virtv1.Failed
 			}
-		case !vmiPodExists:
+		} else {
 			// someone other than the controller deleted the pod unexpectedly
 			vmiCopy.Status.Phase = virtv1.Failed
 		}
@@ -658,7 +658,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			return err
 		}
 
-		if err := c.updateNetworkStatus(c.clusterConfig, vmiCopy, pod); err != nil {
+		if err := c.updateNetworkStatus(vmiCopy, pod); err != nil {
 			log.Log.Errorf("failed to update the interface status: %v", err)
 		}
 
@@ -1027,9 +1027,8 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 			return common.NewSyncError(fmt.Errorf(services.FailedToRenderLaunchManifestErrFormat, err), controller.FailedCreatePodReason), pod
 		}
 
-		netValidator := netadmitter.NewValidator(k8sfield.NewPath("spec"), &vmi.Spec, c.clusterConfig)
 		var validateErrors []error
-		for _, cause := range netValidator.ValidateCreation() {
+		for _, cause := range c.validateNetworkSpec(k8sfield.NewPath("spec"), &vmi.Spec, c.clusterConfig) {
 			validateErrors = append(validateErrors, errors.New(cause.String()))
 		}
 		if validateErr := errors.Join(validateErrors...); validateErrors != nil {
@@ -1089,12 +1088,6 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 				} else {
 					return hotplugSyncErr, pod
 				}
-			}
-		}
-
-		if vmiSpecIfaces, vmiSpecNets, dynamicIfacesExist := network.CalculateInterfacesAndNetworksForMultusAnnotationUpdate(vmi); dynamicIfacesExist {
-			if err := c.updateMultusAnnotation(vmi.Namespace, vmiSpecIfaces, vmiSpecNets, pod); err != nil {
-				return common.NewSyncError(fmt.Errorf("failed to hot{un}plug network interfaces for vmi [%s/%s]: %w", vmi.GetNamespace(), vmi.GetName(), err), controller.FailedHotplugSyncReason), pod
 			}
 		}
 	}
@@ -1159,7 +1152,7 @@ func (c *Controller) addPVC(obj interface{}) {
 
 	persistentStateFor, exists := pvc.Labels[backendstorage.PVCPrefix]
 	if exists {
-		vmiKey := pvc.Namespace + "/" + persistentStateFor
+		vmiKey := controller.NamespacedKey(pvc.Namespace, persistentStateFor)
 		c.pvcExpectations.CreationObserved(vmiKey)
 		c.Queue.Add(vmiKey)
 		return // The PVC is a backend-storage PVC, won't be listed by `c.listVMIsMatchingDV()`
@@ -1439,7 +1432,7 @@ func (c *Controller) enqueueVirtualMachine(obj interface{}) {
 func (c *Controller) resolveControllerRef(namespace string, controllerRef *v1.OwnerReference) *virtv1.VirtualMachineInstance {
 	if controllerRef != nil && controllerRef.Kind == "Pod" {
 		// This could be an attachment pod, look up the pod, and check if it is owned by a VMI.
-		obj, exists, err := c.podIndexer.GetByKey(namespace + "/" + controllerRef.Name)
+		obj, exists, err := c.podIndexer.GetByKey(controller.NamespacedKey(namespace, controllerRef.Name))
 		if err != nil {
 			return nil
 		}
@@ -1454,7 +1447,7 @@ func (c *Controller) resolveControllerRef(namespace string, controllerRef *v1.Ow
 	if controllerRef == nil || controllerRef.Kind != virtv1.VirtualMachineInstanceGroupVersionKind.Kind {
 		return nil
 	}
-	vmi, exists, err := c.vmiIndexer.GetByKey(namespace + "/" + controllerRef.Name)
+	vmi, exists, err := c.vmiIndexer.GetByKey(controller.NamespacedKey(namespace, controllerRef.Name))
 	if err != nil {
 		return nil
 	}
@@ -2138,11 +2131,11 @@ func (c *Controller) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) (vi
 		return "0", fmt.Errorf("Failed to convert CDIConfig object %v to type CDIConfig", cdiConfigInterface)
 	}
 
-	return storagetypes.GetFilesystemOverhead(pvc.Spec.VolumeMode, pvc.Spec.StorageClassName, cdiConfig), nil
+	return storagetypes.GetFilesystemOverhead(pvc.Spec.VolumeMode, pvc.Spec.StorageClassName, cdiConfig)
 }
 
 func (c *Controller) canMoveToAttachedPhase(currentPhase virtv1.VolumePhase) bool {
-	return (currentPhase == "" || currentPhase == virtv1.VolumeBound || currentPhase == virtv1.VolumePending)
+	return currentPhase == "" || currentPhase == virtv1.VolumeBound || currentPhase == virtv1.VolumePending
 }
 
 func (c *Controller) findAttachmentPodByVolumeName(volumeName string, attachmentPods []*k8sv1.Pod) *k8sv1.Pod {
@@ -2170,35 +2163,6 @@ func (c *Controller) getVolumePhaseMessageReason(volume *virtv1.Volume, namespac
 		return virtv1.VolumeBound, controller.PVCNotReadyReason, "PVC is in phase Bound"
 	}
 	return virtv1.VolumePending, controller.PVCNotReadyReason, "PVC is in phase Lost"
-}
-
-func (c *Controller) updateMultusAnnotation(namespace string, interfaces []virtv1.Interface, networks []virtv1.Network, pod *k8sv1.Pod) error {
-	podAnnotations := pod.GetAnnotations()
-
-	indexedMultusStatusIfaces := multus.NonDefaultNetworkStatusIndexedByPodIfaceName(multus.NetworkStatusesFromPod(pod))
-	networkToPodIfaceMap := namescheme.CreateNetworkNameSchemeByPodNetworkStatus(networks, indexedMultusStatusIfaces)
-	multusAnnotations, err := multus.GenerateCNIAnnotationFromNameScheme(namespace, interfaces, networks, networkToPodIfaceMap, c.clusterConfig)
-	if err != nil {
-		return err
-	}
-
-	currentMultusAnnotation := podAnnotations[networkv1.NetworkAttachmentAnnot]
-	log.Log.Object(pod).V(4).Infof(
-		"current multus annotation for pod: %s; updated multus annotation for pod with: %s",
-		currentMultusAnnotation,
-		multusAnnotations,
-	)
-
-	if multusAnnotations != currentMultusAnnotation {
-		newAnnotations := map[string]string{networkv1.NetworkAttachmentAnnot: multusAnnotations}
-		patchedPod, err := c.syncPodAnnotations(pod, newAnnotations)
-		if err != nil {
-			return err
-		}
-		*pod = *patchedPod
-	}
-
-	return nil
 }
 
 func (c *Controller) syncHotplugCondition(vmi *virtv1.VirtualMachineInstance, conditionType virtv1.VirtualMachineInstanceConditionType) {

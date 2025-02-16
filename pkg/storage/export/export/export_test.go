@@ -33,6 +33,7 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 
 	routev1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -40,6 +41,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -67,6 +69,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -131,7 +134,7 @@ var _ = Describe("Export controller", func() {
 		virtClient                  *kubecli.MockKubevirtClient
 		vmExportClient              *kubevirtfake.Clientset
 		fakeVolumeSnapshotProvider  *MockVolumeSnapshotProvider
-		mockVMExportQueue           *testutils.MockWorkQueue
+		mockVMExportQueue           *testutils.MockWorkQueue[string]
 		routeCache                  cache.Store
 		ingressCache                cache.Store
 		certDir                     string
@@ -243,7 +246,7 @@ var _ = Describe("Export controller", func() {
 			ServiceInformer:             serviceInformer,
 			DataVolumeInformer:          dvInformer,
 			KubevirtNamespace:           "kubevirt",
-			TemplateService:             services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", "g", pvcInformer.GetStore(), virtClient, config, qemuGid, "h", rqInformer.GetStore(), nsInformer.GetStore()),
+			ManifestRenderer:            services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
 			caCertManager:               bootstrap.NewFileCertificateManager(certFilePath, keyFilePath),
 			RouteCache:                  routeCache,
 			IngressCache:                ingressCache,
@@ -1392,16 +1395,33 @@ var _ = Describe("Export controller", func() {
 		pvc := createPVC("pvc", string(cdiv1.DataVolumeKubeVirt))
 		pvc.Spec.DataSource = &k8sv1.TypedLocalObjectReference{}
 		pvc.Spec.DataSourceRef = &k8sv1.TypedObjectReference{}
+		pvc.Spec.StorageClassName = pointer.P("somesc")
+		pvcCopy := pvc.DeepCopy()
 		pvcInformer.GetStore().Add(pvc)
 		vm := createVMWithDVTemplateAndPVC()
 		dvs, err := controller.generateDataVolumesFromVm(vm)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(dvs).To(HaveLen(1))
 		Expect(dvs[0]).ToNot(BeNil())
-		Expect(dvs[0].Name).To((Equal("pvc")))
-		Expect(dvs[0].Spec.PVC.DataSource).To(BeNil())
-		Expect(dvs[0].Spec.PVC.DataSourceRef).To(BeNil())
-		Expect(dvs[0].Spec.SourceRef).To(BeNil())
+		Expect(dvs[0].Name).To(Equal("pvc"))
+		Expect(dvs[0].Spec.Storage).To(
+			gstruct.PointTo(
+				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"DataSource":       BeNil(),
+					"DataSourceRef":    BeNil(),
+					"StorageClassName": BeNil(),
+					"VolumeMode":       Equal(pvcCopy.Spec.VolumeMode),
+					"Resources":        Equal(pvcCopy.Spec.Resources),
+					"AccessModes":      HaveExactElements(pvcCopy.Spec.AccessModes),
+				}),
+			),
+		)
+		Expect(dvs[0].Spec).To(
+			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"PVC":       BeNil(),
+				"SourceRef": BeNil(),
+			}),
+		)
 	})
 })
 
@@ -1642,6 +1662,33 @@ func createPVC(name, contentType string) *k8sv1.PersistentVolumeClaim {
 			Namespace: testNamespace,
 			Annotations: map[string]string{
 				annContentType: contentType,
+			},
+		},
+		Spec: k8sv1.PersistentVolumeClaimSpec{
+			VolumeMode:  pointer.P(k8sv1.PersistentVolumeMode("testvolumemode")),
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.PersistentVolumeAccessMode("testaccessmode")},
+			Resources: k8sv1.VolumeResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceStorage: resource.MustParse("99Gi"),
+				},
+			},
+		},
+		Status: k8sv1.PersistentVolumeClaimStatus{
+			Phase: k8sv1.ClaimBound,
+		},
+	}
+}
+
+func createBackendPVC(vmName string) *k8sv1.PersistentVolumeClaim {
+	return &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-%s-", backendstorage.PVCPrefix, vmName),
+			Namespace: testNamespace,
+			Annotations: map[string]string{
+				annContentType: "archive",
+			},
+			Labels: map[string]string{
+				backendstorage.PVCPrefix: vmName,
 			},
 		},
 		Status: k8sv1.PersistentVolumeClaimStatus{

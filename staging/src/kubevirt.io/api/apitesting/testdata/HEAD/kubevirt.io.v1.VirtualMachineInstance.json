@@ -352,6 +352,9 @@
         }
       },
       "ioThreadsPolicy": "ioThreadsPolicyValue",
+      "ioThreads": {
+        "supplementalPoolThreadCount": 4294967269
+      },
       "chassis": {
         "manufacturer": "manufacturerValue",
         "version": "versionValue",
@@ -899,7 +902,8 @@
         "podInterfaceName": "podInterfaceNameValue",
         "interfaceName": "interfaceNameValue",
         "infoSource": "infoSourceValue",
-        "queueCount": -10
+        "queueCount": -10,
+        "linkState": "linkStateValue"
       }
     ],
     "guestOSInfo": {
@@ -944,6 +948,7 @@
         "progressTimeout": -15,
         "unsafeMigrationOverride": true,
         "allowPostCopy": true,
+        "allowWorkloadDisruption": true,
         "disableTLS": true,
         "network": "networkValue",
         "matchSELinuxLevelOnMigration": true

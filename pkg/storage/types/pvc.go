@@ -39,8 +39,6 @@ const (
 	MiB = 1024 * 1024
 
 	allowClaimAdoptionAnnotation = "cdi.kubevirt.io/allowClaimAdoption"
-
-	dataVolumeGarbageCollectionAnnotation = "cdi.kubevirt.io/garbageCollected"
 )
 
 type PvcNotFoundError struct {
@@ -49,10 +47,6 @@ type PvcNotFoundError struct {
 
 func (e PvcNotFoundError) Error() string {
 	return e.Reason
-}
-
-func IsDataVolumeGarbageCollected(pvc *k8sv1.PersistentVolumeClaim) bool {
-	return pvc != nil && pvc.Annotations[dataVolumeGarbageCollectionAnnotation] == "true"
 }
 
 func IsPVCBlockFromStore(store cache.Store, namespace string, claimName string) (pvc *k8sv1.PersistentVolumeClaim, exists bool, isBlockDevice bool, err error) {
@@ -300,13 +294,6 @@ func GetDisksByName(vmiSpec *virtv1.VirtualMachineInstanceSpec) map[string]*virt
 	return disks
 }
 
-func Min(one, two int64) int64 {
-	if one < two {
-		return one
-	}
-	return two
-}
-
 // Get expected disk capacity - a minimum between the request and the PVC capacity.
 // Returns nil when we have insufficient data to calculate this minimum.
 func GetDiskCapacity(pvcInfo *virtv1.PersistentVolumeClaimInfo) *int64 {
@@ -329,7 +316,7 @@ func GetDiskCapacity(pvcInfo *virtv1.PersistentVolumeClaimInfo) *int64 {
 		logger.Infof("Failed to convert storage request %+v to int64", storageRequestResource)
 		return nil
 	}
-	preferredSize := Min(storageRequest, storageCapacity)
+	preferredSize := min(storageRequest, storageCapacity)
 	return &preferredSize
 }
 

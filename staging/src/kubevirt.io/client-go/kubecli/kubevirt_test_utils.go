@@ -3,8 +3,7 @@ package kubecli
 import (
 	"errors"
 
-	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
-	v1alpha12 "kubevirt.io/api/clone/v1alpha1"
+	clone "kubevirt.io/api/clone/v1beta1"
 
 	"kubevirt.io/api/migrations/v1alpha1"
 
@@ -89,13 +88,13 @@ func NewMinimalMigrationPolicyList(policies ...v1alpha1.MigrationPolicy) *v1alph
 	return &v1alpha1.MigrationPolicyList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1alpha1.GroupVersion.String(), Kind: v1alpha1.MigrationPolicyListKind.Kind}, Items: policies}
 }
 
-func NewMinimalClone(name string) *v1alpha12.VirtualMachineClone {
+func NewMinimalClone(name string) *clone.VirtualMachineClone {
 	return NewMinimalCloneWithNS(name, "")
 }
 
-func NewMinimalCloneWithNS(name, namespace string) *v1alpha12.VirtualMachineClone {
-	return &v1alpha12.VirtualMachineClone{
-		TypeMeta: k8smetav1.TypeMeta{APIVersion: clonev1alpha1.SchemeGroupVersion.String(), Kind: clonev1alpha1.VirtualMachineCloneKind.Kind},
+func NewMinimalCloneWithNS(name, namespace string) *clone.VirtualMachineClone {
+	return &clone.VirtualMachineClone{
+		TypeMeta: k8smetav1.TypeMeta{APIVersion: clone.SchemeGroupVersion.String(), Kind: clone.VirtualMachineCloneKind.Kind},
 		ObjectMeta: k8smetav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -103,9 +102,9 @@ func NewMinimalCloneWithNS(name, namespace string) *v1alpha12.VirtualMachineClon
 	}
 }
 
-func NewMinimalCloneList(clones ...v1alpha12.VirtualMachineClone) *v1alpha12.VirtualMachineCloneList {
-	return &v1alpha12.VirtualMachineCloneList{
-		TypeMeta: k8smetav1.TypeMeta{APIVersion: clonev1alpha1.SchemeGroupVersion.String(), Kind: clonev1alpha1.VirtualMachineCloneListKind.Kind},
+func NewMinimalCloneList(clones ...clone.VirtualMachineClone) *clone.VirtualMachineCloneList {
+	return &clone.VirtualMachineCloneList{
+		TypeMeta: k8smetav1.TypeMeta{APIVersion: clone.SchemeGroupVersion.String(), Kind: clone.VirtualMachineCloneListKind.Kind},
 		Items:    clones,
 	}
 }

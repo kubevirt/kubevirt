@@ -13,6 +13,18 @@ export KUBECONFIG=$(./kubevirtci/cluster-up/kubeconfig.sh)
 
 sonobuoy_args="--wait --plugin _out/manifests/release/conformance.yaml"
 
+add_to_label_filter() {
+    local label=$1
+    local separator=$2
+    if [[ -z $label_filter ]]; then
+        label_filter="${label}"
+    else
+        label_filter="${label_filter}${separator}${label}"
+    fi
+}
+
+label_filter="(conformance)"
+
 if [[ ! -z "$DOCKER_PREFIX" ]]; then
     sonobuoy_args="${sonobuoy_args} --plugin-env kubevirt-conformance.CONTAINER_PREFIX=${DOCKER_PREFIX}"
 fi
@@ -22,22 +34,35 @@ if [[ ! -z "$DOCKER_TAG" ]]; then
 fi
 
 if [[ ! -z "$KUBEVIRT_E2E_FOCUS" ]]; then
-    sonobuoy_args="${sonobuoy_args} --plugin-env kubevirt-conformance.E2E_FOCUS=${KUBEVIRT_E2E_FOCUS}"
+    add_to_label_filter "(${KUBEVIRT_E2E_FOCUS})" "&&"
 fi
 
 if [[ ! -z "$SKIP_OUTSIDE_CONN_TESTS" ]]; then
-    sonobuoy_args="${sonobuoy_args} --plugin-env kubevirt-conformance.E2E_SKIP=\[outside_connectivity\]"
+    add_to_label_filter "(!RequiresOutsideConnectivity)" "&&"
 fi
 
 if [[ ! -z "$RUN_ON_ARM64_INFRA" ]]; then
-    sonobuoy_args="${sonobuoy_args} --plugin-env kubevirt-conformance.E2E_SKIP=.*(\[outside_connectivity\].*\[IPv6\].*|\[IPv6\].*\[outside_connectivity\].*).*"
+    add_to_label_filter "(!(RequiresOutsideConnectivity && IPv6))" "&&"
+fi
+
+if [[ ! -z "$SKIP_BLOCK_STORAGE_TESTS" ]]; then
+    add_to_label_filter "(!RequiresBlockStorage)" "&&"
+fi
+
+if [[ ! -z "$SKIP_SNAPSHOT_STORAGE_TESTS" ]]; then
+    add_to_label_filter "(!RequiresSnapshotStorageClass)" "&&"
 fi
 
 if [[ ! -z "$KUBEVIRT_PROVIDER" ]]; then
     sonobuoy_args="${sonobuoy_args} --plugin-env kubevirt-conformance.KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER}"
 fi
 
+if [[ ! -z $label_filter ]]; then
+    sonobuoy_args="${sonobuoy_args} --plugin-env kubevirt-conformance.E2E_LABEL=${label_filter}"
+fi
+
 echo 'Executing conformance tests and wait for them to finish'
+echo "Using $sonobuoy_args as arguments to sonobuoy"
 sonobuoy run ${sonobuoy_args}
 
 trap "{ echo 'Cleaning up after the test execution'; sonobuoy delete --wait; }" EXIT SIGINT SIGTERM SIGQUIT

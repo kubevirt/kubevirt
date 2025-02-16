@@ -17,7 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 const (
@@ -36,7 +36,7 @@ var _ = Describe("Mediated Device", func() {
 	var fakeSupportedTypesPath string
 	var clientTest *fake.Clientset
 	resourceNameToTypeName := func(rawName string) string {
-		typeNameStr := strings.Replace(string(rawName), " ", "_", -1)
+		typeNameStr := strings.Replace(rawName, " ", "_", -1)
 		typeNameStr = strings.TrimSpace(typeNameStr)
 		return typeNameStr
 	}
@@ -187,7 +187,7 @@ var _ = Describe("Mediated Device", func() {
 
 			By("adding a host device to the cluster config")
 			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{virtconfig.HostDevicesGate}
+			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.HostDevicesGate}
 			kvConfig.Spec.Configuration.PermittedHostDevices = &v1.PermittedHostDevices{
 				MediatedDevices: []v1.MediatedHostDevice{
 					{

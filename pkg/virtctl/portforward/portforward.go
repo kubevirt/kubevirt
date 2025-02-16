@@ -25,14 +25,14 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
-
 	"kubevirt.io/client-go/kubecli"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
@@ -46,10 +46,11 @@ var (
 	address        string = "127.0.0.1"
 )
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewCommand() *cobra.Command {
 	log.InitializeLogging("portforward")
+	c := PortForward{}
 	cmd := &cobra.Command{
-		Use:     "port-forward [kind/]name[.namespace] [protocol/]localPort[:targetPort]...",
+		Use:     "port-forward [type/]name[.namespace] [protocol/]localPort[:targetPort]...",
 		Short:   "Forward local ports to a virtualmachine or virtualmachineinstance.",
 		Long:    usage(),
 		Example: examples(),
@@ -63,10 +64,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			}
 			return nil
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := PortForward{clientConfig: clientConfig}
-			return c.Run(cmd, args)
-		},
+		RunE: c.Run,
 	}
 	cmd.Flags().BoolVar(&forwardToStdio, forwardToStdioFlag, forwardToStdio,
 		fmt.Sprintf("--%s=true: Set this to true to forward the tunnel to stdout/stdin; Only works with a single port", forwardToStdioFlag))
@@ -77,19 +75,23 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 }
 
 type PortForward struct {
-	address      *net.IPAddr
-	clientConfig clientcmd.ClientConfig
-	resource     portforwardableResource
+	address  *net.IPAddr
+	resource portforwardableResource
 }
 
 func (o *PortForward) Run(cmd *cobra.Command, args []string) error {
 	setOutput(cmd)
-	kind, namespace, name, ports, err := o.prepareCommand(args)
+
+	client, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}
 
-	if err := o.setResource(kind, namespace); err != nil {
+	kind, namespace, name, ports, err := o.prepareCommand(args, namespace)
+	if err != nil {
+		return err
+	}
+	if err := o.setResource(kind, namespace, client); err != nil {
 		return err
 	}
 
@@ -116,8 +118,8 @@ func (o *PortForward) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (o *PortForward) prepareCommand(args []string) (kind string, namespace string, name string, ports []forwardedPort, err error) {
-	kind, namespace, name, err = templates.ParseTarget(args[0])
+func (o *PortForward) prepareCommand(args []string, fallbackNamespace string) (kind string, namespace string, name string, ports []forwardedPort, err error) {
+	kind, namespace, name, err = ParseTarget(args[0])
 	if err != nil {
 		return
 	}
@@ -128,24 +130,16 @@ func (o *PortForward) prepareCommand(args []string) (kind string, namespace stri
 	}
 
 	if len(namespace) < 1 {
-		namespace, _, err = o.clientConfig.Namespace()
-		if err != nil {
-			return
-		}
+		namespace = fallbackNamespace
 	}
 
 	return
 }
 
-func (o *PortForward) setResource(kind, namespace string) error {
-	client, err := kubecli.GetKubevirtClientFromClientConfig(o.clientConfig)
-	if err != nil {
-		return err
-	}
-
-	if templates.KindIsVMI(kind) {
+func (o *PortForward) setResource(kind, namespace string, client kubecli.KubevirtClient) error {
+	if kindIsVMI(kind) {
 		o.resource = client.VirtualMachineInstance(namespace)
-	} else if templates.KindIsVM(kind) {
+	} else if kindIsVM(kind) {
 		o.resource = client.VirtualMachine(namespace)
 	} else {
 		return errors.New("unsupported resource kind " + kind)
@@ -235,4 +229,55 @@ func examples() string {
 
   # Use as SCP ProxyCommand:
   scp -o 'ProxyCommand={{ProgramName}} port-forward --stdio=true testvmi.mynamespace 22' local.file user@testvmi.mynamespace`
+}
+
+// ParseTarget argument supporting the form of vmi/name.namespace (or simpler)
+func ParseTarget(target string) (string, string, string, error) {
+	kind := "vmi"
+
+	parts := strings.Split(target, "/")
+	if len(parts) > 2 {
+		return "", "", "", errors.New("target is not valid with more than one '/'")
+	}
+	if len(parts) == 2 {
+		kind = parts[0]
+		if !kindIsVM(kind) && !kindIsVMI(kind) {
+			return "", "", "", errors.New("unsupported resource kind " + kind)
+		}
+		target = parts[1]
+	} else {
+		log.Log.Warningf("Defaulting to type '%s'.\nOmitting the type in the target is deprecated."+
+			"\nSpecifying the type will become mandatory with the next release.", kind)
+	}
+	if target == "" {
+		return "", "", "", errors.New("expected name after '/'")
+	}
+	if target[0] == '.' {
+		return "", "", "", errors.New("expected name before '.'")
+	}
+	if target[len(target)-1] == '.' {
+		return "", "", "", errors.New("expected namespace after '.'")
+	}
+
+	name := target
+	namespace := ""
+	if lastDot := strings.LastIndex(target, "."); lastDot != -1 {
+		name = target[:lastDot]
+		namespace = target[lastDot+1:]
+	}
+
+	return kind, namespace, name, nil
+}
+func kindIsVMI(kind string) bool {
+	return kind == "vmi" ||
+		kind == "vmis" ||
+		kind == "virtualmachineinstance" ||
+		kind == "virtualmachineinstances"
+}
+
+func kindIsVM(kind string) bool {
+	return kind == "vm" ||
+		kind == "vms" ||
+		kind == "virtualmachine" ||
+		kind == "virtualmachines"
 }

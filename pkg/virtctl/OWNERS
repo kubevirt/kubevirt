@@ -1,8 +1,10 @@
 # See the OWNERS docs at https://go.k8s.io/owners
-reviewers:
-  - oshoval
-  - lyarwood
 approvers:
-  - 0xFelix
+  - sig-compute-approvers
+  - sig-compute-virtctl-approvers
+reviewers:
+  - sig-compute-reviewers
+  - sig-compute-virtctl-reviewers
 labels:
+  - sig/compute
   - area/virtctl

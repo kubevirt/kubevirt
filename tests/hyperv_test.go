@@ -8,6 +8,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -22,11 +23,8 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
@@ -67,10 +65,10 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 			reEnlightenmentVMI = vmiWithReEnlightenment()
 		})
 
-		When("TSC frequency is exposed on the cluster", func() {
+		When("TSC frequency is exposed on the cluster", decorators.Invtsc, func() {
 			BeforeEach(func() {
 				if !isTSCFrequencyExposed(virtClient) {
-					Skip("TSC frequency is not exposed on the cluster")
+					Fail("TSC frequency is not exposed on the cluster")
 				}
 			})
 
@@ -121,7 +119,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 			})
 		})
 
-		When("[Serial] TSC frequency is not exposed on the cluster", Serial, decorators.Reenlightenment, decorators.TscFrequencies, func() {
+		When(" TSC frequency is not exposed on the cluster", Serial, decorators.Reenlightenment, decorators.TscFrequencies, func() {
 
 			BeforeEach(func() {
 				if isTSCFrequencyExposed(virtClient) {
@@ -213,7 +211,6 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 				return features
 			}
 			var supportedKVMInfoFeature []string
-			checks.SkipIfARM64(testsuite.Arch, "arm64 does not support cpu model")
 			nodes := libnode.GetAllSchedulableNodes(virtClient)
 			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 			node := &nodes.Items[0]
@@ -245,8 +242,8 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 			}
 		})
 
-		DescribeTable("[Serial] the vmi with EVMCS HyperV feature should have correct HyperV and cpu features auto filled", Serial, func(featureState *v1.FeatureState) {
-			config.EnableFeatureGate(virtconfig.HypervStrictCheckGate)
+		DescribeTable(" the vmi with EVMCS HyperV feature should have correct HyperV and cpu features auto filled", Serial, func(featureState *v1.FeatureState) {
+			config.EnableFeatureGate(featuregate.HypervStrictCheckGate)
 			vmi := libvmifact.NewCirros()
 			vmi.Spec.Domain.Features = &v1.Features{
 				Hyperv: &v1.FeatureHyperv{

@@ -25,32 +25,29 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const COMMAND_GUESTOSINFO = "guestosinfo"
 
-func NewGuestOsInfoCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewGuestOsInfoCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "guestosinfo (VMI)",
 		Short:   "Return guest agent info about operating system.",
 		Example: usage(COMMAND_GUESTOSINFO),
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Command{clientConfig: clientConfig}
-			return c.guestOsInfoRun(args)
-		},
+		RunE:    guestOsInfoRun,
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 
-func (o *Command) guestOsInfoRun(args []string) error {
+func guestOsInfoRun(cmd *cobra.Command, args []string) error {
 	vmiName := args[0]
 
-	virtClient, namespace, err := GetNamespaceAndClient(o.clientConfig)
+	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

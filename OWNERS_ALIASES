@@ -5,7 +5,6 @@ aliases:
     - rmohr
     - stu-gott
     - fabiand
-    - AlonaKaplan
     - jean-edouard
     - mhenriks
     - enp0s3
@@ -25,8 +24,8 @@ aliases:
     - ashleyschuett
     - zcahana
     - dhiller # 2024-03-15
+    - AlonaKaplan
   code-reviewers:
-    - stu-gott
     - vladikr
     - enp0s3
     - jean-edouard
@@ -34,7 +33,6 @@ aliases:
     - EdDev
     - acardace
     - xpivarc
-    - vasiliy-ul
     - iholder101
     - alicefr
     - 0xFelix
@@ -46,7 +44,10 @@ aliases:
   # SIG Test
   #
   sig-test-reviewers:
-    - kbidarkar
+    - enp0s3
+    - xpivarc
+    - acardace
+    - 0xFelix
   sig-test-approvers:
     - kbidarkar
     - phoracek
@@ -54,8 +55,9 @@ aliases:
     - xpivarc
     - acardace
     - dhiller
-    - AlonaKaplan
     - 0xFelix
+  sig-test-emeritus_approvers:
+    - AlonaKaplan
 
   #
   # SIG Network
@@ -65,9 +67,11 @@ aliases:
     - EdDev
     - RamLavi
     - ormergi
+    - orelmisan
   sig-network-approvers:
-    - AlonaKaplan
     - EdDev
+  sig-network-emeritus_approvers:
+    - AlonaKaplan
 
   #
   # SIG Scale
@@ -85,10 +89,13 @@ aliases:
   sig-storage-approvers:
     - mhenriks
     - alicefr
+    - akalenyu
+    - ShellyKa13
   sig-storage-reviewers:
     - awels
     - akalenyu
     - ShellyKa13
+    - alromeros
 
   #
   # SIG API
@@ -114,6 +121,7 @@ aliases:
     - fossedihelm
     - lyarwood
     - 0xFelix
+    - Barakmor1
 
   # SIG Compute Instance types sub project
   # Responsible the overall instance type feature set within SIG Compute
@@ -122,6 +130,15 @@ aliases:
     - 0xFelix
   sig-compute-instancetype-reviewers:
     - akrejcir
+
+  # SIG Compute virtctl sub project
+  # Responsible for virtctl within SIG Compute
+  sig-compute-virtctl-approvers:
+    - 0xFelix
+    - fossedihelm
+  sig-compute-virtctl-reviewers:
+    - oshoval
+    - lyarwood
 
   #
   # SIG Observability
@@ -134,6 +151,8 @@ aliases:
   sig-observability-reviewers:
     - machadovilaca
     - avlitman
+    - nunnatsa
+    - orenc1
 
   #
   # SIG Release

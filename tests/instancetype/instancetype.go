@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	goerrors "errors"
-	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -28,14 +27,13 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	instancetypepkg "kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
+	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libinstancetype/builder"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -45,9 +43,10 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
+const timeout = 300 * time.Second
+
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Instancetype and Preferences", decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
-	const timeout = 300 * time.Second
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -183,7 +182,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(cause.Field).To(Equal("spec.preference"))
 		})
 	})
-	Context("[Serial]with cluster memory overcommit being applied", Serial, func() {
+	Context("with cluster memory overcommit being applied", Serial, func() {
 		BeforeEach(func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
 
@@ -405,26 +404,28 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
 			Expect(apiStatus.Status().Details.Causes).To(HaveLen(expectedCausesLength))
 
+			baseCPUConflict := conflict.New("spec", "template", "spec", "domain", "cpu")
+
 			cause0 := apiStatus.Status().Details.Causes[0]
 			Expect(cause0.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			cpuSocketsField := "spec.template.spec.domain.cpu.sockets"
-			Expect(cause0.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldConflictErrorFmt, cpuSocketsField)))
-			Expect(cause0.Field).To(Equal(cpuSocketsField))
+			socketsConflict := baseCPUConflict.NewChild("sockets")
+			Expect(cause0.Message).To(Equal(socketsConflict.Error()))
+			Expect(cause0.Field).To(Equal(socketsConflict.String()))
 
 			cause1 := apiStatus.Status().Details.Causes[1]
 			Expect(cause1.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			cpuCoresField := "spec.template.spec.domain.cpu.cores"
-			Expect(cause1.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldConflictErrorFmt, cpuCoresField)))
-			Expect(cause1.Field).To(Equal(cpuCoresField))
+			coresConflict := baseCPUConflict.NewChild("cores")
+			Expect(cause1.Message).To(Equal(coresConflict.Error()))
+			Expect(cause1.Field).To(Equal(coresConflict.String()))
 
 			cause2 := apiStatus.Status().Details.Causes[2]
 			Expect(cause2.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			cpuThreadsField := "spec.template.spec.domain.cpu.threads"
-			Expect(cause2.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldConflictErrorFmt, cpuThreadsField)))
-			Expect(cause2.Field).To(Equal(cpuThreadsField))
+			threadsConflict := baseCPUConflict.NewChild("threads")
+			Expect(cause2.Message).To(Equal(threadsConflict.Error()))
+			Expect(cause2.Field).To(Equal(threadsConflict.String()))
 		})
 
-		DescribeTable("[test_id:CNV-9301] should fail if the VirtualMachine has ", func(resources virtv1.ResourceRequirements, expectedField string) {
+		DescribeTable("[test_id:CNV-9301] should fail if the VirtualMachine has ", func(resources virtv1.ResourceRequirements, expectedConflict *conflict.Conflict) {
 			instancetype := builder.NewInstancetypeFromVMI(vmi)
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
@@ -440,29 +441,29 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
 			cause := apiStatus.Status().Details.Causes[0]
 			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(cause.Message).To(Equal(fmt.Sprintf(instancetypepkg.VMFieldConflictErrorFmt, expectedField)))
-			Expect(cause.Field).To(Equal(expectedField))
+			Expect(cause.Message).To(Equal(expectedConflict.Error()))
+			Expect(cause.Field).To(Equal(expectedConflict.String()))
 		},
 			Entry("CPU resource requests", virtv1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
 					k8sv1.ResourceCPU: resource.MustParse("1"),
 				},
-			}, "spec.template.spec.domain.resources.requests.cpu"),
+			}, conflict.New("spec.template.spec.domain.resources.requests.cpu")),
 			Entry("CPU resource limits", virtv1.ResourceRequirements{
 				Limits: k8sv1.ResourceList{
 					k8sv1.ResourceCPU: resource.MustParse("1"),
 				},
-			}, "spec.template.spec.domain.resources.limits.cpu"),
+			}, conflict.New("spec.template.spec.domain.resources.limits.cpu")),
 			Entry("Memory resource requests", virtv1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
 					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 				},
-			}, "spec.template.spec.domain.resources.requests.memory"),
+			}, conflict.New("spec.template.spec.domain.resources.requests.memory")),
 			Entry("Memory resource limits", virtv1.ResourceRequirements{
 				Limits: k8sv1.ResourceList{
 					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
 				},
-			}, "spec.template.spec.domain.resources.limits.memory"),
+			}, conflict.New("spec.template.spec.domain.resources.limits.memory")),
 		)
 
 		It("[test_id:CNV-9302] should apply preferences to default network interface", func() {
@@ -546,22 +547,19 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for VirtualMachineInstancetypeSpec and VirtualMachinePreferenceSpec ControllerRevision to be referenced from the VirtualMachine")
-			Eventually(func(g Gomega) {
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(vm.Spec.Instancetype.RevisionName).ToNot(BeEmpty())
-				g.Expect(vm.Spec.Preference.RevisionName).ToNot(BeEmpty())
-			}, timeout, 1*time.Second).Should(Succeed())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(timeout).WithPolling(time.Second).Should(matcher.HaveControllerRevisionRefs())
 
 			By("Checking that ControllerRevisions have been created for the VirtualMachineInstancetype and VirtualMachinePreference")
-			instancetypeRevision, err := virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			instancetypeRevision, err := virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			stashedInstancetype := &instancetypev1beta1.VirtualMachineInstancetype{}
 			Expect(json.Unmarshal(instancetypeRevision.Data.Raw, stashedInstancetype)).To(Succeed())
 			Expect(stashedInstancetype.Spec).To(Equal(instancetype.Spec))
 
-			preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
+			preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			stashedPreference := &instancetypev1beta1.VirtualMachinePreference{}
@@ -600,21 +598,18 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			newVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), newVM, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Waiting for a VirtualMachineInstancetypeSpec ControllerRevision to be referenced from the new VirtualMachine")
-			Eventually(func() string {
-				newVM, err = virtClient.VirtualMachine(newVM.Namespace).Get(context.Background(), newVM.Name, metav1.GetOptions{})
-				if err != nil {
-					return ""
-				}
-				return newVM.Spec.Instancetype.RevisionName
-			}, 300*time.Second, 1*time.Second).ShouldNot(BeEmpty())
+			By("Waiting for a ControllerRevisions to be referenced from the new VirtualMachine")
+			Eventually(matcher.ThisVM(newVM)).WithTimeout(timeout).WithPolling(time.Second).Should(matcher.HaveControllerRevisionRefs())
+
+			newVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), newVM.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Ensuring the two VirtualMachines are using different ControllerRevisions of the same VirtualMachineInstancetype")
 			Expect(newVM.Spec.Instancetype.Name).To(Equal(vm.Spec.Instancetype.Name))
-			Expect(newVM.Spec.Instancetype.RevisionName).ToNot(Equal(vm.Spec.Instancetype.RevisionName))
+			Expect(newVM.Status.InstancetypeRef.ControllerRevisionRef.Name).ToNot(Equal(vm.Status.InstancetypeRef.ControllerRevisionRef.Name))
 
 			By("Checking that new ControllerRevisions for the updated VirtualMachineInstancetype")
-			instancetypeRevision, err = virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(vm)).Get(context.Background(), newVM.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+			instancetypeRevision, err = virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(vm)).Get(context.Background(), newVM.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			stashedInstancetype = &instancetypev1beta1.VirtualMachineInstancetype{}
@@ -637,21 +632,20 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating a VirtualMachine")
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithInstancetype(instancetype.Name))
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithInstancetype(instancetype.Name), libvmi.WithRunStrategy(virtv1.RunStrategyAlways))
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vm = libvmops.StartVirtualMachine(vm)
+			By("Waiting for VM to be ready")
+			Eventually(matcher.ThisVM(vm), 360*time.Second, 1*time.Second).Should(matcher.BeReady())
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			By("Waiting for VirtualMachineInstancetypeSpec ControllerRevision to be referenced from the VirtualMachine")
-			Eventually(func(g Gomega) {
-				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(vm.Spec.Instancetype.RevisionName).ToNot(BeEmpty())
-			}, 5*time.Minute, time.Second).Should(Succeed())
+			By("Waiting for ControllerRevisions to be referenced from the VirtualMachine")
+			Eventually(matcher.ThisVM(vm)).WithTimeout(timeout).WithPolling(time.Second).Should(matcher.HaveInstancetypeControllerRevisionRef())
 
 			By("Checking that ControllerRevisions have been created for the VirtualMachineInstancetype and VirtualMachinePreference")
-			instancetypeRevision, err := virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+			instancetypeRevision, err := virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Stopping and removing VM")
@@ -766,7 +760,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		BeforeEach(func() {
 			if !libstorage.HasCDI() {
-				Skip("instance type and preference inferFromVolume tests require CDI to be installed providing the DataVolume and DataSource CRDs")
+				Fail("instance type and preference inferFromVolume tests require CDI to be installed providing the DataVolume and DataSource CRDs")
 			}
 
 			namespace = testsuite.GetTestNamespace(nil)
@@ -1013,18 +1007,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			By("Creating the VirtualMachine")
 			_, err := virtClient.VirtualMachine(namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).To(MatchError("admission webhook \"virtualmachine-validator.kubevirt.io\" denied the request: VM field spec.template.spec.domain.memory conflicts with selected instance type"))
+			Expect(err).To(MatchError("admission webhook \"virtualmachine-validator.kubevirt.io\" denied the request: VM field(s) spec.template.spec.domain.memory conflicts with selected instance type"))
 		},
 			Entry("with explicitly setting RejectInferFromVolumeFailure", true),
 			Entry("with implicitly setting RejectInferFromVolumeFailure (default)", false),
 		)
 	})
 
-	Context("instance type with dedicatedCPUPlacement enabled", func() {
-		BeforeEach(func() {
-			checks.SkipTestIfNoCPUManager()
-		})
-
+	Context("instance type with dedicatedCPUPlacement enabled", decorators.RequiresNodeWithCPUManager, func() {
 		It("should be accepted and result in running VirtualMachineInstance", func() {
 			vmi := libvmifact.NewGuestless()
 
@@ -1034,11 +1024,11 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Create(context.Background(), clusterInstancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithClusterInstancetype(clusterInstancetype.Name))
+			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithClusterInstancetype(clusterInstancetype.Name), libvmi.WithRunStrategy(virtv1.RunStrategyAlways))
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-
-			vm = libvmops.StartVirtualMachine(vm)
+			By("Waiting for VM to be ready")
+			Eventually(matcher.ThisVM(vm), 360*time.Second, 1*time.Second).Should(matcher.BeReady())
 
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())

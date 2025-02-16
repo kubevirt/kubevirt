@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/controller"
 
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -92,7 +93,8 @@ func pvcForMigrationTargetFromStore(pvcStore cache.Store, migration *corev1.Virt
 
 func PVCForMigrationTarget(pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) *v1.PersistentVolumeClaim {
 	if migration.Status.MigrationState != nil && migration.Status.MigrationState.TargetPersistentStatePVCName != "" {
-		obj, exists, err := pvcStore.GetByKey(migration.Namespace + "/" + migration.Status.MigrationState.TargetPersistentStatePVCName)
+		key := controller.NamespacedKey(migration.Namespace, migration.Status.MigrationState.TargetPersistentStatePVCName)
+		obj, exists, err := pvcStore.GetByKey(key)
 		if err != nil || !exists {
 			return nil
 		}
@@ -150,7 +152,7 @@ func IsBackendStorageNeededForVM(vm *corev1.VirtualMachine) bool {
 	if vm.Spec.Template == nil {
 		return false
 	}
-	return HasPersistentTPMDevice(&vm.Spec.Template.Spec)
+	return HasPersistentTPMDevice(&vm.Spec.Template.Spec) || HasPersistentEFI(&vm.Spec.Template.Spec)
 }
 
 func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) error {
@@ -258,7 +260,7 @@ func (bs *BackendStorage) getStorageClass() (string, error) {
 	kvDefault := ""
 	for _, obj := range bs.scStore.List() {
 		sc := obj.(*storagev1.StorageClass)
-		if sc.Annotations["storageclass.cdi.kubevirt.io/is-default-class"] == "true" {
+		if sc.Annotations["storageclass.kubevirt.io/is-default-virt-class"] == "true" {
 			kvDefault = sc.Name
 		}
 		if sc.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
@@ -418,7 +420,7 @@ func (bs *BackendStorage) IsPVCReady(vmi *corev1.VirtualMachineInstance, pvcName
 		return true, nil
 	}
 
-	obj, exists, err := bs.pvcStore.GetByKey(vmi.Namespace + "/" + pvcName)
+	obj, exists, err := bs.pvcStore.GetByKey(controller.NamespacedKey(vmi.Namespace, pvcName))
 	if err != nil {
 		return false, err
 	}

@@ -28,20 +28,20 @@ import (
 	"github.com/spf13/cobra"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const (
-	COMMAND_ADDVOLUME = "addvolume"
-	serialArg         = "serial"
-	cacheArg          = "cache"
-	diskTypeArg       = "disk-type"
-	concurrentError   = "the server rejected our request due to an error in our request"
-	maxRetries        = 15
+	serialArg       = "serial"
+	cacheArg        = "cache"
+	diskTypeArg     = "disk-type"
+	concurrentError = "the server rejected our request due to an error in our request"
+	maxRetries      = 15
 )
 
 var (
@@ -50,16 +50,13 @@ var (
 	diskType string
 )
 
-func NewAddVolumeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewAddVolumeCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "addvolume VMI",
 		Short:   "add a volume to a running VM",
 		Example: usageAddVolume(),
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Command{command: COMMAND_ADDVOLUME, clientConfig: clientConfig}
-			return c.addVolumeRun(args)
-		},
+		RunE:    addVolumeRun,
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().StringVar(&volumeName, volumeNameArg, "", "name used in volumes section of spec")
@@ -88,8 +85,8 @@ func usageAddVolume() string {
   `
 }
 
-func (o *Command) addVolumeRun(args []string) error {
-	virtClient, namespace, err := GetNamespaceAndClient(o.clientConfig)
+func addVolumeRun(cmd *cobra.Command, args []string) error {
+	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

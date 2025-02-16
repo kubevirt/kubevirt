@@ -26,11 +26,11 @@ import (
 	"strconv"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
-
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/client-go/log"
+
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -449,7 +449,7 @@ func featureGatesChanged(currKVSpec, newKVSpec *v1.KubeVirtSpec) bool {
 
 func warnDeprecatedFeatureGates(featureGates []string) (warnings []string) {
 	for _, featureGate := range featureGates {
-		deprectedFeature := deprecation.FeatureGateInfo(featureGate)
+		deprectedFeature := featuregate.FeatureGateInfo(featureGate)
 		if deprectedFeature != nil {
 			warning := deprectedFeature.Message
 			warnings = append(warnings, warning)

@@ -92,13 +92,13 @@
      }
     }
    },
-   "/apis/clone.kubevirt.io/v1alpha1/": {
+   "/apis/clone.kubevirt.io/v1beta1/": {
     "get": {
      "description": "Get KubeVirt API Resources",
      "produces": [
       "application/json"
      ],
-     "operationId": "getAPIResources-clone.kubevirt.io-v1alpha1",
+     "operationId": "getAPIResources-clone.kubevirt.io-v1beta1",
      "responses": {
       "200": {
        "description": "OK",
@@ -118,7 +118,7 @@
      }
     }
    },
-   "/apis/clone.kubevirt.io/v1alpha1/virtualmachineclones": {
+   "/apis/clone.kubevirt.io/v1beta1/virtualmachineclones": {
     "get": {
      "description": "Get a list of VirtualMachineClone objects.",
      "produces": [
@@ -157,7 +157,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineCloneList"
+        "$ref": "#/definitions/v1beta1.VirtualMachineCloneList"
        }
       },
       "401": {
@@ -185,7 +185,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClone"
+        "$ref": "#/definitions/v1beta1.VirtualMachineClone"
        }
       }
      ],
@@ -193,19 +193,19 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClone"
+        "$ref": "#/definitions/v1beta1.VirtualMachineClone"
        }
       },
       "201": {
        "description": "Created",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClone"
+        "$ref": "#/definitions/v1beta1.VirtualMachineClone"
        }
       },
       "202": {
        "description": "Accepted",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClone"
+        "$ref": "#/definitions/v1beta1.VirtualMachineClone"
        }
       },
       "401": {
@@ -265,7 +265,7 @@
      }
     }
    },
-   "/apis/clone.kubevirt.io/v1alpha1/virtualmachineclones/{name}": {
+   "/apis/clone.kubevirt.io/v1beta1/virtualmachineclones/{name}": {
     "get": {
      "description": "Get a VirtualMachineClone object.",
      "produces": [
@@ -286,7 +286,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClone"
+        "$ref": "#/definitions/v1beta1.VirtualMachineClone"
        }
       },
       "401": {
@@ -314,7 +314,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClone"
+        "$ref": "#/definitions/v1beta1.VirtualMachineClone"
        }
       }
      ],
@@ -322,13 +322,13 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClone"
+        "$ref": "#/definitions/v1beta1.VirtualMachineClone"
        }
       },
       "201": {
        "description": "Create",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClone"
+        "$ref": "#/definitions/v1beta1.VirtualMachineClone"
        }
       },
       "401": {
@@ -408,7 +408,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachineClone"
+        "$ref": "#/definitions/v1beta1.VirtualMachineClone"
        }
       },
       "401": {
@@ -430,7 +430,7 @@
      }
     ]
    },
-   "/apis/clone.kubevirt.io/v1alpha1/watch/virtualmachineclones": {
+   "/apis/clone.kubevirt.io/v1beta1/watch/virtualmachineclones": {
     "get": {
      "description": "Watch a VirtualMachineCloneList object.",
      "produces": [
@@ -8537,6 +8537,42 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/reset": {
+    "put": {
+     "description": "Reset a VirtualMachineInstance object.",
+     "operationId": "v1Reset",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/sev/fetchcertchain": {
     "get": {
      "description": "Fetch SEV certificate chain from the node where Virtual Machine is scheduled",
@@ -10005,6 +10041,42 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/reset": {
+    "put": {
+     "description": "Reset a VirtualMachineInstance object.",
+     "operationId": "v1alpha3Reset",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/sev/fetchcertchain": {
     "get": {
      "description": "Fetch SEV certificate chain from the node where Virtual Machine is scheduled",
@@ -11344,11 +11416,12 @@
       "type": "string"
      },
      "volumeMode": {
-      "description": "volumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.",
+      "description": "volumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.\n - `\"FromStorageProfile\"` means the volume mode will be auto selected by CDI according to a matching StorageProfile",
       "type": "string",
       "enum": [
        "Block",
-       "Filesystem"
+       "Filesystem",
+       "FromStorageProfile"
       ]
      },
      "volumeName": {
@@ -11539,24 +11612,6 @@
      }
     }
    },
-   "k8s.io.api.core.v1.ResourceClaim": {
-    "description": "ResourceClaim references one entry in PodSpec.ResourceClaims.",
-    "type": "object",
-    "required": [
-     "name"
-    ],
-    "properties": {
-     "name": {
-      "description": "Name must match the name of one entry in pod.spec.resourceClaims of the Pod where this field is used. It makes that resource available inside a container.",
-      "type": "string",
-      "default": ""
-     },
-     "request": {
-      "description": "Request is the name chosen for a request in the referenced claim. If empty, everything from the claim is made available, otherwise only the result of this request.",
-      "type": "string"
-     }
-    }
-   },
    "k8s.io.api.core.v1.ResourceFieldSelector": {
     "description": "ResourceFieldSelector represents container resources (cpu, memory) and their output format",
     "type": "object",
@@ -11579,38 +11634,6 @@
      }
     },
     "x-kubernetes-map-type": "atomic"
-   },
-   "k8s.io.api.core.v1.ResourceRequirements": {
-    "description": "ResourceRequirements describes the compute resource requirements.",
-    "type": "object",
-    "properties": {
-     "claims": {
-      "description": "Claims lists the names of resources, defined in spec.resourceClaims, that are used by this container.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate.\n\nThis field is immutable. It can only be set for containers.",
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/k8s.io.api.core.v1.ResourceClaim"
-      },
-      "x-kubernetes-list-map-keys": [
-       "name"
-      ],
-      "x-kubernetes-list-type": "map"
-     },
-     "limits": {
-      "description": "Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
-      "type": "object",
-      "additionalProperties": {
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
-      }
-     },
-     "requests": {
-      "description": "Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
-      "type": "object",
-      "additionalProperties": {
-       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
-      }
-     }
-    }
    },
    "k8s.io.api.core.v1.TCPSocketAction": {
     "description": "TCPSocketAction describes an action based on opening a socket",
@@ -11828,7 +11851,11 @@
    },
    "k8s.io.apimachinery.pkg.api.resource.Quantity": {
     "description": "Quantity is a fixed-point representation of a number. It provides convenient marshaling/unmarshaling in JSON and YAML, in addition to String() and AsInt64() accessors.\n\nThe serialization format is:\n\n``` \u003cquantity\u003e        ::= \u003csignedNumber\u003e\u003csuffix\u003e\n\n\t(Note that \u003csuffix\u003e may be empty, from the \"\" case in \u003cdecimalSI\u003e.)\n\n\u003cdigit\u003e           ::= 0 | 1 | ... | 9 \u003cdigits\u003e          ::= \u003cdigit\u003e | \u003cdigit\u003e\u003cdigits\u003e \u003cnumber\u003e          ::= \u003cdigits\u003e | \u003cdigits\u003e.\u003cdigits\u003e | \u003cdigits\u003e. | .\u003cdigits\u003e \u003csign\u003e            ::= \"+\" | \"-\" \u003csignedNumber\u003e    ::= \u003cnumber\u003e | \u003csign\u003e\u003cnumber\u003e \u003csuffix\u003e          ::= \u003cbinarySI\u003e | \u003cdecimalExponent\u003e | \u003cdecimalSI\u003e \u003cbinarySI\u003e        ::= Ki | Mi | Gi | Ti | Pi | Ei\n\n\t(International System of units; See: http://physics.nist.gov/cuu/Units/binary.html)\n\n\u003cdecimalSI\u003e       ::= m | \"\" | k | M | G | T | P | E\n\n\t(Note that 1024 = 1Ki but 1000 = 1k; I didn't choose the capitalization.)\n\n\u003cdecimalExponent\u003e ::= \"e\" \u003csignedNumber\u003e | \"E\" \u003csignedNumber\u003e ```\n\nNo matter which of the three exponent forms is used, no quantity may represent a number greater than 2^63-1 in magnitude, nor may it have more than 3 decimal places. Numbers larger or more precise will be capped or rounded up. (E.g.: 0.1m will rounded up to 1m.) This may be extended in the future if we require larger or smaller quantities.\n\nWhen a Quantity is parsed from a string, it will remember the type of suffix it had, and will use the same type again when it is serialized.\n\nBefore serializing, Quantity will be put in \"canonical form\". This means that Exponent/suffix will be adjusted up or down (with a corresponding increase or decrease in Mantissa) such that:\n\n- No precision is lost - No fractional digits will be emitted - The exponent (or suffix) is as large as possible.\n\nThe sign will be omitted unless the number is negative.\n\nExamples:\n\n- 1.5 will be serialized as \"1500m\" - 1.5Gi will be serialized as \"1536Mi\"\n\nNote that the quantity will NEVER be internally represented by a floating point number. That is the whole point of this exercise.\n\nNon-canonical values will still parse as long as they are well formed, but will be re-emitted in their canonical form. (So always use canonical form, or don't diff.)\n\nThis format is intended to make it difficult to use these numbers without writing some sort of special handling code in the hopes that that will cause implementors to also use a fixed point implementation.",
-    "type": "string"
+    "type": [
+     "string",
+     "integer",
+     "number"
+    ]
    },
    "k8s.io.apimachinery.pkg.apis.meta.v1.APIGroup": {
     "description": "APIGroup contains the name, the supported versions, and the preferred version of a group.",
@@ -12987,6 +13014,15 @@
      }
     }
    },
+   "v1.ControllerRevisionRef": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "description": "Name of the ControllerRevision",
+      "type": "string"
+     }
+    }
+   },
    "v1.CustomBlockSize": {
     "description": "CustomBlockSize represents the desired logical and physical block size for a VM disk.",
     "type": "object",
@@ -13124,7 +13160,7 @@
       "type": "boolean"
      },
      "name": {
-      "description": "Name of both the DataVolume and the PVC in the same namespace. After PVC population the DataVolume is garbage collected by default.",
+      "description": "Name of both the DataVolume and the PVC in the same namespace.",
       "type": "string",
       "default": ""
      }
@@ -13179,6 +13215,10 @@
     "description": "DeveloperConfiguration holds developer options",
     "type": "object",
     "properties": {
+     "clusterProfiler": {
+      "description": "Enable the ability to pprof profile KubeVirt control plane",
+      "type": "boolean"
+     },
      "cpuAllocationRatio": {
       "description": "For each requested virtual CPU, CPUAllocationRatio defines how much physical CPU to request per VMI from the hosting node. The value is in fraction of a CPU thread (or core on non-hyperthreaded nodes). For example, a value of 1 means 1 physical CPU thread per VMI CPU thread. A value of 100 would be 1% of a physical thread allocated for each requested VMI thread. This option has no effect on VMIs that request dedicated CPUs. More information at: https://kubevirt.io/user-guide/operations/node_overcommit/#node-cpu-allocation-ratio Defaults to 10",
       "type": "integer",
@@ -13424,6 +13464,16 @@
      }
     }
    },
+   "v1.DiskIOThreads": {
+    "type": "object",
+    "properties": {
+     "supplementalPoolThreadCount": {
+      "description": "SupplementalPoolThreadCount specifies how many iothreads are allocated for the supplementalPool policy.",
+      "type": "integer",
+      "format": "int64"
+     }
+    }
+   },
    "v1.DiskTarget": {
     "type": "object",
     "properties": {
@@ -13505,6 +13555,10 @@
      "firmware": {
       "description": "Firmware.",
       "$ref": "#/definitions/v1.Firmware"
+     },
+     "ioThreads": {
+      "description": "IOThreads specifies the IOThreads options.",
+      "$ref": "#/definitions/v1.DiskIOThreads"
      },
      "ioThreadsPolicy": {
       "description": "Controls whether or not disks will share IOThreads. Omitting IOThreadsPolicy disables use of IOThreads. One of: shared, auto",
@@ -14113,6 +14167,31 @@
      }
     }
    },
+   "v1.InstancetypeStatusRef": {
+    "type": "object",
+    "properties": {
+     "controllerRevisionRef": {
+      "description": "ControllerRef specifies the ControllerRevision storing a copy of the object captured when it is first seen by the VirtualMachine controller",
+      "$ref": "#/definitions/v1.ControllerRevisionRef"
+     },
+     "inferFromVolume": {
+      "description": "InferFromVolume lists the name of a volume that should be used to infer or discover the resource",
+      "type": "string"
+     },
+     "inferFromVolumeFailurePolicy": {
+      "description": "InferFromVolumeFailurePolicy controls what should happen on failure when inferring the resource",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind specifies the kind of resource",
+      "type": "string"
+     },
+     "name": {
+      "description": "Name is the name of resource",
+      "type": "string"
+     }
+    }
+   },
    "v1.Interface": {
     "type": "object",
     "required": [
@@ -14184,7 +14263,7 @@
       "$ref": "#/definitions/v1.InterfaceSRIOV"
      },
      "state": {
-      "description": "State represents the requested operational state of the interface. The (only) value supported is `absent`, expressing a request to remove the interface.",
+      "description": "State represents the requested operational state of the interface. The supported values are: `absent`, expressing a request to remove the interface. `down`, expressing a request to set the link down. `up`, expressing a request to set the link up. Empty value functions as `up`.",
       "type": "string"
      },
      "tag": {
@@ -14556,11 +14635,11 @@
       "$ref": "#/definitions/v1.VirtualMachineOptions"
      },
      "vmRolloutStrategy": {
-      "description": "VMRolloutStrategy defines how changes to a VM object propagate to its VMI",
+      "description": "VMRolloutStrategy defines how live-updatable fields, like CPU sockets, memory, tolerations, and affinity, are propagated from a VM to its VMI.",
       "type": "string"
      },
      "vmStateStorageClass": {
-      "description": "VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM. The storage class must support RWX in filesystem mode.",
+      "description": "VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.",
       "type": "string"
      },
      "webhookConfiguration": {
@@ -15026,12 +15105,16 @@
       "description": "AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs to successfully live-migrate. However, events like a network failure can cause a VMI crash. If set to true, migrations will still start in pre-copy, but switch to post-copy when CompletionTimeoutPerGiB triggers. Defaults to false",
       "type": "boolean"
      },
+     "allowWorkloadDisruption": {
+      "description": "AllowWorkloadDisruption indicates that the migration shouldn't be canceled after acceptableCompletionTime is exceeded. Instead, if permitted, migration will be switched to post-copy or the VMI will be paused to allow the migration to complete",
+      "type": "boolean"
+     },
      "bandwidthPerMigration": {
       "description": "BandwidthPerMigration limits the amount of network bandwidth live migrations are allowed to use. The value is in quantity per second. Defaults to 0 (no limit)",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      },
      "completionTimeoutPerGiB": {
-      "description": "CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take. If a live-migration takes longer to migrate than this value multiplied by the size of the VMI, the migration will be cancelled, unless AllowPostCopy is true. Defaults to 150",
+      "description": "CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take. If the timeout is reached, the migration will be either paused, switched to post-copy or cancelled depending on other settings. Defaults to 150",
       "type": "integer",
       "format": "int64"
      },
@@ -15345,11 +15428,12 @@
       }
      },
      "volumeMode": {
-      "description": "VolumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.",
+      "description": "VolumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.\n - `\"FromStorageProfile\"` means the volume mode will be auto selected by CDI according to a matching StorageProfile",
       "type": "string",
       "enum": [
        "Block",
-       "Filesystem"
+       "Filesystem",
+       "FromStorageProfile"
       ]
      }
     }
@@ -15603,7 +15687,10 @@
     "properties": {
      "limits": {
       "description": "Limits describes the maximum amount of compute resources allowed. Valid resource keys are \"memory\" and \"cpu\".",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": {
+       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      }
      },
      "overcommitGuestOverhead": {
       "description": "Don't ask the scheduler to take the guest-management overhead into account. Instead put the overhead only into the container's memory limit. This can lead to crashes if all memory is in use on a node. Defaults to false.",
@@ -15611,7 +15698,10 @@
      },
      "requests": {
       "description": "Requests is a description of the initial vmi resources. Valid resource keys are \"memory\" and \"cpu\".",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": {
+       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      }
      }
     }
    },
@@ -16928,6 +17018,10 @@
        "default": ""
       }
      },
+     "linkState": {
+      "description": "LinkState Reports the current operational link state`. values: up, down.",
+      "type": "string"
+     },
      "mac": {
       "description": "Hardware address of a Virtual Machine interface",
       "type": "string"
@@ -17659,6 +17753,10 @@
       "type": "integer",
       "format": "int64"
      },
+     "instancetypeRef": {
+      "description": "InstancetypeRef captures the state of any referenced instance type from the VirtualMachine",
+      "$ref": "#/definitions/v1.InstancetypeStatusRef"
+     },
      "memoryDumpRequest": {
       "description": "MemoryDumpRequest tracks memory dump request phase and info of getting a memory dump to the given pvc",
       "$ref": "#/definitions/v1.VirtualMachineMemoryDumpRequest"
@@ -17667,6 +17765,10 @@
       "description": "ObservedGeneration is the generation observed by the vmi when started.",
       "type": "integer",
       "format": "int64"
+     },
+     "preferenceRef": {
+      "description": "PreferenceRef captures the state of any referenced preference from the VirtualMachine",
+      "$ref": "#/definitions/v1.InstancetypeStatusRef"
      },
      "printableStatus": {
       "description": "PrintableStatus is a human readable, high-level representation of the status of the virtual machine",
@@ -17927,42 +18029,6 @@
      }
     }
    },
-   "v1alpha1.Condition": {
-    "description": "Condition defines conditions",
-    "type": "object",
-    "required": [
-     "type",
-     "status"
-    ],
-    "properties": {
-     "lastProbeTime": {
-      "type": [
-       "string",
-       "null"
-      ]
-     },
-     "lastTransitionTime": {
-      "type": [
-       "string",
-       "null"
-      ]
-     },
-     "message": {
-      "type": "string"
-     },
-     "reason": {
-      "type": "string"
-     },
-     "status": {
-      "type": "string",
-      "default": ""
-     },
-     "type": {
-      "type": "string",
-      "default": ""
-     }
-    }
-   },
    "v1alpha1.MigrationPolicy": {
     "description": "MigrationPolicy holds migration policy (i.e. configurations) to apply to a VM or group of VMs",
     "type": "object",
@@ -18033,6 +18099,9 @@
      "allowPostCopy": {
       "type": "boolean"
      },
+     "allowWorkloadDisruption": {
+      "type": "boolean"
+     },
      "bandwidthPerMigration": {
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      },
@@ -18065,167 +18134,6 @@
        "type": "string",
        "default": ""
       }
-     }
-    }
-   },
-   "v1alpha1.VirtualMachineClone": {
-    "description": "VirtualMachineClone is a CRD that clones one VM into another.",
-    "type": "object",
-    "required": [
-     "spec"
-    ],
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-      "type": "string"
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
-     },
-     "spec": {
-      "default": {},
-      "$ref": "#/definitions/v1alpha1.VirtualMachineCloneSpec"
-     },
-     "status": {
-      "default": {},
-      "$ref": "#/definitions/v1alpha1.VirtualMachineCloneStatus"
-     }
-    }
-   },
-   "v1alpha1.VirtualMachineCloneList": {
-    "description": "VirtualMachineCloneList is a list of MigrationPolicy",
-    "type": "object",
-    "required": [
-     "items"
-    ],
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-      "type": "string"
-     },
-     "items": {
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1alpha1.VirtualMachineClone"
-      },
-      "x-kubernetes-list-type": "atomic"
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
-     }
-    }
-   },
-   "v1alpha1.VirtualMachineCloneSpec": {
-    "type": "object",
-    "required": [
-     "source"
-    ],
-    "properties": {
-     "annotationFilters": {
-      "description": "Example use: \"!some/key*\". For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
-      "type": "array",
-      "items": {
-       "type": "string",
-       "default": ""
-      },
-      "x-kubernetes-list-type": "atomic"
-     },
-     "labelFilters": {
-      "description": "Example use: \"!some/key*\". For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
-      "type": "array",
-      "items": {
-       "type": "string",
-       "default": ""
-      },
-      "x-kubernetes-list-type": "atomic"
-     },
-     "newMacAddresses": {
-      "description": "NewMacAddresses manually sets that target interfaces' mac addresses. The key is the interface name and the value is the new mac address. If this field is not specified, a new MAC address will be generated automatically, as for any interface that is not included in this map.",
-      "type": "object",
-      "additionalProperties": {
-       "type": "string",
-       "default": ""
-      }
-     },
-     "newSMBiosSerial": {
-      "description": "NewSMBiosSerial manually sets that target's SMbios serial. If this field is not specified, a new serial will be generated automatically.",
-      "type": "string"
-     },
-     "source": {
-      "description": "Source is the object that would be cloned. Currently supported source types are: VirtualMachine of kubevirt.io API group, VirtualMachineSnapshot of snapshot.kubevirt.io API group",
-      "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
-     },
-     "target": {
-      "description": "Target is the outcome of the cloning process. Currently supported source types are: - VirtualMachine of kubevirt.io API group - Empty (nil). If the target is not provided, the target type would default to VirtualMachine and a random name would be generated for the target. The target's name can be viewed by inspecting status \"TargetName\" field below.",
-      "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
-     },
-     "template": {
-      "description": "For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
-      "default": {},
-      "$ref": "#/definitions/v1alpha1.VirtualMachineCloneTemplateFilters"
-     }
-    }
-   },
-   "v1alpha1.VirtualMachineCloneStatus": {
-    "type": "object",
-    "nullable": true,
-    "properties": {
-     "conditions": {
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1alpha1.Condition"
-      },
-      "x-kubernetes-list-type": "atomic"
-     },
-     "creationTime": {
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
-     },
-     "phase": {
-      "type": "string"
-     },
-     "restoreName": {
-      "type": "string"
-     },
-     "snapshotName": {
-      "type": "string"
-     },
-     "targetName": {
-      "type": "string"
-     }
-    }
-   },
-   "v1alpha1.VirtualMachineCloneTemplateFilters": {
-    "type": "object",
-    "properties": {
-     "annotationFilters": {
-      "description": "Example use: \"!some/key*\". For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
-      "type": "array",
-      "items": {
-       "type": "string",
-       "default": ""
-      },
-      "x-kubernetes-list-type": "atomic"
-     },
-     "labelFilters": {
-      "description": "Example use: \"!some/key*\". For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
-      "type": "array",
-      "items": {
-       "type": "string",
-       "default": ""
-      },
-      "x-kubernetes-list-type": "atomic"
      }
     }
    },
@@ -18321,6 +18229,17 @@
      }
     }
    },
+   "v1alpha1.VirtualMachinePoolNameGeneration": {
+    "type": "object",
+    "properties": {
+     "appendIndexToConfigMapRefs": {
+      "type": "boolean"
+     },
+     "appendIndexToSecretRefs": {
+      "type": "boolean"
+     }
+    }
+   },
    "v1alpha1.VirtualMachinePoolSpec": {
     "type": "object",
     "required": [
@@ -18328,6 +18247,10 @@
      "virtualMachineTemplate"
     ],
     "properties": {
+     "nameGeneration": {
+      "description": "Options for the name generation in a pool.",
+      "$ref": "#/definitions/v1alpha1.VirtualMachinePoolNameGeneration"
+     },
      "paused": {
       "description": "Indicates that the pool is paused.",
       "type": "boolean"
@@ -19009,11 +18932,11 @@
       "type": "boolean"
      },
      "preferredUseEfi": {
-      "description": "PreferredUseEfi optionally enables EFI",
+      "description": "PreferredUseEfi optionally enables EFI\n\nDeprecated: Will be removed with v1beta2 or v1",
       "type": "boolean"
      },
      "preferredUseSecureBoot": {
-      "description": "PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.\n\nRequires PreferredUseEfi and PreferredSmm to be enabled.",
+      "description": "PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.\n\nRequires PreferredUseEfi and PreferredSmm to be enabled.\n\nDeprecated: Will be removed with v1beta2 or v1",
       "type": "boolean"
      }
     }
@@ -19168,7 +19091,7 @@
      "resources": {
       "description": "Resources represents the minimum resources the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources",
       "default": {},
-      "$ref": "#/definitions/k8s.io.api.core.v1.ResourceRequirements"
+      "$ref": "#/definitions/k8s.io.api.core.v1.VolumeResourceRequirements"
      },
      "selector": {
       "description": "A label query over volumes to consider for binding.",
@@ -19179,11 +19102,12 @@
       "type": "string"
      },
      "volumeMode": {
-      "description": "volumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.",
+      "description": "volumeMode defines what type of volume is required by the claim. Value of Filesystem is implied when not included in claim spec.\n\nPossible enum values:\n - `\"Block\"` means the volume will not be formatted with a filesystem and will remain a raw block device.\n - `\"Filesystem\"` means the volume will be or is formatted with a filesystem.\n - `\"FromStorageProfile\"` means the volume mode will be auto selected by CDI according to a matching StorageProfile",
       "type": "string",
       "enum": [
        "Block",
-       "Filesystem"
+       "Filesystem",
+       "FromStorageProfile"
       ]
      },
      "volumeName": {
@@ -19208,6 +19132,167 @@
       "description": "Status holds the current state of the controller and brief information about its associated VirtualMachineInstance",
       "default": {},
       "$ref": "#/definitions/v1.VirtualMachineStatus"
+     }
+    }
+   },
+   "v1beta1.VirtualMachineClone": {
+    "description": "VirtualMachineClone is a CRD that clones one VM into another.",
+    "type": "object",
+    "required": [
+     "spec"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "default": {},
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+     },
+     "spec": {
+      "default": {},
+      "$ref": "#/definitions/v1beta1.VirtualMachineCloneSpec"
+     },
+     "status": {
+      "default": {},
+      "$ref": "#/definitions/v1beta1.VirtualMachineCloneStatus"
+     }
+    }
+   },
+   "v1beta1.VirtualMachineCloneList": {
+    "description": "VirtualMachineCloneList is a list of MigrationPolicy",
+    "type": "object",
+    "required": [
+     "items"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1beta1.VirtualMachineClone"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "default": {},
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+     }
+    }
+   },
+   "v1beta1.VirtualMachineCloneSpec": {
+    "type": "object",
+    "required": [
+     "source"
+    ],
+    "properties": {
+     "annotationFilters": {
+      "description": "Example use: \"!some/key*\". For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "labelFilters": {
+      "description": "Example use: \"!some/key*\". For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "newMacAddresses": {
+      "description": "NewMacAddresses manually sets that target interfaces' mac addresses. The key is the interface name and the value is the new mac address. If this field is not specified, a new MAC address will be generated automatically, as for any interface that is not included in this map.",
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
+     "newSMBiosSerial": {
+      "description": "NewSMBiosSerial manually sets that target's SMbios serial. If this field is not specified, a new serial will be generated automatically.",
+      "type": "string"
+     },
+     "source": {
+      "description": "Source is the object that would be cloned. Currently supported source types are: VirtualMachine of kubevirt.io API group, VirtualMachineSnapshot of snapshot.kubevirt.io API group",
+      "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
+     },
+     "target": {
+      "description": "Target is the outcome of the cloning process. Currently supported source types are: - VirtualMachine of kubevirt.io API group - Empty (nil). If the target is not provided, the target type would default to VirtualMachine and a random name would be generated for the target. The target's name can be viewed by inspecting status \"TargetName\" field below.",
+      "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
+     },
+     "template": {
+      "description": "For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
+      "default": {},
+      "$ref": "#/definitions/v1beta1.VirtualMachineCloneTemplateFilters"
+     }
+    }
+   },
+   "v1beta1.VirtualMachineCloneStatus": {
+    "type": "object",
+    "nullable": true,
+    "properties": {
+     "conditions": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1beta1.Condition"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "creationTime": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "phase": {
+      "type": "string"
+     },
+     "restoreName": {
+      "type": "string"
+     },
+     "snapshotName": {
+      "type": "string"
+     },
+     "targetName": {
+      "type": "string"
+     }
+    }
+   },
+   "v1beta1.VirtualMachineCloneTemplateFilters": {
+    "type": "object",
+    "properties": {
+     "annotationFilters": {
+      "description": "Example use: \"!some/key*\". For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "labelFilters": {
+      "description": "Example use: \"!some/key*\". For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
      }
     }
    },
@@ -19864,6 +19949,9 @@
       "description": "initially only VirtualMachine type supported",
       "default": {},
       "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
+     },
+     "targetReadinessPolicy": {
+      "type": "string"
      },
      "virtualMachineSnapshotName": {
       "type": "string",

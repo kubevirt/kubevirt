@@ -80,6 +80,7 @@ type DomainCapsCPUMode struct {
 	Vendor      string                    `xml:"vendor,omitempty"`
 	MaxPhysAddr *DomainCapsCPUMaxPhysAddr `xml:"maxphysaddr"`
 	Features    []DomainCapsCPUFeature    `xml:"feature"`
+	Blockers    []DomainCapsCPUBlockers   `xml:"blockers"`
 	Enums       []DomainCapsEnum          `xml:"enum"`
 }
 
@@ -89,11 +90,21 @@ type DomainCapsCPUModel struct {
 	Fallback   string `xml:"fallback,attr,omitempty"`
 	Deprecated string `xml:"deprecated,attr,omitempty"`
 	Vendor     string `xml:"vendor,attr,omitempty"`
+	Canonical  string `xml:"canonical,attr,omitempty"`
 }
 
 type DomainCapsCPUFeature struct {
 	Policy string `xml:"policy,attr,omitempty"`
 	Name   string `xml:"name,attr"`
+}
+
+type DomainCapsCPUBlockers struct {
+	Model    string                        `xml:"model,attr"`
+	Features []DomainCapsCPUBlockedFeature `xml:"feature"`
+}
+
+type DomainCapsCPUBlockedFeature struct {
+	Name string `xml:"name,attr"`
 }
 
 type DomainCapsEnum struct {
@@ -117,6 +128,8 @@ type DomainCapsDevices struct {
 	Redirdev   *DomainCapsDevice `xml:"redirdev"`
 	Channel    *DomainCapsDevice `xml:"channel"`
 	Crypto     *DomainCapsDevice `xml:"crypto"`
+	Interface  *DomainCapsDevice `xml:"interface"`
+	Panic      *DomainCapsDevice `xml:"panic"`
 }
 
 type DomainCapsDevice struct {
@@ -132,6 +145,7 @@ type DomainCapsFeatures struct {
 	Backup            *DomainCapsFeatureBackup            `xml:"backup"`
 	AsyncTeardown     *DomainCapsFeatureAsyncTeardown     `xml:"async-teardown"`
 	S390PV            *DomainCapsFeatureS390PV            `xml:"s390-pv"`
+	PS2               *DomainCapsFeaturePS2               `xml:"ps2"`
 	SEV               *DomainCapsFeatureSEV               `xml:"sev"`
 	SGX               *DomainCapsFeatureSGX               `xml:"sgx"`
 	HyperV            *DomainCapsFeatureHyperV            `xml:"hyperv"`
@@ -164,6 +178,10 @@ type DomainCapsFeatureAsyncTeardown struct {
 }
 
 type DomainCapsFeatureS390PV struct {
+	Supported string `xml:"supported,attr"`
+}
+
+type DomainCapsFeaturePS2 struct {
 	Supported string `xml:"supported,attr"`
 }
 

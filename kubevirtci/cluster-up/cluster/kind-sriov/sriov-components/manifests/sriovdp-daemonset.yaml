@@ -9,7 +9,7 @@ metadata:
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: kube-sriov-device-plugin-amd64
+  name: kube-sriov-device-plugin
   namespace: kube-system
   labels:
     tier: node
@@ -26,16 +26,10 @@ spec:
         app: sriovdp
     spec:
       hostNetwork: true
-      nodeSelector:
-        beta.kubernetes.io/arch: amd64
-      tolerations:
-      - key: node-role.kubernetes.io/control-plane
-        operator: Exists
-        effect: NoSchedule
       serviceAccountName: sriov-device-plugin
       containers:
       - name: kube-sriovdp
-        image: ghcr.io/k8snetworkplumbingwg/sriov-network-device-plugin:v3.4.0
+        image: ghcr.io/k8snetworkplumbingwg/sriov-network-device-plugin:v3.9.0
         imagePullPolicy: IfNotPresent
         args:
         - --log-dir=sriovdp
@@ -51,7 +45,10 @@ spec:
             memory: "200Mi"
         volumeMounts:
         - name: devicesock
-          mountPath: /var/lib/kubelet/
+          mountPath: /var/lib/kubelet/device-plugins
+          readOnly: false
+        - name: plugins-registry
+          mountPath: /var/lib/kubelet/plugins_registry
           readOnly: false
         - name: log
           mountPath: /var/log
@@ -62,150 +59,10 @@ spec:
       volumes:
         - name: devicesock
           hostPath:
-            path: /var/lib/kubelet/
-        - name: log
+            path: /var/lib/kubelet/device-plugins
+        - name: plugins-registry
           hostPath:
-            path: /var/log
-        - name: device-info
-          hostPath:
-            path: /var/run/k8s.cni.cncf.io/devinfo/dp
-            type: DirectoryOrCreate
-        - name: config-volume
-          configMap:
-            name: sriovdp-config
-            items:
-            - key: config.json
-              path: config.json
-
----
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: kube-sriov-device-plugin-ppc64le
-  namespace: kube-system
-  labels:
-    tier: node
-    app: sriovdp
-spec:
-  selector:
-    matchLabels:
-      name: sriov-device-plugin
-  template:
-    metadata:
-      labels:
-        name: sriov-device-plugin
-        tier: node
-        app: sriovdp
-    spec:
-      hostNetwork: true
-      nodeSelector:
-        beta.kubernetes.io/arch: ppc64le
-      tolerations:
-      - key: node-role.kubernetes.io/control-plane
-        operator: Exists
-        effect: NoSchedule
-      serviceAccountName: sriov-device-plugin
-      containers:
-      - name: kube-sriovdp
-        image: ghcr.io/k8snetworkplumbingwg/sriov-network-device-plugin:latest-ppc64le
-        imagePullPolicy: IfNotPresent
-        args:
-        - --log-dir=sriovdp
-        - --log-level=10
-        securityContext:
-          privileged: true
-        resources:
-          requests:
-            cpu: "250m"
-            memory: "40Mi"
-          limits:
-            cpu: 1
-            memory: "200Mi"
-        volumeMounts:
-        - name: devicesock
-          mountPath: /var/lib/kubelet/
-          readOnly: false
-        - name: log
-          mountPath: /var/log
-        - name: config-volume
-          mountPath: /etc/pcidp
-        - name: device-info
-          mountPath: /var/run/k8s.cni.cncf.io/devinfo/dp
-      volumes:
-        - name: devicesock
-          hostPath:
-            path: /var/lib/kubelet/
-        - name: log
-          hostPath:
-            path: /var/log
-        - name: device-info
-          hostPath:
-            path: /var/run/k8s.cni.cncf.io/devinfo/dp
-            type: DirectoryOrCreate
-        - name: config-volume
-          configMap:
-            name: sriovdp-config
-            items:
-            - key: config.json
-              path: config.json
----
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: kube-sriov-device-plugin-arm64
-  namespace: kube-system
-  labels:
-    tier: node
-    app: sriovdp
-spec:
-  selector:
-    matchLabels:
-      name: sriov-device-plugin
-  template:
-    metadata:
-      labels:
-        name: sriov-device-plugin
-        tier: node
-        app: sriovdp
-    spec:
-      hostNetwork: true
-      nodeSelector:
-        beta.kubernetes.io/arch: arm64
-      tolerations:
-      - key: node-role.kubernetes.io/control-plane
-        operator: Exists
-        effect: NoSchedule
-      serviceAccountName: sriov-device-plugin
-      containers:
-      - name: kube-sriovdp
-        image: ghcr.io/k8snetworkplumbingwg/sriov-network-device-plugin:latest-arm64
-        imagePullPolicy: IfNotPresent
-        args:
-        - --log-dir=sriovdp
-        - --log-level=10
-        securityContext:
-          privileged: true
-        resources:
-          requests:
-            cpu: "250m"
-            memory: "40Mi"
-          limits:
-            cpu: 1
-            memory: "200Mi"
-        volumeMounts:
-        - name: devicesock
-          mountPath: /var/lib/kubelet/
-          readOnly: false
-        - name: log
-          mountPath: /var/log
-        - name: config-volume
-          mountPath: /etc/pcidp
-        - name: device-info
-          mountPath: /var/run/k8s.cni.cncf.io/devinfo/dp
-      volumes:
-        - name: devicesock
-          hostPath:
-            path: /var/lib/kubelet/
+            path: /var/lib/kubelet/plugins_registry
         - name: log
           hostPath:
             path: /var/log

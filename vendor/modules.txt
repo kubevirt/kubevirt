@@ -177,8 +177,8 @@ github.com/google/gofuzz/bytesource
 # github.com/google/goterm v0.0.0-20190311235235-ce302be1d114
 ## explicit
 github.com/google/goterm/term
-# github.com/google/pprof v0.0.0-20240727154555-813a5fbdbec8
-## explicit; go 1.19
+# github.com/google/pprof v0.0.0-20241029153458-d1b30febd7db
+## explicit; go 1.22
 github.com/google/pprof/profile
 # github.com/google/renameio/v2 v2.0.0
 ## explicit; go 1.13
@@ -305,8 +305,8 @@ github.com/nxadm/tail/ratelimiter
 github.com/nxadm/tail/util
 github.com/nxadm/tail/watch
 github.com/nxadm/tail/winfile
-# github.com/onsi/ginkgo/v2 v2.19.0
-## explicit; go 1.20
+# github.com/onsi/ginkgo/v2 v2.22.0
+## explicit; go 1.22.0
 github.com/onsi/ginkgo/v2
 github.com/onsi/ginkgo/v2/config
 github.com/onsi/ginkgo/v2/formatter
@@ -327,8 +327,8 @@ github.com/onsi/ginkgo/v2/internal/parallel_support
 github.com/onsi/ginkgo/v2/internal/testingtproxy
 github.com/onsi/ginkgo/v2/reporters
 github.com/onsi/ginkgo/v2/types
-# github.com/onsi/gomega v1.33.1
-## explicit; go 1.20
+# github.com/onsi/gomega v1.34.2
+## explicit; go 1.22
 github.com/onsi/gomega
 github.com/onsi/gomega/format
 github.com/onsi/gomega/ghttp
@@ -476,7 +476,7 @@ go.mongodb.org/mongo-driver/bson/bsonrw
 go.mongodb.org/mongo-driver/bson/bsontype
 go.mongodb.org/mongo-driver/bson/primitive
 go.mongodb.org/mongo-driver/x/bsonx/bsoncore
-# golang.org/x/crypto v0.26.0
+# golang.org/x/crypto v0.31.0
 ## explicit; go 1.20
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
@@ -497,10 +497,10 @@ golang.org/x/crypto/ssh/knownhosts
 # golang.org/x/exp/typeparams v0.0.0-20230203172020-98cc5a0785f9
 ## explicit; go 1.18
 golang.org/x/exp/typeparams
-# golang.org/x/mod v0.20.0
-## explicit; go 1.18
+# golang.org/x/mod v0.21.0
+## explicit; go 1.22.0
 golang.org/x/mod/semver
-# golang.org/x/net v0.28.0
+# golang.org/x/net v0.33.0
 ## explicit; go 1.18
 golang.org/x/net/bpf
 golang.org/x/net/context
@@ -524,19 +524,19 @@ golang.org/x/net/websocket
 ## explicit; go 1.18
 golang.org/x/oauth2
 golang.org/x/oauth2/internal
-# golang.org/x/sync v0.8.0
+# golang.org/x/sync v0.10.0
 ## explicit; go 1.18
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.23.0
+# golang.org/x/sys v0.28.0
 ## explicit; go 1.18
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.23.0
+# golang.org/x/term v0.27.0
 ## explicit; go 1.18
 golang.org/x/term
-# golang.org/x/text v0.17.0
+# golang.org/x/text v0.21.0
 ## explicit; go 1.18
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
@@ -561,14 +561,15 @@ golang.org/x/text/unicode/norm
 # golang.org/x/time v0.5.0
 ## explicit; go 1.18
 golang.org/x/time/rate
-# golang.org/x/tools v0.24.0
-## explicit; go 1.19
+# golang.org/x/tools v0.26.0
+## explicit; go 1.22.0
 golang.org/x/tools/cover
 golang.org/x/tools/go/analysis
 golang.org/x/tools/go/ast/inspector
 golang.org/x/tools/go/gcexportdata
 golang.org/x/tools/go/packages
 golang.org/x/tools/go/types/objectpath
+golang.org/x/tools/go/types/typeutil
 golang.org/x/tools/internal/aliases
 golang.org/x/tools/internal/event
 golang.org/x/tools/internal/event/core
@@ -579,7 +580,7 @@ golang.org/x/tools/internal/gocommand
 golang.org/x/tools/internal/packagesinternal
 golang.org/x/tools/internal/pkgbits
 golang.org/x/tools/internal/stdlib
-golang.org/x/tools/internal/tokeninternal
+golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
 golang.org/x/tools/internal/versions
 # google.golang.org/genproto/googleapis/rpc v0.0.0-20240701130421-f6361c86f094
@@ -1223,6 +1224,7 @@ k8s.io/utils/trace
 ## explicit; go 1.22.0
 kubevirt.io/api/clone
 kubevirt.io/api/clone/v1alpha1
+kubevirt.io/api/clone/v1beta1
 kubevirt.io/api/core
 kubevirt.io/api/core/v1
 kubevirt.io/api/export
@@ -1260,6 +1262,8 @@ kubevirt.io/client-go/kubevirt/fake
 kubevirt.io/client-go/kubevirt/scheme
 kubevirt.io/client-go/kubevirt/typed/clone/v1alpha1
 kubevirt.io/client-go/kubevirt/typed/clone/v1alpha1/fake
+kubevirt.io/client-go/kubevirt/typed/clone/v1beta1
+kubevirt.io/client-go/kubevirt/typed/clone/v1beta1/fake
 kubevirt.io/client-go/kubevirt/typed/core/v1
 kubevirt.io/client-go/kubevirt/typed/core/v1/fake
 kubevirt.io/client-go/kubevirt/typed/export/v1alpha1
@@ -1298,8 +1302,8 @@ kubevirt.io/client-go/testing
 kubevirt.io/client-go/testutils
 kubevirt.io/client-go/util
 kubevirt.io/client-go/version
-# kubevirt.io/containerized-data-importer-api v1.57.0-alpha1
-## explicit; go 1.19
+# kubevirt.io/containerized-data-importer-api v1.60.3-0.20241105012228-50fbed985de9
+## explicit; go 1.22.0
 kubevirt.io/containerized-data-importer-api/pkg/apis/core
 kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1
 kubevirt.io/containerized-data-importer-api/pkg/apis/upload
@@ -1311,10 +1315,10 @@ kubevirt.io/controller-lifecycle-operator-sdk/api
 ## explicit; go 1.16
 kubevirt.io/qe-tools/pkg/ginkgo-reporters
 kubevirt.io/qe-tools/pkg/polarion-xml
-# libvirt.org/go/libvirt v1.10005.0
+# libvirt.org/go/libvirt v1.10009.1
 ## explicit; go 1.11
 libvirt.org/go/libvirt
-# libvirt.org/go/libvirtxml v1.10005.0
+# libvirt.org/go/libvirtxml v1.10010.0
 ## explicit; go 1.11
 libvirt.org/go/libvirtxml
 # mvdan.cc/editorconfig v0.2.1-0.20231228180347-1925077f8eb2

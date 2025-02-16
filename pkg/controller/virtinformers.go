@@ -28,8 +28,8 @@ import (
 
 	"kubevirt.io/api/snapshot"
 
-	"kubevirt.io/api/clone"
-	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	clonebase "kubevirt.io/api/clone"
+	clone "kubevirt.io/api/clone/v1beta1"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	routev1 "github.com/openshift/api/route/v1"
@@ -717,15 +717,42 @@ func (f *kubeInformerFactory) MigrationPolicy() cache.SharedIndexInformer {
 }
 
 func GetVirtualMachineCloneInformerIndexers() cache.Indexers {
-	getkey := func(vmClone *clonev1alpha1.VirtualMachineClone, resourceName string) string {
+	getkey := func(vmClone *clone.VirtualMachineClone, resourceName string) string {
 		return fmt.Sprintf("%s/%s", vmClone.Namespace, resourceName)
 	}
 
 	return cache.Indexers{
 		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+		// Gets: vm key. Returns: clones that their source or target is the specified vm
+		"vmSource": func(obj interface{}) ([]string, error) {
+			vmClone, ok := obj.(*clone.VirtualMachineClone)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			source := vmClone.Spec.Source
+			if source != nil && source.APIGroup != nil && *source.APIGroup == core.GroupName && source.Kind == "VirtualMachine" {
+				return []string{getkey(vmClone, source.Name)}, nil
+			}
+
+			return nil, nil
+		},
+		"vmTarget": func(obj interface{}) ([]string, error) {
+			vmClone, ok := obj.(*clone.VirtualMachineClone)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			target := vmClone.Spec.Target
+			if target != nil && target.APIGroup != nil && *target.APIGroup == core.GroupName && target.Kind == "VirtualMachine" {
+				return []string{getkey(vmClone, target.Name)}, nil
+			}
+
+			return nil, nil
+		},
 		// Gets: snapshot key. Returns: clones that their source is the specified snapshot
 		"snapshotSource": func(obj interface{}) ([]string, error) {
-			vmClone, ok := obj.(*clonev1alpha1.VirtualMachineClone)
+			vmClone, ok := obj.(*clone.VirtualMachineClone)
 			if !ok {
 				return nil, unexpectedObjectError
 			}
@@ -738,39 +765,39 @@ func GetVirtualMachineCloneInformerIndexers() cache.Indexers {
 			return nil, nil
 		},
 		// Gets: snapshot key. Returns: clones in phase SnapshotInProgress that wait for the specified snapshot
-		string(clonev1alpha1.SnapshotInProgress): func(obj interface{}) ([]string, error) {
-			vmClone, ok := obj.(*clonev1alpha1.VirtualMachineClone)
+		string(clone.SnapshotInProgress): func(obj interface{}) ([]string, error) {
+			vmClone, ok := obj.(*clone.VirtualMachineClone)
 			if !ok {
 				return nil, unexpectedObjectError
 			}
 
-			if vmClone.Status.Phase == clonev1alpha1.SnapshotInProgress && vmClone.Status.SnapshotName != nil {
+			if vmClone.Status.Phase == clone.SnapshotInProgress && vmClone.Status.SnapshotName != nil {
 				return []string{getkey(vmClone, *vmClone.Status.SnapshotName)}, nil
 			}
 
 			return nil, nil
 		},
 		// Gets: restore key. Returns: clones in phase RestoreInProgress that wait for the specified restore
-		string(clonev1alpha1.RestoreInProgress): func(obj interface{}) ([]string, error) {
-			vmClone, ok := obj.(*clonev1alpha1.VirtualMachineClone)
+		string(clone.RestoreInProgress): func(obj interface{}) ([]string, error) {
+			vmClone, ok := obj.(*clone.VirtualMachineClone)
 			if !ok {
 				return nil, unexpectedObjectError
 			}
 
-			if vmClone.Status.Phase == clonev1alpha1.RestoreInProgress && vmClone.Status.RestoreName != nil {
+			if vmClone.Status.Phase == clone.RestoreInProgress && vmClone.Status.RestoreName != nil {
 				return []string{getkey(vmClone, *vmClone.Status.RestoreName)}, nil
 			}
 
 			return nil, nil
 		},
 		// Gets: restore key. Returns: clones in phase Succeeded
-		string(clonev1alpha1.Succeeded): func(obj interface{}) ([]string, error) {
-			vmClone, ok := obj.(*clonev1alpha1.VirtualMachineClone)
+		string(clone.Succeeded): func(obj interface{}) ([]string, error) {
+			vmClone, ok := obj.(*clone.VirtualMachineClone)
 			if !ok {
 				return nil, unexpectedObjectError
 			}
 
-			if vmClone.Status.Phase == clonev1alpha1.Succeeded && vmClone.Status.RestoreName != nil {
+			if vmClone.Status.Phase == clone.Succeeded && vmClone.Status.RestoreName != nil {
 				return []string{getkey(vmClone, *vmClone.Status.RestoreName)}, nil
 			}
 
@@ -781,8 +808,8 @@ func GetVirtualMachineCloneInformerIndexers() cache.Indexers {
 
 func (f *kubeInformerFactory) VirtualMachineClone() cache.SharedIndexInformer {
 	return f.getInformer("virtualMachineCloneInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().CloneV1alpha1().RESTClient(), clone.ResourceVMClonePlural, k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &clonev1alpha1.VirtualMachineClone{}, f.defaultResync, GetVirtualMachineCloneInformerIndexers())
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().CloneV1beta1().RESTClient(), clonebase.ResourceVMClonePlural, k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &clone.VirtualMachineClone{}, f.defaultResync, GetVirtualMachineCloneInformerIndexers())
 	})
 }
 

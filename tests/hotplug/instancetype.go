@@ -32,7 +32,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-compute][Serial]Instance Type and Preference Hotplug", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, Serial, func() {
+var _ = Describe("[sig-compute]Instance Type and Preference Hotplug", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, Serial, func() {
 	var (
 		virtClient kubecli.KubevirtClient
 	)
@@ -122,7 +122,6 @@ var _ = Describe("[sig-compute][Serial]Instance Type and Preference Hotplug", de
 		patches := patch.New(
 			patch.WithTest("/spec/instancetype/name", originalInstancetype.Name),
 			patch.WithReplace("/spec/instancetype/name", maxInstancetype.Name),
-			patch.WithRemove("/spec/instancetype/revisionName"),
 		)
 		patchData, err := patches.GeneratePayload()
 		Expect(err).NotTo(HaveOccurred())

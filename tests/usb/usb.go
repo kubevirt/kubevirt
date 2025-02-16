@@ -15,8 +15,9 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	pkgUtil "kubevirt.io/kubevirt/pkg/util"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -34,7 +35,7 @@ const (
 	cmdNumberUSBs   = "dmesg | grep -c idVendor=46f4"
 )
 
-var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, decorators.SigCompute, decorators.USB, func() {
+var _ = Describe("[sig-compute][USB] host USB Passthrough", Serial, decorators.SigCompute, decorators.USB, func() {
 	var virtClient kubecli.KubevirtClient
 	var config v1.KubeVirtConfiguration
 	var vmi *v1.VirtualMachineInstance
@@ -61,9 +62,12 @@ var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, deco
 
 	AfterEach(func() {
 		// Make sure to delete the VMI before ending the test otherwise a device could still be taken
-		err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
+		const deleteTimeout = 180
+		err := virtClient.VirtualMachineInstance(
+			testsuite.NamespaceTestDefault).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
-		libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
+
+		libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, deleteTimeout)
 	})
 
 	Context("with usb storage", func() {
@@ -72,7 +76,7 @@ var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, deco
 
 			By("Adding the emulated USB device to the permitted host devices")
 			config.DeveloperConfiguration = &v1.DeveloperConfiguration{
-				FeatureGates: []string{virtconfig.HostDevicesGate},
+				FeatureGates: []string{featuregate.HostDevicesGate},
 			}
 			config.PermittedHostDevices = &v1.PermittedHostDevices{
 				USB: []v1.USBHostDevice{
@@ -82,8 +86,10 @@ var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, deco
 							{
 								Vendor:  "46f4",
 								Product: "0001",
-							}},
-					}},
+							},
+						},
+					},
+				},
 			}
 			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
@@ -104,16 +110,17 @@ var _ = Describe("[Serial][sig-compute][USB] host USB Passthrough", Serial, deco
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 			By("Making sure the usb is present inside the VMI")
+			const expectTimeout = 15
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: fmt.Sprintf("%s\n", cmdNumberUSBs)},
 				&expect.BExp{R: console.RetValue(fmt.Sprintf("%d", len(deviceNames)))},
-			}, 15)).To(Succeed(), "Device not found")
+			}, expectTimeout)).To(Succeed(), "Device not found")
 
 			By("Verifying ownership is properly set in the host")
-			domainXml, err := tests.GetRunningVMIDomainSpec(vmi)
+			domainXML, err := tests.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			for _, hostDevice := range domainXml.Devices.HostDevices {
+			for _, hostDevice := range domainXML.Devices.HostDevices {
 				if hostDevice.Type != api.HostDeviceUSB {
 					continue
 				}

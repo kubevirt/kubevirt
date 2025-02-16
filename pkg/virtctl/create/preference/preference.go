@@ -23,67 +23,51 @@ import (
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
-	"k8s.io/client-go/tools/clientcmd"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"sigs.k8s.io/yaml"
 
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+
 	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/create/params"
 )
 
 const (
-	Preference = "preference"
-
 	CPUTopologyFlag        = "cpu-topology"
 	VolumeStorageClassFlag = "volume-storage-class"
 	MachineTypeFlag        = "machine-type"
 	NameFlag               = "name"
 	NamespacedFlag         = "namespaced"
-	CPUTopologyErr         = "CPU topology must have a value of sockets, cores, threads or spread"
 )
 
 type createPreference struct {
 	namespace             string
 	name                  string
 	namespaced            bool
-	CPUTopology           string
+	cpuTopology           string
 	machineType           string
 	preferredStorageClass string
-
-	clientConfig clientcmd.ClientConfig
 }
 
-type optionFn func(*createPreference, *instancetypev1beta1.VirtualMachinePreferenceSpec) error
-
-var optFns = map[string]optionFn{
-	VolumeStorageClassFlag: withVolumeStorageClass,
-	MachineTypeFlag:        withMachineType,
-	CPUTopologyFlag:        withCPUTopology,
-}
-
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	c := createPreference{
-		clientConfig: clientConfig,
-	}
+func NewCommand() *cobra.Command {
+	c := createPreference{}
 	cmd := &cobra.Command{
-		Use:     Preference,
+		Use:     "preference",
 		Short:   "Create a VirtualMachinePreference or VirtualMachineClusterPreference manifest.",
 		Example: c.usage(),
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return c.run(cmd)
-		},
+		RunE:    c.run,
 	}
 	cmd.Flags().BoolVar(&c.namespaced, NamespacedFlag, c.namespaced, "Specify if VirtualMachinePreference should be created. By default VirtualMachineClusterPreference is created.")
 	cmd.Flags().StringVar(&c.name, NameFlag, c.name, "Specify the name of the Preference.")
 	cmd.Flags().StringVar(&c.preferredStorageClass, VolumeStorageClassFlag, c.preferredStorageClass, "Defines the preferred storage class")
 	cmd.Flags().StringVar(&c.machineType, MachineTypeFlag, c.machineType, "Defines the preferred machine type to use.")
-	cmd.Flags().StringVar(&c.CPUTopology, CPUTopologyFlag, c.CPUTopology, "Defines the preferred guest visible CPU topology.")
+	cmd.Flags().StringVar(&c.cpuTopology, CPUTopologyFlag, c.cpuTopology, "Defines the preferred guest visible CPU topology.")
 
 	return cmd
 }
 
 func (c *createPreference) setDefaults(cmd *cobra.Command) error {
-	namespace, overridden, err := c.clientConfig.Namespace()
+	_, namespace, overridden, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}
@@ -105,24 +89,32 @@ func (c *createPreference) setDefaults(cmd *cobra.Command) error {
 	return nil
 }
 
-func withVolumeStorageClass(c *createPreference, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
+func (c *createPreference) optFns() map[string]func(*instancetypev1beta1.VirtualMachinePreferenceSpec) error {
+	return map[string]func(*instancetypev1beta1.VirtualMachinePreferenceSpec) error{
+		VolumeStorageClassFlag: c.withVolumeStorageClass,
+		MachineTypeFlag:        c.withMachineType,
+		CPUTopologyFlag:        c.withCPUTopology,
+	}
+}
+
+func (c *createPreference) withVolumeStorageClass(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
 	preferenceSpec.Volumes = &instancetypev1beta1.VolumePreferences{
 		PreferredStorageClassName: c.preferredStorageClass,
 	}
 	return nil
 }
 
-func withMachineType(c *createPreference, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
+func (c *createPreference) withMachineType(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
 	preferenceSpec.Machine = &instancetypev1beta1.MachinePreferences{
 		PreferredMachineType: c.machineType,
 	}
 	return nil
 }
 
-func withCPUTopology(c *createPreference, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
-	preferredCPUTopology := instancetypev1beta1.PreferredCPUTopology(c.CPUTopology)
+func (c *createPreference) withCPUTopology(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
+	preferredCPUTopology := instancetypev1beta1.PreferredCPUTopology(c.cpuTopology)
 	if !instancetype.IsPreferredTopologySupported(preferredCPUTopology) {
-		return params.FlagErr(CPUTopologyFlag, CPUTopologyErr)
+		return params.FlagErr(CPUTopologyFlag, "CPU topology must have a value of sockets, cores, threads or spread")
 	}
 	preferenceSpec.CPU = &instancetypev1beta1.CPUPreferences{
 		PreferredCPUTopology: &preferredCPUTopology,
@@ -135,10 +127,10 @@ func (c *createPreference) usage() string {
   {{ProgramName}} create preference
 	
   # Create a manifest for a ClusterPreference with a specified CPU topology:
-  {{ProgramName}} create preference --cpu-topology preferSockets
+  {{ProgramName}} create preference --cpu-topology sockets
 
   # Create a manifest for a Preference with a specified CPU topology:
-  {{ProgramName}} create preference --cpu-topology preferSockets --namespaced
+  {{ProgramName}} create preference --cpu-topology sockets --namespaced
 	
   # Create a manifest for a ClusterPreference and use it to create a resource with kubectl
   {{ProgramName}} create preference --volume-storage-class hostpath-provisioner | kubectl create -f -`
@@ -175,9 +167,9 @@ func (c *createPreference) newPreference() *instancetypev1beta1.VirtualMachinePr
 }
 
 func (c *createPreference) applyFlags(cmd *cobra.Command, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
-	for flag := range optFns {
+	for flag := range c.optFns() {
 		if cmd.Flags().Changed(flag) {
-			if err := optFns[flag](c, preferenceSpec); err != nil {
+			if err := c.optFns()[flag](preferenceSpec); err != nil {
 				return err
 			}
 		}
@@ -186,16 +178,17 @@ func (c *createPreference) applyFlags(cmd *cobra.Command, preferenceSpec *instan
 	return nil
 }
 
-func (c *createPreference) run(cmd *cobra.Command) error {
+func (c *createPreference) run(cmd *cobra.Command, _ []string) error {
+	if err := c.setDefaults(cmd); err != nil {
+		return err
+	}
+
 	var out []byte
 	var err error
-
-	c.setDefaults(cmd)
-
 	if c.namespaced {
 		preference := c.newPreference()
 
-		if err = c.applyFlags(cmd, &preference.Spec); err != nil {
+		if err := c.applyFlags(cmd, &preference.Spec); err != nil {
 			return err
 		}
 
@@ -206,7 +199,7 @@ func (c *createPreference) run(cmd *cobra.Command) error {
 	} else {
 		clusterPreference := c.newClusterPreference()
 
-		if err = c.applyFlags(cmd, &clusterPreference.Spec); err != nil {
+		if err := c.applyFlags(cmd, &clusterPreference.Spec); err != nil {
 			return err
 		}
 

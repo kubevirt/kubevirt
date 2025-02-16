@@ -27,7 +27,7 @@ import (
 
 	routev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 
-	clonev1alpha1 "kubevirt.io/client-go/kubevirt/typed/clone/v1alpha1"
+	clone "kubevirt.io/client-go/kubevirt/typed/clone/v1beta1"
 
 	secv1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	"github.com/spf13/pflag"
@@ -205,7 +205,7 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 		return nil, err
 	}
 
-	cloneClient, err := clonev1alpha1.NewForConfig(config)
+	cloneClient, err := clone.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
@@ -401,7 +401,7 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		return nil, err
 	}
 
-	cloneClient, err := clonev1alpha1.NewForConfig(&shallowCopy)
+	cloneClient, err := clone.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}

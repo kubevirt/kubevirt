@@ -39,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -75,19 +74,6 @@ func patchKV(namespace, name string, patchSet *patch.PatchSet) error {
 	return err
 }
 
-func PatchWorkloadUpdateMethodAndRolloutStrategy(kvName string, virtClient kubecli.KubevirtClient, updateStrategy *v1.KubeVirtWorkloadUpdateStrategy, rolloutStrategy *v1.VMRolloutStrategy, fgs []string) {
-	patch, err := patch.New(
-		patch.WithAdd("/spec/workloadUpdateStrategy", updateStrategy),
-		patch.WithAdd("/spec/configuration/vmRolloutStrategy", rolloutStrategy),
-		patch.WithAdd("/spec/configuration/developerConfiguration/featureGates", fgs),
-	).GeneratePayload()
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	EventuallyWithOffset(1, func() error {
-		_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), kvName, types.JSONPatchType, patch, metav1.PatchOptions{})
-		return err
-	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-}
-
 // UpdateKubeVirtConfigValueAndWait updates the given configuration in the kubevirt custom resource
 // and then waits  to allow the configuration events to be propagated to the consumers.
 func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
@@ -121,30 +107,34 @@ func ExpectResourceVersionToBeLessEqualThanConfigVersion(resourceVersion, config
 }
 
 func waitForConfigToBePropagated(resourceVersion string) {
-	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-controller", resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, 10*time.Second)
-	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-api", resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, 10*time.Second)
-	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, 10*time.Second)
+	waitTimeout := 10 * time.Second
+	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-controller",
+		resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, waitTimeout)
+	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-api",
+		resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, waitTimeout)
+	WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler",
+		resourceVersion, ExpectResourceVersionToBeLessEqualThanConfigVersion, waitTimeout)
 }
 
-func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion string, compareResourceVersions compare, duration time.Duration) {
+func WaitForConfigToBePropagatedToComponent(podLabel, resourceVersion string, compareResourceVersions compare, duration time.Duration) {
 	virtClient := kubevirt.Client()
 
-	errComponentInfo := fmt.Sprintf("component: \"%s\"", strings.TrimPrefix(podLabel, "kubevirt.io="))
+	errComponentInfo := fmt.Sprintf("component: %q", strings.TrimPrefix(podLabel, "kubevirt.io="))
 
 	EventuallyWithOffset(3, func() error {
-		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: podLabel})
-
+		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
+			context.Background(), metav1.ListOptions{LabelSelector: podLabel})
 		if err != nil {
 			return fmt.Errorf("failed to fetch pods: %v, %s", err, errComponentInfo)
 		}
-		for _, pod := range pods.Items {
-			errAdditionalInfo := errComponentInfo + fmt.Sprintf(", pod: \"%s\"", pod.Name)
+		for i := range pods.Items {
+			errAdditionalInfo := errComponentInfo + fmt.Sprintf(", pod: %q", pods.Items[i].Name)
 
-			if pod.DeletionTimestamp != nil {
+			if pods.Items[i].DeletionTimestamp != nil {
 				continue
 			}
 
-			body, err := callUrlOnPod(&pod, "8443", "/healthz")
+			body, err := callURLOnPod(&pods.Items[i], "8443", "/healthz")
 			if err != nil {
 				return fmt.Errorf("failed to call healthz endpoint: %v, %s", err, errAdditionalInfo)
 			}
@@ -163,21 +153,32 @@ func WaitForConfigToBePropagatedToComponent(podLabel string, resourceVersion str
 	}, duration, 1*time.Second).ShouldNot(HaveOccurred())
 }
 
-func callUrlOnPod(pod *k8sv1.Pod, port string, url string) ([]byte, error) {
-	randPort := strconv.Itoa(4321 + rand.Intn(6000))
+func callURLOnPod(pod *k8sv1.Pod, port, url string) ([]byte, error) {
+	const minPort = 4321
+	const maxPortIncrease = 6000
+	//nolint:gosec
+	randPort := strconv.Itoa(minPort + rand.Intn(maxPortIncrease))
 	stopChan := make(chan struct{})
 	defer close(stopChan)
-	err := libpod.ForwardPorts(pod, []string{fmt.Sprintf("%s:%s", randPort, port)}, stopChan, 5*time.Second)
+	readyTimeout := 5 * time.Second
+	err := libpod.ForwardPorts(pod, []string{fmt.Sprintf("%s:%s", randPort, port)}, stopChan, readyTimeout)
 	if err != nil {
 		return nil, err
 	}
 	tr := &http.Transport{
+		//nolint:gosec
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true, VerifyPeerCertificate: func(_ [][]byte, _ [][]*x509.Certificate) error {
 			return nil
 		}},
 	}
 	client := &http.Client{Transport: tr}
-	resp, err := client.Get(fmt.Sprintf("https://localhost:%s/%s", randPort, strings.TrimSuffix(url, "/")))
+	req, err := http.NewRequestWithContext(
+		context.Background(), "GET",
+		fmt.Sprintf("https://localhost:%s/%s", randPort, strings.TrimSuffix(url, "/")), http.NoBody)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}

@@ -23,16 +23,15 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"runtime"
-	"sync"
 	"syscall"
 	"time"
 
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-handler/seccomp"
 	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
@@ -42,7 +41,6 @@ import (
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -131,7 +129,6 @@ type virtHandlerApp struct {
 	PodIpAddress              string
 	VirtShareDir              string
 	VirtPrivateDir            string
-	VirtLibDir                string
 	KubeletPodsDir            string
 	KubeletRoot               string
 	WatchdogTimeoutDuration   time.Duration
@@ -139,10 +136,6 @@ type virtHandlerApp struct {
 	MaxRequestsInFlight       int
 	domainResyncPeriodSeconds int
 	gracefulShutdownSeconds   int
-
-	// Remember whether we have already installed the custom SELinux policy or not
-	customSELinuxPolicyInstalled bool
-	semoduleLock                 sync.Mutex
 
 	caConfigMapName    string
 	clientCertFilePath string
@@ -201,17 +194,6 @@ func (app *virtHandlerApp) Run() {
 	logger := log.Log
 	logger.V(1).Infof("hostname %s", app.HostOverride)
 	var err error
-
-	// Copy container-disk binary
-	targetFile := filepath.Join(app.VirtLibDir, "/init/usr/bin/container-disk")
-	err = os.MkdirAll(filepath.Dir(targetFile), os.ModePerm)
-	if err != nil {
-		panic(err)
-	}
-	err = copy("/usr/bin/container-disk", targetFile)
-	if err != nil {
-		panic(err)
-	}
 
 	app.reloadableRateLimiter = ratelimiter.NewReloadableRateLimiter(flowcontrol.NewTokenBucketRateLimiter(virtconfig.DefaultVirtHandlerQPS, virtconfig.DefaultVirtHandlerBurst))
 	clientmetrics.RegisterRestConfigHooks()
@@ -362,7 +344,7 @@ func (app *virtHandlerApp) Run() {
 		&capabilities,
 		hostCpuModel,
 		netsetup.NewNetConf(app.clusterConfig),
-		netsetup.NewNetStat(app.clusterConfig),
+		netsetup.NewNetStat(),
 		netbinding.MemoryCalculator{},
 	)
 	if err != nil {
@@ -398,7 +380,7 @@ func (app *virtHandlerApp) Run() {
 		if err != nil {
 			panic(err)
 		}
-		err = selinux.RelabelFiles(util.UnprivilegedContainerSELinuxLabel, se.IsPermissive(), devTun, devNull)
+		err = selinux.RelabelFilesUnprivileged(se.IsPermissive(), devTun, devNull)
 		if err != nil {
 			panic(fmt.Errorf("error relabeling required files: %v", err))
 		}
@@ -416,10 +398,6 @@ func (app *virtHandlerApp) Run() {
 	if err := downwardmetrics.RunDownwardMetricsCollector(context.Background(), app.HostOverride, vmiSourceInformer, podIsolationDetector); err != nil {
 		panic(fmt.Errorf("failed to set up the downwardMetrics collector: %v", err))
 	}
-
-	// This callback can only be called only after the KubeVirt CR has synced,
-	// to avoid installing the SELinux policy when the feature gate is set
-	app.clusterConfig.SetConfigModifiedCallback(app.shouldInstallSELinuxPolicy)
 
 	go vmController.Run(10, stop)
 
@@ -453,7 +431,7 @@ func (app *virtHandlerApp) Run() {
 		// This triggers the migration proxy to no longer accept new connections
 		migrationProxy.InitiateGracefulShutdown()
 
-		err := utilwait.PollImmediate(connectionInterval, connectionTimeout, func() (done bool, err error) {
+		err := virtwait.PollImmediately(connectionInterval, connectionTimeout, func(_ context.Context) (done bool, err error) {
 			count := migrationProxy.OpenListenerCount()
 			if count > 0 {
 				log.Log.Infof("waiting for %d migration listeners to terminate", count)
@@ -479,15 +457,6 @@ func (app *virtHandlerApp) Run() {
 	}
 }
 
-func (app *virtHandlerApp) installCustomSELinuxPolicy(se selinux.SELinux) {
-	// Install KubeVirt's virt-launcher policy
-	err := se.InstallPolicy("/var/run/kubevirt")
-	if err != nil {
-		panic(fmt.Errorf("failed to install virt-launcher selinux policy: %v", err))
-	}
-	app.customSELinuxPolicyInstalled = true
-}
-
 // Update virt-handler log verbosity on relevant config changes
 func (app *virtHandlerApp) shouldChangeLogVerbosity() {
 	verbosity := app.clusterConfig.GetVirtHandlerVerbosity(app.HostOverride)
@@ -504,21 +473,6 @@ func (app *virtHandlerApp) shouldChangeRateLimiter() {
 	log.Log.V(2).Infof("setting rate limiter to %v QPS and %v Burst", qps, burst)
 }
 
-// Install the SELinux policy when the feature gate that disables it gets removed
-func (app *virtHandlerApp) shouldInstallSELinuxPolicy() {
-	app.semoduleLock.Lock()
-	defer app.semoduleLock.Unlock()
-	if app.customSELinuxPolicyInstalled {
-		return
-	}
-	if !app.clusterConfig.CustomSELinuxPolicyDisabled() {
-		se, exists, err := selinux.NewSELinux()
-		if err == nil && exists {
-			app.installCustomSELinuxPolicy(se)
-		}
-	}
-}
-
 // Update virt-handler rate limiter
 func (app *virtHandlerApp) shouldInstallKubevirtSeccompProfile() {
 	enabled := app.clusterConfig.KubevirtSeccompProfileEnabled()
@@ -527,12 +481,11 @@ func (app *virtHandlerApp) shouldInstallKubevirtSeccompProfile() {
 		return
 	}
 
-	installPath := filepath.Join("/proc/1/root", app.KubeletRoot)
-	if err := seccomp.InstallPolicy(installPath); err != nil {
+	if err := seccomp.InstallPolicy(app.KubeletRoot); err != nil {
 		log.DefaultLogger().Errorf("Failed to install Kubevirt Seccomp profile, %v", err)
 		return
 	}
-	log.DefaultLogger().Infof("Kubevirt Seccomp profile was installed at %s", installPath)
+	log.DefaultLogger().Infof("Kubevirt Seccomp profile was installed at %s", app.KubeletRoot)
 
 }
 
@@ -571,6 +524,7 @@ func (app *virtHandlerApp) runServer(errCh chan error, consoleHandler *rest.Cons
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/freeze").To(lifecycleHandler.FreezeHandler).Reads(v1.FreezeUnfreezeTimeout{}))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/unfreeze").To(lifecycleHandler.UnfreezeHandler))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/softreboot").To(lifecycleHandler.SoftRebootHandler))
+	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/reset").To(lifecycleHandler.ResetHandler))
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/guestosinfo").To(lifecycleHandler.GetGuestInfo).Produces(restful.MIME_JSON).Consumes(restful.MIME_JSON).Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceGuestAgentInfo{}))
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/userlist").To(lifecycleHandler.GetUsers).Produces(restful.MIME_JSON).Consumes(restful.MIME_JSON).Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceGuestOSUserList{}))
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/filesystemlist").To(lifecycleHandler.GetFilesystems).Produces(restful.MIME_JSON).Consumes(restful.MIME_JSON).Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceFileSystemList{}))
@@ -608,9 +562,6 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.StringVar(&app.VirtPrivateDir, "kubevirt-private-dir", util.VirtPrivateDir,
 		"private directory for virt-handler state")
-
-	flag.StringVar(&app.VirtLibDir, "kubevirt-lib-dir", util.VirtLibDir,
-		"Shared lib directory between virt-handler and virt-launcher")
 
 	flag.StringVar(&app.KubeletPodsDir, "kubelet-pods-dir", util.KubeletPodsDir,
 		"Path for pod directory (matching host's path for kubelet root)")
@@ -678,30 +629,4 @@ func main() {
 	service.Setup(app)
 	log.InitializeLogging("virt-handler")
 	app.Run()
-}
-
-func copy(sourceFile string, targetFile string) error {
-
-	if err := os.RemoveAll(targetFile); err != nil {
-		return fmt.Errorf("failed to remove target file: %v", err)
-	}
-	target, err := os.Create(targetFile)
-	if err != nil {
-		return fmt.Errorf("failed to crate target file: %v", err)
-	}
-	defer target.Close()
-	source, err := os.Open(sourceFile)
-	if err != nil {
-		return fmt.Errorf("failed to open source file: %v", err)
-	}
-	defer source.Close()
-	_, err = io.Copy(target, source)
-	if err != nil {
-		return fmt.Errorf("failed to copy file: %v", err)
-	}
-	err = os.Chmod(targetFile, 0555)
-	if err != nil {
-		return fmt.Errorf("failed to make file executable: %v", err)
-	}
-	return nil
 }

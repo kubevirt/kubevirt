@@ -47,6 +47,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/tests/console"
@@ -54,7 +55,6 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -532,7 +532,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		DescribeTable("Should add volumes on an offline VM", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction) {
+		DescribeTable("Should add volumes on an offline VM", decorators.StorageCritical, func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction) {
 			By("Adding test volumes")
 			addVolumeFunc(vm.Name, vm.Namespace, testNewVolume1, "madeup", v1.DiskBusSCSI, false, "")
 			addVolumeFunc(vm.Name, vm.Namespace, testNewVolume2, "madeup2", v1.DiskBusSCSI, false, "")
@@ -549,7 +549,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		)
 	})
 
-	Context("Offline VM with a block volume", func() {
+	Context("Offline VM with a block volume", decorators.RequiresRWXBlock, func() {
 		var (
 			vm *v1.VirtualMachine
 			sc string
@@ -560,7 +560,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			sc, exists = libstorage.GetRWXBlockStorageClass()
 			if !exists {
-				Skip("Skip test when RWXBlock storage class is not present")
+				Fail("Fail test when RWXBlock storage class is not present")
 			}
 
 			dv := libdv.NewDataVolume(
@@ -582,7 +582,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		DescribeTable("Should start with a hotplug block", func(addVolumeFunc addVolumeFunction) {
+		DescribeTable("Should start with a hotplug block", decorators.StorageCritical, func(addVolumeFunc addVolumeFunction) {
 			dv := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeBlock)
 
 			By("Adding a hotplug block volume")
@@ -607,7 +607,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			Entry("PersistentVolume", addPVCVolumeVM),
 		)
 
-		It("[Serial]Should preserve access to block devices if virt-handler crashes", Serial, func() {
+		It("Should preserve access to block devices if virt-handler crashes", Serial, func() {
 			blockDevices := []string{"/dev/disk0"}
 
 			By("Adding a hotplug block volume")
@@ -730,7 +730,7 @@ var _ = SIGDescribe("Hotplug", func() {
 	})
 
 	Context("[storage-req]", decorators.StorageReq, func() {
-		Context("Online VM", func() {
+		Context("Online VM", decorators.RequiresRWXBlock, func() {
 			var (
 				vm *v1.VirtualMachine
 				sc string
@@ -757,7 +757,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				exists := false
 				sc, exists = libstorage.GetRWXBlockStorageClass()
 				if !exists {
-					Skip("Skip test when RWXBlock storage class is not present")
+					Fail("Fail test when RWXBlock storage class is not present")
 				}
 
 				node := findCPUManagerWorkerNode()
@@ -772,7 +772,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 			})
 
-			DescribeTable("should add/remove volume", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode, vmiOnly, waitToStart bool) {
+			DescribeTable("should add/remove volume", decorators.StorageCritical, func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode, vmiOnly, waitToStart bool) {
 				verifyAttachDetachVolume(vm, addVolumeFunc, removeVolumeFunc, sc, volumeMode, vmiOnly, waitToStart)
 			},
 				Entry("with DataVolume immediate attach", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, false, false),
@@ -931,7 +931,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			},
 				Entry("with VMs", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, false),
 				Entry("with VMIs", addDVVolumeVMI, removeVolumeVMI, k8sv1.PersistentVolumeFilesystem, true),
-				Entry("[Serial] with VMs and block", Serial, addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, false),
+				Entry(" with VMs and block", Serial, addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, false),
 			)
 
 			It("should allow to hotplug 75 volumes simultaneously", func() {
@@ -1119,7 +1119,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			})
 		})
 
-		Context("VMI migration", func() {
+		Context("VMI migration", decorators.RequiresRWXBlock, func() {
 			var (
 				vmi *v1.VirtualMachineInstance
 				sc  string
@@ -1160,11 +1160,11 @@ var _ = SIGDescribe("Hotplug", func() {
 				exists := false
 				sc, exists = libstorage.GetRWXBlockStorageClass()
 				if !exists {
-					Skip("Skip test when RWXBlock storage class is not present")
+					Fail("Fail test when RWXBlock storage class is not present")
 				}
 			})
 
-			DescribeTable("should allow live migration with attached hotplug volumes", func(vmiFunc func() *v1.VirtualMachineInstance) {
+			DescribeTable("should allow live migration with attached hotplug volumes", decorators.StorageCritical, func(vmiFunc func() *v1.VirtualMachineInstance) {
 				vmi = vmiFunc()
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
 				volumeName := "testvolume"
@@ -1237,9 +1237,8 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		Context("disk mutating sidecar", func() {
 			const (
-				hookSidecarImage     = "example-disk-mutation-hook-sidecar"
-				sidecarContainerName = "hook-sidecar-0"
-				newDiskImgName       = "kubevirt-disk.img"
+				hookSidecarImage = "example-disk-mutation-hook-sidecar"
+				newDiskImgName   = "kubevirt-disk.img"
 			)
 
 			var (
@@ -1249,7 +1248,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 			BeforeEach(func() {
 				if !libstorage.HasCDI() {
-					Skip("Skip tests when CDI is not present")
+					Fail("Fail tests when CDI is not present")
 				}
 			})
 
@@ -1259,13 +1258,13 @@ var _ = SIGDescribe("Hotplug", func() {
 					Expect(err).ToNot(HaveOccurred())
 					vm = nil
 				}
-				libstorage.DeleteDataVolume(&dv)
 			})
 
-			DescribeTable("should be able to add and remove volumes", func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, storageClassFunc storageClassFunction, volumeMode k8sv1.PersistentVolumeMode, vmiOnly bool) {
-				sc, exists := storageClassFunc()
+			DescribeTable("should be able to add and remove volumes", decorators.RequiresBlockStorage, func(addVolumeFunc addVolumeFunction, removeVolumeFunc removeVolumeFunction, volumeMode k8sv1.PersistentVolumeMode, vmiOnly bool) {
+				// Some permutations of this test want a filesystem on top of a block device
+				sc, exists := libstorage.GetRWOBlockStorageClass()
 				if !exists {
-					Skip("Skip test when appropriate storage class is not available")
+					Fail("Fail test when block storage class is not available")
 				}
 
 				var err error
@@ -1273,7 +1272,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 				storageClass, foundSC := libstorage.GetRWOFileSystemStorageClass()
 				if !foundSC {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				dv = libdv.NewDataVolume(
@@ -1314,14 +1313,14 @@ var _ = SIGDescribe("Hotplug", func() {
 
 				verifyAttachDetachVolume(vm, addVolumeFunc, removeVolumeFunc, sc, volumeMode, vmiOnly, true)
 			},
-				Entry("with DataVolume and running VM", addDVVolumeVM, removeVolumeVM, libstorage.GetRWOBlockStorageClass, k8sv1.PersistentVolumeFilesystem, false),
-				Entry("with DataVolume and VMI directly", addDVVolumeVMI, removeVolumeVMI, libstorage.GetRWOBlockStorageClass, k8sv1.PersistentVolumeFilesystem, true),
-				Entry("[Serial] with Block DataVolume immediate attach", Serial, addDVVolumeVM, removeVolumeVM, libstorage.GetRWOBlockStorageClass, k8sv1.PersistentVolumeBlock, false),
+				Entry("with DataVolume and running VM", addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeFilesystem, false),
+				Entry("with DataVolume and VMI directly", addDVVolumeVMI, removeVolumeVMI, k8sv1.PersistentVolumeFilesystem, true),
+				Entry(" with Block DataVolume immediate attach", Serial, addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, false),
 			)
 		})
 	})
 
-	Context("delete attachment pod several times", func() {
+	Context("delete attachment pod several times", decorators.RequiresRWXBlock, func() {
 		var (
 			vm       *v1.VirtualMachine
 			hpvolume *cdiv1.DataVolume
@@ -1329,11 +1328,11 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		BeforeEach(func() {
 			if !libstorage.HasCDI() {
-				Skip("Skip tests when CDI is not present")
+				Fail("Fail tests when CDI is not present")
 			}
 			_, foundSC := libstorage.GetRWXBlockStorageClass()
 			if !foundSC {
-				Skip("Skip test when block RWX storage is not present")
+				Fail("Fail test when block RWX storage is not present")
 			}
 		})
 
@@ -1429,7 +1428,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		})
 	})
 
-	Context("with limit range in namespace", func() {
+	Context("with limit range in namespace", decorators.RequiresRWXBlock, func() {
 		var (
 			sc                         string
 			lr                         *k8sv1.LimitRange
@@ -1461,7 +1460,7 @@ var _ = SIGDescribe("Hotplug", func() {
 
 		updateCDIResourceRequirements := func(requirements *k8sv1.ResourceRequirements) {
 			if !libstorage.HasCDI() {
-				Skip("Test requires CDI CR to be available")
+				Fail("Test requires CDI CR to be available")
 			}
 			orgCdiConfig, err := virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), "config", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1582,9 +1581,8 @@ var _ = SIGDescribe("Hotplug", func() {
 		BeforeEach(func() {
 			exists := false
 			sc, exists = libstorage.GetRWXBlockStorageClass()
-
 			if !exists {
-				Skip("Skip test when RWXBlock storage class is not present")
+				Fail("Fail test when RWXBlock storage class is not present")
 			}
 			originalConfig = *libkubevirt.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
 		})
@@ -1680,10 +1678,10 @@ var _ = SIGDescribe("Hotplug", func() {
 			_, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		},
-			Entry("[test_id:10002][Serial]1 to 1 cpu and mem ratio", Serial, float64(1), float64(1)),
-			Entry("[test_id:10003]Serial]1 to 1 mem ratio, 4 to 1 cpu ratio", Serial, float64(1), float64(4)),
-			Entry("[test_id:10004][Serial]2 to 1 mem ratio, 4 to 1 cpu ratio", Serial, float64(2), float64(4)),
-			Entry("[test_id:10005][Serial]2.25 to 1 mem ratio, 5.75 to 1 cpu ratio", Serial, float64(2.25), float64(5.75)),
+			Entry("[test_id:10002]1 to 1 cpu and mem ratio", Serial, float64(1), float64(1)),
+			Entry("[test_id:10003]1 to 1 mem ratio, 4 to 1 cpu ratio", Serial, float64(1), float64(4)),
+			Entry("[test_id:10004]2 to 1 mem ratio, 4 to 1 cpu ratio", Serial, float64(2), float64(4)),
+			Entry("[test_id:10005]2.25 to 1 mem ratio, 5.75 to 1 cpu ratio", Serial, float64(2.25), float64(5.75)),
 		)
 	})
 
@@ -1720,7 +1718,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			libstorage.DeleteStorageClass(storageClassHostPath)
 		})
 
-		It("should attach a hostpath based volume to running VM", func() {
+		It("should attach a hostpath based volume to running VM", decorators.StorageCritical, func() {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi,
@@ -1764,7 +1762,7 @@ var _ = SIGDescribe("Hotplug", func() {
 		It("should allow adding and removing hotplugged volumes", func() {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip no filesystem storage class available")
+				Fail("Fail no filesystem storage class available")
 			}
 
 			dv := libdv.NewDataVolume(
@@ -1856,7 +1854,7 @@ var _ = SIGDescribe("Hotplug", func() {
 	// Some of the functions used here don't behave well in parallel (CreateSCSIDisk).
 	// The device is created directly on the node and the addition and removal
 	// of the scsi_debug kernel module could create flakiness in parallel.
-	Context("[Serial]Hotplug LUN disk", Serial, func() {
+	Context("Hotplug LUN disk", Serial, func() {
 		var (
 			nodeName, address, device string
 			pvc                       *k8sv1.PersistentVolumeClaim

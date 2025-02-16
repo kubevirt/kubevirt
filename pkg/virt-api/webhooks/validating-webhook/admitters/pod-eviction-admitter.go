@@ -92,19 +92,24 @@ func (admitter *PodEvictionAdmitter) Admit(ctx context.Context, ar *admissionv1.
 		markForEviction = true
 	}
 
-	if markForEviction && !vmi.IsMarkedForEviction() && vmi.Status.NodeName == pod.Spec.NodeName {
-		err := admitter.markVMI(ctx, vmi.Namespace, vmi.Name, vmi.Status.NodeName, isDryRun(ar))
-		if err != nil {
-			// As with the previous case, it is up to the user to issue a retry.
-			return denied(fmt.Sprintf("kubevirt failed marking the vmi for eviction: %s", err.Error()))
-		}
-
-		return denied(fmt.Sprintf("Eviction triggered evacuation of VMI \"%s/%s\"", vmi.Namespace, vmi.Name))
+	if !markForEviction {
+		return validating_webhooks.NewPassingAdmissionResponse()
 	}
 
-	// We can let the request go through because the pod is protected by a PDB if the VMI wants to be live-migrated on
-	// eviction. Otherwise, we can just evict it.
-	return validating_webhooks.NewPassingAdmissionResponse()
+	// This message format is expected from descheduler.
+	const evictionFmt = "Eviction triggered evacuation of VMI \"%s/%s\""
+	if vmi.IsMarkedForEviction() {
+		return denied(fmt.Sprintf("Evacuation in progress: "+evictionFmt, vmi.Namespace, vmi.Name))
+	}
+	if vmi.Status.NodeName != pod.Spec.NodeName {
+		return denied("Eviction request for target Pod")
+	}
+	err = admitter.markVMI(ctx, vmi.Namespace, vmi.Name, pod.Spec.NodeName, isDryRun(ar))
+	if err != nil {
+		// As with the previous case, it is up to the user to issue a retry.
+		return denied(fmt.Sprintf("kubevirt failed marking the vmi for eviction: %s", err.Error()))
+	}
+	return denied(fmt.Sprintf(evictionFmt, vmi.Namespace, vmi.Name))
 }
 
 func (admitter *PodEvictionAdmitter) markVMI(ctx context.Context, vmiNamespace, vmiName, nodeName string, dryRun bool) error {

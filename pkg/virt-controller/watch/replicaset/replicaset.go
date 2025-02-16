@@ -62,7 +62,10 @@ const (
 func NewController(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient, burstReplicas uint) (*Controller, error) {
 
 	c := &Controller{
-		Queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-replicaset"),
+		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-replicaset"},
+		),
 		vmiIndexer:    vmiInformer.GetIndexer(),
 		vmiRSIndexer:  vmiRSInformer.GetIndexer(),
 		recorder:      recorder,
@@ -100,7 +103,7 @@ func NewController(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache.Sh
 
 type Controller struct {
 	clientset     kubecli.KubevirtClient
-	Queue         workqueue.RateLimitingInterface
+	Queue         workqueue.TypedRateLimitingInterface[string]
 	vmiIndexer    cache.Indexer
 	vmiRSIndexer  cache.Indexer
 	recorder      record.EventRecorder
@@ -137,7 +140,7 @@ func (c *Controller) Execute() bool {
 		return false
 	}
 	defer c.Queue.Done(key)
-	if err := c.execute(key.(string)); err != nil {
+	if err := c.execute(key); err != nil {
 		log.Log.Reason(err).Infof("re-enqueuing VirtualMachineInstanceReplicaSet %v", key)
 		c.Queue.AddRateLimited(key)
 	} else {
@@ -739,7 +742,7 @@ func (c *Controller) resolveControllerRef(namespace string, controllerRef *metav
 	if controllerRef.Kind != virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind {
 		return nil
 	}
-	rs, exists, err := c.vmiRSIndexer.GetByKey(namespace + "/" + controllerRef.Name)
+	rs, exists, err := c.vmiRSIndexer.GetByKey(controller.NamespacedKey(namespace, controllerRef.Name))
 	if err != nil {
 		return nil
 	}

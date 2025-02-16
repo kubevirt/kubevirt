@@ -33,8 +33,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-const operationComplete = "Operation complete"
-
 var groupName = "kubevirt.io"
 
 func WaitSnapshotSucceeded(virtClient kubecli.KubevirtClient, namespace string, snapshotName string) *snapshotv1.VirtualMachineSnapshot {
@@ -45,15 +43,16 @@ func WaitSnapshotSucceeded(virtClient kubecli.KubevirtClient, namespace string, 
 		Expect(err).ToNot(HaveOccurred())
 		return snapshot.Status
 	}, 180*time.Second, 2*time.Second).Should(gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+		"ReadyToUse": gstruct.PointTo(BeTrue()),
 		"Conditions": ContainElements(
 			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 				"Type":   Equal(snapshotv1.ConditionReady),
 				"Status": Equal(corev1.ConditionTrue),
-				"Reason": Equal(operationComplete)}),
+				"Reason": Equal("Ready")}),
 			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 				"Type":   Equal(snapshotv1.ConditionProgressing),
 				"Status": Equal(corev1.ConditionFalse),
-				"Reason": Equal(operationComplete)}),
+				"Reason": Equal("Operation complete")}),
 		),
 	})))
 

@@ -27,8 +27,8 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -119,8 +119,8 @@ func WaitForJob(job *batchv1.Job, toSucceed bool, timeout time.Duration) error {
 	}
 
 	const finish = true
-	poller := func(context.Context) (done bool, err error) {
-		job, err = virtClient.BatchV1().Jobs(job.Namespace).Get(context.Background(), job.Name, metav1.GetOptions{})
+	poller := func(ctx context.Context) (done bool, err error) {
+		job, err = virtClient.BatchV1().Jobs(job.Namespace).Get(ctx, job.Name, metav1.GetOptions{})
 		if err != nil {
 			return finish, err
 		}
@@ -141,7 +141,7 @@ func WaitForJob(job *batchv1.Job, toSucceed bool, timeout time.Duration) error {
 		return !finish, nil
 	}
 
-	err := wait.PollUntilContextTimeout(context.Background(), time.Second, timeout, true, poller)
+	err := virtwait.PollImmediately(time.Second, timeout, poller)
 	if err != nil {
 		return fmt.Errorf("job %s timeout reached, status: %+v, err: %v", job.Name, job.Status, err)
 	}

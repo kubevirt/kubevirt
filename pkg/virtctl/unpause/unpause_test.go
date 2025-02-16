@@ -7,15 +7,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/client-go/api"
-
-	"github.com/spf13/cobra"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
 var _ = Describe("Unpausing", func() {
@@ -39,51 +37,49 @@ var _ = Describe("Unpausing", func() {
 
 	Context("With missing input parameters", func() {
 		It("should fail an unpause", func() {
-			cmd := clientcmd.NewRepeatableVirtctlCommand(COMMAND_UNPAUSE)
+			cmd := testing.NewRepeatableVirtctlCommand(COMMAND_UNPAUSE)
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 		})
 	})
 
 	DescribeTable("should unpause VMI", func(unpauseOptions *v1.UnpauseOptions) {
-
-		vmi := api.NewMinimalVMI(vmName)
+		vmi := libvmi.New(
+			libvmi.WithNamespace(k8smetav1.NamespaceDefault),
+			libvmi.WithName(vmName),
+		)
 
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
 		vmiInterface.EXPECT().Unpause(context.Background(), vmi.Name, unpauseOptions).Return(nil).Times(1)
 
-		var command *cobra.Command
-		if len(unpauseOptions.DryRun) == 0 {
-			command = clientcmd.NewVirtctlCommand(COMMAND_UNPAUSE, "vmi", vmName)
-		} else {
-			command = clientcmd.NewVirtctlCommand(COMMAND_UNPAUSE, "--dry-run", "vmi", vmName)
+		args := []string{COMMAND_UNPAUSE, "vmi", vmName}
+		if len(unpauseOptions.DryRun) > 0 {
+			args = append(args, "--dry-run")
 		}
-		Expect(command.Execute()).To(Succeed())
+		Expect(testing.NewRepeatableVirtctlCommand(args...)()).To(Succeed())
 	},
 		Entry("", &v1.UnpauseOptions{}),
 		Entry("with dry-run option", &v1.UnpauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),
 	)
 
 	DescribeTable("should unpause VM", func(unpauseOptions *v1.UnpauseOptions) {
-
-		vmi := api.NewMinimalVMI(vmName)
-		vm := kubecli.NewMinimalVM(vmName)
-		vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{
-			Spec: vmi.Spec,
-		}
+		vmi := libvmi.New(
+			libvmi.WithNamespace(k8smetav1.NamespaceDefault),
+			libvmi.WithName(vmName),
+		)
+		vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyHalted))
 
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).Times(1)
 
 		vmInterface.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil).Times(1)
 		vmiInterface.EXPECT().Unpause(context.Background(), vm.Name, unpauseOptions).Return(nil).Times(1)
-		var command *cobra.Command
-		if len(unpauseOptions.DryRun) == 0 {
-			command = clientcmd.NewVirtctlCommand(COMMAND_UNPAUSE, "vm", vmName)
-		} else {
-			command = clientcmd.NewVirtctlCommand(COMMAND_UNPAUSE, "--dry-run", "vm", vmName)
+
+		args := []string{COMMAND_UNPAUSE, "vm", vmName}
+		if len(unpauseOptions.DryRun) > 0 {
+			args = append(args, "--dry-run")
 		}
-		Expect(command.Execute()).To(Succeed())
+		Expect(testing.NewRepeatableVirtctlCommand(args...)()).To(Succeed())
 	},
 		Entry("", &v1.UnpauseOptions{}),
 		Entry("with dry-run option", &v1.UnpauseOptions{DryRun: []string{k8smetav1.DryRunAll}}),

@@ -53,6 +53,14 @@ func doesVMIRequireDedicatedCPU(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.IsCPUDedicated()
 }
 
+func doesVMIRequireCPUForIOThreads(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Spec.Domain.IOThreadsPolicy != nil &&
+		*vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool &&
+		vmi.Spec.Domain.IOThreads != nil &&
+		vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount != nil &&
+		*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount > 0
+}
+
 func NewResourceRenderer(vmLimits k8sv1.ResourceList, vmRequests k8sv1.ResourceList, options ...ResourceRendererOption) *ResourceRenderer {
 	limits := map[k8sv1.ResourceName]resource.Quantity{}
 	requests := map[k8sv1.ResourceName]resource.Quantity{}
@@ -109,6 +117,15 @@ func WithEphemeralStorageRequest() ResourceRendererOption {
 	}
 }
 
+func addToCPU(resource map[k8sv1.ResourceName]resource.Quantity, q resource.Quantity) {
+	if r, ok := resource[k8sv1.ResourceCPU]; ok {
+		r.Add(q)
+		resource[k8sv1.ResourceCPU] = r
+	} else {
+		resource[k8sv1.ResourceCPU] = q
+	}
+}
+
 func WithoutDedicatedCPU(cpu *v1.CPU, cpuAllocationRatio int, withCPULimits bool) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		vcpus := calcVCPUs(cpu)
@@ -125,6 +142,16 @@ func WithoutDedicatedCPU(cpu *v1.CPU, cpuAllocationRatio int, withCPULimits bool
 				renderer.calculatedLimits[k8sv1.ResourceCPU] = resource.MustParse(strconv.FormatInt(vcpus, 10))
 			}
 		}
+	}
+}
+
+func WithIOThreads(iothreads *v1.DiskIOThreads) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		if iothreads == nil || iothreads.SupplementalPoolThreadCount == nil || *iothreads.SupplementalPoolThreadCount < 1 {
+			return
+		}
+		q := resource.NewQuantity(int64(*iothreads.SupplementalPoolThreadCount), resource.BinarySI)
+		addToCPU(renderer.vmLimits, *q)
 	}
 }
 
@@ -195,7 +222,7 @@ func WithAutoMemoryLimits(namespace string, namespaceStore cache.Store) Resource
 	}
 }
 
-func WithCPUPinning(cpu *v1.CPU, annotations map[string]string) ResourceRendererOption {
+func WithCPUPinning(cpu *v1.CPU, annotations map[string]string, additionalCPUs uint32) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		vcpus := hardware.GetNumberOfVCPUs(cpu)
 		if vcpus != 0 {
@@ -215,10 +242,9 @@ func WithCPUPinning(cpu *v1.CPU, annotations map[string]string) ResourceRenderer
 			limits := renderer.calculatedLimits[k8sv1.ResourceCPU]
 			_, emulatorThreadCompleteToEvenParityAnnotationExists := annotations[v1.EmulatorThreadCompleteToEvenParity]
 			if emulatorThreadCompleteToEvenParityAnnotationExists &&
-				limits.Value()%2 == 0 {
+				(limits.Value()+int64(additionalCPUs))%2 == 0 {
 				emulatorThreadCPUs = resource.NewQuantity(2, resource.BinarySI)
 			}
-
 			limits.Add(*emulatorThreadCPUs)
 			renderer.vmLimits[k8sv1.ResourceCPU] = limits
 
@@ -460,7 +486,7 @@ func getRequiredResources(vmi *v1.VirtualMachineInstance, allowEmulation bool) k
 	if util.NeedTunDevice(vmi) {
 		res[TunDevice] = resource.MustParse("1")
 	}
-	if util.NeedVirtioNetDevice(vmi, allowEmulation) {
+	if needVirtioNetDevice(vmi, allowEmulation) {
 		// Note that about network interface, allowEmulation does not make
 		// any difference on eventual Domain xml, but uniformly making
 		// /dev/vhost-net unavailable and libvirt implicitly fallback
@@ -722,4 +748,10 @@ func getMemoryLimitsRatio(namespace string, namespaceStore cache.Store) float64 
 	}
 
 	return limitRatioValue
+}
+
+// needVirtioNetDevice checks whether a VMI requires the presence of the "virtio" net device.
+// This happens when the VMI wants to use a "virtio" network interface, and software emulation is disallowed.
+func needVirtioNetDevice(vmi *v1.VirtualMachineInstance, allowEmulation bool) bool {
+	return util.WantVirtioNetDevice(vmi) && !allowEmulation
 }

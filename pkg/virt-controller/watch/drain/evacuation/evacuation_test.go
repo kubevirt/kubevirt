@@ -1,4 +1,4 @@
-package evacuation_test
+package evacuation
 
 import (
 	"context"
@@ -24,9 +24,9 @@ import (
 
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
+	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
 )
 
 var _ = Describe("Evacuation", func() {
@@ -43,12 +43,12 @@ var _ = Describe("Evacuation", func() {
 	var podInformer cache.SharedIndexInformer
 	var podSource *framework.FakeControllerSource
 	var recorder *record.FakeRecorder
-	var mockQueue *testutils.MockWorkQueue
+	var mockQueue *testutils.MockWorkQueue[string]
 	var kubeClient *fake.Clientset
-	var migrationFeeder *testutils.MigrationFeeder
-	var vmiFeeder *testutils.VirtualMachineFeeder
+	var migrationFeeder *testutils.MigrationFeeder[string]
+	var vmiFeeder *testutils.VirtualMachineFeeder[string]
 
-	var controller *evacuation.EvacuationController
+	var controller *EvacuationController
 
 	syncCaches := func(stop chan struct{}) {
 		go vmiInformer.Run(stop)
@@ -95,7 +95,7 @@ var _ = Describe("Evacuation", func() {
 		recorder.IncludeObject = true
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
-		controller, _ = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
+		controller, _ = NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 		migrationFeeder = testutils.NewMigrationFeeder(mockQueue, migrationSource)
@@ -115,9 +115,16 @@ var _ = Describe("Evacuation", func() {
 		syncCaches(stop)
 	})
 
+	sanityExecute := func() {
+		controllertesting.SanityExecute(controller, []cache.Store{
+			controller.vmiIndexer, controller.vmiPodIndexer, controller.migrationStore, controller.nodeStore,
+		}, Default)
+
+	}
+
 	Context("migration object creation", func() {
 		It("should have expected values and annotations", func() {
-			migration := evacuation.GenerateNewMigration("my-vmi", "somenode")
+			migration := GenerateNewMigration("my-vmi", "somenode")
 			Expect(migration.Spec.VMIName).To(Equal("my-vmi"))
 			Expect(migration.Annotations[v1.EvacuationMigrationAnnotation]).To(Equal("somenode"))
 		})
@@ -132,7 +139,7 @@ var _ = Describe("Evacuation", func() {
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmiFeeder.Add(vmi)
 
-			controller.Execute()
+			sanityExecute()
 		})
 
 		It("should do nothing if the target node is not evicting", func() {
@@ -145,7 +152,7 @@ var _ = Describe("Evacuation", func() {
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 			vmiFeeder.Add(vmi)
 
-			controller.Execute()
+			sanityExecute()
 		})
 	})
 
@@ -162,8 +169,8 @@ var _ = Describe("Evacuation", func() {
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 			vmiFeeder.Add(vmi)
 
-			controller.Execute()
-			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			sanityExecute()
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
 			expectMigrationCreation()
 		})
 
@@ -184,10 +191,10 @@ var _ = Describe("Evacuation", func() {
 			vmi1.Status.Conditions = nil
 			vmiFeeder.Add(vmi1)
 
-			controller.Execute()
+			sanityExecute()
 			testutils.ExpectEvents(recorder,
-				evacuation.FailedCreateVirtualMachineInstanceMigrationReason,
-				evacuation.FailedCreateVirtualMachineInstanceMigrationReason,
+				FailedCreateVirtualMachineInstanceMigrationReason,
+				FailedCreateVirtualMachineInstanceMigrationReason,
 			)
 		})
 
@@ -209,7 +216,7 @@ var _ = Describe("Evacuation", func() {
 			migrationFeeder.Add(newMigration("mig4", vmi.Name, v1.MigrationRunning))
 			migrationFeeder.Add(newMigration("mig5", vmi.Name, v1.MigrationRunning))
 
-			controller.Execute()
+			sanityExecute()
 
 		})
 
@@ -231,13 +238,13 @@ var _ = Describe("Evacuation", func() {
 			vmi3 := newVirtualMachineMarkedForEviction("testvmi3", node.Name)
 			vmiFeeder.Add(vmi3)
 
-			controller.Execute()
+			sanityExecute()
 
 			migration2.Status.Phase = v1.MigrationSucceeded
 			migrationFeeder.Modify(migration2)
 
-			controller.Execute()
-			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			sanityExecute()
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
 			expectMigrationCreation()
 		})
 	})
@@ -251,8 +258,8 @@ var _ = Describe("Evacuation", func() {
 			vmi.Spec.EvictionStrategy = newEvictionStrategyLiveMigrate()
 			vmi.Status.EvacuationNodeName = node.Name
 			vmiFeeder.Add(vmi)
-			controller.Execute()
-			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			sanityExecute()
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
 			expectMigrationCreation()
 		})
 
@@ -275,8 +282,8 @@ var _ = Describe("Evacuation", func() {
 			}
 			vmi.Status.EvacuationNodeName = vmi.Status.NodeName
 			vmiFeeder.Add(vmi)
-			controller.Execute()
-			testutils.ExpectEvent(recorder, evacuation.FailedCreateVirtualMachineInstanceMigrationReason)
+			sanityExecute()
+			testutils.ExpectEvent(recorder, FailedCreateVirtualMachineInstanceMigrationReason)
 		})
 
 		It("Should not evict VMI if max migrations are in progress", func() {
@@ -297,7 +304,7 @@ var _ = Describe("Evacuation", func() {
 			migrationFeeder.Add(newMigration("mig3", vmi.Name, v1.MigrationRunning))
 			migrationFeeder.Add(newMigration("mig4", vmi.Name, v1.MigrationRunning))
 			migrationFeeder.Add(newMigration("mig5", vmi.Name, v1.MigrationRunning))
-			controller.Execute()
+			sanityExecute()
 		})
 
 		It("Shound do nothing when active migrations exceed the configured concurrent maximum", func() {
@@ -314,7 +321,7 @@ var _ = Describe("Evacuation", func() {
 			nodeName := "node01"
 			addNode(newNode(nodeName))
 
-			controller, _ = evacuation.
+			controller, _ =
 				NewEvacuationController(
 					vmiInformer,
 					migrationInformer,
@@ -330,7 +337,7 @@ var _ = Describe("Evacuation", func() {
 				migrationFeeder.Add(newMigration(fmt.Sprintf("mig%d", i), vmiName, v1.MigrationRunning))
 			}
 
-			controller.Execute()
+			sanityExecute()
 		})
 
 		It("Should not create a migration if one is already in progress", func() {
@@ -352,7 +359,7 @@ var _ = Describe("Evacuation", func() {
 
 			migrationFeeder.Add(migration)
 
-			controller.Execute()
+			sanityExecute()
 		})
 
 		It("should evict the VMI if only one pod is running", func() {
@@ -376,8 +383,8 @@ var _ = Describe("Evacuation", func() {
 
 			vmiFeeder.Add(vmi)
 
-			controller.Execute()
-			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			sanityExecute()
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
 			expectMigrationCreation()
 		})
 
@@ -400,14 +407,14 @@ var _ = Describe("Evacuation", func() {
 
 			vmiFeeder.Add(vmi)
 
-			controller.Execute()
+			sanityExecute()
 		})
 
 		It("should migrate the VMI if EvictionStrategy is set in the cluster config", func() {
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 				EvictionStrategy: newEvictionStrategyLiveMigrate(),
 			})
-			controller, _ = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
+			controller, _ = NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 
 			node := newNode("testnode")
 			node1 := newNode("anothernode")
@@ -418,8 +425,8 @@ var _ = Describe("Evacuation", func() {
 			vmi := newVirtualMachine("testvm", node.Name)
 			vmiFeeder.Add(vmi)
 
-			controller.Execute()
-			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			sanityExecute()
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
 			expectMigrationCreation()
 		})
 
@@ -427,7 +434,7 @@ var _ = Describe("Evacuation", func() {
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 				EvictionStrategy: newEvictionStrategyLiveMigrate(),
 			})
-			controller, _ = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
+			controller, _ = NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
 
 			node := newNode("testnode")
 			node1 := newNode("anothernode")
@@ -439,7 +446,7 @@ var _ = Describe("Evacuation", func() {
 			vmi.Spec.EvictionStrategy = newEvictionStrategyNone()
 			vmiFeeder.Add(vmi)
 
-			controller.Execute()
+			sanityExecute()
 		})
 
 		It("Should create new evictions up to the configured maximum migrations per outbound node", func() {
@@ -454,7 +461,7 @@ var _ = Describe("Evacuation", func() {
 				},
 			})
 
-			controller, _ = evacuation.
+			controller, _ =
 				NewEvacuationController(
 					vmiInformer,
 					migrationInformer,
@@ -482,9 +489,9 @@ var _ = Describe("Evacuation", func() {
 
 			By(fmt.Sprintf("Expect only one new migration from node %s although cluster capacity allows more candidates", nodeName))
 
-			controller.Execute()
+			sanityExecute()
 
-			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
 			expectMigrationCreation()
 		})
 
@@ -500,7 +507,7 @@ var _ = Describe("Evacuation", func() {
 				},
 			})
 
-			controller, _ = evacuation.
+			controller, _ =
 				NewEvacuationController(
 					vmiInformer,
 					migrationInformer,
@@ -524,9 +531,9 @@ var _ = Describe("Evacuation", func() {
 			vmiName := fmt.Sprintf("testvmi%d", pendingMigrations+1)
 			vmiFeeder.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
 
-			controller.Execute()
+			sanityExecute()
 
-			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
 			expectMigrationCreation()
 
 		})

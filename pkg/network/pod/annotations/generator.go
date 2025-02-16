@@ -20,7 +20,7 @@
 package annotations
 
 import (
-	k8Scorev1 "k8s.io/api/core/v1"
+	k8scorev1 "k8s.io/api/core/v1"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
@@ -81,8 +81,8 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 }
 
 // GenerateFromSource generates ordinal pod interfaces naming scheme for a migration target in case the migration source pod uses it
-func (g Generator) GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod *k8Scorev1.Pod) (map[string]string, error) {
-	if !namescheme.PodHasOrdinalInterfaceName2(multus.NetworkStatusesFromPod(sourcePod)) {
+func (g Generator) GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod *k8scorev1.Pod) (map[string]string, error) {
+	if !namescheme.PodHasOrdinalInterfaceName(multus.NetworkStatusesFromPod(sourcePod)) {
 		return nil, nil
 	}
 
@@ -102,24 +102,65 @@ func (g Generator) GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod 
 }
 
 // GenerateFromActivePod generates additional pod annotations, bases on information that exists on a live virt-launcher pod
-func (g Generator) GenerateFromActivePod(vmi *v1.VirtualMachineInstance, pod *k8Scorev1.Pod) map[string]string {
+func (g Generator) GenerateFromActivePod(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) map[string]string {
+	annotations := map[string]string{}
+
+	if deviceInfoAnnotation := g.generateDeviceInfoAnnotation(vmi, pod); deviceInfoAnnotation != "" {
+		annotations[downwardapi.NetworkInfoAnnot] = deviceInfoAnnotation
+	}
+
+	if updatedMultusAnnotation, shouldUpdate := g.generateMultusAnnotation(vmi, pod); shouldUpdate {
+		annotations[networkv1.NetworkAttachmentAnnot] = updatedMultusAnnotation
+	}
+
+	return annotations
+}
+
+func (g Generator) generateMultusAnnotation(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) (string, bool) {
+	vmiSpecIfaces, vmiSpecNets, ifaceChangeRequired := ifacesAndNetsForMultusAnnotationUpdate(vmi)
+	if !ifaceChangeRequired {
+		return "", false
+	}
+
+	podIfaceNamesByNetworkName := namescheme.CreateFromNetworkStatuses(vmiSpecNets, multus.NetworkStatusesFromPod(pod))
+	updatedMultusAnnotation, err := multus.GenerateCNIAnnotationFromNameScheme(
+		vmi.Namespace,
+		vmiSpecIfaces,
+		vmiSpecNets,
+		podIfaceNamesByNetworkName,
+		g.clusterConfig,
+	)
+	if err != nil {
+		return "", false
+	}
+
+	currentMultusAnnotation := pod.Annotations[networkv1.NetworkAttachmentAnnot]
+
+	const logLevel = 4
+	log.Log.Object(pod).V(logLevel).Infof(
+		"current multus annotation for pod: %s; updated multus annotation for pod with: %s",
+		currentMultusAnnotation,
+		updatedMultusAnnotation,
+	)
+
+	if updatedMultusAnnotation == currentMultusAnnotation {
+		return "", false
+	}
+
+	return updatedMultusAnnotation, true
+}
+
+func (g Generator) generateDeviceInfoAnnotation(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) string {
 	ifaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
 		return iface.SRIOV != nil || vmispec.HasBindingPluginDeviceInfo(iface, g.clusterConfig.GetNetworkBindings())
 	})
 
-	networkStatusAnnotation := pod.Annotations[networkv1.NetworkStatusAnnot]
-	networkDeviceInfoMap, err := deviceinfo.MapNetworkNameToDeviceInfo(vmi.Spec.Networks, networkStatusAnnotation, ifaces)
-	if err != nil {
-		log.Log.Warningf("failed to create network device-info-map: %v", err)
-	}
-
+	networkDeviceInfoMap := deviceinfo.MapNetworkNameToDeviceInfo(vmi.Spec.Networks, ifaces, multus.NetworkStatusesFromPod(pod))
 	if len(networkDeviceInfoMap) == 0 {
-		return nil
+		return ""
 	}
 
-	networkDeviceInfoAnnotation := downwardapi.CreateNetworkInfoAnnotationValue(networkDeviceInfoMap)
-
-	return map[string]string{downwardapi.NetworkInfoAnnot: networkDeviceInfoAnnotation}
+	return downwardapi.CreateNetworkInfoAnnotationValue(networkDeviceInfoMap)
 }
 
 func shouldAddIstioKubeVirtAnnotation(vmi *v1.VirtualMachineInstance) bool {
@@ -128,4 +169,32 @@ func shouldAddIstioKubeVirtAnnotation(vmi *v1.VirtualMachineInstance) bool {
 	})
 
 	return len(interfacesWithMasqueradeBinding) > 0
+}
+
+func ifacesAndNetsForMultusAnnotationUpdate(vmi *v1.VirtualMachineInstance) ([]v1.Interface, []v1.Network, bool) {
+	vmiNonAbsentSpecIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.State != v1.InterfaceStateAbsent
+	})
+	ifacesToHotUnplugExist := len(vmi.Spec.Domain.Devices.Interfaces) > len(vmiNonAbsentSpecIfaces)
+
+	ifacesStatusByName := vmispec.IndexInterfaceStatusByName(vmi.Status.Interfaces, nil)
+	ifacesToAnnotate := vmispec.FilterInterfacesSpec(vmiNonAbsentSpecIfaces, func(iface v1.Interface) bool {
+		_, ifaceInStatus := ifacesStatusByName[iface.Name]
+		sriovIfaceNotPlugged := iface.SRIOV != nil && !ifaceInStatus
+		return !sriovIfaceNotPlugged
+	})
+
+	networksToAnnotate := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, ifacesToAnnotate)
+
+	ifacesToHotplug := vmispec.FilterInterfacesSpec(ifacesToAnnotate, func(iface v1.Interface) bool {
+		_, inStatus := ifacesStatusByName[iface.Name]
+		return !inStatus
+	})
+	ifacesToHotplugExist := len(ifacesToHotplug) > 0
+
+	ifaceChangeRequired := ifacesToHotplugExist || ifacesToHotUnplugExist
+	if !ifaceChangeRequired {
+		return nil, nil, false
+	}
+	return ifacesToAnnotate, networksToAnnotate, ifaceChangeRequired
 }

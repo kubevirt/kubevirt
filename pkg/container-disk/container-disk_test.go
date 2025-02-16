@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/user"
 	"path/filepath"
 	"strings"
 
@@ -44,10 +43,6 @@ import (
 var _ = Describe("ContainerDisk", func() {
 	var tmpDir string
 	const someImage = "someimage:v1.2.3.4"
-	owner, err := user.Current()
-	if err != nil {
-		panic(err)
-	}
 
 	VerifyDiskType := func(diskExtension string) {
 		vmi := libvmi.New(libvmi.WithContainerDisk("r0", someImage))
@@ -57,12 +52,12 @@ var _ = Describe("ContainerDisk", func() {
 
 		// create a fake disk file
 		volumeMountDir := GetVolumeMountDirOnGuest(vmi)
-		err = os.MkdirAll(volumeMountDir, 0750)
+		err := os.MkdirAll(volumeMountDir, 0750)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(expectedVolumeMountDir).To(Equal(volumeMountDir))
 
 		filePath := filepath.Join(volumeMountDir, "disk_0.img")
-		_, err := os.Create(filePath)
+		_, err = os.Create(filePath)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -73,7 +68,6 @@ var _ = Describe("ContainerDisk", func() {
 		Expect(os.MkdirAll(tmpDir, 0755)).To(Succeed())
 		err = SetLocalDirectory(tmpDir)
 		Expect(err).ToNot(HaveOccurred())
-		setLocalDataOwner(owner.Username)
 		err = setPodsDirectory(tmpDir)
 		Expect(err).ToNot(HaveOccurred())
 	})
@@ -313,11 +307,12 @@ var _ = Describe("ContainerDisk", func() {
 
 				var vmi *v1.VirtualMachineInstance
 				var tmpDir string
-				BeforeEach(func() {
 
+				BeforeEach(func() {
+					var err error
 					tmpDir, err = os.MkdirTemp("", "something")
 					Expect(err).ToNot(HaveOccurred())
-					err := os.MkdirAll(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", tmpDir, "poduid"), 0777)
+					err = os.MkdirAll(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", tmpDir, "poduid"), 0777)
 					Expect(err).ToNot(HaveOccurred())
 					f, err := os.Create(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_0.sock", tmpDir, "poduid"))
 					Expect(err).ToNot(HaveOccurred())
@@ -343,7 +338,7 @@ var _ = Describe("ContainerDisk", func() {
 				})
 
 				It("should fail if the base directory only exists", func() {
-					_, err = NewSocketPathGetter(tmpDir)(vmi, 2)
+					_, err := NewSocketPathGetter(tmpDir)(vmi, 2)
 					Expect(err).To(HaveOccurred())
 				})
 

@@ -13,7 +13,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/util/cluster"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -84,10 +85,6 @@ func IsS390X(arch string) bool {
 	return arch == "s390x"
 }
 
-func HasLiveMigration() bool {
-	return HasFeature("LiveMigration")
-}
-
 func HasAtLeastTwoNodes() bool {
 	var nodes *k8sv1.NodeList
 	virtClient := kubevirt.Client()
@@ -114,7 +111,7 @@ func IsOpenShift() bool {
 
 func RequireFeatureGateVirtHandlerRestart(feature string) bool {
 	// List of feature gates that requires virt-handler to be redeployed
-	fgs := []string{virtconfig.PersistentReservation}
+	fgs := []string{featuregate.PersistentReservation}
 	for _, f := range fgs {
 		if feature == f {
 			return true

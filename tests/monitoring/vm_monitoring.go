@@ -44,21 +44,18 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
-	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.SigMonitoring, func() {
+var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitoring, func() {
 	var (
 		err        error
 		virtClient kubecli.KubevirtClient
@@ -111,15 +108,6 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			"kubevirt_vmi_cpu_user_usage_seconds_total",
 		}
 
-		BeforeEach(func() {
-			vmi := libvmifact.NewGuestless()
-			vm = libvmi.NewVirtualMachine(vmi)
-
-			By("Create a VirtualMachine")
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-		})
-
 		checkMetricTo := func(metric string, labels map[string]string, matcher types.GomegaMatcher, description string) {
 			EventuallyWithOffset(1, func() float64 {
 				i, err := libmonitoring.GetMetricValueWithLabels(virtClient, metric, labels)
@@ -131,8 +119,12 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		}
 
 		It("Should be available for a running VM", func() {
-			By("Start the VM")
-			vm = libvmops.StartVirtualMachine(vm)
+
+			By("Create a running VirtualMachine")
+			vm = libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 
 			By("Checking that the VM metrics are available")
 			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
@@ -142,8 +134,12 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		})
 
 		It("Should be available for a paused VM", func() {
-			By("Start the VM")
-			vm = libvmops.StartVirtualMachine(vm)
+
+			By("Create a running VirtualMachine")
+			vm = libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
 
 			By("Pausing the VM")
 			err := virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
@@ -160,6 +156,11 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		})
 
 		It("Should not be available for a stopped VM", func() {
+			By("Create a stopped VirtualMachine")
+			vm = libvmi.NewVirtualMachine(libvmifact.NewGuestless())
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
 			By("Checking that the VM metrics are not available")
 			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
 			for _, metric := range cpuMetrics {
@@ -168,12 +169,10 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 		})
 	})
 
-	Context("VM migration metrics", func() {
+	Context("VM migration metrics", decorators.RequiresTwoSchedulableNodes, func() {
 		var nodes *corev1.NodeList
 
 		BeforeEach(func() {
-			checks.SkipIfMigrationIsNotPossible()
-
 			Eventually(func() []corev1.Node {
 				nodes = libnode.GetAllSchedulableNodes(virtClient)
 				return nodes.Items
@@ -222,7 +221,7 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 			migration.Annotations = map[string]string{v1.MigrationUnschedulablePodTimeoutSecondsAnnotation: "60"}
 			migration = libmigration.RunMigration(virtClient, migration)
 
-			Eventually(matcher.ThisMigration(migration), 2*time.Minute, 5*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed), "migration creation should fail")
+			Eventually(matcher.ThisMigration(migration)).WithTimeout(2*time.Minute).WithPolling(5*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed), "migration creation should fail")
 
 			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_scheduling_phase", 0)
 			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_failed", 1, labels, 1)
@@ -358,26 +357,6 @@ var _ = Describe("[Serial][sig-monitoring]VM Monitoring", Serial, decorators.Sig
 
 		AfterEach(func() {
 			scales.RestoreAllScales()
-		})
-
-		It("[QUARANTINE] should fire KubevirtVmHighMemoryUsage alert", decorators.Quarantine, func() {
-			By("starting VMI")
-			vmi := libvmifact.NewGuestless()
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
-
-			By("fill up the vmi pod memory")
-			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(err).NotTo(HaveOccurred())
-			vmiPodRequestMemory := vmiPod.Spec.Containers[0].Resources.Requests.Memory().Value()
-			_, err = exec.ExecuteCommandOnPod(
-				vmiPod,
-				vmiPod.Spec.Containers[0].Name,
-				[]string{"/usr/bin/bash", "-c", fmt.Sprintf("cat <( </dev/zero head -c %d) <(sleep 150) | tail", vmiPodRequestMemory)},
-			)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("waiting for KubevirtVmHighMemoryUsage alert")
-			libmonitoring.VerifyAlertExist(virtClient, "KubevirtVmHighMemoryUsage")
 		})
 
 		It("[test_id:9260] should fire OrphanedVirtualMachineInstances alert", func() {

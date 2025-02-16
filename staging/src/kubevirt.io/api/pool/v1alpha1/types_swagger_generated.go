@@ -39,6 +39,13 @@ func (VirtualMachinePoolSpec) SwaggerDoc() map[string]string {
 		"selector":               "Label selector for pods. Existing Poolss whose pods are\nselected by this will be the ones affected by this deployment.",
 		"virtualMachineTemplate": "Template describes the VM that will be created.",
 		"paused":                 "Indicates that the pool is paused.\n+optional",
+		"nameGeneration":         "Options for the name generation in a pool.\n+optional",
+	}
+}
+
+func (VirtualMachinePoolNameGeneration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
 	}
 }
 

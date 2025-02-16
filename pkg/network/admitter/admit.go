@@ -33,13 +33,26 @@ import (
 func validateInterfaceStateValue(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	for idx, iface := range spec.Domain.Devices.Interfaces {
-		if iface.State != "" && iface.State != v1.InterfaceStateAbsent {
+		if iface.State != "" &&
+			iface.State != v1.InterfaceStateAbsent &&
+			iface.State != v1.InterfaceStateLinkDown &&
+			iface.State != v1.InterfaceStateLinkUp {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("logical %s interface state value is unsupported: %s", iface.Name, iface.State),
 				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("state").String(),
 			})
 		}
+
+		if iface.SRIOV != nil &&
+			(iface.State == v1.InterfaceStateLinkDown || iface.State == v1.InterfaceStateLinkUp) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%q interface's state %q is not supported for SR-IOV NICs", iface.Name, iface.State),
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("state").String(),
+			})
+		}
+
 		if iface.State == v1.InterfaceStateAbsent && iface.Bridge == nil {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,

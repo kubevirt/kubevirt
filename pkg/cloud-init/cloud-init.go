@@ -265,10 +265,6 @@ func resolveConfigDriveSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir s
 		return keys, err
 	}
 
-	if err != nil {
-		return keys, err
-	}
-
 	volume := findCloudInitConfigDriveSecretVolume(vmi.Spec.Volumes)
 	if volume == nil {
 		return keys, nil

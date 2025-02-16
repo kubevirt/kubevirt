@@ -59,6 +59,28 @@ func NewVirtualMachine(vmi *v1.VirtualMachineInstance, opts ...VMOption) *v1.Vir
 	return vm
 }
 
+func WithAnnotations(annotations map[string]string) VMOption {
+	return func(vm *v1.VirtualMachine) {
+		if vm.Annotations == nil {
+			vm.Annotations = annotations
+		}
+		for key, val := range annotations {
+			vm.Annotations[key] = val
+		}
+	}
+}
+
+func WithLabels(labels map[string]string) VMOption {
+	return func(vm *v1.VirtualMachine) {
+		if vm.Labels == nil {
+			vm.Labels = labels
+		}
+		for key, val := range labels {
+			vm.Labels[key] = val
+		}
+	}
+}
+
 func WithRunStrategy(strategy v1.VirtualMachineRunStrategy) VMOption {
 	return func(vm *v1.VirtualMachine) {
 		vm.Spec.RunStrategy = &strategy

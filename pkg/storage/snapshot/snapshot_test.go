@@ -65,12 +65,13 @@ var (
 
 var _ = Describe("Snapshot controlleer", func() {
 	var (
-		timeStamp               = metav1.Time{Time: time.Now().Truncate(time.Second)}
-		vmName                  = "testvm"
-		vmRevisionName          = "testvm-revision"
-		vmSnapshotName          = "test-snapshot"
-		retain                  = snapshotv1.VirtualMachineSnapshotContentRetain
-		volumeSnapshotClassName = "csi-rbdplugin-snapclass"
+		timeStamp                = metav1.Time{Time: time.Now().Truncate(time.Second)}
+		vmName                   = "testvm"
+		vmRevisionName           = "testvm-revision"
+		vmSnapshotName           = "test-snapshot"
+		retain                   = snapshotv1.VirtualMachineSnapshotContentRetain
+		volumeSnapshotClassName  = "csi-rbdplugin-snapclass"
+		volumeSnapshotClassName2 = "csi-rbdplugin-snapclass-alt"
 	)
 
 	timeFunc := func() *metav1.Time {
@@ -90,7 +91,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			CreationTime: timeFunc(),
 			Conditions: []snapshotv1.Condition{
 				newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
-				newReadyCondition(corev1.ConditionTrue, "Operation complete"),
+				newReadyCondition(corev1.ConditionTrue, "Ready"),
 			},
 			Phase: snapshotv1.Succeeded,
 		}
@@ -192,10 +193,22 @@ var _ = Describe("Snapshot controlleer", func() {
 		vms.Status.Indications = nil
 		vms.Status.Conditions = []snapshotv1.Condition{
 			newProgressingCondition(corev1.ConditionFalse, "In error state"),
-			newReadyCondition(corev1.ConditionFalse, "Error"),
+			newReadyCondition(corev1.ConditionFalse, "Not ready"),
 		}
 		vms.Status.Error = content.Status.Error
 		return vms
+	}
+
+	createStorageProfile := func() *cdiv1.StorageProfile {
+		return &cdiv1.StorageProfile{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: storageClassName,
+			},
+			Status: cdiv1.StorageProfileStatus{
+
+				SnapshotClass: pointer.P(volumeSnapshotClassName2),
+			},
+		}
 	}
 
 	createStorageClass := func() *storagev1.StorageClass {
@@ -245,7 +258,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			},
 			{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: volumeSnapshotClassName + "alt",
+					Name: volumeSnapshotClassName2,
 				},
 				Driver: "rook-ceph.rbd.csi.ceph.com",
 			},
@@ -273,6 +286,8 @@ var _ = Describe("Snapshot controlleer", func() {
 		var volumeSnapshotClassSource *framework.FakeControllerSource
 		var storageClassInformer cache.SharedIndexInformer
 		var storageClassSource *framework.FakeControllerSource
+		var storageProfileInformer cache.SharedIndexInformer
+		var storageProfileSource *framework.FakeControllerSource
 		var pvcInformer cache.SharedIndexInformer
 		var pvcSource *framework.FakeControllerSource
 		var crdInformer cache.SharedIndexInformer
@@ -284,10 +299,10 @@ var _ = Describe("Snapshot controlleer", func() {
 		var stop chan struct{}
 		var controller *VMSnapshotController
 		var recorder *record.FakeRecorder
-		var mockVMSnapshotQueue *testutils.MockWorkQueue
-		var mockVMSnapshotContentQueue *testutils.MockWorkQueue
-		var mockCRDQueue *testutils.MockWorkQueue
-		var mockVMQueue *testutils.MockWorkQueue
+		var mockVMSnapshotQueue *testutils.MockWorkQueue[string]
+		var mockVMSnapshotContentQueue *testutils.MockWorkQueue[string]
+		var mockCRDQueue *testutils.MockWorkQueue[string]
+		var mockVMQueue *testutils.MockWorkQueue[string]
 
 		var vmSnapshotClient *kubevirtfake.Clientset
 		var k8sSnapshotClient *k8ssnapshotfake.Clientset
@@ -299,6 +314,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			go vmSnapshotContentInformer.Run(stop)
 			go vmInformer.Run(stop)
 			go storageClassInformer.Run(stop)
+			go storageProfileInformer.Run(stop)
 			go pvcInformer.Run(stop)
 			go crdInformer.Run(stop)
 			go vmiInformer.Run(stop)
@@ -311,6 +327,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshotContentInformer.HasSynced,
 				vmInformer.HasSynced,
 				storageClassInformer.HasSynced,
+				storageProfileInformer.HasSynced,
 				pvcInformer.HasSynced,
 				crdInformer.HasSynced,
 				vmiInformer.HasSynced,
@@ -336,6 +353,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			volumeSnapshotInformer, volumeSnapshotSource = testutils.NewFakeInformerFor(&vsv1.VolumeSnapshot{})
 			volumeSnapshotClassInformer, volumeSnapshotClassSource = testutils.NewFakeInformerFor(&vsv1.VolumeSnapshotClass{})
 			storageClassInformer, storageClassSource = testutils.NewFakeInformerFor(&storagev1.StorageClass{})
+			storageProfileInformer, storageProfileSource = testutils.NewFakeInformerFor(&cdiv1.StorageProfile{})
 			pvcInformer, pvcSource = testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
 			crdInformer, crdSource = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
 			dvInformer, dvSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
@@ -351,6 +369,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				VMIInformer:               vmiInformer,
 				PodInformer:               podInformer,
 				StorageClassInformer:      storageClassInformer,
+				StorageProfileInformer:    storageProfileInformer,
 				PVCInformer:               pvcInformer,
 				CRDInformer:               crdInformer,
 				DVInformer:                dvInformer,
@@ -420,13 +439,6 @@ var _ = Describe("Snapshot controlleer", func() {
 			mockVMSnapshotContentQueue.Wait()
 		}
 
-		addVM := func(vm *v1.VirtualMachine) {
-			syncCaches(stop)
-			mockVMSnapshotQueue.ExpectAdds(1)
-			vmSource.Add(vm)
-			mockVMSnapshotQueue.Wait()
-		}
-
 		addVolumeSnapshot := func(s *vsv1.VolumeSnapshot) {
 			syncCaches(stop)
 			mockVMSnapshotContentQueue.ExpectAdds(1)
@@ -467,6 +479,11 @@ var _ = Describe("Snapshot controlleer", func() {
 					volumeSnapshotInformer.HasSynced,
 					volumeSnapshotClassInformer.HasSynced,
 				)).To(BeTrue())
+
+				pvcs := createPersistentVolumeClaims()
+				for i := range pvcs {
+					pvcSource.Add(&pvcs[i])
+				}
 			})
 
 			It("should initialize VirtualMachineSnapshot status", func() {
@@ -672,22 +689,57 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(*contentDeletes).To(Equal(1))
 			})
 
-			It("should (partial) lock source", func() {
+			DescribeTable("should partial lock source if VM patch fails", func(runstrategy v1.VirtualMachineRunStrategy) {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createVM()
+				vm.Spec.RunStrategy = pointer.P(runstrategy)
 				vmUpdate := vm.DeepCopy()
 				vmUpdate.ResourceVersion = "1"
 				vmUpdate.Status.SnapshotInProgress = &vmSnapshotName
 
-				vmSource.Add(vm)
 				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
 				vmInterface.EXPECT().Patch(context.Background(), vmUpdate.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(nil, fmt.Errorf("error")).Times(1)
 
+				vmSource.Add(vm)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
+			},
+				Entry("With runstrategy halted", v1.RunStrategyHalted),
+				Entry("With runstrategy always", v1.RunStrategyAlways),
+				Entry("With runstrategy manual", v1.RunStrategyManual),
+				Entry("With runstrategy rerunOnFailure", v1.RunStrategyRerunOnFailure),
+			)
+
+			It("should complete lock source after partial lock", func() {
+				vmSnapshot := createVMSnapshotInProgress()
+				vm := createVM()
+				// Update of snapshotinprogress succeeded already
+				vm.Status.SnapshotInProgress = &vmSnapshotName
+				vmUpdate := vm.DeepCopy()
+				vmUpdate.ResourceVersion = "1"
+				vmUpdate.Finalizers = []string{"snapshot.kubevirt.io/snapshot-source-protection"}
+
+				vmSource.Add(vm)
+
+				patchBytes, err := patch.GenerateTestReplacePatch("/metadata/finalizers", nil, []string{"snapshot.kubevirt.io/snapshot-source-protection"})
+				Expect(err).ToNot(HaveOccurred())
+				vmInterface.EXPECT().Patch(context.Background(), vmUpdate.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}).Return(vmUpdate, nil).Times(1)
+
+				updatedSnapshot := vmSnapshot.DeepCopy()
+				updatedSnapshot.ResourceVersion = "1"
+				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
+					newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
+					newReadyCondition(corev1.ConditionFalse, "Not ready"),
+				}
+				updatedSnapshot.Status.Indications = nil
+				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
+
+				addVirtualMachineSnapshot(vmSnapshot)
+				controller.processVMSnapshotWorkItem()
+				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
-			It("should (complete) lock source", func() {
+			DescribeTable("should complete lock source", func(vmiExists bool) {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createVM()
 				vmUpdate := vm.DeepCopy()
@@ -695,6 +747,10 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmUpdate.Status.SnapshotInProgress = &vmSnapshotName
 
 				vmSource.Add(vm)
+				if vmiExists {
+					vmi := createVMI(vm)
+					vmiSource.Add(vmi)
+				}
 				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
 
 				vmUpdate2 := vmUpdate.DeepCopy()
@@ -706,7 +762,66 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
-					newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
+					newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
+					newReadyCondition(corev1.ConditionFalse, "Not ready"),
+				}
+				updatedSnapshot.Status.Indications = nil
+				if vmiExists {
+					updatedSnapshot.Status.Indications = []snapshotv1.Indication{
+						snapshotv1.VMSnapshotOnlineSnapshotIndication,
+						snapshotv1.VMSnapshotNoGuestAgentIndication,
+					}
+				}
+				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
+
+				addVirtualMachineSnapshot(vmSnapshot)
+				controller.processVMSnapshotWorkItem()
+				Expect(*updateStatusCalls).To(Equal(1))
+			},
+				Entry("when vm running", true),
+				Entry("when vm not running", false),
+			)
+
+			DescribeTable("should not lock source if volume PVCs", func(createPVCs, boundPVCs bool, expectedReason string) {
+				vmSnapshot := createVMSnapshotInProgress()
+				vm := createVM()
+				vmSource.Add(vm)
+
+				pvcs := createPersistentVolumeClaims()
+				for i := range pvcs {
+					if createPVCs {
+						if !boundPVCs {
+							pvcs[i].Status.Phase = corev1.ClaimPending
+						} else {
+							dv := &cdiv1.DataVolume{
+								ObjectMeta: metav1.ObjectMeta{
+									Name:      pvcs[i].Name,
+									Namespace: pvcs[i].Namespace,
+								},
+								Status: cdiv1.DataVolumeStatus{
+									Phase: cdiv1.WaitForFirstConsumer,
+								},
+							}
+							dvSource.Add(dv)
+							pvcs[i].OwnerReferences = []metav1.OwnerReference{
+								*metav1.NewControllerRef(dv, schema.GroupVersionKind{
+									Group:   cdiv1.SchemeGroupVersion.Group,
+									Version: cdiv1.SchemeGroupVersion.Version,
+									Kind:    "DataVolume",
+								}),
+							}
+						}
+						pvcSource.Add(&pvcs[i])
+					} else {
+						pvcSource.Delete(&pvcs[i])
+					}
+				}
+
+				updatedSnapshot := vmSnapshot.DeepCopy()
+				updatedSnapshot.ResourceVersion = "1"
+				expectedReason = fmt.Sprintf("Source not locked source default/testvm %s: alpine-dv", expectedReason)
+				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
+					newProgressingCondition(corev1.ConditionFalse, expectedReason),
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 				updatedSnapshot.Status.Indications = nil
@@ -715,164 +830,13 @@ var _ = Describe("Snapshot controlleer", func() {
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 				Expect(*updateStatusCalls).To(Equal(1))
-			})
+			},
+				Entry("doesnt exist", false, false, "volume doesnt exist"),
+				Entry("are not bound", true, false, "volume not bound"),
+				Entry("are not populated", true, true, "volume not populated"),
+			)
 
-			It("should (partial) lock source manual runstrategy", func() {
-				vmSnapshot := createVMSnapshotInProgress()
-				vm := createVM()
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyManual)
-				vmUpdate := vm.DeepCopy()
-				vmUpdate.ResourceVersion = "1"
-				vmUpdate.Status.SnapshotInProgress = &vmSnapshotName
-
-				vmSource.Add(vm)
-				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
-				vmInterface.EXPECT().Patch(context.Background(), vmUpdate.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(nil, fmt.Errorf("error")).Times(1)
-
-				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
-			})
-
-			It("should (finish) lock source", func() {
-				vmSnapshot := createVMSnapshotInProgress()
-				vm := createVM()
-				vm.Status.SnapshotInProgress = &vmSnapshotName
-				vmUpdate := vm.DeepCopy()
-				vmUpdate.ResourceVersion = "1"
-				vmUpdate.Finalizers = []string{"snapshot.kubevirt.io/snapshot-source-protection"}
-
-				vmSource.Add(vm)
-				patchBytes, err := patch.GenerateTestReplacePatch("/metadata/finalizers", nil, []string{"snapshot.kubevirt.io/snapshot-source-protection"})
-				Expect(err).ToNot(HaveOccurred())
-				vmInterface.EXPECT().Patch(context.Background(), vmUpdate.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}).Return(vmUpdate, nil).Times(1)
-
-				updatedSnapshot := vmSnapshot.DeepCopy()
-				updatedSnapshot.ResourceVersion = "1"
-				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
-					newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
-					newReadyCondition(corev1.ConditionFalse, "Not ready"),
-				}
-				updatedSnapshot.Status.Indications = nil
-				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
-
-				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
-				Expect(*updateStatusCalls).To(Equal(1))
-
-			})
-
-			It("should (partial) lock source when VM updated", func() {
-				vmSnapshot := createVMSnapshotInProgress()
-				vm := createVM()
-				vmUpdate := vm.DeepCopy()
-				vmUpdate.ResourceVersion = "1"
-				vmUpdate.Status.SnapshotInProgress = &vmSnapshotName
-
-				vmSnapshotSource.Add(vmSnapshot)
-				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
-				addVM(vm)
-				vmInterface.EXPECT().Patch(context.Background(), vmUpdate.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(nil, fmt.Errorf("error")).Times(1)
-				controller.processVMSnapshotWorkItem()
-			})
-
-			It("should (partial) lock source if running but no VMI", func() {
-				vmSnapshot := createVMSnapshotInProgress()
-				vm := createVM()
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
-				vmUpdate := vm.DeepCopy()
-				vmUpdate.ResourceVersion = "1"
-				vmUpdate.Status.SnapshotInProgress = &vmSnapshotName
-
-				vmSource.Add(vm)
-				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
-				vmInterface.EXPECT().Patch(context.Background(), vmUpdate.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(nil, fmt.Errorf("error")).Times(1)
-
-				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
-			})
-
-			It("should (finish) lock source if running but no VMI", func() {
-				vmSnapshot := createVMSnapshotInProgress()
-				vm := createVM()
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
-				vm.Status.SnapshotInProgress = &vmSnapshotName
-				vmUpdate := vm.DeepCopy()
-				vmUpdate.ResourceVersion = "1"
-				vmUpdate.Finalizers = []string{"snapshot.kubevirt.io/snapshot-source-protection"}
-
-				vmSource.Add(vm)
-				patchBytes, err := patch.GenerateTestReplacePatch("/metadata/finalizers", nil, []string{"snapshot.kubevirt.io/snapshot-source-protection"})
-				Expect(err).ToNot(HaveOccurred())
-				vmInterface.EXPECT().Patch(context.Background(), vmUpdate.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}).Return(vmUpdate, nil).Times(1)
-
-				updatedSnapshot := vmSnapshot.DeepCopy()
-				updatedSnapshot.ResourceVersion = "1"
-				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
-					newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
-					newReadyCondition(corev1.ConditionFalse, "Not ready"),
-				}
-				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
-
-				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
-				Expect(*updateStatusCalls).To(Equal(1))
-			})
-
-			It("should (partial) lock source if VMI exists", func() {
-				vmSnapshot := createVMSnapshotInProgress()
-				vm := createVM()
-				vmUpdate := vm.DeepCopy()
-				vmUpdate.ResourceVersion = "1"
-				vmUpdate.Status.SnapshotInProgress = &vmSnapshotName
-				vmRevision := createVMRevision(vm)
-				crSource.Add(vmRevision)
-				vmi := createVMI(vm)
-				vmi.Status.VirtualMachineRevisionName = vmRevisionName
-				vmiSource.Add(vmi)
-				vmSource.Add(vm)
-				vmInterface.EXPECT().UpdateStatus(context.Background(), vmUpdate, metav1.UpdateOptions{}).Return(vmUpdate, nil).Times(1)
-				vmInterface.EXPECT().Patch(context.Background(), vmUpdate.Name, types.JSONPatchType, gomock.Any(), metav1.PatchOptions{}).Return(nil, fmt.Errorf("error")).Times(1)
-
-				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
-			})
-
-			It("should (finish) lock source if VMI exists", func() {
-				vmSnapshot := createVMSnapshotInProgress()
-				vm := createVM()
-				vm.Status.SnapshotInProgress = &vmSnapshotName
-				vmUpdate := vm.DeepCopy()
-				vmUpdate.ResourceVersion = "1"
-				vmUpdate.Finalizers = []string{"snapshot.kubevirt.io/snapshot-source-protection"}
-				vmRevision := createVMRevision(vm)
-				crSource.Add(vmRevision)
-
-				vmi := createVMI(vm)
-				vmi.Status.VirtualMachineRevisionName = vmRevisionName
-				vmiSource.Add(vmi)
-				vmSource.Add(vm)
-				patchBytes, err := patch.GenerateTestReplacePatch("/metadata/finalizers", nil, []string{"snapshot.kubevirt.io/snapshot-source-protection"})
-				Expect(err).ToNot(HaveOccurred())
-				vmInterface.EXPECT().Patch(context.Background(), vmUpdate.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}).Return(vmUpdate, nil).Times(1)
-
-				updatedSnapshot := vmSnapshot.DeepCopy()
-				updatedSnapshot.ResourceVersion = "1"
-				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
-					newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
-					newReadyCondition(corev1.ConditionFalse, "Not ready"),
-				}
-				updatedSnapshot.Status.Indications = []snapshotv1.Indication{
-					snapshotv1.VMSnapshotOnlineSnapshotIndication,
-					snapshotv1.VMSnapshotNoGuestAgentIndication,
-				}
-				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
-
-				addVirtualMachineSnapshot(vmSnapshot)
-				controller.processVMSnapshotWorkItem()
-				Expect(*updateStatusCalls).To(Equal(1))
-			})
-
-			It("should not lock source if pods using PVCs", func() {
+			It("should not lock source if pods using PVCs when vm not running", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createVM()
 
@@ -883,7 +847,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
-					newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
+					newProgressingCondition(corev1.ConditionFalse, "Source not locked source is offline but 1 pods using PVCs [alpine-dv]"),
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 				updatedSnapshot.Status.Indications = nil
@@ -924,7 +888,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.Phase = snapshotv1.InProgress
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
-					newProgressingCondition(corev1.ConditionFalse, "Source not locked"),
+					newProgressingCondition(corev1.ConditionFalse, fmt.Sprintf("Source not locked snapshot %q in progress", n)),
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 				updatedSnapshot.Status.Indications = nil
@@ -940,14 +904,10 @@ var _ = Describe("Snapshot controlleer", func() {
 				vm := createLockedVM()
 				storageClass := createStorageClass()
 				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
-				pvcs := createPersistentVolumeClaims()
 				vmSnapshotContent := createVMSnapshotContent()
 
 				vmSource.Add(vm)
 				storageClassSource.Add(storageClass)
-				for i := range pvcs {
-					pvcSource.Add(&pvcs[i])
-				}
 				createCalls := expectVMSnapshotContentCreate(vmSnapshotClient, vmSnapshotContent)
 				vmSnapshotSource.Add(vmSnapshot)
 				addVolumeSnapshotClass(volumeSnapshotClass)
@@ -997,6 +957,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				// the content source will have the a combination of the vm revision, the vmi and the vm volumes
 				vm.ObjectMeta.Generation = 2
 				pvcs := createPersistentVolumeClaims()
+
 				expectedContent := createVirtualMachineSnapshotContent(vmSnapshot, vm, pvcs)
 				vm.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
 					corev1.ResourceMemory: resource.MustParse("64Mi"),
@@ -1005,9 +966,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				storageClass := createStorageClass()
 				storageClassSource.Add(storageClass)
 				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
-				for i := range pvcs {
-					pvcSource.Add(&pvcs[i])
-				}
 				createCalls := expectVMSnapshotContentCreate(vmSnapshotClient, expectedContent)
 				vmSnapshotSource.Add(vmSnapshot)
 				addVolumeSnapshotClass(volumeSnapshotClass)
@@ -1043,14 +1001,13 @@ var _ = Describe("Snapshot controlleer", func() {
 				vm := createLockedVM()
 				vm = updateVMWithMemoryDump(vm)
 				pvcs := createPersistentVolumeClaims()
-				pvcs = addMemoryDumpPVC(pvcs)
+				md := memoryDumpPVC()
+				pvcSource.Add(&md)
+				pvcs = append(pvcs, md)
 				vmSnapshotContent := createVirtualMachineSnapshotContent(vmSnapshot, vm, pvcs)
 
 				vmSource.Add(vm)
 				storageClassSource.Add(storageClass)
-				for i := range pvcs {
-					pvcSource.Add(&pvcs[i])
-				}
 				createCalls := expectVMSnapshotContentCreate(vmSnapshotClient, vmSnapshotContent)
 				vmSnapshotSource.Add(vmSnapshot)
 				addVolumeSnapshotClass(volumeSnapshotClass)
@@ -1088,7 +1045,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.Indications = nil
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
-					newReadyCondition(corev1.ConditionTrue, "Operation complete"),
+					newReadyCondition(corev1.ConditionTrue, "Ready"),
 				}
 				updatedSnapshot.Status.SnapshotVolumes = &snapshotv1.SnapshotVolumesLists{
 					IncludedVolumes: []string{diskName},
@@ -1130,7 +1087,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.Indications = nil
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
-					newReadyCondition(corev1.ConditionTrue, "Operation complete"),
+					newReadyCondition(corev1.ConditionTrue, "Ready"),
 				}
 				updatedSnapshot.Status.SnapshotVolumes = &snapshotv1.SnapshotVolumesLists{
 					IncludedVolumes: []string{diskName},
@@ -1210,7 +1167,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.Error = nil
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
-					newReadyCondition(corev1.ConditionFalse, "Error"),
+					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 
 				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
@@ -1245,9 +1202,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.Status.Phase = snapshotv1.Failed
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
-					newProgressingCondition(corev1.ConditionFalse, vmSnapshotDeadlineExceededError),
 					newFailureCondition(corev1.ConditionTrue, vmSnapshotDeadlineExceededError),
-					newReadyCondition(corev1.ConditionFalse, "Operation failed"),
+					newProgressingCondition(corev1.ConditionFalse, "Operation failed"),
+					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 
 				contentDeletes := expectVMSnapshotContentDelete(vmSnapshotClient, vmSnapshotContent.Name)
@@ -1263,7 +1220,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				storageClass := createStorageClass()
 				vmSnapshot := createVMSnapshotInProgress()
 				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
-				pvcs := createPersistentVolumeClaims()
 				vmSnapshotContent := createVMSnapshotContent()
 				vmSnapshotContent.UID = contentUID
 
@@ -1283,9 +1239,6 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				vmSource.Add(vm)
 				storageClassSource.Add(storageClass)
-				for i := range pvcs {
-					pvcSource.Add(&pvcs[i])
-				}
 
 				snapshotCreates := expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClass.Name, vmSnapshotContent)
 				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
@@ -1302,7 +1255,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				vm := createLockedVM()
 				storageClass := createStorageClass()
 				volumeSnapshotClasses := createVolumeSnapshotClasses()
-				pvcs := createPersistentVolumeClaims()
 				vmSnapshot := createVMSnapshotInProgress()
 				vmSnapshotContent := createVMSnapshotContent()
 				vmSnapshotContent.UID = contentUID
@@ -1323,11 +1275,46 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				vmSource.Add(vm)
 				storageClassSource.Add(storageClass)
-				for i := range pvcs {
-					pvcSource.Add(&pvcs[i])
-				}
 
 				snapshotCreates := expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClasses[0].Name, vmSnapshotContent)
+				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
+				vmSnapshotSource.Add(vmSnapshot)
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+				addVolumeSnapshotClass(volumeSnapshotClasses...)
+				controller.processVMSnapshotContentWorkItem()
+				testutils.ExpectEvent(recorder, "SuccessfulVolumeSnapshotCreate")
+				Expect(*updateStatusCalls).To(Equal(1))
+				Expect(*snapshotCreates).To(Equal(1))
+			})
+
+			It("should create VolumeSnapshot with multiple VolumeSnapshotClasses and storageprofile", func() {
+				vm := createLockedVM()
+				storageClass := createStorageClass()
+				volumeSnapshotClasses := createVolumeSnapshotClasses()
+				storageProfile := createStorageProfile()
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshotContent := createVMSnapshotContent()
+				vmSnapshotContent.UID = contentUID
+
+				updatedContent := vmSnapshotContent.DeepCopy()
+				updatedContent.ResourceVersion = "1"
+				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+					ReadyToUse: pointer.P(false),
+				}
+
+				volumeSnapshots := createVolumeSnapshots(vmSnapshotContent)
+				for i := range volumeSnapshots {
+					vss := snapshotv1.VolumeSnapshotStatus{
+						VolumeSnapshotName: volumeSnapshots[i].Name,
+					}
+					updatedContent.Status.VolumeSnapshotStatus = append(updatedContent.Status.VolumeSnapshotStatus, vss)
+				}
+
+				vmSource.Add(vm)
+				storageClassSource.Add(storageClass)
+				storageProfileSource.Add(storageProfile)
+
+				snapshotCreates := expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClassName2, vmSnapshotContent)
 				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
 				vmSnapshotSource.Add(vmSnapshot)
 				vmSnapshotContentSource.Add(vmSnapshotContent)
@@ -1343,7 +1330,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				storageClass := createStorageClass()
 				vmSnapshot := createVMSnapshotInProgress()
 				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
-				pvcs := createPersistentVolumeClaims()
 				vmSnapshotContent := createVMSnapshotContent()
 				vmSnapshotContent.UID = contentUID
 				vmSource.Add(vm)
@@ -1366,9 +1352,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 
 				storageClassSource.Add(storageClass)
-				for i := range pvcs {
-					pvcSource.Add(&pvcs[i])
-				}
 
 				snapshotCreates := expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClass.Name, vmSnapshotContent)
 				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
@@ -1384,7 +1367,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				storageClass := createStorageClass()
 				vmSnapshot := createVMSnapshotInProgress()
 				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
-				pvcs := createPersistentVolumeClaims()
 				vmSnapshotContent := createVMSnapshotContent()
 				vmSnapshotContent.UID = contentUID
 				vm := createLockedVM()
@@ -1417,9 +1399,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 
 				storageClassSource.Add(storageClass)
-				for i := range pvcs {
-					pvcSource.Add(&pvcs[i])
-				}
 
 				vmiInterface.EXPECT().Freeze(context.Background(), vm.Name, 0*time.Second).Return(nil).Times(1)
 				snapshotCreates := expectVolumeSnapshotCreates(k8sSnapshotClient, volumeSnapshotClass.Name, vmSnapshotContent)
@@ -1573,10 +1552,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				storageClass := createStorageClass()
 				storageClassSource.Add(storageClass)
 				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
-				pvcs := createPersistentVolumeClaims()
-				for i := range pvcs {
-					pvcSource.Add(&pvcs[i])
-				}
 
 				vm := createLockedVM()
 				vmSource.Add(vm)
@@ -2386,7 +2361,8 @@ func expectVMSnapshotUpdateStatus(client *kubevirtfake.Clientset, vmSnapshot *sn
 
 		calls++
 
-		return reflect.DeepEqual(updateObj.Status, vmSnapshot.Status), update.GetObject(), nil
+		Expect(updateObj.Status).To(Equal(vmSnapshot.Status))
+		return true, update.GetObject(), nil
 	})
 	return &calls
 }
@@ -2624,6 +2600,9 @@ func createPVCsForVM(vm *v1.VirtualMachine) []corev1.PersistentVolumeClaim {
 				Name:      dv.Name,
 			},
 			Spec: *dv.Spec.PVC,
+			Status: corev1.PersistentVolumeClaimStatus{
+				Phase: corev1.ClaimBound,
+			},
 		}
 		pvc.Spec.VolumeName = fmt.Sprintf("volume%d", i+1)
 		pvc.ResourceVersion = "1"
@@ -2660,7 +2639,7 @@ func createPodsUsingPVCs(vm *v1.VirtualMachine) []corev1.Pod {
 	return pods
 }
 
-func addMemoryDumpPVC(pvcs []corev1.PersistentVolumeClaim) []corev1.PersistentVolumeClaim {
+func memoryDumpPVC() corev1.PersistentVolumeClaim {
 	pvc := corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:       testNamespace,
@@ -2677,9 +2656,11 @@ func addMemoryDumpPVC(pvcs []corev1.PersistentVolumeClaim) []corev1.PersistentVo
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 			StorageClassName: &storageClassName,
 		},
+		Status: corev1.PersistentVolumeClaimStatus{
+			Phase: corev1.ClaimBound,
+		},
 	}
-	pvcs = append(pvcs, pvc)
-	return pvcs
+	return pvc
 }
 
 func updateVMWithMemoryDump(vm *v1.VirtualMachine) *v1.VirtualMachine {

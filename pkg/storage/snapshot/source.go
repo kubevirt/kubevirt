@@ -22,23 +22,29 @@ package snapshot
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/log"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 	utils "kubevirt.io/kubevirt/pkg/util"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 	launcherapi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -48,24 +54,72 @@ const (
 	sourceFinalizer = "snapshot.kubevirt.io/snapshot-source-protection"
 )
 
+var (
+	ErrVolumeDoesntExist  = errors.New("volume doesnt exist")
+	ErrVolumeNotBound     = errors.New("volume not bound")
+	ErrVolumeNotPopulated = errors.New("volume not populated")
+)
+
 type snapshotSource interface {
+	UpdateSourceState() error
 	UID() types.UID
 	Locked() bool
+	LockMsg() string
 	Lock() (bool, error)
 	Unlock() (bool, error)
-	Online() (bool, error)
-	GuestAgent() (bool, error)
-	Frozen() (bool, error)
+	Online() bool
+	GuestAgent() bool
+	Frozen() bool
 	Freeze() error
 	Unfreeze() error
 	Spec() (snapshotv1.SourceSpec, error)
 	PersistentVolumeClaims() (map[string]string, error)
 }
 
+type sourceState struct {
+	online     bool
+	guestAgent bool
+	frozen     bool
+	locked     bool
+	lockMsg    string
+}
+
 type vmSnapshotSource struct {
 	vm         *kubevirtv1.VirtualMachine
 	snapshot   *snapshotv1.VirtualMachineSnapshot
 	controller *VMSnapshotController
+	state      *sourceState
+}
+
+func (s *vmSnapshotSource) UpdateSourceState() error {
+	vmi, exists, err := s.controller.getVMI(s.vm)
+	if err != nil {
+		return err
+	}
+
+	online := exists
+
+	condManager := controller.NewVirtualMachineInstanceConditionManager()
+	guestAgent := exists && condManager.HasCondition(vmi, kubevirtv1.VirtualMachineInstanceAgentConnected)
+
+	locked := s.vm.Status.SnapshotInProgress != nil &&
+		*s.vm.Status.SnapshotInProgress == s.snapshot.Name &&
+		controller.HasFinalizer(s.vm, sourceFinalizer)
+	lockMsg := "Source not locked"
+	if locked {
+		lockMsg = "Source locked and operation in progress"
+	}
+	frozen := exists && vmi.Status.FSFreezeStatus == launcherapi.FSFrozen
+
+	s.state = &sourceState{
+		online:     online,
+		guestAgent: guestAgent,
+		locked:     locked,
+		frozen:     frozen,
+		lockMsg:    lockMsg,
+	}
+
+	return nil
 }
 
 func (s *vmSnapshotSource) UID() types.UID {
@@ -73,9 +127,11 @@ func (s *vmSnapshotSource) UID() types.UID {
 }
 
 func (s *vmSnapshotSource) Locked() bool {
-	return s.vm.Status.SnapshotInProgress != nil &&
-		*s.vm.Status.SnapshotInProgress == s.snapshot.Name &&
-		controller.HasFinalizer(s.vm, sourceFinalizer)
+	return s.state.locked
+}
+
+func (s *vmSnapshotSource) LockMsg() string {
+	return s.state.lockMsg
 }
 
 func (s *vmSnapshotSource) Lock() (bool, error) {
@@ -83,26 +139,44 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 		return true, nil
 	}
 
-	vmOnline, err := s.Online()
+	pvcNames, err := s.pvcNames()
 	if err != nil {
+		if storageutils.IsErrNoBackendPVC(err) {
+			// No backend pvc when we should have one, lets wait
+			// TODO: Improve this error handling
+			return false, nil
+		}
 		return false, err
 	}
 
-	if !vmOnline {
-		pvcNames := s.pvcNames()
+	err = s.verifyVolumes(pvcNames.List())
+	if err != nil {
+		switch errors.Unwrap(err) {
+		case ErrVolumeDoesntExist, ErrVolumeNotBound, ErrVolumeNotPopulated:
+			s.state.lockMsg += fmt.Sprintf(" source %s/%s %s", s.vm.Namespace, s.vm.Name, err.Error())
+			log.Log.Error(s.state.lockMsg)
+			return false, nil
+		default:
+			return false, err
+		}
+	}
+
+	if !s.Online() {
 		pods, err := watchutil.PodsUsingPVCs(s.controller.PodInformer, s.vm.Namespace, pvcNames)
 		if err != nil {
 			return false, err
 		}
 
 		if len(pods) > 0 {
-			log.Log.V(3).Infof("Vm is offline but %d pods using PVCs %+v", len(pods), pvcNames)
+			s.state.lockMsg += fmt.Sprintf(" source is offline but %d pods using PVCs %+v", len(pods), slices.Collect(maps.Keys(pvcNames)))
+			log.Log.V(3).Info(s.state.lockMsg)
 			return false, nil
 		}
 	}
 
 	if s.vm.Status.SnapshotInProgress != nil && *s.vm.Status.SnapshotInProgress != s.snapshot.Name {
-		log.Log.V(3).Infof("Snapshot %s in progress", *s.vm.Status.SnapshotInProgress)
+		s.state.lockMsg += fmt.Sprintf(" snapshot %q in progress", *s.vm.Status.SnapshotInProgress)
+		log.Log.V(3).Info(s.state.lockMsg)
 		return false, nil
 	}
 
@@ -131,6 +205,8 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 	}
 
 	s.vm = vmCopy
+	s.state.locked = true
+	s.state.lockMsg = "Source locked and operation in progress"
 
 	return true, nil
 }
@@ -165,6 +241,41 @@ func (s *vmSnapshotSource) Unlock() (bool, error) {
 	s.vm = vmCopy
 
 	return true, nil
+}
+
+func (s *vmSnapshotSource) verifyVolumes(pvcNames []string) error {
+	for _, pvcName := range pvcNames {
+		obj, exists, err := s.controller.PVCInformer.GetStore().GetByKey(cacheKeyFunc(s.vm.Namespace, pvcName))
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return fmt.Errorf("%w: %s", ErrVolumeDoesntExist, pvcName)
+		}
+
+		pvc := obj.(*corev1.PersistentVolumeClaim).DeepCopy()
+		if pvc.Status.Phase != corev1.ClaimBound {
+			return fmt.Errorf("%w: %s", ErrVolumeNotBound, pvcName)
+		}
+		getDVFunc := func(name, namespace string) (*cdiv1.DataVolume, error) {
+			dv, err := storagetypes.GetDataVolumeFromCache(namespace, name, s.controller.DVInformer.GetStore())
+			if err != nil {
+				return nil, err
+			}
+			if dv == nil {
+				return nil, fmt.Errorf("Data volume %s/%s doesnt exist", namespace, name)
+			}
+			return dv, err
+		}
+		if populated, err := cdiv1.IsPopulated(pvc, getDVFunc); !populated || err != nil {
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf("%w: %s", ErrVolumeNotPopulated, pvcName)
+		}
+	}
+
+	return nil
 }
 
 func (s *vmSnapshotSource) getVMRevision() (*snapshotv1.VirtualMachine, error) {
@@ -239,7 +350,7 @@ func (s *vmSnapshotSource) captureInstancetypeControllerRevision(namespace, revi
 	snapshotCR.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(snapshot, snapshot.GroupVersionKind())}
 
 	snapshotCR, err = s.controller.Client.AppsV1().ControllerRevisions(s.snapshot.Namespace).Create(context.Background(), snapshotCR, metav1.CreateOptions{})
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return "", err
 	}
 
@@ -267,15 +378,11 @@ func (s *vmSnapshotSource) captureInstancetypeControllerRevisions(vm *snapshotv1
 }
 
 func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
-	online, err := s.Online()
-	if err != nil {
-		return snapshotv1.SourceSpec{}, err
-	}
-
 	vmCpy := &snapshotv1.VirtualMachine{}
 	metaObj := *getSimplifiedMetaObject(s.vm.ObjectMeta)
 
-	if online {
+	if s.Online() {
+		var err error
 		vmCpy, err = s.getVMRevision()
 		if err != nil {
 			return snapshotv1.SourceSpec{}, err
@@ -290,7 +397,7 @@ func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
 		vmCpy.Status = kubevirtv1.VirtualMachineStatus{}
 	}
 
-	if err = s.captureInstancetypeControllerRevisions(vmCpy); err != nil {
+	if err := s.captureInstancetypeControllerRevisions(vmCpy); err != nil {
 		return snapshotv1.SourceSpec{}, err
 	}
 
@@ -299,86 +406,80 @@ func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
 	}, nil
 }
 
-func (s *vmSnapshotSource) Online() (bool, error) {
-	exists, err := s.controller.checkVMIRunning(s.vm)
-	if err != nil {
-		return false, err
-	}
-
-	return exists, nil
+func (s *vmSnapshotSource) Online() bool {
+	return s.state.online
 }
 
-func (s *vmSnapshotSource) GuestAgent() (bool, error) {
-	condManager := controller.NewVirtualMachineInstanceConditionManager()
-	vmi, exists, err := s.controller.getVMI(s.vm)
-	if err != nil || !exists {
-		return false, err
-	}
-
-	return condManager.HasCondition(vmi, kubevirtv1.VirtualMachineInstanceAgentConnected), nil
+func (s *vmSnapshotSource) GuestAgent() bool {
+	return s.state.guestAgent
 }
 
-func (s *vmSnapshotSource) Frozen() (bool, error) {
-	vmi, exists, err := s.controller.getVMI(s.vm)
-	if err != nil || !exists {
-		return false, err
-	}
-
-	return vmi.Status.FSFreezeStatus == launcherapi.FSFrozen, nil
+func (s *vmSnapshotSource) Frozen() bool {
+	return s.state.frozen
 }
 
 func (s *vmSnapshotSource) Freeze() error {
 	if !s.Locked() {
 		return fmt.Errorf("attempting to freeze unlocked VM")
 	}
+	if s.Frozen() {
+		return nil
+	}
 
-	exists, err := s.GuestAgent()
-	if !exists || err != nil {
-		return err
+	if !s.GuestAgent() {
+		if s.Online() {
+			log.Log.Warningf("Guest agent does not exist and VM %s is running. Snapshoting without freezing FS. This can result in inconsistent snapshot!", s.vm.Name)
+		}
+		return nil
 	}
 
 	log.Log.V(3).Infof("Freezing vm %s file system before taking the snapshot", s.vm.Name)
 
 	startTime := time.Now()
-	err = s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Freeze(context.Background(), s.vm.Name, getFailureDeadline(s.snapshot))
+	err := s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Freeze(context.Background(), s.vm.Name, getFailureDeadline(s.snapshot))
 	timeTrack(startTime, fmt.Sprintf("Freezing vmi %s", s.vm.Name))
 	if err != nil {
+		log.Log.Errorf("Freezing vm %s failed: %v", s.vm.Name, err.Error())
 		return err
 	}
+	s.state.frozen = true
 
 	return nil
 }
 
 func (s *vmSnapshotSource) Unfreeze() error {
-	if !s.Locked() {
+	if !s.Locked() || !s.GuestAgent() {
 		return nil
-	}
-
-	exists, err := s.GuestAgent()
-	if !exists || err != nil {
-		return err
 	}
 
 	log.Log.V(3).Infof("Unfreezing vm %s file system after taking the snapshot", s.vm.Name)
 
 	defer timeTrack(time.Now(), fmt.Sprintf("Unfreezing vmi %s", s.vm.Name))
-	err = s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Unfreeze(context.Background(), s.vm.Name)
+	err := s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Unfreeze(context.Background(), s.vm.Name)
 	if err != nil {
 		return err
 	}
+	s.state.frozen = false
 
 	return nil
 }
 
 func (s *vmSnapshotSource) PersistentVolumeClaims() (map[string]string, error) {
-	return storagetypes.GetPVCsFromVolumes(s.vm.Spec.Template.Spec.Volumes), nil
+	volumes, err := storageutils.GetVolumes(s.vm, s.controller.Client, storageutils.WithAllVolumes)
+	if err != nil {
+		return map[string]string{}, err
+	}
+	return storagetypes.GetPVCsFromVolumes(volumes), nil
 }
 
-func (s *vmSnapshotSource) pvcNames() sets.String {
-	pvcs := storagetypes.GetPVCsFromVolumes(s.vm.Spec.Template.Spec.Volumes)
+func (s *vmSnapshotSource) pvcNames() (sets.String, error) {
 	ss := sets.NewString()
+	pvcs, err := s.PersistentVolumeClaims()
+	if err != nil {
+		return ss, err
+	}
 	for _, pvc := range pvcs {
 		ss.Insert(pvc)
 	}
-	return ss
+	return ss, nil
 }

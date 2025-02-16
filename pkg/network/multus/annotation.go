@@ -33,10 +33,16 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-// DefaultNetworkCNIAnnotation is used when one wants to instruct Multus to connect the pod's primary interface
-// to a network other than Multus's `clusterNetwork` field under /etc/cni/net.d
-// The value of this annotation should be a NetworkAttachmentDefinition's name
-const DefaultNetworkCNIAnnotation = "v1.multus-cni.io/default-network"
+const (
+	// DefaultNetworkCNIAnnotation is used when one wants to instruct Multus to connect the pod's primary interface
+	// to a network other than Multus's `clusterNetwork` field under /etc/cni/net.d
+	// The value of this annotation should be a NetworkAttachmentDefinition's name
+	DefaultNetworkCNIAnnotation = "v1.multus-cni.io/default-network"
+
+	// ResourceNameAnnotation represents a resource name that is associated with the network.
+	// It could be found on NetworkAttachmentDefinition objects.
+	ResourceNameAnnotation = "k8s.v1.cni.cncf.io/resourceName"
+)
 
 func GenerateCNIAnnotation(
 	namespace string,
@@ -54,16 +60,16 @@ func GenerateCNIAnnotationFromNameScheme(
 	networkNameScheme map[string]string,
 	config *virtconfig.ClusterConfig,
 ) (string, error) {
-	multusNetworkAnnotationPool := NetworkAnnotationPool{}
+	multusNetworkAnnotationPool := networkAnnotationPool{}
 
 	for _, network := range networks {
 		if vmispec.IsSecondaryMultusNetwork(network) {
 			podInterfaceName := networkNameScheme[network.Name]
 			multusNetworkAnnotationPool.Add(
-				NewAnnotationData(namespace, interfaces, network, podInterfaceName))
+				newAnnotationData(namespace, interfaces, network, podInterfaceName))
 		}
 
-		if config != nil && config.NetworkBindingPlugingsEnabled() {
+		if config != nil {
 			if iface := vmispec.LookupInterfaceByName(interfaces, network.Name); iface.Binding != nil {
 				bindingPluginAnnotationData, err := newBindingPluginAnnotationData(
 					config.GetConfig(), iface.Binding.Name, namespace, network.Name)
@@ -83,19 +89,19 @@ func GenerateCNIAnnotationFromNameScheme(
 	return "", nil
 }
 
-type NetworkAnnotationPool struct {
+type networkAnnotationPool struct {
 	pool []networkv1.NetworkSelectionElement
 }
 
-func (nap *NetworkAnnotationPool) Add(multusNetworkAnnotation networkv1.NetworkSelectionElement) {
+func (nap *networkAnnotationPool) Add(multusNetworkAnnotation networkv1.NetworkSelectionElement) {
 	nap.pool = append(nap.pool, multusNetworkAnnotation)
 }
 
-func (nap *NetworkAnnotationPool) IsEmpty() bool {
+func (nap *networkAnnotationPool) IsEmpty() bool {
 	return len(nap.pool) == 0
 }
 
-func (nap *NetworkAnnotationPool) ToString() (string, error) {
+func (nap *networkAnnotationPool) ToString() (string, error) {
 	multusNetworksAnnotation, err := json.Marshal(nap.pool)
 	if err != nil {
 		return "", fmt.Errorf("failed to create JSON list from multus interface pool %v", nap.pool)
@@ -103,7 +109,7 @@ func (nap *NetworkAnnotationPool) ToString() (string, error) {
 	return string(multusNetworksAnnotation), nil
 }
 
-func NewAnnotationData(
+func newAnnotationData(
 	namespace string,
 	interfaces []v1.Interface,
 	network v1.Network,

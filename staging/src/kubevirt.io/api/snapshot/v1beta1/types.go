@@ -30,6 +30,7 @@ import (
 )
 
 const DefaultFailureDeadline = 5 * time.Minute
+const DefaultGracePeriod = 5 * time.Minute
 
 // VirtualMachineSnapshot defines the operation of snapshotting a VM
 // +genclient
@@ -309,12 +310,39 @@ type VirtualMachineRestore struct {
 	Status *VirtualMachineRestoreStatus `json:"status,omitempty"`
 }
 
+// TargetReadinessPolicy defines how to handle the restore in case
+// the target is not ready
+type TargetReadinessPolicy string
+
+const (
+	// VirtualMachineRestoreStopTarget defined TargetReadinessPolicy which stops the target so the
+	// VirtualMachineRestore can continue immediatly
+	VirtualMachineRestoreStopTarget TargetReadinessPolicy = "StopTarget"
+
+	// VirtualMachineRestoreWaitGracePeriodAndFail defines TargetReadinessPolicy which lets the
+	// user `DefaultGracePeriod` time to get the target ready.
+	// If not ready in that time the restore will fail
+	VirtualMachineRestoreWaitGracePeriodAndFail TargetReadinessPolicy = "WaitGracePeriod"
+
+	//VirtualMachineRestoreFailImmediate defines TargetReadinessPolicy which if VirtualMachineRestore
+	// was initiated when target is not ready it fails the restore immediatly
+	VirtualMachineRestoreFailImmediate TargetReadinessPolicy = "FailImmediate"
+
+	// VirtualMachineRestoreWaitEventually defines TargetReadinessPolicy which keeps the
+	// VirtualMachineRestore around and once the target is ready the restore will
+	// occure. No timeout for the opertaion
+	VirtualMachineRestoreWaitEventually TargetReadinessPolicy = "WaitEventually"
+)
+
 // VirtualMachineRestoreSpec is the spec for a VirtualMachineRestoreresource
 type VirtualMachineRestoreSpec struct {
 	// initially only VirtualMachine type supported
 	Target corev1.TypedLocalObjectReference `json:"target"`
 
 	VirtualMachineSnapshotName string `json:"virtualMachineSnapshotName"`
+
+	// +optional
+	TargetReadinessPolicy *TargetReadinessPolicy `json:"targetReadinessPolicy,omitempty"`
 
 	// If the target for the restore does not exist, it will be created. Patches holds JSON patches that would be
 	// applied to the target manifest before it's created. Patches should fit the target's Kind.

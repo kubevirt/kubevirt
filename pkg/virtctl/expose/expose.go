@@ -2,6 +2,7 @@ package expose
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -9,11 +10,11 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/tools/clientcmd"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
@@ -34,8 +35,6 @@ type command struct {
 	strIPFamily       string
 	strIPFamilyPolicy string
 
-	clientConfig clientcmd.ClientConfig
-
 	targetPort     intstr.IntOrString
 	protocol       k8sv1.Protocol
 	serviceType    k8sv1.ServiceType
@@ -46,8 +45,8 @@ type command struct {
 	client    kubecli.KubevirtClient
 }
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	c := command{clientConfig: clientConfig}
+func NewCommand() *cobra.Command {
+	c := command{}
 	cmd := &cobra.Command{
 		Use:   "expose (TYPE NAME)",
 		Short: "Expose a virtual machine instance, virtual machine, or virtual machine instance replica set as a new service.",
@@ -105,10 +104,7 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 	}
 
 	var err error
-	if c.namespace, _, err = c.clientConfig.Namespace(); err != nil {
-		return err
-	}
-	if c.client, err = kubecli.GetKubevirtClientFromClientConfig(c.clientConfig); err != nil {
+	if c.client, c.namespace, _, err = clientconfig.ClientAndNamespaceFromContext(cmd.Context()); err != nil {
 		return fmt.Errorf("cannot obtain KubeVirt client: %v", err)
 	}
 
@@ -156,10 +152,9 @@ func (c *command) getServiceSelectorAndPorts(vmType, vmName string) (map[string]
 			return nil, nil, fmt.Errorf("error fetching VirtualMachineInstance: %v", err)
 		}
 		ports = podNetworkPorts(&vmi.Spec)
-		serviceSelector = vmi.ObjectMeta.Labels
-		delete(serviceSelector, v1.NodeNameLabel)
-		delete(serviceSelector, v1.VirtualMachinePoolRevisionName)
-		delete(serviceSelector, v1.MigrationTargetNodeNameLabel)
+		serviceSelector = map[string]string{
+			v1.VirtualMachineNameLabel: vmi.Name,
+		}
 	case "vm", "vms", "virtualmachine", "virtualmachines":
 		vm, err := c.client.VirtualMachine(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		if err != nil {
@@ -168,8 +163,9 @@ func (c *command) getServiceSelectorAndPorts(vmType, vmName string) (map[string]
 		if vm.Spec.Template != nil {
 			ports = podNetworkPorts(&vm.Spec.Template.Spec)
 		}
-		serviceSelector = vm.Spec.Template.ObjectMeta.Labels
-		delete(serviceSelector, v1.VirtualMachinePoolRevisionName)
+		serviceSelector = map[string]string{
+			v1.VirtualMachineNameLabel: vm.Name,
+		}
 	case "vmirs", "vmirss", "virtualmachineinstancereplicaset", "virtualmachineinstancereplicasets":
 		vmirs, err := c.client.ReplicaSet(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		if err != nil {
@@ -178,12 +174,13 @@ func (c *command) getServiceSelectorAndPorts(vmType, vmName string) (map[string]
 		if vmirs.Spec.Template != nil {
 			ports = podNetworkPorts(&vmirs.Spec.Template.Spec)
 		}
-		if vmirs.Spec.Selector != nil {
-			if len(vmirs.Spec.Selector.MatchExpressions) > 0 {
-				return nil, nil, fmt.Errorf("cannot expose VirtualMachineInstanceReplicaSet with match expressions")
-			}
-			serviceSelector = vmirs.Spec.Selector.MatchLabels
+		if vmirs.Spec.Selector == nil || len(vmirs.Spec.Selector.MatchLabels) == 0 {
+			return nil, nil, errors.New("cannot expose VirtualMachineInstanceReplicaSet without any selector labels")
 		}
+		if len(vmirs.Spec.Selector.MatchExpressions) > 0 {
+			return nil, nil, errors.New("cannot expose VirtualMachineInstanceReplicaSet with match expressions")
+		}
+		serviceSelector = vmirs.Spec.Selector.MatchLabels
 	default:
 		return nil, nil, fmt.Errorf("unsupported resource type: %s", vmType)
 	}
@@ -192,9 +189,6 @@ func (c *command) getServiceSelectorAndPorts(vmType, vmName string) (map[string]
 		ports = []k8sv1.ServicePort{{Name: c.portName, Protocol: c.protocol, Port: c.port, TargetPort: c.targetPort}}
 	}
 
-	if len(serviceSelector) == 0 {
-		return nil, nil, fmt.Errorf("cannot expose %s without any label: %s", vmType, vmName)
-	}
 	if len(ports) == 0 {
 		return nil, nil, fmt.Errorf("couldn't find port via --port flag or introspection")
 	}

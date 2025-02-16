@@ -53,8 +53,10 @@ var _ = Describe("RBAC", func() {
 			Entry("for vmclones", "clone.kubevirt.io", "virtualmachineclones"),
 			Entry("for vmexports", "export.kubevirt.io", "virtualmachineexports"),
 			Entry("for vmpools", "pool.kubevirt.io", "virtualmachinepools"),
+			Entry("for vmsnapshots", "snapshot.kubevirt.io", "virtualmachinesnapshots"),
 			Entry("for vmsnapshotcontents", "snapshot.kubevirt.io", "virtualmachinesnapshotcontents"),
 			Entry("for vms", "kubevirt.io", "virtualmachines"),
+			Entry("for vmis", "kubevirt.io", "virtualmachineinstances"),
 		)
 	})
 })

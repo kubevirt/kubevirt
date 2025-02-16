@@ -44,7 +44,7 @@ import (
 // Controller is the main Controller struct.
 type Controller struct {
 	clientset       kubecli.KubevirtClient
-	queue           workqueue.RateLimitingInterface
+	queue           workqueue.TypedRateLimitingInterface[string]
 	vmIndexer       cache.Indexer
 	vmiStore        cache.Store
 	poolIndexer     cache.Indexer
@@ -83,8 +83,11 @@ func NewController(clientset kubecli.KubevirtClient,
 	recorder record.EventRecorder,
 	burstReplicas uint) (*Controller, error) {
 	c := &Controller{
-		clientset:       clientset,
-		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-pool"),
+		clientset: clientset,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-pool"},
+		),
 		poolIndexer:     poolInformer.GetIndexer(),
 		vmiStore:        vmiInformer.GetStore(),
 		vmIndexer:       vmInformer.GetIndexer(),
@@ -141,7 +144,7 @@ func (c *Controller) resolveVMIControllerRef(namespace string, controllerRef *v1
 	if controllerRef.Kind != virtv1.VirtualMachineGroupVersionKind.Kind {
 		return nil
 	}
-	vm, exists, err := c.vmIndexer.GetByKey(namespace + "/" + controllerRef.Name)
+	vm, exists, err := c.vmIndexer.GetByKey(controller.NamespacedKey(namespace, controllerRef.Name))
 	if err != nil {
 		return nil
 	}
@@ -379,7 +382,7 @@ func (c *Controller) resolveControllerRef(namespace string, controllerRef *metav
 	if controllerRef.Kind != poolv1.VirtualMachinePoolKind {
 		return nil
 	}
-	pool, exists, err := c.poolIndexer.GetByKey(namespace + "/" + controllerRef.Name)
+	pool, exists, err := c.poolIndexer.GetByKey(controller.NamespacedKey(namespace, controllerRef.Name))
 	if err != nil {
 		return nil
 	}
@@ -613,11 +616,8 @@ func indexFromName(name string) (int, error) {
 	return strconv.Atoi(slice[len(slice)-1])
 }
 
-func indexVMSpec(spec *virtv1.VirtualMachineSpec, idx int) *virtv1.VirtualMachineSpec {
-
-	if len(spec.DataVolumeTemplates) == 0 {
-		return spec
-	}
+func indexVMSpec(poolSpec *poolv1.VirtualMachinePoolSpec, idx int) *virtv1.VirtualMachineSpec {
+	spec := poolSpec.VirtualMachineTemplate.Spec.DeepCopy()
 
 	dvNameMap := map[string]string{}
 	for i := range spec.DataVolumeTemplates {
@@ -626,6 +626,17 @@ func indexVMSpec(spec *virtv1.VirtualMachineSpec, idx int) *virtv1.VirtualMachin
 		dvNameMap[spec.DataVolumeTemplates[i].Name] = indexName
 
 		spec.DataVolumeTemplates[i].Name = indexName
+	}
+
+	appendIndexToConfigMapRefs := false
+	appendIndexToSecretRefs := false
+	if poolSpec.NameGeneration != nil {
+		if poolSpec.NameGeneration.AppendIndexToConfigMapRefs != nil {
+			appendIndexToConfigMapRefs = *poolSpec.NameGeneration.AppendIndexToConfigMapRefs
+		}
+		if poolSpec.NameGeneration.AppendIndexToSecretRefs != nil {
+			appendIndexToSecretRefs = *poolSpec.NameGeneration.AppendIndexToSecretRefs
+		}
 	}
 
 	for i, volume := range spec.Template.Spec.Volumes {
@@ -639,6 +650,10 @@ func indexVMSpec(spec *virtv1.VirtualMachineSpec, idx int) *virtv1.VirtualMachin
 			if ok {
 				spec.Template.Spec.Volumes[i].DataVolume.Name = indexName
 			}
+		} else if volume.VolumeSource.ConfigMap != nil && appendIndexToConfigMapRefs {
+			volume.VolumeSource.ConfigMap.Name += "-" + strconv.Itoa(idx)
+		} else if volume.VolumeSource.Secret != nil && appendIndexToSecretRefs {
+			volume.VolumeSource.Secret.SecretName += "-" + strconv.Itoa(idx)
 		}
 	}
 
@@ -764,7 +779,7 @@ func (c *Controller) scaleOut(pool *poolv1.VirtualMachinePool, count int) error 
 
 			vm.Labels = maps.Clone(pool.Spec.VirtualMachineTemplate.ObjectMeta.Labels)
 			vm.Annotations = maps.Clone(pool.Spec.VirtualMachineTemplate.ObjectMeta.Annotations)
-			vm.Spec = *indexVMSpec(pool.Spec.VirtualMachineTemplate.Spec.DeepCopy(), index)
+			vm.Spec = *indexVMSpec(&pool.Spec, index)
 			vm = injectPoolRevisionLabelsIntoVM(vm, revisionName)
 
 			vm.ObjectMeta.OwnerReferences = []metav1.OwnerReference{poolOwnerRef(pool)}
@@ -807,7 +822,7 @@ func (c *Controller) scale(pool *poolv1.VirtualMachinePool, vms []*virtv1.Virtua
 		if err != nil {
 			return common.NewSyncError(fmt.Errorf("Error during scale out: %v", err), FailedScaleOutReason), false
 		}
-	} else if diff > 0 {
+	} else {
 		err := c.scaleIn(pool, vms, maxDiff)
 		if err != nil {
 			return common.NewSyncError(fmt.Errorf("Error during scale in: %v", err), FailedScaleInReason), false
@@ -846,7 +861,7 @@ func (c *Controller) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vmOutd
 
 			vmCopy.Labels = maps.Clone(pool.Spec.VirtualMachineTemplate.ObjectMeta.Labels)
 			vmCopy.Annotations = maps.Clone(pool.Spec.VirtualMachineTemplate.ObjectMeta.Annotations)
-			vmCopy.Spec = *indexVMSpec(pool.Spec.VirtualMachineTemplate.Spec.DeepCopy(), index)
+			vmCopy.Spec = *indexVMSpec(&pool.Spec, index)
 			vmCopy = injectPoolRevisionLabelsIntoVM(vmCopy, revisionName)
 
 			_, err = c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
@@ -1081,9 +1096,7 @@ func (c *Controller) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, vms [
 
 	keys, err := c.revisionIndexer.IndexKeys("vmpool", string(pool.UID))
 	if err != nil {
-		if err != nil {
-			return common.NewSyncError(fmt.Errorf("Error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason)
-		}
+		return common.NewSyncError(fmt.Errorf("Error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason)
 	}
 
 	deletionMap := make(map[string]interface{})
@@ -1176,10 +1189,10 @@ func (c *Controller) Execute() bool {
 	}
 	defer c.queue.Done(key)
 
-	virtControllerPoolWorkQueueTracer.StartTrace(key.(string), "virt-controller VMPool workqueue", trace.Field{Key: "Workqueue Key", Value: key})
-	defer virtControllerPoolWorkQueueTracer.StopTrace(key.(string))
+	virtControllerPoolWorkQueueTracer.StartTrace(key, "virt-controller VMPool workqueue", trace.Field{Key: "Workqueue Key", Value: key})
+	defer virtControllerPoolWorkQueueTracer.StopTrace(key)
 
-	err := c.execute(key.(string))
+	err := c.execute(key)
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing pool %v", key)

@@ -111,7 +111,7 @@ func PermanentHostDevicePlugins(maxDevices int, permissions string) []Device {
 
 	ret := make([]Device, 0, len(permanentDevicePluginPaths))
 	for name, path := range permanentDevicePluginPaths {
-		ret = append(ret, NewGenericDevicePlugin(name, path, maxDevices, permissions, (name != "kvm")))
+		ret = append(ret, NewGenericDevicePlugin(name, path, maxDevices, permissions, name != "kvm"))
 	}
 	return ret
 }
@@ -166,7 +166,7 @@ func NewDeviceController(
 func (c *DeviceController) NodeHasDevice(devicePath string) bool {
 	_, err := os.Stat(devicePath)
 	// Since this is a boolean question, any error means "no"
-	return (err == nil)
+	return err == nil
 }
 
 // updatePermittedHostDevicePlugins returns a slice of device plugins for permitted devices which are present on the node

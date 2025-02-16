@@ -106,7 +106,7 @@ func main() {
 
 	operatorCsv, err := csv.NewClusterServiceVersion(&csvData)
 	if err != nil {
-		panic(nil)
+		panic(err)
 	}
 
 	util.MarshallObject(operatorCsv, os.Stdout)

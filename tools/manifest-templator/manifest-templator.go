@@ -288,7 +288,7 @@ func getOperatorDeploymentSpec(data templateData, indentation int) string {
 		version = data.VirtOperatorSha
 	}
 
-	deployment, err := components.NewOperatorDeployment(
+	deployment := components.NewOperatorDeployment(
 		data.Namespace,
 		data.DockerPrefix,
 		data.ImagePrefix,
@@ -316,12 +316,9 @@ func getOperatorDeploymentSpec(data templateData, indentation int) string {
 		data.SidecarShimImage,
 		data.VirtOperatorImage,
 		v1.PullPolicy(data.ImagePullPolicy))
-	if err != nil {
-		panic(err)
-	}
 
 	writer := strings.Builder{}
-	err = util.MarshallObject(deployment.Spec, &writer)
+	err := util.MarshallObject(deployment.Spec, &writer)
 	if err != nil {
 		panic(err)
 	}

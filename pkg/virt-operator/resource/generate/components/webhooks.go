@@ -10,8 +10,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 
-	"kubevirt.io/api/clone"
-	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	clonebase "kubevirt.io/api/clone"
+	clone "kubevirt.io/api/clone/v1beta1"
 
 	"kubevirt.io/api/instancetype"
 
@@ -263,7 +263,7 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 				},
 			},
 			{
-				Name:                    fmt.Sprintf("%s-mutator.kubevirt.io", clone.ResourceVMClonePlural),
+				Name:                    fmt.Sprintf("%s-mutator.kubevirt.io", clonebase.ResourceVMClonePlural),
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				SideEffects:             &sideEffectNone,
 				FailurePolicy:           &failurePolicy,
@@ -273,9 +273,9 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 						admissionregistrationv1.Create,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{clone.GroupName},
-						APIVersions: clone.ApiSupportedWebhookVersions,
-						Resources:   []string{clone.ResourceVMClonePlural},
+						APIGroups:   []string{clonebase.GroupName},
+						APIVersions: clonebase.ApiSupportedWebhookVersions,
+						Resources:   []string{clonebase.ResourceVMClonePlural},
 					},
 				}},
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{
@@ -312,7 +312,6 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 	migrationPolicyCreateValidatePath := MigrationPolicyCreateValidatePath
 	vmCloneCreateValidatePath := VMCloneCreateValidatePath
 	failurePolicy := admissionregistrationv1.Fail
-	ignorePolicy := admissionregistrationv1.Ignore
 
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
 		TypeMeta: metav1.TypeMeta{
@@ -335,7 +334,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				AdmissionReviewVersions: []string{"v1", "v1beta1"},
 				// We don't want to block evictions in the cluster in a case where this webhook is down.
 				// The eviction of virt-launcher will still be protected by our pdb.
-				FailurePolicy:  &ignorePolicy,
+				FailurePolicy:  &failurePolicy,
 				TimeoutSeconds: &defaultTimeoutSeconds,
 				SideEffects:    &sideEffectNoneOnDryRun,
 				Rules: []admissionregistrationv1.RuleWithOperations{{
@@ -353,6 +352,12 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						Namespace: installNamespace,
 						Name:      VirtApiServiceName,
 						Path:      &launcherEvictionValidatePath,
+					},
+				},
+				MatchConditions: []admissionregistrationv1.MatchCondition{
+					{
+						Name:       "only-vms",
+						Expression: `object.metadata.name.startsWith("virt-launcher")`,
 					},
 				},
 			},
@@ -809,9 +814,9 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 						admissionregistrationv1.Update,
 					},
 					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{clonev1alpha1.SchemeGroupVersion.Group},
-						APIVersions: []string{clonev1alpha1.SchemeGroupVersion.Version},
-						Resources:   []string{clone.ResourceVMClonePlural},
+						APIGroups:   []string{clone.SchemeGroupVersion.Group},
+						APIVersions: []string{clone.SchemeGroupVersion.Version},
+						Resources:   []string{clonebase.ResourceVMClonePlural},
 					},
 				}},
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{

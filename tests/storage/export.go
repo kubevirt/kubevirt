@@ -24,9 +24,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
-	goerrors "errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -58,10 +56,10 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	certutil "kubevirt.io/kubevirt/pkg/certificates/triple/cert"
+	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
@@ -69,7 +67,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -491,12 +488,12 @@ var _ = SIGDescribe("Export", func() {
 	type caBundleGenerator func(string, string, *exportv1.VirtualMachineExport) *k8sv1.ConfigMap
 	type urlGenerator func(exportv1.ExportVolumeFormat, string, string, string, *exportv1.VirtualMachineExport) (string, string)
 
-	DescribeTable("should make a PVC export available", func(populateFunction populateFunction, verifyFunction verifyFunction,
+	DescribeTable("should make a PVC export available", decorators.StorageCritical, func(populateFunction populateFunction, verifyFunction verifyFunction,
 		storageClassFunction storageClassFunction, caBundleGenerator caBundleGenerator, urlGenerator urlGenerator,
 		expectedFormat exportv1.ExportVolumeFormat, urlTemplate string, volumeMode k8sv1.PersistentVolumeMode) {
 		sc, exists := storageClassFunction()
 		if !exists {
-			Skip("Skip test when right storage is not present")
+			Fail("Fail test when right storage is not present")
 		}
 		pvc, comparison := populateFunction(sc, volumeMode)
 		By("Creating the export token, we can export volumes using this token")
@@ -565,6 +562,7 @@ var _ = SIGDescribe("Export", func() {
 			fileAndPathName,
 		}
 		By(fmt.Sprintf("Downloading from URL: %s", downloadUrl))
+		Eventually(ThisPod(downloadPod), 30*time.Second, 1*time.Second).Should(HaveConditionTrue(k8sv1.PodReady))
 		out, stderr, err := exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, command)
 		Expect(err).ToNot(HaveOccurred(), out, stderr)
 
@@ -575,14 +573,124 @@ var _ = SIGDescribe("Export", func() {
 		Entry("with RAW gzipped kubevirt content type", populateKubeVirtContent, verifyKubeVirtGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.KubeVirtGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
 		Entry("with archive content type", populateArchiveContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.Dir, archiveDircontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
 		Entry("with archive tarred gzipped content type", populateArchiveContent, verifyArchiveGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.ArchiveGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
-		Entry("with RAW kubevirt content type block", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
+		Entry("with RAW kubevirt content type block", decorators.RequiresBlockStorage, populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, createCaConfigMapInternal, urlGeneratorInternal, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
 		// "proxy" tests
 		Entry("with RAW kubevirt content type PROXY", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
 		Entry("with RAW gzipped kubevirt content type PROXY", populateKubeVirtContent, verifyKubeVirtGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
 		Entry("with archive content type PROXY", populateArchiveContent, verifyKubeVirtRawContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.Dir, archiveDircontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
 		Entry("with archive tarred gzipped content type PROXY", populateArchiveContent, verifyArchiveGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.ArchiveGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
-		Entry("with RAW kubevirt content type block PROXY", populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
+		Entry("with RAW kubevirt content type block PROXY", decorators.RequiresBlockStorage, populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
 	)
+
+	verifyArchiveContainsDirectories := func(archivePath string, expectedDirs []string, pod *k8sv1.Pod) {
+		command := append([]string{"/usr/bin/tar", "-xvzf", archivePath, "-C", "./data"}, expectedDirs...)
+		time.Sleep(time.Second * 20)
+		out, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
+		Expect(err).ToNot(HaveOccurred(), out, stderr)
+		for _, dir := range expectedDirs {
+			Expect(out).To(ContainSubstring(dir), fmt.Sprintf("Expected directory %q in archive", dir))
+		}
+	}
+
+	It("should export a VM and verify swtpm directories in the gz archive", func() {
+		// Create a VM with a persistent TPM device
+		vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+		vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: virtpointer.P(true)}
+		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		// Verify backend PVC creation
+		By("Waiting for backend PVC to be created")
+		var pvc k8sv1.PersistentVolumeClaim
+		Eventually(func() error {
+			backendPVC, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: "persistent-state-for=" + vm.Name,
+			})
+			if err != nil {
+				return err
+			}
+			if len(backendPVC.Items) != 1 {
+				return fmt.Errorf("expected 1 backend PVC, but found %d", len(backendPVC.Items))
+			}
+			pvc = backendPVC.Items[0]
+			return nil
+		}, 15*time.Second, 1*time.Second).Should(BeNil(), "Backend PVC should be created")
+
+		// Stop the VM and prepare the source for export
+		Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
+		vm = libvmops.StopVirtualMachine(vm)
+
+		// Prepare export token and VMExport object
+		By("Creating the export token and VMExport object")
+		token := createExportTokenSecret(vm.Name, vm.Namespace)
+		apiGroup := "kubevirt.io"
+		vmExport := &exportv1.VirtualMachineExport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("test-export-%s", rand.String(12)),
+				Namespace: pvc.Namespace,
+			},
+			Spec: exportv1.VirtualMachineExportSpec{
+				TokenSecretRef: &token.Name,
+				Source: k8sv1.TypedLocalObjectReference{
+					APIGroup: &apiGroup,
+					Kind:     "VirtualMachine",
+					Name:     vm.Name,
+				},
+			},
+		}
+		export, err := virtClient.VirtualMachineExport(pvc.Namespace).Create(context.Background(), vmExport, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		export = waitForReadyExport(export)
+		checkExportSecretRef(export)
+		Expect(*export.Status.TokenSecretRef).To(Equal(token.Name))
+
+		// Create a target PVC for downloading the exported volume
+		By("Creating a target PVC")
+		targetPvc := &k8sv1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("target-pvc-%s", rand.String(12)),
+				Namespace: pvc.Namespace,
+			},
+			Spec: k8sv1.PersistentVolumeClaimSpec{
+				AccessModes:      pvc.Spec.AccessModes,
+				StorageClassName: pvc.Spec.StorageClassName,
+				Resources:        pvc.Spec.Resources,
+				VolumeMode:       pvc.Spec.VolumeMode,
+			},
+		}
+		targetPvc, err = virtClient.CoreV1().PersistentVolumeClaims(targetPvc.Namespace).Create(context.Background(), targetPvc, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		// Create CA config map and download pod
+		caConfigMap := createCaConfigMapInternal("export-cacerts", targetPvc.Namespace, export)
+		downloadPod, err := createDownloadPodForPvc(targetPvc, caConfigMap)
+		Expect(err).ToNot(HaveOccurred())
+
+		// Download and verify the archive
+		By("Downloading and verifying the gzipped archive")
+		downloadUrl, fileName := urlGeneratorInternal(exportv1.ArchiveGz, pvc.Name, kubevirtcontentUrlTemplate, string(token.Data["token"]), export)
+		Expect(downloadUrl).ToNot(BeEmpty())
+		Expect(fileName).ToNot(BeEmpty())
+
+		fileAndPathName := filepath.Join(dataPath, fileName)
+
+		command := []string{
+			"curl",
+			"-L",
+			"--cacert",
+			filepath.Join(caCertPath, caBundleKey),
+			downloadUrl,
+			"--output",
+			fileAndPathName,
+		}
+
+		out, stderr, err := exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, command)
+		Expect(err).ToNot(HaveOccurred(), out, stderr)
+
+		// Verify contents of the downloaded archive
+		By("Verifying the contents of the downloaded archive")
+		verifyArchiveContainsDirectories(fileAndPathName, []string{"./swtpm", "./swtpm-localca/"}, downloadPod)
+	})
 
 	createPVCExportObject := func(name, namespace string, token *k8sv1.Secret) *exportv1.VirtualMachineExport {
 		vmExport := &exportv1.VirtualMachineExport{
@@ -705,7 +813,7 @@ var _ = SIGDescribe("Export", func() {
 	It("Should recreate the exporter pod and secret if the pod fails", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 		vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
 		checkExportSecretRef(vmExport)
@@ -732,6 +840,7 @@ var _ = SIGDescribe("Export", func() {
 			"-c",
 			"kill 1",
 		}
+		Eventually(ThisPod(exporterPod), 30*time.Second, 1*time.Second).Should(HaveConditionTrue(k8sv1.PodReady))
 		_, _, _ = exec.ExecuteCommandOnPodWithResults(exporterPod, exporterPod.Spec.Containers[0].Name, command)
 		By("Verifying the pod is killed and a new secret created")
 		Eventually(func() types.UID {
@@ -749,7 +858,7 @@ var _ = SIGDescribe("Export", func() {
 	It("Should recreate the exporter pod if the pod is deleted", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 		vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
 		checkExportSecretRef(vmExport)
@@ -768,7 +877,7 @@ var _ = SIGDescribe("Export", func() {
 	It("Should recreate the service if the service is deleted", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 		vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
 		checkExportSecretRef(vmExport)
@@ -787,7 +896,7 @@ var _ = SIGDescribe("Export", func() {
 	It("Should handle no pvc existing when export created, then creating and populating the pvc", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 		dv := libdv.NewDataVolume(
 			libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
@@ -832,7 +941,7 @@ var _ = SIGDescribe("Export", func() {
 	It("should be possibe to observe exportserver pod exiting", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 		vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
 		checkExportSecretRef(vmExport)
@@ -869,7 +978,7 @@ var _ = SIGDescribe("Export", func() {
 	It("Should handle populating an export without a previously defined tokenSecretRef", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 
 		pvc, _ := populateKubeVirtContent(sc, k8sv1.PersistentVolumeFilesystem)
@@ -891,7 +1000,7 @@ var _ = SIGDescribe("Export", func() {
 	It("Should honor TTL by cleaning up the the VMExport altogether", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 
 		pvc, _ := populateKubeVirtContent(sc, k8sv1.PersistentVolumeFilesystem)
@@ -930,7 +1039,7 @@ var _ = SIGDescribe("Export", func() {
 		)
 	})
 
-	Context("[Serial]Ingress", Serial, func() {
+	Context("Ingress", Serial, func() {
 		const (
 			tlsSecretName = "test-tls"
 		)
@@ -1037,7 +1146,7 @@ var _ = SIGDescribe("Export", func() {
 		It("should populate external links and cert and contain ingress host", func() {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
+				Fail("Fail test when Filesystem storage is not present")
 			}
 			testCert, err := createIngressTLSSecret(tlsSecretName)
 			Expect(err).NotTo(HaveOccurred())
@@ -1071,7 +1180,7 @@ var _ = SIGDescribe("Export", func() {
 		It("should populate external links and cert and contain route host", func() {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
+				Fail("Fail test when Filesystem storage is not present")
 			}
 			if !checks.IsOpenShift() {
 				Skip("Not on openshift")
@@ -1214,24 +1323,23 @@ var _ = SIGDescribe("Export", func() {
 		}
 	}
 
-	verifyMultiKubevirtInternal := func(vmExport *exportv1.VirtualMachineExport, exportName, namespace, volumeName1, volumeName2 string) {
-		verifyLinksInternal(vmExport,
-			exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.KubeVirtRaw,
-				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName1),
-			},
-			exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.KubeVirtGz,
-				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img.gz", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName1),
-			},
-			exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.KubeVirtRaw,
-				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName2),
-			},
-			exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.KubeVirtGz,
-				Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img.gz", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName2),
-			})
+	verifyMultiKubevirtInternal := func(vmExport *exportv1.VirtualMachineExport, exportName, namespace string, volumeNames ...string) {
+		var volumeFormats []exportv1.VirtualMachineExportVolumeFormat
+
+		for _, volumeName := range volumeNames {
+			volumeFormats = append(volumeFormats,
+				exportv1.VirtualMachineExportVolumeFormat{
+					Format: exportv1.KubeVirtRaw,
+					Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName),
+				},
+				exportv1.VirtualMachineExportVolumeFormat{
+					Format: exportv1.KubeVirtGz,
+					Url:    fmt.Sprintf("https://%s.%s.svc/volumes/%s/disk.img.gz", fmt.Sprintf("%s-%s", exportPrefix, exportName), namespace, volumeName),
+				},
+			)
+		}
+
+		verifyLinksInternal(vmExport, volumeFormats...)
 	}
 
 	verifyKubevirtInternal := func(vmExport *exportv1.VirtualMachineExport, exportName, namespace, volumeName string) {
@@ -1246,11 +1354,11 @@ var _ = SIGDescribe("Export", func() {
 			})
 	}
 
-	It("should create export from VMSnapshot", func() {
+	It("should create export from VMSnapshot", decorators.RequiresSnapshotStorageClass, func() {
 		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
 		Expect(err).ToNot(HaveOccurred())
 		if sc == "" {
-			Skip("Skip test when storage with snapshot is not present")
+			Fail("Fail test when storage with snapshot is not present")
 		}
 
 		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
@@ -1316,11 +1424,11 @@ var _ = SIGDescribe("Export", func() {
 		return export
 	}
 
-	It("should create export from VMSnapshot with multiple volumes", func() {
+	It("should create export from VMSnapshot with multiple volumes", decorators.RequiresSnapshotStorageClass, func() {
 		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
 		Expect(err).ToNot(HaveOccurred())
 		if sc == "" {
-			Skip("Skip test when storage with snapshot is not present")
+			Fail("Fail test when storage with snapshot is not present")
 		}
 
 		blankDv := libdv.NewDataVolume(
@@ -1394,7 +1502,7 @@ var _ = SIGDescribe("Export", func() {
 	It("should report export pending if VM is running, and start the VM export if the VM is not running, then stop again once VM started", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
 		vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
@@ -1510,10 +1618,10 @@ var _ = SIGDescribe("Export", func() {
 			removeLimitRangeFromNamespace()
 		})
 
-		It("[Serial] should report export pending if PVC is in use because of VMI using it, and start the VM export if the PVC is not in use, then stop again once pvc in use again", Serial, func() {
+		It(" should report export pending if PVC is in use because of VMI using it, and start the VM export if the PVC is not in use, then stop again once pvc in use again", Serial, func() {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
+				Fail("Fail test when Filesystem storage is not present")
 			}
 			cpu := resource.MustParse("500m")
 			mem := resource.MustParse("1240Mi")
@@ -1715,12 +1823,23 @@ var _ = SIGDescribe("Export", func() {
 		waitForDisksComplete(resVM)
 	}
 
-	It("[QUARANTINE] should generate updated DataVolumeTemplates on http endpoint when exporting", decorators.Quarantine, func() {
+	It("should generate updated DataVolumeTemplates on http endpoint when exporting", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
-		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
+
+		vm := libstorage.RenderVMWithDataVolumeTemplate(libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(
+				libdv.StorageWithStorageClass(sc),
+				// TODO: Rendering this VM with more size than usual as fully expanded images are likely
+				// to leave scratch space PVC without space if files such as lost+found exist.
+				// More info in https://issues.redhat.com/browse/CNV-51575.
+				libdv.StorageWithVolumeSize("1024Mi")),
+		))
+
 		vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
@@ -1742,21 +1861,32 @@ var _ = SIGDescribe("Export", func() {
 		Expect(caConfigMap).ToNot(BeNil())
 		pod := createDownloadPod(caConfigMap)
 		pod, err = libpod.Run(pod, testsuite.GetTestNamespace(pod))
+		Eventually(ThisPod(pod), 30*time.Second, 1*time.Second).Should(HaveConditionTrue(k8sv1.PodReady))
 		Expect(err).ToNot(HaveOccurred())
 		checkWithYamlOutput(pod, export, vm)
 		checkWithJsonOutput(pod, export, vm)
 	})
 
-	It("[QUARANTINE] should generate updated DataVolumeTemplates on http endpoint when exporting snapshot", decorators.Quarantine, func() {
+	It("should generate updated DataVolumeTemplates on http endpoint when exporting snapshot", decorators.RequiresSnapshotStorageClass, func() {
 		virtClient, err := kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
 		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
 		Expect(err).ToNot(HaveOccurred())
 		if sc == "" {
-			Skip("Skip test when storage with snapshot is not present")
+			Fail("Fail test when storage with snapshot is not present")
 		}
 
-		vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
+		vm := libstorage.RenderVMWithDataVolumeTemplate(libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(
+				libdv.StorageWithStorageClass(sc),
+				// TODO: Rendering this VM with more size than usual as fully expanded images are likely
+				// to leave scratch space PVC without space if files such as lost+found exist.
+				// More info in https://issues.redhat.com/browse/CNV-51575.
+				libdv.StorageWithVolumeSize("1024Mi")),
+		))
+
 		vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 		vm = createVM(vm)
 		Expect(vm).ToNot(BeNil())
@@ -1776,15 +1906,16 @@ var _ = SIGDescribe("Export", func() {
 		Expect(caConfigMap).ToNot(BeNil())
 		pod := createDownloadPod(caConfigMap)
 		pod, err = libpod.Run(pod, testsuite.GetTestNamespace(pod))
+		Eventually(ThisPod(pod), 30*time.Second, 1*time.Second).Should(HaveConditionTrue(k8sv1.PodReady))
 		Expect(err).ToNot(HaveOccurred())
 		checkWithYamlOutput(pod, export, vm)
 		checkWithJsonOutput(pod, export, vm)
 	})
 
-	It("[QUARANTINE] Should generate DVs and expanded VM definition on http endpoint with multiple volumes", decorators.Quarantine, func() {
+	It("Should generate DVs and expanded VM definition on http endpoint with multiple volumes", decorators.StorageCritical, func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 		clusterInstancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
 			TypeMeta: metav1.TypeMeta{
@@ -1811,13 +1942,25 @@ var _ = SIGDescribe("Export", func() {
 		imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)
 		dataVolume := libdv.NewDataVolume(
 			libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
-			libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.CirrosVolumeSize)),
+			libdv.WithStorage(
+				libdv.StorageWithStorageClass(sc),
+				// TODO: Rendering this VM with more size than usual as fully expanded images are likely
+				// to leave scratch space PVC without space if files such as lost+found exist.
+				// More info in https://issues.redhat.com/browse/CNV-51575.
+				libdv.StorageWithVolumeSize("1024Mi"),
+			),
 		)
 		dataVolume.SetNamespace(testsuite.GetTestNamespace(dataVolume))
 		dataVolume = createDataVolume(dataVolume)
 		blankDv := libdv.NewDataVolume(
 			libdv.WithBlankImageSource(),
-			libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.BlankVolumeSize)),
+			libdv.WithStorage(
+				libdv.StorageWithStorageClass(sc),
+				// TODO: Rendering this VM with more size than usual as fully expanded images are likely
+				// to leave scratch space PVC without space if files such as lost+found exist.
+				// More info in https://issues.redhat.com/browse/CNV-51575.
+				libdv.StorageWithVolumeSize("1024Mi"),
+			),
 		)
 		blankDv.SetNamespace(testsuite.GetTestNamespace(blankDv))
 		blankDv = createDataVolume(blankDv)
@@ -1858,6 +2001,7 @@ var _ = SIGDescribe("Export", func() {
 		Expect(caConfigMap).ToNot(BeNil())
 		pod := createDownloadPod(caConfigMap)
 		pod, err = libpod.Run(pod, testsuite.GetTestNamespace(pod))
+		Eventually(ThisPod(pod), 30*time.Second, 1*time.Second).Should(HaveConditionTrue(k8sv1.PodReady))
 		Expect(err).ToNot(HaveOccurred())
 		By("Getting export VM definition yaml")
 		url := fmt.Sprintf("%s?x-kubevirt-export-token=%s", getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AllManifests), token.Data["token"])
@@ -1893,14 +2037,18 @@ var _ = SIGDescribe("Export", func() {
 		err = yaml.Unmarshal([]byte(split[2]), diskDV)
 		Expect(err).ToNot(HaveOccurred())
 		diskDV.Name = fmt.Sprintf("%s-clone", diskDV.Name)
-		diskDV.Spec.Storage.StorageClassName = virtpointer.P(sc)
-		Expect(diskDV.Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(resource.MustParse(cd.CirrosVolumeSize)))
-		blankDv = &cdiv1.DataVolume{}
-		err = yaml.Unmarshal([]byte(split[3]), blankDv)
+		diskDV.Spec.Storage.StorageClassName = &sc
+		diskPVC, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(dataVolume)).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		blankDv.Name = fmt.Sprintf("%s-clone", blankDv.Name)
-		blankDv.Spec.Storage.StorageClassName = virtpointer.P(sc)
-		Expect(blankDv.Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(resource.MustParse(cd.BlankVolumeSize)))
+		Expect(diskDV.Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(diskPVC.Spec.Resources.Requests[k8sv1.ResourceStorage]))
+		blankDiskDV := &cdiv1.DataVolume{}
+		err = yaml.Unmarshal([]byte(split[3]), blankDiskDV)
+		Expect(err).ToNot(HaveOccurred())
+		blankDiskDV.Name = fmt.Sprintf("%s-clone", blankDv.Name)
+		blankDiskDV.Spec.Storage.StorageClassName = &sc
+		blankPVC, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(blankDv)).Get(context.Background(), blankDv.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(blankDiskDV.Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(blankPVC.Spec.Resources.Requests[k8sv1.ResourceStorage]))
 
 		By("Getting token secret header")
 		url = fmt.Sprintf("%s?x-kubevirt-export-token=%s", getManifestUrl(export.Status.Links.Internal.Manifests, exportv1.AuthHeader), token.Data["token"])
@@ -1924,8 +2072,8 @@ var _ = SIGDescribe("Export", func() {
 		Expect(resSecret).ToNot(BeNil())
 		diskDV = createDataVolume(diskDV)
 		Expect(diskDV).ToNot(BeNil())
-		blankDv = createDataVolume(blankDv)
-		Expect(blankDv).ToNot(BeNil())
+		blankDiskDV = createDataVolume(blankDiskDV)
+		Expect(blankDiskDV).ToNot(BeNil())
 		resCM, err = virtClient.CoreV1().ConfigMaps(vm.Namespace).Create(context.Background(), resCM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resCM).ToNot(BeNil())
@@ -1939,7 +2087,7 @@ var _ = SIGDescribe("Export", func() {
 	It("should mark the status phase skipped on VM without volumes", func() {
 		sc, exists := libstorage.GetRWOFileSystemStorageClass()
 		if !exists {
-			Skip("Skip test when Filesystem storage is not present")
+			Fail("Fail test when Filesystem storage is not present")
 		}
 		vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
 		vm = createVM(vm)
@@ -1978,7 +2126,7 @@ var _ = SIGDescribe("Export", func() {
 		}
 	})
 
-	Context("[Serial] with potential KubeVirt CR update", Serial, func() {
+	Context(" with potential KubeVirt CR update", Serial, func() {
 		var beforeCertParams *v1.KubeVirtCertificateRotateStrategy
 
 		BeforeEach(func() {
@@ -2022,7 +2170,7 @@ var _ = SIGDescribe("Export", func() {
 		It("should recreate exportserver pod when KubeVirt cert params updated", func() {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
+				Fail("Fail test when Filesystem storage is not present")
 			}
 			vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
 			checkExportSecretRef(vmExport)
@@ -2045,523 +2193,6 @@ var _ = SIGDescribe("Export", func() {
 			postCertParamms := exporterPod.Annotations["kubevirt.io/export.certParameters"]
 			Expect(postCertParamms).ToNot(BeEmpty())
 			Expect(postCertParamms).ToNot(Equal(preCertParamms))
-		})
-	})
-
-	var _ = Describe("virtctl vmexport command", func() {
-		const (
-			commandName    = "vmexport"
-			defaultOutput  = "/tmp/test-disk-%s.img"
-			defaultVMEName = "vme-test-%s"
-		)
-
-		var (
-			sc         string
-			vmeName    string
-			outputFile string
-		)
-
-		checkForReadyExport := func(name string) {
-			vmexport, err := virtClient.VirtualMachineExport(testsuite.GetTestNamespace(nil)).Get(context.Background(), name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			waitForReadyExport(vmexport)
-		}
-
-		checkForDeletedExport := func(vmeName string) {
-			Eventually(func() bool {
-				_, err := virtClient.VirtualMachineExport(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmeName, metav1.GetOptions{})
-				if err != nil {
-					Expect(errors.IsNotFound(err)).To(BeTrue())
-					return true
-				}
-				return false
-			}, 180*time.Second, 1*time.Second).Should(BeTrue())
-		}
-
-		BeforeEach(func() {
-			storageClass, exists := libstorage.GetRWOFileSystemStorageClass()
-			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
-			}
-			sc = storageClass
-			vmeName = fmt.Sprintf(defaultVMEName, rand.String(12))
-		})
-
-		AfterEach(func() {
-			By("Deleting VirtualMachineExport")
-			vmexport, err := virtClient.VirtualMachineExport(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmeName, metav1.GetOptions{})
-			if !errors.IsNotFound(err) {
-				Expect(err).ToNot(HaveOccurred())
-				err = virtClient.VirtualMachineExport(testsuite.GetTestNamespace(vmexport)).Delete(context.Background(), vmexport.Name, metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
-			}
-		})
-
-		It("Create succeeds using PVC source", func() {
-			pvc, _ := populateKubeVirtContent(sc, k8sv1.PersistentVolumeFilesystem)
-			// Run vmexport
-			By("Running vmexport command")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "create", vmeName, "--pvc", pvc.Name, "--namespace", testsuite.GetTestNamespace(nil))
-			err = virtctlCmd()
-			Expect(err).ToNot(HaveOccurred())
-			checkForReadyExport(vmeName)
-		})
-
-		It("Create succeeds using Snapshot source", func() {
-			sc, err := libstorage.GetSnapshotStorageClass(virtClient)
-			Expect(err).ToNot(HaveOccurred())
-			if sc == "" {
-				Skip("Skip test when storage with snapshot is not present")
-			}
-
-			// Create a populated Snapshot
-			blankDv := libdv.NewDataVolume(
-				libdv.WithBlankImageSource(),
-				libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.BlankVolumeSize)),
-			)
-
-			vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
-			libstorage.AddDataVolumeTemplate(vm, blankDv)
-			addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
-			if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
-				// In WFFC need to start the VM in order for the
-				// dv to get populated
-				vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
-			}
-			vm = createVM(vm)
-			vm = libvmops.StopVirtualMachine(vm)
-			snapshot := createAndVerifyVMSnapshot(vm)
-			Expect(snapshot).ToNot(BeNil())
-			defer deleteSnapshot(snapshot)
-
-			// Run vmexport
-			By("Running vmexport command")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "create", vmeName, "--snapshot", snapshot.Name, "--namespace", testsuite.GetTestNamespace(nil))
-			err = virtctlCmd()
-			Expect(err).ToNot(HaveOccurred())
-			checkForReadyExport(vmeName)
-		})
-
-		It("Create succeeds using VM source", func() {
-			// Create a populated VM
-			vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
-			vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
-			vm = createVM(vm)
-			Eventually(func() v1.VirtualMachineInstancePhase {
-				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				if errors.IsNotFound(err) {
-					return ""
-				}
-				Expect(err).ToNot(HaveOccurred())
-				return vmi.Status.Phase
-			}, 180*time.Second, time.Second).Should(Equal(v1.Running))
-
-			By("Stopping VM, we should get the export ready eventually")
-			vm = libvmops.StopVirtualMachine(vm)
-
-			// Run vmexport
-			By("Running vmexport command")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "create", vmeName, "--vm", vm.Name, "--namespace", testsuite.GetTestNamespace(nil))
-			err = virtctlCmd()
-			Expect(err).ToNot(HaveOccurred())
-			checkForReadyExport(vmeName)
-		})
-
-		It("Create fails when the vmexport already exists", func() {
-			vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
-			vmeName = vmExport.Name
-			// Run vmexport
-			By("Running vmexport command")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "create", vmeName, "--pvc", vmExport.Spec.Source.Name, "--namespace", testsuite.GetTestNamespace(nil))
-			err = virtctlCmd()
-			Expect(err).To(HaveOccurred())
-			errString := fmt.Sprintf("VirtualMachineExport '%s/%s' already exists", vmExport.Namespace, vmeName)
-			Expect(err.Error()).Should(Equal(errString))
-		})
-
-		It("Delete succeeds", func() {
-			vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
-			vmeName = vmExport.Name
-			// Run vmexport
-			By("Running vmexport command")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "delete", vmeName, "--namespace", testsuite.GetTestNamespace(nil))
-			err = virtctlCmd()
-			Expect(err).ToNot(HaveOccurred())
-			By("Verifying the vmexport was deleted")
-			Eventually(func() error {
-				_, err := virtClient.VirtualMachineExport(testsuite.GetTestNamespace(vmExport)).Get(context.Background(), vmExport.Name, metav1.GetOptions{})
-				return err
-			}, 180*time.Second, time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
-		})
-
-		It("Delete succeeds when vmexport doesn't exist", func() {
-			// Run vmexport
-			By("Running vmexport command")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "delete", vmeName, "--namespace", testsuite.GetTestNamespace(nil))
-			err = virtctlCmd()
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		It("Create with TTL", func() {
-			ttl := &metav1.Duration{Duration: 2 * time.Minute}
-			pvc, _ := populateKubeVirtContent(sc, k8sv1.PersistentVolumeFilesystem)
-			// Run vmexport
-			By("Running vmexport command")
-			virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName, "create", vmeName, "--pvc", pvc.Name, "--namespace", testsuite.GetTestNamespace(pvc), "--ttl", ttl.Duration.String())
-			err = virtctlCmd()
-			Expect(err).ToNot(HaveOccurred())
-			export, err := virtClient.VirtualMachineExport(testsuite.GetTestNamespace(pvc)).Get(context.Background(), vmeName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(export.Spec.TTLDuration).To(Equal(ttl))
-		})
-
-		Context("Download a volume with vmexport", func() {
-			BeforeEach(func() {
-				outputFile = fmt.Sprintf(defaultOutput, rand.String(12))
-			})
-
-			AfterEach(func() {
-				if err := os.Remove(outputFile); err != nil && !goerrors.Is(err, os.ErrNotExist) {
-					Fail(err.Error())
-				}
-			})
-
-			It("Download succeeds creating and downloading a vmexport using PVC source", func() {
-				// Create populated PVC
-				pvc, _ := populateKubeVirtContent(sc, k8sv1.PersistentVolumeFilesystem)
-				// Run vmexport
-				By("Running vmexport command")
-				cmdArgs := []string{
-					commandName,
-					"download",
-					vmeName,
-					"--pvc", pvc.Name,
-					"--output", outputFile,
-					"--volume", pvc.Name,
-					"--insecure",
-					"--namespace", testsuite.GetTestNamespace(pvc),
-				}
-
-				if !checks.IsOpenShift() {
-					cmdArgs = append(cmdArgs, "--port-forward")
-				}
-
-				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(cmdArgs...)
-				err = virtctlCmd()
-				Expect(err).ToNot(HaveOccurred())
-				_, err := os.Stat(outputFile)
-				Expect(err).ToNot(HaveOccurred())
-
-				// Check VMExport has been deleted
-				checkForDeletedExport(vmeName)
-			})
-
-			It("Download succeeds creating and downloading a vmexport using Snapshot source", func() {
-				sc, err := libstorage.GetSnapshotStorageClass(virtClient)
-				Expect(err).ToNot(HaveOccurred())
-				if sc == "" {
-					Skip("Skip test when storage with snapshot is not present")
-				}
-
-				// Create a populated Snapshot
-				blankDv := libdv.NewDataVolume(
-					libdv.WithBlankImageSource(),
-					libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.BlankVolumeSize)),
-				)
-				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
-				libstorage.AddDataVolumeTemplate(vm, blankDv)
-				addDataVolumeDisk(vm, "blankdisk", blankDv.Name)
-				if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
-					// In WFFC need to start the VM in order for the
-					// dv to get populated
-					vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
-				}
-				vm = createVM(vm)
-				vm = libvmops.StopVirtualMachine(vm)
-				snapshot := createAndVerifyVMSnapshot(vm)
-				Expect(snapshot).ToNot(BeNil())
-				defer deleteSnapshot(snapshot)
-
-				// We create the vmexport object in advance to get the volume name
-				export := createRunningVMSnapshotExport(snapshot)
-				Expect(export).ToNot(BeNil())
-				checkExportSecretRef(export)
-				vmeName = export.Name
-
-				// Run vmexport
-				By("Running vmexport command")
-				cmdArgs := []string{
-					commandName,
-					"download",
-					vmeName,
-					"--snapshot", snapshot.Name,
-					"--output", outputFile,
-					"--volume", vm.Spec.Template.Spec.Volumes[0].DataVolume.Name,
-					"--insecure",
-					"--namespace", testsuite.GetTestNamespace(export),
-				}
-
-				if !checks.IsOpenShift() {
-					cmdArgs = append(cmdArgs, "--port-forward")
-				}
-
-				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(cmdArgs...)
-				err = virtctlCmd()
-				Expect(err).ToNot(HaveOccurred())
-				_, err = os.Stat(outputFile)
-				Expect(err).ToNot(HaveOccurred())
-			})
-
-			It("Download succeeds creating and downloading a vmexport using VM source", func() {
-				// Create a populated VM
-				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
-				vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
-				vm = createVM(vm)
-				Eventually(func() v1.VirtualMachineInstancePhase {
-					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					if errors.IsNotFound(err) {
-						return ""
-					}
-					Expect(err).ToNot(HaveOccurred())
-					return vmi.Status.Phase
-				}, 180*time.Second, time.Second).Should(Equal(v1.Running))
-
-				By("Stopping VM, we should get the export ready eventually")
-				vm = libvmops.StopVirtualMachine(vm)
-
-				// Run vmexport
-				By("Running vmexport command")
-				cmdArgs := []string{
-					commandName,
-					"download",
-					vmeName,
-					"--vm", vm.Name,
-					"--output", outputFile,
-					"--volume", vm.Spec.Template.Spec.Volumes[0].DataVolume.Name,
-					"--insecure",
-					"--namespace", testsuite.GetTestNamespace(vm),
-				}
-
-				if !checks.IsOpenShift() {
-					cmdArgs = append(cmdArgs, "--port-forward")
-				}
-
-				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(cmdArgs...)
-				err = virtctlCmd()
-				Expect(err).ToNot(HaveOccurred())
-				_, err := os.Stat(outputFile)
-				Expect(err).ToNot(HaveOccurred())
-
-				// Check VMExport has been deleted
-				checkForDeletedExport(vmeName)
-			})
-
-			It("Download succeeds with an already existing vmexport", func() {
-				vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
-				vmeName = vmExport.Name
-				// Run vmexport
-				cmdArgs := []string{
-					commandName,
-					"download",
-					vmeName,
-					"--output", outputFile,
-					"--insecure",
-					"--namespace", testsuite.GetTestNamespace(vmExport),
-				}
-				export, err := virtClient.VirtualMachineExport(vmExport.Namespace).Get(context.Background(), vmExport.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				if export.Status.Links.External == nil {
-					localPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
-					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.Internal.Volumes[0].Name, "--port-forward", "--local-port", localPort, "--keep-vme")
-				} else {
-					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.External.Volumes[0].Name)
-				}
-				By("Running vmexport command")
-				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(cmdArgs...)
-
-				Eventually(func() error {
-					return virtctlCmd()
-				}, 30*time.Second, time.Second).Should(BeNil())
-				_, err = os.Stat(outputFile)
-				Expect(err).ToNot(HaveOccurred())
-			})
-
-			It("Download succeeds with a vmexport without user-defined TokenSecretRef", func() {
-				pvc, _ := populateKubeVirtContent(sc, k8sv1.PersistentVolumeFilesystem)
-				export := createPVCExportObjectWithoutSecret(pvc.Name, pvc.Namespace)
-				By("Making sure the export becomes ready")
-				waitForReadyExport(export)
-
-				By("Making sure the default secret is created")
-				export, err = virtClient.VirtualMachineExport(export.Namespace).Get(context.Background(), export.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(export.Status.TokenSecretRef).ToNot(BeNil())
-
-				vmeName = export.Name
-				// Run vmexport
-				cmdArgs := []string{
-					commandName,
-					"download",
-					vmeName,
-					"--output", outputFile,
-					"--insecure",
-					"--namespace", testsuite.GetTestNamespace(export),
-				}
-				if export.Status.Links.External == nil {
-					localPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
-					cmdArgs = append(cmdArgs, "--port-forward", "--local-port", localPort,
-						"--insecure", "--keep-vme")
-				}
-				By("Running vmexport command")
-				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(cmdArgs...)
-				Eventually(func() error {
-					return virtctlCmd()
-				}, 30*time.Second, time.Second).Should(BeNil())
-				_, err := os.Stat(outputFile)
-				Expect(err).ToNot(HaveOccurred())
-			})
-
-			It("Download retains the vmexport resource when it's been created in advance", func() {
-				vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
-				vmeName = vmExport.Name
-				vme, err := virtClient.VirtualMachineExport(vmExport.Namespace).Get(context.Background(), vmeName, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				By("Making sure the export becomes ready")
-				waitForReadyExport(vmExport)
-
-				// Run vmexport
-				cmdArgs := []string{
-					commandName,
-					"download",
-					vmeName,
-					"--output", outputFile,
-					"--insecure",
-					"--namespace", testsuite.GetTestNamespace(vmExport),
-				}
-				if vme.Status.Links.External == nil {
-					localPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
-					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.Internal.Volumes[0].Name, "--port-forward", "--local-port", localPort)
-				} else {
-					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.External.Volumes[0].Name)
-				}
-				By("Running vmexport command")
-				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(cmdArgs...)
-				Eventually(func() error {
-					return virtctlCmd()
-				}, 30*time.Second, time.Second).Should(BeNil())
-
-				// Check VMExport hasn't been deleted
-				checkForReadyExport(vmeName)
-				_, err = os.Stat(outputFile)
-				Expect(err).ToNot(HaveOccurred())
-			})
-
-			It("Download deletes the vmexport resource when explicitely specified", func() {
-				vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
-				vmeName = vmExport.Name
-				vme, err := virtClient.VirtualMachineExport(vmExport.Namespace).Get(context.Background(), vmeName, metav1.GetOptions{})
-				// Run vmexport
-				cmdArgs := []string{
-					commandName,
-					"download",
-					vmeName,
-					"--output", outputFile,
-					"--insecure",
-					"--delete-vme",
-					"--namespace", testsuite.GetTestNamespace(vmExport),
-				}
-				Expect(err).ToNot(HaveOccurred())
-				if vme.Status.Links.External == nil {
-					localPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
-					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.Internal.Volumes[0].Name, "--port-forward", "--local-port", localPort)
-				} else {
-					cmdArgs = append(cmdArgs, "--volume", vmExport.Status.Links.External.Volumes[0].Name)
-				}
-				By("Running vmexport command")
-				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(cmdArgs...)
-				Eventually(func() error {
-					return virtctlCmd()
-				}, 30*time.Second, time.Second).Should(BeNil())
-
-				// Check VMExport has been deleted
-				checkForDeletedExport(vmeName)
-			})
-		})
-
-		Context("Get export manifest from vmexport", func() {
-			DescribeTable("manifest should be successfully retrieved on running VM export", func(expectedObjects int, extraArgs ...string) {
-				// Create a populated VM
-				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, sc)
-				vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
-				vm = createVM(vm)
-				Eventually(func() v1.VirtualMachineInstancePhase {
-					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					if errors.IsNotFound(err) {
-						return ""
-					}
-					Expect(err).ToNot(HaveOccurred())
-					return vmi.Status.Phase
-				}, 180*time.Second, time.Second).Should(Equal(v1.Running))
-
-				By("Stopping VM, we should get the export ready eventually")
-				vm = libvmops.StopVirtualMachine(vm)
-
-				// Run vmexport
-				By("Running vmexport create command")
-				virtctlCmd := clientcmd.NewRepeatableVirtctlCommand(commandName,
-					"create",
-					vmeName,
-					"--vm", vm.Name,
-					"--namespace", testsuite.GetTestNamespace(vm))
-				err = virtctlCmd()
-				Expect(err).ToNot(HaveOccurred())
-
-				exportReady := exportv1.Ready
-				Eventually(func() *exportv1.VirtualMachineExportPhase {
-					vme, err := virtClient.VirtualMachineExport(vm.Namespace).Get(context.Background(), vmeName, metav1.GetOptions{})
-					if errors.IsNotFound(err) {
-						return nil
-					}
-					Expect(err).ToNot(HaveOccurred())
-					if vme.Status == nil {
-						return nil
-					}
-					return &vme.Status.Phase
-				}, 180*time.Second, time.Second).Should(Equal(&exportReady))
-				vme, err := virtClient.VirtualMachineExport(vm.Namespace).Get(context.Background(), vmeName, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				cmdArgs := []string{
-					commandName,
-					"download",
-					vmeName,
-					"--manifest",
-					"--namespace",
-					testsuite.GetTestNamespace(vm),
-				}
-				if vme.Status.Links.External == nil {
-					localPort := fmt.Sprintf("%d", 37548+rand.Intn(6000))
-					cmdArgs = append(cmdArgs, "--service-url", fmt.Sprintf("127.0.0.1:%s", localPort), "--port-forward", "--local-port", localPort)
-				}
-				cmdArgs = append(cmdArgs, extraArgs...)
-				virtctlCmdOut := clientcmd.NewRepeatableVirtctlCommandWithOut(cmdArgs...)
-
-				var out []byte
-				By("Running vmexport manifest command")
-				Eventually(func() error {
-					out, err = virtctlCmdOut()
-					return err
-				}, 30*time.Second, time.Second).Should(BeNil())
-				Expect(out).NotTo(BeEmpty())
-				split := strings.Split(string(out), "\n---\n")
-				// Add one for the --- at the end.
-				Expect(split).To(HaveLen(expectedObjects + 1))
-				resVM := &v1.VirtualMachine{}
-				err = yaml.Unmarshal([]byte(split[1]), resVM)
-				Expect(err).ToNot(HaveOccurred())
-			},
-				Entry("without --include-secret", 2),
-				Entry("with --include-secret", 3, "--include-secret"),
-			)
 		})
 	})
 })
@@ -2598,26 +2229,4 @@ func (matcher *ConditionNoTimeMatcher) FailureMessage(actual interface{}) (messa
 
 func (matcher *ConditionNoTimeMatcher) NegatedFailureMessage(actual interface{}) (message string) {
 	return format.Message(actual, "not to match without time", matcher.Cond)
-}
-
-func newVMWithDataVolumeForExport(storageClass string) *v1.VirtualMachine {
-	dv := libdv.NewDataVolume(
-		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
-		libdv.WithStorage(
-			libdv.StorageWithStorageClass(storageClass),
-			libdv.StorageWithVolumeSize(cd.CirrosVolumeSize),
-		),
-	)
-	vm := libvmi.NewVirtualMachine(
-		libvmifact.NewCirros(
-			libvmi.WithDataVolume("disk0", dv.Name),
-			libvmi.WithResourceMemory("256Mi"),
-			libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		),
-		libvmi.WithDataVolumeTemplate(dv),
-	)
-
-	return vm
 }

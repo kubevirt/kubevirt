@@ -23,55 +23,64 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
-
-	"kubevirt.io/kubevirt/pkg/defaults"
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
-
-	corev1 "k8s.io/api/core/v1"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
-	migrationutil "kubevirt.io/kubevirt/pkg/util/migrations"
-
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/defaults"
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
+	instancetypeWebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks/vm"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
+	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
+	storageAdmitters "kubevirt.io/kubevirt/pkg/storage/admitters"
+	migrationutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var validRunStrategies = []v1.VirtualMachineRunStrategy{v1.RunStrategyHalted, v1.RunStrategyManual, v1.RunStrategyAlways, v1.RunStrategyRerunOnFailure, v1.RunStrategyOnce}
 
-type VMsAdmitter struct {
-	VirtClient          kubecli.KubevirtClient
-	DataSourceInformer  cache.SharedIndexInformer
-	NamespaceInformer   cache.SharedIndexInformer
-	InstancetypeMethods instancetype.Methods
-	ClusterConfig       *virtconfig.ClusterConfig
+type instancetypeVMsAdmitter interface {
+	ApplyToVM(vm *v1.VirtualMachine) (
+		*instancetypev1beta1.VirtualMachineInstancetypeSpec,
+		*instancetypev1beta1.VirtualMachinePreferenceSpec,
+		[]metav1.StatusCause,
+	)
+	Check(*instancetypev1beta1.VirtualMachineInstancetypeSpec,
+		*instancetypev1beta1.VirtualMachinePreferenceSpec,
+		*v1.VirtualMachineInstanceSpec,
+	) (conflict.Conflicts, error)
 }
 
-func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient, informers *webhooks.Informers) *VMsAdmitter {
+type VMsAdmitter struct {
+	VirtClient              kubecli.KubevirtClient
+	DataSourceInformer      cache.SharedIndexInformer
+	NamespaceInformer       cache.SharedIndexInformer
+	InstancetypeAdmitter    instancetypeVMsAdmitter
+	ClusterConfig           *virtconfig.ClusterConfig
+	KubeVirtServiceAccounts map[string]struct{}
+}
+
+func NewVMsAdmitter(clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient, informers *webhooks.Informers, kubeVirtServiceAccounts map[string]struct{}) *VMsAdmitter {
 	return &VMsAdmitter{
-		VirtClient:          client,
-		DataSourceInformer:  informers.DataSourceInformer,
-		NamespaceInformer:   informers.NamespaceInformer,
-		InstancetypeMethods: &instancetype.InstancetypeMethods{Clientset: client},
-		ClusterConfig:       clusterConfig,
+		VirtClient:              client,
+		DataSourceInformer:      informers.DataSourceInformer,
+		NamespaceInformer:       informers.NamespaceInformer,
+		InstancetypeAdmitter:    instancetypeWebhooks.NewAdmitter(client),
+		ClusterConfig:           clusterConfig,
+		KubeVirtServiceAccounts: kubeVirtServiceAccounts,
 	}
 }
 
@@ -86,7 +95,6 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 	}
 
 	raw := ar.Request.Object.Raw
-	accountName := ar.Request.UserInfo.Username
 	vm := v1.VirtualMachine{}
 
 	err := json.Unmarshal(raw, &vm)
@@ -105,7 +113,7 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 	// validate the resulting VirtualMachineInstanceSpec below. As we don't want to persist these changes
 	// we pass a copy of the original VirtualMachine here and to the validation call below.
 	vmCopy := vm.DeepCopy()
-	instancetypeSpec, preferenceSpec, causes := admitter.applyInstancetypeToVm(vmCopy)
+	instancetypeSpec, preferenceSpec, causes := admitter.InstancetypeAdmitter.ApplyToVM(vmCopy)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -116,20 +124,20 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 	}
 
 	// With the defaults now set we can check that the VM meets the requirements of any provided preference
-	if preferenceSpec != nil {
-		if conflicts, err := admitter.InstancetypeMethods.CheckPreferenceRequirements(instancetypeSpec, preferenceSpec, &vmCopy.Spec.Template.Spec); err != nil {
-			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{{
-				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: fmt.Sprintf("failure checking preference requirements: %v", err),
-				Field:   conflicts.String(),
-			}})
-		}
+	if conflicts, err := admitter.InstancetypeAdmitter.Check(instancetypeSpec, preferenceSpec, &vmCopy.Spec.Template.Spec); err != nil {
+		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueNotFound,
+			Message: fmt.Sprintf("failure checking preference requirements: %v", err),
+			Field:   conflicts.String(),
+		}})
 	}
 
 	if ar.Request.Operation == admissionv1.Create {
 		clusterCfg := admitter.ClusterConfig.GetConfig()
 		if devCfg := clusterCfg.DeveloperConfiguration; devCfg != nil {
-			causes = append(causes, deprecation.ValidateFeatureGates(devCfg.FeatureGates, &vm.Spec.Template.Spec)...)
+			if causes = featuregate.ValidateFeatureGates(devCfg.FeatureGates, &vm.Spec.Template.Spec); len(causes) > 0 {
+				return webhookutils.ToAdmissionResponse(causes)
+			}
 		}
 
 		netValidator := netadmitter.NewValidator(k8sfield.NewPath("spec"), &vmCopy.Spec.Template.Spec, admitter.ClusterConfig)
@@ -137,12 +145,14 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 			return webhookutils.ToAdmissionResponse(causes)
 		}
 	}
-	causes = ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vmCopy.Spec, admitter.ClusterConfig, accountName)
+
+	_, isKubeVirtServiceAccount := admitter.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]
+	causes = ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vmCopy.Spec, admitter.ClusterConfig, isKubeVirtServiceAccount)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	causes, err = admitter.validateVirtualMachineDataVolumeTemplateNamespace(ar.Request, &vm)
+	causes, err = storageAdmitters.Admit(admitter.VirtClient, ctx, ar.Request, &vm, admitter.ClusterConfig)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
@@ -154,16 +164,6 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	} else if len(causes) > 0 {
-		return webhookutils.ToAdmissionResponse(causes)
-	}
-
-	causes = validateSnapshotStatus(ar.Request, &vm)
-	if len(causes) > 0 {
-		return webhookutils.ToAdmissionResponse(causes)
-	}
-
-	causes = validateRestoreStatus(ar.Request, &vm)
-	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
@@ -196,12 +196,7 @@ func (admitter *VMsAdmitter) AdmitStatus(ctx context.Context, ar *admissionv1.Ad
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
-	causes = validateSnapshotStatus(ar.Request, vm)
-	if len(causes) > 0 {
-		return webhookutils.ToAdmissionResponse(causes)
-	}
-
-	causes = validateRestoreStatus(ar.Request, vm)
+	causes = storageAdmitters.AdmitStatus(admitter.VirtClient, ctx, ar.Request, vm, admitter.ClusterConfig)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -211,126 +206,7 @@ func (admitter *VMsAdmitter) AdmitStatus(ctx context.Context, ar *admissionv1.Ad
 	return &reviewResponse
 }
 
-const (
-	instancetypeCPUGuestPath              = "instancetype.spec.cpu.guest"
-	spreadAcrossSocketsCoresErrFmt        = "%d vCPUs provided by the instance type are not divisible by the Spec.PreferSpreadSocketToCoreRatio or Spec.CPU.PreferSpreadOptions.Ratio of %d provided by the preference"
-	spreadAcrossCoresThreadsErrFmt        = "%d vCPUs provided by the instance type are not divisible by the number of threads per core %d"
-	spreadAcrossSocketsCoresThreadsErrFmt = "%d vCPUs provided by the instance type are not divisible by the number of threads per core %d and Spec.PreferSpreadSocketToCoreRatio or Spec.CPU.PreferSpreadOptions.Ratio of %d"
-)
-
-func checkSpreadCPUTopology(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) []metav1.StatusCause {
-	if topology := instancetype.GetPreferredTopology(preferenceSpec); instancetypeSpec == nil || (topology != instancetypev1beta1.Spread && topology != instancetypev1beta1.DeprecatedPreferSpread) {
-		return nil
-	}
-
-	ratio, across := instancetype.GetSpreadOptions(preferenceSpec)
-	switch across {
-	case instancetypev1beta1.SpreadAcrossSocketsCores:
-		if (instancetypeSpec.CPU.Guest % ratio) > 0 {
-			return []metav1.StatusCause{{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf(spreadAcrossSocketsCoresErrFmt, instancetypeSpec.CPU.Guest, ratio),
-				Field:   k8sfield.NewPath(instancetypeCPUGuestPath).String(),
-			}}
-		}
-	case instancetypev1beta1.SpreadAcrossCoresThreads:
-		if (instancetypeSpec.CPU.Guest % ratio) > 0 {
-			return []metav1.StatusCause{{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf(spreadAcrossCoresThreadsErrFmt, instancetypeSpec.CPU.Guest, ratio),
-				Field:   k8sfield.NewPath(instancetypeCPUGuestPath).String(),
-			}}
-		}
-	case instancetypev1beta1.SpreadAcrossSocketsCoresThreads:
-		const threadsPerCore = 2
-		if (instancetypeSpec.CPU.Guest%threadsPerCore) > 0 || ((instancetypeSpec.CPU.Guest/threadsPerCore)%ratio) > 0 {
-			return []metav1.StatusCause{{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf(spreadAcrossSocketsCoresThreadsErrFmt, instancetypeSpec.CPU.Guest, threadsPerCore, ratio),
-				Field:   k8sfield.NewPath(instancetypeCPUGuestPath).String(),
-			}}
-		}
-	}
-	return nil
-}
-
-func (admitter *VMsAdmitter) applyInstancetypeToVm(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, *instancetypev1beta1.VirtualMachinePreferenceSpec, []metav1.StatusCause) {
-	instancetypeSpec, err := admitter.InstancetypeMethods.FindInstancetypeSpec(vm)
-	if err != nil {
-		return nil, nil, []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueNotFound,
-			Message: fmt.Sprintf("Failure to find instancetype: %v", err),
-			Field:   k8sfield.NewPath("spec", "instancetype").String(),
-		}}
-	}
-
-	preferenceSpec, err := admitter.InstancetypeMethods.FindPreferenceSpec(vm)
-	if err != nil {
-		return nil, nil, []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueNotFound,
-			Message: fmt.Sprintf("Failure to find preference: %v", err),
-			Field:   k8sfield.NewPath("spec", "preference").String(),
-		}}
-	}
-
-	if spreadConflicts := checkSpreadCPUTopology(instancetypeSpec, preferenceSpec); len(spreadConflicts) > 0 {
-		return nil, nil, spreadConflicts
-	}
-
-	conflicts := admitter.InstancetypeMethods.ApplyToVmi(k8sfield.NewPath("spec", "template", "spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec, &vm.Spec.Template.ObjectMeta)
-
-	if len(conflicts) == 0 {
-		return instancetypeSpec, preferenceSpec, nil
-	}
-
-	causes := make([]metav1.StatusCause, 0, len(conflicts))
-	for _, conflict := range conflicts {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf(instancetype.VMFieldConflictErrorFmt, conflict.String()),
-			Field:   conflict.String(),
-		})
-	}
-	return nil, nil, causes
-}
-
-func (admitter *VMsAdmitter) validateVirtualMachineDataVolumeTemplateNamespace(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
-	var causes []metav1.StatusCause
-
-	if ar.Operation == admissionv1.Update || ar.Operation == admissionv1.Delete {
-		oldVM := &v1.VirtualMachine{}
-		if err := json.Unmarshal(ar.OldObject.Raw, oldVM); err != nil {
-			return []metav1.StatusCause{{
-				Type:    metav1.CauseTypeUnexpectedServerResponse,
-				Message: "Could not fetch old VM",
-			}}, nil
-		}
-
-		if equality.Semantic.DeepEqual(oldVM.Spec.DataVolumeTemplates, vm.Spec.DataVolumeTemplates) {
-			return nil, nil
-		}
-	}
-
-	for idx, dataVolume := range vm.Spec.DataVolumeTemplates {
-		targetNamespace := vm.Namespace
-		if targetNamespace == "" {
-			targetNamespace = ar.Namespace
-		}
-		if dataVolume.Namespace != "" && dataVolume.Namespace != targetNamespace {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Embedded DataVolume namespace %s differs from VM namespace %s", dataVolume.Namespace, targetNamespace),
-				Field:   k8sfield.NewPath("spec", "dataVolumeTemplates").Index(idx).String(),
-			})
-
-			continue
-		}
-	}
-
-	return causes, nil
-}
-
-func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpec, config *virtconfig.ClusterConfig, accountName string) []metav1.StatusCause {
+func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpec, config *virtconfig.ClusterConfig, isKubeVirtServiceAccount bool) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if spec.Template == nil {
@@ -341,125 +217,14 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 		})
 	}
 
-	causes = append(causes, ValidateVirtualMachineInstanceMetadata(field.Child("template", "metadata"), &spec.Template.ObjectMeta, config, accountName)...)
+	causes = append(causes, ValidateVirtualMachineInstanceMetadata(field.Child("template", "metadata"), &spec.Template.ObjectMeta, config, isKubeVirtServiceAccount)...)
 	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec, config)...)
 
-	causes = append(causes, validateDataVolumeTemplate(field, spec)...)
+	causes = append(causes, storageAdmitters.ValidateDataVolumeTemplate(field, spec)...)
 	causes = append(causes, validateRunStrategy(field, spec)...)
 	causes = append(causes, validateLiveUpdateFeatures(field, spec, config)...)
 
 	return causes
-}
-
-func validateDataVolumeTemplate(field *k8sfield.Path, spec *v1.VirtualMachineSpec) (causes []metav1.StatusCause) {
-	for idx, dataVolume := range spec.DataVolumeTemplates {
-		cause := validateDataVolume(field.Child("dataVolumeTemplate").Index(idx), dataVolume)
-		if cause != nil {
-			causes = append(causes, cause...)
-			continue
-		}
-
-		dataVolumeRefFound := false
-		for _, volume := range spec.Template.Spec.Volumes {
-			if volume.VolumeSource.PersistentVolumeClaim != nil && volume.VolumeSource.PersistentVolumeClaim.ClaimName == dataVolume.Name ||
-				volume.VolumeSource.DataVolume != nil && volume.VolumeSource.DataVolume.Name == dataVolume.Name {
-				dataVolumeRefFound = true
-				break
-			}
-		}
-
-		if !dataVolumeRefFound {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueRequired,
-				Message: fmt.Sprintf("DataVolumeTemplate entry %s must be referenced in the VMI template's 'volumes' list", field.Child("dataVolumeTemplate").Index(idx).String()),
-				Field:   field.Child("dataVolumeTemplate").Index(idx).String(),
-			})
-		}
-	}
-	return causes
-}
-
-func validateDataVolume(field *k8sfield.Path, dataVolume v1.DataVolumeTemplateSpec) []metav1.StatusCause {
-	if dataVolume.Name == "" {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: fmt.Sprintf("'name' field must not be empty for DataVolumeTemplate entry %s.", field.Child("name").String()),
-			Field:   field.Child("name").String(),
-		}}
-	}
-	if dataVolume.Spec.PVC == nil && dataVolume.Spec.Storage == nil {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "Missing Data volume PVC or Storage",
-			Field:   field.Child("PVC", "Storage").String(),
-		}}
-	}
-	if dataVolume.Spec.PVC != nil && dataVolume.Spec.Storage != nil {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "Duplicate storage definition, both target storage and target pvc defined",
-			Field:   field.Child("PVC", "Storage").String(),
-		}}
-	}
-
-	var dataSourceRef *corev1.TypedObjectReference
-	var dataSource *corev1.TypedLocalObjectReference
-	if dataVolume.Spec.PVC != nil {
-		dataSourceRef = dataVolume.Spec.PVC.DataSourceRef
-		dataSource = dataVolume.Spec.PVC.DataSource
-	} else if dataVolume.Spec.Storage != nil {
-		dataSourceRef = dataVolume.Spec.Storage.DataSourceRef
-		dataSource = dataVolume.Spec.Storage.DataSource
-	}
-
-	// dataVolume is externally populated
-	if (dataSourceRef != nil || dataSource != nil) &&
-		(dataVolume.Spec.Source != nil || dataVolume.Spec.SourceRef != nil) {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "External population is incompatible with Source and SourceRef",
-			Field:   field.Child("source").String(),
-		}}
-	}
-
-	if dataVolume.Spec.Source == nil && dataVolume.Spec.SourceRef == nil {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "Data volume should have either Source, SourceRef, or be externally populated",
-			Field:   field.Child("source", "sourceRef").String(),
-		}}
-	}
-
-	if dataVolume.Spec.Source != nil {
-		return validateNumberOfSources(field, dataVolume.Spec.Source)
-	}
-
-	return nil
-}
-
-func validateNumberOfSources(field *field.Path, source *cdiv1.DataVolumeSource) []metav1.StatusCause {
-	numberOfSources := 0
-	s := reflect.ValueOf(source).Elem()
-	for i := 0; i < s.NumField(); i++ {
-		if !reflect.ValueOf(s.Field(i).Interface()).IsNil() {
-			numberOfSources++
-		}
-	}
-	if numberOfSources == 0 {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "Missing dataVolume valid source",
-			Field:   field.Child("source").String(),
-		}}
-	}
-	if numberOfSources > 1 {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: "Multiple dataVolume sources",
-			Field:   field.Child("source").String(),
-		}}
-	}
-	return nil
 }
 
 func validateRunStrategy(field *k8sfield.Path, spec *v1.VirtualMachineSpec) (causes []metav1.StatusCause) {
@@ -515,21 +280,6 @@ func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 				Field:   field.Child("template", "spec", "domain", "memory", "guest").String(),
 			})
 		}
-	}
-
-	if spec.UpdateVolumesStrategy != nil && !config.VolumesUpdateStrategyEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VolumesUpdateStrategy),
-			Field:   "updateVolumesStrategy",
-		})
-	}
-	if spec.UpdateVolumesStrategy != nil && *spec.UpdateVolumesStrategy == v1.UpdateVolumesStrategyMigration && !config.VolumeMigrationEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VolumeMigration),
-			Field:   "updateVolumesStrategy",
-		})
 	}
 
 	return causes
@@ -731,92 +481,4 @@ func validateDiskConfiguration(disk *v1.Disk, name string) []metav1.StatusCause 
 	}
 
 	return nil
-}
-
-func validateRestoreStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) []metav1.StatusCause {
-	if ar.Operation != admissionv1.Update || vm.Status.RestoreInProgress == nil {
-		return nil
-	}
-
-	oldVM := &v1.VirtualMachine{}
-	if err := json.Unmarshal(ar.OldObject.Raw, oldVM); err != nil {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeUnexpectedServerResponse,
-			Message: "Could not fetch old VM",
-		}}
-	}
-
-	if !equality.Semantic.DeepEqual(oldVM.Spec, vm.Spec) {
-		strategy, _ := vm.RunStrategy()
-		if strategy != v1.RunStrategyHalted {
-			return []metav1.StatusCause{{
-				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: fmt.Sprintf("Cannot start VM until restore %q completes", *vm.Status.RestoreInProgress),
-				Field:   k8sfield.NewPath("spec").String(),
-			}}
-		}
-	}
-
-	return nil
-}
-
-func validateSnapshotStatus(ar *admissionv1.AdmissionRequest, vm *v1.VirtualMachine) []metav1.StatusCause {
-	if ar.Operation != admissionv1.Update || vm.Status.SnapshotInProgress == nil {
-		return nil
-	}
-
-	oldVM := &v1.VirtualMachine{}
-	if err := json.Unmarshal(ar.OldObject.Raw, oldVM); err != nil {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeUnexpectedServerResponse,
-			Message: "Could not fetch old VM",
-		}}
-	}
-
-	if !compareVolumes(oldVM.Spec.Template.Spec.Volumes, vm.Spec.Template.Spec.Volumes) {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueNotSupported,
-			Message: fmt.Sprintf("Cannot update VM disks or volumes until snapshot %q completes", *vm.Status.SnapshotInProgress),
-			Field:   k8sfield.NewPath("spec").String(),
-		}}
-	}
-	if !compareRunningSpec(&oldVM.Spec, &vm.Spec) {
-		return []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueNotSupported,
-			Message: fmt.Sprintf("Cannot update VM running state until snapshot %q completes", *vm.Status.SnapshotInProgress),
-			Field:   k8sfield.NewPath("spec").String(),
-		}}
-	}
-
-	return nil
-}
-
-func compareVolumes(old, new []v1.Volume) bool {
-	if len(old) != len(new) {
-		return false
-	}
-
-	for i, volume := range old {
-		if !equality.Semantic.DeepEqual(volume, new[i]) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func compareRunningSpec(old, new *v1.VirtualMachineSpec) bool {
-	if old == nil || new == nil {
-		// This should never happen, but just in case return false
-		return false
-	}
-
-	// Its impossible to get here while both running and RunStrategy are nil.
-	if old.Running != nil && new.Running != nil {
-		return *old.Running == *new.Running
-	}
-	if old.RunStrategy != nil && new.RunStrategy != nil {
-		return *old.RunStrategy == *new.RunStrategy
-	}
-	return false
 }

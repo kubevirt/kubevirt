@@ -31,7 +31,8 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -41,25 +42,24 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = DescribeInfra("Node Restriction", decorators.RequiresTwoSchedulableNodes, decorators.Kubernetes130, func() {
-
-	var (
-		virtClient kubecli.KubevirtClient
-	)
+var _ = DescribeSerialInfra("Node Restriction", decorators.RequiresTwoSchedulableNodes, decorators.Kubernetes130, func() {
+	var virtClient kubecli.KubevirtClient
+	const minNodesWithVirtHandler = 2
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		config.EnableFeatureGate(virtconfig.NodeRestrictionGate)
+		config.EnableFeatureGate(featuregate.NodeRestrictionGate)
 	})
 
 	It("Should disallow to modify VMs on different node", func() {
 		nodes := libnode.GetAllSchedulableNodes(virtClient).Items
-		if len(nodes) < 2 {
+		if len(nodes) < minNodesWithVirtHandler {
 			Fail("Requires multiple nodes with virt-handler running")
 		}
+		startTimeout := 60
 
 		vmi := libvmifact.NewAlpine()
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, startTimeout)
 
 		node := vmi.Status.NodeName
 
@@ -76,7 +76,8 @@ var _ = DescribeInfra("Node Restriction", decorators.RequiresTwoSchedulableNodes
 		token, err := exec.ExecuteCommandOnPod(
 			pod,
 			"virt-handler",
-			[]string{"cat",
+			[]string{
+				"cat",
 				"/var/run/secrets/kubernetes.io/serviceaccount/token",
 			},
 		)
@@ -87,7 +88,7 @@ var _ = DescribeInfra("Node Restriction", decorators.RequiresTwoSchedulableNodes
 			TLSClientConfig: rest.TLSClientConfig{
 				Insecure: true,
 			},
-			BearerToken: string(token),
+			BearerToken: token,
 		})
 		Expect(err).ToNot(HaveOccurred())
 
@@ -104,5 +105,4 @@ var _ = DescribeInfra("Node Restriction", decorators.RequiresTwoSchedulableNodes
 			ContainSubstring("Node restriction, virt-handler is only allowed to modify VMIs it owns"),
 		))
 	})
-
 })

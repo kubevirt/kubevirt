@@ -704,6 +704,8 @@ type VirtualMachineInstanceNetworkInterface struct {
 	InfoSource string `json:"infoSource,omitempty"`
 	// Specifies how many queues are allocated by MultiQueue
 	QueueCount int32 `json:"queueCount,omitempty"`
+	// LinkState Reports the current operational link state`. values: up, down.
+	LinkState string `json:"linkState,omitempty"`
 }
 
 type VirtualMachineInstanceGuestOSInfo struct {
@@ -808,6 +810,8 @@ const (
 	MigrationPreCopy MigrationMode = "PreCopy"
 	// MigrationPostCopy means the VMI migrations that is currently running is in post copy mode
 	MigrationPostCopy MigrationMode = "PostCopy"
+	// MigrationPaused means that the VMI is currently paused and being migrated
+	MigrationPaused MigrationMode = "Paused"
 )
 
 type VirtualMachineInstanceMigrationTransport string
@@ -1701,6 +1705,43 @@ type VirtualMachineStatus struct {
 	// VolumeUpdateState contains the information about the volumes set
 	// updates related to the volumeUpdateStrategy
 	VolumeUpdateState *VolumeUpdateState `json:"volumeUpdateState,omitempty" optional:"true"`
+
+	// InstancetypeRef captures the state of any referenced instance type from the VirtualMachine
+	//+nullable
+	//+optional
+	InstancetypeRef *InstancetypeStatusRef `json:"instancetypeRef,omitempty"`
+
+	// PreferenceRef captures the state of any referenced preference from the VirtualMachine
+	//+nullable
+	//+optional
+	PreferenceRef *InstancetypeStatusRef `json:"preferenceRef,omitempty"`
+}
+
+type ControllerRevisionRef struct {
+	// Name of the ControllerRevision
+	Name string `json:"name,omitempty"`
+}
+
+type InstancetypeStatusRef struct {
+	// Name is the name of resource
+	Name string `json:"name,omitempty"`
+
+	// Kind specifies the kind of resource
+	Kind string `json:"kind,omitempty"`
+
+	// ControllerRef specifies the ControllerRevision storing a copy of the object captured
+	// when it is first seen by the VirtualMachine controller
+	ControllerRevisionRef *ControllerRevisionRef `json:"controllerRevisionRef,omitempty"`
+
+	// InferFromVolume lists the name of a volume that should be used to infer or discover the resource
+	//
+	// +optional
+	InferFromVolume string `json:"inferFromVolume,omitempty"`
+
+	// InferFromVolumeFailurePolicy controls what should happen on failure when inferring the resource
+	//
+	// +optional
+	InferFromVolumeFailurePolicy *InferFromVolumeFailurePolicy `json:"inferFromVolumeFailurePolicy,omitempty"`
 }
 
 type VolumeUpdateState struct {
@@ -1796,9 +1837,6 @@ const (
 	DeprecatedSlirpInterface NetworkInterfaceType = "slirp"
 	// Virtual machine instance masquerade interface
 	MasqueradeInterface NetworkInterfaceType = "masquerade"
-	// Virtual machine instance passt interface is deprecated
-	// Deprecated: Removed in v1.3.
-	DeprecatedPasstInterface NetworkInterfaceType = "passt"
 )
 
 type DriverCache string
@@ -2521,7 +2559,6 @@ type KubeVirtConfiguration struct {
 	SeccompConfiguration           *SeccompConfiguration             `json:"seccompConfiguration,omitempty"`
 
 	// VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.
-	// The storage class must support RWX in filesystem mode.
 	VMStateStorageClass   string                 `json:"vmStateStorageClass,omitempty"`
 	VirtualMachineOptions *VirtualMachineOptions `json:"virtualMachineOptions,omitempty"`
 
@@ -2536,7 +2573,8 @@ type KubeVirtConfiguration struct {
 	// LiveUpdateConfiguration holds defaults for live update features
 	LiveUpdateConfiguration *LiveUpdateConfiguration `json:"liveUpdateConfiguration,omitempty"`
 
-	// VMRolloutStrategy defines how changes to a VM object propagate to its VMI
+	// VMRolloutStrategy defines how live-updatable fields, like CPU sockets, memory,
+	// tolerations, and affinity, are propagated from a VM to its VMI.
 	// +nullable
 	// +kubebuilder:validation:Enum=Stage;LiveUpdate
 	VMRolloutStrategy *VMRolloutStrategy `json:"vmRolloutStrategy,omitempty"`
@@ -2713,8 +2751,8 @@ type MigrationConfiguration struct {
 	// The value is in quantity per second. Defaults to 0 (no limit)
 	BandwidthPerMigration *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
 	// CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
-	// If a live-migration takes longer to migrate than this value multiplied by the size of the VMI,
-	// the migration will be cancelled, unless AllowPostCopy is true. Defaults to 150
+	// If the timeout is reached, the migration will be either paused, switched
+	// to post-copy or cancelled depending on other settings. Defaults to 150
 	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
 	// ProgressTimeout is the maximum number of seconds a live migration is allowed to make no progress.
 	// Hitting this timeout means a migration transferred 0 data for that many seconds. The migration is
@@ -2728,6 +2766,11 @@ type MigrationConfiguration struct {
 	// If set to true, migrations will still start in pre-copy, but switch to post-copy when
 	// CompletionTimeoutPerGiB triggers. Defaults to false
 	AllowPostCopy *bool `json:"allowPostCopy,omitempty"`
+	// AllowWorkloadDisruption indicates that the migration shouldn't be
+	// canceled after acceptableCompletionTime is exceeded. Instead, if
+	// permitted, migration will be switched to post-copy or the VMI will be
+	// paused to allow the migration to complete
+	AllowWorkloadDisruption *bool `json:"allowWorkloadDisruption,omitempty"`
 	// When set to true, DisableTLS will disable the additional layer of live migration encryption
 	// provided by KubeVirt. This is usually a bad idea. Defaults to false
 	DisableTLS *bool `json:"disableTLS,omitempty"`
@@ -2782,6 +2825,9 @@ type DeveloperConfiguration struct {
 	MinimumClusterTSCFrequency *int64            `json:"minimumClusterTSCFrequency,omitempty"`
 	DiskVerification           *DiskVerification `json:"diskVerification,omitempty"`
 	LogVerbosity               *LogVerbosity     `json:"logVerbosity,omitempty"`
+
+	// Enable the ability to pprof profile KubeVirt control plane
+	ClusterProfiler bool `json:"clusterProfiler,omitempty"`
 }
 
 // LogVerbosity sets log verbosity level of  various components
@@ -2995,7 +3041,10 @@ type ClusterProfilerRequest struct {
 
 type Matcher interface {
 	GetName() string
+	GetKind() string
 	GetRevisionName() string
+	GetInferFromVolume() string
+	GetInferFromVolumeFailurePolicy() *InferFromVolumeFailurePolicy
 }
 
 type InferFromVolumeFailurePolicy string
@@ -3045,8 +3094,20 @@ func (i InstancetypeMatcher) GetName() string {
 	return i.Name
 }
 
+func (i InstancetypeMatcher) GetKind() string {
+	return i.Kind
+}
+
 func (i InstancetypeMatcher) GetRevisionName() string {
 	return i.RevisionName
+}
+
+func (i InstancetypeMatcher) GetInferFromVolume() string {
+	return i.InferFromVolume
+}
+
+func (i InstancetypeMatcher) GetInferFromVolumeFailurePolicy() *InferFromVolumeFailurePolicy {
+	return i.InferFromVolumeFailurePolicy
 }
 
 // PreferenceMatcher references a set of preference that is used to fill fields in the VMI template.
@@ -3089,8 +3150,20 @@ func (p PreferenceMatcher) GetName() string {
 	return p.Name
 }
 
+func (p PreferenceMatcher) GetKind() string {
+	return p.Kind
+}
+
 func (p PreferenceMatcher) GetRevisionName() string {
 	return p.RevisionName
+}
+
+func (p PreferenceMatcher) GetInferFromVolume() string {
+	return p.InferFromVolume
+}
+
+func (p PreferenceMatcher) GetInferFromVolumeFailurePolicy() *InferFromVolumeFailurePolicy {
+	return p.InferFromVolumeFailurePolicy
 }
 
 type LiveUpdateConfiguration struct {

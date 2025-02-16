@@ -62,8 +62,10 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	promclientfake "kubevirt.io/client-go/prometheusoperator/fake"
+	kvtesting "kubevirt.io/client-go/testing"
 	"kubevirt.io/client-go/version"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	kubecontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/monitoring/rules"
@@ -84,9 +86,9 @@ const (
 
 	NAMESPACE = "kubevirt-test"
 
-	resourceCount = 77
+	resourceCount = 78
 	patchCount    = 50
-	updateCount   = 28
+	updateCount   = 29
 )
 
 type KubeVirtTestData struct {
@@ -98,7 +100,7 @@ type KubeVirtTestData struct {
 
 	recorder *record.FakeRecorder
 
-	mockQueue      *testutils.MockWorkQueue
+	mockQueue      *testutils.MockWorkQueue[string]
 	virtClient     *kubecli.MockKubevirtClient
 	virtFakeClient *kubevirtfake.Clientset
 	kubeClient     *fake.Clientset
@@ -192,7 +194,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 		ValidatingAdmissionPolicyEnabled:        true,
 	}
 	k.controller, _ = NewKubeVirtController(k.virtClient, k.apiServiceClient, k.recorder, config, informers, NAMESPACE)
-	k.controller.delayedQueueAdder = func(key interface{}, queue workqueue.RateLimitingInterface) {
+	k.controller.delayedQueueAdder = func(key string, queue workqueue.TypedRateLimitingInterface[string]) {
 		// no delay to speed up tests
 		queue.Add(key)
 	}
@@ -249,6 +251,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 			dummyValidatingAdmissionPolicy := &admissionregistrationv1.ValidatingAdmissionPolicy{}
 			return true, dummyValidatingAdmissionPolicy, nil
 		}
+
 		if action.GetVerb() == "get" && action.GetResource().Resource == "serviceaccounts" {
 			return true, nil, errors.NewNotFound(schema.GroupResource{Group: "", Resource: "serviceaccounts"}, "whatever")
 		}
@@ -1218,16 +1221,16 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	all = append(all, components.NewApiServerService(NAMESPACE))
 	all = append(all, components.NewExportProxyService(NAMESPACE))
 
-	apiDeployment, _ := getDefaultVirtApiDeployment(NAMESPACE, config)
+	apiDeployment := getDefaultVirtApiDeployment(NAMESPACE, config)
 	apiDeploymentPdb := components.NewPodDisruptionBudgetForDeployment(apiDeployment)
-	controller, _ := getDefaultVirtControllerDeployment(NAMESPACE, config)
+	controller := getDefaultVirtControllerDeployment(NAMESPACE, config)
 	controllerPdb := components.NewPodDisruptionBudgetForDeployment(controller)
 
-	handler, _ := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
+	handler := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
 	all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
 
 	if exportProxyEnabled(kv) {
-		exportProxy, _ := getDefaultExportProxyDeployment(NAMESPACE, config)
+		exportProxy := getDefaultExportProxyDeployment(NAMESPACE, config)
 		exportProxyPdb := components.NewPodDisruptionBudgetForDeployment(exportProxy)
 		route := components.NewExportProxyRoute(NAMESPACE)
 		all = append(all, exportProxy, exportProxyPdb, route)
@@ -1335,8 +1338,7 @@ func (k *KubeVirtTestData) addAllButHandler(config *util.KubeVirtDeploymentConfi
 }
 
 func (k *KubeVirtTestData) addVirtHandler(config *util.KubeVirtDeploymentConfig, kv *v1.KubeVirt) {
-	handler, err := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
-	Expect(err).ToNot(HaveOccurred())
+	handler := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
 
 	c, _ := apply.NewCustomizer(kv.Spec.CustomizeComponents)
 
@@ -1556,7 +1558,7 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	// virt-controller
 	// virt-handler
 	var deployments []*appsv1.Deployment
-	apiDeployment, _ := getDefaultVirtApiDeployment(NAMESPACE, config)
+	apiDeployment := getDefaultVirtApiDeployment(NAMESPACE, config)
 
 	pod := &k8sv1.Pod{
 		ObjectMeta: apiDeployment.Spec.Template.ObjectMeta,
@@ -1573,7 +1575,7 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	k.addPod(pod)
 	deployments = append(deployments, apiDeployment)
 
-	controller, _ := getDefaultVirtControllerDeployment(NAMESPACE, config)
+	controller := getDefaultVirtControllerDeployment(NAMESPACE, config)
 	pod = &k8sv1.Pod{
 		ObjectMeta: controller.Spec.Template.ObjectMeta,
 		Spec:       controller.Spec.Template.Spec,
@@ -1589,7 +1591,7 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	k.addPod(pod)
 	deployments = append(deployments, controller)
 
-	handler, _ := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
+	handler := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
 	pod = &k8sv1.Pod{
 		ObjectMeta: handler.Spec.Template.ObjectMeta,
 		Spec:       handler.Spec.Template.Spec,
@@ -1607,7 +1609,7 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	k.addPod(pod)
 
 	if exportProxyEnabled(kv) {
-		exportProxy, _ := getDefaultExportProxyDeployment(NAMESPACE, config)
+		exportProxy := getDefaultExportProxyDeployment(NAMESPACE, config)
 		pod = &k8sv1.Pod{
 			ObjectMeta: exportProxy.Spec.Template.ObjectMeta,
 			Spec:       exportProxy.Spec.Template.Spec,
@@ -2170,8 +2172,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
 
-			apiDeployment, err := getDefaultVirtApiDeployment(NAMESPACE, config)
-			Expect(err).ToNot(HaveOccurred())
+			apiDeployment := getDefaultVirtApiDeployment(NAMESPACE, config)
 			Expect(apiDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
 		})
 
@@ -2185,8 +2186,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
 
-			controllerDeployment, err := getDefaultVirtControllerDeployment(NAMESPACE, config)
-			Expect(err).ToNot(HaveOccurred())
+			controllerDeployment := getDefaultVirtControllerDeployment(NAMESPACE, config)
 			Expect(controllerDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
 		})
 
@@ -2200,8 +2200,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
 
-			handlerDaemonset, err := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
-			Expect(err).ToNot(HaveOccurred())
+			handlerDaemonset := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
 			Expect(handlerDaemonset.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
 		})
 
@@ -2401,7 +2400,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources))
 
 			Expect(kvTestData.controller.stores.ServiceAccountCache.List()).To(HaveLen(4))
-			Expect(kvTestData.controller.stores.ClusterRoleCache.List()).To(HaveLen(9))
+			Expect(kvTestData.controller.stores.ClusterRoleCache.List()).To(HaveLen(10))
 			Expect(kvTestData.controller.stores.ClusterRoleBindingCache.List()).To(HaveLen(7))
 			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(5))
 			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(5))
@@ -2626,6 +2625,175 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(1)) // 1 of 2 PDBs patched
 			Expect(kvTestData.resourceChanges["namespace"][Patched]).To(Equal(0))            // namespace unpatched
 			Expect(kvTestData.resourceChanges["daemonsets"][Patched]).To(Equal(0))           // namespace unpatched
+		})
+
+		Context("virt-api replica count", func() {
+			var kvTestData KubeVirtTestData
+			const (
+				CustomizedReplicas              int32 = 4
+				numOfNodes                            = 1000
+				expectedReplicasForLargeCluster int32 = 100
+			)
+
+			BeforeEach(func() {
+				kvTestData = KubeVirtTestData{}
+				kvTestData.BeforeTest()
+				DeferCleanup(kvTestData.AfterTest)
+
+				var testNodes []k8sv1.Node
+
+				for i := range numOfNodes {
+					node := k8sv1.Node{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: fmt.Sprintf("testnode-%d", i),
+						},
+					}
+					testNodes = append(testNodes, node)
+				}
+
+				kvTestData.kubeClient.Fake.PrependReactor("list", "nodes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					return true, &k8sv1.NodeList{Items: testNodes}, nil
+				})
+			})
+
+			It("should apply the replica count from CustomizeComponents patch", func() {
+				patchSet, err := patch.New(patch.WithReplace("/spec/replicas", CustomizedReplicas)).GeneratePayload()
+				Expect(err).ToNot(HaveOccurred())
+
+				kv := &v1.KubeVirt{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-install",
+						Namespace: NAMESPACE,
+					},
+					Spec: v1.KubeVirtSpec{
+						CustomizeComponents: v1.CustomizeComponents{
+							Patches: []v1.CustomizeComponentsPatch{
+								{
+									ResourceName: components.VirtAPIName,
+									ResourceType: "Deployment",
+									Type:         v1.JSONPatchType,
+									Patch:        string(patchSet),
+								},
+							},
+						},
+					},
+				}
+
+				kubecontroller.SetLatestApiVersionAnnotation(kv)
+				kvTestData.addKubeVirt(kv)
+				kvTestData.addInstallStrategy(kvTestData.defaultConfig)
+
+				apiDeployment := getDefaultVirtApiDeployment(NAMESPACE, kvTestData.defaultConfig)
+				kvTestData.addDeployment(apiDeployment, kv)
+
+				kvTestData.kvInterface.EXPECT().
+					Patch(
+						context.Background(),
+						kv.Name,
+						types.JSONPatchType,
+						gomock.Any(),
+						metav1.PatchOptions{},
+						gomock.Any(),
+					)
+
+				kvTestData.kubeClient.Fake.PrependReactor("patch", "deployments", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					patchAction, ok := action.(testing.PatchAction)
+					Expect(ok).To(BeTrue())
+					Expect(patchAction.GetName()).To(Equal(components.VirtAPIName))
+					Expect(patchAction.GetPatchType()).To(Equal(types.JSONPatchType))
+
+					var patches []map[string]interface{}
+					err = json.Unmarshal(patchAction.GetPatch(), &patches)
+					Expect(err).ToNot(HaveOccurred())
+
+					var replicas int32
+					for _, patch := range patches {
+						if patch["op"] == "replace" && patch["path"] == "/spec" {
+							specData, ok := patch["value"].(map[string]interface{})
+							Expect(ok).To(BeTrue(), "Expected /spec patch value to be a map")
+
+							replicasValue, exists := specData["replicas"]
+							Expect(exists).To(BeTrue(), "Expected 'replicas' field in /spec patch")
+
+							replicas = int32(replicasValue.(float64))
+							break
+						}
+					}
+
+					patchedDeployment := apiDeployment.DeepCopy()
+					patchedDeployment.Spec.Replicas = pointer.P(replicas)
+
+					Expect(*patchedDeployment.Spec.Replicas).To(Equal(CustomizedReplicas))
+					return true, patchedDeployment, nil
+				})
+
+				kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+				kvTestData.shouldExpectCreations()
+
+				kvTestData.controller.Execute()
+
+				Expect(kvtesting.FilterActions(&kvTestData.kubeClient.Fake, "patch", "deployments")).To(HaveLen(1))
+			})
+
+			It("should determine replicas based on the number of nodes when CustomizeComponents is not used", func() {
+				kv := &v1.KubeVirt{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-install",
+						Namespace: NAMESPACE,
+					},
+				}
+
+				kubecontroller.SetLatestApiVersionAnnotation(kv)
+				kvTestData.addKubeVirt(kv)
+				kvTestData.addInstallStrategy(kvTestData.defaultConfig)
+
+				apiDeployment := getDefaultVirtApiDeployment(NAMESPACE, kvTestData.defaultConfig)
+				kvTestData.addDeployment(apiDeployment, kv)
+
+				kvTestData.kvInterface.EXPECT().
+					Patch(
+						context.Background(),
+						kv.Name,
+						types.JSONPatchType,
+						gomock.Any(),
+						metav1.PatchOptions{},
+						gomock.Any(),
+					)
+
+				kvTestData.kubeClient.Fake.PrependReactor("patch", "deployments", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					patchAction, ok := action.(testing.PatchAction)
+					Expect(ok).To(BeTrue())
+					Expect(patchAction.GetName()).To(Equal(components.VirtAPIName))
+					Expect(patchAction.GetPatchType()).To(Equal(types.JSONPatchType))
+
+					var patches []map[string]interface{}
+					err = json.Unmarshal(patchAction.GetPatch(), &patches)
+					Expect(err).ToNot(HaveOccurred())
+
+					var replicas int32
+					for _, patch := range patches {
+						if patch["op"] == "replace" && patch["path"] == "/spec" {
+							specData, ok := patch["value"].(map[string]interface{})
+							Expect(ok).To(BeTrue(), "Expected /spec patch value to be a map")
+
+							replicasValue, exists := specData["replicas"]
+							Expect(exists).To(BeTrue(), "Expected 'replicas' field in /spec patch")
+
+							replicas = int32(replicasValue.(float64))
+							break
+						}
+					}
+					Expect(replicas).To(BeEquivalentTo(expectedReplicasForLargeCluster))
+					return true, nil, nil
+				})
+
+				kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+				kvTestData.shouldExpectCreations()
+
+				kvTestData.controller.Execute()
+
+				Expect(kvtesting.FilterActions(&kvTestData.kubeClient.Fake, "patch", "deployments")).To(HaveLen(1))
+			})
 		})
 
 		DescribeTable("should update kubevirt resources when Operator version changes if no imageTag and imageRegistry is explicitly set.", func(withExport bool, patchCount, resourceCount, numPDBs int) {
@@ -3090,7 +3258,7 @@ func shouldExpectHCOConditions(kv *v1.KubeVirt, available k8sv1.ConditionStatus,
 	))
 }
 
-func getDefaultVirtApiDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*appsv1.Deployment, error) {
+func getDefaultVirtApiDeployment(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.Deployment {
 	return components.NewApiServerDeployment(
 		namespace,
 		config.GetImageRegistry(),
@@ -3106,7 +3274,7 @@ func getDefaultVirtApiDeployment(namespace string, config *util.KubeVirtDeployme
 		config.GetExtraEnv())
 }
 
-func getDefaultVirtControllerDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*appsv1.Deployment, error) {
+func getDefaultVirtControllerDeployment(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.Deployment {
 	return components.NewControllerDeployment(
 		namespace,
 		config.GetImageRegistry(),
@@ -3128,7 +3296,7 @@ func getDefaultVirtControllerDeployment(namespace string, config *util.KubeVirtD
 		config.GetExtraEnv())
 }
 
-func getDefaultVirtHandlerDaemonSet(namespace string, config *util.KubeVirtDeploymentConfig) (*appsv1.DaemonSet, error) {
+func getDefaultVirtHandlerDaemonSet(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.DaemonSet {
 	return components.NewHandlerDaemonSet(
 		namespace,
 		config.GetImageRegistry(),
@@ -3152,7 +3320,7 @@ func getDefaultVirtHandlerDaemonSet(namespace string, config *util.KubeVirtDeplo
 		false)
 }
 
-func getDefaultExportProxyDeployment(namespace string, config *util.KubeVirtDeploymentConfig) (*appsv1.Deployment, error) {
+func getDefaultExportProxyDeployment(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.Deployment {
 	return components.NewExportProxyDeployment(
 		namespace,
 		config.GetImageRegistry(),

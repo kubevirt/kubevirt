@@ -32,6 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 const (
@@ -116,7 +118,17 @@ func (c *ClusterConfig) AllowEmulation() bool {
 }
 
 func (c *ClusterConfig) GetMigrationConfiguration() *v1.MigrationConfiguration {
-	return c.GetConfig().MigrationConfiguration
+	migrationConfig := c.GetConfig().MigrationConfiguration
+	// For backward compatibility, AllowWorkloadDisruption will follow the
+	// value of AllowPostCopy, if not explicitly set
+	if migrationConfig.AllowWorkloadDisruption == nil {
+		allowPostCopy := false
+		if migrationConfig.AllowPostCopy != nil {
+			allowPostCopy = *migrationConfig.AllowPostCopy
+		}
+		migrationConfig.AllowWorkloadDisruption = &allowPostCopy
+	}
+	return migrationConfig
 }
 
 func (c *ClusterConfig) GetImagePullPolicy() (policy k8sv1.PullPolicy) {
@@ -478,8 +490,13 @@ func (c *ClusterConfig) GetInstancetypeReferencePolicy() v1.InstancetypeReferenc
 	// Default to the Reference InstancetypeReferencePolicy
 	policy := v1.Reference
 	instancetypeConfig := c.GetConfig().Instancetype
-	if c.isFeatureGateEnabled(InstancetypeReferencePolicy) && instancetypeConfig != nil && instancetypeConfig.ReferencePolicy != nil {
+	if c.isFeatureGateEnabled(featuregate.InstancetypeReferencePolicy) && instancetypeConfig != nil && instancetypeConfig.ReferencePolicy != nil {
 		policy = *instancetypeConfig.ReferencePolicy
 	}
 	return policy
+}
+
+func (c *ClusterConfig) ClusterProfilerEnabled() bool {
+	return c.GetConfig().DeveloperConfiguration.ClusterProfiler ||
+		c.isFeatureGateDefined(featuregate.ClusterProfiler)
 }

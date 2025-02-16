@@ -281,6 +281,14 @@ func WithKernelBootContainer(imageName string) Option {
 	}
 }
 
+func WithTPM(persistent bool) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
+			Persistent: pointer.P(persistent),
+		}
+	}
+}
+
 func baseVmi(name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewVMIReferenceFromNameWithNS("", name)
 	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}

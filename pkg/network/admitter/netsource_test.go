@@ -133,12 +133,18 @@ var _ = Describe("Validate network source", func() {
 	})
 
 	It("should reject pod network with a multus default", func() {
+		const defaultMultusNetName = "defaultmultus"
 		spec := &v1.VirtualMachineInstanceSpec{}
 		spec.Domain.Devices.Interfaces = []v1.Interface{
 			*v1.DefaultBridgeNetworkInterface(),
-			*v1.DefaultBridgeNetworkInterface(),
+			{
+				Name: defaultMultusNetName,
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Bridge: &v1.InterfaceBridge{},
+				},
+			},
 		}
-		spec.Domain.Devices.Interfaces[1].Name = "multus1"
+
 		spec.Networks = []v1.Network{
 			{
 				Name: "default",
@@ -147,7 +153,7 @@ var _ = Describe("Validate network source", func() {
 				},
 			},
 			{
-				Name: "multus1",
+				Name: defaultMultusNetName,
 				NetworkSource: v1.NetworkSource{
 					Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
 				},
@@ -161,5 +167,95 @@ var _ = Describe("Validate network source", func() {
 		Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
 		Expect(causes[0].Field).To(Equal("fake.networks"))
 		Expect(causes[0].Message).To(Equal("Pod network cannot be defined when Multus default network is defined"))
+	})
+
+	It("should allow single multus network with a multus default", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{
+			*v1.DefaultBridgeNetworkInterface(),
+		}
+		spec.Domain.Devices.Interfaces[0].Name = "multus1"
+		spec.Networks = []v1.Network{
+			{
+				Name: "multus1",
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
+				},
+			},
+		}
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		causes := validator.Validate()
+		Expect(causes).To(BeEmpty())
+	})
+
+	It("should accept networks with a multus network source and bridge interface", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+		spec.Networks = []v1.Network{
+			{
+				Name: "default",
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{NetworkName: "default"},
+				},
+			},
+		}
+
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		causes := validator.Validate()
+		Expect(causes).To(BeEmpty())
+	})
+
+	It("should allow primary network and multiple secondary networks", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{
+			{
+				Name: "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Bridge: &v1.InterfaceBridge{},
+				},
+			},
+			{
+				Name: "multus1",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Bridge: &v1.InterfaceBridge{},
+				},
+			},
+			{
+				Name: "multus2",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Bridge: &v1.InterfaceBridge{},
+				},
+			},
+		}
+
+		spec.Networks = []v1.Network{
+			{
+				Name: "default",
+				NetworkSource: v1.NetworkSource{
+					Pod: &v1.PodNetwork{},
+				},
+			},
+			{
+				Name: "multus1",
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{NetworkName: "multus-net1"},
+				},
+			},
+			{
+				Name: "multus2",
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{NetworkName: "multus-net2"},
+				},
+			},
+		}
+
+		validator := admitter.NewValidator(
+			k8sfield.NewPath("fake"),
+			spec,
+			stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true},
+		)
+		causes := validator.Validate()
+		Expect(causes).To(BeEmpty())
 	})
 })

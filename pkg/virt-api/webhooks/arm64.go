@@ -27,12 +27,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-var _false bool = false
-
-const (
-	defaultCPUModelArm64 = v1.CPUModeHostPassthrough
-)
-
 // ValidateVirtualMachineInstanceArm64Setting is a validation function for validating-webhook to filter unsupported setting on Arm64
 func ValidateVirtualMachineInstanceArm64Setting(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var statusCauses []metav1.StatusCause

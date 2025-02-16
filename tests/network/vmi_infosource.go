@@ -38,11 +38,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	network "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -58,7 +56,7 @@ var _ = SIGDescribe("Infosource", func() {
 		virtClient = kubevirt.Client()
 	})
 
-	Context("[Serial] VMI with 3 interfaces", Serial, func() {
+	Context("VMI with 3 interfaces", func() {
 		var vmi *kvirtv1.VirtualMachineInstance
 
 		const (
@@ -77,10 +75,10 @@ var _ = SIGDescribe("Infosource", func() {
 		secondaryNetwork2 := libvmi.MultusNetwork(secondaryInterface2Name, nadName)
 
 		BeforeEach(func() {
-			config.EnableFeatureGate(virtconfig.DynamicPodInterfaceNamingGate)
-
 			By("Create NetworkAttachmentDefinition")
-			Expect(libnet.CreateNAD(testsuite.NamespaceTestDefault, nadName)).To(Succeed())
+			netAttachDef := libnet.NewBridgeNetAttachDef(nadName, nadName)
+			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.NamespaceTestDefault, netAttachDef)
+			Expect(err).NotTo(HaveOccurred())
 
 			defaultBridgeInterface := libvmi.InterfaceDeviceWithBridgeBinding(primaryNetwork)
 			secondaryLinuxBridgeInterface1 := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetwork1.Name)
@@ -94,7 +92,6 @@ var _ = SIGDescribe("Infosource", func() {
 				libvmi.WithNetwork(secondaryNetwork2),
 				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(manipulateGuestLinksScript(primaryInterfaceNewMac, dummyInterfaceMac))))
 
-			var err error
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmiSpec, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -107,6 +104,8 @@ var _ = SIGDescribe("Infosource", func() {
 			infoSourceDomainAndGAAndMultusStatus := netvmispec.NewInfoSource(
 				netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent, netvmispec.InfoSourceMultusStatus)
 
+			const linkStateUp = "up"
+
 			expectedInterfaces := []kvirtv1.VirtualMachineInstanceNetworkInterface{
 				{
 					InfoSource:       netvmispec.InfoSourceDomain,
@@ -114,19 +113,24 @@ var _ = SIGDescribe("Infosource", func() {
 					Name:             primaryNetwork,
 					PodInterfaceName: namescheme.PrimaryPodInterfaceName,
 					QueueCount:       network.DefaultInterfaceQueueCount,
+					LinkState:        linkStateUp,
 				},
 				{
-					InfoSource:    infoSourceDomainAndGAAndMultusStatus,
-					InterfaceName: "eth1",
-					MAC:           secondaryInterface1Mac,
-					Name:          secondaryInterface1Name,
-					QueueCount:    network.DefaultInterfaceQueueCount,
+					InfoSource:       infoSourceDomainAndGAAndMultusStatus,
+					InterfaceName:    "eth1",
+					MAC:              secondaryInterface1Mac,
+					Name:             secondaryInterface1Name,
+					PodInterfaceName: namescheme.GenerateHashedInterfaceName(secondaryInterface1Name),
+					QueueCount:       network.DefaultInterfaceQueueCount,
+					LinkState:        linkStateUp,
 				},
 				{
-					InfoSource: infoSourceDomainAndMultusStatus,
-					MAC:        secondaryInterface2Mac,
-					Name:       secondaryInterface2Name,
-					QueueCount: network.DefaultInterfaceQueueCount,
+					InfoSource:       infoSourceDomainAndMultusStatus,
+					MAC:              secondaryInterface2Mac,
+					Name:             secondaryInterface2Name,
+					PodInterfaceName: namescheme.GenerateHashedInterfaceName(secondaryInterface2Name),
+					QueueCount:       network.DefaultInterfaceQueueCount,
+					LinkState:        linkStateUp,
 				},
 				{
 					InfoSource:    netvmispec.InfoSourceGuestAgent,

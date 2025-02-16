@@ -43,12 +43,6 @@ func BeInPhase(phase interface{}) types.GomegaMatcher {
 	}
 }
 
-func HavePhase(phase interface{}) types.GomegaMatcher {
-	return phaseMatcher{
-		expectedPhase: phase,
-	}
-}
-
 type phaseMatcher struct {
 	expectedPhase interface{}
 }

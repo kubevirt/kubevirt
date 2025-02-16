@@ -84,7 +84,7 @@ var _ = Describe("Node-labeller ", func() {
 		nlController.queue = mockQueue
 
 		mockQueue.ExpectAdds(1)
-		nlController.queue.Add(node)
+		nlController.queue.Add(node.Name)
 		mockQueue.Wait()
 	})
 

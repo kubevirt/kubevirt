@@ -20,7 +20,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -37,7 +39,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU, decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decorators.SigCompute, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -80,7 +82,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 			var latestPod k8sv1.Pod
-			err := wait.PollUntilContextTimeout(context.TODO(), 5*time.Second, 1*time.Minute, true, waitForPod(&latestPod, ThisPod(testPod)).WithContext())
+			err := virtwait.PollImmediately(5*time.Second, 1*time.Minute, waitForPod(&latestPod, ThisPod(testPod)).WithContext())
 			return &latestPod, err
 		}
 
@@ -99,7 +101,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		var latestPod k8sv1.Pod
-		err := wait.PollUntilContextTimeout(context.TODO(), time.Second, 1*time.Minute, true, waitForPod(&latestPod, ThisPod(testPod)).WithContext())
+		err := virtwait.PollImmediately(time.Second, 1*time.Minute, waitForPod(&latestPod, ThisPod(testPod)).WithContext())
 		return &latestPod, err
 	}
 
@@ -185,7 +187,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 
 			By("Adding feature gate to disable mdevs handling")
 
-			config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, virtconfig.DisableMediatedDevicesHandling)
+			config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, featuregate.DisableMediatedDevicesHandling)
 			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
 			By("Removing the mediated devices configuration and expecting no devices being removed")
@@ -367,12 +369,11 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 		var driverPath string
 		var rootPCIId string
 
-		runBashCmd := func(cmd string) (string, string, error) {
+		runBashCmd := func(cmd string) (string, error) {
 			args := []string{"bash", "-x", "-c", cmd}
-			stdout, stderr, err := libnode.ExecuteCommandOnNodeThroughVirtHandler(node, args)
+			stdout, err := libnode.ExecuteCommandInVirtHandlerPod(node, args)
 			stdout = strings.TrimSpace(stdout)
-			stderr = strings.TrimSpace(stderr)
-			return stdout, stderr, err
+			return stdout, err
 		}
 
 		runBashCmdRw := func(cmd string) error {
@@ -394,7 +395,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 			var latestPod k8sv1.Pod
-			err := wait.PollUntilContextTimeout(context.TODO(), time.Second, 2*time.Minute, true, waitForPod(&latestPod, ThisPod(testPod)).WithContext())
+			err := virtwait.PollImmediately(time.Second, 2*time.Minute, waitForPod(&latestPod, ThisPod(testPod)).WithContext())
 			return err
 		}
 
@@ -416,26 +417,26 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 
 		It("should create mdevs on devices that appear after CR configuration", func() {
 			By("looking for an mdev-compatible PCI device")
-			out, e, err := runBashCmd(findMdevCapableDevices)
-			Expect(err).ToNot(HaveOccurred(), e)
+			out, err := runBashCmd(findMdevCapableDevices)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(out).To(ContainSubstring(mdevBusPath))
 			pciId := "'" + filepath.Base(out) + "'"
 
 			By("finding the driver")
-			driverPath, e, err = runBashCmd("readlink -e " + mdevBusPath + pciId + "/driver")
-			Expect(err).ToNot(HaveOccurred(), e)
+			driverPath, err = runBashCmd("readlink -e " + mdevBusPath + pciId + "/driver")
+			Expect(err).ToNot(HaveOccurred())
 			Expect(driverPath).To(ContainSubstring("drivers"))
 
 			By("finding a supported type")
-			out, e, err = runBashCmd(fmt.Sprintf(findSupportedTypeFmt, pciId))
-			Expect(err).ToNot(HaveOccurred(), e)
+			out, err = runBashCmd(fmt.Sprintf(findSupportedTypeFmt, pciId))
+			Expect(err).ToNot(HaveOccurred())
 			Expect(out).ToNot(BeEmpty())
 			mdevType := filepath.Base(out)
 
 			By("finding the name of the device")
 			fileName := fmt.Sprintf(deviceNameFmt, pciId, mdevType)
-			deviceName, e, err := runBashCmd("cat " + fileName)
-			Expect(err).ToNot(HaveOccurred(), e)
+			deviceName, err := runBashCmd("cat " + fileName)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(deviceName).ToNot(BeEmpty())
 
 			By("unbinding the device from its driver")
@@ -444,7 +445,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			err = runBashCmdRw(fmt.Sprintf(unbindCmdFmt, rootPCIId, driverPath))
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() error {
-				_, _, err = runBashCmd("ls " + mdevBusPath + pciId)
+				_, err = runBashCmd("ls " + mdevBusPath + pciId)
 				return err
 			}).Should(HaveOccurred(), "failed to disable the VFs on "+rootPCIId)
 
@@ -469,14 +470,14 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 			err = runBashCmdRw(fmt.Sprintf(bindCmdFmt, rootPCIId, driverPath))
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() error {
-				_, _, err = runBashCmd("ls " + mdevBusPath + pciId)
+				_, err = runBashCmd("ls " + mdevBusPath + pciId)
 				return err
 			}).ShouldNot(HaveOccurred(), "failed to re-enable the VFs on "+rootPCIId)
 
 			By("expecting the creation of a mediated device")
 			mdevUUIDPath := fmt.Sprintf(mdevUUIDPathFmt, pciId, uuidRegex)
 			Eventually(func() error {
-				uuidPath, _, err := runBashCmd("ls -d " + mdevUUIDPath + " | head -1")
+				uuidPath, err := runBashCmd("ls -d " + mdevUUIDPath + " | head -1")
 				if err != nil {
 					return err
 				}
@@ -485,7 +486,7 @@ var _ = Describe("[Serial][sig-compute]MediatedDevices", Serial, decorators.VGPU
 				}
 				uuid := strings.TrimSpace(filepath.Base(uuidPath))
 				mdevTypePath := fmt.Sprintf(mdevTypePathFmt, pciId, uuid)
-				effectiveTypePath, _, err := runBashCmd("readlink -e " + mdevTypePath)
+				effectiveTypePath, err := runBashCmd("readlink -e " + mdevTypePath)
 				if err != nil {
 					return err
 				}

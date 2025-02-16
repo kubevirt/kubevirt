@@ -22,17 +22,18 @@ package cli
 //go:generate mockgen -source $GOFILE -imports "libvirt=libvirt.org/go/libvirt" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 import (
+	"context"
 	"encoding/xml"
 	"fmt"
 	"io"
 	"sync"
 	"time"
 
-	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"libvirt.org/go/libvirt"
 
 	"kubevirt.io/client-go/log"
 
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -514,6 +515,7 @@ type VirDomain interface {
 	DestroyFlags(flags libvirt.DomainDestroyFlags) error
 	ShutdownFlags(flags libvirt.DomainShutdownFlags) error
 	Reboot(flags libvirt.DomainRebootFlagValues) error
+	Reset(flags uint32) error
 	UndefineFlags(flags libvirt.DomainUndefineFlagsValues) error
 	GetName() (string, error)
 	GetUUIDString() (string, error)
@@ -547,7 +549,7 @@ func NewConnectionWithTimeout(uri string, user string, pass string, checkInterva
 	var err error
 	var virConn *libvirt.Connect
 
-	err = utilwait.PollImmediate(connectionInterval, connectionTimeout, func() (done bool, err error) {
+	err = virtwait.PollImmediately(connectionInterval, connectionTimeout, func(_ context.Context) (done bool, err error) {
 		virConn, err = newConnection(uri, user, pass)
 		if err != nil {
 			logger.V(1).Infof("Connecting to libvirt daemon failed: %v", err)

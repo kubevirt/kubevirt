@@ -196,7 +196,35 @@ export KUBEVIRT_DEPLOY_NET_BINDING_CNI=true
 
 export KUBEVIRT_PROVIDER="${TEST_LANE}"
 
-ginko_params="$ginko_params -no-color -succinct --label-filter=(!QUARANTINE)&&(!exclude-native-ssh)&&(!no-flake-check) -randomize-all"
+# add_to_label_filter appends the given label and separator to
+# $label_filter which is passed to Ginkgo --filter-label flag.
+# How to use:
+# - Run tests with label
+#     add_to_label_filter '(mylabel)' ','
+# - Dont run tests with label:
+#     add_to_label_filter '(!mylabel)' '&&'
+add_to_label_filter() {
+  local label=$1
+  local separator=$2
+  if [[ -z $label_filter ]]; then
+    label_filter="${1}"
+  else
+    label_filter="${label_filter}${separator}${1}"
+  fi
+}
+
+label_filter="${KUBEVIRT_LABEL_FILTER:-}"
+
+add_to_label_filter '(!QUARANTINE)' '&&'
+add_to_label_filter '(!exclude-native-ssh)' '&&'
+add_to_label_filter '(!no-flake-check)' '&&'
+rwofs_sc=$(jq -er .storageRWOFileSystem "${kubevirt_test_config}")
+if [[ "${rwofs_sc}" == "local" ]]; then
+    # local is a primitive non CSI storage class that doesn't support expansion
+    add_to_label_filter "(!RequiresVolumeExpansion)" "&&"
+fi
+
+ginko_params="$ginko_params -no-color -succinct --label-filter=${label_filter} -randomize-all"
 for test_file in $(echo "${NEW_TESTS}" | tr '|' '\n'); do
     ginko_params+=" -focus-file=${test_file}"
 done

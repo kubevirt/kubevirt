@@ -22,20 +22,20 @@ package vm_test
 import (
 	"errors"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/golang/mock/gomock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/testing"
-	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
-	kvtesting "kubevirt.io/client-go/testing"
+	k8stesting "k8s.io/client-go/testing"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
+	kvtesting "kubevirt.io/client-go/testing"
 
-	"kubevirt.io/kubevirt/tests/clientcmd"
+	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
 const (
@@ -63,7 +63,7 @@ var _ = Describe("Remove volume command", func() {
 			VirtualMachineInstance(metav1.NamespaceDefault).
 			Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).
 			Times(1)
-		virtClient.PrependReactor("put", "virtualmachineinstances/removevolume", func(_ testing.Action) (handled bool, ret runtime.Object, err error) {
+		virtClient.PrependReactor("put", "virtualmachineinstances/removevolume", func(_ k8stesting.Action) (handled bool, ret runtime.Object, err error) {
 			return true, nil, errors.New("error removing")
 		})
 	}
@@ -74,7 +74,7 @@ var _ = Describe("Remove volume command", func() {
 			VirtualMachine(metav1.NamespaceDefault).
 			Return(virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).
 			Times(1)
-		virtClient.PrependReactor("put", "virtualmachines/removevolume", func(_ testing.Action) (handled bool, ret runtime.Object, err error) {
+		virtClient.PrependReactor("put", "virtualmachines/removevolume", func(_ k8stesting.Action) (handled bool, ret runtime.Object, err error) {
 			return true, nil, errors.New("error removing")
 		})
 	}
@@ -86,7 +86,7 @@ var _ = Describe("Remove volume command", func() {
 				VirtualMachine(metav1.NamespaceDefault).
 				Return(virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).
 				Times(1)
-			virtClient.PrependReactor("put", "virtualmachines/removevolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+			virtClient.PrependReactor("put", "virtualmachines/removevolume", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
 				switch action := action.(type) {
 				case kvtesting.PutAction[*v1.RemoveVolumeOptions]:
 					volumeOptions := action.GetOptions()
@@ -111,7 +111,7 @@ var _ = Describe("Remove volume command", func() {
 			VirtualMachineInstance(metav1.NamespaceDefault).
 			Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).
 			AnyTimes()
-		virtClient.PrependReactor("put", "virtualmachineinstances/removevolume", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+		virtClient.PrependReactor("put", "virtualmachineinstances/removevolume", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
 			switch action := action.(type) {
 			case kvtesting.PutAction[*v1.RemoveVolumeOptions]:
 				volumeOptions := action.GetOptions()
@@ -140,7 +140,7 @@ var _ = Describe("Remove volume command", func() {
 
 	DescribeTable("should fail with missing required or invalid parameters", func(expected string, extraArgs ...string) {
 		args := append([]string{"removevolume"}, extraArgs...)
-		cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
+		cmd := testing.NewRepeatableVirtctlCommand(args...)
 		Expect(cmd()).To(MatchError(ContainSubstring(expected)))
 	},
 		Entry("no args", "accepts 1 arg(s), received 0"),
@@ -151,7 +151,7 @@ var _ = Describe("Remove volume command", func() {
 	DescribeTable("should report error if call returns error according to option", func(expectFn func(), resourceName string, extraArgs ...string) {
 		expectFn()
 		args := append([]string{"removevolume", vmiName, "--volume-name=" + volumeName}, extraArgs...)
-		cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
+		cmd := testing.NewRepeatableVirtctlCommand(args...)
 		Expect(cmd()).To(MatchError(ContainSubstring("error removing")))
 		Expect(kvtesting.FilterActions(&virtClient.Fake, "put", resourceName, "removevolume")).To(HaveLen(1))
 	},
@@ -164,7 +164,7 @@ var _ = Describe("Remove volume command", func() {
 	DescribeTable("should call correct endpoint", func(expectFn func(), resourceName string, extraArgs ...string) {
 		expectFn()
 		args := append([]string{"removevolume", vmiName, "--volume-name=" + volumeName}, extraArgs...)
-		cmd := clientcmd.NewRepeatableVirtctlCommand(args...)
+		cmd := testing.NewRepeatableVirtctlCommand(args...)
 		Expect(cmd()).To(Succeed())
 		Expect(kvtesting.FilterActions(&virtClient.Fake, "put", resourceName, "removevolume")).To(HaveLen(1))
 	},
@@ -177,7 +177,7 @@ var _ = Describe("Remove volume command", func() {
 	It("should fail immediately on non concurrent error", func() {
 		expectVMIEndpointRemoveVolumeError()
 		commandAndArgs := []string{"removevolume", "testvmi", "--volume-name=testvolume"}
-		cmdRemove := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
+		cmdRemove := testing.NewRepeatableVirtctlCommand(commandAndArgs...)
 		Expect(cmdRemove()).To(MatchError(ContainSubstring("error removing")))
 	})
 
@@ -192,7 +192,7 @@ var _ = Describe("Remove volume command", func() {
 			}
 		})
 		commandAndArgs := []string{"removevolume", "testvmi", "--volume-name=testvolume"}
-		cmdRemove := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
+		cmdRemove := testing.NewRepeatableVirtctlCommand(commandAndArgs...)
 		Expect(cmdRemove()).To(Succeed())
 	})
 
@@ -201,7 +201,7 @@ var _ = Describe("Remove volume command", func() {
 			return errors.New(concurrentErrorRemove)
 		})
 		commandAndArgs := []string{"removevolume", "testvmi", "--volume-name=testvolume"}
-		cmdRemove := clientcmd.NewRepeatableVirtctlCommand(commandAndArgs...)
-		Expect(cmdRemove()).To(MatchError((ContainSubstring("error removing volume after 15 retries"))))
+		cmdRemove := testing.NewRepeatableVirtctlCommand(commandAndArgs...)
+		Expect(cmdRemove()).To(MatchError(ContainSubstring("error removing volume after 15 retries")))
 	})
 })

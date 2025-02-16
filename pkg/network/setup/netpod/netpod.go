@@ -46,10 +46,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-type clusterConfigChecker interface {
-	DynamicPodInterfaceNamingEnabled() bool
-}
-
 type nmstateAdapter interface {
 	Apply(spec *nmstate.Spec) error
 	Read() (*nmstate.Status, error)
@@ -312,6 +308,9 @@ func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec
 					return nil, fmt.Errorf("pod link (%s) is missing", podIfaceName)
 				}
 				ifacesSpec, err = n.managedTapSpec(podIfaceName, ifIndex, podIfaceStatusByName)
+				if nmstate.AnyInterface(ifacesSpec, hasIP4GlobalUnicast) {
+					spec.LinuxStack.IPv4.ArpIgnore = pointer.P(procsys.ARPReplyMode1)
+				}
 			}
 
 		// Passt is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
@@ -341,6 +340,7 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 	)
 
 	vmiNetworkName := n.vmiSpecIfaces[vmiIfaceIndex].Name
+	vmiNetwork := vmispec.LookupNetworkByName(n.vmiSpecNets, vmiNetworkName)
 
 	bridgeIface := nmstate.Interface{
 		Name:     link.GenerateBridgeName(podIfaceName),
@@ -381,7 +381,7 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 	}
 
 	tapIface := nmstate.Interface{
-		Name:       link.GenerateTapDeviceName(podIfaceName),
+		Name:       link.GenerateTapDeviceName(podIfaceName, *vmiNetwork),
 		TypeName:   nmstate.TypeTap,
 		State:      nmstate.IfaceStateUp,
 		MTU:        podStatusIface.MTU,
@@ -408,7 +408,7 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 }
 
 func (n NetPod) networkQueues(vmiIfaceIndex int) int {
-	if n.vmiSpecIfaces[vmiIfaceIndex].Model == v1.VirtIO || n.vmiSpecIfaces[vmiIfaceIndex].Model == "" {
+	if ifaceModel := n.vmiSpecIfaces[vmiIfaceIndex].Model; ifaceModel == "" || ifaceModel == v1.VirtIO {
 		return n.queuesCap
 	}
 	return 0
@@ -456,7 +456,7 @@ func (n NetPod) masqueradeBindingSpec(podIfaceName string, vmiIfaceIndex int, if
 	}
 
 	tapIface := nmstate.Interface{
-		Name:       link.GenerateTapDeviceName(podIfaceName),
+		Name:       link.GenerateTapDeviceName(podIfaceName, *vmiNetwork),
 		TypeName:   nmstate.TypeTap,
 		State:      nmstate.IfaceStateUp,
 		MTU:        podIface.MTU,
@@ -475,6 +475,7 @@ func (n NetPod) masqueradeBindingSpec(podIfaceName string, vmiIfaceIndex int, if
 func (n NetPod) managedTapSpec(podIfaceName string, vmiIfaceIndex int, ifaceStatusByName map[string]nmstate.Interface) ([]nmstate.Interface, error) {
 
 	vmiNetworkName := n.vmiSpecIfaces[vmiIfaceIndex].Name
+	vmiNetwork := vmispec.LookupNetworkByName(n.vmiSpecNets, vmiNetworkName)
 
 	podIfaceAlternativeName := link.GenerateNewBridgedVmiInterfaceName(podIfaceName)
 	podStatusIface, exist := ifaceStatusByName[podIfaceAlternativeName]
@@ -503,7 +504,7 @@ func (n NetPod) managedTapSpec(podIfaceName string, vmiIfaceIndex int, ifaceStat
 	}
 
 	tapIface := nmstate.Interface{
-		Name:       link.GenerateTapDeviceName(podIfaceName),
+		Name:       link.GenerateTapDeviceName(podIfaceName, *vmiNetwork),
 		TypeName:   nmstate.TypeTap,
 		State:      nmstate.IfaceStateUp,
 		MTU:        podStatusIface.MTU,

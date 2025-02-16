@@ -50,6 +50,7 @@ import (
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
+	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
@@ -57,7 +58,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-controller/network"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -101,6 +101,7 @@ const IntelVendorName = "Intel"
 const ENV_VAR_LIBVIRT_DEBUG_LOGS = "LIBVIRT_DEBUG_LOGS"
 const ENV_VAR_VIRTIOFSD_DEBUG_LOGS = "VIRTIOFSD_DEBUG_LOGS"
 const ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY = "VIRT_LAUNCHER_LOG_VERBOSITY"
+const ENV_VAR_SHARED_FILESYSTEM_PATHS = "SHARED_FILESYSTEM_PATHS"
 
 const ENV_VAR_POD_NAME = "POD_NAME"
 
@@ -112,8 +113,8 @@ const ephemeralStorageOverheadSize = "50M"
 const (
 	VirtLauncherMonitorOverhead = "25Mi"  // The `ps` RSS for virt-launcher-monitor
 	VirtLauncherOverhead        = "100Mi" // The `ps` RSS for the virt-launcher process
-	VirtlogdOverhead            = "20Mi"  // The `ps` RSS for virtlogd
-	VirtqemudOverhead           = "35Mi"  // The `ps` RSS for virtqemud
+	VirtlogdOverhead            = "25Mi"  // The `ps` RSS for virtlogd
+	VirtqemudOverhead           = "40Mi"  // The `ps` RSS for virtqemud
 	QemuOverhead                = "30Mi"  // The `ps` RSS for qemu, minus the RAM of its (stressed) guest, minus the virtual page table
 	// Default: limits.memory = 2*requests.memory
 	DefaultMemoryLimitOverheadRatio = float64(2.0)
@@ -151,7 +152,6 @@ type templateService struct {
 	exporterImage              string
 	launcherQemuTimeout        int
 	virtShareDir               string
-	virtLibDir                 string
 	ephemeralDiskDir           string
 	containerDiskDir           string
 	hotplugDiskDir             string
@@ -265,10 +265,10 @@ func (t *templateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstanc
 	backendStoragePVCName := ""
 	if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
 		backendStoragePVC := backendstorage.PVCForVMI(t.persistentVolumeClaimStore, vmi)
-		backendStoragePVCName = backendStoragePVC.Name
-		if backendStoragePVCName == "" {
+		if backendStoragePVC == nil {
 			return nil, fmt.Errorf("can't generate manifest without backend-storage PVC, waiting for the PVC to be created")
 		}
+		backendStoragePVCName = backendStoragePVC.Name
 	}
 	return t.renderLaunchManifest(vmi, nil, backendStoragePVCName, true)
 }
@@ -376,7 +376,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	gracePeriodSeconds = gracePeriodSeconds + int64(15)
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
-	networkToResourceMap, err := network.GetNetworkToResourceMap(t.virtClient, vmi)
+	networkToResourceMap, err := multus.NetworkToResource(t.virtClient, vmi)
 	if err != nil {
 		return nil, err
 	}
@@ -398,6 +398,8 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	var command []string
+	var qemuTimeout = generateQemuTimeoutWithJitter(t.launcherQemuTimeout)
+
 	if tempPod {
 		logger := log.DefaultLogger()
 		logger.Infof("RUNNING doppleganger pod for %s", vmi.Name)
@@ -406,7 +408,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			"echo", "bound PVCs"}
 	} else {
 		command = []string{"/usr/bin/virt-launcher-monitor",
-			"--qemu-timeout", generateQemuTimeoutWithJitter(t.launcherQemuTimeout),
+			"--qemu-timeout", qemuTimeout,
 			"--name", domain,
 			"--uid", string(vmi.UID),
 			"--namespace", namespace,
@@ -502,7 +504,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		containers = append(containers, virtiofsContainers...)
 	}
 
-	sconsolelogContainer := generateSerialConsoleLogContainer(vmi, t.launcherImage, t.clusterConfig, virtLauncherLogVerbosity)
+	sconsolelogContainer := generateSerialConsoleLogContainer(vmi, t.launcherImage, t.clusterConfig, virtLauncherLogVerbosity, qemuTimeout)
 	if sconsolelogContainer != nil {
 		containers = append(containers, *sconsolelogContainer)
 	}
@@ -698,7 +700,7 @@ func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		log.Log.V(4).Info("Add SEV node label selector")
 		opts = append(opts, WithSEVSelector())
 	}
-	if util.IsSEVESVMI(vmi) {
+	if isSEVESVMI(vmi) {
 		log.Log.V(4).Info("Add SEV-ES node label selector")
 		opts = append(opts, WithSEVESSelector())
 	}
@@ -774,6 +776,7 @@ func (t *templateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 	computeContainerOpts := []Option{
 		WithVolumeDevices(volumeRenderer.VolumeDevices()...),
 		WithVolumeMounts(volumeRenderer.Mounts()...),
+		WithSharedFilesystems(volumeRenderer.SharedFilesystemPaths()...),
 		WithResourceRequirements(resources),
 		WithPorts(vmi),
 		WithCapabilities(vmi),
@@ -810,7 +813,7 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 		volumeOpts = append(volumeOpts, withSidecarVolumes(requestedHookSidecarList))
 	}
 
-	if util.HasHugePages(vmi) {
+	if hasHugePages(vmi) {
 		volumeOpts = append(volumeOpts, withHugepages())
 	}
 
@@ -1237,7 +1240,6 @@ type templateServiceOption func(*templateService)
 func NewTemplateService(launcherImage string,
 	launcherQemuTimeout int,
 	virtShareDir string,
-	virtLibDir string,
 	ephemeralDiskDir string,
 	containerDiskDir string,
 	hotplugDiskDir string,
@@ -1258,7 +1260,6 @@ func NewTemplateService(launcherImage string,
 		launcherImage:              launcherImage,
 		launcherQemuTimeout:        launcherQemuTimeout,
 		virtShareDir:               virtShareDir,
-		virtLibDir:                 virtLibDir,
 		ephemeralDiskDir:           ephemeralDiskDir,
 		containerDiskDir:           containerDiskDir,
 		hotplugDiskDir:             hotplugDiskDir,
@@ -1474,13 +1475,20 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 
 	metrics.SetVmiLaucherMemoryOverhead(vmi, memoryOverhead)
 	withCPULimits := t.doesVMIRequireAutoCPULimits(vmi)
+	additionalCPUs := uint32(0)
+	if vmi.Spec.Domain.IOThreadsPolicy != nil &&
+		*vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool &&
+		vmi.Spec.Domain.IOThreads != nil &&
+		vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount != nil {
+		additionalCPUs = *vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount
+	}
 	return VMIResourcePredicates{
 		vmi: vmi,
 		resourceRules: []VMIResourceRule{
-			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi.Spec.Domain.CPU, vmi.Annotations)),
+			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi.Spec.Domain.CPU, vmi.Annotations, additionalCPUs)),
 			NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi.Spec.Domain.CPU, t.clusterConfig.GetCPUAllocationRatio(), withCPULimits)),
-			NewVMIResourceRule(util.HasHugePages, WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead)),
-			NewVMIResourceRule(not(util.HasHugePages), WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead)),
+			NewVMIResourceRule(hasHugePages, WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead)),
+			NewVMIResourceRule(not(hasHugePages), WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead)),
 			NewVMIResourceRule(t.doesVMIRequireAutoMemoryLimits, WithAutoMemoryLimits(vmi.Namespace, t.namespaceStore)),
 			NewVMIResourceRule(func(*v1.VirtualMachineInstance) bool {
 				return len(networkToResourceMap) > 0
@@ -1489,6 +1497,7 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 			NewVMIResourceRule(util.IsHostDevVMI, WithHostDevices(vmi.Spec.Domain.Devices.HostDevices)),
 			NewVMIResourceRule(util.IsSEVVMI, WithSEV()),
 			NewVMIResourceRule(reservation.HasVMIPersistentReservation, WithPersistentReservation()),
+			NewVMIResourceRule(doesVMIRequireCPUForIOThreads, WithIOThreads(vmi.Spec.Domain.IOThreads)),
 		},
 	}
 }
@@ -1498,9 +1507,6 @@ func (t *templateService) doesVMIRequireAutoMemoryLimits(vmi *v1.VirtualMachineI
 }
 
 func (t *templateService) doesVMIRequireAutoResourceLimits(vmi *v1.VirtualMachineInstance, resource k8sv1.ResourceName) bool {
-	if !t.clusterConfig.AutoResourceLimitsEnabled() {
-		return false
-	}
 	if _, resourceLimitsExists := vmi.Spec.Domain.Resources.Limits[resource]; resourceLimitsExists {
 		return false
 	}
@@ -1562,4 +1568,16 @@ func WithNetTargetAnnotationsGenerator(generator targetAnnotationsGenerator) tem
 	return func(service *templateService) {
 		service.netTargetAnnotationsGenerator = generator
 	}
+}
+
+func hasHugePages(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil
+}
+
+// Check if a VMI spec requests AMD SEV-ES
+func isSEVESVMI(vmi *v1.VirtualMachineInstance) bool {
+	return util.IsSEVVMI(vmi) &&
+		vmi.Spec.Domain.LaunchSecurity.SEV.Policy != nil &&
+		vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState != nil &&
+		*vmi.Spec.Domain.LaunchSecurity.SEV.Policy.EncryptedState
 }

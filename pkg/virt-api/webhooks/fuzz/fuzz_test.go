@@ -13,13 +13,16 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	v1 "kubevirt.io/api/core/v1"
 
+	instancetypeWebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks/vm"
+	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 type fuzzOption int
@@ -38,13 +41,24 @@ type testCase struct {
 
 // FuzzAdmitter tests the Validation webhook execution logic with random input: It does schema validation (syntactic check), followed by executing the domain specific validation logic (semantic checks).
 func FuzzAdmitter(f *testing.F) {
+	validateNetwork := func(field *field.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
+		return netadmitter.Validate(field, vmiSpec, clusterCfg)
+	}
+
+	const kubeVirtNamespace = "kubevirt"
+	kubeVirtServiceAccounts := webhooks.KubeVirtServiceAccounts(kubeVirtNamespace)
+
 	testCases := []testCase{
 		{
 			name:    "SyntacticVirtualMachineInstanceFuzzing",
 			gvk:     webhooks.VirtualMachineInstanceGroupVersionResource,
 			objType: &v1.VirtualMachineInstance{},
 			admit: func(config *virtconfig.ClusterConfig, request *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-				adm := &admitters.VMICreateAdmitter{ClusterConfig: config}
+				adm := &admitters.VMICreateAdmitter{
+					ClusterConfig:           config,
+					KubeVirtServiceAccounts: kubeVirtServiceAccounts,
+					SpecValidators:          []admitters.SpecValidator{validateNetwork},
+				}
 				return adm.Admit(context.Background(), request)
 			},
 			fuzzFuncs: fuzzFuncs(withSyntaxErrors),
@@ -54,7 +68,11 @@ func FuzzAdmitter(f *testing.F) {
 			gvk:     webhooks.VirtualMachineInstanceGroupVersionResource,
 			objType: &v1.VirtualMachineInstance{},
 			admit: func(config *virtconfig.ClusterConfig, request *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-				adm := &admitters.VMICreateAdmitter{ClusterConfig: config}
+				adm := &admitters.VMICreateAdmitter{
+					ClusterConfig:           config,
+					KubeVirtServiceAccounts: kubeVirtServiceAccounts,
+					SpecValidators:          []admitters.SpecValidator{validateNetwork},
+				}
 				return adm.Admit(context.Background(), request)
 			},
 			fuzzFuncs: fuzzFuncs(),
@@ -65,8 +83,9 @@ func FuzzAdmitter(f *testing.F) {
 			objType: &v1.VirtualMachine{},
 			admit: func(config *virtconfig.ClusterConfig, request *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 				adm := &admitters.VMsAdmitter{
-					ClusterConfig:       config,
-					InstancetypeMethods: testutils.NewMockInstancetypeMethods(),
+					ClusterConfig:           config,
+					KubeVirtServiceAccounts: kubeVirtServiceAccounts,
+					InstancetypeAdmitter:    instancetypeWebhooks.NewMockAdmitter(),
 				}
 				return adm.Admit(context.Background(), request)
 			},
@@ -78,8 +97,9 @@ func FuzzAdmitter(f *testing.F) {
 			objType: &v1.VirtualMachine{},
 			admit: func(config *virtconfig.ClusterConfig, request *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 				adm := &admitters.VMsAdmitter{
-					ClusterConfig:       config,
-					InstancetypeMethods: testutils.NewMockInstancetypeMethods(),
+					ClusterConfig:           config,
+					KubeVirtServiceAccounts: kubeVirtServiceAccounts,
+					InstancetypeAdmitter:    instancetypeWebhooks.NewMockAdmitter(),
 				}
 				return adm.Admit(context.Background(), request)
 			},
@@ -163,31 +183,29 @@ func fuzzKubeVirtConfig(seed int64) *virtconfig.ClusterConfig {
 		func(dc *v1.DeveloperConfiguration, c gofuzz.Continue) {
 			c.FuzzNoCustom(dc)
 			featureGates := []string{
-				virtconfig.ExpandDisksGate,
-				virtconfig.CPUManager,
-				deprecation.NUMAFeatureGate,
-				virtconfig.IgnitionGate,
-				deprecation.LiveMigrationGate,
-				deprecation.SRIOVLiveMigrationGate,
-				deprecation.CPUNodeDiscoveryGate,
-				virtconfig.HypervStrictCheckGate,
-				virtconfig.SidecarGate,
-				virtconfig.HostDevicesGate,
-				virtconfig.SnapshotGate,
-				virtconfig.VMExportGate,
-				virtconfig.HotplugVolumesGate,
-				virtconfig.HostDiskGate,
-				virtconfig.VirtIOFSGate,
-				deprecation.MacvtapGate,
-				deprecation.PasstGate,
-				virtconfig.DownwardMetricsFeatureGate,
-				deprecation.NonRoot,
-				virtconfig.Root,
-				virtconfig.ClusterProfiler,
-				virtconfig.WorkloadEncryptionSEV,
-				deprecation.DockerSELinuxMCSWorkaround,
-				deprecation.PSA,
-				virtconfig.VSOCKGate,
+				featuregate.ExpandDisksGate,
+				featuregate.CPUManager,
+				featuregate.NUMAFeatureGate,
+				featuregate.IgnitionGate,
+				featuregate.LiveMigrationGate,
+				featuregate.SRIOVLiveMigrationGate,
+				featuregate.CPUNodeDiscoveryGate,
+				featuregate.HypervStrictCheckGate,
+				featuregate.SidecarGate,
+				featuregate.HostDevicesGate,
+				featuregate.SnapshotGate,
+				featuregate.VMExportGate,
+				featuregate.HotplugVolumesGate,
+				featuregate.HostDiskGate,
+				featuregate.MacvtapGate,
+				featuregate.PasstGate,
+				featuregate.DownwardMetricsFeatureGate,
+				featuregate.NonRoot,
+				featuregate.Root,
+				featuregate.WorkloadEncryptionSEV,
+				featuregate.DockerSELinuxMCSWorkaround,
+				featuregate.PSA,
+				featuregate.VSOCKGate,
 			}
 
 			idxs := c.Perm(c.Int() % len(featureGates))

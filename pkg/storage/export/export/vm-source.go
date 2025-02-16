@@ -107,7 +107,11 @@ func (ctrl *VMExportController) handleVMI(obj interface{}) {
 
 func (ctrl *VMExportController) getPVCsFromVMI(vmi *virtv1.VirtualMachineInstance) []*corev1.PersistentVolumeClaim {
 	var pvcs []*corev1.PersistentVolumeClaim
-	for _, volume := range vmi.Spec.Volumes {
+
+	// No need to handle error when using VMI to fetch volumes
+	volumes, _ := storageutils.GetVolumes(vmi, ctrl.Client, storageutils.WithAllVolumes)
+
+	for _, volume := range volumes {
 		pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
 		if pvc := ctrl.getPVCsFromName(vmi.Namespace, pvcName); pvc != nil {
 			pvcs = append(pvcs, pvc)
@@ -147,7 +151,11 @@ func (ctrl *VMExportController) isSourceInUseVM(vmExport *exportv1.VirtualMachin
 		return false, "", err
 	}
 	if exists {
-		return exists, fmt.Sprintf("Virtual Machine %s/%s is running", vmi.Namespace, vmi.Name), nil
+		// Only if the VMI is running, the source VM is in use
+		if vmi.Status.Phase != virtv1.Succeeded && vmi.Status.Phase != virtv1.Failed {
+			return exists, fmt.Sprintf("Virtual Machine %s/%s is running", vmi.Namespace, vmi.Name), nil
+		}
+		return false, "", nil
 	}
 	return exists, "", nil
 }
@@ -187,8 +195,12 @@ func (ctrl *VMExportController) getPVCsFromVM(vmNamespace, vmName string) ([]*co
 	}
 	allPopulated := true
 
-	volumes, err := storageutils.GetVolumes(vm, ctrl.Client, storageutils.WithBackendVolume)
+	volumes, err := storageutils.GetVolumes(vm, ctrl.Client, storageutils.WithAllVolumes)
 	if err != nil {
+		if storageutils.IsErrNoBackendPVC(err) {
+			// No backend pvc when we should have one, lets wait
+			return nil, false, nil
+		}
 		return nil, false, err
 	}
 

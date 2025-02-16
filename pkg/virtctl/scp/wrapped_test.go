@@ -6,22 +6,20 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/ssh"
 
 	. "github.com/onsi/ginkgo/v2"
-
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 var _ = Describe("Wrapped SCP", func() {
 
-	var fakeLocal templates.LocalSCPArgument
-	var fakeRemote templates.RemoteSCPArgument
+	var fakeLocal *LocalArgument
+	var fakeRemote *RemoteArgument
 	var fakeToRemote bool
 	var scp SCP
 
 	BeforeEach(func() {
-		fakeLocal = templates.LocalSCPArgument{
+		fakeLocal = &LocalArgument{
 			Path: "/local/fakepath",
 		}
-		fakeRemote = templates.RemoteSCPArgument{
+		fakeRemote = &RemoteArgument{
 			Namespace: "fake-ns",
 			Name:      "fake-name",
 			Path:      "/remote/fakepath",

@@ -114,7 +114,7 @@ func generateMigrationFlags(isBlockMigration, migratePaused bool, options *cmdcl
 	if migratePaused {
 		migrateFlags |= libvirt.MIGRATE_PAUSED
 	}
-	if options.ParallelMigrationThreads != nil {
+	if shouldConfigureParallel, _ := shouldConfigureParallelMigration(options); shouldConfigureParallel {
 		migrateFlags |= libvirt.MIGRATE_PARALLEL
 	}
 
@@ -440,6 +440,11 @@ func (m *migrationMonitor) isMigrationPostCopy() bool {
 	return migration.Mode == v1.MigrationPostCopy
 }
 
+func (m *migrationMonitor) isPausedMigration() bool {
+	migration, _ := m.l.metadataCache.Migration.Load()
+	return migration.Mode == v1.MigrationPaused
+}
+
 func (m *migrationMonitor) shouldTriggerTimeout(elapsed int64) bool {
 	if m.acceptableCompletionTime == 0 {
 		return false
@@ -448,8 +453,8 @@ func (m *migrationMonitor) shouldTriggerTimeout(elapsed int64) bool {
 	return elapsed/int64(time.Second) > m.acceptableCompletionTime
 }
 
-func (m *migrationMonitor) shouldTriggerPostCopy(elapsed int64) bool {
-	return m.shouldTriggerTimeout(elapsed) && m.options.AllowPostCopy
+func (m *migrationMonitor) shouldAssistMigrationToComplete(elapsed int64) bool {
+	return m.shouldTriggerTimeout(elapsed) && m.options.AllowWorkloadDisruption
 }
 
 func (m *migrationMonitor) isMigrationProgressing() bool {
@@ -479,7 +484,7 @@ func (m *migrationMonitor) determineNonRunningMigrationStatus(dom cli.VirDomain)
 			logger.Info("Migration job was canceled")
 			return &libvirt.DomainJobInfo{
 				Type:             libvirt.DOMAIN_JOB_CANCELLED,
-				DataRemaining:    uint64(m.remainingData),
+				DataRemaining:    m.remainingData,
 				DataRemainingSet: true,
 			}
 		}
@@ -499,7 +504,7 @@ func (m *migrationMonitor) determineNonRunningMigrationStatus(dom cli.VirDomain)
 			logger.Info("Migration job failed")
 			return &libvirt.DomainJobInfo{
 				Type:             libvirt.DOMAIN_JOB_FAILED,
-				DataRemaining:    uint64(m.remainingData),
+				DataRemaining:    m.remainingData,
 				DataRemainingSet: true,
 			}
 		}
@@ -531,17 +536,35 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 		// If we were to abort the migration due to a timeout while in post copy,
 		// then it would result in that active state being lost.
 
-	case m.shouldTriggerPostCopy(elapsed):
-		logger.Info("Starting post copy mode for migration")
-		// if a migration has stalled too long, post copy will be
-		// triggered when allowPostCopy is enabled
-		err := dom.MigrateStartPostCopy(uint32(0))
-		if err != nil {
-			logger.Reason(err).Error("failed to start post migration")
-			return nil
-		}
+	case m.shouldAssistMigrationToComplete(elapsed) && !m.isPausedMigration():
+		if m.options.AllowPostCopy {
+			logger.Info("Starting post copy mode for migration")
+			// if a migration has stalled too long, post copy will be
+			// triggered when allowPostCopy is enabled
+			err := dom.MigrateStartPostCopy(0)
+			if err != nil {
+				logger.Reason(err).Error("failed to start post migration")
+				return nil
+			}
+			m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
+		} else {
 
-		m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
+			logger.Info("Pausing the guest to allow migration to complete")
+			// if a migration has stalled too long, the guest will be paused
+			// to complete the migration when allowPostCopy is disabled
+			err := dom.Suspend()
+			if err != nil {
+				logger.Reason(err).Error("Signalling suspension failed.")
+				return nil
+			}
+			logger.Infof("Signaled pause for %s", m.vmi.GetObjectMeta().GetName())
+
+			// update acceptableCompletionTime to prevent premature migration
+			// cancellation
+			m.acceptableCompletionTime *= 2
+			m.l.paused.add(m.vmi.UID)
+			m.l.updateVMIMigrationMode(v1.MigrationPaused)
+		}
 
 	case !m.isMigrationProgressing():
 		// check if the migration is still progressing
@@ -579,15 +602,6 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 	return nil
 }
 
-func (m *migrationMonitor) hasMigrationErr() error {
-	select {
-	case err := <-m.migrationErr:
-		return err
-	default:
-		return nil
-	}
-}
-
 func (m *migrationMonitor) startMonitor() {
 	var completedJobInfo *libvirt.DomainJobInfo
 	vmi := m.vmi
@@ -612,9 +626,12 @@ func (m *migrationMonitor) startMonitor() {
 	logInterval := 0
 
 	for {
-		time.Sleep(monitorSleepPeriodMS * time.Millisecond)
+		err = nil
+		select {
+		case err = <-m.migrationErr:
+		case <-time.After(monitorSleepPeriodMS * time.Millisecond):
+		}
 
-		err := m.hasMigrationErr()
 		if err != nil && m.migrationFailedWithError == nil {
 			logger.Reason(err).Error("Received a live migration error. Will check the latest migration status.")
 			m.migrationFailedWithError = err
@@ -625,6 +642,13 @@ func (m *migrationMonitor) startMonitor() {
 			if strings.Contains(m.migrationFailedWithError.Error(), "canceled by client") {
 				abortStatus = v1.MigrationAbortSucceeded
 			}
+			// Improve the error message when the volume migration fails because the destination size is smaller then the source volume
+			if len(vmi.Status.MigratedVolumes) > 0 && strings.Contains(m.migrationFailedWithError.Error(),
+				"has to be smaller or equal to the actual size of the containing file") {
+				m.l.setMigrationResult(true, fmt.Sprintf("Volume migration cannot be performed because the destination volume is smaller then the source volume: %v",
+					m.migrationFailedWithError), abortStatus)
+				return
+			}
 			m.l.setMigrationResult(true, fmt.Sprintf("Live migration failed %v", m.migrationFailedWithError), abortStatus)
 			return
 		}
@@ -633,7 +657,7 @@ func (m *migrationMonitor) startMonitor() {
 		if stats == nil {
 			stats, err = dom.GetJobStats(0)
 			if err != nil {
-				logger.Reason(err).Error("failed to get domain job info")
+				logger.Reason(err).Warning("failed to get domain job info, will retry")
 				continue
 			}
 		}
@@ -732,12 +756,7 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 		return nil, err
 	}
 
-	parallelMigrationSet := false
-	var parallelMigrationThreads int
-	if options.ParallelMigrationThreads != nil {
-		parallelMigrationSet = true
-		parallelMigrationThreads = int(*options.ParallelMigrationThreads)
-	}
+	parallelMigrationSet, parallelMigrationThreads := shouldConfigureParallelMigration(options)
 
 	key := migrationproxy.ConstructProxyKey(string(vmi.UID), migrationproxy.LibvirtDirectMigrationPort)
 	migrURI := fmt.Sprintf("unix://%s", migrationproxy.SourceUnixFile(virtShareDir, key))
@@ -763,6 +782,8 @@ func generateMigrationParams(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, 
 		disksURI := fmt.Sprintf("unix://%s", migrationproxy.SourceUnixFile(virtShareDir, key))
 		params.DisksURI = disksURI
 		params.DisksURISet = true
+		params.MigrateDisksDetectZeroesList = copyDisks
+		params.MigrateDisksDetectZeroesSet = true
 	}
 
 	log.Log.Object(vmi).Infof("generated migration parameters: %+v", params)
@@ -1027,4 +1048,20 @@ func (l *LibvirtDomainManager) updateVMIMigrationMode(mode v1.MigrationMode) {
 		migrationMetadata.Mode = mode
 	})
 	log.Log.V(4).Infof("Migration mode set in metadata: %s", l.metadataCache.Migration.String())
+}
+
+func shouldConfigureParallelMigration(options *cmdclient.MigrationOptions) (shouldConfigure bool, threadsCount int) {
+	if options == nil {
+		return
+	}
+	if options.AllowPostCopy {
+		return
+	}
+	if options.ParallelMigrationThreads == nil {
+		return
+	}
+
+	shouldConfigure = true
+	threadsCount = int(*options.ParallelMigrationThreads)
+	return
 }

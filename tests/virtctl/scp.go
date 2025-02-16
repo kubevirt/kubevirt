@@ -1,3 +1,22 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors
+ *
+ */
+
 package virtctl
 
 import (
@@ -26,7 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
+var _ = VirtctlDescribe("[sig-compute]SCP", decorators.SigCompute, func() {
 	var pub ssh.PublicKey
 	var keyFile string
 	var virtClient kubecli.KubevirtClient
@@ -44,7 +63,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 			args = append(args, "--recursive")
 		}
 		args = append(args, src, dst)
-		Expect(clientcmd.NewRepeatableVirtctlCommand(args...)()).To(Succeed())
+		Expect(newRepeatableVirtctlCommand(args...)()).To(Succeed())
 	}
 
 	copyLocal := func(appendLocalSSH bool) func(src, dst string, recursive bool) {
@@ -66,7 +85,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 			args = append(args, src, dst)
 
 			// The virtctl binary needs to run here because of the way local SCP client wrapping works.
-			// Running the command through NewRepeatableVirtctlCommand does not suffice.
+			// Running the command through newRepeatableVirtctlCommand does not suffice.
 			_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.GetTestNamespace(nil), "virtctl", args...)
 			Expect(err).ToNot(HaveOccurred())
 			out, err := cmd.CombinedOutput()
@@ -87,7 +106,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 		Expect(libssh.DumpPrivateKey(priv, keyFile)).To(Succeed())
 	})
 
-	DescribeTable("should copy a local file back and forth", func(copyFn func(string, string, bool)) {
+	DescribeTable("[test_id:11659]should copy a local file back and forth", func(copyFn func(string, string, bool)) {
 		By("injecting a SSH public key into a VMI")
 		vmi := libvmifact.NewAlpineWithTestTooling(
 			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(libssh.RenderUserDataWithKey(pub))),
@@ -97,22 +116,24 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 
 		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
+		remoteFile := "vmi/" + vmi.Name + ":./keyfile"
+
 		By("copying a file to the VMI")
-		copyFn(keyFile, vmi.Name+":"+"./keyfile", false)
+		copyFn(keyFile, remoteFile, false)
 
 		By("copying the file back")
 		copyBackFile := filepath.Join(GinkgoT().TempDir(), "remote_id_rsa")
-		copyFn(vmi.Name+":"+"./keyfile", copyBackFile, false)
+		copyFn(remoteFile, copyBackFile, false)
 
 		By("comparing the two files")
 		compareFile(keyFile, copyBackFile)
 	},
-		Entry("using the native scp method", decorators.NativeSsh, copyNative),
-		Entry("using the local scp method with --local-ssh flag", decorators.NativeSsh, copyLocal(true)),
-		Entry("using the local scp method without --local-ssh flag", decorators.ExcludeNativeSsh, copyLocal(false)),
+		Entry("using the local scp method", copyLocal(false)),
+		Entry("using the local scp method with --local-ssh=true flag", decorators.NativeSSH, copyLocal(true)),
+		Entry("using the native scp method with --local-ssh=false flag", decorators.NativeSSH, copyNative),
 	)
 
-	DescribeTable("should copy a local directory back and forth", func(copyFn func(string, string, bool)) {
+	DescribeTable("[test_id:11660]should copy a local directory back and forth", func(copyFn func(string, string, bool)) {
 		By("injecting a SSH public key into a VMI")
 		vmi := libvmifact.NewAlpineWithTestTooling(
 			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(libssh.RenderUserDataWithKey(pub))),
@@ -126,28 +147,32 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 		copyFromDir := filepath.Join(GinkgoT().TempDir(), "sourcedir")
 		copyToDir := filepath.Join(GinkgoT().TempDir(), "targetdir")
 
-		Expect(os.Mkdir(copyFromDir, 0777)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(copyFromDir, "file1"), []byte("test"), 0777)).To(Succeed())
-		Expect(os.WriteFile(filepath.Join(copyFromDir, "file2"), []byte("test1"), 0777)).To(Succeed())
+		const (
+			permRWX = 0o700
+			permRW  = 0o600
+		)
+		Expect(os.Mkdir(copyFromDir, permRWX)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(copyFromDir, "file1"), []byte("test"), permRW)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(copyFromDir, "file2"), []byte("test1"), permRW)).To(Succeed())
 
 		By("copying a file to the VMI")
-		copyFn(copyFromDir, vmi.Name+":"+"./sourcedir", true)
+		copyFn(copyFromDir, "vmi/"+vmi.Name+":"+"./sourcedir", true)
 
 		By("copying the file back")
-		copyFn(vmi.Name+":"+"./sourcedir", copyToDir, true)
+		copyFn("vmi/"+vmi.Name+":"+"./sourcedir", copyToDir, true)
 
 		By("comparing the two directories")
 		compareFile(filepath.Join(copyFromDir, "file1"), filepath.Join(copyToDir, "file1"))
 		compareFile(filepath.Join(copyFromDir, "file2"), filepath.Join(copyToDir, "file2"))
 	},
-		Entry("using the native scp method", decorators.NativeSsh, copyNative),
-		Entry("using the local scp method with --local-ssh flag", decorators.NativeSsh, copyLocal(true)),
-		Entry("using the local scp method without --local-ssh flag", decorators.ExcludeNativeSsh, copyLocal(false)),
+		Entry("using the local scp method", copyLocal(false)),
+		Entry("using the local scp method with --local-ssh=true flag", decorators.NativeSSH, copyLocal(true)),
+		Entry("using the native scp method with --local-ssh=false flag", decorators.NativeSSH, copyNative),
 	)
 
-	It("local-ssh flag should be unavailable in virtctl", decorators.ExcludeNativeSsh, func() {
+	It("[test_id:11665]local-ssh flag should be unavailable in virtctl", decorators.ExcludeNativeSSH, func() {
 		// The built virtctl binary should be tested here, therefore clientcmd.CreateCommandWithNS needs to be used.
-		// Running the command through NewRepeatableVirtctlCommand would test the test binary instead.
+		// Running the command through newRepeatableVirtctlCommand would test the test binary instead.
 		_, cmd, err := clientcmd.CreateCommandWithNS(testsuite.NamespaceTestDefault, "virtctl", "scp", "--local-ssh=false")
 		Expect(err).ToNot(HaveOccurred())
 		out, err := cmd.CombinedOutput()
@@ -156,7 +181,7 @@ var _ = Describe("[sig-compute][virtctl]SCP", decorators.SigCompute, func() {
 	})
 })
 
-func compareFile(file1 string, file2 string) {
+func compareFile(file1, file2 string) {
 	expected, err := os.ReadFile(file1)
 	Expect(err).ToNot(HaveOccurred())
 	actual, err := os.ReadFile(file2)

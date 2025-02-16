@@ -38,7 +38,6 @@ import (
 	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -214,9 +213,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 
 		// IOThread with Emulator Thread
 
-		It("[test_id:4025]Should place io and emulator threads on the same pcpu with auto ioThreadsPolicy", func() {
-			checks.SkipTestIfNoCPUManager()
-
+		It("[test_id:4025]Should place io and emulator threads on the same pcpu with auto ioThreadsPolicy", decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
 			containerDiskCirros := cd.ContainerDiskFor(cd.ContainerDiskCirros)
 			vmi := libvmifact.NewAlpine(
 				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyAuto),

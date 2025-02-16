@@ -24,9 +24,6 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
-
-	"kubevirt.io/client-go/kubecli"
 )
 
 const (
@@ -52,8 +49,7 @@ var (
 )
 
 type Command struct {
-	clientConfig clientcmd.ClientConfig
-	command      string
+	command string
 }
 
 func usage(cmd string) string {
@@ -62,20 +58,6 @@ func usage(cmd string) string {
 	}
 
 	return fmt.Sprintf("  # %s a virtual machine called 'myvm':\n  {{ProgramName}} %s myvm", strings.Title(cmd), cmd)
-}
-
-func GetNamespaceAndClient(clientConfig clientcmd.ClientConfig) (kubecli.KubevirtClient, string, error) {
-	namespace, _, err := clientConfig.Namespace()
-	if err != nil {
-		return nil, "", err
-	}
-
-	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(clientConfig)
-	if err != nil {
-		return nil, "", fmt.Errorf("Cannot obtain KubeVirt client: %v", err)
-	}
-
-	return virtClient, namespace, nil
 }
 
 func setDryRunOption(dryRun bool) []string {

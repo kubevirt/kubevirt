@@ -526,37 +526,6 @@ var CRDsValidation map[string]string = map[string]string{
                 Resources represents the minimum resources the volume should have.
                 More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
               properties:
-                claims:
-                  description: |-
-                    Claims lists the names of resources, defined in spec.resourceClaims,
-                    that are used by this container.
-
-                    This is an alpha field and requires enabling the
-                    DynamicResourceAllocation feature gate.
-
-                    This field is immutable. It can only be set for containers.
-                  items:
-                    description: ResourceClaim references one entry in PodSpec.ResourceClaims.
-                    properties:
-                      name:
-                        description: |-
-                          Name must match the name of one entry in pod.spec.resourceClaims of
-                          the Pod where this field is used. It makes that resource available
-                          inside a container.
-                        type: string
-                      request:
-                        description: |-
-                          Request is the name chosen for a request in the referenced claim.
-                          If empty, everything from the claim is made available, otherwise
-                          only the result of this request.
-                        type: string
-                    required:
-                    - name
-                    type: object
-                  type: array
-                  x-kubernetes-list-map-keys:
-                  - name
-                  x-kubernetes-list-type: map
                 limits:
                   additionalProperties:
                     anyOf:
@@ -914,6 +883,10 @@ var CRDsValidation map[string]string = map[string]string{
             developerConfiguration:
               description: DeveloperConfiguration holds developer options
               properties:
+                clusterProfiler:
+                  description: Enable the ability to pprof profile KubeVirt control
+                    plane
+                  type: boolean
                 cpuAllocationRatio:
                   description: |-
                     For each requested virtual CPU, CPUAllocationRatio defines how much physical CPU to request per VMI
@@ -1219,6 +1192,13 @@ var CRDsValidation map[string]string = map[string]string{
                     If set to true, migrations will still start in pre-copy, but switch to post-copy when
                     CompletionTimeoutPerGiB triggers. Defaults to false
                   type: boolean
+                allowWorkloadDisruption:
+                  description: |-
+                    AllowWorkloadDisruption indicates that the migration shouldn't be
+                    canceled after acceptableCompletionTime is exceeded. Instead, if
+                    permitted, migration will be switched to post-copy or the VMI will be
+                    paused to allow the migration to complete
+                  type: boolean
                 bandwidthPerMigration:
                   anyOf:
                   - type: integer
@@ -1231,8 +1211,8 @@ var CRDsValidation map[string]string = map[string]string{
                 completionTimeoutPerGiB:
                   description: |-
                     CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
-                    If a live-migration takes longer to migrate than this value multiplied by the size of the VMI,
-                    the migration will be cancelled, unless AllowPostCopy is true. Defaults to 150
+                    If the timeout is reached, the migration will be either paused, switched
+                    to post-copy or cancelled depending on other settings. Defaults to 150
                   format: int64
                   type: integer
                 disableTLS:
@@ -1589,17 +1569,17 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
               type: object
             vmRolloutStrategy:
-              description: VMRolloutStrategy defines how changes to a VM object propagate
-                to its VMI
+              description: |-
+                VMRolloutStrategy defines how live-updatable fields, like CPU sockets, memory,
+                tolerations, and affinity, are propagated from a VM to its VMI.
               enum:
               - Stage
               - LiveUpdate
               nullable: true
               type: string
             vmStateStorageClass:
-              description: |-
-                VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.
-                The storage class must support RWX in filesystem mode.
+              description: VMStateStorageClass is the name of the storage class to
+                use for the PVCs created to preserve VM state, like TPM.
               type: string
             webhookConfiguration:
               description: |-
@@ -3903,6 +3883,8 @@ var CRDsValidation map[string]string = map[string]string{
           type: boolean
         allowPostCopy:
           type: boolean
+        allowWorkloadDisruption:
+          type: boolean
         bandwidthPerMigration:
           anyOf:
           - type: integer
@@ -4498,37 +4480,6 @@ var CRDsValidation map[string]string = map[string]string{
                           Resources represents the minimum resources the volume should have.
                           More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
                         properties:
-                          claims:
-                            description: |-
-                              Claims lists the names of resources, defined in spec.resourceClaims,
-                              that are used by this container.
-
-                              This is an alpha field and requires enabling the
-                              DynamicResourceAllocation feature gate.
-
-                              This field is immutable. It can only be set for containers.
-                            items:
-                              description: ResourceClaim references one entry in PodSpec.ResourceClaims.
-                              properties:
-                                name:
-                                  description: |-
-                                    Name must match the name of one entry in pod.spec.resourceClaims of
-                                    the Pod where this field is used. It makes that resource available
-                                    inside a container.
-                                  type: string
-                                request:
-                                  description: |-
-                                    Request is the name chosen for a request in the referenced claim.
-                                    If empty, everything from the claim is made available, otherwise
-                                    only the result of this request.
-                                  type: string
-                              required:
-                              - name
-                              type: object
-                            type: array
-                            x-kubernetes-list-map-keys:
-                            - name
-                            x-kubernetes-list-type: map
                           limits:
                             additionalProperties:
                               anyOf:
@@ -6452,7 +6403,11 @@ var CRDsValidation map[string]string = map[string]string{
                               state:
                                 description: |-
                                   State represents the requested operational state of the interface.
-                                  The (only) value supported is 'absent', expressing a request to remove the interface.
+                                  The supported values are:
+                                  'absent', expressing a request to remove the interface.
+                                  'down', expressing a request to set the link down.
+                                  'up', expressing a request to set the link up.
+                                  Empty value functions as 'up'.
                                 type: string
                               tag:
                                 description: If specified, the virtual network interface
@@ -6869,6 +6824,15 @@ var CRDsValidation map[string]string = map[string]string{
                             UUID reported by the vmi bios.
                             Defaults to a random generated uid.
                           type: string
+                      type: object
+                    ioThreads:
+                      description: IOThreads specifies the IOThreads options.
+                      properties:
+                        supplementalPoolThreadCount:
+                          description: SupplementalPoolThreadCount specifies how many
+                            iothreads are allocated for the supplementalPool policy.
+                          format: int32
+                          type: integer
                       type: object
                     ioThreadsPolicy:
                       description: |-
@@ -7748,9 +7712,8 @@ var CRDsValidation map[string]string = map[string]string{
                               can be hotplugged and hotunplugged.
                             type: boolean
                           name:
-                            description: |-
-                              Name of both the DataVolume and the PVC in the same namespace.
-                              After PVC population the DataVolume is garbage collected by default.
+                            description: Name of both the DataVolume and the PVC in
+                              the same namespace.
                             type: string
                         required:
                         - name
@@ -8085,6 +8048,35 @@ var CRDsValidation map[string]string = map[string]string{
             updated through an Update() before ObservedGeneration in Status.
           format: int64
           type: integer
+        instancetypeRef:
+          description: InstancetypeRef captures the state of any referenced instance
+            type from the VirtualMachine
+          nullable: true
+          properties:
+            controllerRevisionRef:
+              description: |-
+                ControllerRef specifies the ControllerRevision storing a copy of the object captured
+                when it is first seen by the VirtualMachine controller
+              properties:
+                name:
+                  description: Name of the ControllerRevision
+                  type: string
+              type: object
+            inferFromVolume:
+              description: InferFromVolume lists the name of a volume that should
+                be used to infer or discover the resource
+              type: string
+            inferFromVolumeFailurePolicy:
+              description: InferFromVolumeFailurePolicy controls what should happen
+                on failure when inferring the resource
+              type: string
+            kind:
+              description: Kind specifies the kind of resource
+              type: string
+            name:
+              description: Name is the name of resource
+              type: string
+          type: object
         memoryDumpRequest:
           description: |-
             MemoryDumpRequest tracks memory dump request phase and info of getting a memory
@@ -8126,6 +8118,35 @@ var CRDsValidation map[string]string = map[string]string{
             started.
           format: int64
           type: integer
+        preferenceRef:
+          description: PreferenceRef captures the state of any referenced preference
+            from the VirtualMachine
+          nullable: true
+          properties:
+            controllerRevisionRef:
+              description: |-
+                ControllerRef specifies the ControllerRevision storing a copy of the object captured
+                when it is first seen by the VirtualMachine controller
+              properties:
+                name:
+                  description: Name of the ControllerRevision
+                  type: string
+              type: object
+            inferFromVolume:
+              description: InferFromVolume lists the name of a volume that should
+                be used to infer or discover the resource
+              type: string
+            inferFromVolumeFailurePolicy:
+              description: InferFromVolumeFailurePolicy controls what should happen
+                on failure when inferring the resource
+              type: string
+            kind:
+              description: Kind specifies the kind of resource
+              type: string
+            name:
+              description: Name is the name of resource
+              type: string
+          type: object
         printableStatus:
           default: Stopped
           description: PrintableStatus is a human readable, high-level representation
@@ -8362,9 +8383,8 @@ var CRDsValidation map[string]string = map[string]string{
                               can be hotplugged and hotunplugged.
                             type: boolean
                           name:
-                            description: |-
-                              Name of both the DataVolume and the PVC in the same namespace.
-                              After PVC population the DataVolume is garbage collected by default.
+                            description: Name of both the DataVolume and the PVC in
+                              the same namespace.
                             type: string
                         required:
                         - name
@@ -9583,13 +9603,18 @@ var CRDsValidation map[string]string = map[string]string{
                 Requires PreferredUseBios to be enabled.
               type: boolean
             preferredUseEfi:
-              description: PreferredUseEfi optionally enables EFI
+              description: |-
+                PreferredUseEfi optionally enables EFI
+
+                Deprecated: Will be removed with v1beta2 or v1
               type: boolean
             preferredUseSecureBoot:
               description: |-
                 PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.
 
                 Requires PreferredUseEfi and PreferredSmm to be enabled.
+
+                Deprecated: Will be removed with v1beta2 or v1
               type: boolean
           type: object
         machine:
@@ -11660,7 +11685,11 @@ var CRDsValidation map[string]string = map[string]string{
                       state:
                         description: |-
                           State represents the requested operational state of the interface.
-                          The (only) value supported is 'absent', expressing a request to remove the interface.
+                          The supported values are:
+                          'absent', expressing a request to remove the interface.
+                          'down', expressing a request to set the link down.
+                          'up', expressing a request to set the link up.
+                          Empty value functions as 'up'.
                         type: string
                       tag:
                         description: If specified, the virtual network interface address
@@ -12070,6 +12099,15 @@ var CRDsValidation map[string]string = map[string]string{
                     UUID reported by the vmi bios.
                     Defaults to a random generated uid.
                   type: string
+              type: object
+            ioThreads:
+              description: IOThreads specifies the IOThreads options.
+              properties:
+                supplementalPoolThreadCount:
+                  description: SupplementalPoolThreadCount specifies how many iothreads
+                    are allocated for the supplementalPool policy.
+                  format: int32
+                  type: integer
               type: object
             ioThreadsPolicy:
               description: |-
@@ -12941,9 +12979,8 @@ var CRDsValidation map[string]string = map[string]string{
                       hotplugged and hotunplugged.
                     type: boolean
                   name:
-                    description: |-
-                      Name of both the DataVolume and the PVC in the same namespace.
-                      After PVC population the DataVolume is garbage collected by default.
+                    description: Name of both the DataVolume and the PVC in the same
+                      namespace.
                     type: string
                 required:
                 - name
@@ -13346,6 +13383,10 @@ var CRDsValidation map[string]string = map[string]string{
                 items:
                   type: string
                 type: array
+              linkState:
+                description: 'LinkState Reports the current operational link state''.
+                  values: up, down.'
+                type: string
               mac:
                 description: Hardware address of a Virtual Machine interface
                 type: string
@@ -13582,6 +13623,13 @@ var CRDsValidation map[string]string = map[string]string{
                     If set to true, migrations will still start in pre-copy, but switch to post-copy when
                     CompletionTimeoutPerGiB triggers. Defaults to false
                   type: boolean
+                allowWorkloadDisruption:
+                  description: |-
+                    AllowWorkloadDisruption indicates that the migration shouldn't be
+                    canceled after acceptableCompletionTime is exceeded. Instead, if
+                    permitted, migration will be switched to post-copy or the VMI will be
+                    paused to allow the migration to complete
+                  type: boolean
                 bandwidthPerMigration:
                   anyOf:
                   - type: integer
@@ -13594,8 +13642,8 @@ var CRDsValidation map[string]string = map[string]string{
                 completionTimeoutPerGiB:
                   description: |-
                     CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
-                    If a live-migration takes longer to migrate than this value multiplied by the size of the VMI,
-                    the migration will be cancelled, unless AllowPostCopy is true. Defaults to 150
+                    If the timeout is reached, the migration will be either paused, switched
+                    to post-copy or cancelled depending on other settings. Defaults to 150
                   format: int64
                   type: integer
                 disableTLS:
@@ -14004,6 +14052,13 @@ var CRDsValidation map[string]string = map[string]string{
                     If set to true, migrations will still start in pre-copy, but switch to post-copy when
                     CompletionTimeoutPerGiB triggers. Defaults to false
                   type: boolean
+                allowWorkloadDisruption:
+                  description: |-
+                    AllowWorkloadDisruption indicates that the migration shouldn't be
+                    canceled after acceptableCompletionTime is exceeded. Instead, if
+                    permitted, migration will be switched to post-copy or the VMI will be
+                    paused to allow the migration to complete
+                  type: boolean
                 bandwidthPerMigration:
                   anyOf:
                   - type: integer
@@ -14016,8 +14071,8 @@ var CRDsValidation map[string]string = map[string]string{
                 completionTimeoutPerGiB:
                   description: |-
                     CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take.
-                    If a live-migration takes longer to migrate than this value multiplied by the size of the VMI,
-                    the migration will be cancelled, unless AllowPostCopy is true. Defaults to 150
+                    If the timeout is reached, the migration will be either paused, switched
+                    to post-copy or cancelled depending on other settings. Defaults to 150
                   format: int64
                   type: integer
                 disableTLS:
@@ -14834,7 +14889,11 @@ var CRDsValidation map[string]string = map[string]string{
                       state:
                         description: |-
                           State represents the requested operational state of the interface.
-                          The (only) value supported is 'absent', expressing a request to remove the interface.
+                          The supported values are:
+                          'absent', expressing a request to remove the interface.
+                          'down', expressing a request to set the link down.
+                          'up', expressing a request to set the link up.
+                          Empty value functions as 'up'.
                         type: string
                       tag:
                         description: If specified, the virtual network interface address
@@ -15244,6 +15303,15 @@ var CRDsValidation map[string]string = map[string]string{
                     UUID reported by the vmi bios.
                     Defaults to a random generated uid.
                   type: string
+              type: object
+            ioThreads:
+              description: IOThreads specifies the IOThreads options.
+              properties:
+                supplementalPoolThreadCount:
+                  description: SupplementalPoolThreadCount specifies how many iothreads
+                    are allocated for the supplementalPool policy.
+                  format: int32
+                  type: integer
               type: object
             ioThreadsPolicy:
               description: |-
@@ -17239,7 +17307,11 @@ var CRDsValidation map[string]string = map[string]string{
                               state:
                                 description: |-
                                   State represents the requested operational state of the interface.
-                                  The (only) value supported is 'absent', expressing a request to remove the interface.
+                                  The supported values are:
+                                  'absent', expressing a request to remove the interface.
+                                  'down', expressing a request to set the link down.
+                                  'up', expressing a request to set the link up.
+                                  Empty value functions as 'up'.
                                 type: string
                               tag:
                                 description: If specified, the virtual network interface
@@ -17656,6 +17728,15 @@ var CRDsValidation map[string]string = map[string]string{
                             UUID reported by the vmi bios.
                             Defaults to a random generated uid.
                           type: string
+                      type: object
+                    ioThreads:
+                      description: IOThreads specifies the IOThreads options.
+                      properties:
+                        supplementalPoolThreadCount:
+                          description: SupplementalPoolThreadCount specifies how many
+                            iothreads are allocated for the supplementalPool policy.
+                          format: int32
+                          type: integer
                       type: object
                     ioThreadsPolicy:
                       description: |-
@@ -18535,9 +18616,8 @@ var CRDsValidation map[string]string = map[string]string{
                               can be hotplugged and hotunplugged.
                             type: boolean
                           name:
-                            description: |-
-                              Name of both the DataVolume and the PVC in the same namespace.
-                              After PVC population the DataVolume is garbage collected by default.
+                            description: Name of both the DataVolume and the PVC in
+                              the same namespace.
                             type: string
                         required:
                         - name
@@ -19142,6 +19222,14 @@ var CRDsValidation map[string]string = map[string]string{
       type: object
     spec:
       properties:
+        nameGeneration:
+          description: Options for the name generation in a pool.
+          properties:
+            appendIndexToConfigMapRefs:
+              type: boolean
+            appendIndexToSecretRefs:
+              type: boolean
+          type: object
         paused:
           description: Indicates that the pool is paused.
           type: boolean
@@ -19763,38 +19851,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   Resources represents the minimum resources the volume should have.
                                   More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
                                 properties:
-                                  claims:
-                                    description: |-
-                                      Claims lists the names of resources, defined in spec.resourceClaims,
-                                      that are used by this container.
-
-                                      This is an alpha field and requires enabling the
-                                      DynamicResourceAllocation feature gate.
-
-                                      This field is immutable. It can only be set for containers.
-                                    items:
-                                      description: ResourceClaim references one entry
-                                        in PodSpec.ResourceClaims.
-                                      properties:
-                                        name:
-                                          description: |-
-                                            Name must match the name of one entry in pod.spec.resourceClaims of
-                                            the Pod where this field is used. It makes that resource available
-                                            inside a container.
-                                          type: string
-                                        request:
-                                          description: |-
-                                            Request is the name chosen for a request in the referenced claim.
-                                            If empty, everything from the claim is made available, otherwise
-                                            only the result of this request.
-                                          type: string
-                                      required:
-                                      - name
-                                      type: object
-                                    type: array
-                                    x-kubernetes-list-map-keys:
-                                    - name
-                                    x-kubernetes-list-type: map
                                   limits:
                                     additionalProperties:
                                       anyOf:
@@ -21749,7 +21805,11 @@ var CRDsValidation map[string]string = map[string]string{
                                       state:
                                         description: |-
                                           State represents the requested operational state of the interface.
-                                          The (only) value supported is 'absent', expressing a request to remove the interface.
+                                          The supported values are:
+                                          'absent', expressing a request to remove the interface.
+                                          'down', expressing a request to set the link down.
+                                          'up', expressing a request to set the link up.
+                                          Empty value functions as 'up'.
                                         type: string
                                       tag:
                                         description: If specified, the virtual network
@@ -22172,6 +22232,16 @@ var CRDsValidation map[string]string = map[string]string{
                                     UUID reported by the vmi bios.
                                     Defaults to a random generated uid.
                                   type: string
+                              type: object
+                            ioThreads:
+                              description: IOThreads specifies the IOThreads options.
+                              properties:
+                                supplementalPoolThreadCount:
+                                  description: SupplementalPoolThreadCount specifies
+                                    how many iothreads are allocated for the supplementalPool
+                                    policy.
+                                  format: int32
+                                  type: integer
                               type: object
                             ioThreadsPolicy:
                               description: |-
@@ -23058,9 +23128,8 @@ var CRDsValidation map[string]string = map[string]string{
                                       volume can be hotplugged and hotunplugged.
                                     type: boolean
                                   name:
-                                    description: |-
-                                      Name of both the DataVolume and the PVC in the same namespace.
-                                      After PVC population the DataVolume is garbage collected by default.
+                                    description: Name of both the DataVolume and the
+                                      PVC in the same namespace.
                                     type: string
                                 required:
                                 - name
@@ -23994,13 +24063,18 @@ var CRDsValidation map[string]string = map[string]string{
                 Requires PreferredUseBios to be enabled.
               type: boolean
             preferredUseEfi:
-              description: PreferredUseEfi optionally enables EFI
+              description: |-
+                PreferredUseEfi optionally enables EFI
+
+                Deprecated: Will be removed with v1beta2 or v1
               type: boolean
             preferredUseSecureBoot:
               description: |-
                 PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.
 
                 Requires PreferredUseEfi and PreferredSmm to be enabled.
+
+                Deprecated: Will be removed with v1beta2 or v1
               type: boolean
           type: object
         machine:
@@ -24120,6 +24194,11 @@ var CRDsValidation map[string]string = map[string]string{
           - name
           type: object
           x-kubernetes-map-type: atomic
+        targetReadinessPolicy:
+          description: |-
+            TargetReadinessPolicy defines how to handle the restore in case
+            the target is not ready
+          type: string
         virtualMachineSnapshotName:
           type: string
       required:
@@ -24938,38 +25017,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       Resources represents the minimum resources the volume should have.
                                       More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
                                     properties:
-                                      claims:
-                                        description: |-
-                                          Claims lists the names of resources, defined in spec.resourceClaims,
-                                          that are used by this container.
-
-                                          This is an alpha field and requires enabling the
-                                          DynamicResourceAllocation feature gate.
-
-                                          This field is immutable. It can only be set for containers.
-                                        items:
-                                          description: ResourceClaim references one
-                                            entry in PodSpec.ResourceClaims.
-                                          properties:
-                                            name:
-                                              description: |-
-                                                Name must match the name of one entry in pod.spec.resourceClaims of
-                                                the Pod where this field is used. It makes that resource available
-                                                inside a container.
-                                              type: string
-                                            request:
-                                              description: |-
-                                                Request is the name chosen for a request in the referenced claim.
-                                                If empty, everything from the claim is made available, otherwise
-                                                only the result of this request.
-                                              type: string
-                                          required:
-                                          - name
-                                          type: object
-                                        type: array
-                                        x-kubernetes-list-map-keys:
-                                        - name
-                                        x-kubernetes-list-type: map
                                       limits:
                                         additionalProperties:
                                           anyOf:
@@ -26948,7 +26995,11 @@ var CRDsValidation map[string]string = map[string]string{
                                           state:
                                             description: |-
                                               State represents the requested operational state of the interface.
-                                              The (only) value supported is 'absent', expressing a request to remove the interface.
+                                              The supported values are:
+                                              'absent', expressing a request to remove the interface.
+                                              'down', expressing a request to set the link down.
+                                              'up', expressing a request to set the link up.
+                                              Empty value functions as 'up'.
                                             type: string
                                           tag:
                                             description: If specified, the virtual
@@ -27373,6 +27424,16 @@ var CRDsValidation map[string]string = map[string]string{
                                         UUID reported by the vmi bios.
                                         Defaults to a random generated uid.
                                       type: string
+                                  type: object
+                                ioThreads:
+                                  description: IOThreads specifies the IOThreads options.
+                                  properties:
+                                    supplementalPoolThreadCount:
+                                      description: SupplementalPoolThreadCount specifies
+                                        how many iothreads are allocated for the supplementalPool
+                                        policy.
+                                      format: int32
+                                      type: integer
                                   type: object
                                 ioThreadsPolicy:
                                   description: |-
@@ -28268,9 +28329,8 @@ var CRDsValidation map[string]string = map[string]string{
                                           the volume can be hotplugged and hotunplugged.
                                         type: boolean
                                       name:
-                                        description: |-
-                                          Name of both the DataVolume and the PVC in the same namespace.
-                                          After PVC population the DataVolume is garbage collected by default.
+                                        description: Name of both the DataVolume and
+                                          the PVC in the same namespace.
                                         type: string
                                     required:
                                     - name
@@ -28618,6 +28678,35 @@ var CRDsValidation map[string]string = map[string]string{
                         updated through an Update() before ObservedGeneration in Status.
                       format: int64
                       type: integer
+                    instancetypeRef:
+                      description: InstancetypeRef captures the state of any referenced
+                        instance type from the VirtualMachine
+                      nullable: true
+                      properties:
+                        controllerRevisionRef:
+                          description: |-
+                            ControllerRef specifies the ControllerRevision storing a copy of the object captured
+                            when it is first seen by the VirtualMachine controller
+                          properties:
+                            name:
+                              description: Name of the ControllerRevision
+                              type: string
+                          type: object
+                        inferFromVolume:
+                          description: InferFromVolume lists the name of a volume
+                            that should be used to infer or discover the resource
+                          type: string
+                        inferFromVolumeFailurePolicy:
+                          description: InferFromVolumeFailurePolicy controls what
+                            should happen on failure when inferring the resource
+                          type: string
+                        kind:
+                          description: Kind specifies the kind of resource
+                          type: string
+                        name:
+                          description: Name is the name of resource
+                          type: string
+                      type: object
                     memoryDumpRequest:
                       description: |-
                         MemoryDumpRequest tracks memory dump request phase and info of getting a memory
@@ -28662,6 +28751,35 @@ var CRDsValidation map[string]string = map[string]string{
                         the vmi when started.
                       format: int64
                       type: integer
+                    preferenceRef:
+                      description: PreferenceRef captures the state of any referenced
+                        preference from the VirtualMachine
+                      nullable: true
+                      properties:
+                        controllerRevisionRef:
+                          description: |-
+                            ControllerRef specifies the ControllerRevision storing a copy of the object captured
+                            when it is first seen by the VirtualMachine controller
+                          properties:
+                            name:
+                              description: Name of the ControllerRevision
+                              type: string
+                          type: object
+                        inferFromVolume:
+                          description: InferFromVolume lists the name of a volume
+                            that should be used to infer or discover the resource
+                          type: string
+                        inferFromVolumeFailurePolicy:
+                          description: InferFromVolumeFailurePolicy controls what
+                            should happen on failure when inferring the resource
+                          type: string
+                        kind:
+                          description: Kind specifies the kind of resource
+                          type: string
+                        name:
+                          description: Name is the name of resource
+                          type: string
+                      type: object
                     printableStatus:
                       default: Stopped
                       description: PrintableStatus is a human readable, high-level
@@ -28908,9 +29026,8 @@ var CRDsValidation map[string]string = map[string]string{
                                           the volume can be hotplugged and hotunplugged.
                                         type: boolean
                                       name:
-                                        description: |-
-                                          Name of both the DataVolume and the PVC in the same namespace.
-                                          After PVC population the DataVolume is garbage collected by default.
+                                        description: Name of both the DataVolume and
+                                          the PVC in the same namespace.
                                         type: string
                                     required:
                                     - name

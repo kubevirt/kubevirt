@@ -29,7 +29,6 @@ import (
 )
 
 var _ = Describe("VMI network spec", func() {
-
 	Context("pod network", func() {
 		const podNet0 = "podnet0"
 
@@ -69,11 +68,11 @@ var _ = Describe("VMI network spec", func() {
 		})
 
 		It("finds two SR-IOV interfaces in list", func() {
-			sriov_net1 := v1.Interface{
+			sriovNet1 := v1.Interface{
 				Name:                   "sriov-net1",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
 			}
-			sriov_net2 := v1.Interface{
+			sriovNet2 := v1.Interface{
 				Name:                   "sriov-net2",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
 			}
@@ -83,48 +82,13 @@ var _ = Describe("VMI network spec", func() {
 					Name:                   "masq-net0",
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
 				},
-				sriov_net1,
-				sriov_net2,
+				sriovNet1,
+				sriovNet2,
 			}
 
-			Expect(netvmispec.FilterSRIOVInterfaces(ifaces)).To(Equal([]v1.Interface{sriov_net1, sriov_net2}))
+			Expect(netvmispec.FilterSRIOVInterfaces(ifaces)).To(Equal([]v1.Interface{sriovNet1, sriovNet2}))
 			Expect(netvmispec.SRIOVInterfaceExist(ifaces)).To(BeTrue())
 		})
-	})
-
-	const iface1, iface2, iface3, iface4, iface5 = "iface1", "iface2", "iface3", "iface4", "iface5"
-
-	Context("pop interface by network", func() {
-		const netName = "net1"
-		network := podNetwork(netName)
-		expectedStatusIfaces := vmiStatusInterfaces(iface1, iface2)
-
-		It("has no network", func() {
-			statusIface, statusIfaces := netvmispec.PopInterfaceByNetwork(vmiStatusInterfaces(iface1, iface2), nil)
-			Expect(statusIface).To(BeNil())
-			Expect(statusIfaces).To(Equal(expectedStatusIfaces))
-		})
-
-		It("has no interfaces", func() {
-			statusIface, _ := netvmispec.PopInterfaceByNetwork(nil, &network)
-			Expect(statusIface).To(BeNil())
-		})
-
-		It("interface not found", func() {
-			statusIface, _ := netvmispec.PopInterfaceByNetwork(vmiStatusInterfaces(iface1, iface2), &network)
-			Expect(statusIface).To(BeNil())
-		})
-
-		DescribeTable("pop interface from position", func(statusIfaces []v1.VirtualMachineInstanceNetworkInterface) {
-			expectedStatusIface := v1.VirtualMachineInstanceNetworkInterface{Name: netName}
-			statusIface, statusIfaces := netvmispec.PopInterfaceByNetwork(statusIfaces, &network)
-			Expect(*statusIface).To(Equal(expectedStatusIface))
-			Expect(statusIfaces).To(Equal(expectedStatusIfaces))
-		},
-			Entry("first", vmiStatusInterfaces(netName, iface1, iface2)),
-			Entry("last", vmiStatusInterfaces(iface1, iface2, netName)),
-			Entry("mid", vmiStatusInterfaces(iface1, netName, iface2)),
-		)
 	})
 
 	Context("migratable", func() {
@@ -208,15 +172,16 @@ var _ = Describe("VMI network spec", func() {
 				)
 				Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).To(Succeed())
 			})
-			It("should allow migration if the VMI use bridge to connect to the pod network and has AllowLiveMigrationBridgePodNetwork annotation", func() {
-				network := podNetwork(podNet0)
-				vmi := libvmi.New(
-					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-					libvmi.WithNetwork(&network),
-					libvmi.WithAnnotation(v1.AllowPodBridgeNetworkLiveMigrationAnnotation, ""),
-				)
-				Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).To(Succeed())
-			})
+			It("should allow migration if the VMI use bridge to connect to the pod network and has AllowLiveMigrationBridgePodNetwork annotation",
+				func() {
+					network := podNetwork(podNet0)
+					vmi := libvmi.New(
+						libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+						libvmi.WithNetwork(&network),
+						libvmi.WithAnnotation(v1.AllowPodBridgeNetworkLiveMigrationAnnotation, ""),
+					)
+					Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).To(Succeed())
+				})
 			It("should allow migration if the VMI use migratable binding plugin to connect to the pod network", func() {
 				network := podNetwork(podNet0)
 				vmi := libvmi.New(
@@ -298,13 +263,4 @@ func interfaceWithBindingPlugin(name, pluginName string) v1.Interface {
 		Name:    name,
 		Binding: &v1.PluginBinding{Name: pluginName},
 	}
-}
-
-func vmiStatusInterfaces(names ...string) []v1.VirtualMachineInstanceNetworkInterface {
-	var statusInterfaces []v1.VirtualMachineInstanceNetworkInterface
-	for _, name := range names {
-		iface := v1.VirtualMachineInstanceNetworkInterface{Name: name}
-		statusInterfaces = append(statusInterfaces, iface)
-	}
-	return statusInterfaces
 }

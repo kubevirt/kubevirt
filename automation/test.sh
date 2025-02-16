@@ -26,6 +26,7 @@ readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="gs://kubevirt-vm-images"
 readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
 
+source hack/config-default.sh
 
 # Skip if it's docs changes only
 # Only if we are in CI, and this is a non-batch change
@@ -64,12 +65,7 @@ elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_WITH_CNAO=true
   export KUBEVIRT_DEPLOY_NET_BINDING_CNI=true
   export KUBEVIRT_DEPLOY_CDI=false
-  # FIXME: https://github.com/kubevirt/kubevirt/issues/9158
-  if [[ $TARGET =~ no-istio ]]; then
-    export KUBEVIRT_DEPLOY_ISTIO=false
-  else
-    export KUBEVIRT_DEPLOY_ISTIO=true
-  fi
+  export KUBEVIRT_DEPLOY_ISTIO=true
   export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
 elif [[ $TARGET =~ sig-storage ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
@@ -84,6 +80,8 @@ elif [[ $TARGET =~ sig-compute-migrations ]]; then
   export KUBEVIRT_WITH_CNAO=true
   export KUBEVIRT_NUM_SECONDARY_NICS=1
   export KUBEVIRT_DEPLOY_NFS_CSI=true
+  export KUBEVIRT_TEST_CONFIG="${base_dir}/tests/sig-migrations-config.json"
+  source hack/config-default.sh
 elif [[ $TARGET =~ sig-compute-serial ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-serial/}
 elif [[ $TARGET =~ sig-compute-parallel ]]; then
@@ -101,6 +99,8 @@ elif [[ $TARGET =~ sig-monitoring ]]; then
     export KUBEVIRT_DEPLOY_PROMETHEUS=true
 elif [[ $TARGET =~ wg-s390x ]]; then
     export KUBEVIRT_PROVIDER=${TARGET/-wg-s390x}
+elif [[ $TARGET =~ wg-arm64 ]]; then
+    export KUBEVIRT_PROVIDER=${TARGET/-wg-arm64}
 else
   export KUBEVIRT_PROVIDER=${TARGET}
 fi
@@ -265,7 +265,7 @@ build_images() {
 export NAMESPACE="${NAMESPACE:-kubevirt}"
 
 # Make sure that the VM is properly shut down on exit
-trap '{ make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
+trap '{ ret=$?; make cluster-down || true; exit $ret; }' EXIT SIGINT SIGTERM SIGSTOP
 
 if [ "$CI" != "true" ]; then
   make cluster-down
@@ -350,7 +350,8 @@ kubectl version
 
 mkdir -p "$ARTIFACTS_PATH"
 export KUBEVIRT_E2E_PARALLEL=true
-if [[ $TARGET =~ .*kind.* ]] || [[ $TARGET =~ .*k3d.* ]]; then
+# arm64 e2e test lane use kind provider
+if [[ $TARGET =~ .*kind.* ]] || [[ $TARGET =~ .*k3d.* ]] || [[ $TARGET =~ wg-arm64 ]]; then
   export KUBEVIRT_E2E_PARALLEL=false
 fi
 
@@ -428,23 +429,23 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(sig-storage)'
   elif [[ $TARGET =~ wg-s390x ]]; then
     label_filter='(wg-s390x)'
+  elif [[ $TARGET =~ wg-arm64 ]]; then
+    label_filter='(wg-arm64 && !(ACPI,requires-two-schedulable-nodes,cpumodel))'
   elif [[ $TARGET =~ vgpu.* ]]; then
     label_filter='(VGPU)'
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
-    label_filter='(sig-compute-realtime)'
+    label_filter='(sig-compute-realtime) && !(SEV, SEVES)'
   elif [[ $TARGET =~ sig-compute-migrations ]]; then
-    label_filter='(sig-compute-migrations && !(GPU,VGPU))'
+    label_filter='(sig-compute-migrations && !(GPU,VGPU)) && !(SEV, SEVES)'
   elif [[ $TARGET =~ sig-compute-serial ]]; then
     export KUBEVIRT_E2E_PARALLEL=false
-    ginko_params="${ginko_params} --focus=\\[Serial\\]"
-    label_filter='((sig-compute) && !(GPU,VGPU,sig-compute-migrations))'
+    label_filter='((sig-compute && Serial) && !(GPU,VGPU,sig-compute-migrations) && !(SEV, SEVES))'
   elif [[ $TARGET =~ sig-compute-parallel ]]; then
-    ginko_params="${ginko_params} --skip=\\[Serial\\]"
-    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations))'
+    label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations,sig-storage) && !(SEV, SEVES))'
   elif [[ $TARGET =~ sig-compute-conformance ]]; then
     label_filter='(sig-compute && conformance)'
   elif [[ $TARGET =~ sig-compute ]]; then
-    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations))'
+    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations,sig-storage) && !(SEV, SEVES))'
   elif [[ $TARGET =~ sig-monitoring ]]; then
     label_filter='(sig-monitoring)'
   elif [[ $TARGET =~ sig-operator ]]; then
@@ -474,10 +475,24 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     add_to_label_filter "(!PERIODIC)" "&&"
   fi
 
-fi
+  if [[ ! $TARGET =~ windows.* ]]; then
+    add_to_label_filter "(!Windows)" "&&"
+    add_to_label_filter "(!Sysprep)" "&&"
+  fi
 
-# No lane currently supports loading a custom policy
-add_to_label_filter '(!CustomSELinux)' '&&'
+  rwofs_sc=$(jq -er .storageRWOFileSystem "${kubevirt_test_config}")
+  if [[ "${rwofs_sc}" == "local" ]]; then
+    # local is a primitive non CSI storage class that doesn't support expansion
+    add_to_label_filter "(!RequiresVolumeExpansion)" "&&"
+  fi
+
+  vmstate_sc=$(jq -r .storageVMState "${kubevirt_test_config}")
+  if [[ "${vmstate_sc}" == "rook-ceph-block" ]]; then
+    # ceph block doesn't do RWX FS
+    add_to_label_filter '(!RequiresRWXFsVMStateStorageClass)' '&&'
+  fi
+
+fi
 
 # We do not want to run tests which exclude native SSH functionality
 add_to_label_filter '(!exclude-native-ssh)' '&&'
@@ -486,6 +501,9 @@ add_to_label_filter '(!exclude-native-ssh)' '&&'
 # but also currently lack the requirements for SRIOV, GPU, Macvtap and MDEVs.
 if [[ $KUBEVIRT_NUM_NODES = "1" && $KUBEVIRT_INFRA_REPLICAS = "1" ]]; then
   add_to_label_filter '(!(SRIOV,GPU,Macvtap,VGPU,sig-compute-migrations,requires-two-schedulable-nodes))' '&&'
+  add_to_label_filter '!(multi-replica)' '&&'
+else
+  add_to_label_filter '!(single-replica)' '&&'
 fi
 
 # Single stack IPv6 cluster should skip tests that require dual stack cluster
@@ -501,6 +519,10 @@ fi
 
 if [ -z "$KUBEVIRT_HUGEPAGES_2M" ]; then
   add_to_label_filter '(!requireHugepages2Mi)' '&&'
+fi
+
+if [ -z "$KUBEVIRT_HUGEPAGES_1G" ]; then
+  add_to_label_filter '(!requireHugepages1Gi)' '&&'
 fi
 
 # Always override as we want to fail if anything is requiring special handling

@@ -20,6 +20,7 @@
 package main
 
 import (
+	"context"
 	goflag "flag"
 	"fmt"
 	"os"
@@ -33,12 +34,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirt"
 
-	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
@@ -89,7 +90,7 @@ func startCmdServer(socketPath string,
 	// PollImmediate breaks the poll loop when bool or err are returned OR if timeout occurs.
 	//
 	// Timing out causes an error to be returned
-	err = utilwait.PollImmediate(1*time.Second, 15*time.Second, func() (bool, error) {
+	err = virtwait.PollImmediately(1*time.Second, 15*time.Second, func(_ context.Context) (bool, error) {
 		client, err := cmdclient.NewClient(socketPath)
 		if err != nil {
 			return false, nil
@@ -426,7 +427,8 @@ func main() {
 
 	metadataCache := metadata.NewCache()
 
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache)
+	signalStopChan := make(chan struct{})
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache, signalStopChan)
 	if err != nil {
 		panic(err)
 	}
@@ -467,7 +469,6 @@ func main() {
 		syscall.SIGQUIT,
 	)
 
-	signalStopChan := make(chan struct{})
 	go func() {
 		s := <-c
 		log.Log.Infof("Received signal %s", s.String())

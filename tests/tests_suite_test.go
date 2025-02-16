@@ -43,6 +43,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	_ "kubevirt.io/kubevirt/tests/compute"
+	_ "kubevirt.io/kubevirt/tests/compute/subresources"
 	_ "kubevirt.io/kubevirt/tests/guestlog"
 	_ "kubevirt.io/kubevirt/tests/hotplug"
 	_ "kubevirt.io/kubevirt/tests/infrastructure"
@@ -55,7 +56,6 @@ import (
 	_ "kubevirt.io/kubevirt/tests/operator"
 	_ "kubevirt.io/kubevirt/tests/performance"
 	_ "kubevirt.io/kubevirt/tests/realtime"
-	_ "kubevirt.io/kubevirt/tests/scale"
 	_ "kubevirt.io/kubevirt/tests/storage"
 	_ "kubevirt.io/kubevirt/tests/usb"
 	_ "kubevirt.io/kubevirt/tests/validatingadmissionpolicy"
@@ -96,7 +96,7 @@ func TestTests(t *testing.T) {
 	vmsgeneratorutils.DockerPrefix = flags.KubeVirtUtilityRepoPrefix
 	vmsgeneratorutils.DockerTag = flags.KubeVirtVersionTag
 
-	RunSpecs(t, "Tests Suite")
+	RunSpecs(t, "KubeVirt Tests Suite")
 }
 
 var _ = SynchronizedBeforeSuite(testsuite.SynchronizedBeforeTestSetup, testsuite.BeforeTestSuiteSetup)

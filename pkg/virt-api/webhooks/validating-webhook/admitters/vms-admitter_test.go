@@ -43,32 +43,33 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
-	instancetypeapi "kubevirt.io/api/instancetype"
+	"kubevirt.io/api/instancetype/v1beta1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	fakeclientset "kubevirt.io/client-go/kubevirt/fake"
 
 	v1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
+	instancetypeWebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks/vm"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/deprecation"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 )
 
 var _ = Describe("Validating VM Admitter", func() {
 	config, crdInformer, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 	var (
-		vmsAdmitter         *VMsAdmitter
-		dataSourceInformer  cache.SharedIndexInformer
-		namespaceInformer   cache.SharedIndexInformer
-		instancetypeMethods *testutils.MockInstancetypeMethods
-		mockVMIClient       *kubecli.MockVirtualMachineInstanceInterface
-		virtClient          *kubecli.MockKubevirtClient
-		k8sClient           *k8sfake.Clientset
+		vmsAdmitter        *VMsAdmitter
+		dataSourceInformer cache.SharedIndexInformer
+		namespaceInformer  cache.SharedIndexInformer
+		mockVMIClient      *kubecli.MockVirtualMachineInstanceInterface
+		virtClient         *kubecli.MockKubevirtClient
+		k8sClient          *k8sfake.Clientset
 	)
 
 	enableFeatureGate := func(featureGates ...string) {
@@ -96,9 +97,6 @@ var _ = Describe("Validating VM Admitter", func() {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 	}
 
-	runStrategyManual := v1.RunStrategyManual
-	runStrategyHalted := v1.RunStrategyHalted
-
 	BeforeEach(func() {
 		dataSourceInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataSource{})
 		namespaceInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Namespace{})
@@ -120,18 +118,20 @@ var _ = Describe("Validating VM Admitter", func() {
 		Expect(namespaceInformer.GetStore().Add(ns1)).To(Succeed())
 		Expect(namespaceInformer.GetStore().Add(ns2)).To(Succeed())
 		Expect(namespaceInformer.GetStore().Add(ns3)).To(Succeed())
-		instancetypeMethods = testutils.NewMockInstancetypeMethods()
 
 		ctrl := gomock.NewController(GinkgoT())
 		mockVMIClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		k8sClient = k8sfake.NewSimpleClientset()
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+
+		const kubeVirtNamespace = "kubevirt"
 		vmsAdmitter = &VMsAdmitter{
-			VirtClient:          virtClient,
-			DataSourceInformer:  dataSourceInformer,
-			NamespaceInformer:   namespaceInformer,
-			ClusterConfig:       config,
-			InstancetypeMethods: instancetypeMethods,
+			VirtClient:              virtClient,
+			DataSourceInformer:      dataSourceInformer,
+			NamespaceInformer:       namespaceInformer,
+			ClusterConfig:           config,
+			InstancetypeAdmitter:    instancetypeWebhooks.NewMockAdmitter(),
+			KubeVirtServiceAccounts: webhooks.KubeVirtServiceAccounts(kubeVirtNamespace),
 		}
 		virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
 	})
@@ -888,283 +888,10 @@ var _ = Describe("Validating VM Admitter", func() {
 			false),
 	)
 
-	Context("validateDataVolumeTemplate", func() {
-		var vm *v1.VirtualMachine
-		apiGroup := "kubevirt.io"
-
-		BeforeEach(func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name: "testdisk",
-			})
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "testdisk",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "dv1",
-					},
-				},
-			})
-
-			vm = &v1.VirtualMachine{
-				Spec: v1.VirtualMachineSpec{
-					Running: pointer.P(false),
-					Template: &v1.VirtualMachineInstanceTemplateSpec{
-						Spec: vmi.Spec,
-					},
-				},
-			}
-		})
-
-		It("should accept valid DataVolumeTemplate", func() {
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
-				Spec: cdiv1.DataVolumeSpec{
-					PVC: &k8sv1.PersistentVolumeClaimSpec{},
-					Source: &cdiv1.DataVolumeSource{
-						Blank: &cdiv1.DataVolumeBlankImage{},
-					},
-				},
-			})
-
-			testutils.AddDataVolumeAPI(crdInformer)
-			resp := admitVm(vmsAdmitter, vm)
-			Expect(resp.Result).To(BeNil())
-			Expect(resp.Allowed).To(BeTrue())
-		})
-		It("should accept DataVolumeTemplate with deleted sourceRef if vm is going to be deleted", func() {
-			now := metav1.Now()
-			vm.DeletionTimestamp = &now
-
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
-				Spec: cdiv1.DataVolumeSpec{
-					PVC: &k8sv1.PersistentVolumeClaimSpec{},
-					SourceRef: &cdiv1.DataVolumeSourceRef{
-						Kind: "DataSource",
-						Name: "fakeName",
-					},
-				},
-			})
-
-			testutils.AddDataVolumeAPI(crdInformer)
-			resp := admitVm(vmsAdmitter, vm)
-			Expect(resp.Allowed).To(BeTrue())
-		})
-		It("should reject invalid DataVolumeTemplate with no dataVolume name", func() {
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{},
-				Spec: cdiv1.DataVolumeSpec{
-					PVC: &k8sv1.PersistentVolumeClaimSpec{},
-					Source: &cdiv1.DataVolumeSource{
-						Blank: &cdiv1.DataVolumeBlankImage{},
-					},
-				},
-			})
-
-			testutils.AddDataVolumeAPI(crdInformer)
-			resp := admitVm(vmsAdmitter, vm)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Message).To(Equal("'name' field must not be empty for DataVolumeTemplate entry spec.dataVolumeTemplate[0].name."))
-		})
-		It("should reject invalid DataVolumeTemplate with no PVC nor Storage", func() {
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
-				Spec: cdiv1.DataVolumeSpec{
-					Source: &cdiv1.DataVolumeSource{
-						Blank: &cdiv1.DataVolumeBlankImage{},
-					},
-				},
-			})
-
-			testutils.AddDataVolumeAPI(crdInformer)
-			resp := admitVm(vmsAdmitter, vm)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Message).To(Equal("Missing Data volume PVC or Storage"))
-		})
-		It("should reject invalid DataVolumeTemplate with both PVC and Storage", func() {
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
-				Spec: cdiv1.DataVolumeSpec{
-					PVC:     &k8sv1.PersistentVolumeClaimSpec{},
-					Storage: &cdiv1.StorageSpec{},
-					Source: &cdiv1.DataVolumeSource{
-						Blank: &cdiv1.DataVolumeBlankImage{},
-					},
-				},
-			})
-
-			testutils.AddDataVolumeAPI(crdInformer)
-			resp := admitVm(vmsAdmitter, vm)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Message).To(Equal("Duplicate storage definition, both target storage and target pvc defined"))
-		})
-		It("should reject invalid DataVolumeTemplate with both datasource and Source", func() {
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
-				Spec: cdiv1.DataVolumeSpec{
-					PVC: &k8sv1.PersistentVolumeClaimSpec{
-						DataSource: &k8sv1.TypedLocalObjectReference{
-							APIGroup: &apiGroup,
-						},
-					},
-					Source: &cdiv1.DataVolumeSource{
-						Blank: &cdiv1.DataVolumeBlankImage{},
-					},
-				},
-			})
-
-			testutils.AddDataVolumeAPI(crdInformer)
-			resp := admitVm(vmsAdmitter, vm)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Message).To(Equal("External population is incompatible with Source and SourceRef"))
-		})
-		It("should reject invalid DataVolumeTemplate with no datasource, source or sourceref", func() {
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
-				Spec: cdiv1.DataVolumeSpec{
-					PVC: &k8sv1.PersistentVolumeClaimSpec{},
-				},
-			})
-
-			testutils.AddDataVolumeAPI(crdInformer)
-			resp := admitVm(vmsAdmitter, vm)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Message).To(Equal("Data volume should have either Source, SourceRef, or be externally populated"))
-		})
-		It("should reject invalid DataVolumeTemplate with no valid Source", func() {
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
-				Spec: cdiv1.DataVolumeSpec{
-					PVC:    &k8sv1.PersistentVolumeClaimSpec{},
-					Source: &cdiv1.DataVolumeSource{},
-				},
-			})
-
-			testutils.AddDataVolumeAPI(crdInformer)
-			resp := admitVm(vmsAdmitter, vm)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Message).To(Equal("Missing dataVolume valid source"))
-		})
-		It("should reject invalid DataVolumeTemplate with multiple Sources", func() {
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
-				Spec: cdiv1.DataVolumeSpec{
-					PVC: &k8sv1.PersistentVolumeClaimSpec{},
-					Source: &cdiv1.DataVolumeSource{
-						Blank: &cdiv1.DataVolumeBlankImage{},
-						HTTP:  &cdiv1.DataVolumeSourceHTTP{},
-					},
-				},
-			})
-
-			testutils.AddDataVolumeAPI(crdInformer)
-			resp := admitVm(vmsAdmitter, vm)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Message).To(Equal("Multiple dataVolume sources"))
-		})
-		It("should reject invalid DataVolumeTemplate with no Volume reference in VMI template", func() {
-			vm.Spec.Template.Spec.Volumes = []v1.Volume{{
-				Name: "testdisk",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: "WRONG-DATAVOLUME",
-					},
-				},
-			}}
-
-			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "dv1",
-				},
-				Spec: cdiv1.DataVolumeSpec{
-					PVC: &k8sv1.PersistentVolumeClaimSpec{},
-					Source: &cdiv1.DataVolumeSource{
-						Blank: &cdiv1.DataVolumeBlankImage{},
-					},
-				},
-			})
-
-			testutils.AddDataVolumeAPI(crdInformer)
-			resp := admitVm(vmsAdmitter, vm)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.dataVolumeTemplate[0]"))
-		})
-	})
-
-	It("should reject VM with DataVolumeTemplate in another namespace", func() {
-		vmi := api.NewMinimalVMI("testvmi")
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: "testdisk",
-		})
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: "testdisk",
-			VolumeSource: v1.VolumeSource{
-				DataVolume: &v1.DataVolumeSource{
-					Name: "dv1",
-				},
-			},
-		})
-
-		vm := &v1.VirtualMachine{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "vm-namespace",
-			},
-			Spec: v1.VirtualMachineSpec{
-				Running: pointer.P(false),
-				Template: &v1.VirtualMachineInstanceTemplateSpec{
-					Spec: vmi.Spec,
-				},
-			},
-		}
-
-		vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, v1.DataVolumeTemplateSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "dv1",
-				Namespace: "another-namespace",
-			},
-			Spec: cdiv1.DataVolumeSpec{
-				PVC: &k8sv1.PersistentVolumeClaimSpec{},
-				Source: &cdiv1.DataVolumeSource{
-					Blank: &cdiv1.DataVolumeBlankImage{},
-				},
-			},
-		})
-
-		testutils.AddDataVolumeAPI(crdInformer)
-		resp := admitVm(vmsAdmitter, vm)
-		Expect(resp.Allowed).To(BeFalse())
-		Expect(resp.Result.Details.Causes[0].Message).To(Equal("Embedded DataVolume namespace another-namespace differs from VM namespace vm-namespace"))
-	})
-
 	Context("with Volume", func() {
 
 		BeforeEach(func() {
-			enableFeatureGate(virtconfig.HostDiskGate)
+			enableFeatureGate(featuregate.HostDiskGate)
 		})
 
 		AfterEach(func() {
@@ -1529,205 +1256,69 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 	})
 
-	DescribeTable("when snapshot is in progress, should", func(mutateFn func(*v1.VirtualMachine) bool) {
-		vmi := api.NewMinimalVMI("testvmi")
-		vmi.Spec.Domain.Devices.Disks = []v1.Disk{
-			{
-				Name: "orginalvolume",
-			},
-		}
-		vmi.Spec.Volumes = []v1.Volume{
-			{
-				Name:         "orginalvolume",
-				VolumeSource: v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}},
-			},
-		}
-		vm := &v1.VirtualMachine{
-			Spec: v1.VirtualMachineSpec{
-				Running: &[]bool{false}[0],
-				Template: &v1.VirtualMachineInstanceTemplateSpec{
-					Spec: vmi.Spec,
-				},
-			},
-			Status: v1.VirtualMachineStatus{
-				SnapshotInProgress: &[]string{"testsnapshot"}[0],
-			},
-		}
-		oldObjectBytes, _ := json.Marshal(vm)
-
-		allow := mutateFn(vm)
-		objectBytes, _ := json.Marshal(vm)
-
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Operation: admissionv1.Update,
-				Resource:  webhooks.VirtualMachineGroupVersionResource,
-				OldObject: runtime.RawExtension{
-					Raw: oldObjectBytes,
-				},
-				Object: runtime.RawExtension{
-					Raw: objectBytes,
-				},
-			},
-		}
-
-		resp := vmsAdmitter.Admit(context.Background(), ar)
-		Expect(resp.Allowed).To(Equal(allow))
-
-		if !allow {
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"), resp.Result.Details.Causes[0].Message)
-		}
-	},
-		Entry("reject update to disks", func(vm *v1.VirtualMachine) bool {
-			vm.Spec.Template.Spec.Domain.Devices.Disks = []v1.Disk{
-				{
-					Name: "testvolume",
-				},
-			}
-			vm.Spec.Template.Spec.Volumes = []v1.Volume{
-				{
-					Name:         "testvolume",
-					VolumeSource: v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}},
-				},
-			}
-			return false
-		}),
-		Entry("reject adding volumes", func(vm *v1.VirtualMachine) bool {
-			vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
-				Name: "testvolume",
-			})
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-				Name:         "testvolume",
-				VolumeSource: v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}},
-			})
-			return false
-		}),
-		Entry("reject update to volumees", func(vm *v1.VirtualMachine) bool {
-			vm.Spec.Template.Spec.Volumes[0].VolumeSource = v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "fake"}}
-			return false
-		}),
-		Entry("accept update to spec, that is not volumes or running state", func(vm *v1.VirtualMachine) bool {
-			vm.Spec.Template.Spec.Affinity = &k8sv1.Affinity{}
-			return true
-		}),
-		Entry("reject update to running state", func(vm *v1.VirtualMachine) bool {
-			vm.Spec.Running = &[]bool{true}[0]
-			return false
-		}),
-		Entry("accept update to running state, if value doesn't change", func(vm *v1.VirtualMachine) bool {
-			vm.Spec.Running = &[]bool{false}[0]
-			return true
-		}),
-		Entry("reject update to running state, when switch state type", func(vm *v1.VirtualMachine) bool {
-			vm.Spec.Running = nil
-			vm.Spec.RunStrategy = &runStrategyManual
-			return false
-		}),
-		Entry("accept update to metadata", func(vm *v1.VirtualMachine) bool {
-			vm.Annotations = map[string]string{"foo": "bar"}
-			return true
-		}),
-		Entry("accept update to status", func(vm *v1.VirtualMachine) bool {
-			vm.Status.Ready = true
-			return true
-		}),
-	)
-
-	DescribeTable("when restore is in progress, should", func(mutateFn func(*v1.VirtualMachine) bool, updateRunStrategy bool) {
-		vmi := api.NewMinimalVMI("testvmi")
-		vm := &v1.VirtualMachine{
-			Spec: v1.VirtualMachineSpec{
-				Template: &v1.VirtualMachineInstanceTemplateSpec{
-					Spec: vmi.Spec,
-				},
-			},
-			Status: v1.VirtualMachineStatus{
-				RestoreInProgress: &[]string{"testrestore"}[0],
-			},
-		}
-		if updateRunStrategy {
-			vm.Spec.RunStrategy = &runStrategyHalted
-		} else {
-			vm.Spec.Running = &[]bool{false}[0]
-		}
-		oldObjectBytes, _ := json.Marshal(vm)
-
-		allow := mutateFn(vm)
-		objectBytes, _ := json.Marshal(vm)
-
-		ar := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Operation: admissionv1.Update,
-				Resource:  webhooks.VirtualMachineGroupVersionResource,
-				OldObject: runtime.RawExtension{
-					Raw: oldObjectBytes,
-				},
-				Object: runtime.RawExtension{
-					Raw: objectBytes,
-				},
-			},
-		}
-
-		resp := vmsAdmitter.Admit(context.Background(), ar)
-		Expect(resp.Allowed).To(Equal(allow))
-
-		if !allow {
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"))
-		}
-	},
-		Entry("reject update to running true", func(vm *v1.VirtualMachine) bool {
-			vm.Spec.Running = &[]bool{true}[0]
-			return false
-		}, false),
-		Entry("reject update of runStrategy", func(vm *v1.VirtualMachine) bool {
-			vm.Spec.RunStrategy = &runStrategyManual
-			return false
-		}, true),
-		Entry("accept update to spec except running true", func(vm *v1.VirtualMachine) bool {
-			vm.Spec.Template = &v1.VirtualMachineInstanceTemplateSpec{}
-			return true
-		}, false),
-		Entry("accept update to metadata", func(vm *v1.VirtualMachine) bool {
-			vm.Annotations = map[string]string{"foo": "bar"}
-			return true
-		}, false),
-		Entry("accept update to status", func(vm *v1.VirtualMachine) bool {
-			vm.Status.Ready = true
-			return true
-		}, false),
-	)
-
 	Context("Instancetype", func() {
 		var (
-			vm *v1.VirtualMachine
+			vm               *v1.VirtualMachine
+			testInstancetype *v1beta1.VirtualMachineInstancetype
+			testPreference   *v1beta1.VirtualMachinePreference
 		)
 
 		BeforeEach(func() {
-			vmi := api.NewMinimalVMI("testvmi")
-			vm = &v1.VirtualMachine{
-				Spec: v1.VirtualMachineSpec{
-					Instancetype: &v1.InstancetypeMatcher{
-						Name: "test",
-						Kind: instancetypeapi.SingularResourceName,
+			vm = libvmi.NewVirtualMachine(
+				libvmi.New(
+					libvmi.WithNamespace("test"),
+				),
+				libvmi.WithInstancetype("test"),
+				libvmi.WithPreference("test"),
+			)
+
+			testInstancetypeClients := fakeclientset.NewSimpleClientset().InstancetypeV1beta1()
+
+			testInstancetypeClient := testInstancetypeClients.VirtualMachineInstancetypes(vm.Namespace)
+			virtClient.EXPECT().VirtualMachineInstancetype(gomock.Any()).Return(testInstancetypeClient).AnyTimes()
+
+			//TODO(lyarwood): Add WithNamespace to libinstancetype.builder and use here
+			testInstancetype = &instancetypev1beta1.VirtualMachineInstancetype{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      vm.Spec.Instancetype.Name,
+					Namespace: vm.Namespace,
+				},
+				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1beta1.CPUInstancetype{
+						Guest: uint32(2),
 					},
-					Preference: &v1.PreferenceMatcher{
-						Name: "test",
-						Kind: instancetypeapi.SingularPreferenceResourceName,
-					},
-					Running: pointer.P(false),
-					Template: &v1.VirtualMachineInstanceTemplateSpec{
-						Spec: vmi.Spec,
+					Memory: instancetypev1beta1.MemoryInstancetype{
+						Guest: resource.MustParse("128Mi"),
 					},
 				},
 			}
+			_, err := virtClient.VirtualMachineInstancetype(vm.Namespace).Create(context.Background(), testInstancetype, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			fakePreferenceClient := testInstancetypeClients.VirtualMachinePreferences(vm.Namespace)
+			virtClient.EXPECT().VirtualMachinePreference(gomock.Any()).Return(fakePreferenceClient).AnyTimes()
+
+			//TODO(lyarwood): Add WithNamespace to libinstancetype.builder and use here
+			testPreference = &instancetypev1beta1.VirtualMachinePreference{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      vm.Spec.Preference.Name,
+					Namespace: vm.Namespace,
+				},
+				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1beta1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
+					},
+				},
+			}
+
+			_, err = virtClient.VirtualMachinePreference(vm.Namespace).Create(context.Background(), testPreference, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vmsAdmitter.InstancetypeAdmitter = instancetypeWebhooks.NewAdmitter(virtClient)
 		})
 
 		It("should reject if instancetype is not found", func() {
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
-				return nil, fmt.Errorf("instancetype not found")
-			}
+			vm.Spec.Instancetype.Name = "unknown"
 
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeFalse())
@@ -1737,9 +1328,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject if preference is not found", func() {
-			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
-				return nil, fmt.Errorf("preference not found")
-			}
+			vm.Spec.Preference.Name = "unknown"
 
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeFalse())
@@ -1749,86 +1338,48 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject if instancetype fails to apply to VMI", func() {
+			vm.Spec.Template.Spec.Domain = v1.DomainSpec{
+				CPU: &v1.CPU{
+					Sockets: 1,
+				},
+				Memory: &v1.Memory{
+					Guest: pointer.P(resource.MustParse("1Gi")),
+				},
+			}
+
 			var (
-				basePath = k8sfield.NewPath("spec", "template", "spec")
-				path1    = basePath.Child("example", "path")
-				path2    = basePath.Child("domain", "example", "path")
+				conflict1 = conflict.New("spec", "template", "spec", "domain", "cpu", "sockets")
+				conflict2 = conflict.New("spec", "template", "spec", "domain", "memory")
 			)
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
-				return &instancetypev1beta1.VirtualMachineInstancetypeSpec{}, nil
-			}
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
-				return &instancetypev1beta1.VirtualMachineInstancetypeSpec{}, nil
-			}
-			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
-				return &instancetypev1beta1.VirtualMachinePreferenceSpec{}, nil
-			}
-			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, _ *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) instancetype.Conflicts {
-				return instancetype.Conflicts{path1, path2}
-			}
 
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeFalse())
 			Expect(response.Result.Details.Causes).To(HaveLen(2))
 			Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(response.Result.Details.Causes[0].Field).To(Equal(path1.String()))
+			Expect(response.Result.Details.Causes[0].Field).To(Equal(conflict1.String()))
 			Expect(response.Result.Details.Causes[1].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(response.Result.Details.Causes[1].Field).To(Equal(path2.String()))
-		})
-
-		It("should apply instancetype to VMI before validating VMI", func() {
-			// Test that VMI without instancetype application is valid
-			response := admitVm(vmsAdmitter, vm)
-			Expect(response.Allowed).To(BeTrue())
-
-			// Instancetype application sets invalid memory value
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
-				return &instancetypev1beta1.VirtualMachineInstancetypeSpec{}, nil
-			}
-			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) instancetype.Conflicts {
-				vmiSpec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("-1Mi")
-				return nil
-			}
-
-			// Test that VMI fails
-			response = admitVm(vmsAdmitter, vm)
-			Expect(response.Allowed).To(BeFalse())
-			Expect(response.Result.Details.Causes).To(HaveLen(1))
-			Expect(response.Result.Details.Causes[0].Field).
-				To(Equal("spec.template.spec.domain.resources.requests.memory"))
+			Expect(response.Result.Details.Causes[1].Field).To(Equal(conflict2.String()))
 		})
 
 		It("should not apply instancetype to the VMISpec of the original VM", func() {
-
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
-				return &instancetypev1beta1.VirtualMachineInstancetypeSpec{}, nil
-			}
-
-			// Mock out ApplyToVmiFunc so that it applies some changes to the CPU of the provided VMISpec
-			instancetypeMethods.ApplyToVmiFunc = func(_ *k8sfield.Path, _ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) instancetype.Conflicts {
-				vmiSpec.Domain.CPU = &v1.CPU{Cores: 1, Threads: 1, Sockets: 1}
-				return nil
-			}
-
-			// Nil out CPU within the DomainSpec of the VMISpec being admitted to assert this remains untouched
-			vm.Spec.Template.Spec.Domain.CPU = nil
-
 			// The VM should be admitted successfully
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeTrue())
 
 			// Ensure CPU has remained nil within the now admitted VMISpec
 			Expect(vm.Spec.Template.Spec.Domain.CPU).To(BeNil())
-
 		})
 
 		It("should reject if preference requirements are not met", func() {
-			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
-				return &instancetypev1beta1.VirtualMachinePreferenceSpec{}, nil
+			testPreference.Spec.Requirements = &v1beta1.PreferenceRequirements{
+				CPU: &v1beta1.CPUPreferenceRequirement{
+					Guest: 10,
+				},
 			}
-			instancetypeMethods.CheckPreferenceRequirementsFunc = func(_ *instancetypev1beta1.VirtualMachineInstancetypeSpec, _ *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec) (instancetype.Conflicts, error) {
-				return instancetype.Conflicts{k8sfield.NewPath("spec", "instancetype")}, fmt.Errorf("requirements not met")
-			}
+
+			_, err := virtClient.VirtualMachinePreference(vm.Namespace).Update(context.Background(), testPreference, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeFalse())
 			Expect(response.Result.Details.Causes).To(HaveLen(1))
@@ -1836,18 +1387,25 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(response.Result.Details.Causes[0].Message).To(ContainSubstring("failure checking preference requirements"))
 		})
 
-		DescribeTable("should reject if PreferSpread requested with", func(vCPUs uint32, preferenceSpec instancetypev1beta1.VirtualMachinePreferenceSpec, expectedMessage string) {
-			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
-				return &preferenceSpec, nil
-			}
+		const (
+			instancetypeCPUGuestPath       = "instancetype.spec.cpu.guest"
+			spreadAcrossSocketsCoresErrFmt = "%d vCPUs provided by the instance type are not divisible by the " +
+				"Spec.PreferSpreadSocketToCoreRatio or Spec.CPU.PreferSpreadOptions.Ratio of %d provided by the preference"
+			spreadAcrossCoresThreadsErrFmt        = "%d vCPUs provided by the instance type are not divisible by the number of threads per core %d"
+			spreadAcrossSocketsCoresThreadsErrFmt = "%d vCPUs provided by the instance type are not divisible by the number of threads per core " +
+				"%d and Spec.PreferSpreadSocketToCoreRatio or Spec.CPU.PreferSpreadOptions.Ratio of %d"
+		)
 
-			instancetypeMethods.FindInstancetypeSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
-				return &instancetypev1beta1.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1beta1.CPUInstancetype{
-						Guest: vCPUs,
-					},
-				}, nil
-			}
+		DescribeTable("should reject if PreferSpread requested with", func(vCPUs uint32, preferenceSpec instancetypev1beta1.VirtualMachinePreferenceSpec, expectedMessage string) {
+			testPreference.Spec = preferenceSpec
+
+			_, err := virtClient.VirtualMachinePreference(vm.Namespace).Update(context.Background(), testPreference, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			testInstancetype.Spec.CPU.Guest = vCPUs
+
+			_, err = virtClient.VirtualMachineInstancetype(vm.Namespace).Update(context.Background(), testInstancetype, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeFalse())
@@ -2090,9 +1648,12 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		DescribeTable("should admit VM with preference using preferSpread and without instancetype", func(preferredCPUTopology instancetypev1beta1.PreferredCPUTopology) {
 			vm.Spec.Instancetype = nil
-			instancetypeMethods.FindPreferenceSpecFunc = func(_ *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
-				return &instancetypev1beta1.VirtualMachinePreferenceSpec{CPU: &instancetypev1beta1.CPUPreferences{PreferredCPUTopology: &preferredCPUTopology}}, nil
-			}
+
+			testPreference.Spec.CPU.PreferredCPUTopology = pointer.P(preferredCPUTopology)
+
+			_, err := virtClient.VirtualMachinePreference(vm.Namespace).Update(context.Background(), testPreference, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
 			response := admitVm(vmsAdmitter, vm)
 			Expect(response.Allowed).To(BeTrue())
 		},
@@ -2187,7 +1748,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: "Memory hotplug is not compatible with realtime VMs",
 				}),
 				Entry("launchSecurity is configured", func(vm *v1.VirtualMachine) {
-					enableFeatureGate(virtconfig.WorkloadEncryptionSEV)
+					enableFeatureGate(featuregate.WorkloadEncryptionSEV)
 					vm.Spec.Template.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
@@ -2252,7 +1813,7 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: fmt.Sprintf("Guest memory must be %s aligned", resource.NewQuantity(memory.Hotplug1GHugePagesBlockAlignmentBytes, resource.BinarySI)),
 				}),
 				Entry("architecture is not amd64 or arm64", func(vm *v1.VirtualMachine) {
-					enableFeatureGate(virtconfig.MultiArchitecture)
+					enableFeatureGate(featuregate.MultiArchitecture)
 					vm.Spec.Template.Spec.Architecture = "risc-v"
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
@@ -2269,55 +1830,17 @@ var _ = Describe("Validating VM Admitter", func() {
 			)
 		})
 
-		Context("Update volume strategy", func() {
-			It("should accept the VM with the feature gate enabled", func() {
-				enableFeatureGate(virtconfig.VolumesUpdateStrategy)
-				vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyReplacement)
-				resp := admitVm(vmsAdmitter, vm)
-				Expect(resp.Allowed).To(BeTrue())
-				Expect(resp.Result).To(BeNil())
-			})
-			It("should reject the VM creation if the feature gate isn't enabled", func() {
-				vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyReplacement)
-				resp := admitVm(vmsAdmitter, vm)
-				Expect(resp.Allowed).To(BeFalse())
-				Expect(resp.Result.Details.Causes).To(ContainElement(metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Field:   "updateVolumesStrategy",
-					Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VolumesUpdateStrategy),
-				}))
-			})
-			It("should accept the VM with the feature gate enabled for volume migration", func() {
-				enableFeatureGate(virtconfig.VolumesUpdateStrategy, virtconfig.VolumeMigration)
-				vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyMigration)
-				resp := admitVm(vmsAdmitter, vm)
-				Expect(resp.Allowed).To(BeTrue())
-				Expect(resp.Result).To(BeNil())
-			})
-			It("should reject the VM creation if the volume migration feature gate isn't enabled", func() {
-				enableFeatureGate(virtconfig.VolumesUpdateStrategy)
-				vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyMigration)
-				resp := admitVm(vmsAdmitter, vm)
-				Expect(resp.Allowed).To(BeFalse())
-				Expect(resp.Result.Details.Causes).To(ContainElement(metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Field:   "updateVolumesStrategy",
-					Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VolumeMigration),
-				}))
-			})
-		})
 	})
 
 	It("should raise a warning when Deprecated API is used", func() {
 		const testsFGName = "test-deprecated"
-		deprecation.RegisterFeatureGate(deprecation.FeatureGate{
+		featuregate.RegisterFeatureGate(featuregate.FeatureGate{
 			Name:        testsFGName,
-			State:       deprecation.Deprecated,
+			State:       featuregate.Deprecated,
 			VmiSpecUsed: func(_ *v1.VirtualMachineInstanceSpec) bool { return true },
 		})
-		DeferCleanup(deprecation.UnregisterFeatureGate, testsFGName)
+		DeferCleanup(featuregate.UnregisterFeatureGate, testsFGName)
 		enableFeatureGate(testsFGName)
-
 		vmi := api.NewMinimalVMI("testvmi")
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
@@ -2336,6 +1859,37 @@ var _ = Describe("Validating VM Admitter", func() {
 			HavePrefix("feature gate test-deprecated is deprecated"),
 			HavePrefix("spec.running is deprecated, please use spec.runStrategy instead.")))
 	})
+
+	It("should reject request when Discontinued feature is used", func() {
+		const fgName = "test-discontinued"
+		const fgMessage = "FG is discontinued"
+		featuregate.RegisterFeatureGate(featuregate.FeatureGate{
+			Name:        fgName,
+			State:       featuregate.Discontinued,
+			VmiSpecUsed: func(_ *v1.VirtualMachineInstanceSpec) bool { return true },
+			Message:     fgMessage,
+		})
+		DeferCleanup(featuregate.UnregisterFeatureGate, fgName)
+		enableFeatureGate(fgName)
+
+		vmi := api.NewMinimalVMI("testvmi")
+		vm := &v1.VirtualMachine{
+			Spec: v1.VirtualMachineSpec{
+				Running: pointer.P(false),
+				Template: &v1.VirtualMachineInstanceTemplateSpec{
+					Spec: vmi.Spec,
+				},
+			},
+		}
+
+		resp := admitVm(vmsAdmitter, vm)
+		Expect(resp.Allowed).To(BeFalse())
+		Expect(resp.Result).ToNot(BeNil())
+		Expect(resp.Result.Message).To(Equal(fgMessage))
+		Expect(resp.Result.Details.Causes).To(HaveLen(1))
+		Expect(resp.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotSupported))
+		Expect(resp.Result.Details.Causes[0].Message).To(Equal(fgMessage))
+	})
 })
 
 func admitVm(admitter *VMsAdmitter, vm *v1.VirtualMachine) *admissionv1.AdmissionResponse {
@@ -2347,6 +1901,7 @@ func admitVm(admitter *VMsAdmitter, vm *v1.VirtualMachine) *admissionv1.Admissio
 			Object: runtime.RawExtension{
 				Raw: vmBytes,
 			},
+			Operation: admissionv1.Create,
 		},
 	}
 

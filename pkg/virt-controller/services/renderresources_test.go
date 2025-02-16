@@ -175,17 +175,17 @@ var _ = Describe("Resource pod spec renderer", func() {
 		userSpecifiedCPU := kubev1.ResourceList{kubev1.ResourceCPU: userCPURequest}
 
 		It("the user requested CPU configs are *not* overriden", func() {
-			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(&v1.CPU{Cores: 5}, map[string]string{}))
+			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(&v1.CPU{Cores: 5}, map[string]string{}, 0))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, userCPURequest))
 		})
 
 		It("carries over the CPU limits as requests when no CPUs are requested", func() {
-			rr = NewResourceRenderer(userSpecifiedCPU, nil, WithCPUPinning(&v1.CPU{}, map[string]string{}))
+			rr = NewResourceRenderer(userSpecifiedCPU, nil, WithCPUPinning(&v1.CPU{}, map[string]string{}, 0))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, userCPURequest))
 		})
 
 		It("carries over the CPU requests as limits when no CPUs are requested", func() {
-			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(&v1.CPU{}, map[string]string{}))
+			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(&v1.CPU{}, map[string]string{}, 0))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, userCPURequest))
 		})
 
@@ -195,7 +195,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 				kubev1.ResourceCPU:    userCPURequest,
 				kubev1.ResourceMemory: memoryRequest,
 			}
-			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(&v1.CPU{Cores: 5}, map[string]string{}))
+			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(&v1.CPU{Cores: 5}, map[string]string{}, 0))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, resource.MustParse("200m")))
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceMemory, memoryRequest))
 		})
@@ -219,7 +219,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 							Cores:                 cores,
 							IsolateEmulatorThread: true,
 						},
-							vmiAnnotations),
+							vmiAnnotations, 0),
 					)
 					Expect(rr.Limits()).To(HaveKeyWithValue(
 						kubev1.ResourceCPU,
@@ -237,6 +237,25 @@ var _ = Describe("Resource pod spec renderer", func() {
 				Entry("EmulatorThreadCompleteToEvenParity mode is enabled, request and limits set by the user, odd amount of cores is requested", map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, true, uint32(5), "1000m"),
 				Entry("EmulatorThreadCompleteToEvenParity mode is enabled, request and limits set by the user, even amount of cores is requested", map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, true, uint32(6), "2000m"),
 			)
+
+			It("requires additional EmulatorThread CPUs overhead, and additional CPUs added to the limits and the IOThreads", func() {
+				cores := uint32(2)
+				iothreads := uint32(4)
+
+				rr = NewResourceRenderer(
+					nil, nil,
+					WithCPUPinning(&v1.CPU{
+						Cores:                 cores,
+						IsolateEmulatorThread: true,
+						DedicatedCPUPlacement: true,
+					}, nil, 0),
+					WithIOThreads(&v1.DiskIOThreads{SupplementalPoolThreadCount: pointer.P(iothreads)}),
+				)
+				Expect(rr.Limits()).Should(HaveKeyWithValue(
+					kubev1.ResourceCPU,
+					*resource.NewQuantity(int64(cores)+int64(iothreads)+1, resource.BinarySI),
+				), "should have the limits")
+			})
 		})
 	})
 
@@ -449,7 +468,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 
 var _ = Describe("GetMemoryOverhead calculation", func() {
 	// VirtLauncherMonitorOverhead + VirtLauncherOverhead + VirtlogdOverhead + VirtqemudOverhead + QemuOverhead + IothreadsOverhead
-	const staticOverheadString = "218Mi"
+	const staticOverheadString = "223Mi"
 	var (
 		vmi                     *v1.VirtualMachineInstance
 		staticOverhead          *resource.Quantity
@@ -479,7 +498,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 		}
 		staticOverhead = pointer.P(resource.MustParse(staticOverheadString))
 		// MemoryReq / 512bit
-		baseOverhead = pointer.P(resource.MustParse("2Mi"))
+		baseOverhead = pointer.P(resource.MustParse("7Mi"))
 		coresOverhead = pointer.P(resource.MustParse("8Mi"))
 		videoRAMOverhead = pointer.P(resource.MustParse("16Mi"))
 		cpuArchOverhead = pointer.P(resource.MustParse("128Mi"))

@@ -24,34 +24,33 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
+
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const COMMAND_MIGRATE = "migrate"
 
-func NewMigrateCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewMigrateCommand() *cobra.Command {
+	c := Command{command: COMMAND_MIGRATE}
 	cmd := &cobra.Command{
 		Use:     "migrate (VM)",
 		Short:   "Migrate a virtual machine.",
 		Example: usage(COMMAND_MIGRATE),
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Command{command: COMMAND_MIGRATE, clientConfig: clientConfig}
-			return c.migrateRun(args)
-		},
+		RunE:    c.migrateRun,
 	}
 	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 
-func (o *Command) migrateRun(args []string) error {
+func (o *Command) migrateRun(cmd *cobra.Command, args []string) error {
 	vmiName := args[0]
 
-	virtClient, namespace, err := GetNamespaceAndClient(o.clientConfig)
+	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

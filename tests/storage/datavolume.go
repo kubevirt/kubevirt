@@ -26,7 +26,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -57,8 +56,9 @@ import (
 	instanceType "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
@@ -67,7 +67,6 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libdv"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -96,7 +95,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		virtClient = kubevirt.Client()
 
 		if !libstorage.HasCDI() {
-			Skip("Skip DataVolume tests when CDI is not present")
+			Fail("Fail DataVolume tests when CDI is not present")
 		}
 	})
 
@@ -147,34 +146,25 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		return libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running}, libwait.WithTimeout(500))
 	}
 
-	alignImageSizeTo1MiB := func(size int64) int64 {
-		remainder := size % (1024 * 1024)
-		if remainder == 0 {
-			return size
-		}
-		return size - remainder
-	}
-
-	Context("[storage-req]PVC expansion", decorators.StorageReq, func() {
+	Context("[storage-req]PVC expansion", decorators.StorageReq, decorators.RequiresVolumeExpansion, func() {
 		DescribeTable("PVC expansion is detected by VM and can be fully used", func(volumeMode k8sv1.PersistentVolumeMode) {
-			checks.SkipTestIfNoFeatureGate(virtconfig.ExpandDisksGate)
-
+			checks.SkipTestIfNoFeatureGate(featuregate.ExpandDisksGate)
 			var sc string
 			exists := false
 			if volumeMode == k8sv1.PersistentVolumeBlock {
 				sc, exists = libstorage.GetRWOBlockStorageClass()
 				if !exists {
-					Skip("Skip test when Block storage is not present")
+					Fail("Fail test when Block storage is not present")
 				}
 			} else {
 				sc, exists = libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 			}
 			volumeExpansionAllowed := volumeExpansionAllowed(sc)
 			if !volumeExpansionAllowed {
-				Skip("Skip when volume expansion storage class not available")
+				Fail("Fail when volume expansion storage class not available")
 			}
 
 			imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)
@@ -232,26 +222,24 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				&expect.BExp{R: "0"},
 			}, 360)).To(Succeed(), "can use more space after expansion and resize")
 		},
-			Entry("with Block PVC", k8sv1.PersistentVolumeBlock),
+			Entry("with Block PVC", decorators.RequiresBlockStorage, k8sv1.PersistentVolumeBlock),
 			Entry("with Filesystem PVC", k8sv1.PersistentVolumeFilesystem),
 		)
 
 		It("Check disk expansion accounts for actual usable size", func() {
-			checks.SkipTestIfNoFeatureGate(virtconfig.ExpandDisksGate)
+			checks.SkipTestIfNoFeatureGate(featuregate.ExpandDisksGate)
 
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
+				Fail("Fail test when Filesystem storage is not present")
 			}
 
 			volumeExpansionAllowed := volumeExpansionAllowed(sc)
 			if !volumeExpansionAllowed {
-				Skip("Skip when volume expansion storage class not available")
+				Fail("Fail when volume expansion storage class not available")
 			}
-
-			imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)
 			dataVolume := libdv.NewDataVolume(
-				libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullNode),
+				libdv.WithBlankImageSource(),
 				libdv.WithStorage(
 					libdv.StorageWithStorageClass(sc),
 					libdv.StorageWithVolumeSize("512Mi"),
@@ -261,100 +249,47 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			)
 			dataVolume, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
+			libstorage.EventuallyDV(dataVolume, 100, HaveSucceeded())
+			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(dataVolume.Namespace).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, dataVolume.Namespace, libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()))
+			executorPod := createExecutorPodWithPVC("size-detection", pvc)
+			fstatOutput, err := exec.ExecuteCommandOnPod(
+				executorPod,
+				executorPod.Spec.Containers[0].Name,
+				[]string{"stat", "-f", "-c", "%a %s", libstorage.DefaultPvcMountPath},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			var freeBlocks, ioBlockSize int64
+			_, err = fmt.Sscanf(fstatOutput, "%d %d", &freeBlocks, &ioBlockSize)
+			Expect(err).ToNot(HaveOccurred())
+			freeSize := freeBlocks * ioBlockSize
+
+			vmi := libstorage.RenderVMIWithDataVolume(dataVolume.Name, dataVolume.Namespace)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 500)
 
-			By("Expecting the VirtualMachineInstance console")
-			Expect(console.LoginToCirros(vmi)).To(Succeed())
-
-			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			pv, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), pvc.Spec.VolumeName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			pvcRequestSize := pvc.Spec.Resources.Requests[k8sv1.ResourceStorage]
-			pvCapacitySize := pv.Spec.Capacity[k8sv1.ResourceStorage]
-
-			By("Checking if PV capacity is larger than PVC request")
-			if pvCapacitySize.Cmp(pvcRequestSize) > 0 {
-				Expect(getVirtualSize(vmi, dataVolume)).To(Equal((pvcRequestSize.Value())))
-			} else {
-				overheadPercentage, err := strconv.ParseFloat(string(*vmi.Status.VolumeStatus[1].PersistentVolumeClaimInfo.FilesystemOverhead), 64)
+			// Let's wait for VMI to be ready
+			Eventually(func() bool {
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				overheadSize := float64(pvcRequestSize.Value()) * (1.0 - overheadPercentage)
-				expectedSize := alignImageSizeTo1MiB(int64(overheadSize))
-				Expect(getVirtualSize(vmi, dataVolume)).To(Equal(expectedSize))
-			}
+				for _, volStatus := range vmi.Status.VolumeStatus {
+					if volStatus.Name == "disk0" {
+						return true
+					}
+				}
+				return false
+			}, 30*time.Second, time.Second).Should(BeTrue(), "Expected VolumeStatus for 'disk0' to be available")
+
+			Expect(getVirtualSize(vmi, dataVolume)).ToNot(BeNumerically(">", freeSize))
 		})
 	})
 
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachineInstance with a DataVolume as a volume source", func() {
-
-		Context("[Serial]without fsgroup support", Serial, func() {
-			size := "1Gi"
-
-			It("should succesfully start", func() {
-				// Create DV and alter permission of disk.img
-				sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
-				if !foundSC {
-					Skip("Skip test when Filesystem storage is not present")
-				}
-
-				dv := libdv.NewDataVolume(
-					libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-					libdv.WithStorage(
-						libdv.StorageWithStorageClass(sc),
-						libdv.StorageWithVolumeSize(size),
-						libdv.StorageWithReadWriteManyAccessMode(),
-					),
-					libdv.WithForceBindAnnotation(),
-				)
-
-				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespacePrivileged).Create(context.Background(), dv, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				var pvc *k8sv1.PersistentVolumeClaim
-				Eventually(func() *k8sv1.PersistentVolumeClaim {
-					pvc, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.NamespacePrivileged).Get(context.Background(), dv.Name, metav1.GetOptions{})
-					if err != nil {
-						return nil
-					}
-					return pvc
-				}, 30*time.Second).Should(Not(BeNil()))
-				By("waiting for the dv import to pvc to finish")
-				libstorage.EventuallyDV(dv, 180, HaveSucceeded())
-				libstorage.ChangeImgFilePermissionsToNonQEMU(pvc)
-
-				By("Starting the VirtualMachineInstance")
-				vmi := libvmops.RunVMIAndExpectLaunch(libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace), 120)
-
-				By(checkingVMInstanceConsoleExpectedOut)
-				Expect(console.LoginToAlpine(vmi)).To(Succeed())
-			})
-		})
-
 		Context("Alpine import", func() {
-			BeforeEach(func() {
-				cdis, err := virtClient.CdiClient().CdiV1beta1().CDIs().List(context.Background(), metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(cdis.Items).To(HaveLen(1))
-				hasWaitForFirstConsumerGate := false
-				for _, feature := range cdis.Items[0].Spec.Config.FeatureGates {
-					if feature == "HonorWaitForFirstConsumer" {
-						hasWaitForFirstConsumerGate = true
-						break
-					}
-				}
-				if !hasWaitForFirstConsumerGate {
-					Skip("HonorWaitForFirstConsumer is disabled in CDI, skipping tests relying on it")
-				}
-			})
-
-			It("[test_id:3189]should be successfully started and stopped multiple times", func() {
+			It("[test_id:3189]should be successfully started and stopped multiple times", decorators.Conformance, func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				dataVolume := libdv.NewDataVolume(
@@ -386,14 +321,13 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					Expect(err).ToNot(HaveOccurred())
 					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				}
-				libstorage.DeleteDataVolume(&dataVolume)
 			})
 
 			It("[test_id:6686]should successfully start multiple concurrent VMIs", func() {
 
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				imageUrl := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)
@@ -430,14 +364,13 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 
 					err := virtClient.VirtualMachineInstance(vmis[idx].Namespace).Delete(context.Background(), vmis[idx].Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					libstorage.DeleteDataVolume(&dvs[idx])
 				}
 			})
 
 			It("[test_id:5252]should be successfully started when using a PVC volume owned by a DataVolume", func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				dataVolume := libdv.NewDataVolume(
@@ -463,7 +396,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
-				libstorage.DeleteDataVolume(&dataVolume)
 			})
 
 			It("should accurately aggregate DataVolume conditions from many DVs", func() {
@@ -540,7 +472,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					err := virtClient.StorageV1().StorageClasses().Delete(context.Background(), storageClass.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
 				}
-				libstorage.DeleteDataVolume(&dv)
 			})
 
 			It("[test_id:4643]should NOT be rejected when VM template lists a DataVolume, but VM lists PVC VolumeSource", func() {
@@ -569,7 +500,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			It("should be possible to stop VM if datavolume is crashing", func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				dataVolume := libdv.NewDataVolume(
@@ -613,7 +544,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			It("[test_id:3190]should correctly handle eventually consistent DataVolumes", func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				realRegistryName := flags.KubeVirtUtilityRepoPrefix
@@ -638,8 +569,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 					libdv.WithRegistryURLSourceAndPullMethod(imageUrl, cdiv1.RegistryPullPod),
 					libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
 				)
-
-				defer libstorage.DeleteDataVolume(&dataVolume)
 
 				By("Creating DataVolume with invalid URL")
 				dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
@@ -688,7 +617,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		BeforeEach(func() {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
+				Fail("Fail test when Filesystem storage is not present")
 			}
 
 			vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
@@ -785,7 +714,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			It("[test_id:3191]should be successfully started and stopped multiple times", func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
@@ -811,7 +740,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			It("[test_id:3192]should remove owner references on DataVolume if VM is orphan deleted.", func() {
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Fail test when Filesystem storage is not present")
 				}
 
 				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
@@ -833,7 +762,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 	})
 
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] DataVolume clone permission checking", func() {
-		Context("using Alpine import/clone", func() {
+		Context("using Alpine import/clone", decorators.RequiresSnapshotStorageClass, func() {
 			var dataVolume *cdiv1.DataVolume
 			var cloneRole *rbacv1.Role
 			var cloneRoleBinding *rbacv1.RoleBinding
@@ -844,7 +773,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				storageClass, err = libstorage.GetSnapshotStorageClass(virtClient)
 				Expect(err).ToNot(HaveOccurred())
 				if storageClass == "" {
-					Skip("Skiping test, no VolumeSnapshot support")
+					Fail("Failing test, no VolumeSnapshot support")
 				}
 
 				dataVolume = libdv.NewDataVolume(
@@ -1000,10 +929,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				createVMSuccess()
 
 				dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.TODO(), dvt.Name, metav1.GetOptions{})
-				if libstorage.IsDataVolumeGC(virtClient) {
-					Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
-					return
-				}
 				Expect(err).ToNot(HaveOccurred())
 				Expect(dv.Spec.SourceRef).To(BeNil())
 				switch {
@@ -1062,7 +987,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 				}, 30*time.Second, 5*time.Second).Should(BeTrue())
 			})
 
-			DescribeTable("[storage-req] deny then allow clone request", decorators.StorageReq, func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool, cloneMutateFunc func(), fail bool) {
+			DescribeTable("[storage-req] deny then allow clone request", decorators.Conformance, decorators.StorageReq, func(role *rbacv1.Role, allServiceAccounts, allServiceAccountsInNamespace bool, cloneMutateFunc func(), fail bool) {
 				if cloneMutateFunc != nil {
 					cloneMutateFunc()
 				}
@@ -1126,56 +1051,6 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		})
 	})
 
-	Describe("[Serial][rfe_id:8400][crit:high][vendor:cnv-qe@redhat.com][level:system] Garbage collection of succeeded DV", Serial, func() {
-		var originalTTL *int32
-
-		BeforeEach(func() {
-			cdi := libstorage.GetCDI(virtClient)
-			originalTTL = cdi.Spec.Config.DataVolumeTTLSeconds
-		})
-
-		AfterEach(func() {
-			libstorage.SetDataVolumeGC(virtClient, originalTTL)
-		})
-
-		DescribeTable("Verify DV of VM with DataVolumeTemplates is garbage collected when", func(ttlBefore, ttlAfter *int32, gcAnnotation string) {
-			libstorage.SetDataVolumeGC(virtClient, ttlBefore)
-
-			sc, exists := libstorage.GetRWOFileSystemStorageClass()
-			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
-			}
-
-			vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
-			vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
-
-			By(checkingVMInstanceConsoleExpectedOut)
-			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(console.LoginToAlpine(vmi)).To(Succeed())
-
-			libstorage.SetDataVolumeGC(virtClient, ttlAfter)
-
-			dvName := vm.Spec.DataVolumeTemplates[0].Name
-
-			if gcAnnotation != "" {
-				ann := map[string]string{"cdi.kubevirt.io/storage.deleteAfterCompletion": gcAnnotation}
-				p, err := patch.New(patch.WithAdd("/metadata/annotations", ann)).GeneratePayload()
-				Expect(err).ToNot(HaveOccurred())
-				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Patch(context.TODO(), dvName, types.JSONPatchType, p, metav1.PatchOptions{})
-				Expect(err).ToNot(HaveOccurred())
-			}
-
-			libstorage.EventuallyDVWith(vm.Namespace, dvName, 100, BeNil())
-		},
-			Entry("[test_id:8567]GC is enabled", pointer.P(int32(0)), pointer.P(int32(0)), ""),
-			Entry("[test_id:8571]GC is disabled, and after VM creation, GC is enabled and DV is annotated", pointer.P(int32(-1)), pointer.P(int32(0)), "true"),
-		)
-	})
-
 	Context("Fedora VMI tests", func() {
 		imageSizeEqual := func(a, b int64) bool {
 			// Our OCS image size method probe is very precise and can show a few
@@ -1214,12 +1089,16 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		DescribeTable("[rfe_id:5070][crit:medium][vendor:cnv-qe@redhat.com][level:component]fstrim from the VM influences disk.img", func(dvChange func(*cdiv1.DataVolume) *cdiv1.DataVolume, expectSmaller bool) {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip test when Filesystem storage is not present")
+				Fail("Fail test when Filesystem storage is not present")
 			}
 
 			dataVolume := libdv.NewDataVolume(
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)),
-				libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeSize(cd.FedoraVolumeSize)),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
+					libdv.StorageWithVolumeSize(cd.FedoraVolumeSize),
+				),
 				libdv.WithForceBindAnnotation(), // So we can wait for DV to finish before starting the VMI
 			)
 
@@ -1324,7 +1203,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 		BeforeEach(func() {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
-				Skip("Skip test when Filesystem storage class is not present")
+				Fail("Fail test when Filesystem storage class is not present")
 			}
 
 			vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
@@ -1492,30 +1371,6 @@ func volumeExpansionAllowed(sc string) bool {
 	Expect(err).ToNot(HaveOccurred())
 	return storageClass.AllowVolumeExpansion != nil &&
 		*storageClass.AllowVolumeExpansion
-}
-
-func newRandomVMWithDataVolume() (*v1.VirtualMachine, bool) {
-	sc, exists := libstorage.GetRWOFileSystemStorageClass()
-	if !exists {
-		return nil, false
-	}
-
-	dataVolume := libdv.NewDataVolume(
-		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-		libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
-	)
-
-	vmi := libvmi.New(
-		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		libvmi.WithDataVolume("disk0", dataVolume.Name),
-		libvmi.WithResourceMemory("1Gi"),
-		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
-	)
-	vm := libvmi.NewVirtualMachine(vmi)
-
-	libstorage.AddDataVolumeTemplate(vm, dataVolume)
-	return vm, true
 }
 
 func renderVMWithCloneDataVolume(sourceNamespace, sourceName, targetNamespace, sc string) *v1.VirtualMachine {

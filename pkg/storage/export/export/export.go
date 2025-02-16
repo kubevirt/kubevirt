@@ -61,7 +61,6 @@ import (
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
@@ -112,8 +111,6 @@ const (
 
 	kvm = 107
 
-	// secretTokenLength is the lenght of the randomly generated token
-	secretTokenLength = 20
 	// secretTokenKey is the entry used to store the token in the virtualMachineExport secret
 	secretTokenKey = "token"
 
@@ -178,11 +175,15 @@ func (sv *sourceVolumes) isSourceAvailable() bool {
 	return !sv.inUse && sv.isPopulated
 }
 
+type manifestRenderer interface {
+	RenderExporterManifest(vmExport *exportv1.VirtualMachineExport, namePrefix string) *corev1.Pod
+}
+
 // VMExportController is resonsible for exporting VMs
 type VMExportController struct {
 	Client kubecli.KubevirtClient
 
-	TemplateService services.TemplateService
+	ManifestRenderer manifestRenderer
 
 	VMExportInformer            cache.SharedIndexInformer
 	PVCInformer                 cache.SharedIndexInformer
@@ -211,7 +212,7 @@ type VMExportController struct {
 
 	KubevirtNamespace string
 
-	vmExportQueue workqueue.RateLimitingInterface
+	vmExportQueue workqueue.TypedRateLimitingInterface[string]
 
 	caCertManager *bootstrap.FileCertificateManager
 
@@ -262,7 +263,10 @@ func (ctrl *VMExportController) Init() error {
 	if err != nil {
 		return err
 	}
-	ctrl.vmExportQueue = workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "virt-controller-export-vmexport")
+	ctrl.vmExportQueue = workqueue.NewTypedRateLimitingQueueWithConfig[string](
+		workqueue.DefaultTypedControllerRateLimiter[string](),
+		workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-export-vmexport"},
+	)
 
 	_, err = ctrl.VMExportInformer.AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
@@ -727,7 +731,7 @@ func (ctrl *VMExportController) handleVMExportToken(vmExport *exportv1.VirtualMa
 		vmExport.Status.TokenSecretRef = &generatedSecretName
 	}
 
-	token, err := kutil.GenerateSecureRandomString(secretTokenLength)
+	token, err := kutil.GenerateVMExportToken()
 	if err != nil {
 		return err
 	}
@@ -901,7 +905,7 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 	}
 
 	deadline := certParams.Duration - certParams.RenewBefore
-	podManifest := ctrl.TemplateService.RenderExporterManifest(vmExport, exportPrefix)
+	podManifest := ctrl.ManifestRenderer.RenderExporterManifest(vmExport, exportPrefix)
 	podManifest.Labels = map[string]string{exportServiceLabel: ctrl.getExportLabelValue(vmExport)}
 	for key, value := range vmExport.Labels {
 		podManifest.Labels[key] = value
@@ -1403,7 +1407,6 @@ func (ctrl *VMExportController) expandVirtualMachine(vm *virtv1.VirtualMachine) 
 }
 
 func (ctrl *VMExportController) updateHttpSourceDataVolumeTemplate(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
-	// TODO: Need to find a way to include/represent backend storage in the export VM manifest
 	volumes, err := storageutils.GetVolumes(vm, nil)
 	if err != nil {
 		return nil, err
@@ -1473,7 +1476,6 @@ func (ctrl *VMExportController) generateVMDefinitionFromVm(vm *virtv1.VirtualMac
 
 func (ctrl *VMExportController) generateDataVolumesFromVm(vm *virtv1.VirtualMachine) ([]*cdiv1.DataVolume, error) {
 	res := make([]*cdiv1.DataVolume, 0)
-	// TODO: Need to find a way to include/represent backend storage in the export VM manifest
 	volumes, err := storageutils.GetVolumes(vm, nil)
 	if err != nil {
 		return nil, err
@@ -1503,26 +1505,26 @@ func (ctrl *VMExportController) generateDataVolumesFromVm(vm *virtv1.VirtualMach
 
 func (ctrl *VMExportController) createExportHttpDvFromPVC(namespace, name string) *cdiv1.DataVolume {
 	pvc := ctrl.getPVCsFromName(namespace, name)
-	if pvc != nil {
-		pvc.Spec.VolumeName = ""
-		pvc.Spec.StorageClassName = nil
-		// Don't copy datasources, will be populated by CDI with the datavolume
-		pvc.Spec.DataSource = nil
-		pvc.Spec.DataSourceRef = nil
-		return &cdiv1.DataVolume{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: namespace,
-			},
-			Spec: cdiv1.DataVolumeSpec{
-				Source: &cdiv1.DataVolumeSource{
-					HTTP: &cdiv1.DataVolumeSourceHTTP{
-						URL: "",
-					},
-				},
-				PVC: &pvc.Spec,
-			},
-		}
+	if pvc == nil {
+		return nil
 	}
-	return nil
+
+	return &cdiv1.DataVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: cdiv1.DataVolumeSpec{
+			Source: &cdiv1.DataVolumeSource{
+				HTTP: &cdiv1.DataVolumeSourceHTTP{
+					URL: "",
+				},
+			},
+			Storage: &cdiv1.StorageSpec{
+				AccessModes: pvc.Spec.AccessModes,
+				VolumeMode:  pvc.Spec.VolumeMode,
+				Resources:   pvc.Spec.Resources,
+			},
+		},
+	}
 }

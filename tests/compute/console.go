@@ -27,30 +27,24 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-const startupTimeout = 30
+const startupTimeout = 60
 
 var _ = SIGDescribe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]Console", func() {
-
-	var virtClient kubecli.KubevirtClient
-
-	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-	})
 
 	expectConsoleOutput := func(vmi *v1.VirtualMachineInstance, expected string) {
 		By("Checking that the console output equals to expected one")
@@ -79,11 +73,12 @@ var _ = SIGDescribe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@re
 				}
 			})
 
-			It("[test_id:1591]should close console connection when new console connection is opened", func() {
+			It("[test_id:1591]should close console connection when new console connection is opened", decorators.Conformance, func() {
 				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), startupTimeout)
+				expectConsoleOutput(vmi, "login")
 
 				By("opening 1st console connection")
-				stream, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kvcorev1.SerialConsoleOptions{})
+				stream, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kvcorev1.SerialConsoleOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				defer stream.AsConn().Close()
 
@@ -110,11 +105,11 @@ var _ = SIGDescribe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@re
 			It("[test_id:1592]should wait until the virtual machine is in running state and return a stream interface", func() {
 				vmi := libvmifact.NewAlpine()
 				By("Creating a new VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("and connecting to it very quickly. Hopefully the VM is not yet up")
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
+				_, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -124,21 +119,21 @@ var _ = SIGDescribe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@re
 				)
 
 				By("Creating a new VirtualMachineInstance")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
+				_, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kvcorev1.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
 				Expect(err).To(MatchError("Timeout trying to connect to the virtual machine instance"))
 			})
 		})
 
 		Context("without a serial console", func() {
-			It("[test_id:4118]should run but not be connectable via the serial console", func() {
+			It("[test_id:4118]should run but not be connectable via the serial console", decorators.Conformance, func() {
 				vmi := libvmifact.NewAlpine(libvmi.WithoutSerialConsole())
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
 
 				By("failing to connect to serial console")
-				_, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).SerialConsole(vmi.ObjectMeta.Name, &kvcorev1.SerialConsoleOptions{})
+				_, err := kubevirt.Client().VirtualMachineInstance(vmi.ObjectMeta.Namespace).SerialConsole(vmi.ObjectMeta.Name, &kvcorev1.SerialConsoleOptions{})
 				Expect(err).To(MatchError("No serial consoles are present."), "serial console should not connect if there are no serial consoles present")
 			})
 		})
