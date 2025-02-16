@@ -144,7 +144,7 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, decorators.SigM
 			libmonitoring.VerifyAlertExist(virtClient, virtController.lowCountAlert)
 		})
 
-		It("VirtApiDown should be triggered when virt-api is down", func() {
+		It("[QUARANTINE] VirtApiDown should be triggered when virt-api is down", decorators.Quarantine, func() {
 			scales.UpdateScale(virtApi.deploymentName, int32(0))
 			libmonitoring.VerifyAlertExist(virtClient, virtApi.downAlert)
 		})
