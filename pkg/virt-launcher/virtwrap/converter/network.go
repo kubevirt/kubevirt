@@ -32,6 +32,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
+const multiQueueMaxQueues = uint32(256)
+
 func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domainAttachmentByInterfaceName map[string]string, useLaunchSecurity bool) ([]api.Interface, error) {
 	var domainInterfaces []api.Interface
 
