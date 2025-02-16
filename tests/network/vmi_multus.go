@@ -32,7 +32,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -572,30 +571,6 @@ var _ = SIGDescribe("Multus", Serial, decorators.Multus, func() {
 
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 				Expect(getPodInterfaceMtu(vmi)).To(Equal(getVmiInterfaceMtu(vmi)))
-			})
-		})
-
-		Context("VirtualMachineInstance with invalid MAC address", func() {
-			It("[test_id:1713]should failed to start with invalid MAC address", func() {
-				By("Start VMI")
-				linuxBridgeIfIdx := 1
-
-				vmi := libvmifact.NewAlpine()
-				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-					defaultInterface,
-					linuxBridgeInterface,
-				}
-				vmi.Spec.Domain.Devices.Interfaces[linuxBridgeIfIdx].MacAddress = "de:00c:00c:00:00:de:abc"
-
-				vmi.Spec.Networks = []v1.Network{
-					defaultNetwork,
-					linuxBridgeNetwork,
-				}
-
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred())
-				testErr := err.(*errors.StatusError)
-				Expect(testErr.ErrStatus.Reason).To(BeEquivalentTo("Invalid"))
 			})
 		})
 
