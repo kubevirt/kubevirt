@@ -42,10 +42,10 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domainAttachmentByIn
 	})
 	nonAbsentNets := netvmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
 
-	networks := indexNetworksByName(nonAbsentNets)
+	nonAbsentNetsByName := netvmispec.IndexNetworkSpecByName(nonAbsentNets)
 
 	for i, iface := range nonAbsentIfaces {
-		_, isExist := networks[iface.Name]
+		_, isExist := nonAbsentNetsByName[iface.Name]
 		if !isExist {
 			return nil, fmt.Errorf("failed to find network %s", iface.Name)
 		}
@@ -117,14 +117,6 @@ func GetInterfaceType(iface *v1.Interface) string {
 		return iface.Model
 	}
 	return v1.VirtIO
-}
-
-func indexNetworksByName(networks []v1.Network) map[string]*v1.Network {
-	netsByName := map[string]*v1.Network{}
-	for _, network := range networks {
-		netsByName[network.Name] = network.DeepCopy()
-	}
-	return netsByName
 }
 
 func CalculateNetworkQueues(vmi *v1.VirtualMachineInstance, ifaceType string) uint32 {
