@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/watcher"
@@ -1267,7 +1268,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			})))
 		})
 
-		It("snapshot create before source wait for volume bound, then continues, succeeds and then should not fail", func() {
+		It("snapshot create before source wait for volume bound, then continues and succeeds", func() {
 			wffc := libstorage.IsStorageClassBindingModeWaitForFirstConsumer(snapshotStorageClass)
 			// Stand alone dv
 			dv := libdv.NewDataVolume(
@@ -1302,9 +1303,8 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			By("Create Snapshot before source VM")
 			webhook = createDenyVolumeSnapshotCreateWebhook(virtClient, vm.Name)
 			snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
-			snapshot.Spec.FailureDeadline = &metav1.Duration{Duration: time.Minute}
 
-			_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
+			snapshot, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Wait Snapshot conditions to reflect source doesnt exist")
@@ -1378,6 +1378,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 
 			Expect(snapshot.Status.CreationTime).To(BeNil())
 
+			events.ExpectEvent(snapshot, corev1.EventTypeNormal, "SuccessfulVirtualMachineSnapshotContentCreate")
 			contentName := fmt.Sprintf("%s-%s", vmSnapshotContent, snapshot.UID)
 			content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1388,18 +1389,13 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			snapshot = libstorage.WaitSnapshotSucceeded(virtClient, vm.Namespace, snapshot.Name)
 
 			Expect(snapshot.Status.CreationTime).ToNot(BeNil())
+			Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes).Should(HaveLen(2))
 			content, err = virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), contentName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(*content.Spec.VirtualMachineSnapshotName).To(Equal(snapshot.Name))
 			Expect(content.Spec.Source.VirtualMachine.Spec).To(Equal(vm.Spec))
 			Expect(content.Spec.VolumeBackups).Should(HaveLen(len(vm.Spec.Template.Spec.Volumes)))
-
-			// Sleep to pass the time of the deadline
-			time.Sleep(time.Second)
-			// If snapshot succeeded it should not change to failure when deadline exceeded
-			Expect(snapshot.Status.Phase).To(Equal(snapshotv1.Succeeded))
-			Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes).Should(HaveLen(2))
 		})
 
 		Context("with independent DataVolume", func() {
