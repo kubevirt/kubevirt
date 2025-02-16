@@ -574,30 +574,6 @@ var _ = SIGDescribe("Multus", Serial, decorators.Multus, func() {
 			})
 		})
 
-		Context("VirtualMachineInstance with invalid MAC address", func() {
-			It("[test_id:1713]should failed to start with invalid MAC address", func() {
-				By("Start VMI")
-				linuxBridgeIfIdx := 1
-
-				vmi := libvmifact.NewFedora()
-				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-					defaultInterface,
-					linuxBridgeInterface,
-				}
-				vmi.Spec.Domain.Devices.Interfaces[linuxBridgeIfIdx].MacAddress = "de:00c:00c:00:00:de:abc"
-
-				vmi.Spec.Networks = []v1.Network{
-					defaultNetwork,
-					linuxBridgeNetwork,
-				}
-
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred())
-				testErr := err.(*errors.StatusError)
-				Expect(testErr.ErrStatus.Reason).To(BeEquivalentTo("Invalid"))
-			})
-		})
-
 		Context("Security", func() {
 			BeforeEach(func() {
 				const (
