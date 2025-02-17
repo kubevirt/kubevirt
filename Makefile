@@ -51,7 +51,10 @@ bazel-test:
 gen-proto:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/gen-proto.sh"
 
-generate:
+bazel-generate-cache:
+	hack/dockerized "./hack/bazel-generate-cache.sh"
+
+generate: bazel-generate-cache
 	hack/dockerized hack/build-ginkgo.sh
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/generate.sh"
 	SYNC_VENDOR=true hack/dockerized "./hack/bazel-generate.sh && hack/bazel-fmt.sh"
@@ -270,4 +273,5 @@ update-generated-api-testdata:
 	lint \
 	lint-metrics \
 	update-generated-api-testdata \
+	bazel-generate-cache \
 	$(NULL)
