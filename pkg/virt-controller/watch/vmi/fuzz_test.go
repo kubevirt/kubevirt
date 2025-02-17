@@ -84,6 +84,14 @@ func FuzzExecute(f *testing.F) {
 			if err != nil {
 				return
 			}
+			setLatestAnnotation, err := fdp.GetBool()
+			if err != nil {
+				return
+			}
+			// This helps the vm overcome some checks early in the callgraph
+			if setLatestAnnotation {
+				kvcontroller.SetLatestApiVersionAnnotation(vmi)
+			}
 			VMIs = append(VMIs, vmi)
 		}
 		pods := make([]*k8sv1.Pod, 0)
