@@ -7,102 +7,115 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	admissionv1 "k8s.io/api/admission/v1"
-	v1 "k8s.io/api/core/v1"
 
-	k6tv1 "kubevirt.io/api/core/v1"
+	admissionv1 "k8s.io/api/admission/v1"
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	k8stesting "k8s.io/client-go/testing"
+
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
 var _ = Describe("Webhook", func() {
-
-	var ctrl *gomock.Controller
 	var admitter *KubeVirtDeletionAdmitter
-
-	var kubeCli *kubecli.MockKubevirtClient
-	var vmirsInterface *kubecli.MockReplicaSetInterface
-	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
-	var vmInterface *kubecli.MockVirtualMachineInterface
-	var kvInterface *kubecli.MockKubeVirtInterface
-	var kv *k6tv1.KubeVirt
+	var fakeClient *kubevirtfake.Clientset
 
 	BeforeEach(func() {
-		kv = &k6tv1.KubeVirt{}
-		kv.Status.Phase = k6tv1.KubeVirtPhaseDeployed
-		ctrl = gomock.NewController(GinkgoT())
-		kubeCli = kubecli.NewMockKubevirtClient(ctrl)
-		kvInterface = kubecli.NewMockKubeVirtInterface(ctrl)
-		kvInterface.EXPECT().Get(context.Background(), "kubevirt", gomock.Any()).Return(kv, nil).AnyTimes()
-		kvInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.KubeVirtList{}, nil).AnyTimes()
+		ctrl := gomock.NewController(GinkgoT())
+		kv := &v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "kubevirt",
+				Namespace: "test",
+			},
+			Status: v1.KubeVirtStatus{Phase: v1.KubeVirtPhaseDeployed},
+		}
+		fakeClient = kubevirtfake.NewSimpleClientset(kv)
+		kubeCli := kubecli.NewMockKubevirtClient(ctrl)
 		admitter = &KubeVirtDeletionAdmitter{kubeCli}
-		kubeCli.EXPECT().KubeVirt("test").Return(kvInterface)
-
-		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-		vmirsInterface = kubecli.NewMockReplicaSetInterface(ctrl)
-		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
+		kubeCli.
+			EXPECT().
+			KubeVirt("test").
+			Return(fakeClient.KubevirtV1().KubeVirts("test")).
+			AnyTimes()
+		kubeCli.
+			EXPECT().
+			ReplicaSet(k8sv1.NamespaceAll).
+			Return(fakeClient.KubevirtV1().VirtualMachineInstanceReplicaSets(k8sv1.NamespaceAll)).
+			AnyTimes()
+		kubeCli.
+			EXPECT().
+			VirtualMachineInstance(k8sv1.NamespaceAll).
+			Return(fakeClient.KubevirtV1().VirtualMachineInstances(k8sv1.NamespaceAll)).
+			AnyTimes()
+		kubeCli.
+			EXPECT().
+			VirtualMachine(k8sv1.NamespaceAll).
+			Return(fakeClient.KubevirtV1().VirtualMachines(k8sv1.NamespaceAll)).
+			AnyTimes()
 	})
 
 	Context("if uninstall strategy is BlockUninstallIfWorkloadExists", func() {
 		BeforeEach(func() {
-			kubeCli.EXPECT().VirtualMachineInstance(v1.NamespaceAll).Return(vmiInterface).AnyTimes()
-			kubeCli.EXPECT().ReplicaSet(v1.NamespaceAll).Return(vmirsInterface).AnyTimes()
-			kubeCli.EXPECT().VirtualMachine(v1.NamespaceAll).Return(vmInterface).AnyTimes()
-
-			kv.Spec.UninstallStrategy = k6tv1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist
+			setKV(fakeClient, v1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist, v1.KubeVirtPhaseDeployed)
 		})
 
 		It("should allow the deletion if no workload exists", func() {
-			vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineInstanceList{}, nil)
-			vmInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineList{}, nil)
-			vmirsInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineInstanceReplicaSetList{}, nil)
-
 			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
 			Expect(response.Allowed).To(BeTrue())
 		})
 
 		It("should deny the deletion if a VMI exists", func() {
-			vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineInstanceList{Items: []k6tv1.VirtualMachineInstance{{}}}, nil)
+			_, err := fakeClient.KubevirtV1().VirtualMachineInstances(k8sv1.NamespaceDefault).Create(context.TODO(), &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "vmi"}}, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
 			Expect(response.Allowed).To(BeFalse())
 		})
 
 		It("should deny the deletion if a VM exists", func() {
-			vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineInstanceList{}, nil)
-			vmInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineList{Items: []k6tv1.VirtualMachine{{}}}, nil)
+			_, err := fakeClient.KubevirtV1().VirtualMachines(k8sv1.NamespaceDefault).Create(context.TODO(), &v1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "vm"}}, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
 			Expect(response.Allowed).To(BeFalse())
 		})
 
 		It("should deny the deletion if a VMIRS exists", func() {
-			vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineInstanceList{}, nil)
-			vmInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineList{}, nil)
-			vmirsInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineInstanceReplicaSetList{Items: []k6tv1.VirtualMachineInstanceReplicaSet{{}}}, nil)
+			_, err := fakeClient.KubevirtV1().VirtualMachineInstanceReplicaSets(k8sv1.NamespaceDefault).Create(context.TODO(), &v1.VirtualMachineInstanceReplicaSet{ObjectMeta: metav1.ObjectMeta{Name: "rs"}}, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
 			Expect(response.Allowed).To(BeFalse())
 		})
 
 		It("should deny the deletion if checking VMIs fails", func() {
-			vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineInstanceList{}, fmt.Errorf("whatever"))
+			fakeClient.PrependReactor("list", "virtualmachineinstances", func(action k8stesting.Action) (bool, runtime.Object, error) {
+				return true, &v1.VirtualMachineInstanceList{}, fmt.Errorf("whatever")
+			})
 
 			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
 			Expect(response.Allowed).To(BeFalse())
 		})
 
 		It("should deny the deletion if checking VMs fails", func() {
-			vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineInstanceList{}, nil)
-			vmInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineList{}, fmt.Errorf("whatever"))
+			fakeClient.PrependReactor("list", "virtualmachines", func(action k8stesting.Action) (bool, runtime.Object, error) {
+				return true, &v1.VirtualMachineList{}, fmt.Errorf("whatever")
+			})
 
 			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
 			Expect(response.Allowed).To(BeFalse())
 		})
 
 		It("should deny the deletion if checking VMIRS fails", func() {
-			vmiInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineInstanceList{}, nil)
-			vmInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineList{}, nil)
-			vmirsInterface.EXPECT().List(context.Background(), gomock.Any()).Return(&k6tv1.VirtualMachineInstanceReplicaSetList{}, fmt.Errorf("whatever"))
+			fakeClient.PrependReactor("list", "virtualmachineinstancereplicasets", func(action k8stesting.Action) (bool, runtime.Object, error) {
+				return true, &v1.VirtualMachineInstanceReplicaSetList{}, fmt.Errorf("whatever")
+			})
 
 			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
 			Expect(response.Allowed).To(BeFalse())
@@ -110,32 +123,40 @@ var _ = Describe("Webhook", func() {
 	})
 
 	It("should allow the deletion if the strategy is empty", func() {
-		kv.Spec.UninstallStrategy = ""
 		response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
 		Expect(response.Allowed).To(BeTrue())
 	})
 
 	It("should allow the deletion if the strategy is set to RemoveWorkloads", func() {
-		kv.Spec.UninstallStrategy = k6tv1.KubeVirtUninstallStrategyRemoveWorkloads
+		setKV(fakeClient, v1.KubeVirtUninstallStrategyRemoveWorkloads, v1.KubeVirtPhaseDeployed)
 		response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
 		Expect(response.Allowed).To(BeTrue())
 	})
 
 	It("should allow the deletion of namespaces, where it gets an admission request without a resource name", func() {
-		kv.Spec.UninstallStrategy = k6tv1.KubeVirtUninstallStrategyRemoveWorkloads
+		setKV(fakeClient, v1.KubeVirtUninstallStrategyRemoveWorkloads, v1.KubeVirtPhaseDeployed)
 		response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: ""}})
 		Expect(response.Allowed).To(BeTrue())
 	})
 
-	DescribeTable("should not check for workloads if kubevirt phase is", func(phase k6tv1.KubeVirtPhase) {
-		kv.Spec.UninstallStrategy = k6tv1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist
-		kv.Status.Phase = phase
+	DescribeTable("should not check for workloads if kubevirt phase is", func(phase v1.KubeVirtPhase) {
+		setKV(fakeClient, v1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist, phase)
 		response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
 		Expect(response.Allowed).To(BeTrue())
 	},
-		Entry("unset", k6tv1.KubeVirtPhase("")),
-		Entry("deploying", k6tv1.KubeVirtPhaseDeploying),
-		Entry("deleting", k6tv1.KubeVirtPhaseDeleting),
-		Entry("deleted", k6tv1.KubeVirtPhaseDeleted),
+		Entry("unset", v1.KubeVirtPhase("")),
+		Entry("deploying", v1.KubeVirtPhaseDeploying),
+		Entry("deleting", v1.KubeVirtPhaseDeleting),
+		Entry("deleted", v1.KubeVirtPhaseDeleted),
 	)
 })
+
+func setKV(fakeClient *kubevirtfake.Clientset, strategy v1.KubeVirtUninstallStrategy, phase v1.KubeVirtPhase) {
+	patchBytes, err := patch.New(
+		patch.WithReplace("/spec/uninstallStrategy", strategy),
+		patch.WithReplace("/status/phase", phase),
+	).GeneratePayload()
+	Expect(err).NotTo(HaveOccurred())
+	_, err = fakeClient.KubevirtV1().KubeVirts("test").Patch(context.TODO(), "kubevirt", types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	Expect(err).ToNot(HaveOccurred())
+}
