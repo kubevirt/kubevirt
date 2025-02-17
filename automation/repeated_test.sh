@@ -41,20 +41,31 @@ export TIMESTAMP=${TIMESTAMP:-1}
 
 function usage {
     cat <<EOF
-usage: [NUM_TESTS=x] [NEW_TESTS=tests/file_1.go|...|tests/file_n.go [TARGET_COMMIT=a1b2c3d4] $0 [TEST_LANE] [--dry-run]
+usage: [NUM_TESTS=x]
+       [CHANGED_TESTS_JSON=file_name.json|NEW_TESTS=tests/file_1.go|...]
+       [TARGET_COMMIT=a1b2c3d4] $0 [TEST_LANE] [--dry-run]
 
-    run tests repeatedly using the set of test files that have been changed or added since last merge commit
-    set NEW_TESTS to explicitly name the test files to run
+    run tests repeatedly using the set of test files that have been changed or
+    added since last merge commit
+    hint: set NEW_TESTS to explicitly name the test files to run
 
     options:
-        NUM_TESTS       how often the test lane is run, default is 5
-        NEW_TESTS       what set of tests to run, defaults to all test files added or changed since
-                        last merge commit
-        TARGET_COMMIT   the commit id to use when fetching the changed test files
-                        note: leaving TARGET_COMMIT empty only works if on a git branch different from main.
-                        If /clonerefs is at work you need to provide a target commit, as then the latest commit is a
-                        merge commit (resulting in no changes detected)
-        TEST_LANE       the kubevirtci provider to use, if not given, use latest stable one
+        CHANGED_TESTS_JSON  the json file containing the (textual) names of the
+                            tests to run, according to what is shown in the
+                            junit.xml file
+        NUM_TESTS           how often the test lane is run, default is 5
+        NEW_TESTS           what set of tests to run, defaults to all test
+                            files added or changed since
+                            last merge commit
+        TARGET_COMMIT       the commit id to use when fetching the changed
+                            test files
+                            note: leaving TARGET_COMMIT empty only works
+                            if on a git branch different from main.
+                            If /clonerefs is at work you need to provide a
+                            target commit, as then the latest commit is a
+                            merge commit (resulting in no changes detected)
+        TEST_LANE           the kubevirtci provider to use, if not given,
+                            use latest stable one
 
     examples:
 
@@ -150,33 +161,38 @@ if [[ -z ${TARGET_COMMIT-} ]]; then
     TARGET_COMMIT=$(git log -1 --format=%H --merges)
 fi
 
-if [[ -z ${NEW_TESTS-} ]]; then
+if [[ ! -z ${CHANGED_TESTS_JSON} ]]; then
+    NEW_TESTS=""
+else
+    if [[ -z ${NEW_TESTS-} ]]; then
 
-    set +e # required due to grep barking when it does not have any input
-    NEW_TESTS=$(new_tests "$TARGET_COMMIT")
-    set -e
+        set +e # required due to grep barking when it does not have any input
+        NEW_TESTS=$(new_tests "$TARGET_COMMIT")
+        set -e
 
-    # skip certain tests for now, as we don't have a strategy currently
-    NEW_TESTS=$(echo "$NEW_TESTS" | sed -E 's/\|?[^\|]*(sriov|multus|windows|gpu|mdev)[^\|]*//g' | sed 's/^|//')
+        # skip certain tests for now, as we don't have a strategy currently
+        NEW_TESTS=$(echo "$NEW_TESTS" | sed -E 's/\|?[^\|]*(sriov|multus|windows|gpu|mdev)[^\|]*//g' | sed 's/^|//')
+    fi
+    if [[ -z "${NEW_TESTS}" ]]; then
+        echo "Nothing to test"
+        exit 0
+    fi
+    echo "Test files touched: $(echo "${NEW_TESTS}" | tr '|' ',')"
+
+    if should_skip_test_run_due_to_too_many_tests "${NEW_TESTS}"; then
+        echo "Skipping run due to number of tests in total being too high for repeated run."
+        exit 0
+    fi
 fi
-if [[ -z "${NEW_TESTS}" ]]; then
-    echo "Nothing to test"
-    exit 0
-fi
-echo "Test files touched: $(echo "${NEW_TESTS}" | tr '|' ',')"
+
 
 NUM_TESTS=${NUM_TESTS-5}
 echo "Number of per lane runs: $NUM_TESTS"
 
-if should_skip_test_run_due_to_too_many_tests "${NEW_TESTS}"; then
-    echo "Skipping run due to number of tests in total being too high for repeated run."
-    exit 0
-fi
-
 # for some tests we need three nodes aka two nodes with cpu manager installed, thus we grep whether the skip is present
 KUBEVIRT_NUM_NODES=2
 # shellcheck disable=SC2046
-if grep -q 'RequiresTwoWorkerNodesWithCPUManager' $(echo "${NEW_TESTS}" | tr '|' ' '); then
+if [[ ! -z ${NEW_TESTS-} ]] && grep -q 'RequiresTwoWorkerNodesWithCPUManager' $(echo "${NEW_TESTS}" | tr '|' ' '); then
     KUBEVIRT_NUM_NODES=3
 fi
 
@@ -225,9 +241,15 @@ if [[ "${rwofs_sc}" == "local" ]]; then
 fi
 
 ginko_params="$ginko_params -no-color -succinct --label-filter=${label_filter} -randomize-all"
-for test_file in $(echo "${NEW_TESTS}" | tr '|' '\n'); do
-    ginko_params+=" -focus-file=${test_file}"
-done
+if [[ ! -z ${CHANGED_TESTS_JSON} ]]; then
+    IFS=$'\n'; for test_name in $(jq -r '.[]' "${CHANGED_TESTS_JSON}"); do
+        ginko_params+=" -focus='${test_name// /\\s}'"
+    done
+else
+    for test_file in $(echo "${NEW_TESTS}" | tr '|' '\n'); do
+        ginko_params+=" -focus-file=${test_file}"
+    done
+fi
 
 echo "Test lane: ${TEST_LANE}, preparing cluster up"
 
