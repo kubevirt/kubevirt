@@ -1486,13 +1486,17 @@ func (c *Controller) allPodsDeleted(vmi *virtv1.VirtualMachineInstance) (bool, e
 	}
 
 	for _, pod := range pods {
-		if controller.IsControlledBy(pod, vmi) {
+		if controller.IsControlledBy(pod, vmi) && !isPodFinal(pod) {
 			return false, nil
 		}
 	}
 
 	return true, nil
 
+}
+
+func isPodFinal(pod *k8sv1.Pod) bool {
+	return pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed
 }
 
 func (c *Controller) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance) error {
