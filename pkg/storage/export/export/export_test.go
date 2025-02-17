@@ -21,6 +21,7 @@ package export
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"os"
@@ -1302,10 +1303,14 @@ var _ = Describe("Export controller", func() {
 		}
 		Expect(instancetypeInformer.GetStore().Add(testInstanceType)).To(Succeed())
 
-		res, err := controller.expandVirtualMachine(vm)
+		res, err := controller.generateVMDefinitionFromVm(vm)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(res).ToNot(BeNil())
-		Expect(res.Spec.Template.Spec.Domain.CPU.Sockets).To(Equal(uint32(2)))
+
+		resVM := &virtv1.VirtualMachine{}
+		Expect(json.Unmarshal(res, resVM)).To(Succeed())
+		Expect(resVM.Spec.Instancetype).To(BeNil())
+		Expect(resVM.Spec.Template.Spec.Domain.CPU.Sockets).To(Equal(uint32(2)))
 	})
 
 	It("Should return error on conflict with instance types of VMs", func() {
@@ -1332,9 +1337,8 @@ var _ = Describe("Export controller", func() {
 		}
 		Expect(instancetypeInformer.GetStore().Add(testInstanceType)).To(Succeed())
 
-		_, err := controller.expandVirtualMachine(vm)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("cannot expand instancetype to VM, due to 1 conflicts"))
+		_, err := controller.generateVMDefinitionFromVm(vm)
+		Expect(err).To(MatchError(ContainSubstring("VM field(s) spec.template.spec.domain.cpu.cores conflicts with selected instance type")))
 	})
 
 	createVMWithDVTemplateAndPVC := func() *virtv1.VirtualMachine {

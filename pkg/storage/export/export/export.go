@@ -38,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	validation "k8s.io/apimachinery/pkg/util/validation"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -53,7 +52,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	instancetypeexpand "kubevirt.io/kubevirt/pkg/instancetype/expand"
+	instancetypefind "kubevirt.io/kubevirt/pkg/instancetype/find"
+	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 	"kubevirt.io/kubevirt/pkg/storage/status"
@@ -179,6 +180,10 @@ type manifestRenderer interface {
 	RenderExporterManifest(vmExport *exportv1.VirtualMachineExport, namePrefix string) *corev1.Pod
 }
 
+type instancetypeVMHandler interface {
+	Expand(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error)
+}
+
 // VMExportController is resonsible for exporting VMs
 type VMExportController struct {
 	Client kubecli.KubevirtClient
@@ -218,7 +223,7 @@ type VMExportController struct {
 
 	clusterConfig *virtconfig.ClusterConfig
 
-	instancetypeMethods instancetype.Methods
+	instancetypeHandler instancetypeVMHandler
 
 	statusUpdater *status.VMExportStatusUpdater
 }
@@ -346,14 +351,21 @@ func (ctrl *VMExportController) Init() error {
 	if err != nil {
 		return err
 	}
-	ctrl.instancetypeMethods = &instancetype.InstancetypeMethods{
-		InstancetypeStore:        ctrl.InstancetypeInformer.GetStore(),
-		ClusterInstancetypeStore: ctrl.ClusterInstancetypeInformer.GetStore(),
-		PreferenceStore:          ctrl.PreferenceInformer.GetStore(),
-		ClusterPreferenceStore:   ctrl.ClusterPreferenceInformer.GetStore(),
-		ControllerRevisionStore:  ctrl.ControllerRevisionInformer.GetStore(),
-		Clientset:                ctrl.Client,
-	}
+	ctrl.instancetypeHandler = instancetypeexpand.New(
+		ctrl.clusterConfig,
+		instancetypefind.NewSpecFinder(
+			ctrl.InstancetypeInformer.GetStore(),
+			ctrl.ClusterInstancetypeInformer.GetStore(),
+			ctrl.ControllerRevisionInformer.GetStore(),
+			ctrl.Client,
+		),
+		preferencefind.NewSpecFinder(
+			ctrl.PreferenceInformer.GetStore(),
+			ctrl.ClusterPreferenceInformer.GetStore(),
+			ctrl.ControllerRevisionInformer.GetStore(),
+			ctrl.Client,
+		),
+	)
 
 	ctrl.statusUpdater = status.NewVMExportStatusUpdater(ctrl.Client)
 
@@ -1146,7 +1158,7 @@ func (ctrl *VMExportController) getVmFromExport(vmExport *exportv1.VirtualMachin
 		return nil, err
 	}
 	if exists {
-		return ctrl.expandVirtualMachine(vm)
+		return ctrl.instancetypeHandler.Expand(vm)
 	}
 	return nil, nil
 }
@@ -1380,32 +1392,6 @@ func (ctrl *VMExportController) pvcConditionFromPVC(pvcs []*corev1.PersistentVol
 	return cond
 }
 
-func (ctrl *VMExportController) expandVirtualMachine(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
-	instancetypeSpec, err := ctrl.instancetypeMethods.FindInstancetypeSpec(vm)
-	if err != nil {
-		return nil, err
-	}
-	preferenceSpec, err := ctrl.instancetypeMethods.FindPreferenceSpec(vm)
-	if err != nil {
-		return nil, err
-	}
-
-	if instancetypeSpec == nil && preferenceSpec == nil {
-		return vm, nil
-	}
-
-	conflicts := ctrl.instancetypeMethods.ApplyToVmi(field.NewPath("spec", "template", "spec"), instancetypeSpec, preferenceSpec, &vm.Spec.Template.Spec, &vm.Spec.Template.ObjectMeta)
-	if len(conflicts) > 0 {
-		return nil, fmt.Errorf("cannot expand instancetype to VM, due to %d conflicts", len(conflicts))
-	}
-
-	// Remove InstancetypeMatcher and PreferenceMatcher, so the returned VM object can be used and not cause a conflict
-	vm.Spec.Instancetype = nil
-	vm.Spec.Preference = nil
-
-	return vm, nil
-}
-
 func (ctrl *VMExportController) updateHttpSourceDataVolumeTemplate(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
 	volumes, err := storageutils.GetVolumes(vm, nil)
 	if err != nil {
@@ -1448,7 +1434,7 @@ func (ctrl *VMExportController) replaceUrlDVTemplate(volumeName string, template
 }
 
 func (ctrl *VMExportController) generateVMDefinitionFromVm(vm *virtv1.VirtualMachine) ([]byte, error) {
-	expandedVm, err := ctrl.expandVirtualMachine(vm)
+	expandedVm, err := ctrl.instancetypeHandler.Expand(vm)
 	if err != nil {
 		return nil, err
 	}
@@ -1463,7 +1449,7 @@ func (ctrl *VMExportController) generateVMDefinitionFromVm(vm *virtv1.VirtualMac
 	expandedVm.ObjectMeta = cleanedObjectMeta
 
 	// Update dvTemplates if exists
-	expandedVm, err = ctrl.updateHttpSourceDataVolumeTemplate(vm)
+	expandedVm, err = ctrl.updateHttpSourceDataVolumeTemplate(expandedVm)
 	if err != nil {
 		return nil, err
 	}
