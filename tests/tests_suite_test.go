@@ -23,8 +23,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"testing"
+
+	"kubevirt.io/kubevirt/tests/decorators"
 
 	. "github.com/onsi/ginkgo/v2"
 	ginkgo_reporters "github.com/onsi/ginkgo/v2/reporters"
@@ -104,7 +107,10 @@ var _ = SynchronizedBeforeSuite(testsuite.SynchronizedBeforeTestSetup, testsuite
 var _ = SynchronizedAfterSuite(testsuite.AfterTestSuiteCleanup, testsuite.SynchronizedAfterTestSuiteCleanup)
 
 var _ = AfterEach(func() {
-	testCleanup()
+	skipGlobalCleanupLabelText := decorators.SkipGlobalCleanup[0]
+	if !slices.Contains(CurrentSpecReport().Labels(), skipGlobalCleanupLabelText) {
+		testCleanup()
+	}
 })
 
 func getMaxFailsFromEnv() int {
