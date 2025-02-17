@@ -1,4 +1,4 @@
-package containerdisk
+package disk
 
 import (
 	. "github.com/onsi/ginkgo/v2"

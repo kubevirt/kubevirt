@@ -31,6 +31,7 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/safepath"
 
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
@@ -188,7 +189,7 @@ func GetImage(root *safepath.Path, imagePath string) (*safepath.Path, error) {
 		}
 		return resolvedPath, nil
 	} else {
-		fallbackPath, err := root.AppendAndResolveWithRelativeRoot(DiskSourceFallbackPath)
+		fallbackPath, err := root.AppendAndResolveWithRelativeRoot(disk.DiskSourceFallbackPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to determine default image path %v: %v", fallbackPath, err)
 		}
@@ -201,12 +202,12 @@ func GetImage(root *safepath.Path, imagePath string) (*safepath.Path, error) {
 			return nil, fmt.Errorf("failed to check default image path %s: %v", fallbackPath, err)
 		}
 		if len(files) == 0 {
-			return nil, fmt.Errorf("no file found in folder %s, no disk present", DiskSourceFallbackPath)
+			return nil, fmt.Errorf("no file found in folder %s, no disk present", disk.DiskSourceFallbackPath)
 		} else if len(files) > 1 {
-			return nil, fmt.Errorf("more than one file found in folder %s, only one disk is allowed", DiskSourceFallbackPath)
+			return nil, fmt.Errorf("more than one file found in folder %s, only one disk is allowed", disk.DiskSourceFallbackPath)
 		}
 		fileName := files[0].Name()
-		resolvedPath, err := root.AppendAndResolveWithRelativeRoot(DiskSourceFallbackPath, fileName)
+		resolvedPath, err := root.AppendAndResolveWithRelativeRoot(disk.DiskSourceFallbackPath, fileName)
 		if err != nil {
 			return nil, fmt.Errorf("failed to check default image path %s: %v", imagePath, err)
 		}
@@ -364,7 +365,7 @@ func generateContainerFromVolume(vmi *v1.VirtualMachineInstance, config *virtcon
 func CreateEphemeralImages(
 	vmi *v1.VirtualMachineInstance,
 	diskCreator ephemeraldisk.EphemeralDiskCreatorInterface,
-	disksInfo map[string]*DiskInfo,
+	disksInfo map[string]*disk.DiskInfo,
 ) error {
 	// The domain is setup to use the COW image instead of the base image. What we have
 	// to do here is only create the image where the domain expects it (GetDiskTargetPartFromLauncherView)
