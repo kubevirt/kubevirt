@@ -16,7 +16,7 @@ var _ = Describe("SCP", func() {
 		Expect(toRemote).To(Equal(expToRemote))
 	},
 		Entry("copy to remote location",
-			"myfile.yaml", "cirros@remote.mynamespace:myfile.yaml",
+			"myfile.yaml", "cirros@vmi/remote/mynamespace:myfile.yaml",
 			&scp.LocalArgument{Path: "myfile.yaml"},
 			&scp.RemoteArgument{
 				Kind: "vmi", Namespace: "mynamespace", Name: "remote", Username: "cirros", Path: "myfile.yaml",
@@ -24,7 +24,7 @@ var _ = Describe("SCP", func() {
 			true,
 		),
 		Entry("copy from remote location",
-			"cirros@remote.mynamespace:myfile.yaml", "myfile.yaml",
+			"cirros@vmi/remote/mynamespace:myfile.yaml", "myfile.yaml",
 			&scp.LocalArgument{Path: "myfile.yaml"},
 			&scp.RemoteArgument{
 				Kind: "vmi", Namespace: "mynamespace", Name: "remote", Username: "cirros", Path: "myfile.yaml",

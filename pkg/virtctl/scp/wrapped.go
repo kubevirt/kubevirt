@@ -15,8 +15,10 @@ func (o *SCP) buildSCPTarget(local *LocalArgument, remote *RemoteArgument, toRem
 		target.WriteString(o.options.SSHUsername)
 		target.WriteRune('@')
 	}
+	target.WriteString(remote.Kind)
+	target.WriteString(".")
 	target.WriteString(remote.Name)
-	target.WriteRune('.')
+	target.WriteString(".")
 	target.WriteString(remote.Namespace)
 	target.WriteRune(':')
 	target.WriteString(remote.Path)

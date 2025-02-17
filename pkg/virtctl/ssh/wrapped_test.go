@@ -26,12 +26,12 @@ var _ = Describe("Wrapped SSH", func() {
 		It("with SSH username", func() {
 			ssh.options = SSHOptions{SSHUsername: "testuser"}
 			sshTarget := ssh.buildSSHTarget(fakeKind, fakeNamespace, fakeName)
-			Expect(sshTarget[0]).To(Equal("testuser@fake-kind/fake-name.fake-ns"))
+			Expect(sshTarget[0]).To(Equal("testuser@fake-kind.fake-name.fake-ns"))
 		})
 
 		It("without SSH username", func() {
 			sshTarget := ssh.buildSSHTarget(fakeKind, fakeNamespace, fakeName)
-			Expect(sshTarget[0]).To(Equal("fake-kind/fake-name.fake-ns"))
+			Expect(sshTarget[0]).To(Equal("fake-kind.fake-name.fake-ns"))
 		})
 
 	})
@@ -39,7 +39,7 @@ var _ = Describe("Wrapped SSH", func() {
 	It("buildProxyCommandOption", func() {
 		const sshPort = 12345
 		proxyCommand := buildProxyCommandOption(fakeKind, fakeNamespace, fakeName, sshPort)
-		expected := fmt.Sprintf("port-forward --stdio=true fake-kind/fake-name.fake-ns %d", sshPort)
+		expected := fmt.Sprintf("port-forward --stdio=true fake-kind/fake-name/fake-ns %d", sshPort)
 		Expect(proxyCommand).To(ContainSubstring(expected))
 	})
 
