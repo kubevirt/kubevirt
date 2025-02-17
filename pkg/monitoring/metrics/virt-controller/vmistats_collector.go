@@ -129,7 +129,7 @@ var (
 )
 
 func vmiStatsCollectorCallback() []operatormetrics.CollectorResult {
-	cachedObjs := vmiInformer.GetIndexer().List()
+	cachedObjs := informers.VMI.GetIndexer().List()
 	if len(cachedObjs) == 0 {
 		log.Log.V(4).Infof("No VMIs detected")
 		return []operatormetrics.CollectorResult{}
@@ -238,7 +238,7 @@ func getVMIMachine(vmi *k6tv1.VirtualMachineInstance) (guestOSMachineType string
 }
 
 func getVMIPod(vmi *k6tv1.VirtualMachineInstance) string {
-	objs, err := kvPodInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
+	objs, err := informers.KVPod.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
 	if err != nil {
 		return none
 	}
@@ -265,11 +265,11 @@ func getVMIInstancetype(vmi *k6tv1.VirtualMachineInstance) string {
 			Namespace: vmi.Namespace,
 			Name:      instancetypeName,
 		}
-		return fetchResourceName(key.String(), instancetypeMethods.InstancetypeStore)
+		return fetchResourceName(key.String(), stores.Instancetype)
 	}
 
 	if clusterInstancetypeName, ok := vmi.Annotations[k6tv1.ClusterInstancetypeAnnotation]; ok {
-		return fetchResourceName(clusterInstancetypeName, instancetypeMethods.ClusterInstancetypeStore)
+		return fetchResourceName(clusterInstancetypeName, stores.ClusterInstancetype)
 	}
 
 	return none
@@ -281,11 +281,11 @@ func getVMIPreference(vmi *k6tv1.VirtualMachineInstance) string {
 			Namespace: vmi.Namespace,
 			Name:      preferenceName,
 		}
-		return fetchResourceName(key.String(), instancetypeMethods.PreferenceStore)
+		return fetchResourceName(key.String(), stores.Preference)
 	}
 
 	if clusterPreferenceName, ok := vmi.Annotations[k6tv1.ClusterPreferenceAnnotation]; ok {
-		return fetchResourceName(clusterPreferenceName, instancetypeMethods.ClusterPreferenceStore)
+		return fetchResourceName(clusterPreferenceName, stores.ClusterPreference)
 	}
 
 	return none
@@ -414,7 +414,7 @@ func calculateMigrationStatus(migrationState *k6tv1.VirtualMachineInstanceMigrat
 }
 
 func getMigrationNameFromMigrationUID(namespace string, migrationUID types.UID) string {
-	objs, err := vmiMigrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	objs, err := informers.VMIMigration.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return none
 	}

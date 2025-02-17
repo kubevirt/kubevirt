@@ -75,7 +75,7 @@ var (
 )
 
 func migrationStatsCollectorCallback() []operatormetrics.CollectorResult {
-	cachedObjs := vmiMigrationInformer.GetIndexer().List()
+	cachedObjs := informers.VMIMigration.GetIndexer().List()
 	vmims := make([]*k6tv1.VirtualMachineInstanceMigration, len(cachedObjs))
 	for i, obj := range cachedObjs {
 		vmims[i] = obj.(*k6tv1.VirtualMachineInstanceMigration)
