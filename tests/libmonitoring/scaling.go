@@ -42,7 +42,7 @@ func (s *Scaling) BackupScale(operatorName string) {
 			s.scales[operatorName] = virtOperatorCurrentScale
 		}
 		return err
-	}, 30*time.Second, 1*time.Second).Should(BeNil())
+	}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 }
 
 func (s *Scaling) UpdateScale(operatorName string, replicas int32) {
@@ -56,7 +56,7 @@ func (s *Scaling) UpdateScale(operatorName string, replicas int32) {
 			Deployments(flags.KubeVirtInstallNamespace).
 			UpdateScale(context.TODO(), operatorName, scale, metav1.UpdateOptions{})
 		return err
-	}, 30*time.Second, 1*time.Second).Should(BeNil(), "failed to update scale for %s", operatorName)
+	}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "failed to update scale for %s", operatorName)
 
 	Eventually(func() int32 {
 		deployment, err := s.virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.TODO(), operatorName, metav1.GetOptions{})
@@ -82,7 +82,7 @@ func (s *Scaling) RestoreScale(operatorName string) {
 			Deployments(flags.KubeVirtInstallNamespace).
 			UpdateScale(context.TODO(), operatorName, revert, metav1.UpdateOptions{})
 		return err
-	}, 30*time.Second, 1*time.Second).Should(BeNil(), "failed to restore scale for %s", operatorName)
+	}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred(), "failed to restore scale for %s", operatorName)
 
 	// wait for pods to be ready
 	Eventually(func() int32 {
