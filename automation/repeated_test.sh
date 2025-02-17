@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2019 Red Hat, Inc.
+# Copyright The KubeVirt Authors.
 #
 set -euo pipefail
 
@@ -31,6 +31,9 @@ set -euo pipefail
 # * run all changed tests five times and
 # * randomize the test order each time
 
+BASEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+KUBEVIRT_ROOT=$(readlink --canonicalize ${BASEDIR}/..)
+
 # include defaults for retrieving proper vendored cluster-up version
 export DOCKER_TAG_ALT=''
 export IMAGE_PREFIX=''
@@ -41,54 +44,69 @@ export TIMESTAMP=${TIMESTAMP:-1}
 
 function usage {
     cat <<EOF
-usage: [NUM_TESTS=x] [NEW_TESTS=tests/file_1.go|...|tests/file_n.go [TARGET_COMMIT=a1b2c3d4] $0 [TEST_LANE] [--dry-run]
+usage: [NUM_TESTS=x]
+       [NEW_TESTS=file_name.json]
+       [TARGET_COMMIT_RANGE=a1b2c3d4] $0 [TEST_LANE] [--dry-run]
 
-    run tests repeatedly using the set of test files that have been changed or added since last merge commit
-    set NEW_TESTS to explicitly name the test files to run
+    run set of tests repeatedly using a json containing test names of tests that have been
+    changed or added since last merge commit
+    hint: set NEW_TESTS to explicitly name the json file containing test names to run
 
     options:
-        NUM_TESTS       how often the test lane is run, default is 5
-        NEW_TESTS       what set of tests to run, defaults to all test files added or changed since
-                        last merge commit
-        TARGET_COMMIT   the commit id to use when fetching the changed test files
-                        note: leaving TARGET_COMMIT empty only works if on a git branch different from main.
-                        If /clonerefs is at work you need to provide a target commit, as then the latest commit is a
-                        merge commit (resulting in no changes detected)
-        TEST_LANE       the kubevirtci provider to use, if not given, use latest stable one
+        NUM_TESTS           how often the test lane is run, default is 5
+        NEW_TESTS           the json file containing the (textual) names of the
+                            tests to run, according to what is shown in the
+                            junit.xml file
+        TARGET_COMMIT_RANGE the commit id to use when fetching the changed
+                            test files
+                            note: leaving TARGET_COMMIT_RANGE empty only works
+                            if on a git branch different from main.
+                            If /clonerefs is at work you need to provide a
+                            target commit, as then the latest commit is a
+                            merge commit (resulting in no changes detected)
+        TEST_LANE           the kubevirtci provider to use, if not given,
+                            use latest stable one
 
     examples:
 
-      1.    NEW_TESTS='tests/operator_test.go' ./automation/repeated_test.sh 'k8s-1.27'
+      1.    NEW_TESTS='/tmp/changed-tests.json' ./automation/repeated_test.sh 'k8s-1.27'
 
-            runs tests/operator_test.go x times on kubevirtci provider k8s-1.27
+            runs set of tests contained in /tmp/changed-tests.json x times
+            on kubevirtci provider k8s-1.27
 
-      2.    NEW_TESTS='tests/operator_test.go' ./automation/repeated_test.sh
+      2.    NEW_TESTS='/tmp/changed-tests.json' ./automation/repeated_test.sh
 
-            runs tests/operator_test.go x times on latest stable kubevirtci provider found
+            runs set of tests contained in /tmp/changed-tests.json x times
+            on latest stable kubevirtci provider found
 
 EOF
 }
 
+# see CANNIER PR at https://github.com/kubevirt/project-infra/pull/3930
 function new_tests {
-    local target_commit
-    target_commit="$1"
-    # 1. fetch the names of all added, copied, modified or renamed files
-    #    from within the tests/ directory
-    # 2. print only the last column of the line (in case of rename this is the new name)
-    # 3. grep all files ending with '.go' but not with '_suite.go'
-    # 4. replace newline with `|`
-    # 5. remove last `|`
-    git diff --diff-filter=ACMR --name-status "${target_commit}".. -- tests/ \
-        | awk '{print $NF}' \
-        | grep '\.go' \
-        | grep -vE '_suite(_test)\.go' \
-        | tr '\n' '|' \
-        | sed -E 's/\|$//'
+    local target_commit_range
+    target_commit_range="$1"
+    if [ -n "${target_commit_range}" ]; then
+        target_commit_range='-r '"${target_commit_range}"
+    fi
+
+    tmp_dir="$(mktemp -d)"
+    podman run --rm \
+        -v "${KUBEVIRT_ROOT}:/kubevirt/" \
+        -v "${tmp_dir}:/tmp" \
+        quay.io/kubevirtci/cannier:v20250227-c93cf50 \
+        extract changed-tests ${target_commit_range} \
+            -p /kubevirt \
+            -t /kubevirt/tests/ \
+            -o /tmp/changed-tests.json
+
+    echo "${tmp_dir}/changed-tests.json"
 }
 
-# taking into account that each file containing changed tests is run several times per default
-# and considering overhead of cluster-up etc., we should just skip the run
-# if the total number of tests for all runs gets higher than the total number of tests
+# taking into account that each changed test is run several times
+# and considering overhead of cluster-up etc., we should skip the run
+# if the total number of tests for all runs gets higher than the total
+# number of tests
 function should_skip_test_run_due_to_too_many_tests() {
     local new_tests="$1"
     local test_start_pattern='(Specify|It|Entry)\('
@@ -96,12 +114,8 @@ function should_skip_test_run_due_to_too_many_tests() {
     while IFS= read -r -d '' test_file_name; do
         tests_total_estimate=$(( tests_total_estimate + $(grep -hcE "${test_start_pattern}" "$test_file_name") ))
     done < <(find tests/ -name '*.go' -print0)
-    local tests_to_run_estimate=0
-    for test_file_name in $(echo "${new_tests}" | tr '|' '\n'); do
-        set +e
-        tests_to_run_estimate=$(( tests_to_run_estimate + $(grep -hcE "${test_start_pattern}" "$test_file_name") ))
-        set -e
-    done
+    local tests_to_run_estimate
+    tests_to_run_estimate=$(jq '. | length' "${new_tests}")
     local tests_total_for_all_runs_estimate
     tests_total_for_all_runs_estimate=$(( tests_to_run_estimate * NUM_TESTS ))
     echo -e "Estimates:\ttests_total_estimate: $tests_total_estimate\ttests_total_for_all_runs_estimate: $tests_total_for_all_runs_estimate"
@@ -145,25 +159,26 @@ fi
 echo "Test lane: ${TEST_LANE}"
 [ -d "kubevirtci/cluster-up/cluster/${TEST_LANE}" ] || ( echo "provider ${TEST_LANE} does not exist!"; exit 1 )
 
-if [[ -z ${TARGET_COMMIT-} ]]; then
+if [[ -z ${TARGET_COMMIT_RANGE-} ]]; then
     # if there's no commit provided default to the latest merge commit
-    TARGET_COMMIT=$(git log -1 --format=%H --merges)
+    TARGET_COMMIT_RANGE="$(git log -1 --format=%H --merges).."
 fi
 
 if [[ -z ${NEW_TESTS-} ]]; then
-
-    set +e # required due to grep barking when it does not have any input
-    NEW_TESTS=$(new_tests "$TARGET_COMMIT")
-    set -e
-
-    # skip certain tests for now, as we don't have a strategy currently
-    NEW_TESTS=$(echo "$NEW_TESTS" | sed -E 's/\|?[^\|]*(sriov|multus|windows|gpu|mdev)[^\|]*//g' | sed 's/^|//')
+    NEW_TESTS=$(new_tests "$TARGET_COMMIT_RANGE")
 fi
+
 if [[ -z "${NEW_TESTS}" ]]; then
     echo "Nothing to test"
     exit 0
 fi
-echo "Test files touched: $(echo "${NEW_TESTS}" | tr '|' ',')"
+
+tests_changed=$(jq '. | length' "${NEW_TESTS}")
+echo "Tests changed: ${tests_changed}"
+if (( tests_changed == 0 )); then
+    echo "Nothing to test"
+    exit 0
+fi
 
 NUM_TESTS=${NUM_TESTS-5}
 echo "Number of per lane runs: $NUM_TESTS"
@@ -173,12 +188,9 @@ if should_skip_test_run_due_to_too_many_tests "${NEW_TESTS}"; then
     exit 0
 fi
 
-# for some tests we need three nodes aka two nodes with cpu manager installed, thus we grep whether the skip is present
-KUBEVIRT_NUM_NODES=2
-# shellcheck disable=SC2046
-if grep -q 'RequiresTwoWorkerNodesWithCPUManager' $(echo "${NEW_TESTS}" | tr '|' ' '); then
-    KUBEVIRT_NUM_NODES=3
-fi
+# for some tests we need three nodes aka two nodes with cpu manager installed
+# TODO: check whether no test with label `RequiresTwoWorkerNodesWithCPUManager` is present, in that case use two nodes
+KUBEVIRT_NUM_NODES=3
 
 trap '{ make cluster-down; }' EXIT SIGINT SIGTERM
 
@@ -215,6 +227,9 @@ add_to_label_filter() {
 
 label_filter="${KUBEVIRT_LABEL_FILTER:-}"
 
+# skip certain tests on flake lane
+add_to_label_filter "(!(SRIOV,Multus,Windows,GPU,VGPU))" "&&"
+
 add_to_label_filter '(!QUARANTINE)' '&&'
 add_to_label_filter '(!exclude-native-ssh)' '&&'
 add_to_label_filter '(!no-flake-check)' '&&'
@@ -227,10 +242,12 @@ if [[ "${rwofs_sc}" == "local" ]]; then
 fi
 
 label_filter="(flake-check)||(${label_filter})"
-ginko_params="$ginko_params -no-color -succinct --label-filter="${label_filter}" -randomize-all"
-for test_file in $(echo "${NEW_TESTS}" | tr '|' '\n'); do
-    ginko_params+=" -focus-file=${test_file}"
-done
+ginko_params="$ginko_params -no-color -succinct --label-filter=${label_filter} -randomize-all"
+if [[ -n ${NEW_TESTS} ]]; then
+    IFS=$'\n'; for test_name in $(jq -r '.[]' "${NEW_TESTS}"); do
+        ginko_params+=" -focus='${test_name// /\\s}'"
+    done
+fi
 
 echo "Test lane: ${TEST_LANE}, preparing cluster up"
 
