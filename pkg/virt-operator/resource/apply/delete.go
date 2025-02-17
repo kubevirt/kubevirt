@@ -634,12 +634,21 @@ func crdHandleDeletion(kvkey string,
 		crdCopy := crd.DeepCopy()
 		controller.AddFinalizer(crdCopy, v1.VirtOperatorComponentFinalizer)
 
+		patchSet := patch.New()
+
 		patchBytes, err := json.Marshal(crdCopy.Finalizers)
 		if err != nil {
 			return err
 		}
-		ops := fmt.Sprintf(`[{ "op": "add", "path": "%s", "value": %s }]`, finalizerPath, string(patchBytes))
-		_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), crd.Name, types.JSONPatchType, []byte(ops), metav1.PatchOptions{})
+
+		patchSet.AddOption(patch.WithAdd(finalizerPath, string(patchBytes)))
+
+		payload, err := patchSet.GeneratePayload()
+		if err != nil {
+			return fmt.Errorf("failed to generate patch payload: %v", err)
+		}
+
+		_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), crd.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
 		if err != nil {
 			return err
 		}
@@ -661,7 +670,7 @@ func crdHandleDeletion(kvkey string,
 	}
 
 	for _, crd := range needFinalizerRemoved {
-		var ops string
+		patchSet := patch.New() 
 		if len(crd.Finalizers) > 1 {
 			crdCopy := crd.DeepCopy()
 			controller.RemoveFinalizer(crdCopy, v1.VirtOperatorComponentFinalizer)
@@ -676,16 +685,18 @@ func crdHandleDeletion(kvkey string,
 				return err
 			}
 
-			ops = fmt.Sprintf(`[{ "op": "test", "path": "%s", "value": %s }, { "op": "replace", "path": "%s", "value": %s }]`,
-				finalizerPath,
-				string(oldPatchBytes),
-				finalizerPath,
-				string(newPatchBytes))
+			patchSet.AddOption(
+				patch.WithTest(finalizerPath, string(oldPatchBytes)),
+				patch.WithReplace(finalizerPath, string(newPatchBytes)),
+		)
 		} else {
-			ops = fmt.Sprintf(`[{ "op": "remove", "path": "%s" }]`, finalizerPath)
+			patchSet.AddOption(patch.WithRemove(finalizerPath))
 		}
-
-		_, err := ext.ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), crd.Name, types.JSONPatchType, []byte(ops), metav1.PatchOptions{})
+		payload, err := patchSet.GeneratePayload()
+		if err != nil {
+			return fmt.Errorf("failed to generate patch payload: %v", err)
+		}
+		_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Patch(context.Background(), crd.Name, types.JSONPatchType, payload, metav1.PatchOptions{})
 		if err != nil {
 			return err
 		}
