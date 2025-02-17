@@ -1,6 +1,8 @@
 package node
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"testing"
 	"time"
@@ -17,8 +19,8 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
+	"kubevirt.io/client-go/log"
 
-	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -57,6 +59,9 @@ func FuzzExecute(f *testing.F) {
 		if len(nodes) == 0 || len(vmis) == 0 {
 			return
 		}
+		// ignore logs
+		var b bytes.Buffer
+		log.Log.SetIOWriter(bufio.NewWriter(&b))
 
 		// Done creating resources. These are not yet in
 		// the queue or any caches.
@@ -66,19 +71,23 @@ func FuzzExecute(f *testing.F) {
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
 		fakeVirtClient := kubevirtfake.NewSimpleClientset()
 
-		nodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
-		vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+		nodeInformer, nodeCs := testutils.NewFakeInformerFor(&k8sv1.Node{})
+		vmiInformer, vmiCs := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+
+		// We need to shut down the controller sources to avoid excessive memory usage
+		defer nodeCs.Shutdown()
+		defer vmiCs.Shutdown()
 		recorder := record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 
 		controller, _ := NewController(virtClient, nodeInformer, vmiInformer, recorder)
+
+		// We need to shut down the queue to avoid excessive memory usage
+		controller.Queue.ShutDown()
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue := testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 
-		defer func() {
-			controller.Queue.ShutDown()
-		}()
 		controller.recheckInterval = 10 * time.Millisecond
 
 		// Set up mock client
@@ -97,17 +106,27 @@ func FuzzExecute(f *testing.F) {
 
 		// Add the resources to the context
 		for _, node := range nodes {
-			key, err := virtcontroller.KeyFunc(node)
-			if err != nil {
-				panic("Should not happen. If it does, we want to know.")
-			}
-			controller.Queue.Add(key)
+			controller.enqueueNode(node)
 		}
 		for _, vmi := range vmis {
-			_, err := fakeVirtClient.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(ctx, vmi, metav1.CreateOptions{})
+			// Either add a VMI to the queue or create it
+			addToQueue, err := fdp.GetBool()
 			if err != nil {
 				return
 			}
+			if addToQueue {
+				controller.addVirtualMachine(vmi)
+			} else {
+				_, err := fakeVirtClient.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(ctx, vmi, metav1.CreateOptions{})
+				if err != nil {
+					return
+				}
+			}
+		}
+
+		// If the queue is empty, we won't proceed
+		if controller.Queue.Len() == 0 {
+			return
 		}
 
 		// Run the controller
