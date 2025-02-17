@@ -224,6 +224,9 @@ var istioTests = func(vmType VmType) {
 					vmiPorts = explicitPorts
 				})
 				It("should ssh to VMI with Istio proxy", func() {
+					if vmType == Passt {
+						Skip("this test is quarantine due to https://github.com/kubevirt/kubevirt/issues/13927")
+					}
 					By("Getting the VMI IP")
 					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
@@ -239,6 +242,9 @@ var istioTests = func(vmType VmType) {
 					vmiPorts = []v1.Port{}
 				})
 				It("should ssh to VMI with Istio proxy", func() {
+					if vmType == Passt {
+						Skip("this test is quarantine due to https://github.com/kubevirt/kubevirt/issues/13927")
+					}
 					By("Getting the VMI IP")
 					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
@@ -265,6 +271,9 @@ var istioTests = func(vmType VmType) {
 					vmiPorts = explicitPorts
 				})
 				DescribeTable("request to VMI should reach HTTP server", func(targetPort int) {
+					if vmType == Passt {
+						Skip("this test is quarantine due to https://github.com/kubevirt/kubevirt/issues/13927")
+					}
 					Expect(checkVMIReachability(vmi, targetPort)).To(Succeed())
 				},
 					Entry("on service declared port on VMI with explicit ports", svcDeclaredTestPort),
@@ -298,6 +307,9 @@ var istioTests = func(vmType VmType) {
 						vmiPorts = explicitPorts
 					})
 					DescribeTable("client outside mesh should NOT reach VMI HTTP server", func(targetPort int) {
+						if vmType == Passt {
+							Skip("this test is quarantine due to https://github.com/kubevirt/kubevirt/issues/13927")
+						}
 						Expect(checkVMIReachability(vmi, targetPort)).NotTo(Succeed())
 					},
 						Entry("on service declared port on VMI with explicit ports", svcDeclaredTestPort),
@@ -398,6 +410,9 @@ var istioTests = func(vmType VmType) {
 					vmiPorts = explicitPorts
 				})
 				It("Should be able to reach http server outside of mesh", func() {
+					if vmType == Passt {
+						Skip("this test is quarantine due to https://github.com/kubevirt/kubevirt/issues/13927")
+					}
 					Expect(
 						checkHTTPServiceReturnCode(ingressGatewayServiceIP, generateExpectedHTTPReturnCodeRegex("200")),
 					).ToNot(HaveOccurred())
@@ -432,6 +447,9 @@ var istioTests = func(vmType VmType) {
 						vmiPorts = explicitPorts
 					})
 					It("Should not be able to reach http service outside of mesh", func() {
+						if vmType == Passt {
+							Skip("this test is quarantine due to https://github.com/kubevirt/kubevirt/issues/13927")
+						}
 						Eventually(func() error {
 							return checkHTTPServiceReturnCode(ingressGatewayServiceIP, generateExpectedHTTPReturnCodeRegex("5.."))
 						}, externalServiceCheckTimeout, externalServiceCheckInterval).Should(Succeed())
