@@ -20,21 +20,11 @@
 package config
 
 import (
-	"context"
-	"time"
-
-	. "github.com/onsi/gomega"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
-	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 func DisableFeatureGate(feature string) {
@@ -61,10 +51,6 @@ func DisableFeatureGate(feature string) {
 	}
 
 	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = newArray
-	if checks.RequireFeatureGateVirtHandlerRestart(feature) {
-		updateKubeVirtConfigValueAndWaitHandlerRedeploymnet(kv.Spec.Configuration)
-		return
-	}
 
 	UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 }
@@ -85,28 +71,5 @@ func EnableFeatureGate(feature string) *v1.KubeVirt {
 
 	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, feature)
 
-	if checks.RequireFeatureGateVirtHandlerRestart(feature) {
-		return updateKubeVirtConfigValueAndWaitHandlerRedeploymnet(kv.Spec.Configuration)
-	}
-
 	return UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
-}
-
-func updateKubeVirtConfigValueAndWaitHandlerRedeploymnet(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
-	virtClient := kubevirt.Client()
-	ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	currentGen := ds.Status.ObservedGeneration
-	kv := testsuite.UpdateKubeVirtConfigValue(kvConfig)
-	EventuallyWithOffset(1, func() bool {
-		ds, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.TODO(), "virt-handler", metav1.GetOptions{})
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		gen := ds.Status.ObservedGeneration
-		return gen > currentGen
-	}, 90*time.Second, 1*time.Second).Should(BeTrue())
-
-	waitForConfigToBePropagated(kv.ResourceVersion)
-	log.DefaultLogger().Infof("system is in sync with kubevirt config resource version %s", kv.ResourceVersion)
-
-	return kv
 }
