@@ -237,19 +237,20 @@ func (app *virtHandlerApp) Run() {
 	vmiSourceInformer := factory.VMISourceHost(app.HostOverride)
 	vmiTargetInformer := factory.VMITargetHost(app.HostOverride)
 
-	// Wire Domain controller
-	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiSourceInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
+	checkpointPath := filepath.Join(app.VirtPrivateDir, "ghost-records")
+	err = util.MkdirAllWithNosec(checkpointPath)
 	if err != nil {
 		panic(err)
 	}
+	iterableCPManager := virtcache.NewIterableCheckpointManager(checkpointPath)
 
 	// We keep a record on disk of every VMI virt-handler starts.
 	// That record isn't deleted from this node until the VMI
 	// is completely torn down.
-	err = virtcache.InitializeGhostRecordCache(filepath.Join(app.VirtPrivateDir, "ghost-records"))
-	if err != nil {
-		panic(err)
-	}
+	ghostRecordCache := virtcache.InitializeGhostRecordCache(iterableCPManager)
+
+	// Wire Domain controller
+	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiSourceInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second, ghostRecordCache)
 
 	cmdclient.SetPodsBaseDir("/pods")
 	containerdisk.SetKubeletPodsDirectory(app.KubeletPodsDir)
@@ -346,6 +347,7 @@ func (app *virtHandlerApp) Run() {
 		netsetup.NewNetConf(app.clusterConfig),
 		netsetup.NewNetStat(),
 		netbinding.MemoryCalculator{},
+		ghostRecordCache,
 	)
 	if err != nil {
 		panic(err)

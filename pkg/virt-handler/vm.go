@@ -179,6 +179,7 @@ func NewController(
 	netConf netconf,
 	netStat netstat,
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator,
+	ghostRecordCache *virtcache.GhostRecordStore,
 ) (*VirtualMachineController, error) {
 
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
@@ -221,6 +222,7 @@ func NewController(
 		netConf:                          netConf,
 		netStat:                          netStat,
 		netBindingPluginMemoryCalculator: netBindingPluginMemoryCalculator,
+		ghostRecordCache:                 ghostRecordCache,
 	}
 
 	c.hasSynced = func() bool {
@@ -322,6 +324,8 @@ type VirtualMachineController struct {
 	vmiExpectations             *controller.UIDTrackingControllerExpectations
 	ioErrorRetryManager         *FailRetryManager
 	hasSynced                   func() bool
+
+	ghostRecordCache *virtcache.GhostRecordStore
 }
 
 type virtLauncherCriticalSecurebootError struct {
@@ -2097,7 +2101,7 @@ func (c *VirtualMachineController) execute(key string) error {
 	// As a last effort, if the UID still can't be determined attempt
 	// to retrieve it from the ghost record
 	if string(vmi.UID) == "" {
-		uid := virtcache.LastKnownUIDFromGhostRecordCache(key)
+		uid := c.ghostRecordCache.LastKnownUID(key)
 		if uid != "" {
 			log.Log.Object(vmi).V(3).Infof("ghost record cache provided %s as UID", uid)
 			vmi.UID = uid
@@ -2210,7 +2214,7 @@ func (c *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 		close(clientInfo.DomainPipeStopChan)
 	}
 
-	virtcache.DeleteGhostRecord(vmi.Namespace, vmi.Name)
+	c.ghostRecordCache.Delete(vmi.Namespace, vmi.Name)
 	c.launcherClients.Delete(vmi.UID)
 	return nil
 }
@@ -2282,7 +2286,7 @@ func (c *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInsta
 		return nil, err
 	}
 
-	err = virtcache.AddGhostRecord(vmi.Namespace, vmi.Name, socketFile, vmi.UID)
+	err = c.ghostRecordCache.Add(vmi.Namespace, vmi.Name, socketFile, vmi.UID)
 	if err != nil {
 		return nil, err
 	}
@@ -2433,7 +2437,7 @@ func (c *VirtualMachineController) hasStaleClientConnections(vmi *v1.VirtualMach
 	}
 
 	// no connection, but ghost file exists.
-	if virtcache.HasGhostRecord(vmi.Namespace, vmi.Name) {
+	if c.ghostRecordCache.Exists(vmi.Namespace, vmi.Name) {
 		return true
 	}
 
