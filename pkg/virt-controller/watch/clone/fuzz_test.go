@@ -14,6 +14,7 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
+
 	"kubevirt.io/kubevirt/pkg/testutils"
 
 	gfh "github.com/AdaLogics/go-fuzz-headers"
@@ -68,24 +69,24 @@ func FuzzVMCloneController(f *testing.F) {
 		// Done creating the VMs and VM Clones
 
 		// Set up the controller
-		var (
-			recorder   *record.FakeRecorder
-			mockQueue  *testutils.MockWorkQueue[string]
-			controller *VMCloneController
-		)
-
 		ctrl := gomock.NewController(t)
-		vmInformer, _ := testutils.NewFakeInformerFor(&virtv1.VirtualMachine{})
-		snapshotInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
-		restoreInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
-		cloneInformer, _ := testutils.NewFakeInformerFor(&clone.VirtualMachineClone{})
-		snapshotContentInformer, _ := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
-		pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		vmInformer, vmCs := testutils.NewFakeInformerFor(&virtv1.VirtualMachine{})
+		snapshotInformer, snapshotCs := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshot{})
+		restoreInformer, restoreCs := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineRestore{})
+		cloneInformer, cloneCs := testutils.NewFakeInformerFor(&clone.VirtualMachineClone{})
+		snapshotContentInformer, snapthotContentCs := testutils.NewFakeInformerFor(&snapshotv1.VirtualMachineSnapshotContent{})
+		pvcInformer, pvcCs := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		defer vmCs.Shutdown()
+		defer snapshotCs.Shutdown()
+		defer restoreCs.Shutdown()
+		defer cloneCs.Shutdown()
+		defer snapthotContentCs.Shutdown()
+		defer pvcCs.Shutdown()
 
-		recorder = record.NewFakeRecorder(100)
+		recorder := record.NewFakeRecorder(100)
 		recorder.IncludeObject = true
 		virtClient := kubecli.NewMockKubevirtClient(ctrl)
-		controller, _ = NewVmCloneController(
+		controller, err := NewVmCloneController(
 			virtClient,
 			cloneInformer,
 			snapshotInformer,
@@ -94,7 +95,11 @@ func FuzzVMCloneController(f *testing.F) {
 			snapshotContentInformer,
 			pvcInformer,
 			recorder)
-		mockQueue = testutils.NewMockWorkQueue(controller.vmCloneQueue)
+		if err != nil {
+			panic(err)
+		}
+		mockQueue := testutils.NewMockWorkQueue(controller.vmCloneQueue)
+		controller.vmCloneQueue.ShutDown()
 		controller.vmCloneQueue = mockQueue
 
 		client := kubevirtfake.NewSimpleClientset()
@@ -104,22 +109,32 @@ func FuzzVMCloneController(f *testing.F) {
 		for _, randomVM := range vms {
 			err := controller.vmStore.Add(randomVM)
 			if err != nil {
-				return
+				continue
 			}
 		}
 
 		// Add vm clones to the queue
-		for _, randomVMClone := range vmClones {
-			vmClone, err := client.CloneV1beta1().VirtualMachineClones(metav1.NamespaceDefault).Create(context.Background(), randomVMClone, metav1.CreateOptions{})
+		for _, vmClone := range vmClones {
+			addToQueue, err := fdp.GetBool()
 			if err != nil {
-				return
+				continue
 			}
-			controller.vmCloneIndexer.Add(vmClone)
-			key, err := kvcontroller.KeyFunc(vmClone)
-			if err != nil {
-				return
+			if addToQueue {
+				controller.vmCloneIndexer.Add(vmClone)
+				key, err := kvcontroller.KeyFunc(vmClone)
+				if err != nil {
+					continue
+				}
+				mockQueue.Add(key)
+			} else {
+				_, err := client.CloneV1beta1().VirtualMachineClones(metav1.NamespaceDefault).Create(context.Background(), vmClone, metav1.CreateOptions{})
+				if err != nil {
+					continue
+				}
 			}
-			mockQueue.Add(key)
+		}
+		if controller.vmCloneQueue.Len() == 0 {
+			return
 		}
 		controller.Execute()
 	})
