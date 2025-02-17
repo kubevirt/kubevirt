@@ -22,6 +22,7 @@ package vm
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -33,6 +34,8 @@ import (
 
 const COMMAND_MIGRATE = "migrate"
 
+var nodeSlectorLabels []string
+
 func NewMigrateCommand() *cobra.Command {
 	c := Command{command: COMMAND_MIGRATE}
 	cmd := &cobra.Command{
@@ -42,6 +45,8 @@ func NewMigrateCommand() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		RunE:    c.migrateRun,
 	}
+
+	cmd.Flags().StringSliceVar(&nodeSlectorLabels, "addedNodeSelector", nil, "--addedNodeSelector=key=value1,key2=value2: configure an additional node selector for the one-off migration attempt. AddedNodeSelector can only restrict constraints already set on the VM. If omitted (recommended!) the scheduler becomes responsible for finding the best Node to migrate the VM to.")
 	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
@@ -57,7 +62,17 @@ func (o *Command) migrateRun(cmd *cobra.Command, args []string) error {
 
 	dryRunOption := setDryRunOption(dryRun)
 
-	err = virtClient.VirtualMachine(namespace).Migrate(context.Background(), vmiName, &v1.MigrateOptions{DryRun: dryRunOption})
+	options := &v1.MigrateOptions{DryRun: dryRunOption}
+
+	if nodeSlectorLabels != nil {
+		addedNodeSelector, err := convertSliceToMap(nodeSlectorLabels)
+		if err != nil {
+			return err
+		}
+		options.AddedNodeSelector = addedNodeSelector
+	}
+
+	err = virtClient.VirtualMachine(namespace).Migrate(context.Background(), vmiName, options)
 	if err != nil {
 		return fmt.Errorf("Error migrating VirtualMachine %v", err)
 	}
@@ -65,4 +80,18 @@ func (o *Command) migrateRun(cmd *cobra.Command, args []string) error {
 	fmt.Printf("VM %s was scheduled to %s\n", vmiName, o.command)
 
 	return nil
+}
+
+// Convert a slice of "key=value" strings to a map
+func convertSliceToMap(slice []string) (map[string]string, error) {
+	mapResult := make(map[string]string)
+	for _, item := range slice {
+		parts := strings.Split(item, "=")
+		if len(parts) == 2 {
+			mapResult[parts[0]] = parts[1]
+		} else {
+			return nil, fmt.Errorf("invalid format for label: %s", item)
+		}
+	}
+	return mapResult, nil
 }
