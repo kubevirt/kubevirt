@@ -63,23 +63,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		format.MaxLength = 0
 	})
 
-	generateSnapshot := func(vm *virtv1.VirtualMachine) *snapshotv1.VirtualMachineSnapshot {
-		snapshot := &snapshotv1.VirtualMachineSnapshot{
-			ObjectMeta: v1.ObjectMeta{
-				Name:      "snapshot-" + vm.Name,
-				Namespace: vm.Namespace,
-			},
-			Spec: snapshotv1.VirtualMachineSnapshotSpec{
-				Source: k8sv1.TypedLocalObjectReference{
-					APIGroup: pointer.P(vmAPIGroup),
-					Kind:     "VirtualMachine",
-					Name:     vm.Name,
-				},
-			},
-		}
-		return snapshot
-	}
-
 	createSnapshot := func(snapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.VirtualMachineSnapshot {
 		snapshot, err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, v1.CreateOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -293,7 +276,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 					return sourceVM.Status.PrintableStatus
 				}, 30*time.Second, 1*time.Second).Should(Equal(virtv1.VirtualMachineStatusStopped))
 
-				snapshot := generateSnapshot(sourceVM)
+				snapshot := generateSnapshot(sourceVM.Name, sourceVM.Namespace)
 				By("Creating a clone before snapshot source created")
 				vmClone = generateCloneFromSnapshot(snapshot.Name, snapshot.Namespace, targetVMName)
 				vmClone = createClone(vmClone)
@@ -808,4 +791,21 @@ func createSourceVM(options ...libvmi.Option) (*virtv1.VirtualMachine, error) {
 	By(fmt.Sprintf("Creating VM %s", vm.Name))
 	virtClient := kubevirt.Client()
 	return virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, v1.CreateOptions{})
+}
+
+func generateSnapshot(vmName, vmNamespace string) *snapshotv1.VirtualMachineSnapshot {
+	snapshot := &snapshotv1.VirtualMachineSnapshot{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "snapshot-" + vmName,
+			Namespace: vmNamespace,
+		},
+		Spec: snapshotv1.VirtualMachineSnapshotSpec{
+			Source: k8sv1.TypedLocalObjectReference{
+				APIGroup: pointer.P(vmAPIGroup),
+				Kind:     "VirtualMachine",
+				Name:     vmName,
+			},
+		},
+	}
+	return snapshot
 }
