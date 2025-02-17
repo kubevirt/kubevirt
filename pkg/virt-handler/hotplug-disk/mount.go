@@ -27,6 +27,7 @@ import (
 	"github.com/opencontainers/runc/libcontainer/devices"
 	"k8s.io/apimachinery/pkg/types"
 
+	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 )
@@ -134,6 +135,7 @@ type volumeMounter struct {
 	hotplugDiskManager hotplugdisk.HotplugDiskManagerInterface
 	ownershipManager   diskutils.OwnershipManagerInterface
 	kubeletPodsDir     string
+	host               string
 }
 
 // VolumeMounter is the interface used to mount and unmount volumes to/from a running virtlauncher pod.
@@ -159,13 +161,14 @@ type vmiMountTargetRecord struct {
 }
 
 // NewVolumeMounter creates a new VolumeMounter
-func NewVolumeMounter(mountStateDir string, kubeletPodsDir string) VolumeMounter {
+func NewVolumeMounter(mountStateDir string, kubeletPodsDir string, host string) VolumeMounter {
 	return &volumeMounter{
 		mountRecords:       make(map[types.UID]*vmiMountTargetRecord),
 		checkpointManager:  checkpoint.NewSimpleCheckpointManager(mountStateDir),
 		hotplugDiskManager: hotplugdisk.NewHotplugDiskManager(kubeletPodsDir),
 		ownershipManager:   diskutils.DefaultOwnershipManager,
 		kubeletPodsDir:     kubeletPodsDir,
+		host:               host,
 	}
 }
 
@@ -346,6 +349,22 @@ func (m *volumeMounter) isDirectoryMounted(vmiStatus *v1.VirtualMachineInstanceS
 // isBlockVolume checks if the volumeDevices directory exists in the pod path, we assume there is a single volume associated with
 // each pod, we use this knowledge to determine if we have a block volume or not.
 func (m *volumeMounter) isBlockVolume(vmiStatus *v1.VirtualMachineInstanceStatus, volumeName string) bool {
+	// First evaluate the migrated volumed. In the case of a migrated volume, virt-handler needs to understand if it needs to consider the i
+	// volume mode of the source or the destination. Therefore, it evaualtes if its is running on the destiation host or otherwise, it is the source.
+	isDstHost := false
+	if vmiStatus.MigrationState != nil {
+		isDstHost = vmiStatus.MigrationState.TargetNode == m.host
+	}
+	for _, migVol := range vmiStatus.MigratedVolumes {
+		if migVol.VolumeName == volumeName {
+			if isDstHost && migVol.DestinationPVCInfo != nil && migVol.DestinationPVCInfo.VolumeMode != nil {
+				return *migVol.DestinationPVCInfo.VolumeMode != k8sv1.PersistentVolumeFilesystem
+			}
+			if !isDstHost && migVol.SourcePVCInfo != nil && migVol.SourcePVCInfo.VolumeMode != nil {
+				return *migVol.SourcePVCInfo.VolumeMode != k8sv1.PersistentVolumeFilesystem
+			}
+		}
+	}
 	// Check if the volumeDevices directory exists in the attachment pod, if so, its a block device, otherwise its file system.
 	for _, status := range vmiStatus.VolumeStatus {
 		if status.Name == volumeName {
