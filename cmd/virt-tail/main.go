@@ -42,9 +42,6 @@ import (
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 )
 
-// initial timeout for serial console socket creation
-const initialSocketTimeout = time.Second * 20
-
 type TermFileError struct{}
 type SocketFileError struct{}
 
@@ -57,10 +54,9 @@ func (m *SocketFileError) Error() string {
 }
 
 type VirtTail struct {
-	ctx           context.Context
-	logFile       string
-	g             *errgroup.Group
-	socketTimeout *time.Duration
+	ctx     context.Context
+	logFile string
+	g       *errgroup.Group
 }
 
 func (v *VirtTail) checkFile(socketFile string) bool {
@@ -140,8 +136,10 @@ func (v *VirtTail) watchFS() error {
 		return err
 	}
 
+	// initial timeout for serial console socket creation
+	const initialSocketTimeout = time.Second * 20
 	socketCheckCh := make(chan int)
-	time.AfterFunc(*v.socketTimeout, func() {
+	time.AfterFunc(initialSocketTimeout, func() {
 		socketCheckCh <- 1
 	})
 
@@ -199,7 +197,6 @@ func main() {
 	pflag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
 	pflag.CommandLine.ParseErrorsWhitelist = pflag.ParseErrorsWhitelist{UnknownFlags: true}
 	logFile := pflag.String("logfile", "", "path of the logfile to be streamed")
-	socketTimeout := pflag.Duration("socket-timeout", initialSocketTimeout, "Amount of time to wait for qemu")
 	pflag.Parse()
 
 	log.InitializeLogging("virt-tail")
@@ -217,10 +214,9 @@ func main() {
 	g, gctx := errgroup.WithContext(ctx)
 
 	v := &VirtTail{
-		ctx:           gctx,
-		logFile:       *logFile,
-		socketTimeout: socketTimeout,
-		g:             g,
+		ctx:     gctx,
+		logFile: *logFile,
+		g:       g,
 	}
 
 	g.Go(v.tailLogs)
