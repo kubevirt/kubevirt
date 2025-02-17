@@ -149,8 +149,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 
 	expectVMRunnable := func(vm *virtv1.VirtualMachine, login console.LoginToFunction) *virtv1.VirtualMachine {
 		By(fmt.Sprintf("Starting VM %s", vm.Name))
-		vm, err = startCloneVM(virtClient, vm)
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &virtv1.StartOptions{})).To(Succeed())
 		Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 		targetVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, v1.GetOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
@@ -773,15 +772,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		})
 	})
 })
-
-func startCloneVM(virtClient kubecli.KubevirtClient, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
-	patch, err := patch.New(patch.WithAdd("/spec/runStrategy", virtv1.RunStrategyAlways)).GeneratePayload()
-	if err != nil {
-		return nil, err
-	}
-
-	return virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, v1.PatchOptions{})
-}
 
 func stopCloneVM(virtClient kubecli.KubevirtClient, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
 	patch, err := patch.New(patch.WithAdd("/spec/runStrategy", virtv1.RunStrategyHalted)).GeneratePayload()
