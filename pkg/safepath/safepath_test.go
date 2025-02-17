@@ -3,13 +3,12 @@ package safepath
 import (
 	"fmt"
 	"io/fs"
+	"kubevirt.io/kubevirt/pkg/unsafepath"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strconv"
 	"syscall"
-
-	"kubevirt.io/kubevirt/pkg/unsafepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
