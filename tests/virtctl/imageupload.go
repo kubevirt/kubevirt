@@ -22,6 +22,7 @@ package virtctl
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -90,7 +91,7 @@ var _ = VirtctlDescribe("[sig-storage]ImageUpload", decorators.SigStorage, Seria
 		}
 	})
 
-	DescribeTable("[test_id:4621]Upload an imag start a VMI should succeed",
+	DescribeTable("[test_id:4621]Upload an imag start a VMI should succeed", decorators.RequiresBlockStorage,
 		func(resource string, validateFn func(string, string), diskFn func(string, string, ...libvmi.DiskOption) libvmi.Option) {
 			sc, exists := libstorage.GetRWOBlockStorageClass()
 			if !exists {
@@ -130,33 +131,34 @@ var _ = VirtctlDescribe("[sig-storage]ImageUpload", decorators.SigStorage, Seria
 		Entry("PVC", "pvc", validatePVC, libvmi.WithPersistentVolumeClaim),
 	)
 
-	DescribeTable("[test_id:11655]Create upload volume with force-bind flag should succeed", func(resource string, validateFn func(string)) {
-		sc, exists := libstorage.GetRWOFileSystemStorageClass()
-		if !exists || !libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
-			Fail("Fail no wffc storage class available")
-		}
+	DescribeTable("[test_id:11655]Create upload volume with force-bind flag should succeed",
+		decorators.RequiresWFFCStorageClass, func(resource string, validateFn func(string)) {
+			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			if !exists || !libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+				Fail("Fail no wffc storage class available")
+			}
 
-		By("Upload image")
-		err := runImageUploadCmd(
-			resource, targetName,
-			"--image-path", imagePath,
-			"--storage-class", sc,
-			"--access-mode", "ReadWriteOnce",
-			"--force-bind",
-		)
-		Expect(err).ToNot(HaveOccurred())
+			By("Upload image")
+			err := runImageUploadCmd(
+				resource, targetName,
+				"--image-path", imagePath,
+				"--storage-class", sc,
+				"--access-mode", "ReadWriteOnce",
+				"--force-bind",
+			)
+			Expect(err).ToNot(HaveOccurred())
 
-		By("Validating uploaded image")
-		validateFn(targetName)
-	},
+			By("Validating uploaded image")
+			validateFn(targetName)
+		},
 		Entry("DataVolume", "dv", validateDataVolumeForceBind),
 		Entry("PVC", "pvc", validatePVCForceBind),
 	)
 
-	DescribeTable("Create upload volume using volume-mode flag should succeed", func(volumeMode string) {
-		sc, exists := libstorage.GetRWOBlockStorageClass()
+	DescribeTable("Create upload volume using volume-mode flag should succeed", func(volumeMode string, scFunc func() (string, bool)) {
+		sc, exists := scFunc()
 		if !exists {
-			Fail("Fail test when RWOBlock storage class is not present")
+			Fail(fmt.Sprintf("Fail test, %s storage class is not present", volumeMode))
 		}
 
 		By("Upload image")
@@ -172,46 +174,47 @@ var _ = VirtctlDescribe("[sig-storage]ImageUpload", decorators.SigStorage, Seria
 		By("Validating uploaded image")
 		validateDataVolume(targetName, sc)
 	},
-		Entry("[test_id:10671]block volumeMode", "block"),
-		Entry("[test_id:10672]filesystem volumeMode", "filesystem"),
+		Entry("[test_id:10671]block volumeMode", decorators.RequiresBlockStorage, "block", libstorage.GetRWOBlockStorageClass),
+		Entry("[test_id:10672]filesystem volumeMode", "filesystem", libstorage.GetRWOFileSystemStorageClass),
 	)
 
-	It("[test_id:11656]Upload fails when DV is in WFFC/PendingPopulation phase but uploads after consumer is created", func() {
-		sc, exists := libstorage.GetRWOFileSystemStorageClass()
-		if !exists || !libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
-			Skip("Skip no wffc storage class available")
-		}
+	It("[test_id:11656]Upload fails when DV is in WFFC/PendingPopulation phase but uploads after consumer is created",
+		decorators.RequiresWFFCStorageClass, func() {
+			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			if !exists || !libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+				Fail("Fail test, no wffc storage class available")
+			}
 
-		args := []string{
-			"dv", targetName,
-			"--image-path", imagePath,
-			"--storage-class", sc,
-			"--access-mode", "ReadWriteOnce",
-		}
+			args := []string{
+				"dv", targetName,
+				"--image-path", imagePath,
+				"--storage-class", sc,
+				"--access-mode", "ReadWriteOnce",
+			}
 
-		By("Upload image")
-		err := runImageUploadCmd(args...)
-		Expect(err).To(MatchError(ContainSubstring("make sure the PVC is Bound, or use force-bind flag")))
+			By("Upload image")
+			err := runImageUploadCmd(args...)
+			Expect(err).To(MatchError(ContainSubstring("make sure the PVC is Bound, or use force-bind flag")))
 
-		By("Start VMI")
-		vmi := libvmi.New(
-			libvmi.WithResourceMemory("256Mi"),
-			libvmi.WithDataVolume("disk0", targetName),
-		)
-		vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
+			By("Start VMI")
+			vmi := libvmi.New(
+				libvmi.WithResourceMemory("256Mi"),
+				libvmi.WithDataVolume("disk0", targetName),
+			)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-		By("Wait for DV to be in UploadReady phase")
-		dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vmi.Namespace).Get(context.Background(), targetName, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		libstorage.EventuallyDV(dv, timeout, matcher.BeInPhase(cdiv1.UploadReady))
+			By("Wait for DV to be in UploadReady phase")
+			dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(vmi.Namespace).Get(context.Background(), targetName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libstorage.EventuallyDV(dv, timeout, matcher.BeInPhase(cdiv1.UploadReady))
 
-		By("Upload image, now should succeed")
-		Expect(runImageUploadCmd(args...)).To(Succeed())
+			By("Upload image, now should succeed")
+			Expect(runImageUploadCmd(args...)).To(Succeed())
 
-		By("Validating uploaded image")
-		validateDataVolume(targetName, sc)
-	})
+			By("Validating uploaded image")
+			validateDataVolume(targetName, sc)
+		})
 
 	Context("Create upload archive volume", func() {
 		var archivePath string
