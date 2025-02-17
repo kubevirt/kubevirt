@@ -54,7 +54,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domainAttachmentByIn
 			continue
 		}
 
-		ifaceType := GetInterfaceType(&nonAbsentIfaces[i])
+		ifaceType := getInterfaceType(&nonAbsentIfaces[i])
 		domainIface := api.Interface{
 			Model: &api.Model{
 				Type: translateModel(vmi.Spec.Domain.Devices.UseVirtioTransitional, ifaceType, vmi.Spec.Architecture),
@@ -62,7 +62,7 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domainAttachmentByIn
 			Alias: api.NewUserDefinedAlias(iface.Name),
 		}
 
-		if queueCount := uint(CalculateNetworkQueues(vmi, ifaceType)); queueCount != 0 {
+		if queueCount := uint(calculateNetworkQueues(vmi, ifaceType)); queueCount != 0 {
 			domainIface.Driver = &api.InterfaceDriver{Name: "vhost", Queues: &queueCount}
 		}
 
@@ -112,14 +112,14 @@ func CreateDomainInterfaces(vmi *v1.VirtualMachineInstance, domainAttachmentByIn
 	return domainInterfaces, nil
 }
 
-func GetInterfaceType(iface *v1.Interface) string {
+func getInterfaceType(iface *v1.Interface) string {
 	if iface.Model != "" {
 		return iface.Model
 	}
 	return v1.VirtIO
 }
 
-func CalculateNetworkQueues(vmi *v1.VirtualMachineInstance, ifaceType string) uint32 {
+func calculateNetworkQueues(vmi *v1.VirtualMachineInstance, ifaceType string) uint32 {
 	if ifaceType != v1.VirtIO {
 		return 0
 	}
