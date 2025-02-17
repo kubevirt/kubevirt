@@ -6,7 +6,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/instancetype/upgrade",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/apimachinery/patch:go_default_library",
         "//pkg/instancetype/compatibility:go_default_library",
         "//pkg/instancetype/find:go_default_library",
         "//pkg/instancetype/revision:go_default_library",
