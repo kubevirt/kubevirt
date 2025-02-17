@@ -12,8 +12,10 @@ import (
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/types"
+	virtutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
@@ -145,6 +147,27 @@ func (*VirtualMachineController) prepareVFIO(res isolation.IsolationResult) erro
 	return nil
 }
 
+func (c *VirtualMachineController) prepareNetwork(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
+	rootMount, err := res.MountRoot()
+	if err != nil {
+		return err
+	}
+
+	if virtutil.WantVirtioNetDevice(vmi) {
+		if err := c.claimDeviceOwnership(rootMount, "vhost-net"); err != nil {
+			return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up vhost-net device, %s", err))
+		}
+	}
+
+	if virtutil.NeedTunDevice(vmi) {
+		if err := c.claimDeviceOwnership(rootMount, "/net/tun"); err != nil {
+			return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up tun device, %s", err))
+		}
+	}
+
+	return nil
+}
+
 func (c *VirtualMachineController) nonRootSetup(origVMI *v1.VirtualMachineInstance) error {
 	res, err := c.podIsolationDetector.Detect(origVMI)
 	if err != nil {
@@ -154,6 +177,9 @@ func (c *VirtualMachineController) nonRootSetup(origVMI *v1.VirtualMachineInstan
 		return err
 	}
 	if err := c.prepareVFIO(res); err != nil {
+		return err
+	}
+	if err := c.prepareNetwork(origVMI, res); err != nil {
 		return err
 	}
 	return nil

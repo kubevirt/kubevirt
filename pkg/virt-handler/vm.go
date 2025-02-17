@@ -96,7 +96,7 @@ import (
 )
 
 type netconf interface {
-	Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int, preSetup func() error) error
+	Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int) error
 	Teardown(vmi *v1.VirtualMachineInstance) error
 }
 
@@ -553,35 +553,6 @@ func (c *VirtualMachineController) teardownNetwork(vmi *v1.VirtualMachineInstanc
 		log.Log.Reason(err).Errorf("failed to delete VMI Network cache files: %s", err.Error())
 	}
 	c.netStat.Teardown(vmi)
-}
-
-func (c *VirtualMachineController) setupNetwork(vmi *v1.VirtualMachineInstance, networks []v1.Network) error {
-	if len(networks) == 0 {
-		return nil
-	}
-
-	isolationRes, err := c.podIsolationDetector.Detect(vmi)
-	if err != nil {
-		return fmt.Errorf(failedDetectIsolationFmt, err)
-	}
-	rootMount, err := isolationRes.MountRoot()
-	if err != nil {
-		return err
-	}
-
-	return c.netConf.Setup(vmi, networks, isolationRes.Pid(), func() error {
-		if virtutil.WantVirtioNetDevice(vmi) {
-			if err := c.claimDeviceOwnership(rootMount, "vhost-net"); err != nil {
-				return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up vhost-net device, %s", err))
-			}
-		}
-		if virtutil.NeedTunDevice(vmi) {
-			if err := c.claimDeviceOwnership(rootMount, "/net/tun"); err != nil {
-				return neterrors.CreateCriticalNetworkError(fmt.Errorf("failed to set up tun device, %s", err))
-			}
-		}
-		return nil
-	})
 }
 
 func domainPausedFailedPostCopy(domain *api.Domain) bool {
@@ -2811,15 +2782,15 @@ func (c *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		}
 	}
 
-	// configure network inside virt-launcher compute container
-	if err := c.setupNetwork(vmi, netsetup.FilterNetsForMigrationTarget(vmi)); err != nil {
-		return fmt.Errorf("failed to configure vmi network for migration target: %w", err)
-	}
-
 	isolationRes, err := c.podIsolationDetector.Detect(vmi)
 	if err != nil {
 		return fmt.Errorf(failedDetectIsolationFmt, err)
 	}
+
+	if err := c.netConf.Setup(vmi, netsetup.FilterNetsForMigrationTarget(vmi), isolationRes.Pid()); err != nil {
+		return fmt.Errorf("failed to configure vmi network for migration target: %w", err)
+	}
+
 	virtLauncherRootMount, err := isolationRes.MountRoot()
 	if err != nil {
 		return err
@@ -3059,7 +3030,7 @@ func (c *VirtualMachineController) handleRunningVMI(vmi *v1.VirtualMachineInstan
 		return err
 	}
 
-	if err := c.setupNetwork(vmi, netsetup.FilterNetsForLiveUpdate(vmi)); err != nil {
+	if err := c.netConf.Setup(vmi, netsetup.FilterNetsForLiveUpdate(vmi), isolationRes.Pid()); err != nil {
 		log.Log.Object(vmi).Error(err.Error())
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, "NicHotplug", err.Error())
 		*errorTolerantFeaturesError = append(*errorTolerantFeaturesError, err)
@@ -3094,13 +3065,13 @@ func (c *VirtualMachineController) handleStartingVMI(
 		return false, err
 	}
 
-	if err := c.setupNetwork(vmi, netsetup.FilterNetsForVMStartup(vmi)); err != nil {
-		return false, fmt.Errorf("failed to configure vmi network: %w", err)
-	}
-
 	isolationRes, err := c.podIsolationDetector.Detect(vmi)
 	if err != nil {
 		return false, fmt.Errorf(failedDetectIsolationFmt, err)
+	}
+
+	if err := c.netConf.Setup(vmi, netsetup.FilterNetsForVMStartup(vmi), isolationRes.Pid()); err != nil {
+		return false, fmt.Errorf("failed to configure vmi network: %w", err)
 	}
 
 	if err := c.setupDevicesOwnerships(vmi, isolationRes); err != nil {

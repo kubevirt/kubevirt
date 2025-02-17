@@ -62,7 +62,7 @@ var _ = Describe("netconf", func() {
 	})
 
 	It("runs setup successfully without networks", func() {
-		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid)).To(Succeed())
 	})
 
 	It("runs setup successfully with networks", func() {
@@ -77,7 +77,7 @@ var _ = Describe("netconf", func() {
 			Name:          testNetworkName,
 			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 		}}
-		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid)).To(Succeed())
 		Expect(stateCache.Read(testNetworkName)).To(Equal(cache.PodIfaceNetworkPreparationFinished))
 	})
 
@@ -98,7 +98,7 @@ var _ = Describe("netconf", func() {
 			Name:          testNetworkName,
 			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 		}}
-		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).To(Succeed())
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid)).To(Succeed())
 		Expect(stateCache.stateCache).To(BeEmpty())
 	},
 		Entry("SR-IOV", v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}),
@@ -106,10 +106,6 @@ var _ = Describe("netconf", func() {
 		// Macvtap is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
 		Entry("macvtap", v1.InterfaceBindingMethod{DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{}}),
 	)
-
-	It("fails the pre-setup run", func() {
-		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupFail)).NotTo(Succeed())
-	})
 
 	It("fails the setup run", func() {
 		netConf := netsetup.NewNetConfWithCustomFactoryAndConfigState(nsFailureFactory, &tempCacheCreator{}, stateMap, cConfigStub{})
@@ -121,7 +117,7 @@ var _ = Describe("netconf", func() {
 			Name:          testNetworkName,
 			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 		}}
-		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid, netPreSetupDummyNoop)).NotTo(Succeed())
+		Expect(netConf.Setup(vmi, vmi.Spec.Networks, launcherPid)).NotTo(Succeed())
 	})
 
 	It("fails the teardown run", func() {
@@ -142,10 +138,6 @@ func (n netnsStub) Do(func() error) error {
 }
 func nsNoopFactory(_ int) netsetup.NSExecutor    { return netnsStub{} }
 func nsFailureFactory(_ int) netsetup.NSExecutor { return netnsStub{shouldFail: true} }
-
-func netPreSetupDummyNoop() error { return nil }
-
-func netPreSetupFail() error { return fmt.Errorf("pre-setup failure") }
 
 type tempCacheCreator struct {
 	once   sync.Once
