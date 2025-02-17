@@ -1830,6 +1830,26 @@ var _ = Describe("Validating VM Admitter", func() {
 			)
 		})
 
+		Context("Update volume strategy", func() {
+			It("should accept the VM with the feature gate enabled for declarative hotplug", func() {
+				enableFeatureGate(featuregate.DeclarativeHotplugVolumeGate)
+				vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyHotplug)
+				resp := admitVm(vmsAdmitter, vm)
+				Expect(resp.Allowed).To(BeTrue())
+				Expect(resp.Result).To(BeNil())
+			})
+			It("should reject the VM creation if the declarative hotplug feature gate isn't enabled", func() {
+				vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyHotplug)
+				resp := admitVm(vmsAdmitter, vm)
+				Expect(resp.Allowed).To(BeFalse())
+				Expect(resp.Result.Details.Causes).To(ContainElement(metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   "updateVolumesStrategy",
+					Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.DeclarativeHotplugVolumeGate),
+				}))
+			})
+		})
+
 	})
 
 	It("should raise a warning when Deprecated API is used", func() {
