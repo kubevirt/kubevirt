@@ -34,18 +34,26 @@ func ApplyDynamicIfaceRequestOnVMI(
 	vmiIndexedInterfaces := vmispec.IndexInterfaceSpecByName(vmiSpecCopy.Domain.Devices.Interfaces)
 	vmIndexedNetworks := vmispec.IndexNetworkSpecByName(vm.Spec.Template.Spec.Networks)
 	for _, vmIface := range vm.Spec.Template.Spec.Domain.Devices.Interfaces {
-		_, existsInVMISpec := vmiIndexedInterfaces[vmIface.Name]
-		shouldBeHotPlug := !existsInVMISpec &&
+		vmiIfaceCopy, existsInVMISpec := vmiIndexedInterfaces[vmIface.Name]
+
+		shouldHotplugIface := !existsInVMISpec &&
 			vmIface.State != v1.InterfaceStateAbsent &&
 			(vmIface.InterfaceBindingMethod.Bridge != nil || vmIface.InterfaceBindingMethod.SRIOV != nil)
-		shouldBeHotUnplug := !hasOrdinalIfaces && existsInVMISpec && vmIface.State == v1.InterfaceStateAbsent
-		if shouldBeHotPlug {
+
+		shouldUpdateExistingIfaceState := existsInVMISpec &&
+			vmIface.State != vmiIfaceCopy.State &&
+			vmiIfaceCopy.State != v1.InterfaceStateAbsent
+
+		switch {
+		case shouldHotplugIface:
 			vmiSpecCopy.Networks = append(vmiSpecCopy.Networks, vmIndexedNetworks[vmIface.Name])
 			vmiSpecCopy.Domain.Devices.Interfaces = append(vmiSpecCopy.Domain.Devices.Interfaces, vmIface)
-		}
-		if shouldBeHotUnplug {
-			vmiIface := vmispec.LookupInterfaceByName(vmiSpecCopy.Domain.Devices.Interfaces, vmIface.Name)
-			vmiIface.State = v1.InterfaceStateAbsent
+
+		case shouldUpdateExistingIfaceState:
+			if !(hasOrdinalIfaces && vmIface.State == v1.InterfaceStateAbsent) {
+				vmiIface := vmispec.LookupInterfaceByName(vmiSpecCopy.Domain.Devices.Interfaces, vmIface.Name)
+				vmiIface.State = vmIface.State
+			}
 		}
 	}
 	return vmiSpecCopy
