@@ -56,6 +56,7 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -74,6 +75,7 @@ import (
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 )
 
 var _ = Describe("VirtualMachineInstance", func() {
@@ -794,139 +796,120 @@ var _ = Describe("VirtualMachineInstance", func() {
 			))
 		})
 
-		It("should add access credential synced condition when credentials report success", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.UID = vmiTestUUID
-			vmi.ObjectMeta.ResourceVersion = "1"
-			vmi.Status.Phase = v1.Running
-			vmi = addActivePods(vmi, podTestUUID, host)
+		Context("access credential synced condition", func() {
+			var (
+				vmi    *v1.VirtualMachineInstance
+				domain *api.Domain
+			)
 
-			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
-			domain.Status.Status = api.Running
-			domain.Spec.Metadata.KubeVirt.AccessCredential = &api.AccessCredentialMetadata{
-				Succeeded: true,
-				Message:   "",
+			BeforeEach(func() {
+				vmi = libvmi.New(
+					libvmi.WithNamespace(k8sv1.NamespaceDefault),
+					libvmistatus.WithStatus(libvmistatus.New(
+						libvmistatus.WithPhase(v1.Running),
+						libvmistatus.WithActivePod(podTestUUID, host),
+					)),
+				)
+				vmi.UID = vmiTestUUID
+				vmi.ObjectMeta.ResourceVersion = "1"
+
+				domain = api.NewMinimalDomainWithUUID(vmi.Name, vmiTestUUID)
+				domain.Status.Status = api.Running
+			})
+
+			prepare := func() {
+				vmiFeeder.Add(vmi)
+				domainFeeder.Add(domain)
+				createVMI(vmi)
+
+				client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
+				mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
+				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
 			}
 
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
-			createVMI(vmi)
+			It("should add condition when credentials report success", func() {
+				domain.Spec.Metadata.KubeVirt.AccessCredential = &api.AccessCredentialMetadata{
+					Succeeded: true,
+					Message:   "",
+				}
 
-			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
-			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
-			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
+				prepare()
 
-			sanityExecute()
+				sanityExecute()
 
-			expectEvent(string(v1.AccessCredentialsSyncSuccess), true)
-			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(updatedVMI.Status.Conditions).To(ConsistOf(
-				MatchFields(IgnoreExtras, Fields{
-					"Type":   Equal(v1.VirtualMachineInstanceAccessCredentialsSynchronized),
-					"Status": Equal(k8sv1.ConditionTrue)},
-				),
-				MatchFields(IgnoreExtras, Fields{
-					"Type":   Equal(v1.VirtualMachineInstanceIsMigratable),
-					"Status": Equal(k8sv1.ConditionTrue)},
-				),
-				MatchFields(IgnoreExtras, Fields{
-					"Type":   Equal(v1.VirtualMachineInstanceIsStorageLiveMigratable),
-					"Status": Equal(k8sv1.ConditionTrue)},
-				),
-			))
-		})
+				expectEvent(string(v1.AccessCredentialsSyncSuccess), true)
+				updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updatedVMI).To(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAccessCredentialsSynchronized))
+			})
 
-		It("should do nothing if access credential condition already exists", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.UID = vmiTestUUID
-			vmi.ObjectMeta.ResourceVersion = "1"
-			vmi.Status.Phase = v1.Running
-			vmi = addActivePods(vmi, podTestUUID, host)
-			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
-				{
+			It("should add condition and warning when deprecated method is used for credentials update", func() {
+				const message = "used deprecated method"
+				domain.Spec.Metadata.KubeVirt.AccessCredential = &api.AccessCredentialMetadata{
+					Succeeded:        true,
+					Message:          message,
+					DeprecatedMethod: true,
+				}
+
+				prepare()
+
+				sanityExecute()
+
+				eventSubstring := fmt.Sprintf("%s %s %s", k8sv1.EventTypeWarning, v1.AccessCredentialsSyncSuccess, message)
+				expectEvent(eventSubstring, true)
+
+				updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updatedVMI).To(matcher.HaveConditionTrueWithMessage(
+					v1.VirtualMachineInstanceAccessCredentialsSynchronized,
+					message,
+				))
+			})
+
+			It("should do nothing if condition already exists", func() {
+				vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{
 					Type:          v1.VirtualMachineInstanceAccessCredentialsSynchronized,
 					LastProbeTime: metav1.Now(),
 					Status:        k8sv1.ConditionTrue,
-				},
-				{
-					Type:   v1.VirtualMachineInstanceIsMigratable,
-					Status: k8sv1.ConditionTrue,
-				},
-			}
+				}}
 
-			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
-			domain.Status.Status = api.Running
-			domain.Spec.Metadata.KubeVirt.AccessCredential = &api.AccessCredentialMetadata{
-				Succeeded: true,
-				Message:   "",
-			}
+				domain.Spec.Metadata.KubeVirt.AccessCredential = &api.AccessCredentialMetadata{
+					Succeeded: true,
+					Message:   "",
+				}
 
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
+				prepare()
 
-			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
-			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
-			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
+				sanityExecute()
+				// should not make another event entry unless something changes
+				expectEvent(string(v1.AccessCredentialsSyncSuccess), false)
+			})
 
-			sanityExecute()
-			// should not make another event entry unless something changes
-			expectEvent(string(v1.AccessCredentialsSyncSuccess), false)
-		})
-
-		It("should update access credential condition if agent disconnects", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.UID = vmiTestUUID
-			vmi.ObjectMeta.ResourceVersion = "1"
-			vmi.Status.Phase = v1.Running
-			vmi = addActivePods(vmi, podTestUUID, host)
-			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
-				{
+			It("should update condition if agent disconnects", func() {
+				vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{
 					Type:          v1.VirtualMachineInstanceAccessCredentialsSynchronized,
 					LastProbeTime: metav1.Now(),
 					Status:        k8sv1.ConditionTrue,
-				},
-				{
-					Type:   v1.VirtualMachineInstanceIsMigratable,
-					Status: k8sv1.ConditionTrue,
-				},
-			}
+				}}
 
-			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
-			domain.Status.Status = api.Running
-			domain.Spec.Metadata.KubeVirt.AccessCredential = &api.AccessCredentialMetadata{
-				Succeeded: false,
-				Message:   "some message",
-			}
+				const message = "some message"
+				domain.Spec.Metadata.KubeVirt.AccessCredential = &api.AccessCredentialMetadata{
+					Succeeded: false,
+					Message:   message,
+				}
 
-			vmiFeeder.Add(vmi)
-			domainFeeder.Add(domain)
-			createVMI(vmi)
+				prepare()
 
-			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
-			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
-			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
+				sanityExecute()
 
-			sanityExecute()
-
-			expectEvent(string(v1.AccessCredentialsSyncFailed), true)
-			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(updatedVMI.Status.Conditions).To(ConsistOf(
-				MatchFields(IgnoreExtras, Fields{
-					"Type":   Equal(v1.VirtualMachineInstanceIsMigratable),
-					"Status": Equal(k8sv1.ConditionTrue)},
-				),
-				MatchFields(IgnoreExtras, Fields{
-					"Type":    Equal(v1.VirtualMachineInstanceAccessCredentialsSynchronized),
-					"Status":  Equal(k8sv1.ConditionFalse),
-					"Message": Equal("some message")},
-				),
-				MatchFields(IgnoreExtras, Fields{
-					"Type":   Equal(v1.VirtualMachineInstanceIsStorageLiveMigratable),
-					"Status": Equal(k8sv1.ConditionTrue)},
-				),
-			))
+				expectEvent(string(v1.AccessCredentialsSyncFailed), true)
+				updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updatedVMI).To(matcher.HaveConditionFalseWithMessage(
+					v1.VirtualMachineInstanceAccessCredentialsSynchronized,
+					message,
+				))
+			})
 		})
 
 		It("should add and remove paused condition", func() {
