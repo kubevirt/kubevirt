@@ -222,13 +222,7 @@ func examples() string {
 
   # Note: {{ProgramName}} port-forward sends all traffic over the Kubernetes API Server. 
   # This means any traffic will add additional pressure to the control plane.
-  # For continous traffic intensive connections, consider using a dedicated Kubernetes Service.
-
-  # Open an SSH connection using PortForward and ProxyCommand:
-  ssh -o 'ProxyCommand={{ProgramName}} port-forward --stdio=true testvmi.mynamespace 22' user@testvmi.mynamespace
-
-  # Use as SCP ProxyCommand:
-  scp -o 'ProxyCommand={{ProgramName}} port-forward --stdio=true testvmi.mynamespace 22' local.file user@testvmi.mynamespace`
+  # For continous traffic intensive connections, consider using a dedicated Kubernetes Service.`
 }
 
 // ParseTarget argument supporting the form of vmi/name.namespace (or simpler)
