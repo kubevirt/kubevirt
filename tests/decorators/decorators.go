@@ -93,9 +93,9 @@ var (
 	Kubernetes130 = Label("kubernetes130")
 
 	/* architecture working groups */
-
-	WgS390x = Label("wg-s390x")
-	WgArm64 = Label("wg-arm64")
+	WgS390x        = Label("wg-s390x")
+	WgArm64        = Label("wg-arm64")
+	WgArm64Invalid = Label("wg-arm64-invalid")
 
 	// Virtctl related tests
 	Virtctl = Label("virtctl")
