@@ -224,7 +224,8 @@ if [[ "${rwofs_sc}" == "local" ]]; then
     add_to_label_filter "(!RequiresVolumeExpansion)" "&&"
 fi
 
-ginko_params="$ginko_params -no-color -succinct --label-filter=${label_filter} -randomize-all"
+label_filter="(flake-check)||(${label_filter})"
+ginko_params="$ginko_params -no-color -succinct --label-filter="${label_filter}" -randomize-all"
 for test_file in $(echo "${NEW_TESTS}" | tr '|' '\n'); do
     ginko_params+=" -focus-file=${test_file}"
 done
