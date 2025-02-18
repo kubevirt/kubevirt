@@ -14,7 +14,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
-var _ = Describe("Preference - Apply to vmi - features", func() {
+var _ = Describe("Preference.Features", func() {
 	var (
 		vmi              *virtv1.VirtualMachineInstance
 		instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec

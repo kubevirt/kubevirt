@@ -41,6 +41,7 @@ go_test(
         "memory_test.go",
         "nodeselector_test.go",
         "scheduler_test.go",
+        "vmi_test.go",
     ],
     deps = [
         ":go_default_library",

@@ -13,7 +13,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 )
 
-var _ = Describe("Apply to vmi - scheduler", func() {
+var _ = Describe("instancetype.spec.SchedulerName", func() {
 	var (
 		vmi              *virtv1.VirtualMachineInstance
 		instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec

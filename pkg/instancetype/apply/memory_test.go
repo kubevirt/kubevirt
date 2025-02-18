@@ -15,7 +15,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 )
 
-var _ = Describe("Apply to vmi - memory", func() {
+var _ = Describe("instancetype.Spec.Memory", func() {
 	var (
 		vmi              *virtv1.VirtualMachineInstance
 		instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec

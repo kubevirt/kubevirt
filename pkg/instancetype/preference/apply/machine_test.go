@@ -13,7 +13,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 )
 
-var _ = Describe("Preference - Apply to vmi - machine", func() {
+var _ = Describe("Preference.Machine", func() {
 	var (
 		vmi              *virtv1.VirtualMachineInstance
 		instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec

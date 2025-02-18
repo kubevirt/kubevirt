@@ -13,7 +13,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 )
 
-var _ = Describe("Apply to vmi - launch security", func() {
+var _ = Describe("instancetype.Spec.LaunchSecurity", func() {
 	var (
 		vmi            *virtv1.VirtualMachineInstance
 		preferenceSpec *v1beta1.VirtualMachinePreferenceSpec

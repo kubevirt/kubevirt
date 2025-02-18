@@ -14,7 +14,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 )
 
-var _ = Describe("Apply to vmi - host devices", func() {
+var _ = Describe("instancetype.Spec.HostDevices", func() {
 	var (
 		vmi            *virtv1.VirtualMachineInstance
 		preferenceSpec *v1beta1.VirtualMachinePreferenceSpec

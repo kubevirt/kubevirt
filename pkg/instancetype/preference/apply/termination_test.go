@@ -14,7 +14,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
-var _ = Describe("Preference - Apply to vmi - termination", func() {
+var _ = Describe("Preference.PreferredTerminationGracePeriodSeconds", func() {
 	var (
 		vmi              *virtv1.VirtualMachineInstance
 		instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec

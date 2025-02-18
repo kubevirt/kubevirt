@@ -18,7 +18,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
-var _ = Describe("Apply to vmi - cpu", func() {
+var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 	var (
 		vmi              *virtv1.VirtualMachineInstance
 		instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec
