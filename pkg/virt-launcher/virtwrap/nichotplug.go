@@ -52,6 +52,8 @@ const (
 	// ReservedInterfaces represents the number of interfaces the domain
 	// should reserve for future hotplug additions.
 	ReservedInterfaces = 4
+
+	libvirtInterfaceLinkStateDown = "down"
 )
 
 func newVirtIOInterfaceManager(
@@ -91,6 +93,40 @@ func (vim *virtIOInterfaceManager) hotplugVirtioInterface(vmi *v1.VirtualMachine
 			log.Log.Reason(err).Errorf("libvirt failed to attach interface %s: %v", network.Name, err)
 			return err
 		}
+	}
+	return nil
+}
+
+func (vim *virtIOInterfaceManager) updateDomainLinkState(currentDomain, desiredDomain *api.Domain) error {
+
+	currentDomainIfacesByAlias := indexedDomainInterfaces(currentDomain)
+	for _, desiredIface := range desiredDomain.Spec.Devices.Interfaces {
+		curIface, ok := currentDomainIfacesByAlias[desiredIface.Alias.GetName()]
+		if !ok {
+			continue
+		}
+
+		if !isLinkStateEqual(curIface, desiredIface) {
+			curIface.LinkState = desiredIface.LinkState
+			if err := vim.updateIfaceInDomain(&curIface); err != nil {
+				return err
+			}
+		}
+
+	}
+	return nil
+}
+
+func (vim *virtIOInterfaceManager) updateIfaceInDomain(domIfaceToUpdate *api.Interface) error {
+	log.Log.Infof("preparing to update link state to interface %q", domIfaceToUpdate.Alias.GetName())
+	ifaceXML, err := xml.Marshal(domIfaceToUpdate)
+	if err != nil {
+		return err
+	}
+
+	if err = vim.dom.UpdateDeviceFlags(strings.ToLower(string(ifaceXML)), affectDeviceLiveAndConfigLibvirtFlags); err != nil {
+		log.Log.Reason(err).Errorf("libvirt failed to set link state to interface %s , %v", domIfaceToUpdate.Alias.GetName(), err)
+		return err
 	}
 	return nil
 }
@@ -229,4 +265,16 @@ func newInterfacePlaceholder(index int, modelType string) api.Interface {
 			Managed: "no",
 		},
 	}
+}
+
+func isLinkStateEqual(iface1, iface2 api.Interface) bool {
+	if iface1.LinkState == nil && iface2.LinkState == nil {
+		return true
+	}
+
+	if iface1.LinkState == nil || iface2.LinkState == nil {
+		return false
+	}
+
+	return iface1.LinkState.State == iface2.LinkState.State
 }
