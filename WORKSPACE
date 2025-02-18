@@ -127,9 +127,9 @@ http_file(
 
 http_file(
     name = "cirros_image",
-    sha256 = "07e44a73e54c94d988028515403c1ed762055e01b83a767edf3c2b387f78ce00",
+    sha256 = "7d6355852aeb6dbcd191bcda7cd74f1536cfe5cbf8a10495a7283a8396e4b75b",
     urls = [
-        "https://download.cirros-cloud.net/0.6.2/cirros-0.6.2-x86_64-disk.img",
+        "https://download.cirros-cloud.net/0.6.3/cirros-0.6.3-x86_64-disk.img",
     ],
 )
 
@@ -137,7 +137,7 @@ http_file(
     name = "cirros_image_aarch64",
     sha256 = "6a2222bd7ba89384d35378b5065bd5e838857f25db08c7abbff99b6d9bb48986",
     urls = [
-        "https://download.cirros-cloud.net/0.6.2/cirros-0.6.2-aarch64-disk.img",
+        "https://download.cirros-cloud.net/0.6.3/cirros-0.6.3-aarch64-disk.img",
     ],
 )
 
