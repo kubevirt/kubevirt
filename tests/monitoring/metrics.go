@@ -75,6 +75,8 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			"kubevirt_vmi_migrations_in_running_phase":                           true,
 			"kubevirt_vmi_migration_succeeded":                                   true,
 			"kubevirt_vmi_migration_failed":                                      true,
+			"kubevirt_vmi_migration_start_time_seconds":                          true,
+			"kubevirt_vmi_migration_end_time_seconds":                            true,
 		}
 
 		It("should contain virt components metrics", func() {

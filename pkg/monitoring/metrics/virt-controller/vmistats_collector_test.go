@@ -234,6 +234,81 @@ var _ = Describe("VMI Stats Collector", func() {
 			Entry("VMI Eviction policy is not set and vm migratable status is not known", nil, k8sv1.ConditionUnknown, 0.0),
 		)
 	})
+
+	Context("VMI migration start and end time metrics", func() {
+		now := metav1.Unix(1000, 0)
+		nowFloatValue := float64(now.Unix())
+
+		Describe("kubevirt_vmi_migration_start_time and kubevirt_vmi_migration_end_time metrics", func() {
+			It("should not create migration metrics for a VMI with no migration state", func() {
+				vmi := &k6tv1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "test-ns",
+						Name:      "testvmi",
+					},
+					Status: k6tv1.VirtualMachineInstanceStatus{
+						NodeName: "testNode",
+					},
+				}
+
+				metrics := collectVMIMigrationTime(vmi)
+				Expect(metrics).To(BeEmpty())
+			})
+
+			It("should create kubevirt_vmi_migration_start_time metric for a migration in progress", func() {
+				vmi := &k6tv1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "test-ns",
+						Name:      "testvmi",
+					},
+					Status: k6tv1.VirtualMachineInstanceStatus{
+						NodeName: "testNode",
+						MigrationState: &k6tv1.VirtualMachineInstanceMigrationState{
+							MigrationUID:   "test-migration-uid",
+							StartTimestamp: &now,
+						},
+					},
+				}
+
+				metrics := collectVMIMigrationTime(vmi)
+				Expect(metrics).To(HaveLen(1))
+
+				Expect(metrics[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_migration_start_time"))
+				Expect(metrics[0].Value).To(BeEquivalentTo(nowFloatValue))
+				Expect(metrics[0].Labels).To(Equal([]string{"testNode", "test-ns", "testvmi", "test-migration"}))
+			})
+
+			It("should create kubevirt_vmi_migration_end_time metric for a completedmigration", func() {
+				vmi := &k6tv1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "test-ns",
+						Name:      "testvmi",
+					},
+					Status: k6tv1.VirtualMachineInstanceStatus{
+						NodeName: "testNode",
+						MigrationState: &k6tv1.VirtualMachineInstanceMigrationState{
+							MigrationUID:   "test-migration-uid",
+							StartTimestamp: &now,
+							EndTimestamp:   &now,
+							Completed:      true,
+							Failed:         false,
+						},
+					},
+				}
+
+				metrics := collectVMIMigrationTime(vmi)
+				Expect(metrics).To(HaveLen(2))
+
+				Expect(metrics[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_migration_start_time"))
+				Expect(metrics[0].Value).To(BeEquivalentTo(nowFloatValue))
+				Expect(metrics[0].Labels).To(Equal([]string{"testNode", "test-ns", "testvmi", "test-migration"}))
+
+				Expect(metrics[1].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_migration_end_time"))
+				Expect(metrics[1].Value).To(BeEquivalentTo(nowFloatValue))
+				Expect(metrics[1].Labels).To(Equal([]string{"testNode", "test-ns", "testvmi", "test-migration", "succeeded"}))
+			})
+		})
+	})
 })
 
 func createVMISForEviction(evictionStrategy *k6tv1.EvictionStrategy, migratableCondStatus k8sv1.ConditionStatus) []*k6tv1.VirtualMachineInstance {
@@ -269,6 +344,7 @@ func setupTestVMICollector() {
 	clusterInstanceTypeInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
 	preferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
 	clusterPreferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
+	vmiMigrationInformer, _ = testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstanceMigration{})
 
 	_ = instanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineInstancetype{
 		ObjectMeta: newObjectMetaForInstancetypes("i-managed", "kubevirt.io"),
@@ -293,6 +369,14 @@ func setupTestVMICollector() {
 
 	_ = clusterPreferenceInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineClusterPreference{
 		ObjectMeta: newObjectMetaForInstancetypes("cp-managed", "kubevirt.io"),
+	})
+
+	_ = vmiMigrationInformer.GetStore().Add(&k6tv1.VirtualMachineInstanceMigration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-migration",
+			Namespace: "test-ns",
+			UID:       "test-migration-uid",
+		},
 	})
 }
 

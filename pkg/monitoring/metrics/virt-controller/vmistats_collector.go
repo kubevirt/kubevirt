@@ -24,6 +24,8 @@ import (
 
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/client-go/log"
 
@@ -52,6 +54,8 @@ var (
 		Metrics: []operatormetrics.Metric{
 			vmiInfo,
 			vmiEvictionBlocker,
+			vmiMigrationStartTime,
+			vmiMigrationEndTime,
 		},
 		CollectCallback: vmiStatsCollectorCallback,
 	}
@@ -70,6 +74,22 @@ var (
 			Help: "Indication for a VirtualMachine that its eviction strategy is set to Live Migration but is not migratable.",
 		},
 		[]string{"node", "namespace", "name"},
+	)
+
+	vmiMigrationStartTime = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_migration_start_time_seconds",
+			Help: "The time at which the migration started.",
+		},
+		[]string{"node", "namespace", "name", "migration_name"},
+	)
+
+	vmiMigrationEndTime = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_migration_end_time_seconds",
+			Help: "The time at which the migration ended.",
+		},
+		[]string{"node", "namespace", "name", "migration_name", "status"},
 	)
 )
 
@@ -93,9 +113,14 @@ func reportVmisStats(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Col
 	phaseResults := collectVMIInfo(vmis)
 	evictionBlockerResults := getEvictionBlocker(vmis)
 
-	results := make([]operatormetrics.CollectorResult, 0, len(phaseResults)+len(evictionBlockerResults))
+	results := make([]operatormetrics.CollectorResult, 0, len(phaseResults)+len(evictionBlockerResults)+(len(vmis)*2))
 	results = append(results, phaseResults...)
 	results = append(results, evictionBlockerResults...)
+
+	for _, vmi := range vmis {
+		results = append(results, collectVMIMigrationTime(vmi)...)
+	}
+
 	return results
 }
 
@@ -267,4 +292,65 @@ func getNonEvictableVM(vmi *k6tv1.VirtualMachineInstance) float64 {
 
 	}
 	return setVal
+}
+
+func collectVMIMigrationTime(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+	var migrationName string
+
+	if vmi.Status.MigrationState == nil {
+		return cr
+	}
+
+	migrationName = getMigrationNameFromMigrationUID(vmi.Namespace, vmi.Status.MigrationState.MigrationUID)
+
+	if vmi.Status.MigrationState.StartTimestamp != nil {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmiMigrationStartTime,
+			Value:  float64(vmi.Status.MigrationState.StartTimestamp.Time.Unix()),
+			Labels: []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, migrationName},
+		})
+	}
+
+	if vmi.Status.MigrationState.EndTimestamp != nil {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmiMigrationEndTime,
+			Value:  float64(vmi.Status.MigrationState.EndTimestamp.Time.Unix()),
+			Labels: []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, migrationName,
+				calculateMigrationStatus(vmi.Status.MigrationState),
+			},
+		})
+	}
+
+	return cr
+}
+
+func calculateMigrationStatus(migrationState *k6tv1.VirtualMachineInstanceMigrationState) string {
+	if !migrationState.Completed {
+		return ""
+	}
+
+	if migrationState.Failed {
+		return "failed"
+	}
+
+	return "succeeded"
+}
+
+func getMigrationNameFromMigrationUID(namespace string, migrationUID types.UID) string {
+	objs, err := vmiMigrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	if err != nil {
+		return none
+	}
+
+	for _, obj := range objs {
+		curMigration := obj.(*k6tv1.VirtualMachineInstanceMigration)
+		if curMigration.UID != migrationUID {
+			continue
+		}
+
+		return curMigration.Name
+	}
+
+	return none
 }
