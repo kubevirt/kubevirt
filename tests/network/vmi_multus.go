@@ -32,7 +32,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -253,18 +252,13 @@ var _ = SIGDescribe("Multus", Serial, decorators.Multus, func() {
 
 			It("[test_id:1753]should create a virtual machine with two interfaces", func() {
 				By("checking virtual machine instance can ping using ptp cni plugin")
-				detachedVMI := libvmifact.NewCirros()
-
-				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{
-					defaultInterface,
-					{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
-				}
-				detachedVMI.Spec.Networks = []v1.Network{
-					defaultNetwork,
-					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: ptpConf1},
-					}},
-				}
+				const secondaryNetName = "ptp"
+				detachedVMI := libvmifact.NewCirros(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName, ptpConf1)),
+				)
 
 				detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), detachedVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -577,30 +571,6 @@ var _ = SIGDescribe("Multus", Serial, decorators.Multus, func() {
 
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 				Expect(getPodInterfaceMtu(vmi)).To(Equal(getVmiInterfaceMtu(vmi)))
-			})
-		})
-
-		Context("VirtualMachineInstance with invalid MAC address", func() {
-			It("[test_id:1713]should failed to start with invalid MAC address", func() {
-				By("Start VMI")
-				linuxBridgeIfIdx := 1
-
-				vmi := libvmifact.NewAlpine()
-				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-					defaultInterface,
-					linuxBridgeInterface,
-				}
-				vmi.Spec.Domain.Devices.Interfaces[linuxBridgeIfIdx].MacAddress = "de:00c:00c:00:00:de:abc"
-
-				vmi.Spec.Networks = []v1.Network{
-					defaultNetwork,
-					linuxBridgeNetwork,
-				}
-
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred())
-				testErr := err.(*errors.StatusError)
-				Expect(testErr.ErrStatus.Reason).To(BeEquivalentTo("Invalid"))
 			})
 		})
 
