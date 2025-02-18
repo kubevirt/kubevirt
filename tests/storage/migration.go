@@ -1019,6 +1019,7 @@ func waitForMigrationToSucceed(virtClient kubecli.KubevirtClient, vmiName, ns st
 			return false
 		}
 
+		Expect(vmi.Status.MigrationState.Failed).To(BeFalse())
 		return true
 	}, 120*time.Second, time.Second).Should(BeTrue())
 }
