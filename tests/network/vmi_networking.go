@@ -371,6 +371,24 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			dnsVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(dnsVMI)).Create(context.Background(), dnsVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			dnsVMI = libwait.WaitUntilVMIReady(dnsVMI, console.LoginToFedora)
+
+			// Disable systemd-resolved
+			if checks.IsS390X(testsuite.Arch) {
+				err = console.SafeExpectBatch(dnsVMI, []expect.Batcher{
+					&expect.BSnd{S: "systemctl is-active systemd-resolved && sudo systemctl stop systemd-resolved || echo 'not running'\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: "systemctl is-enabled systemd-resolved && sudo systemctl disable systemd-resolved || echo 'not enabled'\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: "sudo rm -f /etc/resolv.conf\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: "echo -e \"nameserver 8.8.8.8\\nnameserver 4.2.2.1\\nnameserver 1.1.1.1\\nsearch example.com\" | sudo tee /etc/resolv.conf\n"},
+					&expect.BExp{R: console.PromptExpression},
+					&expect.BSnd{S: "sudo systemctl restart NetworkManager\n"}, // Ensure DNS changes take effect
+					&expect.BExp{R: console.PromptExpression},
+				}, 30)
+				Expect(err).ToNot(HaveOccurred())
+			}
+
 			const catResolvConf = "cat /etc/resolv.conf\n"
 			err = console.SafeExpectBatch(dnsVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
