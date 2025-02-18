@@ -122,7 +122,6 @@ var _ = Describe("[sig-compute]Instance Type and Preference Hotplug", decorators
 		patches := patch.New(
 			patch.WithTest("/spec/instancetype/name", originalInstancetype.Name),
 			patch.WithReplace("/spec/instancetype/name", maxInstancetype.Name),
-			patch.WithRemove("/spec/instancetype/revisionName"),
 		)
 		patchData, err := patches.GeneratePayload()
 		Expect(err).NotTo(HaveOccurred())

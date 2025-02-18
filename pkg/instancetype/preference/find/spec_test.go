@@ -1,3 +1,4 @@
+//nolint:dupl
 package find_test
 
 import (
@@ -22,6 +23,7 @@ import (
 	"kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/find"
+	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
@@ -41,6 +43,7 @@ var _ = Describe("Preference SpecFinder", func() {
 
 		virtClient                      *kubecli.MockKubevirtClient
 		fakeClientset                   *fake.Clientset
+		fakeK8sClientSet                *k8sfake.Clientset
 		preferenceInformerStore         cache.Store
 		clusterPreferenceInformerStore  cache.Store
 		controllerRevisionInformerStore cache.Store
@@ -50,7 +53,8 @@ var _ = Describe("Preference SpecFinder", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 
-		virtClient.EXPECT().AppsV1().Return(k8sfake.NewSimpleClientset().AppsV1()).AnyTimes()
+		fakeK8sClientSet = k8sfake.NewSimpleClientset()
+		virtClient.EXPECT().AppsV1().Return(fakeK8sClientSet.AppsV1()).AnyTimes()
 
 		fakeClientset = fake.NewSimpleClientset()
 
@@ -123,6 +127,67 @@ var _ = Describe("Preference SpecFinder", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(preferenceSpec).To(HaveValue(Equal(clusterPreference.Spec)))
 		})
+
+		DescribeTable("returns expected preference referenced by", func(updateVM func(*v1.VirtualMachine, string)) {
+			cr, err := revision.CreateControllerRevision(vm, clusterPreference)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			updateVM(vm, cr.Name)
+
+			preferenceSpec, err := finder.FindPreference(vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(preferenceSpec).To(HaveValue(Equal(clusterPreference.Spec)))
+			Expect(fakeK8sClientSet.Actions()).To(
+				ContainElement(
+					testing.NewGetAction(
+						appsv1.SchemeGroupVersion.WithResource("controllerrevisions"),
+						vm.Namespace,
+						cr.Name,
+					),
+				),
+			)
+			Expect(fakeClientset.Actions()).ToNot(
+				ContainElement(
+					testing.NewGetAction(
+						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.SingularPreferenceResourceName),
+						vm.Namespace,
+						vm.Spec.Preference.Name,
+					),
+				),
+			)
+		},
+			Entry("ControllerRevisionRef",
+				func(vm *v1.VirtualMachine, crName string) {
+					vm.Status.PreferenceRef = &v1.InstancetypeStatusRef{
+						ControllerRevisionRef: &v1.ControllerRevisionRef{
+							Name: crName,
+						},
+					}
+				},
+			),
+			Entry("RevisionName",
+				func(vm *v1.VirtualMachine, crName string) {
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						RevisionName: crName,
+					}
+				},
+			),
+			Entry("RevisionName over ControllerRevisionRef",
+				func(vm *v1.VirtualMachine, crName string) {
+					vm.Status.PreferenceRef = &v1.InstancetypeStatusRef{
+						ControllerRevisionRef: &v1.ControllerRevisionRef{
+							Name: "foobar",
+						},
+					}
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						RevisionName: crName,
+					}
+				},
+			),
+		)
 
 		It("find returns expected preference spec with no kind provided", func() {
 			vm.Spec.Preference.Kind = ""
@@ -203,6 +268,67 @@ var _ = Describe("Preference SpecFinder", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(preferenceSpec).To(HaveValue(Equal(preference.Spec)))
 		})
+
+		DescribeTable("returns expected preference referenced by", func(updateVM func(*v1.VirtualMachine, string)) {
+			cr, err := revision.CreateControllerRevision(vm, preference)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			updateVM(vm, cr.Name)
+
+			preferenceSpec, err := finder.FindPreference(vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(preferenceSpec).To(HaveValue(Equal(preference.Spec)))
+			Expect(fakeK8sClientSet.Actions()).To(
+				ContainElement(
+					testing.NewGetAction(
+						appsv1.SchemeGroupVersion.WithResource("controllerrevisions"),
+						vm.Namespace,
+						cr.Name,
+					),
+				),
+			)
+			Expect(fakeClientset.Actions()).ToNot(
+				ContainElement(
+					testing.NewGetAction(
+						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.SingularPreferenceResourceName),
+						vm.Namespace,
+						vm.Spec.Preference.Name,
+					),
+				),
+			)
+		},
+			Entry("ControllerRevisionRef",
+				func(vm *v1.VirtualMachine, crName string) {
+					vm.Status.PreferenceRef = &v1.InstancetypeStatusRef{
+						ControllerRevisionRef: &v1.ControllerRevisionRef{
+							Name: crName,
+						},
+					}
+				},
+			),
+			Entry("RevisionName",
+				func(vm *v1.VirtualMachine, crName string) {
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						RevisionName: crName,
+					}
+				},
+			),
+			Entry("RevisionName over ControllerRevisionRef",
+				func(vm *v1.VirtualMachine, crName string) {
+					vm.Status.PreferenceRef = &v1.InstancetypeStatusRef{
+						ControllerRevisionRef: &v1.ControllerRevisionRef{
+							Name: "foobar",
+						},
+					}
+					vm.Spec.Preference = &v1.PreferenceMatcher{
+						RevisionName: crName,
+					}
+				},
+			),
+		)
 
 		It("uses client when preference not found within informer", func() {
 			err := preferenceInformerStore.Delete(preference)

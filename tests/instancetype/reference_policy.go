@@ -13,6 +13,7 @@ import (
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -80,11 +81,11 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				Expect(vm.Spec.Instancetype).ToNot(BeNil())
 				Expect(vm.Spec.Instancetype.Name).To(Equal(instancetype.Name))
 				Expect(vm.Spec.Instancetype.Kind).To(Equal(instancetypeapi.SingularResourceName))
-				Expect(vm.Spec.Instancetype.RevisionName).ToNot(BeEmpty())
+				Expect(revision.HasControllerRevisionRef(vm.Status.InstancetypeRef)).To(BeTrue())
 				Expect(vm.Spec.Preference).ToNot(BeNil())
 				Expect(vm.Spec.Preference.Name).To(Equal(preference.Name))
 				Expect(vm.Spec.Preference.Kind).To(Equal(instancetypeapi.SingularPreferenceResourceName))
-				Expect(vm.Spec.Preference.RevisionName).ToNot(BeEmpty())
+				Expect(revision.HasControllerRevisionRef(vm.Status.PreferenceRef)).To(BeTrue())
 			case virtv1.Expand, virtv1.ExpandAll:
 				Expect(vm.Spec.Instancetype).To(BeNil())
 				Expect(vm.Spec.Preference).To(BeNil())

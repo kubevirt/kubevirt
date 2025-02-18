@@ -24,6 +24,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -121,7 +122,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 			BeforeEach(func() {
 				clusterInstancetype = &instancetypev1beta1.VirtualMachineClusterInstancetype{
 					TypeMeta: metav1.TypeMeta{
-						Kind:       "VirtualMachineClusterInstancetype",
+						Kind:       apiinstancetype.ClusterSingularResourceName,
 						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
 					},
 					ObjectMeta: metav1.ObjectMeta{
@@ -156,14 +157,26 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 			})
 
 			It("store VirtualMachineClusterInstancetype ControllerRevision", func() {
+				Expect(storeHandler.Store(vm)).To(Succeed())
+
 				clusterInstancetypeControllerRevision, err := revision.CreateControllerRevision(vm, clusterInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(storeHandler.Store(vm)).To(Succeed())
-				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(clusterInstancetypeControllerRevision.Name))
+				Expect(vm.Spec.Instancetype.RevisionName).To(BeEmpty())
+				Expect(vm.Status.InstancetypeRef.Name).To(Equal(clusterInstancetype.Name))
+				Expect(vm.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
+				Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(clusterInstancetypeControllerRevision.Name))
+
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(updatedVM.Spec.Instancetype.RevisionName).To(BeEmpty())
+				Expect(updatedVM.Status.InstancetypeRef.Name).To(Equal(clusterInstancetype.Name))
+				Expect(updatedVM.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
+				Expect(updatedVM.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(clusterInstancetypeControllerRevision.Name))
 
 				createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
-					context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+					context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(createdCR).To(Equal(clusterInstancetypeControllerRevision))
@@ -179,12 +192,27 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 
 				vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
 					Name:         clusterInstancetype.Name,
+					Kind:         clusterInstancetype.Kind,
 					RevisionName: clusterInstancetypeControllerRevision.Name,
-					Kind:         apiinstancetype.ClusterSingularResourceName,
 				}
 
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
 				Expect(storeHandler.Store(vm)).To(Succeed())
+
 				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(clusterInstancetypeControllerRevision.Name))
+				Expect(vm.Status.InstancetypeRef.Name).To(Equal(clusterInstancetype.Name))
+				Expect(vm.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
+				Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(clusterInstancetypeControllerRevision.Name))
+
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(updatedVM.Spec.Instancetype.RevisionName).To(Equal(clusterInstancetypeControllerRevision.Name))
+				Expect(updatedVM.Status.InstancetypeRef.Name).To(Equal(clusterInstancetype.Name))
+				Expect(updatedVM.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
+				Expect(updatedVM.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(clusterInstancetypeControllerRevision.Name))
 			})
 
 			It("store fails when instancetype does not exist", func() {
@@ -201,7 +229,19 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(storeHandler.Store(vm)).To(Succeed())
-				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
+
+				Expect(vm.Spec.Instancetype.RevisionName).To(BeEmpty())
+				Expect(vm.Status.InstancetypeRef.Name).To(Equal(clusterInstancetype.Name))
+				Expect(vm.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
+				Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(instancetypeControllerRevision.Name))
+
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(updatedVM.Spec.Instancetype.RevisionName).To(BeEmpty())
+				Expect(updatedVM.Status.InstancetypeRef.Name).To(Equal(clusterInstancetype.Name))
+				Expect(updatedVM.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
+				Expect(updatedVM.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(instancetypeControllerRevision.Name))
 			})
 
 			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
@@ -224,6 +264,21 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				}
 				Expect(storeHandler.Store(vm)).To(MatchError(
 					conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "cpu", "cores")}))
+			})
+			It("store InferFromVolumeFailurePolicy when missing from InstancetypeRef", func() {
+				vm.Spec.Instancetype.InferFromVolumeFailurePolicy = pointer.P(virtv1.IgnoreInferFromVolumeFailure)
+				vm.Status.InstancetypeRef = nil
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Status.InstancetypeRef.InferFromVolumeFailurePolicy).To(HaveValue(Equal(virtv1.IgnoreInferFromVolumeFailure)))
+			})
+
+			It("store InferFromVolumeFailurePolicy when different to PreferenceRef", func() {
+				vm.Spec.Instancetype.InferFromVolumeFailurePolicy = pointer.P(virtv1.IgnoreInferFromVolumeFailure)
+				vm.Status.InstancetypeRef = &virtv1.InstancetypeStatusRef{
+					InferFromVolumeFailurePolicy: pointer.P(virtv1.RejectInferFromVolumeFailure),
+				}
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Status.InstancetypeRef.InferFromVolumeFailurePolicy).To(HaveValue(Equal(virtv1.IgnoreInferFromVolumeFailure)))
 			})
 		})
 
@@ -273,10 +328,10 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(storeHandler.Store(vm)).To(Succeed())
-				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
+				Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(instancetypeControllerRevision.Name))
 
 				createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
-					context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+					context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(createdCR).To(Equal(instancetypeControllerRevision))
@@ -303,6 +358,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 
 				Expect(storeHandler.Store(vm)).To(Succeed())
 				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
+				Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(instancetypeControllerRevision.Name))
 			})
 
 			It("store ControllerRevision succeeds if a revision exists with expected data", func() {
@@ -314,7 +370,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(storeHandler.Store(vm)).To(Succeed())
-				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
+				Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(instancetypeControllerRevision.Name))
 			})
 
 			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
@@ -393,10 +449,10 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(storeHandler.Store(vm)).To(Succeed())
-				Expect(vm.Spec.Preference.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
+				Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(clusterPreferenceControllerRevision.Name))
 
 				createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
-					context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
+					context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(createdCR).To(Equal(clusterPreferenceControllerRevision))
@@ -419,6 +475,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 
 				Expect(storeHandler.Store(vm)).To(Succeed())
 				Expect(vm.Spec.Preference.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
+				Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(clusterPreferenceControllerRevision.Name))
 			})
 
 			It("store ControllerRevision succeeds if a revision exists with expected data", func() {
@@ -430,7 +487,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(storeHandler.Store(vm)).To(Succeed())
-				Expect(vm.Spec.Preference.RevisionName).To(Equal(clusterPreferenceControllerRevision.Name))
+				Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(clusterPreferenceControllerRevision.Name))
 			})
 
 			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
@@ -446,6 +503,21 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(storeHandler.Store(vm)).To(MatchError(ContainSubstring("found existing ControllerRevision with unexpected data")))
+			})
+			It("store InferFromVolumeFailurePolicy when missing from PreferenceRef", func() {
+				vm.Spec.Preference.InferFromVolumeFailurePolicy = pointer.P(virtv1.IgnoreInferFromVolumeFailure)
+				vm.Status.PreferenceRef = nil
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Status.PreferenceRef.InferFromVolumeFailurePolicy).To(HaveValue(Equal(virtv1.IgnoreInferFromVolumeFailure)))
+			})
+
+			It("store InferFromVolumeFailurePolicy when different to PreferenceRef", func() {
+				vm.Spec.Preference.InferFromVolumeFailurePolicy = pointer.P(virtv1.IgnoreInferFromVolumeFailure)
+				vm.Status.PreferenceRef = &virtv1.InstancetypeStatusRef{
+					InferFromVolumeFailurePolicy: pointer.P(virtv1.RejectInferFromVolumeFailure),
+				}
+				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Status.PreferenceRef.InferFromVolumeFailurePolicy).To(HaveValue(Equal(virtv1.IgnoreInferFromVolumeFailure)))
 			})
 		})
 
@@ -492,10 +564,10 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(storeHandler.Store(vm)).To(Succeed())
-				Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceControllerRevision.Name))
+				Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(preferenceControllerRevision.Name))
 
 				createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
-					context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
+					context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(createdCR).To(Equal(preferenceControllerRevision))
@@ -518,6 +590,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 
 				Expect(storeHandler.Store(vm)).To(Succeed())
 				Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceControllerRevision.Name))
+				Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(preferenceControllerRevision.Name))
 			})
 
 			It("store ControllerRevision succeeds if a revision exists with expected data", func() {
@@ -529,7 +602,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(storeHandler.Store(vm)).To(Succeed())
-				Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceControllerRevision.Name))
+				Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(preferenceControllerRevision.Name))
 			})
 
 			It("store ControllerRevision fails if a revision exists with unexpected data", func() {

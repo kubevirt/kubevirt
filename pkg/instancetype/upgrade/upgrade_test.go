@@ -46,6 +46,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/instancetype/upgrade"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
@@ -99,8 +100,11 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(
 			fakeclientset.NewSimpleClientset().KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
 
-		vm = kubecli.NewMinimalVM("testvm")
-		vm.Namespace = k8sv1.NamespaceDefault
+		vm = libvmi.NewVirtualMachine(
+			libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault)),
+			libvmi.WithInstancetype("foo"),
+			libvmi.WithPreference("bar"),
+		)
 
 		upgradeHandler = upgrade.New(controllerrevisionInformerStore, virtClient)
 	})
@@ -121,14 +125,18 @@ var _ = Describe("ControllerRevision upgrades", func() {
 	) {
 		originalInstancetypeCR := createInstancetypeCR()
 		Expect(controllerrevisionInformerStore.Add(originalInstancetypeCR)).To(Succeed())
-		vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
-			RevisionName: originalInstancetypeCR.Name,
+		vm.Status.InstancetypeRef = &virtv1.InstancetypeStatusRef{
+			ControllerRevisionRef: &virtv1.ControllerRevisionRef{
+				Name: originalInstancetypeCR.Name,
+			},
 		}
 
 		originalPreferenceCR := createPreferenceCR()
 		Expect(controllerrevisionInformerStore.Add(originalPreferenceCR)).To(Succeed())
-		vm.Spec.Preference = &virtv1.PreferenceMatcher{
-			RevisionName: originalPreferenceCR.Name,
+		vm.Status.PreferenceRef = &virtv1.InstancetypeStatusRef{
+			ControllerRevisionRef: &virtv1.ControllerRevisionRef{
+				Name: originalPreferenceCR.Name,
+			},
 		}
 
 		var err error
@@ -140,14 +148,14 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		Expect(vm.Spec.Instancetype.RevisionName).ToNot(Equal(originalInstancetypeCR.Name))
+		Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).ToNot(Equal(originalInstancetypeCR.Name))
 
 		_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 			context.Background(), originalInstancetypeCR.Name, metav1.GetOptions{})
 		Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 
 		newInstancetypeCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
-			context.Background(), vm.Spec.Instancetype.RevisionName, metav1.GetOptions{})
+			context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(upgrade.IsObjectLatestVersion(newInstancetypeCR)).To(BeTrue())
@@ -155,14 +163,14 @@ var _ = Describe("ControllerRevision upgrades", func() {
 			Expect(newInstancetypeCR.Labels).To(HaveKeyWithValue(instancetypeapi.ControllerRevisionObjectKindLabel, originalKindLabel))
 		}
 
-		Expect(vm.Spec.Preference.RevisionName).ToNot(Equal(originalPreferenceCR.Name))
+		Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).ToNot(Equal(originalPreferenceCR.Name))
 
 		_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 			context.Background(), originalPreferenceCR.Name, metav1.GetOptions{})
 		Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 
 		newPreferenceCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
-			context.Background(), vm.Spec.Preference.RevisionName, metav1.GetOptions{})
+			context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(upgrade.IsObjectLatestVersion(newPreferenceCR)).To(BeTrue())

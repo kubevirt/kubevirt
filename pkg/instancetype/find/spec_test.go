@@ -27,6 +27,7 @@ import (
 	"kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
+	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -47,6 +48,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 
 		virtClient                       *kubecli.MockKubevirtClient
 		fakeClientset                    *fake.Clientset
+		fakeK8sClientSet                 *k8sfake.Clientset
 		instancetypeInformerStore        cache.Store
 		clusterInstancetypeInformerStore cache.Store
 		controllerRevisionInformerStore  cache.Store
@@ -56,7 +58,8 @@ var _ = Describe("Instance Type SpecFinder", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 
-		virtClient.EXPECT().AppsV1().Return(k8sfake.NewSimpleClientset().AppsV1()).AnyTimes()
+		fakeK8sClientSet = k8sfake.NewSimpleClientset()
+		virtClient.EXPECT().AppsV1().Return(fakeK8sClientSet.AppsV1()).AnyTimes()
 
 		fakeClientset = fake.NewSimpleClientset()
 
@@ -140,6 +143,67 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			Expect(instancetypeSpec).To(HaveValue(Equal(clusterInstancetype.Spec)))
 		})
 
+		DescribeTable("returns expected instancetype referenced by", func(updateVM func(*v1.VirtualMachine, string)) {
+			cr, err := revision.CreateControllerRevision(vm, clusterInstancetype)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			updateVM(vm, cr.Name)
+
+			instancetypeSpec, err := finder.Find(vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(instancetypeSpec).To(HaveValue(Equal(clusterInstancetype.Spec)))
+			Expect(fakeK8sClientSet.Actions()).To(
+				ContainElement(
+					testing.NewGetAction(
+						appsv1.SchemeGroupVersion.WithResource("controllerrevisions"),
+						vm.Namespace,
+						cr.Name,
+					),
+				),
+			)
+			Expect(fakeClientset.Actions()).ToNot(
+				ContainElement(
+					testing.NewGetAction(
+						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.ClusterPluralResourceName),
+						"",
+						vm.Spec.Instancetype.Name,
+					),
+				),
+			)
+		},
+			Entry("ControllerRevisionRef",
+				func(vm *v1.VirtualMachine, crName string) {
+					vm.Status.InstancetypeRef = &v1.InstancetypeStatusRef{
+						ControllerRevisionRef: &v1.ControllerRevisionRef{
+							Name: crName,
+						},
+					}
+				},
+			),
+			Entry("RevisionName",
+				func(vm *v1.VirtualMachine, crName string) {
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						RevisionName: crName,
+					}
+				},
+			),
+			Entry("RevisionName over ControllerRevisionRef",
+				func(vm *v1.VirtualMachine, crName string) {
+					vm.Status.InstancetypeRef = &v1.InstancetypeStatusRef{
+						ControllerRevisionRef: &v1.ControllerRevisionRef{
+							Name: "foobar",
+						},
+					}
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						RevisionName: crName,
+					}
+				},
+			),
+		)
+
 		It("find returns expected instancetype spec with no kind provided", func() {
 			vm.Spec.Instancetype.Kind = ""
 			instancetypeSpec, err := finder.Find(vm)
@@ -221,7 +285,11 @@ var _ = Describe("Instance Type SpecFinder", func() {
 				context.Background(), controllerRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vm.Spec.Instancetype.RevisionName = controllerRevision.Name
+			vm.Status.InstancetypeRef = &v1.InstancetypeStatusRef{
+				ControllerRevisionRef: &v1.ControllerRevisionRef{
+					Name: controllerRevision.Name,
+				},
+			}
 
 			foundInstancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
@@ -266,6 +334,67 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(instancetypeSpec).To(HaveValue(Equal(fakeInstancetype.Spec)))
 		})
+
+		DescribeTable("returns expected instancetype referenced by", func(updateVM func(*v1.VirtualMachine, string)) {
+			cr, err := revision.CreateControllerRevision(vm, fakeInstancetype)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			updateVM(vm, cr.Name)
+
+			instancetypeSpec, err := finder.Find(vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(instancetypeSpec).To(HaveValue(Equal(fakeInstancetype.Spec)))
+			Expect(fakeK8sClientSet.Actions()).To(
+				ContainElement(
+					testing.NewGetAction(
+						appsv1.SchemeGroupVersion.WithResource("controllerrevisions"),
+						vm.Namespace,
+						cr.Name,
+					),
+				),
+			)
+			Expect(fakeClientset.Actions()).ToNot(
+				ContainElement(
+					testing.NewGetAction(
+						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.PluralResourceName),
+						vm.Namespace,
+						vm.Spec.Instancetype.Name,
+					),
+				),
+			)
+		},
+			Entry("ControllerRevisionRef",
+				func(vm *v1.VirtualMachine, crName string) {
+					vm.Status.InstancetypeRef = &v1.InstancetypeStatusRef{
+						ControllerRevisionRef: &v1.ControllerRevisionRef{
+							Name: crName,
+						},
+					}
+				},
+			),
+			Entry("RevisionName",
+				func(vm *v1.VirtualMachine, crName string) {
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						RevisionName: crName,
+					}
+				},
+			),
+			Entry("RevisionName over ControllerRevisionRef",
+				func(vm *v1.VirtualMachine, crName string) {
+					vm.Status.InstancetypeRef = &v1.InstancetypeStatusRef{
+						ControllerRevisionRef: &v1.ControllerRevisionRef{
+							Name: "foobar",
+						},
+					}
+					vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+						RevisionName: crName,
+					}
+				},
+			),
+		)
 
 		It("uses client when instancetype not found within informer", func() {
 			err := instancetypeInformerStore.Delete(fakeInstancetype)
@@ -340,7 +469,11 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), controllerRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vm.Spec.Instancetype.RevisionName = controllerRevision.Name
+			vm.Status.InstancetypeRef = &v1.InstancetypeStatusRef{
+				ControllerRevisionRef: &v1.ControllerRevisionRef{
+					Name: controllerRevision.Name,
+				},
+			}
 
 			foundInstancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())

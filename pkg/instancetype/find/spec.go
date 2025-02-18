@@ -53,11 +53,11 @@ func (f *specFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachineIns
 		return nil, nil
 	}
 
-	if vm.Spec.Instancetype.RevisionName != "" {
-		revision, err := f.revisionFinder.Find(vm)
-		if err != nil {
-			return nil, err
-		}
+	revision, err := f.revisionFinder.Find(vm)
+	if err != nil {
+		return nil, err
+	}
+	if revision != nil {
 		return compatibility.GetInstancetypeSpec(revision)
 	}
 
