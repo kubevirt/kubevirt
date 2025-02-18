@@ -878,6 +878,10 @@ func (c *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMach
 				volumeStatus.Reason = VolumeUnMountedFromPodReason
 			}
 		}
+	} else if len(vmi.Status.MigratedVolumes) > 0 && vmi.Status.MigrationState != nil && c.host == vmi.Status.MigrationState.SourceNode &&
+		volumeStatus.Phase == v1.VolumeReady {
+		needsRefresh = true
+		volumeStatus.Phase = ""
 	} else {
 		// Successfully attached to VM.
 		volumeStatus.Phase = v1.VolumeReady
