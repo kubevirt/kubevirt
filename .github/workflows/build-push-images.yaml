@@ -46,13 +46,13 @@ jobs:
         env:
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
         run: |
-          IMAGE_TAG=${IMAGE_TAG} make container-build
+          IMAGE_TAG=${IMAGE_TAG} make build-multi-arch-images
       - name: Push Application Images
         env:
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
         run: |
           make quay-login
-          IMAGE_TAG=${IMAGE_TAG} make container-push
+          IMAGE_TAG=${IMAGE_TAG} make push-multi-arch-images
       - name: Build Digester
         run: |
           (cd tools/digester && go build .)

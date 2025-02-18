@@ -23,6 +23,7 @@ BUNDLE_REGISTRY_IMAGE_NAME=${BUNDLE_REGISTRY_IMAGE_NAME:-hyperconverged-cluster-
 INDEX_REGISTRY_IMAGE_NAME=${INDEX_REGISTRY_IMAGE_NAME:-hyperconverged-cluster-index}
 OPM=${OPM:-opm}
 UNSTABLE=$2
+ARCHITECTURES="amd64 arm64 s390x"
 
 
 function create_index_image() {
@@ -48,8 +49,6 @@ function create_index_image() {
   BUNDLE_IMAGE_NAME=$("${PROJECT_ROOT}/tools/digester/digester" --image "${BUNDLE_IMAGE_NAME}")
 
   create_file_based_catalog "${INITIAL_VERSION}" "${BUNDLE_IMAGE_NAME}" "${UNSTABLE}"
-
-  podman push "${INDEX_IMAGE_NAME}"
 }
 
 function create_file_based_catalog() {
@@ -82,7 +81,15 @@ function create_file_based_catalog() {
   ${OPM} validate fbc-catalog
   rm -f fbc-catalog.Dockerfile
   ${OPM} generate dockerfile fbc-catalog
-  podman build -t "${INDEX_IMAGE_NAME}" -f fbc-catalog.Dockerfile
+
+  IMAGES=
+  for arch in ${ARCHITECTURES}; do
+    podman build --platform="linux/${arch}" -t "${INDEX_IMAGE_NAME}-${arch}" -f fbc-catalog.Dockerfile
+    IMAGES="${IMAGES} ${INDEX_IMAGE_NAME}-${arch}"
+  done
+
+  podman manifest create "${INDEX_IMAGE_NAME}" ${IMAGES}
+  podman manifest push "${INDEX_IMAGE_NAME}"
 }
 
 function create_all_versions() {

@@ -2,6 +2,7 @@ package tests_test
 
 import (
 	"context"
+	"runtime"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 )
 
 func TestTests(t *testing.T) {
+	GinkgoWriter.Printf("Start running the HCO functional tests; go version: %s; platform: %s/%s\n", runtime.Version(), runtime.GOOS, runtime.GOARCH)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "HyperConverged cluster E2E Test suite")
 }

@@ -48,13 +48,13 @@ jobs:
         env:
           IMAGE_TAG: ${{ env.CSV_VERSION }}
         run: |
-          IMAGE_TAG=${CSV_VERSION} make container-build
+          IMAGE_TAG=${CSV_VERSION} make build-multi-arch-images
       - name: Push Application Images
         env:
           IMAGE_TAG: ${{ env.CSV_VERSION }}
         run: |
           make quay-login
-          IMAGE_TAG=${IMAGE_TAG} make container-push
+          IMAGE_TAG=${IMAGE_TAG} make push-multi-arch-images
       - name: Build Digester
         run: |
           (cd tools/digester && go build .)
@@ -97,12 +97,12 @@ jobs:
         env:
           NEW_IMAGE_TAG: ${{ env.NEW_IMAGE_TAG }}
         run: |
-          IMAGE_TAG=${NEW_IMAGE_TAG} make container-build
+          IMAGE_TAG=${NEW_IMAGE_TAG} make build-multi-arch-images
       - name: Push next version Application Images
         env:
           NEW_IMAGE_TAG: ${{ env.NEW_IMAGE_TAG }}
         run: |
-          IMAGE_TAG=${NEW_IMAGE_TAG} make container-push
+          IMAGE_TAG=${NEW_IMAGE_TAG} make push-multi-arch-images
       - name: run manifest for next version
         env:
           PACKAGE_DIR: ${{ env.PACKAGE_DIR }}
