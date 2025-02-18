@@ -22,7 +22,9 @@ package network
 import (
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
+
 	"os"
 	"regexp"
 	"strings"
@@ -45,10 +47,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
+	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
@@ -118,7 +121,7 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(deleteVMI, vmi)
 
-			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			domSpec, err := getRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			nic := domSpec.Devices.HostDevices[0]
@@ -805,4 +808,47 @@ func trimRawString2JSON(input string) string {
 		return ""
 	}
 	return input[startIdx : endIdx+1]
+}
+
+func getRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*launcherApi.DomainSpec, error) {
+	runningVMISpec := launcherApi.DomainSpec{}
+	cli := kubevirt.Client()
+
+	domXML, err := getRunningVirtualMachineInstanceDomainXML(cli, vmi)
+	if err != nil {
+		return nil, err
+	}
+
+	err = xml.Unmarshal([]byte(domXML), &runningVMISpec)
+	return &runningVMISpec, err
+}
+
+func getRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
+	// get current vmi
+	freshVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to get vmi, %s", err)
+	}
+
+	vmiPod, err := libpod.GetPodByVirtualMachineInstance(freshVMI, freshVMI.Namespace)
+	if err != nil {
+		return "", err
+	}
+
+	command := []string{"virsh"}
+	if kutil.IsNonRootVMI(freshVMI) {
+		command = append(command, "-c")
+		command = append(command, "qemu+unix:///session?socket=/var/run/libvirt/virtqemud-sock")
+	}
+	command = append(command, []string{"dumpxml", vmi.Namespace + "_" + vmi.Name}...)
+
+	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
+		vmiPod,
+		libpod.LookupComputeContainer(vmiPod).Name,
+		command,
+	)
+	if err != nil {
+		return "", fmt.Errorf("could not dump libvirt domxml (remotely on pod %s): %v: %s, %s", vmiPod.Name, err, stdout, stderr)
+	}
+	return stdout, err
 }
