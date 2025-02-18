@@ -1,10 +1,9 @@
 package migrations
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -111,4 +110,19 @@ func VMIMigratableOnEviction(clusterConfig *virtconfig.ClusterConfig, vmi *v1.Vi
 		return vmi.IsMigratable()
 	}
 	return false
+}
+
+func ActiveMigrationExistsForVMI(migrationIndexer cache.Indexer, vmi *v1.VirtualMachineInstance) (bool, error) {
+	objs, err := migrationIndexer.ByIndex(cache.NamespaceIndex, vmi.Namespace)
+	if err != nil {
+		return false, err
+	}
+	for _, obj := range objs {
+		migration := obj.(*v1.VirtualMachineInstanceMigration)
+		if migration.Spec.VMIName == vmi.Name && migration.IsRunning() {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

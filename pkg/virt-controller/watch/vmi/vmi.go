@@ -27,12 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vsock"
-
-	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
-
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -52,13 +46,18 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
+	"kubevirt.io/kubevirt/pkg/util/migrations"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/vsock"
 )
 
 const (
@@ -71,6 +70,7 @@ func NewController(templateService services.TemplateService,
 	vmInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
 	pvcInformer cache.SharedIndexInformer,
+	migrationInformer cache.SharedIndexInformer,
 	storageClassInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
@@ -95,6 +95,7 @@ func NewController(templateService services.TemplateService,
 		vmStore:                 vmInformer.GetStore(),
 		podIndexer:              podInformer.GetIndexer(),
 		pvcIndexer:              pvcInformer.GetIndexer(),
+		migrationIndexer:        migrationInformer.GetIndexer(),
 		recorder:                recorder,
 		clientset:               clientset,
 		podExpectations:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
@@ -189,6 +190,7 @@ type Controller struct {
 	vmStore                 cache.Store
 	podIndexer              cache.Indexer
 	pvcIndexer              cache.Indexer
+	migrationIndexer        cache.Indexer
 	topologyHinter          topology.Hinter
 	recorder                record.EventRecorder
 	podExpectations         *controller.UIDTrackingControllerExpectations
@@ -971,11 +973,6 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		// do not return; just log the error
 	}
 
-	backendStoragePVCName, syncErr := c.handleBackendStorage(vmi)
-	if syncErr != nil {
-		return syncErr, pod
-	}
-
 	dataVolumesReady, isWaitForFirstConsumer, syncErr := c.handleSyncDataVolumes(vmi, dataVolumes)
 	if syncErr != nil {
 		return syncErr, pod
@@ -998,18 +995,33 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 			return nil, pod
 		}
 
+		// ensure the VMI doesn't have an unfinished migration before creating the pod
+		activeMigration, err := migrations.ActiveMigrationExistsForVMI(c.migrationIndexer, vmi)
+		if err != nil {
+			return common.NewSyncError(err, controller.FailedCreatePodReason), pod
+		}
+		if activeMigration {
+			log.Log.V(3).Object(vmi).Infof("Delaying pod creation because an active migration exists for the VMI.")
+			// We still need to return an error to ensure the VMI gets re-enqueued
+			return common.NewSyncError(fmt.Errorf("active migration exists"), controller.FailedCreatePodReason), pod
+		}
+
+		backendStoragePVCName, syncErr := c.handleBackendStorage(vmi)
+		if syncErr != nil {
+			return syncErr, pod
+		}
+
 		// If a backend-storage PVC was just created but not yet seen by the informer, give it time
 		if !c.pvcExpectations.SatisfiedExpectations(key) {
 			return nil, pod
 		}
 
-		var backendStorageReady bool
 		backendStorageReady, err := c.backendStorage.IsPVCReady(vmi, backendStoragePVCName)
 		if err != nil {
 			return common.NewSyncError(err, controller.FailedBackendStorageProbeReason), pod
 		}
 		if !backendStorageReady {
-			log.Log.V(3).Object(vmi).Infof("Delaying pod creation while backend storage populates.")
+			log.Log.V(2).Object(vmi).Infof("Delaying pod creation while backend storage populates.")
 			return common.NewSyncError(fmt.Errorf("PVC pending"), controller.BackendStorageNotReadyReason), pod
 		}
 
@@ -1180,11 +1192,11 @@ func (c *Controller) updatePVC(old, cur interface{}) {
 	if curPVC.DeletionTimestamp != nil {
 		return
 	}
+
 	if equality.Semantic.DeepEqual(curPVC.Status.Capacity, oldPVC.Status.Capacity) {
 		// We only do something when the capacity changes
 		return
 	}
-
 	vmis, err := c.listVMIsMatchingDV(curPVC.Namespace, curPVC.Name)
 	if err != nil {
 		log.Log.Object(curPVC).Errorf("Error encountered getting VMIs for DataVolume: %v", err)
