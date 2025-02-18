@@ -1,9 +1,15 @@
 package network
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libwait"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -45,16 +51,30 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 					config.UpdateKubeVirtConfigValueAndWait(testsuite.KubeVirtDefaultConfig)
 					testsuite.EnsureKubevirtReady()
 				})
-				inboundVMI = libvmifact.NewCirros()
-				outboundVMI = libvmifact.NewCirros()
-				inboundVMIWithPodNetworkSet = vmiWithPodNetworkSet()
-				inboundVMIWithCustomMacAddress = vmiWithCustomMacAddress("de:ad:00:00:be:af")
+				var err error
+				virtClient := kubevirt.Client()
 
+				inboundVMI = libvmifact.NewCirros()
+				inboundVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).
+					Create(context.Background(), inboundVMI, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				inboundVMIWithPodNetworkSet = vmiWithPodNetworkSet()
+				inboundVMIWithPodNetworkSet, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).
+					Create(context.Background(), inboundVMIWithPodNetworkSet, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				inboundVMIWithCustomMacAddress = vmiWithCustomMacAddress("de:ad:00:00:be:af")
+				inboundVMIWithCustomMacAddress, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).
+					Create(context.Background(), inboundVMIWithCustomMacAddress, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				outboundVMI = libvmifact.NewCirros()
 				outboundVMI = runVMI(outboundVMI)
 			})
 
 			DescribeTable("should be able to reach", func(vmiRef **v1.VirtualMachineInstance) {
-				vmi := runVMI(*vmiRef)
+				vmi := libwait.WaitUntilVMIReady(*vmiRef, console.LoginToCirros)
 				addr := vmi.Status.Interfaces[0].IP
 
 				payloadSize := 0
