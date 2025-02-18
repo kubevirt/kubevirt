@@ -747,9 +747,6 @@ var _ = SIGDescribe("Volumes update with migration", decorators.RequiresTwoSched
 	Describe("Hotplug volumes", func() {
 		var fgDisabled bool
 		BeforeEach(func() {
-			var err error
-			virtClient, err = kubecli.GetKubevirtClient()
-			Expect(err).ToNot(HaveOccurred())
 			fgDisabled = !checks.HasFeature(featuregate.HotplugVolumesGate)
 			if fgDisabled {
 				config.EnableFeatureGate(featuregate.HotplugVolumesGate)
@@ -1034,6 +1031,6 @@ func waitForMigrationToSucceed(virtClient kubecli.KubevirtClient, vmiName, ns st
 			return false
 		}
 
-		return true
+		return !vmi.Status.MigrationState.Failed
 	}, 120*time.Second, time.Second).Should(BeTrue())
 }
