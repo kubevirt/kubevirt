@@ -3623,7 +3623,7 @@ type netConfStub struct {
 	SetupError error
 }
 
-func (nc *netConfStub) Setup(vmi *v1.VirtualMachineInstance, _ []v1.Network, launcherPid int, preSetup func() error) error {
+func (nc *netConfStub) Setup(vmi *v1.VirtualMachineInstance, _ []v1.Network, launcherPid int) error {
 	if nc.SetupError != nil {
 		return nc.SetupError
 	}
@@ -3632,10 +3632,6 @@ func (nc *netConfStub) Setup(vmi *v1.VirtualMachineInstance, _ []v1.Network, lau
 
 func (nc *netConfStub) Teardown(vmi *v1.VirtualMachineInstance) error {
 	nc.vmiUID = ""
-	return nil
-}
-
-func (nc *netConfStub) HotUnplugInterfaces(vmi *v1.VirtualMachineInstance) error {
 	return nil
 }
 
