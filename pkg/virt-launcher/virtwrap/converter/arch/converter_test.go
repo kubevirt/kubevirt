@@ -32,6 +32,6 @@ var _ = Describe("Arch Converter", func() {
 		Entry("arm64", "arm64", converterARM64{}),
 		Entry("ppc64le", "ppc64le", converterPPC64{}),
 		Entry("s390x", "s390x", converterS390X{}),
-		Entry("unkown", "unknown", converterAMD64{}),
+		Entry("unknown", "unknown", converterAMD64{}),
 	)
 })
