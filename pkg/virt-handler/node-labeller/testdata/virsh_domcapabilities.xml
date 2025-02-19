@@ -18,6 +18,7 @@
             <model usable='yes'>Haswell</model>
             <model usable='yes'>Skylake-Client-IBRS</model>
             <model usable='yes'>Opteron_G2</model>
+            <model usable='yes'>qemu64-v13</model>
         </mode>
     </cpu>
     <features>
