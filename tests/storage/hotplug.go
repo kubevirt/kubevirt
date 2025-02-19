@@ -1280,6 +1280,7 @@ var _ = SIGDescribe("Hotplug", func() {
 					libdv.WithStorage(
 						libdv.StorageWithStorageClass(storageClass),
 						libdv.StorageWithVolumeSize("256Mi"),
+						libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
 					),
 					libdv.WithForceBindAnnotation(),
 				)
