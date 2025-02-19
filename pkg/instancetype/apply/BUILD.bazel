@@ -32,6 +32,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "annotations_test.go",
         "apply_suite_test.go",
         "cpu_test.go",
         "gpu_test.go",
@@ -41,7 +42,6 @@ go_test(
         "memory_test.go",
         "nodeselector_test.go",
         "scheduler_test.go",
-        "vmi_test.go",
     ],
     deps = [
         ":go_default_library",
