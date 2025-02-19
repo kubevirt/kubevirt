@@ -11,6 +11,10 @@
       "msg": "unsafepath functions allows accessing a safepath.Path in an unsafe way and needs do be used carefully",
       "exemptions": [
         {
+          "justification ": "safepath needs access to unsafepath, to construct symbol link for the ImageVolume disk file",
+          "allowedPkg": "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
+        },
+        {
           "justification ": "safepath needs access to unsafepath, to construct an unsafepath.Path for unsafe usage",
           "allowedPkg": "kubevirt.io/kubevirt/pkg/safepath"
         },
