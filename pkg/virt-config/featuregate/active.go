@@ -77,6 +77,9 @@ const (
 	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
 
 	DecentralizedLiveMigration = "DecentralizedLiveMigration"
+
+	// IBM SecureExecution
+	SecureExecution = "SecureExecution"
 )
 
 func init() {
