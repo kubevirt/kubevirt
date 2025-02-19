@@ -2709,6 +2709,8 @@ func (c *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 		if err != nil {
 			return err
 		}
+		fmt.Printf("DEBUG calling passtRepair from vmUpdateHelperMigrationSource on the SOURCE\n")
+		go passtRepair(vmi)
 
 		err = client.MigrateVirtualMachine(vmi, options)
 		if err != nil {
@@ -3538,6 +3540,8 @@ func (c *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInsta
 
 	options := &cmdv1.VirtualMachineOptions{}
 	options.InterfaceMigration = domainspec.BindingMigrationByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
+	fmt.Printf("DEBUG calling passtRepair from finalizeMigration on the TARGET\n")
+	go passtRepair(vmi)
 	if err := client.FinalizeVirtualMachineMigration(vmi, options); err != nil {
 		log.Log.Object(vmi).Reason(err).Error(errorMessage)
 		return fmt.Errorf("%s: %v", errorMessage, err)
