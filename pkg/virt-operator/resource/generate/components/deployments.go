@@ -648,6 +648,11 @@ func NewExportProxyDeployment(namespace, repository, imagePrefix, version, produ
 	env := operatorutil.NewEnvVarMap(extraEnv)
 	deployment := newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, podAntiAffinity, env)
 
+	if deployment.Spec.Template.Annotations == nil {
+		deployment.Spec.Template.Annotations = make(map[string]string)
+	}
+	deployment.Spec.Template.Annotations["openshift.io/required-scc"] = "restricted-v2"
+
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtExportProxyCertSecretName, "/etc/virt-exportproxy/certificates")
 	attachProfileVolume(&deployment.Spec.Template.Spec)
 

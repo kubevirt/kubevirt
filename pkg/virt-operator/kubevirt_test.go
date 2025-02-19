@@ -2932,6 +2932,14 @@ var _ = Describe("KubeVirt Operator", func() {
 			// conditions should reflect a successful update
 			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
 
+			if withExport {
+				o, exists, err := kvTestData.controller.stores.DeploymentCache.GetByKey(fmt.Sprintf("%s/%s", NAMESPACE, "virt-exportproxy"))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(exists).To(BeTrue())
+				proxy := o.(*appsv1.Deployment)
+				Expect(proxy.Spec.Template.Annotations["openshift.io/required-scc"]).To(Equal("restricted-v2"))
+			}
+
 			Expect(kvTestData.totalPatches).To(Equal(patchCount))
 			Expect(kvTestData.totalUpdates).To(Equal(updateCount))
 
