@@ -746,7 +746,6 @@ func (c *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 		log.Log.Object(vmi).Info("The target node received the running migrated domain")
 		now := metav1.Now()
 		vmiCopy.Status.MigrationState.TargetNodeDomainReadyTimestamp = &now
-
 		err := c.finalizeMigration(vmiCopy)
 		if err != nil {
 			return err
@@ -2709,6 +2708,8 @@ func (c *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
 		if err != nil {
 			return err
 		}
+		fmt.Printf("DEBUG calling passtRepair from vmUpdateHelperMigrationSource on the SOURCE\n")
+		go passtRepair(vmi)
 
 		err = client.MigrateVirtualMachine(vmi, options)
 		if err != nil {
@@ -2839,11 +2840,13 @@ func (c *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 	options := virtualMachineOptions(nil, 0, nil, c.capabilities, c.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
 
+	fmt.Printf("DEBUG calling passtRepair from vmUpdateHelperMigrationTarget on the TARGET\n")
+	go passtRepair(vmi)
+
 	if err := client.SyncMigrationTarget(vmi, options); err != nil {
 		return fmt.Errorf("syncing migration target failed: %v", err)
 	}
 	c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), VMIMigrationTargetPrepared)
-
 	err = c.handleTargetMigrationProxy(vmi)
 	if err != nil {
 		return fmt.Errorf("failed to handle post sync migration proxy: %v", err)
@@ -3538,6 +3541,7 @@ func (c *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInsta
 
 	options := &cmdv1.VirtualMachineOptions{}
 	options.InterfaceMigration = domainspec.BindingMigrationByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
+
 	if err := client.FinalizeVirtualMachineMigration(vmi, options); err != nil {
 		log.Log.Object(vmi).Reason(err).Error(errorMessage)
 		return fmt.Errorf("%s: %v", errorMessage, err)

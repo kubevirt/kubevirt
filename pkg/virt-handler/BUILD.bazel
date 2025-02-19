@@ -8,6 +8,7 @@ go_library(
         "migration.go",
         "non-root.go",
         "options.go",
+        "passtrepair.go",
         "realtime.go",
         "retry_manager.go",
         "setsched.go",
