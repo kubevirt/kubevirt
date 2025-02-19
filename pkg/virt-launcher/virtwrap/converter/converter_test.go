@@ -3225,7 +3225,7 @@ var _ = Describe("Converter", func() {
 				},
 			}
 			c = &ConverterContext{
-				Architecture:      archconverter.NewConverter(runtime.GOARCH),
+				Architecture:      archconverter.NewConverter(amd64),
 				AllowEmulation:    true,
 				EFIConfiguration:  &EFIConfiguration{},
 				UseLaunchSecurity: true,
@@ -3299,6 +3299,104 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[0].Rom.Enabled).To(Equal("no"))
 			Expect(domain.Spec.Devices.Interfaces[1].Rom).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Interfaces[1].Rom.Enabled).To(Equal("no"))
+		})
+	})
+
+	Context("with Secure Execution LaunchSecurity", func() {
+		var (
+			vmi *v1.VirtualMachineInstance
+			c   *ConverterContext
+		)
+
+		BeforeEach(func() {
+			vmi = kvapi.NewMinimalVMI("testvmi")
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+			vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.P(true)
+			virtioIface := v1.Interface{Name: "red", Model: "virtio"}
+			secondaryNetwork := v1.Network{Name: "red"}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultBridgeNetworkInterface(), virtioIface,
+			}
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name: "myvolume",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{Bus: v1.VirtIO},
+					},
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "myvolume",
+					VolumeSource: v1.VolumeSource{
+						HostDisk: &v1.HostDisk{
+							Path:     "/var/run/kubevirt-private/vmi-disks/myvolume/disk.img",
+							Type:     v1.HostDiskExistsOrCreate,
+							Capacity: resource.MustParse("1Gi"),
+						},
+					},
+				},
+			}
+			vmi.Spec.Networks = []v1.Network{
+				*v1.DefaultPodNetwork(), secondaryNetwork,
+			}
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+			c = &ConverterContext{
+				Architecture:      archconverter.NewConverter(s390x),
+				AllowEmulation:    true,
+				UseLaunchSecurity: true,
+			}
+		})
+
+		It("should not set LaunchSecurity domain element", func() {
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.LaunchSecurity).To(BeNil())
+		})
+
+		It("should set IOMMU attribute of the RngDriver", func() {
+			rng := &api.Rng{}
+			Expect(Convert_v1_Rng_To_api_Rng(&v1.Rng{}, rng, c)).To(Succeed())
+			Expect(rng.Driver).ToNot(BeNil())
+			Expect(rng.Driver.IOMMU).To(Equal("on"))
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Rng).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Rng.Driver).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Rng.Driver.IOMMU).To(Equal("on"))
+		})
+
+		It("should set IOMMU attribute of the MemBalloonDriver", func() {
+			memBaloon := &api.MemBalloon{}
+			ConvertV1ToAPIBalloning(&v1.Devices{}, memBaloon, c)
+			Expect(memBaloon.Driver).ToNot(BeNil())
+			Expect(memBaloon.Driver.IOMMU).To(Equal("on"))
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Ballooning).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Ballooning.Driver).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Ballooning.Driver.IOMMU).To(Equal("on"))
+		})
+
+		It("should set IOMMU attribute of the virtio-net driver", func() {
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2))
+			Expect(domain.Spec.Devices.Interfaces[0].Driver).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Interfaces[0].Driver.IOMMU).To(Equal("on"))
+			Expect(domain.Spec.Devices.Interfaces[1].Driver).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Interfaces[1].Driver.IOMMU).To(Equal("on"))
+		})
+
+		It("should set IOMMU attribute of the disk driver", func() {
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Disks).To(HaveLen(1))
+			Expect(domain.Spec.Devices.Disks[0].Driver).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Disks[0].Driver.IOMMU).To(Equal("on"))
 		})
 	})
 

@@ -223,6 +223,11 @@ func securityContext(userId int64, privileged bool, requiredCapabilities *k8sv1.
 		context.RunAsGroup = &userId
 		context.AllowPrivilegeEscalation = pointer.P(false)
 	}
+	// As privileged is already the highest privilege, allowPrivilegeEscalation makes no sense.
+	// Therefore kubernetes enforces that a pod can only have one of those attributes.
+	if context.AllowPrivilegeEscalation != nil && privileged {
+		context.AllowPrivilegeEscalation = &privileged
+	}
 
 	return context
 }

@@ -1051,7 +1051,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		UseVirtioTransitional: vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
 		PermanentVolumes:      permanentVolumes,
 		EphemeraldiskCreator:  l.ephemeralDiskCreator,
-		UseLaunchSecurity:     kutil.IsSEVVMI(vmi),
+		UseLaunchSecurity:     kutil.UseLaunchSecurity(vmi),
 		FreePageReporting:     isFreePageReportingEnabled(false, vmi),
 		SerialConsoleLog:      isSerialConsoleLogEnabled(false, vmi),
 	}
