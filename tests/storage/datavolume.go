@@ -1040,7 +1040,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				}
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libstorage.EventuallyDV(dv, 90, HaveSucceeded())
+				libstorage.EventuallyDV(dv, 90, Or(HaveSucceeded(), WaitForFirstConsumer()))
 
 				err := virtClient.RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(context.Background(), cloneRoleBinding.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
