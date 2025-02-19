@@ -103,11 +103,30 @@ func GetDiskTargetName(volumeIndex int) string {
 	return fmt.Sprintf("disk_%d.img", volumeIndex)
 }
 
-func GetDiskTargetPathFromLauncherView(volumeIndex int) string {
-	return filepath.Join(mountBaseDir, GetDiskTargetName(volumeIndex))
+func GetDiskTargetPathFromLauncherView(volumeIndex int, imageVolumeFeatureGateEnabled bool, volumePath string) (string, error) {
+	if imageVolumeFeatureGateEnabled {
+		if volumePath != "" {
+			return filepath.Join(util.VirtImageVolumeDir, fmt.Sprintf("disk_%d", volumeIndex), volumePath), nil
+		}
+		imageVolumeDir := filepath.Join(util.VirtImageVolumeDir, fmt.Sprintf("disk_%d", volumeIndex), disk.DiskSourceFallbackPath)
+		files, err := os.ReadDir(imageVolumeDir)
+		if err != nil {
+			return "", fmt.Errorf("failed to check ImageVolume path %s: %v", imageVolumeDir, err)
+		}
+		if len(files) == 0 {
+			return "", fmt.Errorf("no file found in folder %s, no disk present", imageVolumeDir)
+		} else if len(files) > 1 {
+			return "", fmt.Errorf("more than one file found in folder %s, only one disk is allowed", imageVolumeDir)
+		}
+		return filepath.Join(imageVolumeDir, files[0].Name()), nil
+	}
+	return filepath.Join(mountBaseDir, GetDiskTargetName(volumeIndex)), nil
 }
 
-func GetKernelBootArtifactPathFromLauncherView(artifact string) string {
+func GetKernelBootArtifactPathFromLauncherView(artifact string, imageVolumeFeatureGateEnabled bool) string {
+	if imageVolumeFeatureGateEnabled {
+		return filepath.Join(util.VirtKernelBootVolumeDir, artifact)
+	}
 	artifactBase := filepath.Base(artifact)
 	return filepath.Join(mountBaseDir, KernelBootName, artifactBase)
 }
@@ -133,20 +152,6 @@ func SetKubeletPodsDirectory(dir string) {
 func setPodsDirectory(dir string) error {
 	podsBaseDir = dir
 	return os.MkdirAll(dir, 0750)
-}
-
-// GetDiskTargetPartFromLauncherView returns (path to disk image, image type, and error)
-func GetDiskTargetPartFromLauncherView(volumeIndex int) (string, error) {
-
-	path := GetDiskTargetPathFromLauncherView(volumeIndex)
-	exists, err := diskutils.FileExists(path)
-	if err != nil {
-		return "", err
-	} else if exists {
-		return path, nil
-	}
-
-	return "", fmt.Errorf("no supported file disk found for volume with index %d", volumeIndex)
 }
 
 // NewSocketPathGetter get the socket pat of a containerDisk. For testing a baseDir
@@ -386,6 +391,7 @@ func CreateEphemeralImages(
 	vmi *v1.VirtualMachineInstance,
 	diskCreator ephemeraldisk.EphemeralDiskCreatorInterface,
 	disksInfo map[string]*disk.DiskInfo,
+	imageVolumeFeatureGateEnabled bool,
 ) error {
 	// The domain is setup to use the COW image instead of the base image. What we have
 	// to do here is only create the image where the domain expects it (GetDiskTargetPartFromLauncherView)
@@ -397,9 +403,17 @@ func CreateEphemeralImages(
 			if info == nil {
 				return fmt.Errorf("no disk info provided for volume %s", volume.Name)
 			}
-			if backingFile, err := GetDiskTargetPartFromLauncherView(i); err != nil {
+			backingFile, err := GetDiskTargetPathFromLauncherView(i, imageVolumeFeatureGateEnabled, volume.ContainerDisk.Path)
+			if err != nil {
 				return err
-			} else if err := diskCreator.CreateBackedImageForVolume(volume, backingFile, info.Format); err != nil {
+			}
+			exists, err := diskutils.FileExists(backingFile)
+			if err != nil {
+				return err
+			} else if !exists {
+				return fmt.Errorf("no supported file disk found for volume found in:%s", backingFile)
+			}
+			if err := diskCreator.CreateBackedImageForVolume(volume, backingFile, info.Format); err != nil {
 				return err
 			}
 		}
