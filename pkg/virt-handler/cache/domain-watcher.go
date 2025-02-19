@@ -20,6 +20,7 @@ package cache
 
 import (
 	"net"
+	rt "runtime"
 	"sync"
 	"time"
 
@@ -33,9 +34,12 @@ import (
 	"kubevirt.io/client-go/log"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	converter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 )
 
 const socketDialTimeout = 5
@@ -219,11 +223,21 @@ func (d *domainWatcher) handleStaleSocketConnections() error {
 				// this is possible with legacy VMIs that haven't
 				// been updated. The watchdog file will catch these.
 			} else {
-				domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
-				domain.ObjectMeta.UID = record.UID
+				domain := &api.Domain{}
+				vmi := libvmi.New(
+					libvmi.WithName(record.Name),
+					libvmi.WithNamespace(record.Namespace),
+					libvmi.WithDeletionTimeStamp(),
+					libvmi.WithUID(record.UID),
+				)
+
+				c := converter.ConverterContext{
+					VirtualMachine: vmi,
+					Architecture:   arch.NewConverter(rt.GOARCH),
+					AllowEmulation: true,
+				}
+				converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, &c)
 				domain.Spec.Metadata.KubeVirt.UID = record.UID
-				now := metav1.Now()
-				domain.ObjectMeta.DeletionTimestamp = &now
 				log.Log.Object(domain).Warningf("detected unresponsive virt-launcher command socket (%s) for domain", key)
 				d.eventChan <- watch.Event{Type: watch.Modified, Object: domain}
 
@@ -256,10 +270,18 @@ func (d *domainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 		if !exists {
 			record, recordExists := findGhostRecordBySocket(socketFile)
 			if recordExists {
-				domain := api.NewMinimalDomainWithNS(record.Namespace, record.Name)
-				domain.ObjectMeta.UID = record.UID
-				now := metav1.Now()
-				domain.ObjectMeta.DeletionTimestamp = &now
+				domain := &api.Domain{}
+				vmi := libvmi.New(libvmi.WithName(record.Name),
+					libvmi.WithNamespace(record.Namespace),
+					libvmi.WithDeletionTimeStamp(),
+					libvmi.WithUID(record.UID),
+				)
+				c := converter.ConverterContext{
+					VirtualMachine: vmi,
+					Architecture:   arch.NewConverter(rt.GOARCH),
+					AllowEmulation: true,
+				}
+				converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, &c)
 				log.Log.Object(domain).Warning("detected stale domain from ghost record")
 				domains = append(domains, domain)
 			}
