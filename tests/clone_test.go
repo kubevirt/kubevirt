@@ -7,9 +7,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -132,8 +130,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 
 	expectVMRunnable := func(vm *virtv1.VirtualMachine, login console.LoginToFunction) *virtv1.VirtualMachine {
 		By(fmt.Sprintf("Starting VM %s", vm.Name))
-		vm, err = startCloneVM(virtClient, vm)
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &virtv1.StartOptions{})).To(Succeed())
 		Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 		targetVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, v1.GetOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
@@ -141,8 +138,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		err = login(targetVMI)
 		Expect(err).ShouldNot(HaveOccurred())
 
-		vm, err = stopCloneVM(virtClient, vm)
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &virtv1.StopOptions{})).To(Succeed())
 		Eventually(ThisVMIWith(vm.Namespace, vm.Name), 300*time.Second, 1*time.Second).ShouldNot(Exist())
 		Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(Not(BeReady()))
 
@@ -713,8 +709,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 
 						sourceVM = createVMWithStorageClass(snapshotStorageClass, virtv1.RunStrategyAlways)
 						vmClone = generateCloneWithFilters(sourceVM, targetVMName)
-						sourceVM, err = stopCloneVM(virtClient, sourceVM)
-						Expect(err).ShouldNot(HaveOccurred())
+						Expect(virtClient.VirtualMachine(sourceVM.Namespace).Stop(context.Background(), sourceVM.Name, &virtv1.StopOptions{})).To(Succeed())
 						Eventually(ThisVMIWith(sourceVM.Namespace, sourceVM.Name), 300*time.Second, 1*time.Second).ShouldNot(Exist())
 						Eventually(ThisVM(sourceVM), 300*time.Second, 1*time.Second).Should(Not(BeReady()))
 
@@ -756,24 +751,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		})
 	})
 })
-
-func startCloneVM(virtClient kubecli.KubevirtClient, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
-	patch, err := patch.New(patch.WithAdd("/spec/runStrategy", virtv1.RunStrategyAlways)).GeneratePayload()
-	if err != nil {
-		return nil, err
-	}
-
-	return virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, v1.PatchOptions{})
-}
-
-func stopCloneVM(virtClient kubecli.KubevirtClient, vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, error) {
-	patch, err := patch.New(patch.WithAdd("/spec/runStrategy", virtv1.RunStrategyHalted)).GeneratePayload()
-	if err != nil {
-		return nil, err
-	}
-
-	return virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, v1.PatchOptions{})
-}
 
 func withFirmware(firmware *virtv1.Firmware) libvmi.Option {
 	return func(vmi *virtv1.VirtualMachineInstance) {
