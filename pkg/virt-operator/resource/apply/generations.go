@@ -13,7 +13,6 @@ import (
 	policyv1 "k8s.io/api/policy/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func getGroupResource(required runtime.Object) (group string, resource string, err error) {
@@ -52,7 +51,12 @@ func GetExpectedGeneration(required runtime.Object, previousGenerations []k6tv1.
 	}
 
 	meta := required.(v1.Object)
-	generation := generationFor(previousGenerations, schema.GroupResource{Group: group, Resource: resource}, meta.GetNamespace(), meta.GetName())
+	generation := generationFor(previousGenerations,
+		group,
+		resource,
+		meta.GetNamespace(),
+		meta.GetName(),
+	)
 	if generation == nil {
 		return -1
 	}
@@ -61,7 +65,7 @@ func GetExpectedGeneration(required runtime.Object, previousGenerations []k6tv1.
 }
 
 func SetGeneration(generations *[]k6tv1.GenerationStatus, actual runtime.Object) {
-	if actual == nil {
+	if generations == nil || actual == nil {
 		return
 	}
 
@@ -71,36 +75,21 @@ func SetGeneration(generations *[]k6tv1.GenerationStatus, actual runtime.Object)
 	}
 
 	meta := actual.(v1.Object)
-	setGeneration(generations, k6tv1.GenerationStatus{
+	newGeneration := k6tv1.GenerationStatus{
 		Group:          group,
 		Resource:       resource,
 		Namespace:      meta.GetNamespace(),
 		Name:           meta.GetName(),
 		LastGeneration: meta.GetGeneration(),
-	})
-}
-
-func generationFor(generations []k6tv1.GenerationStatus, resource schema.GroupResource, namespace, name string) *k6tv1.GenerationStatus {
-	for i := range generations {
-		curr := &generations[i]
-		if curr.Namespace == namespace &&
-			curr.Name == name &&
-			curr.Group == resource.Group &&
-			curr.Resource == resource.Resource {
-
-			return curr
-		}
 	}
 
-	return nil
-}
+	existingGeneration := generationFor(*generations,
+		newGeneration.Group,
+		newGeneration.Resource,
+		newGeneration.Namespace,
+		newGeneration.Name,
+	)
 
-func setGeneration(generations *[]k6tv1.GenerationStatus, newGeneration k6tv1.GenerationStatus) {
-	if generations == nil {
-		return
-	}
-
-	existingGeneration := generationFor(*generations, schema.GroupResource{Group: newGeneration.Group, Resource: newGeneration.Resource}, newGeneration.Namespace, newGeneration.Name)
 	if existingGeneration == nil {
 		*generations = append(*generations, newGeneration)
 		return
@@ -108,4 +97,19 @@ func setGeneration(generations *[]k6tv1.GenerationStatus, newGeneration k6tv1.Ge
 
 	existingGeneration.LastGeneration = newGeneration.LastGeneration
 	existingGeneration.Hash = newGeneration.Hash
+}
+
+func generationFor(generations []k6tv1.GenerationStatus, group, resource, namespace, name string) *k6tv1.GenerationStatus {
+	for i := range generations {
+		curr := &generations[i]
+		if curr.Namespace == namespace &&
+			curr.Name == name &&
+			curr.Group == group &&
+			curr.Resource == resource {
+
+			return curr
+		}
+	}
+
+	return nil
 }
