@@ -100,19 +100,6 @@ var _ = Describe("Migration watcher", func() {
 		}
 	}
 
-	getTargetPod := func(namespace string, uid types.UID, migrationUid types.UID) (*k8sv1.Pod, error) {
-		pods, err := kubeClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=%s,%s=%s", virtv1.MigrationJobLabel, string(migrationUid), virtv1.CreatedByLabel, string(uid)),
-		})
-		if err != nil {
-			return nil, err
-		}
-		if len(pods.Items) == 1 {
-			return &pods.Items[0], nil
-		}
-		return nil, errors.New("Failed identifying target pod")
-	}
-
 	expectPodDoesNotExist := func(namespace, uid, migrationUid string) {
 		pods, err := kubeClient.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("%s=%s,%s=%s", virtv1.MigrationJobLabel, migrationUid, virtv1.CreatedByLabel, uid),
@@ -942,8 +929,16 @@ var _ = Describe("Migration watcher", func() {
 				"additionaLabel2":               "additionalValue2",
 			}
 
-			Expect(vmiNodeSelector).To(HaveKey("topology.kubernetes.io/region"))
-			Expect(addedNodeSelector).To(HaveKey("topology.kubernetes.io/region"))
+			By("Enforcing we have a key collision between vmiNodeSelector and addedNodeSelector")
+			Expect(addedNodeSelector).To(SatisfyAny(
+				func() []OmegaMatcher {
+					var keyMatchers []OmegaMatcher
+					for k := range vmiNodeSelector {
+						keyMatchers = append(keyMatchers, HaveKey(k))
+					}
+					return keyMatchers
+				}()...,
+			))
 
 			migration := newMigrationWithAddedNodeSelector("testmigration", vmi.Name, virtv1.MigrationPending, addedNodeSelector)
 
@@ -951,11 +946,11 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
 
-			controller.Execute()
+			sanityExecute()
 
 			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
 			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 2)
-			targetPod, err := getTargetPod(vmi.Namespace, vmi.UID, migration.UID)
+			targetPod, err := getTargetPod(kubeClient, vmi.Namespace, vmi.UID, migration.UID)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(targetPod).ToNot(BeNil())
 			Expect(targetPod.Spec.Affinity).ToNot(BeNil())
@@ -968,8 +963,7 @@ var _ = Describe("Migration watcher", func() {
 				Expect(targetPod.Spec.NodeSelector).To(HaveKeyWithValue(k, v))
 			}
 			for k, v := range addedNodeSelector {
-				vmiVal, ok := vmiNodeSelector[k]
-				if ok {
+				if vmiVal, ok := vmiNodeSelector[k]; ok {
 					Expect(targetPod.Spec.NodeSelector).To(HaveKeyWithValue(k, vmiVal))
 				} else {
 					Expect(targetPod.Spec.NodeSelector).To(HaveKeyWithValue(k, v))
@@ -2606,4 +2600,17 @@ func setAnnotation(annotation string, migrations ...*virtv1.VirtualMachineInstan
 			m.Annotations[annotation] = key
 		}
 	}
+}
+
+func getTargetPod(c *fake.Clientset, namespace string, uid types.UID, migrationUid types.UID) (*k8sv1.Pod, error) {
+	pods, err := c.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s,%s=%s", virtv1.MigrationJobLabel, string(migrationUid), virtv1.CreatedByLabel, string(uid)),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(pods.Items) == 1 {
+		return &pods.Items[0], nil
+	}
+	return nil, errors.New("failed identifying target pod")
 }

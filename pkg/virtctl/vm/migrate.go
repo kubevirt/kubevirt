@@ -22,7 +22,6 @@ package vm
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -34,10 +33,13 @@ import (
 
 const COMMAND_MIGRATE = "migrate"
 
-var nodeSlectorLabels []string
+type migrateCommand struct {
+	command           string
+	addedNodeSelector map[string]string
+}
 
 func NewMigrateCommand() *cobra.Command {
-	c := Command{command: COMMAND_MIGRATE}
+	c := migrateCommand{command: COMMAND_MIGRATE}
 	cmd := &cobra.Command{
 		Use:     "migrate (VM)",
 		Short:   "Migrate a virtual machine.",
@@ -46,13 +48,13 @@ func NewMigrateCommand() *cobra.Command {
 		RunE:    c.migrateRun,
 	}
 
-	cmd.Flags().StringSliceVar(&nodeSlectorLabels, "addedNodeSelector", nil, "--addedNodeSelector=key=value1,key2=value2: configure an additional node selector for the one-off migration attempt. AddedNodeSelector can only restrict constraints already set on the VM. If omitted (recommended!) the scheduler becomes responsible for finding the best Node to migrate the VM to.")
+	cmd.Flags().StringToStringVar(&c.addedNodeSelector, "addedNodeSelector", nil, "--addedNodeSelector=key=value1,key2=value2: configure an additional node selector for the one-off migration attempt. AddedNodeSelector can only restrict constraints already set on the VM. By default the scheduler is responsible for finding the best Node, which is the recommended way of migrating VMs.")
 	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 
-func (o *Command) migrateRun(cmd *cobra.Command, args []string) error {
+func (c *migrateCommand) migrateRun(cmd *cobra.Command, args []string) error {
 	vmiName := args[0]
 
 	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
@@ -62,14 +64,9 @@ func (o *Command) migrateRun(cmd *cobra.Command, args []string) error {
 
 	dryRunOption := setDryRunOption(dryRun)
 
-	options := &v1.MigrateOptions{DryRun: dryRunOption}
-
-	if nodeSlectorLabels != nil {
-		addedNodeSelector, err := convertSliceToMap(nodeSlectorLabels)
-		if err != nil {
-			return err
-		}
-		options.AddedNodeSelector = addedNodeSelector
+	options := &v1.MigrateOptions{
+		DryRun:            dryRunOption,
+		AddedNodeSelector: c.addedNodeSelector,
 	}
 
 	err = virtClient.VirtualMachine(namespace).Migrate(context.Background(), vmiName, options)
@@ -77,21 +74,7 @@ func (o *Command) migrateRun(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Error migrating VirtualMachine %v", err)
 	}
 
-	fmt.Printf("VM %s was scheduled to %s\n", vmiName, o.command)
+	fmt.Printf("VM %s was scheduled to %s\n", vmiName, c.command)
 
 	return nil
-}
-
-// Convert a slice of "key=value" strings to a map
-func convertSliceToMap(slice []string) (map[string]string, error) {
-	mapResult := make(map[string]string)
-	for _, item := range slice {
-		parts := strings.Split(item, "=")
-		if len(parts) == 2 {
-			mapResult[parts[0]] = parts[1]
-		} else {
-			return nil, fmt.Errorf("invalid format for label: %s", item)
-		}
-	}
-	return mapResult, nil
 }

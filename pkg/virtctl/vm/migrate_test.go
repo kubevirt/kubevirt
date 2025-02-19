@@ -94,7 +94,7 @@ var _ = Describe("Migrate command", func() {
 		args = append(args, extraArgs...)
 		err := testing.NewRepeatableVirtctlCommand(args...)()
 		Expect(err).To(HaveOccurred())
-		Expect(err).Should(MatchError(ContainSubstring("invalid format for label:")))
+		Expect(err).Should(MatchError(ContainSubstring("must be formatted as key=value")))
 	},
 		Entry(
 			"with key only",
@@ -102,12 +102,6 @@ var _ = Describe("Migrate command", func() {
 		Entry(
 			"with multiple keys only",
 			"--addedNodeSelector", "key1,key2"),
-		Entry(
-			"with invalid value",
-			"--addedNodeSelector", "key1=value1=value2"),
-		Entry(
-			"with invalid syntax",
-			"--addedNodeSelector", "key1=value1|key2,value2"),
 	)
 
 })
