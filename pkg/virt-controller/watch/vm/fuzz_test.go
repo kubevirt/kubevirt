@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"fmt"
 	"k8s.io/apimachinery/pkg/util/rand"
 	stdruntime "runtime"
 	"testing"
@@ -70,7 +69,6 @@ func AddDataVolumeAPI(crdInformer cache.SharedIndexInformer) {
 }
 
 func NewFakeClusterConfigUsingKVConfig(kv *KVv1.KubeVirt) (*virtconfig.ClusterConfig, cache.SharedIndexInformer, cache.Store, *framework.FakeControllerSource, *framework.FakeControllerSource) {
-	
 	return NewFakeClusterConfigUsingKV(kv)
 }
 
