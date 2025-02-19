@@ -24389,9 +24389,16 @@ func schema_kubevirtio_api_core_v1_TPMDevice(ref common.ReferenceCallback) commo
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enabled, when set to false, ensure no TPM device is ever added. This is useful when using Instance Types / Preferences that include a TPM option. Defaults to true",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"persistent": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Persistent indicates the state of the TPM device should be kept accross reboots Defaults to false",
+							Description: "Persistent indicates the state of the TPM device should be kept across reboots Defaults to false",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
