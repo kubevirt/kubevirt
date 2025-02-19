@@ -6455,9 +6455,15 @@ var CRDsValidation map[string]string = map[string]string{
                         tpm:
                           description: Whether to emulate a TPM device.
                           properties:
+                            enabled:
+                              description: |-
+                                Enabled, when set to false, ensure no TPM device is ever added.
+                                This is useful when using Instance Types / Preferences that include a TPM option.
+                                Defaults to true
+                              type: boolean
                             persistent:
                               description: |-
-                                Persistent indicates the state of the TPM device should be kept accross reboots
+                                Persistent indicates the state of the TPM device should be kept across reboots
                                 Defaults to false
                               type: boolean
                           type: object
@@ -9307,9 +9313,15 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredTPM optionally defines the preferred TPM device
                 to be used.
               properties:
+                enabled:
+                  description: |-
+                    Enabled, when set to false, ensure no TPM device is ever added.
+                    This is useful when using Instance Types / Preferences that include a TPM option.
+                    Defaults to true
+                  type: boolean
                 persistent:
                   description: |-
-                    Persistent indicates the state of the TPM device should be kept accross reboots
+                    Persistent indicates the state of the TPM device should be kept across reboots
                     Defaults to false
                   type: boolean
               type: object
@@ -11735,9 +11747,15 @@ var CRDsValidation map[string]string = map[string]string{
                 tpm:
                   description: Whether to emulate a TPM device.
                   properties:
+                    enabled:
+                      description: |-
+                        Enabled, when set to false, ensure no TPM device is ever added.
+                        This is useful when using Instance Types / Preferences that include a TPM option.
+                        Defaults to true
+                      type: boolean
                     persistent:
                       description: |-
-                        Persistent indicates the state of the TPM device should be kept accross reboots
+                        Persistent indicates the state of the TPM device should be kept across reboots
                         Defaults to false
                       type: boolean
                   type: object
@@ -14939,9 +14957,15 @@ var CRDsValidation map[string]string = map[string]string{
                 tpm:
                   description: Whether to emulate a TPM device.
                   properties:
+                    enabled:
+                      description: |-
+                        Enabled, when set to false, ensure no TPM device is ever added.
+                        This is useful when using Instance Types / Preferences that include a TPM option.
+                        Defaults to true
+                      type: boolean
                     persistent:
                       description: |-
-                        Persistent indicates the state of the TPM device should be kept accross reboots
+                        Persistent indicates the state of the TPM device should be kept across reboots
                         Defaults to false
                       type: boolean
                   type: object
@@ -17359,9 +17383,15 @@ var CRDsValidation map[string]string = map[string]string{
                         tpm:
                           description: Whether to emulate a TPM device.
                           properties:
+                            enabled:
+                              description: |-
+                                Enabled, when set to false, ensure no TPM device is ever added.
+                                This is useful when using Instance Types / Preferences that include a TPM option.
+                                Defaults to true
+                              type: boolean
                             persistent:
                               description: |-
-                                Persistent indicates the state of the TPM device should be kept accross reboots
+                                Persistent indicates the state of the TPM device should be kept across reboots
                                 Defaults to false
                               type: boolean
                           type: object
@@ -21859,9 +21889,15 @@ var CRDsValidation map[string]string = map[string]string{
                                 tpm:
                                   description: Whether to emulate a TPM device.
                                   properties:
+                                    enabled:
+                                      description: |-
+                                        Enabled, when set to false, ensure no TPM device is ever added.
+                                        This is useful when using Instance Types / Preferences that include a TPM option.
+                                        Defaults to true
+                                      type: boolean
                                     persistent:
                                       description: |-
-                                        Persistent indicates the state of the TPM device should be kept accross reboots
+                                        Persistent indicates the state of the TPM device should be kept across reboots
                                         Defaults to false
                                       type: boolean
                                   type: object
@@ -23767,9 +23803,15 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredTPM optionally defines the preferred TPM device
                 to be used.
               properties:
+                enabled:
+                  description: |-
+                    Enabled, when set to false, ensure no TPM device is ever added.
+                    This is useful when using Instance Types / Preferences that include a TPM option.
+                    Defaults to true
+                  type: boolean
                 persistent:
                   description: |-
-                    Persistent indicates the state of the TPM device should be kept accross reboots
+                    Persistent indicates the state of the TPM device should be kept across reboots
                     Defaults to false
                   type: boolean
               type: object
@@ -27050,9 +27092,15 @@ var CRDsValidation map[string]string = map[string]string{
                                     tpm:
                                       description: Whether to emulate a TPM device.
                                       properties:
+                                        enabled:
+                                          description: |-
+                                            Enabled, when set to false, ensure no TPM device is ever added.
+                                            This is useful when using Instance Types / Preferences that include a TPM option.
+                                            Defaults to true
+                                          type: boolean
                                         persistent:
                                           description: |-
-                                            Persistent indicates the state of the TPM device should be kept accross reboots
+                                            Persistent indicates the state of the TPM device should be kept across reboots
                                             Defaults to false
                                           type: boolean
                                       type: object

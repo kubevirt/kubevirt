@@ -1878,7 +1878,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	if vmi.Spec.Domain.Devices.TPM != nil {
+	if util.HasTPMDevice(&vmi.Spec) {
 		domain.Spec.Devices.TPMs = []api.TPM{
 			{
 				Model: "tpm-tis",

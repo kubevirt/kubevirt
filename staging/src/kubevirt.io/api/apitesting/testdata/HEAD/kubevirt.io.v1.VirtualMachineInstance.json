@@ -348,6 +348,7 @@
           "model": "modelValue"
         },
         "tpm": {
+          "enabled": true,
           "persistent": true
         }
       },
