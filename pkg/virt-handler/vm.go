@@ -1402,10 +1402,11 @@ func calculatePausedCondition(vmi *v1.VirtualMachineInstance, reason api.StateCh
 
 func newNonMigratableCondition(msg string, reason string) *v1.VirtualMachineInstanceCondition {
 	return &v1.VirtualMachineInstanceCondition{
-		Type:    v1.VirtualMachineInstanceIsMigratable,
-		Status:  k8sv1.ConditionFalse,
-		Message: msg,
-		Reason:  reason,
+		Type:               v1.VirtualMachineInstanceIsMigratable,
+		Status:             k8sv1.ConditionFalse,
+		LastTransitionTime: metav1.Now(),
+		Message:            msg,
+		Reason:             reason,
 	}
 }
 
@@ -1445,8 +1446,9 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 	}
 
 	return &v1.VirtualMachineInstanceCondition{
-		Type:   v1.VirtualMachineInstanceIsMigratable,
-		Status: k8sv1.ConditionTrue,
+		Type:               v1.VirtualMachineInstanceIsMigratable,
+		Status:             k8sv1.ConditionTrue,
+		LastTransitionTime: metav1.Now(),
 	}, isBlockMigration
 }
 
@@ -1483,15 +1485,17 @@ func (cond *multipleNonMigratableCondition) generateStorageLiveMigrationConditio
 	switch len(cond.reasons) {
 	case 0:
 		return &v1.VirtualMachineInstanceCondition{
-			Type:   v1.VirtualMachineInstanceIsStorageLiveMigratable,
-			Status: k8sv1.ConditionTrue,
+			Type:               v1.VirtualMachineInstanceIsStorageLiveMigratable,
+			Status:             k8sv1.ConditionTrue,
+			LastTransitionTime: metav1.Now(),
 		}
 	default:
 		return &v1.VirtualMachineInstanceCondition{
-			Type:    v1.VirtualMachineInstanceIsStorageLiveMigratable,
-			Status:  k8sv1.ConditionFalse,
-			Message: cond.String(),
-			Reason:  v1.VirtualMachineInstanceReasonNotMigratable,
+			Type:               v1.VirtualMachineInstanceIsStorageLiveMigratable,
+			Status:             k8sv1.ConditionFalse,
+			Message:            cond.String(),
+			Reason:             v1.VirtualMachineInstanceReasonNotMigratable,
+			LastTransitionTime: metav1.Now(),
 		}
 	}
 }
