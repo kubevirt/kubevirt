@@ -188,6 +188,7 @@ func FuzzExecute(f *testing.F) {
 		}()
 
 		pvcInformer, pvcCs := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		migrationInformer, mCs := testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
 		storageClassInformer, storageClassCs := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 		cdiInformer, cdiCs := testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
 		cdiConfigInformer, cdiConfigCs := testutils.NewFakeInformerFor(&cdiv1.CDIConfig{})
@@ -202,6 +203,7 @@ func FuzzExecute(f *testing.F) {
 
 		// Clean up controller sources to avoid excessive memory usage
 		defer cdiCs.Shutdown()
+		defer mCs.Shutdown()
 		defer podCs.Shutdown()
 		defer dataVolumeCs.Shutdown()
 		defer storageProfileCs.Shutdown()
@@ -219,6 +221,7 @@ func FuzzExecute(f *testing.F) {
 			vmInformer,
 			podInformer,
 			pvcInformer,
+			migrationInformer,
 			storageClassInformer,
 			recorder,
 			fuzzVirtClient,
