@@ -173,7 +173,7 @@ func UpdateKubeVirtConfigValue(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
 		return kv
 	}
 
-	Expect(CurrentSpecReport().IsSerial).To(BeTrue(), "Tests which alter the global kubevirt configuration must not be executed in parallel, see https://onsi.github.io/ginkgo/#serial-specs")
+	Expect(CurrentSpecReport().IsSerial || CurrentSpecReport().IsInOrderedContainer).To(BeTrue(), "Tests which alter the global kubevirt configuration must not be executed in parallel, see https://onsi.github.io/ginkgo/#serial-specs")
 
 	updatedKV := kv.DeepCopy()
 	updatedKV.Spec.Configuration = kvConfig
