@@ -96,25 +96,19 @@ hack-clean: ## Run ./hack/clean.sh
 
 container-build: container-build-operator container-build-webhook container-build-operator-courier container-build-functest container-build-artifacts-server
 
-build-multi-arch-images: build-multi-arch-operator-image build-multi-arch-webhook-image build-multi-arch-functest-image build-multi-arch-artifacts-server
+build-push-multi-arch-images: build-push-multi-arch-operator-image build-push-multi-arch-webhook-image build-push-multi-arch-functest-image build-push-multi-arch-artifacts-server
 
 container-build-operator:
 	. "hack/cri-bin.sh" && $$CRI_BIN build --platform=linux/$(ARCH) -f build/Dockerfile -t $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE):$(IMAGE_TAG) --build-arg git_sha=$(SHA) .
 
-build-multi-arch-operator-image:
-	IMAGE_NAME=$(IMAGE_REGISTRY)/$(OPERATOR_IMAGE):$(IMAGE_TAG) SHA=SHA DOCKER_FILE=build/Dockerfile ./hack/build-multi-arch-images.sh
-
-push-multi-arch-operator-image:
-	. "hack/cri-bin.sh" && $$CRI_BIN manifest push $(IMAGE_REGISTRY)/$(OPERATOR_IMAGE):$(IMAGE_TAG)
+build-push-multi-arch-operator-image:
+	IMAGE_NAME=$(IMAGE_REGISTRY)/$(OPERATOR_IMAGE):$(IMAGE_TAG) SHA=SHA DOCKER_FILE=build/Dockerfile ./hack/build-push-multi-arch-images.sh
 
 container-build-webhook:
 	. "hack/cri-bin.sh" && $$CRI_BIN build --platform=linux/$(ARCH) -f build/Dockerfile.webhook -t $(IMAGE_REGISTRY)/$(WEBHOOK_IMAGE):$(IMAGE_TAG) --build-arg git_sha=$(SHA) .
 
-build-multi-arch-webhook-image:
-	IMAGE_NAME=$(IMAGE_REGISTRY)/$(WEBHOOK_IMAGE):$(IMAGE_TAG) SHA=$(SHA) DOCKER_FILE="build/Dockerfile.webhook" ./hack/build-multi-arch-images.sh
-
-push-multi-arch-webhook-image:
-	. "hack/cri-bin.sh" && $$CRI_BIN manifest push $(IMAGE_REGISTRY)/$(WEBHOOK_IMAGE):$(IMAGE_TAG)
+build-push-multi-arch-webhook-image:
+	IMAGE_NAME=$(IMAGE_REGISTRY)/$(WEBHOOK_IMAGE):$(IMAGE_TAG) SHA=$(SHA) DOCKER_FILE="build/Dockerfile.webhook" ./hack/build-push-multi-arch-images.sh
 
 container-build-operator-courier:
 	podman build -f tools/operator-courier/Dockerfile -t hco-courier .
@@ -125,24 +119,16 @@ container-build-validate-bundles:
 container-build-functest:
 	. "hack/cri-bin.sh" && $$CRI_BIN build  --platform=linux/$(ARCH) -f build/Dockerfile.functest -t $(IMAGE_REGISTRY)/$(FUNC_TEST_IMAGE):$(IMAGE_TAG) --build-arg git_sha=$(SHA) .
 
-build-multi-arch-functest-image:
-	IMAGE_NAME=$(IMAGE_REGISTRY)/$(FUNC_TEST_IMAGE):$(IMAGE_TAG) SHA=$(SHA) DOCKER_FILE="build/Dockerfile.functest" ./hack/build-multi-arch-images.sh
-
-push-multi-arch-functest-image:
-	. "hack/cri-bin.sh" && $$CRI_BIN manifest push $(IMAGE_REGISTRY)/$(FUNC_TEST_IMAGE):$(IMAGE_TAG)
+build-push-multi-arch-functest-image:
+	IMAGE_NAME=$(IMAGE_REGISTRY)/$(FUNC_TEST_IMAGE):$(IMAGE_TAG) SHA=$(SHA) DOCKER_FILE="build/Dockerfile.functest" ./hack/build-push-multi-arch-images.sh
 
 container-build-artifacts-server:
 	podman build -f build/Dockerfile.artifacts -t $(IMAGE_REGISTRY)/$(VIRT_ARTIFACTS_SERVER):$(IMAGE_TAG) --build-arg git_sha=$(SHA) .
 
-build-multi-arch-artifacts-server:
-	IMAGE_NAME=$(IMAGE_REGISTRY)/$(VIRT_ARTIFACTS_SERVER):$(IMAGE_TAG) SHA=$(SHA) DOCKER_FILE="build/Dockerfile.artifacts" ./hack/build-multi-arch-images.sh
-
-push-multi-arch-artifacts-server:
-	. "hack/cri-bin.sh" && $$CRI_BIN manifest push $(IMAGE_REGISTRY)/$(VIRT_ARTIFACTS_SERVER):$(IMAGE_TAG)
+build-push-multi-arch-artifacts-server:
+	IMAGE_NAME=$(IMAGE_REGISTRY)/$(VIRT_ARTIFACTS_SERVER):$(IMAGE_TAG) SHA=$(SHA) DOCKER_FILE="build/Dockerfile.artifacts" ./hack/build-push-multi-arch-images.sh
 
 container-push: container-push-operator container-push-webhook container-push-functest container-push-artifacts-server
-
-push-multi-arch-images: push-multi-arch-operator-image push-multi-arch-webhook-image push-multi-arch-functest-image push-multi-arch-artifacts-server
 
 quay-login:
 	podman login $(IMAGE_REGISTRY) -u $(QUAY_USERNAME) -p "$(QUAY_PASSWORD)"
@@ -341,13 +327,8 @@ bump-hco:
 		sanity \
 		goimport \
 		bump-hco \
-		build-multi-arch-operator-image \
-		push-multi-arch-operator-image \
-		build-multi-arch-webhook-image \
-		push-multi-arch-webhook-image \
-		build-multi-arch-functest-image \
-		push-multi-arch-functest-image \
-		build-multi-arch-artifacts-server \
-		push-multi-arch-artifacts-server \
-		build-multi-arch-images \
-		push-multi-arch-images
+		build-push-multi-arch-operator-image \
+		build-push-multi-arch-webhook-image \
+		build-push-multi-arch-functest-image \
+		build-push-multi-arch-artifacts-server \
+		build-push-multi-arch-images

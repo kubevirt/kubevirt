@@ -8,7 +8,9 @@ ARG TARGETARCH
 
 RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} make build-webhook
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal
+FROM --platform=${TARGETPLATFORM} registry.access.redhat.com/ubi9/ubi-minimal
+ARG TARGETPLATFORM
+
 ENV WEBHOOK=/usr/local/bin/hyperconverged-cluster-webhook \
     USER_UID=1001 \
     USER_NAME=hyperconverged-cluster-webhook \
@@ -32,4 +34,4 @@ ARG git_sha=NONE
 LABEL multi.GIT_URL=${git_url} \
       multi.GIT_SHA=${git_sha} \
       app=hyperconverged-cluster-webhook \
-      arch=${TARGETARCH}
+      golang.build.platform=${TARGETPLATFORM}

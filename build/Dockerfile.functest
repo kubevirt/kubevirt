@@ -7,7 +7,8 @@ ARG TARGETARCH
 
 RUN ARCH=${TARGETARCH} make build-functest
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal
+FROM --platform=${TARGETPLATFORM} registry.access.redhat.com/ubi9/ubi-minimal
+ARG TARGETPLATFORM
 
 ENV USER_UID=1001 \
     TEST_OUT_PATH=/test
@@ -34,4 +35,4 @@ ARG git_sha=NONE
 LABEL multi.GIT_URL=${git_url} \
       multi.GIT_SHA=${git_sha} \
       app=hyperconverged-cluster-functest \
-      arch=${ARCH}
+      golang.build.platform=${TARGETPLATFORM}

@@ -37,6 +37,7 @@ RUN eval $(cat /tmp/config  |grep KUBEVIRT_VERSION=) && \
     done
 
 FROM --platform=${TARGETPLATFORM} registry.access.redhat.com/ubi9/nginx-124
+ARG TARGETPLATFORM
 
 WORKDIR /opt/app-root/src
 

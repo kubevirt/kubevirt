@@ -7,7 +7,9 @@ ARG TARGETARCH
 
 RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} make build-operator build-csv-merger
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal
+FROM --platform=${TARGETPLATFORM} registry.access.redhat.com/ubi9/ubi-minimal
+ARG TARGETPLATFORM
+
 ENV OPERATOR=/usr/local/bin/hyperconverged-cluster-operator \
     CSV_MERGER=/usr/local/bin/csv-merger \
     USER_UID=1001 \
@@ -33,4 +35,4 @@ ARG git_sha=NONE
 LABEL multi.GIT_URL=${git_url} \
       multi.GIT_SHA=${git_sha} \
       app=hyperconverged-cluster-operator \
-      arch=${ARCH}
+      golang.build.platform=${TARGETPLATFORM}

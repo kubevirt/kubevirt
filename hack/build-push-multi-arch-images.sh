@@ -17,7 +17,9 @@ SHA=$(git describe --no-match  --always --abbrev=40 --dirty)
 IMAGES=
 for arch in ${ARCHITECTURES}; do
   . "hack/cri-bin.sh" && ${CRI_BIN} build  --platform=linux/${arch} -f ${DOCKER_FILE} -t "${IMAGE_NAME}-${arch}" --build-arg git_sha=${SHA} .
+  . "hack/cri-bin.sh" && ${CRI_BIN} push "${IMAGE_NAME}-${arch}"
   IMAGES="${IMAGES} ${IMAGE_NAME}-${arch}"
 done
 
 . "hack/cri-bin.sh" && ${CRI_BIN} manifest create "${IMAGE_NAME}" ${IMAGES}
+. "hack/cri-bin.sh" && ${CRI_BIN} manifest push "${IMAGE_NAME}"
