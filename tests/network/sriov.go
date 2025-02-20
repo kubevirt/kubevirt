@@ -47,7 +47,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -811,21 +810,18 @@ func trimRawString2JSON(input string) string {
 }
 
 func getRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*launcherApi.DomainSpec, error) {
-	runningVMISpec := launcherApi.DomainSpec{}
-	cli := kubevirt.Client()
-
-	domXML, err := getRunningVirtualMachineInstanceDomainXML(cli, vmi)
+	domXML, err := getRunningVirtualMachineInstanceDomainXML(vmi)
 	if err != nil {
 		return nil, err
 	}
 
+	runningVMISpec := launcherApi.DomainSpec{}
 	err = xml.Unmarshal([]byte(domXML), &runningVMISpec)
 	return &runningVMISpec, err
 }
 
-func getRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
-	// get current vmi
-	freshVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+func getRunningVirtualMachineInstanceDomainXML(vmi *v1.VirtualMachineInstance) (string, error) {
+	freshVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to get vmi, %s", err)
 	}
@@ -835,12 +831,8 @@ func getRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 		return "", err
 	}
 
-	command := []string{"virsh"}
-	if kutil.IsNonRootVMI(freshVMI) {
-		command = append(command, "-c")
-		command = append(command, "qemu+unix:///session?socket=/var/run/libvirt/virtqemud-sock")
-	}
-	command = append(command, []string{"dumpxml", vmi.Namespace + "_" + vmi.Name}...)
+	command := []string{"virsh", "-c", "qemu+unix:///session?socket=/var/run/libvirt/virtqemud-sock",
+		"dumpxml", vmi.Namespace + "_" + vmi.Name}
 
 	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(
 		vmiPod,
