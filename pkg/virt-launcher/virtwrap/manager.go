@@ -241,7 +241,9 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		}
 
 		if len(list) == 0 {
-			return nil, nil
+			// We must return an error, otherwise the nil value will be cached
+			// and will make the scraper to fail
+			return nil, errors.New("empty DomainStats")
 		}
 
 		return list[0], nil
