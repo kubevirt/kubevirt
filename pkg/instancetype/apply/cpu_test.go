@@ -1,4 +1,3 @@
-//nolint:dupl
 package apply_test
 
 import (
@@ -453,79 +452,6 @@ var _ = Describe("instancetype.spec.CPU and preference.spec.CPU", func() {
 			conflict.New("spec", "template", "spec", "domain", "cpu", "sockets"),
 			conflict.New("spec", "template", "spec", "domain", "cpu", "cores"),
 			conflict.New("spec", "template", "spec", "domain", "cpu", "threads"),
-		}))
-	})
-
-	It("should return a conflict if vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] already defined", func() {
-		instancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{
-			CPU: v1beta1.CPUInstancetype{
-				Guest: uint32(2),
-			},
-		}
-
-		vmi.Spec.Domain.Resources = virtv1.ResourceRequirements{
-			Requests: k8sv1.ResourceList{
-				k8sv1.ResourceCPU: resource.MustParse("1"),
-			},
-		}
-
-		conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
-		Expect(conflicts).To(HaveLen(1))
-		Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.resources.requests.cpu"))
-	})
-
-	It("should return a conflict if vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] already defined", func() {
-		instancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{
-			CPU: v1beta1.CPUInstancetype{
-				Guest: uint32(2),
-			},
-		}
-
-		vmi.Spec.Domain.Resources = virtv1.ResourceRequirements{
-			Limits: k8sv1.ResourceList{
-				k8sv1.ResourceCPU: resource.MustParse("1"),
-			},
-		}
-
-		conflicts := vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)
-		Expect(conflicts).To(HaveLen(1))
-		Expect(conflicts[0].String()).To(Equal("spec.template.spec.domain.resources.limits.cpu"))
-	})
-
-	It("should apply PreferredCPUFeatures", func() {
-		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
-			CPU: &v1beta1.CPUPreferences{
-				PreferredCPUFeatures: []virtv1.CPUFeature{
-					{
-						Name:   "foo",
-						Policy: "require",
-					},
-					{
-						Name:   "bar",
-						Policy: "force",
-					},
-				},
-			},
-		}
-		vmi.Spec.Domain.CPU = &virtv1.CPU{
-			Features: []virtv1.CPUFeature{
-				{
-					Name:   "bar",
-					Policy: "optional",
-				},
-			},
-		}
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
-		Expect(vmi.Spec.Domain.CPU.Features).To(HaveLen(2))
-		Expect(vmi.Spec.Domain.CPU.Features).To(ContainElements([]virtv1.CPUFeature{
-			{
-				Name:   "foo",
-				Policy: "require",
-			},
-			{
-				Name:   "bar",
-				Policy: "optional",
-			},
 		}))
 	})
 

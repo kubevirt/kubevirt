@@ -12,7 +12,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 )
 
-var _ = Describe("Instancetype.Spec.Annotations and Preference.Spec.Annotations", func() {
+var _ = Describe("Instancetype.Spec.Annotations", func() {
 	var (
 		vmi              *virtv1.VirtualMachineInstance
 		instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec
