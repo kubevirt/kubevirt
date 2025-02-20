@@ -1807,7 +1807,7 @@ func (c *Controller) createVMRevision(vm *virtv1.VirtualMachine) (string, error)
 
 // setupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
 func (c *Controller) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
-	vmi := libvmi.New(libvmi.WithNamespace(vm.ObjectMeta.Namespace), libvmi.WithName(""))
+	vmi := libvmi.New()
 	vmi.ObjectMeta = *vm.Spec.Template.ObjectMeta.DeepCopy()
 	vmi.ObjectMeta.Name = vm.ObjectMeta.Name
 	vmi.ObjectMeta.GenerateName = ""
