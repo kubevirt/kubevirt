@@ -91,7 +91,7 @@ var _ = Describe("VM Stats Collector", func() {
 	})
 
 	Context("VM Resource Requests", func() {
-		It("should ignore VM with empty memory resource requests", func() {
+		It("should only collect defaults for VM with empty memory resource requests", func() {
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "test-ns",
@@ -107,7 +107,7 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 
 			cr := CollectResourceRequests(vm)
-			Expect(cr).To(BeEmpty())
+			Expect(cr).To(HaveLen(3))
 		})
 
 		It("should collect VM memory resource requests", func() {
@@ -135,12 +135,12 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 
 			crs := CollectResourceRequests(vm)
-			Expect(crs).To(HaveLen(1))
+			Expect(crs).To(HaveLen(4))
 
 			By("checking the resource requests")
 			Expect(crs[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
 			Expect(crs[0].Value).To(BeEquivalentTo(1024))
-			Expect(crs[0].Labels).To(Equal([]string{"testvm", "test-ns", "memory", "bytes"}))
+			Expect(crs[0].Labels).To(Equal([]string{"testvm", "test-ns", "memory", "bytes", "domain"}))
 		})
 
 		It("should collect VM CPU resource requests", func() {
@@ -173,7 +173,7 @@ var _ = Describe("VM Stats Collector", func() {
 			By("checking the resource requests")
 			Expect(crs[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
 			Expect(crs[0].Value).To(BeEquivalentTo(0.5))
-			Expect(crs[0].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "cores"}))
+			Expect(crs[0].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "cores", "requests"}))
 		})
 
 		It("should collect VM CPU resource requests from domain", func() {
@@ -202,15 +202,15 @@ var _ = Describe("VM Stats Collector", func() {
 
 			Expect(crs[0].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
 			Expect(crs[0].Value).To(BeEquivalentTo(2))
-			Expect(crs[0].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "cores"}))
+			Expect(crs[0].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "cores", "domain"}))
 
 			Expect(crs[1].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
 			Expect(crs[1].Value).To(BeEquivalentTo(4))
-			Expect(crs[1].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "threads"}))
+			Expect(crs[1].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "threads", "domain"}))
 
 			Expect(crs[2].Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
 			Expect(crs[2].Value).To(BeEquivalentTo(1))
-			Expect(crs[2].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "sockets"}))
+			Expect(crs[2].Labels).To(Equal([]string{"testvm", "test-ns", "cpu", "sockets", "domain"}))
 		})
 	})
 })

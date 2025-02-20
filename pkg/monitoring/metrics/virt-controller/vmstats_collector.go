@@ -38,7 +38,7 @@ var (
 			Name: "kubevirt_vm_resource_requests",
 			Help: "Resources requested by Virtual Machine. Reports memory and CPU requests.",
 		},
-		[]string{"name", "namespace", "resource", "unit"},
+		[]string{"name", "namespace", "resource", "unit", "source"},
 	)
 
 	timestampMetrics = []operatormetrics.Metric{
@@ -151,27 +151,62 @@ func reportVmsStats(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResu
 }
 
 func CollectResourceRequests(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
-	results := collectMemoryResourceRequestsFromDomainResources(vm)
+	var results []operatormetrics.CollectorResult
+
+	// Memory requests and limits from domain resources
+	results = append(results, collectMemoryResourceRequestsFromDomainResources(vm)...)
+
+	// CPU requests from domain CPU
 	results = append(results, collectCpuResourceRequestsFromDomainCpu(vm)...)
+
+	// CPU requests and limits from domain resources
 	results = append(results, collectCpuResourceRequestsFromDomainResources(vm)...)
+
 	return results
 }
 
 func collectMemoryResourceRequestsFromDomainResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
 	if vm.Spec.Template == nil {
-		return []operatormetrics.CollectorResult{}
+		return cr
 	}
 
 	memoryRequested := vm.Spec.Template.Spec.Domain.Resources.Requests.Memory()
-	if memoryRequested.IsZero() {
-		return []operatormetrics.CollectorResult{}
+	if !memoryRequested.IsZero() {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  float64(memoryRequested.Value()),
+			Labels: []string{vm.Name, vm.Namespace, "memory", "bytes", "domain"},
+		})
 	}
 
-	return []operatormetrics.CollectorResult{{
-		Metric: vmResourceRequests,
-		Value:  float64(memoryRequested.Value()),
-		Labels: []string{vm.Name, vm.Namespace, "memory", "bytes"},
-	}}
+	if vm.Spec.Template.Spec.Domain.Memory == nil {
+		return cr
+	}
+
+	guestMemory := vm.Spec.Template.Spec.Domain.Memory.Guest
+	if guestMemory != nil && !guestMemory.IsZero() {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  float64(guestMemory.Value()),
+			Labels: []string{vm.Name, vm.Namespace, "memory", "bytes", "guest"},
+		})
+	}
+
+	hugepagesMemory := vm.Spec.Template.Spec.Domain.Memory.Hugepages
+	if hugepagesMemory != nil {
+		quantity, err := resource.ParseQuantity(hugepagesMemory.PageSize)
+		if err == nil {
+			cr = append(cr, operatormetrics.CollectorResult{
+				Metric: vmResourceRequests,
+				Value:  float64(quantity.Value()),
+				Labels: []string{vm.Name, vm.Namespace, "memory", "bytes", "hugepages"},
+			})
+		}
+	}
+
+	return cr
 }
 
 func collectCpuResourceRequestsFromDomainCpu(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
@@ -185,7 +220,7 @@ func collectCpuResourceRequestsFromDomainCpu(vm *k6tv1.VirtualMachine) []operato
 		cr = append(cr, operatormetrics.CollectorResult{
 			Metric: vmResourceRequests,
 			Value:  float64(vm.Spec.Template.Spec.Domain.CPU.Cores),
-			Labels: []string{vm.Name, vm.Namespace, "cpu", "cores"},
+			Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "domain"},
 		})
 	}
 
@@ -193,7 +228,7 @@ func collectCpuResourceRequestsFromDomainCpu(vm *k6tv1.VirtualMachine) []operato
 		cr = append(cr, operatormetrics.CollectorResult{
 			Metric: vmResourceRequests,
 			Value:  float64(vm.Spec.Template.Spec.Domain.CPU.Threads),
-			Labels: []string{vm.Name, vm.Namespace, "cpu", "threads"},
+			Labels: []string{vm.Name, vm.Namespace, "cpu", "threads", "domain"},
 		})
 	}
 
@@ -201,7 +236,7 @@ func collectCpuResourceRequestsFromDomainCpu(vm *k6tv1.VirtualMachine) []operato
 		cr = append(cr, operatormetrics.CollectorResult{
 			Metric: vmResourceRequests,
 			Value:  float64(vm.Spec.Template.Spec.Domain.CPU.Sockets),
-			Labels: []string{vm.Name, vm.Namespace, "cpu", "sockets"},
+			Labels: []string{vm.Name, vm.Namespace, "cpu", "sockets", "domain"},
 		})
 	}
 
@@ -214,13 +249,34 @@ func collectCpuResourceRequestsFromDomainResources(vm *k6tv1.VirtualMachine) []o
 	cpuRequests := vm.Spec.Template.Spec.Domain.Resources.Requests.Cpu()
 
 	if cpuRequests == nil || cpuRequests.IsZero() {
+		// If no CPU requests and no Domain CPU are set, the VMI will default to 1 thread with 1 core and 1 socket
+		if vm.Spec.Template.Spec.Domain.CPU == nil {
+			return append(cr,
+				operatormetrics.CollectorResult{
+					Metric: vmResourceRequests,
+					Value:  1.0,
+					Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "default"},
+				},
+				operatormetrics.CollectorResult{
+					Metric: vmResourceRequests,
+					Value:  1.0,
+					Labels: []string{vm.Name, vm.Namespace, "cpu", "threads", "default"},
+				},
+				operatormetrics.CollectorResult{
+					Metric: vmResourceRequests,
+					Value:  1.0,
+					Labels: []string{vm.Name, vm.Namespace, "cpu", "sockets", "default"},
+				},
+			)
+		}
+
 		return cr
 	}
 
 	cr = append(cr, operatormetrics.CollectorResult{
 		Metric: vmResourceRequests,
 		Value:  float64(cpuRequests.ScaledValue(resource.Milli)) / 1000,
-		Labels: []string{vm.Name, vm.Namespace, "cpu", "cores"},
+		Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "requests"},
 	})
 
 	return cr
