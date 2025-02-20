@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -298,7 +299,7 @@ func (c *Controller) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis []*
 		for range maxDiff {
 			go func() {
 				defer wg.Done()
-				vmi := virtv1.NewVMIReferenceFromNameWithNS(rs.ObjectMeta.Namespace, "")
+				vmi := libvmi.New()
 				vmi.ObjectMeta = rs.Spec.Template.ObjectMeta
 				vmi.ObjectMeta.Name = ""
 				vmi.ObjectMeta.GenerateName = basename

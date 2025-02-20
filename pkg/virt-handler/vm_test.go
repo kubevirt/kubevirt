@@ -321,7 +321,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			addDomain(domain)
 
 			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
-			client.EXPECT().DeleteDomain(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
+			client.EXPECT().DeleteDomain(libvmi.New(libvmi.WithName("testvmi"), withUID(vmiTestUUID), libvmi.WithNamespace(metav1.NamespaceDefault)))
 			sanityExecuteNoDomain()
 			testutils.ExpectEvent(recorder, VMISignalDeletion)
 		})
@@ -331,7 +331,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Status.Status = api.Running
 			addDomain(domain)
 
-			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
+			client.EXPECT().KillVirtualMachine(libvmi.New(libvmi.WithName("testvmi"), withUID(vmiTestUUID), libvmi.WithNamespace(metav1.NamespaceDefault)))
 
 			sanityExecute()
 			testutils.ExpectEvent(recorder, VMIStopping)
@@ -348,7 +348,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			initGracePeriodHelper(1, vmi, domain)
 
 			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
-			client.EXPECT().DeleteDomain(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
+			client.EXPECT().DeleteDomain(libvmi.New(libvmi.WithName("testvmi"), withUID(vmiTestUUID), libvmi.WithNamespace(metav1.NamespaceDefault)))
 			addDomain(domain)
 
 			sanityExecuteNoDomain()
@@ -364,7 +364,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			initGracePeriodHelper(1, vmi, domain)
 
-			client.EXPECT().ShutdownVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
+			client.EXPECT().ShutdownVirtualMachine(libvmi.New(libvmi.WithName("testvmi"), withUID(vmiTestUUID), libvmi.WithNamespace(metav1.NamespaceDefault)))
 			addDomain(domain)
 
 			sanityExecute()
@@ -490,7 +490,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			now := metav1.Time{Time: time.Unix(time.Now().UTC().Unix()-3, 0)}
 			domain.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp = &now
 
-			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
+			client.EXPECT().KillVirtualMachine(libvmi.New(libvmi.WithName("testvmi"), withUID(vmiTestUUID), libvmi.WithNamespace(metav1.NamespaceDefault)))
 			addDomain(domain)
 
 			sanityExecute()
@@ -505,7 +505,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			initGracePeriodHelper(0, vmi, domain)
 
-			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", vmiTestUUID))
+			client.EXPECT().KillVirtualMachine(libvmi.New(libvmi.WithName("testvmi"), withUID(vmiTestUUID), libvmi.WithNamespace(metav1.NamespaceDefault)))
 			addDomain(domain)
 			sanityExecute()
 			testutils.ExpectEvent(recorder, VMIStopping)
@@ -2986,5 +2986,12 @@ func withFilesystemDevice(deviceName string) libvmi.Option {
 			Name:     deviceName,
 			Virtiofs: &v1.FilesystemVirtiofs{},
 		})
+	}
+}
+
+// withUID sets the UID of the VMI
+func withUID(uid types.UID) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.UID = uid
 	}
 }

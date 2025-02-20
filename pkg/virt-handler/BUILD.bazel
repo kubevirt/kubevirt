@@ -29,6 +29,7 @@ go_library(
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/host-disk:go_default_library",
         "//pkg/hotplug-disk:go_default_library",
+        "//pkg/libvmi:go_default_library",
         "//pkg/network/domainspec:go_default_library",
         "//pkg/network/errors:go_default_library",
         "//pkg/network/setup:go_default_library",

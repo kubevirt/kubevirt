@@ -31,6 +31,7 @@ import (
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -126,7 +127,7 @@ func (c *BaseController) getVMIFromCache(key string) (vmi *v1.VirtualMachineInst
 			// Invalid keys will be retried forever, but the queue has no reason to contain any
 			return nil, false, err
 		}
-		vmi = v1.NewVMIReferenceFromNameWithNS(namespace, name)
+		vmi = libvmi.New(libvmi.WithName(name), libvmi.WithNamespace(namespace))
 	} else {
 		vmi = obj.(*v1.VirtualMachineInstance)
 	}
