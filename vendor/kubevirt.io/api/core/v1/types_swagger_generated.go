@@ -195,6 +195,7 @@ func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 		"interfaceName":    "The interface name inside the Virtual Machine",
 		"infoSource":       "Specifies the origin of the interface data collected. values: domain, guest-agent, multus-status.",
 		"queueCount":       "Specifies how many queues are allocated by MultiQueue",
+		"linkState":        "LinkState Reports the current operational link state`. values: up, down.",
 	}
 }
 
