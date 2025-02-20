@@ -12,6 +12,7 @@ go_library(
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/instancetype/revision:go_default_library",
+        "//pkg/libvmi:go_default_library",
         "//pkg/liveupdate/memory:go_default_library",
         "//pkg/network/admitter:go_default_library",
         "//pkg/network/vmispec:go_default_library",
