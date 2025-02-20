@@ -299,7 +299,7 @@ func (c *Controller) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis []*
 		for range maxDiff {
 			go func() {
 				defer wg.Done()
-				vmi := libvmi.New(libvmi.WithName(""), libvmi.WithNamespace(rs.ObjectMeta.Namespace))
+				vmi := libvmi.New()
 				vmi.ObjectMeta = rs.Spec.Template.ObjectMeta
 				vmi.ObjectMeta.Name = ""
 				vmi.ObjectMeta.GenerateName = basename
