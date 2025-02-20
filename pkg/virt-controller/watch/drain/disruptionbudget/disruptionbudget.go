@@ -22,6 +22,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/util/pdbs"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -393,7 +394,7 @@ func (c *DisruptionBudgetController) execute(key string) error {
 			log.DefaultLogger().Reason(err).Error("Could not extract namespace and name from the controller key.")
 			return err
 		}
-		vmi = virtv1.NewVMIReferenceFromNameWithNS(namespace, name)
+		vmi = libvmi.New(libvmi.WithName(name), libvmi.WithNamespace(namespace))
 	}
 
 	// Only consider pdbs which belong to this vmi
