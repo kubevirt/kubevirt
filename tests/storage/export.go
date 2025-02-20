@@ -306,7 +306,7 @@ var _ = SIGDescribe("Export", func() {
 		Eventually(func() error {
 			out, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, md5Command(fileName))
 			return err
-		}, 15*time.Second, 1*time.Second).Should(BeNil(), "md5sum command should succeed", out, stderr)
+		}, 15*time.Second, 1*time.Second).Should(BeNil(), "md5sum command should succeed; out: %s stderr: %s", out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(HaveLen(32))
 
@@ -340,7 +340,7 @@ var _ = SIGDescribe("Export", func() {
 			fileAndPathName = blockVolumeMountPath
 		}
 		out, stderr, err := exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
-		Expect(err).ToNot(HaveOccurred(), out, stderr)
+		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(HaveLen(32))
 		Expect(md5sum).To(Equal(expectedMD5))
@@ -353,7 +353,7 @@ var _ = SIGDescribe("Export", func() {
 			filepath.Join(dataPath, fileName),
 		}
 		out, stderr, err := exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, command)
-		Expect(err).ToNot(HaveOccurred(), out, stderr)
+		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
 
 		fileName = strings.Replace(fileName, ".gz", "", 1)
 		fileAndPathName := filepath.Join(dataPath, fileName)
@@ -361,7 +361,7 @@ var _ = SIGDescribe("Export", func() {
 			fileAndPathName = blockVolumeMountPath
 		}
 		out, stderr, err = exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
-		Expect(err).ToNot(HaveOccurred(), out, stderr)
+		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(HaveLen(32))
 		Expect(md5sum).To(Equal(expectedMD5))
@@ -380,14 +380,14 @@ var _ = SIGDescribe("Export", func() {
 			"./" + extractedFileName,
 		}
 		out, stderr, err := exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, command)
-		Expect(err).ToNot(HaveOccurred(), out, stderr)
+		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
 
 		fileAndPathName := filepath.Join(dataPath, extractedFileName)
 		if volumeMode == k8sv1.PersistentVolumeBlock {
 			fileAndPathName = blockVolumeMountPath
 		}
 		out, stderr, err = exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, md5Command(fileAndPathName))
-		Expect(err).ToNot(HaveOccurred(), out, stderr)
+		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(HaveLen(32))
 		Expect(md5sum).To(Equal(expectedMD5))
@@ -564,7 +564,7 @@ var _ = SIGDescribe("Export", func() {
 		By(fmt.Sprintf("Downloading from URL: %s", downloadUrl))
 		Eventually(ThisPod(downloadPod), 30*time.Second, 1*time.Second).Should(HaveConditionTrue(k8sv1.PodReady))
 		out, stderr, err := exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, command)
-		Expect(err).ToNot(HaveOccurred(), out, stderr)
+		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
 
 		verifyFunction(fileName, comparison, downloadPod, volumeMode)
 	},
@@ -586,7 +586,7 @@ var _ = SIGDescribe("Export", func() {
 		command := append([]string{"/usr/bin/tar", "-xvzf", archivePath, "-C", "./data"}, expectedDirs...)
 		time.Sleep(time.Second * 20)
 		out, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
-		Expect(err).ToNot(HaveOccurred(), out, stderr)
+		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
 		for _, dir := range expectedDirs {
 			Expect(out).To(ContainSubstring(dir), fmt.Sprintf("Expected directory %q in archive", dir))
 		}
@@ -685,7 +685,7 @@ var _ = SIGDescribe("Export", func() {
 		}
 
 		out, stderr, err := exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, command)
-		Expect(err).ToNot(HaveOccurred(), out, stderr)
+		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
 
 		// Verify contents of the downloaded archive
 		By("Verifying the contents of the downloaded archive")
@@ -1713,7 +1713,7 @@ var _ = SIGDescribe("Export", func() {
 		}
 
 		out, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
-		Expect(err).ToNot(HaveOccurred(), out, stderr)
+		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
 		split := strings.Split(out, "\n---\n")
 		Expect(split).To(HaveLen(3))
 		resCM := &k8sv1.ConfigMap{}
@@ -1741,7 +1741,7 @@ var _ = SIGDescribe("Export", func() {
 			url,
 		}
 		out, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
-		Expect(err).ToNot(HaveOccurred(), out, stderr)
+		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
 		split = strings.Split(out, "\n---\n")
 		Expect(split).To(HaveLen(2))
 		resSecret := &k8sv1.Secret{}
@@ -1771,7 +1771,7 @@ var _ = SIGDescribe("Export", func() {
 		}
 
 		out, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
-		Expect(err).ToNot(HaveOccurred(), out, stderr)
+		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
 		list := &k8sv1.List{}
 		err = json.Unmarshal([]byte(out), list)
 		Expect(err).ToNot(HaveOccurred())
@@ -1804,7 +1804,7 @@ var _ = SIGDescribe("Export", func() {
 			url,
 		}
 		out, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
-		Expect(err).ToNot(HaveOccurred(), out, stderr)
+		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
 		resSecret := &k8sv1.Secret{}
 		err = yaml.Unmarshal([]byte(out), resSecret)
 		Expect(err).ToNot(HaveOccurred())
@@ -2015,7 +2015,7 @@ var _ = SIGDescribe("Export", func() {
 		}
 
 		out, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
-		Expect(err).ToNot(HaveOccurred(), out, stderr)
+		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
 		split := strings.Split(out, "\n---\n")
 		Expect(split).To(HaveLen(5))
 		resCM := &k8sv1.ConfigMap{}
@@ -2061,7 +2061,7 @@ var _ = SIGDescribe("Export", func() {
 			url,
 		}
 		out, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
-		Expect(err).ToNot(HaveOccurred(), out, stderr)
+		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
 		split = strings.Split(out, "\n---\n")
 		Expect(split).To(HaveLen(2))
 		resSecret := &k8sv1.Secret{}
