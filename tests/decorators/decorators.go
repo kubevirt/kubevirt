@@ -87,6 +87,11 @@ var (
 	// RequiresVolumeExpansion requires a storage class with volume expansion support
 	RequiresVolumeExpansion = Label("RequiresVolumeExpansion")
 
+	/* Provisioner */
+
+	// RequiresSizeRoundUp requires a provisioner that rounds up the size of the volume
+	RequiresSizeRoundUp = Label("RequiresSizeRoundUp")
+
 	/* Kubernetes versions */
 
 	// Kubernetes versions
