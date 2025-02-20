@@ -57,7 +57,7 @@ import (
 const (
 	defaultEventuallyTimeout         = 5 * time.Second
 	defaultEventuallyPollingInterval = 1 * time.Second
-	defaultKubevirtReadyTimeout      = 180 * time.Second
+	defaultKubevirtReadyTimeout      = 5 * time.Minute
 	defaultKWOKNodeCount             = 100
 )
 
