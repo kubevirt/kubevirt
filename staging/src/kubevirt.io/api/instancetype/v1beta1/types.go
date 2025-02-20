@@ -519,6 +519,11 @@ type DevicePreferences struct {
 	//
 	// +optional
 	PreferredInterfaceMasquerade *v1.InterfaceMasquerade `json:"preferredInterfaceMasquerade,omitempty"`
+
+	// PreferredPanicDevices optionally defines any panic devices to be used to signal guest failures.
+	//
+	// +optional
+	PreferredPanicDevices []v1.PanicDevice `json:"preferredPanicDevices,omitempty"`
 }
 
 // FeaturePreferences contains various optional defaults for Features.
