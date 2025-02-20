@@ -21,7 +21,6 @@ package apply
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -632,18 +631,10 @@ func crdHandleDeletion(kvkey string,
 
 	for _, crd := range needFinalizerAdded {
 		crdCopy := crd.DeepCopy()
-		controller.AddFinalizer(crdCopy, v1.VirtOperatorComponentFinalizer)
+		controller.AddFinalizer(crdCopy, v1.VirtOperatorComponentFinalizer)	
 
-		patchSet := patch.New()
+		payload, err := patch.New(patch.WithAdd(finalizerPath, crdCopy.Finalizers)).GeneratePayload()
 
-		patchBytes, err := json.Marshal(crdCopy.Finalizers)
-		if err != nil {
-			return err
-		}
-
-		patchSet.AddOption(patch.WithAdd(finalizerPath, string(patchBytes)))
-
-		payload, err := patchSet.GeneratePayload()
 		if err != nil {
 			return fmt.Errorf("failed to generate patch payload: %v", err)
 		}
@@ -675,19 +666,9 @@ func crdHandleDeletion(kvkey string,
 			crdCopy := crd.DeepCopy()
 			controller.RemoveFinalizer(crdCopy, v1.VirtOperatorComponentFinalizer)
 
-			newPatchBytes, err := json.Marshal(crdCopy.Finalizers)
-			if err != nil {
-				return err
-			}
-
-			oldPatchBytes, err := json.Marshal(crd.Finalizers)
-			if err != nil {
-				return err
-			}
-
 			patchSet.AddOption(
-				patch.WithTest(finalizerPath, string(oldPatchBytes)),
-				patch.WithReplace(finalizerPath, string(newPatchBytes)),
+				patch.WithTest(finalizerPath, crd.Finalizers),
+				patch.WithReplace(finalizerPath, crdCopy.Finalizers),
 		)
 		} else {
 			patchSet.AddOption(patch.WithRemove(finalizerPath))
