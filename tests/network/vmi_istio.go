@@ -210,6 +210,8 @@ var istioTests = func(vmType VmType) {
 			}
 
 			BeforeEach(func() {
+				skipTestByVMType(vmType)
+
 				bastionVMI = libvmifact.NewCirros(
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding([]v1.Port{}...)),
@@ -262,6 +264,7 @@ var istioTests = func(vmType VmType) {
 
 			Context("With VMI having explicit ports specified", func() {
 				BeforeEach(func() {
+					skipTestByVMType(vmType)
 					vmiPorts = explicitPorts
 				})
 				DescribeTable("request to VMI should reach HTTP server", func(targetPort int) {
@@ -295,6 +298,7 @@ var istioTests = func(vmType VmType) {
 				})
 				Context("With VMI having explicit ports specified", func() {
 					BeforeEach(func() {
+						skipTestByVMType(vmType)
 						vmiPorts = explicitPorts
 					})
 					DescribeTable("client outside mesh should NOT reach VMI HTTP server", func(targetPort int) {
@@ -395,6 +399,7 @@ var istioTests = func(vmType VmType) {
 
 			Context("VMI with explicit ports", func() {
 				BeforeEach(func() {
+					skipTestByVMType(vmType)
 					vmiPorts = explicitPorts
 				})
 				It("Should be able to reach http server outside of mesh", func() {
@@ -429,6 +434,7 @@ var istioTests = func(vmType VmType) {
 
 				Context("VMI with explicit ports", func() {
 					BeforeEach(func() {
+						skipTestByVMType(vmType)
 						vmiPorts = explicitPorts
 					})
 					It("Should not be able to reach http service outside of mesh", func() {
@@ -450,6 +456,12 @@ var istioTests = func(vmType VmType) {
 			})
 		})
 	})
+}
+
+func skipTestByVMType(vmType VmType) {
+	if vmType == Passt {
+		Skip("this test is quarantine due to https://github.com/kubevirt/kubevirt/issues/13927")
+	}
 }
 
 var istioTestsWithMasqueradeBinding = func() {
