@@ -2349,8 +2349,7 @@ func (l *LibvirtDomainManager) parseFSDisks(fsDisks []api.FSDisk) []v1.VirtualMa
 	disks := []v1.VirtualMachineInstanceFileSystemDisk{}
 	for _, fsDisk := range fsDisks {
 		disks = append(disks, v1.VirtualMachineInstanceFileSystemDisk{
-			Serial:  fsDisk.Serial,
-			BusType: fsDisk.BusType,
+			Serial: fsDisk.Serial,
 		})
 	}
 
