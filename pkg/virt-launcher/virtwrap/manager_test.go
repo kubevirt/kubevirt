@@ -413,6 +413,7 @@ var _ = Describe("Manager", func() {
 			Architecture:      arch.NewConverter(runtime.GOARCH),
 			VirtualMachine:    vmi,
 			AllowEmulation:    true,
+			DevKvmExists:      true,
 			SMBios:            &cmdv1.SMBios{},
 			HotplugVolumes:    hotplugVolumes,
 			PermanentVolumes:  permanentVolumes,
