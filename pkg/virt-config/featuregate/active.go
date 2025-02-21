@@ -66,6 +66,9 @@ const (
 
 	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
 	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
+
+	// DeclarativeHotplugVolumeGate enables "Hotplug" UpdateVolumesStrategy on VirtualMachine
+	DeclarativeHotplugVolumeGate = "DeclarativeHotplugVolume"
 )
 
 func init() {
@@ -93,4 +96,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: InstancetypeReferencePolicy, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumeGate, State: Alpha})
 }
