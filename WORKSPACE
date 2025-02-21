@@ -5,12 +5,12 @@ load("//bazel/toolchain:toolchain.bzl", "register_all_toolchains")
 
 register_all_toolchains()
 
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load(
     "@bazel_tools//tools/build_defs/repo:http.bzl",
     "http_archive",
     "http_file",
 )
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 http_archive(
     name = "rules_python",
@@ -24,11 +24,10 @@ http_archive(
 # Bazel buildtools prebuilt binaries
 http_archive(
     name = "buildifier_prebuilt",
-    sha256 = "8ada9d88e51ebf5a1fdff37d75ed41d51f5e677cdbeafb0a22dda54747d6e07e",
-    strip_prefix = "buildifier-prebuilt-6.4.0",
+    sha256 = "7f85b688a4b558e2d9099340cfb510ba7179f829454fba842370bccffb67d6cc",
+    strip_prefix = "buildifier-prebuilt-7.3.1",
     urls = [
-        "http://github.com/keith/buildifier-prebuilt/archive/6.4.0.tar.gz",
-        "https://storage.googleapis.com/builddeps/8ada9d88e51ebf5a1fdff37d75ed41d51f5e677cdbeafb0a22dda54747d6e07e",
+        "http://github.com/keith/buildifier-prebuilt/archive/7.3.1.tar.gz",
     ],
 )
 
@@ -63,9 +62,41 @@ http_archive(
     ],
 )
 
-load("@buildifier_prebuilt//:defs.bzl", "buildifier_prebuilt_register_toolchains")
+load("@buildifier_prebuilt//:defs.bzl", "buildifier_prebuilt_register_toolchains", "buildtools_assets")
 
-buildifier_prebuilt_register_toolchains()
+buildifier_prebuilt_register_toolchains(
+    assets = buildtools_assets(
+        arches = [
+            "amd64",
+            "arm64",
+            "s390x",
+        ],
+        names = [
+            "buildifier",
+            "buildozer",
+        ],
+        platforms = [
+            "darwin",
+            "linux",
+            "windows",
+        ],
+        sha256_values = {
+            "buildifier_darwin_amd64": "375f823103d01620aaec20a0c29c6cbca99f4fd0725ae30b93655c6704f44d71",
+            "buildifier_darwin_arm64": "5a6afc6ac7a09f5455ba0b89bd99d5ae23b4174dc5dc9d6c0ed5ce8caac3f813",
+            "buildifier_linux_amd64": "5474cc5128a74e806783d54081f581662c4be8ae65022f557e9281ed5dc88009",
+            "buildifier_linux_arm64": "0bf86c4bfffaf4f08eed77bde5b2082e4ae5039a11e2e8b03984c173c34a561c",
+            "buildifier_linux_s390x": "e2d79ff5885d45274f76531f1adbc7b73a129f59e767f777e8fbde633d9d4e2e",
+            "buildifier_windows_amd64": "370cd576075ad29930a82f5de132f1a1de4084c784a82514bd4da80c85acf4a8",
+            "buildozer_darwin_amd64": "854c9583efc166602276802658cef3f224d60898cfaa60630b33d328db3b0de2",
+            "buildozer_darwin_arm64": "31b1bfe20d7d5444be217af78f94c5c43799cdf847c6ce69794b7bf3319c5364",
+            "buildozer_linux_amd64": "3305e287b3fcc68b9a35fd8515ee617452cd4e018f9e6886b6c7cdbcba8710d4",
+            "buildozer_linux_arm64": "0b5a2a717ac4fc911e1fec8d92af71dbb4fe95b10e5213da0cc3d56cea64a328",
+            "buildozer_linux_s390x": "7e28da8722656e800424989f5cdbc095cb29b2d398d33e6b3d04e0f50bc0bb10",
+            "buildozer_windows_amd64": "58d41ce53257c5594c9bc86d769f580909269f68de114297f46284fbb9023dcf",
+        },
+        version = "v7.3.1",
+    ),
+)
 
 http_archive(
     name = "bazel_gazelle",
@@ -161,12 +192,12 @@ http_archive(
     ],
 )
 
+load("@bazeldnf//:deps.bzl", "bazeldnf_dependencies", "rpm")
 load(
     "@io_bazel_rules_go//go:deps.bzl",
     "go_register_toolchains",
     "go_rules_dependencies",
 )
-load("@bazeldnf//:deps.bzl", "bazeldnf_dependencies", "rpm")
 
 go_rules_dependencies()
 
@@ -204,11 +235,6 @@ go_repository(
 gazelle_dependencies()
 
 bazeldnf_dependencies()
-
-load(
-    "@bazel_tools//tools/build_defs/repo:git.bzl",
-    "git_repository",
-)
 
 # Winrmcli dependencies
 go_repository(
