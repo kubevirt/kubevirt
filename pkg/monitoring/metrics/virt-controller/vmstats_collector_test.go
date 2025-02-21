@@ -453,7 +453,7 @@ var _ = Describe("VM Stats Collector", func() {
 
 	Context("PVC allocated size metric collection", func() {
 		BeforeEach(func() {
-			persistentVolumeClaimInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+			informers.PersistentVolumeClaim, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		})
 
 		createPVC := func(namespace, name string, size resource.Quantity, volumeMode *k8sv1.PersistentVolumeMode) *k8sv1.PersistentVolumeClaim {
@@ -476,7 +476,7 @@ var _ = Describe("VM Stats Collector", func() {
 
 		It("should collect PVC size metrics correctly", func() {
 			pvc := createPVC("default", "test-vm-pvc", resource.MustParse("5Gi"), pointer.P(k8sv1.PersistentVolumeFilesystem))
-			err := persistentVolumeClaimInformer.GetIndexer().Add(pvc)
+			err := informers.PersistentVolumeClaim.GetIndexer().Add(pvc)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm := &k6tv1.VirtualMachine{
@@ -514,7 +514,7 @@ var _ = Describe("VM Stats Collector", func() {
 
 		It("should handle PVC with nil volume mode", func() {
 			pvc := createPVC("default", "test-vm-pvc-nil-mode", resource.MustParse("3Gi"), nil)
-			err := persistentVolumeClaimInformer.GetIndexer().Add(pvc)
+			err := informers.PersistentVolumeClaim.GetIndexer().Add(pvc)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm := &k6tv1.VirtualMachine{
@@ -552,7 +552,7 @@ var _ = Describe("VM Stats Collector", func() {
 
 		It("should prioritize DataVolume template size over PVC size", func() {
 			pvc := createPVC("default", "test-dv-pvc", resource.MustParse("5Gi"), pointer.P(k8sv1.PersistentVolumeFilesystem))
-			err := persistentVolumeClaimInformer.GetIndexer().Add(pvc)
+			err := informers.PersistentVolumeClaim.GetIndexer().Add(pvc)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm := &k6tv1.VirtualMachine{
