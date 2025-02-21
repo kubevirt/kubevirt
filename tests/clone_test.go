@@ -587,6 +587,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 								libdv.StorageWithStorageClass(snapshotStorageClass),
 								libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine))),
 							),
+							libdv.WithForceBindAnnotation(),
 						)
 						sourceVM = libstorage.RenderVMWithDataVolumeTemplate(dv)
 						sourceVM.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{}
