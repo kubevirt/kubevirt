@@ -209,7 +209,7 @@ func NewController(
 		migrationProxy:                   migrationProxy,
 		podIsolationDetector:             podIsolationDetector,
 		containerDiskMounter:             container_disk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
-		hotplugVolumeMounter:             hotplug_volume.NewVolumeMounter(hotplugState, kubeletPodsDir),
+		hotplugVolumeMounter:             hotplug_volume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
 		clusterConfig:                    clusterConfig,
 		virtLauncherFSRunDirPattern:      "/proc/%d/root/var/run",
 		capabilities:                     capabilities,
@@ -848,6 +848,10 @@ func (c *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMach
 				volumeStatus.Reason = VolumeUnMountedFromPodReason
 			}
 		}
+	} else if len(vmi.Status.MigratedVolumes) > 0 && vmi.Status.MigrationState != nil && c.host == vmi.Status.MigrationState.SourceNode &&
+		volumeStatus.Phase == v1.VolumeReady {
+		needsRefresh = true
+		volumeStatus.Phase = ""
 	} else {
 		// Successfully attached to VM.
 		volumeStatus.Phase = v1.VolumeReady
