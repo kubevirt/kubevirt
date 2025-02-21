@@ -119,7 +119,7 @@ var _ = Describe("Network setup filters", func() {
 			Expect(network.FilterNetsForLiveUpdate(vmi)).To(Equal([]v1.Network{*libvmi.MultusNetwork(net2Name, nad2Name)}))
 		})
 
-		It("Should return a network to hotunplug when its interface is marked as absent", func() {
+		It("Should return a network to hotunplug when its interface is marked as absent and not in the domain", func() {
 			absentIface := libvmi.InterfaceDeviceWithBridgeBinding(net1Name)
 			absentIface.State = v1.InterfaceStateAbsent
 
@@ -138,7 +138,7 @@ var _ = Describe("Network setup filters", func() {
 						}),
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
 							Name:       net1Name,
-							InfoSource: multusAndDomainInfoSource,
+							InfoSource: vmispec.InfoSourceMultusStatus,
 						}),
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
 							Name:       net2Name,
@@ -149,6 +149,27 @@ var _ = Describe("Network setup filters", func() {
 			)
 
 			Expect(network.FilterNetsForLiveUpdate(vmi)).To(Equal([]v1.Network{*libvmi.MultusNetwork(net1Name, nad1Name)}))
+		})
+
+		It("Should not return a network to unplug when iface is absent but is still in the domain", func() {
+			absentIface := libvmi.InterfaceDeviceWithBridgeBinding(net1Name)
+			absentIface.State = v1.InterfaceStateAbsent
+
+			vmi := libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(net2Name)),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(net1Name, nad1Name)),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:       net1Name,
+							InfoSource: multusAndDomainInfoSource,
+						}),
+					),
+				),
+			)
+
+			Expect(network.FilterNetsForLiveUpdate(vmi)).To(BeEmpty())
 		})
 
 		It("Should return networks to hotplug and hotunplug", func() {
@@ -170,7 +191,7 @@ var _ = Describe("Network setup filters", func() {
 						}),
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
 							Name:       net1Name,
-							InfoSource: multusAndDomainInfoSource,
+							InfoSource: vmispec.InfoSourceMultusStatus,
 						}),
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
 							Name:       net2Name,
