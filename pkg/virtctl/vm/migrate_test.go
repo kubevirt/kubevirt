@@ -53,19 +53,55 @@ var _ = Describe("Migrate command", func() {
 		Expect(err).Should(MatchError("accepts 1 arg(s), received 0"))
 	})
 
-	DescribeTable("should migrate a vm according to options", func(migrateOptions *v1.MigrateOptions) {
+	DescribeTable("should migrate a vm according to options", func(expectedMigrateOptions *v1.MigrateOptions, extraArgs ...string) {
 		vm := kubecli.NewMinimalVM(vmName)
 
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).Times(1)
-		vmInterface.EXPECT().Migrate(context.Background(), vm.Name, migrateOptions).Return(nil).Times(1)
+		vmInterface.EXPECT().Migrate(context.Background(), vm.Name, expectedMigrateOptions).Return(nil).Times(1)
 
 		args := []string{"migrate", vmName}
-		if len(migrateOptions.DryRun) > 0 {
-			args = append(args, "--dry-run")
-		}
+		args = append(args, extraArgs...)
 		Expect(testing.NewRepeatableVirtctlCommand(args...)()).To(Succeed())
 	},
-		Entry("with default", &v1.MigrateOptions{}),
-		Entry("with dry-run option", &v1.MigrateOptions{DryRun: []string{k8smetav1.DryRunAll}}),
+		Entry(
+			"with default",
+			&v1.MigrateOptions{}),
+		Entry(
+			"with dry-run option",
+			&v1.MigrateOptions{
+				DryRun: []string{k8smetav1.DryRunAll}},
+			"--dry-run"),
+		Entry(
+			"with addedNodeSelector option",
+			&v1.MigrateOptions{
+				AddedNodeSelector: map[string]string{"key1": "value1", "key2": "value2"}},
+			"--addedNodeSelector", "key1=value1,key2=value2"),
+		Entry(
+			"with dry-run and addedNodeSelector options",
+			&v1.MigrateOptions{
+				AddedNodeSelector: map[string]string{"key1": "value1", "key2": "value2"},
+				DryRun:            []string{k8smetav1.DryRunAll}},
+			"--dry-run", "--addedNodeSelector", "key1=value1,key2=value2"),
+		Entry(
+			"with repeated addedNodeSelector",
+			&v1.MigrateOptions{
+				AddedNodeSelector: map[string]string{"key1": "value1", "key2": "value2"}},
+			"--addedNodeSelector", "key1=value1", "--addedNodeSelector", "key2=value2"),
 	)
+
+	DescribeTable("should fail with badly formatted addedNodeSelector", func(extraArgs ...string) {
+		args := []string{"migrate", vmName}
+		args = append(args, extraArgs...)
+		err := testing.NewRepeatableVirtctlCommand(args...)()
+		Expect(err).To(HaveOccurred())
+		Expect(err).Should(MatchError(ContainSubstring("must be formatted as key=value")))
+	},
+		Entry(
+			"with key only",
+			"--addedNodeSelector", "key1"),
+		Entry(
+			"with multiple keys only",
+			"--addedNodeSelector", "key1,key2"),
+	)
+
 })
