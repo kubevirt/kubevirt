@@ -20,9 +20,13 @@
 package libvmi
 
 import (
+	"fmt"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -290,7 +294,15 @@ func WithTPM(persistent bool) Option {
 }
 
 func baseVmi(name string) *v1.VirtualMachineInstance {
-	vmi := v1.NewVMIReferenceFromNameWithNS("", name)
+	vmi := &v1.VirtualMachineInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "",
+			SelfLink:  fmt.Sprintf("/apis/%s/namespaces/%s/virtualmachineinstances/%s", v1.GroupVersion.String(), "", name),
+		},
+	}
+
+	vmi.SetGroupVersionKind(schema.GroupVersionKind{Group: v1.GroupVersion.Group, Kind: "VirtualMachineInstance", Version: v1.GroupVersion.Version})
 	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
 	vmi.TypeMeta = k8smetav1.TypeMeta{
 		APIVersion: v1.GroupVersion.String(),
