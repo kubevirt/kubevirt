@@ -204,13 +204,14 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		}
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(arch)
 
-		if webhooks.IsPPC64(vmiSpec) {
-			Expect(vmiSpec.Domain.Machine.Type).To(Equal("pseries"))
-		} else if webhooks.IsARM64(vmiSpec) {
+		switch vmiSpec.Architecture {
+		case "arm64":
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("virt"))
-		} else if webhooks.IsS390X(vmiSpec) {
+		case "ppc64le":
+			Expect(vmiSpec.Domain.Machine.Type).To(Equal("pseries"))
+		case "s390x":
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("s390-ccw-virtio"))
-		} else {
+		default:
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("q35"))
 		}
 
