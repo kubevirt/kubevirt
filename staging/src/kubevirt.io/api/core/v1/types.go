@@ -641,8 +641,7 @@ type VirtualMachineInstanceCondition struct {
 	Type   VirtualMachineInstanceConditionType `json:"type"`
 	Status k8sv1.ConditionStatus               `json:"status"`
 	// +nullable
-	LastProbeTime metav1.Time `json:"lastProbeTime,omitempty"`
-	// +nullable
+	LastProbeTime      metav1.Time `json:"lastProbeTime,omitempty"`
 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
 	Reason             string      `json:"reason,omitempty"`
 	Message            string      `json:"message,omitempty"`
