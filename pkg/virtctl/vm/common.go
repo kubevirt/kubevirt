@@ -53,7 +53,7 @@ type Command struct {
 }
 
 func usage(cmd string) string {
-	if cmd == COMMAND_USERLIST || cmd == COMMAND_FSLIST || cmd == COMMAND_GUESTOSINFO {
+	if cmd == COMMAND_USERLIST || cmd == COMMAND_FSLIST || cmd == COMMAND_GUESTOSINFO || cmd == COMMAND_OBJECT_GRAPH {
 		return fmt.Sprintf("  # %s a virtual machine instance called 'myvm':\n  {{ProgramName}} %s myvm", strings.Title(cmd), cmd)
 	}
 

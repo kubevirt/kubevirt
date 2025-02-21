@@ -857,6 +857,14 @@ spec:
         - apiGroups:
           - subresources.kubevirt.io
           resources:
+          - virtualmachines/objectgraph
+          - virtualmachineinstances/objectgraph
+          verbs:
+          - get
+          - list
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
           - virtualmachineinstances/pause
           - virtualmachineinstances/unpause
           - virtualmachineinstances/addvolume
@@ -995,6 +1003,13 @@ spec:
           - get
           - list
           - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
+          - kubevirts
+          verbs:
+          - get
+          - list
         - apiGroups:
           - subresources.kubevirt.io
           resources:
@@ -1013,6 +1028,14 @@ spec:
         - apiGroups:
           - subresources.kubevirt.io
           resources:
+          - virtualmachines/objectgraph
+          - virtualmachineinstances/objectgraph
+          verbs:
+          - get
+          - list
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
           - virtualmachineinstances/pause
           - virtualmachineinstances/unpause
           - virtualmachineinstances/addvolume
@@ -1170,6 +1193,14 @@ spec:
           - virtualmachineinstances/sev/querylaunchmeasurement
           verbs:
           - get
+        - apiGroups:
+          - subresources.kubevirt.io
+          resources:
+          - virtualmachines/objectgraph
+          - virtualmachineinstances/objectgraph
+          verbs:
+          - get
+          - list
         - apiGroups:
           - subresources.kubevirt.io
           resources:

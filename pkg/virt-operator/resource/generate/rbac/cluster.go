@@ -64,6 +64,7 @@ const (
 	apiVMRemoveVolume = "virtualmachines/removevolume"
 	apiVMMigrate      = "virtualmachines/migrate"
 	apiVMMemoryDump   = "virtualmachines/memorydump"
+	apiVMObjectGraph  = "virtualmachines/objectgraph"
 
 	apiVMInstancesConsole                   = "virtualmachineinstances/console"
 	apiVMInstancesVNC                       = "virtualmachineinstances/vnc"
@@ -85,6 +86,7 @@ const (
 	apiVMInstancesSEVSetupSession           = "virtualmachineinstances/sev/setupsession"
 	apiVMInstancesSEVInjectLaunchSecret     = "virtualmachineinstances/sev/injectlaunchsecret"
 	apiVMInstancesUSBRedir                  = "virtualmachineinstances/usbredir"
+	apiVMInstancesObjectGraph               = "virtualmachineinstances/objectgraph"
 )
 
 func GetAllCluster() []runtime.Object {
@@ -206,6 +208,18 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"get",
+				},
+			},
+			{
+				APIGroups: []string{
+					virtv1.SubresourceGroupName,
+				},
+				Resources: []string{
+					apiVMObjectGraph,
+					apiVMInstancesObjectGraph,
+				},
+				Verbs: []string{
+					"get", "list",
 				},
 			},
 			{
@@ -363,6 +377,17 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					"get", "list", "watch",
 				},
 			},
+			{
+				APIGroups: []string{
+					GroupName,
+				},
+				Resources: []string{
+					apiKubevirts,
+				},
+				Verbs: []string{
+					"get", "list",
+				},
+			},
 		},
 	}
 }
@@ -399,6 +424,18 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"get",
+				},
+			},
+			{
+				APIGroups: []string{
+					virtv1.SubresourceGroupName,
+				},
+				Resources: []string{
+					apiVMObjectGraph,
+					apiVMInstancesObjectGraph,
+				},
+				Verbs: []string{
+					"get", "list",
 				},
 			},
 			{
@@ -649,6 +686,18 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"get",
+				},
+			},
+			{
+				APIGroups: []string{
+					virtv1.SubresourceGroupName,
+				},
+				Resources: []string{
+					apiVMObjectGraph,
+					apiVMInstancesObjectGraph,
+				},
+				Verbs: []string{
+					"get", "list",
 				},
 			},
 			{
