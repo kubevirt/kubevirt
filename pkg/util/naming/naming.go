@@ -3,8 +3,6 @@ package naming
 import (
 	"fmt"
 	"hash/fnv"
-
-	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 )
 
 // GetName returns a name given a base ("deployment-5") and a suffix ("deploy")
@@ -21,11 +19,13 @@ func GetName(base, suffix string, maxLength int) string {
 		return name
 	}
 
-	baseLength := maxLength - 10 /*length of -hash-*/ - len(suffix)
+	const hashInfixLength = 10 // length of -hash-
+	baseLength := maxLength - hashInfixLength - len(suffix)
 
 	// if the suffix is too long, ignore it
 	if baseLength < 0 {
-		prefix := base[0:min(len(base), max(0, maxLength-9))]
+		const hashSuffixLength = 9
+		prefix := base[0:min(len(base), max(0, maxLength-hashSuffixLength))]
 		// Calculate hash on initial base-suffix string
 		shortName := fmt.Sprintf("%s-%s", prefix, hash(name))
 		return shortName[:min(maxLength, len(shortName))]
@@ -34,32 +34,6 @@ func GetName(base, suffix string, maxLength int) string {
 	prefix := base[0:baseLength]
 	// Calculate hash on initial base-suffix string
 	return fmt.Sprintf("%s-%s-%s", prefix, hash(base), suffix)
-}
-
-// GetPodName calls GetName with the length restriction for pods
-func GetPodName(base, suffix string) string {
-	return GetName(base, suffix, kvalidation.DNS1123SubdomainMaxLength)
-}
-
-// GetConfigMapName calls GetName with the length restriction for ConfigMaps
-func GetConfigMapName(base, suffix string) string {
-	return GetName(base, suffix, kvalidation.DNS1123SubdomainMaxLength)
-}
-
-// max returns the greater of its 2 inputs
-func max(a, b int) int {
-	if b > a {
-		return b
-	}
-	return a
-}
-
-// min returns the lesser of its 2 inputs
-func min(a, b int) int {
-	if b < a {
-		return b
-	}
-	return a
 }
 
 // hash calculates the hexadecimal representation (8-chars)
