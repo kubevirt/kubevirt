@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -34,6 +35,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
 	hooksV1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
@@ -53,8 +55,10 @@ type callBackClient struct {
 	subscribedHookPoints []*hooksInfo.HookPoint
 }
 
-var manager Manager
-var once sync.Once
+var (
+	manager Manager
+	once    sync.Once
+)
 
 type (
 	Manager interface {
@@ -95,49 +99,97 @@ func (m *hookManager) Collect(numberOfRequestedHookSidecars uint, timeout time.D
 	return nil
 }
 
-// TODO: Handle sockets in parallel, when a socket appears, run a goroutine trying to read Info from it
 func (m *hookManager) collectSideCarSockets(numberOfRequestedHookSidecars uint, timeout time.Duration) (map[string][]*callBackClient, error) {
-	callbacksPerHookPoint := make(map[string][]*callBackClient)
-	processedSockets := make(map[string]bool)
-
-	timeoutCh := time.After(timeout)
-
-	for uint(len(processedSockets)) < numberOfRequestedHookSidecars {
-		sockets, err := os.ReadDir(m.hookSocketSharedDirectory)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, socket := range sockets {
-			select {
-			case <-timeoutCh:
-				return nil, fmt.Errorf("Failed to collect all expected sidecar hook sockets within given timeout")
-			default:
-				if _, processed := processedSockets[socket.Name()]; processed {
-					continue
-				}
-
-				callBackClient, notReady, err := processSideCarSocket(filepath.Join(m.hookSocketSharedDirectory, socket.Name()))
-				if notReady {
-					log.Log.Info("Sidecar server might not be ready yet, retrying in the next iteration")
-					continue
-				} else if err != nil {
-					log.Log.Reason(err).Infof("Failed to process sidecar socket: %s", socket.Name())
-					return nil, err
-				}
-
-				for _, subscribedHookPoint := range callBackClient.subscribedHookPoints {
-					callbacksPerHookPoint[subscribedHookPoint.GetName()] = append(callbacksPerHookPoint[subscribedHookPoint.GetName()], callBackClient)
-				}
-
-				processedSockets[socket.Name()] = true
-			}
-		}
-
-		time.Sleep(time.Second)
+	callbacksPerHookPoint := struct {
+		callbackMap map[string][]*callBackClient
+		m           sync.Mutex
+	}{
+		make(map[string][]*callBackClient),
+		sync.Mutex{},
 	}
 
-	return callbacksPerHookPoint, nil
+	processedSockets := struct {
+		processed map[string]bool
+		m         sync.Mutex
+	}{
+		make(map[string]bool),
+		sync.Mutex{},
+	}
+
+	if numberOfRequestedHookSidecars == 0 {
+		return callbacksPerHookPoint.callbackMap, nil
+	}
+
+	errorCh := make(chan error, numberOfRequestedHookSidecars)
+
+	err := wait.PollImmediately(time.Second, timeout, func(_ context.Context) (bool, error) {
+		sockets, err := os.ReadDir(m.hookSocketSharedDirectory)
+		if err != nil {
+			return false, err
+		}
+
+		var wg sync.WaitGroup
+		for _, socket := range sockets {
+			processedSockets.m.Lock()
+			if _, processed := processedSockets.processed[socket.Name()]; processed {
+				processedSockets.m.Unlock()
+				continue
+			}
+			processedSockets.processed[socket.Name()] = true
+			processedSockets.m.Unlock()
+
+			wg.Add(1)
+			go func(socketFile os.DirEntry) {
+				defer wg.Done()
+
+				callBackClient, grpcConnFailed, err := processSideCarSocket(filepath.Join(m.hookSocketSharedDirectory, socketFile.Name()))
+				if grpcConnFailed {
+					log.Log.Info("Sidecar server might not be ready yet, retrying in the next iteration")
+					processedSockets.m.Lock()
+					delete(processedSockets.processed, socketFile.Name())
+					processedSockets.m.Unlock()
+					return
+				}
+				if err != nil {
+					select {
+					case errorCh <- fmt.Errorf("failed to process sidecar socket %s: %v", socketFile.Name(), err):
+					default:
+						log.Log.Errorf("Error channel full, dropping error: %v", err)
+					}
+					return
+				}
+				callbacksPerHookPoint.m.Lock()
+				for _, subscribedHookPoint := range callBackClient.subscribedHookPoints {
+					hookName := subscribedHookPoint.GetName()
+					callbacksPerHookPoint.callbackMap[hookName] = append(callbacksPerHookPoint.callbackMap[hookName], callBackClient)
+				}
+				callbacksPerHookPoint.m.Unlock()
+			}(socket)
+		}
+
+		wg.Wait()
+
+		select {
+		case err := <-errorCh:
+			return false, err
+		default:
+		}
+
+		processedSockets.m.Lock()
+		processed := uint(len(processedSockets.processed))
+		processedSockets.m.Unlock()
+
+		return processed >= numberOfRequestedHookSidecars, nil
+	})
+
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, fmt.Errorf("failed to collect all expected sidecar hook sockets within given timeout")
+		}
+		return nil, err
+	}
+
+	return callbacksPerHookPoint.callbackMap, nil
 }
 
 func processSideCarSocket(socketPath string) (*callBackClient, bool, error) {
