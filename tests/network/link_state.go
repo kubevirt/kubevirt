@@ -24,12 +24,15 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -105,6 +108,27 @@ var _ = SIGDescribe("interface state up/down", func() {
 		Expect(console.RunCommand(vmi, assertLinkStateCmd(mac1.String(), v1.InterfaceStateLinkUp), timeout)).To(Succeed())
 		Expect(console.RunCommand(vmi, assertLinkStateCmd(mac2.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
 
+		By("flipping the state of both interfaces")
+
+		Expect(patchToggleVMInterfacesStates(vm)).To(Succeed())
+
+		expectedIfaceStatuses = []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: primaryLogicalNetName, LinkState: string(v1.InterfaceStateLinkDown)},
+			{Name: secondary2LogicalNetName, LinkState: string(v1.InterfaceStateLinkUp)},
+		}
+
+		Eventually(func() ([]v1.VirtualMachineInstanceNetworkInterface, error) {
+			vmi, err := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			if err != nil {
+				return nil, err
+			}
+			return normalizeIfaceStatuses(vmi.Status.Interfaces), nil
+		}).WithTimeout(60 * time.Second).Should(ConsistOf(expectedIfaceStatuses))
+
+		timeout = 30 * time.Second
+		Expect(console.RunCommand(vmi, assertLinkStateCmd(mac1.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
+		Expect(console.RunCommand(vmi, assertLinkStateCmd(mac2.String(), v1.InterfaceStateLinkUp), timeout)).To(Succeed())
+
 	})
 
 })
@@ -133,4 +157,36 @@ func assertLinkStateCmd(mac string, desiredLinkState v1.InterfaceState) string {
 		linkStateRegex = linkStateDOWNRegex
 	}
 	return fmt.Sprintf(ipLinkTemplate, mac, linkStateRegex)
+}
+
+func patchToggleVMInterfacesStates(vm *v1.VirtualMachine) error {
+	vmIfaces := vm.Spec.Template.Spec.Domain.Devices.Interfaces
+
+	patchOptions := make([]patch.PatchOption, len(vmIfaces))
+
+	for i, iface := range vmIfaces {
+		patchOptions[i] = patch.WithReplace(
+			fmt.Sprintf("/spec/template/spec/domain/devices/interfaces/%d/state", i),
+			flipState(iface.State))
+	}
+	patchData, err := patch.New(patchOptions...).GeneratePayload()
+	if err != nil {
+		return err
+	}
+
+	_, err = kubevirt.Client().VirtualMachine(vm.Namespace).Patch(
+		context.Background(),
+		vm.Name,
+		types.JSONPatchType,
+		patchData,
+		metav1.PatchOptions{},
+	)
+	return err
+}
+
+func flipState(curState v1.InterfaceState) v1.InterfaceState {
+	if curState == v1.InterfaceStateLinkDown {
+		return v1.InterfaceStateLinkUp
+	}
+	return v1.InterfaceStateLinkDown
 }
