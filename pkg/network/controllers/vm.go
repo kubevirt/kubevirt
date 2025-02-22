@@ -37,7 +37,12 @@ import (
 )
 
 type VMController struct {
-	clientset kubevirt.Interface
+	clientset              kubevirt.Interface
+	instancetypeNetHandler instancetypeNetHandler
+}
+
+type instancetypeNetHandler interface {
+	ApplyInterfacePreferencesToVMI(*v1.VirtualMachine, *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec
 }
 
 type syncError struct {
@@ -61,9 +66,13 @@ const (
 	hotPlugNetworkInterfaceErrorReason = "HotPlugNetworkInterfaceError"
 )
 
-func NewVMController(clientset kubevirt.Interface) *VMController {
+func NewVMController(
+	clientset kubevirt.Interface,
+	instancetypeNetHandler instancetypeNetHandler,
+) *VMController {
 	return &VMController{
-		clientset: clientset,
+		clientset:              clientset,
+		instancetypeNetHandler: instancetypeNetHandler,
 	}
 }
 
@@ -92,6 +101,7 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 
 	hasOrdinalIfaces := namescheme.HasOrdinalSecondaryIfaces(vmi.Spec.Networks, vmi.Status.Interfaces)
 	updatedVmiSpec := ApplyDynamicIfaceRequestOnVMI(vmCopy, vmiCopy, hasOrdinalIfaces)
+	updatedVmiSpec = v.instancetypeNetHandler.ApplyInterfacePreferencesToVMI(vmCopy, updatedVmiSpec)
 	vmiCopy.Spec = *updatedVmiSpec
 
 	if err := v.vmiInterfacesPatch(&vmiCopy.Spec, vmi); err != nil {
