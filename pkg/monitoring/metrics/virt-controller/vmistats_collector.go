@@ -24,13 +24,13 @@ import (
 
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	k8sv1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/client-go/log"
 
 	k6tv1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
@@ -197,71 +197,54 @@ func getGuestOSInfo(vmi *k6tv1.VirtualMachineInstance) (kernelRelease, machine, 
 }
 
 func getVMIInstancetype(vmi *k6tv1.VirtualMachineInstance) string {
-	instanceType := none
-
 	if instancetypeName, ok := vmi.Annotations[k6tv1.InstancetypeAnnotation]; ok {
-		instanceType = other
-
-		obj, ok, err := instanceTypeInformer.GetIndexer().GetByKey(instancetypeName)
-		if err != nil || !ok {
-			return instanceType
+		key := types.NamespacedName{
+			Namespace: vmi.Namespace,
+			Name:      instancetypeName,
 		}
-
-		vendorName := obj.(*instancetypev1beta1.VirtualMachineInstancetype).Labels[instancetypeVendorLabel]
-		if _, isWhitelisted := whitelistedInstanceTypeVendors[vendorName]; isWhitelisted {
-			instanceType = instancetypeName
-		}
+		return fetchResourceName(key.String(), instancetypeMethods.InstancetypeStore)
 	}
 
-	if instancetypeName, ok := vmi.Annotations[k6tv1.ClusterInstancetypeAnnotation]; ok {
-		instanceType = other
-
-		obj, ok, err := clusterInstanceTypeInformer.GetIndexer().GetByKey(instancetypeName)
-		if err != nil || !ok {
-			return instanceType
-		}
-
-		vendorName := obj.(*instancetypev1beta1.VirtualMachineClusterInstancetype).Labels[instancetypeVendorLabel]
-		if _, isWhitelisted := whitelistedInstanceTypeVendors[vendorName]; isWhitelisted {
-			instanceType = instancetypeName
-		}
+	if clusterInstancetypeName, ok := vmi.Annotations[k6tv1.ClusterInstancetypeAnnotation]; ok {
+		return fetchResourceName(clusterInstancetypeName, instancetypeMethods.ClusterInstancetypeStore)
 	}
 
-	return instanceType
+	return none
 }
 
 func getVMIPreference(vmi *k6tv1.VirtualMachineInstance) string {
-	preference := none
-
-	if instancetypeName, ok := vmi.Annotations[k6tv1.PreferenceAnnotation]; ok {
-		preference = other
-
-		obj, ok, err := preferenceInformer.GetIndexer().GetByKey(instancetypeName)
-		if err != nil || !ok {
-			return preference
+	if preferenceName, ok := vmi.Annotations[k6tv1.PreferenceAnnotation]; ok {
+		key := types.NamespacedName{
+			Namespace: vmi.Namespace,
+			Name:      preferenceName,
 		}
-
-		vendorName := obj.(*instancetypev1beta1.VirtualMachinePreference).Labels[instancetypeVendorLabel]
-		if _, isWhitelisted := whitelistedInstanceTypeVendors[vendorName]; isWhitelisted {
-			preference = instancetypeName
-		}
+		return fetchResourceName(key.String(), instancetypeMethods.PreferenceStore)
 	}
 
-	if instancetypeName, ok := vmi.Annotations[k6tv1.ClusterPreferenceAnnotation]; ok {
-		preference = other
-
-		obj, ok, err := clusterPreferenceInformer.GetIndexer().GetByKey(instancetypeName)
-		if err != nil || !ok {
-			return preference
-		}
-
-		vendorName := obj.(*instancetypev1beta1.VirtualMachineClusterPreference).Labels[instancetypeVendorLabel]
-		if _, isWhitelisted := whitelistedInstanceTypeVendors[vendorName]; isWhitelisted {
-			preference = instancetypeName
-		}
+	if clusterPreferenceName, ok := vmi.Annotations[k6tv1.ClusterPreferenceAnnotation]; ok {
+		return fetchResourceName(clusterPreferenceName, instancetypeMethods.ClusterPreferenceStore)
 	}
 
-	return preference
+	return none
+}
+
+func fetchResourceName(key string, store cache.Store) string {
+	obj, ok, err := store.GetByKey(key)
+	if err != nil || !ok {
+		return other
+	}
+
+	apiObj, ok := obj.(v1.Object)
+	if !ok {
+		return other
+	}
+
+	vendorName := apiObj.GetLabels()[instancetypeVendorLabel]
+	if _, isWhitelisted := whitelistedInstanceTypeVendors[vendorName]; isWhitelisted {
+		return apiObj.GetName()
+	}
+
+	return other
 }
 
 func getEvictionBlocker(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
