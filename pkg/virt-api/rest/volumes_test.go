@@ -35,8 +35,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
-	flag "github.com/spf13/pflag"
-
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -53,8 +51,6 @@ import (
 )
 
 var _ = Describe("Add/Remove Volume Subresource api", func() {
-	kubecli.Init()
-
 	var (
 		request    *restful.Request
 		response   *restful.Response
@@ -101,7 +97,6 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 		backendAddr := strings.Split(backend.Addr(), ":")
 		backendPort, err := strconv.Atoi(backendAddr[1])
 		Expect(err).ToNot(HaveOccurred())
-		flag.Set("kubeconfig", "")
 		ctrl := gomock.NewController(GinkgoT())
 
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)

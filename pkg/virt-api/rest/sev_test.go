@@ -35,8 +35,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	"github.com/onsi/gomega/gstruct"
-	flag "github.com/spf13/pflag"
-
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -53,7 +51,6 @@ import (
 
 var _ = Describe("SEV Subresources", func() {
 	const nodeName = "mynode"
-	kubecli.Init()
 
 	var (
 		backend    *ghttp.Server
@@ -94,7 +91,6 @@ var _ = Describe("SEV Subresources", func() {
 		backendPort, err := strconv.Atoi(backendAddr[1])
 		Expect(err).ToNot(HaveOccurred())
 		backendIP := backendAddr[0]
-		flag.Set("kubeconfig", "")
 
 		pod := &k8sv1.Pod{
 			ObjectMeta: metav1.ObjectMeta{

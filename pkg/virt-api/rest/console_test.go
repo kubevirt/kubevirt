@@ -32,8 +32,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
-	flag "github.com/spf13/pflag"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -46,8 +44,6 @@ import (
 )
 
 var _ = Describe("Console Subresource api", func() {
-	kubecli.Init()
-
 	var (
 		recorder   *httptest.ResponseRecorder
 		request    *restful.Request
@@ -82,7 +78,6 @@ var _ = Describe("Console Subresource api", func() {
 		backendAddr := strings.Split(backend.Addr(), ":")
 		backendPort, err := strconv.Atoi(backendAddr[1])
 		Expect(err).ToNot(HaveOccurred())
-		flag.Set("kubeconfig", "")
 		ctrl := gomock.NewController(GinkgoT())
 
 		mockVirtClient := kubecli.NewMockKubevirtClient(ctrl)

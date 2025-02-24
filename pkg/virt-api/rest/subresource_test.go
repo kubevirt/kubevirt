@@ -24,7 +24,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -82,8 +81,6 @@ func withDryRun() []string {
 }
 
 var _ = Describe("VirtualMachineInstance Subresources", func() {
-	kubecli.Init()
-
 	var backend *ghttp.Server
 	var backendIP string
 	var request *restful.Request
@@ -138,7 +135,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		backendIP = backendAddr[0]
 		Expect(err).ToNot(HaveOccurred())
 		app.consoleServerPort = backendPort
-		flag.Set("kubeconfig", "")
 		app.virtCli = virtClient
 		app.credentialsLock = &sync.Mutex{}
 		app.handlerTLSConfiguration = &tls.Config{InsecureSkipVerify: true}

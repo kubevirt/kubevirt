@@ -35,8 +35,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
-	flag "github.com/spf13/pflag"
-
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -60,8 +58,6 @@ import (
 )
 
 var _ = Describe("Memory dump Subresource api", func() {
-	kubecli.Init()
-
 	const (
 		fs          = false
 		block       = true
@@ -136,7 +132,6 @@ var _ = Describe("Memory dump Subresource api", func() {
 		backendAddr := strings.Split(backend.Addr(), ":")
 		backendPort, err := strconv.Atoi(backendAddr[1])
 		Expect(err).ToNot(HaveOccurred())
-		flag.Set("kubeconfig", "")
 		ctrl := gomock.NewController(GinkgoT())
 
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)

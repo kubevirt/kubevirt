@@ -33,8 +33,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
-	flag "github.com/spf13/pflag"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/testing"
@@ -43,14 +41,13 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
+
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
 var _ = Describe("VNC Subresource api", func() {
-	kubecli.Init()
-
 	var (
 		recorder   *httptest.ResponseRecorder
 		request    *restful.Request
@@ -85,7 +82,6 @@ var _ = Describe("VNC Subresource api", func() {
 		backendAddr := strings.Split(backend.Addr(), ":")
 		backendPort, err := strconv.Atoi(backendAddr[1])
 		Expect(err).ToNot(HaveOccurred())
-		flag.Set("kubeconfig", "")
 		ctrl := gomock.NewController(GinkgoT())
 
 		mockVirtClient := kubecli.NewMockKubevirtClient(ctrl)
