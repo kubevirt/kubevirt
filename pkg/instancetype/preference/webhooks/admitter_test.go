@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -37,25 +36,6 @@ var _ = Describe("Validating Preference Admitter", func() {
 				Namespace: "test-namespace",
 			},
 		}
-	})
-
-	DescribeTable("should accept valid preference", func(version string) {
-		ar := createPreferenceAdmissionReview(preferenceObj, version)
-		response := admitter.Admit(context.Background(), ar)
-
-		Expect(response.Allowed).To(BeTrue(), "Expected preference to be allowed.")
-	},
-		Entry("with v1alpha1 version", instancetypev1beta1.SchemeGroupVersion.Version),
-		Entry("with v1alpha2 version", instancetypev1beta1.SchemeGroupVersion.Version),
-		Entry("with v1beta1 version", instancetypev1beta1.SchemeGroupVersion.Version),
-	)
-
-	It("should reject unsupported version", func() {
-		ar := createPreferenceAdmissionReview(preferenceObj, "unsupportedversion")
-		response := admitter.Admit(context.Background(), ar)
-
-		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
-		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
 	})
 
 	It("should reject unsupported PreferredCPUTopolgy value", func() {
@@ -222,25 +202,6 @@ var _ = Describe("Validating ClusterPreference Admitter", func() {
 				Namespace: "test-namespace",
 			},
 		}
-	})
-
-	DescribeTable("should accept valid preference", func(version string) {
-		ar := createClusterPreferenceAdmissionReview(clusterPreferenceObj, version)
-		response := admitter.Admit(context.Background(), ar)
-
-		Expect(response.Allowed).To(BeTrue(), "Expected preference to be allowed.")
-	},
-		Entry("with v1alpha1 version", instancetypev1beta1.SchemeGroupVersion.Version),
-		Entry("with v1alpha2 version", instancetypev1beta1.SchemeGroupVersion.Version),
-		Entry("with v1beta1 version", instancetypev1beta1.SchemeGroupVersion.Version),
-	)
-
-	It("should reject unsupported version", func() {
-		ar := createClusterPreferenceAdmissionReview(clusterPreferenceObj, "unsupportedversion")
-		response := admitter.Admit(context.Background(), ar)
-
-		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
-		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
 	})
 
 	DescribeTable("should reject unsupported SpreadOptions Across value",

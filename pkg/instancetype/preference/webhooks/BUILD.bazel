@@ -8,7 +8,6 @@ go_library(
     deps = [
         "//pkg/instancetype/preference/apply:go_default_library",
         "//pkg/instancetype/preference/validation:go_default_library",
-        "//pkg/instancetype/webhooks:go_default_library",
         "//pkg/util/webhooks:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",

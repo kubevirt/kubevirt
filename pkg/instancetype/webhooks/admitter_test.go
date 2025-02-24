@@ -48,14 +48,6 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 		Entry("with v1beta1 version", instancetypev1beta1.SchemeGroupVersion.Version),
 	)
 
-	It("should reject unsupported version", func() {
-		ar := createInstancetypeAdmissionReview(instancetypeObj, "unsupportedversion")
-		response := admitter.Admit(context.Background(), ar)
-
-		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
-		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
-	})
-
 	DescribeTable("should reject negative and over 100% memory overcommit values", func(percent int) {
 		version := instancetypev1beta1.SchemeGroupVersion.Version
 		instancetypeObj.Spec = instancetypev1beta1.VirtualMachineInstancetypeSpec{
@@ -146,14 +138,6 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
 		Expect(response.Result.Code).To(
 			Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.")
-	})
-
-	It("should reject unsupported version", func() {
-		ar := createClusterInstancetypeAdmissionReview(clusterInstancetypeObj, "unsupportedversion")
-		response := admitter.Admit(context.Background(), ar)
-
-		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
-		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
 	})
 })
 
