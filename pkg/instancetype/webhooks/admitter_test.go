@@ -1,4 +1,4 @@
-//nolint:dupl,lll
+//nolint:dupl
 package webhooks_test
 
 import (
@@ -94,7 +94,8 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 		response := admitter.Admit(context.Background(), ar)
 
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
-		Expect(response.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.")
+		Expect(response.Result.Code).To(
+			Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.")
 	})
 })
 
@@ -143,7 +144,8 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 		response := admitter.Admit(context.Background(), ar)
 
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
-		Expect(response.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.")
+		Expect(response.Result.Code).To(
+			Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.")
 	})
 
 	It("should reject unsupported version", func() {
@@ -155,7 +157,10 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 	})
 })
 
-func createInstancetypeAdmissionReview(instancetype *instancetypev1beta1.VirtualMachineInstancetype, version string) *admissionv1.AdmissionReview {
+func createInstancetypeAdmissionReview(
+	instancetype *instancetypev1beta1.VirtualMachineInstancetype,
+	version string,
+) *admissionv1.AdmissionReview {
 	bytes, err := json.Marshal(instancetype)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Could not JSON encode instancetype: %v", instancetype)
 
@@ -174,7 +179,10 @@ func createInstancetypeAdmissionReview(instancetype *instancetypev1beta1.Virtual
 	}
 }
 
-func createClusterInstancetypeAdmissionReview(clusterInstancetype *instancetypev1beta1.VirtualMachineClusterInstancetype, version string) *admissionv1.AdmissionReview {
+func createClusterInstancetypeAdmissionReview(
+	clusterInstancetype *instancetypev1beta1.VirtualMachineClusterInstancetype,
+	version string,
+) *admissionv1.AdmissionReview {
 	bytes, err := json.Marshal(clusterInstancetype)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Could not JSON encode instancetype: %v", clusterInstancetype)
 

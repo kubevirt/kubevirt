@@ -1,4 +1,3 @@
-//nolint:lll
 package webhooks
 
 import (
@@ -41,7 +40,10 @@ func ValidateInstanceTypeSpec(field *k8sfield.Path, spec *instancetypev1beta1.Vi
 	return causes
 }
 
-func validateMemoryOvercommitPercentSetting(field *k8sfield.Path, spec *instancetypev1beta1.VirtualMachineInstancetypeSpec) (causes []metav1.StatusCause) {
+func validateMemoryOvercommitPercentSetting(
+	field *k8sfield.Path,
+	spec *instancetypev1beta1.VirtualMachineInstancetypeSpec,
+) (causes []metav1.StatusCause) {
 	if spec.Memory.OvercommitPercent < 0 || spec.Memory.OvercommitPercent > 100 {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
@@ -53,7 +55,10 @@ func validateMemoryOvercommitPercentSetting(field *k8sfield.Path, spec *instance
 	return causes
 }
 
-func validateMemoryOvercommitPercentNoHugepages(field *k8sfield.Path, spec *instancetypev1beta1.VirtualMachineInstancetypeSpec) (causes []metav1.StatusCause) {
+func validateMemoryOvercommitPercentNoHugepages(
+	field *k8sfield.Path,
+	spec *instancetypev1beta1.VirtualMachineInstancetypeSpec,
+) (causes []metav1.StatusCause) {
 	if spec.Memory.OvercommitPercent != 0 && spec.Memory.Hugepages != nil {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
