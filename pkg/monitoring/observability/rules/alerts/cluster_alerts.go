@@ -1,10 +1,22 @@
 package alerts
 
 import (
+	"fmt"
+	"strings"
+
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 )
+
+var ignoredInterfacesForNetworkDown = []string{
+	"lo",          // loopback interface
+	"tunbr",       // tunnel bridge
+	"veth.+",      // virtual ethernet devices
+	"ovs-system",  // OVS internal system interface
+	"genev_sys.+", // OVN Geneve overlay/encapsulation interfaces
+	"br-int",      // OVN integration bridge
+}
 
 func clusterAlerts() []promv1.Rule {
 	return []promv1.Rule{
@@ -23,7 +35,7 @@ func clusterAlerts() []promv1.Rule {
 		},
 		{
 			Alert: "HAControlPlaneDown",
-			Expr:  intstr.FromString("kube_node_role{role=\"control-plane\"} * on(node) kube_node_status_condition{condition=\"Ready\",status=\"true\"} == 0"),
+			Expr:  intstr.FromString("kube_node_role{role='control-plane'} * on(node) kube_node_status_condition{condition='Ready',status='true'} == 0"),
 			For:   ptr.To(promv1.Duration("5m")),
 			Annotations: map[string]string{
 				"summary":     "Control plane node {{ $labels.node }} is not ready",
@@ -36,7 +48,7 @@ func clusterAlerts() []promv1.Rule {
 		},
 		{
 			Alert: "NodeNetworkInterfaceDown",
-			Expr:  intstr.FromString("count by (instance) (node_network_up{device!~\"veth.+|tunbr\"} == 0) > 0"),
+			Expr:  intstr.FromString(fmt.Sprintf("count by (instance) (node_network_up{device!~'%s'} == 0) > 0", strings.Join(ignoredInterfacesForNetworkDown, "|"))),
 			For:   ptr.To(promv1.Duration("5m")),
 			Annotations: map[string]string{
 				"summary":     "Network interfaces are down",
