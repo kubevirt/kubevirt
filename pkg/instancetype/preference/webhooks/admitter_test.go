@@ -1,4 +1,5 @@
-package admitters
+//nolint:dupl,lll
+package webhooks_test
 
 import (
 	"context"
@@ -17,17 +18,18 @@ import (
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/instancetype/preference/webhooks"
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Validating Preference Admitter", func() {
 	var (
-		admitter      *PreferenceAdmitter
+		admitter      *webhooks.PreferenceAdmitter
 		preferenceObj *instancetypev1beta1.VirtualMachinePreference
 	)
 
 	BeforeEach(func() {
-		admitter = &PreferenceAdmitter{}
+		admitter = &webhooks.PreferenceAdmitter{}
 
 		preferenceObj = &instancetypev1beta1.VirtualMachinePreference{
 			ObjectMeta: metav1.ObjectMeta{
@@ -71,7 +73,7 @@ var _ = Describe("Validating Preference Admitter", func() {
 		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
 		Expect(response.Result.Details.Causes).To(HaveLen(1))
 		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-		Expect(response.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf(preferredCPUTopologyUnknownErrFmt, unsupportedTopology)))
+		Expect(response.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf("unknown preferredCPUTopology %s", unsupportedTopology)))
 		Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "cpu", "preferredCPUTopology").String()))
 	})
 
@@ -94,7 +96,7 @@ var _ = Describe("Validating Preference Admitter", func() {
 		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
 		Expect(response.Result.Details.Causes).To(HaveLen(1))
 		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-		Expect(response.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf(spreadAcrossUnsupportedErrFmt, unsupportedAcrossValue)))
+		Expect(response.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf("across %s is not supported", unsupportedAcrossValue)))
 		Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "cpu", "spreadOptions", "across").String()))
 	},
 		Entry("with spread", instancetypev1beta1.Spread),
@@ -107,7 +109,7 @@ var _ = Describe("Validating Preference Admitter", func() {
 		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
 		Expect(response.Result.Details.Causes).To(HaveLen(1))
 		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-		Expect(response.Result.Details.Causes[0].Message).To(Equal(spreadAcrossCoresThreadsRatioErr))
+		Expect(response.Result.Details.Causes[0].Message).To(Equal("only a ratio of 2 (1 core 2 threads) is allowed when spreading vCPUs over cores and threads"))
 		Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "cpu", "spreadOptions", "ratio").String()))
 	},
 		Entry("PreferSpreadSocketToCoreRatio with spread",
@@ -176,7 +178,9 @@ var _ = Describe("Validating Preference Admitter", func() {
 		response := admitter.Admit(context.Background(), ar)
 		Expect(response.Allowed).To(BeTrue())
 		Expect(response.Warnings).To(HaveLen(1))
-		Expect(response.Warnings[0]).To(ContainSubstring(fmt.Sprintf(deprecatedPreferredCPUTopologyErrFmt, deprecatedTopology, expectedAlternativeTopology)))
+		Expect(response.Warnings[0]).To(ContainSubstring(
+			fmt.Sprintf("PreferredCPUTopology %s is deprecated for removal in a future release, please use %s instead",
+				deprecatedTopology, expectedAlternativeTopology)))
 	},
 		Entry("DeprecatedPreferSockets and provide Sockets as an alternative", instancetypev1beta1.DeprecatedPreferSockets, instancetypev1beta1.Sockets),
 		Entry("DeprecatedPreferCores and provide Cores as an alternative", instancetypev1beta1.DeprecatedPreferCores, instancetypev1beta1.Cores),
@@ -188,12 +192,12 @@ var _ = Describe("Validating Preference Admitter", func() {
 
 var _ = Describe("Validating ClusterPreference Admitter", func() {
 	var (
-		admitter             *ClusterPreferenceAdmitter
+		admitter             *webhooks.ClusterPreferenceAdmitter
 		clusterPreferenceObj *instancetypev1beta1.VirtualMachineClusterPreference
 	)
 
 	BeforeEach(func() {
-		admitter = &ClusterPreferenceAdmitter{}
+		admitter = &webhooks.ClusterPreferenceAdmitter{}
 
 		clusterPreferenceObj = &instancetypev1beta1.VirtualMachineClusterPreference{
 			ObjectMeta: metav1.ObjectMeta{
@@ -241,7 +245,7 @@ var _ = Describe("Validating ClusterPreference Admitter", func() {
 		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
 		Expect(response.Result.Details.Causes).To(HaveLen(1))
 		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-		Expect(response.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf(spreadAcrossUnsupportedErrFmt, unsupportedAcrossValue)))
+		Expect(response.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf("across %s is not supported", unsupportedAcrossValue)))
 		Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "cpu", "spreadOptions", "across").String()))
 	},
 		Entry("with spread", instancetypev1beta1.Spread),
@@ -254,7 +258,7 @@ var _ = Describe("Validating ClusterPreference Admitter", func() {
 		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
 		Expect(response.Result.Details.Causes).To(HaveLen(1))
 		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-		Expect(response.Result.Details.Causes[0].Message).To(Equal(spreadAcrossCoresThreadsRatioErr))
+		Expect(response.Result.Details.Causes[0].Message).To(Equal("only a ratio of 2 (1 core 2 threads) is allowed when spreading vCPUs over cores and threads"))
 		Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "cpu", "spreadOptions", "ratio").String()))
 	},
 		Entry("PreferSpreadSocketToCoreRatio with spread",
@@ -323,7 +327,14 @@ var _ = Describe("Validating ClusterPreference Admitter", func() {
 		response := admitter.Admit(context.Background(), ar)
 		Expect(response.Allowed).To(BeTrue())
 		Expect(response.Warnings).To(HaveLen(1))
-		Expect(response.Warnings[0]).To(ContainSubstring(fmt.Sprintf(deprecatedPreferredCPUTopologyErrFmt, deprecatedTopology, expectedAlternativeTopology)))
+		Expect(response.Warnings[0]).To(
+			ContainSubstring(
+				fmt.Sprintf("PreferredCPUTopology %s is deprecated for removal in a future release, please use %s instead",
+					deprecatedTopology,
+					expectedAlternativeTopology,
+				),
+			),
+		)
 	},
 		Entry("DeprecatedPreferSockets and provide Sockets as an alternative", instancetypev1beta1.DeprecatedPreferSockets, instancetypev1beta1.Sockets),
 		Entry("DeprecatedPreferCores and provide Cores as an alternative", instancetypev1beta1.DeprecatedPreferCores, instancetypev1beta1.Cores),

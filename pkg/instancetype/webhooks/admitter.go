@@ -1,4 +1,5 @@
-package admitters
+//nolint:lll
+package webhooks
 
 import (
 	"context"
@@ -41,7 +42,6 @@ func ValidateInstanceTypeSpec(field *k8sfield.Path, spec *instancetypev1beta1.Vi
 }
 
 func validateMemoryOvercommitPercentSetting(field *k8sfield.Path, spec *instancetypev1beta1.VirtualMachineInstancetypeSpec) (causes []metav1.StatusCause) {
-
 	if spec.Memory.OvercommitPercent < 0 || spec.Memory.OvercommitPercent > 100 {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
@@ -80,7 +80,7 @@ func admitInstancetype(request *admissionv1.AdmissionRequest, resource string) *
 		}
 	}
 
-	if resp := validateInstancetypeRequestResource(request.Resource, resource); resp != nil {
+	if resp := ValidateInstancetypeRequestResource(request.Resource, resource); resp != nil {
 		return resp
 	}
 
@@ -107,7 +107,7 @@ func admitInstancetype(request *admissionv1.AdmissionRequest, resource string) *
 	}
 }
 
-func validateInstancetypeRequestResource(request metav1.GroupVersionResource, resource string) *admissionv1.AdmissionResponse {
+func ValidateInstancetypeRequestResource(request metav1.GroupVersionResource, resource string) *admissionv1.AdmissionResponse {
 	gvr := metav1.GroupVersionResource{
 		Group:    instancetypev1beta1.SchemeGroupVersion.Group,
 		Resource: resource,

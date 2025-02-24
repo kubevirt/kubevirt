@@ -1,4 +1,5 @@
-package admitters
+//nolint:dupl,lll
+package webhooks_test
 
 import (
 	"context"
@@ -15,16 +16,18 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/instancetype/webhooks"
 )
 
 var _ = Describe("Validating Instancetype Admitter", func() {
 	var (
-		admitter        *InstancetypeAdmitter
+		admitter        *webhooks.InstancetypeAdmitter
 		instancetypeObj *instancetypev1beta1.VirtualMachineInstancetype
 	)
 
 	BeforeEach(func() {
-		admitter = &InstancetypeAdmitter{}
+		admitter = &webhooks.InstancetypeAdmitter{}
 
 		instancetypeObj = &instancetypev1beta1.VirtualMachineInstancetype{
 			ObjectMeta: metav1.ObjectMeta{
@@ -97,12 +100,12 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 
 var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 	var (
-		admitter               *ClusterInstancetypeAdmitter
+		admitter               *webhooks.ClusterInstancetypeAdmitter
 		clusterInstancetypeObj *instancetypev1beta1.VirtualMachineClusterInstancetype
 	)
 
 	BeforeEach(func() {
-		admitter = &ClusterInstancetypeAdmitter{}
+		admitter = &webhooks.ClusterInstancetypeAdmitter{}
 
 		clusterInstancetypeObj = &instancetypev1beta1.VirtualMachineClusterInstancetype{
 			ObjectMeta: metav1.ObjectMeta{

@@ -34,7 +34,7 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
+	"kubevirt.io/kubevirt/pkg/instancetype/preference/webhooks"
 	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/preference"
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
@@ -176,5 +176,5 @@ func getPreferenceSpec(bytes []byte) *instancetypev1beta1.VirtualMachinePreferen
 }
 
 func validatePreferenceSpec(spec *instancetypev1beta1.VirtualMachinePreferenceSpec) []k8sv1.StatusCause {
-	return admitters.ValidatePreferenceSpec(field.NewPath("spec"), spec)
+	return webhooks.ValidatePreferenceSpec(field.NewPath("spec"), spec)
 }
