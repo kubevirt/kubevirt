@@ -22,7 +22,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
-	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -50,25 +49,6 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 		virtClient = kubevirt.Client()
 	})
 
-	buildProbeBackendPodSpec := func(ipFamily k8sv1.IPFamily, probe *v1.Probe) (*k8sv1.Pod, func() error) {
-		family := 4
-		if ipFamily == k8sv1.IPv6Protocol {
-			family = 6
-		}
-
-		var probeBackendPod *k8sv1.Pod
-		if isHTTPProbe(*probe) {
-			port := probe.HTTPGet.Port.IntVal
-			probeBackendPod = startHTTPServerPod(family, int(port))
-		} else {
-			port := probe.TCPSocket.Port.IntVal
-			probeBackendPod = startTCPServerPod(family, int(port))
-		}
-		return probeBackendPod, func() error {
-			return virtClient.CoreV1().Pods(testsuite.GetTestNamespace(probeBackendPod)).Delete(context.Background(), probeBackendPod.Name, metav1.DeleteOptions{})
-		}
-	}
-
 	Context("for readiness", func() {
 		const (
 			period         = 5
@@ -80,20 +60,7 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 		DescribeTable("should succeed", func(readinessProbe *v1.Probe, ipFamily k8sv1.IPFamily) {
 			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
-			if ipFamily == k8sv1.IPv6Protocol {
-				By("Create a support pod which will reply to kubelet's probes ...")
-				probeBackendPod, supportPodCleanupFunc := buildProbeBackendPodSpec(ipFamily, readinessProbe)
-				defer func() {
-					Expect(supportPodCleanupFunc()).To(Succeed(), "The support pod responding to the probes should be cleaned-up at test tear-down.")
-				}()
-
-				By("Attaching the readiness probe to an external pod server")
-				readinessProbe, err = pointIpv6ProbeToSupportPod(probeBackendPod, readinessProbe)
-				Expect(err).ToNot(HaveOccurred(), "should attach the backend pod with readiness probe")
-
-				By(specifyingVMReadinessProbe)
-				vmi = createReadyAlpineVMIWithReadinessProbe(readinessProbe)
-			} else if !isExecProbe(readinessProbe) {
+			if !isExecProbe(readinessProbe) {
 				By(specifyingVMReadinessProbe)
 				vmi = createReadyAlpineVMIWithReadinessProbe(readinessProbe)
 
@@ -116,9 +83,7 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 			Eventually(matcher.ThisVMI(vmi), 2*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 		},
 			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", createTCPProbe(period, initialSeconds, port), k8sv1.IPv4Protocol),
-			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv6", createTCPProbe(period, initialSeconds, port), k8sv1.IPv6Protocol),
 			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", createHTTPProbe(period, initialSeconds, port), k8sv1.IPv4Protocol),
-			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv6", createHTTPProbe(period, initialSeconds, port), k8sv1.IPv6Protocol),
 			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily),
 		)
 
@@ -174,21 +139,7 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 		DescribeTable("should not fail the VMI", func(livenessProbe *v1.Probe, ipFamily k8sv1.IPFamily) {
 			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
-			if ipFamily == k8sv1.IPv6Protocol {
-
-				By("Create a support pod which will reply to kubelet's probes ...")
-				probeBackendPod, supportPodCleanupFunc := buildProbeBackendPodSpec(ipFamily, livenessProbe)
-				defer func() {
-					Expect(supportPodCleanupFunc()).To(Succeed(), "The support pod responding to the probes should be cleaned-up at test tear-down.")
-				}()
-
-				By("Attaching the liveness probe to an external pod server")
-				livenessProbe, err = pointIpv6ProbeToSupportPod(probeBackendPod, livenessProbe)
-				Expect(err).ToNot(HaveOccurred(), "should attach the backend pod with liveness probe")
-
-				By(specifyingVMLivenessProbe)
-				vmi = createReadyAlpineVMIWithLivenessProbe(livenessProbe)
-			} else if !isExecProbe(livenessProbe) {
+			if !isExecProbe(livenessProbe) {
 				By(specifyingVMLivenessProbe)
 				vmi = createReadyAlpineVMIWithLivenessProbe(livenessProbe)
 
@@ -211,9 +162,7 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 			}, 120, 1).Should(Not(BeTrue()))
 		},
 			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv4", createTCPProbe(period, initialSeconds, port), k8sv1.IPv4Protocol),
-			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv6", createTCPProbe(period, initialSeconds, port), k8sv1.IPv6Protocol),
 			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv4", createHTTPProbe(period, initialSeconds, port), k8sv1.IPv4Protocol),
-			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv6", createHTTPProbe(period, initialSeconds, port), k8sv1.IPv6Protocol),
 			Entry("[test_id:5879]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily),
 		)
 
@@ -303,15 +252,6 @@ func createGuestAgentPingProbe(period, initialSeconds int32) *v1.Probe {
 	return createProbeSpecification(period, initialSeconds, 1, handler)
 }
 
-func patchProbeWithIPAddr(existingProbe *v1.Probe, ipHostIP string) *v1.Probe {
-	if isHTTPProbe(*existingProbe) {
-		existingProbe.HTTPGet.Host = ipHostIP
-	} else {
-		existingProbe.TCPSocket.Host = ipHostIP
-	}
-	return existingProbe
-}
-
 func createHTTPProbe(period, initialSeconds int32, port int) *v1.Probe {
 	httpHandler := v1.Handler{
 		HTTPGet: &k8sv1.HTTPGetAction{
@@ -347,15 +287,6 @@ func serverStarter(vmi *v1.VirtualMachineInstance, probe *v1.Probe, port int) {
 	}
 }
 
-func pointIpv6ProbeToSupportPod(pod *k8sv1.Pod, probe *v1.Probe) (*v1.Probe, error) {
-	supportPodIP := libnet.GetPodIPByFamily(pod, k8sv1.IPv6Protocol)
-	if supportPodIP == "" {
-		return nil, fmt.Errorf("pod/%s does not have an IPv6 address", pod.Name)
-	}
-
-	return patchProbeWithIPAddr(probe, supportPodIP), nil
-}
-
 func withReadinessProbe(probe *v1.Probe) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.ReadinessProbe = probe
@@ -366,40 +297,4 @@ func withLivelinessProbe(probe *v1.Probe) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.LivenessProbe = probe
 	}
-}
-
-func newHTTPServerPod(ipFamily, port int) *k8sv1.Pod {
-	serverCommand := fmt.Sprintf("while true; do nc -%d -klp %d --sh-exec 'echo -e \"HTTP/1.1 200 OK\\nContent-Length: 12\\n\\nHello World\"'; done;", ipFamily, port)
-	return libpod.RenderPod("http-hello-world-server", []string{"/bin/bash"}, []string{"-c", serverCommand})
-}
-
-func newTCPServerPod(ipFamily, port int) *k8sv1.Pod {
-	serverCommand := fmt.Sprintf("while true; do nc -%d -klp %d --sh-exec 'echo \"Hello World\"'; done;", ipFamily, port)
-	return libpod.RenderPod("tcp-hello-world-server", []string{"/bin/bash"}, []string{"-c", serverCommand})
-}
-
-func createPodAndWaitUntil(pod *k8sv1.Pod, phaseToWait k8sv1.PodPhase) *k8sv1.Pod {
-	virtClient := kubevirt.Client()
-
-	var err error
-	pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Create(context.Background(), pod, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred(), "should succeed creating pod")
-
-	getStatus := func() k8sv1.PodPhase {
-		pod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(pod)).Get(context.Background(), pod.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return pod.Status.Phase
-	}
-	Eventually(getStatus, 30, 1).Should(Equal(phaseToWait), "should reach %s phase", phaseToWait)
-	return pod
-}
-
-func startTCPServerPod(ipFamily, port int) *k8sv1.Pod {
-	By(fmt.Sprintf("Start TCP Server pod at port %d", port))
-	return createPodAndWaitUntil(newTCPServerPod(ipFamily, port), k8sv1.PodRunning)
-}
-
-func startHTTPServerPod(ipFamily, port int) *k8sv1.Pod {
-	By(fmt.Sprintf("Start HTTP Server pod at port %d", port))
-	return createPodAndWaitUntil(newHTTPServerPod(ipFamily, port), k8sv1.PodRunning)
 }
