@@ -1,4 +1,5 @@
-package admitters
+//nolint:dupl,lll
+package webhooks
 
 import (
 	"context"

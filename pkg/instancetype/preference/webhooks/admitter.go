@@ -1,4 +1,5 @@
-package admitters
+//nolint:lll
+package webhooks
 
 import (
 	"context"
@@ -13,7 +14,9 @@ import (
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypeapiv1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
-	instancetype "kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
+	"kubevirt.io/kubevirt/pkg/instancetype/preference/validation"
+	instancetypewebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
 
@@ -44,7 +47,7 @@ func validatePreferredCPUTopology(field *k8sfield.Path, spec *instancetypeapiv1b
 		return nil
 	}
 	topology := *spec.CPU.PreferredCPUTopology
-	if !instancetype.IsPreferredTopologySupported(topology) {
+	if !validation.IsPreferredTopologySupported(topology) {
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf(preferredCPUTopologyUnknownErrFmt, topology),
@@ -63,7 +66,7 @@ func validateSpreadOptions(field *k8sfield.Path, spec *instancetypeapiv1beta1.Vi
 	if spec.CPU == nil || spec.CPU.SpreadOptions == nil || spec.CPU.PreferredCPUTopology == nil || (*spec.CPU.PreferredCPUTopology != instancetypeapiv1beta1.Spread && *spec.CPU.PreferredCPUTopology != instancetypeapiv1beta1.DeprecatedPreferSpread) {
 		return nil
 	}
-	ratio, across := instancetype.GetSpreadOptions(spec)
+	ratio, across := apply.GetSpreadOptions(spec)
 
 	supportedSpreadAcross := []instancetypeapiv1beta1.SpreadAcross{
 		instancetypeapiv1beta1.SpreadAcrossCoresThreads,
@@ -117,7 +120,7 @@ func admitPreference(request *admissionv1.AdmissionRequest, resource string) *ad
 		}
 	}
 
-	if resp := validateInstancetypeRequestResource(request.Resource, resource); resp != nil {
+	if resp := instancetypewebhooks.ValidateInstancetypeRequestResource(request.Resource, resource); resp != nil {
 		return resp
 	}
 
