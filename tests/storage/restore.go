@@ -1172,7 +1172,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			// the PVC. Currently we only test vmsnapshot tests which ceph which has this
 			// behavior. In case of running this test with other provisioner or if ceph
 			// will change this behavior it will fail.
-			DescribeTable("should restore a vm with restore size bigger then PVC size", func(restoreToNewVM bool) {
+			DescribeTable("should restore a vm with restore size bigger then PVC size", decorators.RequiresSizeRoundUp, func(restoreToNewVM bool) {
 				vm = createVMWithCloudInit(cd.ContainerDiskCirros, snapshotStorageClass)
 				quantity, err := resource.ParseQuantity("1528Mi")
 				Expect(err).ToNot(HaveOccurred())
