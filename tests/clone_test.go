@@ -61,24 +61,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		format.MaxLength = 0
 	})
 
-	generateCloneFromVMWithParams := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clone.VirtualMachineClone {
-		vmClone := kubecli.NewMinimalCloneWithNS("testclone", sourceVM.Namespace)
-
-		cloneSourceRef := &k8sv1.TypedLocalObjectReference{
-			APIGroup: pointer.P(vmAPIGroup),
-			Kind:     "VirtualMachine",
-			Name:     sourceVM.Name,
-		}
-
-		cloneTargetRef := cloneSourceRef.DeepCopy()
-		cloneTargetRef.Name = targetVMName
-
-		vmClone.Spec.Source = cloneSourceRef
-		vmClone.Spec.Target = cloneTargetRef
-
-		return vmClone
-	}
-
 	createClone := func(vmClone *clone.VirtualMachineClone) *clone.VirtualMachineClone {
 		By(fmt.Sprintf("Creating clone object %s", vmClone.Name))
 		vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Create(context.Background(), vmClone, v1.CreateOptions{})
@@ -191,7 +173,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		}
 
 		generateCloneFromVM := func() *clone.VirtualMachineClone {
-			return generateCloneFromVMWithParams(sourceVM, targetVMName)
+			return generateCloneFromVMWithParams(sourceVM.Name, sourceVM.Namespace, targetVMName)
 		}
 
 		Context("[sig-compute]simple VM and cloning operations", decorators.SigCompute, func() {
@@ -617,7 +599,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 						vmClone.Spec.Template.AnnotationFilters = filters
 					}
 					generateCloneWithFilters := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clone.VirtualMachineClone {
-						vmclone := generateCloneFromVMWithParams(sourceVM, targetVMName)
+						vmclone := generateCloneFromVMWithParams(sourceVM.Name, sourceVM.Namespace, targetVMName)
 						addCloneAnnotationAndLabelFilters(vmclone)
 						return vmclone
 					}
@@ -677,7 +659,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 							vmClone.Spec.Template.AnnotationFilters = filters
 						}
 						generateCloneWithFilters := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clone.VirtualMachineClone {
-							vmclone := generateCloneFromVMWithParams(sourceVM, targetVMName)
+							vmclone := generateCloneFromVMWithParams(sourceVM.Name, sourceVM.Namespace, targetVMName)
 							addCloneAnnotationAndLabelFilters(vmclone)
 							return vmclone
 						}
@@ -776,6 +758,24 @@ func generateCloneFromSnapshot(snapshotName, namespace, targetVMName string) *cl
 		Kind:     "VirtualMachine",
 		Name:     targetVMName,
 	}
+
+	vmClone.Spec.Source = cloneSourceRef
+	vmClone.Spec.Target = cloneTargetRef
+
+	return vmClone
+}
+
+func generateCloneFromVMWithParams(sourceVMName, sourceVMNamespace, targetVMName string) *clone.VirtualMachineClone {
+	vmClone := kubecli.NewMinimalCloneWithNS("testclone", sourceVMNamespace)
+
+	cloneSourceRef := &k8sv1.TypedLocalObjectReference{
+		APIGroup: pointer.P(vmAPIGroup),
+		Kind:     "VirtualMachine",
+		Name:     sourceVMName,
+	}
+
+	cloneTargetRef := cloneSourceRef.DeepCopy()
+	cloneTargetRef.Name = targetVMName
 
 	vmClone.Spec.Source = cloneSourceRef
 	vmClone.Spec.Target = cloneTargetRef
