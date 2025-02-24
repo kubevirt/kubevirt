@@ -1,4 +1,3 @@
-//nolint:lll
 package webhooks
 
 import (
@@ -62,8 +61,16 @@ const (
 	spreadAcrossUnsupportedErrFmt    = "across %s is not supported"
 )
 
+func hasSpreadTopology(spec *instancetypeapiv1beta1.VirtualMachinePreferenceSpec) bool {
+	if spec == nil || spec.CPU == nil || spec.CPU.PreferredCPUTopology == nil {
+		return false
+	}
+	topology := *spec.CPU.PreferredCPUTopology
+	return topology == instancetypeapiv1beta1.Spread || topology == instancetypeapiv1beta1.DeprecatedPreferSpread
+}
+
 func validateSpreadOptions(field *k8sfield.Path, spec *instancetypeapiv1beta1.VirtualMachinePreferenceSpec) []metav1.StatusCause {
-	if spec.CPU == nil || spec.CPU.SpreadOptions == nil || spec.CPU.PreferredCPUTopology == nil || (*spec.CPU.PreferredCPUTopology != instancetypeapiv1beta1.Spread && *spec.CPU.PreferredCPUTopology != instancetypeapiv1beta1.DeprecatedPreferSpread) {
+	if !hasSpreadTopology(spec) {
 		return nil
 	}
 	ratio, across := apply.GetSpreadOptions(spec)
