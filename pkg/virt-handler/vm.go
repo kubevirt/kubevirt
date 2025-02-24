@@ -857,6 +857,99 @@ func (c *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMach
 	return volumeStatus, needsRefresh
 }
 
+func needToComputeChecksums(vmi *v1.VirtualMachineInstance) bool {
+	containerDisks := map[string]*v1.Volume{}
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.VolumeSource.ContainerDisk != nil {
+			containerDisks[volume.Name] = &volume
+		}
+	}
+
+	for i := range vmi.Status.VolumeStatus {
+		_, isContainerDisk := containerDisks[vmi.Status.VolumeStatus[i].Name]
+		if !isContainerDisk {
+			continue
+		}
+
+		if vmi.Status.VolumeStatus[i].ContainerDiskVolume == nil ||
+			vmi.Status.VolumeStatus[i].ContainerDiskVolume.Checksum == 0 {
+			return true
+		}
+	}
+
+	if util.HasKernelBootContainerImage(vmi) {
+		if vmi.Status.KernelBootStatus == nil {
+			return true
+		}
+
+		kernelBootContainer := vmi.Spec.Domain.Firmware.KernelBoot.Container
+
+		if kernelBootContainer.KernelPath != "" &&
+			(vmi.Status.KernelBootStatus.KernelInfo == nil ||
+				vmi.Status.KernelBootStatus.KernelInfo.Checksum == 0) {
+			return true
+
+		}
+
+		if kernelBootContainer.InitrdPath != "" &&
+			(vmi.Status.KernelBootStatus.InitrdInfo == nil ||
+				vmi.Status.KernelBootStatus.InitrdInfo.Checksum == 0) {
+			return true
+
+		}
+	}
+
+	return false
+}
+
+func (c *VirtualMachineController) updateChecksumInfo(vmi *v1.VirtualMachineInstance, syncError error) error {
+
+	if syncError != nil || vmi.DeletionTimestamp != nil || !needToComputeChecksums(vmi) {
+		return nil
+	}
+
+	diskChecksums, err := c.containerDiskMounter.ComputeChecksums(vmi)
+	if goerror.Is(err, container_disk.ErrDiskContainerGone) {
+		log.Log.Errorf("cannot compute checksums as containerdisk/kernelboot containers seem to have been terminated")
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	// containerdisks
+	for i := range vmi.Status.VolumeStatus {
+		checksum, exists := diskChecksums.ContainerDiskChecksums[vmi.Status.VolumeStatus[i].Name]
+		if !exists {
+			// not a containerdisk
+			continue
+		}
+
+		vmi.Status.VolumeStatus[i].ContainerDiskVolume = &v1.ContainerDiskInfo{
+			Checksum: checksum,
+		}
+	}
+
+	// kernelboot
+	if util.HasKernelBootContainerImage(vmi) {
+		vmi.Status.KernelBootStatus = &v1.KernelBootStatus{}
+
+		if diskChecksums.KernelBootChecksum.Kernel != nil {
+			vmi.Status.KernelBootStatus.KernelInfo = &v1.KernelInfo{
+				Checksum: *diskChecksums.KernelBootChecksum.Kernel,
+			}
+		}
+
+		if diskChecksums.KernelBootChecksum.Initrd != nil {
+			vmi.Status.KernelBootStatus.InitrdInfo = &v1.InitrdInfo{
+				Checksum: *diskChecksums.KernelBootChecksum.Initrd,
+			}
+		}
+	}
+
+	return nil
+}
+
 func (c *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
 	// used by unit test
 	hasHotplug := false
@@ -1306,6 +1399,11 @@ func (c *VirtualMachineController) updateVMIStatus(origVMI *v1.VirtualMachineIns
 	// Update conditions on VMI Status
 	err = c.updateVMIConditions(vmi, domain, condManager)
 	if err != nil {
+		return err
+	}
+
+	// Store containerdisks and kernelboot checksums
+	if err := c.updateChecksumInfo(vmi, syncError); err != nil {
 		return err
 	}
 
