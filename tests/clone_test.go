@@ -79,27 +79,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		return vmClone
 	}
 
-	generateCloneFromSnapshot := func(snapshotName, namespace, targetVMName string) *clone.VirtualMachineClone {
-		vmClone := kubecli.NewMinimalCloneWithNS("testclone", namespace)
-
-		cloneSourceRef := &k8sv1.TypedLocalObjectReference{
-			APIGroup: pointer.P(virtsnapshot.GroupName),
-			Kind:     "VirtualMachineSnapshot",
-			Name:     snapshotName,
-		}
-
-		cloneTargetRef := &k8sv1.TypedLocalObjectReference{
-			APIGroup: pointer.P(vmAPIGroup),
-			Kind:     "VirtualMachine",
-			Name:     targetVMName,
-		}
-
-		vmClone.Spec.Source = cloneSourceRef
-		vmClone.Spec.Target = cloneTargetRef
-
-		return vmClone
-	}
-
 	createClone := func(vmClone *clone.VirtualMachineClone) *clone.VirtualMachineClone {
 		By(fmt.Sprintf("Creating clone object %s", vmClone.Name))
 		vmClone, err = virtClient.VirtualMachineClone(vmClone.Namespace).Create(context.Background(), vmClone, v1.CreateOptions{})
@@ -781,4 +760,25 @@ func generateSnapshot(vmName, vmNamespace string) *snapshotv1.VirtualMachineSnap
 		},
 	}
 	return snapshot
+}
+
+func generateCloneFromSnapshot(snapshotName, namespace, targetVMName string) *clone.VirtualMachineClone {
+	vmClone := kubecli.NewMinimalCloneWithNS("testclone", namespace)
+
+	cloneSourceRef := &k8sv1.TypedLocalObjectReference{
+		APIGroup: pointer.P(virtsnapshot.GroupName),
+		Kind:     "VirtualMachineSnapshot",
+		Name:     snapshotName,
+	}
+
+	cloneTargetRef := &k8sv1.TypedLocalObjectReference{
+		APIGroup: pointer.P(vmAPIGroup),
+		Kind:     "VirtualMachine",
+		Name:     targetVMName,
+	}
+
+	vmClone.Spec.Source = cloneSourceRef
+	vmClone.Spec.Target = cloneTargetRef
+
+	return vmClone
 }
