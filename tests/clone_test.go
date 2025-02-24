@@ -61,13 +61,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		format.MaxLength = 0
 	})
 
-	createSnapshot := func(snapshot *snapshotv1.VirtualMachineSnapshot) *snapshotv1.VirtualMachineSnapshot {
-		snapshot, err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, v1.CreateOptions{})
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-		return snapshot
-	}
-
 	generateCloneFromVMWithParams := func(sourceVM *virtv1.VirtualMachine, targetVMName string) *clone.VirtualMachineClone {
 		vmClone := kubecli.NewMinimalCloneWithNS("testclone", sourceVM.Namespace)
 
@@ -280,7 +273,8 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				events.ExpectEvent(vmClone, k8sv1.EventTypeNormal, "SourceDoesNotExist")
 
 				By("Creating a snapshot from VM")
-				snapshot = createSnapshot(snapshot)
+				snapshot, err := virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, v1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
 				waitCloneSucceeded(vmClone)
 
