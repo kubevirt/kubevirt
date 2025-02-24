@@ -15,7 +15,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/validation"
-	instancetypewebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
 
@@ -125,10 +124,6 @@ func admitPreference(request *admissionv1.AdmissionRequest, resource string) *ad
 		return &admissionv1.AdmissionResponse{
 			Allowed: true,
 		}
-	}
-
-	if resp := instancetypewebhooks.ValidateInstancetypeRequestResource(request.Resource, resource); resp != nil {
-		return resp
 	}
 
 	gvk := schema.GroupVersionKind{

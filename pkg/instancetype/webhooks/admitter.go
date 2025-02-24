@@ -3,7 +3,6 @@ package webhooks
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,20 +10,12 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	"kubevirt.io/api/instancetype"
-	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
 
 const percentValueMustBeInRangeMessagePattern = "%s '%d': must be in range between 0 and 100."
-
-var supportedInstancetypeVersions = []string{
-	instancetypev1alpha1.SchemeGroupVersion.Version,
-	instancetypev1alpha2.SchemeGroupVersion.Version,
-	instancetypev1beta1.SchemeGroupVersion.Version,
-}
 
 type InstancetypeAdmitter struct{}
 
@@ -85,10 +76,6 @@ func admitInstancetype(request *admissionv1.AdmissionRequest, resource string) *
 		}
 	}
 
-	if resp := ValidateInstancetypeRequestResource(request.Resource, resource); resp != nil {
-		return resp
-	}
-
 	gvk := schema.GroupVersionKind{
 		Group:   instancetypev1beta1.SchemeGroupVersion.Group,
 		Kind:    resource,
@@ -110,23 +97,4 @@ func admitInstancetype(request *admissionv1.AdmissionRequest, resource string) *
 	return &admissionv1.AdmissionResponse{
 		Allowed: true,
 	}
-}
-
-func ValidateInstancetypeRequestResource(request metav1.GroupVersionResource, resource string) *admissionv1.AdmissionResponse {
-	gvr := metav1.GroupVersionResource{
-		Group:    instancetypev1beta1.SchemeGroupVersion.Group,
-		Resource: resource,
-	}
-
-	for _, version := range supportedInstancetypeVersions {
-		gvr.Version = version
-		if request == gvr {
-			return nil
-		}
-	}
-
-	return webhookutils.ToAdmissionResponseError(
-		fmt.Errorf("expected '%s.%s' with versions [%s], got '%s'",
-			resource, gvr.Group, strings.Join(supportedInstancetypeVersions, ","), request),
-	)
 }
