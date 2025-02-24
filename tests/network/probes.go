@@ -77,10 +77,16 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Waiting for agent to connect")
-				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+				Eventually(matcher.ThisVMI(vmi)).
+					WithTimeout(12 * time.Minute).
+					WithPolling(2 * time.Second).
+					Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			}
 
-			Eventually(matcher.ThisVMI(vmi), 2*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
+			Eventually(matcher.ThisVMI(vmi)).
+				WithTimeout(2 * time.Minute).
+				WithPolling(2 * time.Second).
+				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 		},
 			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", createTCPProbe(period, initialSeconds, port), k8sv1.IPv4Protocol),
 			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily),
@@ -97,7 +103,10 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 				By("Disabling the guest-agent")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 				Expect(stopGuestAgent(vmi)).To(Succeed())
-				Eventually(matcher.ThisVMI(vmi), 5*time.Minute, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
+				Eventually(matcher.ThisVMI(vmi)).
+					WithTimeout(5 * time.Minute).
+					WithPolling(2 * time.Second).
+					Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
 			})
 
 			When("the guest agent is enabled, after being disabled", func() {
@@ -107,7 +116,10 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 				})
 
 				It("[test_id:6741] the VMI enters `Ready` state once again", func() {
-					Eventually(matcher.ThisVMI(vmi), 2*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
+					Eventually(matcher.ThisVMI(vmi)).
+						WithTimeout(2 * time.Minute).
+						WithPolling(2 * time.Second).
+						Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 				})
 			})
 		})
@@ -118,7 +130,10 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 			By("Checking that the VMI is consistently non-ready")
-			Consistently(matcher.ThisVMI(vmi), 30*time.Second, 100*time.Millisecond).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
+			Consistently(matcher.ThisVMI(vmi), 30*time.Second, 100*time.Millisecond).
+				WithTimeout(30 * time.Second).
+				WithPolling(100 * time.Millisecond).
+				Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
 		},
 			Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", createTCPProbe(period, initialSeconds, port), libvmifact.NewAlpine),
 			Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmifact.NewFedora),
@@ -149,7 +164,10 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Waiting for agent to connect")
-				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+				Eventually(matcher.ThisVMI(vmi)).
+					WithTimeout(12 * time.Minute).
+					WithPolling(2 * time.Second).
+					Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			}
 
 			By("Checking that the VMI is still running after a while")
@@ -157,7 +175,9 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vmi.IsFinal()
-			}, 120, 1).Should(Not(BeTrue()))
+			}).WithTimeout(2 * time.Minute).
+				WithPolling(1 * time.Second).
+				Should(Not(BeTrue()))
 		},
 			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv4", createTCPProbe(period, initialSeconds, port), k8sv1.IPv4Protocol),
 			Entry("[test_id:5879]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily),
@@ -169,7 +189,10 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Waiting for agent to connect")
-				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+				Eventually(matcher.ThisVMI(vmi)).
+					WithTimeout(12 * time.Minute).
+					WithPolling(2 * time.Second).
+					Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 			})
 
@@ -178,7 +201,9 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 
 				Eventually(func() (*v1.VirtualMachineInstance, error) {
 					return virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				}, 2*time.Minute, 1*time.Second).Should(Or(matcher.BeInPhase(v1.Failed), matcher.HaveSucceeded()))
+				}).WithTimeout(2 * time.Minute).
+					WithPolling(1 * time.Second).
+					Should(Or(matcher.BeInPhase(v1.Failed), matcher.HaveSucceeded()))
 			})
 		})
 
@@ -192,7 +217,9 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vmi.IsFinal()
-			}, 120, 1).Should(BeTrue())
+			}).WithTimeout(2 * time.Minute).
+				WithPolling(1 * time.Second).
+				Should(BeTrue())
 		},
 			Entry("[test_id:1217][posneg:negative]with working TCP probe and no running server", createTCPProbe(period, initialSeconds, port), libvmifact.NewCirros),
 			Entry("[test_id:5880]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmifact.NewFedora),
