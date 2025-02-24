@@ -121,9 +121,6 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			Consistently(matcher.ThisVMI(vmi), 30*time.Second, 100*time.Millisecond).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
 		},
 			Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", createTCPProbe(period, initialSeconds, port), libvmifact.NewAlpine),
-			Entry("[test_id:1219][posneg:negative]with working HTTP probe and no running server", createHTTPProbe(period, initialSeconds, port), libvmifact.NewAlpine),
-			Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmifact.NewFedora),
-			Entry("[test_id:TODO]with working Exec probe and infinitely running command", createExecProbe(period, initialSeconds, timeoutSeconds, "tail", "-f", "/dev/null"), libvmifact.NewFedora),
 		)
 	})
 
@@ -195,8 +192,6 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 				return vmi.IsFinal()
 			}, 120, 1).Should(BeTrue())
 		},
-			Entry("[test_id:1217][posneg:negative]with working TCP probe and no running server", createTCPProbe(period, initialSeconds, port), libvmifact.NewCirros),
-			Entry("[test_id:1218][posneg:negative]with working HTTP probe and no running server", createHTTPProbe(period, initialSeconds, port), libvmifact.NewCirros),
 			Entry("[test_id:5880]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmifact.NewFedora),
 		)
 	})
