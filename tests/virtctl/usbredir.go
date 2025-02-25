@@ -19,7 +19,7 @@
  *
  */
 
-package tests_test
+package virtctl
 
 import (
 	"context"
