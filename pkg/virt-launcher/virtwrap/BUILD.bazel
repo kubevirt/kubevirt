@@ -23,6 +23,7 @@ go_library(
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/host-disk:go_default_library",
+        "//pkg/hotplug-disk:go_default_library",
         "//pkg/ignition:go_default_library",
         "//pkg/liveupdate/memory:go_default_library",
         "//pkg/network/cache:go_default_library",
@@ -75,6 +76,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "live-migration-source_test.go",
         "manager_test.go",
         "nichotplug_test.go",
         "virtwrap_suite_test.go",
@@ -110,6 +112,7 @@ go_test(
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/onsi/gomega/gstruct:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",

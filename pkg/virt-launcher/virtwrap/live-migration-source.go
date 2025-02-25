@@ -50,6 +50,8 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 
+	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
@@ -870,6 +872,13 @@ func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineI
 	migDisks := classifyVolumesForMigration(vmi)
 	fsSrcBlockDstVols := getFsSrcBlockDstVols(vmi)
 	blockSrcFsDstVols := getBlockSrcFsDstVols(vmi)
+	hotplugVols := make(map[string]bool)
+
+	for _, v := range vmi.Spec.Volumes {
+		if storagetypes.IsHotplugVolume(&v) {
+			hotplugVols[v.Name] = true
+		}
+	}
 
 	for i, d := range dom.Devices.Disks {
 		if d.Alias == nil {
@@ -896,18 +905,30 @@ func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineI
 					},
 				}}
 		}
+		var path string
+		_, hotplugVol := hotplugVols[name]
 		// Adjust the XML configuration when it migrates from a filesystem source to a block destination or vice versa
 		if _, ok := fsSrcBlockDstVols[name]; ok {
 			log.Log.V(2).Infof("Replace filesystem source with block destination for volume %s", name)
+			if hotplugVol {
+				path = hotplugdisk.GetVolumeMountDir(name)
+			} else {
+				path = filepath.Join(string(filepath.Separator), "dev", name)
+			}
 			dom.Devices.Disks[i].Source.Block = &libvirtxml.DomainDiskSourceBlock{
-				Dev: filepath.Join(string(filepath.Separator), "dev", name),
+				Dev: path,
 			}
 			dom.Devices.Disks[i].Source.File = nil
 		}
 		if _, ok := blockSrcFsDstVols[name]; ok {
 			log.Log.V(2).Infof("Replace block source with destination for volume %s", name)
+			if hotplugVol {
+				path = hotplugdisk.GetVolumeMountDir(name) + ".img"
+			} else {
+				path = filepath.Join(hostdisk.GetMountedHostDiskDir(name), "disk.img")
+			}
 			dom.Devices.Disks[i].Source.File = &libvirtxml.DomainDiskSourceFile{
-				File: filepath.Join(hostdisk.GetMountedHostDiskDir(name), "disk.img"),
+				File: path,
 			}
 			dom.Devices.Disks[i].Source.Block = nil
 		}
