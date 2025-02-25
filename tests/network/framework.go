@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2020 Red Hat, Inc.
+ * Copyright the KubeVirt Authors.
  *
  */
 
@@ -26,9 +26,13 @@ import (
 )
 
 func SIGDescribe(text string, args ...interface{}) bool {
-	return Describe("[sig-network] "+text, decorators.SigNetwork, args)
+	return Describe(SIG(text, args))
 }
 
 func FSIGDescribe(text string, args ...interface{}) bool {
-	return FDescribe("[sig-network] "+text, decorators.SigNetwork, args)
+	return FDescribe(SIG(text, args))
+}
+
+func SIG(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
+	return decorators.SIG("[sig-network]", decorators.SigNetwork, text, args)
 }
