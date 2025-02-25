@@ -90,7 +90,7 @@ type addVolumeFunction func(name, namespace, volumeName, claimName string, bus v
 type removeVolumeFunction func(name, namespace, volumeName string, dryRun bool)
 type storageClassFunction func() (string, bool)
 
-var _ = SIGDescribe("Hotplug", func() {
+var _ = Describe(SIG("Hotplug", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -1938,7 +1938,7 @@ var _ = SIGDescribe("Hotplug", func() {
 			verifyVolumeNolongerAccessible(vmi, targets[0])
 		})
 	})
-})
+}))
 
 func verifyVolumeAndDiskVMAdded(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, volumeNames ...string) {
 	nameMap := make(map[string]bool)
