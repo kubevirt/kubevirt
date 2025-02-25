@@ -18,9 +18,12 @@ function dump() {
 
 # Get golang
 $CRI_BIN login --username "$(cat "${QUAY_USER}")" --password-stdin quay.io < "${QUAY_PASSWORD}"
-wget -q https://dl.google.com/go/go1.22.6.linux-amd64.tar.gz
+wget -q https://dl.google.com/go/go1.23.5.linux-amd64.tar.gz
 tar -C /usr/local -xf go*.tar.gz
 export PATH=/usr/local/go/bin:$PATH
+
+# add qemu-user-static
+$CRI_BIN run --rm --privileged docker.io/multiarch/qemu-user-static --reset -p yes
 
 # get latest KubeVirt commit
 latest_kubevirt=$(curl -sL https://storage.googleapis.com/kubevirt-prow/devel/nightly/release/kubevirt/kubevirt/latest)

@@ -84,8 +84,10 @@ function create_file_based_catalog() {
 
   IMAGES=
   for arch in ${ARCHITECTURES}; do
-    podman build --platform="linux/${arch}" -t "${INDEX_IMAGE_NAME}-${arch}" -f fbc-catalog.Dockerfile
-    IMAGES="${IMAGES} ${INDEX_IMAGE_NAME}-${arch}"
+    current_image="${INDEX_IMAGE_NAME}-${arch}"
+    podman build --platform="linux/${arch}" -t "${current_image}" -f fbc-catalog.Dockerfile
+    podman push "${current_image}"
+    IMAGES="${IMAGES} ${current_image}"
   done
 
   podman manifest create "${INDEX_IMAGE_NAME}" ${IMAGES}
