@@ -80,25 +80,25 @@ func (u *upgrader) Upgrade(vm *virtv1.VirtualMachine) error {
 		return err
 	}
 
-	if _, err := u.virtClient.VirtualMachine(vm.Namespace).Patch(
+	if _, err := u.virtClient.VirtualMachine(vm.Namespace).PatchStatus(
 		context.Background(), vm.Name, types.JSONPatchType, patchPayload, metav1.PatchOptions{}); err != nil {
 		return err
 	}
 
 	if newInstancetypeCR != nil {
 		if err := u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(
-			context.Background(), vm.Spec.Instancetype.RevisionName, metav1.DeleteOptions{}); err != nil {
+			context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.DeleteOptions{}); err != nil {
 			log.Log.Object(vm).Reason(err).Error("ignoring failure to delete ControllerRevision during stashed instance type object upgrade")
 		}
-		vm.Spec.Instancetype.RevisionName = newInstancetypeCR.Name
+		vm.Status.InstancetypeRef.ControllerRevisionRef.Name = newInstancetypeCR.Name
 	}
 
 	if newPreferenceCR != nil {
 		if err := u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(
-			context.Background(), vm.Spec.Preference.RevisionName, metav1.DeleteOptions{}); err != nil {
+			context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.DeleteOptions{}); err != nil {
 			log.Log.Object(vm).Reason(err).Error("ignoring failure to delete ControllerRevision during stashed preference object upgrade")
 		}
-		vm.Spec.Preference.RevisionName = newPreferenceCR.Name
+		vm.Status.PreferenceRef.ControllerRevisionRef.Name = newPreferenceCR.Name
 	}
 
 	log.Log.Object(vm).Info("instancetype.kubevirt.io ControllerRevisions upgrade successful")
@@ -107,17 +107,19 @@ func (u *upgrader) Upgrade(vm *virtv1.VirtualMachine) error {
 }
 
 func (u *upgrader) upgradeInstancetypeCR(vm *virtv1.VirtualMachine, vmPatchSet *patch.PatchSet) (*appsv1.ControllerRevision, error) {
-	if vm.Spec.Instancetype == nil || vm.Spec.Instancetype.RevisionName == "" {
+	if vm.Spec.Instancetype == nil || !revision.HasControllerRevisionRef(vm.Status.InstancetypeRef) {
 		return nil, nil
 	}
-	return u.upgradeControllerRevision(vm, vm.Spec.Instancetype.RevisionName, "/spec/instancetype/revisionName", vmPatchSet)
+	return u.upgradeControllerRevision(
+		vm, vm.Status.InstancetypeRef.ControllerRevisionRef.Name, "/status/instancetypeRef/controllerRevisionRef/name", vmPatchSet)
 }
 
 func (u *upgrader) upgradePreferenceCR(vm *virtv1.VirtualMachine, vmPatchSet *patch.PatchSet) (*appsv1.ControllerRevision, error) {
-	if vm.Spec.Preference == nil || vm.Spec.Preference.RevisionName == "" {
+	if vm.Spec.Preference == nil || !revision.HasControllerRevisionRef(vm.Status.PreferenceRef) {
 		return nil, nil
 	}
-	return u.upgradeControllerRevision(vm, vm.Spec.Preference.RevisionName, "/spec/preference/revisionName", vmPatchSet)
+	return u.upgradeControllerRevision(
+		vm, vm.Status.PreferenceRef.ControllerRevisionRef.Name, "/status/preferenceRef/controllerRevisionRef/name", vmPatchSet)
 }
 
 func (u *upgrader) upgradeControllerRevision(

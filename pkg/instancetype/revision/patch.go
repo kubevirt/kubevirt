@@ -20,9 +20,7 @@ package revision
 
 import (
 	"context"
-	"fmt"
 
-	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -31,14 +29,17 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
-func (h *revisionHandler) patchVM(instancetypeRevision, preferenceRevision *appsv1.ControllerRevision, vm *virtv1.VirtualMachine) error {
-	// Batch any writes to the VirtualMachine into a single Patch() call to avoid races in the controller.
+func (h *revisionHandler) patchVM(
+	instancetypeStatusRef, preferenceStatusRef *virtv1.InstancetypeStatusRef,
+	vm *virtv1.VirtualMachine,
+) error {
+	// Batch any writes to the VirtualMachine into a single PatchStatus() call to avoid races in the controller.
 	logger := func() *log.FilteredLogger { return log.Log.Object(vm) }
-	revisionPatch, err := GeneratePatch(instancetypeRevision, preferenceRevision)
+	revisionPatch, err := GeneratePatch(instancetypeStatusRef, preferenceStatusRef)
 	if err != nil || len(revisionPatch) == 0 {
 		return err
 	}
-	if _, err := h.virtClient.VirtualMachine(vm.Namespace).Patch(
+	if _, err := h.virtClient.VirtualMachine(vm.Namespace).PatchStatus(
 		context.Background(), vm.Name, types.JSONPatchType, revisionPatch, metav1.PatchOptions{},
 	); err != nil {
 		logger().Reason(err).Error("Failed to update VirtualMachine with instancetype and preference ControllerRevision references.")
@@ -47,19 +48,17 @@ func (h *revisionHandler) patchVM(instancetypeRevision, preferenceRevision *apps
 	return nil
 }
 
-func GeneratePatch(instancetypeRevision, preferenceRevision *appsv1.ControllerRevision) ([]byte, error) {
+func GeneratePatch(instancetypeStatusRef, preferenceStatusRef *virtv1.InstancetypeStatusRef) ([]byte, error) {
 	patchSet := patch.New()
-	if instancetypeRevision != nil {
+	if instancetypeStatusRef != nil {
 		patchSet.AddOption(
-			patch.WithTest("/spec/instancetype/revisionName", nil),
-			patch.WithAdd("/spec/instancetype/revisionName", instancetypeRevision.Name),
+			patch.WithAdd("/status/instancetypeRef", instancetypeStatusRef),
 		)
 	}
 
-	if preferenceRevision != nil {
+	if preferenceStatusRef != nil {
 		patchSet.AddOption(
-			patch.WithTest("/spec/preference/revisionName", nil),
-			patch.WithAdd("/spec/preference/revisionName", preferenceRevision.Name),
+			patch.WithAdd("/status/preferenceRef", preferenceStatusRef),
 		)
 	}
 
@@ -67,11 +66,5 @@ func GeneratePatch(instancetypeRevision, preferenceRevision *appsv1.ControllerRe
 		return nil, nil
 	}
 
-	payload, err := patchSet.GeneratePayload()
-	if err != nil {
-		// This is a programmer's error and should not happen
-		return nil, fmt.Errorf("failed to generate patch payload: %w", err)
-	}
-
-	return payload, nil
+	return patchSet.GeneratePayload()
 }

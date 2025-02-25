@@ -647,12 +647,12 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting until the VM has instancetype and preference RevisionNames")
-				Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveRevisionNames())
+				Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveControllerRevisionRefs())
 
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				originalVMInstancetypeRevisionName := vm.Spec.Instancetype.RevisionName
-				originalVMPreferenceRevisionName := vm.Spec.Preference.RevisionName
+				originalVMInstancetypeRevisionName := vm.Status.InstancetypeRef.ControllerRevisionRef.Name
+				originalVMPreferenceRevisionName := vm.Status.PreferenceRef.ControllerRevisionRef.Name
 
 				for _, dvt := range vm.Spec.DataVolumeTemplates {
 					libstorage.EventuallyDVWith(vm.Namespace, dvt.Name, 180, HaveSucceeded())
@@ -678,8 +678,8 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				By("Asserting that the restored VM has the same instancetype and preference controllerRevisions")
 				currVm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(currVm.Spec.Instancetype.RevisionName).To(Equal(originalVMInstancetypeRevisionName))
-				Expect(currVm.Spec.Preference.RevisionName).To(Equal(originalVMPreferenceRevisionName))
+				Expect(currVm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(originalVMInstancetypeRevisionName))
+				Expect(currVm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(originalVMPreferenceRevisionName))
 			},
 				Entry("with a running VM", v1.RunStrategyAlways),
 				Entry("with a stopped VM", v1.RunStrategyHalted),
@@ -691,7 +691,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting until the VM has instancetype and preference RevisionNames")
-				Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveRevisionNames())
+				Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveControllerRevisionRefs())
 
 				for _, dvt := range vm.Spec.DataVolumeTemplates {
 					libstorage.EventuallyDVWith(vm.Namespace, dvt.Name, 180, HaveSucceeded())
@@ -711,7 +711,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				_ = expectNewVMCreation(restoreVMName)
 
 				By("Waiting until the restoreVM has instancetype and preference RevisionNames")
-				Eventually(matcher.ThisVMWith(testsuite.GetTestNamespace(vm), restoreVMName)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveRevisionNames())
+				Eventually(matcher.ThisVMWith(testsuite.GetTestNamespace(vm), restoreVMName)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveControllerRevisionRefs())
 
 				By("Asserting that the restoreVM has new instancetype and preference controllerRevisions")
 				sourceVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
@@ -719,12 +719,12 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				restoreVM, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), restoreVMName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(restoreVM.Spec.Instancetype.RevisionName).ToNot(Equal(sourceVM.Spec.Instancetype.RevisionName))
-				Expect(restoreVM.Spec.Preference.RevisionName).ToNot(Equal(sourceVM.Spec.Preference.RevisionName))
+				Expect(restoreVM.Status.InstancetypeRef.ControllerRevisionRef.Name).ToNot(Equal(sourceVM.Status.InstancetypeRef.ControllerRevisionRef.Name))
+				Expect(restoreVM.Status.PreferenceRef.ControllerRevisionRef.Name).ToNot(Equal(sourceVM.Status.PreferenceRef.ControllerRevisionRef.Name))
 
 				By("Asserting that the source and target ControllerRevisions contain the same Object")
-				Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Instancetype.RevisionName, restoreVM.Spec.Instancetype.RevisionName, virtClient)).To(BeTrue(), "source and target instance type controller revisions are expected to be equal")
-				Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Spec.Preference.RevisionName, restoreVM.Spec.Preference.RevisionName, virtClient)).To(BeTrue(), "source and target preference controller revisions are expected to be equal")
+				Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Status.InstancetypeRef.ControllerRevisionRef.Name, restoreVM.Status.InstancetypeRef.ControllerRevisionRef.Name, virtClient)).To(BeTrue(), "source and target instance type controller revisions are expected to be equal")
+				Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Status.PreferenceRef.ControllerRevisionRef.Name, restoreVM.Status.PreferenceRef.ControllerRevisionRef.Name, virtClient)).To(BeTrue(), "source and target preference controller revisions are expected to be equal")
 			},
 				Entry("with a running VM", v1.RunStrategyAlways),
 				Entry("with a stopped VM", v1.RunStrategyHalted),

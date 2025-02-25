@@ -13014,6 +13014,15 @@
      }
     }
    },
+   "v1.ControllerRevisionRef": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "description": "Name of the ControllerRevision",
+      "type": "string"
+     }
+    }
+   },
    "v1.CustomBlockSize": {
     "description": "CustomBlockSize represents the desired logical and physical block size for a VM disk.",
     "type": "object",
@@ -14150,6 +14159,31 @@
      },
      "revisionName": {
       "description": "RevisionName specifies a ControllerRevision containing a specific copy of the VirtualMachineInstancetype or VirtualMachineClusterInstancetype to be used. This is initially captured the first time the instancetype is applied to the VirtualMachineInstance.",
+      "type": "string"
+     }
+    }
+   },
+   "v1.InstancetypeStatusRef": {
+    "type": "object",
+    "properties": {
+     "controllerRevisionRef": {
+      "description": "ControllerRef specifies the ControllerRevision storing a copy of the object captured when it is first seen by the VirtualMachine controller",
+      "$ref": "#/definitions/v1.ControllerRevisionRef"
+     },
+     "inferFromVolume": {
+      "description": "InferFromVolume lists the name of a volume that should be used to infer or discover the resource",
+      "type": "string"
+     },
+     "inferFromVolumeFailurePolicy": {
+      "description": "InferFromVolumeFailurePolicy controls what should happen on failure when inferring the resource",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind specifies the kind of resource",
+      "type": "string"
+     },
+     "name": {
+      "description": "Name is the name of resource",
       "type": "string"
      }
     }
@@ -17715,6 +17749,10 @@
       "type": "integer",
       "format": "int64"
      },
+     "instancetypeRef": {
+      "description": "InstancetypeRef captures the state of any referenced instance type from the VirtualMachine",
+      "$ref": "#/definitions/v1.InstancetypeStatusRef"
+     },
      "memoryDumpRequest": {
       "description": "MemoryDumpRequest tracks memory dump request phase and info of getting a memory dump to the given pvc",
       "$ref": "#/definitions/v1.VirtualMachineMemoryDumpRequest"
@@ -17723,6 +17761,10 @@
       "description": "ObservedGeneration is the generation observed by the vmi when started.",
       "type": "integer",
       "format": "int64"
+     },
+     "preferenceRef": {
+      "description": "PreferenceRef captures the state of any referenced preference from the VirtualMachine",
+      "$ref": "#/definitions/v1.InstancetypeStatusRef"
      },
      "printableStatus": {
       "description": "PrintableStatus is a human readable, high-level representation of the status of the virtual machine",
