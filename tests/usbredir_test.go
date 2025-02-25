@@ -24,6 +24,7 @@ package tests_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"syscall"
 	"time"
@@ -203,6 +204,40 @@ func runConnectGoroutine(
 	usbredirConnect(usbredirStream, ctx)
 }
 
+func mockClientConnection(ctx context.Context, address string) error {
+	conn, err := net.Dial("tcp", address)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	buf := make([]byte, 1024, 1024)
+
+	// write hello message to remote (VMI)
+	if nw, err := conn.Write([]byte(helloMessageLocal)); err != nil {
+		return err
+	} else if nw != len(helloMessageLocal) {
+		return fmt.Errorf("Write: %d != %d", len(helloMessageLocal), nw)
+	}
+
+	// reading hello message from remote (VMI)
+	if nr, err := conn.Read(buf); err != nil {
+		return err
+	} else if nr != len(helloMessageRemote) {
+		return fmt.Errorf("Read: %d != %d", len(helloMessageRemote), nr)
+	}
+
+	// Signal connected after read/write to be sure no TCP operation failed too
+	if connected, ok := ctx.Value("connected").(chan struct{}); ok {
+		connected <- struct{}{}
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 func usbredirConnect(
 	stream kvcorev1.StreamInterface,
 	ctx context.Context,
@@ -210,40 +245,13 @@ func usbredirConnect(
 
 	usbredirClient, err := usbredir.NewUSBRedirClient(ctx, "localhost:0", stream)
 	Expect(err).ToNot(HaveOccurred())
+	usbredirClient.LaunchClient = false
 
-	usbredirClient.ClientConnect = func(inCtx context.Context, device, address string) error {
+	conn := make(chan error)
+	go func() {
 		defer GinkgoRecover()
-		conn, err := net.Dial("tcp", address)
-		Expect(err).ToNot(HaveOccurred())
-		defer conn.Close()
-
-		buf := make([]byte, 1024, 1024)
-
-		// write hello message to remote (VMI)
-		if nw, err := conn.Write([]byte(helloMessageLocal)); err != nil {
-			return err
-		} else {
-			Expect(nw).To(Equal(len(helloMessageLocal)))
-		}
-
-		// reading hello message from remote (VMI)
-		if nr, err := conn.Read(buf); err != nil {
-			return err
-		} else {
-			Expect(buf[0:nr]).ToNot(BeEmpty(), "response should not be empty")
-			Expect(buf[0:nr]).To(HaveLen(len(helloMessageRemote)))
-		}
-
-		// Signal connected after read/write to be sure no TCP operation failed too
-		if connected, ok := inCtx.Value("connected").(chan struct{}); ok {
-			connected <- struct{}{}
-		}
-
-		select {
-		case <-inCtx.Done():
-			return inCtx.Err()
-		}
-	}
+		conn <- mockClientConnection(ctx, usbredirClient.GetProxyAddress())
+	}()
 
 	run := make(chan error)
 	go func() {
@@ -252,6 +260,8 @@ func usbredirConnect(
 	}()
 
 	select {
+	case err = <-conn:
+		Expect(err).ToNot(HaveOccurred())
 	case err = <-run:
 		Expect(err).ToNot(HaveOccurred())
 	case <-ctx.Done():
