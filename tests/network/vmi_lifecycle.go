@@ -47,7 +47,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("[crit:high][vendor:cnv-qe@redhat.com][level:component]", decorators.WgArm64, func() {
+var _ = Describe(SIG("[crit:high][vendor:cnv-qe@redhat.com][level:component]", decorators.WgArm64, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -137,7 +137,7 @@ var _ = SIGDescribe("[crit:high][vendor:cnv-qe@redhat.com][level:component]", de
 			})
 		})
 	})
-})
+}))
 
 func verifyDummyNicForBridgeNetwork(vmi *v1.VirtualMachineInstance) {
 	output := libpod.RunCommandOnVmiPod(vmi, []string{"/bin/bash", "-c", "/usr/sbin/ip link show|grep DOWN|grep -c eth0"})

@@ -87,7 +87,7 @@ const (
 	bridge10MacSpoofCheck = false
 )
 
-var _ = SIGDescribe("Multus", Serial, decorators.Multus, func() {
+var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -727,7 +727,7 @@ var _ = SIGDescribe("Multus", Serial, decorators.Multus, func() {
 			})
 		})
 	})
-})
+}))
 
 func changeInterfaceMACAddress(vmi *v1.VirtualMachineInstance, interfaceName, newMACAddress string) error {
 	const maxCommandTimeout = 5 * time.Second

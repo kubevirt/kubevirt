@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("interface state up/down", func() {
+var _ = Describe(SIG("interface state up/down", func() {
 
 	It("status and guest should show correct iface state", func() {
 		const (
@@ -131,7 +131,7 @@ var _ = SIGDescribe("interface state up/down", func() {
 
 	})
 
-})
+}))
 
 func normalizeIfaceStatuses(ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface) []v1.VirtualMachineInstanceNetworkInterface {
 	var result []v1.VirtualMachineInstanceNetworkInterface

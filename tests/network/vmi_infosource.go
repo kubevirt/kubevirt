@@ -49,7 +49,7 @@ import (
 
 const dummyInterfaceName = "dummy0"
 
-var _ = SIGDescribe("Infosource", func() {
+var _ = Describe(SIG("Infosource", func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -172,7 +172,7 @@ var _ = SIGDescribe("Infosource", func() {
 			Expect(vmi.Status.Interfaces).To(ConsistOf(expectedInterfaces))
 		})
 	})
-})
+}))
 
 func dummyInterfaceExists(vmi *kvirtv1.VirtualMachineInstance) bool {
 	for i := range vmi.Status.Interfaces {

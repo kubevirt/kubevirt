@@ -45,7 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("Primary Pod Network", func() {
+var _ = Describe(SIG("Primary Pod Network", func() {
 	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -153,7 +153,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 			})
 		})
 	})
-})
+}))
 
 func setupVMI(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 	By("Creating the VMI")
