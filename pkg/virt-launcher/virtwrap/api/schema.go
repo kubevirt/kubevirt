@@ -1146,6 +1146,9 @@ type Address struct {
 	Unit       string `xml:"unit,attr,omitempty"`
 	UUID       string `xml:"uuid,attr,omitempty"`
 	Device     string `xml:"device,attr,omitempty"`
+	CSSID      string `xml:"cssid,attr,omitempty"`
+	SSID       string `xml:"ssid,attr,omitempty"`
+	DevNo      string `xml:"devno,attr,omitempty"`
 }
 
 //END Video -------------------
