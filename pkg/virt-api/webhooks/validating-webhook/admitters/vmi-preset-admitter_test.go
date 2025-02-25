@@ -29,10 +29,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"kubevirt.io/client-go/api"
-
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
 
@@ -63,7 +62,9 @@ var _ = Describe("Validating VMIPreset Admitter", func() {
 		),
 	)
 	It("reject invalid VirtualMachineInstance spec", func() {
-		vmi := api.NewMinimalVMI("testvmi")
+		vmi := libvmi.New(
+			libvmi.WithName("testvmi"),
+		)
 		vmiPDomain := &v1.DomainSpec{}
 		vmiDomainByte, _ := json.Marshal(vmi.Spec.Domain)
 		Expect(json.Unmarshal(vmiDomainByte, &vmiPDomain)).To(Succeed())
@@ -97,11 +98,6 @@ var _ = Describe("Validating VMIPreset Admitter", func() {
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0]"))
 	})
 	It("should accept valid vmi spec", func() {
-		vmi := api.NewMinimalVMI("testvmi")
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: "testdisk",
-		})
-
 		vmiPreset := &v1.VirtualMachineInstancePreset{
 			Spec: v1.VirtualMachineInstancePresetSpec{
 				Domain: &v1.DomainSpec{},
