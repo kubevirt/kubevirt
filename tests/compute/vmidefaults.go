@@ -44,7 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("VMIDefaults", func() {
+var _ = Describe(SIG("VMIDefaults", func() {
 	var virtClient kubecli.KubevirtClient
 
 	var vmi *v1.VirtualMachineInstance
@@ -257,4 +257,4 @@ var _ = SIGDescribe("VMIDefaults", func() {
 		})
 
 	})
-})
+}))

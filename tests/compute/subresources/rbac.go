@@ -39,7 +39,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = compute.SIGDescribe("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] Rbac authorization", func() {
+var _ = Describe(compute.SIG("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] Rbac authorization", func() {
 	var saClient kubecli.KubevirtClient
 
 	When("correct permissions are provided", func() {
@@ -101,7 +101,7 @@ var _ = compute.SIGDescribe("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com
 			Expect(errors.ReasonForError(err)).To(Equal(metav1.StatusReasonForbidden))
 		})
 	})
-})
+}))
 
 func getClientForSA(virtCli kubecli.KubevirtClient, saName string) kubecli.KubevirtClient {
 	secret, err := virtCli.CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Get(context.Background(), saName, metav1.GetOptions{})

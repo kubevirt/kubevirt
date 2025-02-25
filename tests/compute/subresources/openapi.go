@@ -33,7 +33,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 )
 
-var _ = compute.SIGDescribe("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] the openapi spec for the subresources", func() {
+var _ = Describe(compute.SIG("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] the openapi spec for the subresources", func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -48,4 +48,4 @@ var _ = compute.SIGDescribe("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com
 			// The first item in the SubresourceGroupVersions array is the preferred version
 		}, 60*time.Second, 1*time.Second).Should(ContainSubstring("subresources.kubevirt.io/" + v1.SubresourceGroupVersions[0].Version))
 	})
-})
+}))

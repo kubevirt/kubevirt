@@ -41,7 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("[rfe_id:1177][crit:medium] VirtualMachine", func() {
+var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -212,7 +212,7 @@ var _ = SIGDescribe("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 			Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachinePaused))
 		})
 	})
-})
+}))
 
 func withStartStrategy(strategy *v1.StartStrategy) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
