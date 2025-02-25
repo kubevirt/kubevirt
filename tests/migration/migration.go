@@ -3246,26 +3246,33 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		})
 	})
 
-	Context("[Serial] with a dedicated migration network", Serial, func() {
+	Context("with a dedicated migration network", Serial, func() {
+		var nadName string
 		BeforeEach(func() {
 			virtClient = kubevirt.Client()
 
-			By("Creating the Network Attachment Definition")
-			nad := libmigration.GenerateMigrationCNINetworkAttachmentDefinition()
-			_, err = virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(flags.KubeVirtInstallNamespace).Create(context.TODO(), nad, metav1.CreateOptions{})
-			Expect(err).NotTo(HaveOccurred(), "Failed to create the Network Attachment Definition")
+			if flags.MigrationNetworkName != "" {
+				By(fmt.Sprintf("Using the provided Network Attachment Definition: %s", flags.MigrationNetworkName))
+				nadName = flags.MigrationNetworkName
+			} else {
+				By("Creating the Network Attachment Definition")
+				nad := libmigration.GenerateMigrationCNINetworkAttachmentDefinition()
+				nadName = nad.Name
+				_, err := virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(flags.KubeVirtInstallNamespace).Create(context.Background(), nad, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred(), "Failed to create the Network Attachment Definition")
+				DeferCleanup(func() {
+					By("Deleting the Network Attachment Definition")
+					Expect(virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(flags.KubeVirtInstallNamespace).Delete(context.Background(), nadName, metav1.DeleteOptions{})).To(Succeed(), "Failed to delete the Network Attachment Definition")
+				})
+			}
 
 			By("Setting it as the migration network in the KubeVirt CR")
-			libmigration.SetDedicatedMigrationNetwork(nad.Name)
+			libmigration.SetDedicatedMigrationNetwork(nadName)
 		})
+
 		AfterEach(func() {
 			By("Clearing the migration network in the KubeVirt CR")
 			libmigration.ClearDedicatedMigrationNetwork()
-
-			By("Deleting the Network Attachment Definition")
-			nad := libmigration.GenerateMigrationCNINetworkAttachmentDefinition()
-			err = virtClient.NetworkClient().K8sCniCncfIoV1().NetworkAttachmentDefinitions(flags.KubeVirtInstallNamespace).Delete(context.TODO(), nad.Name, metav1.DeleteOptions{})
-			Expect(err).NotTo(HaveOccurred(), "Failed to delete the Network Attachment Definition")
 		})
 		It("Should migrate over that network", func() {
 			vmi := libvmi.NewAlpine(
@@ -3281,7 +3288,9 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 
 			By("Checking if the migration happened, and over the right network")
 			vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
-			Expect(vmi.Status.MigrationState.TargetNodeAddress).To(HavePrefix("172.21.42."), "The migration did not appear to go over the dedicated migration network")
+			targetHandler, err := libnode.GetVirtHandlerPod(kubevirt.Client(), vmi.Status.NodeName)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmi.Status.MigrationState.TargetNodeAddress).ToNot(Equal(targetHandler.Status.PodIP), "The migration did not appear to go over the dedicated migration network")
 		})
 	})
 
