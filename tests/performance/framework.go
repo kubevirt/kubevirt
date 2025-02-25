@@ -55,18 +55,6 @@ func init() {
 	}
 }
 
-func SIGDescribe(text string, args ...interface{}) bool {
-	return Describe(SIG(text, args))
-}
-
-func FSIGDescribe(text string, args ...interface{}) bool {
-	return FDescribe(SIG(text, args))
-}
-
-func KWOKDescribe(text string, args ...interface{}) bool {
-	return Describe(KWOK(text, args))
-}
-
 func KWOK(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
 	return decorators.SIG("[sig-performance]", decorators.SigPerformance, text, Serial, Label("KWOK"), args)
 }
