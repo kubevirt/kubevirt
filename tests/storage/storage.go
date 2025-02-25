@@ -87,7 +87,7 @@ const (
 
 type VMICreationFunc func(string) *v1.VirtualMachineInstance
 
-var _ = SIGDescribe("Storage", func() {
+var _ = Describe(SIG("Storage", func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -1355,7 +1355,7 @@ var _ = SIGDescribe("Storage", func() {
 			})
 		})
 	})
-})
+}))
 
 func waitForPodToDisappearWithTimeout(podName string, seconds int) {
 	virtClient := kubevirt.Client()

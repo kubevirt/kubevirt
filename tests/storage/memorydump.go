@@ -67,7 +67,7 @@ const (
 type memoryDumpFunction func(name, namespace, claimNames string)
 type removeMemoryDumpFunction func(name, namespace string)
 
-var _ = SIGDescribe("Memory dump", func() {
+var _ = Describe(SIG("Memory dump", func() {
 	var (
 		virtClient         kubecli.KubevirtClient
 		memoryDumpPVCName  string
@@ -449,7 +449,7 @@ var _ = SIGDescribe("Memory dump", func() {
 			}
 		})
 	})
-})
+}))
 
 // createExecutorPodWithPVC creates a Pod with the passed in PVC mounted under /pvc. You can then use the executor utilities to
 // run commands against the PVC through this Pod.
