@@ -47,7 +47,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("Slirp", decorators.Networking, decorators.NetCustomBindingPlugins, Serial, func() {
+var _ = Describe(SIG("Slirp", decorators.Networking, decorators.NetCustomBindingPlugins, Serial, func() {
 	BeforeEach(libnet.SkipWhenClusterNotSupportIpv4)
 
 	const slirpBindingName = "slirp"
@@ -121,7 +121,7 @@ var _ = SIGDescribe("Slirp", decorators.Networking, decorators.NetCustomBindingP
 		log.Log.Infof("%v", output)
 		Expect(err).To(HaveOccurred())
 	})
-})
+}))
 
 func lookupComputeContainer(containers []k8sv1.Container) *k8sv1.Container {
 	for idx := range containers {

@@ -31,7 +31,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:component]Networkpolicy", func() {
+var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:component]Networkpolicy", func() {
 	var (
 		virtClient      kubecli.KubevirtClient
 		serverVMILabels map[string]string
@@ -271,7 +271,7 @@ var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:com
 			})
 		})
 	})
-})
+}))
 
 func assertPingSucceed(fromVmi, toVmi *v1.VirtualMachineInstance) {
 	ConsistentlyWithOffset(1, func() error {
