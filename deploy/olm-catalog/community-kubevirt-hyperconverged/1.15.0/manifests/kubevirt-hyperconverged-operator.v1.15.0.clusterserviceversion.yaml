@@ -318,11 +318,20 @@ spec:
           resources:
           - pods
           - nodes
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
           - secrets
           verbs:
           - get
           - list
           - watch
+          - create
+          - update
         - apiGroups:
           - ""
           resources:

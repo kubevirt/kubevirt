@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -63,7 +64,17 @@ func NewServiceMonitor(namespace string, owner metav1.OwnerReference) *monitorin
 		Selector: metav1.LabelSelector{
 			MatchLabels: labels,
 		},
-		Endpoints: []monitoringv1.Endpoint{{Port: operatorPortName}},
+		Endpoints: []monitoringv1.Endpoint{{
+			Port: operatorPortName,
+			Authorization: &monitoringv1.SafeAuthorization{
+				Credentials: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+					Key: "token",
+				},
+			},
+		}},
 	}
 
 	return &monitoringv1.ServiceMonitor{

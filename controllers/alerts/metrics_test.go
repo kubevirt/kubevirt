@@ -103,7 +103,7 @@ var _ = Describe("alert tests", func() {
 			req = commontestutils.NewReq(hco)
 			Expect(r.UpdateRelatedObjects(req)).To(Succeed())
 			Expect(req.StatusDirty).To(BeTrue())
-			Expect(hco.Status.RelatedObjects).To(HaveLen(5))
+			Expect(hco.Status.RelatedObjects).To(HaveLen(6))
 
 			Expect(ee.CheckEvents(expectedEvents)).To(BeTrue())
 		})

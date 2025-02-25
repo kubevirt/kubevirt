@@ -11,6 +11,7 @@ import (
 	"time"
 
 	openshiftroutev1 "github.com/openshift/api/route/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/rest"
@@ -21,8 +22,9 @@ import (
 const tempRouteName = "prom-route"
 
 type HCOPrometheusClient struct {
-	url string
-	cli *http.Client
+	url   string
+	token string
+	cli   *http.Client
 }
 
 var (
@@ -48,6 +50,12 @@ func GetHCOPrometheusClient(ctx context.Context, cli client.Client) (*HCOPrometh
 }
 
 func newHCOPrometheusClient(ctx context.Context, cli client.Client) (*HCOPrometheusClient, error) {
+	secret := &corev1.Secret{}
+	err := cli.Get(ctx, client.ObjectKey{Namespace: InstallNamespace, Name: "hco-bearer-auth"}, secret)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the secret; %w", err)
+	}
+
 	ticker := time.NewTicker(5 * time.Second)
 	var cancel context.CancelFunc
 	ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
@@ -67,8 +75,9 @@ func newHCOPrometheusClient(ctx context.Context, cli client.Client) (*HCOPrometh
 			}
 
 			return &HCOPrometheusClient{
-				url: fmt.Sprintf("https://%s/metrics", tempRouteHost),
-				cli: httpClient,
+				url:   fmt.Sprintf("https://%s/metrics", tempRouteHost),
+				token: string(secret.Data["token"]),
+				cli:   httpClient,
 			}, nil
 
 		case <-ctx.Done():
@@ -82,6 +91,7 @@ func (hcoCli HCOPrometheusClient) GetHCOMetric(ctx context.Context, query string
 	if err != nil {
 		return 0, fmt.Errorf("failed to create request: %w", err)
 	}
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", string(hcoCli.token)))
 
 	resp, err := hcoCli.cli.Do(req.WithContext(ctx))
 	if err != nil {
