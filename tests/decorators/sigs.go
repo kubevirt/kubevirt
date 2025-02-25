@@ -17,22 +17,13 @@
  *
  */
 
-package compute
+package decorators
 
-import (
-	ginkgo "github.com/onsi/ginkgo/v2"
+import "github.com/onsi/ginkgo/v2"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-)
-
-func SIGDescribe(text string, args ...interface{}) bool {
-	return ginkgo.Describe(SIG(text, args))
-}
-
-func FSIGDescribe(text string, args ...interface{}) bool {
-	return ginkgo.FDescribe(SIG(text, args))
-}
-
-func SIG(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
-	return decorators.SIG("[sig-compute]", decorators.SigCompute, text, args)
+func SIG(identifier string, decorator ginkgo.Labels, text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
+	newArgs = []interface{}{decorator}
+	newArgs = append(newArgs, args...)
+	extendedText = identifier + " " + text
+	return
 }
