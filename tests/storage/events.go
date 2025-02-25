@@ -48,7 +48,7 @@ const (
 	deviceName = "errdev0"
 )
 
-var _ = SIGDescribe("K8s IO events", Serial, func() {
+var _ = Describe(SIG("K8s IO events", Serial, func() {
 	var (
 		nodeName   string
 		virtClient kubecli.KubevirtClient
@@ -98,7 +98,7 @@ var _ = SIGDescribe("K8s IO events", Serial, func() {
 		Expect(err).ToNot(HaveOccurred(), "Failed to delete VMI")
 		libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 	})
-})
+}))
 
 func createFaultyDisk(nodeName, deviceName string) {
 	By(fmt.Sprintf("Creating faulty disk %s on %s node", deviceName, nodeName))

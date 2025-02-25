@@ -115,7 +115,7 @@ var (
 	})
 )
 
-var _ = SIGDescribe("Export", func() {
+var _ = Describe(SIG("Export", func() {
 	var err error
 	var token *k8sv1.Secret
 	var virtClient kubecli.KubevirtClient
@@ -2195,7 +2195,7 @@ var _ = SIGDescribe("Export", func() {
 			Expect(postCertParamms).ToNot(Equal(preCertParamms))
 		})
 	})
-})
+}))
 
 func logToGinkgoWritter(format string, parameters ...interface{}) {
 	_, _ = fmt.Fprintf(GinkgoWriter, format, parameters...)

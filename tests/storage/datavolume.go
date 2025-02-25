@@ -86,7 +86,7 @@ const (
 
 const InvalidDataVolumeUrl = "docker://127.0.0.1/invalid:latest"
 
-var _ = SIGDescribe("DataVolume Integration", func() {
+var _ = Describe(SIG("DataVolume Integration", func() {
 
 	var virtClient kubecli.KubevirtClient
 	var err error
@@ -1262,7 +1262,7 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 			Expect(*vm.Spec.DataVolumeTemplates[0].Spec.Storage.StorageClassName).NotTo(Equal(virtualMachinePreference.Spec.Volumes.PreferredStorageClassName))
 		})
 	})
-})
+}))
 
 var explicitCloneRole = &rbacv1.Role{
 	ObjectMeta: metav1.ObjectMeta{

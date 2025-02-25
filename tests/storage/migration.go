@@ -73,7 +73,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("Volumes update with migration", decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateRolloutStrategy, Serial, func() {
+var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateRolloutStrategy, Serial, func() {
 	var virtClient kubecli.KubevirtClient
 	var testSc string
 	getCSIStorageClass := libstorage.GetSnapshotStorageClass
@@ -911,7 +911,7 @@ var _ = SIGDescribe("Volumes update with migration", decorators.RequiresTwoSched
 		})
 	})
 
-})
+}))
 
 func createUnschedulablePVC(name, namespace, size string) *k8sv1.PersistentVolumeClaim {
 	pvc := libstorage.NewPVC(name, size, "dontexist")
