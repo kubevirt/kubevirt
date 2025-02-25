@@ -37,6 +37,7 @@ import (
 	kvtesting "kubevirt.io/client-go/testing"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
@@ -179,8 +180,13 @@ var _ = Describe("VirtualMachine", func() {
 			virtFakeClient.PrependReactor("update", "virtualmachineinstance", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
 				switch action := action.(type) {
 				case testing.PatchActionImpl:
-					patch := fmt.Sprintf(`[{ "op": "test", "path": "/metadata/finalizers", "value": ["%s"] }, { "op": "replace", "path": "/metadata/finalizers", "value": [] }]`, v1.VirtualMachineControllerFinalizer)
-					Expect(action.Patch).To(Equal([]byte(patch)))
+					const finalizerPath = "/metadata/finalizers"
+					patches, err := patch.New(
+						patch.WithTest(finalizerPath, v1.VirtualMachineControllerFinalizer),
+						patch.WithReplace(finalizerPath, []string{}),
+					).GeneratePayload()
+					Expect(err).ToNot(HaveOccurred(), "Failed to generate patch payload")
+					Expect(action.Patch).To(Equal(patches))
 				default:
 					Fail("Expected to see patch")
 				}
