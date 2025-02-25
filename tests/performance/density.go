@@ -55,7 +55,7 @@ const (
 	vmiCreationToRunningSecondsP95Threshold = 60
 )
 
-var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
+var _ = Describe(SIG("Control Plane Performance Density Testing", func() {
 	var (
 		virtClient kubecli.KubevirtClient
 		startTime  time.Time
@@ -123,7 +123,7 @@ var _ = SIGDescribe("Control Plane Performance Density Testing", func() {
 			})
 		})
 	})
-})
+}))
 
 func collectMetrics(startTime time.Time, filepath string) {
 	// ensure the metrics get scraped by Prometheus till the end, since the default Prometheus scrape interval is 30s
