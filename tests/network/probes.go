@@ -38,7 +38,7 @@ const (
 	stopAgent  = "stop"
 )
 
-var _ = SIGDescribe("[ref_id:1182]Probes", func() {
+var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 	var (
 		err           error
 		virtClient    kubecli.KubevirtClient
@@ -253,7 +253,7 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			Entry("[test_id:5880]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmifact.NewFedora),
 		)
 	})
-})
+}))
 
 func isExecProbe(probe *v1.Probe) bool {
 	return probe.Exec != nil

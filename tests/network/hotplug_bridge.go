@@ -57,7 +57,7 @@ const (
 	inPlace        hotplugMethod = "inPlace"
 )
 
-var _ = SIGDescribe("bridge nic-hotplug", func() {
+var _ = Describe(SIG("bridge nic-hotplug", func() {
 	const (
 		ifaceName = "iface1"
 		nadName   = "skynet"
@@ -223,9 +223,9 @@ var _ = SIGDescribe("bridge nic-hotplug", func() {
 			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
 		)
 	})
-})
+}))
 
-var _ = SIGDescribe("bridge nic-hotunplug", func() {
+var _ = Describe(SIG("bridge nic-hotunplug", func() {
 	const (
 		linuxBridgeNetworkName1 = "red"
 		linuxBridgeNetworkName2 = "blue"
@@ -292,7 +292,7 @@ var _ = SIGDescribe("bridge nic-hotunplug", func() {
 			Entry("Migration based", decorators.MigrationBasedHotplugNICs, migrationBased),
 		)
 	})
-})
+}))
 
 func newBridgeNetworkInterface(name, netAttachDefName string) (v1.Network, v1.Interface) {
 	network := v1.Network{

@@ -55,7 +55,7 @@ const (
 	jobFailureRetry = 0
 )
 
-var _ = SIGDescribe("Services", func() {
+var _ = Describe(SIG("Services", func() {
 	Context("bridge interface binding", func() {
 		var inboundVMI *v1.VirtualMachineInstance
 
@@ -197,7 +197,7 @@ var _ = SIGDescribe("Services", func() {
 			})
 		})
 	})
-})
+}))
 
 func createServiceConnectivityJob(serviceName, namespace string, servicePort int, retries int32) (*batchv1.Job, error) {
 	serviceFQDN := fmt.Sprintf("%s.%s", serviceName, namespace)

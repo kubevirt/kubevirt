@@ -52,7 +52,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe(" VirtualMachineInstance with passt network binding plugin", decorators.NetCustomBindingPlugins, Serial, func() {
+var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin", decorators.NetCustomBindingPlugins, Serial, func() {
 	const passtNetAttDefName = "netbindingpasst"
 
 	var err error
@@ -374,7 +374,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 			Entry("[IPv6]", k8sv1.IPv6Protocol),
 		)
 	})
-})
+}))
 
 func assertSourcePodContainersTerminate(labelSelector, fieldSelector string, vmi *v1.VirtualMachineInstance) bool {
 	return Eventually(func() k8sv1.PodPhase {
