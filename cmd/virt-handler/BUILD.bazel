@@ -177,6 +177,7 @@ container_image(
     files = [
         ":virt-handler",
         "//cmd/virt-chroot",
+        "//cmd/virtiofs-dispatcher",
     ],
     visibility = ["//visibility:public"],
 )
