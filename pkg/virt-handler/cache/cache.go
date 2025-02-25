@@ -33,8 +33,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/checkpoint"
-	"kubevirt.io/kubevirt/pkg/util"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -62,7 +60,7 @@ func (icp *iterableCheckpointManager) ListKeys() []string {
 
 }
 
-func newIterableCheckpointManager(base string) IterableCheckpointManager {
+func NewIterableCheckpointManager(base string) IterableCheckpointManager {
 	return &iterableCheckpointManager{
 		base,
 		checkpoint.NewSimpleCheckpointManager(base),
@@ -76,41 +74,40 @@ type ghostRecord struct {
 	UID        types.UID `json:"uid"`
 }
 
-var ghostRecordGlobalCache map[string]ghostRecord
-var ghostRecordGlobalMutex sync.Mutex
-var checkpointManager IterableCheckpointManager
+var GhostRecordGlobalStore GhostRecordStore
 
-func InitializeGhostRecordCache(directoryPath string) error {
-	ghostRecordGlobalMutex.Lock()
-	defer ghostRecordGlobalMutex.Unlock()
+type GhostRecordStore struct {
+	cache             map[string]ghostRecord
+	checkpointManager checkpoint.CheckpointManager
+	sync.Mutex
+}
 
-	ghostRecordGlobalCache = make(map[string]ghostRecord)
+func InitializeGhostRecordCache(iterableCPManager IterableCheckpointManager) *GhostRecordStore {
 
-	err := util.MkdirAllWithNosec(directoryPath)
-	if err != nil {
-		return err
+	GhostRecordGlobalStore = GhostRecordStore{
+		cache:             make(map[string]ghostRecord),
+		checkpointManager: iterableCPManager,
 	}
-	checkpointManager = newIterableCheckpointManager(directoryPath)
 
-	keys := checkpointManager.ListKeys()
+	keys := iterableCPManager.ListKeys()
 	for _, key := range keys {
 		ghostRecord := ghostRecord{}
-		if err := checkpointManager.Get(key, &ghostRecord); err != nil {
+		if err := GhostRecordGlobalStore.checkpointManager.Get(key, &ghostRecord); err != nil {
 			log.Log.Reason(err).Errorf("Unable to read ghost record checkpoint, %s", key)
 			continue
 		}
 		key := ghostRecord.Namespace + "/" + ghostRecord.Name
-		ghostRecordGlobalCache[key] = ghostRecord
+		GhostRecordGlobalStore.cache[key] = ghostRecord
 		log.Log.Infof("Added ghost record for key %s", key)
 	}
-	return nil
+	return &GhostRecordGlobalStore
 }
 
-func LastKnownUIDFromGhostRecordCache(key string) types.UID {
-	ghostRecordGlobalMutex.Lock()
-	defer ghostRecordGlobalMutex.Unlock()
+func (store *GhostRecordStore) LastKnownUID(key string) types.UID {
+	store.Lock()
+	defer store.Unlock()
 
-	record, ok := ghostRecordGlobalCache[key]
+	record, ok := store.cache[key]
 	if !ok {
 		return ""
 	}
@@ -118,24 +115,24 @@ func LastKnownUIDFromGhostRecordCache(key string) types.UID {
 	return record.UID
 }
 
-func getGhostRecords() ([]ghostRecord, error) {
-	ghostRecordGlobalMutex.Lock()
-	defer ghostRecordGlobalMutex.Unlock()
+func (store *GhostRecordStore) list() []ghostRecord {
+	store.Lock()
+	defer store.Unlock()
 
 	var records []ghostRecord
 
-	for _, record := range ghostRecordGlobalCache {
+	for _, record := range store.cache {
 		records = append(records, record)
 	}
 
-	return records, nil
+	return records
 }
 
-func findGhostRecordBySocket(socketFile string) (ghostRecord, bool) {
-	ghostRecordGlobalMutex.Lock()
-	defer ghostRecordGlobalMutex.Unlock()
+func (store *GhostRecordStore) findBySocket(socketFile string) (ghostRecord, bool) {
+	store.Lock()
+	defer store.Unlock()
 
-	for _, record := range ghostRecordGlobalCache {
+	for _, record := range store.cache {
 		if record.SocketFile == socketFile {
 			return record, true
 		}
@@ -144,19 +141,19 @@ func findGhostRecordBySocket(socketFile string) (ghostRecord, bool) {
 	return ghostRecord{}, false
 }
 
-func HasGhostRecord(namespace string, name string) bool {
-	ghostRecordGlobalMutex.Lock()
-	defer ghostRecordGlobalMutex.Unlock()
+func (store *GhostRecordStore) Exists(namespace string, name string) bool {
+	store.Lock()
+	defer store.Unlock()
 
 	key := namespace + "/" + name
-	_, ok := ghostRecordGlobalCache[key]
+	_, ok := store.cache[key]
 
 	return ok
 }
 
-func AddGhostRecord(namespace string, name string, socketFile string, uid types.UID) (err error) {
-	ghostRecordGlobalMutex.Lock()
-	defer ghostRecordGlobalMutex.Unlock()
+func (store *GhostRecordStore) Add(namespace string, name string, socketFile string, uid types.UID) (err error) {
+	store.Lock()
+	defer store.Unlock()
 	if name == "" {
 		return fmt.Errorf("can not add ghost record when 'name' is not provided")
 	} else if namespace == "" {
@@ -168,7 +165,7 @@ func AddGhostRecord(namespace string, name string, socketFile string, uid types.
 	}
 
 	key := namespace + "/" + name
-	record, ok := ghostRecordGlobalCache[key]
+	record, ok := store.cache[key]
 	if !ok {
 		// record doesn't exist, so add new one.
 		record := ghostRecord{
@@ -177,10 +174,10 @@ func AddGhostRecord(namespace string, name string, socketFile string, uid types.
 			SocketFile: socketFile,
 			UID:        uid,
 		}
-		if err := checkpointManager.Store(string(uid), &record); err != nil {
+		if err := store.checkpointManager.Store(string(uid), &record); err != nil {
 			return fmt.Errorf("failed to checkpoint %s, %w", uid, err)
 		}
-		ghostRecordGlobalCache[key] = record
+		store.cache[key] = record
 	}
 
 	// This protects us from stomping on a previous ghost record
@@ -198,11 +195,11 @@ func AddGhostRecord(namespace string, name string, socketFile string, uid types.
 	return nil
 }
 
-func DeleteGhostRecord(namespace string, name string) error {
-	ghostRecordGlobalMutex.Lock()
-	defer ghostRecordGlobalMutex.Unlock()
+func (store *GhostRecordStore) Delete(namespace string, name string) error {
+	store.Lock()
+	defer store.Unlock()
 	key := namespace + "/" + name
-	record, ok := ghostRecordGlobalCache[key]
+	record, ok := store.cache[key]
 	if !ok {
 		// already deleted
 		return nil
@@ -212,43 +209,13 @@ func DeleteGhostRecord(namespace string, name string) error {
 		return fmt.Errorf("unable to remove ghost record with empty UID")
 	}
 
-	if err := checkpointManager.Delete(string(record.UID)); err != nil {
+	if err := store.checkpointManager.Delete(string(record.UID)); err != nil {
 		return fmt.Errorf("failed to delete checkpoint %s, %w", record.UID, err)
 	}
 
-	delete(ghostRecordGlobalCache, key)
+	delete(store.cache, key)
 
 	return nil
-}
-
-func listSockets() ([]string, error) {
-	var sockets []string
-
-	knownSocketFiles, err := cmdclient.ListAllSockets()
-	if err != nil {
-		return sockets, err
-	}
-	ghostRecords, err := getGhostRecords()
-	if err != nil {
-		return sockets, err
-	}
-
-	sockets = append(sockets, knownSocketFiles...)
-
-	for _, record := range ghostRecords {
-		exists := false
-		for _, socket := range knownSocketFiles {
-			if record.SocketFile == socket {
-				exists = true
-				break
-			}
-		}
-		if !exists {
-			sockets = append(sockets, record.SocketFile)
-		}
-	}
-
-	return sockets, nil
 }
 
 func NewSharedInformer(virtShareDir string, watchdogTimeout int, recorder record.EventRecorder, vmiStore cache.Store, resyncPeriod time.Duration) cache.SharedInformer {
