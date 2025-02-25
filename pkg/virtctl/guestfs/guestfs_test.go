@@ -1,8 +1,10 @@
 package guestfs_test
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -13,7 +15,9 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 	"kubevirt.io/client-go/kubecli"
+	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virtctl/guestfs"
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
@@ -37,6 +41,7 @@ var _ = Describe("Guestfs shell", func() {
 		kubeClient     *fake.Clientset
 		kubevirtClient *kubecli.MockKubevirtClient
 	)
+	var libguestfsPod *v1.Pod
 	mode := v1.PersistentVolumeFilesystem
 	pvc := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
@@ -96,6 +101,15 @@ var _ = Describe("Guestfs shell", func() {
 		kubeClient = fake.NewSimpleClientset(pvc, otherPod)
 		return &guestfs.K8sClient{Client: kubeClient, VirtClient: kubevirtClient}, nil
 	}
+	fakeCreateClientPVCWithMockVirtClient := func(_ kubecli.KubevirtClient) (*guestfs.K8sClient, error) {
+		kubeClient = fake.NewSimpleClientset(pvc)
+		kubeClient.Fake.PrependReactor("create", "pods", func(action k8stesting.Action) (bool, runtime.Object, error) {
+			libguestfsPod = action.(k8stesting.CreateAction).GetObject().(*v1.Pod)
+			libguestfsPod.Status.Phase = v1.PodRunning
+			return false, libguestfsPod, nil
+		})
+		return &guestfs.K8sClient{Client: kubeClient, VirtClient: kubecli.MockKubevirtClientInstance}, nil
+	}
 	fakeCreateClient := func(_ kubecli.KubevirtClient) (*guestfs.K8sClient, error) {
 		kubeClient = fake.NewSimpleClientset()
 		return &guestfs.K8sClient{Client: kubeClient, VirtClient: kubevirtClient}, nil
@@ -148,6 +162,32 @@ var _ = Describe("Guestfs shell", func() {
 			err := cmd()
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).Should(Equal(fmt.Sprintf("gid requires the uid to be set")))
+		})
+
+		It("Successfully apply VM's constraints", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithName("test-vm"),
+				libvmi.WithToleration(v1.Toleration{Key: "tol_key", Value: "tol_val"}),
+				libvmi.WithLabel("label_key", "label_val"),
+				libvmi.WithNodeAffinityForLabel("node_key", "node_val"),
+				libvmi.WithNodeSelector("select_key", "select_val"),
+			)
+			vm := libvmi.NewVirtualMachine(vmi)
+			ctrl := gomock.NewController(GinkgoT())
+			kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
+			kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
+			guestfs.CreateClientFunc = fakeCreateClientPVCWithMockVirtClient
+			kubevirtClient := kubevirtfake.NewSimpleClientset()
+			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(testNamespace).Return(kubevirtClient.KubevirtV1().VirtualMachines(testNamespace)).AnyTimes()
+			vm, err := kubevirtClient.KubevirtV1().VirtualMachines(testNamespace).Create(context.Background(), vm, metav1.CreateOptions{})
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(testing.NewRepeatableVirtctlCommand(commandName, pvcName, "--vm", vm.Name)()).To(Succeed())
+			Expect(libguestfsPod.Spec.Tolerations).To(ContainElements(vm.Spec.Template.Spec.Tolerations))
+			Expect(libguestfsPod.Spec.Affinity).To(Equal(vm.Spec.Template.Spec.Affinity))
+			Expect(libguestfsPod.ObjectMeta.Labels).To(Equal(vm.Spec.Template.ObjectMeta.Labels))
+			Expect(libguestfsPod.Spec.NodeSelector).To(Equal(vm.Spec.Template.Spec.NodeSelector))
 		})
 	})
 
