@@ -119,9 +119,13 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 			log.Log.Object(vm).V(4).Infof(patchingVMStatusFmt, string(patchBytes))
 			_, patchErr = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
 		} else {
-			patchString := getRunningJson(vm, true)
-			log.Log.Object(vm).V(4).Infof(patchingVMFmt, patchString)
-			_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(context.Background(), vm.GetName(), types.MergePatchType, []byte(patchString), metav1.PatchOptions{DryRun: bodyStruct.DryRun})
+			patchBytes, err := getRunningPatch(vm, true)
+			if err != nil {
+				writeError(errors.NewInternalError(err), response)
+				return
+			}
+			log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
+			_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(context.Background(), vm.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
 		}
 
 	case v1.RunStrategyRerunOnFailure, v1.RunStrategyManual:
@@ -210,17 +214,26 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	}
 
 	var oldGracePeriodSeconds int64
-	patchType := types.MergePatchType
 	var patchErr error
 	if hasVMI && !vmi.IsFinal() && bodyStruct.GracePeriod != nil {
+		patchSet := patch.New()
 		// used for stopping a VM with RunStrategyHalted
 		if vmi.Spec.TerminationGracePeriodSeconds != nil {
 			oldGracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
+			patchSet.AddOption(patch.WithTest("/spec/terminationGracePeriodSeconds", *vmi.Spec.TerminationGracePeriodSeconds))
+		} else {
+			patchSet.AddOption(patch.WithTest("/spec/terminationGracePeriodSeconds", nil))
 		}
 
-		bodyString := getUpdateTerminatingSecondsGracePeriod(*bodyStruct.GracePeriod)
-		log.Log.Object(vmi).V(2).Infof("Patching VMI: %s", bodyString)
-		_, err = app.virtCli.VirtualMachineInstance(namespace).Patch(context.Background(), vmi.GetName(), patchType, []byte(bodyString), metav1.PatchOptions{DryRun: bodyStruct.DryRun})
+		patchSet.AddOption(patch.WithReplace("/spec/terminationGracePeriodSeconds", *bodyStruct.GracePeriod))
+		patchBytes, err := patchSet.GeneratePayload()
+		if err != nil {
+			writeError(errors.NewInternalError(err), response)
+			return
+		}
+
+		log.Log.Object(vmi).V(2).Infof("Patching VMI: %s", string(patchBytes))
+		_, err = app.virtCli.VirtualMachineInstance(namespace).Patch(context.Background(), vmi.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
 		if err != nil {
 			writeError(errors.NewInternalError(err), response)
 			return
@@ -254,9 +267,13 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 			return
 		}
 	case v1.RunStrategyAlways, v1.RunStrategyOnce:
-		bodyString := getRunningJson(vm, false)
-		log.Log.Object(vm).V(4).Infof(patchingVMFmt, bodyString)
-		_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(context.Background(), vm.GetName(), patchType, []byte(bodyString), metav1.PatchOptions{DryRun: bodyStruct.DryRun})
+		patchBytes, err := getRunningPatch(vm, false)
+		if err != nil {
+			writeError(errors.NewInternalError(err), response)
+			return
+		}
+		log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
+		_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(context.Background(), vm.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
 	}
 
 	if patchErr != nil {
@@ -655,18 +672,21 @@ func getChangeRequestJson(vm *v1.VirtualMachine, changes ...v1.VirtualMachineSta
 	return patchSet.GeneratePayload()
 }
 
-func getRunningJson(vm *v1.VirtualMachine, running bool) string {
+func getRunningPatch(vm *v1.VirtualMachine, running bool) ([]byte, error) {
 	runStrategy := v1.RunStrategyHalted
 	if running {
 		runStrategy = v1.RunStrategyAlways
 	}
-	if vm.Spec.RunStrategy != nil {
-		return fmt.Sprintf("{\"spec\":{\"runStrategy\": \"%s\"}}", runStrategy)
-	} else {
-		return fmt.Sprintf("{\"spec\":{\"running\": %t}}", running)
-	}
-}
 
-func getUpdateTerminatingSecondsGracePeriod(gracePeriod int64) string {
-	return fmt.Sprintf("{\"spec\":{\"terminationGracePeriodSeconds\": %d }}", gracePeriod)
+	if vm.Spec.RunStrategy != nil {
+		return patch.New(
+			patch.WithTest("/spec/runStrategy", vm.Spec.RunStrategy),
+			patch.WithReplace("/spec/runStrategy", runStrategy),
+		).GeneratePayload()
+	}
+
+	return patch.New(
+		patch.WithTest("/spec/running", vm.Spec.Running),
+		patch.WithReplace("/spec/running", running),
+	).GeneratePayload()
 }
