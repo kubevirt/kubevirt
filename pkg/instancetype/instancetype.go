@@ -63,10 +63,6 @@ func (m *InstancetypeMethods) InferDefaultPreference(vm *virtv1.VirtualMachine) 
 	return infer.New(m.Clientset).Preference(vm)
 }
 
-func ApplyDevicePreferences(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
-	preferenceApply.ApplyDevicePreferences(preferenceSpec, vmiSpec)
-}
-
 func (m *InstancetypeMethods) Upgrade(vm *virtv1.VirtualMachine) error {
 	return upgrade.New(m.ControllerRevisionStore, m.Clientset).Upgrade(vm)
 }
