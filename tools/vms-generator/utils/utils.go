@@ -564,12 +564,15 @@ func GetVMIMultusMultipleNet() *v1.VirtualMachineInstance {
 }
 
 func GetVMINoCloud() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiNoCloud)
-
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), v1.DiskBusVirtio)
-	addNoCloudDisk(&vmi.Spec)
-	addEmptyDisk(&vmi.Spec, "2Gi")
-	return vmi
+	return libvmi.New(
+		libvmi.WithName(VmiNoCloud),
+		libvmi.WithResourceMemory("128Mi"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag)),
+		libvmi.WithCloudInitNoCloud(
+			cloudinit.WithNoCloudUserData("#!/bin/sh\n\necho 'printed from cloud-init userdata'\n"),
+		),
+		libvmi.WithEmptyDisk("emptydisk", v1.DiskBusVirtio, resource.MustParse("2Gi")),
+	)
 }
 
 func GetVMIPvc() *v1.VirtualMachineInstance {
