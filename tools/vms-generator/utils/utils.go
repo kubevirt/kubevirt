@@ -508,15 +508,27 @@ func GetVMISRIOV() *v1.VirtualMachineInstance {
 }
 
 func GetVMIMultusPtp() *v1.VirtualMachineInstance {
-	vm := getBaseVMI(VmiMultusPtp)
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{{Name: "ptp", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"}}}}
-	initFedora(&vm.Spec)
-	addNoCloudDiskWitUserData(&vm.Spec, generateCloudConfigString(cloudConfigUserPassword))
-
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
-
-	return vm
+	return libvmi.New(
+		libvmi.WithName(VmiMultusPtp),
+		libvmi.WithResourceMemory("1024M"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
+		libvmi.WithRng(),
+		libvmi.WithNetwork(
+			&v1.Network{
+				Name:          "ptp",
+				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"}},
+			},
+		),
+		libvmi.WithInterface(
+			v1.Interface{
+				Name:                   "ptp",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+			},
+		),
+		libvmi.WithCloudInitNoCloud(
+			cloudinit.WithNoCloudUserData(generateCloudConfigString(cloudConfigUserPassword)),
+		),
+	)
 }
 
 func GetVMIMultusMultipleNet() *v1.VirtualMachineInstance {
