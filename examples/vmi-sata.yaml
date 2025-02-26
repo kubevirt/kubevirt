@@ -5,7 +5,11 @@ metadata:
   name: vmi-sata
 spec:
   domain:
-    devices: {}
+    devices:
+      disks:
+      - disk:
+          bus: sata
+        name: containerdisk
     resources:
       requests:
         memory: 128Mi

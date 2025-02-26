@@ -242,6 +242,15 @@ func WithDedicatedIOThreads(enabled bool) DiskOption {
 	}
 }
 
+func WithDiskBusSATA() DiskOption {
+	return func(d *v1.Disk) {
+		if d.Disk == nil {
+			d.Disk = &v1.DiskTarget{}
+		}
+		d.Disk.Bus = v1.DiskBusSATA
+	}
+}
+
 func newCDRom(name string, bus v1.DiskBus) v1.Disk {
 	return v1.Disk{
 		Name: name,

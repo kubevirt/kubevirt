@@ -406,10 +406,11 @@ func GetVMIEphemeral() *v1.VirtualMachineInstance {
 }
 
 func GetVMISata() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiSata)
-
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), v1.DiskBusSATA)
-	return vmi
+	return libvmi.New(
+		libvmi.WithName(VmiSata),
+		libvmi.WithResourceMemory("128Mi"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), libvmi.WithDiskBusSATA()),
+	)
 }
 
 func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
