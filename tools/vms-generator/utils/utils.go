@@ -476,16 +476,35 @@ func GetVMIMasquerade() *v1.VirtualMachineInstance {
 }
 
 func GetVMISRIOV() *v1.VirtualMachineInstance {
-	vm := getBaseVMI(VmiSRIOV)
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "sriov-net", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "sriov/sriov-network"}}}}
-	initFedora(&vm.Spec)
-	addNoCloudDiskWitUserDataNetworkData(&vm.Spec, generateCloudConfigString(cloudConfigUserPassword), secondaryIfaceDhcpNetworkData)
-
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
-		{Name: "sriov-net", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}}
-
-	return vm
+	return libvmi.New(
+		libvmi.WithName(VmiSRIOV),
+		libvmi.WithResourceMemory("1024M"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
+		libvmi.WithRng(),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithNetwork(
+			&v1.Network{
+				Name:          "sriov-net",
+				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "sriov/sriov-network"}},
+			},
+		),
+		libvmi.WithInterface(
+			v1.Interface{
+				Name:                   "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+			},
+		),
+		libvmi.WithInterface(
+			v1.Interface{
+				Name:                   "sriov-net",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
+			},
+		),
+		libvmi.WithCloudInitNoCloud(
+			cloudinit.WithNoCloudUserData(generateCloudConfigString(cloudConfigUserPassword)),
+			cloudinit.WithNoCloudNetworkData(secondaryIfaceDhcpNetworkData),
+		),
+	)
 }
 
 func GetVMIMultusPtp() *v1.VirtualMachineInstance {
