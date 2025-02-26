@@ -300,7 +300,7 @@ func WithSMM() Option {
 	}
 }
 
-func WithSecureBoot() Option {
+func WithSecureBoot(enabled bool) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Spec.Domain.Firmware == nil {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{}
@@ -311,7 +311,7 @@ func WithSecureBoot() Option {
 		if vmi.Spec.Domain.Firmware.Bootloader.EFI == nil {
 			vmi.Spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{}
 		}
-		vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.P(true)
+		vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.P(enabled)
 	}
 }
 

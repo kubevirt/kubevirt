@@ -432,25 +432,17 @@ func GetVMISecureBoot() *v1.VirtualMachineInstance {
 		libvmi.WithResourceMemory("1Gi"),
 		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
 		libvmi.WithSMM(),
-		libvmi.WithSecureBoot(),
+		libvmi.WithSecureBoot(true),
 	)
 }
 
 func GetVMIAlpineEFI() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiAlpineEFI)
-
-	_false := false
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageAlpine, DockerTag), v1.DiskBusVirtio)
-	vmi.Spec.Domain.Firmware = &v1.Firmware{
-		Bootloader: &v1.Bootloader{
-			EFI: &v1.EFI{
-				SecureBoot: &_false,
-			},
-		},
-	}
-
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-	return vmi
+	return libvmi.New(
+		libvmi.WithName(VmiAlpineEFI),
+		libvmi.WithResourceMemory("1Gi"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageAlpine, DockerTag)),
+		libvmi.WithSecureBoot(false),
+	)
 }
 
 func GetVMIMasquerade() *v1.VirtualMachineInstance {
