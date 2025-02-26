@@ -170,8 +170,7 @@ func getBaseVMI(name string) *v1.VirtualMachineInstance {
 			Kind:       "VirtualMachineInstance",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   name,
-			Labels: map[string]string{"special": name},
+			Name: name,
 		},
 		Spec: *baseVMISpec,
 	}

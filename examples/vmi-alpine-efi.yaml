@@ -2,8 +2,6 @@
 apiVersion: kubevirt.io/v1
 kind: VirtualMachineInstance
 metadata:
-  labels:
-    special: vmi-alpine-efi
   name: vmi-alpine-efi
 spec:
   domain:
