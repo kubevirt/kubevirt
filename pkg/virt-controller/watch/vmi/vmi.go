@@ -1128,35 +1128,6 @@ func (c *Controller) handleBackendStorage(vmi *virtv1.VirtualMachineInstance) (s
 	return pvc.Name, nil
 }
 
-func (c *Controller) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance, dataVolumes []*cdiv1.DataVolume) (bool, bool, common.SyncError) {
-
-	ready := true
-	wffc := false
-
-	for _, volume := range vmi.Spec.Volumes {
-		// Check both DVs and PVCs
-		if volume.VolumeSource.DataVolume != nil || volume.VolumeSource.PersistentVolumeClaim != nil {
-			volumeReady, volumeWffc, err := storagetypes.VolumeReadyToAttachToNode(vmi.Namespace, volume, dataVolumes, c.dataVolumeIndexer, c.pvcIndexer)
-			if err != nil {
-				if _, ok := err.(storagetypes.PvcNotFoundError); ok {
-					// due to the eventually consistent nature of controllers, CDI or users may need some time to actually crate the PVC.
-					// We wait for them to appear.
-					c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, controller.FailedPvcNotFoundReason, "PVC %s/%s does not exist, waiting for it to appear", vmi.Namespace, storagetypes.PVCNameFromVirtVolume(&volume))
-					return false, false, &informalSyncError{err: fmt.Errorf("PVC %s/%s does not exist, waiting for it to appear", vmi.Namespace, storagetypes.PVCNameFromVirtVolume(&volume)), reason: controller.FailedPvcNotFoundReason}
-				} else {
-					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedPvcNotFoundReason, "Error determining if volume is ready: %v", err)
-					return false, false, common.NewSyncError(fmt.Errorf("Error determining if volume is ready %v", err), controller.FailedDataVolumeImportReason)
-				}
-			}
-			wffc = wffc || volumeWffc
-			// Ready only becomes false if WFFC is also false.
-			ready = ready && (volumeReady || volumeWffc)
-		}
-	}
-
-	return ready, wffc, nil
-}
-
 func (c *Controller) addPVC(obj interface{}) {
 	pvc := obj.(*k8sv1.PersistentVolumeClaim)
 	if pvc.DeletionTimestamp != nil {
@@ -2253,38 +2224,6 @@ func (c *Controller) syncVolumesUpdate(vmi *virtv1.VirtualMachineInstance) {
 	vmiConditions.UpdateCondition(vmi, &condition)
 }
 
-func (c *Controller) aggregateDataVolumesConditions(vmiCopy *virtv1.VirtualMachineInstance, dvs []*cdiv1.DataVolume) {
-	if len(dvs) == 0 {
-		return
-	}
-
-	dvsReadyCondition := virtv1.VirtualMachineInstanceCondition{
-		Status:  k8sv1.ConditionTrue,
-		Type:    virtv1.VirtualMachineInstanceDataVolumesReady,
-		Reason:  virtv1.VirtualMachineInstanceReasonAllDVsReady,
-		Message: "All of the VMI's DVs are bound and not running",
-	}
-
-	for _, dv := range dvs {
-		cStatus := statusOfReadyCondition(dv.Status.Conditions)
-		if cStatus != k8sv1.ConditionTrue {
-			dvsReadyCondition.Reason = virtv1.VirtualMachineInstanceReasonNotAllDVsReady
-			if cStatus == k8sv1.ConditionFalse {
-				dvsReadyCondition.Status = cStatus
-			} else if dvsReadyCondition.Status == k8sv1.ConditionTrue {
-				dvsReadyCondition.Status = cStatus
-			}
-		}
-	}
-
-	if dvsReadyCondition.Status != k8sv1.ConditionTrue {
-		dvsReadyCondition.Message = "Not all of the VMI's DVs are ready"
-	}
-
-	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
-	vmiConditions.UpdateCondition(vmiCopy, &dvsReadyCondition)
-}
-
 func (c *Controller) deletePod(vmiKey string, pod *k8sv1.Pod, options v1.DeleteOptions) error {
 	c.podExpectations.ExpectDeletions(vmiKey, []string{controller.PodKey(pod)})
 	err := c.clientset.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, options)
@@ -2293,13 +2232,4 @@ func (c *Controller) deletePod(vmiKey string, pod *k8sv1.Pod, options v1.DeleteO
 		return err
 	}
 	return nil
-}
-
-func statusOfReadyCondition(conditions []cdiv1.DataVolumeCondition) k8sv1.ConditionStatus {
-	for _, condition := range conditions {
-		if condition.Type == cdiv1.DataVolumeReady {
-			return condition.Status
-		}
-	}
-	return k8sv1.ConditionUnknown
 }
