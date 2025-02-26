@@ -398,10 +398,11 @@ func GetVMIMigratable() *v1.VirtualMachineInstance {
 }
 
 func GetVMIEphemeral() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiEphemeral)
-
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), v1.DiskBusVirtio)
-	return vmi
+	return libvmi.New(
+		libvmi.WithName(VmiEphemeral),
+		libvmi.WithResourceMemory("128Mi"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag)),
+	)
 }
 
 func GetVMISata() *v1.VirtualMachineInstance {
