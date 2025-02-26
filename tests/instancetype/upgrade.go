@@ -49,7 +49,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	var vm *virtv1.VirtualMachine
 
 	createControllerRevision := func(obj runtime.Object) (*appsv1.ControllerRevision, error) {
-		cr, err := instancetypepkg.CreateControllerRevision(vm, obj)
+		cr, err := revision.CreateControllerRevision(vm, obj)
 		Expect(err).ToNot(HaveOccurred())
 		return virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
 	}
@@ -63,7 +63,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	}
 
 	createLegacyControllerRevision := func(obj runtime.Object) (*appsv1.ControllerRevision, error) {
-		cr, err := instancetypepkg.CreateControllerRevision(vm, obj)
+		cr, err := revision.CreateControllerRevision(vm, obj)
 		Expect(err).ToNot(HaveOccurred())
 
 		// The legacy naming convention did not include the object version so replace that here

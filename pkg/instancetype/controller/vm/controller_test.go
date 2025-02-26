@@ -257,7 +257,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedRevision, err := instancetype.CreateControllerRevision(vm, instancetypeObj)
+			expectedRevision, err := revision.CreateControllerRevision(vm, instancetypeObj)
 			Expect(err).ToNot(HaveOccurred())
 
 			sanitySync(vm, vmi)
@@ -401,7 +401,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 		)
 
 		It("should sync correctly if an existing ControllerRevision is present but not referenced by InstancetypeMatcher", func() {
-			instancetypeRevision, err := instancetype.CreateControllerRevision(vm, instancetypeObj)
+			instancetypeRevision, err := revision.CreateControllerRevision(vm, instancetypeObj)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -436,7 +436,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			expectedRevisionName := instancetype.GetRevisionName(
 				vm.Name, clusterInstancetypeObj.Name, clusterInstancetypeObj.GroupVersionKind().Version,
 				clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation)
-			expectedRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetypeObj)
+			expectedRevision, err := revision.CreateControllerRevision(vm, clusterInstancetypeObj)
 			Expect(err).ToNot(HaveOccurred())
 
 			sanitySync(vm, vmi)
@@ -456,7 +456,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 		})
 
 		It("should apply VirtualMachineClusterInstancetype from ControllerRevision to VirtualMachineInstance", func() {
-			instancetypeRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetypeObj)
+			instancetypeRevision, err := revision.CreateControllerRevision(vm, clusterInstancetypeObj)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -536,7 +536,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			unexpectedInstancetype := instancetypeObj.DeepCopy()
 			unexpectedInstancetype.Spec.CPU.Guest = 15
 
-			instancetypeRevision, err := instancetype.CreateControllerRevision(vm, unexpectedInstancetype)
+			instancetypeRevision, err := revision.CreateControllerRevision(vm, unexpectedInstancetype)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -599,7 +599,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 
 			expectedPreferenceRevisionName := instancetype.GetRevisionName(
 				vm.Name, preference.Name, preference.GroupVersionKind().Version, preference.UID, preference.Generation)
-			expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
+			expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, preference)
 			Expect(err).ToNot(HaveOccurred())
 
 			sanitySync(vm, vmi)
@@ -754,7 +754,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 		)
 
 		It("should sync corrrectly if an existing ControllerRevision is present but not referenced by PreferenceMatcher", func() {
-			preferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
+			preferenceRevision, err := revision.CreateControllerRevision(vm, preference)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -786,7 +786,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, clusterPreference)
+			expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, clusterPreference)
 			Expect(err).ToNot(HaveOccurred())
 
 			sanitySync(vm, vmi)
@@ -805,7 +805,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 		})
 
 		It("should apply VirtualMachineClusterPreference from ControllerRevision to VirtualMachineInstance", func() {
-			preferenceRevision, err := instancetype.CreateControllerRevision(vm, clusterPreference)
+			preferenceRevision, err := revision.CreateControllerRevision(vm, clusterPreference)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -869,7 +869,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				PreferredUseBios: pointer.P(true),
 			}
 
-			preferenceRevision, err := instancetype.CreateControllerRevision(vm, unexpectedPreference)
+			preferenceRevision, err := revision.CreateControllerRevision(vm, unexpectedPreference)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -889,14 +889,14 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 
 	Context("InstancetypeReferencePolicy", func() {
 		addRevisionsToVMFunc := func() {
-			instancetypeRevision, err := instancetype.CreateControllerRevision(vm, instancetypeObj)
+			instancetypeRevision, err := revision.CreateControllerRevision(vm, instancetypeObj)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
 				context.Background(), instancetypeRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			preferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
+			preferenceRevision, err := revision.CreateControllerRevision(vm, preference)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(

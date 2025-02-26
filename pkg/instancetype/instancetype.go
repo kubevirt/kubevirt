@@ -2,7 +2,6 @@ package instancetype
 
 import (
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
@@ -52,10 +51,6 @@ func GetSpreadOptions(preferenceSpec *instancetypev1beta1.VirtualMachinePreferen
 
 func GetRevisionName(vmName, resourceName, resourceVersion string, resourceUID types.UID, resourceGeneration int64) string {
 	return revision.GenerateName(vmName, resourceName, resourceVersion, resourceUID, resourceGeneration)
-}
-
-func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) (*appsv1.ControllerRevision, error) {
-	return revision.CreateControllerRevision(vm, object)
 }
 
 func CompareRevisions(revisionA, revisionB *appsv1.ControllerRevision) (bool, error) {
