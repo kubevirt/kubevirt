@@ -3,6 +3,7 @@ package libmigration
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -204,27 +205,30 @@ func ClearDedicatedMigrationNetwork() *v1.KubeVirt {
 }
 
 func GenerateMigrationCNINetworkAttachmentDefinition() *k8snetworkplumbingwgv1.NetworkAttachmentDefinition {
-	nad := &k8snetworkplumbingwgv1.NetworkAttachmentDefinition{
+	config := map[string]interface{}{
+		"cniVersion": "0.3.1",
+		"name":       "migration-bridge",
+		"type":       "macvlan",
+		"master":     flags.MigrationNetworkNIC,
+		"mode":       "bridge",
+		"ipam": map[string]string{
+			"type":  "whereabouts",
+			"range": "172.21.42.0/24",
+		},
+	}
+
+	configJSON, err := json.Marshal(config)
+	Expect(err).ToNot(HaveOccurred())
+
+	return &k8snetworkplumbingwgv1.NetworkAttachmentDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "migration-cni",
 			Namespace: flags.KubeVirtInstallNamespace,
 		},
 		Spec: k8snetworkplumbingwgv1.NetworkAttachmentDefinitionSpec{
-			Config: `{
-      "cniVersion": "0.3.1",
-      "name": "migration-bridge",
-      "type": "macvlan",
-      "master": "` + flags.MigrationNetworkNIC + `",
-      "mode": "bridge",
-      "ipam": {
-        "type": "whereabouts",
-        "range": "172.21.42.0/24"
-      }
-}`,
+			Config: string(configJSON),
 		},
 	}
-
-	return nad
 }
 
 func EnsureNoMigrationMetadataInPersistentXML(vmi *v1.VirtualMachineInstance) {
