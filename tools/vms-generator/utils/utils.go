@@ -39,6 +39,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
@@ -414,12 +415,17 @@ func GetVMISata() *v1.VirtualMachineInstance {
 }
 
 func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiFedora)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	makeMigratable(vmi)
-	initFedora(&vmi.Spec)
-	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
-	return vmi
+	return libvmi.New(
+		libvmi.WithName(VmiFedora),
+		libvmi.WithResourceMemory("1024M"),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
+		libvmi.WithRng(),
+		libvmi.WithCloudInitNoCloud(
+			cloudinit.WithNoCloudUserData(generateCloudConfigString(cloudConfigUserPassword)),
+		),
+	)
 }
 
 func GetVMIEphemeralFedoraIsolated() *v1.VirtualMachineInstance {
@@ -1240,11 +1246,4 @@ func GetVmWindowsInstancetypeComputeLargePreferencesWindows() *v1.VirtualMachine
 	vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
 
 	return vm
-}
-
-func makeMigratable(vmi *v1.VirtualMachineInstance) {
-	// having no network leads to adding a default interface that may be of type bridge on
-	// the pod network and that would make the VMI non-migratable. Therefore, adding a network.
-	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
 }
