@@ -22,13 +22,14 @@
 package virtctl
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"net"
+	"strings"
 	"syscall"
 	"time"
-
-	"kubevirt.io/kubevirt/pkg/virtctl/usbredir"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libvmops"
@@ -37,12 +38,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
-	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 )
 
 // Capabilities from client side
@@ -75,7 +72,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		numTries                      = 3
 	)
 	var (
-		virtClient      kubecli.KubevirtClient
 		vmi             *v1.VirtualMachineInstance
 		name, namespace string
 	)
@@ -86,7 +82,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		vmi = libvmops.RunVMIAndExpectLaunch(vmi, vmiRunTimeout)
 		name = vmi.ObjectMeta.Name
 		namespace = vmi.ObjectMeta.Namespace
-		virtClient = kubevirt.Client()
 	})
 
 	It("Should fail when limit is reached", func() {
@@ -107,7 +102,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					err:     make(chan error),
 				}
 				ctx = context.WithValue(ctx, connectedKey, test.connect)
-				go runConnectGoroutine(virtClient, name, namespace, ctx, test.err)
+				go runConnectGoroutine(name, namespace, ctx, test.err)
 
 				if i == v1.UsbClientPassthroughMaxNumberOf {
 					// Last test is meant to fail.
@@ -148,7 +143,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			for try := range numTries {
 				ctx, cancelFn := context.WithCancel(context.Background())
 				errch := make(chan error)
-				go runConnectGoroutine(virtClient, name, namespace, ctx, errch)
+				go runConnectGoroutine(name, namespace, ctx, errch)
 
 				select {
 				case err := <-errch:
@@ -167,20 +162,77 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 })
 
 func runConnectGoroutine(
-	virtClient kubecli.KubevirtClient,
 	name string,
 	namespace string,
 	ctx context.Context,
 	errch chan error,
 ) {
 	defer GinkgoRecover()
+	cmd := newVirtctlCommand("usbredir",
+		"--namespace", namespace,
+		"--no-launch",
+		name,
+	)
+	// To find ip/port to connect
+	rOut, wOut := io.Pipe()
+	cmd.SetOut(wOut)
+	defer rOut.Close()
 
-	usbredirStream, err := virtClient.VirtualMachineInstance(namespace).USBRedir(name)
-	if err != nil {
+	// To find errors
+	rErr, wErr := io.Pipe()
+	cmd.SetErr(wErr)
+	defer rErr.Close()
+
+	// Make remote bufferred to not block select
+	remote := make(chan error, 1)
+	go func() {
+		defer GinkgoRecover()
+		defer close(remote)
+		remote <- cmd.Execute()
+	}()
+
+	go func(r *io.PipeReader) {
+		defer GinkgoRecover()
+		scanner := bufio.NewScanner(r)
+		if scanner.Scan() {
+			// stderr should only be logging errors but we catch only known ones
+			errch <- fmt.Errorf("virtctl stderr: %s", scanner.Text())
+			// Command's context is canceled after error is read on the caller.
+		}
+	}(rErr)
+
+	addr := make(chan string)
+	go func(r *io.PipeReader) {
+		defer GinkgoRecover()
+		scanner := bufio.NewScanner(r)
+		for scanner.Scan() {
+			if line := scanner.Text(); strings.Contains(line, "User can connect") {
+				start := strings.Index(line, ":")
+				addr <- strings.TrimSpace(line[start+1:])
+				break
+			}
+		}
+	}(rOut)
+
+	// Make local bufferred to not block select
+	local := make(chan error, 1)
+	go func() {
+		defer GinkgoRecover()
+		defer close(local)
+		address := <-addr
+		local <- mockClientConnection(ctx, address)
+	}()
+
+	select {
+	case err := <-remote:
+		// Remote errors can happen and are tested too.
 		errch <- err
-		return
+	case err := <-local:
+		// Local errors happens on CI lanes e.g: TCP write/read failures
+		errch <- err
+	case <-ctx.Done():
+		Expect(ctx.Err()).To(MatchError(ContainSubstring("context canceled")))
 	}
-	usbredirConnect(usbredirStream, ctx)
 }
 
 func mockClientConnection(ctx context.Context, address string) error {
@@ -214,37 +266,6 @@ func mockClientConnection(ctx context.Context, address string) error {
 
 	<-ctx.Done()
 	return ctx.Err()
-}
-
-func usbredirConnect(
-	stream kvcorev1.StreamInterface,
-	ctx context.Context,
-) {
-	usbredirClient, err := usbredir.NewUSBRedirClient(ctx, "localhost:0", stream)
-	Expect(err).ToNot(HaveOccurred())
-	usbredirClient.LaunchClient = false
-
-	conn := make(chan error)
-	go func() {
-		defer GinkgoRecover()
-		conn <- mockClientConnection(ctx, usbredirClient.GetProxyAddress())
-	}()
-
-	run := make(chan error)
-	go func() {
-		defer GinkgoRecover()
-		run <- usbredirClient.Redirect("dead:beef")
-	}()
-
-	select {
-	case err = <-conn:
-		Expect(err).ToNot(HaveOccurred())
-	case err = <-run:
-		Expect(err).ToNot(HaveOccurred())
-	case <-ctx.Done():
-		err = <-run
-		Expect(err).To(MatchError(ContainSubstring("context canceled")))
-	}
 }
 
 func withClientPassthrough() libvmi.Option {
