@@ -84,6 +84,15 @@ const (
 	DisableCustomSELinuxPolicy = "DisableCustomSELinuxPolicy"
 
 	ClusterProfiler = "ClusterProfiler"
+
+	// Owner: @lyarwood
+	// Alpha: v1.4.0
+	// Beta: v1.5.0
+	// GA: v1.6.0
+	//
+	// InstancetypeReferencePolicy allows a cluster admin to control how a VirtualMachine references instance types and preferences
+	// through the kv.spec.configuration.instancetype.referencePolicy configurable.
+	InstancetypeReferencePolicy = "InstancetypeReferencePolicy"
 )
 
 func init() {
@@ -112,4 +121,6 @@ func init() {
 
 	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Discontinued, Message: PasstDiscontinueMessage, VmiSpecUsed: passtApiUsed})
 	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})
+
+	RegisterFeatureGate(FeatureGate{Name: InstancetypeReferencePolicy, State: GA})
 }
