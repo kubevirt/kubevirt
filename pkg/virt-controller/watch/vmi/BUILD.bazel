@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "datavolumes.go",
         "vmi.go",
+        "volume-hotplug.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi",
     visibility = ["//visibility:public"],
