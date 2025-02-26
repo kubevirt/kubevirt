@@ -446,21 +446,33 @@ func GetVMIAlpineEFI() *v1.VirtualMachineInstance {
 }
 
 func GetVMIMasquerade() *v1.VirtualMachineInstance {
-	vm := getBaseVMI(VmiMasquerade)
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{{Name: "testmasquerade", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
-	initFedora(&vm.Spec)
-	networkData := "version: 2\nethernets:\n  eth0:\n    addresses: [ fd10:0:2::2/120 ]\n    dhcp4: true\n    gateway6: fd10:0:2::1\n"
-	addNoCloudDiskWitUserDataNetworkData(
-		&vm.Spec,
-		generateCloudConfigString(cloudConfigUserPassword, cloudConfigInstallAndStartService),
-		networkData)
-
-	masquerade := &v1.InterfaceMasquerade{}
-	ports := []v1.Port{{Name: "http", Protocol: "TCP", Port: 80}}
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "testmasquerade", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: masquerade}}}
-
-	return vm
+	return libvmi.New(
+		libvmi.WithName(VmiMasquerade),
+		libvmi.WithResourceMemory("1024M"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
+		libvmi.WithRng(),
+		libvmi.WithNetwork(
+			&v1.Network{
+				Name:          "testmasquerade",
+				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+			},
+		),
+		libvmi.WithInterface(
+			v1.Interface{
+				Name:                   "testmasquerade",
+				Ports:                  []v1.Port{{Name: "http", Protocol: "TCP", Port: 80}},
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+			},
+		),
+		libvmi.WithCloudInitNoCloud(
+			cloudinit.WithNoCloudUserData(
+				generateCloudConfigString(cloudConfigUserPassword, cloudConfigInstallAndStartService),
+			),
+			cloudinit.WithNoCloudNetworkData(
+				"version: 2\nethernets:\n  eth0:\n    addresses: [ fd10:0:2::2/120 ]\n    dhcp4: true\n    gateway6: fd10:0:2::1\n",
+			),
+		),
+	)
 }
 
 func GetVMISRIOV() *v1.VirtualMachineInstance {
