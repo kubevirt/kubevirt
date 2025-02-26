@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,7 +27,7 @@ const (
 	testNamespace = "default"
 )
 
-func fakeAttacherCreator(client *guestfs.K8sClient, p *corev1.Pod, command string) error {
+func fakeAttacherCreator(client *guestfs.K8sClient, p *v1.Pod, command string) error {
 	return nil
 }
 
@@ -129,8 +128,7 @@ var _ = Describe("Guestfs shell", func() {
 
 		It("Succesfully attach to PVC", func() {
 			guestfs.CreateClientFunc = fakeCreateClientPVC
-			cmd := testing.NewRepeatableVirtctlCommand(commandName, pvcName)
-			Expect(cmd()).To(Succeed())
+			Expect(testing.NewRepeatableVirtctlCommand(commandName, pvcName)()).To(Succeed())
 		})
 
 		It("PVC in use", func() {
@@ -153,15 +151,13 @@ var _ = Describe("Guestfs shell", func() {
 			guestfs.CreateClientFunc = fakeCreateClientPVC
 			cmd := testing.NewRepeatableVirtctlCommand(commandName, pvcName, "--root=true", "--uid=1001")
 			err := cmd()
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).Should(Equal(fmt.Sprintf("cannot set uid if root is true")))
+			Expect(err).To(MatchError("cannot set uid if root is true"))
 		})
 		It("GID can be use only together with the uid flag", func() {
 			guestfs.CreateClientFunc = fakeCreateClientPVC
 			cmd := testing.NewRepeatableVirtctlCommand(commandName, pvcName, "--gid=1001")
 			err := cmd()
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).Should(Equal(fmt.Sprintf("gid requires the uid to be set")))
+			Expect(err).To(MatchError("gid requires the uid to be set"))
 		})
 
 		It("Successfully apply VM's constraints", func() {
