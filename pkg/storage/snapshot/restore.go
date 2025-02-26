@@ -46,7 +46,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	typesutil "kubevirt.io/kubevirt/pkg/storage/types"
@@ -997,7 +997,7 @@ func (t *vmRestoreTarget) restoreInstancetypeControllerRevision(vmSnapshotRevisi
 		}
 		if existingCR != nil {
 			// Ensure that the existing CR contains the expected data from the snapshot before returning it
-			equal, err := instancetype.CompareRevisions(snapshotCR, existingCR)
+			equal, err := revision.Compare(snapshotCR, existingCR)
 			if err != nil {
 				return nil, err
 			}

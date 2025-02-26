@@ -13,7 +13,6 @@ import (
 	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/validation"
-	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/instancetype/upgrade"
 )
 
@@ -46,10 +45,6 @@ func IsPreferredTopologySupported(topology instancetypev1beta1.PreferredCPUTopol
 
 func GetSpreadOptions(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) (uint32, instancetypev1beta1.SpreadAcross) {
 	return preferenceApply.GetSpreadOptions(preferenceSpec)
-}
-
-func CompareRevisions(revisionA, revisionB *appsv1.ControllerRevision) (bool, error) {
-	return revision.Compare(revisionA, revisionB)
 }
 
 func (m *InstancetypeMethods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {

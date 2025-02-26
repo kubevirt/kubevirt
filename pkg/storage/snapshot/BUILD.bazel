@@ -15,7 +15,7 @@ go_library(
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/controller:go_default_library",
-        "//pkg/instancetype:go_default_library",
+        "//pkg/instancetype/revision:go_default_library",
         "//pkg/monitoring/metrics/virt-controller:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/storage/backend-storage:go_default_library",
