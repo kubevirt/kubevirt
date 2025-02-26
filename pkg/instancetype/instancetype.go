@@ -10,9 +10,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	"kubevirt.io/kubevirt/pkg/instancetype/infer"
-	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
-	"kubevirt.io/kubevirt/pkg/instancetype/preference/validation"
 	"kubevirt.io/kubevirt/pkg/instancetype/upgrade"
 )
 
@@ -40,18 +38,6 @@ func (m *InstancetypeMethods) ApplyToVM(vm *virtv1.VirtualMachine) error {
 	instancetypeFinder := find.NewSpecFinder(m.InstancetypeStore, m.ClusterInstancetypeStore, m.ControllerRevisionStore, m.Clientset)
 	preferenceFinder := preferenceFind.NewSpecFinder(m.PreferenceStore, m.ClusterPreferenceStore, m.ControllerRevisionStore, m.Clientset)
 	return apply.NewVMApplier(instancetypeFinder, preferenceFinder).ApplyToVM(vm)
-}
-
-func GetPreferredTopology(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) instancetypev1beta1.PreferredCPUTopology {
-	return preferenceApply.GetPreferredTopology(preferenceSpec)
-}
-
-func IsPreferredTopologySupported(topology instancetypev1beta1.PreferredCPUTopology) bool {
-	return validation.IsPreferredTopologySupported(topology)
-}
-
-func GetSpreadOptions(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) (uint32, instancetypev1beta1.SpreadAcross) {
-	return preferenceApply.GetSpreadOptions(preferenceSpec)
 }
 
 func (m *InstancetypeMethods) FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error) {
