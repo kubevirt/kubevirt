@@ -131,7 +131,7 @@ func NewController(templateService services.TemplateService,
 
 	_, err = podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addPod,
-		DeleteFunc: c.deletePod,
+		DeleteFunc: c.onPodDelete,
 		UpdateFunc: c.updatePod,
 	})
 	if err != nil {
@@ -1294,7 +1294,7 @@ func (c *Controller) addPod(obj interface{}) {
 	if pod.DeletionTimestamp != nil {
 		// on a restart of the controller manager, it's possible a new pod shows up in a state that
 		// is already pending deletion. Prevent the pod from being a creation observation.
-		c.deletePod(pod)
+		c.onPodDelete(pod)
 		return
 	}
 
@@ -1327,10 +1327,10 @@ func (c *Controller) updatePod(old, cur interface{}) {
 	if curPod.DeletionTimestamp != nil {
 		labelChanged := !equality.Semantic.DeepEqual(curPod.Labels, oldPod.Labels)
 		// having a pod marked for deletion is enough to count as a deletion expectation
-		c.deletePod(curPod)
+		c.onPodDelete(curPod)
 		if labelChanged {
 			// we don't need to check the oldPod.DeletionTimestamp because DeletionTimestamp cannot be unset.
-			c.deletePod(oldPod)
+			c.onPodDelete(oldPod)
 		}
 		return
 	}
@@ -1355,7 +1355,7 @@ func (c *Controller) updatePod(old, cur interface{}) {
 
 // When a pod is deleted, enqueue the vmi that manages the pod and update its podExpectations.
 // obj could be an *v1.Pod, or a DeletionFinalStateUnknown marker item.
-func (c *Controller) deletePod(obj interface{}) {
+func (c *Controller) onPodDelete(obj interface{}) {
 	pod, ok := obj.(*k8sv1.Pod)
 
 	// When a delete is dropped, the relist will notice a pod in the store not
