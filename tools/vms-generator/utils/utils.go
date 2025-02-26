@@ -183,23 +183,6 @@ func initFedora(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceS
 	addRNG(spec) // without RNG, newer fedora images may hang waiting for entropy sources
 	return spec
 }
-func initFedoraIsolated(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
-	addContainerDisk(spec, fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag), v1.DiskBusVirtio)
-	addRNG(spec) // without RNG, newer fedora images may hang waiting for entropy sources
-
-	addDedicatedAndIsolatedCPU(spec)
-	return spec
-}
-
-func addDedicatedAndIsolatedCPU(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
-	cpu := &v1.CPU{
-		IsolateEmulatorThread: true,
-		DedicatedCPUPlacement: true,
-		Cores:                 1,
-	}
-	spec.Domain.CPU = cpu
-	return spec
-}
 
 func addRNG(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
 	spec.Domain.Devices.Rng = &v1.Rng{}
@@ -429,11 +412,18 @@ func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
 }
 
 func GetVMIEphemeralFedoraIsolated() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiFedora)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	initFedoraIsolated(&vmi.Spec)
-	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
-	return vmi
+	return libvmi.New(
+		libvmi.WithName(VmiFedora),
+		libvmi.WithCPUCount(1, 0, 0),
+		libvmi.WithIsolateEmulatorThread(),
+		libvmi.WithDedicatedCPUPlacement(),
+		libvmi.WithResourceMemory("1024M"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
+		libvmi.WithRng(),
+		libvmi.WithCloudInitNoCloud(
+			cloudinit.WithNoCloudUserData(generateCloudConfigString(cloudConfigUserPassword)),
+		),
+	)
 }
 
 func GetVMISecureBoot() *v1.VirtualMachineInstance {
