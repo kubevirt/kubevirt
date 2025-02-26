@@ -31,7 +31,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 )
 
-func (c *Controller) handleSyncDataVolumes(vmi *v1.VirtualMachineInstance, dataVolumes []*cdiv1.DataVolume) (bool, bool, common.SyncError) {
+func (c *Controller) areDataVolumesReady(vmi *v1.VirtualMachineInstance, dataVolumes []*cdiv1.DataVolume) (bool, bool, common.SyncError) {
 
 	ready := true
 	wffc := false
@@ -60,7 +60,7 @@ func (c *Controller) handleSyncDataVolumes(vmi *v1.VirtualMachineInstance, dataV
 	return ready, wffc, nil
 }
 
-func (c *Controller) aggregateDataVolumesConditions(vmiCopy *v1.VirtualMachineInstance, dvs []*cdiv1.DataVolume) {
+func aggregateDataVolumesConditions(vmiCopy *v1.VirtualMachineInstance, dvs []*cdiv1.DataVolume) {
 	if len(dvs) == 0 {
 		return
 	}
@@ -100,5 +100,3 @@ func statusOfReadyCondition(conditions []cdiv1.DataVolumeCondition) k8sv1.Condit
 	}
 	return k8sv1.ConditionUnknown
 }
-
-// listVMIsMatchingDV

@@ -496,7 +496,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		}
 	}
 
-	c.aggregateDataVolumesConditions(vmiCopy, dataVolumes)
+	aggregateDataVolumesConditions(vmiCopy, dataVolumes)
 
 	if pvc := backendstorage.PVCForVMI(c.pvcIndexer, vmi); pvc != nil {
 		c.backendStorage.UpdateVolumeStatus(vmiCopy, pvc)
@@ -974,7 +974,7 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		// do not return; just log the error
 	}
 
-	dataVolumesReady, isWaitForFirstConsumer, syncErr := c.handleSyncDataVolumes(vmi, dataVolumes)
+	dataVolumesReady, isWaitForFirstConsumer, syncErr := c.areDataVolumesReady(vmi, dataVolumes)
 	if syncErr != nil {
 		return syncErr, pod
 	}
