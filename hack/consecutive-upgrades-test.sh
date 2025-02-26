@@ -217,6 +217,9 @@ END
 
 CSV=$( ${CMD} get csv -o name -n ${HCO_NAMESPACE} | grep "kubevirt-hyperconverged-operator")
 
+# Patch the default CPU model to ensure a successful live migration
+${CMD} patch hco kubevirt-hyperconverged -n ${HCO_NAMESPACE} --type=json -p='[{"op": "add", "path": "/spec/defaultCPUModel", "value": "Westmere"}]'
+
 Msg "operator conditions before upgrade"
 source ./hack/check_operator_condition.sh
 KUBECTL_BINARY=${CMD} INSTALLED_NAMESPACE=${HCO_NAMESPACE} printOperatorCondition "${INITIAL_VERSION}"
@@ -236,6 +239,8 @@ upgrade $MID_VERSION $TARGET_VERSION $OO_LAST_BUNDLE
 
 
 Msg "make sure that we don't have outdated VMs"
+
+${CMD} get vmim -n ${VMS_NAMESPACE} -o yaml
 
 INFRASTRUCTURETOPOLOGY=$(${CMD} get infrastructure.config.openshift.io cluster -o json | jq -j '.status.infrastructureTopology')
 UPDATE_METHODS=$(${CMD} get hco ${HCO_RESOURCE_NAME} -n ${HCO_NAMESPACE} -o jsonpath='{.spec .workloadUpdateStrategy .workloadUpdateMethods}')
