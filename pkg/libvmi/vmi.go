@@ -289,6 +289,32 @@ func WithTPM(persistent bool) Option {
 	}
 }
 
+func WithSMM() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Features == nil {
+			vmi.Spec.Domain.Features = &v1.Features{}
+		}
+		vmi.Spec.Domain.Features.SMM = &v1.FeatureState{
+			Enabled: pointer.P(true),
+		}
+	}
+}
+
+func WithSecureBoot() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Firmware == nil {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{}
+		}
+		if vmi.Spec.Domain.Firmware.Bootloader == nil {
+			vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
+		}
+		if vmi.Spec.Domain.Firmware.Bootloader.EFI == nil {
+			vmi.Spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{}
+		}
+		vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.P(true)
+	}
+}
+
 func baseVmi(name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewVMIReferenceFromNameWithNS("", name)
 	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
