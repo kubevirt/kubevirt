@@ -60,16 +60,10 @@ go mod vendor
 build_date="$(date +%Y%m%d)"
 export IMAGE_REGISTRY=quay.io
 export IMAGE_TAG="nb_${build_date}_$(git show -s --format=%h)"
-export IMAGE_PREFIX=kubevirtci
-TEMP_OPERATOR_IMAGE=${IMAGE_PREFIX}/hyperconverged-cluster-operator
-TEMP_WEBHOOK_IMAGE=${IMAGE_PREFIX}/hyperconverged-cluster-webhook
-TEMP_DOWNLOAD_IMAGE=${IMAGE_PREFIX}/virt-artifacts-server
-CSV_OPERATOR_IMAGE=${IMAGE_REGISTRY}/${TEMP_OPERATOR_IMAGE}
-CSV_WEBHOOK_IMAGE=${IMAGE_REGISTRY}/${TEMP_WEBHOOK_IMAGE}
-CSV_DOWNLOAD_IMAGE=${IMAGE_REGISTRY}/${TEMP_DOWNLOAD_IMAGE}
+export REGISTRY_NAMESPACE=kubevirtci
 
 # Build HCO & HCO Webhook
-OPERATOR_IMAGE=${TEMP_OPERATOR_IMAGE} WEBHOOK_IMAGE=${TEMP_WEBHOOK_IMAGE} make build-push-multi-arch-operator-image build-push-multi-arch-webhook-image build-push-multi-arch-artifacts-server
+make build-push-multi-arch-operator-image build-push-multi-arch-webhook-image build-push-multi-arch-artifacts-server
 
 # Update image digests
 sed -i "s#quay.io/kubevirt/virt-#${kv_image/-*/-}#" deploy/images.csv
@@ -79,9 +73,9 @@ sed -i "s#^CDI_VERSION=.*#CDI_VERSION=\"${cdi_tag}\"#" hack/config
 export HCO_VERSION="${IMAGE_TAG}"
 ./automation/digester/update_images.sh
 
-HCO_OPERATOR_IMAGE_DIGEST=$(tools/digester/digester --image ${CSV_OPERATOR_IMAGE}:${IMAGE_TAG})
-HCO_WEBHOOK_IMAGE_DIGEST=$(tools/digester/digester --image ${CSV_WEBHOOK_IMAGE}:${IMAGE_TAG})
-HCO_DOWNLOAD_IMAGE_DIGEST=$(tools/digester/digester --image ${CSV_DOWNLOAD_IMAGE}:${IMAGE_TAG})
+HCO_OPERATOR_IMAGE_DIGEST=$(tools/digester/digester --image "${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/hyperconverged-cluster-operator:${IMAGE_TAG}")
+HCO_WEBHOOK_IMAGE_DIGEST=$(tools/digester/digester --image "${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/hyperconverged-cluster-webhook:${IMAGE_TAG}")
+HCO_DOWNLOAD_IMAGE_DIGEST=$(tools/digester/digester --image "${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/virt-artifacts-server:${IMAGE_TAG}")
 
 # Build the CSV
 HCO_OPERATOR_IMAGE=${HCO_OPERATOR_IMAGE_DIGEST} HCO_WEBHOOK_IMAGE=${HCO_WEBHOOK_IMAGE_DIGEST} HCO_DOWNLOADS_IMAGE=${HCO_DOWNLOAD_IMAGE_DIGEST} ./hack/build-manifests.sh
@@ -93,12 +87,12 @@ chmod +x opm
 export OPM=$(pwd)/opm
 
 # create and push bundle image and index image
-REGISTRY_NAMESPACE=${IMAGE_PREFIX} IMAGE_TAG=${IMAGE_TAG} ./hack/build-index-image.sh latest UNSTABLE
+REGISTRY_NAMESPACE=${REGISTRY_NAMESPACE} IMAGE_TAG=${IMAGE_TAG} ./hack/build-index-image.sh latest UNSTABLE
 
 BUNDLE_REGISTRY_IMAGE_NAME=${BUNDLE_REGISTRY_IMAGE_NAME:-hyperconverged-cluster-bundle}
 INDEX_REGISTRY_IMAGE_NAME=${INDEX_REGISTRY_IMAGE_NAME:-hyperconverged-cluster-index}
-BUNDLE_IMAGE_NAME="${IMAGE_REGISTRY}/${IMAGE_PREFIX}/${BUNDLE_REGISTRY_IMAGE_NAME}:${IMAGE_TAG}"
-INDEX_IMAGE_NAME="${IMAGE_REGISTRY}/${IMAGE_PREFIX}/${INDEX_REGISTRY_IMAGE_NAME}:${IMAGE_TAG}"
+BUNDLE_IMAGE_NAME="${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/${BUNDLE_REGISTRY_IMAGE_NAME}:${IMAGE_TAG}"
+INDEX_IMAGE_NAME="${IMAGE_REGISTRY}/${REGISTRY_NAMESPACE}/${INDEX_REGISTRY_IMAGE_NAME}:${IMAGE_TAG}"
 
 # build succeeded: publish the nightly build
 hco_bucket="kubevirt-prow/devel/nightly/release/kubevirt/hyperconverged-cluster-operator"
