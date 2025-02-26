@@ -24,8 +24,8 @@ import (
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	instancetypepkg "kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
+	"kubevirt.io/kubevirt/pkg/instancetype/upgrade"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	utils "kubevirt.io/kubevirt/pkg/util"
 
@@ -159,7 +159,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			g.Expect(err).ToNot(HaveOccurred())
 
 			By("Ensuring the referenced ControllerRevision has the latest version label")
-			g.Expect(instancetypepkg.IsObjectLatestVersion(cr)).To(BeTrue())
+			g.Expect(upgrade.IsObjectLatestVersion(cr)).To(BeTrue())
 
 			By("Ensuring the referenced ControllerRevision contains an object of the latest version")
 			decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), cr.Data.Raw)

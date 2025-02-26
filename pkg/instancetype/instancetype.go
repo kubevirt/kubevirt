@@ -1,7 +1,6 @@
 package instancetype
 
 import (
-	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -65,8 +64,4 @@ func (m *InstancetypeMethods) InferDefaultPreference(vm *virtv1.VirtualMachine) 
 
 func (m *InstancetypeMethods) Upgrade(vm *virtv1.VirtualMachine) error {
 	return upgrade.New(m.ControllerRevisionStore, m.Clientset).Upgrade(vm)
-}
-
-func IsObjectLatestVersion(cr *appsv1.ControllerRevision) bool {
-	return upgrade.IsObjectLatestVersion(cr)
 }
