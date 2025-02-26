@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["vmi.go"],
+    srcs = [
+        "datavolumes.go",
+        "vmi.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi",
     visibility = ["//visibility:public"],
     deps = [
