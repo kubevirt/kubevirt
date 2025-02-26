@@ -1892,8 +1892,6 @@ func (c *Controller) deleteAttachmentPod(vmi *virtv1.VirtualMachineInstance, att
 
 func (c *Controller) createAttachmentPodTemplate(vmi *virtv1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod, volumes []*virtv1.Volume) (*k8sv1.Pod, error) {
 	logger := log.Log.Object(vmi)
-	var pod *k8sv1.Pod
-	var err error
 
 	volumeNamesPVCMap, err := storagetypes.VirtVolumesToPVCMap(volumes, c.pvcIndexer, virtlauncherPod.Namespace)
 	if err != nil {
@@ -1918,9 +1916,9 @@ func (c *Controller) createAttachmentPodTemplate(vmi *virtv1.VirtualMachineInsta
 	}
 
 	if len(volumeNamesPVCMap) > 0 {
-		pod, err = c.templateService.RenderHotplugAttachmentPodTemplate(volumes, virtlauncherPod, vmi, volumeNamesPVCMap)
+		return c.templateService.RenderHotplugAttachmentPodTemplate(volumes, virtlauncherPod, vmi, volumeNamesPVCMap)
 	}
-	return pod, err
+	return nil, nil
 }
 
 func (c *Controller) createAttachmentPopulateTriggerPodTemplate(volume *virtv1.Volume, virtlauncherPod *k8sv1.Pod, vmi *virtv1.VirtualMachineInstance) (*k8sv1.Pod, error) {
