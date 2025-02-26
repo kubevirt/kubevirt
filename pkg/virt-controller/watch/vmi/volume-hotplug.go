@@ -39,22 +39,22 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 )
 
-func (c *Controller) needsHandleHotplug(hotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod) bool {
+func needsHandleHotplug(hotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod) bool {
 	if len(hotplugAttachmentPods) > 1 {
 		return true
 	}
 	// Determine if the ready volumes have changed compared to the current pod
-	if len(hotplugAttachmentPods) == 1 && c.podVolumesMatchesReadyVolumes(hotplugAttachmentPods[0], hotplugVolumes) {
+	if len(hotplugAttachmentPods) == 1 && podVolumesMatchesReadyVolumes(hotplugAttachmentPods[0], hotplugVolumes) {
 		return false
 	}
 	return len(hotplugVolumes) > 0 || len(hotplugAttachmentPods) > 0
 }
 
-func (c *Controller) getActiveAndOldAttachmentPods(readyHotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod) (*k8sv1.Pod, []*k8sv1.Pod) {
+func getActiveAndOldAttachmentPods(readyHotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod) (*k8sv1.Pod, []*k8sv1.Pod) {
 	var currentPod *k8sv1.Pod
 	oldPods := make([]*k8sv1.Pod, 0)
 	for _, attachmentPod := range hotplugAttachmentPods {
-		if !c.podVolumesMatchesReadyVolumes(attachmentPod, readyHotplugVolumes) {
+		if !podVolumesMatchesReadyVolumes(attachmentPod, readyHotplugVolumes) {
 			oldPods = append(oldPods, attachmentPod)
 		} else {
 			currentPod = attachmentPod
@@ -118,7 +118,7 @@ func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAt
 		readyHotplugVolumes = append(readyHotplugVolumes, volume)
 	}
 
-	currentPod, oldPods := c.getActiveAndOldAttachmentPods(readyHotplugVolumes, hotplugAttachmentPods)
+	currentPod, oldPods := getActiveAndOldAttachmentPods(readyHotplugVolumes, hotplugAttachmentPods)
 	if currentPod == nil && !hasPendingPods(oldPods) && len(readyHotplugVolumes) > 0 {
 		if rateLimited, waitTime := c.requeueAfter(oldPods, time.Duration(len(readyHotplugVolumes)/-10)); rateLimited {
 			key, err := controller.KeyFunc(vmi)
@@ -180,7 +180,7 @@ func (c *Controller) triggerHotplugPopulation(volume *v1.Volume, vmi *v1.Virtual
 	return nil
 }
 
-func (c *Controller) syncHotplugCondition(vmi *v1.VirtualMachineInstance, conditionType v1.VirtualMachineInstanceConditionType) {
+func syncHotplugCondition(vmi *v1.VirtualMachineInstance, conditionType v1.VirtualMachineInstanceConditionType) {
 	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
 	condition := v1.VirtualMachineInstanceCondition{
 		Type:   conditionType,
@@ -192,11 +192,11 @@ func (c *Controller) syncHotplugCondition(vmi *v1.VirtualMachineInstance, condit
 	}
 }
 
-func (c *Controller) canMoveToAttachedPhase(currentPhase v1.VolumePhase) bool {
+func canMoveToAttachedPhase(currentPhase v1.VolumePhase) bool {
 	return currentPhase == "" || currentPhase == v1.VolumeBound || currentPhase == v1.VolumePending
 }
 
-func (c *Controller) findAttachmentPodByVolumeName(volumeName string, attachmentPods []*k8sv1.Pod) *k8sv1.Pod {
+func findAttachmentPodByVolumeName(volumeName string, attachmentPods []*k8sv1.Pod) *k8sv1.Pod {
 	for _, pod := range attachmentPods {
 		for _, podVolume := range pod.Spec.Volumes {
 			if podVolume.Name == volumeName {
@@ -308,7 +308,7 @@ func (c *Controller) deleteOrphanedAttachmentPods(vmi *v1.VirtualMachineInstance
 	return nil
 }
 
-func (c *Controller) getNewHotplugVolumes(hotplugAttachmentPods []*k8sv1.Pod, hotplugVolumes []*v1.Volume) []*v1.Volume {
+func getNewHotplugVolumes(hotplugAttachmentPods []*k8sv1.Pod, hotplugVolumes []*v1.Volume) []*v1.Volume {
 	var newVolumes []*v1.Volume
 	hotplugVolumeMap := make(map[string]*v1.Volume)
 	for _, volume := range hotplugVolumes {
@@ -327,7 +327,7 @@ func (c *Controller) getNewHotplugVolumes(hotplugAttachmentPods []*k8sv1.Pod, ho
 	return newVolumes
 }
 
-func (c *Controller) getDeletedHotplugVolumes(hotplugPods []*k8sv1.Pod, hotplugVolumes []*v1.Volume) []k8sv1.Volume {
+func getDeletedHotplugVolumes(hotplugPods []*k8sv1.Pod, hotplugVolumes []*v1.Volume) []k8sv1.Volume {
 	var deletedVolumes []k8sv1.Volume
 	hotplugVolumeMap := make(map[string]*v1.Volume)
 	for _, volume := range hotplugVolumes {
@@ -361,7 +361,7 @@ func (c *Controller) deleteAttachmentPod(vmi *v1.VirtualMachineInstance, attachm
 	return nil
 }
 
-func (c *Controller) podVolumesMatchesReadyVolumes(attachmentPod *k8sv1.Pod, volumes []*v1.Volume) bool {
+func podVolumesMatchesReadyVolumes(attachmentPod *k8sv1.Pod, volumes []*v1.Volume) bool {
 	// -2 for empty dir and token
 	if len(attachmentPod.Spec.Volumes)-2 != len(volumes) {
 		return false

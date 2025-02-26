@@ -665,7 +665,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		}
 
 		if c.requireCPUHotplug(vmiCopy) {
-			c.syncHotplugCondition(vmiCopy, virtv1.VirtualMachineInstanceVCPUChange)
+			syncHotplugCondition(vmiCopy, virtv1.VirtualMachineInstanceVCPUChange)
 		}
 
 		if c.requireMemoryHotplug(vmiCopy) {
@@ -1088,7 +1088,7 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 			return common.NewSyncError(fmt.Errorf("failed to get attachment pods: %v", err), controller.FailedHotplugSyncReason), pod
 		}
 
-		if pod.DeletionTimestamp == nil && c.needsHandleHotplug(hotplugVolumes, hotplugAttachmentPods) {
+		if pod.DeletionTimestamp == nil && needsHandleHotplug(hotplugVolumes, hotplugAttachmentPods) {
 			var hotplugSyncErr common.SyncError = nil
 			hotplugSyncErr = c.handleHotplugVolumes(hotplugVolumes, hotplugAttachmentPods, vmi, pod, dataVolumes)
 			if hotplugSyncErr != nil {
@@ -1658,7 +1658,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 		return err
 	}
 
-	attachmentPod, _ := c.getActiveAndOldAttachmentPods(hotplugVolumes, attachmentPods)
+	attachmentPod, _ := getActiveAndOldAttachmentPods(hotplugVolumes, attachmentPods)
 
 	newStatus := make([]virtv1.VolumeStatus, 0)
 
@@ -1706,7 +1706,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 					// Remove UID of old pod if a new one is available, but not yet ready
 					status.HotplugVolume.AttachPodUID = ""
 				}
-				if c.canMoveToAttachedPhase(status.Phase) {
+				if canMoveToAttachedPhase(status.Phase) {
 					status.Phase = virtv1.HotplugVolumeAttachedToNode
 					status.Message = fmt.Sprintf("Created hotplug attachment pod %s, for volume %s", attachmentPod.Name, volume.Name)
 					status.Reason = controller.SuccessfulCreatePodReason
@@ -1745,7 +1745,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 	// We have updated the status of current volumes, but if a volume was removed, we want to keep that status, until there is no
 	// associated pod, then remove it. Any statuses left in the map are statuses without a matching volume in the spec.
 	for k, v := range oldStatusMap {
-		attachmentPod := c.findAttachmentPodByVolumeName(k, attachmentPods)
+		attachmentPod := findAttachmentPodByVolumeName(k, attachmentPods)
 		if attachmentPod != nil {
 			v.HotplugVolume.AttachPodName = attachmentPod.Name
 			v.HotplugVolume.AttachPodUID = attachmentPod.UID
@@ -1837,7 +1837,7 @@ func (c *Controller) requireMemoryHotplug(vmi *virtv1.VirtualMachineInstance) bo
 }
 
 func (c *Controller) syncMemoryHotplug(vmi *virtv1.VirtualMachineInstance) {
-	c.syncHotplugCondition(vmi, virtv1.VirtualMachineInstanceMemoryChange)
+	syncHotplugCondition(vmi, virtv1.VirtualMachineInstanceMemoryChange)
 	// store additionalGuestMemoryOverheadRatio
 	overheadRatio := c.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio
 	if overheadRatio != nil {

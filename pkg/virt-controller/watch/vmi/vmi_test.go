@@ -2484,7 +2484,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		}
 
 		DescribeTable("should calculate deleted volumes based on current pods and volumes", func(hotplugPods []*k8sv1.Pod, hotplugVolumes []*virtv1.Volume, expected []k8sv1.Volume) {
-			res := controller.getDeletedHotplugVolumes(hotplugPods, hotplugVolumes)
+			res := getDeletedHotplugVolumes(hotplugPods, hotplugVolumes)
 			Expect(res).To(HaveLen(len(expected)))
 			for i, volume := range res {
 				Expect(equality.Semantic.DeepEqual(volume, expected[i])).To(BeTrue(), "%v does not match %v", volume, expected[i])
@@ -2496,7 +2496,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		DescribeTable("should calculate new volumes based on current pods and volumes", func(hotplugPods []*k8sv1.Pod, hotplugVolumes []*virtv1.Volume, expected []*virtv1.Volume) {
-			res := controller.getNewHotplugVolumes(hotplugPods, hotplugVolumes)
+			res := getNewHotplugVolumes(hotplugPods, hotplugVolumes)
 			Expect(res).To(HaveLen(len(expected)))
 			for i, volume := range res {
 				Expect(equality.Semantic.DeepEqual(volume, expected[i])).To(BeTrue(), "%v does not match %v", volume, expected[i])
@@ -2597,7 +2597,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		DescribeTable("needsHandleHotplug", func(hotplugVolumes []*virtv1.Volume, hotplugAttachmentPods []*k8sv1.Pod, expected bool) {
-			res := controller.needsHandleHotplug(hotplugVolumes, hotplugAttachmentPods)
+			res := needsHandleHotplug(hotplugVolumes, hotplugAttachmentPods)
 			Expect(res).To(Equal(expected))
 		},
 			Entry("should return false if volumes and attachmentpods are empty", makeVolumes(), makePods(), false),
@@ -2796,7 +2796,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		DescribeTable("Should properly calculate if it needs to handle hotplug volumes", func(hotplugVolumes []*virtv1.Volume, attachmentPods []*k8sv1.Pod, match gomegaTypes.GomegaMatcher) {
-			Expect(controller.needsHandleHotplug(hotplugVolumes, attachmentPods)).To(match)
+			Expect(needsHandleHotplug(hotplugVolumes, attachmentPods)).To(match)
 		},
 			Entry("nil volumes, nil attachmentPods", nil, nil, BeFalse()),
 			Entry("empty volumes, empty attachmentPods", []*virtv1.Volume{}, []*k8sv1.Pod{}, BeFalse()),
@@ -2824,7 +2824,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		DescribeTable("Should find active and old pods", func(hotplugVolumes []*virtv1.Volume, attachmentPods []*k8sv1.Pod, expectedActive *k8sv1.Pod, expectedOld []*k8sv1.Pod) {
-			active, old := controller.getActiveAndOldAttachmentPods(hotplugVolumes, attachmentPods)
+			active, old := getActiveAndOldAttachmentPods(hotplugVolumes, attachmentPods)
 			Expect(active).To(Equal(expectedActive))
 			Expect(old).To(ContainElements(expectedOld))
 		},
