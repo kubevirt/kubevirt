@@ -308,41 +308,6 @@ func (c *Controller) deleteOrphanedAttachmentPods(vmi *v1.VirtualMachineInstance
 	return nil
 }
 
-func getNewHotplugVolumes(hotplugAttachmentPods []*k8sv1.Pod, hotplugVolumes []*v1.Volume) []*v1.Volume {
-	var newVolumes []*v1.Volume
-	hotplugVolumeMap := make(map[string]*v1.Volume)
-	for _, volume := range hotplugVolumes {
-		hotplugVolumeMap[volume.Name] = volume
-	}
-	// Remove all the volumes that we have a pod for.
-	for _, pod := range hotplugAttachmentPods {
-		for _, volume := range pod.Spec.Volumes {
-			delete(hotplugVolumeMap, volume.Name)
-		}
-	}
-	// Any remaining volumes are new.
-	for _, v := range hotplugVolumeMap {
-		newVolumes = append(newVolumes, v)
-	}
-	return newVolumes
-}
-
-func getDeletedHotplugVolumes(hotplugPods []*k8sv1.Pod, hotplugVolumes []*v1.Volume) []k8sv1.Volume {
-	var deletedVolumes []k8sv1.Volume
-	hotplugVolumeMap := make(map[string]*v1.Volume)
-	for _, volume := range hotplugVolumes {
-		hotplugVolumeMap[volume.Name] = volume
-	}
-	for _, pod := range hotplugPods {
-		for _, volume := range pod.Spec.Volumes {
-			if _, ok := hotplugVolumeMap[volume.Name]; !ok && volume.PersistentVolumeClaim != nil {
-				deletedVolumes = append(deletedVolumes, volume)
-			}
-		}
-	}
-	return deletedVolumes
-}
-
 func (c *Controller) deleteAttachmentPod(vmi *v1.VirtualMachineInstance, attachmentPod *k8sv1.Pod) error {
 	if attachmentPod.DeletionTimestamp != nil {
 		return nil

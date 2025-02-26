@@ -2483,31 +2483,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			return res
 		}
 
-		DescribeTable("should calculate deleted volumes based on current pods and volumes", func(hotplugPods []*k8sv1.Pod, hotplugVolumes []*virtv1.Volume, expected []k8sv1.Volume) {
-			res := getDeletedHotplugVolumes(hotplugPods, hotplugVolumes)
-			Expect(res).To(HaveLen(len(expected)))
-			for i, volume := range res {
-				Expect(equality.Semantic.DeepEqual(volume, expected[i])).To(BeTrue(), "%v does not match %v", volume, expected[i])
-			}
-		},
-			Entry("should return empty if pods and volumes is empty", make([]*k8sv1.Pod, 0), make([]*virtv1.Volume, 0), make([]k8sv1.Volume, 0)),
-			Entry("should return empty if pods and volumes match", makePods(1), makeVolumes(1), make([]k8sv1.Volume, 0)),
-			Entry("should return empty if pods < volumes", makePods(1), makeVolumes(1, 2), make([]k8sv1.Volume, 0)),
-		)
-
-		DescribeTable("should calculate new volumes based on current pods and volumes", func(hotplugPods []*k8sv1.Pod, hotplugVolumes []*virtv1.Volume, expected []*virtv1.Volume) {
-			res := getNewHotplugVolumes(hotplugPods, hotplugVolumes)
-			Expect(res).To(HaveLen(len(expected)))
-			for i, volume := range res {
-				Expect(equality.Semantic.DeepEqual(volume, expected[i])).To(BeTrue(), "%v does not match %v", volume, expected[i])
-			}
-		},
-			Entry("should return empty if pods and volumes is empty", make([]*k8sv1.Pod, 0), make([]*virtv1.Volume, 0), make([]*virtv1.Volume, 0)),
-			Entry("should return empty if pods and volumes match", makePods(1), makeVolumes(1), make([]*virtv1.Volume, 0)),
-			Entry("should return empty if pods > volumes", makePods(1), makeVolumes(1, 2), makeVolumes(2)),
-			Entry("should return 1 value if pods < volumes by 1", makePods(1, 2), makeVolumes(1), make([]*virtv1.Volume, 0)),
-		)
-
 		makeVolumeStatuses := func() []virtv1.VolumeStatus {
 			volumeStatuses := make([]virtv1.VolumeStatus, 0)
 			volumeStatuses = append(volumeStatuses, virtv1.VolumeStatus{
