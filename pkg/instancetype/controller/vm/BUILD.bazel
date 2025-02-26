@@ -41,7 +41,6 @@ go_test(
     ],
     deps = [
         ":go_default_library",
-        "//pkg/instancetype:go_default_library",
         "//pkg/instancetype/revision:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",

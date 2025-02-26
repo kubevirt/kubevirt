@@ -28,7 +28,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
 
-	"kubevirt.io/kubevirt/pkg/instancetype"
 	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -433,7 +432,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedRevisionName := instancetype.GetRevisionName(
+			expectedRevisionName := revision.GenerateName(
 				vm.Name, clusterInstancetypeObj.Name, clusterInstancetypeObj.GroupVersionKind().Version,
 				clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation)
 			expectedRevision, err := revision.CreateControllerRevision(vm, clusterInstancetypeObj)
@@ -597,7 +596,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedPreferenceRevisionName := instancetype.GetRevisionName(
+			expectedPreferenceRevisionName := revision.GenerateName(
 				vm.Name, preference.Name, preference.GroupVersionKind().Version, preference.UID, preference.Generation)
 			expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, preference)
 			Expect(err).ToNot(HaveOccurred())
