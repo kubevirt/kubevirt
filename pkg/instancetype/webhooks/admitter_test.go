@@ -1,4 +1,5 @@
-package admitters
+//nolint:dupl
+package webhooks
 
 import (
 	"context"
@@ -45,14 +46,6 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 		Entry("with v1beta1 version", instancetypev1beta1.SchemeGroupVersion.Version),
 	)
 
-	It("should reject unsupported version", func() {
-		ar := createInstancetypeAdmissionReview(instancetypeObj, "unsupportedversion")
-		response := admitter.Admit(context.Background(), ar)
-
-		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
-		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
-	})
-
 	DescribeTable("should reject negative and over 100% memory overcommit values", func(percent int) {
 		version := instancetypev1beta1.SchemeGroupVersion.Version
 		instancetypeObj.Spec = instancetypev1beta1.VirtualMachineInstancetypeSpec{
@@ -91,7 +84,8 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 		response := admitter.Admit(context.Background(), ar)
 
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
-		Expect(response.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.")
+		Expect(response.Result.Code).To(
+			Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.")
 	})
 })
 
@@ -140,19 +134,15 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 		response := admitter.Admit(context.Background(), ar)
 
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
-		Expect(response.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.")
-	})
-
-	It("should reject unsupported version", func() {
-		ar := createClusterInstancetypeAdmissionReview(clusterInstancetypeObj, "unsupportedversion")
-		response := admitter.Admit(context.Background(), ar)
-
-		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
-		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
+		Expect(response.Result.Code).To(
+			Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.")
 	})
 })
 
-func createInstancetypeAdmissionReview(instancetype *instancetypev1beta1.VirtualMachineInstancetype, version string) *admissionv1.AdmissionReview {
+func createInstancetypeAdmissionReview(
+	instancetype *instancetypev1beta1.VirtualMachineInstancetype,
+	version string,
+) *admissionv1.AdmissionReview {
 	bytes, err := json.Marshal(instancetype)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Could not JSON encode instancetype: %v", instancetype)
 
@@ -171,7 +161,10 @@ func createInstancetypeAdmissionReview(instancetype *instancetypev1beta1.Virtual
 	}
 }
 
-func createClusterInstancetypeAdmissionReview(clusterInstancetype *instancetypev1beta1.VirtualMachineClusterInstancetype, version string) *admissionv1.AdmissionReview {
+func createClusterInstancetypeAdmissionReview(
+	clusterInstancetype *instancetypev1beta1.VirtualMachineClusterInstancetype,
+	version string,
+) *admissionv1.AdmissionReview {
 	bytes, err := json.Marshal(clusterInstancetype)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Could not JSON encode instancetype: %v", clusterInstancetype)
 

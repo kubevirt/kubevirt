@@ -12,9 +12,9 @@ go_library(
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/controller:go_default_library",
-        "//pkg/instancetype:go_default_library",
         "//pkg/instancetype/conflict:go_default_library",
         "//pkg/instancetype/revision:go_default_library",
+        "//pkg/instancetype/upgrade:go_default_library",
         "//pkg/libdv:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",
