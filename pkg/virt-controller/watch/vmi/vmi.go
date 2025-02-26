@@ -1525,10 +1525,7 @@ func (c *Controller) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance) e
 			continue
 		}
 
-		c.podExpectations.ExpectDeletions(vmiKey, []string{controller.PodKey(pod)})
-		err := c.clientset.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{})
-		if err != nil {
-			c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(pod))
+		if err = c.deletePod(vmiKey, pod, v1.DeleteOptions{}); err != nil {
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Failed to delete virtual machine pod %s", pod.Name)
 			return err
 		}
@@ -1612,14 +1609,10 @@ func (c *Controller) deleteRunningFinishedOrFailedPod(vmi *virtv1.VirtualMachine
 	zero := int64(0)
 	if pod.Status.Phase == k8sv1.PodRunning || pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed {
 		vmiKey := controller.VirtualMachineInstanceKey(vmi)
-		c.podExpectations.ExpectDeletions(vmiKey, []string{controller.PodKey(pod)})
-		err := c.clientset.CoreV1().Pods(pod.GetNamespace()).Delete(context.Background(), pod.Name, v1.DeleteOptions{
+
+		return c.deletePod(vmiKey, pod, v1.DeleteOptions{
 			GracePeriodSeconds: &zero,
 		})
-		if err != nil {
-			c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(pod))
-			return err
-		}
 	}
 	return nil
 }
@@ -1877,12 +1870,10 @@ func (c *Controller) deleteAttachmentPod(vmi *virtv1.VirtualMachineInstance, att
 
 	vmiKey := controller.VirtualMachineInstanceKey(vmi)
 
-	c.podExpectations.ExpectDeletions(vmiKey, []string{controller.PodKey(attachmentPod)})
-	err := c.clientset.CoreV1().Pods(attachmentPod.GetNamespace()).Delete(context.Background(), attachmentPod.Name, v1.DeleteOptions{
+	err := c.deletePod(vmiKey, attachmentPod, v1.DeleteOptions{
 		GracePeriodSeconds: pointer.P(int64(0)),
 	})
 	if err != nil {
-		c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(attachmentPod))
 		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Failed to delete attachment pod %s", attachmentPod.Name)
 		return err
 	}
@@ -2292,6 +2283,16 @@ func (c *Controller) aggregateDataVolumesConditions(vmiCopy *virtv1.VirtualMachi
 
 	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
 	vmiConditions.UpdateCondition(vmiCopy, &dvsReadyCondition)
+}
+
+func (c *Controller) deletePod(vmiKey string, pod *k8sv1.Pod, options v1.DeleteOptions) error {
+	c.podExpectations.ExpectDeletions(vmiKey, []string{controller.PodKey(pod)})
+	err := c.clientset.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, options)
+	if err != nil {
+		c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(pod))
+		return err
+	}
+	return nil
 }
 
 func statusOfReadyCondition(conditions []cdiv1.DataVolumeCondition) k8sv1.ConditionStatus {
