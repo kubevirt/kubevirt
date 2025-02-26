@@ -38,6 +38,7 @@ import (
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
@@ -387,11 +388,13 @@ func addHostDisk(spec *v1.VirtualMachineInstanceSpec, path string, hostDiskType 
 }
 
 func GetVMIMigratable() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiMigratable)
-	makeMigratable(vmi)
-
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageAlpine, DockerTag), v1.DiskBusVirtio)
-	return vmi
+	return libvmi.New(
+		libvmi.WithName(VmiMigratable),
+		libvmi.WithResourceMemory("128Mi"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageAlpine, DockerTag)),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
+	)
 }
 
 func GetVMIEphemeral() *v1.VirtualMachineInstance {
