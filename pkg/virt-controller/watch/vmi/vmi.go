@@ -46,6 +46,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -1694,7 +1695,7 @@ func (c *Controller) cleanupAttachmentPods(currentPod *k8sv1.Pod, oldPods []*k8s
 			foundRunning = true
 			continue
 		}
-		if err := c.deleteAttachmentPodForVolume(vmi, attachmentPod); err != nil {
+		if err := c.deleteAttachmentPod(vmi, attachmentPod); err != nil {
 			return common.NewSyncError(fmt.Errorf("Error deleting attachment pod %v", err), controller.FailedDeletePodReason)
 		}
 	}
@@ -1869,17 +1870,16 @@ func (c *Controller) getDeletedHotplugVolumes(hotplugPods []*k8sv1.Pod, hotplugV
 	return deletedVolumes
 }
 
-func (c *Controller) deleteAttachmentPodForVolume(vmi *virtv1.VirtualMachineInstance, attachmentPod *k8sv1.Pod) error {
-	vmiKey := controller.VirtualMachineInstanceKey(vmi)
-	zero := int64(0)
-
+func (c *Controller) deleteAttachmentPod(vmi *virtv1.VirtualMachineInstance, attachmentPod *k8sv1.Pod) error {
 	if attachmentPod.DeletionTimestamp != nil {
 		return nil
 	}
 
+	vmiKey := controller.VirtualMachineInstanceKey(vmi)
+
 	c.podExpectations.ExpectDeletions(vmiKey, []string{controller.PodKey(attachmentPod)})
 	err := c.clientset.CoreV1().Pods(attachmentPod.GetNamespace()).Delete(context.Background(), attachmentPod.Name, v1.DeleteOptions{
-		GracePeriodSeconds: &zero,
+		GracePeriodSeconds: pointer.P(int64(0)),
 	})
 	if err != nil {
 		c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(attachmentPod))
@@ -1951,7 +1951,7 @@ func (c *Controller) deleteAllAttachmentPods(vmi *virtv1.VirtualMachineInstance)
 			return err
 		}
 		for _, attachmentPod := range attachmentPods {
-			err := c.deleteAttachmentPodForVolume(vmi, attachmentPod)
+			err := c.deleteAttachmentPod(vmi, attachmentPod)
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return err
 			}
@@ -1983,7 +1983,7 @@ func (c *Controller) deleteOrphanedAttachmentPods(vmi *virtv1.VirtualMachineInst
 		}
 
 		for _, attachmentPod := range attachmentPods {
-			if err := c.deleteAttachmentPodForVolume(vmi, attachmentPod); err != nil {
+			if err := c.deleteAttachmentPod(vmi, attachmentPod); err != nil {
 				log.Log.Reason(err).Errorf("failed to delete attachment pod %s: %v", controller.PodKey(attachmentPod), err)
 				// do not return; continue the cleanup...
 			}
