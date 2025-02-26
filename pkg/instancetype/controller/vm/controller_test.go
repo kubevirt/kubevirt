@@ -35,7 +35,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 )
 
@@ -915,12 +914,9 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			}
 		}
 
-		kvWithFGEnabledReferencePolicyExpand := &virtv1.KubeVirt{
+		kvWithReferencePolicyExpand := &virtv1.KubeVirt{
 			Spec: virtv1.KubeVirtSpec{
 				Configuration: virtv1.KubeVirtConfiguration{
-					DeveloperConfiguration: &virtv1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.InstancetypeReferencePolicy},
-					},
 					Instancetype: &virtv1.InstancetypeConfiguration{
 						ReferencePolicy: pointer.P(virtv1.Expand),
 					},
@@ -928,12 +924,9 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			},
 		}
 
-		kvWithFGEnabledReferencePolicyExpandAll := &virtv1.KubeVirt{
+		kvWithReferencePolicyExpandAll := &virtv1.KubeVirt{
 			Spec: virtv1.KubeVirtSpec{
 				Configuration: virtv1.KubeVirtConfiguration{
-					DeveloperConfiguration: &virtv1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.InstancetypeReferencePolicy},
-					},
 					Instancetype: &virtv1.InstancetypeConfiguration{
 						ReferencePolicy: pointer.P(virtv1.ExpandAll),
 					},
@@ -975,9 +968,9 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(vm.Spec.Preference.RevisionName).To(BeEmpty())
 			Expect(revision.HasControllerRevisionRef(vm.Status.PreferenceRef)).To(BeTrue())
 		},
-			Entry("with FG disabled and default referencePolicy",
+			Entry("default referencePolicy",
 				&virtv1.KubeVirt{Spec: virtv1.KubeVirtSpec{Configuration: virtv1.KubeVirtConfiguration{}}}, func() {}),
-			Entry("with FG disabled and referencePolicy reference",
+			Entry("referencePolicy reference",
 				&virtv1.KubeVirt{
 					Spec: virtv1.KubeVirtSpec{
 						Configuration: virtv1.KubeVirtConfiguration{
@@ -987,47 +980,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 						},
 					},
 				}, func() {}),
-			Entry("with FG disabled and referencePolicy expand",
-				&virtv1.KubeVirt{
-					Spec: virtv1.KubeVirtSpec{
-						Configuration: virtv1.KubeVirtConfiguration{
-							Instancetype: &virtv1.InstancetypeConfiguration{
-								ReferencePolicy: pointer.P(virtv1.Expand),
-							},
-						},
-					},
-				}, func() {}),
-			Entry("with FG disabled and referencePolicy expandAll",
-				&virtv1.KubeVirt{
-					Spec: virtv1.KubeVirtSpec{
-						Configuration: virtv1.KubeVirtConfiguration{
-							Instancetype: &virtv1.InstancetypeConfiguration{
-								ReferencePolicy: pointer.P(virtv1.ExpandAll),
-							},
-						},
-					},
-				}, func() {}),
-			Entry("with FG enabled and default referencePolicy", &virtv1.KubeVirt{
-				Spec: virtv1.KubeVirtSpec{Configuration: virtv1.KubeVirtConfiguration{
-					DeveloperConfiguration: &virtv1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.InstancetypeReferencePolicy},
-					},
-				}},
-			}, func() {}),
-			Entry("with FG enabled and referencePolicy reference", &virtv1.KubeVirt{
-				Spec: virtv1.KubeVirtSpec{
-					Configuration: virtv1.KubeVirtConfiguration{
-						DeveloperConfiguration: &virtv1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.InstancetypeReferencePolicy},
-						},
-						Instancetype: &virtv1.InstancetypeConfiguration{
-							ReferencePolicy: pointer.P(virtv1.Reference),
-						},
-					},
-				},
-			}, func() {}),
-			Entry("with FG enabled, referencePolicy expand and revisionNames already captured",
-				kvWithFGEnabledReferencePolicyExpand, addRevisionsToVMFunc,
+			Entry("referencePolicy expand and revisionNames already captured",
+				kvWithReferencePolicyExpand, addRevisionsToVMFunc,
 			),
 		)
 
@@ -1067,10 +1021,10 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 			}
 		},
-			Entry("with FG enabled and referencePolicy expand", kvWithFGEnabledReferencePolicyExpand, func() {}),
-			Entry("with FG enabled and referencePolicy expandAll", kvWithFGEnabledReferencePolicyExpandAll, func() {}),
-			Entry("with FG enabled and referencePolicy expandAll and revisionNames already captured",
-				kvWithFGEnabledReferencePolicyExpandAll, addRevisionsToVMFunc),
+			Entry("referencePolicy expand", kvWithReferencePolicyExpand, func() {}),
+			Entry("referencePolicy expandAll", kvWithReferencePolicyExpandAll, func() {}),
+			Entry("referencePolicy expandAll and revisionNames already captured",
+				kvWithReferencePolicyExpandAll, addRevisionsToVMFunc),
 		)
 	})
 })

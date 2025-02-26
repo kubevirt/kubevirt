@@ -487,13 +487,12 @@ func (config *ClusterConfig) VGADisplayForEFIGuestsEnabled() bool {
 }
 
 func (c *ClusterConfig) GetInstancetypeReferencePolicy() v1.InstancetypeReferencePolicy {
-	// Default to the Reference InstancetypeReferencePolicy
-	policy := v1.Reference
 	instancetypeConfig := c.GetConfig().Instancetype
-	if c.isFeatureGateEnabled(featuregate.InstancetypeReferencePolicy) && instancetypeConfig != nil && instancetypeConfig.ReferencePolicy != nil {
-		policy = *instancetypeConfig.ReferencePolicy
+	if instancetypeConfig != nil && instancetypeConfig.ReferencePolicy != nil {
+		return *instancetypeConfig.ReferencePolicy
 	}
-	return policy
+	// Default to the Reference InstancetypeReferencePolicy
+	return v1.Reference
 }
 
 func (c *ClusterConfig) ClusterProfilerEnabled() bool {
