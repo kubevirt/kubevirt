@@ -2,7 +2,6 @@ package instancetype
 
 import (
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -47,10 +46,6 @@ func IsPreferredTopologySupported(topology instancetypev1beta1.PreferredCPUTopol
 
 func GetSpreadOptions(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) (uint32, instancetypev1beta1.SpreadAcross) {
 	return preferenceApply.GetSpreadOptions(preferenceSpec)
-}
-
-func GetRevisionName(vmName, resourceName, resourceVersion string, resourceUID types.UID, resourceGeneration int64) string {
-	return revision.GenerateName(vmName, resourceName, resourceVersion, resourceUID, resourceGeneration)
 }
 
 func CompareRevisions(revisionA, revisionB *appsv1.ControllerRevision) (bool, error) {
