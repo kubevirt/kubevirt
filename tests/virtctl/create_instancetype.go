@@ -14,6 +14,7 @@ import (
 	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/instancetype"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -59,7 +60,7 @@ var _ = Describe("[sig-compute] create instancetype", decorators.SigCompute, fun
 
 	Context("should create valid instancetype manifest", func() {
 		DescribeTable("[test_id:9833]when CPU and Memory defined", func(namespacedFlag string, namespaced bool) {
-			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Instancetype, namespacedFlag,
+			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create.CREATE, Instancetype, namespacedFlag,
 				setFlag(CPUFlag, "2"),
 				setFlag(MemoryFlag, "256Mi"),
 			)()
@@ -75,7 +76,7 @@ var _ = Describe("[sig-compute] create instancetype", decorators.SigCompute, fun
 		)
 
 		DescribeTable("[test_id:9834]when GPUs defined", func(namespacedFlag string, namespaced bool) {
-			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Instancetype, namespacedFlag,
+			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create.CREATE, Instancetype, namespacedFlag,
 				setFlag(CPUFlag, "2"),
 				setFlag(MemoryFlag, "256Mi"),
 				setFlag(GPUFlag, "name:gpu1,devicename:nvidia/gpu1"),
@@ -92,7 +93,7 @@ var _ = Describe("[sig-compute] create instancetype", decorators.SigCompute, fun
 		)
 
 		DescribeTable("[test_id:9899]when hostDevice defined", func(namespacedFlag string, namespaced bool) {
-			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Instancetype, namespacedFlag,
+			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create.CREATE, Instancetype, namespacedFlag,
 				setFlag(CPUFlag, "2"),
 				setFlag(MemoryFlag, "256Mi"),
 				setFlag(HostDeviceFlag, "name:device1,devicename:hostdevice1"),
@@ -109,7 +110,7 @@ var _ = Describe("[sig-compute] create instancetype", decorators.SigCompute, fun
 		)
 
 		DescribeTable("[test_id:9835]when IOThreadsPolicy defined", func(namespacedFlag, policyStr string, namespaced bool, policy v1.IOThreadsPolicy) {
-			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Instancetype, namespacedFlag,
+			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create.CREATE, Instancetype, namespacedFlag,
 				setFlag(CPUFlag, "2"),
 				setFlag(MemoryFlag, "256Mi"),
 				setFlag(IOThreadsPolicyFlag, policyStr),
