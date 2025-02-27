@@ -44,7 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGMigrationDescribe("Live Migration with addedNodeSelector", decorators.RequiresThreeSchedulableNodes, Serial, func() {
+var _ = Describe(SIG("Live Migration with addedNodeSelector", decorators.RequiresThreeSchedulableNodes, Serial, func() {
 	var virtClient kubecli.KubevirtClient
 	var nodes *k8sv1.NodeList
 
@@ -138,4 +138,4 @@ var _ = SIGMigrationDescribe("Live Migration with addedNodeSelector", decorators
 		Expect(virtLauncherPod.Spec.NodeSelector).To(HaveKeyWithValue(zoneLabelKey, vmiLabelValue))
 	})
 
-})
+}))
