@@ -20,7 +20,6 @@
 package vmi
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"sort"
@@ -148,11 +147,8 @@ func (c *Controller) createAttachmentPod(vmi *v1.VirtualMachineInstance, virtLau
 		return nil, nil
 	}
 	vmiKey := controller.VirtualMachineInstanceKey(vmi)
-	c.podExpectations.ExpectCreations(vmiKey, 1)
-
-	pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), attachmentPodTemplate, metav1.CreateOptions{})
+	pod, err := c.createPod(vmiKey, vmi.Namespace, attachmentPodTemplate)
 	if err != nil {
-		c.podExpectations.CreationObserved(vmiKey)
 		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, "Error creating attachment pod: %v", err)
 		return nil, common.NewSyncError(fmt.Errorf("Error creating attachment pod %v", err), controller.FailedCreatePodReason)
 	}
@@ -167,11 +163,8 @@ func (c *Controller) triggerHotplugPopulation(volume *v1.Volume, vmi *v1.Virtual
 	}
 	if populateHotplugPodTemplate != nil { // nil means the PVC is not populated yet.
 		vmiKey := controller.VirtualMachineInstanceKey(vmi)
-		c.podExpectations.ExpectCreations(vmiKey, 1)
-
-		_, err = c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), populateHotplugPodTemplate, metav1.CreateOptions{})
+		_, err = c.createPod(vmiKey, vmi.Namespace, populateHotplugPodTemplate)
 		if err != nil {
-			c.podExpectations.CreationObserved(vmiKey)
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, "Error creating hotplug population trigger pod for volume %s: %v", volume.Name, err)
 			return common.NewSyncError(fmt.Errorf("Error creating hotplug population trigger pod %v", err), controller.FailedCreatePodReason)
 		}
