@@ -6,6 +6,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/config"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 )
@@ -50,4 +51,20 @@ func GetFilesystemPersistentVolumes(vmi *v1.VirtualMachineInstance) []v1.Volume 
 
 func HasFilesystemPersistentVolumes(vmi *v1.VirtualMachineInstance) bool {
 	return len(GetFilesystemPersistentVolumes(vmi)) > 0
+}
+
+func FSMountPoint(volume *v1.Volume) string {
+	volumeMountPoint := fmt.Sprintf("/%s", volume.Name)
+
+	if volume.ConfigMap != nil {
+		volumeMountPoint = config.GetConfigMapSourcePath(volume.Name)
+	} else if volume.Secret != nil {
+		volumeMountPoint = config.GetSecretSourcePath(volume.Name)
+	} else if volume.ServiceAccount != nil {
+		volumeMountPoint = config.ServiceAccountSourceDir
+	} else if volume.DownwardAPI != nil {
+		volumeMountPoint = config.GetDownwardAPISourcePath(volume.Name)
+	}
+
+	return volumeMountPoint
 }
