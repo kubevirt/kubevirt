@@ -52,7 +52,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = SIGMigrationDescribe("Live Migrate A Paused VMI", decorators.RequiresTwoSchedulableNodes, func() {
+var _ = Describe(SIG("Live Migrate A Paused VMI", decorators.RequiresTwoSchedulableNodes, func() {
 	var (
 		virtClient kubecli.KubevirtClient
 	)
@@ -154,4 +154,4 @@ var _ = SIGMigrationDescribe("Live Migrate A Paused VMI", decorators.RequiresTwo
 			})
 		})
 	})
-})
+}))
