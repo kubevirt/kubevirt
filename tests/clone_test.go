@@ -523,15 +523,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 						preference, err := virtClient.VirtualMachinePreference(ns).Create(context.Background(), preference, v1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
-						dv := libdv.NewDataVolume(
-							libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-							libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
-							libdv.WithStorage(
-								libdv.StorageWithStorageClass(snapshotStorageClass),
-								libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine))),
-							),
-						)
-						sourceVM = libstorage.RenderVMWithDataVolumeTemplate(dv)
+						sourceVM = libvmi.NewVirtualMachine(libvmifact.NewGuestless())
 						sourceVM.Spec.Template.Spec.Domain.Resources = virtv1.ResourceRequirements{}
 						sourceVM.Spec.Instancetype = &virtv1.InstancetypeMatcher{
 							Name: instancetype.Name,
@@ -545,12 +537,9 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 
 					DescribeTable("should create new ControllerRevisions for cloned VM", Label("instancetype", "clone"), func(runStrategy virtv1.VirtualMachineRunStrategy) {
 						sourceVM.Spec.RunStrategy = &runStrategy
-						sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Create(context.Background(), sourceVM, v1.CreateOptions{})
+						sourceVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), sourceVM, v1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
-						for _, dvt := range sourceVM.Spec.DataVolumeTemplates {
-							libstorage.EventuallyDVWith(sourceVM.Namespace, dvt.Name, 180, HaveSucceeded())
-						}
 						By("Waiting until the source VM has instancetype and preference RevisionNames")
 						Eventually(matcher.ThisVM(sourceVM)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveControllerRevisionRefs())
 
