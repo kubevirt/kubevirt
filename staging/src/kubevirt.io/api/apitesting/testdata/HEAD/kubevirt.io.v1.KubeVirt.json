@@ -363,6 +363,9 @@
       },
       "instancetype": {
         "referencePolicy": "referencePolicyValue"
+      },
+      "persistentReservation": {
+        "multipathSocket": "multipathSocketValue"
       }
     },
     "infra": {

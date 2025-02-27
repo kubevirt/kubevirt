@@ -791,12 +791,19 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 		"vmRolloutStrategy":                  "VMRolloutStrategy defines how live-updatable fields, like CPU sockets, memory,\ntolerations, and affinity, are propagated from a VM to its VMI.\n+nullable\n+kubebuilder:validation:Enum=Stage;LiveUpdate",
 		"commonInstancetypesDeployment":      "CommonInstancetypesDeployment controls the deployment of common-instancetypes resources\n+nullable",
 		"instancetype":                       "Instancetype configuration\n+nullable",
+		"persistentReservation":              "Persistent reservation configuration\n+nullable",
 	}
 }
 
 func (InstancetypeConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"referencePolicy": "ReferencePolicy defines how an instance type or preference should be referenced by the VM after submission, supported values are:\nreference (default) - Where a copy of the original object is stashed in a ControllerRevision and referenced by the VM.\nexpand - Where the instance type or preference are expanded into the VM if no revisionNames have been populated.\nexpandAll - Where the instance type or preference are expanded into the VM regardless of revisionNames previously being populated.\n+nullable\n+kubebuilder:validation:Enum=reference;expand;expandAll",
+	}
+}
+
+func (PersistentReservationConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"multipathSocket": "Configure the path where to find the multipathd socket",
 	}
 }
 

@@ -14595,6 +14595,10 @@
      "permittedHostDevices": {
       "$ref": "#/definitions/v1.PermittedHostDevices"
      },
+     "persistentReservation": {
+      "description": "Persistent reservation configuration",
+      "$ref": "#/definitions/v1.PersistentReservationConfiguration"
+     },
      "seccompConfiguration": {
       "$ref": "#/definitions/v1.SeccompConfiguration"
      },
@@ -15379,6 +15383,15 @@
        "$ref": "#/definitions/v1.USBHostDevice"
       },
       "x-kubernetes-list-type": "atomic"
+     }
+    }
+   },
+   "v1.PersistentReservationConfiguration": {
+    "type": "object",
+    "properties": {
+     "multipathSocket": {
+      "description": "Configure the path where to find the multipathd socket",
+      "type": "string"
      }
     }
    },

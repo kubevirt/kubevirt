@@ -1434,6 +1434,14 @@ var CRDsValidation map[string]string = map[string]string{
                   type: array
                   x-kubernetes-list-type: atomic
               type: object
+            persistentReservation:
+              description: Persistent reservation configuration
+              nullable: true
+              properties:
+                multipathSocket:
+                  description: Configure the path where to find the multipathd socket
+                  type: string
+              type: object
             seccompConfiguration:
               description: SeccompConfiguration holds Seccomp configuration for Kubevirt
                 components

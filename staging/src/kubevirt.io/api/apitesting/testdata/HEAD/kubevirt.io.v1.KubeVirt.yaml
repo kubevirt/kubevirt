@@ -199,6 +199,8 @@ spec:
         selectors:
         - product: productValue
           vendor: vendorValue
+    persistentReservation:
+      multipathSocket: multipathSocketValue
     seccompConfiguration:
       virtualMachineInstanceProfile:
         customProfile:

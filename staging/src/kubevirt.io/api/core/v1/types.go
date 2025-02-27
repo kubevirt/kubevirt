@@ -2588,6 +2588,10 @@ type KubeVirtConfiguration struct {
 	// Instancetype configuration
 	// +nullable
 	Instancetype *InstancetypeConfiguration `json:"instancetype,omitempty"`
+
+	// Persistent reservation configuration
+	// +nullable
+	PersistentReservation *PersistentReservationConfiguration `json:"persistentReservation,omitempty"`
 }
 
 type InstancetypeConfiguration struct {
@@ -2601,6 +2605,11 @@ type InstancetypeConfiguration struct {
 }
 
 type InstancetypeReferencePolicy string
+
+type PersistentReservationConfiguration struct {
+	// Configure the path where to find the multipathd socket
+	MultipathSocket *string `json:"multipathSocket,omitempty"`
+}
 
 const (
 	// Copy any instance type or preference and reference from the VirtualMachine
