@@ -1,9 +1,6 @@
 package apply
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,6 +14,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -85,7 +83,6 @@ var _ = Describe("Apply Security Context Constraints", func() {
 		})
 
 		DescribeTable("Should remove Kubevirt service accounts from the default privileged SCC", func(additionalUserlist []string) {
-			var expectedJsonPatch string
 			var serviceAccounts []string
 			saMap := rbac.GetKubevirtComponentsServiceAccounts(namespace)
 			for key := range saMap {
@@ -93,12 +90,22 @@ var _ = Describe("Apply Security Context Constraints", func() {
 			}
 			serviceAccounts = append(serviceAccounts, additionalUserlist...)
 			scc := generateSCC("privileged", serviceAccounts)
+			patchSet := patch.New()
+			const usersPath = "/users"
 			if len(additionalUserlist) != 0 {
-				expectedJsonPatch = fmt.Sprintf(`[ { "op": "test", "path": "/users", "value": ["%s"] }, { "op": "replace", "path": "/users", "value": ["%s"] } ]`, strings.Join(serviceAccounts, `","`), strings.Join(additionalUserlist, `","`))
+				patchSet.AddOption(
+					patch.WithTest(usersPath, serviceAccounts),
+					patch.WithReplace(usersPath, additionalUserlist),
+				)
 			} else {
-				expectedJsonPatch = fmt.Sprintf(`[ { "op": "test", "path": "/users", "value": ["%s"] }, { "op": "replace", "path": "/users", "value": null } ]`, strings.Join(serviceAccounts, `","`))
+				patchSet.AddOption(
+					patch.WithTest(usersPath, serviceAccounts),
+					patch.WithReplace(usersPath, nil),
+				)
 			}
-			executeTest(scc, expectedJsonPatch)
+			patches, err := patchSet.GeneratePayload()
+			Expect(err).ToNot(HaveOccurred(), "Failed to generate patch payload")
+			executeTest(scc, string(patches))
 		},
 			Entry("Without custom users", []string{}),
 			Entry("With custom users", []string{"someuser"}),
