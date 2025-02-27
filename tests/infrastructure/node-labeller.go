@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -49,7 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = DescribeSerialInfra("Node-labeller", func() {
+var _ = Describe(SIGSerial("Node-labeller", func() {
 	const trueStr = "true"
 
 	var (
@@ -411,4 +411,4 @@ var _ = DescribeSerialInfra("Node-labeller", func() {
 			events.DeleteEvents(node, k8sv1.EventTypeWarning, "HostModelIsObsolete")
 		})
 	})
-})
+}))
