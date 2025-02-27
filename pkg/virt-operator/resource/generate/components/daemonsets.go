@@ -79,6 +79,11 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		podTemplateSpec.ObjectMeta.Annotations[networkv1.NetworkAttachmentAnnot] = *migrationNetwork + "@" + virtv1.MigrationInterfaceName
 	}
 
+	if podTemplateSpec.Annotations == nil {
+		podTemplateSpec.Annotations = make(map[string]string)
+	}
+	podTemplateSpec.Annotations["openshift.io/required-scc"] = "kubevirt-handler"
+
 	daemonset := &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
