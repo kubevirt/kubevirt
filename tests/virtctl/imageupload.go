@@ -54,7 +54,7 @@ const (
 	pvcSize = "100Mi"
 )
 
-var _ = VirtctlDescribe("[sig-storage]ImageUpload", decorators.SigStorage, Serial, func() {
+var _ = Describe(SIG("[sig-storage]ImageUpload", decorators.SigStorage, Serial, func() {
 	const (
 		timeout      = 180
 		randNameTail = 5
@@ -273,7 +273,7 @@ var _ = VirtctlDescribe("[sig-storage]ImageUpload", decorators.SigStorage, Seria
 			Entry("PVC", "pvc", "Provisioning failed"),
 		)
 	})
-})
+}))
 
 func copyAlpineDisk() string {
 	virtClient := kubevirt.Client()

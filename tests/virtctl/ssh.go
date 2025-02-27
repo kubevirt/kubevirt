@@ -44,7 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = VirtctlDescribe("[sig-compute]SSH", decorators.SigCompute, func() {
+var _ = Describe(SIG("[sig-compute]SSH", decorators.SigCompute, func() {
 	var pub ssh.PublicKey
 	var keyFile string
 	var virtClient kubecli.KubevirtClient
@@ -126,4 +126,4 @@ var _ = VirtctlDescribe("[sig-compute]SSH", decorators.SigCompute, func() {
 		Expect(err).To(HaveOccurred(), "out[%s]", string(out))
 		Expect(string(out)).To(Equal("unknown flag: --local-ssh\n"))
 	})
-})
+}))

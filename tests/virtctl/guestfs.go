@@ -40,7 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = VirtctlDescribe("[sig-storage]Guestfs", decorators.SigStorage, func() {
+var _ = Describe(SIG("[sig-storage]Guestfs", decorators.SigStorage, func() {
 	var (
 		pvcClaim string
 		done     chan struct{}
@@ -115,7 +115,7 @@ var _ = VirtctlDescribe("[sig-storage]Guestfs", decorators.SigStorage, func() {
 		runGuestfsOnPVC(done, pvcClaim, testsuite.NamespacePrivileged, false, "--root")
 		verifyCanRunOnFSPVC(getGuestfsPodName(pvcClaim), testsuite.NamespacePrivileged)
 	})
-})
+}))
 
 func getGuestfsPodName(pvc string) string {
 	return "libguestfs-tools-" + pvc
