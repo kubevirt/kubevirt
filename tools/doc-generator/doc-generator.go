@@ -152,7 +152,7 @@ func getMetricsNotIncludeInEndpointByDefault() metricList {
 		},
 	}
 
-	err := virt_controller.SetupMetrics(nil, nil, nil, nil, nil, nil, nil, nil)
+	err := virt_controller.SetupMetrics(nil, nil, nil, nil, nil)
 	checkError(err)
 	for _, m := range virt_controller.ListMetrics() {
 		metrics = append(metrics, newMetric(m))

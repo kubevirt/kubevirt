@@ -12,6 +12,7 @@ import (
 
 type MockInstancetypeMethods struct {
 	FindInstancetypeSpecFunc        func(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error)
+	ApplyToVMFunc                   func(vm *v1.VirtualMachine) error
 	ApplyToVmiFunc                  func(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) instancetype.Conflicts
 	FindPreferenceSpecFunc          func(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error)
 	StoreControllerRevisionsFunc    func(vm *v1.VirtualMachine) error
@@ -24,6 +25,10 @@ var _ instancetype.Methods = &MockInstancetypeMethods{}
 
 func (m *MockInstancetypeMethods) FindInstancetypeSpec(vm *v1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error) {
 	return m.FindInstancetypeSpecFunc(vm)
+}
+
+func (m *MockInstancetypeMethods) ApplyToVM(vm *v1.VirtualMachine) error {
+	return m.ApplyToVMFunc(vm)
 }
 
 func (m *MockInstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *v1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) instancetype.Conflicts {
