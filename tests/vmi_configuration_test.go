@@ -57,7 +57,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -66,6 +65,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -127,7 +127,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
-			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			rootPortController := []api.Controller{}
 			for _, c := range domSpec.Devices.Controllers {
@@ -150,7 +150,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi.Spec.Domain.Devices.UseVirtioTransitional = pointer.P(true)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
-			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			testutils.ExpectVirtioTransitionalOnly(domSpec)
 		})
@@ -237,7 +237,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			expectedMemoryInKiB := expectedGuestMemory * 1024
 			expectedMemoryXMLStr := fmt.Sprintf("unit='KiB'>%d", expectedMemoryInKiB)
 
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domXml).To(ContainSubstring(expectedMemoryXMLStr))
 
@@ -329,7 +329,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).To(ContainSubstring(expectedMemoryXMLStr))
 			})
@@ -432,7 +432,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).To(ContainSubstring("queues='3'"))
 			})
@@ -456,7 +456,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).To(ContainSubstring("driver name='vhost' queues='3'"))
 				// make sure that there are not block queues configured
@@ -479,7 +479,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).ToNot(ContainSubstring("queues='"))
 			})
@@ -651,7 +651,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			default:
 				libwait.WaitUntilVMIReady(vmi, loginTo)
 				By(msg)
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).To(MatchRegexp(fileName))
 			}
@@ -1155,7 +1155,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				freshVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(context.Background(), agentVMI.Name, getOptions)
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
 
-				domXML, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, freshVMI)
+				domXML, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, freshVMI)
 				Expect(err).ToNot(HaveOccurred(), "Should return XML from VMI")
 
 				Expect(domXML).To(ContainSubstring("<channel type='unix'>"), "Should contain at least one channel")
@@ -1352,7 +1352,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				freshVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(snVmi)).Get(context.Background(), snVmi.Name, getOptions)
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
 
-				domXML, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, freshVMI)
+				domXML, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, freshVMI)
 				Expect(err).ToNot(HaveOccurred(), "Should return XML from VMI")
 
 				Expect(domXML).To(ContainSubstring("<entry name='serial'>4b2f5496-f3a3-460b-a375-168223f68845</entry>"), "Should have serial-number present")
@@ -1370,7 +1370,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				freshVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(snVmi)).Get(context.Background(), snVmi.Name, getOptions)
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
 
-				domXML, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, freshVMI)
+				domXML, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, freshVMI)
 				Expect(err).ToNot(HaveOccurred(), "Should return XML from VMI")
 
 				Expect(domXML).ToNot(ContainSubstring("<entry name='serial'>"), "Should have serial-number present")
@@ -1410,7 +1410,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(vmi.Status.TopologyHints.TSCFrequency).ToNot(BeNil())
 
 				By("Checking the TSC frequency on the Domain XML")
-				domainSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+				domainSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				timerFrequency := ""
 				for _, timer := range domainSpec.Clock.Timer {
@@ -1737,7 +1737,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				withMachineType("pc"),
 			)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
-			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("pc-i440"))
@@ -1750,7 +1750,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi := libvmifact.NewGuestless()
 			vmi.Spec.Domain.Machine = nil
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
-			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("q35"))
@@ -1764,7 +1764,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			)
 
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
-			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("q35"))
@@ -1787,7 +1787,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			vmi := libvmifact.NewGuestless()
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
-			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("pc-i440"))
@@ -1999,7 +1999,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi.Spec.Domain.Devices.Disks[2].Cache = v1.CacheWriteBack
 
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
-			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			disks := runningVMISpec.Devices.Disks
@@ -2067,7 +2067,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi.Spec.Domain.Devices.Disks[3].IO = v1.IOThreads
 
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
-			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			disks := runningVMISpec.Devices.Disks
@@ -2142,7 +2142,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			By("initializing the VM")
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
-			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("checking if number of attached disks is equal to real disks number")
@@ -2186,7 +2186,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			By("initializing the VM")
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
-			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("checking if number of attached disks is equal to real disks number")
@@ -2240,7 +2240,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			By("initializing the VM")
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
-			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("checking if number of attached disks is equal to real disks number")
@@ -2455,7 +2455,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}, 15)).To(Succeed())
 
 				By("Check values in domain XML")
-				domXML, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, cpuVmi)
+				domXML, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, cpuVmi)
 				Expect(err).ToNot(HaveOccurred(), "Should return XML from VMI")
 				Expect(domXML).To(ContainSubstring("<hint-dedicated state='on'/>"), "should container the hint-dedicated feature")
 			})
@@ -2597,7 +2597,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					&expect.BExp{R: "2"},
 				}, 15)).To(Succeed())
 
-				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+				domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				emulator := filepath.Base(domSpec.Devices.Emulator)
@@ -2818,7 +2818,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Check values on domain XML")
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domXml).To(ContainSubstring("<entry name='asset'>Test-123</entry>"))
 

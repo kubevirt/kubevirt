@@ -21,12 +21,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -152,7 +152,7 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 			By("Ensuring the libvirt domain has 2 enabled cores and 2 hotpluggable cores")
 			var domSpec *api.DomainSpec
 			Eventually(func() error {
-				domSpec, err = tests.GetRunningVMIDomainSpec(vmi)
+				domSpec, err = libdomain.GetRunningVMIDomainSpec(vmi)
 				return err
 			}).WithTimeout(20 * time.Second).WithPolling(time.Second).Should(Succeed())
 
@@ -189,7 +189,7 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 			By("Ensuring the libvirt domain has 4 enabled cores")
 
 			Eventually(func() error {
-				domSpec, err = tests.GetRunningVMIDomainSpec(vmi)
+				domSpec, err = libdomain.GetRunningVMIDomainSpec(vmi)
 				return err
 			}).WithTimeout(20 * time.Second).WithPolling(time.Second).Should(Succeed())
 
@@ -260,7 +260,7 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 			By("Ensuring the libvirt domain has 2 enabled cores and 4 disabled cores")
 			var domSpec *api.DomainSpec
 			Eventually(func() error {
-				domSpec, err = tests.GetRunningVMIDomainSpec(vmi)
+				domSpec, err = libdomain.GetRunningVMIDomainSpec(vmi)
 				return err
 			}).WithTimeout(20 * time.Second).WithPolling(time.Second).Should(Succeed())
 
@@ -294,7 +294,7 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 
 			By("Ensuring the libvirt domain has 4 enabled cores")
 			Eventually(func() error {
-				domSpec, err = tests.GetRunningVMIDomainSpec(vmi)
+				domSpec, err = libdomain.GetRunningVMIDomainSpec(vmi)
 				return err
 			}).WithTimeout(20 * time.Second).WithPolling(time.Second).Should(Succeed())
 

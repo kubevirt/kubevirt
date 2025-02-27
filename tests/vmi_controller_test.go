@@ -1,14 +1,13 @@
 package tests_test
 
 import (
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/libvmops"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
 var _ = Describe("[sig-compute]Controller devices", decorators.SigCompute, func() {
@@ -18,7 +17,7 @@ var _ = Describe("[sig-compute]Controller devices", decorators.SigCompute, func(
 			vmi := libvmifact.NewCirros()
 			vmi.Spec.Domain.Devices.DisableHotplug = !enabled
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
-			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			found := false
 			for _, controller := range domSpec.Devices.Controllers {

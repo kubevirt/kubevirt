@@ -10,7 +10,9 @@ import (
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libvmops"
 
@@ -38,7 +40,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -105,7 +106,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 				}
 				Expect(foundNodeSelector).To(BeTrue(), "wasn't able to find a node selector key with prefix ", topology.TSCFrequencySchedulingLabel)
 
-				domainSpec, err := tests.GetRunningVMIDomainSpec(reEnlightenmentVMI)
+				domainSpec, err := libdomain.GetRunningVMIDomainSpec(reEnlightenmentVMI)
 				Expect(err).ToNot(HaveOccurred())
 
 				foundTscTimer := false
@@ -283,7 +284,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 			vmi := libvmifact.NewCirros(withHypervPassthrough())
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
 
-			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domSpec.Features.Hyperv.Mode).To(Equal(api.HypervModePassthrough))
 

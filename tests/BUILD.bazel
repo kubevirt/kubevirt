@@ -1,22 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["utils.go"],
-    importpath = "kubevirt.io/kubevirt/tests",
-    visibility = ["//visibility:public"],
-    deps = [
-        "//pkg/util:go_default_library",
-        "//pkg/virt-launcher/virtwrap/api:go_default_library",
-        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
-        "//tests/exec:go_default_library",
-        "//tests/framework/kubevirt:go_default_library",
-        "//tests/libpod:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
-    ],
-)
-
+load("@io_bazel_rules_go//go:def.bzl", "go_test")
 load(
     "@io_bazel_rules_docker//container:container.bzl",
     "container_image",
@@ -105,7 +87,6 @@ go_test(
     embedsrcs = ["testdata/sidecar-hook-configmap.sh"],
     visibility = ["//visibility:public"],
     deps = [
-        ":go_default_library",
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/apimachinery/wait:go_default_library",
         "//pkg/cloud-init:go_default_library",
@@ -164,6 +145,7 @@ go_test(
         "//tests/instancetype:go_default_library",
         "//tests/launchsecurity:go_default_library",
         "//tests/libconfigmap:go_default_library",
+        "//tests/libdomain:go_default_library",
         "//tests/libinfra:go_default_library",
         "//tests/libinstancetype:go_default_library",
         "//tests/libkubevirt:go_default_library",
