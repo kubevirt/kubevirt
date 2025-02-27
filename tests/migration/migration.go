@@ -105,7 +105,7 @@ const (
 	stressDefaultSleepDuration = 15
 )
 
-var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
+var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
 	var (
 		virtClient              kubecli.KubevirtClient
 		migrationBandwidthLimit resource.Quantity
@@ -2855,7 +2855,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedula
 			}, 200)).To(Succeed())
 		})
 	})
-})
+}))
 
 func createResourceQuota(resourceQuota *k8sv1.ResourceQuota) *k8sv1.ResourceQuota {
 	virtCli := kubevirt.Client()

@@ -20,21 +20,11 @@
 package migration
 
 import (
-	. "github.com/onsi/ginkgo/v2"
-
 	"kubevirt.io/kubevirt/tests/decorators"
 )
 
-const describeName = "[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system][sig-compute] "
+const describeName = "[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system][sig-compute]"
 
-func SIGMigrationDescribe(text string, args ...interface{}) bool {
-	return Describe(describeName+text, decorators.SigComputeMigrations, decorators.SigCompute, args)
-}
-
-func FSIGMigrationDescribe(text string, args ...interface{}) bool {
-	return FDescribe(describeName+text, decorators.SigComputeMigrations, decorators.SigCompute, args)
-}
-
-func PSIGMigrationDescribe(text string, args ...interface{}) bool {
-	return PDescribe(describeName+text, decorators.SigComputeMigrations, decorators.SigCompute, args)
+func SIG(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
+	return decorators.SIG(describeName, decorators.SigCompute, text, decorators.SigComputeMigrations, args)
 }

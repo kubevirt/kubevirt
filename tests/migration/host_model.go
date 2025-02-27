@@ -47,7 +47,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
+var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
 	Context("with a host-model cpu", func() {
 		It("[test_id:6981]should migrate only to nodes supporting right cpu model", func() {
 			sourceNode, targetNode, err := libmigration.GetValidSourceNodeAndTargetNodeForHostModelMigration(kubevirt.Client())
@@ -346,7 +346,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedula
 			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
 		})
 	})
-})
+}))
 
 func getNodeHostModel(node *k8sv1.Node) (hostModel string) {
 	for key := range node.Labels {
