@@ -43,7 +43,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libstorage"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 var (
@@ -130,7 +129,7 @@ func AdjustKubeVirtResource() {
 	Expect(err).ToNot(HaveOccurred())
 	patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
 	adjustedKV, err := virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, []byte(patchData), metav1.PatchOptions{})
-	util.PanicOnError(err)
+	Expect(err).ToNot(HaveOccurred())
 	KubeVirtDefaultConfig = adjustedKV.Spec.Configuration
 	if checks.HasFeature(featuregate.CPUManager) {
 		// CPUManager is not enabled in the control-plane node(s)
@@ -156,7 +155,7 @@ func RestoreKubeVirtResource() {
 		Expect(err).ToNot(HaveOccurred())
 		patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
 		_, err = virtClient.KubeVirt(originalKV.Namespace).Patch(context.Background(), originalKV.Name, types.JSONPatchType, []byte(patchData), metav1.PatchOptions{})
-		util.PanicOnError(err)
+		Expect(err).ToNot(HaveOccurred())
 	}
 }
 

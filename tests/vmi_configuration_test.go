@@ -79,7 +79,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/storage"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 	"kubevirt.io/kubevirt/tests/watcher"
 )
 
@@ -310,12 +309,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						break
 					}
 				}
-				if computeContainer == nil {
-					util.PanicOnError(fmt.Errorf("could not find the compute container"))
-				}
+				Expect(computeContainer).ToNot(BeNil(), "could not find the compute container")
 				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(416)))
-
-				Expect(err).ToNot(HaveOccurred())
 			})
 			It("[test_id:4624]should set a correct memory units", func() {
 				vmi := libvmifact.NewAlpine(
@@ -729,9 +724,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						break
 					}
 				}
-				if computeContainer == nil {
-					util.PanicOnError(fmt.Errorf("could not find the compute container"))
-				}
+				Expect(computeContainer).ToNot(BeNil(), "could not find the computer container")
 				Expect(computeContainer.Resources.Requests.Cpu().String()).To(Equal("600m"))
 			})
 
@@ -2432,9 +2425,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						computeContainer = &container
 					}
 				}
-				if computeContainer == nil {
-					util.PanicOnError(fmt.Errorf("could not find the compute container"))
-				}
+				Expect(computeContainer).ToNot(BeNil(), "could not find the computer container")
 
 				output, err := getPodCPUSet(readyPod)
 				log.Log.Infof("%v", output)
@@ -2554,9 +2545,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						computeContainer = &container
 					}
 				}
-				if computeContainer == nil {
-					util.PanicOnError(fmt.Errorf("could not find the compute container"))
-				}
+				Expect(computeContainer).ToNot(BeNil(), "could not find the compute container")
 
 				output, err := getPodCPUSet(readyPod)
 				log.Log.Infof("%v", output)

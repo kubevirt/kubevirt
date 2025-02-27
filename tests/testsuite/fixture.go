@@ -51,7 +51,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
@@ -326,8 +325,7 @@ func deployOrWipeTestingInfrastrucure(actionOnObject func(unstructured.Unstructu
 	for _, manifest := range manifests {
 		objects := ReadManifestYamlFile(manifest)
 		for _, obj := range objects {
-			err := actionOnObject(obj)
-			util.PanicOnError(err)
+			Expect(actionOnObject(obj)).To(Succeed())
 		}
 	}
 
@@ -349,7 +347,7 @@ func waitForAllDaemonSetsReady(timeout time.Duration) {
 		virtClient := kubevirt.Client()
 
 		dsList, err := virtClient.AppsV1().DaemonSets(k8sv1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
-		util.PanicOnError(err)
+		Expect(err).ToNot(HaveOccurred())
 		for _, ds := range dsList.Items {
 			if ds.Status.DesiredNumberScheduled != ds.Status.NumberReady {
 				dsNotReady = append(dsNotReady, ds.Name)
@@ -367,7 +365,7 @@ func waitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) 
 		virtClient := kubevirt.Client()
 
 		podsList, err := virtClient.CoreV1().Pods(k8sv1.NamespaceAll).List(context.Background(), listOptions)
-		util.PanicOnError(err)
+		Expect(err).ToNot(HaveOccurred())
 		for _, pod := range podsList.Items {
 			for _, status := range pod.Status.ContainerStatuses {
 				if status.State.Terminated != nil {

@@ -39,7 +39,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 func AddDataVolumeTemplate(vm *v1.VirtualMachine, dataVolume *v1beta1.DataVolume) {
@@ -90,19 +89,14 @@ func GetCDI(virtCli kubecli.KubevirtClient) *v1beta1.CDI {
 	return cdi
 }
 
-func HasDataVolumeCRD() bool {
+func HasCDI() bool {
 	virtClient := kubevirt.Client()
 
 	ext, err := clientset.NewForConfig(virtClient.Config())
-	util.PanicOnError(err)
+	Expect(err).ToNot(HaveOccurred())
 
 	_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "datavolumes.cdi.kubevirt.io", v12.GetOptions{})
-
 	return err == nil
-}
-
-func HasCDI() bool {
-	return HasDataVolumeCRD()
 }
 
 func GoldenImageRBAC(namespace string) (*rbacv1.Role, *rbacv1.RoleBinding) {
