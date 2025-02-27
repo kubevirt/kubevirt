@@ -69,12 +69,11 @@ var _ = Describe("Memory dump Subresource api", func() {
 	)
 
 	var (
-		request        *restful.Request
-		response       *restful.Response
-		kubeClient     *fake.Clientset
-		fakeVirtClient *kubevirtfake.Clientset
-		virtClient     *kubecli.MockKubevirtClient
-		app            *SubresourceAPIApp
+		request    *restful.Request
+		response   *restful.Response
+		kubeClient *fake.Clientset
+		virtClient *kubevirtfake.Clientset
+		app        *SubresourceAPIApp
 
 		kv = &v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
@@ -134,19 +133,19 @@ var _ = Describe("Memory dump Subresource api", func() {
 		Expect(err).ToNot(HaveOccurred())
 		ctrl := gomock.NewController(GinkgoT())
 
-		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+		kubevirtClient := kubecli.NewMockKubevirtClient(ctrl)
 		kubeClient = fake.NewSimpleClientset()
-		fakeVirtClient = kubevirtfake.NewSimpleClientset()
+		virtClient = kubevirtfake.NewSimpleClientset()
 
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(fakeVirtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
-		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(fakeVirtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
+		kubevirtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+		kubevirtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
+		kubevirtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 
 		cdiConfig := cdiConfigInit()
 		cdiClient := cdifake.NewSimpleClientset(cdiConfig)
-		virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
+		kubevirtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
 
-		app = NewSubresourceAPIApp(virtClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		app = NewSubresourceAPIApp(kubevirtClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
 	})
 
 	AfterEach(func() {
@@ -193,7 +192,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 		vm := libvmi.NewVirtualMachine(vmi)
 		vm.Name = request.PathParameter("name")
 		vm.Namespace = metav1.NamespaceDefault
-		vm, err := fakeVirtClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+		vm, err := virtClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		if vmiRunning {
@@ -212,7 +211,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 				}
 				return true, pvc, nil
 			})
-			vmi, err = fakeVirtClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
+			vmi, err = virtClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		}
 
@@ -220,7 +219,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 
 		Expect(response.StatusCode()).To(Equal(statusCode))
 		if statusCode == http.StatusAccepted {
-			patchedVM, err := fakeVirtClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			patchedVM, err := virtClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(patchedVM.Status.MemoryDumpRequest).To(gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 				"ClaimName": Equal(memDumpReq.ClaimName),
@@ -266,9 +265,9 @@ var _ = Describe("Memory dump Subresource api", func() {
 			vm.Status.MemoryDumpRequest = prevMemDumpReq
 		}
 
-		vm, err := fakeVirtClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+		vm, err := virtClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		vmi, err = fakeVirtClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
+		vmi, err = virtClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
@@ -280,7 +279,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 
 		Expect(response.StatusCode()).To(Equal(statusCode))
 		if statusCode == http.StatusAccepted {
-			patchedVM, err := fakeVirtClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			patchedVM, err := virtClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(patchedVM.Status.MemoryDumpRequest).To(gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 				"ClaimName": Equal(prevMemDumpReq.ClaimName),
