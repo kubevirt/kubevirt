@@ -423,12 +423,16 @@ func Execute() {
 	if err := metrics.SetupMetrics(
 		app.vmInformer,
 		app.vmiInformer,
-		app.clusterInstancetypeInformer,
-		app.instancetypeInformer,
-		app.clusterPreferenceInformer,
-		app.preferenceInformer,
 		app.migrationInformer,
 		app.clusterConfig,
+		&instancetype.InstancetypeMethods{
+			InstancetypeStore:        app.instancetypeInformer.GetStore(),
+			ClusterInstancetypeStore: app.clusterInstancetypeInformer.GetStore(),
+			PreferenceStore:          app.preferenceInformer.GetStore(),
+			ClusterPreferenceStore:   app.clusterInstancetypeInformer.GetStore(),
+			ControllerRevisionStore:  app.controllerRevisionInformer.GetStore(),
+			Clientset:                app.clientSet,
+		},
 	); err != nil {
 		golog.Fatal(err)
 	}
