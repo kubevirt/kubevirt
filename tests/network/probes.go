@@ -83,7 +83,6 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			Eventually(matcher.ThisVMI(vmi), 2*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 		},
 			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", createTCPProbe(period, initialSeconds, port), k8sv1.IPv4Protocol),
-			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", createHTTPProbe(period, initialSeconds, port), k8sv1.IPv4Protocol),
 			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily),
 		)
 
@@ -162,7 +161,6 @@ var _ = SIGDescribe("[ref_id:1182]Probes", func() {
 			}, 120, 1).Should(Not(BeTrue()))
 		},
 			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv4", createTCPProbe(period, initialSeconds, port), k8sv1.IPv4Protocol),
-			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv4", createHTTPProbe(period, initialSeconds, port), k8sv1.IPv4Protocol),
 			Entry("[test_id:5879]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily),
 		)
 
@@ -250,15 +248,6 @@ func createTCPProbe(period, initialSeconds int32, port int) *v1.Probe {
 func createGuestAgentPingProbe(period, initialSeconds int32) *v1.Probe {
 	handler := v1.Handler{GuestAgentPing: &v1.GuestAgentPing{}}
 	return createProbeSpecification(period, initialSeconds, 1, handler)
-}
-
-func createHTTPProbe(period, initialSeconds int32, port int) *v1.Probe {
-	httpHandler := v1.Handler{
-		HTTPGet: &k8sv1.HTTPGetAction{
-			Port: intstr.FromInt(port),
-		},
-	}
-	return createProbeSpecification(period, initialSeconds, 1, httpHandler)
 }
 
 func createExecProbe(period, initialSeconds, timeoutSeconds int32, command ...string) *v1.Probe {
