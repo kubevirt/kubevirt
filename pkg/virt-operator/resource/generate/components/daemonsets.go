@@ -25,13 +25,14 @@ const (
 	runtimesPath    = "/var/run/kubevirt-libvirt-runtimes"
 	PrHelperName    = "pr-helper"
 	prVolumeName    = "pr-helper-socket-vol"
+	multipathVol    = "multipath"
 	devDirVol       = "dev-dir"
 	SidecarShimName = "sidecar-shim"
 )
 
-func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.Container {
+func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy, multipath string) corev1.Container {
 	bidi := corev1.MountPropagationBidirectional
-	return corev1.Container{
+	c := corev1.Container{
 		Name:            PrHelperName,
 		Image:           image,
 		ImagePullPolicy: pullPolicy,
@@ -56,9 +57,17 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 			Privileged: pointer.P(true),
 		},
 	}
+	if multipath != "" {
+		c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{
+			Name:             multipathVol,
+			MountPath:        multipath,
+			MountPropagation: &bidi,
+		})
+	}
+	return c
 }
 
-func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVersion, prHelperVersion, sidecarShimVersion, productName, productVersion, productComponent, image, launcherImage, prHelperImage, sidecarShimImage string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, migrationNetwork *string, verbosity string, extraEnv map[string]string, enablePrHelper bool) *appsv1.DaemonSet {
+func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVersion, prHelperVersion, sidecarShimVersion, productName, productVersion, productComponent, image, launcherImage, prHelperImage, sidecarShimImage string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, migrationNetwork *string, verbosity string, extraEnv map[string]string, enablePrHelper bool, multipath string) *appsv1.DaemonSet {
 
 	deploymentName := VirtHandlerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
@@ -358,7 +367,18 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 				},
 			},
 		})
-		pod.Containers = append(pod.Containers, RenderPrHelperContainer(prHelperImage, pullPolicy))
+		if multipath != "" {
+			pod.Volumes = append(pod.Volumes, corev1.Volume{
+				Name: multipathVol,
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: multipath,
+						Type: pointer.P(corev1.HostPathSocket),
+					},
+				}},
+			)
+		}
+		pod.Containers = append(pod.Containers, RenderPrHelperContainer(prHelperImage, pullPolicy, multipath))
 	}
 	return daemonset
 

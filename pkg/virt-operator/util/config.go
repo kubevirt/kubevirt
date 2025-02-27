@@ -100,6 +100,9 @@ const (
 	// lookup key in AdditionalProperties
 	AdditionalPropertiesPersistentReservationEnabled = "PersistentReservationEnabled"
 
+	// lookup key in AdditionalProperties
+	AdditionalPropertiesMultipathEnabled = "MultipathEnabled"
+
 	// account to use if one is not explicitly named
 	DefaultMonitorAccount = "prometheus-k8s"
 
@@ -164,6 +167,8 @@ type KubeVirtDeploymentConfig struct {
 
 	// environment variables from virt-operator to pass along
 	PassthroughEnvVars map[string]string `json:"passthroughEnvVars,omitempty" optional:"true"`
+
+	MultiPathDirectory string `json:"multiPathDirectory,omitempty" optional:"true"`
 }
 
 var DefaultEnvVarManager EnvVarManager = EnvVarManagerImpl{}
@@ -216,6 +221,9 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 				additionalProperties[AdditionalPropertiesPersistentReservationEnabled] = ""
 			}
 		}
+	}
+	if kv.Spec.Configuration.PersistentReservation != nil && kv.Spec.Configuration.PersistentReservation.MultipathSocket != nil {
+		additionalProperties[AdditionalPropertiesMultipathEnabled] = *kv.Spec.Configuration.PersistentReservation.MultipathSocket
 	}
 	// don't use status.target* here, as that is always set, but we need to know if it was set by the spec and with that
 	// overriding shasums from env vars
@@ -598,6 +606,10 @@ func (c *KubeVirtDeploymentConfig) GetImagePullPolicy() k8sv1.PullPolicy {
 		return k8sv1.PullPolicy(p)
 	}
 	return k8sv1.PullIfNotPresent
+}
+
+func (c *KubeVirtDeploymentConfig) GetMultiPathDirectory() string {
+	return c.AdditionalProperties[AdditionalPropertiesMultipathEnabled]
 }
 
 func (c *KubeVirtDeploymentConfig) GetImagePullSecrets() []k8sv1.LocalObjectReference {
