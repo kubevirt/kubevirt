@@ -74,7 +74,6 @@ var _ = Describe("Memory dump Subresource api", func() {
 		kubeClient     *fake.Clientset
 		fakeVirtClient *kubevirtfake.Clientset
 		virtClient     *kubecli.MockKubevirtClient
-		cdiClient      *cdifake.Clientset
 		app            *SubresourceAPIApp
 
 		kv = &v1.KubeVirt{
@@ -144,7 +143,8 @@ var _ = Describe("Memory dump Subresource api", func() {
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(fakeVirtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 
 		cdiConfig := cdiConfigInit()
-		cdiClient = cdifake.NewSimpleClientset(cdiConfig)
+		cdiClient := cdifake.NewSimpleClientset(cdiConfig)
+		virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
 
 		app = NewSubresourceAPIApp(virtClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
 	})
@@ -216,9 +216,6 @@ var _ = Describe("Memory dump Subresource api", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		if statusCode == http.StatusAccepted || (pvc != nil && pvc.Spec.Resources.Requests[k8sv1.ResourceStorage] == resource.MustParse("1Gi")) {
-			virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
-		}
 		app.MemoryDumpVMRequestHandler(request, response)
 
 		Expect(response.StatusCode()).To(Equal(statusCode))
@@ -279,9 +276,6 @@ var _ = Describe("Memory dump Subresource api", func() {
 			Expect(ok).To(BeTrue())
 			return true, createTestPVC("2Gi", fs, notReadOnly), nil
 		})
-		if statusCode == http.StatusAccepted {
-			virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
-		}
 		app.MemoryDumpVMRequestHandler(request, response)
 
 		Expect(response.StatusCode()).To(Equal(statusCode))
