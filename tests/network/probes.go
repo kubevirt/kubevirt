@@ -70,7 +70,7 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 				Eventually(matcher.ThisVMI(vmi)).WithTimeout(3 * time.Minute).WithPolling(3 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				serverStarter(vmi, readinessProbe, 1500)
+				vmnetserver.StartTCPServer(vmi, 1500, console.LoginToAlpine)
 			} else {
 				By(specifyingVMReadinessProbe)
 				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withReadinessProbe(readinessProbe))
@@ -83,7 +83,6 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 			Eventually(matcher.ThisVMI(vmi), 2*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 		},
 			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", createTCPProbe(period, initialSeconds, port), k8sv1.IPv4Protocol),
-			Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server on ipv4", createHTTPProbe(period, initialSeconds, port), k8sv1.IPv4Protocol),
 			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily),
 		)
 
@@ -122,7 +121,6 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 			Consistently(matcher.ThisVMI(vmi), 30*time.Second, 100*time.Millisecond).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
 		},
 			Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", createTCPProbe(period, initialSeconds, port), libvmifact.NewAlpine),
-			Entry("[test_id:1219][posneg:negative]with working HTTP probe and no running server", createHTTPProbe(period, initialSeconds, port), libvmifact.NewAlpine),
 			Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmifact.NewFedora),
 			Entry("[test_id:TODO]with working Exec probe and infinitely running command", createExecProbe(period, initialSeconds, timeoutSeconds, "tail", "-f", "/dev/null"), libvmifact.NewFedora),
 		)
@@ -144,7 +142,7 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 				vmi = createReadyAlpineVMIWithLivenessProbe(livenessProbe)
 
 				By("Starting the server inside the VMI")
-				serverStarter(vmi, livenessProbe, 1500)
+				vmnetserver.StartTCPServer(vmi, 1500, console.LoginToAlpine)
 			} else {
 				By(specifyingVMLivenessProbe)
 				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivelinessProbe(livenessProbe))
@@ -162,7 +160,6 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 			}, 120, 1).Should(Not(BeTrue()))
 		},
 			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv4", createTCPProbe(period, initialSeconds, port), k8sv1.IPv4Protocol),
-			Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server on ipv4", createHTTPProbe(period, initialSeconds, port), k8sv1.IPv4Protocol),
 			Entry("[test_id:5879]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily),
 		)
 
@@ -198,7 +195,6 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 			}, 120, 1).Should(BeTrue())
 		},
 			Entry("[test_id:1217][posneg:negative]with working TCP probe and no running server", createTCPProbe(period, initialSeconds, port), libvmifact.NewCirros),
-			Entry("[test_id:1218][posneg:negative]with working HTTP probe and no running server", createHTTPProbe(period, initialSeconds, port), libvmifact.NewCirros),
 			Entry("[test_id:5880]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmifact.NewFedora),
 		)
 	})
@@ -252,15 +248,6 @@ func createGuestAgentPingProbe(period, initialSeconds int32) *v1.Probe {
 	return createProbeSpecification(period, initialSeconds, 1, handler)
 }
 
-func createHTTPProbe(period, initialSeconds int32, port int) *v1.Probe {
-	httpHandler := v1.Handler{
-		HTTPGet: &k8sv1.HTTPGetAction{
-			Port: intstr.FromInt(port),
-		},
-	}
-	return createProbeSpecification(period, initialSeconds, 1, httpHandler)
-}
-
 func createExecProbe(period, initialSeconds, timeoutSeconds int32, command ...string) *v1.Probe {
 	execHandler := v1.Handler{Exec: &k8sv1.ExecAction{Command: command}}
 	return createProbeSpecification(period, initialSeconds, timeoutSeconds, execHandler)
@@ -272,18 +259,6 @@ func createProbeSpecification(period, initialSeconds, timeoutSeconds int32, hand
 		InitialDelaySeconds: initialSeconds,
 		Handler:             handler,
 		TimeoutSeconds:      timeoutSeconds,
-	}
-}
-
-func isHTTPProbe(probe v1.Probe) bool {
-	return probe.Handler.HTTPGet != nil
-}
-
-func serverStarter(vmi *v1.VirtualMachineInstance, probe *v1.Probe, port int) {
-	if isHTTPProbe(*probe) {
-		vmnetserver.StartHTTPServer(vmi, port, console.LoginToAlpine)
-	} else {
-		vmnetserver.StartTCPServer(vmi, port, console.LoginToAlpine)
 	}
 }
 
