@@ -23,14 +23,17 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/emicklei/go-restful/v3"
 	"k8s.io/apimachinery/pkg/api/errors"
+
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/json"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -324,4 +327,14 @@ func (app *SubresourceAPIApp) FilesystemList(request *restful.Request, response 
 	}
 
 	app.httpGetRequestHandler(request, response, validate, getURL, v1.VirtualMachineInstanceFileSystemList{})
+}
+
+func decodeBody(request *restful.Request, bodyStruct interface{}) *errors.StatusError {
+	err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
+	switch err {
+	case io.EOF, nil:
+		return nil
+	default:
+		return errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err))
+	}
 }

@@ -22,7 +22,6 @@ package rest
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/emicklei/go-restful/v3"
@@ -32,8 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/yaml"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -178,19 +175,14 @@ func (app *SubresourceAPIApp) MemoryDumpVMRequestHandler(request *restful.Reques
 		return
 	}
 
-	memoryDumpReq := &v1.VirtualMachineMemoryDumpRequest{}
-	if request.Request.Body != nil {
-		defer request.Request.Body.Close()
-		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(memoryDumpReq)
-		switch err {
-		case io.EOF, nil:
-			break
-		default:
-			writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
-			return
-		}
-	} else {
+	if request.Request.Body == nil {
 		writeError(errors.NewBadRequest("Request with no body"), response)
+		return
+	}
+	memoryDumpReq := &v1.VirtualMachineMemoryDumpRequest{}
+	defer request.Request.Body.Close()
+	if err := decodeBody(request, memoryDumpReq); err != nil {
+		writeError(err, response)
 		return
 	}
 

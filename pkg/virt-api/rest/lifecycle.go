@@ -22,7 +22,6 @@ package rest
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -35,8 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/yaml"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -57,12 +54,11 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 	}
 
 	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			writeError(errors.NewInternalError(err), response)
-			return
-		}
+	if err != nil && !errors.IsNotFound(err) {
+		writeError(errors.NewInternalError(err), response)
+		return
 	}
+
 	if vmi != nil && !vmi.IsFinal() && vmi.Status.Phase != v1.Unknown && vmi.Status.Phase != v1.VmPhaseUnset {
 		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("VM is already running")), response)
 		return
@@ -76,12 +72,8 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 	startChangeRequestData := make(map[string]string)
 	bodyStruct := &v1.StartOptions{}
 	if request.Request.Body != nil {
-		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
-		switch err {
-		case io.EOF, nil:
-			break
-		default:
-			writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
+		if err := decodeBody(request, bodyStruct); err != nil {
+			writeError(err, response)
 			return
 		}
 		startPaused = bodyStruct.Paused
@@ -182,12 +174,8 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 
 	bodyStruct := &v1.StopOptions{}
 	if request.Request.Body != nil {
-		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
-		switch err {
-		case io.EOF, nil:
-			break
-		default:
-			writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
+		if err := decodeBody(request, bodyStruct); err != nil {
+			writeError(err, response)
 			return
 		}
 	}
@@ -310,12 +298,8 @@ func (app *SubresourceAPIApp) PauseVMIRequestHandler(request *restful.Request, r
 
 	bodyStruct := &v1.PauseOptions{}
 	if request.Request.Body != nil {
-		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
-		switch err {
-		case io.EOF, nil:
-			break
-		default:
-			writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
+		if err := decodeBody(request, bodyStruct); err != nil {
+			writeError(err, response)
 			return
 		}
 	}
@@ -345,12 +329,8 @@ func (app *SubresourceAPIApp) UnpauseVMIRequestHandler(request *restful.Request,
 
 	bodyStruct := &v1.UnpauseOptions{}
 	if request.Request.Body != nil {
-		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
-		switch err {
-		case io.EOF, nil:
-			break
-		default:
-			writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
+		if err := decodeBody(request, bodyStruct); err != nil {
+			writeError(err, response)
 			return
 		}
 	}
@@ -425,12 +405,8 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 	bodyStruct := &v1.RestartOptions{}
 
 	if request.Request.Body != nil {
-		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
-		switch err {
-		case io.EOF, nil:
-			break
-		default:
-			writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
+		if err := decodeBody(request, bodyStruct); err != nil {
+			writeError(err, response)
 			return
 		}
 	}
@@ -552,12 +528,8 @@ func (app *SubresourceAPIApp) MigrateVMRequestHandler(request *restful.Request, 
 
 	bodyStruct := &v1.MigrateOptions{}
 	if request.Request.Body != nil {
-		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
-		switch err {
-		case io.EOF, nil:
-			break
-		default:
-			writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
+		if err := decodeBody(request, bodyStruct); err != nil {
+			writeError(err, response)
 			return
 		}
 	}

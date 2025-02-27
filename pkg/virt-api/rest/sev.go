@@ -22,7 +22,6 @@ package rest
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/emicklei/go-restful/v3"
@@ -30,8 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/yaml"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -99,12 +96,8 @@ func (app *SubresourceAPIApp) SEVSetupSessionHandler(request *restful.Request, r
 	}
 
 	opts := &v1.SEVSessionOptions{}
-	err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts)
-	switch err {
-	case io.EOF, nil:
-		break
-	default:
-		writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
+	if err := decodeBody(request, opts); err != nil {
+		writeError(err, response)
 		return
 	}
 
