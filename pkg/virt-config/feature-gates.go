@@ -161,10 +161,6 @@ func (config *ClusterConfig) PersistentReservationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.PersistentReservation)
 }
 
-func (config *ClusterConfig) VMPersistentStateEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.VMPersistentState)
-}
-
 func (config *ClusterConfig) MultiArchitectureEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.MultiArchitecture)
 }
