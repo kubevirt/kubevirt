@@ -50,7 +50,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = VirtctlDescribe("[sig-storage]Memory dump", decorators.SigStorage, func() {
+var _ = Describe(SIG("[sig-storage]Memory dump", decorators.SigStorage, func() {
 	const (
 		randNameTail    = 5
 		claimNameFlag   = "--claim-name"
@@ -166,7 +166,7 @@ var _ = VirtctlDescribe("[sig-storage]Memory dump", decorators.SigStorage, func(
 		Expect(vm.Status.MemoryDumpRequest.FileName).ToNot(BeNil())
 		verifyMemoryDumpFile(output, *vm.Status.MemoryDumpRequest.FileName)
 	})
-})
+}))
 
 func runMemoryDumpGetCmd(name string, args ...string) error {
 	_args := append([]string{
