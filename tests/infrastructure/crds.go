@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -33,7 +33,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 )
 
-var _ = DescribeInfra("CRDs", func() {
+var _ = Describe(SIG("CRDs", func() {
 	It("[test_id:5177]Should have structural schema", func() {
 		ourCRDs := []string{
 			crds.VIRTUALMACHINE, crds.VIRTUALMACHINEINSTANCE, crds.VIRTUALMACHINEINSTANCEPRESET,
@@ -51,4 +51,4 @@ var _ = DescribeInfra("CRDs", func() {
 			Expect(crd).To(matcher.HaveConditionMissingOrFalse(v1ext.NonStructuralSchema))
 		}
 	})
-})
+}))

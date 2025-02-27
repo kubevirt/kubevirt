@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = DescribeSerialInfra("Node Restriction", decorators.RequiresTwoSchedulableNodes, func() {
+var _ = Describe(SIGSerial("Node Restriction", decorators.RequiresTwoSchedulableNodes, func() {
 	var virtClient kubecli.KubevirtClient
 	const minNodesWithVirtHandler = 2
 
@@ -105,4 +105,4 @@ var _ = DescribeSerialInfra("Node Restriction", decorators.RequiresTwoSchedulabl
 			ContainSubstring("Node restriction, virt-handler is only allowed to modify VMIs it owns"),
 		))
 	})
-})
+}))

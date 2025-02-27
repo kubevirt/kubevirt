@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -37,7 +37,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = DescribeInfra("downwardMetrics", func() {
+var _ = Describe(SIG("downwardMetrics", func() {
 	const vmiStartTimeout = 180
 
 	DescribeTable("should start a vmi and get the metrics", func(via libvmi.Option, metricsGetter libinfra.MetricsGetter) {
@@ -75,4 +75,4 @@ var _ = DescribeInfra("downwardMetrics", func() {
 			"Value": Equal("1"),
 		})))
 	})
-})
+}))

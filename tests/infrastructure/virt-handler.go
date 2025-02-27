@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnode"
 )
 
-var _ = DescribeSerialInfra("virt-handler", func() {
+var _ = Describe(SIGSerial("virt-handler", func() {
 	var (
 		virtClient       kubecli.KubevirtClient
 		originalKubeVirt *v1.KubeVirt
@@ -163,4 +163,4 @@ var _ = DescribeSerialInfra("virt-handler", func() {
 				v1.KSMHandlerManagedAnnotation, node))
 		}
 	})
-})
+}))
