@@ -90,7 +90,7 @@ const (
 	DefaultVirtWebhookClientBurst         = 400
 
 	DefaultMaxHotplugRatio   = 4
-	DefaultVMRolloutStrategy = v1.VMRolloutStrategyStage
+	DefaultVMRolloutStrategy = v1.VMRolloutStrategyLiveUpdate
 )
 
 func IsAMD64(arch string) bool {
@@ -466,7 +466,7 @@ func (c *ClusterConfig) GetMaxHotplugRatio() uint32 {
 
 func (c *ClusterConfig) IsVMRolloutStrategyLiveUpdate() bool {
 	liveConfig := c.GetConfig().VMRolloutStrategy
-	return liveConfig != nil && *liveConfig == v1.VMRolloutStrategyLiveUpdate
+	return liveConfig == nil || *liveConfig == v1.VMRolloutStrategyLiveUpdate
 }
 
 func (c *ClusterConfig) GetNetworkBindings() map[string]v1.InterfaceBindingPlugin {

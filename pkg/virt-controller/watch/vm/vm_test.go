@@ -5758,7 +5758,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 
-				By("Executing the controller expecting the RestartRequired condition to appear")
+				By("Executing the controller expecting the RestartRequired condition to appear as needed")
 				sanityExecute(vm)
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(Succeed())
@@ -5770,8 +5770,8 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(4)))
 				}
 			},
-				Entry("should appear if the VM rollout strategy is not set",
-					nil, restartRequiredMatcher(k8sv1.ConditionTrue)),
+				Entry("should not appear if the VM rollout strategy is not set",
+					nil, Not(restartRequiredMatcher(k8sv1.ConditionTrue))),
 				Entry("should appear if the VM rollout strategy is set to Stage",
 					&stage, restartRequiredMatcher(k8sv1.ConditionTrue)),
 				Entry("should not appear if VM rollout strategy is set to LiveUpdate",
