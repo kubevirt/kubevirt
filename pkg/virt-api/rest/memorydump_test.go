@@ -34,19 +34,21 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+	"github.com/onsi/gomega/gstruct"
 	"go.uber.org/mock/gomock"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 
 	v1 "kubevirt.io/api/core/v1"
 	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
 	"kubevirt.io/client-go/kubecli"
+	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -67,14 +69,13 @@ var _ = Describe("Memory dump Subresource api", func() {
 	)
 
 	var (
-		request    *restful.Request
-		response   *restful.Response
-		kubeClient *fake.Clientset
-		virtClient *kubecli.MockKubevirtClient
-		vmClient   *kubecli.MockVirtualMachineInterface
-		vmiClient  *kubecli.MockVirtualMachineInstanceInterface
-		cdiClient  *cdifake.Clientset
-		app        *SubresourceAPIApp
+		request        *restful.Request
+		response       *restful.Response
+		kubeClient     *fake.Clientset
+		fakeVirtClient *kubevirtfake.Clientset
+		virtClient     *kubecli.MockKubevirtClient
+		cdiClient      *cdifake.Clientset
+		app            *SubresourceAPIApp
 
 		kv = &v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
@@ -136,14 +137,11 @@ var _ = Describe("Memory dump Subresource api", func() {
 
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		kubeClient = fake.NewSimpleClientset()
-		vmClient = kubecli.NewMockVirtualMachineInterface(ctrl)
-		vmiClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+		fakeVirtClient = kubevirtfake.NewSimpleClientset()
 
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(vmClient).AnyTimes()
-		virtClient.EXPECT().VirtualMachine("").Return(vmClient).AnyTimes()
-		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiClient).AnyTimes()
-		virtClient.EXPECT().VirtualMachineInstance("").Return(vmiClient).AnyTimes()
+		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(fakeVirtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(fakeVirtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 
 		cdiConfig := cdiConfigInit()
 		cdiClient = cdifake.NewSimpleClientset(cdiConfig)
@@ -195,15 +193,12 @@ var _ = Describe("Memory dump Subresource api", func() {
 		vm := libvmi.NewVirtualMachine(vmi)
 		vm.Name = request.PathParameter("name")
 		vm.Namespace = metav1.NamespaceDefault
+		vm, err := fakeVirtClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-		patchedVM := vm.DeepCopy()
-		patchedVM.Status.MemoryDumpRequest = memDumpReq
-		patchedVM.Status.MemoryDumpRequest.Phase = v1.MemoryDumpAssociating
-
-		vmClient.EXPECT().Get(context.Background(), vm.Name, metav1.GetOptions{}).Return(vm, nil).AnyTimes()
 		if vmiRunning {
 			vmi = libvmi.New(
-				libvmi.WithName(testVMIName),
+				libvmi.WithName(testVMName),
 				libvmi.WithResourceMemory("1Gi"),
 				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
 			)
@@ -217,18 +212,24 @@ var _ = Describe("Memory dump Subresource api", func() {
 				}
 				return true, pvc, nil
 			})
+			vmi, err = fakeVirtClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		}
+
 		if statusCode == http.StatusAccepted || (pvc != nil && pvc.Spec.Resources.Requests[k8sv1.ResourceStorage] == resource.MustParse("1Gi")) {
 			virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
 		}
-		vmiClient.EXPECT().Get(context.Background(), vm.Name, metav1.GetOptions{}).Return(vmi, nil).AnyTimes()
-		vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions) (interface{}, interface{}) {
-				return patchedVM, nil
-			}).AnyTimes()
 		app.MemoryDumpVMRequestHandler(request, response)
 
 		Expect(response.StatusCode()).To(Equal(statusCode))
+		if statusCode == http.StatusAccepted {
+			patchedVM, err := fakeVirtClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(patchedVM.Status.MemoryDumpRequest).To(gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"ClaimName": Equal(memDumpReq.ClaimName),
+				"Phase":     Equal(v1.MemoryDumpAssociating),
+			})))
+		}
 	},
 		Entry("VM with a valid memory dump request should succeed", &v1.VirtualMachineMemoryDumpRequest{
 			ClaimName: testPVCName,
@@ -238,7 +239,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 		}, http.StatusBadRequest, false, true, createTestPVC("2Gi", fs, notReadOnly)),
 		Entry("VM with a valid memory dump request vmi not running should fail", &v1.VirtualMachineMemoryDumpRequest{
 			ClaimName: testPVCName,
-		}, http.StatusConflict, true, false, createTestPVC("2Gi", fs, notReadOnly)),
+		}, http.StatusNotFound, true, false, createTestPVC("2Gi", fs, notReadOnly)),
 		Entry("VM with a memory dump request with a non existing PVC", &v1.VirtualMachineMemoryDumpRequest{
 			ClaimName: testPVCName,
 		}, http.StatusNotFound, true, true, nil),
@@ -257,7 +258,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 		enableFeatureGate(featuregate.HotplugVolumesGate)
 		request.Request.Body = newMemoryDumpBody(memDumpReq)
 		vmi := libvmi.New(
-			libvmi.WithName(testVMIName),
+			libvmi.WithName(testVMName),
 			libvmi.WithResourceMemory("1Gi"),
 			libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
 		)
@@ -268,27 +269,30 @@ var _ = Describe("Memory dump Subresource api", func() {
 			vm.Status.MemoryDumpRequest = prevMemDumpReq
 		}
 
-		patchedVM := vm.DeepCopy()
-		patchedVM.Status.MemoryDumpRequest = memDumpReq
-		patchedVM.Status.MemoryDumpRequest.Phase = v1.MemoryDumpAssociating
+		vm, err := fakeVirtClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		vmi, err = fakeVirtClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-		vmClient.EXPECT().Get(context.Background(), vm.Name, metav1.GetOptions{}).Return(vm, nil).AnyTimes()
 		kubeClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (bool, runtime.Object, error) {
 			_, ok := action.(testing.GetAction)
 			Expect(ok).To(BeTrue())
 			return true, createTestPVC("2Gi", fs, notReadOnly), nil
 		})
-		vmiClient.EXPECT().Get(context.Background(), vm.Name, metav1.GetOptions{}).Return(vmi, nil).AnyTimes()
-		vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions) (interface{}, interface{}) {
-				return patchedVM, nil
-			}).AnyTimes()
 		if statusCode == http.StatusAccepted {
 			virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
 		}
 		app.MemoryDumpVMRequestHandler(request, response)
 
 		Expect(response.StatusCode()).To(Equal(statusCode))
+		if statusCode == http.StatusAccepted {
+			patchedVM, err := fakeVirtClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(patchedVM.Status.MemoryDumpRequest).To(gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"ClaimName": Equal(prevMemDumpReq.ClaimName),
+				"Phase":     Equal(v1.MemoryDumpAssociating),
+			})))
+		}
 	},
 		Entry("VM with a memory dump request without claim name with assocaited memory dump should succeed",
 			&v1.VirtualMachineMemoryDumpRequest{},
