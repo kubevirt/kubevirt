@@ -1048,17 +1048,14 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		}
 
 		vmiKey := controller.VirtualMachineInstanceKey(vmi)
-		c.podExpectations.ExpectCreations(vmiKey, 1)
-		pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), templatePod, v1.CreateOptions{})
+		pod, err := c.createPod(vmiKey, vmi.Namespace, templatePod)
 		if k8serrors.IsForbidden(err) && strings.Contains(err.Error(), "violates PodSecurity") {
 			psaErr := fmt.Errorf("failed to create pod for vmi %s/%s, it needs a privileged namespace to run: %w", vmi.GetNamespace(), vmi.GetName(), err)
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, services.FailedToRenderLaunchManifestErrFormat, psaErr)
-			c.podExpectations.CreationObserved(vmiKey)
 			return common.NewSyncError(psaErr, controller.FailedCreatePodReason), nil
 		}
 		if err != nil {
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, "Error creating pod: %v", err)
-			c.podExpectations.CreationObserved(vmiKey)
 			return common.NewSyncError(fmt.Errorf("failed to create virtual machine pod: %v", err), controller.FailedCreatePodReason), nil
 		}
 		c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, controller.SuccessfulCreatePodReason, "Created virtual machine pod %s", pod.Name)
@@ -1888,7 +1885,16 @@ func (c *Controller) deletePod(vmiKey string, pod *k8sv1.Pod, options v1.DeleteO
 	err := c.clientset.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, options)
 	if err != nil {
 		c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(pod))
-		return err
+
 	}
-	return nil
+	return err
+}
+
+func (c *Controller) createPod(key, namespace string, pod *k8sv1.Pod) (*k8sv1.Pod, error) {
+	c.podExpectations.ExpectCreations(key, 1)
+	pod, err := c.clientset.CoreV1().Pods(namespace).Create(context.Background(), pod, v1.CreateOptions{})
+	if err != nil {
+		c.podExpectations.CreationObserved(key)
+	}
+	return pod, err
 }
