@@ -42,6 +42,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
+const (
+	vmiNoAttestationErr = "Attestation not requested for VMI"
+)
+
 func (app *SubresourceAPIApp) ensureSEVEnabled(response *restful.Response) bool {
 	if !app.clusterConfig.WorkloadEncryptionSEVEnabled() {
 		writeError(errors.NewBadRequest(fmt.Sprintf(featureGateDisabledErrFmt, featuregate.WorkloadEncryptionSEV)), response)

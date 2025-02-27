@@ -43,6 +43,13 @@ import (
 	kutil "kubevirt.io/kubevirt/pkg/util"
 )
 
+const (
+	pvcVolumeModeErr          = "pvc should be filesystem pvc"
+	pvcAccessModeErr          = "pvc access mode can't be read only"
+	pvcSizeErrFmt             = "pvc size [%s] should be bigger then [%s]"
+	memoryDumpNameConflictErr = "can't request memory dump for pvc [%s] while pvc [%s] is still associated as the memory dump pvc"
+)
+
 func (app *SubresourceAPIApp) fetchPersistentVolumeClaim(name string, namespace string) (*k8sv1.PersistentVolumeClaim, *errors.StatusError) {
 	pvc, err := app.virtCli.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
