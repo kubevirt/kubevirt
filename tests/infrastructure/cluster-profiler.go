@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017-2023 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -31,7 +31,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-var _ = DescribeSerialInfra("cluster profiler for pprof data aggregation", func() {
+var _ = Describe(SIGSerial("cluster profiler for pprof data aggregation", func() {
 	var virtClient kubecli.KubevirtClient
 	var kvConfig v1.KubeVirtConfiguration
 
@@ -73,4 +73,4 @@ var _ = DescribeSerialInfra("cluster profiler for pprof data aggregation", func(
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
-})
+}))

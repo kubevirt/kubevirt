@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -44,7 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libpod"
 )
 
-var _ = DescribeSerialInfra("tls configuration", func() {
+var _ = Describe(SIGSerial("tls configuration", func() {
 	var virtClient kubecli.KubevirtClient
 
 	// FIPS-compliant so we can test on different platforms (otherwise won't revert properly)
@@ -119,4 +119,4 @@ var _ = DescribeSerialInfra("tls configuration", func() {
 			}(i, pod)
 		}
 	})
-})
+}))

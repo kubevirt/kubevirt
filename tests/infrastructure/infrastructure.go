@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2023 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -22,13 +22,13 @@ package infrastructure
 import (
 	. "github.com/onsi/ginkgo/v2"
 
-	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/compute"
 )
 
-func DescribeSerialInfra(text string, args ...interface{}) bool {
-	return Describe("[sig-compute]Infrastructure "+text, Serial, decorators.SigCompute, args)
+func SIGSerial(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
+	return compute.SIG("Infrastructure "+text, Serial, args)
 }
 
-func DescribeInfra(text string, args ...interface{}) bool {
-	return Describe("[sig-compute]Infrastructure "+text, decorators.SigCompute, args)
+func SIG(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
+	return compute.SIG("Infrastructure "+text, args)
 }

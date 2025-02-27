@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -36,7 +36,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = DescribeSerialInfra("Start a VirtualMachineInstance", func() {
+var _ = Describe(SIGSerial("Start a VirtualMachineInstance", func() {
 	Context("when the controller pod is not running and an election happens", func() {
 		It("[test_id:4642]should elect a new controller pod", func() {
 			virtClient := kubevirt.Client()
@@ -56,4 +56,4 @@ var _ = DescribeSerialInfra("Start a VirtualMachineInstance", func() {
 			libwait.WaitForSuccessfulVMIStart(vmi)
 		})
 	})
-})
+}))
