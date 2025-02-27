@@ -8,7 +8,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -75,26 +74,11 @@ func isAutoMount(volume *v1.Volume) bool {
 	return volume.ServiceAccount != nil
 }
 
-func virtioFSMountPoint(volume *v1.Volume) string {
-	volumeMountPoint := fmt.Sprintf("/%s", volume.Name)
-
-	if volume.ConfigMap != nil {
-		volumeMountPoint = config.GetConfigMapSourcePath(volume.Name)
-	} else if volume.Secret != nil {
-		volumeMountPoint = config.GetSecretSourcePath(volume.Name)
-	} else if volume.ServiceAccount != nil {
-		volumeMountPoint = config.ServiceAccountSourceDir
-	} else if volume.DownwardAPI != nil {
-		volumeMountPoint = config.GetDownwardAPISourcePath(volume.Name)
-	}
-
-	return volumeMountPoint
-}
-
 func generateContainerFromVolume(volume *v1.Volume, image string, resources k8sv1.ResourceRequirements) k8sv1.Container {
 
+	volumeMountPath := virtiofs.FSMountPoint(volume)
 	socketPathArg := fmt.Sprintf("--socket-path=%s", virtiofs.VirtioFSSocketPath(volume.Name))
-	sourceArg := fmt.Sprintf("--shared-dir=%s", virtioFSMountPoint(volume))
+	sourceArg := fmt.Sprintf("--shared-dir=%s", volumeMountPath)
 
 	args := []string{socketPathArg, sourceArg, "--sandbox=none", "--cache=auto"}
 
@@ -119,7 +103,7 @@ func generateContainerFromVolume(volume *v1.Volume, image string, resources k8sv
 	if !isAutoMount(volume) {
 		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 			Name:      volume.Name,
-			MountPath: virtioFSMountPoint(volume),
+			MountPath: volumeMountPath,
 		})
 	}
 
