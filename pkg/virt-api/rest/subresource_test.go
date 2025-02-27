@@ -735,9 +735,21 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			if graceperiod != nil {
 				vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
+					func(ctx context.Context, name string, patchType types.PatchType, data []byte, opts k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
 						//check that dryRun option has been propagated to patch request
 						Expect(opts.DryRun).To(BeEquivalentTo(stopOptions.DryRun))
+
+						patchSet := patch.New()
+						// used for stopping a VM with RunStrategyHalted
+						if vmi.Spec.TerminationGracePeriodSeconds != nil {
+							patchSet.AddOption(patch.WithTest("/spec/terminationGracePeriodSeconds", *vmi.Spec.TerminationGracePeriodSeconds))
+						} else {
+							patchSet.AddOption(patch.WithTest("/spec/terminationGracePeriodSeconds", nil))
+						}
+						patchSet.AddOption(patch.WithReplace("/spec/terminationGracePeriodSeconds", *graceperiod))
+						patchBytes, err := patchSet.GeneratePayload()
+						Expect(err).ToNot(HaveOccurred())
+						Expect(string(data)).To(Equal(string(patchBytes)))
 						return vm, nil
 					})
 			}
