@@ -60,7 +60,17 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 		DescribeTable("should succeed", func(readinessProbe *v1.Probe, ipFamily k8sv1.IPFamily) {
 			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
-			if !isExecProbe(readinessProbe) {
+			if isExecProbe(readinessProbe) {
+				By(specifyingVMReadinessProbe)
+				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withReadinessProbe(readinessProbe))
+				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+
+				By("Waiting for agent to connect")
+				Eventually(matcher.ThisVMI(vmi)).
+					WithTimeout(12 * time.Minute).
+					WithPolling(2 * time.Second).
+					Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			} else {
 				By(specifyingVMReadinessProbe)
 				vmi = createReadyAlpineVMIWithReadinessProbe(readinessProbe)
 
@@ -71,16 +81,6 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 				vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				vmnetserver.StartTCPServer(vmi, 1500, console.LoginToAlpine)
-			} else {
-				By(specifyingVMReadinessProbe)
-				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withReadinessProbe(readinessProbe))
-				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
-
-				By("Waiting for agent to connect")
-				Eventually(matcher.ThisVMI(vmi)).
-					WithTimeout(12 * time.Minute).
-					WithPolling(2 * time.Second).
-					Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			}
 
 			Eventually(matcher.ThisVMI(vmi)).
@@ -152,13 +152,7 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 		DescribeTable("should not fail the VMI", func(livenessProbe *v1.Probe, ipFamily k8sv1.IPFamily) {
 			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
-			if !isExecProbe(livenessProbe) {
-				By(specifyingVMLivenessProbe)
-				vmi = createReadyAlpineVMIWithLivenessProbe(livenessProbe)
-
-				By("Starting the server inside the VMI")
-				vmnetserver.StartTCPServer(vmi, 1500, console.LoginToAlpine)
-			} else {
+			if isExecProbe(livenessProbe) {
 				By(specifyingVMLivenessProbe)
 				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivelinessProbe(livenessProbe))
 				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
@@ -168,6 +162,12 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 					WithTimeout(12 * time.Minute).
 					WithPolling(2 * time.Second).
 					Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			} else {
+				By(specifyingVMLivenessProbe)
+				vmi = createReadyAlpineVMIWithLivenessProbe(livenessProbe)
+
+				By("Starting the server inside the VMI")
+				vmnetserver.StartTCPServer(vmi, 1500, console.LoginToAlpine)
 			}
 
 			By("Checking that the VMI is still running after a while")
