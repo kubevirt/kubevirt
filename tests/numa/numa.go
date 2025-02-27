@@ -19,11 +19,11 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -88,7 +88,7 @@ var _ = Describe("[sig-compute]NUMA", Serial, decorators.SigCompute, func() {
 			Expect(resource.MustParse(fmt.Sprintf("%dKi", sum*memoryFactor)).Equal(requestedMemory)).To(BeTrue())
 
 			By("Fetching the domain XML")
-			domSpec, err := tests.GetRunningVMIDomainSpec(cpuVMI)
+			domSpec, err := libdomain.GetRunningVMIDomainSpec(cpuVMI)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("checking that we really deal with a domain with numa configured")

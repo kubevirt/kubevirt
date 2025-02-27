@@ -23,6 +23,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -66,7 +67,6 @@ import (
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -77,6 +77,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libconfigmap"
+	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -309,7 +310,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedula
 				// check VMI, confirm migration state
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
-				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
+				runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				disks := runningVMISpec.Devices.Disks
@@ -462,7 +463,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedula
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking the TSC frequency on the Domain XML")
-				domainSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+				domainSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				timerFrequency := ""
 				for _, timer := range domainSpec.Clock.Timer {
@@ -479,7 +480,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedula
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				By("Checking the TSC frequency on the Domain XML on the new node")
-				domainSpec, err = tests.GetRunningVMIDomainSpec(vmi)
+				domainSpec, err = libdomain.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				timerFrequency = ""
 				for _, timer := range domainSpec.Clock.Timer {
@@ -511,7 +512,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedula
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
 				By("checking that we really migrated a VMI with only the root bus")
-				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+				domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				rootPortController := []api.Controller{}
 				for _, c := range domSpec.Devices.Controllers {
@@ -1527,7 +1528,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedula
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+				domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				emulator := filepath.Base(strings.TrimPrefix(domSpec.Devices.Emulator, "/"))
 				// ensure that we only match the process
@@ -2168,7 +2169,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedula
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
-				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+				domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domSpec.Devices.Ballooning.FreePageReporting).To(BeEquivalentTo("on"))
 
@@ -2178,7 +2179,7 @@ var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedula
 
 				vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 
-				domSpec, err = tests.GetRunningVMIDomainSpec(vmi)
+				domSpec, err = libdomain.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domSpec.Devices.Ballooning.FreePageReporting).To(BeEquivalentTo("on"))
 			})
