@@ -56,6 +56,7 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -2523,31 +2524,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Entry("don't exist migration should fail", ""),
 		)
 
-		Context("check that migration is supported when using Filesystem Devices", func() {
-			fsPvcVolume := v1.VolumeSource{
-				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "testpvc",
-					},
-				},
-			}
+		Context("Filesystem Devices", func() {
+			const errorMsg = "cannot migrate VMI: PVC %s is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)"
 
-			fsDvVolume := v1.VolumeSource{
-				DataVolume: &v1.DataVolumeSource{
-					Name: "testDV",
-				},
-			}
-
-			const errorMsg = "cannot migrate VMI: PVC %s is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode"
-
-			It("should be allowed to live-migrate if the VMI uses virtiofs ", func() {
-				vmi := api2.NewMinimalVMI("testvmi")
-				vmi.Spec.Domain.Devices.Filesystems = []v1.Filesystem{
-					{
-						Name:     "VIRTIOFS",
-						Virtiofs: &v1.FilesystemVirtiofs{},
-					},
-				}
+			It("should be allowed to live-migrate if the VMI uses virtiofs", func() {
+				vmi := libvmi.New(withFilesystemDevice("VIRTIOFS"))
 
 				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
 				Expect(isBlockMigration).To(BeFalse())
@@ -2555,35 +2536,22 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
 			})
 
-			DescribeTable("using virtiofs and a", func(volumeSource v1.VolumeSource, accessMode k8sv1.PersistentVolumeAccessMode, shouldFail bool, errorMsg string) {
-				vmi := api2.NewMinimalVMI("testvmi")
-				vmi.Spec.Domain.Devices.Filesystems = []v1.Filesystem{
-					{
-						Name:     "VIRTIOFS",
-						Virtiofs: &v1.FilesystemVirtiofs{},
-					},
-				}
-
-				vmi.Spec.Volumes = []v1.Volume{
-					{
-						Name:         "VIRTIOFS",
-						VolumeSource: volumeSource,
-					},
-				}
-
-				vmi.Status.VolumeStatus = []v1.VolumeStatus{
-					{
-						Name: "VIRTIOFS",
-						PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
-							AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
-							VolumeMode:  pointer.P(k8sv1.PersistentVolumeFilesystem),
+			DescribeTable("using virtiofs and a", func(volumeType libvmi.Option, accessMode k8sv1.PersistentVolumeAccessMode, errorMsg string) {
+				vmi := libvmi.New(volumeType, libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithVolumeStatus(
+						v1.VolumeStatus{
+							Name: "VIRTIOFS",
+							PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+								AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
+								VolumeMode:  pointer.P(k8sv1.PersistentVolumeFilesystem),
+							},
 						},
-					},
-				}
+					),
+				)))
 
 				condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
 
-				if shouldFail {
+				if errorMsg != "" {
 					Expect(isBlockMigration).To(BeTrue())
 					Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 					Expect(condition.Message).To(ContainSubstring(errorMsg))
@@ -2594,12 +2562,19 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
 				}
 			},
-				Entry("PVC with access mode ReadWriteOne", fsPvcVolume, k8sv1.ReadWriteOnce, true, fmt.Sprintf(errorMsg, fsPvcVolume.PersistentVolumeClaim.PersistentVolumeClaimVolumeSource.ClaimName)),
-				Entry("PVC with access mode ReadOnlyMany", fsPvcVolume, k8sv1.ReadOnlyMany, true, fmt.Sprintf(errorMsg, fsPvcVolume.PersistentVolumeClaim.PersistentVolumeClaimVolumeSource.ClaimName)),
-				Entry("PVC with access mode ReadWriteMany", fsPvcVolume, k8sv1.ReadWriteMany, false, ""),
-				Entry("DV with access mode ReadWriteMany", fsDvVolume, k8sv1.ReadWriteMany, false, ""),
-				Entry("DV with access mode ReadOnlyMany", fsDvVolume, k8sv1.ReadOnlyMany, true, fmt.Sprintf(errorMsg, fsDvVolume.DataVolume.Name)),
-				Entry("DV with access mode ReadWriteOnce", fsDvVolume, k8sv1.ReadWriteOnce, true, fmt.Sprintf(errorMsg, fsDvVolume.DataVolume.Name)),
+
+				Entry("PVC with access mode ReadWriteOne", libvmi.WithFilesystemPVC("VIRTIOFS"),
+					k8sv1.ReadWriteOnce, fmt.Sprintf(errorMsg, "VIRTIOFS")),
+				Entry("PVC with access mode ReadOnlyMany", libvmi.WithFilesystemPVC("VIRTIOFS"),
+					k8sv1.ReadOnlyMany, fmt.Sprintf(errorMsg, "VIRTIOFS")),
+				Entry("PVC with access mode ReadWriteMany", libvmi.WithFilesystemPVC("VIRTIOFS"),
+					k8sv1.ReadWriteMany, ""),
+				Entry("DV with access mode ReadWriteMany", libvmi.WithFilesystemDV("VIRTIOFS"),
+					k8sv1.ReadWriteMany, ""),
+				Entry("DV with access mode ReadOnlyMany", libvmi.WithFilesystemDV("VIRTIOFS"),
+					k8sv1.ReadOnlyMany, fmt.Sprintf(errorMsg, "VIRTIOFS")),
+				Entry("DV with access mode ReadWriteOnce", libvmi.WithFilesystemDV("VIRTIOFS"),
+					k8sv1.ReadWriteOnce, fmt.Sprintf(errorMsg, "VIRTIOFS")),
 			)
 
 			DescribeTable("sharing with virtiofs a", func(configVolume libvmi.Option) {
@@ -3622,4 +3597,14 @@ func (smc *stubNetBindingPluginMemoryCalculator) Calculate(_ *v1.VirtualMachineI
 	smc.calculatedMemoryOverhead = true
 
 	return resource.Quantity{}
+}
+
+// withFilesystemDevice adds a generic filesystem
+func withFilesystemDevice(deviceName string) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
+			Name:     deviceName,
+			Virtiofs: &v1.FilesystemVirtiofs{},
+		})
+	}
 }
