@@ -100,7 +100,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/operator/resourcefiles"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	util2 "kubevirt.io/kubevirt/tests/util"
 )
 
 type vmSnapshotDef struct {
@@ -140,7 +139,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	deprecatedBeforeAll(func() {
 		virtClient = kubevirt.Client()
 		config, err := kubecli.GetKubevirtClientConfig()
-		util2.PanicOnError(err)
+		Expect(err).ToNot(HaveOccurred())
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 		k8sClient = clientcmd.GetK8sCmdClient()
@@ -1703,10 +1702,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			}
 
 			labelReq, err := labels.NewRequirement("app.kubernetes.io/component", selection.In, []string{productComponent})
-
-			if err != nil {
-				panic(err)
-			}
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Looking for pods with " + productComponent + " component")
 
