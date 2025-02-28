@@ -35,7 +35,7 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 		Name:            PrHelperName,
 		Image:           image,
 		ImagePullPolicy: pullPolicy,
-		Command:         []string{"/usr/bin/qemu-pr-helper"},
+		Command:         []string{"/entrypoint.sh"},
 		Args: []string{
 			"-k", reservation.GetPrHelperSocketPath(),
 		},
