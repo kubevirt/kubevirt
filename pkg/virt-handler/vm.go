@@ -1714,6 +1714,8 @@ func (c *VirtualMachineController) getVMIFromCache(key string) (vmi *v1.VirtualM
 			return nil, false, err
 		}
 		vmi = libvmi.New(libvmi.WithName(name), libvmi.WithNamespace(namespace))
+		vmi.Spec.TerminationGracePeriodSeconds = nil
+		// vmi = v1.NewVMIReferenceFromNameWithNS(name, namespace)
 	} else {
 		vmi = obj.(*v1.VirtualMachineInstance)
 	}

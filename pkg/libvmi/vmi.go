@@ -42,7 +42,7 @@ type Option func(vmi *v1.VirtualMachineInstance)
 func New(opts ...Option) *v1.VirtualMachineInstance {
 	vmi := baseVmi(randName())
 
-	WithTerminationGracePeriod(0)(vmi)
+	// WithTerminationGracePeriod(0)(vmi)
 	for _, f := range opts {
 		f(vmi)
 	}
@@ -85,12 +85,16 @@ func WithAnnotation(key, value string) Option {
 func WithName(name string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Name = name
+		selfLink := fmt.Sprintf("/apis/%s/namespaces/%s/virtualmachineinstances/%s", v1.GroupVersion.String(), vmi.Namespace, name)
+		vmi.SetSelfLink(selfLink)
 	}
 }
 
 func WithNamespace(namespace string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Namespace = namespace
+		selfLink := fmt.Sprintf("/apis/%s/namespaces/%s/virtualmachineinstances/%s", v1.GroupVersion.String(), namespace, vmi.Name)
+		vmi.SetSelfLink(selfLink)
 	}
 }
 
