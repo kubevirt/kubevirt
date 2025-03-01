@@ -166,7 +166,7 @@ func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(webhook *admis
 	for i := range webhook.Webhooks {
 		webhook.Webhooks[i].ClientConfig.CABundle = caBundle
 	}
-	injectOperatorMetadata(r.kv, &webhook.ObjectMeta, version, imageRegistry, id, true)
+	injectOperatorMetadata(r.kv, &webhook.ObjectMeta, version, imageRegistry, id)
 
 	var cachedWebhook *admissionregistrationv1.ValidatingWebhookConfiguration
 	var err error
@@ -263,7 +263,7 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 		webhook.Webhooks[i].ClientConfig.CABundle = caBundle
 	}
 
-	injectOperatorMetadata(r.kv, &webhook.ObjectMeta, version, imageRegistry, id, true)
+	injectOperatorMetadata(r.kv, &webhook.ObjectMeta, version, imageRegistry, id)
 
 	var cachedWebhook *admissionregistrationv1.MutatingWebhookConfiguration
 	var err error
@@ -349,7 +349,7 @@ func (r *Reconciler) createOrUpdateValidatingAdmissionPolicyBinding(validatingAd
 	admissionRegistrationV1 := r.clientset.AdmissionregistrationV1()
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 
-	injectOperatorMetadata(r.kv, &validatingAdmissionPolicyBinding.ObjectMeta, version, imageRegistry, id, true)
+	injectOperatorMetadata(r.kv, &validatingAdmissionPolicyBinding.ObjectMeta, version, imageRegistry, id)
 
 	obj, exists, _ := r.stores.ValidatingAdmissionPolicyBindingCache.Get(validatingAdmissionPolicyBinding)
 
@@ -414,7 +414,7 @@ func (r *Reconciler) createOrUpdateValidatingAdmissionPolicy(validatingAdmission
 	admissionRegistrationV1 := r.clientset.AdmissionregistrationV1()
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 
-	injectOperatorMetadata(r.kv, &validatingAdmissionPolicy.ObjectMeta, version, imageRegistry, id, true)
+	injectOperatorMetadata(r.kv, &validatingAdmissionPolicy.ObjectMeta, version, imageRegistry, id)
 
 	obj, exists, _ := r.stores.ValidatingAdmissionPolicyCache.Get(validatingAdmissionPolicy)
 
