@@ -821,6 +821,66 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					return err
 				}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "migration should not be created in a dry run mode")
 			})
+
+			When("Deleting a VM with high TerminationGracePeriod", func() {
+				var vm *v1.VirtualMachine
+				var pod *k8sv1.Pod
+				BeforeEach(func() {
+					By("Creating a VM with a high TerminationGracePeriod")
+					vm = libvmi.NewVirtualMachine(
+						libvmifact.NewGuestless(libvmi.WithTerminationGracePeriod(1600)),
+						libvmi.WithRunStrategy(v1.RunStrategyAlways))
+					vm.Namespace = testsuite.GetTestNamespace(vm)
+
+					vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Waiting for VMI to start")
+					Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(BeReady())
+
+					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					pod, err = libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+					Expect(err).ToNot(HaveOccurred())
+				})
+
+				DescribeTable("should handle VM deletion respecting TerminationGracePeriodSeconds", func(gracePeriod int64) {
+					By(fmt.Sprintf("Patching the VM to set TerminationGracePeriodSeconds to %d", gracePeriod))
+
+					patchSet, err := patch.New(patch.WithReplace("/spec/template/spec/terminationGracePeriodSeconds", gracePeriod)).GeneratePayload()
+					Expect(err).ToNot(HaveOccurred())
+					_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchSet, metav1.PatchOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Ensuring the VMI reflects the updated TerminationGracePeriodSeconds")
+					Eventually(func(g Gomega) {
+						vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+						g.Expect(err).ToNot(HaveOccurred())
+						g.Expect(*vmi.Spec.TerminationGracePeriodSeconds).To(BeEquivalentTo(gracePeriod))
+					}, 60*time.Second, 5*time.Second).Should(Succeed(), "VMI should have been updated by the patch")
+
+					By("Deleting the VM")
+					err = virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					if gracePeriod > 0 {
+						By("Ensuring the pod is still present before the grace period expires")
+						Consistently(func(g Gomega) {
+							_, err := virtClient.CoreV1().Pods(vm.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+							g.Expect(err).ToNot(HaveOccurred())
+						}, time.Duration(gracePeriod)*time.Second, 5*time.Second).Should(Succeed(), "virt-launcher pod should not be deleted before grace period expires")
+					}
+
+					Eventually(func(g Gomega) {
+						_, err := virtClient.CoreV1().Pods(vm.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+						g.Expect(errors.IsNotFound(err)).To(BeTrue())
+					}, 30*time.Second, 5*time.Second).Should(Succeed(), "virt-launcher pod should be deleted after grace period expires")
+				},
+					Entry("with immediate deletion (grace period 0)", int64(0)),
+					Entry("with a 5s grace period", int64(5)),
+				)
+			})
 		})
 
 		Context("Using RunStrategyRerunOnFailure", func() {

@@ -46,6 +46,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -1524,8 +1525,15 @@ func (c *Controller) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance) e
 			continue
 		}
 
+		gracePeriod := pointer.P(int64(0))
+		if strings.HasPrefix(pod.Name, "virt-launcher") && vmi.Spec.TerminationGracePeriodSeconds != nil {
+			gracePeriod = vmi.Spec.TerminationGracePeriodSeconds
+		}
+
 		c.podExpectations.ExpectDeletions(vmiKey, []string{controller.PodKey(pod)})
-		err := c.clientset.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{})
+		err := c.clientset.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{
+			GracePeriodSeconds: gracePeriod,
+		})
 		if err != nil {
 			c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(pod))
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Failed to delete virtual machine pod %s", pod.Name)
