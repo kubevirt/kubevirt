@@ -24,6 +24,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
+	"libvirt.org/go/libvirt"
 
 	"kubevirt.io/client-go/log"
 
@@ -325,7 +326,7 @@ func (p *AgentPoller) Start() {
 	for i := 0; i < len(p.workers); i++ {
 		log.Log.Infof("Starting agent poller with commands: %v", p.workers[i].AgentCommands)
 		go p.workers[i].Poll(func(commands []AgentCommand) {
-			executeAgentCommands(commands, p.Connection, p.agentStore, p.domainName)
+			executeOperations(commands, p.Connection, p.agentStore, p.domainName)
 		}, p.agentDone, pollInitialInterval)
 	}
 }
@@ -338,75 +339,196 @@ func (p *AgentPoller) Stop() {
 	}
 }
 
-// With libvirt 5.6.0 direct call to agent can be replaced with call to libvirt Domain.GetGuestInfo
-func executeAgentCommands(commands []AgentCommand, con cli.Connection, agentStore *AsyncAgentStore, domainName string) {
+func executeOperations(commands []AgentCommand, con cli.Connection, agentStore *AsyncAgentStore, domainName string) {
 	for _, command := range commands {
-		// replace with direct call to libvirt function when 5.6.0 is available
-		cmdResult, err := con.QemuAgentCommand(`{"execute":"`+string(command)+`"}`, domainName)
-		if err != nil {
-			// skip the command on error, it is not vital
-			continue
-		}
-
-		// parse the json data and convert to domain api
-		// for libvirt 5.6.0 json conversion deprecated
 		switch command {
 		case GET_INTERFACES:
-			interfaces, err := parseInterfaces(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent interface %s", err.Error())
-				continue
+			if guestInfo, err := getGuestInfo(libvirt.DOMAIN_GUEST_INFO_INTERFACES, con, domainName); err == nil {
+				agentStore.Store(GET_INTERFACES, convertToInterfaces(guestInfo))
 			}
-			agentStore.Store(GET_INTERFACES, interfaces)
 		case GET_OSINFO:
-			osInfo, err := parseGuestOSInfo(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent guestosinfo %s", err.Error())
-				continue
+			if guestInfo, err := getGuestInfo(libvirt.DOMAIN_GUEST_INFO_OS, con, domainName); err == nil {
+				agentStore.Store(GET_OSINFO, convertToOSInfo(guestInfo))
 			}
-			agentStore.Store(GET_OSINFO, osInfo)
 		case GET_HOSTNAME:
-			hostname, err := parseHostname(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent hostname %s", err.Error())
-				continue
+			if guestInfo, err := getGuestInfo(libvirt.DOMAIN_GUEST_INFO_HOSTNAME, con, domainName); err == nil {
+				agentStore.Store(GET_HOSTNAME, guestInfo.Hostname)
 			}
-			agentStore.Store(GET_HOSTNAME, hostname)
 		case GET_TIMEZONE:
-			timezone, err := parseTimezone(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent timezone %s", err.Error())
-				continue
+			if guestInfo, err := getGuestInfo(libvirt.DOMAIN_GUEST_INFO_TIMEZONE, con, domainName); err == nil {
+				agentStore.Store(GET_TIMEZONE, convertToTimezone(guestInfo))
 			}
-			agentStore.Store(GET_TIMEZONE, timezone)
 		case GET_USERS:
-			users, err := parseUsers(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent users %s", err.Error())
-				continue
+			if guestInfo, err := getGuestInfo(libvirt.DOMAIN_GUEST_INFO_USERS, con, domainName); err == nil {
+				agentStore.Store(GET_USERS, convertToUsers(guestInfo))
 			}
-			agentStore.Store(GET_USERS, users)
 		case GET_FSFREEZE_STATUS:
-			fsfreezeStatus, err := ParseFSFreezeStatus(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent fsfreeze status %s", err.Error())
-				continue
+			if status, err := getFilesystemFreezeStatus(con, command, domainName); err == nil {
+				agentStore.Store(GET_FSFREEZE_STATUS, status)
 			}
-			agentStore.Store(GET_FSFREEZE_STATUS, fsfreezeStatus)
 		case GET_FILESYSTEM:
-			filesystems, err := parseFilesystem(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent filesystem %s", err.Error())
-				continue
+			if guestInfo, err := getGuestInfo(libvirt.DOMAIN_GUEST_INFO_FILESYSTEM, con, domainName); err == nil {
+				agentStore.Store(GET_FILESYSTEM, convertToFileSystem(guestInfo))
 			}
-			agentStore.Store(GET_FILESYSTEM, filesystems)
 		case GET_AGENT:
-			agent, err := parseAgent(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent information %s", err.Error())
-				continue
+			if agentInfo, err := getAgentInfo(con, command, domainName); err == nil {
+				agentStore.Store(GET_AGENT, agentInfo)
 			}
-			agentStore.Store(GET_AGENT, agent)
 		}
 	}
+}
+
+func getGuestInfo(infoType libvirt.DomainGuestInfoTypes, con cli.Connection, domainName string) (*libvirt.DomainGuestInfo, error) {
+	domain, err := con.LookupDomainByName(domainName)
+	if err != nil {
+		log.Log.Errorf("Failed to lookup domain (%s): %v", domainName, err)
+		return nil, err
+	}
+
+	guestInfo, err := domain.GetGuestInfo(infoType, 0)
+	if err != nil {
+		log.Log.Errorf("Failed to get guest info (%d): %v", infoType, err)
+		return nil, err
+	}
+	return guestInfo, nil
+}
+
+func getFilesystemFreezeStatus(con cli.Connection, command AgentCommand, domainName string) (api.FSFreeze, error) {
+	// FSFREEZE_STATUS is not exposed in libvirt API
+	result, err := con.QemuAgentCommand(`{"execute":"`+string(command)+`"}`, domainName)
+	if err != nil {
+		return api.FSFreeze{}, err
+	}
+
+	status, err := ParseFSFreezeStatus(result)
+	if err != nil {
+		log.Log.Errorf("Cannot parse guest agent fsfreeze status %s", err.Error())
+		return api.FSFreeze{}, err
+	}
+
+	return status, nil
+}
+
+func getAgentInfo(con cli.Connection, command AgentCommand, domainName string) (AgentInfo, error) {
+	// Consider if getting AGENT info is needed
+	result, err := con.QemuAgentCommand(`{"execute":"`+string(command)+`"}`, domainName)
+	if err != nil {
+		return AgentInfo{}, err
+	}
+
+	agent, err := parseAgent(result)
+	if err != nil {
+		log.Log.Errorf("Cannot parse guest agent information %s", err.Error())
+		return AgentInfo{}, err
+	}
+
+	return agent, nil
+}
+
+func convertToInterfaces(guestInfo *libvirt.DomainGuestInfo) []api.InterfaceStatus {
+	var interfaceStatuses []api.InterfaceStatus
+	if guestInfo.Interfaces != nil {
+		for _, netInterface := range guestInfo.Interfaces {
+			if netInterface.Name == "lo" {
+				continue
+			}
+
+			interfaceIP, interfaceIPs := convertToIPAddresses(netInterface.Addrs)
+			interfaceStatuses = append(interfaceStatuses, api.InterfaceStatus{
+				Mac:           netInterface.Hwaddr,
+				Ip:            interfaceIP,
+				IPs:           interfaceIPs,
+				InterfaceName: netInterface.Name,
+			})
+		}
+	}
+	return interfaceStatuses
+}
+
+func convertToIPAddresses(ipAddresses []libvirt.DomainGuestInfoIPAddress) (string, []string) {
+	interfaceIPs := []string{}
+	var interfaceIP string
+
+	for _, ipAddr := range ipAddresses {
+		ip := ipAddr.Addr
+
+		// Prefer ipv4 as the main interface IP
+		if ipAddr.Type == "ipv4" && interfaceIP == "" {
+			interfaceIP = ip
+		}
+
+		interfaceIPs = append(interfaceIPs, ip)
+	}
+
+	// If no ipv4 interface was found, set any IP as the main IP of interface
+	if interfaceIP == "" && len(interfaceIPs) > 0 {
+		interfaceIP = interfaceIPs[0]
+	}
+	return interfaceIP, interfaceIPs
+}
+
+func convertToOSInfo(guestInfo *libvirt.DomainGuestInfo) api.GuestOSInfo {
+	guestInfoOS := api.GuestOSInfo{}
+	if guestInfo.OS != nil {
+		guestInfoOS = api.GuestOSInfo{
+			Name:          guestInfo.OS.Name,
+			KernelRelease: guestInfo.OS.KernelRelease,
+			Version:       guestInfo.OS.Version,
+			PrettyName:    guestInfo.OS.PrettyName,
+			VersionId:     guestInfo.OS.VersionID,
+			KernelVersion: guestInfo.OS.KernelVersion,
+			Machine:       guestInfo.OS.Machine,
+			Id:            guestInfo.OS.ID,
+		}
+	}
+	return guestInfoOS
+}
+
+func convertToTimezone(guestInfo *libvirt.DomainGuestInfo) api.Timezone {
+	timezone := api.Timezone{}
+	if guestInfo.TimeZone != nil {
+		timezone = api.Timezone{
+			Zone:   guestInfo.TimeZone.Name,
+			Offset: guestInfo.TimeZone.Offset,
+		}
+	}
+	return timezone
+}
+
+func convertToUsers(guestInfo *libvirt.DomainGuestInfo) []api.User {
+	var users []api.User
+	if guestInfo.Users != nil {
+		for _, user := range guestInfo.Users {
+			users = append(users, api.User{
+				Name:      user.Name,
+				Domain:    user.Domain,
+				LoginTime: float64(user.LoginTime),
+			})
+		}
+	}
+	return users
+}
+
+func convertToFileSystem(guestInfo *libvirt.DomainGuestInfo) []api.Filesystem {
+	fileSystems := []api.Filesystem{}
+	if guestInfo.FileSystems != nil {
+		for _, filesystem := range guestInfo.FileSystems {
+			disks := []api.FSDisk{}
+			for _, disk := range filesystem.Disks {
+				disks = append(disks, api.FSDisk{
+					Serial: disk.Serial,
+				})
+			}
+
+			fileSystems = append(fileSystems, api.Filesystem{
+				Name:       filesystem.Name,
+				Mountpoint: filesystem.MountPoint,
+				Type:       filesystem.FSType,
+				TotalBytes: int(filesystem.TotalBytes),
+				UsedBytes:  int(filesystem.UsedBytes),
+				Disk:       disks,
+			})
+		}
+	}
+	return fileSystems
 }
