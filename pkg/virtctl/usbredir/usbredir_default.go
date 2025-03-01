@@ -31,17 +31,28 @@ import (
 )
 
 func Run(cmd *cobra.Command, args []string) error {
-	if _, err := exec.LookPath(usbredirClient); err != nil {
+	disableLaunch := cmd.Flags().Changed(optDisableClientLaunch)
+	if !disableLaunch && len(args) != 2 {
+		cmd.Usage()
+		return fmt.Errorf("Missing argument")
+	}
+
+	if _, err := exec.LookPath(usbredirClient); err != nil && !disableLaunch {
 		return fmt.Errorf("Error on finding %s in $PATH: %s", usbredirClient, err.Error())
+	}
+
+	var vmiArg, usbdeviceArg string
+	if disableLaunch {
+		vmiArg = args[0]
+	} else {
+		usbdeviceArg = args[0]
+		vmiArg = args[1]
 	}
 
 	virtCli, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}
-
-	vmiArg := args[1]
-	usbdeviceArg := args[0]
 
 	// Get connection to the websocket for usbredir subresource
 	usbredirVMI, err := virtCli.VirtualMachineInstance(namespace).USBRedir(vmiArg)
@@ -61,9 +72,15 @@ func Run(cmd *cobra.Command, args []string) error {
 		}
 	}(cancelFn)
 
-	if usbredirClient, err := NewUSBRedirClient(ctx, "localhost:0", usbredirVMI); err != nil {
+	usbredirClient, err := NewUSBRedirClient(ctx, "localhost:0", usbredirVMI)
+	if err != nil {
 		return fmt.Errorf("Can't create usbredir client: %s", err.Error())
-	} else {
-		return usbredirClient.Redirect(usbdeviceArg)
 	}
+
+	if disableLaunch {
+		// This is a log to the user, should use stdout instead of default stderr of log
+		fmt.Fprintf(cmd.OutOrStdout(), "User can connect usbredir client at: %s\n", usbredirClient.GetProxyAddress())
+		usbredirClient.SetLaunchClient(false)
+	}
+	return usbredirClient.Redirect(usbdeviceArg)
 }
