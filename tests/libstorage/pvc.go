@@ -132,16 +132,13 @@ func addVolumeMounts(volumeName string) []k8sv1.VolumeMount {
 }
 
 func NewPVC(name, size, storageClass string) *k8sv1.PersistentVolumeClaim {
-	quantity, err := resource.ParseQuantity(size)
-	util.PanicOnError(err)
-
 	return &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
 			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
 			Resources: k8sv1.VolumeResourceRequirements{
 				Requests: k8sv1.ResourceList{
-					"storage": quantity,
+					"storage": resource.MustParse(size),
 				},
 			},
 			StorageClassName: &storageClass,
@@ -153,9 +150,10 @@ func createPVC(pvc *k8sv1.PersistentVolumeClaim, namespace string) *k8sv1.Persis
 	virtCli := kubevirt.Client()
 
 	createdPvc, err := virtCli.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
-	if !errors.IsAlreadyExists(err) {
-		util.PanicOnError(err)
-	}
+	Expect(err).To(Or(
+		Not(HaveOccurred()),
+		MatchError(errors.IsAlreadyExists, "errors.IsAlreadyExists"),
+	))
 
 	return createdPvc
 }
@@ -222,7 +220,7 @@ func DeleteAllSeparateDeviceHostPathPvs() {
 	virtClient := kubevirt.Client()
 
 	pvList, err := virtClient.CoreV1().PersistentVolumes().List(context.Background(), metav1.ListOptions{})
-	util.PanicOnError(err)
+	Expect(err).ToNot(HaveOccurred())
 	for _, pv := range pvList.Items {
 		if pv.Spec.StorageClassName == StorageClassHostPathSeparateDevice {
 			// ignore error we want to attempt to delete them all.
@@ -289,9 +287,10 @@ func createSeparateDeviceHostPathPv(osName, namespace, nodeName string) {
 	}
 
 	_, err := virtCli.CoreV1().PersistentVolumes().Create(context.Background(), pv, metav1.CreateOptions{})
-	if !errors.IsAlreadyExists(err) {
-		util.PanicOnError(err)
-	}
+	Expect(err).To(Or(
+		Not(HaveOccurred()),
+		MatchError(errors.IsAlreadyExists, "errors.IsAlreadyExists"),
+	))
 }
 
 func CreateHostPathPv(osName, namespace, hostPath string) string {
@@ -307,7 +306,7 @@ func CreateHostPathPvWithSizeAndStorageClass(osName, namespace, hostPath, size, 
 	virtCli := kubevirt.Client()
 
 	quantity, err := resource.ParseQuantity(size)
-	util.PanicOnError(err)
+	Expect(err).ToNot(HaveOccurred())
 
 	hostPathType := k8sv1.HostPathDirectoryOrCreate
 
@@ -352,9 +351,10 @@ func CreateHostPathPvWithSizeAndStorageClass(osName, namespace, hostPath, size, 
 	}
 
 	_, err = virtCli.CoreV1().PersistentVolumes().Create(context.Background(), pv, metav1.CreateOptions{})
-	if !errors.IsAlreadyExists(err) {
-		util.PanicOnError(err)
-	}
+	Expect(err).To(Or(
+		Not(HaveOccurred()),
+		MatchError(errors.IsAlreadyExists, "errors.IsAlreadyExists"),
+	))
 	return libnode.SchedulableNode
 }
 
@@ -363,9 +363,10 @@ func DeletePVC(os, namespace string) {
 
 	name := fmt.Sprintf("disk-%s", os)
 	err := virtCli.CoreV1().PersistentVolumeClaims(namespace).Delete(context.Background(), name, metav1.DeleteOptions{})
-	if !errors.IsNotFound(err) {
-		util.PanicOnError(err)
-	}
+	Expect(err).To(Or(
+		Not(HaveOccurred()),
+		MatchError(errors.IsNotFound, "errors.IsNotFound"),
+	))
 }
 
 func DeletePV(os string) {
@@ -373,7 +374,8 @@ func DeletePV(os string) {
 
 	name := fmt.Sprintf("%s-disk-for-tests", os)
 	err := virtCli.CoreV1().PersistentVolumes().Delete(context.Background(), name, metav1.DeleteOptions{})
-	if !errors.IsNotFound(err) {
-		util.PanicOnError(err)
-	}
+	Expect(err).To(Or(
+		Not(HaveOccurred()),
+		MatchError(errors.IsNotFound, "errors.IsNotFound"),
+	))
 }

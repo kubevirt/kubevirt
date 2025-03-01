@@ -12,8 +12,6 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests/util"
-
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -40,7 +38,7 @@ func ExpectEvent(object k8sObject, eventType, reason string) {
 func DeleteEvents(object k8sObject, eventType, reason string) {
 	By("Expecting events to be removed")
 	virtClient, err := kubecli.GetKubevirtClient()
-	util.PanicOnError(err)
+	Expect(err).ToNot(HaveOccurred())
 
 	fieldSelector, namespace := constructFieldSelectorAndNamespace(object, eventType, reason)
 

@@ -43,7 +43,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	putil "kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 func GetListOfManifests(pathToManifestsDir string) []string {
@@ -75,7 +74,7 @@ func GetListOfManifests(pathToManifestsDir string) []string {
 func ReadManifestYamlFile(pathToManifest string) []unstructured.Unstructured {
 	var objects []unstructured.Unstructured
 	stream, err := os.Open(pathToManifest)
-	util.PanicOnError(err)
+	Expect(err).ToNot(HaveOccurred())
 	defer putil.CloseIOAndCheckErr(stream, nil)
 	decoder := yaml.NewYAMLOrJSONDecoder(stream, 1024)
 	for {
@@ -99,11 +98,13 @@ func ApplyRawManifest(object unstructured.Unstructured) error {
 
 	uri := composeResourceURI(object)
 	jsonbody, err := object.MarshalJSON()
-	util.PanicOnError(err)
+	if err != nil {
+		return err
+	}
 	b, err := virtCli.CoreV1().RESTClient().Post().RequestURI(uri).Body(jsonbody).DoRaw(context.Background())
 	if err != nil {
 		fmt.Printf(fmt.Sprintf("ERROR: Can not apply %s\n, err: %#v", object, err))
-		panic(err)
+		return err
 	}
 	status := unstructured.Unstructured{}
 	return json.Unmarshal(b, &status)

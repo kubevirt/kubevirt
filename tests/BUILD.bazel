@@ -191,7 +191,6 @@ go_test(
         "//tests/storage:go_default_library",
         "//tests/testsuite:go_default_library",
         "//tests/usb:go_default_library",
-        "//tests/util:go_default_library",
         "//tests/validatingadmissionpolicy:go_default_library",
         "//tests/virtctl:go_default_library",
         "//tests/virtiofs:go_default_library",

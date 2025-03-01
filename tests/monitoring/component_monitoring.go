@@ -42,7 +42,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 type alerts struct {
@@ -164,7 +163,7 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, decorators.SigM
 			virtClient = kubevirt.Client()
 
 			crb, err = virtClient.RbacV1().ClusterRoleBindings().Get(context.Background(), "kubevirt-operator", metav1.GetOptions{})
-			util.PanicOnError(err)
+			Expect(err).ToNot(HaveOccurred())
 			operatorRoleBinding, err = virtClient.RbacV1().RoleBindings(flags.KubeVirtInstallNamespace).Get(context.Background(), operatorRoleBindingName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 

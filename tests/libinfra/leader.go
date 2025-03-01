@@ -22,19 +22,20 @@ package libinfra
 import (
 	"context"
 
+	. "github.com/onsi/gomega"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 func GetLeader() string {
 	virtClient := kubevirt.Client()
 
 	controllerLease, err := virtClient.CoordinationV1().Leases(flags.KubeVirtInstallNamespace).Get(context.Background(), leaderelectionconfig.DefaultLeaseName, v1.GetOptions{})
-	util.PanicOnError(err)
+	Expect(err).ToNot(HaveOccurred())
 
 	return *controllerLease.Spec.HolderIdentity
 }

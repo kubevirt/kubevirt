@@ -13,8 +13,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/client-go/kubecli"
-
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 // Deprecated: SkipTestIfNoFeatureGate should be converted to check & fail
@@ -48,13 +46,13 @@ func SkipIfUseFlannel(virtClient kubecli.KubevirtClient) {
 // Deprecated: SkipIfPrometheusRuleIsNotEnabled should be converted to check & fail
 func SkipIfPrometheusRuleIsNotEnabled(virtClient kubecli.KubevirtClient) {
 	ext, err := clientset.NewForConfig(virtClient.Config())
-	util.PanicOnError(err)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "prometheusrules.monitoring.coreos.com", metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		ginkgo.Skip("Skip monitoring tests when PrometheusRule CRD is not available in the cluster")
 	} else if err != nil {
-		util.PanicOnError(err)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
 }
 
