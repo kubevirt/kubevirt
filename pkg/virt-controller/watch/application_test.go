@@ -133,7 +133,7 @@ var _ = Describe("Application", func() {
 		app.nodeTopologyUpdater = topologyUpdater
 		app.informerFactory = controller.NewKubeInformerFactory(nil, nil, nil, "test")
 		app.evacuationController, _ = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, podInformer, recorder, virtClient, config)
-		app.disruptionBudgetController, _ = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, migrationInformer, recorder, virtClient, config)
+		app.disruptionBudgetController, _ = disruptionbudget.NewDisruptionBudgetController(vmiInformer, pdbInformer, podInformer, migrationInformer, recorder, virtClient)
 		app.nodeController, _ = node.NewController(virtClient, nodeInformer, vmiInformer, recorder)
 		app.vmiController, _ = vmi.NewController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			vmiInformer,
@@ -179,7 +179,6 @@ var _ = Describe("Application", func() {
 			pvcInformer,
 			storageClassInformer,
 			storageProfileInformer,
-			pdbInformer,
 			migrationPolicyInformer,
 			resourceQuotaInformer,
 			recorder,
