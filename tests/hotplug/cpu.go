@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -13,6 +14,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"kubevirt.io/kubevirt/tests/libdomain"
+
 	v1 "kubevirt.io/api/core/v1"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
@@ -21,7 +24,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -152,7 +154,7 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 			By("Ensuring the libvirt domain has 2 enabled cores and 2 hotpluggable cores")
 			var domSpec *api.DomainSpec
 			Eventually(func() error {
-				domSpec, err = tests.GetRunningVMIDomainSpec(vmi)
+				domSpec, err = libdomain.GetRunningVMIDomainSpec(vmi)
 				return err
 			}).WithTimeout(20 * time.Second).WithPolling(time.Second).Should(Succeed())
 
@@ -189,7 +191,7 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 			By("Ensuring the libvirt domain has 4 enabled cores")
 
 			Eventually(func() error {
-				domSpec, err = tests.GetRunningVMIDomainSpec(vmi)
+				domSpec, err = libdomain.GetRunningVMIDomainSpec(vmi)
 				return err
 			}).WithTimeout(20 * time.Second).WithPolling(time.Second).Should(Succeed())
 
@@ -260,7 +262,7 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 			By("Ensuring the libvirt domain has 2 enabled cores and 4 disabled cores")
 			var domSpec *api.DomainSpec
 			Eventually(func() error {
-				domSpec, err = tests.GetRunningVMIDomainSpec(vmi)
+				domSpec, err = libdomain.GetRunningVMIDomainSpec(vmi)
 				return err
 			}).WithTimeout(20 * time.Second).WithPolling(time.Second).Should(Succeed())
 
@@ -294,7 +296,7 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 
 			By("Ensuring the libvirt domain has 4 enabled cores")
 			Eventually(func() error {
-				domSpec, err = tests.GetRunningVMIDomainSpec(vmi)
+				domSpec, err = libdomain.GetRunningVMIDomainSpec(vmi)
 				return err
 			}).WithTimeout(20 * time.Second).WithPolling(time.Second).Should(Succeed())
 

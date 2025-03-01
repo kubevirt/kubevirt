@@ -21,6 +21,7 @@ package compute
 
 import (
 	"context"
+
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,9 +35,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -121,7 +122,7 @@ var _ = SIGDescribe("VMIDefaults", func() {
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Getting domain of vmi")
-			domain, err := tests.GetRunningVMIDomainSpec(vmi)
+			domain, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			expected := api.MemBalloon{
@@ -165,7 +166,7 @@ var _ = SIGDescribe("VMIDefaults", func() {
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Getting domain of vmi")
-			domain, err := tests.GetRunningVMIDomainSpec(vmi)
+			domain, err := libdomain.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domain.Devices.Ballooning).ToNot(BeNil(), "There should be memballoon device")
@@ -206,7 +207,7 @@ var _ = SIGDescribe("VMIDefaults", func() {
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Getting domain of vmi")
-			domain, err := tests.GetRunningVMIDomainSpec(vmi)
+			domain, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			expected := api.MemBalloon{

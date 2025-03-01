@@ -18,10 +18,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -117,7 +117,7 @@ var _ = Describe("[sig-compute][USB] host USB Passthrough", Serial, decorators.S
 			}, expectTimeout)).To(Succeed(), "Device not found")
 
 			By("Verifying ownership is properly set in the host")
-			domainXML, err := tests.GetRunningVMIDomainSpec(vmi)
+			domainXML, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			for _, hostDevice := range domainXML.Devices.HostDevices {
