@@ -31,8 +31,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/storage/utils"
 
-	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
-
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -219,7 +217,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateLaunchSecurity(field, spec, config)...)
 	causes = append(causes, validateVSOCK(field, spec, config)...)
 	causes = append(causes, validatePersistentReservation(field, spec, config)...)
-	causes = append(causes, validatePersistentState(field, spec, config)...)
 	causes = append(causes, validateDownwardMetrics(field, spec, config)...)
 	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field, spec, config)...)
 
@@ -2337,32 +2334,6 @@ func validatePersistentReservation(field *k8sfield.Path, spec *v1.VirtualMachine
 			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.PersistentReservation),
 			Field:   field.Child("domain", "devices", "disks", "luns", "reservation").String(),
 		})
-	}
-
-	return causes
-}
-
-func validatePersistentState(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-	if !backendstorage.IsBackendStorageNeededForVMI(spec) {
-		return causes
-	}
-
-	if !config.VMPersistentStateEnabled() {
-		if backendstorage.HasPersistentTPMDevice(spec) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.VMPersistentState),
-				Field:   field.Child("domain", "devices", "tpm", "persistent").String(),
-			})
-		}
-		if backendstorage.HasPersistentEFI(spec) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.VMPersistentState),
-				Field:   field.Child("domain", "firmware", "bootloader", "efi", "persistent").String(),
-			})
-		}
 	}
 
 	return causes
