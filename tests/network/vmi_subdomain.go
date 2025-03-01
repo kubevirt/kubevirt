@@ -46,7 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("Subdomain", func() {
+var _ = Describe(SIG("Subdomain", func() {
 	var virtClient kubecli.KubevirtClient
 
 	const (
@@ -150,7 +150,7 @@ var _ = SIGDescribe("Subdomain", func() {
 		Expect(assertFQDNinGuest(vmi, expectedFQDN)).To(Not(Succeed()), "found unexpected FQDN")
 		Expect(assertSearchEntriesinGuest(vmi, "search example.com")).To(Succeed(), "failed to get expected search entries")
 	})
-})
+}))
 
 func fedoraMasqueradeVMI() *v1.VirtualMachineInstance {
 	return libvmifact.NewFedora(

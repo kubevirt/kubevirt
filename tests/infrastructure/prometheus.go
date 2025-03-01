@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -184,7 +184,7 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 	})
 })
 
-var _ = DescribeSerialInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus Endpoints", func() {
+var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus Endpoints", func() {
 	var (
 		virtClient kubecli.KubevirtClient
 		err        error
@@ -620,7 +620,7 @@ var _ = DescribeSerialInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com
 		Entry("[test_id:4555] by IPv4", k8sv1.IPv4Protocol),
 		Entry("[test_id:6245] by IPv6", k8sv1.IPv6Protocol),
 	)
-})
+}))
 
 func countReadyAndLeaderPods(pod *k8sv1.Pod, component string) (foundMetrics map[string]int, err error) {
 	virtClient := kubevirt.Client()

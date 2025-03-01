@@ -36,7 +36,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = compute.SIGDescribe("Reset subresource", func() {
+var _ = Describe(compute.SIG("Reset subresource", func() {
 
 	Describe("Reset a VirtualMachineInstance", func() {
 		const vmiLaunchTimeout = 360
@@ -72,4 +72,4 @@ var _ = compute.SIGDescribe("Reset subresource", func() {
 			Expect(vmi.UID).To(Equal(oldUID))
 		})
 	})
-})
+}))

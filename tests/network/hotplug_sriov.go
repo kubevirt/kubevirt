@@ -43,7 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
+var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 	sriovResourceName := readSRIOVResourceName()
 
 	BeforeEach(func() {
@@ -114,7 +114,7 @@ var _ = SIGDescribe(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 			}, time.Second*30, time.Second*3).Should(Succeed())
 		})
 	})
-})
+}))
 
 func createSRIOVNetworkAttachmentDefinition(namespace, networkName, sriovResourceName string) error {
 	netAttachDef := libnet.NewSriovNetAttachDef(networkName, 0)

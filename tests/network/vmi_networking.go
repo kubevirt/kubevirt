@@ -59,7 +59,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Networking", decorators.Networking, func() {
+var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Networking", decorators.Networking, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -799,7 +799,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("off"))
 		})
 	})
-})
+}))
 
 func createExpectConnectToServer(serverIP string, tcpPort int, expectSuccess bool) []expect.Batcher {
 	expectResult := console.ShellFail

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnode"
 )
 
-var _ = DescribeSerialInfra("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com][level:component]Taints and toleration", func() {
+var _ = Describe(SIGSerial("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com][level:component]Taints and toleration", func() {
 	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -177,7 +177,7 @@ var _ = DescribeSerialInfra("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com
 			}, timeout, time.Second).Should(Succeed())
 		})
 	})
-})
+}))
 
 func getNodeWithOneOfPods(virtClient kubecli.KubevirtClient, pods []k8sv1.Pod) string {
 	schedulableNodesList := libnode.GetAllSchedulableNodes(virtClient)

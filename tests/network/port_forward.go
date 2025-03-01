@@ -50,7 +50,7 @@ import (
 
 const skipIPv6Message = "port-forwarding over ipv6 is not supported yet. Tracking issue https://github.com/kubevirt/kubevirt/issues/7276"
 
-var _ = SIGDescribe("Port-forward", func() {
+var _ = Describe(SIG("Port-forward", func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -143,7 +143,7 @@ var _ = SIGDescribe("Port-forward", func() {
 			)
 		})
 	})
-})
+}))
 
 func portForwardCommand(pod *k8sv1.Pod, sourcePort, targetPort int) (*exec.Cmd, error) {
 	_, cmd, err := clientcmd.CreateCommandWithNS(pod.Namespace, clientcmd.GetK8sCmdClient(), "port-forward", pod.Name, fmt.Sprintf("%d:%d", sourcePort, targetPort))

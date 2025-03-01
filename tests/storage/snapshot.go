@@ -62,7 +62,7 @@ const (
 	notReady                 = "Not ready"
 )
 
-var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
+var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 
 	var (
 		err        error
@@ -1622,7 +1622,7 @@ var _ = SIGDescribe("VirtualMachineSnapshot Tests", func() {
 			)
 		})
 	})
-})
+}))
 
 func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, vm *v1.VirtualMachine, addVMIOnly bool) string {
 	dv := libdv.NewDataVolume(

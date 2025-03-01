@@ -45,7 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = VirtctlDescribe("[sig-compute]SCP", decorators.SigCompute, func() {
+var _ = Describe(SIG("[sig-compute]SCP", decorators.SigCompute, func() {
 	var pub ssh.PublicKey
 	var keyFile string
 	var virtClient kubecli.KubevirtClient
@@ -179,7 +179,7 @@ var _ = VirtctlDescribe("[sig-compute]SCP", decorators.SigCompute, func() {
 		Expect(err).To(HaveOccurred(), "out[%s]", string(out))
 		Expect(string(out)).To(Equal("unknown flag: --local-ssh\n"))
 	})
-})
+}))
 
 func compareFile(file1, file2 string) {
 	expected, err := os.ReadFile(file1)

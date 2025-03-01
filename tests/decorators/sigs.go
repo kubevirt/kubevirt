@@ -13,22 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright The KubeVirt Authors.
+ * Copyright the KubeVirt Authors.
  *
  */
 
-package infrastructure
+package decorators
 
-import (
-	. "github.com/onsi/ginkgo/v2"
+import "github.com/onsi/ginkgo/v2"
 
-	"kubevirt.io/kubevirt/tests/compute"
-)
-
-func SIGSerial(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
-	return compute.SIG("Infrastructure "+text, Serial, args)
-}
-
-func SIG(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
-	return compute.SIG("Infrastructure "+text, args)
+func SIG(identifier string, decorator ginkgo.Labels, text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
+	newArgs = []interface{}{decorator}
+	newArgs = append(newArgs, args...)
+	extendedText = identifier + " " + text
+	return
 }

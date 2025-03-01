@@ -44,7 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = SIGDescribe("Eviction", func() {
+var _ = Describe(SIG("Eviction", func() {
 
 	It("should not shutdown VM", func() {
 		vmi := libvmifact.NewAlpine(
@@ -117,4 +117,4 @@ var _ = SIGDescribe("Eviction", func() {
 		Expect(console.LoginToAlpine(vmi)).To(Succeed())
 		Expect(errChan).To(BeEmpty())
 	})
-})
+}))
