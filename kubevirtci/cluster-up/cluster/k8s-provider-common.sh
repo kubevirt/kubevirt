@@ -47,20 +47,14 @@ function up() {
     fi
     eval ${_cli:?} run $params
 
-    # Workaround https://github.com/containers/conmon/issues/315 by not dumping file content to stdout
-    scp_suffix="- >${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER"
-    if [[ ${_cri_bin} = podman* ]]; then
-        scp_suffix="/kubevirtci_config"
-    fi
-
-    ${_cli} scp --prefix $provider_prefix /etc/kubernetes/admin.conf ${scp_suffix}/.kubeconfig
+    ${_cli} scp --prefix $provider_prefix /etc/kubernetes/admin.conf - >${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
 
     # Set server and disable tls check
     export KUBECONFIG=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
     kubectl config set-cluster kubernetes --server="https://$(_main_ip):$(_port k8s)"
     kubectl config set-cluster kubernetes --insecure-skip-tls-verify=true
 
-    ${_cli} scp --prefix ${provider_prefix:?} /usr/bin/kubectl ${scp_suffix}/.kubectl
+    ${_cli} scp --prefix ${provider_prefix:?} /usr/bin/kubectl - >${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
     
     chmod u+x ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl
 
