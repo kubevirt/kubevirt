@@ -43,19 +43,20 @@ import (
 )
 
 const (
-	maxConnectAttempts   = 6
-	maxRequestsPerSecond = 1
-	maxRequestsBurst     = 1 // must be >= 1, otherwise `rateLimiter.Wait()` will fail
-	invalidRequest       = "INVALID REQUEST\n\n"
-	emptyMetrics         = "<metrics><!-- host metrics not available --><!-- VM metrics not available --></metrics>"
+	maxConnectAttempts         = 6
+	maxRequestsPerSecond       = 1
+	maxRequestsBurst           = 1 // must be >= 1, otherwise `rateLimiter.Wait()` will fail
+	standardLauncherSocketPath = "/run/kubevirt/sockets/launcher-sock"
+	invalidRequest             = "INVALID REQUEST\n\n"
+	emptyMetrics               = "<metrics><!-- host metrics not available --><!-- VM metrics not available --></metrics>"
 )
 
 // This is a compile-time assertion to ensure that `maxRequestsBurst` is >= 1, otherwise `rateLimiter.Wait()` will fail
 // (will also fail for `maxRequestsBurst` > 256)
 const _ = uint8(maxRequestsBurst - 1)
 
-func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocketPath, launcherSocketPath string) error {
-	report, err := newMetricsReporter(nodeName, launcherSocketPath)
+func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocketPath string) error {
+	report, err := newMetricsReporter(nodeName)
 	if err != nil {
 		return err
 	}
@@ -72,8 +73,8 @@ func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocket
 
 type metricsReporter func() (*api.Metrics, error)
 
-func newMetricsReporter(nodeName, launcherSocketPath string) (metricsReporter, error) {
-	exists, err := diskutils.FileExists(launcherSocketPath)
+func newMetricsReporter(nodeName string) (metricsReporter, error) {
+	exists, err := diskutils.FileExists(standardLauncherSocketPath)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +85,7 @@ func newMetricsReporter(nodeName, launcherSocketPath string) (metricsReporter, e
 	scraper := metricsScraper.NewReporter(nodeName)
 
 	return func() (*api.Metrics, error) {
-		return scraper.Report(launcherSocketPath)
+		return scraper.Report(standardLauncherSocketPath)
 	}, nil
 }
 
