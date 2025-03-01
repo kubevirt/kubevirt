@@ -213,6 +213,9 @@ func securityContext(userId int64, privileged bool, requiredCapabilities *k8sv1.
 		context.RunAsGroup = &userId
 		context.AllowPrivilegeEscalation = pointer.P(false)
 	}
+	if context.AllowPrivilegeEscalation != nil && privileged {
+		context.AllowPrivilegeEscalation = &privileged
+	}
 
 	return context
 }
