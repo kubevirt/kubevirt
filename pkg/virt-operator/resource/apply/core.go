@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
-
 	corev1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -23,6 +21,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply/resourcemerge"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -258,10 +257,10 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.TypedRateLi
 		return crt, nil
 	}
 
-	modified := resourcemerge.BoolPtr(false)
-	resourcemerge.EnsureObjectMeta(modified, &cachedSecret.ObjectMeta, secret.ObjectMeta)
+	modified := false
+	resourcemerge.EnsureObjectMeta(&modified, &cachedSecret.ObjectMeta, secret.ObjectMeta)
 
-	if !*modified && !rotateCertificate {
+	if !modified && !rotateCertificate {
 		log.Log.V(4).Infof("secret %v is up-to-date", secret.GetName())
 		return crt, nil
 	}
@@ -380,10 +379,10 @@ func shouldEnforceClusterIP(desired, current string) bool {
 }
 
 func getObjectMetaPatch(desired, current metav1.ObjectMeta) []patch.PatchOption {
-	modified := resourcemerge.BoolPtr(false)
+	modified := false
 	existingCopy := current.DeepCopy()
-	resourcemerge.EnsureObjectMeta(modified, existingCopy, desired)
-	if *modified {
+	resourcemerge.EnsureObjectMeta(&modified, existingCopy, desired)
+	if modified {
 		// labels and/or annotations modified add patch
 		return createLabelsAndAnnotationsPatch(&desired)
 	}
@@ -445,10 +444,10 @@ func (r *Reconciler) createOrUpdateServiceAccount(sa *corev1.ServiceAccount) err
 	}
 
 	cachedSa := obj.(*corev1.ServiceAccount)
-	modified := resourcemerge.BoolPtr(false)
-	resourcemerge.EnsureObjectMeta(modified, &cachedSa.ObjectMeta, sa.ObjectMeta)
+	modified := false
+	resourcemerge.EnsureObjectMeta(&modified, &cachedSa.ObjectMeta, sa.ObjectMeta)
 	// there was no change to metadata
-	if !*modified {
+	if !modified {
 		// Up to date
 		log.Log.V(4).Infof("serviceaccount %v already exists and is up-to-date", sa.GetName())
 		return nil
@@ -587,10 +586,10 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.TypedRate
 		log.Log.Reason(err).V(2).Infof("There was an error validating the CA bundle stored in configmap %s. We are updating the bundle.", configMap.GetName())
 	}
 
-	modified := resourcemerge.BoolPtr(false)
-	resourcemerge.EnsureObjectMeta(modified, &existing.DeepCopy().ObjectMeta, configMap.ObjectMeta)
+	modified := false
+	resourcemerge.EnsureObjectMeta(&modified, &existing.DeepCopy().ObjectMeta, configMap.ObjectMeta)
 
-	if !*modified && !updateBundle {
+	if !modified && !updateBundle {
 		log.Log.V(4).Infof("configMap %v is up-to-date", configMap.GetName())
 		return []byte(configMap.Data[components.CABundleKey]), nil
 	}
