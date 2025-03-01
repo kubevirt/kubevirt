@@ -38,6 +38,8 @@ import (
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
@@ -170,8 +172,7 @@ func getBaseVMI(name string) *v1.VirtualMachineInstance {
 			Kind:       "VirtualMachineInstance",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   name,
-			Labels: map[string]string{"special": name},
+			Name: name,
 		},
 		Spec: *baseVMISpec,
 	}
@@ -180,23 +181,6 @@ func getBaseVMI(name string) *v1.VirtualMachineInstance {
 func initFedora(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
 	addContainerDisk(spec, fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag), v1.DiskBusVirtio)
 	addRNG(spec) // without RNG, newer fedora images may hang waiting for entropy sources
-	return spec
-}
-func initFedoraIsolated(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
-	addContainerDisk(spec, fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag), v1.DiskBusVirtio)
-	addRNG(spec) // without RNG, newer fedora images may hang waiting for entropy sources
-
-	addDedicatedAndIsolatedCPU(spec)
-	return spec
-}
-
-func addDedicatedAndIsolatedCPU(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
-	cpu := &v1.CPU{
-		IsolateEmulatorThread: true,
-		DedicatedCPUPlacement: true,
-		Cores:                 1,
-	}
-	spec.Domain.CPU = cpu
 	return spec
 }
 
@@ -388,147 +372,207 @@ func addHostDisk(spec *v1.VirtualMachineInstanceSpec, path string, hostDiskType 
 }
 
 func GetVMIMigratable() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiMigratable)
-	makeMigratable(vmi)
-
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageAlpine, DockerTag), v1.DiskBusVirtio)
-	return vmi
+	return libvmi.New(
+		libvmi.WithName(VmiMigratable),
+		libvmi.WithResourceMemory("128Mi"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageAlpine, DockerTag)),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
+	)
 }
 
 func GetVMIEphemeral() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiEphemeral)
-
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), v1.DiskBusVirtio)
-	return vmi
+	return libvmi.New(
+		libvmi.WithName(VmiEphemeral),
+		libvmi.WithResourceMemory("128Mi"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag)),
+	)
 }
 
 func GetVMISata() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiSata)
-
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), v1.DiskBusSATA)
-	return vmi
+	return libvmi.New(
+		libvmi.WithName(VmiSata),
+		libvmi.WithResourceMemory("128Mi"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), libvmi.WithDiskBusSATA()),
+	)
 }
 
 func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiFedora)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	makeMigratable(vmi)
-	initFedora(&vmi.Spec)
-	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
-	return vmi
+	return libvmi.New(
+		libvmi.WithName(VmiFedora),
+		libvmi.WithResourceMemory("1024M"),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
+		libvmi.WithRng(),
+		libvmi.WithCloudInitNoCloud(
+			cloudinit.WithNoCloudUserData(generateCloudConfigString(cloudConfigUserPassword)),
+		),
+	)
 }
 
 func GetVMIEphemeralFedoraIsolated() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiFedora)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	initFedoraIsolated(&vmi.Spec)
-	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
-	return vmi
+	return libvmi.New(
+		libvmi.WithName(VmiFedora),
+		libvmi.WithCPUCount(1, 0, 0),
+		libvmi.WithIsolateEmulatorThread(),
+		libvmi.WithDedicatedCPUPlacement(),
+		libvmi.WithResourceMemory("1024M"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
+		libvmi.WithRng(),
+		libvmi.WithCloudInitNoCloud(
+			cloudinit.WithNoCloudUserData(generateCloudConfigString(cloudConfigUserPassword)),
+		),
+	)
 }
 
 func GetVMISecureBoot() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiSecureBoot)
-
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag), v1.DiskBusVirtio)
-
-	_true := true
-	vmi.Spec.Domain.Features = &v1.Features{
-		SMM: &v1.FeatureState{
-			Enabled: &_true,
-		},
-	}
-	vmi.Spec.Domain.Firmware = &v1.Firmware{
-		Bootloader: &v1.Bootloader{
-			EFI: &v1.EFI{
-				SecureBoot: &_true,
-			},
-		},
-	}
-
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-	return vmi
+	return libvmi.New(
+		libvmi.WithName(VmiSecureBoot),
+		libvmi.WithResourceMemory("1Gi"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
+		libvmi.WithSMM(),
+		libvmi.WithSecureBoot(true),
+	)
 }
 
 func GetVMIAlpineEFI() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiAlpineEFI)
-
-	_false := false
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageAlpine, DockerTag), v1.DiskBusVirtio)
-	vmi.Spec.Domain.Firmware = &v1.Firmware{
-		Bootloader: &v1.Bootloader{
-			EFI: &v1.EFI{
-				SecureBoot: &_false,
-			},
-		},
-	}
-
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-	return vmi
+	return libvmi.New(
+		libvmi.WithName(VmiAlpineEFI),
+		libvmi.WithResourceMemory("1Gi"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageAlpine, DockerTag)),
+		libvmi.WithSecureBoot(false),
+	)
 }
 
 func GetVMIMasquerade() *v1.VirtualMachineInstance {
-	vm := getBaseVMI(VmiMasquerade)
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{{Name: "testmasquerade", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
-	initFedora(&vm.Spec)
-	networkData := "version: 2\nethernets:\n  eth0:\n    addresses: [ fd10:0:2::2/120 ]\n    dhcp4: true\n    gateway6: fd10:0:2::1\n"
-	addNoCloudDiskWitUserDataNetworkData(
-		&vm.Spec,
-		generateCloudConfigString(cloudConfigUserPassword, cloudConfigInstallAndStartService),
-		networkData)
-
-	masquerade := &v1.InterfaceMasquerade{}
-	ports := []v1.Port{{Name: "http", Protocol: "TCP", Port: 80}}
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "testmasquerade", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: masquerade}}}
-
-	return vm
+	return libvmi.New(
+		libvmi.WithName(VmiMasquerade),
+		libvmi.WithResourceMemory("1024M"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
+		libvmi.WithRng(),
+		libvmi.WithNetwork(
+			&v1.Network{
+				Name:          "testmasquerade",
+				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+			},
+		),
+		libvmi.WithInterface(
+			v1.Interface{
+				Name:                   "testmasquerade",
+				Ports:                  []v1.Port{{Name: "http", Protocol: "TCP", Port: 80}},
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+			},
+		),
+		libvmi.WithCloudInitNoCloud(
+			cloudinit.WithNoCloudUserData(
+				generateCloudConfigString(cloudConfigUserPassword, cloudConfigInstallAndStartService),
+			),
+			cloudinit.WithNoCloudNetworkData(
+				"version: 2\nethernets:\n  eth0:\n    addresses: [ fd10:0:2::2/120 ]\n    dhcp4: true\n    gateway6: fd10:0:2::1\n",
+			),
+		),
+	)
 }
 
 func GetVMISRIOV() *v1.VirtualMachineInstance {
-	vm := getBaseVMI(VmiSRIOV)
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "sriov-net", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "sriov/sriov-network"}}}}
-	initFedora(&vm.Spec)
-	addNoCloudDiskWitUserDataNetworkData(&vm.Spec, generateCloudConfigString(cloudConfigUserPassword), secondaryIfaceDhcpNetworkData)
-
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
-		{Name: "sriov-net", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}}
-
-	return vm
+	return libvmi.New(
+		libvmi.WithName(VmiSRIOV),
+		libvmi.WithResourceMemory("1024M"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
+		libvmi.WithRng(),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithNetwork(
+			&v1.Network{
+				Name:          "sriov-net",
+				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "sriov/sriov-network"}},
+			},
+		),
+		libvmi.WithInterface(
+			v1.Interface{
+				Name:                   "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+			},
+		),
+		libvmi.WithInterface(
+			v1.Interface{
+				Name:                   "sriov-net",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
+			},
+		),
+		libvmi.WithCloudInitNoCloud(
+			cloudinit.WithNoCloudUserData(generateCloudConfigString(cloudConfigUserPassword)),
+			cloudinit.WithNoCloudNetworkData(secondaryIfaceDhcpNetworkData),
+		),
+	)
 }
 
 func GetVMIMultusPtp() *v1.VirtualMachineInstance {
-	vm := getBaseVMI(VmiMultusPtp)
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{{Name: "ptp", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"}}}}
-	initFedora(&vm.Spec)
-	addNoCloudDiskWitUserData(&vm.Spec, generateCloudConfigString(cloudConfigUserPassword))
-
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
-
-	return vm
+	return libvmi.New(
+		libvmi.WithName(VmiMultusPtp),
+		libvmi.WithResourceMemory("1024M"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
+		libvmi.WithRng(),
+		libvmi.WithNetwork(
+			&v1.Network{
+				Name:          "ptp",
+				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"}},
+			},
+		),
+		libvmi.WithInterface(
+			v1.Interface{
+				Name:                   "ptp",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+			},
+		),
+		libvmi.WithCloudInitNoCloud(
+			cloudinit.WithNoCloudUserData(generateCloudConfigString(cloudConfigUserPassword)),
+		),
+	)
 }
 
 func GetVMIMultusMultipleNet() *v1.VirtualMachineInstance {
-	vm := getBaseVMI(VmiMultusMultipleNet)
-	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "ptp", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"}}}}
-	initFedora(&vm.Spec)
-	addNoCloudDiskWitUserDataNetworkData(&vm.Spec, generateCloudConfigString(cloudConfigUserPassword), secondaryIfaceDhcpNetworkData)
-
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
-		{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
-
-	return vm
+	return libvmi.New(
+		libvmi.WithName(VmiMultusMultipleNet),
+		libvmi.WithResourceMemory("1024M"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
+		libvmi.WithRng(),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithNetwork(
+			&v1.Network{
+				Name:          "ptp",
+				NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"}},
+			},
+		),
+		libvmi.WithInterface(
+			v1.Interface{
+				Name:                   "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+			},
+		),
+		libvmi.WithInterface(
+			v1.Interface{
+				Name:                   "ptp",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+			},
+		),
+		libvmi.WithCloudInitNoCloud(
+			cloudinit.WithNoCloudUserData(generateCloudConfigString(cloudConfigUserPassword)),
+			cloudinit.WithNoCloudNetworkData(secondaryIfaceDhcpNetworkData),
+		),
+	)
 }
 
 func GetVMINoCloud() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiNoCloud)
-
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), v1.DiskBusVirtio)
-	addNoCloudDisk(&vmi.Spec)
-	addEmptyDisk(&vmi.Spec, "2Gi")
-	return vmi
+	return libvmi.New(
+		libvmi.WithName(VmiNoCloud),
+		libvmi.WithResourceMemory("128Mi"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag)),
+		libvmi.WithCloudInitNoCloud(
+			cloudinit.WithNoCloudUserData("#!/bin/sh\n\necho 'printed from cloud-init userdata'\n"),
+		),
+		libvmi.WithEmptyDisk("emptydisk", v1.DiskBusVirtio, resource.MustParse("2Gi")),
+	)
 }
 
 func GetVMIPvc() *v1.VirtualMachineInstance {
@@ -1236,11 +1280,4 @@ func GetVmWindowsInstancetypeComputeLargePreferencesWindows() *v1.VirtualMachine
 	vm.Spec.Template.Spec.Domain.Resources = v1.ResourceRequirements{}
 
 	return vm
-}
-
-func makeMigratable(vmi *v1.VirtualMachineInstance) {
-	// having no network leads to adding a default interface that may be of type bridge on
-	// the pod network and that would make the VMI non-migratable. Therefore, adding a network.
-	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
 }

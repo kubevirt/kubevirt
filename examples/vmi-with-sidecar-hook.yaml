@@ -6,8 +6,6 @@ metadata:
     hooks.kubevirt.io/hookSidecars: '[{"args": ["--version", "v1alpha2"], "image":
       "registry:5000/kubevirt/example-hook-sidecar:devel"}]'
     smbios.vm.kubevirt.io/baseBoardManufacturer: Radical Edward
-  labels:
-    special: vmi-with-sidecar-hook
   name: vmi-with-sidecar-hook
 spec:
   domain:
