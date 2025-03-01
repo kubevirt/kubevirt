@@ -544,7 +544,13 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 					})
 
 					DescribeTable("should create new ControllerRevisions for cloned VM", Label("instancetype", "clone"), func(runStrategy virtv1.VirtualMachineRunStrategy) {
+						// In case of WFFC, run and stop the VM instead of creating it with RunStrategyHalted, in order to get WFFC PVCs bound before cloning
+						isHaltedAndWffc := runStrategy == virtv1.RunStrategyHalted && libstorage.IsStorageClassBindingModeWaitForFirstConsumer(snapshotStorageClass)
+						if isHaltedAndWffc {
+							runStrategy = virtv1.RunStrategyAlways
+						}
 						sourceVM.Spec.RunStrategy = &runStrategy
+
 						sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Create(context.Background(), sourceVM, v1.CreateOptions{})
 						Expect(err).ToNot(HaveOccurred())
 
@@ -553,6 +559,12 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 						}
 						By("Waiting until the source VM has instancetype and preference RevisionNames")
 						Eventually(matcher.ThisVM(sourceVM)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.HaveControllerRevisionRefs())
+
+						if isHaltedAndWffc {
+							Expect(virtClient.VirtualMachine(sourceVM.Namespace).Stop(context.Background(), sourceVM.Name, &virtv1.StopOptions{})).To(Succeed())
+							Eventually(ThisVMIWith(sourceVM.Namespace, sourceVM.Name)).WithTimeout(300 * time.Second).WithPolling(time.Second).ShouldNot(Exist())
+							Eventually(ThisVM(sourceVM)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(Not(BeReady()))
+						}
 
 						vmClone = generateCloneFromVM()
 						createCloneAndWaitForCompletion(vmClone)
