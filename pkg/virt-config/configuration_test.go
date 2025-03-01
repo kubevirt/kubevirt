@@ -326,8 +326,8 @@ var _ = Describe("test configuration", func() {
 		})
 		Expect(clusterConfig.IsVMRolloutStrategyLiveUpdate()).To(BeEquivalentTo(expected))
 	},
-		Entry("is nil, IsVMRolloutStrategyLiveUpdate should return false",
-			nil, false,
+		Entry("is nil, IsVMRolloutStrategyLiveUpdate should return true",
+			nil, true,
 		),
 		Entry("is Stage, IsVMRolloutStrategyLiveUpdate should return false",
 			pointer.P(v1.VMRolloutStrategyStage), false,
