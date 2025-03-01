@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -32,7 +33,6 @@ import (
 )
 
 const (
-	isSupported            string = "yes"
 	isUnusable             string = "no"
 	isRequired             string = "require"
 	NodeLabellerVolumePath        = "/var/lib/kubevirt-node-labeller/"
@@ -47,8 +47,16 @@ func (n *NodeLabeller) getSupportedCpuModels(obsoleteCPUsx86 map[string]bool) []
 		obsoleteCPUsx86 = util.DefaultObsoleteCPUModels
 	}
 
+	// Regex to match models with -v<number> suffix
+	re := regexp.MustCompile(`^(.+)-v\d+$`)
 	for _, model := range n.hostCapabilities.items {
-		if _, ok := obsoleteCPUsx86[model]; ok {
+		baseModel := model
+		// Check if model has a -v<number> suffix
+		matches := re.FindStringSubmatch(model)
+		if len(matches) > 1 {
+			baseModel = matches[1]
+		}
+		if _, ok := obsoleteCPUsx86[baseModel]; ok {
 			continue
 		}
 		supportedCPUModels = append(supportedCPUModels, model)
