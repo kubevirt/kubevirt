@@ -1504,7 +1504,10 @@ func (c *Controller) allPodsDeleted(vmi *virtv1.VirtualMachineInstance) (bool, e
 	}
 
 	return true, nil
+}
 
+func isPodFinal(pod *k8sv1.Pod) bool {
+	return pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed
 }
 
 func (c *Controller) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance) error {
@@ -1516,11 +1519,13 @@ func (c *Controller) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance) e
 	vmiKey := controller.VirtualMachineInstanceKey(vmi)
 
 	for _, pod := range pods {
-		if pod.DeletionTimestamp != nil {
+		if !controller.IsControlledBy(pod, vmi) {
 			continue
 		}
 
-		if !controller.IsControlledBy(pod, vmi) {
+		// Ensure we don't skip the delete API call for finalized pods that are still present in the cluster.
+		// This prevents pods that are meant for deletion from getting stuck in a terminating state indefinitely.
+		if pod.DeletionTimestamp != nil && !isPodFinal(pod) {
 			continue
 		}
 
@@ -1528,8 +1533,10 @@ func (c *Controller) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance) e
 		err := c.clientset.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{})
 		if err != nil {
 			c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(pod))
-			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Failed to delete virtual machine pod %s", pod.Name)
-			return err
+			if !k8serrors.IsNotFound(err) { // Skip the warning if the pod was already deleted, as this is an expected condition.
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Failed to delete virtual machine pod %s", pod.Name)
+				return err
+			}
 		}
 		c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, controller.SuccessfulDeletePodReason, "Deleted virtual machine pod %s", pod.Name)
 	}
