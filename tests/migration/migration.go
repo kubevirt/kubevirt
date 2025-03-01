@@ -2736,10 +2736,21 @@ var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedula
 
 			By("Creating ResourceQuota with enough memory for the vmi but not enough for migration")
 			resourceQuota := newResourceQuota(resourcesToLimit, testsuite.GetTestNamespace(vmi))
-			_ = createResourceQuota(resourceQuota)
+			resourceQuota = createResourceQuota(resourceQuota)
+			Eventually(func(g gomegatypes.Gomega) error {
+				quota, err := virtClient.CoreV1().ResourceQuotas(resourceQuota.Namespace).Get(context.TODO(), resourceQuota.Name, metav1.GetOptions{})
+				g.Expect(err).To(Not(HaveOccurred()))
+				for key := range resourcesToLimit {
+					g.Expect(quota.Status.Hard).To(HaveKey(key))
+					value := quota.Status.Hard[key]
+					g.Expect(value.Cmp(resourcesToLimit[key])).To(Equal(0), fmt.Sprintf("%v should equal %v", value, resourcesToLimit[key]))
+					g.Expect(quota.Status.Used).To(HaveKey(key))
+				}
+				return err
+			}).WithTimeout(time.Minute).WithPolling(time.Second).Should(Succeed())
 
 			By("Starting the VirtualMachineInstance")
-			_ = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
 
 			By("Trying to migrate the VirtualMachineInstance")
 			migration := libmigration.New(vmi.Name, testsuite.GetTestNamespace(vmi))
