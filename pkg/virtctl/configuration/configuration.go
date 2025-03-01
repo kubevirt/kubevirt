@@ -26,9 +26,7 @@ func NewListPermittedDevices() *cobra.Command {
 }
 
 func usage() string {
-	usage := "  # Print the permitted devices for VMIs:\n"
-	usage += "  {{ProgramName}} permitted-devices"
-	return usage
+	return "# Print the permitted devices for VMIs:\n  {{ProgramName}} permitted-devices"
 }
 
 func run(cmd *cobra.Command, _ []string) error {
@@ -43,13 +41,15 @@ func run(cmd *cobra.Command, _ []string) error {
 	}
 
 	if len(kvList.Items) == 0 {
-		return fmt.Errorf("No KubeVirt resource in %q namespace", namespace)
+		return fmt.Errorf("no KubeVirt resource in %q namespace", namespace)
 	}
 
 	kv := kvList.Items[0]
 
-	hostDeviceList := []string{}
-	gpuDeviceList := []string{}
+	var (
+		hostDeviceList []string
+		gpuDeviceList  []string
+	)
 
 	if kv.Spec.Configuration.PermittedHostDevices != nil {
 		for _, hd := range kv.Spec.Configuration.PermittedHostDevices.PciHostDevices {
@@ -61,9 +61,9 @@ func run(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	fmt.Printf("Permitted Devices: \nHost Devices: \n%s \nGPU Devices: \n%s\n",
-		fmt.Sprint(strings.Join(hostDeviceList, ", ")),
-		fmt.Sprint(strings.Join(gpuDeviceList, ", ")),
+	cmd.Printf("Permitted Devices: \nHost Devices: \n%s \nGPU Devices: \n%s\n",
+		strings.Join(hostDeviceList, ", "),
+		strings.Join(gpuDeviceList, ", "),
 	)
 
 	return nil
