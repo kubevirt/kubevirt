@@ -33,3 +33,10 @@ func WithTablet(name string, bus v1.InputBus) Option {
 		)
 	}
 }
+
+// WithPanicDevice adds a panic device with the given model
+func WithPanicDevice(model v1.PanicDeviceModel) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.PanicDevices = append(vmi.Spec.Domain.Devices.PanicDevices, v1.PanicDevice{Model: &model})
+	}
+}
