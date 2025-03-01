@@ -4361,27 +4361,34 @@ var _ = Describe("Template", func() {
 				migrationName = "testmigration"
 			)
 
-			expectStateMounts := func(pod *k8sv1.Pod) {
-				Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
+			expectStateMounts := func(pod *k8sv1.Pod, enabled bool) {
+				volume := k8sv1.Volume{
 					Name: "vm-state",
 					VolumeSource: k8sv1.VolumeSource{
 						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: claimName,
 						},
 					},
-				}))
-				Expect(pod.Spec.Containers[0].VolumeMounts).To(ContainElements(
-					k8sv1.VolumeMount{
-						MountPath: "/var/lib/libvirt/swtpm",
-						Name:      "vm-state",
-						SubPath:   "swtpm",
-					},
-					k8sv1.VolumeMount{
-						MountPath: "/var/lib/swtpm-localca",
-						Name:      "vm-state",
-						SubPath:   "swtpm-localca",
-					},
-				))
+				}
+				mount1 := k8sv1.VolumeMount{
+					MountPath: "/var/lib/libvirt/swtpm",
+					Name:      "vm-state",
+					SubPath:   "swtpm",
+				}
+				mount2 := k8sv1.VolumeMount{
+					MountPath: "/var/lib/swtpm-localca",
+					Name:      "vm-state",
+					SubPath:   "swtpm-localca",
+				}
+				if enabled {
+					Expect(pod.Spec.Volumes).To(ContainElement(volume))
+					Expect(pod.Spec.Containers[0].VolumeMounts).To(ContainElement(mount1))
+					Expect(pod.Spec.Containers[0].VolumeMounts).To(ContainElement(mount2))
+				} else {
+					Expect(pod.Spec.Volumes).NotTo(ContainElement(volume))
+					Expect(pod.Spec.Containers[0].VolumeMounts).NotTo(ContainElement(mount1))
+					Expect(pod.Spec.Containers[0].VolumeMounts).NotTo(ContainElement(mount2))
+				}
 			}
 
 			var (
@@ -4406,7 +4413,7 @@ var _ = Describe("Template", func() {
 				virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 			})
 
-			It("should add the pvc to Pod of a new VMI", func() {
+			DescribeTable("should add the pvc to Pod of a new VMI", func(explicit, enabled bool) {
 				pvc.Labels = map[string]string{"persistent-state-for": vmiName}
 				err := pvcCache.Add(pvc)
 				Expect(err).NotTo(HaveOccurred())
@@ -4416,13 +4423,20 @@ var _ = Describe("Template", func() {
 				vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
 					Persistent: pointer.P(true),
 				}
+				if explicit {
+					vmi.Spec.Domain.Devices.TPM.Enabled = &enabled
+				}
 				pod, err := svc.RenderLaunchManifest(vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				expectStateMounts(pod)
-			})
+				expectStateMounts(pod, enabled)
+			},
+				Entry("when TPM is enabled by default", false, true),
+				Entry("when TPM is explicitly enabled", true, true),
+				Entry("unless TPM is explicitly disabled", true, false),
+			)
 
-			It("should add the pvc to Pod of a migration target", func() {
+			DescribeTable("should add the pvc to Pod of a migration target", func(explicit, enabled bool) {
 				migration := &v1.VirtualMachineInstanceMigration{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      migrationName,
@@ -4439,11 +4453,18 @@ var _ = Describe("Template", func() {
 				vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
 					Persistent: pointer.P(true),
 				}
+				if explicit {
+					vmi.Spec.Domain.Devices.TPM.Enabled = &enabled
+				}
 				pod, err := svc.RenderMigrationManifest(vmi, migration, &k8sv1.Pod{})
 				Expect(err).ToNot(HaveOccurred())
 
-				expectStateMounts(pod)
-			})
+				expectStateMounts(pod, enabled)
+			},
+				Entry("when TPM is enabled by default", false, true),
+				Entry("when TPM is explicitly enabled", true, true),
+				Entry("unless TPM is explicitly disabled", true, false),
+			)
 		})
 
 		Context("with shared filesystem disks", func() {
