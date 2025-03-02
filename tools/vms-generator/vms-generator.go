@@ -16,7 +16,7 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
-//nolint:errcheck,funlen,gofumpt,stylecheck,mnd
+//nolint:funlen,gofumpt,stylecheck,mnd
 package main
 
 import (
@@ -148,10 +148,7 @@ func main() {
 			return fmt.Errorf("Failed to open file %v, %v", filename, err)
 		}
 		defer file.Close()
-
-		util.MarshallObject(obj, file)
-
-		return nil
+		return util.MarshallObject(obj, file)
 	}
 
 	// Having no generics is lots of fun
