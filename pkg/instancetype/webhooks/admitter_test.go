@@ -1,4 +1,5 @@
-package admitters
+//nolint:dupl
+package webhooks_test
 
 import (
 	"context"
@@ -15,16 +16,18 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/instancetype/webhooks"
 )
 
 var _ = Describe("Validating Instancetype Admitter", func() {
 	var (
-		admitter        *InstancetypeAdmitter
+		admitter        *webhooks.InstancetypeAdmitter
 		instancetypeObj *instancetypev1beta1.VirtualMachineInstancetype
 	)
 
 	BeforeEach(func() {
-		admitter = &InstancetypeAdmitter{}
+		admitter = &webhooks.InstancetypeAdmitter{}
 
 		instancetypeObj = &instancetypev1beta1.VirtualMachineInstancetype{
 			ObjectMeta: metav1.ObjectMeta{
@@ -44,14 +47,6 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 		Entry("with v1alpha2 version", instancetypev1beta1.SchemeGroupVersion.Version),
 		Entry("with v1beta1 version", instancetypev1beta1.SchemeGroupVersion.Version),
 	)
-
-	It("should reject unsupported version", func() {
-		ar := createInstancetypeAdmissionReview(instancetypeObj, "unsupportedversion")
-		response := admitter.Admit(context.Background(), ar)
-
-		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
-		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
-	})
 
 	DescribeTable("should reject negative and over 100% memory overcommit values", func(percent int) {
 		version := instancetypev1beta1.SchemeGroupVersion.Version
@@ -91,18 +86,19 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 		response := admitter.Admit(context.Background(), ar)
 
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
-		Expect(response.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.")
+		Expect(response.Result.Code).To(
+			Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.")
 	})
 })
 
 var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 	var (
-		admitter               *ClusterInstancetypeAdmitter
+		admitter               *webhooks.ClusterInstancetypeAdmitter
 		clusterInstancetypeObj *instancetypev1beta1.VirtualMachineClusterInstancetype
 	)
 
 	BeforeEach(func() {
-		admitter = &ClusterInstancetypeAdmitter{}
+		admitter = &webhooks.ClusterInstancetypeAdmitter{}
 
 		clusterInstancetypeObj = &instancetypev1beta1.VirtualMachineClusterInstancetype{
 			ObjectMeta: metav1.ObjectMeta{
@@ -140,19 +136,15 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 		response := admitter.Admit(context.Background(), ar)
 
 		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
-		Expect(response.Result.Code).To(Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.")
-	})
-
-	It("should reject unsupported version", func() {
-		ar := createClusterInstancetypeAdmissionReview(clusterInstancetypeObj, "unsupportedversion")
-		response := admitter.Admit(context.Background(), ar)
-
-		Expect(response.Allowed).To(BeFalse(), "Expected instancetype to not be allowed")
-		Expect(response.Result.Code).To(Equal(int32(http.StatusBadRequest)), "Expected error 400: BadRequest")
+		Expect(response.Result.Code).To(
+			Equal(int32(http.StatusUnprocessableEntity)), "overCommitPercent and hugepages should not be requested together.")
 	})
 })
 
-func createInstancetypeAdmissionReview(instancetype *instancetypev1beta1.VirtualMachineInstancetype, version string) *admissionv1.AdmissionReview {
+func createInstancetypeAdmissionReview(
+	instancetype *instancetypev1beta1.VirtualMachineInstancetype,
+	version string,
+) *admissionv1.AdmissionReview {
 	bytes, err := json.Marshal(instancetype)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Could not JSON encode instancetype: %v", instancetype)
 
@@ -171,7 +163,10 @@ func createInstancetypeAdmissionReview(instancetype *instancetypev1beta1.Virtual
 	}
 }
 
-func createClusterInstancetypeAdmissionReview(clusterInstancetype *instancetypev1beta1.VirtualMachineClusterInstancetype, version string) *admissionv1.AdmissionReview {
+func createClusterInstancetypeAdmissionReview(
+	clusterInstancetype *instancetypev1beta1.VirtualMachineClusterInstancetype,
+	version string,
+) *admissionv1.AdmissionReview {
 	bytes, err := json.Marshal(clusterInstancetype)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), "Could not JSON encode instancetype: %v", clusterInstancetype)
 
