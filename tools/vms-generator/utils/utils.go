@@ -125,31 +125,6 @@ var (
 	DockerTag    = "devel"
 )
 
-func addContainerDisk(spec *v1.VirtualMachineInstanceSpec, image string, bus v1.DiskBus) *v1.VirtualMachineInstanceSpec {
-	// Only add a reference to the disk if it isn't using the default v1.DiskBusSATA bus
-	if bus != v1.DiskBusSATA {
-		disk := &v1.Disk{
-			Name: "containerdisk",
-			DiskDevice: v1.DiskDevice{
-				Disk: &v1.DiskTarget{
-					Bus: bus,
-				},
-			},
-		}
-		spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, *disk)
-	}
-	volume := &v1.Volume{
-		Name: "containerdisk",
-		VolumeSource: v1.VolumeSource{
-			ContainerDisk: &v1.ContainerDiskSource{
-				Image: image,
-			},
-		},
-	}
-	spec.Volumes = append(spec.Volumes, *volume)
-	return spec
-}
-
 func addKernelBootContainer(
 	spec *v1.VirtualMachineInstanceSpec,
 	image, kernelArgs, kernelPath, initrdPath string,
@@ -616,6 +591,7 @@ func getBaseVMPool(name string, replicas int, selectorLabels map[string]string) 
 	baseVMI := libvmi.New(
 		libvmi.WithTerminationGracePeriod(0),
 		libvmi.WithResourceMemory("128Mi"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag)),
 	)
 	replicasInt32 := int32(replicas)
 
@@ -654,6 +630,7 @@ func getBaseVMIReplicaSet(name string, replicas int, selectorLabels map[string]s
 	baseVMI := libvmi.New(
 		libvmi.WithTerminationGracePeriod(0),
 		libvmi.WithResourceMemory("128Mi"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag)),
 	)
 	replicasInt32 := int32(replicas)
 
@@ -682,25 +659,16 @@ func getBaseVMIReplicaSet(name string, replicas int, selectorLabels map[string]s
 
 func GetVMPoolCirros() *poolv1.VirtualMachinePool {
 	const replicas = 3
-	vmPool := getBaseVMPool(VMPoolCirros, replicas, map[string]string{
+	return getBaseVMPool(VMPoolCirros, replicas, map[string]string{
 		"kubevirt.io/vmpool": VMPoolCirros,
 	})
-
-	addContainerDisk(
-		&vmPool.Spec.VirtualMachineTemplate.Spec.Template.Spec,
-		fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag),
-		v1.DiskBusVirtio)
-	return vmPool
 }
 
 func GetVMIReplicaSetCirros() *v1.VirtualMachineInstanceReplicaSet {
 	const replicas = 3
-	vmReplicaSet := getBaseVMIReplicaSet(VMIReplicaSetCirros, replicas, map[string]string{
+	return getBaseVMIReplicaSet(VMIReplicaSetCirros, replicas, map[string]string{
 		"kubevirt.io/vmReplicaSet": VMIReplicaSetCirros,
 	})
-
-	addContainerDisk(&vmReplicaSet.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), v1.DiskBusVirtio)
-	return vmReplicaSet
 }
 
 func GetVMIMigration() *v1.VirtualMachineInstanceMigration {
