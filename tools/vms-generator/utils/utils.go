@@ -636,11 +636,23 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 }
 
 func GetVMIKernelBoot() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiKernelBoot)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-
-	AddKernelBootToVMI(vmi)
-	return vmi
+	const kernelArgs = "console=ttyS0"
+	const kernelPath = "/boot/vmlinuz-virt"
+	const initrdPath = "/boot/initramfs-virt"
+	return libvmi.New(
+		libvmi.WithName(VmiKernelBoot),
+		libvmi.WithResourceMemory("1Gi"),
+		libvmi.WithKernelBoot(
+			&v1.KernelBoot{
+				KernelArgs: kernelArgs,
+				Container: &v1.KernelBootContainer{
+					Image:      fmt.Sprintf(strFmt, DockerPrefix, imageKernelBoot, DockerTag),
+					KernelPath: kernelPath,
+					InitrdPath: initrdPath,
+				},
+			},
+		),
+	)
 }
 
 func GetVMIKernelBootWithRandName() *v1.VirtualMachineInstance {

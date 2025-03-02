@@ -282,6 +282,15 @@ func WithKernelBootContainer(imageName string) Option {
 	}
 }
 
+func WithKernelBoot(k *v1.KernelBoot) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Firmware == nil {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{}
+		}
+		vmi.Spec.Domain.Firmware.KernelBoot = k
+	}
+}
+
 func WithTPM(persistent bool) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
