@@ -356,7 +356,10 @@ func handleDomainNotifyPipe(domainPipeStopChan chan struct{}, fdChan chan net.Co
 			select {
 			case <-domainPipeStopChan:
 				return
-			case fd := <-fdChan:
+			case fd, ok := <-fdChan:
+				if !ok {
+					return
+				}
 				go func(vmi *v1.VirtualMachineInstance) {
 					defer fd.Close()
 
