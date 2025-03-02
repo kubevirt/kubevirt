@@ -759,20 +759,22 @@ func GetVMCirros() *v1.VirtualMachine {
 }
 
 func GetVMCirrosWithHookSidecarConfigMap() *v1.VirtualMachine {
-	vm := getBaseVM(VmCirrosWithHookSidecarConfigMap, map[string]string{
-		kubevirtIoVM: VmCirrosWithHookSidecarConfigMap,
-	})
-
-	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), v1.DiskBusVirtio)
-	addNoCloudDisk(&vm.Spec.Template.Spec)
-
-	if vm.Spec.Template.ObjectMeta.Annotations == nil {
-		vm.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
-	}
-	vm.Spec.Template.ObjectMeta.Annotations["hooks.kubevirt.io/hookSidecars"] = `[{"args": ["--version", "v1alpha2"], "configMap": {"name": "my-config-map",` +
-		`"key": "my_script.sh", "hookPath": "/usr/bin/onDefineDomain"}}]`
-
-	return vm
+	return libvmi.NewVirtualMachine(
+		libvmi.New(
+			libvmi.WithName(VmCirrosWithHookSidecarConfigMap),
+			libvmi.WithLabel(kubevirtIoVM, VmCirrosWithHookSidecarConfigMap),
+			libvmi.WithResourceMemory("128Mi"),
+			libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag)),
+			libvmi.WithCloudInitNoCloud(
+				cloudinit.WithNoCloudUserData("#!/bin/sh\n\necho 'printed from cloud-init userdata'\n"),
+			),
+			libvmi.WithAnnotation(
+				"hooks.kubevirt.io/hookSidecars",
+				`[{"args": ["--version", "v1alpha2"], "configMap": {"name": "my-config-map","key": "my_script.sh", "hookPath": "/usr/bin/onDefineDomain"}}]`,
+			),
+		),
+		libvmi.WithLabels(map[string]string{kubevirtIoVM: VmCirrosWithHookSidecarConfigMap}),
+	)
 }
 
 func GetVMCirrosSata() *v1.VirtualMachine {
