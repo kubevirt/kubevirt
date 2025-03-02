@@ -584,9 +584,11 @@ func GetVMIPvc() *v1.VirtualMachineInstance {
 }
 
 func GetVMIHostDisk() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiHostDisk)
-	addHostDisk(&vmi.Spec, "/var/data/disk.img", v1.HostDiskExistsOrCreate, "1Gi")
-	return vmi
+	return libvmi.New(
+		libvmi.WithName(VmiHostDisk),
+		libvmi.WithResourceMemory("128Mi"),
+		libvmi.WithHostDiskAndCapacity("host-disk", "/var/data/disk.img", v1.HostDiskExistsOrCreate, "1Gi"),
+	)
 }
 
 func GetVMIWindows() *v1.VirtualMachineInstance {
