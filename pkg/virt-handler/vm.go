@@ -25,8 +25,6 @@ import (
 	"encoding/json"
 	goerror "errors"
 	"fmt"
-	"io"
-	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -347,57 +345,6 @@ func formatIrrecoverableErrorMessage(domain *api.Domain) string {
 	return msg
 }
 
-func handleDomainNotifyPipe(domainPipeStopChan chan struct{}, fdChan chan net.Conn, virtShareDir string, vmi *v1.VirtualMachineInstance) {
-
-	// Process new connections
-	// exit when stop encountered
-	go func(vmi *v1.VirtualMachineInstance, fdChan chan net.Conn, domainPipeStopChan chan struct{}) {
-		for {
-			select {
-			case <-domainPipeStopChan:
-				return
-			case fd, ok := <-fdChan:
-				if !ok {
-					return
-				}
-				go func(vmi *v1.VirtualMachineInstance) {
-					defer fd.Close()
-
-					// pipe the VMI domain-notify.sock to the virt-handler domain-notify.sock
-					// so virt-handler receives notifications from the VMI
-					conn, err := net.Dial("unix", filepath.Join(virtShareDir, "domain-notify.sock"))
-					if err != nil {
-						log.Log.Reason(err).Error("error connecting to domain-notify.sock for proxy connection")
-						return
-					}
-					defer conn.Close()
-
-					log.Log.Object(vmi).Infof("Accepted new notify pipe connection for vmi")
-					copyErr := make(chan error, 2)
-					go func() {
-						_, err := io.Copy(fd, conn)
-						copyErr <- err
-					}()
-					go func() {
-						_, err := io.Copy(conn, fd)
-						copyErr <- err
-					}()
-
-					// wait until one of the copy routines exit then
-					// let the fd close
-					err = <-copyErr
-					if err != nil {
-						log.Log.Object(vmi).Infof("closing notify pipe connection for vmi with error: %v", err)
-					} else {
-						log.Log.Object(vmi).Infof("gracefully closed notify pipe connection for vmi")
-					}
-
-				}(vmi)
-			}
-		}
-	}(vmi, fdChan, domainPipeStopChan)
-}
-
 func (c *VirtualMachineController) startDomainNotifyPipe(domainPipeStopChan chan struct{}, vmi *v1.VirtualMachineInstance) error {
 
 	res, err := c.podIsolationDetector.Detect(vmi)
@@ -411,12 +358,13 @@ func (c *VirtualMachineController) startDomainNotifyPipe(domainPipeStopChan chan
 		cancel()
 	}()
 
-	fdChan, err := pipe.InjectNotify(ctx, log.Log.Object(vmi), res, c.virtShareDir, util.IsNonRootVMI(vmi))
+	logger := log.Log.Object(vmi)
+	fdChan, err := pipe.InjectNotify(ctx, logger, res, c.virtShareDir, util.IsNonRootVMI(vmi))
 	if err != nil {
 		return err
 	}
 
-	handleDomainNotifyPipe(domainPipeStopChan, fdChan, c.virtShareDir, vmi)
+	go pipe.Proxy(ctx, logger, fdChan, c.virtShareDir, pipe.ConnectToNotify(c.virtShareDir))
 
 	return nil
 }
