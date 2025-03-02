@@ -125,19 +125,6 @@ var (
 	DockerTag    = "devel"
 )
 
-func getBaseVMISpec() *v1.VirtualMachineInstanceSpec {
-	return &v1.VirtualMachineInstanceSpec{
-		TerminationGracePeriodSeconds: pointer.P(int64(0)),
-		Domain: v1.DomainSpec{
-			Resources: v1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
-				},
-			},
-		},
-	}
-}
-
 func addContainerDisk(spec *v1.VirtualMachineInstanceSpec, image string, bus v1.DiskBus) *v1.VirtualMachineInstanceSpec {
 	// Only add a reference to the disk if it isn't using the default v1.DiskBusSATA bus
 	if bus != v1.DiskBusSATA {
@@ -626,7 +613,10 @@ func GetVMMultiPvc() *v1.VirtualMachine {
 }
 
 func getBaseVMPool(name string, replicas int, selectorLabels map[string]string) *poolv1.VirtualMachinePool {
-	baseVMISpec := getBaseVMISpec()
+	baseVMI := libvmi.New(
+		libvmi.WithTerminationGracePeriod(0),
+		libvmi.WithResourceMemory("128Mi"),
+	)
 	replicasInt32 := int32(replicas)
 
 	return &poolv1.VirtualMachinePool{
@@ -652,7 +642,7 @@ func getBaseVMPool(name string, replicas int, selectorLabels map[string]string) 
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: selectorLabels,
 						},
-						Spec: *baseVMISpec,
+						Spec: baseVMI.Spec,
 					},
 				},
 			},
@@ -661,7 +651,10 @@ func getBaseVMPool(name string, replicas int, selectorLabels map[string]string) 
 }
 
 func getBaseVMIReplicaSet(name string, replicas int, selectorLabels map[string]string) *v1.VirtualMachineInstanceReplicaSet {
-	baseVMISpec := getBaseVMISpec()
+	baseVMI := libvmi.New(
+		libvmi.WithTerminationGracePeriod(0),
+		libvmi.WithResourceMemory("128Mi"),
+	)
 	replicasInt32 := int32(replicas)
 
 	return &v1.VirtualMachineInstanceReplicaSet{
@@ -681,7 +674,7 @@ func getBaseVMIReplicaSet(name string, replicas int, selectorLabels map[string]s
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: selectorLabels,
 				},
-				Spec: *baseVMISpec,
+				Spec: baseVMI.Spec,
 			},
 		},
 	}
