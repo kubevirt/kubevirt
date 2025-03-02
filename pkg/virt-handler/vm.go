@@ -345,18 +345,12 @@ func formatIrrecoverableErrorMessage(domain *api.Domain) string {
 	return msg
 }
 
-func (c *VirtualMachineController) startDomainNotifyPipe(domainPipeStopChan chan struct{}, vmi *v1.VirtualMachineInstance) error {
+func (c *VirtualMachineController) startDomainNotifyPipe(ctx context.Context, vmi *v1.VirtualMachineInstance) error {
 
 	res, err := c.podIsolationDetector.Detect(vmi)
 	if err != nil {
 		return fmt.Errorf("failed to detect isolation for launcher pod when setting up notify pipe: %v", err)
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		<-domainPipeStopChan
-		cancel()
-	}()
 
 	logger := log.Log.Object(vmi)
 	fdChan, err := pipe.InjectNotify(ctx, logger, res, c.virtShareDir, util.IsNonRootVMI(vmi))
@@ -2093,7 +2087,7 @@ func (c *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 	clientInfo, exists := c.launcherClients.Load(vmi.UID)
 	if exists && clientInfo.Client != nil {
 		clientInfo.Client.Close()
-		close(clientInfo.DomainPipeStopChan)
+		clientInfo.DomainPipeCancelFunc()
 	}
 
 	virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
@@ -2178,21 +2172,21 @@ func (c *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInsta
 		return nil, err
 	}
 
-	domainPipeStopChan := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
 	//we pipe in the domain socket into the VMI's filesystem
-	err = c.startDomainNotifyPipe(domainPipeStopChan, vmi)
+	err = c.startDomainNotifyPipe(ctx, vmi)
 	if err != nil {
 		client.Close()
-		close(domainPipeStopChan)
+		cancel()
 		return nil, err
 	}
 
 	c.launcherClients.Store(vmi.UID, &virtcache.LauncherClientInfo{
-		Client:              client,
-		SocketFile:          socketFile,
-		DomainPipeStopChan:  domainPipeStopChan,
-		NotInitializedSince: time.Now(),
-		Ready:               true,
+		Client:               client,
+		SocketFile:           socketFile,
+		DomainPipeCancelFunc: cancel,
+		NotInitializedSince:  time.Now(),
+		Ready:                true,
 	})
 
 	return client, nil

@@ -231,10 +231,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		client = cmdclient.NewMockLauncherClient(ctrl)
 		clientInfo := &virtcache.LauncherClientInfo{
-			Client:             client,
-			SocketFile:         sockFile,
-			DomainPipeStopChan: make(chan struct{}),
-			Ready:              true,
+			Client:               client,
+			SocketFile:           sockFile,
+			DomainPipeCancelFunc: func() {},
+			Ready:                true,
 		}
 		controller.addLauncherClient(vmiTestUUID, clientInfo)
 
@@ -397,9 +397,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			//Did not initialize yet
 			clientInfo := &virtcache.LauncherClientInfo{
-				DomainPipeStopChan:  make(chan struct{}),
-				Ready:               false,
-				NotInitializedSince: time.Now().Add(-1 * time.Minute),
+				DomainPipeCancelFunc: func() {},
+				Ready:                false,
+				NotInitializedSince:  time.Now().Add(-1 * time.Minute),
 			}
 			controller.addLauncherClient(vmi.UID, clientInfo)
 
@@ -424,9 +424,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			//Did not initialize yet
 			clientInfo := &virtcache.LauncherClientInfo{
-				DomainPipeStopChan:  make(chan struct{}),
-				Ready:               false,
-				NotInitializedSince: time.Now().Add(-4 * time.Minute),
+				DomainPipeCancelFunc: func() {},
+				Ready:                false,
+				NotInitializedSince:  time.Now().Add(-4 * time.Minute),
 			}
 			controller.addLauncherClient(vmi.UID, clientInfo)
 
