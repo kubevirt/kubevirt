@@ -16,7 +16,7 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
-//nolint:dupl,lll,mnd,gofumpt,whitespace,unused,stylecheck
+//nolint:dupl,lll,mnd,gofumpt,whitespace,stylecheck
 package utils
 
 import (
@@ -145,32 +145,6 @@ func getBaseVMISpec() *v1.VirtualMachineInstanceSpec {
 	}
 }
 
-func getBaseVMI(name string) *v1.VirtualMachineInstance {
-	baseVMISpec := getBaseVMISpec()
-
-	return &v1.VirtualMachineInstance{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1.GroupVersion.String(),
-			Kind:       "VirtualMachineInstance",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Spec: *baseVMISpec,
-	}
-}
-
-func initFedora(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
-	addContainerDisk(spec, fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag), v1.DiskBusVirtio)
-	addRNG(spec) // without RNG, newer fedora images may hang waiting for entropy sources
-	return spec
-}
-
-func addRNG(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
-	spec.Domain.Devices.Rng = &v1.Rng{}
-	return spec
-}
-
 func addContainerDisk(spec *v1.VirtualMachineInstanceSpec, image string, bus v1.DiskBus) *v1.VirtualMachineInstanceSpec {
 	// Only add a reference to the disk if it isn't using the default v1.DiskBusSATA bus
 	if bus != v1.DiskBusSATA {
@@ -210,146 +184,6 @@ func addKernelBootContainer(spec *v1.VirtualMachineInstanceSpec, image, kernelAr
 		},
 	}
 
-	return spec
-}
-
-func addNoCloudDisk(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
-	return addNoCloudDiskWitUserData(spec, "#!/bin/sh\n\necho 'printed from cloud-init userdata'\n")
-}
-
-func addNoCloudDiskWitUserData(spec *v1.VirtualMachineInstanceSpec, data string) *v1.VirtualMachineInstanceSpec {
-	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
-		Name: "cloudinitdisk",
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: v1.DiskBusVirtio,
-			},
-		},
-	})
-
-	spec.Volumes = append(spec.Volumes, v1.Volume{
-		Name: "cloudinitdisk",
-		VolumeSource: v1.VolumeSource{
-			CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-				UserData: data,
-			},
-		},
-	})
-	return spec
-}
-
-func addNoCloudDiskWitUserDataNetworkData(spec *v1.VirtualMachineInstanceSpec, userData string, networkData string) *v1.VirtualMachineInstanceSpec {
-	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
-		Name: "cloudinitdisk",
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: v1.DiskBusVirtio,
-			},
-		},
-	})
-
-	spec.Volumes = append(spec.Volumes, v1.Volume{
-		Name: "cloudinitdisk",
-		VolumeSource: v1.VolumeSource{
-			CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-				UserData:    userData,
-				NetworkData: networkData,
-			},
-		},
-	})
-	return spec
-}
-
-func addEmptyDisk(spec *v1.VirtualMachineInstanceSpec, size string) *v1.VirtualMachineInstanceSpec {
-	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
-		Name: "emptydisk",
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: v1.DiskBusVirtio,
-			},
-		},
-	})
-
-	spec.Volumes = append(spec.Volumes, v1.Volume{
-		Name: "emptydisk",
-		VolumeSource: v1.VolumeSource{
-			EmptyDisk: &v1.EmptyDiskSource{
-				Capacity: resource.MustParse(size),
-			},
-		},
-	})
-	return spec
-}
-
-func addDataVolumeDisk(spec *v1.VirtualMachineInstanceSpec, dataVolumeName string, bus v1.DiskBus, diskName string) *v1.VirtualMachineInstanceSpec {
-
-	// Only add a reference to the disk if it isn't using the default v1.DiskBusSATA bus
-	if bus != v1.DiskBusSATA {
-		spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
-			Name: diskName,
-			DiskDevice: v1.DiskDevice{
-				Disk: &v1.DiskTarget{
-					Bus: bus,
-				},
-			},
-		})
-	}
-
-	spec.Volumes = append(spec.Volumes, v1.Volume{
-		Name: diskName,
-		VolumeSource: v1.VolumeSource{
-			DataVolume: &v1.DataVolumeSource{
-				Name: dataVolumeName,
-			},
-		},
-	})
-	return spec
-}
-
-func addPVCDisk(spec *v1.VirtualMachineInstanceSpec, claimName string, bus v1.DiskBus, diskName string) *v1.VirtualMachineInstanceSpec {
-
-	// Only add a reference to the disk if it isn't using the default v1.DiskBusSATA bus
-	if bus != v1.DiskBusSATA {
-		spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
-			Name: diskName,
-			DiskDevice: v1.DiskDevice{
-				Disk: &v1.DiskTarget{
-					Bus: bus,
-				},
-			},
-		})
-	}
-
-	spec.Volumes = append(spec.Volumes, v1.Volume{
-		Name: diskName,
-		VolumeSource: v1.VolumeSource{
-			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: claimName},
-			},
-		},
-	})
-	return spec
-}
-
-func addHostDisk(spec *v1.VirtualMachineInstanceSpec, path string, hostDiskType v1.HostDiskType, size string) *v1.VirtualMachineInstanceSpec {
-	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
-		Name: "host-disk",
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: v1.DiskBusVirtio,
-			},
-		},
-	})
-	spec.Volumes = append(spec.Volumes, v1.Volume{
-		Name: "host-disk",
-		VolumeSource: v1.VolumeSource{
-			HostDisk: &v1.HostDisk{
-				Path:     path,
-				Type:     hostDiskType,
-				Capacity: resource.MustParse(size),
-			},
-		},
-	})
 	return spec
 }
 
@@ -651,30 +485,6 @@ func AddKernelBootToVMI(vmi *v1.VirtualMachineInstance) {
 	const initrdPath = "/boot/initramfs-virt"
 
 	addKernelBootContainer(&vmi.Spec, image, KernelArgs, kernelPath, initrdPath)
-}
-
-func getBaseVM(name string, labels map[string]string) *v1.VirtualMachine {
-	baseVMISpec := getBaseVMISpec()
-
-	return &v1.VirtualMachine{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1.GroupVersion.String(),
-			Kind:       "VirtualMachine",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   name,
-			Labels: labels,
-		},
-		Spec: v1.VirtualMachineSpec{
-			RunStrategy: pointer.P(v1.RunStrategyHalted),
-			Template: &v1.VirtualMachineInstanceTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
-				},
-				Spec: *baseVMISpec,
-			},
-		},
-	}
 }
 
 func GetPreemtible() *schedulingv1.PriorityClass {
