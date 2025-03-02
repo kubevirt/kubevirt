@@ -576,10 +576,11 @@ func GetVMINoCloud() *v1.VirtualMachineInstance {
 }
 
 func GetVMIPvc() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiPVC)
-
-	addPVCDisk(&vmi.Spec, "disk-alpine", v1.DiskBusVirtio, "pvcdisk")
-	return vmi
+	return libvmi.New(
+		libvmi.WithName(VmiPVC),
+		libvmi.WithResourceMemory("128Mi"),
+		libvmi.WithPersistentVolumeClaim("pvcdisk", "disk-alpine"),
+	)
 }
 
 func GetVMIHostDisk() *v1.VirtualMachineInstance {
