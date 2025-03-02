@@ -72,7 +72,6 @@ const (
 	VmiMultusMultipleNet        = "vmi-multus-multiple-net"
 	VmiHostDisk                 = "vmi-host-disk"
 	VmiGPU                      = "vmi-gpu"
-	VmiARM                      = "vmi-arm"
 	VmiUSB                      = "vmi-usb"
 	VmTemplateFedora            = "vm-template-fedora"
 	VmTemplateRHEL7             = "vm-template-rhel7"
@@ -994,16 +993,6 @@ func GetVMIGPU() *v1.VirtualMachineInstance {
 			},
 		),
 	)
-}
-
-// The minimum memory for UEFI boot on Arm64 is 256Mi
-func GetVMIARM() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiARM)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("256Mi")
-	addContainerDisk(&vmi.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), v1.DiskBusVirtio)
-	addNoCloudDisk(&vmi.Spec)
-	addEmptyDisk(&vmi.Spec, "2Gi")
-	return vmi
 }
 
 func GetVMIUSB() *v1.VirtualMachineInstance {

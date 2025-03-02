@@ -124,7 +124,6 @@ func main() {
 		utils.VmiHostDisk:                 utils.GetVMIHostDisk(),
 		utils.VmiGPU:                      utils.GetVMIGPU(),
 		utils.VmiKernelBoot:               utils.GetVMIKernelBoot(),
-		utils.VmiARM:                      utils.GetVMIARM(),
 		utils.VmiUSB:                      utils.GetVMIUSB(),
 	}
 
