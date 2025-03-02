@@ -778,12 +778,18 @@ func GetVMCirrosWithHookSidecarConfigMap() *v1.VirtualMachine {
 }
 
 func GetVMCirrosSata() *v1.VirtualMachine {
-	vm := getBaseVM(VmCirrosSata, map[string]string{
-		kubevirtIoVM: VmCirrosSata,
-	})
-
-	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), v1.DiskBusSATA)
-	addNoCloudDisk(&vm.Spec.Template.Spec)
+	vm := libvmi.NewVirtualMachine(
+		libvmi.New(
+			libvmi.WithName(VmCirrosSata),
+			libvmi.WithLabel(kubevirtIoVM, VmCirrosSata),
+			libvmi.WithResourceMemory("128Mi"),
+			libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag)),
+			libvmi.WithCloudInitNoCloud(
+				cloudinit.WithNoCloudUserData("#!/bin/sh\n\necho 'printed from cloud-init userdata'\n"),
+			),
+		),
+		libvmi.WithLabels(map[string]string{kubevirtIoVM: VmCirrosSata}),
+	)
 	vm.Spec.Template.Spec.Domain.Devices = v1.Devices{}
 	return vm
 }
