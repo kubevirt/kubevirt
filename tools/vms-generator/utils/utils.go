@@ -735,13 +735,18 @@ func GetVMPriorityClass() *v1.VirtualMachine {
 }
 
 func GetVMCirros() *v1.VirtualMachine {
-	vm := getBaseVM(VmCirros, map[string]string{
-		kubevirtIoVM: VmCirros,
-	})
-
-	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), v1.DiskBusVirtio)
-	addNoCloudDisk(&vm.Spec.Template.Spec)
-	return vm
+	return libvmi.NewVirtualMachine(
+		libvmi.New(
+			libvmi.WithName(VmCirros),
+			libvmi.WithLabel(kubevirtIoVM, VmCirros),
+			libvmi.WithResourceMemory("128Mi"),
+			libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag)),
+			libvmi.WithCloudInitNoCloud(
+				cloudinit.WithNoCloudUserData("#!/bin/sh\n\necho 'printed from cloud-init userdata'\n"),
+			),
+		),
+		libvmi.WithLabels(map[string]string{kubevirtIoVM: VmCirros}),
+	)
 }
 
 func GetVMCirrosWithHookSidecarConfigMap() *v1.VirtualMachine {
