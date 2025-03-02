@@ -817,14 +817,16 @@ func GetVMDataVolume() *v1.VirtualMachine {
 }
 
 func GetVMMultiPvc() *v1.VirtualMachine {
-	vm := getBaseVM(VmAlpineMultiPvc, map[string]string{
-		kubevirtIoVM: VmAlpineMultiPvc,
-	})
-
-	addPVCDisk(&vm.Spec.Template.Spec, "disk-alpine", v1.DiskBusVirtio, "pvcdisk1")
-	addPVCDisk(&vm.Spec.Template.Spec, "disk-custom", v1.DiskBusVirtio, "pvcdisk2")
-
-	return vm
+	return libvmi.NewVirtualMachine(
+		libvmi.New(
+			libvmi.WithName(VmAlpineMultiPvc),
+			libvmi.WithLabel(kubevirtIoVM, VmAlpineMultiPvc),
+			libvmi.WithResourceMemory("128Mi"),
+			libvmi.WithPersistentVolumeClaim("pvcdisk1", "disk-alpine"),
+			libvmi.WithPersistentVolumeClaim("pvcdisk2", "disk-custom"),
+		),
+		libvmi.WithLabels(map[string]string{kubevirtIoVM: VmAlpineMultiPvc}),
+	)
 }
 
 func getBaseVMPool(name string, replicas int, selectorLabels map[string]string) *poolv1.VirtualMachinePool {
