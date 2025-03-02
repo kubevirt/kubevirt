@@ -728,10 +728,19 @@ func GetNonPreemtible() *schedulingv1.PriorityClass {
 }
 
 func GetVMPriorityClass() *v1.VirtualMachine {
-	vm := GetVMCirros()
-	vm.Spec.Template.Spec.PriorityClassName = NonPreemtible
-	vm.ObjectMeta.Name = "vm-non-preemtible"
-	return vm
+	return libvmi.NewVirtualMachine(
+		libvmi.New(
+			libvmi.WithName("vm-non-preemtible"),
+			libvmi.WithLabel(kubevirtIoVM, VmCirros),
+			libvmi.WithResourceMemory("128Mi"),
+			libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag)),
+			libvmi.WithCloudInitNoCloud(
+				cloudinit.WithNoCloudUserData("#!/bin/sh\n\necho 'printed from cloud-init userdata'\n"),
+			),
+			libvmi.WithPriorityClass(NonPreemtible),
+		),
+		libvmi.WithLabels(map[string]string{kubevirtIoVM: VmCirros}),
+	)
 }
 
 func GetVMCirros() *v1.VirtualMachine {

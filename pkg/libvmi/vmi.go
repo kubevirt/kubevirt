@@ -367,6 +367,12 @@ func WithFirmwareUUID(uuid types.UID) Option {
 	}
 }
 
+func WithPriorityClass(class string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.PriorityClassName = class
+	}
+}
+
 func baseVmi(name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewVMIReferenceFromNameWithNS("", name)
 	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
