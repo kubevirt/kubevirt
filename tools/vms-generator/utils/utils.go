@@ -910,23 +910,6 @@ func GetVMIReplicaSetCirros() *v1.VirtualMachineInstanceReplicaSet {
 	return vmReplicaSet
 }
 
-func getBaseVMIPreset(name string, selectorLabels map[string]string) *v1.VirtualMachineInstancePreset {
-	return &v1.VirtualMachineInstancePreset{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1.GroupVersion.String(),
-			Kind:       "VirtualMachineInstancePreset",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Spec: v1.VirtualMachineInstancePresetSpec{
-			Selector: metav1.LabelSelector{
-				MatchLabels: selectorLabels,
-			},
-		},
-	}
-}
-
 func GetVMIMigration() *v1.VirtualMachineInstanceMigration {
 	return &v1.VirtualMachineInstanceMigration{
 		TypeMeta: metav1.TypeMeta{
@@ -956,21 +939,6 @@ func GetMigrationPolicy() *v1alpha1.MigrationPolicy {
 	}
 
 	return policy
-}
-
-func GetVMIPresetSmall() *v1.VirtualMachineInstancePreset {
-	vmPreset := getBaseVMIPreset(VmiPresetSmall, map[string]string{
-		"kubevirt.io/vmPreset": VmiPresetSmall,
-	})
-
-	vmPreset.Spec.Domain = &v1.DomainSpec{
-		Resources: v1.ResourceRequirements{
-			Requests: k8sv1.ResourceList{
-				k8sv1.ResourceMemory: resource.MustParse("128Mi"),
-			},
-		},
-	}
-	return vmPreset
 }
 
 func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {

@@ -136,10 +136,6 @@ func main() {
 		utils.VmPoolCirros: utils.GetVMPoolCirros(),
 	}
 
-	var vmipresets = map[string]*v1.VirtualMachineInstancePreset{
-		utils.VmiPresetSmall: utils.GetVMIPresetSmall(),
-	}
-
 	var migrations = map[string]*v1.VirtualMachineInstanceMigration{
 		utils.VmiMigration: utils.GetVMIMigration(),
 	}
@@ -227,15 +223,9 @@ func main() {
 		handleError(dumpObject(name, *obj))
 	}
 
-	for name, obj := range vmipresets {
-		causes := validating_webhook.ValidateVMIPresetSpec(k8sfield.NewPath("spec"), &obj.Spec)
-		handleCauses(causes, name, "vmi preset")
-		handleError(dumpObject(name, *obj))
-	}
-
 	for name, obj := range migrations {
 		causes := validating_webhook.ValidateVirtualMachineInstanceMigrationSpec(k8sfield.NewPath("spec"), &obj.Spec)
-		handleCauses(causes, name, "vmi preset")
+		handleCauses(causes, name, "vmi migration")
 		handleError(dumpObject(name, *obj))
 	}
 
