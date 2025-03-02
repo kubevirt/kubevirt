@@ -16,7 +16,7 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
-//nolint:dupl,lll,mnd,gofumpt,stylecheck
+//nolint:dupl,lll,mnd,gofumpt
 package utils
 
 import (
@@ -51,29 +51,29 @@ const (
 )
 
 const (
-	VmiEphemeral                = "vmi-ephemeral"
-	VmiMigratable               = "vmi-migratable"
-	VmiSata                     = "vmi-sata"
-	VmiFedora                   = "vmi-fedora"
-	VmiFedoraIsolated           = "vmi-fedora-isolated"
-	VmiSecureBoot               = "vmi-secureboot"
-	VmiAlpineEFI                = "vmi-alpine-efi"
-	VmiNoCloud                  = "vmi-nocloud"
-	VmiPVC                      = "vmi-pvc"
-	VmiWindows                  = "vmi-windows"
-	VmiKernelBoot               = "vmi-kernel-boot"
-	VmiMasquerade               = "vmi-masquerade"
-	VmiSRIOV                    = "vmi-sriov"
-	VmiWithHookSidecar          = "vmi-with-sidecar-hook"
-	VmiWithHookSidecarConfigMap = "vmi-with-sidecar-hook-configmap"
-	VmiMultusPtp                = "vmi-multus-ptp"
-	VmiMultusMultipleNet        = "vmi-multus-multiple-net"
-	VmiHostDisk                 = "vmi-host-disk"
-	VmiGPU                      = "vmi-gpu"
-	VmiUSB                      = "vmi-usb"
-	VmTemplateFedora            = "vm-template-fedora"
-	VmTemplateRHEL7             = "vm-template-rhel7"
-	VmTemplateWindows           = "vm-template-windows2012r2"
+	VMIEphemeral                = "vmi-ephemeral"
+	VMIMigratable               = "vmi-migratable"
+	VMISata                     = "vmi-sata"
+	VMIFedora                   = "vmi-fedora"
+	VMIFedoraIsolated           = "vmi-fedora-isolated"
+	VMISecureBoot               = "vmi-secureboot"
+	VMIAlpineEFI                = "vmi-alpine-efi"
+	VMINoCloud                  = "vmi-nocloud"
+	VMIPVC                      = "vmi-pvc"
+	VMIWindows                  = "vmi-windows"
+	VMIKernelBoot               = "vmi-kernel-boot"
+	VMIMasquerade               = "vmi-masquerade"
+	VMISRIOV                    = "vmi-sriov"
+	VMIWithHookSidecar          = "vmi-with-sidecar-hook"
+	VMIWithHookSidecarConfigMap = "vmi-with-sidecar-hook-configmap"
+	VMIMultusPtp                = "vmi-multus-ptp"
+	VMIMultusMultipleNet        = "vmi-multus-multiple-net"
+	VMIHostDisk                 = "vmi-host-disk"
+	VMIGPU                      = "vmi-gpu"
+	VMIUSB                      = "vmi-usb"
+	VMTemplateFedora            = "vm-template-fedora"
+	VMTemplateRHEL7             = "vm-template-rhel7"
+	VMTemplateWindows           = "vm-template-windows2012r2"
 )
 
 const (
@@ -82,21 +82,21 @@ const (
 )
 
 const (
-	VmCirros                         = "vm-cirros"
-	VmAlpineMultiPvc                 = "vm-alpine-multipvc"
-	VmAlpineDataVolume               = "vm-alpine-datavolume"
+	VMCirros                         = "vm-cirros"
+	VMAlpineMultiPvc                 = "vm-alpine-multipvc"
+	VMAlpineDataVolume               = "vm-alpine-datavolume"
 	VMPriorityClass                  = "vm-priorityclass"
-	VmCirrosSata                     = "vm-cirros-sata"
-	VmCirrosWithHookSidecarConfigMap = "vm-cirros-with-sidecar-hook-configmap"
+	VMCirrosSata                     = "vm-cirros-sata"
+	VMCirrosWithHookSidecarConfigMap = "vm-cirros-with-sidecar-hook-configmap"
 )
 
-const VmiReplicaSetCirros = "vmi-replicaset-cirros"
+const VMIReplicaSetCirros = "vmi-replicaset-cirros"
 
-const VmPoolCirros = "vm-pool-cirros"
+const VMPoolCirros = "vm-pool-cirros"
 
-const VmiPresetSmall = "vmi-preset-small"
+const VMIPresetSmall = "vmi-preset-small"
 
-const VmiMigration = "migration-job"
+const VMIMigration = "migration-job"
 
 const MigrationPolicyName = "example-migration-policy"
 
@@ -189,7 +189,7 @@ func addKernelBootContainer(spec *v1.VirtualMachineInstanceSpec, image, kernelAr
 
 func GetVMIMigratable() *v1.VirtualMachineInstance {
 	return libvmi.New(
-		libvmi.WithName(VmiMigratable),
+		libvmi.WithName(VMIMigratable),
 		libvmi.WithResourceMemory("128Mi"),
 		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageAlpine, DockerTag)),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -199,7 +199,7 @@ func GetVMIMigratable() *v1.VirtualMachineInstance {
 
 func GetVMIEphemeral() *v1.VirtualMachineInstance {
 	return libvmi.New(
-		libvmi.WithName(VmiEphemeral),
+		libvmi.WithName(VMIEphemeral),
 		libvmi.WithResourceMemory("128Mi"),
 		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag)),
 	)
@@ -207,7 +207,7 @@ func GetVMIEphemeral() *v1.VirtualMachineInstance {
 
 func GetVMISata() *v1.VirtualMachineInstance {
 	return libvmi.New(
-		libvmi.WithName(VmiSata),
+		libvmi.WithName(VMISata),
 		libvmi.WithResourceMemory("128Mi"),
 		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), libvmi.WithDiskBusSATA()),
 	)
@@ -215,7 +215,7 @@ func GetVMISata() *v1.VirtualMachineInstance {
 
 func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
 	return libvmi.New(
-		libvmi.WithName(VmiFedora),
+		libvmi.WithName(VMIFedora),
 		libvmi.WithResourceMemory("1024M"),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
@@ -229,7 +229,7 @@ func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
 
 func GetVMIEphemeralFedoraIsolated() *v1.VirtualMachineInstance {
 	return libvmi.New(
-		libvmi.WithName(VmiFedora),
+		libvmi.WithName(VMIFedora),
 		libvmi.WithCPUCount(1, 0, 0),
 		libvmi.WithIsolateEmulatorThread(),
 		libvmi.WithDedicatedCPUPlacement(),
@@ -244,7 +244,7 @@ func GetVMIEphemeralFedoraIsolated() *v1.VirtualMachineInstance {
 
 func GetVMISecureBoot() *v1.VirtualMachineInstance {
 	return libvmi.New(
-		libvmi.WithName(VmiSecureBoot),
+		libvmi.WithName(VMISecureBoot),
 		libvmi.WithResourceMemory("1Gi"),
 		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
 		libvmi.WithSMM(),
@@ -254,7 +254,7 @@ func GetVMISecureBoot() *v1.VirtualMachineInstance {
 
 func GetVMIAlpineEFI() *v1.VirtualMachineInstance {
 	return libvmi.New(
-		libvmi.WithName(VmiAlpineEFI),
+		libvmi.WithName(VMIAlpineEFI),
 		libvmi.WithResourceMemory("1Gi"),
 		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageAlpine, DockerTag)),
 		libvmi.WithSecureBoot(false),
@@ -263,7 +263,7 @@ func GetVMIAlpineEFI() *v1.VirtualMachineInstance {
 
 func GetVMIMasquerade() *v1.VirtualMachineInstance {
 	return libvmi.New(
-		libvmi.WithName(VmiMasquerade),
+		libvmi.WithName(VMIMasquerade),
 		libvmi.WithResourceMemory("1024M"),
 		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
 		libvmi.WithRng(),
@@ -293,7 +293,7 @@ func GetVMIMasquerade() *v1.VirtualMachineInstance {
 
 func GetVMISRIOV() *v1.VirtualMachineInstance {
 	return libvmi.New(
-		libvmi.WithName(VmiSRIOV),
+		libvmi.WithName(VMISRIOV),
 		libvmi.WithResourceMemory("1024M"),
 		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
 		libvmi.WithRng(),
@@ -325,7 +325,7 @@ func GetVMISRIOV() *v1.VirtualMachineInstance {
 
 func GetVMIMultusPtp() *v1.VirtualMachineInstance {
 	return libvmi.New(
-		libvmi.WithName(VmiMultusPtp),
+		libvmi.WithName(VMIMultusPtp),
 		libvmi.WithResourceMemory("1024M"),
 		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
 		libvmi.WithRng(),
@@ -349,7 +349,7 @@ func GetVMIMultusPtp() *v1.VirtualMachineInstance {
 
 func GetVMIMultusMultipleNet() *v1.VirtualMachineInstance {
 	return libvmi.New(
-		libvmi.WithName(VmiMultusMultipleNet),
+		libvmi.WithName(VMIMultusMultipleNet),
 		libvmi.WithResourceMemory("1024M"),
 		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
 		libvmi.WithRng(),
@@ -381,7 +381,7 @@ func GetVMIMultusMultipleNet() *v1.VirtualMachineInstance {
 
 func GetVMINoCloud() *v1.VirtualMachineInstance {
 	return libvmi.New(
-		libvmi.WithName(VmiNoCloud),
+		libvmi.WithName(VMINoCloud),
 		libvmi.WithResourceMemory("128Mi"),
 		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag)),
 		libvmi.WithCloudInitNoCloud(
@@ -393,7 +393,7 @@ func GetVMINoCloud() *v1.VirtualMachineInstance {
 
 func GetVMIPvc() *v1.VirtualMachineInstance {
 	return libvmi.New(
-		libvmi.WithName(VmiPVC),
+		libvmi.WithName(VMIPVC),
 		libvmi.WithResourceMemory("128Mi"),
 		libvmi.WithPersistentVolumeClaim("pvcdisk", "disk-alpine"),
 	)
@@ -401,7 +401,7 @@ func GetVMIPvc() *v1.VirtualMachineInstance {
 
 func GetVMIHostDisk() *v1.VirtualMachineInstance {
 	return libvmi.New(
-		libvmi.WithName(VmiHostDisk),
+		libvmi.WithName(VMIHostDisk),
 		libvmi.WithResourceMemory("128Mi"),
 		libvmi.WithHostDiskAndCapacity("host-disk", "/var/data/disk.img", v1.HostDiskExistsOrCreate, "1Gi"),
 	)
@@ -411,7 +411,7 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 	spinlocks := uint32(8191)
 	firmware := types.UID(windowsFirmware)
 	return libvmi.New(
-		libvmi.WithName(VmiWindows),
+		libvmi.WithName(VMIWindows),
 		libvmi.WithTerminationGracePeriod(0),
 		libvmi.WithCPUCount(2, 0, 0),
 		libvmi.WithResourceMemory("2048Mi"),
@@ -456,7 +456,7 @@ func GetVMIKernelBoot() *v1.VirtualMachineInstance {
 	const kernelPath = "/boot/vmlinuz-virt"
 	const initrdPath = "/boot/initramfs-virt"
 	return libvmi.New(
-		libvmi.WithName(VmiKernelBoot),
+		libvmi.WithName(VMIKernelBoot),
 		libvmi.WithResourceMemory("1Gi"),
 		libvmi.WithKernelBoot(
 			&v1.KernelBoot{
@@ -523,7 +523,7 @@ func GetVMPriorityClass() *v1.VirtualMachine {
 	return libvmi.NewVirtualMachine(
 		libvmi.New(
 			libvmi.WithName("vm-non-preemtible"),
-			libvmi.WithLabel(kubevirtIoVM, VmCirros),
+			libvmi.WithLabel(kubevirtIoVM, VMCirros),
 			libvmi.WithResourceMemory("128Mi"),
 			libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag)),
 			libvmi.WithCloudInitNoCloud(
@@ -531,30 +531,30 @@ func GetVMPriorityClass() *v1.VirtualMachine {
 			),
 			libvmi.WithPriorityClass(NonPreemtible),
 		),
-		libvmi.WithLabels(map[string]string{kubevirtIoVM: VmCirros}),
+		libvmi.WithLabels(map[string]string{kubevirtIoVM: VMCirros}),
 	)
 }
 
 func GetVMCirros() *v1.VirtualMachine {
 	return libvmi.NewVirtualMachine(
 		libvmi.New(
-			libvmi.WithName(VmCirros),
-			libvmi.WithLabel(kubevirtIoVM, VmCirros),
+			libvmi.WithName(VMCirros),
+			libvmi.WithLabel(kubevirtIoVM, VMCirros),
 			libvmi.WithResourceMemory("128Mi"),
 			libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag)),
 			libvmi.WithCloudInitNoCloud(
 				cloudinit.WithNoCloudUserData("#!/bin/sh\n\necho 'printed from cloud-init userdata'\n"),
 			),
 		),
-		libvmi.WithLabels(map[string]string{kubevirtIoVM: VmCirros}),
+		libvmi.WithLabels(map[string]string{kubevirtIoVM: VMCirros}),
 	)
 }
 
 func GetVMCirrosWithHookSidecarConfigMap() *v1.VirtualMachine {
 	return libvmi.NewVirtualMachine(
 		libvmi.New(
-			libvmi.WithName(VmCirrosWithHookSidecarConfigMap),
-			libvmi.WithLabel(kubevirtIoVM, VmCirrosWithHookSidecarConfigMap),
+			libvmi.WithName(VMCirrosWithHookSidecarConfigMap),
+			libvmi.WithLabel(kubevirtIoVM, VMCirrosWithHookSidecarConfigMap),
 			libvmi.WithResourceMemory("128Mi"),
 			libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag)),
 			libvmi.WithCloudInitNoCloud(
@@ -565,22 +565,22 @@ func GetVMCirrosWithHookSidecarConfigMap() *v1.VirtualMachine {
 				`[{"args": ["--version", "v1alpha2"], "configMap": {"name": "my-config-map","key": "my_script.sh", "hookPath": "/usr/bin/onDefineDomain"}}]`,
 			),
 		),
-		libvmi.WithLabels(map[string]string{kubevirtIoVM: VmCirrosWithHookSidecarConfigMap}),
+		libvmi.WithLabels(map[string]string{kubevirtIoVM: VMCirrosWithHookSidecarConfigMap}),
 	)
 }
 
 func GetVMCirrosSata() *v1.VirtualMachine {
 	vm := libvmi.NewVirtualMachine(
 		libvmi.New(
-			libvmi.WithName(VmCirrosSata),
-			libvmi.WithLabel(kubevirtIoVM, VmCirrosSata),
+			libvmi.WithName(VMCirrosSata),
+			libvmi.WithLabel(kubevirtIoVM, VMCirrosSata),
 			libvmi.WithResourceMemory("128Mi"),
 			libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag)),
 			libvmi.WithCloudInitNoCloud(
 				cloudinit.WithNoCloudUserData("#!/bin/sh\n\necho 'printed from cloud-init userdata'\n"),
 			),
 		),
-		libvmi.WithLabels(map[string]string{kubevirtIoVM: VmCirrosSata}),
+		libvmi.WithLabels(map[string]string{kubevirtIoVM: VMCirrosSata}),
 	)
 	vm.Spec.Template.Spec.Domain.Devices = v1.Devices{}
 	return vm
@@ -589,8 +589,8 @@ func GetVMCirrosSata() *v1.VirtualMachine {
 func GetVMDataVolume() *v1.VirtualMachine {
 	return libvmi.NewVirtualMachine(
 		libvmi.New(
-			libvmi.WithName(VmAlpineDataVolume),
-			libvmi.WithLabel(kubevirtIoVM, VmAlpineDataVolume),
+			libvmi.WithName(VMAlpineDataVolume),
+			libvmi.WithLabel(kubevirtIoVM, VMAlpineDataVolume),
 			libvmi.WithResourceMemory("128Mi"),
 			libvmi.WithDataVolume("datavolumedisk1", "alpine-dv"),
 		),
@@ -605,20 +605,20 @@ func GetVMDataVolume() *v1.VirtualMachine {
 				),
 			),
 		),
-		libvmi.WithLabels(map[string]string{kubevirtIoVM: VmAlpineDataVolume}),
+		libvmi.WithLabels(map[string]string{kubevirtIoVM: VMAlpineDataVolume}),
 	)
 }
 
 func GetVMMultiPvc() *v1.VirtualMachine {
 	return libvmi.NewVirtualMachine(
 		libvmi.New(
-			libvmi.WithName(VmAlpineMultiPvc),
-			libvmi.WithLabel(kubevirtIoVM, VmAlpineMultiPvc),
+			libvmi.WithName(VMAlpineMultiPvc),
+			libvmi.WithLabel(kubevirtIoVM, VMAlpineMultiPvc),
 			libvmi.WithResourceMemory("128Mi"),
 			libvmi.WithPersistentVolumeClaim("pvcdisk1", "disk-alpine"),
 			libvmi.WithPersistentVolumeClaim("pvcdisk2", "disk-custom"),
 		),
-		libvmi.WithLabels(map[string]string{kubevirtIoVM: VmAlpineMultiPvc}),
+		libvmi.WithLabels(map[string]string{kubevirtIoVM: VMAlpineMultiPvc}),
 	)
 }
 
@@ -685,8 +685,8 @@ func getBaseVMIReplicaSet(name string, replicas int, selectorLabels map[string]s
 }
 
 func GetVMPoolCirros() *poolv1.VirtualMachinePool {
-	vmPool := getBaseVMPool(VmPoolCirros, 3, map[string]string{
-		"kubevirt.io/vmpool": VmPoolCirros,
+	vmPool := getBaseVMPool(VMPoolCirros, 3, map[string]string{
+		"kubevirt.io/vmpool": VMPoolCirros,
 	})
 
 	addContainerDisk(&vmPool.Spec.VirtualMachineTemplate.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag), v1.DiskBusVirtio)
@@ -694,8 +694,8 @@ func GetVMPoolCirros() *poolv1.VirtualMachinePool {
 }
 
 func GetVMIReplicaSetCirros() *v1.VirtualMachineInstanceReplicaSet {
-	vmReplicaSet := getBaseVMIReplicaSet(VmiReplicaSetCirros, 3, map[string]string{
-		"kubevirt.io/vmReplicaSet": VmiReplicaSetCirros,
+	vmReplicaSet := getBaseVMIReplicaSet(VMIReplicaSetCirros, 3, map[string]string{
+		"kubevirt.io/vmReplicaSet": VMIReplicaSetCirros,
 	})
 
 	addContainerDisk(&vmReplicaSet.Spec.Template.Spec, fmt.Sprintf(strFmt, DockerPrefix, imageCirros, DockerTag), v1.DiskBusVirtio)
@@ -709,10 +709,10 @@ func GetVMIMigration() *v1.VirtualMachineInstanceMigration {
 			Kind:       "VirtualMachineInstanceMigration",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: VmiMigration,
+			Name: VMIMigration,
 		},
 		Spec: v1.VirtualMachineInstanceMigrationSpec{
-			VMIName: VmiMigratable,
+			VMIName: VMIMigratable,
 		},
 	}
 }
@@ -735,7 +735,7 @@ func GetMigrationPolicy() *v1alpha1.MigrationPolicy {
 
 func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {
 	return libvmi.New(
-		libvmi.WithName(VmiWithHookSidecar),
+		libvmi.WithName(VMIWithHookSidecar),
 		libvmi.WithResourceMemory("1024M"),
 		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
 		libvmi.WithRng(),
@@ -753,9 +753,9 @@ func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {
 	)
 }
 
-func GetVmiWithHookSidecarConfigMap() *v1.VirtualMachineInstance {
+func GetVMIWithHookSidecarConfigMap() *v1.VirtualMachineInstance {
 	return libvmi.New(
-		libvmi.WithName(VmiWithHookSidecarConfigMap),
+		libvmi.WithName(VMIWithHookSidecarConfigMap),
 		libvmi.WithResourceMemory("1024M"),
 		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
 		libvmi.WithRng(),
@@ -772,7 +772,7 @@ func GetVmiWithHookSidecarConfigMap() *v1.VirtualMachineInstance {
 
 func GetVMIGPU() *v1.VirtualMachineInstance {
 	return libvmi.New(
-		libvmi.WithName(VmiGPU),
+		libvmi.WithName(VMIGPU),
 		libvmi.WithResourceMemory("1024M"),
 		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
 		libvmi.WithRng(),
@@ -790,7 +790,7 @@ func GetVMIGPU() *v1.VirtualMachineInstance {
 
 func GetVMIUSB() *v1.VirtualMachineInstance {
 	return libvmi.New(
-		libvmi.WithName(VmiUSB),
+		libvmi.WithName(VMIUSB),
 		libvmi.WithResourceMemory("1024M"),
 		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
 		libvmi.WithRng(),

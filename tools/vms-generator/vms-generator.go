@@ -16,7 +16,7 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
-//nolint:funlen,gofumpt,stylecheck,mnd
+//nolint:funlen,gofumpt,mnd
 package main
 
 import (
@@ -75,47 +75,47 @@ func main() {
 	}
 
 	var vms = map[string]*v1.VirtualMachine{
-		utils.VmCirros:                         utils.GetVMCirros(),
-		utils.VmAlpineMultiPvc:                 utils.GetVMMultiPvc(),
-		utils.VmAlpineDataVolume:               utils.GetVMDataVolume(),
+		utils.VMCirros:                         utils.GetVMCirros(),
+		utils.VMAlpineMultiPvc:                 utils.GetVMMultiPvc(),
+		utils.VMAlpineDataVolume:               utils.GetVMDataVolume(),
 		utils.VMPriorityClass:                  utils.GetVMPriorityClass(),
-		utils.VmCirrosSata:                     utils.GetVMCirrosSata(),
-		utils.VmCirrosWithHookSidecarConfigMap: utils.GetVMCirrosWithHookSidecarConfigMap(),
+		utils.VMCirrosSata:                     utils.GetVMCirrosSata(),
+		utils.VMCirrosWithHookSidecarConfigMap: utils.GetVMCirrosWithHookSidecarConfigMap(),
 	}
 
 	var vmis = map[string]*v1.VirtualMachineInstance{
-		utils.VmiEphemeral:                utils.GetVMIEphemeral(),
-		utils.VmiMigratable:               utils.GetVMIMigratable(),
-		utils.VmiSata:                     utils.GetVMISata(),
-		utils.VmiFedora:                   utils.GetVMIEphemeralFedora(),
-		utils.VmiFedoraIsolated:           utils.GetVMIEphemeralFedoraIsolated(),
-		utils.VmiSecureBoot:               utils.GetVMISecureBoot(),
-		utils.VmiAlpineEFI:                utils.GetVMIAlpineEFI(),
-		utils.VmiNoCloud:                  utils.GetVMINoCloud(),
-		utils.VmiPVC:                      utils.GetVMIPvc(),
-		utils.VmiWindows:                  utils.GetVMIWindows(),
-		utils.VmiSRIOV:                    utils.GetVMISRIOV(),
-		utils.VmiWithHookSidecar:          utils.GetVMIWithHookSidecar(),
-		utils.VmiWithHookSidecarConfigMap: utils.GetVmiWithHookSidecarConfigMap(),
-		utils.VmiMultusPtp:                utils.GetVMIMultusPtp(),
-		utils.VmiMultusMultipleNet:        utils.GetVMIMultusMultipleNet(),
-		utils.VmiMasquerade:               utils.GetVMIMasquerade(),
-		utils.VmiHostDisk:                 utils.GetVMIHostDisk(),
-		utils.VmiGPU:                      utils.GetVMIGPU(),
-		utils.VmiKernelBoot:               utils.GetVMIKernelBoot(),
-		utils.VmiUSB:                      utils.GetVMIUSB(),
+		utils.VMIEphemeral:                utils.GetVMIEphemeral(),
+		utils.VMIMigratable:               utils.GetVMIMigratable(),
+		utils.VMISata:                     utils.GetVMISata(),
+		utils.VMIFedora:                   utils.GetVMIEphemeralFedora(),
+		utils.VMIFedoraIsolated:           utils.GetVMIEphemeralFedoraIsolated(),
+		utils.VMISecureBoot:               utils.GetVMISecureBoot(),
+		utils.VMIAlpineEFI:                utils.GetVMIAlpineEFI(),
+		utils.VMINoCloud:                  utils.GetVMINoCloud(),
+		utils.VMIPVC:                      utils.GetVMIPvc(),
+		utils.VMIWindows:                  utils.GetVMIWindows(),
+		utils.VMISRIOV:                    utils.GetVMISRIOV(),
+		utils.VMIWithHookSidecar:          utils.GetVMIWithHookSidecar(),
+		utils.VMIWithHookSidecarConfigMap: utils.GetVMIWithHookSidecarConfigMap(),
+		utils.VMIMultusPtp:                utils.GetVMIMultusPtp(),
+		utils.VMIMultusMultipleNet:        utils.GetVMIMultusMultipleNet(),
+		utils.VMIMasquerade:               utils.GetVMIMasquerade(),
+		utils.VMIHostDisk:                 utils.GetVMIHostDisk(),
+		utils.VMIGPU:                      utils.GetVMIGPU(),
+		utils.VMIKernelBoot:               utils.GetVMIKernelBoot(),
+		utils.VMIUSB:                      utils.GetVMIUSB(),
 	}
 
 	var vmireplicasets = map[string]*v1.VirtualMachineInstanceReplicaSet{
-		utils.VmiReplicaSetCirros: utils.GetVMIReplicaSetCirros(),
+		utils.VMIReplicaSetCirros: utils.GetVMIReplicaSetCirros(),
 	}
 
 	var vmpools = map[string]*poolv1.VirtualMachinePool{
-		utils.VmPoolCirros: utils.GetVMPoolCirros(),
+		utils.VMPoolCirros: utils.GetVMPoolCirros(),
 	}
 
 	var migrations = map[string]*v1.VirtualMachineInstanceMigration{
-		utils.VmiMigration: utils.GetVMIMigration(),
+		utils.VMIMigration: utils.GetVMIMigration(),
 	}
 
 	var migrationPolicies = map[string]*v1alpha1.MigrationPolicy{
@@ -137,7 +137,7 @@ func main() {
 					"Failed to validate %s spec: failed to admit yaml for %s: %s at %s: %s\n",
 					objType, name, cause.Type, cause.Field, cause.Message)
 			}
-			panic(fmt.Errorf("Failed to admit %s of type %s", name, objType))
+			panic(fmt.Errorf("failed to admit %s of type %s", name, objType))
 		}
 	}
 
@@ -145,7 +145,7 @@ func main() {
 		filename := filepath.Join(*genDir, fmt.Sprintf("%s.yaml", name))
 		file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 		if err != nil {
-			return fmt.Errorf("Failed to open file %v, %v", filename, err)
+			return fmt.Errorf("failed to open file %v, %v", filename, err)
 		}
 		defer file.Close()
 		return util.MarshallObject(obj, file)
