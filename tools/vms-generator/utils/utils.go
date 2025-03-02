@@ -942,17 +942,23 @@ func GetMigrationPolicy() *v1alpha1.MigrationPolicy {
 }
 
 func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiWithHookSidecar)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-
-	initFedora(&vmi.Spec)
-	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
-
-	vmi.ObjectMeta.Annotations = map[string]string{
-		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf("[{\"args\": [\"--version\", \"v1alpha2\"], \"image\": \"%s/example-hook-sidecar:%s\"}]", DockerPrefix, DockerTag),
-		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
-	}
-	return vmi
+	return libvmi.New(
+		libvmi.WithName(VmiWithHookSidecar),
+		libvmi.WithResourceMemory("1024M"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
+		libvmi.WithRng(),
+		libvmi.WithCloudInitNoCloud(
+			cloudinit.WithNoCloudUserData(generateCloudConfigString(cloudConfigUserPassword)),
+		),
+		libvmi.WithAnnotation(
+			"hooks.kubevirt.io/hookSidecars",
+			fmt.Sprintf("[{\"args\": [\"--version\", \"v1alpha2\"], \"image\": \"%s/example-hook-sidecar:%s\"}]", DockerPrefix, DockerTag),
+		),
+		libvmi.WithAnnotation(
+			"smbios.vm.kubevirt.io/baseBoardManufacturer",
+			"Radical Edward",
+		),
+	)
 }
 
 func GetVmiWithHookSidecarConfigMap() *v1.VirtualMachineInstance {
