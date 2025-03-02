@@ -16,7 +16,7 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
-
+//nolint:dupl,lll,mnd,gofumpt,whitespace,unused,stylecheck
 package utils
 
 import (

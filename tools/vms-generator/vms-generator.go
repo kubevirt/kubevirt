@@ -16,7 +16,7 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
-
+//nolint:errcheck,funlen,gofumpt,whitespace,stylecheck,mnd
 package main
 
 import (
