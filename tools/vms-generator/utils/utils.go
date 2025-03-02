@@ -16,7 +16,7 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
-//nolint:dupl,lll,mnd,gofumpt,whitespace,stylecheck
+//nolint:dupl,lll,mnd,gofumpt,stylecheck
 package utils
 
 import (
@@ -685,7 +685,6 @@ func getBaseVMIReplicaSet(name string, replicas int, selectorLabels map[string]s
 }
 
 func GetVMPoolCirros() *poolv1.VirtualMachinePool {
-
 	vmPool := getBaseVMPool(VmPoolCirros, 3, map[string]string{
 		"kubevirt.io/vmpool": VmPoolCirros,
 	})

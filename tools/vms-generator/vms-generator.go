@@ -16,7 +16,7 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
-//nolint:errcheck,funlen,gofumpt,whitespace,stylecheck,mnd
+//nolint:errcheck,funlen,gofumpt,stylecheck,mnd
 package main
 
 import (
@@ -142,7 +142,6 @@ func main() {
 	}
 
 	dumpObject := func(name string, obj interface{}) error {
-
 		filename := filepath.Join(*genDir, fmt.Sprintf("%s.yaml", name))
 		file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 		if err != nil {
