@@ -49,6 +49,7 @@ import (
 	api2 "kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/certificates"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
@@ -73,6 +74,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
+	"kubevirt.io/kubevirt/pkg/virt-handler/notify-server/pipe"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -3691,15 +3693,18 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 			eventReason := "fooReason"
 			eventMessage := "barMessage"
 
-			pipePath := filepath.Join(shareDir, "client_path", "domain-notify-pipe.sock")
 			pipeDir := filepath.Join(shareDir, "client_path")
 			err := os.MkdirAll(pipeDir, 0755)
 			Expect(err).ToNot(HaveOccurred())
 
-			listener, err := net.Listen("unix", pipePath)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			isoRes := isolation.NewMockIsolationResult(gomock.NewController(GinkgoT()))
+			isoRes.EXPECT().MountRoot().DoAndReturn(func() (*safepath.Path, error) { return safepath.NewPathNoFollow(shareDir) })
+			fdChan, err := pipe.InjectNotify(ctx, log.Log, isoRes, "client_path", false)
 			Expect(err).ToNot(HaveOccurred())
 
-			handleDomainNotifyPipe(domainPipeStopChan, listener, shareDir, vmi)
+			handleDomainNotifyPipe(domainPipeStopChan, fdChan, shareDir, vmi)
 			time.Sleep(1)
 
 			client = notifyclient.NewNotifier(pipeDir)
@@ -3728,7 +3733,6 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 			eventReason := "fooReason"
 			eventMessage := "barMessage"
 
-			pipePath := filepath.Join(shareDir, "client_path", "domain-notify-pipe.sock")
 			pipeDir := filepath.Join(shareDir, "client_path")
 			err := os.MkdirAll(pipeDir, 0755)
 			Expect(err).ToNot(HaveOccurred())
@@ -3742,10 +3746,14 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 			Expect(err).To(HaveOccurred())
 
 			// Client should automatically come online when pipe is established
-			listener, err := net.Listen("unix", pipePath)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			isoRes := isolation.NewMockIsolationResult(gomock.NewController(GinkgoT()))
+			isoRes.EXPECT().MountRoot().DoAndReturn(func() (*safepath.Path, error) { return safepath.NewPathNoFollow(shareDir) })
+			fdChan, err := pipe.InjectNotify(ctx, log.Log, isoRes, "client_path", false)
 			Expect(err).ToNot(HaveOccurred())
 
-			handleDomainNotifyPipe(domainPipeStopChan, listener, shareDir, vmi)
+			handleDomainNotifyPipe(domainPipeStopChan, fdChan, shareDir, vmi)
 			time.Sleep(1)
 
 			// Expect the client to reconnect and succeed despite initial failure
@@ -3763,15 +3771,18 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 			eventReason := "fooReason"
 			eventMessage := "barMessage"
 
-			pipePath := filepath.Join(shareDir, "client_path", "domain-notify-pipe.sock")
 			pipeDir := filepath.Join(shareDir, "client_path")
 			err := os.MkdirAll(pipeDir, 0755)
 			Expect(err).ToNot(HaveOccurred())
 
-			listener, err := net.Listen("unix", pipePath)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			isoRes := isolation.NewMockIsolationResult(gomock.NewController(GinkgoT()))
+			isoRes.EXPECT().MountRoot().DoAndReturn(func() (*safepath.Path, error) { return safepath.NewPathNoFollow(shareDir) })
+			fdChan, err := pipe.InjectNotify(ctx, log.Log, isoRes, "client_path", false)
 			Expect(err).ToNot(HaveOccurred())
 
-			handleDomainNotifyPipe(domainPipeStopChan, listener, shareDir, vmi)
+			handleDomainNotifyPipe(domainPipeStopChan, fdChan, shareDir, vmi)
 			time.Sleep(1)
 
 			client = notifyclient.NewNotifier(pipeDir)
