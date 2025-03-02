@@ -16,7 +16,7 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
-//nolint:dupl,lll,mnd
+//nolint:dupl,mnd
 package utils
 
 import (
@@ -175,7 +175,10 @@ func addContainerDisk(spec *v1.VirtualMachineInstanceSpec, image string, bus v1.
 	return spec
 }
 
-func addKernelBootContainer(spec *v1.VirtualMachineInstanceSpec, image, kernelArgs, kernelPath, initrdPath string) *v1.VirtualMachineInstanceSpec {
+func addKernelBootContainer(
+	spec *v1.VirtualMachineInstanceSpec,
+	image, kernelArgs, kernelPath, initrdPath string,
+) *v1.VirtualMachineInstanceSpec {
 	if spec.Domain.Firmware == nil {
 		spec.Domain.Firmware = &v1.Firmware{}
 	}
@@ -567,7 +570,9 @@ func GetVMCirrosWithHookSidecarConfigMap() *v1.VirtualMachine {
 			),
 			libvmi.WithAnnotation(
 				"hooks.kubevirt.io/hookSidecars",
-				`[{"args": ["--version", "v1alpha2"], "configMap": {"name": "my-config-map","key": "my_script.sh", "hookPath": "/usr/bin/onDefineDomain"}}]`,
+				`[{"args": ["--version", "v1alpha2"], `+
+					`"configMap": {"name": "my-config-map",`+
+					`"key": "my_script.sh", "hookPath": "/usr/bin/onDefineDomain"}}]`,
 			),
 		),
 		libvmi.WithLabels(map[string]string{kubevirtIoVM: VMCirrosWithHookSidecarConfigMap}),
@@ -694,7 +699,10 @@ func GetVMPoolCirros() *poolv1.VirtualMachinePool {
 		"kubevirt.io/vmpool": VMPoolCirros,
 	})
 
-	addContainerDisk(&vmPool.Spec.VirtualMachineTemplate.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag), v1.DiskBusVirtio)
+	addContainerDisk(
+		&vmPool.Spec.VirtualMachineTemplate.Spec.Template.Spec,
+		fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag),
+		v1.DiskBusVirtio)
 	return vmPool
 }
 
