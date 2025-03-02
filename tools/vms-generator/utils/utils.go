@@ -979,18 +979,21 @@ func GetVmiWithHookSidecarConfigMap() *v1.VirtualMachineInstance {
 }
 
 func GetVMIGPU() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiGPU)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	GPUs := []v1.GPU{
-		{
-			Name:       "gpu1",
-			DeviceName: "nvidia.com/GP102GL_Tesla_P40",
-		},
-	}
-	vmi.Spec.Domain.Devices.GPUs = GPUs
-	initFedora(&vmi.Spec)
-	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
-	return vmi
+	return libvmi.New(
+		libvmi.WithName(VmiGPU),
+		libvmi.WithResourceMemory("1024M"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
+		libvmi.WithRng(),
+		libvmi.WithCloudInitNoCloud(
+			cloudinit.WithNoCloudUserData(generateCloudConfigString(cloudConfigUserPassword)),
+		),
+		libvmi.WithGPU(
+			v1.GPU{
+				Name:       "gpu1",
+				DeviceName: "nvidia.com/GP102GL_Tesla_P40",
+			},
+		),
+	)
 }
 
 // The minimum memory for UEFI boot on Arm64 is 256Mi
