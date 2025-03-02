@@ -3420,7 +3420,7 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 			fdChan, err := pipe.InjectNotify(ctx, log.Log, isoRes, "client_path", false)
 			Expect(err).ToNot(HaveOccurred())
 
-			handleDomainNotifyPipe(domainPipeStopChan, fdChan, shareDir, vmi)
+			go pipe.Proxy(ctx, log.Log, fdChan, shareDir, pipe.ConnectToNotify(shareDir))
 			time.Sleep(1)
 
 			client = notifyclient.NewNotifier(pipeDir)
@@ -3469,7 +3469,7 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 			fdChan, err := pipe.InjectNotify(ctx, log.Log, isoRes, "client_path", false)
 			Expect(err).ToNot(HaveOccurred())
 
-			handleDomainNotifyPipe(domainPipeStopChan, fdChan, shareDir, vmi)
+			go pipe.Proxy(ctx, log.Log, fdChan, shareDir, pipe.ConnectToNotify(shareDir))
 			time.Sleep(1)
 
 			// Expect the client to reconnect and succeed despite initial failure
@@ -3498,7 +3498,7 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 			fdChan, err := pipe.InjectNotify(ctx, log.Log, isoRes, "client_path", false)
 			Expect(err).ToNot(HaveOccurred())
 
-			handleDomainNotifyPipe(domainPipeStopChan, fdChan, shareDir, vmi)
+			go pipe.Proxy(ctx, log.Log, fdChan, shareDir, pipe.ConnectToNotify(shareDir))
 			time.Sleep(1)
 
 			client = notifyclient.NewNotifier(pipeDir)

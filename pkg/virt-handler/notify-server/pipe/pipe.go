@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
+	"path/filepath"
 	"time"
 
 	"kubevirt.io/client-go/log"
@@ -13,6 +15,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
+
+func ConnectToNotify(virtShareDir string) connectF {
+	return func() (net.Conn, error) {
+		conn, err := net.Dial("unix", filepath.Join(virtShareDir, "domain-notify.sock"))
+		return conn, err
+	}
+}
 
 // InjectNotify injects the domain-notify.sock into the VMI pod and listens for connections
 func InjectNotify(ctx context.Context, logger *log.FilteredLogger, pod isolation.IsolationResult, virtShareDir string, nonRoot bool) (chan net.Conn, error) {
@@ -70,4 +79,52 @@ func InjectNotify(ctx context.Context, logger *log.FilteredLogger, pod isolation
 	}()
 
 	return fdChan, nil
+}
+
+type connectF func() (net.Conn, error)
+
+func Proxy(ctx context.Context, logger *log.FilteredLogger, fdChan chan net.Conn, virtShareDir string, connect connectF) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case fd, open := <-fdChan:
+			if !open {
+				return
+			}
+			go func(logger *log.FilteredLogger) {
+				defer fd.Close()
+
+				// pipe the VMI domain-notify.sock to the virt-handler domain-notify.sock
+				// so virt-handler receives notifications from the VMI
+				conn, err := connect()
+				if err != nil {
+					logger.Reason(err).Error("error connecting to domain-notify.sock for proxy connection")
+					return
+				}
+				defer conn.Close()
+
+				logger.Infof("Accepted new notify pipe connection")
+				copyErr := make(chan error, 2)
+				go func() {
+					_, err := io.Copy(fd, conn)
+					copyErr <- err
+				}()
+				go func() {
+					_, err := io.Copy(conn, fd)
+					copyErr <- err
+				}()
+
+				// wait until one of the copy routines exit then
+				// let the fd close
+				err = <-copyErr
+				if err != nil {
+					logger.Reason(err).Infof("closing notify pipe connection")
+				} else {
+					logger.Infof("gracefully closed notify pipe connection")
+				}
+
+			}(logger)
+		}
+	}
 }
