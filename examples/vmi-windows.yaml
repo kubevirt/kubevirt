@@ -18,11 +18,16 @@ spec:
     cpu:
       cores: 2
     devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: pvcdisk
       interfaces:
       - masquerade: {}
         model: e1000
         name: default
-      tpm: {}
+      tpm:
+        persistent: false
     features:
       acpi: {}
       apic: {}
@@ -31,7 +36,8 @@ spec:
         spinlocks:
           spinlocks: 8191
         vapic: {}
-      smm: {}
+      smm:
+        enabled: true
     firmware:
       bootloader:
         efi:

@@ -592,60 +592,47 @@ func GetVMIHostDisk() *v1.VirtualMachineInstance {
 }
 
 func GetVMIWindows() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiWindows)
-
-	gracePeriod := int64(0)
 	spinlocks := uint32(8191)
 	firmware := types.UID(windowsFirmware)
-	_true := true
-	_false := false
-	vmi.Spec = v1.VirtualMachineInstanceSpec{
-		TerminationGracePeriodSeconds: &gracePeriod,
-		Domain: v1.DomainSpec{
-			CPU: &v1.CPU{Cores: 2},
-			Features: &v1.Features{
-				ACPI: v1.FeatureState{},
-				APIC: &v1.FeatureAPIC{},
-				Hyperv: &v1.FeatureHyperv{
-					Relaxed:   &v1.FeatureState{},
-					VAPIC:     &v1.FeatureState{},
-					Spinlocks: &v1.FeatureSpinlocks{Retries: &spinlocks},
-				},
-				SMM: &v1.FeatureState{},
+	return libvmi.New(
+		libvmi.WithName(VmiWindows),
+		libvmi.WithTerminationGracePeriod(0),
+		libvmi.WithCPUCount(2, 0, 0),
+		libvmi.WithResourceMemory("2048Mi"),
+		libvmi.WithACPI(),
+		libvmi.WithAPIC(),
+		libvmi.WithSMM(),
+		libvmi.WithHyperv(
+			&v1.FeatureHyperv{
+				Relaxed:   &v1.FeatureState{},
+				VAPIC:     &v1.FeatureState{},
+				Spinlocks: &v1.FeatureSpinlocks{Retries: &spinlocks},
 			},
-			Clock: &v1.Clock{
+		),
+		libvmi.WithClock(
+			&v1.Clock{
 				ClockOffset: v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
 				Timer: &v1.Timer{
-					HPET:   &v1.HPETTimer{Enabled: &_false},
+					HPET:   &v1.HPETTimer{Enabled: pointer.P(false)},
 					PIT:    &v1.PITTimer{TickPolicy: v1.PITTickPolicyDelay},
 					RTC:    &v1.RTCTimer{TickPolicy: v1.RTCTickPolicyCatchup},
 					Hyperv: &v1.HypervTimer{},
 				},
 			},
-			Firmware: &v1.Firmware{
-				UUID: firmware,
-				Bootloader: &v1.Bootloader{
-					EFI: &v1.EFI{SecureBoot: &_true},
-				},
+		),
+		libvmi.WithFirmwareUUID(firmware),
+		libvmi.WithSecureBoot(true),
+		libvmi.WithTPM(false),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithInterface(
+			v1.Interface{
+				Name:                   "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}},
+				Model:                  "e1000",
 			},
-			Resources: v1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					k8sv1.ResourceMemory: resource.MustParse("2048Mi"),
-				},
-			},
-			Devices: v1.Devices{
-				Interfaces: []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()},
-				TPM:        &v1.TPMDevice{},
-			},
-		},
-		Networks: []v1.Network{*v1.DefaultPodNetwork()},
-	}
-
-	// pick e1000 network model type for windows machines
-	vmi.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
-
-	addPVCDisk(&vmi.Spec, "disk-windows", v1.DiskBusSATA, "pvcdisk")
-	return vmi
+		),
+		libvmi.WithPersistentVolumeClaim("pvcdisk", "disk-windows"),
+	)
 }
 
 func GetVMIKernelBoot() *v1.VirtualMachineInstance {
