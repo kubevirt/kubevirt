@@ -51,8 +51,7 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 
 	command := []string{"virsh"}
 	if util.IsNonRootVMI(freshVMI) {
-		command = append(command, "-c")
-		command = append(command, "qemu+unix:///session?socket=/var/run/libvirt/virtqemud-sock")
+		command = append(command, "-c", "qemu+unix:///session?socket=/var/run/libvirt/virtqemud-sock")
 	}
 	command = append(command, []string{"dumpxml", vmi.Namespace + "_" + vmi.Name}...)
 
