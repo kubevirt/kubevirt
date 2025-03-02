@@ -996,17 +996,21 @@ func GetVMIGPU() *v1.VirtualMachineInstance {
 }
 
 func GetVMIUSB() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiUSB)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	initFedora(&vmi.Spec)
-	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword, cloudConfigInstallAndStartService))
-
-	vmi.Spec.Domain.Devices.HostDevices = append(vmi.Spec.Domain.Devices.HostDevices,
-		v1.HostDevice{
-			Name:       "node-usb-to-vmi-storage",
-			DeviceName: "kubevirt.io/storage",
-		})
-	return vmi
+	return libvmi.New(
+		libvmi.WithName(VmiUSB),
+		libvmi.WithResourceMemory("1024M"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
+		libvmi.WithRng(),
+		libvmi.WithCloudInitNoCloud(
+			cloudinit.WithNoCloudUserData(generateCloudConfigString(cloudConfigUserPassword, cloudConfigInstallAndStartService)),
+		),
+		libvmi.WithHostDevice(
+			v1.HostDevice{
+				Name:       "node-usb-to-vmi-storage",
+				DeviceName: "kubevirt.io/storage",
+			},
+		),
+	)
 }
 
 func generateCloudConfigString(cloudConfigElement ...string) string {
