@@ -21,7 +21,6 @@ package utils
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -36,8 +35,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -795,43 +794,26 @@ func GetVMCirrosSata() *v1.VirtualMachine {
 }
 
 func GetVMDataVolume() *v1.VirtualMachine {
-	vm := getBaseVM(VmAlpineDataVolume, map[string]string{
-		kubevirtIoVM: VmAlpineDataVolume,
-	})
-
-	quantity, err := resource.ParseQuantity("2Gi")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		panic(err)
-	}
-	storageClassName := "local"
-	url := fmt.Sprintf("docker://%s/%s:%s", DockerPrefix, imageAlpine, DockerTag)
-	dataVolumeSpec := v1.DataVolumeTemplateSpec{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "alpine-dv",
-		},
-		Spec: cdiv1.DataVolumeSpec{
-			Source: &cdiv1.DataVolumeSource{
-				Registry: &cdiv1.DataVolumeSourceRegistry{
-					URL: &url,
-				},
-			},
-			PVC: &k8sv1.PersistentVolumeClaimSpec{
-				AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-				Resources: k8sv1.VolumeResourceRequirements{
-					Requests: k8sv1.ResourceList{
-						"storage": quantity,
-					},
-				},
-				StorageClassName: &storageClassName,
-			},
-		},
-	}
-
-	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, dataVolumeSpec)
-	addDataVolumeDisk(&vm.Spec.Template.Spec, "alpine-dv", v1.DiskBusVirtio, "datavolumedisk1")
-
-	return vm
+	return libvmi.NewVirtualMachine(
+		libvmi.New(
+			libvmi.WithName(VmAlpineDataVolume),
+			libvmi.WithLabel(kubevirtIoVM, VmAlpineDataVolume),
+			libvmi.WithResourceMemory("128Mi"),
+			libvmi.WithDataVolume("datavolumedisk1", "alpine-dv"),
+		),
+		libvmi.WithDataVolumeTemplate(
+			libdv.NewDataVolume(
+				libdv.WithName("alpine-dv"),
+				libdv.WithRegistryURLSource(fmt.Sprintf("docker://%s/%s:%s", DockerPrefix, imageAlpine, DockerTag)),
+				libdv.WithPVC(
+					libdv.PVCWithAccessModes([]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+					libdv.PVCWithStorageResource("2Gi"),
+					libdv.PVCWithStorageClass("local"),
+				),
+			),
+		),
+		libvmi.WithLabels(map[string]string{kubevirtIoVM: VmAlpineDataVolume}),
+	)
 }
 
 func GetVMMultiPvc() *v1.VirtualMachine {

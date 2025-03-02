@@ -232,6 +232,22 @@ func PVCWithStorageClass(sc string) pvcOption {
 	}
 }
 
+func PVCWithStorageResource(size string) pvcOption {
+	return func(pvc *corev1.PersistentVolumeClaimSpec) {
+		pvc.Resources = corev1.VolumeResourceRequirements{
+			Requests: corev1.ResourceList{
+				"storage": resource.MustParse(size),
+			},
+		}
+	}
+}
+
+func PVCWithAccessModes(modes []corev1.PersistentVolumeAccessMode) pvcOption {
+	return func(pvc *corev1.PersistentVolumeClaimSpec) {
+		pvc.AccessModes = modes
+	}
+}
+
 // Storage Options
 // StorageWithStorageClass add the sc storage class name to the DV
 func StorageWithStorageClass(sc string) storageOption {
