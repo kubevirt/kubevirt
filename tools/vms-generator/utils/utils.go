@@ -16,7 +16,7 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
-//nolint:dupl,lll,mnd,gofumpt
+//nolint:dupl,lll,mnd
 package utils
 
 import (
@@ -106,8 +106,11 @@ const (
 	imageFedora     = "fedora-with-test-tooling-container-disk"
 	imageKernelBoot = "alpine-ext-kernel-boot-demo"
 )
-const windowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
-const EthernetAdaptorModelToEnableMultiqueue = v1.VirtIO
+
+const (
+	windowsFirmware                        = "5d307ca9-b3ef-428c-8861-06e72d69f223"
+	EthernetAdaptorModelToEnableMultiqueue = v1.VirtIO
+)
 
 const (
 	cloudConfigHeader = "#cloud-config"
@@ -127,8 +130,10 @@ ethernets:
 `
 )
 
-var DockerPrefix = "registry:5000/kubevirt"
-var DockerTag = "devel"
+var (
+	DockerPrefix = "registry:5000/kubevirt"
+	DockerTag    = "devel"
+)
 
 var gracePeriod = int64(0)
 

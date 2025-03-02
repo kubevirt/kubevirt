@@ -16,7 +16,7 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
-//nolint:funlen,gofumpt,mnd
+//nolint:funlen,mnd
 package main
 
 import (
@@ -69,12 +69,12 @@ func main() {
 		},
 	})
 
-	var priorityClasses = map[string]*schedulingv1.PriorityClass{
+	priorityClasses := map[string]*schedulingv1.PriorityClass{
 		utils.Preemtible:    utils.GetPreemtible(),
 		utils.NonPreemtible: utils.GetNonPreemtible(),
 	}
 
-	var vms = map[string]*v1.VirtualMachine{
+	vms := map[string]*v1.VirtualMachine{
 		utils.VMCirros:                         utils.GetVMCirros(),
 		utils.VMAlpineMultiPvc:                 utils.GetVMMultiPvc(),
 		utils.VMAlpineDataVolume:               utils.GetVMDataVolume(),
@@ -83,7 +83,7 @@ func main() {
 		utils.VMCirrosWithHookSidecarConfigMap: utils.GetVMCirrosWithHookSidecarConfigMap(),
 	}
 
-	var vmis = map[string]*v1.VirtualMachineInstance{
+	vmis := map[string]*v1.VirtualMachineInstance{
 		utils.VMIEphemeral:                utils.GetVMIEphemeral(),
 		utils.VMIMigratable:               utils.GetVMIMigratable(),
 		utils.VMISata:                     utils.GetVMISata(),
@@ -106,19 +106,19 @@ func main() {
 		utils.VMIUSB:                      utils.GetVMIUSB(),
 	}
 
-	var vmireplicasets = map[string]*v1.VirtualMachineInstanceReplicaSet{
+	vmireplicasets := map[string]*v1.VirtualMachineInstanceReplicaSet{
 		utils.VMIReplicaSetCirros: utils.GetVMIReplicaSetCirros(),
 	}
 
-	var vmpools = map[string]*poolv1.VirtualMachinePool{
+	vmpools := map[string]*poolv1.VirtualMachinePool{
 		utils.VMPoolCirros: utils.GetVMPoolCirros(),
 	}
 
-	var migrations = map[string]*v1.VirtualMachineInstanceMigration{
+	migrations := map[string]*v1.VirtualMachineInstanceMigration{
 		utils.VMIMigration: utils.GetVMIMigration(),
 	}
 
-	var migrationPolicies = map[string]*v1alpha1.MigrationPolicy{
+	migrationPolicies := map[string]*v1alpha1.MigrationPolicy{
 		utils.MigrationPolicyName: utils.GetMigrationPolicy(),
 	}
 
@@ -129,7 +129,7 @@ func main() {
 		}
 	}
 
-	handleCauses := func(causes []metav1.StatusCause, name string, objType string) {
+	handleCauses := func(causes []metav1.StatusCause, name, objType string) {
 		if len(causes) > 0 {
 			for _, cause := range causes {
 				fmt.Fprintf(
@@ -143,7 +143,7 @@ func main() {
 
 	dumpObject := func(name string, obj interface{}) error {
 		filename := filepath.Join(*genDir, fmt.Sprintf("%s.yaml", name))
-		file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+		file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o644)
 		if err != nil {
 			return fmt.Errorf("failed to open file %v, %v", filename, err)
 		}
@@ -172,7 +172,6 @@ func main() {
 
 	for name, obj := range vmpools {
 		ar := &admissionv1.AdmissionReview{
-
 			Request: &admissionv1.AdmissionRequest{
 				UserInfo: authenticationv1.UserInfo{
 					Username: "user-account",
