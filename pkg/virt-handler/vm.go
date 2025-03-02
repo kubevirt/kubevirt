@@ -89,6 +89,7 @@ import (
 	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	"kubevirt.io/kubevirt/pkg/virt-handler/notify-server/pipe"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
@@ -343,36 +344,7 @@ func formatIrrecoverableErrorMessage(domain *api.Domain) string {
 	return msg
 }
 
-func handleDomainNotifyPipe(domainPipeStopChan chan struct{}, ln net.Listener, virtShareDir string, vmi *v1.VirtualMachineInstance) {
-
-	fdChan := make(chan net.Conn, 100)
-
-	// Close listener and exit when stop encountered
-	go func() {
-		<-domainPipeStopChan
-		log.Log.Object(vmi).Infof("closing notify pipe listener for vmi")
-		if err := ln.Close(); err != nil {
-			log.Log.Object(vmi).Infof("failed closing notify pipe listener for vmi: %v", err)
-		}
-	}()
-
-	// Listen for new connections,
-	go func(vmi *v1.VirtualMachineInstance, ln net.Listener, domainPipeStopChan chan struct{}) {
-		for {
-			fd, err := ln.Accept()
-			if err != nil {
-				if goerror.Is(err, net.ErrClosed) {
-					// As Accept blocks, closing it is our mechanism to exit this loop
-					return
-				}
-				log.Log.Reason(err).Error("Domain pipe accept error encountered.")
-				// keep listening until stop invoked
-				time.Sleep(1 * time.Second)
-			} else {
-				fdChan <- fd
-			}
-		}
-	}(vmi, ln, domainPipeStopChan)
+func handleDomainNotifyPipe(domainPipeStopChan chan struct{}, fdChan chan net.Conn, virtShareDir string, vmi *v1.VirtualMachineInstance) {
 
 	// Process new connections
 	// exit when stop encountered
@@ -427,35 +399,18 @@ func (c *VirtualMachineController) startDomainNotifyPipe(domainPipeStopChan chan
 		return fmt.Errorf("failed to detect isolation for launcher pod when setting up notify pipe: %v", err)
 	}
 
-	// inject the domain-notify.sock into the VMI pod.
-	root, err := res.MountRoot()
-	if err != nil {
-		return err
-	}
-	socketDir, err := root.AppendAndResolveWithRelativeRoot(c.virtShareDir)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		<-domainPipeStopChan
+		cancel()
+	}()
+
+	fdChan, err := pipe.InjectNotify(ctx, log.Log.Object(vmi), res, c.virtShareDir, util.IsNonRootVMI(vmi))
 	if err != nil {
 		return err
 	}
 
-	listener, err := safepath.ListenUnixNoFollow(socketDir, "domain-notify-pipe.sock")
-	if err != nil {
-		log.Log.Reason(err).Error("failed to create unix socket for proxy service")
-		return err
-	}
-	socketPath, err := safepath.JoinNoFollow(socketDir, "domain-notify-pipe.sock")
-	if err != nil {
-		return err
-	}
-
-	if util.IsNonRootVMI(vmi) {
-		err := diskutils.DefaultOwnershipManager.SetFileOwnership(socketPath)
-		if err != nil {
-			log.Log.Reason(err).Error("unable to change ownership for domain notify")
-			return err
-		}
-	}
-
-	handleDomainNotifyPipe(domainPipeStopChan, listener, c.virtShareDir, vmi)
+	handleDomainNotifyPipe(domainPipeStopChan, fdChan, c.virtShareDir, vmi)
 
 	return nil
 }
