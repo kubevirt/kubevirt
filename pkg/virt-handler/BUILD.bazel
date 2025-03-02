@@ -77,6 +77,7 @@ go_test(
     timeout = "long",
     srcs = [
         "migration_test.go",
+        "notify_test.go",
         "options_test.go",
         "realtime_test.go",
         "retry_manager_test.go",
