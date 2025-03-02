@@ -16,7 +16,7 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
-//nolint:funlen,mnd
+//nolint:funlen
 package main
 
 import (
@@ -143,7 +143,8 @@ func main() {
 
 	dumpObject := func(name string, obj interface{}) error {
 		filename := filepath.Join(*genDir, fmt.Sprintf("%s.yaml", name))
-		file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o644)
+		const permMode = 0o644
+		file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_TRUNC, permMode)
 		if err != nil {
 			return fmt.Errorf("failed to open file %v, %v", filename, err)
 		}

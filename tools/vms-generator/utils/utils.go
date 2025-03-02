@@ -16,7 +16,7 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
-//nolint:dupl,mnd
+//nolint:dupl
 package utils
 
 import (
@@ -416,12 +416,17 @@ func GetVMIHostDisk() *v1.VirtualMachineInstance {
 }
 
 func GetVMIWindows() *v1.VirtualMachineInstance {
-	spinlocks := uint32(8191)
+	const (
+		spinlocks = 8191
+		cores     = 2
+		sockets   = 0
+		threads   = 0
+	)
 	firmware := types.UID(windowsFirmware)
 	return libvmi.New(
 		libvmi.WithName(VMIWindows),
 		libvmi.WithTerminationGracePeriod(0),
-		libvmi.WithCPUCount(2, 0, 0),
+		libvmi.WithCPUCount(cores, sockets, threads),
 		libvmi.WithResourceMemory("2048Mi"),
 		libvmi.WithACPI(),
 		libvmi.WithAPIC(),
@@ -430,7 +435,7 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 			&v1.FeatureHyperv{
 				Relaxed:   &v1.FeatureState{},
 				VAPIC:     &v1.FeatureState{},
-				Spinlocks: &v1.FeatureSpinlocks{Retries: &spinlocks},
+				Spinlocks: &v1.FeatureSpinlocks{Retries: pointer.P(uint32(spinlocks))},
 			},
 		),
 		libvmi.WithClock(
@@ -480,9 +485,9 @@ func GetVMIKernelBoot() *v1.VirtualMachineInstance {
 }
 
 func GetVMIKernelBootWithRandName() *v1.VirtualMachineInstance {
+	const suffixLen = 5
 	vmi := GetVMIKernelBoot()
-	vmi.Name += "-" + rand.String(5)
-
+	vmi.Name += "-" + rand.String(suffixLen)
 	return vmi
 }
 
@@ -695,7 +700,8 @@ func getBaseVMIReplicaSet(name string, replicas int, selectorLabels map[string]s
 }
 
 func GetVMPoolCirros() *poolv1.VirtualMachinePool {
-	vmPool := getBaseVMPool(VMPoolCirros, 3, map[string]string{
+	const replicas = 3
+	vmPool := getBaseVMPool(VMPoolCirros, replicas, map[string]string{
 		"kubevirt.io/vmpool": VMPoolCirros,
 	})
 
@@ -707,7 +713,8 @@ func GetVMPoolCirros() *poolv1.VirtualMachinePool {
 }
 
 func GetVMIReplicaSetCirros() *v1.VirtualMachineInstanceReplicaSet {
-	vmReplicaSet := getBaseVMIReplicaSet(VMIReplicaSetCirros, 3, map[string]string{
+	const replicas = 3
+	vmReplicaSet := getBaseVMIReplicaSet(VMIReplicaSetCirros, replicas, map[string]string{
 		"kubevirt.io/vmReplicaSet": VMIReplicaSetCirros,
 	})
 
@@ -731,11 +738,12 @@ func GetVMIMigration() *v1.VirtualMachineInstanceMigration {
 }
 
 func GetMigrationPolicy() *v1alpha1.MigrationPolicy {
+	const timeoutPerGiB = 123456789
 	policy := kubecli.NewMinimalMigrationPolicy(MigrationPolicyName)
 	policy.Spec = v1alpha1.MigrationPolicySpec{
 		AllowAutoConverge:       pointer.P(false),
 		BandwidthPerMigration:   pointer.P(resource.MustParse("2000Mi")),
-		CompletionTimeoutPerGiB: pointer.P(int64(123456789)),
+		CompletionTimeoutPerGiB: pointer.P(int64(timeoutPerGiB)),
 		AllowPostCopy:           pointer.P(false),
 		Selectors: &v1alpha1.Selectors{
 			NamespaceSelector:              map[string]string{"namespace-key": "namespace-value"},
