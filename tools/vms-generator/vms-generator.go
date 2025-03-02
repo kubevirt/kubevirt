@@ -36,7 +36,6 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -70,38 +69,18 @@ func main() {
 		},
 	})
 
-	var virtualMachineInstancetypes = map[string]*instancetypev1beta1.VirtualMachineInstancetype{
-		utils.VirtualMachineInstancetypeComputeSmall: utils.GetVirtualMachineInstancetypeComputeSmall(),
-		utils.VirtualMachineInstancetypeComputeLarge: utils.GetVirtualMachineInstancetypeComputeLarge(),
-	}
-
-	var virtualMachineClusterInstancetypes = map[string]*instancetypev1beta1.VirtualMachineClusterInstancetype{
-		utils.VirtualMachineClusterInstancetypeComputeSmall: utils.GetVirtualMachineClusterInstancetypeComputeSmall(),
-	}
-
-	var vmps = map[string]*instancetypev1beta1.VirtualMachinePreference{
-		utils.VirtualMachinePreferenceVirtio:  utils.GetVirtualMachinePreferenceVirtio(),
-		utils.VirtualMachinePreferenceWindows: utils.GetVirtualMachinePreferenceWindows(),
-	}
-
 	var priorityClasses = map[string]*schedulingv1.PriorityClass{
 		utils.Preemtible:    utils.GetPreemtible(),
 		utils.NonPreemtible: utils.GetNonPreemtible(),
 	}
 
 	var vms = map[string]*v1.VirtualMachine{
-		utils.VmCirros:                                            utils.GetVMCirros(),
-		utils.VmAlpineMultiPvc:                                    utils.GetVMMultiPvc(),
-		utils.VmAlpineDataVolume:                                  utils.GetVMDataVolume(),
-		utils.VMPriorityClass:                                     utils.GetVMPriorityClass(),
-		utils.VmCirrosSata:                                        utils.GetVMCirrosSata(),
-		utils.VmCirrosWithHookSidecarConfigMap:                    utils.GetVMCirrosWithHookSidecarConfigMap(),
-		utils.VmCirrosInstancetypeComputeSmall:                    utils.GetVmCirrosInstancetypeComputeSmall(),
-		utils.VmCirrosClusterInstancetypeComputeSmall:             utils.GetVmCirrosClusterInstancetypeComputeSmall(),
-		utils.VmCirrosInstancetypeComputeLarge:                    utils.GetVmCirrosInstancetypeComputeLarge(),
-		utils.VmCirrosInstancetypeComputeLargePreferncesVirtio:    utils.GetVmCirrosInstancetypeComputeLargePreferencesVirtio(),
-		utils.VmWindowsInstancetypeComputeLargePreferencesWindows: utils.GetVmWindowsInstancetypeComputeLargePreferencesWindows(),
-		utils.VmCirrosInstancetypeComputeLargePreferencesWindows:  utils.GetVmCirrosInstancetypeComputeLargePreferencesWindows(),
+		utils.VmCirros:                         utils.GetVMCirros(),
+		utils.VmAlpineMultiPvc:                 utils.GetVMMultiPvc(),
+		utils.VmAlpineDataVolume:               utils.GetVMDataVolume(),
+		utils.VMPriorityClass:                  utils.GetVMPriorityClass(),
+		utils.VmCirrosSata:                     utils.GetVMCirrosSata(),
+		utils.VmCirrosWithHookSidecarConfigMap: utils.GetVMCirrosWithHookSidecarConfigMap(),
 	}
 
 	var vmis = map[string]*v1.VirtualMachineInstance{
@@ -186,18 +165,6 @@ func main() {
 	for name, obj := range vmis {
 		causes := validating_webhook.ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &obj.Spec, config)
 		handleCauses(causes, name, "vmi")
-		handleError(dumpObject(name, *obj))
-	}
-
-	for name, obj := range virtualMachineInstancetypes {
-		handleError(dumpObject(name, *obj))
-	}
-
-	for name, obj := range virtualMachineClusterInstancetypes {
-		handleError(dumpObject(name, *obj))
-	}
-
-	for name, obj := range vmps {
 		handleError(dumpObject(name, *obj))
 	}
 
