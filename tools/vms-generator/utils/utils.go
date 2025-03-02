@@ -962,20 +962,20 @@ func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {
 }
 
 func GetVmiWithHookSidecarConfigMap() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiWithHookSidecarConfigMap)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-
-	initFedora(&vmi.Spec)
-	addNoCloudDiskWitUserData(&vmi.Spec, generateCloudConfigString(cloudConfigUserPassword))
-
-	annotation := `[{"args": ["--version", "v1alpha2"], "configMap": {"name": "my-config-map",` +
-		`"key": "my_script.sh", "hookPath": "/usr/bin/onDefineDomain"}}]`
-
-	vmi.ObjectMeta.Annotations = map[string]string{
-		"hooks.kubevirt.io/hookSidecars": annotation,
-	}
-	// TODO: also add the ConfigMap in generated example. Refer https://github.com/kubevirt/kubevirt/pull/10479#discussion_r1362021721
-	return vmi
+	return libvmi.New(
+		libvmi.WithName(VmiWithHookSidecarConfigMap),
+		libvmi.WithResourceMemory("1024M"),
+		libvmi.WithContainerDisk("containerdisk", fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag)),
+		libvmi.WithRng(),
+		libvmi.WithCloudInitNoCloud(
+			cloudinit.WithNoCloudUserData(generateCloudConfigString(cloudConfigUserPassword)),
+		),
+		libvmi.WithAnnotation(
+			"hooks.kubevirt.io/hookSidecars",
+			`[{"args": ["--version", "v1alpha2"], "configMap": {"name": "my-config-map",`+
+				`"key": "my_script.sh", "hookPath": "/usr/bin/onDefineDomain"}}]`,
+		),
+	)
 }
 
 func GetVMIGPU() *v1.VirtualMachineInstance {
