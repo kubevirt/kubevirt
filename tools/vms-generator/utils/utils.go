@@ -42,12 +42,8 @@ import (
 )
 
 const (
-	strFmt                     = "%s/%s:%s"
-	kubevirtIoVM               = "kubevirt.io/vm"
-	vmName                     = "vm-${NAME}"
-	kubevirtVM                 = "kubevirt-vm"
-	githubKubevirtIsVMTemplate = "miq.github.io/kubevirt-is-vm-template"
-	rhel74                     = "rhel-7.4"
+	strFmt       = "%s/%s:%s"
+	kubevirtIoVM = "kubevirt.io/vm"
 )
 
 const (
@@ -71,9 +67,6 @@ const (
 	VMIHostDisk                 = "vmi-host-disk"
 	VMIGPU                      = "vmi-gpu"
 	VMIUSB                      = "vmi-usb"
-	VMTemplateFedora            = "vm-template-fedora"
-	VMTemplateRHEL7             = "vm-template-rhel7"
-	VMTemplateWindows           = "vm-template-windows2012r2"
 )
 
 const (
@@ -94,8 +87,6 @@ const VMIReplicaSetCirros = "vmi-replicaset-cirros"
 
 const VMPoolCirros = "vm-pool-cirros"
 
-const VMIPresetSmall = "vmi-preset-small"
-
 const VMIMigration = "migration-job"
 
 const MigrationPolicyName = "example-migration-policy"
@@ -108,8 +99,7 @@ const (
 )
 
 const (
-	windowsFirmware                        = "5d307ca9-b3ef-428c-8861-06e72d69f223"
-	EthernetAdaptorModelToEnableMultiqueue = v1.VirtIO
+	windowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
 )
 
 const (
@@ -135,11 +125,9 @@ var (
 	DockerTag    = "devel"
 )
 
-var gracePeriod = int64(0)
-
 func getBaseVMISpec() *v1.VirtualMachineInstanceSpec {
 	return &v1.VirtualMachineInstanceSpec{
-		TerminationGracePeriodSeconds: &gracePeriod,
+		TerminationGracePeriodSeconds: pointer.P(int64(0)),
 		Domain: v1.DomainSpec{
 			Resources: v1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
