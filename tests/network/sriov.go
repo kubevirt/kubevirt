@@ -256,10 +256,10 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 				vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent, vmispec.InfoSourceMultusStatus)))
 		})
 
-		Context("migration", func() {
+		Context("migration", decorators.RequiresTwoSchedulableNodes, func() {
 			BeforeEach(func() {
 				if err := validateSRIOVSetup(virtClient, sriovResourceName, 2); err != nil {
-					Skip("Migration tests require at least 2 nodes: " + err.Error())
+					Fail("Migration tests require at least 2 nodes: " + err.Error())
 				}
 			})
 
