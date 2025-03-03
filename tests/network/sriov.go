@@ -89,7 +89,7 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 
 		// Check if the hardware supports SRIOV
 		if err := validateSRIOVSetup(virtClient, sriovResourceName, 1); err != nil {
-			Skip("Sriov is not enabled in this environment. Skip these tests using - export FUNC_TEST_ARGS='--skip=SRIOV'")
+			Fail(fmt.Sprintf("Sriov is not enabled in this environment: %v. Skip these tests using - export FUNC_TEST_ARGS='--skip=SRIOV'", err))
 		}
 	})
 
