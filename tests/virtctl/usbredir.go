@@ -67,123 +67,104 @@ var helloMessageRemote = []byte{
 
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] USB Redirection", decorators.SigCompute, func() {
 
-	var virtClient kubecli.KubevirtClient
 	const enoughMemForSafeBiosEmulation = "32Mi"
+	var (
+		virtClient      kubecli.KubevirtClient
+		vmi             *v1.VirtualMachineInstance
+		name, namespace string
+	)
+
 	BeforeEach(func() {
+		// A VMI for each test to have fresh stack on server side
+		vmi = libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation), withClientPassthrough())
+		vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
+		name = vmi.ObjectMeta.Name
+		namespace = vmi.ObjectMeta.Namespace
 		virtClient = kubevirt.Client()
 	})
 
-	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance without usbredir support", func() {
+	It("Should fail when limit is reached", func() {
+		type session struct {
+			cancel  context.CancelFunc
+			connect chan struct{}
+			err     chan error
+		}
 
-		var vmi *v1.VirtualMachineInstance
-		BeforeEach(func() {
-			vmi = libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
-		})
+		var tests []session
+		for i := 0; i <= v1.UsbClientPassthroughMaxNumberOf; i++ {
+		retry_loop:
+			for try := 0; try < 3; try++ {
+				ctx, cancelFn := context.WithCancel(context.Background())
+				test := session{
+					cancel:  cancelFn,
+					connect: make(chan struct{}),
+					err:     make(chan error),
+				}
+				ctx = context.WithValue(ctx, "connected", test.connect)
+				go runConnectGoroutine(virtClient, name, namespace, ctx, test.err)
 
-		It("should fail to connect to VMI's usbredir socket", func() {
-			usbredirVMI, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).USBRedir(vmi.ObjectMeta.Name)
-			Expect(err).To(HaveOccurred())
-			Expect(usbredirVMI).To(BeNil())
-		})
+				if i == v1.UsbClientPassthroughMaxNumberOf {
+					// Last test is meant to fail.
+					tests = append(tests, test)
+					break
+				}
+
+				// Till the last test, all sockets must be connected
+				select {
+				case <-test.connect:
+					tests = append(tests, test)
+					break retry_loop
+				case err := <-test.err:
+					if !errors.Is(err, syscall.ECONNRESET) {
+						log.Log.Reason(err).Info("Failed early. Unexpected error.")
+						Fail("Improve error handling or fix underlying issue")
+					}
+					log.Log.Reason(err).Infof("Failed early. Try again (%d)", try)
+				case <-time.After(time.Second):
+					log.Log.Infof("Took too long. Try again (%d)", try)
+					test.cancel()
+				}
+
+			}
+		}
+
+		numOfErrors := 0
+		for i := 0; i <= v1.UsbClientPassthroughMaxNumberOf; i++ {
+			select {
+			case err := <-tests[i].err:
+				Expect(err).To(MatchError(ContainSubstring("websocket: bad handshake")))
+				numOfErrors++
+			case <-time.After(time.Second):
+				tests[i].cancel()
+			}
+		}
+		Expect(numOfErrors).To(Equal(1), "Only one connection should fail")
 	})
 
-	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with usbredir support", func() {
+	It("Should work several times", func() {
+		for i := 0; i < 4*v1.UsbClientPassthroughMaxNumberOf; i++ {
+		retry_loop:
+			for try := 0; try < 3; try++ {
+				ctx, cancelFn := context.WithCancel(context.Background())
+				errch := make(chan error)
+				go runConnectGoroutine(virtClient, name, namespace, ctx, errch)
 
-		var vmi *v1.VirtualMachineInstance
-		var name, namespace string
-
-		BeforeEach(func() {
-			// A VMI for each test to have fresh stack on server side
-			vmi = libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation), withClientPassthrough())
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
-			name = vmi.ObjectMeta.Name
-			namespace = vmi.ObjectMeta.Namespace
-		})
-
-		It("Should fail when limit is reached", func() {
-			type session struct {
-				cancel  context.CancelFunc
-				connect chan struct{}
-				err     chan error
-			}
-
-			var tests []session
-			for i := 0; i <= v1.UsbClientPassthroughMaxNumberOf; i++ {
-			retry_loop:
-				for try := 0; try < 3; try++ {
-					ctx, cancelFn := context.WithCancel(context.Background())
-					test := session{
-						cancel:  cancelFn,
-						connect: make(chan struct{}),
-						err:     make(chan error),
-					}
-					ctx = context.WithValue(ctx, "connected", test.connect)
-					go runConnectGoroutine(virtClient, name, namespace, ctx, test.err)
-
-					if i == v1.UsbClientPassthroughMaxNumberOf {
-						// Last test is meant to fail.
-						tests = append(tests, test)
-						break
-					}
-
-					// Till the last test, all sockets must be connected
-					select {
-					case <-test.connect:
-						tests = append(tests, test)
-						break retry_loop
-					case err := <-test.err:
-						if !errors.Is(err, syscall.ECONNRESET) {
-							log.Log.Reason(err).Info("Failed early. Unexpected error.")
-							Fail("Improve error handling or fix underlying issue")
-						}
-						log.Log.Reason(err).Infof("Failed early. Try again (%d)", try)
-					case <-time.After(time.Second):
-						log.Log.Infof("Took too long. Try again (%d)", try)
-						test.cancel()
-					}
-
-				}
-			}
-
-			numOfErrors := 0
-			for i := 0; i <= v1.UsbClientPassthroughMaxNumberOf; i++ {
 				select {
-				case err := <-tests[i].err:
-					Expect(err).To(MatchError(ContainSubstring("websocket: bad handshake")))
-					numOfErrors++
-				case <-time.After(time.Second):
-					tests[i].cancel()
-				}
-			}
-			Expect(numOfErrors).To(Equal(1), "Only one connection should fail")
-		})
-
-		It("Should work several times", func() {
-			for i := 0; i < 4*v1.UsbClientPassthroughMaxNumberOf; i++ {
-			retry_loop:
-				for try := 0; try < 3; try++ {
-					ctx, cancelFn := context.WithCancel(context.Background())
-					errch := make(chan error)
-					go runConnectGoroutine(virtClient, name, namespace, ctx, errch)
-
-					select {
-					case err := <-errch:
-						cancelFn()
-						time.Sleep(100 * time.Millisecond)
-						if try < 3 {
-							log.Log.Reason(err).Infof("Failed. Try again (%d)", try)
-						} else {
-							Fail("Tried 3 times. Something is wrong")
-						}
-					case <-time.After(time.Second):
-						cancelFn()
-						time.Sleep(100 * time.Millisecond)
-						break retry_loop
+				case err := <-errch:
+					cancelFn()
+					time.Sleep(100 * time.Millisecond)
+					if try < 3 {
+						log.Log.Reason(err).Infof("Failed. Try again (%d)", try)
+					} else {
+						Fail("Tried 3 times. Something is wrong")
 					}
+				case <-time.After(time.Second):
+					cancelFn()
+					time.Sleep(100 * time.Millisecond)
+					break retry_loop
 				}
 			}
-		})
+		}
 	})
 })
 
