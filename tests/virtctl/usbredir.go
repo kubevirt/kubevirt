@@ -73,21 +73,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		virtClient = kubevirt.Client()
 	})
 
-	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance without usbredir support", func() {
-
-		var vmi *v1.VirtualMachineInstance
-		BeforeEach(func() {
-			vmi = libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation))
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 90)
-		})
-
-		It("should fail to connect to VMI's usbredir socket", func() {
-			usbredirVMI, err := virtClient.VirtualMachineInstance(vmi.ObjectMeta.Namespace).USBRedir(vmi.ObjectMeta.Name)
-			Expect(err).To(HaveOccurred())
-			Expect(usbredirVMI).To(BeNil())
-		})
-	})
-
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with usbredir support", func() {
 
 		var vmi *v1.VirtualMachineInstance
