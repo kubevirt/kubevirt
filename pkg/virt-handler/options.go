@@ -82,27 +82,38 @@ func capabilitiesToTopology(capabilities *libvirtxml.Caps) *cmdv1.Topology {
 }
 
 func cellToCell(cell libvirtxml.CapsHostNUMACell) *cmdv1.Cell {
-	c := &cmdv1.Cell{
-		Id: uint32(cell.ID),
-		Memory: &cmdv1.Memory{
-			Amount: cell.Memory.Size,
-			Unit:   cell.Memory.Unit,
-		},
-	}
+    if cell.Memory == nil {
+        return nil
+    }
 
-	for _, page := range cell.PageInfo {
-		c.Pages = append(c.Pages, pageToPage(page))
-	}
+    c := &cmdv1.Cell{
+        Id: uint32(cell.ID),
+        Memory: &cmdv1.Memory{
+            Amount: cell.Memory.Size,
+            Unit:   cell.Memory.Unit,
+        },
+    }
 
-	for _, distance := range cell.Distances.Siblings {
-		c.Distances = append(c.Distances, distanceToDistance(distance))
-	}
+    if cell.PageInfo != nil {
+        for _, page := range cell.PageInfo {
+            c.Pages = append(c.Pages, pageToPage(page))
+        }
+    }
 
-	for _, cpu := range cell.CPUS.CPUs {
-		c.Cpus = append(c.Cpus, cpuToCPU(cpu))
-	}
+    if cell.Distances != nil && cell.Distances.Siblings != nil {
+        for _, distance := range cell.Distances.Siblings {
+            c.Distances = append(c.Distances, distanceToDistance(distance))
+        }
+    }
 
-	return c
+    // Check if CPUS and CPUs are nil
+    if cell.CPUS != nil && cell.CPUS.CPUs != nil {
+        for _, cpu := range cell.CPUS.CPUs {
+            c.Cpus = append(c.Cpus, cpuToCPU(cpu))
+        }
+    }
+
+    return c
 }
 
 func pageToPage(pages libvirtxml.CapsHostNUMAPageInfo) *cmdv1.Pages {
