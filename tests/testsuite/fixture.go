@@ -163,31 +163,35 @@ func BeforeTestSuiteSetup(_ []byte) {
 }
 
 func EnsureKubevirtReady() {
-	EnsureKubevirtReadyWithTimeout(defaultKubevirtReadyTimeout)
+	EnsureDefaultKubevirtReadyWithTimeout(defaultKubevirtReadyTimeout)
 }
 
-func EnsureKubevirtReadyWithTimeout(timeout time.Duration) {
+func EnsureDefaultKubevirtReadyWithTimeout(timeout time.Duration) {
+	kv := libkubevirt.GetCurrentKv(kubevirt.Client())
+	EnsureKubevirtReadyWithTimeout(kv, timeout)
+}
+
+func EnsureKubevirtReadyWithTimeout(kv *v1.KubeVirt, timeout time.Duration) {
 	virtClient := kubevirt.Client()
-	kv := libkubevirt.GetCurrentKv(virtClient)
 
 	Eventually(matcher.ThisDeploymentWith(flags.KubeVirtInstallNamespace, "virt-operator"), 180*time.Second, 1*time.Second).
 		Should(matcher.HaveReadyReplicasNumerically(">", 0),
 			"virt-operator deployment is not ready")
 
-	Eventually(func() *v1.KubeVirt {
-		kv, err := virtClient.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		return kv
+	Eventually(func(g Gomega) *v1.KubeVirt {
+		foundKV, err := virtClient.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
+		g.Expect(err).ToNot(HaveOccurred())
+		return foundKV
 	}, timeout, 1*time.Second).Should(
 		SatisfyAll(
 			matcher.HaveConditionTrue(v1.KubeVirtConditionAvailable),
 			matcher.HaveConditionFalse(v1.KubeVirtConditionProgressing),
 			matcher.HaveConditionFalse(v1.KubeVirtConditionDegraded),
-			WithTransform(func(kv *v1.KubeVirt) bool {
+			matcher.HaveConditionTrue(v1.KubeVirtConditionCreated),
+			Satisfy(func(kv *v1.KubeVirt) bool {
 				return kv.ObjectMeta.Generation == *kv.Status.ObservedGeneration
-			}, BeTrue()),
+			}),
 		), "One of the Kubevirt control-plane components is not ready.")
-
 }
 
 func shouldAllowEmulation(virtClient kubecli.KubevirtClient) bool {
