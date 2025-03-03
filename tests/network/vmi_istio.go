@@ -156,7 +156,7 @@ var istioTests = func(vmType VmType) {
 			By("Waiting for VMI to be ready")
 			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 		})
-		Describe("Live Migration", decorators.RequiresTwoSchedulableNodes, decorators.SigComputeMigrations, func() {
+		Describe("Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
 			var sourcePodName string
 			allContainersCompleted := func(podName string) error {
 				pod, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.TODO(), podName, metav1.GetOptions{})
