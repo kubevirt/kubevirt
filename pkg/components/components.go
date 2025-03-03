@@ -6,8 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	"k8s.io/utils/ptr"
-
 	"github.com/blang/semver/v4"
 	csvVersion "github.com/operator-framework/api/pkg/lib/version"
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -23,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 	crdgen "sigs.k8s.io/controller-tools/pkg/crd"
 	crdmarkers "sigs.k8s.io/controller-tools/pkg/crd/markers"
 	"sigs.k8s.io/controller-tools/pkg/loader"
@@ -161,7 +160,7 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 	envs := buildEnvVars(params)
 
 	return appsv1.DeploymentSpec{
-		Replicas: int32Ptr(1),
+		Replicas: ptr.To[int32](1),
 		Selector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{
 				"name": hcoName,
@@ -310,7 +309,7 @@ func buildEnvVars(params *DeploymentOperatorParams) []corev1.EnvVar {
 
 func GetDeploymentSpecCliDownloads(params *DeploymentOperatorParams) appsv1.DeploymentSpec {
 	return appsv1.DeploymentSpec{
-		Replicas: int32Ptr(1),
+		Replicas: ptr.To[int32](1),
 		Selector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{
 				"name": cliDownloadsName,
@@ -324,7 +323,9 @@ func GetDeploymentSpecCliDownloads(params *DeploymentOperatorParams) appsv1.Depl
 				Labels: getLabels(cliDownloadsName, params.HcoKvIoVersion),
 			},
 			Spec: corev1.PodSpec{
-				SecurityContext: GetStdPodSecurityContext(),
+				ServiceAccountName:           cliDownloadsName,
+				AutomountServiceAccountToken: ptr.To(false),
+				SecurityContext:              GetStdPodSecurityContext(),
 				Containers: []corev1.Container{
 					{
 						Name:            "server",
@@ -394,7 +395,7 @@ func GetStdContainerSecurityContext() *v1.SecurityContext {
 // webhook one.
 func GetDeploymentSpecWebhook(namespace, image, imagePullPolicy, hcoKvIoVersion string, env []corev1.EnvVar) appsv1.DeploymentSpec {
 	return appsv1.DeploymentSpec{
-		Replicas: int32Ptr(1),
+		Replicas: ptr.To[int32](1),
 		Selector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{
 				"name": hcoNameWebhook,
@@ -629,16 +630,24 @@ func roleWithAllPermissions(apiGroup string, resources []string) rbacv1.PolicyRu
 }
 
 func GetServiceAccount(namespace string) v1.ServiceAccount {
+	return createServiceAccount(namespace, hcoName)
+}
+
+func GetCLIDownloadServiceAccount(namespace string) v1.ServiceAccount {
+	return createServiceAccount(namespace, cliDownloadsName)
+}
+
+func createServiceAccount(namespace, name string) v1.ServiceAccount {
 	return v1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "ServiceAccount",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      hcoName,
+			Name:      name,
 			Namespace: namespace,
 			Labels: map[string]string{
-				"name": hcoName,
+				"name": name,
 			},
 		},
 	}
@@ -777,6 +786,10 @@ func GetInstallStrategyBase(params *DeploymentOperatorParams) *csvv1alpha1.Strat
 			{
 				ServiceAccountName: hcoName,
 				Rules:              GetClusterPermissions(),
+			},
+			{
+				ServiceAccountName: cliDownloadsName,
+				Rules:              []rbacv1.PolicyRule{},
 			},
 		},
 	}
@@ -1153,10 +1166,6 @@ func getLivenessProbe(endpoint string, port int32) *corev1.Probe {
 
 func stringListToSlice(words ...string) []string {
 	return words
-}
-
-func int32Ptr(i int32) *int32 {
-	return &i
 }
 
 func panicOnError(err error) {

@@ -136,7 +136,8 @@ func main() {
 	}
 
 	serviceAccounts := map[string]v1.ServiceAccount{
-		"hyperconverged-cluster-operator": components.GetServiceAccount(*operatorNamespace),
+		"hyperconverged-cluster-operator":     components.GetServiceAccount(*operatorNamespace),
+		"hyperconverged-cluster-cli-download": components.GetCLIDownloadServiceAccount(*operatorNamespace),
 	}
 	permissions := make([]rbacv1.Role, 0)
 	roleBindings := make([]rbacv1.RoleBinding, 0)

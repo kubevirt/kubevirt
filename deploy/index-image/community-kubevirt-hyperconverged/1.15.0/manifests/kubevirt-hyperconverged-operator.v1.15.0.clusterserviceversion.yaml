@@ -582,6 +582,8 @@ spec:
           - create
           - delete
         serviceAccountName: hyperconverged-cluster-operator
+      - rules: []
+        serviceAccountName: hyperconverged-cluster-cli-download
       - rules:
         - apiGroups:
           - operator.openshift.io
@@ -3392,6 +3394,7 @@ spec:
                 app.kubernetes.io/version: 1.15.0
                 name: hyperconverged-cluster-cli-download
             spec:
+              automountServiceAccountToken: false
               containers:
               - image: +ARTIFACTS_SERVER_IMAGE_TO_REPLACE+
                 imagePullPolicy: IfNotPresent
@@ -3429,6 +3432,7 @@ spec:
                 runAsNonRoot: true
                 seccompProfile:
                   type: RuntimeDefault
+              serviceAccountName: hyperconverged-cluster-cli-download
       - label:
           app.kubernetes.io/component: network
           app.kubernetes.io/managed-by: olm

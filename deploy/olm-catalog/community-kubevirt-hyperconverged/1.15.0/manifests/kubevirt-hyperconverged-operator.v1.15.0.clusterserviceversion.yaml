@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.15.0-unstable
-    createdAt: "2025-02-28 11:03:47"
+    createdAt: "2025-03-02 09:35:57"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     features.operators.openshift.io/cnf: "false"
@@ -582,6 +582,8 @@ spec:
           - create
           - delete
         serviceAccountName: hyperconverged-cluster-operator
+      - rules: []
+        serviceAccountName: hyperconverged-cluster-cli-download
       - rules:
         - apiGroups:
           - operator.openshift.io
@@ -3392,6 +3394,7 @@ spec:
                 app.kubernetes.io/version: 1.15.0
                 name: hyperconverged-cluster-cli-download
             spec:
+              automountServiceAccountToken: false
               containers:
               - image: quay.io/kubevirt/virt-artifacts-server:1.15.0-unstable
                 imagePullPolicy: IfNotPresent
@@ -3429,6 +3432,7 @@ spec:
                 runAsNonRoot: true
                 seccompProfile:
                   type: RuntimeDefault
+              serviceAccountName: hyperconverged-cluster-cli-download
       - label:
           app.kubernetes.io/component: network
           app.kubernetes.io/managed-by: olm

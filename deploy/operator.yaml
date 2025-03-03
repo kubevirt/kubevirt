@@ -221,6 +221,7 @@ spec:
         app.kubernetes.io/version: 1.15.0
         name: hyperconverged-cluster-cli-download
     spec:
+      automountServiceAccountToken: false
       containers:
       - image: quay.io/kubevirt/virt-artifacts-server:1.15.0-unstable
         imagePullPolicy: Always
@@ -258,6 +259,7 @@ spec:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
+      serviceAccountName: hyperconverged-cluster-cli-download
 ---
 apiVersion: apps/v1
 kind: Deployment
