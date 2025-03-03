@@ -71,12 +71,14 @@ func virtualMachineOptions(
 
 func capabilitiesToTopology(capabilities *libvirtxml.Caps) *cmdv1.Topology {
 	topology := &cmdv1.Topology{}
-	if capabilities == nil {
+	if capabilities == nil || capabilities.Host.NUMA == nil {
 		return topology
 	}
 
-	for _, cell := range capabilities.Host.NUMA.Cells.Cells {
-		topology.NumaCells = append(topology.NumaCells, cellToCell(cell))
+	if capabilities.Host.NUMA.Cells != nil {
+		for _, cell := range capabilities.Host.NUMA.Cells.Cells {
+			topology.NumaCells = append(topology.NumaCells, cellToCell(cell))
+		}
 	}
 	return topology
 }
