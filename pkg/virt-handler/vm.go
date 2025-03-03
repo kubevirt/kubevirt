@@ -82,6 +82,7 @@ import (
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	multipathmonitor "kubevirt.io/kubevirt/pkg/virt-handler/multipath-monitor"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
+	vfsmanager "kubevirt.io/kubevirt/pkg/virt-handler/virtiofs"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -113,6 +114,7 @@ type VirtualMachineController struct {
 	vmiExpectations          *controller.UIDTrackingControllerExpectations
 	vmiGlobalStore           cache.Store
 	multipathSocketMonitor   *multipathmonitor.MultipathSocketMonitor
+	vfsManager               *vfsmanager.VirtiofsManager
 }
 
 var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string) (cgroup.Manager, error) {
@@ -190,6 +192,7 @@ func NewVirtualMachineController(
 		vmiExpectations:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		vmiGlobalStore:           vmiGlobalStore,
 		multipathSocketMonitor:   multipathmonitor.NewMultipathSocketMonitor(),
+		vfsManager:               vfsmanager.NewVirtiofsManager("/pods"),
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -2039,6 +2042,11 @@ func (c *VirtualMachineController) handleStartingVMI(
 				"Waiting for Dynamic Resource Allocation GPU attributes to be reconciled")
 			return false, nil
 		}
+	}
+
+	// Look for placeholder virtiofs sockets and launch the dispatcher
+	if err := c.vfsManager.StartVirtiofsDispatcher(vmi); err != nil {
+		return false, fmt.Errorf("failed to start the virtiofs dispatcher: %w", err)
 	}
 
 	if err := c.setupNetwork(vmi, netsetup.FilterNetsForVMStartup(vmi), c.netConf); err != nil {
