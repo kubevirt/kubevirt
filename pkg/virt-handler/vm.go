@@ -2967,8 +2967,8 @@ func (c *VirtualMachineController) handleStartingVMI(
 		return false, err
 	}
 
-	if err := c.waitForSEVAttestation(vmi); err != nil {
-		return false, err
+	if c.shouldWaitForSEVAttestation(vmi) {
+		return false, nil
 	}
 
 	return true, nil
@@ -2982,15 +2982,13 @@ func (c *VirtualMachineController) adjustResources(vmi *v1.VirtualMachineInstanc
 	return nil
 }
 
-func (c *VirtualMachineController) waitForSEVAttestation(vmi *v1.VirtualMachineInstance) error {
+func (c *VirtualMachineController) shouldWaitForSEVAttestation(vmi *v1.VirtualMachineInstance) bool {
 	if util.IsSEVAttestationRequested(vmi) {
 		sev := vmi.Spec.Domain.LaunchSecurity.SEV
-		if sev.Session == "" || sev.DHCert == "" {
-			// Wait for the session parameters to be provided
-			return nil
-		}
+		// Wait for the session parameters to be provided
+		return sev.Session == "" || sev.DHCert == ""
 	}
-	return nil
+	return false
 }
 
 func (c *VirtualMachineController) setupDevicesOwnerships(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult) error {
