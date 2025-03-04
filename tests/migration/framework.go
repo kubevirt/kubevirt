@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2023 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -26,5 +26,5 @@ import (
 const describeName = "[rfe_id:393][crit:high][vendor:cnv-qe@redhat.com][level:system][sig-compute]"
 
 func SIG(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
-	return decorators.SIG(describeName, decorators.SigCompute, text, decorators.SigComputeMigrations, args)
+	return decorators.SIG(describeName, text, decorators.SigCompute, decorators.SigComputeMigrations, args)
 }

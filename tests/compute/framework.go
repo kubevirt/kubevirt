@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright the KubeVirt Authors.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -24,5 +24,5 @@ import (
 )
 
 func SIG(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
-	return decorators.SIG("[sig-compute]", decorators.SigCompute, text, args)
+	return decorators.SIG("[sig-compute]", text, decorators.SigCompute, args)
 }

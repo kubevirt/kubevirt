@@ -24,5 +24,5 @@ import (
 )
 
 func SIG(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
-	return decorators.SIG("[virtctl]", decorators.Virtctl, text, args)
+	return decorators.SIG("[virtctl]", text, decorators.Virtctl, args)
 }
