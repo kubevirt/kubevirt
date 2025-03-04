@@ -16264,6 +16264,10 @@
      "encryptedState": {
       "description": "SEV-ES is required. Defaults to false.",
       "type": "boolean"
+     },
+     "secureNestedPaging": {
+      "description": "SEV-SNP is required. Defaults to false.",
+      "type": "boolean"
      }
     }
    },
