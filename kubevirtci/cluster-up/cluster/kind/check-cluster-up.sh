@@ -20,7 +20,7 @@ set -exuo pipefail
 
 SCRIPT_PATH=$(dirname "$(realpath "$0")")
 
-kubevirtci_path="$(realpath "${SCRIPT_PATH}/../../..")/"
+kubevirtci_path="$(realpath "${SCRIPT_PATH}/../../..")"
 PROVIDER_PATH="${kubevirtci_path}/cluster-up/cluster/${KUBEVIRT_PROVIDER}"
 
 RUN_KUBEVIRT_CONFORMANCE=${RUN_KUBEVIRT_CONFORMANCE:-"false"}

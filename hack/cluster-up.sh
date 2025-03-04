@@ -22,4 +22,4 @@ set -x
 
 source hack/config-kubevirtci.sh
 KUBEVIRT_DEPLOY_CDI=${KUBEVIRT_DEPLOY_CDI:-true}
-source "${KUBEVIRTCI_PATH}up.sh"
+source "${KUBEVIRTCI_PATH}/up.sh"

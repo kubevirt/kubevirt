@@ -85,4 +85,4 @@ function _kubectl() {
     kubectl "$@"
 }
 
-source ${KUBEVIRTCI_PATH}cluster/kind-ovn/install-ovn.sh
+source ${KUBEVIRTCI_PATH}/cluster/kind-ovn/install-ovn.sh

@@ -3,7 +3,7 @@
 if [ -z "$KUBEVIRTCI_PATH" ]; then
     KUBEVIRTCI_PATH="$(
         cd "$(dirname "$BASH_SOURCE[0]")/../"
-        echo "$(pwd)/"
+        echo "$(pwd)"
     )"
 fi
 
