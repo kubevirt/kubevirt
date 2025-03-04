@@ -13,17 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright the KubeVirt Authors.
+ * Copyright The KubeVirt Authors.
  *
  */
 
 package decorators
 
-import "github.com/onsi/ginkgo/v2"
-
-func SIG(identifier string, decorator ginkgo.Labels, text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
-	newArgs = []interface{}{decorator}
-	newArgs = append(newArgs, args...)
+// SIG is the building block for reusing the test name generation across a group of tests sharing the same test name
+// prefix and the same decorator(s).
+func SIG(identifier, text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
+	newArgs = args
 	extendedText = identifier + " " + text
 	return
 }

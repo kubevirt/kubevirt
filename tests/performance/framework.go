@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright the KubeVirt Authors.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -56,11 +56,11 @@ func init() {
 }
 
 func KWOK(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
-	return decorators.SIG("[sig-performance]", decorators.SigPerformance, text, Serial, Label("KWOK"), args)
+	return decorators.SIG("[sig-performance]", text, decorators.SigPerformance, Serial, Label("KWOK"), args)
 }
 
 func SIG(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
-	return decorators.SIG("[sig-performance]", decorators.SigPerformance, text, Serial, args)
+	return decorators.SIG("[sig-performance]", text, decorators.SigPerformance, Serial, args)
 }
 
 func skipIfNoPerformanceTests() {
