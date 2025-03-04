@@ -43,6 +43,39 @@ var _ = Describe("Parsing VMI Options", func() {
 				},
 			}),
 		)
+		It("should panic when libvirtxml.CapsHostNUMACell.Memory is nil", func() {
+			caps := &libvirtxml.Caps{
+				Host: libvirtxml.CapsHost{
+					NUMA: &libvirtxml.CapsHostNUMATopology{
+						Cells: &libvirtxml.CapsHostNUMACells{
+							Cells: []libvirtxml.CapsHostNUMACell{
+								{
+									Memory: nil,
+									PageInfo: []libvirtxml.CapsHostNUMAPageInfo{
+										{Unit: "KiB", Size: 4, Count: 4064224},
+									},
+									Distances: &libvirtxml.CapsHostNUMADistances{
+										Siblings: []libvirtxml.CapsHostNUMASibling{
+											{ID: 0, Value: 10},
+										},
+									},
+									CPUS: &libvirtxml.CapsHostNUMACPUs{
+										CPUs: []libvirtxml.CapsHostNUMACPU{
+											{ID: 0, Siblings: "0,4"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			Expect(func() {
+				capabilitiesToTopology(caps)
+			}).To(PanicWith("runtime error: invalid memory address or nil pointer dereference"))
+		})
+		
 		It("should convert libvirtxml.Caps to cmdv1.Topology with single NUMA node", func() {
 			caps := &libvirtxml.Caps{Host: libvirtxml.CapsHost{NUMA: &libvirtxml.CapsHostNUMATopology{}}}
 			caps.Host.NUMA.Cells = &libvirtxml.CapsHostNUMACells{
