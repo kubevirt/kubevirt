@@ -24,7 +24,8 @@ func WithSEV(isESEnabled bool, isSNPEnabled bool) Option {
 		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
 			SEV: &v1.SEV{
 				Policy: &v1.SEVPolicy{
-					EncryptedState: &isESEnabled,
+					EncryptedState:     &isESEnabled,
+					SecureNestedPaging: &isSNPEnabled,
 				},
 			},
 		}

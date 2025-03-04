@@ -6883,6 +6883,11 @@ var CRDsValidation map[string]string = map[string]string{
                                     SEV-ES is required.
                                     Defaults to false.
                                   type: boolean
+                                secureNestedPaging:
+                                  description: |-
+                                    SEV-SNP is required.
+                                    Defaults to false.
+                                  type: boolean
                               type: object
                             session:
                               description: Base64 encoded session blob.
@@ -8970,6 +8975,11 @@ var CRDsValidation map[string]string = map[string]string{
                     encryptedState:
                       description: |-
                         SEV-ES is required.
+                        Defaults to false.
+                      type: boolean
+                    secureNestedPaging:
+                      description: |-
+                        SEV-SNP is required.
                         Defaults to false.
                       type: boolean
                   type: object
@@ -12190,6 +12200,11 @@ var CRDsValidation map[string]string = map[string]string{
                         encryptedState:
                           description: |-
                             SEV-ES is required.
+                            Defaults to false.
+                          type: boolean
+                        secureNestedPaging:
+                          description: |-
+                            SEV-SNP is required.
                             Defaults to false.
                           type: boolean
                       type: object
@@ -15654,6 +15669,11 @@ var CRDsValidation map[string]string = map[string]string{
                             SEV-ES is required.
                             Defaults to false.
                           type: boolean
+                        secureNestedPaging:
+                          description: |-
+                            SEV-SNP is required.
+                            Defaults to false.
+                          type: boolean
                       type: object
                     session:
                       description: Base64 encoded session blob.
@@ -18099,6 +18119,11 @@ var CRDsValidation map[string]string = map[string]string{
                                     SEV-ES is required.
                                     Defaults to false.
                                   type: boolean
+                                secureNestedPaging:
+                                  description: |-
+                                    SEV-SNP is required.
+                                    Defaults to false.
+                                  type: boolean
                               type: object
                             session:
                               description: Base64 encoded session blob.
@@ -19454,6 +19479,11 @@ var CRDsValidation map[string]string = map[string]string{
                     encryptedState:
                       description: |-
                         SEV-ES is required.
+                        Defaults to false.
+                      type: boolean
+                    secureNestedPaging:
+                      description: |-
+                        SEV-SNP is required.
                         Defaults to false.
                       type: boolean
                   type: object
@@ -22630,6 +22660,11 @@ var CRDsValidation map[string]string = map[string]string{
                                         encryptedState:
                                           description: |-
                                             SEV-ES is required.
+                                            Defaults to false.
+                                          type: boolean
+                                        secureNestedPaging:
+                                          description: |-
+                                            SEV-SNP is required.
                                             Defaults to false.
                                           type: boolean
                                       type: object
@@ -27846,6 +27881,11 @@ var CRDsValidation map[string]string = map[string]string{
                                             encryptedState:
                                               description: |-
                                                 SEV-ES is required.
+                                                Defaults to false.
+                                              type: boolean
+                                            secureNestedPaging:
+                                              description: |-
+                                                SEV-SNP is required.
                                                 Defaults to false.
                                               type: boolean
                                           type: object
