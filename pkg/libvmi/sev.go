@@ -19,12 +19,13 @@ package libvmi
 import v1 "kubevirt.io/api/core/v1"
 
 // WithSEV adds `launchSecurity` with `sev`.
-func WithSEV(isESEnabled bool) Option {
+func WithSEV(isESEnabled bool, isSNPEnabled bool) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
 			SEV: &v1.SEV{
 				Policy: &v1.SEVPolicy{
-					EncryptedState: &isESEnabled,
+					EncryptedState:     &isESEnabled,
+					SecureNestedPaging: &isSNPEnabled,
 				},
 			},
 		}
