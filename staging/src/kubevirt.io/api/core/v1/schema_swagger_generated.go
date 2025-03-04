@@ -426,7 +426,8 @@ func (SEV) SwaggerDoc() map[string]string {
 
 func (SEVPolicy) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"encryptedState": "SEV-ES is required.\nDefaults to false.\n+optional",
+		"encryptedState":     "SEV-ES is required.\nDefaults to false.\n+optional",
+		"secureNestedPaging": "SEV-SNP is required.\nDefaults to false.\n+optional",
 	}
 }
 

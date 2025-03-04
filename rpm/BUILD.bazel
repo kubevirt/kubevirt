@@ -1247,6 +1247,7 @@ rpmtree(
         "/usr/bin/nc": "/usr/bin/ncat",
         # Create a symlink to OVMF binary with SEV support (edk2 rpm does not do that for unknown reason)
         "/usr/share/OVMF/OVMF_CODE.cc.fd": "../edk2/ovmf/OVMF_CODE.cc.fd",
+        "/usr/share/OVMF/OVMF.amdsev.fd": "../edk2/ovmf/OVMF.amdsev.fd",
     },
     visibility = ["//visibility:public"],
 )

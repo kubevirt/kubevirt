@@ -24334,6 +24334,13 @@ func schema_kubevirtio_api_core_v1_SEVPolicy(ref common.ReferenceCallback) commo
 							Format:      "",
 						},
 					},
+					"secureNestedPaging": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SEV-SNP is required. Defaults to false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
