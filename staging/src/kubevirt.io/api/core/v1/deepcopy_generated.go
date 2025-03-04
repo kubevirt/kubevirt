@@ -4380,6 +4380,11 @@ func (in *SEVPolicy) DeepCopyInto(out *SEVPolicy) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.SecureNestedPaging != nil {
+		in, out := &in.SecureNestedPaging, &out.SecureNestedPaging
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 
