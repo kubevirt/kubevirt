@@ -114,7 +114,7 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, decorators.SigM
 		})
 
 		AfterEach(func() {
-			scales.RestoreAllScales()
+			scales.RestoreScale(virtOperator.deploymentName)
 			waitUntilComponentsAlertsDoNotExist(virtClient)
 		})
 
