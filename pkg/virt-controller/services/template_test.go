@@ -3454,6 +3454,7 @@ var _ = Describe("Template", func() {
 								Filesystems: []v1.Filesystem{
 									{
 										Name: "fakeVol1",
+										Virtiofs: &v1.FilesystemVirtiofs{},
 									},
 								},
 							},
