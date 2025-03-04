@@ -139,7 +139,18 @@ func setupCPUHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMac
 	}
 
 	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
+		// Define an implicit upper limit based on hotplug ratio (default: 128 * 4 = 512)
+		defaultMaxVCPULimit := 128 * clusterConfig.GetMaxHotplugRatio()
+
+		// Calculate the max sockets based on hotplug ratio
 		vmi.Spec.Domain.CPU.MaxSockets = vmi.Spec.Domain.CPU.Sockets * clusterConfig.GetMaxHotplugRatio()
+		totalVCPUs := vmi.Spec.Domain.CPU.MaxSockets * vmi.Spec.Domain.CPU.Cores * vmi.Spec.Domain.CPU.Threads
+
+		// Ensure total VCPUs do not exceed the default limit
+		if totalVCPUs > defaultMaxVCPULimit {
+			adjustedSockets := defaultMaxVCPULimit / (vmi.Spec.Domain.CPU.Cores * vmi.Spec.Domain.CPU.Threads)
+			vmi.Spec.Domain.CPU.MaxSockets = max(adjustedSockets, vmi.Spec.Domain.CPU.Sockets)
+		}
 	}
 }
 
