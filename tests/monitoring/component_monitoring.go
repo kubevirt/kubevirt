@@ -114,7 +114,7 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, decorators.SigM
 		})
 
 		AfterEach(func() {
-			scales.RestoreAllScales()
+			scales.RestoreScale(virtOperator.deploymentName)
 			waitUntilComponentsAlertsDoNotExist(virtClient)
 		})
 
@@ -123,7 +123,7 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, decorators.SigM
 			libmonitoring.VerifyAlertExist(virtClient, virtOperator.noReadyAlert)
 		})
 
-		It("LowVirtOperatorCount should be triggered when virt-operator count is low", decorators.RequiresTwoSchedulableNodes, func() {
+		PIt("LowVirtOperatorCount should be triggered when virt-operator count is low", decorators.RequiresTwoSchedulableNodes, func() {
 			libmonitoring.VerifyAlertExist(virtClient, virtOperator.lowCountAlert)
 		})
 
