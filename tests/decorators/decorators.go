@@ -95,11 +95,6 @@ var (
 	// RequiresSizeRoundUp requires a provisioner that rounds up the size of the volume
 	RequiresSizeRoundUp = Label("RequiresSizeRoundUp")
 
-	/* Kubernetes versions */
-
-	// Kubernetes versions
-	Kubernetes130 = Label("kubernetes130")
-
 	/* architecture working groups */
 
 	WgS390x = Label("wg-s390x")
