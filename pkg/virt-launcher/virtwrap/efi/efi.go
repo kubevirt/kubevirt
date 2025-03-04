@@ -33,6 +33,7 @@ const (
 	EFIVarsSecureBoot = "OVMF_VARS.secboot.fd"
 	EFICodeSEV        = "OVMF_CODE.cc.fd"
 	EFIVarsSEV        = EFIVars
+	EFICodeSNP        = "OVMF.amdsev.fd"
 )
 
 type EFIEnvironment struct {
@@ -42,31 +43,42 @@ type EFIEnvironment struct {
 	varsSecureBoot string
 	codeSEV        string
 	varsSEV        string
+	codeSNP        string
 }
 
-func (e *EFIEnvironment) Bootable(secureBoot, sev bool) bool {
+func (e *EFIEnvironment) Bootable(secureBoot, sev bool, snp bool) bool {
 	if secureBoot {
 		return e.varsSecureBoot != "" && e.codeSecureBoot != ""
+	} else if snp {
+		// SEV-SNP only
+		return e.codeSNP != ""
 	} else if sev {
+		// SEV and SEV-ES
 		return e.varsSEV != "" && e.codeSEV != ""
 	} else {
 		return e.vars != "" && e.code != ""
 	}
 }
 
-func (e *EFIEnvironment) EFICode(secureBoot, sev bool) string {
+func (e *EFIEnvironment) EFICode(secureBoot, sev bool, snp bool) string {
 	if secureBoot {
 		return e.codeSecureBoot
+	} else if snp {
+		// SEV-SNP only
+		return e.codeSNP
 	} else if sev {
+		// SEV and SEV-ES
 		return e.codeSEV
 	} else {
 		return e.code
 	}
 }
 
-func (e *EFIEnvironment) EFIVars(secureBoot, sev bool) string {
+func (e *EFIEnvironment) EFIVars(secureBoot, sev bool, snp bool) string {
 	if secureBoot {
 		return e.varsSecureBoot
+	} else if snp {
+		return ""
 	} else if sev {
 		return e.varsSEV
 	} else {
@@ -101,6 +113,7 @@ func DetectEFIEnvironment(arch, ovmfPath string) *EFIEnvironment {
 	// detect EFI with SEV
 	codeWithSEV := getEFIBinaryIfExists(ovmfPath, EFICodeSEV)
 	varsWithSEV := getEFIBinaryIfExists(ovmfPath, EFIVarsSEV)
+	codeWithSNP := getEFIBinaryIfExists(ovmfPath, EFICodeSNP)
 
 	return &EFIEnvironment{
 		codeSecureBoot: codeWithSB,
@@ -109,6 +122,7 @@ func DetectEFIEnvironment(arch, ovmfPath string) *EFIEnvironment {
 		vars:           vars,
 		codeSEV:        codeWithSEV,
 		varsSEV:        varsWithSEV,
+		codeSNP:        codeWithSNP,
 	}
 }
 
