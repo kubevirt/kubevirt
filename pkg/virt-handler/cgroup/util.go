@@ -24,7 +24,10 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	k8sv1 "k8s.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/safepath"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
@@ -81,18 +84,42 @@ func addCurrentRules(currentRules, newRules []*devices.Rule) ([]*devices.Rule, e
 	return newRules, nil
 }
 
+func getSourceBlockToFsMigratedVolumes(vmi *v1.VirtualMachineInstance, host string) map[string]bool {
+	vols := make(map[string]bool)
+	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.SourceNode != host {
+		return vols
+	}
+	for _, vol := range vmi.Status.MigratedVolumes {
+		if vol.SourcePVCInfo != nil && vol.SourcePVCInfo.VolumeMode != nil &&
+			*vol.SourcePVCInfo.VolumeMode == k8sv1.PersistentVolumeBlock {
+			vols[vol.VolumeName] = true
+		}
+	}
+	// Remove the hotplugged volumes from the list since they are handled differently
+	for _, vol := range vmi.Spec.Volumes {
+		_, ok := vols[vol.Name]
+		if storagetypes.IsHotplugVolume(&vol) && ok {
+			delete(vols, vol.Name)
+		}
+	}
+
+	return vols
+}
+
 // This builds up the known persistent block devices allow list for a VMI (as in, hotplugged volumes are handled separately)
 // This will be maintained and extended as new devices likely have to end up on this list as well
 // For example - https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
-func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult) ([]*devices.Rule, error) {
+func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult, host string) ([]*devices.Rule, error) {
 	mountRoot, err := isolationRes.MountRoot()
 	if err != nil {
 		return nil, err
 	}
-
+	migSrcBlockVols := getSourceBlockToFsMigratedVolumes(vmi, host)
 	var vmiDeviceRules []*devices.Rule
 	for _, volume := range vmi.Spec.Volumes {
+		_, ok := migSrcBlockVols[volume.Name]
 		switch {
+		case ok:
 		case volume.VolumeSource.PersistentVolumeClaim != nil:
 			if volume.VolumeSource.PersistentVolumeClaim.Hotpluggable {
 				continue
