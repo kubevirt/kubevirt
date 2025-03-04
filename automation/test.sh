@@ -412,10 +412,6 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(Multus,Networking,VMIlifecycle,Expose,Macvtap)'
   elif [[ $TARGET =~ sig-network ]]; then
     label_filter='(sig-network,netCustomBindingPlugins)'
-    # FIXME: https://github.com/kubevirt/kubevirt/issues/9158
-    if [[ $TARGET =~ no-istio ]]; then
-      add_to_label_filter "(!Istio)" "&&"
-    fi
     if [[ $KUBEVIRT_WITH_MULTUS_V3 == "true" ]]; then
       add_to_label_filter "(!in-place-hotplug-NICs)" "&&"
     else
