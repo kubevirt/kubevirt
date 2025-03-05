@@ -27,6 +27,7 @@ import (
 	"maps"
 	"math"
 	"math/rand"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -108,15 +109,16 @@ const (
 )
 
 const (
-	hotplugVolumeErrorReason     = "HotPlugVolumeError"
-	hotplugCPUErrorReason        = "HotPlugCPUError"
-	failedUpdateErrorReason      = "FailedUpdateError"
-	failedCreateReason           = "FailedCreate"
-	vmiFailedDeleteReason        = "FailedDelete"
-	affinityChangeErrorReason    = "AffinityChangeError"
-	hotplugMemoryErrorReason     = "HotPlugMemoryError"
-	volumesUpdateErrorReason     = "VolumesUpdateError"
-	tolerationsChangeErrorReason = "TolerationsChangeError"
+	hotplugVolumeErrorReason          = "HotPlugVolumeError"
+	hotplugCPUErrorReason             = "HotPlugCPUError"
+	failedUpdateErrorReason           = "FailedUpdateError"
+	failedCreateReason                = "FailedCreate"
+	vmiFailedDeleteReason             = "FailedDelete"
+	affinityChangeErrorReason         = "AffinityChangeError"
+	hotplugMemoryErrorReason          = "HotPlugMemoryError"
+	volumesUpdateErrorReason          = "VolumesUpdateError"
+	tolerationsChangeErrorReason      = "TolerationsChangeError"
+	terminationGracePeriodErrorReason = "TerminationGracePeriodError"
 )
 
 const defaultMaxCrashLoopBackoffDelaySeconds = 300
@@ -2922,6 +2924,7 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 		lastSeenVM.Spec.Template.Spec.NodeSelector = currentVM.Spec.Template.Spec.NodeSelector
 		lastSeenVM.Spec.Template.Spec.Affinity = currentVM.Spec.Template.Spec.Affinity
 		lastSeenVM.Spec.Template.Spec.Tolerations = currentVM.Spec.Template.Spec.Tolerations
+		lastSeenVM.Spec.Template.Spec.TerminationGracePeriodSeconds = currentVM.Spec.Template.Spec.TerminationGracePeriodSeconds
 	} else {
 		// In the case live-updates aren't enable the volume set of the VM can be still changed by volume hotplugging.
 		// For imperative volume hotplug, first the VM status with the request AND the VMI spec are updated, then in the
@@ -3077,6 +3080,10 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 
 		if err := c.handleVolumeUpdateRequest(vmCopy, vmi); err != nil {
 			return vm, vmi, common.NewSyncError(fmt.Errorf("error encountered while handling volumes update requests: %v", err), volumesUpdateErrorReason), nil
+		}
+
+		if err := c.handleTerminationGracePeriodRequest(vmCopy, vmi); err != nil {
+			return vm, vmi, common.NewSyncError(fmt.Errorf("error encountered while handling termination grace period request: %v", err), terminationGracePeriodErrorReason), nil
 		}
 	}
 
@@ -3260,5 +3267,30 @@ func (c *Controller) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi *
 
 	log.Log.Object(vmi).Infof(logMsg)
 
+	return nil
+}
+
+func (c *Controller) handleTerminationGracePeriodRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	if vmi == nil || vmi.DeletionTimestamp != nil {
+		return nil
+	}
+	desiredGracePeriod := vm.Spec.Template.Spec.TerminationGracePeriodSeconds
+	currentGracePeriod := vmi.Spec.TerminationGracePeriodSeconds
+
+	if reflect.DeepEqual(desiredGracePeriod, currentGracePeriod) {
+		return nil
+	}
+
+	patchPayload, err := patch.New(patch.WithReplace("/spec/terminationGracePeriodSeconds", *desiredGracePeriod)).GeneratePayload()
+	if err != nil {
+		return fmt.Errorf("failed to generate patch for terminationGracePeriodSeconds: %w", err)
+	}
+
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchPayload, v1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to patch VMI terminationGracePeriodSeconds: %w", err)
+	}
+
+	log.Log.Object(vmi).Infof("Updated TerminationGracePeriodSeconds to %d", *desiredGracePeriod)
 	return nil
 }

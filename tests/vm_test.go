@@ -62,6 +62,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -820,6 +821,58 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					_, err = virtClient.VirtualMachineInstanceMigration(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					return err
 				}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "migration should not be created in a dry run mode")
+			})
+
+			When("Deleting a VM with high TerminationGracePeriod", Serial, func() {
+				var vm *v1.VirtualMachine
+				BeforeEach(func() {
+					vm = libvmi.NewVirtualMachine(
+						libvmifact.NewGuestless(libvmi.WithTerminationGracePeriod(1600)),
+						libvmi.WithRunStrategy(v1.RunStrategyAlways))
+					vm.Namespace = testsuite.GetTestNamespace(vm)
+
+					kv := libkubevirt.GetCurrentKv(virtClient)
+					kv.Spec.Configuration.VMRolloutStrategy = pointer.P(v1.VMRolloutStrategyLiveUpdate)
+					kvconfig.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+				})
+
+				It("should delete VM immediately when TerminationGracePeriodSeconds is 0", func() {
+					By("Creating a VM with a high TerminationGracePeriod")
+					vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Waiting for VMI to start")
+					Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
+
+					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Patching the VM to set TerminationGracePeriodSeconds to 0")
+					patchSet, err := patch.New(patch.WithReplace("/spec/template/spec/terminationGracePeriodSeconds", int64(0))).GeneratePayload()
+					Expect(err).ToNot(HaveOccurred())
+					_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchSet, metav1.PatchOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Ensuring the VMI reflects the updated TerminationGracePeriodSeconds")
+					Eventually(func(g Gomega) {
+						vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+						g.Expect(err).ToNot(HaveOccurred())
+						g.Expect(*vmi.Spec.TerminationGracePeriodSeconds).To(BeEquivalentTo(0))
+					}, 60*time.Second, 5*time.Second).Should(Succeed(), "VMI should have been updated by the patch")
+
+					By("Deleting the VM")
+					err = virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Ensuring the virt-launcher pod is deleted immediately")
+					Eventually(func(g Gomega) {
+						_, err := virtClient.CoreV1().Pods(vm.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+						g.Expect(errors.IsNotFound(err)).To(BeTrue())
+					}, 60*time.Second, 5*time.Second).Should(Succeed(), "virt-launcher pod should be deleted immediately")
+				})
 			})
 		})
 
