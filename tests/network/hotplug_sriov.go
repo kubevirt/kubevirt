@@ -48,7 +48,7 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 
 	BeforeEach(func() {
 		// Check if the hardware supports SRIOV
-		Expect(validateSRIOVSetup(kubevirt.Client(), sriovResourceName, 1)).To(Succeed(),
+		Expect(validateSRIOVSetup(sriovResourceName, 1)).To(Succeed(),
 			"Sriov is not enabled in this environment: %v. Skip these tests using - export FUNC_TEST_ARGS='--label-filter=!SRIOV'")
 
 	})

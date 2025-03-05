@@ -87,7 +87,7 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		Expect(validateSRIOVSetup(virtClient, sriovResourceName, 1)).To(Succeed(),
+		Expect(validateSRIOVSetup(sriovResourceName, 1)).To(Succeed(),
 			"Sriov is not enabled in this environment: %v. Skip these tests using - export FUNC_TEST_ARGS='--label-filter=!SRIOV'")
 	})
 
@@ -256,7 +256,7 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 
 		Context("migration", decorators.RequiresTwoSchedulableNodes, func() {
 			BeforeEach(func() {
-				Expect(validateSRIOVSetup(virtClient, sriovResourceName, 2)).To(Succeed(),
+				Expect(validateSRIOVSetup(sriovResourceName, 2)).To(Succeed(),
 					"Migration tests require at least 2 nodes with SR-IOV resources")
 			})
 
@@ -514,7 +514,7 @@ func getInterfaceNetworkNameByMAC(vmi *v1.VirtualMachineInstance, macAddress str
 	return ""
 }
 
-func validateSRIOVSetup(virtClient kubecli.KubevirtClient, sriovResourceName string, minRequiredNodes int) error {
+func validateSRIOVSetup(sriovResourceName string, minRequiredNodes int) error {
 	sriovNodes := getNodesWithAllocatedResource(sriovResourceName)
 	if len(sriovNodes) < minRequiredNodes {
 		return fmt.Errorf("not enough compute nodes with SR-IOV support detected")
