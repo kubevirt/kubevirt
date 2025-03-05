@@ -29,6 +29,7 @@ go_library(
         "//tests/libmonitoring:go_default_library",
         "//tests/libnet:go_default_library",
         "//tests/libnode:go_default_library",
+        "//tests/libregistry:go_default_library",
         "//tests/libstorage:go_default_library",
         "//tests/libvmifact:go_default_library",
         "//tests/libvmops:go_default_library",
