@@ -92,39 +92,40 @@ func Proxy(ctx context.Context, logger *log.FilteredLogger, fdChan chan net.Conn
 			if !open {
 				return
 			}
-			go func(logger *log.FilteredLogger) {
-				defer fd.Close()
-
-				// pipe the VMI domain-notify.sock to the virt-handler domain-notify.sock
-				// so virt-handler receives notifications from the VMI
-				conn, err := connect()
-				if err != nil {
-					logger.Reason(err).Error("error connecting to domain-notify.sock for proxy connection")
-					return
-				}
-				defer conn.Close()
-
-				logger.Infof("Accepted new notify pipe connection")
-				copyErr := make(chan error, 2)
-				go func() {
-					_, err := io.Copy(fd, conn)
-					copyErr <- err
-				}()
-				go func() {
-					_, err := io.Copy(conn, fd)
-					copyErr <- err
-				}()
-
-				// wait until one of the copy routines exit then
-				// let the fd close
-				err = <-copyErr
-				if err != nil {
-					logger.Reason(err).Infof("closing notify pipe connection")
-				} else {
-					logger.Infof("gracefully closed notify pipe connection")
-				}
-
-			}(logger)
+			go handle(logger, fd, connect)
 		}
+	}
+}
+
+func handle(logger *log.FilteredLogger, fd net.Conn, connect connectF) {
+	defer fd.Close()
+
+	// pipe the VMI domain-notify.sock to the virt-handler domain-notify.sock
+	// so virt-handler receives notifications from the VMI
+	conn, err := connect()
+	if err != nil {
+		logger.Reason(err).Error("error connecting to domain-notify.sock for proxy connection")
+		return
+	}
+	defer conn.Close()
+
+	logger.Infof("Accepted new notify pipe connection")
+	copyErr := make(chan error, 2)
+	go func() {
+		_, err := io.Copy(fd, conn)
+		copyErr <- err
+	}()
+	go func() {
+		_, err := io.Copy(conn, fd)
+		copyErr <- err
+	}()
+
+	// wait until one of the copy routines exit then
+	// let the fd close
+	err = <-copyErr
+	if err != nil {
+		logger.Reason(err).Infof("closing notify pipe connection")
+	} else {
+		logger.Infof("gracefully closed notify pipe connection")
 	}
 }
