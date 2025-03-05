@@ -24,6 +24,8 @@ import (
 	"net/http"
 	rt "runtime"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -173,6 +175,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		default:
 			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("q35"))
 		}
+
+		Expect(vmSpec.Template.Spec.Domain.Firmware.UUID).ToNot(BeNil())
 	})
 
 	DescribeTable("should apply configurable defaults on VM create", func(arch string, amd64MachineType string, arm64MachineType string, ppc64leMachineType string, s390xMachineType string, result string) {
@@ -681,6 +685,46 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				resp := getResponseFromVMUpdate(oldVM, newVM)
 				Expect(resp.Allowed).To(BeFalse())
 			})
+		})
+
+		It("should assign new UUID when VM template spec lacks one on update", func() {
+			oldVM.Spec.Template.Spec.Domain.Firmware = nil
+			newVM.Spec.Template.Spec.Domain.Firmware = nil
+
+			resp := getResponseFromVMUpdate(oldVM, newVM)
+			Expect(resp.Allowed).To(BeTrue())
+
+			vmSpec := &v1.VirtualMachineSpec{}
+			vmMeta := &k8smetav1.ObjectMeta{}
+			patchOps := []patch.PatchOperation{
+				{Value: vmSpec},
+				{Value: vmMeta},
+			}
+			err := json.Unmarshal(resp.Patch, &patchOps)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(patchOps).NotTo(BeEmpty())
+			Expect(vmSpec.Template.Spec.Domain.Firmware).ToNot(BeNil())
+			Expect(vmSpec.Template.Spec.Domain.Firmware.UUID).ToNot(BeEmpty())
+		})
+
+		It("should preserve existing UUID when VM template spec has one", func() {
+			testUUID := types.UID("existing-test-uid")
+			oldVM.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{UUID: testUUID}
+			newVM.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{UUID: testUUID}
+
+			resp := getResponseFromVMUpdate(oldVM, newVM)
+			Expect(resp.Allowed).To(BeTrue())
+
+			vmSpec := &v1.VirtualMachineSpec{}
+			vmMeta := &k8smetav1.ObjectMeta{}
+			patchOps := []patch.PatchOperation{
+				{Value: vmSpec},
+				{Value: vmMeta},
+			}
+			err := json.Unmarshal(resp.Patch, &patchOps)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmSpec.Template.Spec.Domain.Firmware).ToNot(BeNil())
+			Expect(vmSpec.Template.Spec.Domain.Firmware.UUID).To(Equal(testUUID))
 		})
 	})
 
