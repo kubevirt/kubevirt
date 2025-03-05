@@ -119,14 +119,17 @@ var _ = Describe("Network setup filters", func() {
 			Expect(network.FilterNetsForLiveUpdate(vmi)).To(Equal([]v1.Network{*libvmi.MultusNetwork(net2Name, nad2Name)}))
 		})
 
-		It("Should return a network to hotunplug when its interface is marked as absent", func() {
-			absentIface := libvmi.InterfaceDeviceWithBridgeBinding(net1Name)
-			absentIface.State = v1.InterfaceStateAbsent
+		It("Should return a network to hotunplug when its interface is marked as absent and not in the domain", func() {
+			absentIface1 := libvmi.InterfaceDeviceWithBridgeBinding(net1Name)
+			absentIface1.State = v1.InterfaceStateAbsent
+
+			absentIface2 := libvmi.InterfaceDeviceWithBridgeBinding(net2Name)
+			absentIface2.State = v1.InterfaceStateAbsent
 
 			vmi := libvmi.New(
 				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-				libvmi.WithInterface(absentIface),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(net2Name)),
+				libvmi.WithInterface(absentIface1),
+				libvmi.WithInterface(absentIface2),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithNetwork(libvmi.MultusNetwork(net1Name, nad1Name)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(net2Name, nad2Name)),
@@ -138,7 +141,7 @@ var _ = Describe("Network setup filters", func() {
 						}),
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
 							Name:       net1Name,
-							InfoSource: multusAndDomainInfoSource,
+							InfoSource: vmispec.InfoSourceMultusStatus,
 						}),
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
 							Name:       net2Name,
@@ -170,7 +173,7 @@ var _ = Describe("Network setup filters", func() {
 						}),
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
 							Name:       net1Name,
-							InfoSource: multusAndDomainInfoSource,
+							InfoSource: vmispec.InfoSourceMultusStatus,
 						}),
 						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
 							Name:       net2Name,
