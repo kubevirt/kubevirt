@@ -29,6 +29,29 @@ const (
 	SidecarShimName = "sidecar-shim"
 )
 
+type DaemonSetConfig struct {
+	Namespace          string
+	Repository         string
+	ImagePrefix        string
+	Version            string
+	LauncherVersion    string
+	PrHelperVersion    string
+	SidecarShimVersion string
+	ProductName        string
+	ProductVersion     string
+	ProductComponent   string
+	Image              string
+	LauncherImage      string
+	PrHelperImage      string
+	SidecarShimImage   string
+	PullPolicy         corev1.PullPolicy
+	ImagePullSecrets   []corev1.LocalObjectReference
+	MigrationNetwork   *string
+	Verbosity          string
+	ExtraEnv           map[string]string
+	EnablePrHelper     bool
+}
+
 func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.Container {
 	bidi := corev1.MountPropagationBidirectional
 	return corev1.Container{
@@ -58,23 +81,23 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 	}
 }
 
-func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVersion, prHelperVersion, sidecarShimVersion, productName, productVersion, productComponent, image, launcherImage, prHelperImage, sidecarShimImage string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, migrationNetwork *string, verbosity string, extraEnv map[string]string, enablePrHelper bool) *appsv1.DaemonSet {
+func NewHandlerDaemonSet(config *DaemonSetConfig) *appsv1.DaemonSet {
 
 	deploymentName := VirtHandlerName
-	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
-	env := operatorutil.NewEnvVarMap(extraEnv)
-	podTemplateSpec := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, nil, env)
+	imageName := fmt.Sprintf("%s%s", config.ImagePrefix, deploymentName)
+	env := operatorutil.NewEnvVarMap(config.ExtraEnv)
+	podTemplateSpec := newPodTemplateSpec(deploymentName, imageName, config.Repository, config.Version, config.ProductName, config.ProductVersion, config.ProductComponent, config.Image, config.PullPolicy, config.ImagePullSecrets, nil, env)
 
-	if launcherImage == "" {
-		launcherImage = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", AddVersionSeparatorPrefix(launcherVersion))
+	if config.LauncherImage == "" {
+		config.LauncherImage = fmt.Sprintf("%s/%s%s%s", config.Repository, config.ImagePrefix, "virt-launcher", AddVersionSeparatorPrefix(config.LauncherVersion))
 	}
 
-	if migrationNetwork != nil {
+	if config.MigrationNetwork != nil {
 		if podTemplateSpec.ObjectMeta.Annotations == nil {
 			podTemplateSpec.ObjectMeta.Annotations = make(map[string]string)
 		}
 		// Join the pod to the migration network and name the corresponding interface "migration0"
-		podTemplateSpec.ObjectMeta.Annotations[networkv1.NetworkAttachmentAnnot] = *migrationNetwork + "@" + virtv1.MigrationInterfaceName
+		podTemplateSpec.ObjectMeta.Annotations[networkv1.NetworkAttachmentAnnot] = *config.MigrationNetwork + "@" + virtv1.MigrationInterfaceName
 	}
 
 	if podTemplateSpec.Annotations == nil {
@@ -88,7 +111,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 			Kind:       "DaemonSet",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
+			Namespace: config.Namespace,
 			Name:      VirtHandlerName,
 			Labels: map[string]string{
 				virtv1.AppLabel: VirtHandlerName,
@@ -107,15 +130,15 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		},
 	}
 
-	if productVersion != "" {
-		daemonset.ObjectMeta.Labels[virtv1.AppVersionLabel] = productVersion
+	if config.ProductVersion != "" {
+		daemonset.ObjectMeta.Labels[virtv1.AppVersionLabel] = config.ProductVersion
 	}
 
-	if productName != "" {
-		daemonset.ObjectMeta.Labels[virtv1.AppPartOfLabel] = productName
+	if config.ProductName != "" {
+		daemonset.ObjectMeta.Labels[virtv1.AppPartOfLabel] = config.ProductName
 	}
-	if productComponent != "" {
-		daemonset.ObjectMeta.Labels[virtv1.AppComponentLabel] = productComponent
+	if config.ProductComponent != "" {
+		daemonset.ObjectMeta.Labels[virtv1.AppComponentLabel] = config.ProductComponent
 	}
 
 	pod := &daemonset.Spec.Template.Spec
@@ -129,7 +152,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 				"/bin/sh",
 				"-c",
 			},
-			Image: launcherImage,
+			Image: config.LauncherImage,
 			Name:  "virt-launcher",
 			Args: []string{
 				"node-labeller.sh",
@@ -154,10 +177,10 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 	// image could be garbage collected by the kubelet.
 	// Note that we cannot add `imagePullSecrets` to `virt-launcher` as this could
 	// be a security risk - user could use this secret and abuse it.
-	if len(imagePullSecrets) > 0 {
+	if len(config.ImagePullSecrets) > 0 {
 		pod.Containers = append(pod.Containers, corev1.Container{
 			Name:            "virt-launcher-image-holder",
-			Image:           launcherImage,
+			Image:           config.LauncherImage,
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Command:         []string{"/bin/sh", "-c"},
 			Args:            []string{"sleep infinity"},
@@ -195,7 +218,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		"--graceful-shutdown-seconds",
 		fmt.Sprintf("%d", handlerGracePeriod),
 		"-v",
-		verbosity,
+		config.Verbosity,
 	}
 	container.Ports = []corev1.ContainerPort{
 		{
@@ -334,14 +357,14 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 			corev1.ResourceMemory: resource.MustParse("325Mi"),
 		},
 	}
-	if prHelperImage == "" {
-		prHelperImage = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, PrHelperName, AddVersionSeparatorPrefix(prHelperVersion))
+	if config.PrHelperImage == "" {
+		config.PrHelperImage = fmt.Sprintf("%s/%s%s%s", config.Repository, config.ImagePrefix, PrHelperName, AddVersionSeparatorPrefix(config.PrHelperVersion))
 	}
-	if sidecarShimImage == "" {
-		sidecarShimImage = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, SidecarShimName, AddVersionSeparatorPrefix(sidecarShimVersion))
+	if config.SidecarShimImage == "" {
+		config.SidecarShimImage = fmt.Sprintf("%s/%s%s%s", config.Repository, config.ImagePrefix, SidecarShimName, AddVersionSeparatorPrefix(config.SidecarShimVersion))
 	}
 
-	if enablePrHelper {
+	if config.EnablePrHelper {
 		directoryOrCreate := corev1.HostPathDirectoryOrCreate
 		pod.Volumes = append(pod.Volumes, corev1.Volume{
 			Name: prVolumeName,
@@ -358,7 +381,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 				},
 			},
 		})
-		pod.Containers = append(pod.Containers, RenderPrHelperContainer(prHelperImage, pullPolicy))
+		pod.Containers = append(pod.Containers, RenderPrHelperContainer(config.PrHelperImage, config.PullPolicy))
 	}
 	return daemonset
 
