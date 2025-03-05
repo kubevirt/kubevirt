@@ -27,6 +27,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -2392,8 +2393,9 @@ func verifyOperatorWebhookCertificate() {
 }
 
 func getUpstreamReleaseAssetURL(tag string, assetName string) string {
-	client := github.NewClient(nil)
-
+	client := github.NewClient(&http.Client{
+		Timeout: 5 * time.Second,
+	})
 	var err error
 	var release *github.RepositoryRelease
 
@@ -2414,7 +2416,9 @@ func getUpstreamReleaseAssetURL(tag string, assetName string) string {
 }
 
 func detectLatestUpstreamOfficialTag() (string, error) {
-	client := github.NewClient(nil)
+	client := github.NewClient(&http.Client{
+		Timeout: 5 * time.Second,
+	})
 
 	var err error
 	var releases []*github.RepositoryRelease
