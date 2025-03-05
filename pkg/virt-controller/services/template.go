@@ -336,12 +336,15 @@ func generateQemuTimeoutWithJitter(qemuTimeoutBaseSeconds int) string {
 func computePodSecurityContext(vmi *v1.VirtualMachineInstance, seccomp *k8sv1.SeccompProfile) *k8sv1.PodSecurityContext {
 	psc := &k8sv1.PodSecurityContext{}
 
+	// virtiofs container will run unprivileged even if the pod runs as root,
+	// so we need to allow the NonRootUID for virtiofsd to be able to write into the PVC
+	psc.FSGroup = pointer.P(int64(util.NonRootUID))
+
 	if util.IsNonRootVMI(vmi) {
 		nonRootUser := int64(util.NonRootUID)
 		psc.RunAsUser = &nonRootUser
 		psc.RunAsGroup = &nonRootUser
 		psc.RunAsNonRoot = pointer.P(true)
-		psc.FSGroup = &nonRootUser
 	} else {
 		rootUser := int64(util.RootUser)
 		psc.RunAsUser = &rootUser
