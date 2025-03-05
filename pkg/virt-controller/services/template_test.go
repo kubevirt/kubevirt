@@ -3812,6 +3812,7 @@ var _ = Describe("Template", func() {
 				return api.NewMinimalVMI("fake-vmi")
 			}, &k8sv1.PodSecurityContext{
 				RunAsUser: new(int64),
+				FSGroup:   pointer.P(int64(util.NonRootUID)),
 			}),
 			Entry("on a non-root virt-launcher", func() *v1.VirtualMachineInstance {
 				vmi := api.NewMinimalVMI("fake-vmi")
