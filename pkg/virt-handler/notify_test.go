@@ -17,7 +17,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/api/core/v1"
-	api2 "kubevirt.io/client-go/api"
+	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -33,22 +33,13 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 		var shareDir string
 		var serverStopChan chan struct{}
 		var serverIsStoppedChan chan struct{}
-		var stoppedServer bool
-		var domainPipeStopChan chan struct{}
-		var stoppedPipe bool
-		var eventChan chan watch.Event
-		var client *notifyclient.Notifier
 		var recorder *record.FakeRecorder
 		var vmiStore cache.Store
 
 		BeforeEach(func() {
 			var err error
 			serverStopChan = make(chan struct{})
-			domainPipeStopChan = make(chan struct{})
 			serverIsStoppedChan = make(chan struct{})
-			eventChan = make(chan watch.Event, 100)
-			stoppedServer = false
-			stoppedPipe = false
 			shareDir, err = os.MkdirTemp("", "kubevirt-share")
 			Expect(err).ToNot(HaveOccurred())
 
@@ -58,7 +49,7 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 			vmiStore = vmiInformer.GetStore()
 
 			go func(serverIsStoppedChan chan struct{}) {
-				notifyserver.RunServer(shareDir, serverStopChan, eventChan, recorder, vmiStore)
+				notifyserver.RunServer(shareDir, serverStopChan, make(chan watch.Event, 100), recorder, vmiStore)
 				close(serverIsStoppedChan)
 			}(serverIsStoppedChan)
 
@@ -66,18 +57,13 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 		})
 
 		AfterEach(func() {
-			if stoppedServer == false {
-				close(serverStopChan)
-			}
-			if stoppedPipe == false {
-				close(domainPipeStopChan)
-			}
-			client.Close()
+			close(serverStopChan)
+			<-serverIsStoppedChan
 			os.RemoveAll(shareDir)
 		})
 
 		It("should get notify events", func() {
-			vmi := api2.NewMinimalVMI("fake-vmi")
+			vmi := api.NewMinimalVMI("fake-vmi")
 			vmi.UID = "4321"
 			vmiStore.Add(vmi)
 
@@ -91,15 +77,14 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			isoRes := isolation.NewMockIsolationResult(gomock.NewController(GinkgoT()))
-			isoRes.EXPECT().MountRoot().DoAndReturn(func() (*safepath.Path, error) { return safepath.NewPathNoFollow(shareDir) })
-			fdChan, err := pipe.InjectNotify(ctx, log.Log, isoRes, "client_path", false)
+			fdChan, err := pipe.InjectNotify(ctx, log.Log, fakeIsolationResult(shareDir), "client_path", false)
 			Expect(err).ToNot(HaveOccurred())
 
 			go pipe.Proxy(ctx, log.Log, fdChan, shareDir, pipe.ConnectToNotify(shareDir))
 			time.Sleep(1)
 
-			client = notifyclient.NewNotifier(pipeDir)
+			client := notifyclient.NewNotifier(pipeDir)
+			defer client.Close()
 
 			err = client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
 			Expect(err).ToNot(HaveOccurred())
@@ -117,7 +102,7 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 		})
 
 		It("should eventually get notify events once pipe is online", func() {
-			vmi := api2.NewMinimalVMI("fake-vmi")
+			vmi := api.NewMinimalVMI("fake-vmi")
 			vmi.UID = "4321"
 			vmiStore.Add(vmi)
 
@@ -130,7 +115,8 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// Client should fail when pipe is offline
-			client = notifyclient.NewNotifier(pipeDir)
+			client := notifyclient.NewNotifier(pipeDir)
+			defer client.Close()
 
 			client.SetCustomTimeouts(1*time.Second, 1*time.Second, 3*time.Second)
 
@@ -140,9 +126,7 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 			// Client should automatically come online when pipe is established
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			isoRes := isolation.NewMockIsolationResult(gomock.NewController(GinkgoT()))
-			isoRes.EXPECT().MountRoot().DoAndReturn(func() (*safepath.Path, error) { return safepath.NewPathNoFollow(shareDir) })
-			fdChan, err := pipe.InjectNotify(ctx, log.Log, isoRes, "client_path", false)
+			fdChan, err := pipe.InjectNotify(ctx, log.Log, fakeIsolationResult(shareDir), "client_path", false)
 			Expect(err).ToNot(HaveOccurred())
 
 			go pipe.Proxy(ctx, log.Log, fdChan, shareDir, pipe.ConnectToNotify(shareDir))
@@ -155,7 +139,7 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 		})
 
 		It("should be resilient to notify server restarts", func() {
-			vmi := api2.NewMinimalVMI("fake-vmi")
+			vmi := api.NewMinimalVMI("fake-vmi")
 			vmi.UID = "4321"
 			vmiStore.Add(vmi)
 
@@ -169,15 +153,14 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			isoRes := isolation.NewMockIsolationResult(gomock.NewController(GinkgoT()))
-			isoRes.EXPECT().MountRoot().DoAndReturn(func() (*safepath.Path, error) { return safepath.NewPathNoFollow(shareDir) })
-			fdChan, err := pipe.InjectNotify(ctx, log.Log, isoRes, "client_path", false)
+			fdChan, err := pipe.InjectNotify(ctx, log.Log, fakeIsolationResult(shareDir), "client_path", false)
 			Expect(err).ToNot(HaveOccurred())
 
 			go pipe.Proxy(ctx, log.Log, fdChan, shareDir, pipe.ConnectToNotify(shareDir))
 			time.Sleep(1)
 
-			client = notifyclient.NewNotifier(pipeDir)
+			client := notifyclient.NewNotifier(pipeDir)
+			defer client.Close()
 
 			for i := 1; i < 5; i++ {
 				// close and wait for server to stop
@@ -193,7 +176,7 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 				serverStopChan = make(chan struct{})
 				serverIsStoppedChan = make(chan struct{})
 				go func() {
-					notifyserver.RunServer(shareDir, serverStopChan, eventChan, recorder, vmiStore)
+					notifyserver.RunServer(shareDir, serverStopChan, make(chan watch.Event), recorder, vmiStore)
 					close(serverIsStoppedChan)
 				}()
 
@@ -215,3 +198,9 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 		})
 	})
 })
+
+func fakeIsolationResult(shareDir string) isolation.IsolationResult {
+	isoRes := isolation.NewMockIsolationResult(gomock.NewController(GinkgoT()))
+	isoRes.EXPECT().MountRoot().DoAndReturn(func() (*safepath.Path, error) { return safepath.NewPathNoFollow(shareDir) })
+	return isoRes
+}
