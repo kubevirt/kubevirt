@@ -172,8 +172,9 @@ type VirtControllerApp struct {
 	poolController *pool.Controller
 	poolInformer   cache.SharedIndexInformer
 
-	vmController *vm.Controller
-	vmInformer   cache.SharedIndexInformer
+	vmController       *vm.Controller
+	firmwareController *vm.FirmwareController
+	vmInformer         cache.SharedIndexInformer
 
 	controllerRevisionInformer cache.SharedIndexInformer
 
@@ -246,6 +247,7 @@ type VirtControllerApp struct {
 	rsControllerThreads               int
 	poolControllerThreads             int
 	vmControllerThreads               int
+	firmwareControllerThreads         int
 	migrationControllerThreads        int
 	evacuationControllerThreads       int
 	disruptionBudgetControllerThreads int
@@ -547,9 +549,9 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 		vca.informerFactory.Start(stop)
 
 		golog.Printf("STARTING controllers with following threads : "+
-			"node %d, vmi %d, replicaset %d, vm %d, migration %d, evacuation %d, disruptionBudget %d",
+			"node %d, vmi %d, replicaset %d, vm %d, firmware %d, migration %d, evacuation %d, disruptionBudget %d",
 			vca.nodeControllerThreads, vca.vmiControllerThreads, vca.rsControllerThreads,
-			vca.vmControllerThreads, vca.migrationControllerThreads, vca.evacuationControllerThreads,
+			vca.vmControllerThreads, vca.firmwareControllerThreads, vca.migrationControllerThreads, vca.evacuationControllerThreads,
 			vca.disruptionBudgetControllerThreads)
 
 		if err := metrics.RegisterLeaderMetrics(); err != nil {
@@ -577,6 +579,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 		go vca.rsController.Run(vca.rsControllerThreads, stop)
 		go vca.poolController.Run(vca.poolControllerThreads, stop)
 		go vca.vmController.Run(vca.vmControllerThreads, stop)
+		go vca.firmwareController.Run(vca.firmwareControllerThreads, stop)
 		go vca.migrationController.Run(vca.migrationControllerThreads, stop)
 		go func() {
 			if err := vca.snapshotController.Run(vca.snapshotControllerThreads, stop); err != nil {
@@ -737,6 +740,12 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
 
+	vca.firmwareController, err = vm.NewFirmwareController(
+		vca.vmInformer, vca.clientSet, recorder,
+	)
+	if err != nil {
+		panic(err)
+	}
 	vca.vmController, err = vm.NewController(
 		vca.vmiInformer,
 		vca.vmInformer,
@@ -977,6 +986,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.IntVar(&vca.vmControllerThreads, "vm-controller-threads", defaultControllerThreads,
 		"Number of goroutines to run for vm controller")
+
+	flag.IntVar(&vca.firmwareControllerThreads, "vm-firmware-controller-threads", defaultControllerThreads,
+		"Number of goroutines to run for vm firmware controller")
 
 	flag.IntVar(&vca.migrationControllerThreads, "migration-controller-threads", defaultControllerThreads,
 		"Number of goroutines to run for migration controller")
