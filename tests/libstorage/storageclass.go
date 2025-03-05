@@ -31,8 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kubevirt.io/client-go/kubecli"
-
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 var wffc = storagev1.VolumeBindingWaitForFirstConsumer
@@ -51,9 +49,10 @@ func CreateStorageClass(name string, bindingMode *storagev1.VolumeBindingMode) {
 		VolumeBindingMode: bindingMode,
 	}
 	_, err := virtClient.StorageV1().StorageClasses().Create(context.Background(), sc, metav1.CreateOptions{})
-	if !errors.IsAlreadyExists(err) {
-		util.PanicOnError(err)
-	}
+	Expect(err).To(Or(
+		Not(HaveOccurred()),
+		MatchError(errors.IsAlreadyExists, "errors.IsAlreadyExists"),
+	))
 }
 
 func DeleteStorageClass(name string) {
@@ -63,10 +62,9 @@ func DeleteStorageClass(name string) {
 	if errors.IsNotFound(err) {
 		return
 	}
-	util.PanicOnError(err)
+	Expect(err).ToNot(HaveOccurred())
 
-	err = virtClient.StorageV1().StorageClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
-	util.PanicOnError(err)
+	Expect(virtClient.StorageV1().StorageClasses().Delete(context.Background(), name, metav1.DeleteOptions{})).To(Succeed())
 }
 
 func GetSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
