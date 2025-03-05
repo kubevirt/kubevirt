@@ -87,10 +87,8 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		// Check if the hardware supports SRIOV
-		if err := validateSRIOVSetup(virtClient, sriovResourceName, 1); err != nil {
-			Fail(fmt.Sprintf("Sriov is not enabled in this environment: %v. Skip these tests using - export FUNC_TEST_ARGS='--skip=SRIOV'", err))
-		}
+		Expect(validateSRIOVSetup(virtClient, sriovResourceName, 1)).To(Succeed(),
+			"Sriov is not enabled in this environment: %v. Skip these tests using - export FUNC_TEST_ARGS='--label-filter=!SRIOV'")
 	})
 
 	Context("VMI connected to single SRIOV network", func() {
@@ -258,9 +256,8 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 
 		Context("migration", decorators.RequiresTwoSchedulableNodes, func() {
 			BeforeEach(func() {
-				if err := validateSRIOVSetup(virtClient, sriovResourceName, 2); err != nil {
-					Fail("Migration tests require at least 2 nodes: " + err.Error())
-				}
+				Expect(validateSRIOVSetup(virtClient, sriovResourceName, 2)).To(Succeed(),
+					"Migration tests require at least 2 nodes with SR-IOV resources")
 			})
 
 			var vmi *v1.VirtualMachineInstance
