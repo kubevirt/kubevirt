@@ -60,11 +60,11 @@ var _ = Describe(SIG("Guest Access Credentials", func() {
 		userData                 = "#cloud-config\nchpasswd: { expire: False }\n"
 	)
 
-	_, pub, _ := libssh.NewKeyPair()
+	_, publicKey, _ := libssh.NewKeyPair()
 	keysSecretData := libsecret.DataBytes{
-		"my-key1": ssh.MarshalAuthorizedKey(pub),
-		"my-key2": ssh.MarshalAuthorizedKey(pub),
-		"my-key3": ssh.MarshalAuthorizedKey(pub),
+		"my-key1": ssh.MarshalAuthorizedKey(publicKey),
+		"my-key2": ssh.MarshalAuthorizedKey(publicKey),
+		"my-key3": ssh.MarshalAuthorizedKey(publicKey),
 	}
 
 	DescribeTable("should have ssh-key under authorized keys added", func(withQEMUAccessCredential bool, options ...libvmi.Option) {

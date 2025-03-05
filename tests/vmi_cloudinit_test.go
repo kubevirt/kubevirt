@@ -129,8 +129,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			Context("with injected ssh-key", func() {
 				It("[test_id:1616]should have ssh-key under authorized keys", func() {
-					_, pub, _ := libssh.NewKeyPair()
-					sshAuthorizedKey := ssh.MarshalAuthorizedKey(pub)
+					_, publicKey, _ := libssh.NewKeyPair()
+					sshAuthorizedKey := ssh.MarshalAuthorizedKey(publicKey)
 					userData := fmt.Sprintf(
 						"#cloud-config\npassword: %s\nchpasswd: { expire: False }\nssh_authorized_keys:\n  - %s",
 						fedoraPassword,
@@ -170,8 +170,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			Context("with injected ssh-key", func() {
 				It("[test_id:3178]should have ssh-key under authorized keys", func() {
-					_, pub, _ := libssh.NewKeyPair()
-					sshAuthorizedKey := ssh.MarshalAuthorizedKey(pub)
+					_, publicKey, _ := libssh.NewKeyPair()
+					sshAuthorizedKey := ssh.MarshalAuthorizedKey(publicKey)
 					userData := fmt.Sprintf(
 						"#cloud-config\npassword: %s\nchpasswd: { expire: False }\nssh_authorized_keys:\n  - %s",
 						fedoraPassword,
