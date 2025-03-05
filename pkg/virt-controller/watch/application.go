@@ -172,8 +172,9 @@ type VirtControllerApp struct {
 	poolController *pool.Controller
 	poolInformer   cache.SharedIndexInformer
 
-	vmController *vm.Controller
-	vmInformer   cache.SharedIndexInformer
+	vmController       *vm.Controller
+	firmwareController *vm.FirmwareController
+	vmInformer         cache.SharedIndexInformer
 
 	controllerRevisionInformer cache.SharedIndexInformer
 
@@ -737,33 +738,39 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
 
-	vca.vmController, err = vm.NewController(
-		vca.vmiInformer,
-		vca.vmInformer,
-		vca.dataVolumeInformer,
-		vca.dataSourceInformer,
-		vca.namespaceStore,
-		vca.persistentVolumeClaimInformer,
-		vca.controllerRevisionInformer,
-		vca.kvPodInformer,
-		recorder,
-		vca.clientSet,
-		vca.clusterConfig,
-		netcontrollers.NewVMController(
-			vca.clientSet.GeneratedKubeVirtClient(),
-			controller.NewPodCacheStore(vca.kvPodInformer.GetIndexer()),
-		),
-		instancetypecontroller.New(
-			vca.instancetypeInformer.GetStore(),
-			vca.clusterInstancetypeInformer.GetStore(),
-			vca.preferenceInformer.GetStore(),
-			vca.clusterPreferenceInformer.GetStore(),
-			vca.controllerRevisionInformer.GetStore(),
+	vca.firmwareController, err = vm.NewFirmwareController(
+		vca.vmInformer, vca.clientSet, recorder,
+	)
+	if err == nil {
+		vca.vmController, err = vm.NewController(
+			vca.vmiInformer,
+			vca.vmInformer,
+			vca.dataVolumeInformer,
+			vca.dataSourceInformer,
+			vca.namespaceStore,
+			vca.persistentVolumeClaimInformer,
+			vca.controllerRevisionInformer,
+			vca.kvPodInformer,
+			recorder,
 			vca.clientSet,
 			vca.clusterConfig,
-			recorder,
-		),
-	)
+			netcontrollers.NewVMController(
+				vca.clientSet.GeneratedKubeVirtClient(),
+				controller.NewPodCacheStore(vca.kvPodInformer.GetIndexer()),
+			),
+			instancetypecontroller.New(
+				vca.instancetypeInformer.GetStore(),
+				vca.clusterInstancetypeInformer.GetStore(),
+				vca.preferenceInformer.GetStore(),
+				vca.clusterPreferenceInformer.GetStore(),
+				vca.controllerRevisionInformer.GetStore(),
+				vca.clientSet,
+				vca.clusterConfig,
+				recorder,
+			),
+		)
+	}
+
 	if err != nil {
 		panic(err)
 	}
