@@ -258,8 +258,6 @@ func NewController(
 
 	c.downwardMetricsManager = downwardMetricsManager
 
-	c.domainNotifyPipes = make(map[string]string)
-
 	permissions := "rw"
 	if cgroups.IsCgroup2UnifiedMode() {
 		// Need 'rwm' permissions otherwise ebpf filtering program attached by runc
@@ -315,7 +313,6 @@ type VirtualMachineController struct {
 	netStat                          netstat
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
 
-	domainNotifyPipes           map[string]string
 	virtLauncherFSRunDirPattern string
 	heartBeat                   *heartbeat.HeartBeat
 	capabilities                *libvirtxml.Caps
