@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
+	"kubevirt.io/kubevirt/tests/libssh"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -482,10 +483,10 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				secretPath string
 			)
 
-			var bitSize int = 2048
-			privateKey, _ := generatePrivateKey(bitSize)
-			publicKeyBytes, _ := generatePublicKey(&privateKey.PublicKey)
-			privateKeyBytes := encodePrivateKeyToPEM(privateKey)
+			privateKey, publicKey, _ := libssh.NewKeyPair()
+			publicKeyBytes := ssh.MarshalAuthorizedKey(publicKey)
+			marshalPrivateKey, _ := ssh.MarshalPrivateKey(privateKey, "private-key")
+			privateKeyBytes := marshalPrivateKey.Bytes
 
 			BeforeEach(func() {
 				secretName = "secret-" + uuid.NewString()

@@ -32,6 +32,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"golang.org/x/crypto/ssh"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -49,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
+	"kubevirt.io/kubevirt/tests/libssh"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -56,7 +58,6 @@ import (
 )
 
 const (
-	sshAuthorizedKey     = "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key"
 	fedoraPassword       = "fedora"
 	expectedUserDataFile = "cloud-init-userdata-executed"
 	testNetworkData      = "#Test networkData"
@@ -128,6 +129,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			Context("with injected ssh-key", func() {
 				It("[test_id:1616]should have ssh-key under authorized keys", func() {
+					_, pub, _ := libssh.NewKeyPair()
+					sshAuthorizedKey := ssh.MarshalAuthorizedKey(pub)
 					userData := fmt.Sprintf(
 						"#cloud-config\npassword: %s\nchpasswd: { expire: False }\nssh_authorized_keys:\n  - %s",
 						fedoraPassword,
@@ -167,6 +170,8 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			Context("with injected ssh-key", func() {
 				It("[test_id:3178]should have ssh-key under authorized keys", func() {
+					_, pub, _ := libssh.NewKeyPair()
+					sshAuthorizedKey := ssh.MarshalAuthorizedKey(pub)
 					userData := fmt.Sprintf(
 						"#cloud-config\npassword: %s\nchpasswd: { expire: False }\nssh_authorized_keys:\n  - %s",
 						fedoraPassword,
