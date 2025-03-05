@@ -14635,7 +14635,7 @@
       "$ref": "#/definitions/v1.VirtualMachineOptions"
      },
      "vmRolloutStrategy": {
-      "description": "VMRolloutStrategy defines how live-updatable fields, like CPU sockets, memory, tolerations, and affinity, are propagated from a VM to its VMI.",
+      "description": "VMRolloutStrategy defines how live-updatable fields, like CPU sockets, memory, tolerations, terminationGracePeriodSeconds and affinity, are propagated from a VM to its VMI.",
       "type": "string"
      },
      "vmStateStorageClass": {

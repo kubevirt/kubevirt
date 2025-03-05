@@ -21486,7 +21486,7 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 					},
 					"vmRolloutStrategy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VMRolloutStrategy defines how live-updatable fields, like CPU sockets, memory, tolerations, and affinity, are propagated from a VM to its VMI.",
+							Description: "VMRolloutStrategy defines how live-updatable fields, like CPU sockets, memory, tolerations, terminationGracePeriodSeconds and affinity, are propagated from a VM to its VMI.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

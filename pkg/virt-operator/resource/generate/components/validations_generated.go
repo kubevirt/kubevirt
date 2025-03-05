@@ -1571,7 +1571,7 @@ var CRDsValidation map[string]string = map[string]string{
             vmRolloutStrategy:
               description: |-
                 VMRolloutStrategy defines how live-updatable fields, like CPU sockets, memory,
-                tolerations, and affinity, are propagated from a VM to its VMI.
+                tolerations, terminationGracePeriodSeconds and affinity, are propagated from a VM to its VMI.
               enum:
               - Stage
               - LiveUpdate
