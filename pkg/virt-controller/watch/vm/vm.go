@@ -40,7 +40,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
-	"github.com/google/uuid"
 	appsv1 "k8s.io/api/apps/v1"
 	authv1 "k8s.io/api/authorization/v1"
 	k8score "k8s.io/api/core/v1"
@@ -133,6 +132,7 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
 	netSynchronizer synchronizer,
+	firmwareSynchronizer synchronizer,
 	instancetypeController instancetypeHandler,
 ) (*Controller, error) {
 
@@ -157,8 +157,9 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 			response, err := dv.AuthorizeSA(requestNamespace, requestName, proxy, saNamespace, saName)
 			return response.Allowed, response.Reason, err
 		},
-		clusterConfig:   clusterConfig,
-		netSynchronizer: netSynchronizer,
+		clusterConfig:        clusterConfig,
+		netSynchronizer:      netSynchronizer,
+		firmwareSynchronizer: firmwareSynchronizer,
 	}
 
 	c.hasSynced = func() bool {
@@ -261,7 +262,8 @@ type Controller struct {
 	clusterConfig          *virtconfig.ClusterConfig
 	hasSynced              func() bool
 
-	netSynchronizer synchronizer
+	netSynchronizer      synchronizer
+	firmwareSynchronizer synchronizer
 }
 
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
@@ -1866,12 +1868,6 @@ func hasStopRequestForVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		*stateChange.UID == vmi.UID
 }
 
-// no special meaning, randomly generated on my box.
-// TODO: do we want to use another constants? see examples in RFC4122
-const magicUUID = "6a1a24a1-4061-4607-8bf4-a3963d0c5895"
-
-var firmwareUUIDns = uuid.MustParse(magicUUID)
-
 // setStableUUID makes sure the VirtualMachineInstance being started has a 'stable' UUID.
 // The UUID is 'stable' if doesn't change across reboots.
 func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
@@ -1888,7 +1884,7 @@ func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 		return
 	}
 
-	vmi.Spec.Domain.Firmware.UUID = types.UID(uuid.NewSHA1(firmwareUUIDns, []byte(vmi.ObjectMeta.Name)).String())
+	vmi.Spec.Domain.Firmware.UUID = CalculateLegacyUUID(vmi.Name)
 }
 
 // listControllerFromNamespace takes a namespace and returns all VirtualMachines
@@ -3047,6 +3043,15 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 
 	if c.netSynchronizer != nil {
 		syncedVM, err := c.netSynchronizer.Sync(vmCopy, vmi)
+		if err != nil {
+			return vm, vmi, handleSynchronizerErr(err), nil
+		}
+		vmCopy.ObjectMeta = syncedVM.ObjectMeta
+		vmCopy.Spec = syncedVM.Spec
+	}
+
+	if c.firmwareSynchronizer != nil {
+		syncedVM, err := c.firmwareSynchronizer.Sync(vmCopy, vmi)
 		if err != nil {
 			return vm, vmi, handleSynchronizerErr(err), nil
 		}
