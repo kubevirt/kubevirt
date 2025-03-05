@@ -60,7 +60,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGMigrationDescribe("VM Post Copy Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
+var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
 	var (
 		virtClient      kubecli.KubevirtClient
 		err             error
@@ -252,7 +252,7 @@ var _ = SIGMigrationDescribe("VM Post Copy Live Migration", decorators.RequiresT
 			})
 		})
 	})
-})
+}))
 
 func VMIMigrationWithGuestAgent(virtClient kubecli.KubevirtClient, pvName string, memoryRequestSize string, migrationPolicy *migrationsv1.MigrationPolicy) {
 	By("Creating the VMI")

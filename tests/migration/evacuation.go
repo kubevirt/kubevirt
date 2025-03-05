@@ -45,7 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = SIGMigrationDescribe("VM Live Migration triggered by evacuation", decorators.RequiresTwoSchedulableNodes, func() {
+var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.RequiresTwoSchedulableNodes, func() {
 	Context("during evacuation", func() {
 		It("should add eviction-in-progress annotation to source virt-launcher pod", func() {
 			vmi := libvmifact.NewCirros(
@@ -151,7 +151,7 @@ var _ = SIGMigrationDescribe("VM Live Migration triggered by evacuation", decora
 			})
 		})
 	})
-})
+}))
 
 func setEvacuationAnnotation(migrations ...*v1.VirtualMachineInstanceMigration) {
 	for _, m := range migrations {

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017-2023 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -43,7 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = DescribeSerialInfra("changes to the kubernetes client", func() {
+var _ = Describe(SIGSerial("changes to the kubernetes client", func() {
 	var (
 		virtClient kubecli.KubevirtClient
 		err        error
@@ -143,4 +143,4 @@ var _ = DescribeSerialInfra("changes to the kubernetes client", func() {
 		minExpectedDuration := 1.5 * fastDuration.Seconds()
 		Expect(slowDuration.Seconds()).To(BeNumerically(">", minExpectedDuration))
 	})
-})
+}))

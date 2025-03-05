@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = compute.SIGDescribe("ExpandSpec subresource", func() {
+var _ = Describe(compute.SIG("ExpandSpec subresource", func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -316,4 +316,4 @@ var _ = compute.SIGDescribe("ExpandSpec subresource", func() {
 			)
 		})
 	})
-})
+}))

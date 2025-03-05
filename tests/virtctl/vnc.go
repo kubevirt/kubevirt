@@ -45,7 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = VirtctlDescribe("[sig-compute]VNC", decorators.SigCompute, decorators.WgArm64, func() {
+var _ = Describe(SIG("[sig-compute]VNC", decorators.SigCompute, decorators.WgArm64, func() {
 	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
@@ -131,7 +131,7 @@ var _ = VirtctlDescribe("[sig-compute]VNC", decorators.SigCompute, decorators.Wg
 			return img.Bounds().Size()
 		}, 60*time.Second).Should(Equal(size), "screenshot.png should have the expected size")
 	})
-})
+}))
 
 func verifyProxyConnection(port, vmiName string) {
 	Eventually(func(g Gomega) {

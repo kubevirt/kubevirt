@@ -46,7 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin", decorators.Macvtap, decorators.NetCustomBindingPlugins, Serial, func() {
+var _ = Describe(SIG("VirtualMachineInstance with macvtap network binding plugin", decorators.Macvtap, decorators.NetCustomBindingPlugins, Serial, func() {
 	const (
 		macvtapLowerDevice = "eth0"
 		macvtapNetworkName = "net1"
@@ -184,7 +184,7 @@ var _ = SIGDescribe("VirtualMachineInstance with macvtap network binding plugin"
 			})
 		})
 	})
-})
+}))
 
 func waitForPodCompleted(podNamespace, podName string) error {
 	pod, err := kubevirt.Client().CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})

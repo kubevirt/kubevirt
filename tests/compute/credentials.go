@@ -46,7 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("Guest Access Credentials", func() {
+var _ = Describe(SIG("Guest Access Credentials", func() {
 
 	const (
 		fedoraRunningTimeout     = 120
@@ -186,7 +186,7 @@ var _ = SIGDescribe("Guest Access Credentials", func() {
 				))),
 		)
 	})
-})
+}))
 
 func createNewSecret(namespace string, name string, data libsecret.DataBytes) error {
 	secret := libsecret.New(name, data)

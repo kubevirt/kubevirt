@@ -73,7 +73,7 @@ const (
 	stopVMAfterRestore  = false
 )
 
-var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
+var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 	var err error
 	var virtClient kubecli.KubevirtClient
@@ -2008,4 +2008,4 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			})
 		})
 	})
-})
+}))

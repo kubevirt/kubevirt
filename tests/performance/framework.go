@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -55,12 +55,12 @@ func init() {
 	}
 }
 
-func SIGDescribe(text string, args ...interface{}) bool {
-	return Describe("[sig-performance] "+text, decorators.SigPerformance, Serial, args)
+func KWOK(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
+	return decorators.SIG("[sig-performance]", text, decorators.SigPerformance, Serial, Label("KWOK"), args)
 }
 
-func FSIGDescribe(text string, args ...interface{}) bool {
-	return FDescribe("[sig-performance] "+text, Serial, args)
+func SIG(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
+	return decorators.SIG("[sig-performance]", text, decorators.SigPerformance, Serial, args)
 }
 
 func skipIfNoPerformanceTests() {
@@ -73,8 +73,4 @@ func skipIfNoRealtimePerformanceTests() {
 	if !RunPerfRealtime {
 		Skip("Realtime performance tests are not enabled")
 	}
-}
-
-func KWOKDescribe(text string, args ...interface{}) bool {
-	return Describe("[sig-performance]"+text, Label("KWOK"), decorators.SigPerformance, Serial, args)
 }

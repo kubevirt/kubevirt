@@ -17,18 +17,12 @@
  *
  */
 
-package infrastructure
+package decorators
 
-import (
-	. "github.com/onsi/ginkgo/v2"
-
-	"kubevirt.io/kubevirt/tests/compute"
-)
-
-func SIGSerial(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
-	return compute.SIG("Infrastructure "+text, Serial, args)
-}
-
-func SIG(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
-	return compute.SIG("Infrastructure "+text, args)
+// SIG is the building block for reusing the test name generation across a group of tests sharing the same test name
+// prefix and the same decorator(s).
+func SIG(identifier, text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
+	newArgs = args
+	extendedText = identifier + " " + text
+	return
 }

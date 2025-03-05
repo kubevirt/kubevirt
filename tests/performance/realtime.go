@@ -42,7 +42,7 @@ func byStartingTheVMI(vmi *v1.VirtualMachineInstance, virtClient kubecli.Kubevir
 	libwait.WaitForSuccessfulVMIStart(vmi)
 }
 
-var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", decorators.RequiresTwoWorkerNodesWithCPUManager, decorators.RequiresHugepages2Mi, func() {
+var _ = Describe(SIG("CPU latency tests for measuring realtime VMs performance", decorators.RequiresTwoWorkerNodesWithCPUManager, decorators.RequiresHugepages2Mi, func() {
 
 	var (
 		vmi        *v1.VirtualMachineInstance
@@ -94,7 +94,7 @@ var _ = SIGDescribe("CPU latency tests for measuring realtime VMs performance", 
 		Expect(max).NotTo(BeNumerically(">", realtimeThreshold), fmt.Sprintf("Maximum CPU latency of %d is greater than threshold %d", max, realtimeThreshold))
 	})
 
-})
+}))
 
 type psOutput struct {
 	priority    int64

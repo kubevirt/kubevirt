@@ -42,7 +42,7 @@ const (
 	defaultVMCount      = 1000
 )
 
-var _ = KWOKDescribe("Control Plane Performance Density Testing using kwok", func() {
+var _ = Describe(KWOK("Control Plane Performance Density Testing using kwok", func() {
 	var (
 		virtClient  kubecli.KubevirtClient
 		startTime   time.Time
@@ -112,7 +112,7 @@ var _ = KWOKDescribe("Control Plane Performance Density Testing using kwok", fun
 			})
 		})
 	})
-})
+}))
 
 func createFakeVMIBatchWithKWOK(virtClient kubecli.KubevirtClient, vmCount int) {
 	for i := 1; i <= vmCount; i++ {

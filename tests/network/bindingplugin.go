@@ -43,7 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = SIGDescribe("network binding plugin", Serial, decorators.NetCustomBindingPlugins, func() {
+var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindingPlugins, func() {
 	Context("with CNI and Sidecar", func() {
 		const passtNetAttDefName = "netbindingpasst"
 
@@ -237,4 +237,4 @@ var _ = SIGDescribe("network binding plugin", Serial, decorators.NetCustomBindin
 			Expect(libnet.PingFromVMConsole(clientVMI, serverIPAddr)).To(Succeed())
 		})
 	})
-})
+}))

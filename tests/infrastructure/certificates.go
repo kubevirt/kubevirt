@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
@@ -47,7 +47,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = DescribeSerialInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][level:component]certificates", func() {
+var _ = Describe(SIGSerial("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com][level:component]certificates", func() {
 	var (
 		virtClient       kubecli.KubevirtClient
 		aggregatorClient *aggregatorclient.Clientset
@@ -191,7 +191,7 @@ var _ = DescribeSerialInfra("[rfe_id:4102][crit:medium][vendor:cnv-qe@redhat.com
 		Entry("[test_id:4105] virt-handlers client side", components.VirtHandlerCertSecretName),
 		Entry("[test_id:4106] virt-handlers server side", components.VirtHandlerServerCertSecretName),
 	)
-})
+}))
 
 func getCertFromSecret(secretName string) []byte {
 	virtClient := kubevirt.Client()

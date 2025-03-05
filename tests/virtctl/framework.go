@@ -20,15 +20,9 @@
 package virtctl
 
 import (
-	. "github.com/onsi/ginkgo/v2"
-
 	"kubevirt.io/kubevirt/tests/decorators"
 )
 
-func VirtctlDescribe(text string, args ...interface{}) bool {
-	return Describe("[virtctl] "+text, decorators.Virtctl, args)
-}
-
-func FVirtctlDescribe(text string, args ...interface{}) bool {
-	return FDescribe("[virtctl] "+text, decorators.Virtctl, args)
+func SIG(text string, args ...interface{}) (extendedText string, newArgs []interface{}) {
+	return decorators.SIG("[virtctl]", text, decorators.Virtctl, args)
 }

@@ -73,7 +73,7 @@ func evacuationIsClear() types.GomegaMatcher {
 	}))
 }
 
-var _ = SIGMigrationDescribe("Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
+var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -617,7 +617,7 @@ var _ = SIGMigrationDescribe("Live Migration", decorators.RequiresTwoSchedulable
 			})
 		})
 	})
-})
+}))
 
 func fedoraVMIWithEvictionStrategy() *v1.VirtualMachineInstance {
 	return libvmifact.NewFedora(libnet.WithMasqueradeNetworking(),

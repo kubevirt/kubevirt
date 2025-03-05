@@ -9,7 +9,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-var _ = SIGDescribe("Dual stack cluster network configuration", func() {
+var _ = Describe(SIG("Dual stack cluster network configuration", func() {
 	Context("when dual stack cluster configuration is enabled", func() {
 		Specify("the cluster must be dual stack", func() {
 			if flags.SkipDualStackTests {
@@ -21,4 +21,4 @@ var _ = SIGDescribe("Dual stack cluster network configuration", func() {
 			Expect(isClusterDualStack).To(BeTrue(), "the live cluster should be in dual stack mode")
 		})
 	})
-})
+}))
