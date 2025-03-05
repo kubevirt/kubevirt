@@ -45,7 +45,7 @@ func virtRecordingRules(namespace string) []operatorrules.RecordingRule {
 			},
 			MetricType: operatormetrics.GaugeType,
 			Expr: intstr.FromString(
-				fmt.Sprintf("sum(up{pod=~'virt-controller-.*', namespace='%s'}) or vector(0)", namespace),
+				fmt.Sprintf("sum(kube_pod_status_phase{pod=~'virt-controller-.*', namespace='%s', phase='Running'}) or vector(0)", namespace),
 			),
 		},
 		{
@@ -55,7 +55,7 @@ func virtRecordingRules(namespace string) []operatorrules.RecordingRule {
 			},
 			MetricType: operatormetrics.GaugeType,
 			Expr: intstr.FromString(
-				fmt.Sprintf("sum(kubevirt_virt_controller_ready_status{namespace='%s'}) or vector(0)", namespace),
+				fmt.Sprintf("count(kube_pod_status_ready{pod=~'virt-controller-.*', namespace='%s', condition='true'} + on(pod, namespace) kubevirt_virt_controller_ready_status{namespace='%s'}) or vector(0)", namespace, namespace),
 			),
 		},
 		{
