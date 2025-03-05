@@ -40,6 +40,16 @@ func virtRecordingRules(namespace string) []operatorrules.RecordingRule {
 		},
 		{
 			MetricsOpts: operatormetrics.MetricOpts{
+				Name: "cluster:kubevirt_virt_controller_pods_running:count",
+				Help: "The number of virt-controller pods that are running.",
+			},
+			MetricType: operatormetrics.GaugeType,
+			Expr: intstr.FromString(
+				fmt.Sprintf("count(kube_pod_status_phase{pod=~'virt-controller-.*', namespace='%s', phase='Running'} == 1) or vector(0)", namespace),
+			),
+		},
+		{
+			MetricsOpts: operatormetrics.MetricOpts{
 				Name: "kubevirt_virt_controller_up",
 				Help: "The number of virt-controller pods that are up.",
 			},
@@ -55,7 +65,7 @@ func virtRecordingRules(namespace string) []operatorrules.RecordingRule {
 			},
 			MetricType: operatormetrics.GaugeType,
 			Expr: intstr.FromString(
-				fmt.Sprintf("sum(kubevirt_virt_controller_ready_status{namespace='%s'}) or vector(0)", namespace),
+				fmt.Sprintf("count(kube_pod_status_ready{pod=~'virt-controller-.*', namespace='%s', condition='true'} + on(pod, namespace) kubevirt_virt_controller_ready_status{namespace='%s'}) or vector(0)", namespace, namespace),
 			),
 		},
 		{
