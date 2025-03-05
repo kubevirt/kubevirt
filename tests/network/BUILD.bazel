@@ -24,6 +24,7 @@ go_library(
         "vmi_lifecycle.go",
         "vmi_multus.go",
         "vmi_networking.go",
+        "vmi_networking_ordered.go",
         "vmi_subdomain.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/network",
