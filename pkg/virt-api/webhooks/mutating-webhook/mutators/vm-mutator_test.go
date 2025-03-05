@@ -67,14 +67,15 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	ignoreInferFromVolumeFailure := v1.IgnoreInferFromVolumeFailure
 	rejectInferFromVolumeFailure := v1.RejectInferFromVolumeFailure
 
-	admitVM := func(arch string) *admissionv1.AdmissionResponse {
+	admitVM := func(arch string, op admissionv1.Operation) *admissionv1.AdmissionResponse {
 		vm.Spec.Template.Spec.Architecture = arch
 		vmBytes, err := json.Marshal(vm)
 		Expect(err).ToNot(HaveOccurred())
 		By("Creating the test admissions review from the VM")
 		ar := &admissionv1.AdmissionReview{
 			Request: &admissionv1.AdmissionRequest{
-				Resource: k8smetav1.GroupVersionResource{Group: v1.VirtualMachineGroupVersionKind.Group, Version: v1.VirtualMachineGroupVersionKind.Version, Resource: "virtualmachines"},
+				Operation: op,
+				Resource:  k8smetav1.GroupVersionResource{Group: v1.VirtualMachineGroupVersionKind.Group, Version: v1.VirtualMachineGroupVersionKind.Version, Resource: "virtualmachines"},
 				Object: runtime.RawExtension{
 					Raw: vmBytes,
 				},
@@ -85,7 +86,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	}
 
 	getVMSpecMetaFromResponse := func(arch string) (*v1.VirtualMachineSpec, *k8smetav1.ObjectMeta) {
-		resp := admitVM(arch)
+		resp := admitVM(arch, admissionv1.Create)
 		Expect(resp.Allowed).To(BeTrue())
 
 		By("Getting the VM spec from the response")
@@ -156,7 +157,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	It("should allow VM being deleted without applying mutations", func() {
 		now := k8smetav1.Now()
 		vm.ObjectMeta.DeletionTimestamp = &now
-		resp := admitVM(rt.GOARCH)
+		resp := admitVM(rt.GOARCH, admissionv1.Delete)
 		Expect(resp.Allowed).To(BeTrue())
 		Expect(resp.Patch).To(BeEmpty())
 	})
@@ -173,6 +174,8 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		default:
 			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal("q35"))
 		}
+
+		Expect(vmSpec.Template.Spec.Domain.Firmware.UUID).ToNot(BeNil())
 	})
 
 	DescribeTable("should apply configurable defaults on VM create", func(arch string, amd64MachineType string, arm64MachineType string, ppc64leMachineType string, s390xMachineType string, result string) {
@@ -368,7 +371,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	DescribeTable("should admit valid values to InferFromVolumePolicy", func(instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher) {
 		vm.Spec.Instancetype = instancetypeMatcher
 		vm.Spec.Preference = preferenceMatcher
-		resp := admitVM(rt.GOARCH)
+		resp := admitVM(rt.GOARCH, admissionv1.Create)
 		Expect(resp.Allowed).To(BeTrue())
 	},
 		Entry("InstancetypeMatcher with IgnoreInferFromVolumeFailure", &v1.InstancetypeMatcher{Name: "bar", InferFromVolumeFailurePolicy: &ignoreInferFromVolumeFailure}, nil),
@@ -434,7 +437,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 			vm.Spec.DataVolumeTemplates = []v1.DataVolumeTemplateSpec{{
 				Spec: cdiv1.DataVolumeSpec{},
 			}}
-			resp := admitVM(rt.GOARCH)
+			resp := admitVM(rt.GOARCH, admissionv1.Create)
 			Expect(resp.Allowed).To(BeTrue())
 		})
 
@@ -804,7 +807,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		DescribeTable("should fail if", func(instancetypeMatcher *v1.InstancetypeMatcher, preferenceMatcher *v1.PreferenceMatcher, expectedField, expectedMessage string) {
 			vm.Spec.Instancetype = instancetypeMatcher
 			vm.Spec.Preference = preferenceMatcher
-			resp := admitVM(rt.GOARCH)
+			resp := admitVM(rt.GOARCH, admissionv1.Create)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(ContainSubstring(expectedMessage))
 			Expect(resp.Result.Details.Causes).To(HaveLen(1))
