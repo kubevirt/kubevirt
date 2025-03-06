@@ -345,4 +345,40 @@ var _ = Describe("Parsing VMI Options", func() {
 			Expect(actualTopology).To(Equal(expectedTopology))
 		})
 	})
+	It("should handle and avoid panic on host NUMA cells with nil values", func() {
+		caps := &libvirtxml.Caps{
+			Host: libvirtxml.CapsHost{
+				NUMA: &libvirtxml.CapsHostNUMATopology{
+					Cells: &libvirtxml.CapsHostNUMACells{
+						Cells: []libvirtxml.CapsHostNUMACell{
+							{
+								Memory:    nil,
+								Distances: nil,
+								CPUS:      nil,
+							},
+						},
+					},
+				},
+			},
+		}
+
+		var actualTopology *cmdv1.Topology
+		Expect(func() {
+			actualTopology = capabilitiesToTopology(caps)
+		}).ShouldNot(Panic())
+
+		expectedTopology := &cmdv1.Topology{
+			NumaCells: []*cmdv1.Cell{
+				{
+					Id:        0,
+					Memory:    nil,
+					Pages:     nil,
+					Distances: nil,
+					Cpus:      nil,
+				},
+			},
+		}
+
+		Expect(actualTopology).To(Equal(expectedTopology))
+	})
 })
