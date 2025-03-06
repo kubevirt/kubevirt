@@ -13,6 +13,7 @@ import (
 	generatedscheme "kubevirt.io/client-go/generated/kubevirt/clientset/versioned/scheme"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/preference"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -57,7 +58,7 @@ var _ = Describe("[sig-compute] create preference", decorators.SigCompute, func(
 
 	Context("should create valid preference manifest", func() {
 		DescribeTable("[test_id:9836]without arguments", func(namespacedFlag string, namespaced bool) {
-			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Preference, namespacedFlag)()
+			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create.CREATE, Preference, namespacedFlag)()
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = createPreferenceSpec(bytes, namespaced)
@@ -68,7 +69,7 @@ var _ = Describe("[sig-compute] create preference", decorators.SigCompute, func(
 		)
 
 		DescribeTable("[test_id:9837]when machine type defined", func(namespacedFlag, machineType string, namespaced bool) {
-			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Preference, namespacedFlag,
+			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create.CREATE, Preference, namespacedFlag,
 				setFlag(MachineTypeFlag, machineType),
 			)()
 			Expect(err).ToNot(HaveOccurred())
@@ -82,7 +83,7 @@ var _ = Describe("[sig-compute] create preference", decorators.SigCompute, func(
 		)
 
 		DescribeTable("[test_id:9838]when preferred storageClass defined", func(namespacedFlag, PreferredStorageClass string, namespaced bool) {
-			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Preference, namespacedFlag,
+			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create.CREATE, Preference, namespacedFlag,
 				setFlag(VolumeStorageClassFlag, PreferredStorageClass),
 			)()
 			Expect(err).ToNot(HaveOccurred())
@@ -96,7 +97,7 @@ var _ = Describe("[sig-compute] create preference", decorators.SigCompute, func(
 		)
 
 		DescribeTable("[test_id:9839]when cpu topology defined", func(namespacedFlag, CPUTopology string, namespaced bool, topology instancetypev1beta1.PreferredCPUTopology) {
-			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create, Preference, namespacedFlag,
+			bytes, err := clientcmd.NewRepeatableVirtctlCommandWithOut(create.CREATE, Preference, namespacedFlag,
 				setFlag(CPUTopologyFlag, CPUTopology),
 			)()
 			Expect(err).ToNot(HaveOccurred())
