@@ -885,11 +885,11 @@ var _ = Describe("Migration watcher", func() {
 		})
 
 		It("should create target pod merging addedNodeSelector and preserving the labels in the existing NodeSelector and NodeAffinity", func() {
-			const commnonKey = "topology.kubernetes.io/region"
+			const commonKey = "topology.kubernetes.io/region"
 
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			vmiNodeSelector := map[string]string{
-				commnonKey:  "us-east-1",
+				commonKey:   "us-east-1",
 				"vmiLabel1": "vmiValue1",
 				"vmiLabel2": "vmiValue2",
 			}
@@ -924,9 +924,9 @@ var _ = Describe("Migration watcher", func() {
 			}
 
 			addedNodeSelector := map[string]string{
-				commnonKey:        "us-west-1",
-				"additionaLabel1": "additionalValue1",
-				"additionaLabel2": "additionalValue2",
+				commonKey:          "us-west-1",
+				"additionalLabel1": "additionalValue1",
+				"additionalLabel2": "additionalValue2",
 			}
 
 			By("Enforcing we have a key collision between vmiNodeSelector and addedNodeSelector")
