@@ -51,6 +51,7 @@ import (
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	typesutil "kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
+	firmware "kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
 )
 
 const (
@@ -859,13 +860,24 @@ func (t *vmRestoreTarget) reconcileSpec(restoredVM *kubevirtv1.VirtualMachine) (
 		return false, err
 	}
 
+	sourceVM, err := t.getSnapshotVM()
+	if err != nil {
+		return false, err
+	}
+
 	if !t.Exists() {
 		restoredVM, err = patchVM(restoredVM, t.vmRestore.Spec.Patches)
 		if err != nil {
 			return false, fmt.Errorf("error patching VM %s: %v", restoredVM.Name, err)
 		}
+
+		if restoredVM.Name == sourceVM.Name {
+			setLegacyFirmwareUUID(restoredVM)
+		}
+
 		restoredVM, err = t.controller.Client.VirtualMachine(t.vmRestore.Namespace).Create(context.Background(), restoredVM, metav1.CreateOptions{})
 	} else {
+		setLegacyFirmwareUUID(restoredVM)
 		restoredVM, err = t.controller.Client.VirtualMachine(restoredVM.Namespace).Update(context.Background(), restoredVM, metav1.UpdateOptions{})
 	}
 	if err != nil {
@@ -1496,4 +1508,13 @@ func getRestoreVolumeBackup(volName string, content *snapshotv1.VirtualMachineSn
 		}
 	}
 	return &snapshotv1.VolumeBackup{}, fmt.Errorf("volume backup for volume %s not found", volName)
+}
+
+func setLegacyFirmwareUUID(vm *kubevirtv1.VirtualMachine) {
+	if vm.Spec.Template.Spec.Domain.Firmware == nil {
+		vm.Spec.Template.Spec.Domain.Firmware = &kubevirtv1.Firmware{}
+	}
+	if vm.Spec.Template.Spec.Domain.Firmware.UUID == "" {
+		vm.Spec.Template.Spec.Domain.Firmware.UUID = firmware.CalculateLegacyFirmwareUUID(vm.Name)
+	}
 }
