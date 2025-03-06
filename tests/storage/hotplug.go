@@ -937,9 +937,9 @@ var _ = SIGDescribe("Hotplug", func() {
 			)
 
 			It("should allow to hotplug 75 volumes simultaneously", func() {
-				if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
-					Skip("Skip test if storage class binding mode is wffc")
-				}
+				//if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+				//	Skip("Skip test if storage class binding mode is wffc")
+				//}
 
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
