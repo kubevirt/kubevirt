@@ -1392,7 +1392,7 @@ var _ = Describe("Migration watcher", func() {
 
 			const oldMigrationUID = "oldmigrationuid"
 			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
-				MigrationUID: types.UID(oldMigrationUID),
+				MigrationUID: oldMigrationUID,
 			}
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
@@ -2323,8 +2323,8 @@ var _ = Describe("Migration watcher", func() {
 	})
 })
 
-func newPDB(name string, vmi *virtv1.VirtualMachineInstance, pods int) *policyv1.PodDisruptionBudget {
-	minAvailable := intstr.FromInt(pods)
+func newPDB(name string, vmi *virtv1.VirtualMachineInstance, pods int32) *policyv1.PodDisruptionBudget {
+	minAvailable := intstr.FromInt32(pods)
 
 	return &policyv1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{
