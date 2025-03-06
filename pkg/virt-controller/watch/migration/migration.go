@@ -78,8 +78,8 @@ const defaultUnschedulablePendingTimeoutSeconds = int64(60 * 5)
 // migration objects
 const defaultFinalizedMigrationGarbageCollectionBuffer = 5
 
-// This is catch all timeout used when a target pod is stuck in
-// a in the pending phase for any reason. The theory behind this timeout
+// This catch-all timeout is used when a target pod is stuck in
+// the pending phase for any reason. The theory behind this timeout
 // being longer than the unschedulable timeout is that we don't necessarily
 // know all the reasons a pod will be stuck in pending for an extended
 // period of time, so we want to make this timeout long enough that it doesn't
@@ -1106,7 +1106,7 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 
 	if outboundMigrations >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode) {
 		// Let's ensure that we only have two outbound migrations per node
-		// XXX: Make this configurable, thinkg about inbound migration limit, bandwidh per migration, and so on.
+		// XXX: Make this configurable, think about inbound migration limit, bandwidth per migration, and so on.
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel outbound migrations on target node [%d] has hit outbound migrations per node limit.", vmi.Namespace, vmi.Name, outboundMigrations)
 		c.Queue.AddAfter(key, time.Second*5)
 		return nil
@@ -1919,7 +1919,7 @@ func (c *Controller) updateVMI(old, cur interface{}) {
 	}
 	labelChanged := !equality.Semantic.DeepEqual(curVMI.Labels, oldVMI.Labels)
 	if curVMI.DeletionTimestamp != nil {
-		// having a DataVOlume marked for deletion is enough
+		// having a DataVolume marked for deletion is enough
 		// to count as a deletion expectation
 		c.deleteVMI(curVMI)
 		if labelChanged {
@@ -1981,7 +1981,7 @@ func (c *Controller) outboundMigrationsOnNode(node string, runningMigrations []*
 	return sum, nil
 }
 
-// findRunningMigrations calcules how many migrations are running or in flight to be triggered to running
+// findRunningMigrations calculates how many migrations are running or in flight to be triggered to running
 // Migrations which are in running phase are added alongside with migrations which are still pending but
 // where we already see a target pod.
 func (c *Controller) findRunningMigrations() ([]*virtv1.VirtualMachineInstanceMigration, error) {
