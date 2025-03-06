@@ -11,6 +11,13 @@ pkg_tar(
     package_dir = "/etc",
 )
 
+pkg_tar(
+    name = "entrypoint",
+    srcs = [":entrypoint.sh"],
+    mode = "0700",
+    package_dir = "/",
+)
+
 container_image(
     name = "version-container",
     base = "//:passwd-image",
@@ -21,10 +28,12 @@ container_image(
     tars = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": [
             ":multipath",
+            ":entrypoint",
             "//rpm:pr-helper_aarch64",
         ],
         "//conditions:default": [
             ":multipath",
+            ":entrypoint",
             "//rpm:pr-helper_x86_64",
         ],
     }),
