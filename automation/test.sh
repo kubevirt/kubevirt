@@ -408,8 +408,6 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
   elif [[ $TARGET =~ windows.* ]]; then
     # Run only Windows tests
     label_filter='(Windows)'
-  elif [[ $TARGET =~ (cnao|multus) ]]; then
-    label_filter='(Multus,Networking,VMIlifecycle,Expose,Macvtap)'
   elif [[ $TARGET =~ sig-network ]]; then
     label_filter='(sig-network,netCustomBindingPlugins)'
     if [[ $KUBEVIRT_WITH_MULTUS_V3 == "true" ]]; then
