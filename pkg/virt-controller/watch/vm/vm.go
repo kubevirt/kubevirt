@@ -2915,6 +2915,10 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 		lastSeenVM.Spec.Template.Spec.NodeSelector = currentVM.Spec.Template.Spec.NodeSelector
 		lastSeenVM.Spec.Template.Spec.Affinity = currentVM.Spec.Template.Spec.Affinity
 		lastSeenVM.Spec.Template.Spec.Tolerations = currentVM.Spec.Template.Spec.Tolerations
+
+		if lastSeenVM.Spec.Template.Spec.Domain.Firmware != nil {
+			lastSeenVM.Spec.Template.Spec.Domain.Firmware.UUID = currentVM.Spec.Template.Spec.Domain.Firmware.UUID
+		}
 	} else {
 		// In the case live-updates aren't enable the volume set of the VM can be still changed by volume hotplugging.
 		// For imperative volume hotplug, first the VM status with the request AND the VMI spec are updated, then in the
