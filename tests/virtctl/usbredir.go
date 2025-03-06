@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2021 Red Hat, Inc.
+ * Copyright 2025 The KubeVirt Authors
  *
  */
 
@@ -31,15 +31,15 @@ import (
 	"syscall"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/libvmops"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/cobra"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
 // Capabilities from client side
@@ -64,74 +64,58 @@ type ctxKeyType string
 
 const connectedKey ctxKeyType = "connected"
 
-var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] USB Redirection", decorators.SigCompute, func() {
+var _ = Describe(SIG("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] usbredir", decorators.SigCompute, func() {
 	const (
 		enoughMemForSafeBiosEmulation = "32Mi"
 		vmiRunTimeout                 = 90
-		delayToCleanup                = 100 * time.Millisecond
-		numTries                      = 3
 	)
-	var (
-		vmi             *v1.VirtualMachineInstance
-		name, namespace string
-	)
+	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
 		// A VMI for each test to have fresh stack on server side
 		vmi = libvmi.New(libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation), withClientPassthrough())
 		vmi = libvmops.RunVMIAndExpectLaunch(vmi, vmiRunTimeout)
-		name = vmi.ObjectMeta.Name
-		namespace = vmi.ObjectMeta.Namespace
 	})
 
 	It("Should fail when limit is reached", func() {
-		type session struct {
-			cancel  context.CancelFunc
-			connect chan struct{}
-			err     chan error
-		}
-
-		var tests []session
+		var errchs []chan error
 		for i := range v1.UsbClientPassthroughMaxNumberOf + 1 {
-		retry_loop:
-			for range numTries {
-				ctx, cancelFn := context.WithCancel(context.Background())
-				test := session{
-					cancel:  cancelFn,
-					connect: make(chan struct{}),
-					err:     make(chan error),
-				}
-				ctx = context.WithValue(ctx, connectedKey, test.connect)
-				go runConnectGoroutine(name, namespace, ctx, test.err)
+			Eventually(func(g Gomega) {
+				cmd := newVirtctlCommand("usbredir",
+					"--namespace", vmi.ObjectMeta.Namespace,
+					"--no-launch", vmi.ObjectMeta.Name)
+				connect := make(chan struct{})
+				ctx := context.WithValue(cmd.Context(), connectedKey, connect)
+				ctx, cancel := context.WithCancel(ctx)
+				cmd.SetContext(ctx)
+				DeferCleanup(cancel)
+
+				err := make(chan error, 1)
+				go runConnectGoroutine(cmd, err)
 
 				if i == v1.UsbClientPassthroughMaxNumberOf {
 					// Last test is meant to fail.
-					tests = append(tests, test)
-					break
+					errchs = append(errchs, err)
+					return
 				}
 
 				// Till the last test, all sockets must be connected
 				select {
-				case <-test.connect:
-					tests = append(tests, test)
-					break retry_loop
-				case err := <-test.err:
-					Expect(err).To(MatchError(syscall.ECONNRESET))
-				case <-time.After(time.Second):
-					test.cancel()
+				case <-connect:
+					errchs = append(errchs, err)
+				case err := <-err:
+					g.Expect(err).To(MatchError(syscall.ECONNRESET))
 				}
-
-			}
+			}, 5*time.Second, 1*time.Second).Should(Succeed())
 		}
 
 		numOfErrors := 0
 		for i := range v1.UsbClientPassthroughMaxNumberOf + 1 {
 			select {
-			case err := <-tests[i].err:
+			case err := <-errchs[i]:
 				Expect(err).To(MatchError(ContainSubstring("websocket: bad handshake")))
 				numOfErrors++
 			case <-time.After(time.Second):
-				tests[i].cancel()
 			}
 		}
 		Expect(numOfErrors).To(Equal(1), "Only one connection should fail")
@@ -139,40 +123,35 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	It("Should work several times", func() {
 		for range 4 * v1.UsbClientPassthroughMaxNumberOf {
-		retry_loop:
-			for try := range numTries {
-				ctx, cancelFn := context.WithCancel(context.Background())
-				errch := make(chan error)
-				go runConnectGoroutine(name, namespace, ctx, errch)
+			Eventually(func(g Gomega) {
+				cmd := newVirtctlCommand("usbredir",
+					"--namespace", vmi.ObjectMeta.Namespace,
+					"--no-launch", vmi.ObjectMeta.Name)
+				connect := make(chan struct{})
+				ctx := context.WithValue(cmd.Context(), connectedKey, connect)
+				ctx, cancel := context.WithTimeout(ctx, time.Second)
+				cmd.SetContext(ctx)
+				defer cancel()
+
+				err := make(chan error, 1)
+				go runConnectGoroutine(cmd, err)
 
 				select {
-				case err := <-errch:
-					cancelFn()
-					time.Sleep(delayToCleanup)
-					Expect(err).To(MatchError(syscall.ECONNRESET))
-					Expect(try).To(BeNumerically("<", numTries-1))
-				case <-time.After(time.Second):
-					cancelFn()
-					time.Sleep(delayToCleanup)
-					break retry_loop
+				case <-connect:
+					// Sent and Received message back. No errors.
+				case err := <-err:
+					g.Expect(err).To(MatchError(syscall.ECONNRESET))
+				case <-ctx.Done():
+					g.Expect(ctx.Err()).To(MatchError(ContainSubstring("context canceled")))
 				}
-			}
+			}, 5*time.Second, 1*time.Second).Should(Succeed())
 		}
 	})
-})
+}))
 
-func runConnectGoroutine(
-	name string,
-	namespace string,
-	ctx context.Context,
-	errch chan error,
-) {
+func runConnectGoroutine(cmd *cobra.Command, errch chan error) {
 	defer GinkgoRecover()
-	cmd := newVirtctlCommand("usbredir",
-		"--namespace", namespace,
-		"--no-launch",
-		name,
-	)
+	ctx := cmd.Context()
 	// To find ip/port to connect
 	rOut, wOut := io.Pipe()
 	cmd.SetOut(wOut)
@@ -187,8 +166,8 @@ func runConnectGoroutine(
 	remote := make(chan error, 1)
 	go func() {
 		defer GinkgoRecover()
-		defer close(remote)
 		remote <- cmd.Execute()
+		// Ends when we cancel() on the test.
 	}()
 
 	go func(r *io.PipeReader) {
@@ -197,11 +176,11 @@ func runConnectGoroutine(
 		if scanner.Scan() {
 			// stderr should only be logging errors but we catch only known ones
 			errch <- fmt.Errorf("virtctl stderr: %s", scanner.Text())
-			// Command's context is canceled after error is read on the caller.
 		}
+		// Ends when PipeWriter closes or on error.
 	}(rErr)
 
-	addr := make(chan string)
+	addr := make(chan string, 1)
 	go func(r *io.PipeReader) {
 		defer GinkgoRecover()
 		scanner := bufio.NewScanner(r)
@@ -212,13 +191,13 @@ func runConnectGoroutine(
 				break
 			}
 		}
+		// Ends when PipeWritter closes or after find ip.
 	}(rOut)
 
 	// Make local bufferred to not block select
 	local := make(chan error, 1)
 	go func() {
 		defer GinkgoRecover()
-		defer close(local)
 		address := <-addr
 		local <- mockClientConnection(ctx, address)
 	}()
@@ -231,6 +210,7 @@ func runConnectGoroutine(
 		// Local errors happens on CI lanes e.g: TCP write/read failures
 		errch <- err
 	case <-ctx.Done():
+		// Cancel happens on caller. Only expected error from context.
 		Expect(ctx.Err()).To(MatchError(ContainSubstring("context canceled")))
 	}
 }
