@@ -30,11 +30,7 @@ import (
 	"sync"
 	"time"
 
-	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
-
 	"github.com/opencontainers/selinux/go-selinux"
-
-	"kubevirt.io/api/migrations/v1alpha1"
 
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
@@ -49,20 +45,19 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/util"
-	pdbsutil "kubevirt.io/kubevirt/pkg/util/pdbs"
-
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
-	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
-
 	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/api/migrations/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/util"
+	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
+	pdbsutil "kubevirt.io/kubevirt/pkg/util/pdbs"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 )
