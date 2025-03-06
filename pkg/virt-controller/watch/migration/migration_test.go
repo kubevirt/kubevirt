@@ -315,15 +315,13 @@ var _ = Describe("Migration watcher", func() {
 		if len(vmi.Labels) == 0 {
 			vmi.Labels = nil
 		}
-		err := controller.vmiStore.Add(vmi)
-		Expect(err).ToNot(HaveOccurred())
-		_, err = virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+		Expect(controller.vmiStore.Add(vmi)).To(Succeed())
+		_, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	addMigration := func(migration *virtv1.VirtualMachineInstanceMigration) {
-		err := controller.migrationIndexer.Add(migration)
-		Expect(err).ToNot(HaveOccurred())
+		Expect(controller.migrationIndexer.Add(migration)).To(Succeed())
 		key, err := virtcontroller.KeyFunc(migration)
 		Expect(err).ToNot(HaveOccurred())
 		mockQueue.Add(key)
@@ -332,24 +330,21 @@ var _ = Describe("Migration watcher", func() {
 	}
 
 	addNode := func(node *k8sv1.Node) {
-		err := controller.nodeStore.Add(node)
-		Expect(err).ShouldNot(HaveOccurred())
-		_, err = kubeClient.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
+		Expect(controller.nodeStore.Add(node)).To(Succeed())
+		_, err := kubeClient.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	addPDB := func(pdb *policyv1.PodDisruptionBudget) {
-		err := controller.pdbIndexer.Add(pdb)
-		Expect(err).ShouldNot(HaveOccurred())
-		_, err = kubeClient.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Create(context.Background(), pdb, metav1.CreateOptions{})
+		Expect(controller.pdbIndexer.Add(pdb)).To(Succeed())
+		_, err := kubeClient.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Create(context.Background(), pdb, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	addMigrationPolicies := func(policies ...migrationsv1.MigrationPolicy) {
 		for _, policy := range policies {
-			err := controller.migrationPolicyStore.Add(&policy)
-			Expect(err).ShouldNot(HaveOccurred())
-			_, err = virtClientset.MigrationsV1alpha1().MigrationPolicies().Create(context.Background(), &policy, metav1.CreateOptions{})
+			Expect(controller.migrationPolicyStore.Add(&policy)).To(Succeed())
+			_, err := virtClientset.MigrationsV1alpha1().MigrationPolicies().Create(context.Background(), &policy, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		}
 	}
