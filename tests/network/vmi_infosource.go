@@ -28,7 +28,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	kvirtv1 "kubevirt.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/client-go/kubecli"
@@ -57,7 +56,7 @@ var _ = Describe(SIG("Infosource", func() {
 	})
 
 	Context("VMI with 3 interfaces", func() {
-		var vmi *kvirtv1.VirtualMachineInstance
+		var vmi *v1.VirtualMachineInstance
 
 		const (
 			nadName                 = "infosrc"
@@ -85,7 +84,7 @@ var _ = Describe(SIG("Infosource", func() {
 			secondaryLinuxBridgeInterface2 := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetwork2.Name)
 			vmiSpec := libvmifact.NewFedora(
 				libvmi.WithInterface(*libvmi.InterfaceWithMac(&defaultBridgeInterface, primaryInterfaceMac)),
-				libvmi.WithNetwork(kvirtv1.DefaultPodNetwork()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(*libvmi.InterfaceWithMac(&secondaryLinuxBridgeInterface1, secondaryInterface1Mac)),
 				libvmi.WithInterface(*libvmi.InterfaceWithMac(&secondaryLinuxBridgeInterface2, secondaryInterface2Mac)),
 				libvmi.WithNetwork(secondaryNetwork1),
@@ -106,7 +105,7 @@ var _ = Describe(SIG("Infosource", func() {
 
 			const linkStateUp = "up"
 
-			expectedInterfaces := []kvirtv1.VirtualMachineInstanceNetworkInterface{
+			expectedInterfaces := []v1.VirtualMachineInstanceNetworkInterface{
 				{
 					InfoSource:       netvmispec.InfoSourceDomain,
 					MAC:              primaryInterfaceMac,
@@ -174,7 +173,7 @@ var _ = Describe(SIG("Infosource", func() {
 	})
 }))
 
-func dummyInterfaceExists(vmi *kvirtv1.VirtualMachineInstance) bool {
+func dummyInterfaceExists(vmi *v1.VirtualMachineInstance) bool {
 	for i := range vmi.Status.Interfaces {
 		if vmi.Status.Interfaces[i].InterfaceName == dummyInterfaceName {
 			return true
