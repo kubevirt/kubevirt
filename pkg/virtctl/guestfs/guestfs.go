@@ -56,6 +56,7 @@ type guestfsCommand struct {
 	uid        string
 	gid        string
 	pullPolicy string
+	vm         string
 }
 
 // Following variables allow overriding the default functions (useful for unit testing)
@@ -83,6 +84,7 @@ func NewGuestfsShellCommand() *cobra.Command {
 	cmd.PersistentFlags().StringVar(&c.gid, "gid", "", "Set gid for the libguestfs-tool container. This works only combined when the uid is manually set")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.PersistentFlags().StringVar(&c.fsGroup, "fsGroup", "", "Set the fsgroup for the libguestfs-tool container")
+	cmd.PersistentFlags().StringVar(&c.vm, "vm", "", "Provide a VM to apply its scheduling constraints to the libguestfs-tool pod")
 
 	return cmd
 }
@@ -363,13 +365,29 @@ func (c *guestfsCommand) setGIDLibguestfs() (*int64, error) {
 	return nil, nil
 }
 
-func (c *guestfsCommand) createLibguestfsPod(cmd string, args []string, isBlock bool) (*corev1.Pod, error) {
-	var resources corev1.ResourceRequirements
+func (c *guestfsCommand) createLibguestfsPod(client *K8sClient, ns, cmd string, args []string, isBlock bool) (*corev1.Pod, error) {
+	var (
+		resources    corev1.ResourceRequirements
+		tolerations  []corev1.Toleration
+		affinity     *corev1.Affinity
+		labels       map[string]string
+		nodeSelector map[string]string
+	)
 	if c.kvm {
 		resources = corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				KvmDevice: resource.MustParse("1"),
 			},
+		}
+	}
+	if c.vm != "" {
+		if vm, err := client.VirtClient.VirtualMachine(ns).Get(context.Background(), c.vm, metav1.GetOptions{}); err == nil {
+			tolerations = vm.Spec.Template.Spec.Tolerations
+			affinity = vm.Spec.Template.Spec.Affinity
+			labels = vm.Spec.Template.ObjectMeta.Labels
+			nodeSelector = vm.Spec.Template.Spec.NodeSelector
+		} else {
+			return nil, err
 		}
 	}
 	u, err := c.setUIDLibguestfs()
@@ -402,7 +420,8 @@ func (c *guestfsCommand) createLibguestfsPod(cmd string, args []string, isBlock 
 	}
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: genPodName(c.pvc),
+			Name:   genPodName(c.pvc),
+			Labels: labels,
 		},
 		Spec: corev1.PodSpec{
 			SecurityContext: securityContext,
@@ -478,6 +497,9 @@ func (c *guestfsCommand) createLibguestfsPod(cmd string, args []string, isBlock 
 				},
 			},
 			RestartPolicy: corev1.RestartPolicyNever,
+			Tolerations:   tolerations,
+			Affinity:      affinity,
+			NodeSelector:  nodeSelector,
 		},
 	}
 	if isBlock {
@@ -486,19 +508,24 @@ func (c *guestfsCommand) createLibguestfsPod(cmd string, args []string, isBlock 
 			DevicePath: diskPath,
 		})
 		fmt.Printf("The PVC has been mounted at %s \n", diskPath)
-		return pod, nil
+	} else {
+		// PVC volume mode is filesystem
+		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+			Name:      volume,
+			ReadOnly:  false,
+			MountPath: diskDir,
+		})
+
+		pod.Spec.Containers[0].WorkingDir = diskDir
+		fmt.Printf("The PVC has been mounted at %s \n", diskDir)
 	}
-	// PVC volume mode is filesystem
-	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
-		Name:      volume,
-		ReadOnly:  false,
-		MountPath: diskDir,
-	})
 
-	pod.Spec.Containers[0].WorkingDir = diskDir
-	fmt.Printf("The PVC has been mounted at %s \n", diskDir)
+	p, err := client.Client.CoreV1().Pods(ns).Create(context.TODO(), pod, metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
 
-	return pod, nil
+	return p, nil
 }
 
 // CreateAttacher attaches the stdin, stdout, and stderr to the container shell
@@ -538,11 +565,7 @@ func CreateAttacher(client *K8sClient, p *corev1.Pod, command string) error {
 }
 
 func (c *guestfsCommand) createInteractivePodWithPVC(client *K8sClient, ns, command string, args []string, isblock bool) error {
-	pod, err := c.createLibguestfsPod(command, args, isblock)
-	if err != nil {
-		return err
-	}
-	p, err := client.Client.CoreV1().Pods(ns).Create(context.TODO(), pod, metav1.CreateOptions{})
+	pod, err := c.createLibguestfsPod(client, ns, command, args, isblock)
 	if err != nil {
 		return err
 	}
@@ -550,7 +573,7 @@ func (c *guestfsCommand) createInteractivePodWithPVC(client *K8sClient, ns, comm
 	if err != nil {
 		return err
 	}
-	return CreateAttacherFunc(client, p, command)
+	return CreateAttacherFunc(client, pod, command)
 }
 
 func (client *K8sClient) removePod(ns, podName string) error {
