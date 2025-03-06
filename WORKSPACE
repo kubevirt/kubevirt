@@ -194,6 +194,13 @@ go_repository(
     importpath = "github.com/masterzen/winrm-cli",
 )
 
+# Compress Dependency
+go_repository(
+    name = "com_github_klauspost_compress",
+    commit = "67a538e2b4df11f8ec7139388838a13bce84b5d5",
+    importpath = "github.com/klauspost/compress",
+)
+
 # Winrmcp deps
 go_repository(
     name = "com_github_packer_community_winrmcp",
