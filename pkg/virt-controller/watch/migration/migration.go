@@ -51,11 +51,11 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/pdbs"
+	pdbsutil "kubevirt.io/kubevirt/pkg/util/pdbs"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
-	"kubevirt.io/kubevirt/pkg/util/migrations"
+	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -1066,7 +1066,7 @@ func filterOutOldPDBs(pdbList []*policyv1.PodDisruptionBudget) []*policyv1.PodDi
 	var filteredPdbs []*policyv1.PodDisruptionBudget
 
 	for i := range pdbList {
-		if !pdbs.IsPDBFromOldMigrationController(pdbList[i]) {
+		if !pdbsutil.IsPDBFromOldMigrationController(pdbList[i]) {
 			filteredPdbs = append(filteredPdbs, pdbList[i])
 		}
 	}
@@ -1120,8 +1120,8 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 	// migration was accepted into the system, now see if we
 	// should create the target pod
 	if vmi.IsRunning() {
-		if migrations.VMIMigratableOnEviction(c.clusterConfig, vmi) {
-			pdbs, err := pdbs.PDBsForVMI(vmi, c.pdbIndexer)
+		if migrationsutil.VMIMigratableOnEviction(c.clusterConfig, vmi) {
+			pdbs, err := pdbsutil.PDBsForVMI(vmi, c.pdbIndexer)
 			if err != nil {
 				return err
 			}
@@ -1992,7 +1992,7 @@ func (c *Controller) outboundMigrationsOnNode(node string, runningMigrations []*
 func (c *Controller) findRunningMigrations() ([]*virtv1.VirtualMachineInstanceMigration, error) {
 
 	// Don't start new migrations if we wait for migration object updates because of new target pods
-	notFinishedMigrations := migrations.ListUnfinishedMigrations(c.migrationIndexer)
+	notFinishedMigrations := migrationsutil.ListUnfinishedMigrations(c.migrationIndexer)
 	var runningMigrations []*virtv1.VirtualMachineInstanceMigration
 	for _, migration := range notFinishedMigrations {
 		if migration.IsRunning() {
