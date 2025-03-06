@@ -70,6 +70,11 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		var vmi *v1.VirtualMachineInstance
 		var name, namespace string
+		type session struct {
+			cancel  context.CancelFunc
+			connect chan struct{}
+			err     chan error
+		}
 
 		BeforeEach(func() {
 			// A VMI for each test to have fresh stack on server side
@@ -80,12 +85,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 
 		It("Should fail when limit is reached", func() {
-			type session struct {
-				cancel  context.CancelFunc
-				connect chan struct{}
-				err     chan error
-			}
-
 			var tests []session
 			for i := 0; i <= v1.UsbClientPassthroughMaxNumberOf; i++ {
 			retry_loop:
@@ -142,22 +141,29 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			retry_loop:
 				for try := 0; try < 3; try++ {
 					ctx, cancelFn := context.WithCancel(context.Background())
-					errch := make(chan error)
-					go runConnectGoroutine(name, namespace, ctx, errch)
+					test := session{
+						cancel:  cancelFn,
+						connect: make(chan struct{}),
+						err:     make(chan error),
+					}
+					go runConnectGoroutine(name, namespace, ctx, test.err)
+
+					cleanup := func() {
+						Expect(try).To(BeNumerically("<", numTries))
+						cancelFn()
+						time.Sleep(delayToCleanup)
+					}
 
 					select {
-					case err := <-errch:
-						cancelFn()
-						time.Sleep(100 * time.Millisecond)
-						if try < 3 {
-							log.Log.Reason(err).Infof("Failed. Try again (%d)", try)
-						} else {
-							Fail("Tried 3 times. Something is wrong")
-						}
-					case <-time.After(time.Second):
-						cancelFn()
-						time.Sleep(100 * time.Millisecond)
+					case <-test.connect:
+						// Sent and Received message back. No errors.
+						cleanup()
 						break retry_loop
+					case err := <-test.err:
+						Expect(err).To(MatchError(syscall.ECONNRESET))
+						cleanup()
+					case <-time.After(time.Second):
+						cleanup()
 					}
 				}
 			}
