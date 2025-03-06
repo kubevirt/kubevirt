@@ -450,8 +450,6 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(SRIOV)'
   elif [[ $TARGET =~ gpu.* ]]; then
     label_filter='(GPU)'
-  elif [[ $TARGET =~ (okd|ocp).* ]]; then
-    label_filter='(!(SRIOV,GPU,VGPU))'
   else
     label_filter='(!(Multus,SRIOV,Macvtap,GPU,VGPU,netCustomBindingPlugins))'
   fi
