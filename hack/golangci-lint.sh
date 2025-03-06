@@ -14,18 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2024 Red Hat, Inc.
+# Copyright The KubeVirt Authors.
 #
 
 set -e
 
-paths=""
-while IFS= read -r line; do
-    # read directory from the file and append a wildcard
-    paths+="${line}/... "
-done <hack/lint-paths.txt
-
-golangci-lint run --timeout 20m --verbose ${paths}
+readarray -t covered_paths <hack/lint/lint-paths.txt
+golangci-lint run --timeout 20m --verbose "${covered_paths[@]}"
 golangci-lint run --disable-all -E ginkgolinter --timeout 10m --verbose --no-config \
     ./pkg/... \
     ./tests/...

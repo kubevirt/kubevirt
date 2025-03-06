@@ -14,10 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2024 Red Hat, Inc.
+# Copyright The KubeVirt Authors.
 #
 
 set -e
 
-covered_paths=$(cat hack/lint-paths.txt | tr '\n' ' ')
-gofumpt -l -w -extra ${covered_paths}
+readarray -t covered_paths <hack/lint/lint-paths.txt
+gofumpt -l -w -extra "${covered_paths[@]}"

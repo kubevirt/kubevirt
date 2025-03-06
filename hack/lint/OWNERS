@@ -1,0 +1,24 @@
+reviewers:
+- sig-api-reviewers
+- sig-architecture-reviewers
+- sig-buildsystem-reviewers
+- sig-compute-reviewers
+- sig-network-reviewers
+- sig-observability-reviewers
+- sig-release-reviewers
+- sig-scale-reviewers
+- sig-storage-reviewers
+- sig-test-reviewers
+approvers:
+- sig-api-approvers
+- sig-architecture-approvers
+- sig-buildsystem-approvers
+- sig-compute-approvers
+- sig-network-approvers
+- sig-observability-approvers
+- sig-release-approvers
+- sig-scale-approvers
+- sig-storage-approvers
+- sig-test-approvers
+labels:
+- wg/code-quality
