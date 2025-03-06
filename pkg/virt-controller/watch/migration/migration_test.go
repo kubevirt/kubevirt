@@ -316,15 +316,16 @@ var _ = Describe("Migration watcher", func() {
 			vmi.Labels = nil
 		}
 		err := controller.vmiStore.Add(vmi)
-		Expect(err).To(Not(HaveOccurred()))
+		Expect(err).ToNot(HaveOccurred())
 		_, err = virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	addMigration := func(migration *virtv1.VirtualMachineInstanceMigration) {
-		controller.migrationIndexer.Add(migration)
+		err := controller.migrationIndexer.Add(migration)
+		Expect(err).ToNot(HaveOccurred())
 		key, err := virtcontroller.KeyFunc(migration)
-		Expect(err).To(Not(HaveOccurred()))
+		Expect(err).ToNot(HaveOccurred())
 		mockQueue.Add(key)
 		_, err = virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
