@@ -65,6 +65,7 @@ go_library(
         "//vendor/github.com/google/go-cmp/cmp:go_default_library",
         "//vendor/github.com/onsi/gomega/format:go_default_library",
         "//vendor/github.com/onsi/gomega/internal/gutil:go_default_library",
+        "//vendor/github.com/onsi/gomega/matchers/internal/miter:go_default_library",
         "//vendor/github.com/onsi/gomega/matchers/support/goraph/bipartitegraph:go_default_library",
         "//vendor/github.com/onsi/gomega/types:go_default_library",
         "//vendor/golang.org/x/net/html/charset:go_default_library",
