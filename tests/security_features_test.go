@@ -35,12 +35,12 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -108,7 +108,7 @@ var _ = Describe("[sig-compute]SecurityFeatures", decorators.SigCompute, func() 
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
-				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+				domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				emulator := "[/]" + strings.TrimPrefix(domSpec.Devices.Emulator, "/")

@@ -35,10 +35,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
-	"kubevirt.io/kubevirt/tests"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -73,7 +73,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			newVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, getOptions)
 			Expect(err).ToNot(HaveOccurred())
 
-			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			expectedIOThreads := 1
@@ -105,7 +105,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")
-			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying the total number of ioThreads")
@@ -161,7 +161,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")
-			domSpec, err := tests.GetRunningVMIDomainSpec(newVMI)
+			domSpec, err := libdomain.GetRunningVMIDomainSpec(newVMI)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying the total number of ioThreads")
@@ -239,7 +239,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Fetching the domain XML from the running pod")
-			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying the total number of ioThreads")

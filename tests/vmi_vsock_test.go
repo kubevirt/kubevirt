@@ -27,31 +27,29 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/libkubevirt/config"
-	"kubevirt.io/kubevirt/tests/libmigration"
-	"kubevirt.io/kubevirt/tests/libvmops"
-
-	"kubevirt.io/kubevirt/tests/decorators"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
-	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libvmifact"
-
 	"kubevirt.io/client-go/kubecli"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
-	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libdomain"
+	"kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
 var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators.VSOCK, func() {
@@ -74,7 +72,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 
 			By("creating valid libvirt domain")
 
-			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domSpec.Devices.VSOCK.CID.Auto).To(Equal("no"))
 			Expect(domSpec.Devices.VSOCK.CID.Address).To(Equal(*vmi.Status.VSOCKCID))
@@ -128,7 +126,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
 
 			By("creating valid libvirt domain")
-			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domSpec.Devices.VSOCK.CID.Auto).To(Equal("no"))
 			Expect(domSpec.Devices.VSOCK.CID.Address).To(Equal(*vmi.Status.VSOCKCID))
@@ -142,7 +140,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			Expect(vmi2.Status.VSOCKCID).NotTo(BeNil())
 
 			By("creating valid libvirt domain")
-			domSpec2, err := tests.GetRunningVMIDomainSpec(vmi2)
+			domSpec2, err := libdomain.GetRunningVMIDomainSpec(vmi2)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(domSpec2.Devices.VSOCK.CID.Auto).To(Equal("no"))
@@ -152,7 +150,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			migration := libmigration.New(vmi2.Name, vmi2.Namespace)
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
-			domSpec2, err = tests.GetRunningVMIDomainSpec(vmi2)
+			domSpec2, err = libdomain.GetRunningVMIDomainSpec(vmi2)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(domSpec2.Devices.VSOCK.CID.Auto).To(Equal("no"))

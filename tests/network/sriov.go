@@ -48,12 +48,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
 	netcloudinit "kubevirt.io/kubevirt/tests/libnet/cloudinit"
@@ -118,7 +118,7 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 			Expect(err).ToNot(HaveOccurred())
 			DeferCleanup(deleteVMI, vmi)
 
-			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			nic := domSpec.Devices.HostDevices[0]

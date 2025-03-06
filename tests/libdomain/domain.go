@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright the KubeVirt Authors.
  *
  */
 
-package tests
+package libdomain
 
 import (
 	"context"
@@ -29,8 +29,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	kutil "kubevirt.io/kubevirt/pkg/util"
-	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -49,9 +50,8 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 	}
 
 	command := []string{"virsh"}
-	if kutil.IsNonRootVMI(freshVMI) {
-		command = append(command, "-c")
-		command = append(command, "qemu+unix:///session?socket=/var/run/libvirt/virtqemud-sock")
+	if util.IsNonRootVMI(freshVMI) {
+		command = append(command, "-c", "qemu+unix:///session?socket=/var/run/libvirt/virtqemud-sock")
 	}
 	command = append(command, []string{"dumpxml", vmi.Namespace + "_" + vmi.Name}...)
 
@@ -66,8 +66,8 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 	return stdout, err
 }
 
-func GetRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*launcherApi.DomainSpec, error) {
-	runningVMISpec := launcherApi.DomainSpec{}
+func GetRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*api.DomainSpec, error) {
+	runningVMISpec := api.DomainSpec{}
 	cli := kubevirt.Client()
 
 	domXML, err := GetRunningVirtualMachineInstanceDomainXML(cli, vmi)

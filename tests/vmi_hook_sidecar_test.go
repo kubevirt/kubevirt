@@ -43,10 +43,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -168,7 +168,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 				clientcmd.SkipIfNoCmd("kubectl")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				libwait.WaitForSuccessfulVMIStart(vmi)
-				domainXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domainXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(domainXml).Should(ContainSubstring("<sysinfo type='smbios'>"))
 				Expect(domainXml).Should(ContainSubstring("<smbios mode='sysinfo'/>"))
@@ -285,7 +285,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 					vmi.ObjectMeta.Annotations = RenderSidecarWithConfigMapWithoutImage(hooksv1alpha2.Version, cm.Name)
 				}
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 360)
-				domainXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				domainXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(domainXml).Should(ContainSubstring("<sysinfo type='smbios'>"))
 				Expect(domainXml).Should(ContainSubstring("<smbios mode='sysinfo'/>"))

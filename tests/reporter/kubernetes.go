@@ -6,11 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
-	"kubevirt.io/kubevirt/tests/libnode"
-
-	"k8s.io/client-go/util/flowcontrol"
-
 	"os"
 	"path/filepath"
 	"regexp"
@@ -18,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"k8s.io/client-go/util/flowcontrol"
 
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 
@@ -36,12 +33,13 @@ import (
 	"kubevirt.io/client-go/log"
 	apicdi "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/libdomain"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -278,7 +276,7 @@ func (r *KubernetesReporter) logDomainXMLs(virtCli kubecli.KubevirtClient, vmis 
 		if vmi.IsFinal() {
 			continue
 		}
-		domxml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtCli, &vmi)
+		domxml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtCli, &vmi)
 		if err == nil {
 			fmt.Fprintln(f, domxml)
 		}

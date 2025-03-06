@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -19,10 +18,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -131,7 +130,7 @@ var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorator
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				spec, err := tests.GetRunningVMIDomainSpec(vmi)
+				spec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 				g.Expect(err).To(Not(HaveOccurred()))
 				return parseCurrentDomainMemory(spec).Value()
 			}, 240*time.Second, time.Second).Should(BeNumerically(">", guest.Value()))
@@ -277,7 +276,7 @@ var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorator
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 
-				spec, err := tests.GetRunningVMIDomainSpec(vmi)
+				spec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 				g.Expect(err).To(Not(HaveOccurred()))
 				return parseCurrentDomainMemory(spec).Value()
 			}, 240*time.Second, time.Second).Should(BeNumerically(">", guest.Value()))
@@ -337,7 +336,7 @@ var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorator
 					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
-					spec, err := tests.GetRunningVMIDomainSpec(vmi)
+					spec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 					g.Expect(err).To(Not(HaveOccurred()))
 					return parseCurrentDomainMemory(spec).Value()
 				}, 240*time.Second, time.Second).Should(BeNumerically(">", oldGuestMemory.Value()))

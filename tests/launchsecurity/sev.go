@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmops"
@@ -37,7 +38,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -384,7 +384,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			expectedSEVMeasurementInfo.Measurement = entries["sev-measurement"]
 
 			By("Querying the domain loader path")
-			domainSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			domainSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domainSpec.OS.BootLoader).ToNot(BeNil())
 			Expect(domainSpec.OS.BootLoader.Path).ToNot(BeEmpty())

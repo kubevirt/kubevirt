@@ -40,10 +40,10 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -121,7 +121,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			Expect(*newVMI.Spec.Domain.Devices.BlockMultiQueue).To(BeTrue())
 
 			By("Fetching Domain XML from running pod")
-			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Ensuring each disk has three queues assigned")
@@ -142,7 +142,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Fetching Domain XML from running pod")
-			domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			for i, iface := range domSpec.Devices.Interfaces {

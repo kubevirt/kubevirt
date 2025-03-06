@@ -52,7 +52,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/tests"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -60,6 +59,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -867,7 +867,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Triggering a segfault in qemu")
-				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+				domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				emulator := filepath.Base(domSpec.Devices.Emulator)
 				libpod.RunCommandOnVmiPod(vmi, []string{"killall", "-11", emulator})
@@ -894,7 +894,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Triggering a segfault in qemu")
-				domSpec, err := tests.GetRunningVMIDomainSpec(vmi)
+				domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				emulator := filepath.Base(domSpec.Devices.Emulator)
 				libpod.RunCommandOnVmiPod(vmi, []string{"killall", "-11", emulator})
