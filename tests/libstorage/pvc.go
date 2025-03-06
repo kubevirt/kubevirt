@@ -39,7 +39,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libregistry"
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
@@ -201,7 +200,7 @@ func CreatePVC(os, namespace, size, storageClass string, recycledPV bool) *k8sv1
 	pvcName := fmt.Sprintf("disk-%s", os)
 
 	selector := map[string]string{
-		util.KubevirtIoTest: os,
+		kubevirtIoTest: os,
 	}
 
 	// If the PV is not recycled, it will have a namespace related test label which  we should match
@@ -252,7 +251,7 @@ func createSeparateDeviceHostPathPv(osName, namespace, nodeName string) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: fmt.Sprintf("%s-%s", name, namespace),
 			Labels: map[string]string{
-				util.KubevirtIoTest:                      osName,
+				kubevirtIoTest:                           osName,
 				cleanup.TestLabelForNamespace(namespace): "",
 			},
 		},
@@ -315,7 +314,7 @@ func CreateHostPathPvWithSizeAndStorageClass(osName, namespace, hostPath, size, 
 		ObjectMeta: metav1.ObjectMeta{
 			Name: fmt.Sprintf("%s-%s", name, namespace),
 			Labels: map[string]string{
-				util.KubevirtIoTest:                      osName,
+				kubevirtIoTest:                           osName,
 				cleanup.TestLabelForNamespace(namespace): "",
 			},
 		},

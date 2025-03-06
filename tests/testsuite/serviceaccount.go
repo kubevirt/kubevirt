@@ -32,8 +32,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"kubevirt.io/kubevirt/tests/util"
 )
 
 const (
@@ -89,9 +87,6 @@ func createServiceAccount(saName string) {
 	sa := k8sv1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: saName,
-			Labels: map[string]string{
-				util.KubevirtIoTest: saName,
-			},
 		},
 	}
 
@@ -124,9 +119,6 @@ func createClusterRoleBinding(saName string, clusterRole string) {
 	clusterRoleBinding := rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: getClusterRoleBindingName(saName),
-			Labels: map[string]string{
-				util.KubevirtIoTest: saName,
-			},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "ClusterRole",
@@ -155,9 +147,6 @@ func createRoleBinding(saName string, clusterRole string) {
 	roleBinding := rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: saName,
-			Labels: map[string]string{
-				util.KubevirtIoTest: saName,
-			},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "ClusterRole",
@@ -186,9 +175,6 @@ func createSubresourceRole(saName string) {
 	role := rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: saName,
-			Labels: map[string]string{
-				util.KubevirtIoTest: saName,
-			},
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -208,9 +194,6 @@ func createSubresourceRole(saName string) {
 	roleBinding := rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: saName,
-			Labels: map[string]string{
-				util.KubevirtIoTest: saName,
-			},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "Role",
