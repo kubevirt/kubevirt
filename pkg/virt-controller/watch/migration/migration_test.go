@@ -68,7 +68,7 @@ var _ = Describe("Migration watcher", func() {
 	var (
 		controller    *Controller
 		recorder      *record.FakeRecorder
-		mockQueue     *testutils.MockWorkQueue[string]
+		mockQueue     *testutils.MockPriorityQueue[string]
 		virtClientset *kubevirtfake.Clientset
 		kubeClient    *fake.Clientset
 		networkClient *fakenetworkclient.Clientset
@@ -270,9 +270,8 @@ var _ = Describe("Migration watcher", func() {
 			config,
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
-		// TODO: mock priority queues
-		//mockQueue = testutils.NewMockWorkQueue(controller.Queue)
-		//controller.Queue = mockQueue
+		mockQueue = testutils.NewMockPriorityQueue(controller.Queue)
+		controller.Queue = mockQueue
 
 		namespace = k8sv1.Namespace{
 			TypeMeta:   metav1.TypeMeta{Kind: "Namespace"},
