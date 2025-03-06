@@ -70,6 +70,7 @@ aliases:
     - orelmisan
   sig-network-approvers:
     - EdDev
+    - orelmisan
   sig-network-emeritus_approvers:
     - AlonaKaplan
 
