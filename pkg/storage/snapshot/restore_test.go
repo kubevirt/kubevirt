@@ -34,9 +34,11 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	firmware "kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
 )
 
 var _ = Describe("Restore controller", func() {
@@ -1202,6 +1204,7 @@ var _ = Describe("Restore controller", func() {
 					updatedVM.Annotations = map[string]string{"restore.kubevirt.io/lastRestoreUID": "restore-uid"}
 					updatedVM.Spec.DataVolumeTemplates[0].Name = "restore-uid-disk1"
 					updatedVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = "restore-uid-disk1"
+					defaults.EnsureFirmwareUUID(updatedVM, firmware.CalculateLegacyFirmwareUUID(updatedVM.Name))
 					vmInterface.EXPECT().Update(context.Background(), updatedVM, metav1.UpdateOptions{}).Return(updatedVM, nil).Times(1)
 				}
 
@@ -1687,6 +1690,7 @@ var _ = Describe("Restore controller", func() {
 			expectUpdateVMRestored := func(vm *kubevirtv1.VirtualMachine) {
 				expectedUpdatedVM := vm.DeepCopy()
 				expectedUpdatedVM.Annotations = map[string]string{"restore.kubevirt.io/lastRestoreUID": "restore-uid"}
+				defaults.EnsureFirmwareUUID(expectedUpdatedVM, firmware.CalculateLegacyFirmwareUUID(expectedUpdatedVM.Name))
 				vmInterface.EXPECT().
 					Update(context.Background(), expectedUpdatedVM, metav1.UpdateOptions{}).
 					Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
