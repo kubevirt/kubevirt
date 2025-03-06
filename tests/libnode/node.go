@@ -429,8 +429,9 @@ func GetSupportedCPUFeatures(nodesList k8sv1.NodeList) []string {
 
 func GetSupportedCPUModels(nodeList k8sv1.NodeList) []string {
 	cpuDenyList := map[string]bool{
-		"qemu64":     true,
-		"Opteron_G2": true,
+		"qemu64":            true,
+		"Opteron_G2":        true,
+		"486-v1-x86_64-cpu": true,
 	}
 	cpuMap := make(map[string]bool)
 	for _, node := range nodeList.Items {
