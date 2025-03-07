@@ -137,6 +137,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 
 	go func() {
 		// transfer data from/to the VM
+		defer close(k8ResChan)
 		k8ResChan <- vnc.Stream(kvcorev1.StreamOptions{
 			In:  pipeInReader,
 			Out: pipeOutWriter,
@@ -145,6 +146,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 
 	// wait for vnc client to connect to our local proxy server
 	go func() {
+		defer close(listenResChan)
 		start := time.Now()
 		log.Log.Infof("connection timeout: %v", LISTEN_TIMEOUT)
 		// Don't set deadline if only proxy is running and VNC is to be connected manually
@@ -164,12 +166,14 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 
 		// write to FD <- pipeOutReader
 		go func() {
+			defer close(readStop)
 			_, err := io.Copy(fd, pipeOutReader)
 			readStop <- err
 		}()
 
 		// read from FD -> pipeInWriter
 		go func() {
+			defer close(writeStop)
 			_, err := io.Copy(pipeInWriter, fd)
 			writeStop <- err
 		}()
