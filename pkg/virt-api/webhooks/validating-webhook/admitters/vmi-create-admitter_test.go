@@ -58,6 +58,7 @@ import (
 const (
 	testVMIName = "testvmi"
 	testVMName  = "testvm"
+	defaultMem  = "8192Ki"
 )
 
 var _ = Describe("Validating VMICreate Admitter", func() {
@@ -1030,7 +1031,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			})
 			DeferCleanup(featuregate.UnregisterFeatureGate, testsFGName)
 			enableFeatureGate(testsFGName)
-			vmi := libvmi.New(libvmi.WithName(testVMIName))
+			vmi := libvmi.New(libvmi.WithName(testVMIName), libvmi.WithResourceMemory(defaultMem))
 
 			ar, err := newAdmissionReviewForVMICreation(vmi)
 			Expect(err).NotTo(HaveOccurred())
@@ -1079,7 +1080,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject invalid ioThreadsPolicy to supplementalPool and invalid number of IOthreads", func() {
-			vmi := libvmi.New(libvmi.WithName(testVMName))
+			vmi := libvmi.New(libvmi.WithName(testVMName), libvmi.WithResourceMemory(defaultMem))
 			vmi.Spec.Domain.IOThreadsPolicy = pointer.P(v1.IOThreadsPolicySupplementalPool)
 			vmi.Spec.Domain.IOThreads = &v1.DiskIOThreads{
 				SupplementalPoolThreadCount: pointer.P(uint32(0)),
@@ -2045,7 +2046,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		)
 
 		DescribeTable("should accept cd-roms using", func(bus string) {
-			vmi := libvmi.New(libvmi.WithName(testVMIName))
+			vmi := libvmi.New(libvmi.WithName(testVMIName), libvmi.WithResourceMemory(defaultMem))
 
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testcdrom",
@@ -3076,7 +3077,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	Context("with affinity checks", func() {
 		var vmi *v1.VirtualMachineInstance
 		BeforeEach(func() {
-			vmi = libvmi.New(libvmi.WithName(testVMIName))
+			vmi = libvmi.New(libvmi.WithName(testVMIName), libvmi.WithResourceMemory(defaultMem))
 			vmi.Spec.Affinity = &k8sv1.Affinity{}
 		})
 		It("Allow to create when spec.affinity set to nil", func() {
@@ -3546,7 +3547,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	Context("with topologySpreadConstraints checks", func() {
 		var vmi *v1.VirtualMachineInstance
 		BeforeEach(func() {
-			vmi = libvmi.New(libvmi.WithName(testVMIName))
+			vmi = libvmi.New(libvmi.WithName(testVMIName), libvmi.WithResourceMemory(defaultMem))
 		})
 		It("Allow to create when spec.topologySpreadConstraints set to nil", func() {
 			vmi.Spec.TopologySpreadConstraints = nil
@@ -3783,7 +3784,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	Context("with CPU hotplug", func() {
 		When("number of sockets higher than maxSockets", func() {
 			It("deny VMI creation", func() {
-				vmi := libvmi.New(libvmi.WithName(testVMIName))
+				vmi := libvmi.New(libvmi.WithName(testVMIName), libvmi.WithResourceMemory(defaultMem))
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					MaxSockets: 8,
 					Sockets:    16,
@@ -3807,7 +3808,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		const doNotUseExplicitHyperV, doNotUseHyperVPassthrough = false, false
 
 		DescribeTable("Use of hyperV combined with hyperV passthrough is forbidden", func(explicitHyperv, hypervPassthrough, expectValid bool) {
-			vmi := libvmi.New(libvmi.WithName(testVMIName))
+			vmi := libvmi.New(libvmi.WithName(testVMIName), libvmi.WithResourceMemory(defaultMem))
 			vmi.Spec.Domain.Features = &v1.Features{}
 
 			if explicitHyperv {
