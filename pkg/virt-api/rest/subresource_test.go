@@ -51,12 +51,12 @@ import (
 	"k8s.io/client-go/testing"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
@@ -236,9 +236,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 	Context("Subresource api", func() {
 		It("should find matching pod for running VirtualMachineInstance", func() {
-			vmi := api.NewMinimalVMI(testVMIName)
-			vmi.Status.Phase = v1.Running
-			vmi.ObjectMeta.SetUID(uuid.NewUUID())
+			vmi := libvmi.New(
+				libvmi.WithName(testVMIName),
+				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
+				libvmi.WithUUID(uuid.NewUUID()),
+			)
 
 			expectHandlerPod()
 
@@ -250,9 +252,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 
 		It("should fail if VirtualMachineInstance is not in running state", func() {
-			vmi := api.NewMinimalVMI(testVMIName)
-			vmi.Status.Phase = v1.Succeeded
-			vmi.ObjectMeta.SetUID(uuid.NewUUID())
+			vmi := libvmi.New(
+				libvmi.WithName(testVMIName),
+				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Succeeded))),
+				libvmi.WithUUID(uuid.NewUUID()),
+			)
 
 			_, err := app.getVirtHandlerConnForVMI(vmi)
 
@@ -260,9 +264,11 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 
 		It("should fail no matching pod is found", func() {
-			vmi := api.NewMinimalVMI(testVMIName)
-			vmi.Status.Phase = v1.Running
-			vmi.ObjectMeta.SetUID(uuid.NewUUID())
+			vmi := libvmi.New(
+				libvmi.WithName(testVMIName),
+				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
+				libvmi.WithUUID(uuid.NewUUID()),
+			)
 
 			podList := k8sv1.PodList{}
 			podList.Items = []k8sv1.Pod{}
