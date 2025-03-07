@@ -34,8 +34,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/client-go/api"
-
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 )
@@ -105,7 +104,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 	})
 
 	It("should reject Migration on update if labels include our selector and are removed", func() {
-		vmi := api.NewMinimalVMI("testmigratevmiupdate-labelsremoved")
+		vmi := libvmi.New(libvmi.WithName("testmigratevmiupdate-labelsremoved"))
 
 		migration := &v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
@@ -152,7 +151,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 	})
 
 	It("should reject Migration on update if our selector label is removed", func() {
-		vmi := api.NewMinimalVMI("testmigratevmiupdate-selectorremoved")
+		vmi := libvmi.New(libvmi.WithName("testmigratevmiupdate-selectorremoved"))
 
 		migration := &v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
@@ -199,7 +198,7 @@ var _ = Describe("Validating MigrationUpdate Admitter", func() {
 	})
 
 	It("should accept Migration on update if non-selector label is removed", func() {
-		vmi := api.NewMinimalVMI("testmigratevmiupdate-otherremoved")
+		vmi := libvmi.New(libvmi.WithName("testmigratevmiupdate-otherremoved"))
 
 		migration := &v1.VirtualMachineInstanceMigration{
 			ObjectMeta: metav1.ObjectMeta{
