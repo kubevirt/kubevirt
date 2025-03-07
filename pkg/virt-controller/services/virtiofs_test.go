@@ -8,6 +8,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
@@ -56,7 +57,7 @@ var _ = Describe("virtiofs container", func() {
 		disableFeatureGates()
 	})
 	It("should create containers only if Virtiofs is not nil", func() {
-		vmi := api.NewMinimalVMI("testvm")
+		vmi := libvmi.New()
 
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "sharedtestdisk",
@@ -87,7 +88,7 @@ var _ = Describe("virtiofs container", func() {
 	})
 
 	It("should not create containers if Virtiofs is nil for all volumes", func() {
-		vmi := api.NewMinimalVMI("testvm")
+		vmi := libvmi.New()
 
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "secret-volume",
