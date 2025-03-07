@@ -27,7 +27,6 @@ go_library(
         "//tests/framework/matcher:go_default_library",
         "//tests/libnode:go_default_library",
         "//tests/libregistry:go_default_library",
-        "//tests/util:go_default_library",
         "//vendor/github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
