@@ -153,45 +153,8 @@ func (t *ConsoleHandler) VNCHandler(request *restful.Request, response *restful.
 	}
 	uid := vmi.GetUID()
 	stopChn := newStopChan(uid, t.vncLock, t.vncStopChans)
-
-	t.handleConcurrentConnectionStart(vmi, stopChn)
-	defer t.handleConcurrentConnectionEnd(vmi, stopChn)
-
+	defer deleteStopChan(uid, stopChn, t.vncLock, t.vncStopChans)
 	t.stream(vmi, request, response, unixSocketDialer(vmi, unixSocketPath), stopChn)
-}
-
-
-var vncMap sync.Map
-
-// make concurrent vnc connection available
-func (t *ConsoleHandler) handleConcurrentConnectionStart(vmi *v1.VirtualMachineInstance, stopChn chan struct{}) {
-	uid := vmi.GetUID()
-
-	var currentCount int
-	if n, ok := vncMap.Load(uid); ok {
-		currentCount = n.(int)
-	}
-	newCount := currentCount + 1
-	log.Log.Object(vmi).Infof("VNC connection count: %d, newCount: %d", currentCount, newCount)
-	vncMap.Store(uid, newCount)
-}
-
-func (t *ConsoleHandler) handleConcurrentConnectionEnd(vmi *v1.VirtualMachineInstance, stopChn chan struct{}) {
-	uid := vmi.GetUID()
-
-	var currentCount int
-	if n, ok := vncMap.Load(uid); ok {
-		currentCount = n.(int)
-	}
-	newCount := currentCount - 1
-	log.Log.Object(vmi).Infof("VNC connection count: %d, newCount: %d", currentCount, newCount)
-	vncMap.Store(uid, newCount)
-
-	if newCount <= 0 {
-		log.Log.Object(vmi).Infof("VNC connection last one(newCount: %d), delete channel now", newCount)
-		vncMap.Delete(uid)
-		deleteStopChan(uid, stopChn, t.vncLock, t.vncStopChans)
-	}
 }
 
 func (t *ConsoleHandler) SerialHandler(request *restful.Request, response *restful.Response) {
@@ -280,11 +243,7 @@ func (t *ConsoleHandler) VSOCKHandler(request *restful.Request, response *restfu
 func newStopChan(uid types.UID, lock *sync.Mutex, stopChans map[types.UID]chan struct{}) chan struct{} {
 	lock.Lock()
 	defer lock.Unlock()
-	// // close current connection, if exists
-	// if c, ok := stopChans[uid]; ok {
-	// 	delete(stopChans, uid)
-	// 	close(c)
-	// }
+
 	// create a stop channel for the new connection
 	stopCh := make(chan struct{})
 	stopChans[uid] = stopCh
