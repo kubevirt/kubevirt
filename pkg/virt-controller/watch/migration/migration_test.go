@@ -315,42 +315,36 @@ var _ = Describe("Migration watcher", func() {
 		if len(vmi.Labels) == 0 {
 			vmi.Labels = nil
 		}
-		controller.vmiStore.Add(vmi)
-		key, err := virtcontroller.KeyFunc(vmi)
-		Expect(err).To(Not(HaveOccurred()))
-		mockQueue.Add(key)
-		_, err = virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+		Expect(controller.vmiStore.Add(vmi)).To(Succeed())
+		_, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	addMigration := func(migration *virtv1.VirtualMachineInstanceMigration) {
-		controller.migrationIndexer.Add(migration)
+		Expect(controller.migrationIndexer.Add(migration)).To(Succeed())
 		key, err := virtcontroller.KeyFunc(migration)
-		Expect(err).To(Not(HaveOccurred()))
+		Expect(err).ToNot(HaveOccurred())
 		mockQueue.Add(key)
 		_, err = virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	addNode := func(node *k8sv1.Node) {
-		err := controller.nodeStore.Add(node)
-		Expect(err).ShouldNot(HaveOccurred())
-		_, err = kubeClient.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
+		Expect(controller.nodeStore.Add(node)).To(Succeed())
+		_, err := kubeClient.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	addPDB := func(pdb *policyv1.PodDisruptionBudget) {
-		err := controller.pdbIndexer.Add(pdb)
-		Expect(err).ShouldNot(HaveOccurred())
-		_, err = kubeClient.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Create(context.Background(), pdb, metav1.CreateOptions{})
+		Expect(controller.pdbIndexer.Add(pdb)).To(Succeed())
+		_, err := kubeClient.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Create(context.Background(), pdb, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	addMigrationPolicies := func(policies ...migrationsv1.MigrationPolicy) {
 		for _, policy := range policies {
-			err := controller.migrationPolicyStore.Add(&policy)
-			Expect(err).ShouldNot(HaveOccurred())
-			_, err = virtClientset.MigrationsV1alpha1().MigrationPolicies().Create(context.Background(), &policy, metav1.CreateOptions{})
+			Expect(controller.migrationPolicyStore.Add(&policy)).To(Succeed())
+			_, err := virtClientset.MigrationsV1alpha1().MigrationPolicies().Create(context.Background(), &policy, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		}
 	}
@@ -886,11 +880,11 @@ var _ = Describe("Migration watcher", func() {
 		})
 
 		It("should create target pod merging addedNodeSelector and preserving the labels in the existing NodeSelector and NodeAffinity", func() {
-			const commnonKey = "topology.kubernetes.io/region"
+			const commonKey = "topology.kubernetes.io/region"
 
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			vmiNodeSelector := map[string]string{
-				commnonKey:  "us-east-1",
+				commonKey:   "us-east-1",
 				"vmiLabel1": "vmiValue1",
 				"vmiLabel2": "vmiValue2",
 			}
@@ -925,9 +919,9 @@ var _ = Describe("Migration watcher", func() {
 			}
 
 			addedNodeSelector := map[string]string{
-				commnonKey:        "us-west-1",
-				"additionaLabel1": "additionalValue1",
-				"additionaLabel2": "additionalValue2",
+				commonKey:          "us-west-1",
+				"additionalLabel1": "additionalValue1",
+				"additionalLabel2": "additionalValue2",
 			}
 
 			By("Enforcing we have a key collision between vmiNodeSelector and addedNodeSelector")
@@ -1393,7 +1387,7 @@ var _ = Describe("Migration watcher", func() {
 
 			const oldMigrationUID = "oldmigrationuid"
 			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
-				MigrationUID: types.UID(oldMigrationUID),
+				MigrationUID: oldMigrationUID,
 			}
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
@@ -2324,8 +2318,8 @@ var _ = Describe("Migration watcher", func() {
 	})
 })
 
-func newPDB(name string, vmi *virtv1.VirtualMachineInstance, pods int) *policyv1.PodDisruptionBudget {
-	minAvailable := intstr.FromInt(pods)
+func newPDB(name string, vmi *virtv1.VirtualMachineInstance, pods int32) *policyv1.PodDisruptionBudget {
+	minAvailable := intstr.FromInt32(pods)
 
 	return &policyv1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{

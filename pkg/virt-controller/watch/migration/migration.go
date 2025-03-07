@@ -30,11 +30,7 @@ import (
 	"sync"
 	"time"
 
-	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
-
 	"github.com/opencontainers/selinux/go-selinux"
-
-	"kubevirt.io/api/migrations/v1alpha1"
 
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
@@ -49,20 +45,19 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/pdbs"
-
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
-	"kubevirt.io/kubevirt/pkg/util/migrations"
-
 	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/api/migrations/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/util"
+	migrationsutil "kubevirt.io/kubevirt/pkg/util/migrations"
+	pdbsutil "kubevirt.io/kubevirt/pkg/util/pdbs"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 )
@@ -83,8 +78,8 @@ const defaultUnschedulablePendingTimeoutSeconds = int64(60 * 5)
 // migration objects
 const defaultFinalizedMigrationGarbageCollectionBuffer = 5
 
-// This is catch all timeout used when a target pod is stuck in
-// a in the pending phase for any reason. The theory behind this timeout
+// This catch-all timeout is used when a target pod is stuck in
+// the pending phase for any reason. The theory behind this timeout
 // being longer than the unschedulable timeout is that we don't necessarily
 // know all the reasons a pod will be stuck in pending for an extended
 // period of time, so we want to make this timeout long enough that it doesn't
@@ -1066,7 +1061,7 @@ func filterOutOldPDBs(pdbList []*policyv1.PodDisruptionBudget) []*policyv1.PodDi
 	var filteredPdbs []*policyv1.PodDisruptionBudget
 
 	for i := range pdbList {
-		if !pdbs.IsPDBFromOldMigrationController(pdbList[i]) {
+		if !pdbsutil.IsPDBFromOldMigrationController(pdbList[i]) {
 			filteredPdbs = append(filteredPdbs, pdbList[i])
 		}
 	}
@@ -1111,7 +1106,7 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 
 	if outboundMigrations >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode) {
 		// Let's ensure that we only have two outbound migrations per node
-		// XXX: Make this configurable, thinkg about inbound migration limit, bandwidh per migration, and so on.
+		// XXX: Make this configurable, think about inbound migration limit, bandwidth per migration, and so on.
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel outbound migrations on target node [%d] has hit outbound migrations per node limit.", vmi.Namespace, vmi.Name, outboundMigrations)
 		c.Queue.AddAfter(key, time.Second*5)
 		return nil
@@ -1120,8 +1115,8 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 	// migration was accepted into the system, now see if we
 	// should create the target pod
 	if vmi.IsRunning() {
-		if migrations.VMIMigratableOnEviction(c.clusterConfig, vmi) {
-			pdbs, err := pdbs.PDBsForVMI(vmi, c.pdbIndexer)
+		if migrationsutil.VMIMigratableOnEviction(c.clusterConfig, vmi) {
+			pdbs, err := pdbsutil.PDBsForVMI(vmi, c.pdbIndexer)
 			if err != nil {
 				return err
 			}
@@ -1924,7 +1919,7 @@ func (c *Controller) updateVMI(old, cur interface{}) {
 	}
 	labelChanged := !equality.Semantic.DeepEqual(curVMI.Labels, oldVMI.Labels)
 	if curVMI.DeletionTimestamp != nil {
-		// having a DataVOlume marked for deletion is enough
+		// having a DataVolume marked for deletion is enough
 		// to count as a deletion expectation
 		c.deleteVMI(curVMI)
 		if labelChanged {
@@ -1986,13 +1981,13 @@ func (c *Controller) outboundMigrationsOnNode(node string, runningMigrations []*
 	return sum, nil
 }
 
-// findRunningMigrations calcules how many migrations are running or in flight to be triggered to running
+// findRunningMigrations calculates how many migrations are running or in flight to be triggered to running
 // Migrations which are in running phase are added alongside with migrations which are still pending but
 // where we already see a target pod.
 func (c *Controller) findRunningMigrations() ([]*virtv1.VirtualMachineInstanceMigration, error) {
 
 	// Don't start new migrations if we wait for migration object updates because of new target pods
-	notFinishedMigrations := migrations.ListUnfinishedMigrations(c.migrationIndexer)
+	notFinishedMigrations := migrationsutil.ListUnfinishedMigrations(c.migrationIndexer)
 	var runningMigrations []*virtv1.VirtualMachineInstanceMigration
 	for _, migration := range notFinishedMigrations {
 		if migration.IsRunning() {
