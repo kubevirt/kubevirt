@@ -40,7 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -281,7 +280,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 
 	DescribeTable("Should generate expected vmi patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, expectedPatchSet *patch.PatchSet) {
 
-		vmi := api.NewMinimalVMI(request.PathParameter("name"))
+		vmi := libvmi.New(libvmi.WithName(request.PathParameter("name")))
 		vmi.Namespace = metav1.NamespaceDefault
 		vmi.Status.Phase = v1.Running
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
