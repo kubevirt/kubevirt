@@ -19,11 +19,11 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -506,17 +506,20 @@ func newMigration(name string, vmi *v1.VirtualMachineInstance, phase v1.VirtualM
 }
 
 func nonMigratableVirtualMachine() *v1.VirtualMachineInstance {
-	vmi := api.NewMinimalVMI("testvm")
-	vmi.Namespace = corev1.NamespaceDefault
+	vmi := libvmi.New(
+		libvmi.WithNamespace(corev1.NamespaceDefault),
+		libvmi.WithName("testvm"),
+	)
 	vmi.UID = "1234"
 	return vmi
 }
 
 func migratableVirtualMachine() *v1.VirtualMachineInstance {
-	vmi := api.NewMinimalVMI("testvm")
-	vmi.Namespace = corev1.NamespaceDefault
+	vmi := libvmi.New(
+		libvmi.WithNamespace(corev1.NamespaceDefault),
+		libvmi.WithName("testvm"),
+	)
 	vmi.UID = "1234"
-
 	vmi.Status = v1.VirtualMachineInstanceStatus{
 		Conditions: []v1.VirtualMachineInstanceCondition{
 			{

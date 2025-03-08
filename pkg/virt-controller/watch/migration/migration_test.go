@@ -50,13 +50,13 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
-	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	fakenetworkclient "kubevirt.io/client-go/networkattachmentdefinitionclient/fake"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -2378,7 +2378,9 @@ func newMigrationWithAddedNodeSelector(name string, vmiName string, phase virtv1
 }
 
 func newVirtualMachine(name string, phase virtv1.VirtualMachineInstancePhase) *virtv1.VirtualMachineInstance {
-	vmi := api.NewMinimalVMI(name)
+	vmi := libvmi.New(
+		libvmi.WithName(name),
+	)
 	vmi.UID = types.UID(name)
 	vmi.Status.Phase = phase
 	vmi.Status.NodeName = "tefwegwrerg"
