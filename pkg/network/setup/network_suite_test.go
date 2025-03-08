@@ -9,21 +9,19 @@ import (
 	kfs "kubevirt.io/kubevirt/pkg/os/fs"
 
 	v1 "kubevirt.io/api/core/v1"
-	api2 "kubevirt.io/client-go/api"
-	"kubevirt.io/client-go/testutils"
-
+	"kubevirt.io/kubevirt/pkg/virt-api/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 func TestNetwork(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t)
+	libvmi.KubeVirtTestSuiteSetup(t)
 }
 
 func newVMIBridgeInterface(namespace string, name string) *v1.VirtualMachineInstance {
-	vmi := api2.NewMinimalVMIWithNS(namespace, name)
+	vmi := libvmi.New(libvmi.WithName(name), libvmi.WithNamespace(namespace))
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+	libvmi.SetObjectDefaults_VirtualMachineInstance(vmi)
 	return vmi
 }
 

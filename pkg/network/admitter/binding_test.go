@@ -30,12 +30,12 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/network/admitter"
+	"kubevirt.io/kubevirt/pkg/virt-api/libvmi"
 )
 
 var _ = Describe("Validating network binding combinations", func() {
 	It("network interface has both binding plugin and interface binding method", func() {
-		vm := api.NewMinimalVMI("testvm")
+		vm := libvmi.New(libvmi.WithName("testvm"))
 		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 			Name:                   "foo",
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
@@ -53,7 +53,7 @@ var _ = Describe("Validating network binding combinations", func() {
 	})
 
 	It("network interface has only plugin binding", func() {
-		vm := api.NewMinimalVMI("testvm")
+		vm := libvmi.New(libvmi.WithName("testvm"))
 		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 			Name:    "foo",
 			Binding: &v1.PluginBinding{Name: "boo"},
@@ -65,7 +65,7 @@ var _ = Describe("Validating network binding combinations", func() {
 	})
 
 	It("network interface has only binding method", func() {
-		vm := api.NewMinimalVMI("testvm")
+		vm := libvmi.New(libvmi.WithName("testvm"))
 		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 			Name:                   "foo",
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},

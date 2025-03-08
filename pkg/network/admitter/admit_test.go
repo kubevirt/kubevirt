@@ -32,12 +32,12 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/network/admitter"
+	"kubevirt.io/kubevirt/pkg/virt-api/libvmi"
 )
 
 var _ = Describe("Validating VMI network spec", func() {
 	DescribeTable("network interface state valid value", func(value v1.InterfaceState) {
-		vm := api.NewMinimalVMI("testvm")
+		vm := libvmi.New(libvmi.WithName("testvm"))
 		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
 			{
 				Name:                   "foo",
@@ -58,7 +58,7 @@ var _ = Describe("Validating VMI network spec", func() {
 	)
 
 	It("network interface state value is invalid", func() {
-		vm := api.NewMinimalVMI("testvm")
+		vm := libvmi.New(libvmi.WithName("testvm"))
 		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "foo", State: v1.InterfaceState("foo")}}
 		vm.Spec.Networks = []v1.Network{{Name: "foo", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, stubClusterConfigChecker{})
@@ -71,7 +71,7 @@ var _ = Describe("Validating VMI network spec", func() {
 	})
 
 	DescribeTable("network interface state ", func(state v1.InterfaceState, messageRegex types.GomegaMatcher) {
-		vm := api.NewMinimalVMI("testvm")
+		vm := libvmi.New(libvmi.WithName("testvm"))
 		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 			Name:                   "foo",
 			State:                  state,
@@ -94,7 +94,7 @@ var _ = Describe("Validating VMI network spec", func() {
 	)
 
 	It("network interface state value of absent is not supported on the default network", func() {
-		vm := api.NewMinimalVMI("testvm")
+		vm := libvmi.New(libvmi.WithName("testvm"))
 		vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 			Name:                   "foo",
 			State:                  v1.InterfaceStateAbsent,
