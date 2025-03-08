@@ -16,8 +16,8 @@ import (
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -48,7 +48,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		apiGroup := "kubevirt.io"
 
 		BeforeEach(func() {
-			vmi := api.NewMinimalVMI("testvmi")
+			vmi := libvmi.New(libvmi.WithName("testvmi"))
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk",
 			})
@@ -93,7 +93,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject VM with DataVolumeTemplate in another namespace", func() {
-			vmi := api.NewMinimalVMI("testvmi")
+			vmi := libvmi.New(libvmi.WithName("testvmi"))
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk",
 			})
@@ -314,7 +314,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 	Context("Validate VM snapshot, restore status", func() {
 		DescribeTable("when snapshot is in progress, should", func(mutateFn func(*v1.VirtualMachine) bool) {
-			vmi := api.NewMinimalVMI("testvmi")
+			vmi := libvmi.New(libvmi.WithName("testvmi"))
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: "orginalvolume",
@@ -407,7 +407,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		)
 
 		DescribeTable("when restore is in progress, should", func(mutateFn func(*v1.VirtualMachine) bool, updateRunStrategy bool) {
-			vmi := api.NewMinimalVMI("testvmi")
+			vmi := libvmi.New(libvmi.WithName("testvmi"))
 			vm := &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
