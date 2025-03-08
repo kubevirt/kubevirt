@@ -5,8 +5,6 @@ metadata:
   annotations:
     hooks.kubevirt.io/hookSidecars: '[{"args": ["--version", "v1alpha2"], "configMap":
       {"name": "my-config-map","key": "my_script.sh", "hookPath": "/usr/bin/onDefineDomain"}}]'
-  labels:
-    special: vmi-with-sidecar-hook-configmap
   name: vmi-with-sidecar-hook-configmap
 spec:
   domain:

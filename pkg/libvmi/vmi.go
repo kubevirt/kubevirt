@@ -23,6 +23,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -281,11 +282,106 @@ func WithKernelBootContainer(imageName string) Option {
 	}
 }
 
+func WithKernelBoot(k *v1.KernelBoot) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Firmware == nil {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{}
+		}
+		vmi.Spec.Domain.Firmware.KernelBoot = k
+	}
+}
+
 func WithTPM(persistent bool) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
 			Persistent: pointer.P(persistent),
 		}
+	}
+}
+
+func WithSMM() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Features == nil {
+			vmi.Spec.Domain.Features = &v1.Features{}
+		}
+		vmi.Spec.Domain.Features.SMM = &v1.FeatureState{
+			Enabled: pointer.P(true),
+		}
+	}
+}
+
+func WithSecureBoot(enabled bool) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Firmware == nil {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{}
+		}
+		if vmi.Spec.Domain.Firmware.Bootloader == nil {
+			vmi.Spec.Domain.Firmware.Bootloader = &v1.Bootloader{}
+		}
+		if vmi.Spec.Domain.Firmware.Bootloader.EFI == nil {
+			vmi.Spec.Domain.Firmware.Bootloader.EFI = &v1.EFI{}
+		}
+		vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot = pointer.P(enabled)
+	}
+}
+
+func WithACPI() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Features == nil {
+			vmi.Spec.Domain.Features = &v1.Features{}
+		}
+		vmi.Spec.Domain.Features.ACPI = v1.FeatureState{}
+	}
+}
+
+func WithAPIC() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Features == nil {
+			vmi.Spec.Domain.Features = &v1.Features{}
+		}
+		vmi.Spec.Domain.Features.APIC = &v1.FeatureAPIC{}
+	}
+}
+
+func WithHyperv(hv *v1.FeatureHyperv) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Features == nil {
+			vmi.Spec.Domain.Features = &v1.Features{}
+		}
+		vmi.Spec.Domain.Features.Hyperv = hv
+	}
+}
+
+func WithClock(clock *v1.Clock) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Clock = clock
+	}
+}
+
+func WithFirmwareUUID(uuid types.UID) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Firmware == nil {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{}
+		}
+		vmi.Spec.Domain.Firmware.UUID = uuid
+	}
+}
+
+func WithPriorityClass(class string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.PriorityClassName = class
+	}
+}
+
+func WithGPU(gpu v1.GPU) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.GPUs = append(vmi.Spec.Domain.Devices.GPUs, gpu)
+	}
+}
+
+func WithHostDevice(device v1.HostDevice) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.HostDevices = append(vmi.Spec.Domain.Devices.HostDevices, device)
 	}
 }
 

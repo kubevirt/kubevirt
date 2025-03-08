@@ -37,3 +37,4 @@ tests/libwait
 tests/numa
 tests/usb
 tests/virtctl
+tools/vms-generator
