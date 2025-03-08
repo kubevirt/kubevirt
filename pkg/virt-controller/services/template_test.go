@@ -43,7 +43,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/tools/cache"
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 	fakenetworkclient "kubevirt.io/client-go/networkattachmentdefinitionclient/fake"
 
@@ -183,7 +182,9 @@ var _ = Describe("Template", func() {
 	Describe("Rendering", func() {
 
 		newMinimalWithContainerDisk := func(name string) *v1.VirtualMachineInstance {
-			vmi := api.NewMinimalVMI(name)
+			vmi := libvmi.New(
+				libvmi.WithName(name),
+			)
 			vmi.Annotations = map[string]string{v1.DeprecatedNonRootVMIAnnotation: ""}
 
 			volumes := []v1.Volume{
@@ -994,13 +995,16 @@ var _ = Describe("Template", func() {
 		Context("migration over unix sockets", func() {
 			It("virt-launcher should have a MigrationTransportUnixAnnotation", func() {
 				config, kvStore, svc = configFactory(defaultArch)
-				vmi := api.NewMinimalVMI("fake-vmi")
+				vmi := libvmi.New(
+					libvmi.WithName("fake-vmi"),
+				)
 
 				pod, err := svc.RenderLaunchManifest(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				_, ok := pod.Annotations[v1.MigrationTransportUnixAnnotation]
 				Expect(ok).To(BeTrue())
 			})
+
 		})
 
 		Context("With Istio sidecar.istio.io/inject annotation", func() {
@@ -1232,7 +1236,9 @@ var _ = Describe("Template", func() {
 
 				BeforeEach(func() {
 					config, kvStore, svc = configFactory(defaultArch)
-					vmi = api.NewMinimalVMI("testvmi")
+					vmi = libvmi.New(
+						libvmi.WithName("testvmi"),
+					)
 				})
 
 				It("should add SEV node label selector with SEV workload", func() {
@@ -1476,7 +1482,10 @@ var _ = Describe("Template", func() {
 					config, kvStore, svc = configFactory(defaultArch)
 
 					By("Setting up the vm")
-					vmi := api.NewMinimalVMIWithNS("testvmi", "default")
+					vmi := libvmi.New(
+						libvmi.WithName("testvmi"),
+						libvmi.WithNamespace("default"),
+					)
 					vmi.Status.TopologyHints = topologyHints
 					setVmWithTscRequirementType(vmi, tscRequirementType)
 
@@ -3600,7 +3609,9 @@ var _ = Describe("Template", func() {
 		Context("Ephemeral storage request", func() {
 
 			DescribeTable("by verifying that ephemeral storage ", func(defineEphemeralStorageLimit bool) {
-				vmi := api.NewMinimalVMI("fake-vmi")
+				vmi := libvmi.New(
+					libvmi.WithName("fake-vmi"),
+				)
 
 				ephemeralStorageRequests := resource.MustParse("30M")
 				ephemeralStorageLimit := resource.MustParse("70M")
@@ -3716,7 +3727,9 @@ var _ = Describe("Template", func() {
 		})
 
 		DescribeTable("should require NET_BIND_SERVICE", func(interfaceType string) {
-			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi := libvmi.New(
+				libvmi.WithName("fake-vmi"),
+			)
 			switch interfaceType {
 			case "bridge":
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
@@ -3740,7 +3753,9 @@ var _ = Describe("Template", func() {
 		)
 
 		It("should require capabilites which we set on virt-launcher binary", func() {
-			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi := libvmi.New(
+				libvmi.WithName("fake-vmi"),
+			)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 				Name: "test",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
@@ -3780,16 +3795,18 @@ var _ = Describe("Template", func() {
 			}
 			Expect(false).To(BeTrue())
 		},
-			Entry("on a root virt-launcher", func() *v1.VirtualMachineInstance {
-				return api.NewMinimalVMI("fake-vmi")
-			}, "compute", []k8sv1.Capability{CAP_NET_BIND_SERVICE, CAP_SYS_NICE}, nil),
 			Entry("on a non-root virt-launcher", func() *v1.VirtualMachineInstance {
-				vmi := api.NewMinimalVMI("fake-vmi")
+				vmi := libvmi.New(
+					libvmi.WithName("fake-vmi"),
+				)
 				vmi.Status.RuntimeUser = uint64(nonRootUser)
 				return vmi
 			}, "compute", []k8sv1.Capability{CAP_NET_BIND_SERVICE}, []k8sv1.Capability{"ALL"}),
+
 			Entry("on a sidecar container", func() *v1.VirtualMachineInstance {
-				vmi := api.NewMinimalVMI("fake-vmi")
+				vmi := libvmi.New(
+					libvmi.WithName("fake-vmi"),
+				)
 				vmi.Status.RuntimeUser = uint64(nonRootUser)
 				vmi.Annotations = map[string]string{
 					"hooks.kubevirt.io/hookSidecars": `[{"args": ["--version", "v1alpha2"],"image": "test/test:test", "imagePullPolicy": "IfNotPresent"}]`,
@@ -3809,13 +3826,18 @@ var _ = Describe("Template", func() {
 			Expect(pod.Spec.SecurityContext).To(Equal(securityContext))
 		},
 			Entry("on a root virt-launcher", func() *v1.VirtualMachineInstance {
-				return api.NewMinimalVMI("fake-vmi")
+				return libvmi.New(
+					libvmi.WithName("fake-vmi"),
+				)
 			}, &k8sv1.PodSecurityContext{
 				RunAsUser: new(int64),
 				FSGroup:   pointer.P(int64(util.NonRootUID)),
 			}),
+
 			Entry("on a non-root virt-launcher", func() *v1.VirtualMachineInstance {
-				vmi := api.NewMinimalVMI("fake-vmi")
+				vmi := libvmi.New(
+					libvmi.WithName("fake-vmi"),
+				)
 				vmi.Status.RuntimeUser = uint64(nonRootUser)
 				return vmi
 			}, &k8sv1.PodSecurityContext{
@@ -3824,9 +3846,12 @@ var _ = Describe("Template", func() {
 				RunAsNonRoot: pointer.P(true),
 				FSGroup:      &nonRootUser,
 			}),
+
 			Entry("on a passt vmi", func() *v1.VirtualMachineInstance {
 				nonRootUser := util.NonRootUID
-				vmi := api.NewMinimalVMI("fake-vmi")
+				vmi := libvmi.New(
+					libvmi.WithName("fake-vmi"),
+				)
 				vmi.Status.RuntimeUser = uint64(nonRootUser)
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{
@@ -3842,7 +3867,9 @@ var _ = Describe("Template", func() {
 			}),
 			Entry("on a virtiofs vmi", func() *v1.VirtualMachineInstance {
 				nonRootUser := util.NonRootUID
-				vmi := api.NewMinimalVMI("fake-vmi")
+				vmi := libvmi.New(
+					libvmi.WithName("fake-vmi"),
+				)
 				vmi.Status.RuntimeUser = uint64(nonRootUser)
 				vmi.Spec.Domain.Devices.Filesystems = []v1.Filesystem{{
 					Virtiofs: &v1.FilesystemVirtiofs{},
@@ -3857,7 +3884,9 @@ var _ = Describe("Template", func() {
 		)
 
 		It("should compute the correct security context when rendering hotplug attachment pods", func() {
-			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi := libvmi.New(
+				libvmi.WithName("fake-vmi"),
+			)
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -3884,7 +3913,9 @@ var _ = Describe("Template", func() {
 		})
 
 		It("should compute the correct tolerations when rendering hotplug attachment pods", func() {
-			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi := libvmi.New(
+				libvmi.WithName("fake-vmi"),
+			)
 			vmi.Spec.Tolerations = append(vmi.Spec.Tolerations, k8sv1.Toleration{Key: "test"})
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -3898,7 +3929,9 @@ var _ = Describe("Template", func() {
 		})
 
 		It("should compute the correct tolerations when rendering hotplug attachment trigger pods", func() {
-			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi := libvmi.New(
+				libvmi.WithName("fake-vmi"),
+			)
 			vmi.Spec.Tolerations = append(vmi.Spec.Tolerations, k8sv1.Toleration{Key: "test"})
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -3911,7 +3944,9 @@ var _ = Describe("Template", func() {
 		})
 
 		It("should compute the correct volumeDevice context when rendering hotplug attachment pods with the FS PersistentVolumeClaim", func() {
-			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi := libvmi.New(
+				libvmi.WithName("fake-vmi"),
+			)
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -3958,7 +3993,9 @@ var _ = Describe("Template", func() {
 		})
 
 		It("should compute the correct volumeDevice context when rendering hotplug attachment pods with the Block PersistentVolumeClaim", func() {
-			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi := libvmi.New(
+				libvmi.WithName("fake-vmi"),
+			)
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -3999,7 +4036,9 @@ var _ = Describe("Template", func() {
 		})
 
 		DescribeTable("should compute the correct security context when rendering hotplug attachment trigger pods", func(isBlock bool) {
-			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi := libvmi.New(
+				libvmi.WithName("fake-vmi"),
+			)
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -4043,7 +4082,9 @@ var _ = Describe("Template", func() {
 		}
 
 		It("should compute the correct resource req according to desired QoS when rendering hotplug pods", func() {
-			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi := libvmi.New(
+				libvmi.WithName("fake-vmi"),
+			)
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -4065,7 +4106,9 @@ var _ = Describe("Template", func() {
 		})
 
 		DescribeTable("hould compute the correct resource req according to desired QoS when rendering hotplug trigger pods", func(isBlock bool) {
-			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi := libvmi.New(
+				libvmi.WithName("fake-vmi"),
+			)
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -4214,7 +4257,9 @@ var _ = Describe("Template", func() {
 			})
 
 			newVmi := func() *v1.VirtualMachineInstance {
-				vmi := api.NewMinimalVMI("test-vmi")
+				vmi := libvmi.New(
+					libvmi.WithName("test-vmi"),
+				)
 
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: k8sv1.ResourceList{
@@ -4251,7 +4296,9 @@ var _ = Describe("Template", func() {
 			var vmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				vmi = api.NewMinimalVMI("configmap-sidecar-test")
+				vmi = libvmi.New(
+					libvmi.WithName("configmap-sidecar-test"),
+				)
 				vmi.Annotations = map[string]string{
 					hooks.HookSidecarListAnnotationName: `[{"image": "test:test", "configMap": {"name": "test-cm",
 "key": "script.sh", "hookPath": "/usr/bin/onDefineDomain"}}]`,
@@ -4309,7 +4356,9 @@ var _ = Describe("Template", func() {
 				shareDirCompute = "/var/run/debug"
 			)
 			BeforeEach(func() {
-				vmi = api.NewMinimalVMI("pvc-sidecar-test")
+				vmi = libvmi.New(
+					libvmi.WithName("pvc-sidecar-test"),
+				)
 				vmi.Annotations = map[string]string{
 					hooks.HookSidecarListAnnotationName: fmt.Sprintf(`[{"image": "test:test", "pvc": {"name": "%s","volumePath": "%s", "sharedComputePath": "%s"}}]`, claim, dirSidecar, shareDirCompute),
 				}
@@ -4413,7 +4462,9 @@ var _ = Describe("Template", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				config, kvStore, svc = configFactory(defaultArch)
-				vmi := api.NewMinimalVMI(vmiName)
+				vmi := libvmi.New(
+					libvmi.WithName(vmiName),
+				)
 				vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
 					Persistent: pointer.P(true),
 				}
@@ -4436,7 +4487,9 @@ var _ = Describe("Template", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				config, kvStore, svc = configFactory(defaultArch)
-				vmi := api.NewMinimalVMI(vmiName)
+				vmi := libvmi.New(
+					libvmi.WithName(vmiName),
+				)
 				vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
 					Persistent: pointer.P(true),
 				}
@@ -4627,7 +4680,9 @@ var _ = Describe("Template", func() {
 
 	Context("with VSOCK enabled", func() {
 		It("should add VSOCK device to resources", func() {
-			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi := libvmi.New(
+				libvmi.WithName("fake-vmi"),
+			)
 			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 
 			pod, err := svc.RenderLaunchManifest(vmi)
@@ -5047,7 +5102,9 @@ var _ = Describe("Template", func() {
 
 	Context("with serial console", func() {
 		DescribeTable("check for guest-console-log container", func(autoattachSerialConsole, logSerialConsole, expected bool) {
-			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi := libvmi.New(
+				libvmi.WithName("fake-vmi"),
+			)
 			vmi.Spec.Domain.Devices.AutoattachSerialConsole = &autoattachSerialConsole
 			vmi.Spec.Domain.Devices.LogSerialConsole = &logSerialConsole
 
