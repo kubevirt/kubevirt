@@ -108,7 +108,7 @@ var _ = Describe("Validating VMI network spec", func() {
 			ConsistOf(metav1.StatusCause{
 				Type:    "FieldValueInvalid",
 				Message: "\"foo\" interface's state \"absent\" is not supported on default networks",
-				Field:   "fake.domain.devices.interfaces[0].state",
+				Field:   "fake.domain.dgit commit --amend --signoffevices.interfaces[0].state",
 			}))
 	})
 })
