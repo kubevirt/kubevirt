@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
-
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,6 +12,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply/resourcemerge"
 )
 
 func getSubresourcesForVersion(crd *extv1.CustomResourceDefinition, version string) *extv1.CustomResourceSubresources {
@@ -95,12 +94,12 @@ func (r *Reconciler) createOrUpdateCrd(crd *extv1.CustomResourceDefinition) erro
 	}
 
 	cachedCrd = obj.(*extv1.CustomResourceDefinition)
-	modified := resourcemerge.BoolPtr(false)
+	modified := false
 	expectedGeneration := GetExpectedGeneration(crd, r.kv.Status.Generations)
 
-	resourcemerge.EnsureObjectMeta(modified, &cachedCrd.ObjectMeta, crd.ObjectMeta)
+	resourcemerge.EnsureObjectMeta(&modified, &cachedCrd.ObjectMeta, crd.ObjectMeta)
 	// there was no change to metadata, the generation was right
-	if !*modified && cachedCrd.GetGeneration() == expectedGeneration {
+	if !modified && cachedCrd.GetGeneration() == expectedGeneration {
 		log.Log.V(4).Infof("crd %v is up-to-date", crd.GetName())
 		return nil
 	}
