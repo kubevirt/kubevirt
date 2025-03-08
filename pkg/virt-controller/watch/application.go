@@ -80,7 +80,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 
-	"kubevirt.io/kubevirt/pkg/instancetype"
 	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
 	clientmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
@@ -433,21 +432,27 @@ func Execute() {
 
 	app.onOpenshift = onOpenShift
 
+	metricsInformers := &metrics.Informers{
+		VM:                    app.vmInformer,
+		VMI:                   app.vmiInformer,
+		PersistentVolumeClaim: app.persistentVolumeClaimInformer,
+		VMIMigration:          app.migrationInformer,
+		KVPod:                 app.kvPodInformer,
+	}
+
+	metricsStores := &metrics.Stores{
+		Instancetype:        app.instancetypeInformer.GetStore(),
+		ClusterInstancetype: app.clusterInstancetypeInformer.GetStore(),
+		Preference:          app.preferenceInformer.GetStore(),
+		ClusterPreference:   app.clusterPreferenceInformer.GetStore(),
+		ControllerRevision:  app.controllerRevisionInformer.GetStore(),
+	}
+
 	if err := metrics.SetupMetrics(
-		app.vmInformer,
-		app.vmiInformer,
-		app.persistentVolumeClaimInformer,
-		app.migrationInformer,
-		app.kvPodInformer,
+		metricsInformers,
+		metricsStores,
 		app.clusterConfig,
-		&instancetype.InstancetypeMethods{
-			InstancetypeStore:        app.instancetypeInformer.GetStore(),
-			ClusterInstancetypeStore: app.clusterInstancetypeInformer.GetStore(),
-			PreferenceStore:          app.preferenceInformer.GetStore(),
-			ClusterPreferenceStore:   app.clusterInstancetypeInformer.GetStore(),
-			ControllerRevisionStore:  app.controllerRevisionInformer.GetStore(),
-			Clientset:                app.clientSet,
-		},
+		app.clientSet,
 	); err != nil {
 		golog.Fatal(err)
 	}
@@ -651,6 +656,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.vmInformer,
 		vca.kvPodInformer,
 		vca.persistentVolumeClaimInformer,
+		vca.migrationInformer,
 		vca.storageClassInformer,
 		vca.vmiRecorder,
 		vca.clientSet,

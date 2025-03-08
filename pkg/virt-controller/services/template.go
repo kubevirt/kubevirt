@@ -274,7 +274,10 @@ func (t *templateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstanc
 }
 
 func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error) {
-	imageIDs := containerdisk.ExtractImageIDsFromSourcePod(vmi, sourcePod)
+	reproducibleImageIDs, err := containerdisk.ExtractImageIDsFromSourcePod(vmi, sourcePod)
+	if err != nil {
+		return nil, fmt.Errorf("can not proceed with the migration when no reproducible image digest can be detected: %v", err)
+	}
 	backendStoragePVCName := ""
 	if backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
 		backendStoragePVC := backendstorage.PVCForMigrationTarget(t.persistentVolumeClaimStore, migration)
@@ -283,7 +286,7 @@ func (t *templateService) RenderMigrationManifest(vmi *v1.VirtualMachineInstance
 		}
 		backendStoragePVCName = backendStoragePVC.Name
 	}
-	targetPod, err := t.renderLaunchManifest(vmi, imageIDs, backendStoragePVCName, false)
+	targetPod, err := t.renderLaunchManifest(vmi, reproducibleImageIDs, backendStoragePVCName, false)
 	if err != nil {
 		return nil, err
 	}
@@ -418,6 +421,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 			"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
 			"--ovmf-path", ovmfPath,
+			"--disk-memory-limit", strconv.Itoa(int(t.clusterConfig.GetDiskVerification().MemoryLimit.Value())),
 		}
 		if nonRoot {
 			command = append(command, "--run-as-nonroot")
@@ -688,6 +692,17 @@ func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		)
 	}
 
+	var machineType string
+	if vmi.Status.Machine != nil && vmi.Status.Machine.Type != "" {
+		machineType = vmi.Status.Machine.Type
+	} else if vmi.Spec.Domain.Machine != nil && vmi.Spec.Domain.Machine.Type != "" {
+		machineType = vmi.Spec.Domain.Machine.Type
+	}
+
+	if machineType != "" {
+		opts = append(opts, WithMachineType(machineType))
+	}
+
 	if topology.IsManualTSCFrequencyRequired(vmi) {
 		opts = append(opts, WithTSCTimer(vmi.Status.TopologyHints.TSCFrequency))
 	}
@@ -787,6 +802,9 @@ func (t *templateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 	}
 	if t.IsPPC64() {
 		computeContainerOpts = append(computeContainerOpts, WithPrivileged())
+	}
+	if vmi.Spec.StartupProbe != nil {
+		computeContainerOpts = append(computeContainerOpts, WithStartupProbe(vmi))
 	}
 	if vmi.Spec.ReadinessProbe != nil {
 		computeContainerOpts = append(computeContainerOpts, WithReadinessProbe(vmi))

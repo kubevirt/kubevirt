@@ -172,6 +172,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateGuestMemoryLimit(field, spec, config)...)
 	causes = append(causes, validateEmulatedMachine(field, spec, config)...)
 	causes = append(causes, validateFirmwareSerial(field, spec)...)
+	causes = append(causes, validateFirmwareACPI(field.Child("acpi"), spec)...)
 	causes = append(causes, validateCPURequestNotNegative(field, spec)...)
 	causes = append(causes, validateCPULimitNotNegative(field, spec)...)
 	causes = append(causes, validateCpuRequestDoesNotExceedLimit(field, spec)...)
@@ -195,10 +196,12 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateIOThreadsPolicy(field, spec)...)
 	causes = append(causes, validateProbe(field.Child("readinessProbe"), spec.ReadinessProbe)...)
 	causes = append(causes, validateProbe(field.Child("livenessProbe"), spec.LivenessProbe)...)
+	causes = append(causes, validateProbe(field.Child("startupProbe"), spec.StartupProbe)...)
 
 	if podNetwork := vmispec.LookupPodNetwork(spec.Networks); podNetwork == nil {
 		causes = appendStatusCauseForProbeNotAllowedWithNoPodNetworkPresent(field.Child("readinessProbe"), spec.ReadinessProbe, causes)
 		causes = appendStatusCauseForProbeNotAllowedWithNoPodNetworkPresent(field.Child("livenessProbe"), spec.LivenessProbe, causes)
+		causes = appendStatusCauseForProbeNotAllowedWithNoPodNetworkPresent(field.Child("startupProbe"), spec.StartupProbe, causes)
 	}
 
 	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain)...)
@@ -549,13 +552,13 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 		})
 	} else if launchSecurity != nil && launchSecurity.SEV != nil {
 		firmware := spec.Domain.Firmware
-		if firmware == nil || firmware.Bootloader == nil || firmware.Bootloader.EFI == nil {
+		if !efiBootEnabled(firmware) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "SEV requires OVMF (UEFI)",
 				Field:   field.Child("launchSecurity").String(),
 			})
-		} else if firmware.Bootloader.EFI.SecureBoot == nil || *firmware.Bootloader.EFI.SecureBoot {
+		} else if secureBootEnabled(firmware) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "SEV does not work along with SecureBoot",
@@ -1414,6 +1417,40 @@ func validateBootloader(field *k8sfield.Path, bootloader *v1.Bootloader) []metav
 	return causes
 }
 
+func validateFirmwareACPI(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if spec.Domain.Firmware == nil || spec.Domain.Firmware.ACPI == nil {
+		return causes
+	}
+
+	acpi := spec.Domain.Firmware.ACPI
+	for _, volume := range spec.Volumes {
+		if acpi.SlicNameRef != volume.Name {
+			continue
+		}
+
+		switch {
+		case volume.Secret != nil:
+		default:
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s refers to Volume of unsupported type.", field.String()),
+				Field:   field.Child("slicNameRef").String(),
+			})
+		}
+		return causes
+	}
+
+	causes = append(causes, metav1.StatusCause{
+		Type:    metav1.CauseTypeFieldValueInvalid,
+		Message: fmt.Sprintf("%s does not have a matching Volume.", field.String()),
+		Field:   field.String(),
+	})
+
+	return causes
+}
+
 func validateFirmware(field *k8sfield.Path, firmware *v1.Firmware) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
@@ -1425,15 +1462,26 @@ func validateFirmware(field *k8sfield.Path, firmware *v1.Firmware) []metav1.Stat
 	return causes
 }
 
+func efiBootEnabled(firmware *v1.Firmware) bool {
+	return firmware != nil && firmware.Bootloader != nil && firmware.Bootloader.EFI != nil
+}
+
+func secureBootEnabled(firmware *v1.Firmware) bool {
+	return efiBootEnabled(firmware) &&
+		(firmware.Bootloader.EFI.SecureBoot == nil || *firmware.Bootloader.EFI.SecureBoot)
+}
+
+func smmFeatureEnabled(features *v1.Features) bool {
+	return features != nil && features.SMM != nil && (features.SMM.Enabled == nil || *features.SMM.Enabled)
+}
+
 func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	causes = append(causes, validateDevices(field.Child("devices"), &spec.Devices)...)
 	causes = append(causes, validateFirmware(field.Child("firmware"), spec.Firmware)...)
 
-	if spec.Firmware != nil && spec.Firmware.Bootloader != nil && spec.Firmware.Bootloader.EFI != nil &&
-		(spec.Firmware.Bootloader.EFI.SecureBoot == nil || *spec.Firmware.Bootloader.EFI.SecureBoot) &&
-		(spec.Features == nil || spec.Features.SMM == nil || (spec.Features.SMM.Enabled != nil && !*spec.Features.SMM.Enabled)) {
+	if secureBootEnabled(spec.Firmware) && !smmFeatureEnabled(spec.Features) {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s has EFI SecureBoot enabled. SecureBoot requires SMM, which is currently disabled.", field.String()),

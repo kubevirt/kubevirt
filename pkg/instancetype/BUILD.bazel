@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -6,9 +6,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/instancetype",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/instancetype/apply:go_default_library",
-        "//pkg/instancetype/conflict:go_default_library",
-        "//pkg/instancetype/expand:go_default_library",
         "//pkg/instancetype/find:go_default_library",
         "//pkg/instancetype/infer:go_default_library",
         "//pkg/instancetype/preference/apply:go_default_library",
@@ -16,43 +13,12 @@ go_library(
         "//pkg/instancetype/preference/validation:go_default_library",
         "//pkg/instancetype/revision:go_default_library",
         "//pkg/instancetype/upgrade:go_default_library",
-        "//pkg/virt-config:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//vendor/k8s.io/api/apps/v1:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/util/validation/field:go_default_library",
-        "//vendor/k8s.io/client-go/tools/cache:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = [
-        "instancetype_suite_test.go",
-        "instancetype_test.go",
-    ],
-    deps = [
-        ":go_default_library",
-        "//pkg/pointer:go_default_library",
-        "//pkg/testutils:go_default_library",
-        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
-        "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/api:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
-        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
-        "//vendor/github.com/golang/mock/gomock:go_default_library",
-        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
-        "//vendor/github.com/onsi/gomega:go_default_library",
-        "//vendor/k8s.io/api/apps/v1:go_default_library",
-        "//vendor/k8s.io/api/core/v1:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/util/validation/field:go_default_library",
-        "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
     ],
 )

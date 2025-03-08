@@ -14,12 +14,8 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/util/cluster"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/util"
 )
-
-const diskRhel = "disk-rhel"
 
 // Deprecated: SkipTestIfNoFeatureGate should be converted to check & fail
 func SkipTestIfNoFeatureGate(featureGate string) {
@@ -35,18 +31,6 @@ func RecycleImageOrFail(virtClient kubecli.KubevirtClient, imageName string) {
 	} else if windowsPv.Status.Phase == k8sv1.VolumeReleased {
 		windowsPv.Spec.ClaimRef = nil
 		_, err = virtClient.CoreV1().PersistentVolumes().Update(context.Background(), windowsPv, metav1.UpdateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	}
-}
-
-// Deprecated: SkipIfNoRhelImage should be converted to check & fail
-func SkipIfNoRhelImage(virtClient kubecli.KubevirtClient) {
-	rhelPv, err := virtClient.CoreV1().PersistentVolumes().Get(context.Background(), diskRhel, metav1.GetOptions{})
-	if err != nil || rhelPv.Status.Phase == k8sv1.VolumePending || rhelPv.Status.Phase == k8sv1.VolumeFailed {
-		ginkgo.Skip(fmt.Sprintf("Skip RHEL tests that requires PVC %s", diskRhel))
-	} else if rhelPv.Status.Phase == k8sv1.VolumeReleased {
-		rhelPv.Spec.ClaimRef = nil
-		_, err = virtClient.CoreV1().PersistentVolumes().Update(context.Background(), rhelPv, metav1.UpdateOptions{})
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
 }
@@ -71,24 +55,6 @@ func SkipIfPrometheusRuleIsNotEnabled(virtClient kubecli.KubevirtClient) {
 		ginkgo.Skip("Skip monitoring tests when PrometheusRule CRD is not available in the cluster")
 	} else if err != nil {
 		util.PanicOnError(err)
-	}
-}
-
-// Deprecated: SkipIfOpenShift should be converted to check & fail
-func SkipIfOpenShift(message string) {
-	if IsOpenShift() {
-		ginkgo.Skip("Openshift detected: " + message)
-	}
-}
-
-// Deprecated: SkipIfOpenShift4 should be converted to check & fail
-func SkipIfOpenShift4(message string) {
-	virtClient := kubevirt.Client()
-
-	if t, err := cluster.IsOnOpenShift(virtClient); err != nil {
-		util.PanicOnError(err)
-	} else if t && cluster.GetOpenShiftMajorVersion(virtClient) == cluster.OpenShift4Major {
-		ginkgo.Skip(message)
 	}
 }
 

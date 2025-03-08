@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	k6tv1 "kubevirt.io/api/core/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -190,7 +191,10 @@ var _ = Describe("VM Stats Collector", func() {
 				}
 			}
 
-			vms := []*k6tv1.VirtualMachine{{Spec: k6tv1.VirtualMachineSpec{Instancetype: instanceType}}}
+			vms := []*k6tv1.VirtualMachine{{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "test-ns"},
+				Spec:       k6tv1.VirtualMachineSpec{Instancetype: instanceType},
+			}}
 			crs := CollectVMsInfo(vms)
 			Expect(crs).To(HaveLen(1), "Expected 1 metric")
 
@@ -218,7 +222,10 @@ var _ = Describe("VM Stats Collector", func() {
 				}
 			}
 
-			vms := []*k6tv1.VirtualMachine{{Spec: k6tv1.VirtualMachineSpec{Preference: preference}}}
+			vms := []*k6tv1.VirtualMachine{{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "test-ns"},
+				Spec:       k6tv1.VirtualMachineSpec{Preference: preference},
+			}}
 			crs := CollectVMsInfo(vms)
 			Expect(crs).To(HaveLen(1), "Expected 1 metric")
 
@@ -446,7 +453,7 @@ var _ = Describe("VM Stats Collector", func() {
 
 	Context("PVC allocated size metric collection", func() {
 		BeforeEach(func() {
-			persistentVolumeClaimInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+			informers.PersistentVolumeClaim, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		})
 
 		createPVC := func(namespace, name string, size resource.Quantity, volumeMode *k8sv1.PersistentVolumeMode) *k8sv1.PersistentVolumeClaim {
@@ -469,7 +476,7 @@ var _ = Describe("VM Stats Collector", func() {
 
 		It("should collect PVC size metrics correctly", func() {
 			pvc := createPVC("default", "test-vm-pvc", resource.MustParse("5Gi"), pointer.P(k8sv1.PersistentVolumeFilesystem))
-			err := persistentVolumeClaimInformer.GetIndexer().Add(pvc)
+			err := informers.PersistentVolumeClaim.GetIndexer().Add(pvc)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm := &k6tv1.VirtualMachine{
@@ -507,7 +514,7 @@ var _ = Describe("VM Stats Collector", func() {
 
 		It("should handle PVC with nil volume mode", func() {
 			pvc := createPVC("default", "test-vm-pvc-nil-mode", resource.MustParse("3Gi"), nil)
-			err := persistentVolumeClaimInformer.GetIndexer().Add(pvc)
+			err := informers.PersistentVolumeClaim.GetIndexer().Add(pvc)
 			Expect(err).ToNot(HaveOccurred())
 
 			vm := &k6tv1.VirtualMachine{
@@ -540,7 +547,59 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(results).ToNot(BeEmpty())
 			Expect(results[0].Metric.GetOpts().Name).To(Equal("kubevirt_vm_disk_allocated_size_bytes"))
 			Expect(results[0].Value).To(Equal(float64(3 * 1024 * 1024 * 1024)))
-			Expect(results[0].Labels).To(Equal([]string{"test-vm-nil-mode", "default", "test-vm-pvc-nil-mode", "null", "rootdisk"}))
+			Expect(results[0].Labels).To(Equal([]string{"test-vm-nil-mode", "default", "test-vm-pvc-nil-mode", "<none>", "rootdisk"}))
+		})
+
+		It("should prioritize DataVolume template size over PVC size", func() {
+			pvc := createPVC("default", "test-dv-pvc", resource.MustParse("5Gi"), pointer.P(k8sv1.PersistentVolumeFilesystem))
+			err := informers.PersistentVolumeClaim.GetIndexer().Add(pvc)
+			Expect(err).ToNot(HaveOccurred())
+
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "test-vm-dv",
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					DataVolumeTemplates: []k6tv1.DataVolumeTemplateSpec{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "test-dv-pvc",
+							},
+							Spec: cdiv1.DataVolumeSpec{
+								PVC: &k8sv1.PersistentVolumeClaimSpec{
+									Resources: k8sv1.VolumeResourceRequirements{
+										Requests: k8sv1.ResourceList{
+											k8sv1.ResourceStorage: resource.MustParse("2Gi"),
+										},
+									},
+								},
+							},
+						},
+					},
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
+						Spec: k6tv1.VirtualMachineInstanceSpec{
+							Volumes: []k6tv1.Volume{
+								{
+									Name: "datavolumedisk",
+									VolumeSource: k6tv1.VolumeSource{
+										DataVolume: &k6tv1.DataVolumeSource{
+											Name: "test-dv-pvc",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			results := CollectDiskAllocatedSize([]*k6tv1.VirtualMachine{vm})
+
+			Expect(results).ToNot(BeEmpty())
+			Expect(results[0].Metric.GetOpts().Name).To(Equal("kubevirt_vm_disk_allocated_size_bytes"))
+			Expect(results[0].Value).To(Equal(float64(2 * 1024 * 1024 * 1024)))
+			Expect(results[0].Labels).To(Equal([]string{"test-vm-dv", "default", "test-dv-pvc", "Filesystem", "datavolumedisk"}))
 		})
 	})
 
@@ -612,6 +671,106 @@ var _ = Describe("VM Stats Collector", func() {
 			results := collectVMCreationTimestamp([]*k6tv1.VirtualMachine{vm})
 
 			Expect(results).To(BeEmpty(), "kubevirt_vm_create_date_timestamp_seconds should not be collected for VMs with zero creation timestamp")
+		})
+	})
+
+	Context("VM vNIC info", func() {
+		It("should collect metrics for vNICs with various binding types, including PluginBinding", func() {
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "test-vm",
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
+						Spec: k6tv1.VirtualMachineInstanceSpec{
+							Domain: k6tv1.DomainSpec{
+								Devices: k6tv1.Devices{
+									Interfaces: []k6tv1.Interface{
+										{
+											Name: "iface1",
+											InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
+												Bridge: &k6tv1.InterfaceBridge{},
+											},
+										},
+										{
+											Name: "iface2",
+											InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
+												Masquerade: &k6tv1.InterfaceMasquerade{},
+											},
+										},
+										{
+											Name: "iface3",
+											InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
+												SRIOV: &k6tv1.InterfaceSRIOV{},
+											},
+										},
+										{
+											Name:    "iface4",
+											Binding: &k6tv1.PluginBinding{Name: "custom-plugin"},
+										},
+									},
+								},
+							},
+							Networks: []k6tv1.Network{
+								{
+									Name:          "iface1",
+									NetworkSource: k6tv1.NetworkSource{Pod: &k6tv1.PodNetwork{}},
+								},
+								{
+									Name:          "iface2",
+									NetworkSource: k6tv1.NetworkSource{Pod: &k6tv1.PodNetwork{}},
+								},
+								{
+									Name:          "iface3",
+									NetworkSource: k6tv1.NetworkSource{Multus: &k6tv1.MultusNetwork{NetworkName: "multus-net"}},
+								},
+								{
+									Name:          "iface4",
+									NetworkSource: k6tv1.NetworkSource{Multus: &k6tv1.MultusNetwork{NetworkName: "custom-net"}},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			metrics := CollectVmsVnicInfo([]*k6tv1.VirtualMachine{vm})
+			Expect(metrics).To(HaveLen(4), "Expected metrics for all vNICs")
+
+			Expect(metrics[0].Labels).To(Equal([]string{"test-vm", "test-ns", "iface1", "core", "pod networking", "bridge"}))
+			Expect(metrics[1].Labels).To(Equal([]string{"test-vm", "test-ns", "iface2", "core", "pod networking", "masquerade"}))
+			Expect(metrics[2].Labels).To(Equal([]string{"test-vm", "test-ns", "iface3", "core", "multus-net", "sriov"}))
+			Expect(metrics[3].Labels).To(Equal([]string{"test-vm", "test-ns", "iface4", "plugin", "custom-net", "custom-plugin"}))
+		})
+		It("should not collect kubevirt_vm_vnic_info metric if no network defined", func() {
+			vm := &k6tv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "test-vm",
+				},
+				Spec: k6tv1.VirtualMachineSpec{
+					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
+						Spec: k6tv1.VirtualMachineInstanceSpec{
+							Domain: k6tv1.DomainSpec{
+								Devices: k6tv1.Devices{
+									Interfaces: []k6tv1.Interface{
+										{
+											Name: "iface1",
+											InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
+												Bridge: &k6tv1.InterfaceBridge{},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			metrics := CollectVmsVnicInfo([]*k6tv1.VirtualMachine{vm})
+			Expect(metrics).To(BeEmpty())
 		})
 	})
 })

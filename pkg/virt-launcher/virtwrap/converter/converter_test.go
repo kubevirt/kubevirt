@@ -46,11 +46,13 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	kvapi "kubevirt.io/client-go/api"
 
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -1100,8 +1102,8 @@ var _ = Describe("Converter", func() {
 					},
 				},
 			})
-			c.DisksInfo = make(map[string]*cmdv1.DiskInfo)
-			c.DisksInfo[name] = &cmdv1.DiskInfo{}
+			c.DisksInfo = make(map[string]*disk.DiskInfo)
+			c.DisksInfo[name] = &disk.DiskInfo{}
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 			reserv := domainSpec.Devices.Disks[0].Source.Reservations
 			Expect(reserv.Managed).To(Equal("no"))
@@ -1555,7 +1557,19 @@ var _ = Describe("Converter", func() {
 				},
 			}
 		})
+		It("Should set domain interface state down", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultBridgeNetworkInterface(),
+			}
+			vmi.Spec.Domain.Devices.Interfaces[0].State = v1.InterfaceStateLinkDown
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1))
+			Expect(domain.Spec.Devices.Interfaces[0].LinkState.State).To(Equal("down"))
+		})
 		It("Should set domain interface source correctly for multus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
@@ -2779,6 +2793,42 @@ var _ = Describe("Converter", func() {
 			Entry("VGA on ppc64le with BIOS and BochsDisplayForEFIGuests set", ppc64le, v1.Bootloader{BIOS: &v1.BIOS{}}, true, "vga"),
 			Entry("VGA on ppc64le with EFI and BochsDisplayForEFIGuests unset", ppc64le, v1.Bootloader{EFI: &v1.EFI{}}, false, "vga"),
 			Entry("VGA on ppc64le with EFI and BochsDisplayForEFIGuests set", ppc64le, v1.Bootloader{EFI: &v1.EFI{}}, true, "vga"),
+		)
+
+		DescribeTable("slic ACPI table should be set to", func(source v1.VolumeSource, isSupported bool, path string) {
+			slicName := "slic"
+			vmi.Spec.Domain.Firmware = &v1.Firmware{ACPI: &v1.ACPI{SlicNameRef: slicName}}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name:         slicName,
+					VolumeSource: source,
+				},
+			}
+			c = &ConverterContext{
+				Architecture:   archconverter.NewConverter(runtime.GOARCH),
+				VirtualMachine: vmi,
+				AllowEmulation: true,
+			}
+			if isSupported {
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+				Expect(domainSpec.OS.ACPI.Table.Type).To(Equal("slic"))
+				Expect(domainSpec.OS.ACPI.Table.Path).To(Equal(path))
+			} else {
+				domain := &api.Domain{}
+				err := Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
+				Expect(err).To(MatchError(ContainSubstring("Firmware's slic volume type is unsupported")))
+			}
+		},
+			Entry("Secret set",
+				v1.VolumeSource{
+					Secret: &v1.SecretVolumeSource{SecretName: "secret-slic"},
+				}, true, filepath.Join(config.GetSecretSourcePath("slic"), "slic.bin")),
+			Entry("ConfigMap unset",
+				v1.VolumeSource{
+					ConfigMap: &v1.ConfigMapVolumeSource{
+						LocalObjectReference: k8sv1.LocalObjectReference{Name: "configmap-slic"},
+					},
+				}, false, ""),
 		)
 	})
 

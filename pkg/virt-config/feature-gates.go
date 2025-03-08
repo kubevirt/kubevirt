@@ -25,15 +25,22 @@ import "kubevirt.io/kubevirt/pkg/virt-config/featuregate"
  This module is intended for determining whether an optional feature is enabled or not at the cluster-level.
 */
 
+func (config *ClusterConfig) isFeatureGateDefined(featureGate string) bool {
+	for _, fg := range config.GetConfig().DeveloperConfiguration.FeatureGates {
+		if fg == featureGate {
+			return true
+		}
+	}
+	return false
+}
+
 func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
 	if fg := featuregate.FeatureGateInfo(featureGate); fg != nil && fg.State == featuregate.GA {
 		return true
 	}
 
-	for _, fg := range config.GetConfig().DeveloperConfiguration.FeatureGates {
-		if fg == featureGate {
-			return true
-		}
+	if config.isFeatureGateDefined(featureGate) {
+		return true
 	}
 	return false
 }
@@ -124,10 +131,6 @@ func (config *ClusterConfig) HostDevicesPassthroughEnabled() bool {
 
 func (config *ClusterConfig) RootEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.Root)
-}
-
-func (config *ClusterConfig) ClusterProfilerEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.ClusterProfiler)
 }
 
 func (config *ClusterConfig) WorkloadEncryptionSEVEnabled() bool {

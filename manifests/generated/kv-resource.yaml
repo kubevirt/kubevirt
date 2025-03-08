@@ -288,6 +288,10 @@ spec:
                   developerConfiguration:
                     description: DeveloperConfiguration holds developer options
                     properties:
+                      clusterProfiler:
+                        description: Enable the ability to pprof profile KubeVirt
+                          control plane
+                        type: boolean
                       cpuAllocationRatio:
                         description: |-
                           For each requested virtual CPU, CPUAllocationRatio defines how much physical CPU to request per VMI
@@ -981,9 +985,8 @@ spec:
                     nullable: true
                     type: string
                   vmStateStorageClass:
-                    description: |-
-                      VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.
-                      The storage class must support RWX in filesystem mode.
+                    description: VMStateStorageClass is the name of the storage class
+                      to use for the PVCs created to preserve VM state, like TPM.
                     type: string
                   webhookConfiguration:
                     description: |-
@@ -3553,6 +3556,10 @@ spec:
                   developerConfiguration:
                     description: DeveloperConfiguration holds developer options
                     properties:
+                      clusterProfiler:
+                        description: Enable the ability to pprof profile KubeVirt
+                          control plane
+                        type: boolean
                       cpuAllocationRatio:
                         description: |-
                           For each requested virtual CPU, CPUAllocationRatio defines how much physical CPU to request per VMI
@@ -4246,9 +4253,8 @@ spec:
                     nullable: true
                     type: string
                   vmStateStorageClass:
-                    description: |-
-                      VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.
-                      The storage class must support RWX in filesystem mode.
+                    description: VMStateStorageClass is the name of the storage class
+                      to use for the PVCs created to preserve VM state, like TPM.
                     type: string
                   webhookConfiguration:
                     description: |-

@@ -31,6 +31,7 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
@@ -859,7 +860,7 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 		}
 	case *vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration:
 		// Validate if the update volumes can be migrated
-		if err := volumemig.ValidateVolumes(vmi, vm); err != nil {
+		if err := volumemig.ValidateVolumes(vmi, vm, c.dataVolumeStore, c.pvcStore); err != nil {
 			log.Log.Object(vm).Errorf("cannot migrate the VM. Volumes are invalid: %v", err)
 			setRestartRequired(vm, err.Error())
 			return nil
@@ -1610,7 +1611,14 @@ func getVMRevisionName(vmUID types.UID, generation int64) string {
 }
 
 func patchVMRevision(vm *virtv1.VirtualMachine) ([]byte, error) {
-	vmBytes, err := json.Marshal(vm)
+	vmCopy := vm.DeepCopy()
+	if revision.HasControllerRevisionRef(vmCopy.Status.InstancetypeRef) {
+		vmCopy.Spec.Instancetype.RevisionName = vmCopy.Status.InstancetypeRef.ControllerRevisionRef.Name
+	}
+	if revision.HasControllerRevisionRef(vm.Status.PreferenceRef) {
+		vmCopy.Spec.Preference.RevisionName = vm.Status.PreferenceRef.ControllerRevisionRef.Name
+	}
+	vmBytes, err := json.Marshal(vmCopy)
 	if err != nil {
 		return nil, err
 	}

@@ -57,6 +57,7 @@ var nodeLabellerLabels = []string{
 	kubevirtv1.HostModelCPULabel,
 	kubevirtv1.HostModelRequiredFeaturesLabel,
 	kubevirtv1.NodeHostModelIsObsoleteLabel,
+	kubevirtv1.SupportedMachineTypeLabel,
 }
 
 // NodeLabeller struct holds information needed to run node-labeller
@@ -74,16 +75,17 @@ type NodeLabeller struct {
 	volumePath              string
 	domCapabilitiesFileName string
 	cpuCounter              *libvirtxml.CapsHostCPUCounter
+	guestCaps               []libvirtxml.CapsGuest
 	hostCPUModel            hostCPUModel
 	SEV                     SEVConfiguration
-	arch                    string
+	arch                    archLabeller
 }
 
-func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter) (*NodeLabeller, error) {
-	return newNodeLabeller(clusterConfig, nodeClient, host, NodeLabellerVolumePath, recorder, cpuCounter)
+func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter, guestCaps []libvirtxml.CapsGuest) (*NodeLabeller, error) {
+	return newNodeLabeller(clusterConfig, nodeClient, host, NodeLabellerVolumePath, recorder, cpuCounter, guestCaps)
 
 }
-func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host, volumePath string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter) (*NodeLabeller, error) {
+func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host, volumePath string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter, guestCaps []libvirtxml.CapsGuest) (*NodeLabeller, error) {
 	n := &NodeLabeller{
 		recorder:      recorder,
 		nodeClient:    nodeClient,
@@ -97,8 +99,9 @@ func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.
 		volumePath:              volumePath,
 		domCapabilitiesFileName: "virsh_domcapabilities.xml",
 		cpuCounter:              cpuCounter,
+		guestCaps:               guestCaps,
 		hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool, 0)},
-		arch:                    runtime.GOARCH,
+		arch:                    newArchLabeller(runtime.GOARCH),
 	}
 
 	err := n.loadAll()
@@ -157,7 +160,7 @@ func (n *NodeLabeller) execute() bool {
 func (n *NodeLabeller) loadAll() error {
 	// host supported features is only available on AMD64 and S390X nodes.
 	// This is because hypervisor-cpu-baseline virsh command doesnt work for ARM64 architecture.
-	if virtconfig.IsAMD64(n.arch) || virtconfig.IsS390X(n.arch) {
+	if n.arch.hasHostSupportedFeatures() {
 		err := n.loadHostSupportedFeatures()
 		if err != nil {
 			n.logger.Errorf("node-labeller could not load supported features: " + err.Error())
@@ -241,6 +244,14 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatu
 	for _, value := range cpuModels {
 		newLabels[kubevirtv1.CPUModelLabel+value] = "true"
 		newLabels[kubevirtv1.SupportedHostModelMigrationCPU+value] = "true"
+	}
+
+	// Add labels for supported machine types
+	machines := n.getSupportedMachines()
+
+	for _, machine := range machines {
+		labelKey := kubevirtv1.SupportedMachineTypeLabel + machine.Name
+		newLabels[labelKey] = "true"
 	}
 
 	if _, hostModelObsolete := obsoleteCPUsx86[hostCpuModel.Name]; !hostModelObsolete {
@@ -339,4 +350,16 @@ func (n *NodeLabeller) alertIfHostModelIsObsolete(originalNode *v1.Node, hostMod
 
 func (n *NodeLabeller) hasTSCCounter() bool {
 	return n.cpuCounter != nil && n.cpuCounter.Name == "tsc"
+}
+
+func (n *NodeLabeller) getSupportedMachines() []libvirtxml.CapsGuestMachine {
+	var supportedMachines []libvirtxml.CapsGuestMachine
+	for _, guest := range n.guestCaps {
+		supportedMachines = append(supportedMachines, guest.Arch.Machines...)
+	}
+	return supportedMachines
+}
+
+func (n *NodeLabeller) ShouldLabelNodes() bool {
+	return n.arch.shouldLabelNodes()
 }

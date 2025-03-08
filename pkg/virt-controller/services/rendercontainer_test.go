@@ -1,6 +1,8 @@
 package services
 
 import (
+	"strconv"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -226,6 +228,15 @@ var _ = Describe("Container spec renderer", func() {
 	})
 
 	Context("vmi with probes", func() {
+		Context("startup probe", func() {
+			It("its pod should feature the same probe but with an additional 10 seconds initial delay", func() {
+				probe := dummyProbe()
+				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithStartupProbe(
+					vmiWithStartupProbe(probe)))
+				Expect(specRenderer.Render(exampleCommand).StartupProbe).To(Equal(probeWithDelay(probe)))
+			})
+		})
+
 		Context("readiness probe", func() {
 			It("its pod should feature the same probe but with an additional 10 seconds initial delay", func() {
 				probe := dummyProbe()
@@ -241,6 +252,36 @@ var _ = Describe("Container spec renderer", func() {
 				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithLivelinessProbe(
 					vmiWithLivenessProbe(probe)))
 				Expect(specRenderer.Render(exampleCommand).LivenessProbe).To(Equal(probeWithDelay(probe)))
+			})
+		})
+
+		Context("liveness exec probe", func() {
+			It("should wrap the liveness exec probe command inside virt-probe while preserving the original command", func() {
+				probe := dummyProbe()
+				probe.Handler = v1.Handler{
+					Exec: &k8sv1.ExecAction{Command: []string{"dummy-cli"}},
+				}
+				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithLivelinessProbe(
+					vmiWithLivenessProbe(probe)))
+				Expect(specRenderer.Render(exampleCommand).LivenessProbe.Exec.Command).To(HaveExactElements(
+					"virt-probe",
+					"--domainName", "_",
+					"--timeoutSeconds", strconv.FormatInt(int64(dummyProbe().TimeoutSeconds), 10),
+					"--command", "dummy-cli",
+					"--"))
+			})
+		})
+
+		Context("pre-wrapped liveness exec probe", func() {
+			It("should avoid wrapping the liveness exec probe a second time", func() {
+				var expectedExecCmd = []string{"virt-probe", "--", "dummy-cli"}
+				probe := dummyProbe()
+				probe.Handler = v1.Handler{
+					Exec: &k8sv1.ExecAction{Command: expectedExecCmd},
+				}
+				specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithLivelinessProbe(
+					vmiWithLivenessProbe(probe)))
+				Expect(specRenderer.Render(exampleCommand).LivenessProbe.Exec.Command).To(Equal(expectedExecCmd))
 			})
 		})
 	})
@@ -348,6 +389,12 @@ func httpHandler() *k8sv1.HTTPGetAction {
 		Scheme:      "1234",
 		HTTPHeaders: nil,
 	}
+}
+
+func vmiWithStartupProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
+	vmi := simplestVMI()
+	vmi.Spec.StartupProbe = probe
+	return vmi
 }
 
 func vmiWithReadinessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {

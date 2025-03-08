@@ -628,7 +628,8 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 	})
 
 	When("the vmi has probes fields", func() {
-		DescribeTable("should add probes overhead", func(livenessProbe, readinessProbe *v1.Probe, probeOverhead resource.Quantity) {
+		DescribeTable("should add probes overhead", func(startupProbe, livenessProbe, readinessProbe *v1.Probe, probeOverhead resource.Quantity) {
+			vmi.Spec.StartupProbe = startupProbe
 			vmi.Spec.LivenessProbe = livenessProbe
 			vmi.Spec.ReadinessProbe = readinessProbe
 			expected := resource.NewScaledQuantity(0, resource.Kilo)
@@ -641,6 +642,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 			overhead := GetMemoryOverhead(vmi, "amd64", nil)
 			Expect(overhead.Value()).To(BeEquivalentTo(expected.Value()))
 		},
+			Entry("with startupProbe only", &v1.Probe{Handler: v1.Handler{Exec: &kubev1.ExecAction{}}}, nil, resource.MustParse("100Mi")),
 			Entry("with livenessProbe only", &v1.Probe{Handler: v1.Handler{Exec: &kubev1.ExecAction{}}}, nil, resource.MustParse("110Mi")),
 			Entry("with readinessProbe only", nil, &v1.Probe{Handler: v1.Handler{Exec: &kubev1.ExecAction{}}}, resource.MustParse("110Mi")),
 			Entry("with both readinessProbe adn livenessProbe", &v1.Probe{Handler: v1.Handler{Exec: &kubev1.ExecAction{}}}, &v1.Probe{Handler: v1.Handler{Exec: &kubev1.ExecAction{}}}, resource.MustParse("120Mi")),

@@ -27,11 +27,36 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/pkg/instancetype/apply"
+	"kubevirt.io/kubevirt/pkg/instancetype/find"
+	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
+
+type vmApplyHandler interface {
+	ApplyToVM(vm *virtv1.VirtualMachine) error
+}
+
+type Informers struct {
+	VM                    cache.SharedIndexInformer
+	VMI                   cache.SharedIndexInformer
+	PersistentVolumeClaim cache.SharedIndexInformer
+	VMIMigration          cache.SharedIndexInformer
+	KVPod                 cache.SharedIndexInformer
+}
+
+type Stores struct {
+	Instancetype        cache.Store
+	ClusterInstancetype cache.Store
+	Preference          cache.Store
+	ClusterPreference   cache.Store
+	ControllerRevision  cache.Store
+}
 
 var (
 	metrics = [][]operatormetrics.Metric{
@@ -42,31 +67,43 @@ var (
 		vmSnapshotMetrics,
 	}
 
-	vmInformer                    cache.SharedIndexInformer
-	vmiInformer                   cache.SharedIndexInformer
-	persistentVolumeClaimInformer cache.SharedIndexInformer
-	vmiMigrationInformer          cache.SharedIndexInformer
-	kvPodInformer                 cache.SharedIndexInformer
-	clusterConfig                 *virtconfig.ClusterConfig
-	instancetypeMethods           *instancetype.InstancetypeMethods
+	informers     *Informers
+	stores        *Stores
+	clusterConfig *virtconfig.ClusterConfig
+	vmApplier     vmApplyHandler
 )
 
 func SetupMetrics(
-	vm cache.SharedIndexInformer,
-	vmi cache.SharedIndexInformer,
-	pvc cache.SharedIndexInformer,
-	vmiMigration cache.SharedIndexInformer,
-	pod cache.SharedIndexInformer,
+	metricsInformers *Informers,
+	metricsStores *Stores,
 	virtClusterConfig *virtconfig.ClusterConfig,
-	methods *instancetype.InstancetypeMethods,
+	clientset kubecli.KubevirtClient,
 ) error {
-	vmInformer = vm
-	vmiInformer = vmi
-	persistentVolumeClaimInformer = pvc
-	vmiMigrationInformer = vmiMigration
-	kvPodInformer = pod
+	if metricsInformers == nil {
+		metricsInformers = &Informers{}
+	}
+	informers = metricsInformers
+
+	if metricsStores == nil {
+		metricsStores = &Stores{}
+	}
+	stores = metricsStores
 	clusterConfig = virtClusterConfig
-	instancetypeMethods = methods
+
+	vmApplier = apply.NewVMApplier(
+		find.NewSpecFinder(
+			stores.Instancetype,
+			stores.ClusterInstancetype,
+			stores.ControllerRevision,
+			clientset,
+		),
+		preferencefind.NewSpecFinder(
+			stores.Preference,
+			stores.ClusterPreference,
+			stores.ControllerRevision,
+			clientset,
+		),
+	)
 
 	if err := client.SetupMetrics(); err != nil {
 		return err
@@ -96,7 +133,11 @@ func RegisterLeaderMetrics() error {
 }
 
 func UpdateVMIMigrationInformer(informer cache.SharedIndexInformer) {
-	vmiMigrationInformer = informer
+	if informers == nil {
+		informers = &Informers{}
+	}
+
+	informers.VMIMigration = informer
 }
 
 func ListMetrics() []operatormetrics.Metric {

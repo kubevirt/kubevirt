@@ -434,6 +434,22 @@ func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersi
 			ContainerPort: 8443,
 		},
 	}
+
+	container.StartupProbe = &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Scheme: corev1.URISchemeHTTPS,
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: 8443,
+				},
+				Path: "/healthz",
+			},
+		},
+		InitialDelaySeconds: 15,
+		TimeoutSeconds:      10,
+		PeriodSeconds:       45,
+	}
 	container.LivenessProbe = &corev1.Probe{
 		FailureThreshold: 8,
 		ProbeHandler: corev1.ProbeHandler{
@@ -647,6 +663,11 @@ func NewExportProxyDeployment(namespace, repository, imagePrefix, version, produ
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
 	deployment := newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, podAntiAffinity, env)
+
+	if deployment.Spec.Template.Annotations == nil {
+		deployment.Spec.Template.Annotations = make(map[string]string)
+	}
+	deployment.Spec.Template.Annotations["openshift.io/required-scc"] = "restricted-v2"
 
 	attachCertificateSecret(&deployment.Spec.Template.Spec, VirtExportProxyCertSecretName, "/etc/virt-exportproxy/certificates")
 	attachProfileVolume(&deployment.Spec.Template.Spec)

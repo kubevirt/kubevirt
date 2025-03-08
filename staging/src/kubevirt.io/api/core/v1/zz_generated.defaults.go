@@ -165,6 +165,9 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 		if in.Spec.Template.Spec.ReadinessProbe != nil {
 			SetDefaults_Probe(in.Spec.Template.Spec.ReadinessProbe)
 		}
+		if in.Spec.Template.Spec.StartupProbe != nil {
+			SetDefaults_Probe(in.Spec.Template.Spec.StartupProbe)
+		}
 	}
 	for i := range in.Status.VolumeRequests {
 		a := &in.Status.VolumeRequests[i]
@@ -300,6 +303,9 @@ func SetObjectDefaults_VirtualMachineInstance(in *VirtualMachineInstance) {
 	}
 	if in.Spec.ReadinessProbe != nil {
 		SetDefaults_Probe(in.Spec.ReadinessProbe)
+	}
+	if in.Spec.StartupProbe != nil {
+		SetDefaults_Probe(in.Spec.StartupProbe)
 	}
 }
 
@@ -547,6 +553,9 @@ func SetObjectDefaults_VirtualMachineInstanceReplicaSet(in *VirtualMachineInstan
 		}
 		if in.Spec.Template.Spec.ReadinessProbe != nil {
 			SetDefaults_Probe(in.Spec.Template.Spec.ReadinessProbe)
+		}
+		if in.Spec.Template.Spec.StartupProbe != nil {
+			SetDefaults_Probe(in.Spec.Template.Spec.StartupProbe)
 		}
 	}
 }

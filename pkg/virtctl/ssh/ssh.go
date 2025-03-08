@@ -92,7 +92,7 @@ func DefaultSSHOptions() SSHOptions {
 		KnownHostsFilePath:        "",
 		KnownHostsFilePathDefault: "",
 		AdditionalSSHLocalOptions: []string{},
-		WrapLocalSSH:              wrapLocalSSHDefault,
+		WrapLocalSSH:              true,
 		LocalClientName:           "ssh",
 	}
 
@@ -130,6 +130,9 @@ func (o *SSH) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if cmd.Flags().Changed(wrapLocalSSHFlag) {
+		cmd.PrintErrln("The --local-ssh flag is deprecated and now defaults to true.")
+	}
 	if o.options.WrapLocalSSH {
 		clientArgs := o.buildSSHTarget(kind, namespace, name)
 		return RunLocalClient(kind, namespace, name, &o.options, clientArgs)
@@ -158,13 +161,13 @@ func PrepareCommand(cmd *cobra.Command, fallbackNamespace string, opts *SSHOptio
 
 func usage() string {
 	return fmt.Sprintf(`  # Connect to 'testvmi':
-  {{ProgramName}} ssh jdoe@testvmi [--%s]
+  {{ProgramName}} ssh jdoe@vmi/testvmi [--%s]
 
   # Connect to 'testvm' in 'mynamespace' namespace
-  {{ProgramName}} ssh jdoe@vm/testvm.mynamespace [--%s]
+  {{ProgramName}} ssh jdoe@vm/testvm/mynamespace [--%s]
 
   # Specify a username and namespace:
-  {{ProgramName}} ssh --namespace=mynamespace --%s=jdoe testvmi`,
+  {{ProgramName}} ssh --namespace=mynamespace --%s=jdoe vmi/testvmi`,
 		IdentityFilePathFlag,
 		IdentityFilePathFlag,
 		usernameFlag,
@@ -185,9 +188,9 @@ func defaultUsername() string {
 	return ""
 }
 
-// ParseTarget SSH Target argument supporting the form of username@vmi/name.namespace (or simpler)
+// ParseTarget SSH Target argument supporting the form of [username@]type/name[/namespace]
+// or the legacy form of [username@]type/name.namespace
 func ParseTarget(arg string) (string, string, string, string, error) {
-	kind := "vmi"
 	username := ""
 
 	usernameAndTarget := strings.Split(arg, "@")
@@ -204,5 +207,9 @@ func ParseTarget(arg string) (string, string, string, string, error) {
 	}
 
 	kind, namespace, name, err := portforward.ParseTarget(arg)
+	if err != nil {
+		return "", "", "", "", err
+	}
+
 	return kind, namespace, name, username, err
 }

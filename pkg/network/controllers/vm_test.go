@@ -38,16 +38,17 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/network/controllers"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 var _ = Describe("VM Network Controller", func() {
-	It("sync does nothing when the hotplug FG is unset", func() {
-		c := controllers.NewVMController(fake.NewSimpleClientset(), stubPodGetter{})
-		Expect(c.Sync(newEmptyVM(), libvmi.New())).To(Equal(newEmptyVM()))
-	})
-
+	const (
+		defaultNetName   = "default"
+		secondaryNetName = "foonet"
+		nadName          = "foonet-nad"
+	)
 	DescribeTable("sync does nothing when", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, podGetter stubPodGetter) {
 		c := controllers.NewVMController(fake.NewSimpleClientset(), podGetter)
 		originalVM := vm.DeepCopy()
@@ -71,11 +72,15 @@ var _ = Describe("VM Network Controller", func() {
 			"the VM & VMI have identical interfaces",
 			libvmi.NewVirtualMachine(libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName, nadName)),
 			)),
 			libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName, nadName)),
 			),
 			stubPodGetter{pod: &k8sv1.Pod{}},
 		),
@@ -113,7 +118,7 @@ var _ = Describe("VM Network Controller", func() {
 		)
 		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
 
-		vm = plugNetworkInterface(vm, "foonet")
+		vm = plugNetworkInterface(vm, libvmi.InterfaceDeviceWithBridgeBinding("foonet"))
 
 		// Simulate the existence of the VMI on the server (to allow the Sync to patch it).
 		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
@@ -126,7 +131,7 @@ var _ = Describe("VM Network Controller", func() {
 		Expect(updatedVM).To(Equal(originalVM))
 	})
 
-	It("sync succeeds to hotplug new interface", func() {
+	DescribeTable("sync succeeds to hotplug new interface", func(ifaceToPlug v1.Interface) {
 		clientset := fake.NewSimpleClientset()
 		c := controllers.NewVMController(
 			clientset,
@@ -138,7 +143,7 @@ var _ = Describe("VM Network Controller", func() {
 		)
 		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
 
-		vm = plugNetworkInterface(vm, "foonet")
+		vm = plugNetworkInterface(vm, ifaceToPlug)
 
 		// Simulate the existence of the VMI on the server (to allow the Sync to patch it).
 		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
@@ -158,6 +163,113 @@ var _ = Describe("VM Network Controller", func() {
 
 		Expect(updatedVMI.Spec.Networks).To(Equal(updatedVM.Spec.Template.Spec.Networks))
 		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(Equal(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces))
+	},
+		Entry("when the plugged interface uses bridge binding", libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)),
+		Entry("when the plugged interface uses SR-IOV binding", libvmi.InterfaceDeviceWithSRIOVBinding(secondaryNetName)),
+		Entry("when the plugged interface has link state down", v1.Interface{
+			Name: secondaryNetName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{
+				Bridge: &v1.InterfaceBridge{},
+			},
+			State: v1.InterfaceStateLinkDown,
+		}),
+		Entry("when the plugged interface has link state up", v1.Interface{
+			Name: secondaryNetName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{
+				Bridge: &v1.InterfaceBridge{},
+			},
+			State: v1.InterfaceStateLinkUp,
+		}),
+	)
+
+	DescribeTable("sync succeeds to mark an existing interface for hotunplug", func(currentIfaceState v1.InterfaceState) {
+		clientset := fake.NewSimpleClientset()
+		c := controllers.NewVMController(
+			clientset,
+			stubPodGetter{pod: &k8sv1.Pod{}},
+		)
+
+		multusAndDomainInfoSource := vmispec.NewInfoSource(vmispec.InfoSourceMultusStatus, vmispec.InfoSourceDomain)
+
+		secondaryIface := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName)
+		secondaryIface.State = currentIfaceState
+
+		vmi := libvmi.New(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(secondaryIface),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName, nadName)),
+			libvmistatus.WithStatus(
+				libvmistatus.New(
+					libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+						Name:       defaultNetName,
+						InfoSource: vmispec.InfoSourceDomain,
+					}),
+					libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+						Name:       secondaryNetName,
+						InfoSource: multusAndDomainInfoSource,
+					}),
+				),
+			),
+		)
+		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
+
+		// Mark the secondary interface for hotunplug
+		vm.Spec.Template.Spec.Domain.Devices.Interfaces[1].State = v1.InterfaceStateAbsent
+
+		// Simulate the existence of the VMI on the server (to allow the Sync to patch it).
+		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		originalVM := vm.DeepCopy()
+		updatedVM, err := c.Sync(vm, vmi)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(updatedVM).To(Equal(originalVM))
+
+		// Assert that the hotunplug had reached the VMI
+		updatedVMI, err := clientset.KubevirtV1().
+			VirtualMachineInstances(vmi.Namespace).
+			Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(updatedVMI.Spec.Networks).To(Equal(updatedVM.Spec.Template.Spec.Networks))
+		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(Equal(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces))
+	},
+		Entry("when the current iface state is empty", v1.InterfaceState("")),
+		Entry("when the current iface state is absent", v1.InterfaceStateAbsent),
+	)
+
+	It("sync does not hotplug a new interface when it uses binding other than bridge or SR-IOV", func() {
+		clientset := fake.NewSimpleClientset()
+		c := controllers.NewVMController(
+			clientset,
+			stubPodGetter{pod: &k8sv1.Pod{}},
+		)
+
+		vmi := libvmi.New()
+		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
+
+		plugNetworkInterface(vm, libvmi.InterfaceWithBindingPlugin(secondaryNetName, v1.PluginBinding{Name: "someplugin"}))
+
+		// Simulate the existence of the VMI on the server (to allow the Sync to patch it).
+		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		originalVM := vm.DeepCopy()
+		updatedVM, err := c.Sync(vm, vmi)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(updatedVM).To(Equal(originalVM))
+
+		// Assert that the hotunplug had not reached the VMI
+		updatedVMI, err := clientset.KubevirtV1().
+			VirtualMachineInstances(vmi.Namespace).
+			Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(updatedVMI.Spec.Networks).To(BeEmpty())
+		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(BeEmpty())
 	})
 
 	It("sync succeeds to clear hotunplug interfaces", func() {
@@ -244,6 +356,112 @@ var _ = Describe("VM Network Controller", func() {
 		Expect(iface.State).NotTo(Equal(v1.InterfaceStateAbsent))
 	})
 
+	DescribeTable("sync updates link state of an existing interface", func(fromState, toState v1.InterfaceState) {
+		clientset := fake.NewSimpleClientset()
+		c := controllers.NewVMController(
+			clientset,
+			stubPodGetter{pod: &k8sv1.Pod{}},
+		)
+		const defaultNetName = "default"
+		vmi := libvmi.New(
+			libvmi.WithInterface(v1.Interface{
+				Name:  defaultNetName,
+				State: fromState,
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Bridge: &v1.InterfaceBridge{},
+				},
+			}),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmistatus.WithStatus(
+				libvmistatus.New(libvmistatus.WithInterfaceStatus(
+					v1.VirtualMachineInstanceNetworkInterface{Name: defaultNetName},
+				)),
+			),
+		)
+
+		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
+
+		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		vm.Spec.Template.Spec.Domain.Devices.Interfaces[0].State = toState
+
+		updatedVM, err := c.Sync(vm, vmi)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedVMI, err := clientset.KubevirtV1().
+			VirtualMachineInstances(vmi.Namespace).
+			Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(
+			Equal(vm.Spec.Template.Spec.Domain.Devices.Interfaces))
+
+		Expect(updatedVMI.Spec.Networks).To(Equal(updatedVM.Spec.Template.Spec.Networks))
+	},
+		Entry("up to up", v1.InterfaceStateLinkUp, v1.InterfaceStateLinkUp),
+		Entry("up to down", v1.InterfaceStateLinkUp, v1.InterfaceStateLinkDown),
+		Entry("up to absent", v1.InterfaceStateLinkUp, v1.InterfaceStateAbsent),
+		Entry("up to empty", v1.InterfaceStateLinkUp, v1.InterfaceState("")),
+		Entry("down to up", v1.InterfaceStateLinkDown, v1.InterfaceStateLinkUp),
+		Entry("down to down", v1.InterfaceStateLinkDown, v1.InterfaceStateLinkDown),
+		Entry("down to absent", v1.InterfaceStateLinkDown, v1.InterfaceStateAbsent),
+		Entry("down to empty", v1.InterfaceStateLinkDown, v1.InterfaceState("")),
+		Entry("empty to up", v1.InterfaceState(""), v1.InterfaceStateLinkUp),
+		Entry("empty to down", v1.InterfaceState(""), v1.InterfaceStateLinkDown),
+		Entry("empty to absent", v1.InterfaceState(""), v1.InterfaceStateAbsent),
+		Entry("empty to empty", v1.InterfaceState(""), v1.InterfaceState("")),
+	)
+
+	DescribeTable("sync doesn't update link state if hot-unplug is underway ", func(toState v1.InterfaceState) {
+		clientset := fake.NewSimpleClientset()
+		c := controllers.NewVMController(
+			clientset,
+			stubPodGetter{pod: &k8sv1.Pod{}},
+		)
+		const defaultNetName = "default"
+		vmi := libvmi.New(
+			libvmi.WithInterface(v1.Interface{
+				Name:  defaultNetName,
+				State: v1.InterfaceStateAbsent,
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Bridge: &v1.InterfaceBridge{},
+				},
+			}),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmistatus.WithStatus(
+				libvmistatus.New(libvmistatus.WithInterfaceStatus(
+					v1.VirtualMachineInstanceNetworkInterface{Name: defaultNetName},
+				)),
+			),
+		)
+
+		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
+
+		_, err := clientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		vm.Spec.Template.Spec.Domain.Devices.Interfaces[0].State = toState
+
+		updatedVM, err := c.Sync(vm, vmi)
+		Expect(err).NotTo(HaveOccurred())
+
+		updatedVMI, err := clientset.KubevirtV1().
+			VirtualMachineInstances(vmi.Namespace).
+			Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(updatedVMI.Spec.Networks).To(Equal(vmi.Spec.Networks))
+		Expect(updatedVMI.Spec.Domain.Devices.Interfaces).To(Equal(vmi.Spec.Domain.Devices.Interfaces))
+
+		Expect(updatedVM.Spec.Template.Spec.Networks).To(Equal(vm.Spec.Template.Spec.Networks))
+		Expect(updatedVM.Spec.Template.Spec.Domain.Devices.Interfaces).To(Equal(vm.Spec.Template.Spec.Domain.Devices.Interfaces))
+	},
+		Entry("absent to up", v1.InterfaceStateLinkUp),
+		Entry("absent to down", v1.InterfaceStateLinkDown),
+		Entry("absent to empty", v1.InterfaceState("")),
+	)
+
 	It("sync does not hotunplug interfaces when legacy ordinal interface names are found", func() {
 		clientset := fake.NewSimpleClientset()
 		pod := &k8sv1.Pod{
@@ -321,11 +539,13 @@ func isSyncErrorType(e error) bool {
 	return errors.As(e, &errWithReason)
 }
 
-func plugNetworkInterface(vm *v1.VirtualMachine, netName string) *v1.VirtualMachine {
+func plugNetworkInterface(vm *v1.VirtualMachine, ifaceToPlug v1.Interface) *v1.VirtualMachine {
 	vm.Spec.Template.Spec.Domain.Devices.Interfaces = append(
 		vm.Spec.Template.Spec.Domain.Devices.Interfaces,
-		libvmi.InterfaceDeviceWithBridgeBinding(netName),
+		ifaceToPlug,
 	)
+
+	netName := ifaceToPlug.Name
 	vm.Spec.Template.Spec.Networks = append(
 		vm.Spec.Template.Spec.Networks,
 		*libvmi.MultusNetwork(netName, netName+"-nad"),

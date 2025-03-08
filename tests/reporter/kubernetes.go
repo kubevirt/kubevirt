@@ -338,7 +338,7 @@ func (r *KubernetesReporter) logDMESG(virtCli kubecli.KubevirtClient, logsdir st
 			commands := []string{
 				virt_chroot.GetChrootBinaryPath(),
 				"--mount",
-				virt_chroot.GetChrootMountNamespace(),
+				virt_chroot.GetChrootNSMountPath(),
 				"exec",
 				"--",
 				"/proc/1/root/bin/dmesg",
@@ -624,7 +624,7 @@ func (r *KubernetesReporter) logJournal(virtCli kubecli.KubevirtClient, logsdir 
 		commands := []string{
 			virt_chroot.GetChrootBinaryPath(),
 			"--mount",
-			virt_chroot.GetChrootMountNamespace(),
+			virt_chroot.GetChrootNSMountPath(),
 			"exec",
 			"--",
 			"/usr/bin/journalctl",

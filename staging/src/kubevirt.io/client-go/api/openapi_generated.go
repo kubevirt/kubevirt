@@ -358,6 +358,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.ConfigMapVolumeSource":                                              schema_kubevirtio_api_core_v1_ConfigMapVolumeSource(ref),
 		"kubevirt.io/api/core/v1.ContainerDiskInfo":                                                  schema_kubevirtio_api_core_v1_ContainerDiskInfo(ref),
 		"kubevirt.io/api/core/v1.ContainerDiskSource":                                                schema_kubevirtio_api_core_v1_ContainerDiskSource(ref),
+		"kubevirt.io/api/core/v1.ControllerRevisionRef":                                              schema_kubevirtio_api_core_v1_ControllerRevisionRef(ref),
 		"kubevirt.io/api/core/v1.CustomBlockSize":                                                    schema_kubevirtio_api_core_v1_CustomBlockSize(ref),
 		"kubevirt.io/api/core/v1.CustomProfile":                                                      schema_kubevirtio_api_core_v1_CustomProfile(ref),
 		"kubevirt.io/api/core/v1.CustomizeComponents":                                                schema_kubevirtio_api_core_v1_CustomizeComponents(ref),
@@ -417,6 +418,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.Input":                                                              schema_kubevirtio_api_core_v1_Input(ref),
 		"kubevirt.io/api/core/v1.InstancetypeConfiguration":                                          schema_kubevirtio_api_core_v1_InstancetypeConfiguration(ref),
 		"kubevirt.io/api/core/v1.InstancetypeMatcher":                                                schema_kubevirtio_api_core_v1_InstancetypeMatcher(ref),
+		"kubevirt.io/api/core/v1.InstancetypeStatusRef":                                              schema_kubevirtio_api_core_v1_InstancetypeStatusRef(ref),
 		"kubevirt.io/api/core/v1.Interface":                                                          schema_kubevirtio_api_core_v1_Interface(ref),
 		"kubevirt.io/api/core/v1.InterfaceBindingMethod":                                             schema_kubevirtio_api_core_v1_InterfaceBindingMethod(ref),
 		"kubevirt.io/api/core/v1.InterfaceBindingMigration":                                          schema_kubevirtio_api_core_v1_InterfaceBindingMigration(ref),
@@ -661,6 +663,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePool":                                           schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePool(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolCondition":                                  schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolCondition(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolList":                                       schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolList(ref),
+		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolNameGeneration":                             schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolNameGeneration(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolSpec":                                       schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolSpec(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolStatus":                                     schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolStatus(ref),
 		"kubevirt.io/api/pool/v1alpha1.VirtualMachineTemplateSpec":                                   schema_kubevirtio_api_pool_v1alpha1_VirtualMachineTemplateSpec(ref),
@@ -2401,7 +2404,7 @@ func schema_k8sio_api_core_v1_Container(ref common.ReferenceCallback) common.Ope
 					},
 					"startupProbe": {
 						SchemaProps: spec.SchemaProps{
-							Description: "StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+							Description: "StartupProbe indicates that the VirtualMachineInstance(VMI) has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
 							Ref:         ref("k8s.io/api/core/v1.Probe"),
 						},
 					},
@@ -18467,6 +18470,25 @@ func schema_kubevirtio_api_core_v1_ContainerDiskSource(ref common.ReferenceCallb
 	}
 }
 
+func schema_kubevirtio_api_core_v1_ControllerRevisionRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the ControllerRevision",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_CustomBlockSize(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -18893,6 +18915,13 @@ func schema_kubevirtio_api_core_v1_DeveloperConfiguration(ref common.ReferenceCa
 					"logVerbosity": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("kubevirt.io/api/core/v1.LogVerbosity"),
+						},
+					},
+					"clusterProfiler": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enable the ability to pprof profile KubeVirt control plane",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},
@@ -20591,6 +20620,54 @@ func schema_kubevirtio_api_core_v1_InstancetypeMatcher(ref common.ReferenceCallb
 	}
 }
 
+func schema_kubevirtio_api_core_v1_InstancetypeStatusRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the name of resource",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind specifies the kind of resource",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"controllerRevisionRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ControllerRef specifies the ControllerRevision storing a copy of the object captured when it is first seen by the VirtualMachine controller",
+							Ref:         ref("kubevirt.io/api/core/v1.ControllerRevisionRef"),
+						},
+					},
+					"inferFromVolume": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InferFromVolume lists the name of a volume that should be used to infer or discover the resource",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"inferFromVolumeFailurePolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InferFromVolumeFailurePolicy controls what should happen on failure when inferring the resource",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.ControllerRevisionRef"},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -20708,7 +20785,7 @@ func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) commo
 					},
 					"state": {
 						SchemaProps: spec.SchemaProps{
-							Description: "State represents the requested operational state of the interface. The (only) value supported is `absent`, expressing a request to remove the interface.",
+							Description: "State represents the requested operational state of the interface. The supported values are: `absent`, expressing a request to remove the interface. `down`, expressing a request to set the link down. `up`, expressing a request to set the link up. Empty value functions as `up`.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -21379,7 +21456,7 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 					},
 					"vmStateStorageClass": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM. The storage class must support RWX in filesystem mode.",
+							Description: "VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -22244,6 +22321,22 @@ func schema_kubevirtio_api_core_v1_MigrateOptions(ref common.ReferenceCallback) 
 							Description: "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"addedNodeSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AddedNodeSelector is an additional selector that can be used to complement a NodeSelector or NodeAffinity as set on the VM to restrict the set of allowed target nodes for a migration. In case of key collisions, values set on the VM objects are going to be preserved to ensure that addedNodeSelector can only restrict but not bypass constraints already set on the VM object.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: "",
@@ -25567,6 +25660,22 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationSpec(ref commo
 							Format:      "",
 						},
 					},
+					"addedNodeSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AddedNodeSelector is an additional selector that can be used to complement a NodeSelector or NodeAffinity as set on the VM to restrict the set of allowed target nodes for a migration. In case of key collisions, values set on the VM objects are going to be preserved to ensure that addedNodeSelector can only restrict but not bypass constraints already set on the VM object.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -26456,9 +26565,15 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.Referen
 							Ref:         ref("kubevirt.io/api/core/v1.Probe"),
 						},
 					},
+					"startupProbe": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StartupProbe indicates that the VirtualMachineInstance(VMI) has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to lad data or warm a cache, than during steady-state operation. This cannot be updated.",
+							Ref:         ref("kubevirt.io/api/core/v1.Probe"),
+						},
+					},
 					"hostname": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Specifies the hostname of the vmi If not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.",
+							Description: "More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes Specifies the hostname of the vmi If not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -27238,11 +27353,23 @@ func schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref common.ReferenceCall
 							Ref:         ref("kubevirt.io/api/core/v1.VolumeUpdateState"),
 						},
 					},
+					"instancetypeRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InstancetypeRef captures the state of any referenced instance type from the VirtualMachine",
+							Ref:         ref("kubevirt.io/api/core/v1.InstancetypeStatusRef"),
+						},
+					},
+					"preferenceRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferenceRef captures the state of any referenced preference from the VirtualMachine",
+							Ref:         ref("kubevirt.io/api/core/v1.InstancetypeStatusRef"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.VirtualMachineCondition", "kubevirt.io/api/core/v1.VirtualMachineMemoryDumpRequest", "kubevirt.io/api/core/v1.VirtualMachineStartFailure", "kubevirt.io/api/core/v1.VirtualMachineStateChangeRequest", "kubevirt.io/api/core/v1.VirtualMachineVolumeRequest", "kubevirt.io/api/core/v1.VolumeSnapshotStatus", "kubevirt.io/api/core/v1.VolumeUpdateState"},
+			"kubevirt.io/api/core/v1.InstancetypeStatusRef", "kubevirt.io/api/core/v1.VirtualMachineCondition", "kubevirt.io/api/core/v1.VirtualMachineMemoryDumpRequest", "kubevirt.io/api/core/v1.VirtualMachineStartFailure", "kubevirt.io/api/core/v1.VirtualMachineStateChangeRequest", "kubevirt.io/api/core/v1.VirtualMachineVolumeRequest", "kubevirt.io/api/core/v1.VolumeSnapshotStatus", "kubevirt.io/api/core/v1.VolumeUpdateState"},
 	}
 }
 
@@ -32107,6 +32234,30 @@ func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolList(ref common.Refer
 	}
 }
 
+func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolNameGeneration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"appendIndexToConfigMapRefs": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"appendIndexToSecretRefs": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -32139,12 +32290,18 @@ func schema_kubevirtio_api_pool_v1alpha1_VirtualMachinePoolSpec(ref common.Refer
 							Format:      "",
 						},
 					},
+					"nameGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Options for the name generation in a pool.",
+							Ref:         ref("kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolNameGeneration"),
+						},
+					},
 				},
 				Required: []string{"selector", "virtualMachineTemplate"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/pool/v1alpha1.VirtualMachineTemplateSpec"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/pool/v1alpha1.VirtualMachinePoolNameGeneration", "kubevirt.io/api/pool/v1alpha1.VirtualMachineTemplateSpec"},
 	}
 }
 

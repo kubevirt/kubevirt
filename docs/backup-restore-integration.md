@@ -223,6 +223,34 @@ spec:
 
 - ("", "Secret", "ns1", "my-user-password")
 
+#### Backend Storage PVC
+
+The backend storage PVC (also known as **persistent state PVC**) is used to persist changes made by a VirtualMachineInstance that are outside the guest. This includes:
+- **EFI firmware settings**: Firmware data is stored here such as EFI vars or custom secure boot certificates.
+- **TPM state**: Information stored inside the TPM.
+
+For a VM or VMI to use this PVC, it must be explicitly enabled through one or both of the following fields in the VMI spec:
+1. `spec.domain.firmware.bootloader.efi.persistent`
+2. `spec.domain.devices.tpm.persistent`
+
+When either of these options is set to `true`, the system ensures that the backend PVC is created and attached to the VMI.
+
+**How to Identify the Backend Storage PVC**
+Currently, this PVC is not reflected in the VMI or VM spec, but is created and handled by a controller once the VMI is started. The backend PVC can be identified by the `persistent-state-for` label, which would be set to the name of the VMI it is associated with.
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: persistent-state-vmi1-XXXXX
+  namespace: ns1
+  labels:
+    persistent-state-for: vmi1
+...
+```
+
+- ("", "PersistentVolumeClaim", "ns1", "persistent-state-vmi1-XXXXX")
+
 ### VirtualMachineInstanceReplicaSet Object Graph
 
 ```yaml

@@ -618,6 +618,7 @@ func initContainerMinimalLimits(containerType v1.SupportContainerType, config *v
 		res[k8sv1.ResourceMemory] = *memLim
 	}
 	return res
+
 }
 
 func initContainerMinimalRequests(containerType v1.SupportContainerType, config *virtconfig.ClusterConfig) k8sv1.ResourceList {

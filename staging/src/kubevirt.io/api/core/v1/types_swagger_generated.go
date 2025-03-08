@@ -32,7 +32,8 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 		"volumes":                       "List of volumes that can be mounted by disks belonging to the vmi.\n+kubebuilder:validation:MaxItems:=256",
 		"livenessProbe":                 "Periodic probe of VirtualMachineInstance liveness.\nVirtualmachineInstances will be stopped if the probe fails.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\n+optional",
 		"readinessProbe":                "Periodic probe of VirtualMachineInstance service readiness.\nVirtualmachineInstances will be removed from service endpoints if the probe fails.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\n+optional",
-		"hostname":                      "Specifies the hostname of the vmi\nIf not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.\n+optional",
+		"startupProbe":                  "StartupProbe indicates that the VirtualMachineInstance(VMI) has successfully initialized.\nIf specified, no other probes are executed until this completes successfully.\nIf this probe fails, the Pod will be restarted, just as if the livenessProbe failed.\nThis can be used to provide different probe parameters at the beginning of a Pod's lifecycle,\nwhen it might take a long time to lad data or warm a cache, than during steady-state operation.\nThis cannot be updated.",
+		"hostname":                      "More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\nSpecifies the hostname of the vmi\nIf not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.\n+optional",
 		"subdomain":                     "If specified, the fully qualified vmi hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\".\nIf not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi,\nno matter if the vmi itself can pick up a hostname.\n+optional",
 		"networks":                      "List of networks that can be attached to a vm's virtual interface.\n+kubebuilder:validation:MaxItems:=256",
 		"dnsPolicy":                     "Set DNS policy for the pod.\nDefaults to \"ClusterFirst\".\nValid values are 'ClusterFirstWithHostNet', 'ClusterFirst', 'Default' or 'None'.\nDNS parameters given in DNSConfig will be merged with the policy selected with DNSPolicy.\nTo have DNS options set along with hostNetwork, you have to specify DNS policy\nexplicitly to 'ClusterFirstWithHostNet'.\n+optional",
@@ -317,7 +318,8 @@ func (VirtualMachineInstanceMigrationList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceMigrationSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"vmiName": "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",
+		"vmiName":           "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",
+		"addedNodeSelector": "AddedNodeSelector is an additional selector that can be used to\ncomplement a NodeSelector or NodeAffinity as set on the VM\nto restrict the set of allowed target nodes for a migration.\nIn case of key collisions, values set on the VM objects\nare going to be preserved to ensure that addedNodeSelector\ncan only restrict but not bypass constraints already set on the VM object.\n+optional",
 	}
 }
 
@@ -408,6 +410,24 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"desiredGeneration":      "DesiredGeneration is the generation which is desired for the VMI.\nThis will be used in comparisons with ObservedGeneration to understand when\nthe VMI is out of sync. This will be changed at the same time as\nObservedGeneration to remove errors which could occur if Generation is\nupdated through an Update() before ObservedGeneration in Status.\n+optional",
 		"runStrategy":            "RunStrategy tracks the last recorded RunStrategy used by the VM.\nThis is needed to correctly process the next strategy (for now only the RerunOnFailure)",
 		"volumeUpdateState":      "VolumeUpdateState contains the information about the volumes set\nupdates related to the volumeUpdateStrategy",
+		"instancetypeRef":        "InstancetypeRef captures the state of any referenced instance type from the VirtualMachine\n+nullable\n+optional",
+		"preferenceRef":          "PreferenceRef captures the state of any referenced preference from the VirtualMachine\n+nullable\n+optional",
+	}
+}
+
+func (ControllerRevisionRef) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"name": "Name of the ControllerRevision",
+	}
+}
+
+func (InstancetypeStatusRef) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"name":                         "Name is the name of resource",
+		"kind":                         "Kind specifies the kind of resource",
+		"controllerRevisionRef":        "ControllerRef specifies the ControllerRevision storing a copy of the object captured\nwhen it is first seen by the VirtualMachine controller",
+		"inferFromVolume":              "InferFromVolume lists the name of a volume that should be used to infer or discover the resource\n\n+optional",
+		"inferFromVolumeFailurePolicy": "InferFromVolumeFailurePolicy controls what should happen on failure when inferring the resource\n\n+optional",
 	}
 }
 
@@ -625,8 +645,9 @@ func (StopOptions) SwaggerDoc() map[string]string {
 
 func (MigrateOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "MigrateOptions may be provided on migrate request.",
-		"dryRun": "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
+		"":                  "MigrateOptions may be provided on migrate request.",
+		"dryRun":            "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
+		"addedNodeSelector": "AddedNodeSelector is an additional selector that can be used to\ncomplement a NodeSelector or NodeAffinity as set on the VM\nto restrict the set of allowed target nodes for a migration.\nIn case of key collisions, values set on the VM objects\nare going to be preserved to ensure that addedNodeSelector\ncan only restrict but not bypass constraints already set on the VM object.\n+optional",
 	}
 }
 
@@ -766,7 +787,7 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 		"additionalGuestMemoryOverheadRatio": "AdditionalGuestMemoryOverheadRatio can be used to increase the virtualization infrastructure\noverhead. This is useful, since the calculation of this overhead is not accurate and cannot\nbe entirely known in advance. The ratio that is being set determines by which factor to increase\nthe overhead calculated by Kubevirt. A higher ratio means that the VMs would be less compromised\nby node pressures, but would mean that fewer VMs could be scheduled to a node.\nIf not set, the default is 1.",
 		"supportContainerResources":          "+listType=map\n+listMapKey=type\nSupportContainerResources specifies the resource requirements for various types of supporting containers such as container disks/virtiofs/sidecars and hotplug attachment pods. If omitted a sensible default will be supplied.",
 		"supportedGuestAgentVersions":        "deprecated",
-		"vmStateStorageClass":                "VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.\nThe storage class must support RWX in filesystem mode.",
+		"vmStateStorageClass":                "VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.",
 		"ksmConfiguration":                   "KSMConfiguration holds the information regarding the enabling the KSM in the nodes (if available).",
 		"autoCPULimitNamespaceLabelSelector": "When set, AutoCPULimitNamespaceLabelSelector will set a CPU limit on virt-launcher for VMIs running inside\nnamespaces that match the label selector.\nThe CPU limit will equal the number of requested vCPUs.\nThis setting does not apply to VMIs with dedicated CPUs.",
 		"liveUpdateConfiguration":            "LiveUpdateConfiguration holds defaults for live update features",
@@ -885,6 +906,7 @@ func (DeveloperConfiguration) SwaggerDoc() map[string]string {
 		"useEmulation":                    "UseEmulation can be set to true to allow fallback to software emulation\nin case hardware-assisted emulation is not available. Defaults to false",
 		"cpuAllocationRatio":              "For each requested virtual CPU, CPUAllocationRatio defines how much physical CPU to request per VMI\nfrom the hosting node. The value is in fraction of a CPU thread (or core on non-hyperthreaded nodes).\nFor example, a value of 1 means 1 physical CPU thread per VMI CPU thread.\nA value of 100 would be 1% of a physical thread allocated for each requested VMI thread.\nThis option has no effect on VMIs that request dedicated CPUs. More information at:\nhttps://kubevirt.io/user-guide/operations/node_overcommit/#node-cpu-allocation-ratio\nDefaults to 10",
 		"minimumClusterTSCFrequency":      "Allow overriding the automatically determined minimum TSC frequency of the cluster\nand fixate the minimum to this frequency.",
+		"clusterProfiler":                 "Enable the ability to pprof profile KubeVirt control plane",
 	}
 }
 

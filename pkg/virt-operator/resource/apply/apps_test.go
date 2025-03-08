@@ -1146,7 +1146,6 @@ var _ = Describe("Apply Apps", func() {
 		})
 
 		DescribeTable("Should remove Kubevirt service accounts from the default privileged SCC", func(additionalUserlist []string) {
-			var expectedJsonPatch string
 			var serviceAccounts []string
 			saMap := rbac.GetKubevirtComponentsServiceAccounts(namespace)
 			for key := range saMap {
@@ -1154,12 +1153,22 @@ var _ = Describe("Apply Apps", func() {
 			}
 			serviceAccounts = append(serviceAccounts, additionalUserlist...)
 			scc := generateSCC("privileged", serviceAccounts)
+			patchSet := patch.New()
+			const usersPath = "/users"
 			if len(additionalUserlist) != 0 {
-				expectedJsonPatch = fmt.Sprintf(`[ { "op": "test", "path": "/users", "value": ["%s"] }, { "op": "replace", "path": "/users", "value": ["%s"] } ]`, strings.Join(serviceAccounts, `","`), strings.Join(additionalUserlist, `","`))
+				patchSet.AddOption(
+					patch.WithTest(usersPath, serviceAccounts),
+					patch.WithReplace(usersPath, additionalUserlist),
+				)
 			} else {
-				expectedJsonPatch = fmt.Sprintf(`[ { "op": "test", "path": "/users", "value": ["%s"] }, { "op": "replace", "path": "/users", "value": null } ]`, strings.Join(serviceAccounts, `","`))
+				patchSet.AddOption(
+					patch.WithTest(usersPath, serviceAccounts),
+					patch.WithReplace(usersPath, nil),
+				)
 			}
-			executeTest(scc, expectedJsonPatch)
+			patches, err := patchSet.GeneratePayload()
+			Expect(err).ToNot(HaveOccurred(), "Failed to generate patch payload")
+			executeTest(scc, string(patches))
 		},
 			Entry("Without custom users", []string{}),
 			Entry("With custom users", []string{"someuser"}),
@@ -1175,14 +1184,17 @@ var _ = Describe("Apply Apps", func() {
 		var ctrl *gomock.Controller
 		const revisionAnnotation = "deployment.kubernetes.io/revision"
 		const fakeAnnotation = "fakeAnnotation.io/fake"
+		var virtAPIDeployment *appsv1.Deployment
+		var dpClient *fake.Clientset
 
 		BeforeEach(func() {
 			ctrl = gomock.NewController(GinkgoT())
 			kvInterface := kubecli.NewMockKubeVirtInterface(ctrl)
 			clientset = kubecli.NewMockKubevirtClient(ctrl)
-			dpClient := fake.NewSimpleClientset()
+			dpClient = fake.NewSimpleClientset()
 			clientset.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
 			clientset.EXPECT().AppsV1().Return(dpClient.AppsV1()).AnyTimes()
+			clientset.EXPECT().CoreV1().Return(dpClient.CoreV1()).AnyTimes()
 
 			kv = &v1.KubeVirt{ObjectMeta: v12.ObjectMeta{Namespace: Namespace}}
 			virtControllerConfig := &util.KubeVirtDeploymentConfig{
@@ -1220,6 +1232,28 @@ var _ = Describe("Apply Apps", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			stores = util.Stores{DeploymentCache: &MockStore{get: cachedDeployment}}
+
+			virtAPIDeployment = components.NewApiServerDeployment(
+				Namespace,
+				virtControllerConfig.GetImageRegistry(),
+				virtControllerConfig.GetImagePrefix(),
+				virtControllerConfig.GetApiVersion(),
+				"",
+				"",
+				"",
+				virtControllerConfig.VirtApiImage,
+				virtControllerConfig.GetImagePullPolicy(),
+				virtControllerConfig.GetImagePullSecrets(),
+				virtControllerConfig.GetVerbosity(),
+				virtControllerConfig.GetExtraEnv())
+
+			virtAPIDeployment.Generation = 2
+			virtAPIDeployment.Annotations = map[string]string{
+				revisionAnnotation: "4",
+				fakeAnnotation:     "fake",
+			}
+
+			_, err = dpClient.AppsV1().Deployments(Namespace).Create(context.TODO(), virtAPIDeployment, metav1.CreateOptions{})
 		})
 
 		It("should not remove revision annotation", func() {
@@ -1244,5 +1278,35 @@ var _ = Describe("Apply Apps", func() {
 			Expect(updatedDeploy.Annotations).To(HaveKeyWithValue(revisionAnnotation, "4"))
 			Expect(updatedDeploy.Annotations).ToNot(HaveKey(fakeAnnotation))
 		})
+
+		DescribeTable("should calculate correct replicas for deployments based on node count", func(nodesCount int, expectedReplicas int) {
+			createFakeNodes(dpClient, nodesCount)
+
+			r := &Reconciler{
+				clientset:    clientset,
+				kv:           kv,
+				expectations: &util.Expectations{},
+				stores:       stores,
+			}
+
+			updatedDeployment, err := r.syncDeployment(virtAPIDeployment)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(*updatedDeployment.Spec.Replicas).To(BeEquivalentTo(expectedReplicas))
+		},
+			Entry("Single-node cluster", 1, 1),
+			Entry("Small cluster with 5 nodes", 5, 2),
+			Entry("Medium cluster with 50 nodes", 50, 5),
+		)
 	})
 })
+
+func createFakeNodes(client *fake.Clientset, count int) {
+	for i := range count {
+		_, err := client.CoreV1().Nodes().Create(context.TODO(), &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("node-%d", i),
+			},
+		}, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+	}
+}

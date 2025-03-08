@@ -41,7 +41,7 @@ func buildProxyCommandOption(kind, namespace, name string, port int) string {
 	proxyCommand.WriteString("ProxyCommand=")
 	proxyCommand.WriteString(os.Args[0])
 	proxyCommand.WriteString(" port-forward --stdio=true ")
-	proxyCommand.WriteString(fmt.Sprintf("%s/%s.%s", kind, name, namespace))
+	proxyCommand.WriteString(fmt.Sprintf("%s/%s/%s", kind, name, namespace))
 	proxyCommand.WriteString(" ")
 
 	proxyCommand.WriteString(strconv.Itoa(port))
@@ -56,9 +56,9 @@ func (o *SSH) buildSSHTarget(kind, namespace, name string) (opts []string) {
 		target.WriteRune('@')
 	}
 	target.WriteString(kind)
-	target.WriteRune('/')
+	target.WriteString(".")
 	target.WriteString(name)
-	target.WriteRune('.')
+	target.WriteString(".")
 	target.WriteString(namespace)
 
 	opts = append(opts, target.String())

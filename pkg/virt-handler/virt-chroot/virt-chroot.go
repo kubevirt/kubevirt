@@ -20,6 +20,8 @@
 package virt_chroot
 
 import (
+	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -32,16 +34,42 @@ const (
 	mountNamespace = "/proc/1/ns/mnt"
 )
 
+// GetHostNamespacePath - returns the path of the parent process's mount namespace.
+// This is needed to handle Kubernetes and KubeVirt running inside a container,
+// e.g., in a containerd-based runtime, where the mount namespace is different
+// from the host/node.
+func GetHostNamespacePath() string {
+	return fmt.Sprintf("/proc/%d/ns/mnt", os.Getppid())
+}
+
 func getBaseArgs() []string {
-	return []string{"--mount", mountNamespace}
+	return []string{"--mount", GetChrootMountNamespace()}
+}
+
+func GetChrootNSMountPath() string {
+	return mountNamespace
 }
 
 func GetChrootBinaryPath() string {
 	return binaryPath
 }
 
+// If the ENV "VIRT_IN_CONTAINER" with a value of "true" is passed into 'virt-handler',
+// the function GetChrootMountNamespace() will call GetHostNamespacePath() to
+// search for the PPID and its mount namespace; by default, it just uses the
+// mount namespace for the PID of 1.
+//
+// To use the PPID namespace mount search scheme, the user needs to specify
+// 'KV_IO_EXTRA_ENV_VIRT_IN_CONTAINER' with a value of "true" in kubevirt-operator.yaml.
 func GetChrootMountNamespace() string {
+	if getEnvVirtInContainer() {
+		return GetHostNamespacePath()
+	}
 	return mountNamespace
+}
+
+func getEnvVirtInContainer() bool {
+	return os.Getenv("VIRT_IN_CONTAINER") == "true"
 }
 
 func MountChroot(sourcePath, targetPath *safepath.Path, ro bool) *exec.Cmd {
@@ -82,11 +110,6 @@ func CreateMDEVType(mdevType string, parentID string, uuid string) *exec.Cmd {
 func RemoveMDEVType(mdevUUID string) *exec.Cmd {
 	args := append(getBaseArgs(), "remove-mdev")
 	args = append(args, "--uuid", mdevUUID)
-	return exec.Command(binaryPath, args...)
-}
-
-// For general purposes
-func ExecChroot(args ...string) *exec.Cmd {
 	return exec.Command(binaryPath, args...)
 }
 

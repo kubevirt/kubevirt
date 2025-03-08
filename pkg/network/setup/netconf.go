@@ -83,11 +83,7 @@ func NewNetConfWithCustomFactoryAndConfigState(nsFactory nsFactory, cacheCreator
 }
 
 // Setup applies (privilege) network related changes for an existing virt-launcher pod.
-func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int, preSetup func() error) error {
-	if err := preSetup(); err != nil {
-		return fmt.Errorf("setup failed at pre-setup stage, err: %w", err)
-	}
-
+func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, launcherPid int) error {
 	c.configStateMutex.RLock()
 	state, ok := c.state[string(vmi.UID)]
 	c.configStateMutex.RUnlock()

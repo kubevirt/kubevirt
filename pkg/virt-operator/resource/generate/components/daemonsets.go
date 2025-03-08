@@ -25,6 +25,7 @@ const (
 	runtimesPath    = "/var/run/kubevirt-libvirt-runtimes"
 	PrHelperName    = "pr-helper"
 	prVolumeName    = "pr-helper-socket-vol"
+	devDirVol       = "dev-dir"
 	SidecarShimName = "sidecar-shim"
 )
 
@@ -43,6 +44,11 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 				Name:             prVolumeName,
 				MountPath:        reservation.GetPrHelperSocketDir(),
 				MountPropagation: &bidi,
+			},
+			{
+				Name:             devDirVol,
+				MountPath:        "/dev",
+				MountPropagation: pointer.P(corev1.MountPropagationHostToContainer),
 			},
 		},
 		SecurityContext: &corev1.SecurityContext{
@@ -225,6 +231,23 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 
 	container.Env = append(container.Env, containerEnv...)
 
+	container.StartupProbe = &corev1.Probe{
+		FailureThreshold: 3,
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Scheme: corev1.URISchemeHTTPS,
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: 8443,
+				},
+				Path: "/healthz",
+			},
+		},
+		InitialDelaySeconds: 15,
+		TimeoutSeconds:      10,
+		PeriodSeconds:       45,
+	}
+
 	container.LivenessProbe = &corev1.Probe{
 		FailureThreshold: 3,
 		ProbeHandler: corev1.ProbeHandler{
@@ -324,10 +347,8 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 
 	container.Resources = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU: resource.MustParse("10m"),
-			// 325Mi - base memory request
-			// +32Mi - to account for the buffer used to verify containerdisk checksums
-			corev1.ResourceMemory: resource.MustParse("357Mi"),
+			corev1.ResourceCPU:    resource.MustParse("10m"),
+			corev1.ResourceMemory: resource.MustParse("325Mi"),
 		},
 	}
 	if prHelperImage == "" {
@@ -345,6 +366,12 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 				HostPath: &corev1.HostPathVolumeSource{
 					Path: reservation.GetPrHelperSocketDir(),
 					Type: &directoryOrCreate,
+				},
+			}}, corev1.Volume{
+			Name: devDirVol,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "/dev",
 				},
 			},
 		})

@@ -134,6 +134,13 @@ func WithInterfaceStatus(interfaceStatus v1.VirtualMachineInstanceNetworkInterfa
 	}
 }
 
+// WithNodeName sets the node name status
+func WithNodeName(node string) Option {
+	return func(vmiStatus *v1.VirtualMachineInstanceStatus) {
+		vmiStatus.NodeName = node
+	}
+}
+
 type VMOption func(vmiStatus *v1.VirtualMachineStatus)
 
 // WithStatus sets the status with specified value

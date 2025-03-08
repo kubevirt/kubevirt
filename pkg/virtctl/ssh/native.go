@@ -18,14 +18,10 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-const (
-	wrapLocalSSHDefault = false
-)
-
 func additionalUsage() string {
 	return fmt.Sprintf(`
 	# Connect to 'testvmi' using the local ssh binary found in $PATH:
-	{{ProgramName}} ssh --%s=true jdoe@testvmi`,
+	{{ProgramName}} ssh --%s=true jdoe@vmi/testvmi`,
 		wrapLocalSSHFlag,
 	)
 }

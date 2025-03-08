@@ -58,6 +58,7 @@ var (
 			vmiAddresses,
 			vmiMigrationStartTime,
 			vmiMigrationEndTime,
+			vmiVnicInfo,
 		},
 		CollectCallback: vmiStatsCollectorCallback,
 	}
@@ -116,10 +117,19 @@ var (
 		},
 		[]string{"node", "namespace", "name", "migration_name", "status"},
 	)
+
+	vmiVnicInfo = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_vnic_info",
+			Help: "Details of VirtualMachineInstance (VMI) vNIC interfaces, such as vNIC name, binding type, " +
+				"network name, and binding name for each vNIC of a running instance.",
+		},
+		[]string{"name", "namespace", "vnic_name", "binding_type", "network", "binding_name"},
+	)
 )
 
 func vmiStatsCollectorCallback() []operatormetrics.CollectorResult {
-	cachedObjs := vmiInformer.GetIndexer().List()
+	cachedObjs := informers.VMI.GetIndexer().List()
 	if len(cachedObjs) == 0 {
 		log.Log.V(4).Infof("No VMIs detected")
 		return []operatormetrics.CollectorResult{}
@@ -142,6 +152,7 @@ func reportVmisStats(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Col
 		crs = append(crs, getEvictionBlocker(vmi))
 		crs = append(crs, collectVMIInterfacesInfo(vmi)...)
 		crs = append(crs, collectVMIMigrationTime(vmi)...)
+		crs = append(crs, CollectVmisVnicInfo(vmi)...)
 	}
 
 	return crs
@@ -227,7 +238,7 @@ func getVMIMachine(vmi *k6tv1.VirtualMachineInstance) (guestOSMachineType string
 }
 
 func getVMIPod(vmi *k6tv1.VirtualMachineInstance) string {
-	objs, err := kvPodInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
+	objs, err := informers.KVPod.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
 	if err != nil {
 		return none
 	}
@@ -250,30 +261,38 @@ func getVMIPod(vmi *k6tv1.VirtualMachineInstance) string {
 
 func getVMIInstancetype(vmi *k6tv1.VirtualMachineInstance) string {
 	if instancetypeName, ok := vmi.Annotations[k6tv1.InstancetypeAnnotation]; ok {
-		return fetchResourceName(instancetypeName, instancetypeMethods.InstancetypeStore)
+		key := types.NamespacedName{
+			Namespace: vmi.Namespace,
+			Name:      instancetypeName,
+		}
+		return fetchResourceName(key.String(), stores.Instancetype)
 	}
 
-	if instancetypeName, ok := vmi.Annotations[k6tv1.ClusterInstancetypeAnnotation]; ok {
-		return fetchResourceName(instancetypeName, instancetypeMethods.ClusterInstancetypeStore)
+	if clusterInstancetypeName, ok := vmi.Annotations[k6tv1.ClusterInstancetypeAnnotation]; ok {
+		return fetchResourceName(clusterInstancetypeName, stores.ClusterInstancetype)
 	}
 
 	return none
 }
 
 func getVMIPreference(vmi *k6tv1.VirtualMachineInstance) string {
-	if instancetypeName, ok := vmi.Annotations[k6tv1.PreferenceAnnotation]; ok {
-		return fetchResourceName(instancetypeName, instancetypeMethods.PreferenceStore)
+	if preferenceName, ok := vmi.Annotations[k6tv1.PreferenceAnnotation]; ok {
+		key := types.NamespacedName{
+			Namespace: vmi.Namespace,
+			Name:      preferenceName,
+		}
+		return fetchResourceName(key.String(), stores.Preference)
 	}
 
-	if instancetypeName, ok := vmi.Annotations[k6tv1.ClusterPreferenceAnnotation]; ok {
-		return fetchResourceName(instancetypeName, instancetypeMethods.ClusterPreferenceStore)
+	if clusterPreferenceName, ok := vmi.Annotations[k6tv1.ClusterPreferenceAnnotation]; ok {
+		return fetchResourceName(clusterPreferenceName, stores.ClusterPreference)
 	}
 
 	return none
 }
 
-func fetchResourceName(name string, store cache.Store) string {
-	obj, ok, err := store.GetByKey(name)
+func fetchResourceName(key string, store cache.Store) string {
+	obj, ok, err := store.GetByKey(key)
 	if err != nil || !ok {
 		return other
 	}
@@ -285,7 +304,7 @@ func fetchResourceName(name string, store cache.Store) string {
 
 	vendorName := apiObj.GetLabels()[instancetypeVendorLabel]
 	if _, isWhitelisted := whitelistedInstanceTypeVendors[vendorName]; isWhitelisted {
-		return name
+		return apiObj.GetName()
 	}
 
 	return other
@@ -395,7 +414,7 @@ func calculateMigrationStatus(migrationState *k6tv1.VirtualMachineInstanceMigrat
 }
 
 func getMigrationNameFromMigrationUID(namespace string, migrationUID types.UID) string {
-	objs, err := vmiMigrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	objs, err := informers.VMIMigration.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
 		return none
 	}
@@ -410,4 +429,35 @@ func getMigrationNameFromMigrationUID(namespace string, migrationUID types.UID) 
 	}
 
 	return none
+}
+
+func CollectVmisVnicInfo(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
+	var results []operatormetrics.CollectorResult
+
+	interfaces := vmi.Spec.Domain.Devices.Interfaces
+	networks := vmi.Spec.Networks
+
+	for _, iface := range interfaces {
+		bindingType, bindingName := getBinding(iface)
+		networkName, matchFound := getNetworkName(iface.Name, networks)
+
+		if !matchFound {
+			continue
+		}
+
+		results = append(results, operatormetrics.CollectorResult{
+			Metric: vmiVnicInfo,
+			Labels: []string{
+				vmi.Name,
+				vmi.Namespace,
+				iface.Name,
+				bindingType,
+				networkName,
+				bindingName,
+			},
+			Value: 1.0,
+		})
+	}
+
+	return results
 }

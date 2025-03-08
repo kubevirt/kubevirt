@@ -24,6 +24,9 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
+	"kubevirt.io/client-go/log"
+
 	k6tpointer "kubevirt.io/kubevirt/pkg/pointer"
 )
 
@@ -85,6 +88,27 @@ func (t *TimeDefinedCache[T]) Set(value T) {
 	}
 
 	t.setWithoutLock(value)
+}
+
+// KeepValueUpdated will keep the value updated in the cache by calling the re-calculation function every minRefreshDuration
+// until the stopChannel is closed.
+func (t *TimeDefinedCache[T]) KeepValueUpdated(stopChannel chan struct{}) error {
+	if t.minRefreshDuration.Nanoseconds() == 0 {
+		return fmt.Errorf("KeepValueUpdated can only be used if minRefreshDuration is non-zero, but it is %s", t.minRefreshDuration.String())
+	}
+
+	go func() {
+		updateCachedValue := func() {
+			_, err := t.Get()
+			if err != nil {
+				log.Log.Errorf("Error updating cache: %v", err)
+			}
+		}
+
+		wait.JitterUntil(updateCachedValue, t.minRefreshDuration, 0, false, stopChannel)
+	}()
+
+	return nil
 }
 
 func (t *TimeDefinedCache[T]) setWithoutLock(value T) {

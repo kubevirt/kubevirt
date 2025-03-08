@@ -252,6 +252,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				withReadinessProbe(&v1.Probe{InitialDelaySeconds: 2}),
 				withLivenessProbe(&v1.Probe{InitialDelaySeconds: 2}),
+				withStartupProbe(&v1.Probe{InitialDelaySeconds: 2}),
 			)
 
 			ar, err := newAdmissionReviewForVMICreation(vmi)
@@ -259,12 +260,20 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).To(Equal(`either spec.readinessProbe.tcpSocket, spec.readinessProbe.exec or spec.readinessProbe.httpGet must be set if a spec.readinessProbe is specified, either spec.livenessProbe.tcpSocket, spec.livenessProbe.exec or spec.livenessProbe.httpGet must be set if a spec.livenessProbe is specified`))
+			Expect(resp.Result.Message).To(Equal(`either spec.readinessProbe.tcpSocket, spec.readinessProbe.exec or spec.readinessProbe.httpGet must be set if a spec.readinessProbe is specified, either spec.livenessProbe.tcpSocket, spec.livenessProbe.exec or spec.livenessProbe.httpGet must be set if a spec.livenessProbe is specified ,  either spec.startupProbe.tcpSocket, spec.startupProbe.exec or spec.startupProbe.httpGet must be set if a spec.startupProbe is specified,`))
 		})
 		It("should reject probes with more than one action per probe configured", func() {
 			vmi := newBaseVmi(
 				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				withStartupProbe(&v1.Probe{
+					InitialDelaySeconds: 2,
+					Handler: v1.Handler{
+						HTTPGet:        &k8sv1.HTTPGetAction{Host: "test", Port: intstr.Parse("80")},
+						TCPSocket:      &k8sv1.TCPSocketAction{Host: "lal", Port: intstr.Parse("80")},
+						GuestAgentPing: &v1.GuestAgentPing{},
+					},
+				}),
 				withReadinessProbe(&v1.Probe{
 					InitialDelaySeconds: 2,
 					Handler: v1.Handler{
@@ -318,6 +327,12 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should reject properly configured network-based readiness and liveness probes if no Pod Network is present", func() {
 			vmi := newBaseVmi(
 				libvmi.WithAutoAttachPodInterface(false),
+				withStartupProbe(&v1.Probe{
+					InitialDelaySeconds: 2,
+					Handler: v1.Handler{
+						TCPSocket: &k8sv1.TCPSocketAction{Host: "lal", Port: intstr.Parse("80")},
+					},
+				}),
 				withReadinessProbe(&v1.Probe{
 					InitialDelaySeconds: 2,
 					Handler: v1.Handler{
@@ -2852,6 +2867,44 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Message).To(Equal("UEFI secure boot is currently not supported on aarch64 Arch"))
 		})
 
+		DescribeTable("should validate ACPI", func(acpi *v1.ACPI, volumes []v1.Volume, expectedLen int, expectedMessage string) {
+			vmi := api.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Firmware = &v1.Firmware{ACPI: acpi}
+			vmi.Spec.Volumes = volumes
+			causes := validateFirmwareACPI(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(causes).To(HaveLen(expectedLen))
+			if expectedLen != 0 {
+				Expect(causes[0].Message).To(ContainSubstring(expectedMessage))
+			}
+		},
+			Entry("Not set is ok", nil, []v1.Volume{}, 0, ""),
+			Entry("ACPI with Volume match is ok",
+				&v1.ACPI{SlicNameRef: "slic"},
+				[]v1.Volume{
+					{
+						Name: "slic",
+						VolumeSource: v1.VolumeSource{
+							Secret: &v1.SecretVolumeSource{SecretName: "secret-slic"},
+						},
+					},
+				}, 0, ""),
+			Entry("ACPI without Volume match should fail",
+				&v1.ACPI{SlicNameRef: "slic"},
+				[]v1.Volume{}, 1, "does not have a matching Volume"),
+			Entry("ACPI with wrong Volume type should fail",
+				&v1.ACPI{SlicNameRef: "slic"},
+				[]v1.Volume{
+					{
+						Name: "slic",
+						VolumeSource: v1.VolumeSource{
+							ConfigMap: &v1.ConfigMapVolumeSource{
+								LocalObjectReference: k8sv1.LocalObjectReference{Name: "configmap-slic"},
+							},
+						},
+					},
+				}, 1, "Volume of unsupported type"),
+		)
+
 		It("should reject setting cpu model to host-model", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.CPU = &v1.CPU{Model: "host-model"}
@@ -4159,6 +4212,12 @@ func withReadinessProbe(probe *v1.Probe) libvmi.Option {
 func withLivenessProbe(probe *v1.Probe) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.LivenessProbe = probe
+	}
+}
+
+func withStartupProbe(probe *v1.Probe) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.StartupProbe = probe
 	}
 }
 

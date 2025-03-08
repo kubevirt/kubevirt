@@ -25,6 +25,7 @@ import (
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
 
 	k6tv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -34,7 +35,7 @@ import (
 
 var (
 	vmStatsCollector = operatormetrics.Collector{
-		Metrics:         append(timestampMetrics, vmResourceRequests, vmResourceLimits, vmInfo, vmDiskAllocatedSize, vmCreationTimestamp),
+		Metrics:         append(timestampMetrics, vmResourceRequests, vmResourceLimits, vmInfo, vmDiskAllocatedSize, vmCreationTimestamp, vmVnicInfo),
 		CollectCallback: vmStatsCollectorCallback,
 	}
 
@@ -175,10 +176,19 @@ var (
 		},
 		[]string{"name", "namespace"},
 	)
+
+	vmVnicInfo = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vm_vnic_info",
+			Help: "Details of Virtual Machine (VM) vNIC interfaces, such as vNIC name, binding type, network name, " +
+				"and binding name for each vNIC defined in the VM's configuration.",
+		},
+		[]string{"name", "namespace", "vnic_name", "binding_type", "network", "binding_name"},
+	)
 )
 
 func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
-	cachedObjs := vmInformer.GetIndexer().List()
+	cachedObjs := informers.VM.GetIndexer().List()
 	if len(cachedObjs) == 0 {
 		log.Log.V(4).Infof("No VMs detected")
 		return []operatormetrics.CollectorResult{}
@@ -196,6 +206,7 @@ func vmStatsCollectorCallback() []operatormetrics.CollectorResult {
 	results = append(results, CollectResourceRequestsAndLimits(vms)...)
 	results = append(results, reportVmsStats(vms)...)
 	results = append(results, collectVMCreationTimestamp(vms)...)
+	results = append(results, CollectVmsVnicInfo(vms)...)
 	return results
 }
 
@@ -238,11 +249,16 @@ func getVMInstancetype(vm *k6tv1.VirtualMachine) string {
 	}
 
 	if instancetype.Kind == "VirtualMachineInstancetype" {
-		return fetchResourceName(instancetype.Name, instancetypeMethods.InstancetypeStore)
+		key := types.NamespacedName{
+			Namespace: vm.Namespace,
+			Name:      instancetype.Name,
+		}
+
+		return fetchResourceName(key.String(), stores.Instancetype)
 	}
 
 	if instancetype.Kind == "VirtualMachineClusterInstancetype" {
-		return fetchResourceName(instancetype.Name, instancetypeMethods.ClusterInstancetypeStore)
+		return fetchResourceName(instancetype.Name, stores.ClusterInstancetype)
 	}
 
 	return none
@@ -256,11 +272,16 @@ func getVMPreference(vm *k6tv1.VirtualMachine) string {
 	}
 
 	if preference.Kind == "VirtualMachinePreference" {
-		return fetchResourceName(preference.Name, instancetypeMethods.PreferenceStore)
+		key := types.NamespacedName{
+			Namespace: vm.Namespace,
+			Name:      preference.Name,
+		}
+
+		return fetchResourceName(key.String(), stores.Preference)
 	}
 
 	if preference.Kind == "VirtualMachineClusterPreference" {
-		return fetchResourceName(preference.Name, instancetypeMethods.ClusterPreferenceStore)
+		return fetchResourceName(preference.Name, stores.ClusterPreference)
 	}
 
 	return none
@@ -289,7 +310,7 @@ func CollectResourceRequestsAndLimits(vms []*k6tv1.VirtualMachine) []operatormet
 	for _, vm := range vms {
 		// Apply any instance type and preference to a copy of the VM before proceeding
 		vmCopy := vm.DeepCopy()
-		_ = instancetypeMethods.ApplyToVM(vmCopy)
+		_ = vmApplier.ApplyToVM(vmCopy)
 
 		// Memory requests and limits from domain resources
 		results = append(results, collectMemoryResourceRequestsFromDomainResources(vmCopy)...)
@@ -561,40 +582,82 @@ func collectDiskMetricsFromPVC(vm *k6tv1.VirtualMachine) []operatormetrics.Colle
 	var cr []operatormetrics.CollectorResult
 
 	for _, vol := range vm.Spec.Template.Spec.Volumes {
-		if vol.PersistentVolumeClaim != nil {
-			diskName := vol.Name
-			pvcName := vol.PersistentVolumeClaim.ClaimName
-
-			key := controller.NamespacedKey(vm.Namespace, pvcName)
-			obj, exists, err := persistentVolumeClaimInformer.GetStore().GetByKey(key)
-			if err != nil {
-				log.Log.Errorf("Error retrieving PVC %s in namespace %s: %v", pvcName, vm.Namespace, err)
-				continue
-			}
-			if !exists {
-				log.Log.Warningf("PVC %s in namespace %s does not exist", pvcName, vm.Namespace)
-				continue
-			}
-			pvc, ok := obj.(*k8sv1.PersistentVolumeClaim)
-			if !ok {
-				log.Log.Warningf("Object for PVC %s in namespace %s is not of expected type", pvcName, vm.Namespace)
-				continue
-			}
-
-			pvcSize := pvc.Spec.Resources.Requests.Storage()
-			volumeMode := "null"
-			if pvc.Spec.VolumeMode != nil {
-				volumeMode = string(*pvc.Spec.VolumeMode)
-			}
-			cr = append(cr, operatormetrics.CollectorResult{
-				Metric: vmDiskAllocatedSize,
-				Value:  float64(pvcSize.Value()),
-				Labels: []string{vm.Name, vm.Namespace, pvcName, volumeMode, diskName},
-			})
+		pvcName, diskName, isDataVolume := getPVCAndDiskName(vol)
+		if pvcName == "" {
+			continue
 		}
+
+		key := controller.NamespacedKey(vm.Namespace, pvcName)
+		obj, exists, err := informers.PersistentVolumeClaim.GetStore().GetByKey(key)
+		if err != nil {
+			log.Log.Errorf("Error retrieving PVC %s in namespace %s: %v", pvcName, vm.Namespace, err)
+			continue
+		}
+
+		if !exists {
+			log.Log.Warningf("PVC %s in namespace %s does not exist", pvcName, vm.Namespace)
+			continue
+		}
+
+		pvc, ok := obj.(*k8sv1.PersistentVolumeClaim)
+		if !ok {
+			log.Log.Warningf("Object for PVC %s in namespace %s is not of expected type", pvcName, vm.Namespace)
+			continue
+		}
+
+		cr = append(cr, getDiskSizeValues(vm, pvc, diskName, isDataVolume))
 	}
 
 	return cr
+}
+
+func getPVCAndDiskName(vol k6tv1.Volume) (pvcName, diskName string, isDataVolume bool) {
+	if vol.PersistentVolumeClaim != nil {
+		return vol.PersistentVolumeClaim.ClaimName, vol.Name, false
+	}
+
+	if vol.DataVolume != nil {
+		return vol.DataVolume.Name, vol.Name, true
+	}
+
+	return "", "", false
+}
+
+func getDiskSizeValues(vm *k6tv1.VirtualMachine, pvc *k8sv1.PersistentVolumeClaim, diskName string, isDataVolume bool) operatormetrics.CollectorResult {
+	var pvcSize *resource.Quantity
+
+	if isDataVolume {
+		pvcSize = getSizeFromDataVolumeTemplates(vm, pvc.Name)
+	}
+
+	if pvcSize == nil {
+		pvcSize = pvc.Spec.Resources.Requests.Storage()
+	}
+
+	volumeMode := "<none>"
+	if pvc.Spec.VolumeMode != nil {
+		volumeMode = string(*pvc.Spec.VolumeMode)
+	}
+
+	return operatormetrics.CollectorResult{
+		Metric: vmDiskAllocatedSize,
+		Value:  float64(pvcSize.Value()),
+		Labels: []string{vm.Name, vm.Namespace, pvc.Name, volumeMode, diskName},
+	}
+}
+
+func getSizeFromDataVolumeTemplates(vm *k6tv1.VirtualMachine, dataVolumeName string) *resource.Quantity {
+	for _, dvTemplate := range vm.Spec.DataVolumeTemplates {
+		if dvTemplate.Name == dataVolumeName {
+			if dvTemplate.Spec.PVC != nil {
+				return dvTemplate.Spec.PVC.Resources.Requests.Storage()
+			}
+
+			break
+		}
+	}
+
+	return nil
 }
 
 func collectVMCreationTimestamp(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
@@ -611,4 +674,80 @@ func collectVMCreationTimestamp(vms []*k6tv1.VirtualMachine) []operatormetrics.C
 	}
 
 	return cr
+}
+
+func CollectVmsVnicInfo(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var results []operatormetrics.CollectorResult
+
+	for _, vm := range vms {
+		if vm.Spec.Template == nil || vm.Spec.Template.Spec.Domain.Devices.Interfaces == nil {
+			continue
+		}
+
+		interfaces := vm.Spec.Template.Spec.Domain.Devices.Interfaces
+		networks := vm.Spec.Template.Spec.Networks
+
+		for _, iface := range interfaces {
+			bindingType, bindingName := getBinding(iface)
+			networkName, matchFound := getNetworkName(iface.Name, networks)
+
+			if !matchFound {
+				continue
+			}
+
+			results = append(results, operatormetrics.CollectorResult{
+				Metric: vmVnicInfo,
+				Labels: []string{
+					vm.Name,
+					vm.Namespace,
+					iface.Name,
+					bindingType,
+					networkName,
+					bindingName,
+				},
+				Value: 1.0,
+			})
+		}
+	}
+
+	return results
+}
+
+func getBinding(iface k6tv1.Interface) (bindingType, bindingName string) {
+	switch {
+	case iface.Masquerade != nil:
+		bindingType = "core"
+		bindingName = "masquerade"
+	case iface.Bridge != nil:
+		bindingType = "core"
+		bindingName = "bridge"
+	case iface.SRIOV != nil:
+		bindingType = "core"
+		bindingName = "sriov"
+	case iface.Binding != nil:
+		bindingType = "plugin"
+		bindingName = iface.Binding.Name
+	}
+
+	return bindingType, bindingName
+}
+
+func getNetworkName(ifaceName string, networks []k6tv1.Network) (string, bool) {
+	if net := LookupNetworkByName(networks, ifaceName); net != nil {
+		if net.Pod != nil {
+			return "pod networking", true
+		} else if net.Multus != nil {
+			return net.Multus.NetworkName, true
+		}
+	}
+	return "", false
+}
+
+func LookupNetworkByName(networks []k6tv1.Network, name string) *k6tv1.Network {
+	for _, net := range networks {
+		if net.Name == name {
+			return &net
+		}
+	}
+	return nil
 }

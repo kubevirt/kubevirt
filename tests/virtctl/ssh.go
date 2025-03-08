@@ -58,7 +58,7 @@ var _ = VirtctlDescribe("[sig-compute]SSH", decorators.SigCompute, func() {
 			"--identity-file", keyFile,
 			"--known-hosts=",
 			"--command", "true",
-			vmiName,
+			"vmi/"+vmiName,
 		)()).To(Succeed())
 	}
 
@@ -76,7 +76,7 @@ var _ = VirtctlDescribe("[sig-compute]SSH", decorators.SigCompute, func() {
 			if appendLocalSSH {
 				args = append(args, "--local-ssh=true")
 			}
-			args = append(args, vmiName)
+			args = append(args, "vmi/"+vmiName)
 
 			// The virtctl binary needs to run here because of the way local SSH client wrapping works.
 			// Running the command through newRepeatableVirtctlCommand does not suffice.
@@ -112,9 +112,9 @@ var _ = VirtctlDescribe("[sig-compute]SSH", decorators.SigCompute, func() {
 		By("ssh into the VM")
 		cmdFn(vmi.Name)
 	},
-		Entry("using the native ssh method", decorators.NativeSSH, cmdNative),
-		Entry("using the local ssh method with --local-ssh flag", decorators.NativeSSH, cmdLocal(true)),
-		Entry("using the local ssh method without --local-ssh flag", decorators.ExcludeNativeSSH, cmdLocal(false)),
+		Entry("using the local ssh method", cmdLocal(false)),
+		Entry("using the local ssh method with --local-ssh=true flag", decorators.NativeSSH, cmdLocal(true)),
+		Entry("using the native ssh method with --local-ssh=false flag", decorators.NativeSSH, cmdNative),
 	)
 
 	It("[test_id:11666]local-ssh flag should be unavailable in virtctl", decorators.ExcludeNativeSSH, func() {

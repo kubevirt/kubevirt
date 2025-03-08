@@ -11851,7 +11851,11 @@
    },
    "k8s.io.apimachinery.pkg.api.resource.Quantity": {
     "description": "Quantity is a fixed-point representation of a number. It provides convenient marshaling/unmarshaling in JSON and YAML, in addition to String() and AsInt64() accessors.\n\nThe serialization format is:\n\n``` \u003cquantity\u003e        ::= \u003csignedNumber\u003e\u003csuffix\u003e\n\n\t(Note that \u003csuffix\u003e may be empty, from the \"\" case in \u003cdecimalSI\u003e.)\n\n\u003cdigit\u003e           ::= 0 | 1 | ... | 9 \u003cdigits\u003e          ::= \u003cdigit\u003e | \u003cdigit\u003e\u003cdigits\u003e \u003cnumber\u003e          ::= \u003cdigits\u003e | \u003cdigits\u003e.\u003cdigits\u003e | \u003cdigits\u003e. | .\u003cdigits\u003e \u003csign\u003e            ::= \"+\" | \"-\" \u003csignedNumber\u003e    ::= \u003cnumber\u003e | \u003csign\u003e\u003cnumber\u003e \u003csuffix\u003e          ::= \u003cbinarySI\u003e | \u003cdecimalExponent\u003e | \u003cdecimalSI\u003e \u003cbinarySI\u003e        ::= Ki | Mi | Gi | Ti | Pi | Ei\n\n\t(International System of units; See: http://physics.nist.gov/cuu/Units/binary.html)\n\n\u003cdecimalSI\u003e       ::= m | \"\" | k | M | G | T | P | E\n\n\t(Note that 1024 = 1Ki but 1000 = 1k; I didn't choose the capitalization.)\n\n\u003cdecimalExponent\u003e ::= \"e\" \u003csignedNumber\u003e | \"E\" \u003csignedNumber\u003e ```\n\nNo matter which of the three exponent forms is used, no quantity may represent a number greater than 2^63-1 in magnitude, nor may it have more than 3 decimal places. Numbers larger or more precise will be capped or rounded up. (E.g.: 0.1m will rounded up to 1m.) This may be extended in the future if we require larger or smaller quantities.\n\nWhen a Quantity is parsed from a string, it will remember the type of suffix it had, and will use the same type again when it is serialized.\n\nBefore serializing, Quantity will be put in \"canonical form\". This means that Exponent/suffix will be adjusted up or down (with a corresponding increase or decrease in Mantissa) such that:\n\n- No precision is lost - No fractional digits will be emitted - The exponent (or suffix) is as large as possible.\n\nThe sign will be omitted unless the number is negative.\n\nExamples:\n\n- 1.5 will be serialized as \"1500m\" - 1.5Gi will be serialized as \"1536Mi\"\n\nNote that the quantity will NEVER be internally represented by a floating point number. That is the whole point of this exercise.\n\nNon-canonical values will still parse as long as they are well formed, but will be re-emitted in their canonical form. (So always use canonical form, or don't diff.)\n\nThis format is intended to make it difficult to use these numbers without writing some sort of special handling code in the hopes that that will cause implementors to also use a fixed point implementation.",
-    "type": "string"
+    "type": [
+     "string",
+     "integer",
+     "number"
+    ]
    },
    "k8s.io.apimachinery.pkg.apis.meta.v1.APIGroup": {
     "description": "APIGroup contains the name, the supported versions, and the preferred version of a group.",
@@ -13010,6 +13014,15 @@
      }
     }
    },
+   "v1.ControllerRevisionRef": {
+    "type": "object",
+    "properties": {
+     "name": {
+      "description": "Name of the ControllerRevision",
+      "type": "string"
+     }
+    }
+   },
    "v1.CustomBlockSize": {
     "description": "CustomBlockSize represents the desired logical and physical block size for a VM disk.",
     "type": "object",
@@ -13202,6 +13215,10 @@
     "description": "DeveloperConfiguration holds developer options",
     "type": "object",
     "properties": {
+     "clusterProfiler": {
+      "description": "Enable the ability to pprof profile KubeVirt control plane",
+      "type": "boolean"
+     },
      "cpuAllocationRatio": {
       "description": "For each requested virtual CPU, CPUAllocationRatio defines how much physical CPU to request per VMI from the hosting node. The value is in fraction of a CPU thread (or core on non-hyperthreaded nodes). For example, a value of 1 means 1 physical CPU thread per VMI CPU thread. A value of 100 would be 1% of a physical thread allocated for each requested VMI thread. This option has no effect on VMIs that request dedicated CPUs. More information at: https://kubevirt.io/user-guide/operations/node_overcommit/#node-cpu-allocation-ratio Defaults to 10",
       "type": "integer",
@@ -14150,6 +14167,31 @@
      }
     }
    },
+   "v1.InstancetypeStatusRef": {
+    "type": "object",
+    "properties": {
+     "controllerRevisionRef": {
+      "description": "ControllerRef specifies the ControllerRevision storing a copy of the object captured when it is first seen by the VirtualMachine controller",
+      "$ref": "#/definitions/v1.ControllerRevisionRef"
+     },
+     "inferFromVolume": {
+      "description": "InferFromVolume lists the name of a volume that should be used to infer or discover the resource",
+      "type": "string"
+     },
+     "inferFromVolumeFailurePolicy": {
+      "description": "InferFromVolumeFailurePolicy controls what should happen on failure when inferring the resource",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind specifies the kind of resource",
+      "type": "string"
+     },
+     "name": {
+      "description": "Name is the name of resource",
+      "type": "string"
+     }
+    }
+   },
    "v1.Interface": {
     "type": "object",
     "required": [
@@ -14221,7 +14263,7 @@
       "$ref": "#/definitions/v1.InterfaceSRIOV"
      },
      "state": {
-      "description": "State represents the requested operational state of the interface. The (only) value supported is `absent`, expressing a request to remove the interface.",
+      "description": "State represents the requested operational state of the interface. The supported values are: `absent`, expressing a request to remove the interface. `down`, expressing a request to set the link down. `up`, expressing a request to set the link up. Empty value functions as `up`.",
       "type": "string"
      },
      "tag": {
@@ -14597,7 +14639,7 @@
       "type": "string"
      },
      "vmStateStorageClass": {
-      "description": "VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM. The storage class must support RWX in filesystem mode.",
+      "description": "VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.",
       "type": "string"
      },
      "webhookConfiguration": {
@@ -15032,6 +15074,14 @@
     "description": "MigrateOptions may be provided on migrate request.",
     "type": "object",
     "properties": {
+     "addedNodeSelector": {
+      "description": "AddedNodeSelector is an additional selector that can be used to complement a NodeSelector or NodeAffinity as set on the VM to restrict the set of allowed target nodes for a migration. In case of key collisions, values set on the VM objects are going to be preserved to ensure that addedNodeSelector can only restrict but not bypass constraints already set on the VM object.",
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
      "apiVersion": {
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
       "type": "string"
@@ -15645,7 +15695,10 @@
     "properties": {
      "limits": {
       "description": "Limits describes the maximum amount of compute resources allowed. Valid resource keys are \"memory\" and \"cpu\".",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": {
+       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      }
      },
      "overcommitGuestOverhead": {
       "description": "Don't ask the scheduler to take the guest-management overhead into account. Instead put the overhead only into the container's memory limit. This can lead to crashes if all memory is in use on a node. Defaults to false.",
@@ -15653,7 +15706,10 @@
      },
      "requests": {
       "description": "Requests is a description of the initial vmi resources. Valid resource keys are \"memory\" and \"cpu\".",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": {
+       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+      }
      }
     }
    },
@@ -16800,6 +16856,14 @@
    "v1.VirtualMachineInstanceMigrationSpec": {
     "type": "object",
     "properties": {
+     "addedNodeSelector": {
+      "description": "AddedNodeSelector is an additional selector that can be used to complement a NodeSelector or NodeAffinity as set on the VM to restrict the set of allowed target nodes for a migration. In case of key collisions, values set on the VM objects are going to be preserved to ensure that addedNodeSelector can only restrict but not bypass constraints already set on the VM object.",
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
      "vmiName": {
       "description": "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",
       "type": "string"
@@ -17279,7 +17343,7 @@
       "type": "string"
      },
      "hostname": {
-      "description": "Specifies the hostname of the vmi If not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.",
+      "description": "More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes Specifies the hostname of the vmi If not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.",
       "type": "string"
      },
      "livenessProbe": {
@@ -17317,6 +17381,10 @@
      "startStrategy": {
       "description": "StartStrategy can be set to \"Paused\" if Virtual Machine should be started in paused state.",
       "type": "string"
+     },
+     "startupProbe": {
+      "description": "StartupProbe indicates that the VirtualMachineInstance(VMI) has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to lad data or warm a cache, than during steady-state operation. This cannot be updated.",
+      "$ref": "#/definitions/v1.Probe"
      },
      "subdomain": {
       "description": "If specified, the fully qualified vmi hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi, no matter if the vmi itself can pick up a hostname.",
@@ -17705,6 +17773,10 @@
       "type": "integer",
       "format": "int64"
      },
+     "instancetypeRef": {
+      "description": "InstancetypeRef captures the state of any referenced instance type from the VirtualMachine",
+      "$ref": "#/definitions/v1.InstancetypeStatusRef"
+     },
      "memoryDumpRequest": {
       "description": "MemoryDumpRequest tracks memory dump request phase and info of getting a memory dump to the given pvc",
       "$ref": "#/definitions/v1.VirtualMachineMemoryDumpRequest"
@@ -17713,6 +17785,10 @@
       "description": "ObservedGeneration is the generation observed by the vmi when started.",
       "type": "integer",
       "format": "int64"
+     },
+     "preferenceRef": {
+      "description": "PreferenceRef captures the state of any referenced preference from the VirtualMachine",
+      "$ref": "#/definitions/v1.InstancetypeStatusRef"
      },
      "printableStatus": {
       "description": "PrintableStatus is a human readable, high-level representation of the status of the virtual machine",
@@ -18173,6 +18249,17 @@
      }
     }
    },
+   "v1alpha1.VirtualMachinePoolNameGeneration": {
+    "type": "object",
+    "properties": {
+     "appendIndexToConfigMapRefs": {
+      "type": "boolean"
+     },
+     "appendIndexToSecretRefs": {
+      "type": "boolean"
+     }
+    }
+   },
    "v1alpha1.VirtualMachinePoolSpec": {
     "type": "object",
     "required": [
@@ -18180,6 +18267,10 @@
      "virtualMachineTemplate"
     ],
     "properties": {
+     "nameGeneration": {
+      "description": "Options for the name generation in a pool.",
+      "$ref": "#/definitions/v1alpha1.VirtualMachinePoolNameGeneration"
+     },
      "paused": {
       "description": "Indicates that the pool is paused.",
       "type": "boolean"

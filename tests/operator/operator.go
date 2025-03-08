@@ -32,6 +32,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -91,7 +92,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
-	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
@@ -100,7 +100,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/operator/resourcefiles"
 	"kubevirt.io/kubevirt/tests/testsuite"
-	util2 "kubevirt.io/kubevirt/tests/util"
 )
 
 type vmSnapshotDef struct {
@@ -137,15 +136,10 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	var aggregatorClient *aggregatorclient.Clientset
 	var k8sClient string
 
-	var (
-		generateMigratableVMIs func(int) []*v1.VirtualMachineInstance
-		verifyVMIsUpdated      func([]*v1.VirtualMachineInstance)
-	)
-
 	deprecatedBeforeAll(func() {
 		virtClient = kubevirt.Client()
 		config, err := kubecli.GetKubevirtClientConfig()
-		util2.PanicOnError(err)
+		Expect(err).ToNot(HaveOccurred())
 		aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 		k8sClient = clientcmd.GetK8sCmdClient()
@@ -166,138 +160,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			const prefix = ":"
 			Expect(strings.HasPrefix(version, ":")).To(BeTrue(), fmt.Sprintf(errFmt, version, prefix))
 			originalOperatorVersion = strings.TrimPrefix(version, prefix)
-		}
-
-		generateMigratableVMIs = func(num int) []*v1.VirtualMachineInstance {
-			vmis := []*v1.VirtualMachineInstance{}
-			for i := 0; i < num; i++ {
-				configMapName := "configmap-" + rand.String(5)
-				secretName := "secret-" + rand.String(5)
-				downwardAPIName := "downwardapi-" + rand.String(5)
-
-				config_data := map[string]string{
-					"config1": "value1",
-					"config2": "value2",
-				}
-				cm := libconfigmap.New(configMapName, config_data)
-				cm, err = virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				secret := libsecret.New(secretName, libsecret.DataString{"user": "admin", "password": "community"})
-				secret, err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
-				if !errors.IsAlreadyExists(err) {
-					Expect(err).ToNot(HaveOccurred())
-				}
-
-				vmi := libvmifact.NewCirros(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithConfigMapDisk(configMapName, configMapName),
-					libvmi.WithSecretDisk(secretName, secretName),
-					libvmi.WithServiceAccountDisk("default"),
-					libvmi.WithDownwardAPIDisk(downwardAPIName),
-					libvmi.WithWatchdog(v1.WatchdogActionPoweroff),
-				)
-				// In case there are no existing labels add labels to add some data to the downwardAPI disk
-				if vmi.ObjectMeta.Labels == nil {
-					vmi.ObjectMeta.Labels = map[string]string{"downwardTestLabelKey": "downwardTestLabelVal"}
-				}
-
-				vmis = append(vmis, vmi)
-			}
-
-			lastVMIIndex := len(vmis) - 1
-			vmi := vmis[lastVMIIndex]
-			const nadName = "secondarynet"
-
-			Expect(libnet.CreateNAD(testsuite.GetTestNamespace(vmi), nadName)).To(Succeed())
-
-			const networkName = "tenant-blue"
-			vmi.Spec.Domain.Devices.Interfaces = append(
-				vmi.Spec.Domain.Devices.Interfaces,
-				v1.Interface{
-					Name:                   networkName,
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
-				},
-			)
-			vmi.Spec.Networks = append(
-				vmi.Spec.Networks,
-				v1.Network{
-					Name: networkName,
-					NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{
-						NetworkName: nadName,
-					}},
-				},
-			)
-
-			return vmis
-		}
-
-		verifyVMIsUpdated = func(vmis []*v1.VirtualMachineInstance) {
-
-			Eventually(func() error {
-				for _, vmi := range vmis {
-					foundVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
-
-					if foundVMI.Status.MigrationState == nil {
-						return fmt.Errorf("waiting for vmi %s/%s to migrate as part of update", foundVMI.Namespace, foundVMI.Name)
-					} else if !foundVMI.Status.MigrationState.Completed {
-
-						var startTime time.Time
-						var endTime time.Time
-						now := time.Now()
-
-						if foundVMI.Status.MigrationState.StartTimestamp != nil {
-							startTime = foundVMI.Status.MigrationState.StartTimestamp.Time
-						}
-						if foundVMI.Status.MigrationState.EndTimestamp != nil {
-							endTime = foundVMI.Status.MigrationState.EndTimestamp.Time
-						}
-
-						return fmt.Errorf("waiting for migration %s to complete for vmi %s/%s. Source Node [%s], Target Node [%s], Start Time [%s], End Time [%s], Now [%s], Failed: %t",
-							string(foundVMI.Status.MigrationState.MigrationUID),
-							foundVMI.Namespace,
-							foundVMI.Name,
-							foundVMI.Status.MigrationState.SourceNode,
-							foundVMI.Status.MigrationState.TargetNode,
-							startTime.String(),
-							endTime.String(),
-							now.String(),
-							foundVMI.Status.MigrationState.Failed,
-						)
-					}
-
-					_, hasOutdatedLabel := foundVMI.Labels[v1.OutdatedLauncherImageLabel]
-					if hasOutdatedLabel {
-						return fmt.Errorf("waiting for vmi %s/%s to have update launcher image in status", foundVMI.Namespace, foundVMI.Name)
-					}
-				}
-				return nil
-			}, 500, 1).Should(Succeed(), "All VMIs should update via live migration")
-
-			// this is put in an eventually loop because it's possible for the VMI to complete
-			// migrating and for the migration object to briefly lag behind in reporting
-			// the results
-			Eventually(func(g Gomega) error {
-				By("Verifying only a single successful migration took place for each vmi")
-				migrationList, err := kubevirt.Client().VirtualMachineInstanceMigration(testsuite.GetTestNamespace(nil)).List(context.Background(), metav1.ListOptions{})
-				g.Expect(err).ToNot(HaveOccurred(), "retrieving migrations")
-				for _, vmi := range vmis {
-					count := 0
-					for _, migration := range migrationList.Items {
-						if migration.Spec.VMIName == vmi.Name && migration.Status.Phase == v1.MigrationSucceeded {
-							count++
-						}
-					}
-					if count != 1 {
-						return fmt.Errorf("vmi [%s] returned %d successful migrations", vmi.Name, count)
-					}
-				}
-				return nil
-			}, 10, 1).Should(Succeed(), "Expects only a single successful migration per workload update")
 		}
 	})
 
@@ -323,7 +185,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		}
 
 		By("Waiting for original KV to stabilize")
-		waitForKvWithTimeout(originalKv, 420)
+		testsuite.EnsureKubevirtReadyWithTimeout(originalKv, 420*time.Second)
 		allKvInfraPodsAreReady(originalKv)
 
 		// make sure virt deployments use shasums again after each test
@@ -340,7 +202,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		kv := libkubevirt.GetCurrentKv(virtClient)
 
 		By("verifying that created and available condition is present")
-		waitForKv(kv)
+		testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 	})
 
 	Describe("should reconcile components", Serial, func() {
@@ -413,13 +275,9 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					vc, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.Background(), deploymentName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					for _, env := range vc.Spec.Template.Spec.Containers[0].Env {
-						if env.Name == envVarDeploymentKeyToUpdate {
-							return false
-						}
-					}
-
-					return true
+					return !slices.ContainsFunc(vc.Spec.Template.Spec.Containers[0].Env, func(env k8sv1.EnvVar) bool {
+						return env.Name == envVarDeploymentKeyToUpdate
+					})
 				}),
 
 			Entry("[test_id:6255] customresourcedefinitions",
@@ -445,13 +303,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					vmcrd, err := virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), crdName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					for _, sn := range vmcrd.Spec.Names.ShortNames {
-						if sn == shortNameAdded {
-							return false
-						}
-					}
-
-					return true
+					return !slices.Contains(vmcrd.Spec.Names.ShortNames, shortNameAdded)
 				}),
 			Entry("[test_id:6256] poddisruptionbudgets", decorators.MultiReplica,
 				func() {
@@ -516,13 +368,9 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					vc, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), daemonSetName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					for _, env := range vc.Spec.Template.Spec.Containers[0].Env {
-						if env.Name == envVarDeploymentKeyToUpdate {
-							return false
-						}
-					}
-
-					return true
+					return !slices.ContainsFunc(vc.Spec.Template.Spec.Containers[0].Env, func(env k8sv1.EnvVar) bool {
+						return env.Name == envVarDeploymentKeyToUpdate
+					})
 				}),
 		)
 
@@ -539,12 +387,12 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(service.Spec.Ports[0].Port).To(Equal(int32(123)))
 
 			By("Test that the port is revered to the original")
-			Eventually(func() bool {
+			Eventually(func() int32 {
 				service, err := virtClient.CoreV1().Services(originalKv.Namespace).Get(context.Background(), "virt-api", metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				return service.Spec.Ports[0].Port == originalPort
-			}, 120*time.Second, 5*time.Second).Should(BeTrue(), "waiting for service to revert to original state")
+				return service.Spec.Ports[0].Port
+			}).WithTimeout(120*time.Second).WithPolling(5*time.Second).Should(Equal(originalPort), "waiting for service to revert to original state")
 
 			By("Test that the revert of the service stays consistent")
 			Consistently(func() int32 {
@@ -552,7 +400,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				Expect(err).ToNot(HaveOccurred())
 
 				return service.Spec.Ports[0].Port
-			}, 20*time.Second, 5*time.Second).Should(Equal(originalPort))
+			}).WithTimeout(20 * time.Second).WithPolling(5 * time.Second).Should(Equal(originalPort))
 		})
 	})
 
@@ -571,7 +419,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			By("getting virt-launcher")
 			uid := vmi.GetObjectMeta().GetUID()
-			labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
+			labelSelector := fmt.Sprintf("%s=%v", v1.CreatedByLabel, uid)
 			pods, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(vmi)).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 			Expect(err).ToNot(HaveOccurred(), "Should list pods")
 			Expect(pods.Items).To(HaveLen(1))
@@ -597,7 +445,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
-			waitForKvWithTimeout(kv, 120)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 120*time.Second)
 
 			By("Test that worker nodes have the correct allocatable kvm devices according to virtualMachineInstancesPerNode setting")
 			Eventually(func() error {
@@ -620,20 +468,19 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
-			waitForKvWithTimeout(kv, 120)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 120*time.Second)
 
 			By("Check that worker nodes resumed the default amount of allocatable kvm devices")
-			defaultKvmDevices := "1k"
-			Eventually(func() error {
+			const defaultKvmDevices = "1k"
+			defaultKvmDevicesQuant := resource.MustParse(defaultKvmDevices)
+			kvmDeviceKey := k8sv1.ResourceName(services.KvmDevice)
+
+			Eventually(func(g Gomega) {
 				nodesWithKvm := libnode.GetNodesWithKVM()
 				for _, node := range nodesWithKvm {
-					kvmDevices, _ := node.Status.Allocatable[services.KvmDevice]
-					if kvmDevices != resource.MustParse(defaultKvmDevices) {
-						return fmt.Errorf("node %s does not have the expected allocatable kvm devices: %s, got: %d", node.Name, defaultKvmDevices, kvmDevices.Value())
-					}
+					g.Expect(node.Status.Allocatable).To(HaveKeyWithValue(kvmDeviceKey, defaultKvmDevicesQuant), "node %s does not have the expected allocatable kvm devices", node.Name)
 				}
-				return nil
-			}, 60*time.Second, 5*time.Second).ShouldNot(HaveOccurred())
+			}).WithTimeout(60 * time.Second).WithPolling(5 * time.Second).Should(Succeed())
 		})
 	})
 
@@ -676,7 +523,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(vc.Spec.Template.ObjectMeta.Annotations[annotationPatchKey]).To(Equal(annotationPatchValue))
 
 			By("Waiting for virt-operator to apply changes to component")
-			waitForKvWithTimeout(kv, 120)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 120*time.Second)
 
 			By("Check that KubeVirt CR generation does not get updated when applying patch")
 			kv, err = virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
@@ -705,7 +552,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(vc.Spec.Template.ObjectMeta.Annotations[annotationPatchKey]).To(BeEmpty())
 
 			By("Waiting for virt-operator to apply changes to component")
-			waitForKvWithTimeout(kv, 120)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 120*time.Second)
 		})
 	})
 
@@ -794,7 +641,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
-			waitForKv(kv)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 
 			By("Ensuring that all virt components have expected image pull secrets")
 			checkVirtComponents(imagePullSecrets)
@@ -816,7 +663,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Waiting for virt-operator to apply changes to component")
-			waitForKv(kv)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 
 			By("Ensuring that all virt components have empty image pull secrets")
 			checkVirtComponents(nil)
@@ -834,7 +681,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		// Ensuring VM/VMI is still operational after the update from previous release.
 		DescribeTable("[release-blocker][test_id:3145]from previous release to target tested release", func(updateOperator bool) {
 			if !libstorage.HasCDI() {
-				Skip("Skip update test when CDI is not present")
+				Fail("Fail update test when CDI is not present")
 			}
 
 			if updateOperator && flags.OperatorManifestPath == "" {
@@ -849,7 +696,8 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			var migratableVMIs []*v1.VirtualMachineInstance
 			if createVMs {
-				migratableVMIs = generateMigratableVMIs(2)
+				migratableVMIs, err = generateMigratableVMIs(2)
+				Expect(err).NotTo(HaveOccurred())
 			}
 			if !flags.SkipShasumCheck {
 				launcherSha, err := getVirtLauncherSha(originalKv.Status.ObservedDeploymentConfig)
@@ -925,7 +773,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			// wait 7 minutes because this test involves pulling containers
 			// over the internet related to the latest kubevirt release
 			By("Waiting for KV to stabilize")
-			waitForKvWithTimeout(kv, 420)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 420*time.Second)
 
 			By("Verifying infrastructure is Ready")
 			allKvInfraPodsAreReady(kv)
@@ -1010,7 +858,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			waitForUpdateCondition(kv)
 
 			By("Waiting for KV to stabilize")
-			waitForKvWithTimeout(kv, 420)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 420*time.Second)
 
 			By("Verifying infrastructure Is Updated")
 			allKvInfraPodsAreReady(kv)
@@ -1153,7 +1001,8 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			By("Starting some vmis")
 			var vmis []*v1.VirtualMachineInstance
 			if checks.HasAtLeastTwoNodes() {
-				vmis = generateMigratableVMIs(2)
+				vmis, err = generateMigratableVMIs(2)
+				Expect(err).ToNot(HaveOccurred())
 				vmis = createRunningVMIs(vmis)
 			}
 
@@ -1181,7 +1030,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			createKv(copyOriginalKv(originalKv))
 
 			By("Creating KubeVirt Object Created and Ready Condition")
-			waitForKv(originalKv)
+			testsuite.EnsureKubevirtReadyWithTimeout(originalKv, 300*time.Second)
 
 			By("Verifying infrastructure is Ready")
 			allKvInfraPodsAreReady(originalKv)
@@ -1258,7 +1107,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			createKv(kv)
 
 			By("Creating KubeVirt Object Created and Ready Condition")
-			waitForKv(kv)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 
 			By("Verifying infrastructure is Ready")
 			allKvInfraPodsAreReady(kv)
@@ -1293,7 +1142,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			waitForUpdateCondition(kv)
 
 			By("Waiting for KV to stabilize")
-			waitForKv(kv)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 
 			By("Verifying infrastructure Is Updated")
 			allKvInfraPodsAreReady(kv)
@@ -1334,7 +1183,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			waitForUpdateCondition(kv)
 
 			By("Waiting for KV to stabilize")
-			waitForKv(kv)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 
 			By("Verifying infrastructure Is Restored to original version")
 			allKvInfraPodsAreReady(kv)
@@ -1347,7 +1196,8 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			var vmis []*v1.VirtualMachineInstance
 			if checks.HasAtLeastTwoNodes() {
-				vmis = generateMigratableVMIs(2)
+				vmis, err = generateMigratableVMIs(2)
+				Expect(err).NotTo(HaveOccurred())
 			}
 			vmisNonMigratable := []*v1.VirtualMachineInstance{libvmifact.NewCirros(), libvmifact.NewCirros()}
 
@@ -1373,7 +1223,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			createKv(kv)
 
 			By("Creating KubeVirt Object Created and Ready Condition")
-			waitForKv(kv)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 
 			By("Verifying infrastructure is Ready")
 			allKvInfraPodsAreReady(kv)
@@ -1393,7 +1243,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			waitForUpdateCondition(kv)
 
 			By("Waiting for KV to stabilize")
-			waitForKv(kv)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 
 			By("Verifying infrastructure Is Updated")
 			allKvInfraPodsAreReady(kv)
@@ -1434,7 +1284,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			waitForUpdateCondition(kv)
 
 			By("Waiting for KV to stabilize")
-			waitForKv(kv)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 
 			By("Verifying infrastructure Is Updated")
 			allKvInfraPodsAreReady(kv)
@@ -1447,7 +1297,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			waitForUpdateCondition(kv)
 
 			By("Waiting for KV to stabilize")
-			waitForKv(kv)
+			testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 
 			By("Verifying infrastructure Is Restored to original version")
 			allKvInfraPodsAreReady(kv)
@@ -1605,27 +1455,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					Equal("kubevirt-controller"), "Should virt-launcher be assigned to kubevirt-controller SCC",
 				)
 			})
-		})
-	})
-
-	Describe("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]Dynamic feature detection", func() {
-
-		var vm *v1.VirtualMachine
-
-		AfterEach(func() {
-
-			if vm != nil {
-				_, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				if err != nil && !errors.IsNotFound(err) {
-					Expect(err).ToNot(HaveOccurred())
-				}
-
-				if vm != nil && vm.DeletionTimestamp == nil {
-					err = virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
-					Expect(err).ToNot(HaveOccurred())
-				}
-				vm = nil
-			}
 		})
 	})
 
@@ -1873,10 +1702,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			}
 
 			labelReq, err := labels.NewRequirement("app.kubernetes.io/component", selection.In, []string{productComponent})
-
-			if err != nil {
-				panic(err)
-			}
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Looking for pods with " + productComponent + " component")
 
@@ -2813,56 +2639,6 @@ func waitForUpdateCondition(kv *v1.KubeVirt) {
 	)
 }
 
-func waitForKvWithTimeout(newKv *v1.KubeVirt, timeoutSeconds int) {
-	Eventually(func() error {
-		kv, err := kubevirt.Client().KubeVirt(newKv.Namespace).Get(context.Background(), newKv.Name, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-
-		if kv.Status.Phase != v1.KubeVirtPhaseDeployed {
-			return fmt.Errorf("waiting for phase to be deployed (current phase: %+v)", kv.Status.Phase)
-		}
-
-		available := false
-		progressing := true
-		degraded := true
-		created := false
-		for _, condition := range kv.Status.Conditions {
-			if condition.Type == v1.KubeVirtConditionAvailable && condition.Status == k8sv1.ConditionTrue {
-				available = true
-			} else if condition.Type == v1.KubeVirtConditionProgressing && condition.Status == k8sv1.ConditionFalse {
-				progressing = false
-			} else if condition.Type == v1.KubeVirtConditionDegraded && condition.Status == k8sv1.ConditionFalse {
-				degraded = false
-			} else if condition.Type == v1.KubeVirtConditionCreated && condition.Status == k8sv1.ConditionTrue {
-				created = true
-			}
-		}
-
-		if !available || progressing || degraded || !created {
-			if kv.Status.ObservedGeneration != nil {
-				if *kv.Status.ObservedGeneration == kv.ObjectMeta.Generation {
-					return fmt.Errorf("observed generation must not match the current configuration")
-				}
-			}
-			return fmt.Errorf("waiting for conditions to indicate deployment (conditions: %+v)", kv.Status.Conditions)
-		}
-
-		if kv.Status.ObservedGeneration != nil {
-			if *kv.Status.ObservedGeneration != kv.ObjectMeta.Generation {
-				return fmt.Errorf("the observed generation must match the current generation")
-			}
-		}
-
-		return nil
-	}).WithTimeout(time.Duration(timeoutSeconds) * time.Second).WithPolling(1 * time.Second).Should(Succeed())
-}
-
-func waitForKv(newKv *v1.KubeVirt) {
-	waitForKvWithTimeout(newKv, 300)
-}
-
 func patchKV(name string, patches *patch.PatchSet) {
 	data, err := patches.GeneratePayload()
 	Expect(err).ToNot(HaveOccurred())
@@ -3254,4 +3030,107 @@ func verifyVMIsEvicted(vmis []*v1.VirtualMachineInstance) {
 		return nil
 	}, 320, 1).Should(Succeed(), "All VMIs should delete automatically")
 
+}
+
+func generateMigratableVMIs(num int) ([]*v1.VirtualMachineInstance, error) {
+	virtClient := kubevirt.Client()
+
+	var vmis []*v1.VirtualMachineInstance
+	for range num {
+		configMapName := "configmap-" + rand.String(5)
+		secretName := "secret-" + rand.String(5)
+		downwardAPIName := "downwardapi-" + rand.String(5)
+
+		configData := map[string]string{
+			"config1": "value1",
+			"config2": "value2",
+		}
+
+		var err error
+		cm := libconfigmap.New(configMapName, configData)
+		cm, err = virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		secret := libsecret.New(secretName, libsecret.DataString{"user": "admin", "password": "community"})
+		secret, err = kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return nil, err
+		}
+
+		vmi := libvmifact.NewCirros(
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithConfigMapDisk(configMapName, configMapName),
+			libvmi.WithSecretDisk(secretName, secretName),
+			libvmi.WithServiceAccountDisk("default"),
+			libvmi.WithDownwardAPIDisk(downwardAPIName),
+			libvmi.WithWatchdog(v1.WatchdogActionPoweroff),
+		)
+		// In case there are no existing labels add labels to add some data to the downwardAPI disk
+		if vmi.ObjectMeta.Labels == nil {
+			vmi.ObjectMeta.Labels = map[string]string{"downwardTestLabelKey": "downwardTestLabelVal"}
+		}
+
+		vmis = append(vmis, vmi)
+	}
+
+	return vmis, nil
+}
+
+func verifyVMIsUpdated(vmis []*v1.VirtualMachineInstance) {
+	Eventually(func(g Gomega) {
+		for _, vmi := range vmis {
+			foundVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			g.Expect(err).NotTo(HaveOccurred())
+
+			g.Expect(foundVMI.Status.MigrationState).ToNot(BeNil(), "waiting for vmi %s/%s to migrate as part of update", foundVMI.Namespace, foundVMI.Name)
+			g.Expect(foundVMI.Status.MigrationState.Completed).To(BeTrue(), func() string {
+				var startTime time.Time
+				var endTime time.Time
+				now := time.Now()
+
+				if foundVMI.Status.MigrationState.StartTimestamp != nil {
+					startTime = foundVMI.Status.MigrationState.StartTimestamp.Time
+				}
+				if foundVMI.Status.MigrationState.EndTimestamp != nil {
+					endTime = foundVMI.Status.MigrationState.EndTimestamp.Time
+				}
+
+				return fmt.Sprintf("waiting for migration %s to complete for vmi %s/%s. Source Node [%s], Target Node [%s], Start Time [%s], End Time [%s], Now [%s], Failed: %t",
+					string(foundVMI.Status.MigrationState.MigrationUID),
+					foundVMI.Namespace,
+					foundVMI.Name,
+					foundVMI.Status.MigrationState.SourceNode,
+					foundVMI.Status.MigrationState.TargetNode,
+					startTime.String(),
+					endTime.String(),
+					now.String(),
+					foundVMI.Status.MigrationState.Failed,
+				)
+			})
+
+			g.Expect(foundVMI.Labels).ToNot(HaveKey(v1.OutdatedLauncherImageLabel),
+				"waiting for vmi %s/%s to have update launcher image in status", foundVMI.Namespace, foundVMI.Name)
+		}
+	}).WithTimeout(500*time.Second).WithPolling(time.Second).Should(Succeed(), "All VMIs should update via live migration")
+
+	// this is put in an eventually loop because it's possible for the VMI to complete
+	// migrating and for the migration object to briefly lag behind in reporting
+	// the results
+	Eventually(func(g Gomega) {
+		By("Verifying only a single successful migration took place for each vmi")
+		migrationList, err := kubevirt.Client().VirtualMachineInstanceMigration(testsuite.GetTestNamespace(nil)).List(context.Background(), metav1.ListOptions{})
+		g.Expect(err).ToNot(HaveOccurred(), "retrieving migrations")
+		for _, vmi := range vmis {
+			count := 0
+			for _, migration := range migrationList.Items {
+				if migration.Spec.VMIName == vmi.Name && migration.Status.Phase == v1.MigrationSucceeded {
+					count++
+				}
+			}
+			g.Expect(count).To(Equal(1), "vmi [%s] returned %d successful migrations", vmi.Name, count)
+		}
+	}).WithTimeout(10*time.Second).WithPolling(time.Second).Should(Succeed(), "Expects only a single successful migration per workload update")
 }

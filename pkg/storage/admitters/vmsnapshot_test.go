@@ -119,7 +119,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.apiGroup"))
 		})
 
-		It("should reject when VM does not exist", func() {
+		It("should allow when VM does not exist", func() {
 			snapshot := &snapshotv1.VirtualMachineSnapshot{
 				Spec: snapshotv1.VirtualMachineSnapshotSpec{
 					Source: corev1.TypedLocalObjectReference{
@@ -132,9 +132,7 @@ var _ = Describe("Validating VirtualMachineSnapshot Admitter", func() {
 
 			ar := createSnapshotAdmissionReview(snapshot)
 			resp := createTestVMSnapshotAdmitter(config, nil).Admit(context.Background(), ar)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source.name"))
+			Expect(resp.Allowed).To(BeTrue())
 		})
 
 		It("should reject spec update", func() {

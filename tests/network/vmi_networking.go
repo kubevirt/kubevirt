@@ -46,7 +46,6 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -92,11 +91,7 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 			})
 
 			DescribeTable("should be able to reach", func(vmiRef **v1.VirtualMachineInstance) {
-				vmi := *vmiRef
-				if vmiHasCustomMacAddress(vmi) {
-					checks.SkipIfOpenShift("Custom MAC addresses on pod networks are not supported")
-				}
-				vmi = runVMI(vmi)
+				vmi := runVMI(*vmiRef)
 				addr := vmi.Status.Interfaces[0].IP
 
 				payloadSize := 0

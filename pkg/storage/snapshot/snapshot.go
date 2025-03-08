@@ -234,7 +234,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 		}
 	}
 
-	vmSnapshot, err = ctrl.updateSnapshotStatus(vmSnapshot)
+	vmSnapshot, err = ctrl.updateSnapshotStatus(vmSnapshot, source)
 	if err != nil {
 		return 0, err
 	}
@@ -408,28 +408,20 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 					return 0, fmt.Errorf("unable to get snapshot source")
 				}
 
-				frozen, err := source.Frozen()
-				if err != nil {
-					return 0, err
-				}
-
-				if !frozen {
-					err := source.Freeze()
-					if err != nil {
-						contentCpy.Status.Error = &snapshotv1.Error{
-							Time:    currentTime(),
-							Message: pointer.P(err.Error()),
-						}
-						contentCpy.Status.ReadyToUse = pointer.P(false)
-						// Retry again in 5 seconds
-						return 5 * time.Second, ctrl.updateVmSnapshotContentStatus(content, contentCpy)
+				if err := source.Freeze(); err != nil {
+					contentCpy.Status.Error = &snapshotv1.Error{
+						Time:    currentTime(),
+						Message: pointer.P(err.Error()),
 					}
-
-					// assuming that VM is frozen once Freeze() returns
-					// which should be the case
-					// if Freeze() were async, we'd have to return
-					// and only continue when source.Frozen() == true
+					contentCpy.Status.ReadyToUse = pointer.P(false)
+					// Retry again in 5 seconds
+					return 5 * time.Second, ctrl.updateVmSnapshotContentStatus(content, contentCpy)
 				}
+
+				// assuming that VM is frozen once Freeze() returns
+				// which should be the case
+				// if Freeze() were async, we'd have to return
+				// and only continue when source.Frozen() == true
 
 				didFreeze = true
 			}
@@ -584,12 +576,16 @@ func (ctrl *VMSnapshotController) getSnapshotSource(vmSnapshot *snapshotv1.Virtu
 		if vm == nil {
 			return nil, nil
 		}
-
-		return &vmSnapshotSource{
+		vmSource := &vmSnapshotSource{
 			vm:         vm,
 			snapshot:   vmSnapshot,
 			controller: ctrl,
-		}, nil
+		}
+
+		if err := vmSource.UpdateSourceState(); err != nil {
+			return nil, err
+		}
+		return vmSource, nil
 	}
 
 	return nil, fmt.Errorf("unknown source %+v", vmSnapshot.Spec.Source)
@@ -604,11 +600,6 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 	var volumeBackups []snapshotv1.VolumeBackup
 	pvcs, err := source.PersistentVolumeClaims()
 	if err != nil {
-		if storageutils.IsErrNoBackendPVC(err) {
-			// No backend pvc when we should have one, lets wait
-			// TODO: Improve this error handling
-			return nil
-		}
 		return err
 	}
 	for volumeName, pvcName := range pvcs {
@@ -680,7 +671,7 @@ func (ctrl *VMSnapshotController) getSnapshotPVC(namespace, volumeName string) (
 
 	pvc := obj.(*corev1.PersistentVolumeClaim).DeepCopy()
 
-	if pvc.Spec.VolumeName == "" {
+	if pvc.Status.Phase != corev1.ClaimBound {
 		log.Log.Warningf("Unbound PVC %s/%s", pvc.Namespace, pvc.Name)
 		return nil, nil
 	}
@@ -756,18 +747,13 @@ func (ctrl *VMSnapshotController) getVolumeSnapshotClassName(storageClassName st
 	return "", fmt.Errorf("%d matching VolumeSnapshotClasses for %s", len(matches), storageClassName)
 }
 
-func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.VirtualMachineSnapshot) (*snapshotv1.VirtualMachineSnapshot, error) {
+func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.VirtualMachineSnapshot, source snapshotSource) (*snapshotv1.VirtualMachineSnapshot, error) {
 	f := false
 	vmSnapshotCpy := vmSnapshot.DeepCopy()
 	if vmSnapshotCpy.Status == nil {
 		vmSnapshotCpy.Status = &snapshotv1.VirtualMachineSnapshotStatus{
 			ReadyToUse: &f,
 		}
-	}
-
-	source, err := ctrl.getSnapshotSource(vmSnapshot)
-	if err != nil {
-		return vmSnapshot, err
 	}
 
 	content, err := ctrl.getContent(vmSnapshot)
@@ -791,14 +777,12 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 	// terminal phase 1 - failed
 	if vmSnapshotDeadlineExceeded(vmSnapshotCpy) {
 		vmSnapshotCpy.Status.Phase = snapshotv1.Failed
-		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, vmSnapshotDeadlineExceededError))
 		updateSnapshotCondition(vmSnapshotCpy, newFailureCondition(corev1.ConditionTrue, vmSnapshotDeadlineExceededError))
-		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionFalse, "Operation failed"))
+		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Operation failed"))
 		// terminal phase 2 - succeeded
 	} else if vmSnapshotSucceeded(vmSnapshotCpy) || vmSnapshotCpy.Status.CreationTime != nil {
 		vmSnapshotCpy.Status.Phase = snapshotv1.Succeeded
 		updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Operation complete"))
-		updateSnapshotCondition(vmSnapshotCpy, newReadyCondition(corev1.ConditionTrue, "Operation complete"))
 		if err := ctrl.updateSnapshotSnapshotableVolumes(vmSnapshotCpy, content); err != nil {
 			return nil, err
 		}
@@ -807,9 +791,9 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 		vmSnapshotCpy.Status.Phase = snapshotv1.InProgress
 		if source != nil {
 			if source.Locked() {
-				updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"))
+				updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionTrue, source.LockMsg()))
 			} else {
-				updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Source not locked"))
+				updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, source.LockMsg()))
 			}
 
 			indications, err := updateVMSnapshotIndications(source)
@@ -849,20 +833,11 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 
 func updateVMSnapshotIndications(source snapshotSource) ([]snapshotv1.Indication, error) {
 	var indications []snapshotv1.Indication
-	online, err := source.Online()
-	if err != nil {
-		return indications, err
-	}
 
-	if online {
+	if source.Online() {
 		indications = append(indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
 
-		ga, err := source.GuestAgent()
-		if err != nil {
-			return indications, err
-		}
-
-		if ga {
+		if source.GuestAgent() {
 			indications = append(indications, snapshotv1.VMSnapshotGuestAgentIndication)
 		} else {
 			indications = append(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
@@ -1127,11 +1102,6 @@ func (ctrl *VMSnapshotController) getVMI(vm *kubevirtv1.VirtualMachine) (*kubevi
 	return obj.(*kubevirtv1.VirtualMachineInstance).DeepCopy(), true, nil
 }
 
-func (ctrl *VMSnapshotController) checkVMIRunning(vm *kubevirtv1.VirtualMachine) (bool, error) {
-	_, exists, err := ctrl.getVMI(vm)
-	return exists, err
-}
-
 func updateSnapshotCondition(ss *snapshotv1.VirtualMachineSnapshot, c snapshotv1.Condition) {
-	ss.Status.Conditions = updateCondition(ss.Status.Conditions, c, false)
+	ss.Status.Conditions = updateCondition(ss.Status.Conditions, c)
 }

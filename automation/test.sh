@@ -56,10 +56,6 @@ fi
 export KUBEVIRT_DEPLOY_CDI=true
 if [[ $TARGET =~ windows.* ]]; then
   echo "picking the default provider for windows tests"
-elif [[ $TARGET =~ cnao ]]; then
-  export KUBEVIRT_WITH_CNAO=true
-  export KUBEVIRT_PROVIDER=${TARGET/-cnao/}
-  export KUBEVIRT_DEPLOY_CDI=false
 elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_WITH_MULTUS_V3="${KUBEVIRT_WITH_MULTUS_V3:-true}"
   export KUBEVIRT_WITH_CNAO=true
@@ -430,22 +426,22 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
   elif [[ $TARGET =~ wg-s390x ]]; then
     label_filter='(wg-s390x)'
   elif [[ $TARGET =~ wg-arm64 ]]; then
-    label_filter='(wg-arm64 && !(ACPI,software-emulation,requires-two-schedulable-nodes,cpumodel))'
+    label_filter='(wg-arm64 && !(ACPI,requires-two-schedulable-nodes,cpumodel))'
   elif [[ $TARGET =~ vgpu.* ]]; then
     label_filter='(VGPU)'
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
-    label_filter='(sig-compute-realtime) && !(software-emulation, SEV, SEVES)'
+    label_filter='(sig-compute-realtime) && !(SEV, SEVES)'
   elif [[ $TARGET =~ sig-compute-migrations ]]; then
-    label_filter='(sig-compute-migrations && !(GPU,VGPU)) && !(software-emulation, SEV, SEVES)'
+    label_filter='(sig-compute-migrations && !(GPU,VGPU)) && !(SEV, SEVES)'
   elif [[ $TARGET =~ sig-compute-serial ]]; then
     export KUBEVIRT_E2E_PARALLEL=false
-    label_filter='((sig-compute && Serial) && !(GPU,VGPU,sig-compute-migrations) && !(software-emulation, SEV, SEVES))'
+    label_filter='((sig-compute && Serial) && !(GPU,VGPU,sig-compute-migrations) && !(SEV, SEVES))'
   elif [[ $TARGET =~ sig-compute-parallel ]]; then
-    label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations,sig-storage) && !(software-emulation, SEV, SEVES))'
+    label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations,sig-storage) && !(SEV, SEVES))'
   elif [[ $TARGET =~ sig-compute-conformance ]]; then
     label_filter='(sig-compute && conformance)'
   elif [[ $TARGET =~ sig-compute ]]; then
-    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations,sig-storage) && !(software-emulation, SEV, SEVES))'
+    label_filter='(sig-compute && !(GPU,VGPU,sig-compute-migrations,sig-storage) && !(SEV, SEVES))'
   elif [[ $TARGET =~ sig-monitoring ]]; then
     label_filter='(sig-monitoring)'
   elif [[ $TARGET =~ sig-operator ]]; then
@@ -556,7 +552,7 @@ fi
 
 
 # Run functional tests
-FUNC_TEST_ARGS=$ginko_params FUNC_TEST_LABEL_FILTER='--label-filter='${label_filter} make functest
+FUNC_TEST_ARGS=$ginko_params FUNC_TEST_LABEL_FILTER="--label-filter=(!flake-check)&&(${label_filter})" make functest
 
 # Run REST API coverage based on k8s audit log and openapi spec
 if [ -n "$RUN_REST_COVERAGE" ]; then
