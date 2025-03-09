@@ -23,7 +23,7 @@ paths=""
 while IFS= read -r line; do
     # read directory from the file and append a wildcard
     paths+="${line}/... "
-done <hack/lint-paths.txt
+done <hack/linter/lint-paths.txt
 
 golangci-lint run --timeout 20m --verbose ${paths}
 golangci-lint run --disable-all -E ginkgolinter --timeout 10m --verbose --no-config \
