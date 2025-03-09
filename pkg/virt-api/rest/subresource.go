@@ -23,14 +23,17 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/emicklei/go-restful/v3"
 	"k8s.io/apimachinery/pkg/api/errors"
+
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/json"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -51,13 +54,8 @@ const (
 	vmiNotRunning                            = "VMI is not running"
 	vmiNotPaused                             = "VMI is not paused"
 	vmiGuestAgentErr                         = "VMI does not have guest agent connected"
-	vmiNoAttestationErr                      = "Attestation not requested for VMI"
 	prepConnectionErrFmt                     = "Cannot prepare connection %s"
 	getRequestErrFmt                         = "Cannot GET request %s"
-	pvcVolumeModeErr                         = "pvc should be filesystem pvc"
-	pvcAccessModeErr                         = "pvc access mode can't be read only"
-	pvcSizeErrFmt                            = "pvc size [%s] should be bigger then [%s]"
-	memoryDumpNameConflictErr                = "can't request memory dump for pvc [%s] while pvc [%s] is still associated as the memory dump pvc"
 	featureGateDisabledErrFmt                = "'%s' feature gate is not enabled"
 	defaultProfilerComponentPort             = 8443
 	volumeMigrationManualRecoveryRequiredErr = "VM recovery required: Volume migration failed, leaving some volumes pointing to non-consistent targets; manual intervention is needed to reassign them to their original volumes."
@@ -329,4 +327,14 @@ func (app *SubresourceAPIApp) FilesystemList(request *restful.Request, response 
 	}
 
 	app.httpGetRequestHandler(request, response, validate, getURL, v1.VirtualMachineInstanceFileSystemList{})
+}
+
+func decodeBody(request *restful.Request, bodyStruct interface{}) *errors.StatusError {
+	err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
+	switch err {
+	case io.EOF, nil:
+		return nil
+	default:
+		return errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err))
+	}
 }
