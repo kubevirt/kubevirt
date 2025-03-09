@@ -372,12 +372,39 @@ var _ = Describe("VMI Stats Collector", func() {
 			}
 		},
 			Entry("no interfaces", [][]string{}),
-			Entry("one interface", [][]string{{"default", "192.168.1.2", "InternalIP"}}),
+			Entry("one interface", [][]string{{"default", "", "192.168.1.2", "InternalIP"}}),
 			Entry("two interfaces", [][]string{
-				{"networkA", "170.170.170.170", "InternalIP"},
-				{"networkB", "180.180.180.180", "InternalIP"},
+				{"networkA", "", "170.170.170.170", "InternalIP"},
+				{"networkB", "", "180.180.180.180", "InternalIP"},
 			}),
 		)
+
+		It("should create metric for interfaces with empty name, but with interface name", func() {
+			vmi := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "testvmi",
+				},
+				Status: k6tv1.VirtualMachineInstanceStatus{
+					NodeName: "testNode",
+					Interfaces: []k6tv1.VirtualMachineInstanceNetworkInterface{
+						{
+							InfoSource:    "domain, multus-status",
+							InterfaceName: "net-0",
+						},
+						{
+							InfoSource:    "domain, multus-status",
+							InterfaceName: "net-1",
+						},
+					},
+				},
+			}
+
+			metrics := collectVMIInterfacesInfo(vmi)
+			Expect(metrics).To(HaveLen(2))
+			Expect(metrics[0].Labels).To(Equal([]string{"testNode", "test-ns", "testvmi", "", "net-0", "", "InternalIP"}))
+			Expect(metrics[1].Labels).To(Equal([]string{"testNode", "test-ns", "testvmi", "", "net-1", "", "InternalIP"}))
+		})
 
 		It("should not create metric for an interface with empty IP address", func() {
 			vmi := &k6tv1.VirtualMachineInstance{
@@ -406,8 +433,8 @@ var _ = Describe("VMI Stats Collector", func() {
 
 			metrics := collectVMIInterfacesInfo(vmi)
 			Expect(metrics).To(HaveLen(2))
-			Expect(metrics[0].Labels).To(Equal([]string{"testNode", "test-ns", "testvmi", "default", "10.244.140.86", "InternalIP"}))
-			Expect(metrics[1].Labels).To(Equal([]string{"testNode", "test-ns", "testvmi", "networkA", "", "InternalIP"}))
+			Expect(metrics[0].Labels).To(Equal([]string{"testNode", "test-ns", "testvmi", "default", "", "10.244.140.86", "InternalIP"}))
+			Expect(metrics[1].Labels).To(Equal([]string{"testNode", "test-ns", "testvmi", "networkA", "", "", "InternalIP"}))
 		})
 	})
 
@@ -589,8 +616,9 @@ func interfacesFor(values [][]string) []k6tv1.VirtualMachineInstanceNetworkInter
 	interfaces := make([]k6tv1.VirtualMachineInstanceNetworkInterface, len(values))
 	for i, v := range values {
 		interfaces[i] = k6tv1.VirtualMachineInstanceNetworkInterface{
-			Name: v[0],
-			IP:   v[1],
+			Name:          v[0],
+			InterfaceName: v[1],
+			IP:            v[2],
 		}
 	}
 	return interfaces
