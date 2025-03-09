@@ -51,7 +51,6 @@ import (
 	"k8s.io/client-go/testing"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -236,7 +235,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 	Context("Subresource api", func() {
 		It("should find matching pod for running VirtualMachineInstance", func() {
-			vmi := api.NewMinimalVMI(testVMIName)
+			vmi := libvmi.New(libvmi.WithName(testVMIName))
 			vmi.Status.Phase = v1.Running
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
@@ -250,7 +249,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 
 		It("should fail if VirtualMachineInstance is not in running state", func() {
-			vmi := api.NewMinimalVMI(testVMIName)
+			vmi := libvmi.New(libvmi.WithName(testVMIName))
 			vmi.Status.Phase = v1.Succeeded
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
@@ -260,7 +259,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 
 		It("should fail no matching pod is found", func() {
-			vmi := api.NewMinimalVMI(testVMIName)
+			vmi := libvmi.New(libvmi.WithName(testVMIName))
 			vmi.Status.Phase = v1.Running
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
