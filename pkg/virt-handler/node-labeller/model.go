@@ -32,8 +32,9 @@ type hostCPUModel struct {
 
 // HostDomCapabilities represents structure for parsing output of virsh capabilities
 type HostDomCapabilities struct {
-	CPU CPU              `xml:"cpu"`
-	SEV SEVConfiguration `xml:"features>sev"`
+	CPU            CPU                         `xml:"cpu"`
+	SEV            SEVConfiguration            `xml:"features>sev"`
+	LaunchSecurity LaunchSecurityConfiguration `xml:"features>launchSecurity"`
 }
 
 // CPU represents slice of cpu modes
@@ -91,4 +92,15 @@ type SEVConfiguration struct {
 	MaxGuests       uint   `xml:"maxGuests"`
 	MaxESGuests     uint   `xml:"maxESGuests"`
 	SupportedES     string `xml:"-"`
+	SupportedSNP    string `xml:"-"`
+}
+
+type LaunchSecurityConfiguration struct {
+	Supported string      `xml:"supported,attr"`
+	SecTypes  SecTypeEnum `xml:"enum"`
+}
+
+type SecTypeEnum struct {
+	Name   string   `xml:"name,attr"`
+	Values []string `xml:"value"`
 }
