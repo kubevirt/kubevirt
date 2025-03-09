@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/golang/mock/gomock"
 	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
@@ -120,6 +121,9 @@ type KubeVirtTestData struct {
 
 	defaultConfig     *util.KubeVirtDeploymentConfig
 	mockEnvVarManager util.EnvVarManager
+
+	deploymentPatchReactionFunc testing.ReactionFunc
+	daemonSetPatchReactionFunc  testing.ReactionFunc
 }
 
 func (k *KubeVirtTestData) BeforeTest() {
@@ -719,6 +723,10 @@ func (k *KubeVirtTestData) webhookMutatingPatchFunc() func(action testing.Action
 }
 
 func (k *KubeVirtTestData) deploymentPatchFunc() func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+	if k.deploymentPatchReactionFunc != nil {
+		return k.deploymentPatchReactionFunc
+	}
+
 	var replicas int32 = 2
 	return func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		k.genericPatchFunc()(action)
@@ -740,6 +748,10 @@ func (k *KubeVirtTestData) deploymentPatchFunc() func(action testing.Action) (ha
 }
 
 func (k *KubeVirtTestData) daemonsetPatchFunc() func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+	if k.daemonSetPatchReactionFunc != nil {
+		return k.daemonSetPatchReactionFunc
+	}
+
 	return func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		k.genericPatchFunc()(action)
 
@@ -2793,6 +2805,131 @@ var _ = Describe("KubeVirt Operator", func() {
 				kvTestData.controller.Execute()
 
 				Expect(kvtesting.FilterActions(&kvTestData.kubeClient.Fake, "patch", "deployments")).To(HaveLen(1))
+			})
+		})
+
+		Context("product related labels of kubevirt install", func() {
+			var kvTestData KubeVirtTestData
+
+			BeforeEach(func() {
+				kvTestData = KubeVirtTestData{}
+				kvTestData.BeforeTest()
+				DeferCleanup(kvTestData.AfterTest)
+			})
+
+			It("should be applied to kubevirt resources", func() {
+				const (
+					productName      = "kubevirt-test"
+					productVersion   = "0.0.0"
+					productComponent = "kubevirt-component"
+				)
+
+				kv := &v1.KubeVirt{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "test-install",
+						Namespace:  NAMESPACE,
+						Finalizers: []string{util.KubeVirtFinalizer},
+					},
+					Spec: v1.KubeVirtSpec{
+						ProductName:      productName,
+						ProductVersion:   productVersion,
+						ProductComponent: productComponent,
+					},
+					Status: v1.KubeVirtStatus{
+						Phase:           v1.KubeVirtPhaseDeployed,
+						OperatorVersion: version.Get().String(),
+					},
+				}
+				customConfig := util.GetTargetConfigFromKVWithEnvVarManager(&v1.KubeVirt{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: NAMESPACE,
+					},
+					Spec: v1.KubeVirtSpec{
+						ImageRegistry:    kvTestData.defaultConfig.GetImageRegistry(),
+						ImageTag:         "",
+						ProductName:      kv.Spec.ProductName,
+						ProductVersion:   kv.Spec.ProductVersion,
+						ProductComponent: kv.Spec.ProductComponent,
+					},
+				},
+					kvTestData.mockEnvVarManager)
+
+				kubecontroller.SetLatestApiVersionAnnotation(kv)
+				kvTestData.addKubeVirt(kv)
+				kvTestData.addInstallStrategy(customConfig)
+
+				apiDeployment := getDefaultVirtApiDeployment(NAMESPACE, customConfig)
+				controllerDeployment := getDefaultVirtControllerDeployment(NAMESPACE, customConfig)
+				handlerDaemonset := getDefaultVirtHandlerDaemonSet(NAMESPACE, customConfig)
+				// omitempty ignores the field's zero value resulting in the json patch test op breaking
+				apiDeployment.ObjectMeta.Generation = 123
+				controllerDeployment.ObjectMeta.Generation = 123
+				handlerDaemonset.ObjectMeta.Generation = 123
+
+				kvTestData.addDeployment(apiDeployment, kv)
+				kvTestData.addDeployment(controllerDeployment, kv)
+				kvTestData.addDaemonset(handlerDaemonset, kv)
+				kvTestData.addPodsAndPodDisruptionBudgets(customConfig, kv)
+				kvTestData.makeDeploymentsReady(kv)
+				kvTestData.makeHandlerReady()
+
+				deploy := &appsv1.Deployment{}
+				kvTestData.deploymentPatchReactionFunc = func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					a := action.(testing.PatchActionImpl)
+					patch, err := jsonpatch.DecodePatch(a.Patch)
+					Expect(err).ToNot(HaveOccurred())
+
+					o, exists, err := kvTestData.controller.stores.DeploymentCache.GetByKey(fmt.Sprintf("%s/%s", NAMESPACE, a.Name))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(exists).To(BeTrue())
+					existing := o.(*appsv1.Deployment)
+					existingDeploymentBytes, err := json.Marshal(existing)
+					Expect(err).ToNot(HaveOccurred())
+
+					targetDeploymentBytes, err := patch.Apply(existingDeploymentBytes)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(json.Unmarshal(targetDeploymentBytes, deploy)).To(Succeed())
+
+					return true, deploy, nil
+				}
+
+				ds := &appsv1.DaemonSet{}
+				kvTestData.daemonSetPatchReactionFunc = func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					a := action.(testing.PatchActionImpl)
+					patch, err := jsonpatch.DecodePatch(a.Patch)
+					Expect(err).ToNot(HaveOccurred())
+
+					o, exists, err := kvTestData.controller.stores.DaemonSetCache.GetByKey(fmt.Sprintf("%s/%s", NAMESPACE, a.Name))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(exists).To(BeTrue())
+					existing := o.(*appsv1.DaemonSet)
+					existingDeploymentBytes, err := json.Marshal(existing)
+					Expect(err).ToNot(HaveOccurred())
+
+					targetDeploymentBytes, err := patch.Apply(existingDeploymentBytes)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(json.Unmarshal(targetDeploymentBytes, ds)).To(Succeed())
+
+					return true, ds, nil
+				}
+
+				kvTestData.shouldExpectPatchesAndUpdates(kv)
+				kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+				kvTestData.shouldExpectCreations()
+
+				kvTestData.controller.Execute()
+
+				Expect(kvtesting.FilterActions(&kvTestData.kubeClient.Fake, "patch", "deployments")).To(HaveLen(2))
+				Expect(kvtesting.FilterActions(&kvTestData.kubeClient.Fake, "patch", "daemonsets")).To(HaveLen(1))
+
+				for _, meta := range []metav1.Object{deploy, ds, &deploy.Spec.Template, &ds.Spec.Template} {
+					// Labels should be on both the pod/workload controller resource
+					Expect(meta.GetLabels()[v1.AppPartOfLabel]).To(Equal(kv.Spec.ProductName))
+					Expect(meta.GetLabels()[v1.AppVersionLabel]).To(Equal(kv.Spec.ProductVersion))
+					Expect(meta.GetLabels()[v1.AppComponentLabel]).To(Equal(kv.Spec.ProductComponent))
+				}
 			})
 		})
 
