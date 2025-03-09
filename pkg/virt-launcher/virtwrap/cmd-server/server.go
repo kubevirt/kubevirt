@@ -23,6 +23,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"time"
 
@@ -34,7 +35,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
-	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
@@ -612,7 +612,7 @@ func RunServer(socketPath string,
 	// and add them to info.go
 	cmdv1.RegisterCmdServer(grpcServer, server)
 
-	sock, err := grpcutil.CreateSocket(socketPath)
+	sock, err := net.Listen("unix", socketPath)
 	if err != nil {
 		return nil, err
 	}
