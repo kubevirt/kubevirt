@@ -22,10 +22,14 @@ package agentpoller
 import (
 	"time"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"libvirt.org/go/libvirt"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 )
 
 var _ = Describe("Qemu agent poller", func() {
@@ -55,6 +59,50 @@ var _ = Describe("Qemu agent poller", func() {
 			Id:            "testguestos",
 		}
 	})
+
+	Context("with libvirt API", func() {
+		var agentStore AsyncAgentStore
+		var ctrl *gomock.Controller
+		var mockConnection *cli.MockConnection
+		var mockDomain *cli.MockVirDomain
+
+		BeforeEach(func() {
+			agentStore = NewAsyncAgentStore()
+			ctrl = gomock.NewController(GinkgoT())
+			mockConnection = cli.NewMockConnection(ctrl)
+			mockDomain = cli.NewMockVirDomain(ctrl)
+			mockConnection.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil).AnyTimes()
+		})
+
+		It("should store the retrieved guest info when requested", func() {
+			guestInfo := &libvirt.DomainGuestInfo{
+				Interfaces: []libvirt.DomainGuestInfoInterface{{Name: "net0"}},
+				OS:         &libvirt.DomainGuestInfoOS{Name: "fedora"},
+				Hostname:   "test-host",
+				TimeZone:   &libvirt.DomainGuestInfoTimeZone{Name: "EST"},
+				Users:      []libvirt.DomainGuestInfoUser{{Name: "admin"}},
+			}
+
+			mockDomain.EXPECT().Free()
+			mockDomain.EXPECT().GetGuestInfo(INTERFACES|OSINFO|HOSTNAME|TIMEZONE|USERS, uint32(0)).Return(guestInfo, nil)
+
+			fetchAndStoreGuestInfo(mockConnection, &agentStore, "test-domain")
+
+			interfacesStatus := agentStore.GetInterfaceStatus()
+			Expect(interfacesStatus[0].InterfaceName).To(Equal("net0"))
+
+			osInfo := agentStore.GetGuestOSInfo()
+			Expect(osInfo.Name).To(Equal("fedora"))
+
+			sysInfo := agentStore.GetSysInfo()
+			Expect(sysInfo.Hostname).To(Equal("test-host"))
+			Expect(sysInfo.Timezone.Zone).To(Equal("EST"))
+
+			users := agentStore.GetUsers(1)
+			Expect(users[0].Name).To(Equal("admin"))
+		})
+	})
+
 	Context("with AsyncAgentStore", func() {
 
 		It("should store and load the data", func() {
@@ -97,7 +145,7 @@ var _ = Describe("Qemu agent poller", func() {
 
 		It("should fire an event for new sysinfo data", func() {
 			var agentStore = NewAsyncAgentStore()
-			agentStore.Store(GET_OSINFO, fakeInfo)
+			agentStore.Store(OSINFO, fakeInfo)
 			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
 				DomainInfo: api.DomainGuestInfo{OSInfo: &fakeInfo},
 			})))
@@ -105,18 +153,18 @@ var _ = Describe("Qemu agent poller", func() {
 
 		It("should not fire an event for the same sysinfo data", func() {
 			var agentStore = NewAsyncAgentStore()
-			agentStore.Store(GET_OSINFO, fakeInfo)
+			agentStore.Store(OSINFO, fakeInfo)
 			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
 				DomainInfo: api.DomainGuestInfo{OSInfo: &fakeInfo},
 			})))
 
-			agentStore.Store(GET_OSINFO, fakeInfo)
+			agentStore.Store(OSINFO, fakeInfo)
 			Expect(agentStore.AgentUpdated).ToNot(Receive())
 		})
 
 		It("should fire an event with new updated key and old non updated keys", func() {
 			var agentStore = NewAsyncAgentStore()
-			agentStore.Store(GET_INTERFACES, fakeInterfaces)
+			agentStore.Store(INTERFACES, fakeInterfaces)
 			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
 				DomainInfo: api.DomainGuestInfo{
 					Interfaces: fakeInterfaces,
@@ -131,7 +179,7 @@ var _ = Describe("Qemu agent poller", func() {
 				},
 			})))
 
-			agentStore.Store(GET_OSINFO, fakeInfo)
+			agentStore.Store(OSINFO, fakeInfo)
 			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
 				DomainInfo: api.DomainGuestInfo{
 					Interfaces:     fakeInterfaces,
@@ -150,7 +198,7 @@ var _ = Describe("Qemu agent poller", func() {
 
 		It("should report interfaces info when interfaces exists", func() {
 			var agentStore = NewAsyncAgentStore()
-			agentStore.Store(GET_INTERFACES, fakeInterfaces)
+			agentStore.Store(INTERFACES, fakeInterfaces)
 			interfacesStatus := agentStore.GetInterfaceStatus()
 
 			Expect(interfacesStatus).To(Equal(fakeInterfaces))
@@ -165,7 +213,7 @@ var _ = Describe("Qemu agent poller", func() {
 
 		It("should report osInfo when osInfo exists", func() {
 			var agentStore = NewAsyncAgentStore()
-			agentStore.Store(GET_OSINFO, fakeInfo)
+			agentStore.Store(OSINFO, fakeInfo)
 			osInfo := agentStore.GetGuestOSInfo()
 
 			Expect(*osInfo).To(Equal(fakeInfo))
