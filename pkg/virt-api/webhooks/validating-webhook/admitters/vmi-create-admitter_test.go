@@ -3731,52 +3731,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 	})
 
-	Context("with VM persistent state defined", func() {
-		var vmi *v1.VirtualMachineInstance
-		addPersistentTPM := func() {
-			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
-		}
-		addPersistentEFI := func() {
-			vmi.Spec.Domain.Firmware = &v1.Firmware{
-				Bootloader: &v1.Bootloader{
-					EFI: &v1.EFI{
-						Persistent: pointer.P(true),
-						SecureBoot: pointer.P(false),
-					},
-				},
-			}
-		}
-		BeforeEach(func() {
-			vmi = api.NewMinimalVMI("testvmi")
-			enableFeatureGate(featuregate.VMPersistentState)
-		})
-		Context("feature gate enabled", func() {
-			It("should accept vmi with no persistent TPM/EFI defined", func() {
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-				Expect(causes).To(BeEmpty())
-			})
-			It("should accept vmi with persistent TPM+EFI defined", func() {
-				addPersistentTPM()
-				addPersistentEFI()
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-				Expect(causes).To(BeEmpty())
-			})
-		})
-		Context("feature gate disabled", func() {
-			DescribeTable("should reject when the feature gate is disabled", func(persist func()) {
-				disableFeatureGates()
-				persist()
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-				Expect(causes).To(HaveLen(1))
-				Expect(causes[0].Field).To(ContainSubstring(".persistent"))
-				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.VMPersistentState)))
-			},
-				Entry("with persistent TPM", addPersistentTPM),
-				Entry("with persistent EFI", addPersistentEFI),
-			)
-		})
-	})
-
 	Context("with CPU hotplug", func() {
 		When("number of sockets higher than maxSockets", func() {
 			It("deny VMI creation", func() {

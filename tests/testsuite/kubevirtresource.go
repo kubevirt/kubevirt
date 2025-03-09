@@ -109,7 +109,6 @@ func AdjustKubeVirtResource() {
 		featuregate.WorkloadEncryptionSEV,
 		featuregate.VMExportGate,
 		featuregate.KubevirtSeccompProfile,
-		featuregate.VMPersistentState,
 	)
 
 	if kv.Spec.Configuration.NetworkConfiguration == nil {
