@@ -320,6 +320,45 @@ coding conventions](#detailed-coding-conventions).
       subdirectories.
 - Document directories and filenames should use dashes rather than underscores.
 
+## Functional tests conventions
+
+- Avoid using constants imported from product code package. Instead, define the expected
+  constant values in the test suite. This refers to any aspect of the test suite.
+
+### Bad example
+
+```go
+    Context("Testing mydeployment", func() {
+        It("deployment should have 2 replicas", func() {
+            deployment, err := kclient.
+                AppsV1().
+                Deployments("default").
+                Get(ctx, prod_package.DeploymentName, metav1.GetOptions{})
+            Expect(err).ToNot(HaveOccurred())
+            Expect(deployment.Spec.Replicas).
+                To(PointTo(Equal(prod_package.NumOfReplicas)))
+        })
+    })
+```
+
+### Good example
+
+```go
+    Context("Testing mydeployment", func() {
+        It("deployment should have 2 replicas", func() {
+            const expectedDeploymentName = "mydeployment"
+            const expectedNumOfReplicas = 2
+            deployment, err := kclient.
+                AppsV1().
+                Deployments("default").
+                Get(ctx, expectedDeploymentName, metav1.GetOptions{})
+            Expect(err).ToNot(HaveOccurred())
+            Expect(deployment.Spec.Replicas).
+                To(PointTo(Equal(expectedNumOfReplicas)))
+        })
+    })
+```
+
 # Additional conventions (for scripts, etc.)
 
 - Avoid relying on Docker Hub.
