@@ -7,8 +7,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-const OpenShift4Major = 4
-
 func IsOnOpenShift(clientset kubecli.KubevirtClient) (bool, error) {
 	_, apis, err := clientset.DiscoveryClient().ServerGroupsAndResources()
 	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
