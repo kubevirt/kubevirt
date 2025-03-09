@@ -1,5 +1,5 @@
-load("@bazeldnf//:deps.bzl", "rpm", "rpmtree", "tar2files")
 load("@bazeldnf//:def.bzl", "bazeldnf")
+load("@bazeldnf//:deps.bzl", "rpm", "rpmtree", "tar2files")
 
 bazeldnf(
     name = "sandbox_x86_64",
