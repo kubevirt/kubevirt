@@ -25,9 +25,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"kubevirt.io/client-go/api"
-
 	"kubevirt.io/kubevirt/pkg/checkpoint"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
@@ -54,7 +53,9 @@ var _ = Describe("ContainerDisk", func() {
 	BeforeEach(func() {
 		tmpDir, err = os.MkdirTemp("", "containerdisktest")
 		Expect(err).ToNot(HaveOccurred())
-		vmi = api.NewMinimalVMI("fake-vmi")
+		vmi = libvmi.New(
+			libvmi.WithName("fake-vmi"),
+		)
 		vmi.UID = "1234"
 
 		m = &mounter{
