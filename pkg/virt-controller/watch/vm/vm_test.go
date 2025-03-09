@@ -5339,6 +5339,86 @@ var _ = Describe("VirtualMachine", func() {
 
 			})
 
+			Context("TerminationGracePeriodSeconds", func() {
+				const vmiInitialGracePeriod = 30
+
+				BeforeEach(func() {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: &liveUpdate,
+							},
+						},
+					})
+				})
+
+				It("should update VMI grace period when it differs from VM", func() {
+					const VMGracePeriod = 60
+
+					vm, vmi := watchtesting.DefaultVirtualMachine(true)
+					vm.Spec.Template.Spec.TerminationGracePeriodSeconds = pointer.P(int64(VMGracePeriod))
+					vmi.Spec.TerminationGracePeriodSeconds = pointer.P(int64(vmiInitialGracePeriod))
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+
+					addVirtualMachine(vm)
+
+					sanityExecute(vm)
+
+					updatedVMI, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(updatedVMI.Spec.TerminationGracePeriodSeconds).ToNot(BeNil())
+					Expect(*updatedVMI.Spec.TerminationGracePeriodSeconds).To(Equal(int64(VMGracePeriod)))
+				})
+
+				It("should do nothing when grace periods match", func() {
+					vm, vmi := watchtesting.DefaultVirtualMachine(true)
+					vm.Spec.Template.Spec.TerminationGracePeriodSeconds = pointer.P(int64(vmiInitialGracePeriod))
+					vmi.Spec.TerminationGracePeriodSeconds = pointer.P(int64(vmiInitialGracePeriod))
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+
+					addVirtualMachine(vm)
+
+					sanityExecute(vm)
+
+					updatedVMI, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(updatedVMI.Spec.TerminationGracePeriodSeconds).ToNot(BeNil())
+					Expect(*updatedVMI.Spec.TerminationGracePeriodSeconds).To(Equal(int64(vmiInitialGracePeriod)))
+				})
+
+				It("should do nothing when VM has no grace period specified", func() {
+					vm, vmi := watchtesting.DefaultVirtualMachine(true)
+					vmi.Spec.TerminationGracePeriodSeconds = pointer.P(int64(vmiInitialGracePeriod))
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+
+					addVirtualMachine(vm)
+
+					sanityExecute(vm)
+					updatedVMI, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(updatedVMI.Spec.TerminationGracePeriodSeconds).ToNot(BeNil())
+					Expect(*updatedVMI.Spec.TerminationGracePeriodSeconds).To(Equal(int64(vmiInitialGracePeriod)))
+				})
+			})
+
 			Context("Volumes", func() {
 				DescribeTable("should set the restart condition", func(strategy *v1.UpdateVolumesStrategy) {
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
@@ -6126,7 +6206,6 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vmiList.Items).To(BeEmpty())
 			})
 		})
-
 	})
 	Context("syncConditions", func() {
 		var vm *v1.VirtualMachine
