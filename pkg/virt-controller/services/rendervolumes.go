@@ -14,6 +14,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/config"
+	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
@@ -25,23 +26,25 @@ import (
 type VolumeRendererOption func(renderer *VolumeRenderer) error
 
 type VolumeRenderer struct {
-	containerDiskDir      string
-	ephemeralDiskDir      string
-	virtShareDir          string
-	namespace             string
-	vmiVolumes            []v1.Volume
-	podVolumes            []k8sv1.Volume
-	podVolumeMounts       []k8sv1.VolumeMount
-	sharedFilesystemPaths []string
-	volumeDevices         []k8sv1.VolumeDevice
+	containerDiskDir              string
+	ephemeralDiskDir              string
+	virtShareDir                  string
+	namespace                     string
+	imageVolumeFeatureGateEnabled bool
+	vmiVolumes                    []v1.Volume
+	podVolumes                    []k8sv1.Volume
+	podVolumeMounts               []k8sv1.VolumeMount
+	sharedFilesystemPaths         []string
+	volumeDevices                 []k8sv1.VolumeDevice
 }
 
-func NewVolumeRenderer(namespace string, ephemeralDisk string, containerDiskDir string, virtShareDir string, volumeOptions ...VolumeRendererOption) (*VolumeRenderer, error) {
+func NewVolumeRenderer(imageVolumeFeatureGateEnabled bool, namespace string, ephemeralDisk string, containerDiskDir string, virtShareDir string, volumeOptions ...VolumeRendererOption) (*VolumeRenderer, error) {
 	volumeRenderer := &VolumeRenderer{
-		containerDiskDir: containerDiskDir,
-		ephemeralDiskDir: ephemeralDisk,
-		namespace:        namespace,
-		virtShareDir:     virtShareDir,
+		imageVolumeFeatureGateEnabled: imageVolumeFeatureGateEnabled,
+		containerDiskDir:              containerDiskDir,
+		ephemeralDiskDir:              ephemeralDisk,
+		namespace:                     namespace,
+		virtShareDir:                  virtShareDir,
 	}
 	for _, volumeOption := range volumeOptions {
 		if err := volumeOption(volumeRenderer); err != nil {
@@ -56,9 +59,11 @@ func (vr *VolumeRenderer) Mounts() []k8sv1.VolumeMount {
 		mountPath("private", util.VirtPrivateDir),
 		mountPath("public", util.VirtShareDir),
 		mountPath("ephemeral-disks", vr.ephemeralDiskDir),
-		mountPathWithPropagation(containerDisks, vr.containerDiskDir, k8sv1.MountPropagationHostToContainer),
 		mountPath("libvirt-runtime", "/var/run/libvirt"),
 		mountPath("sockets", filepath.Join(vr.virtShareDir, "sockets")),
+	}
+	if !vr.imageVolumeFeatureGateEnabled {
+		volumeMounts = append(volumeMounts, mountPathWithPropagation(containerDisks, vr.containerDiskDir, k8sv1.MountPropagationHostToContainer))
 	}
 	return append(volumeMounts, vr.podVolumeMounts...)
 }
@@ -71,7 +76,9 @@ func (vr *VolumeRenderer) Volumes() []k8sv1.Volume {
 		emptyDirVolume(virtBinDir),
 		emptyDirVolume("libvirt-runtime"),
 		emptyDirVolume("ephemeral-disks"),
-		emptyDirVolume(containerDisks),
+	}
+	if !vr.imageVolumeFeatureGateEnabled {
+		volumes = append(volumes, emptyDirVolume(containerDisks))
 	}
 	return append(volumes, vr.podVolumes...)
 }
@@ -213,6 +220,27 @@ func withVMIConfigVolumes(vmiDisks []v1.Disk, vmiVolumes []v1.Volume) VolumeRend
 			if volume.DownwardAPI != nil {
 				renderer.addDownwardAPIVolumeMount(volume)
 			}
+		}
+		return nil
+	}
+}
+
+func withImageVolumes(vmi *v1.VirtualMachineInstance, imageVolumeFeatureGateEnabled bool) VolumeRendererOption {
+	return func(renderer *VolumeRenderer) error {
+		if !imageVolumeFeatureGateEnabled {
+			return nil
+		}
+		for i, volume := range vmi.Spec.Volumes {
+			if volume.ContainerDisk != nil {
+				renderer.addContainerDiskVolume(volume)
+				renderer.addContainerDiskVolumeMount(volume, i)
+			}
+		}
+
+		if util.HasKernelBootContainerImage(vmi) {
+			kbc := vmi.Spec.Domain.Firmware.KernelBoot.Container
+			renderer.addKernelBootVolume(kbc)
+			renderer.addKernelBootVolumeMount()
 		}
 		return nil
 	}
@@ -693,6 +721,44 @@ func (vr *VolumeRenderer) addDownwardAPIVolumeMount(volume v1.Volume) {
 		Name:      volume.Name,
 		MountPath: config.GetDownwardAPISourcePath(volume.Name),
 		ReadOnly:  true,
+	})
+}
+
+func (vr *VolumeRenderer) addContainerDiskVolume(volume v1.Volume) {
+	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
+		Name: volume.Name,
+		VolumeSource: k8sv1.VolumeSource{
+			Image: &k8sv1.ImageVolumeSource{
+				Reference:  volume.ContainerDisk.Image,
+				PullPolicy: volume.ContainerDisk.ImagePullPolicy,
+			},
+		},
+	})
+}
+
+func (vr *VolumeRenderer) addContainerDiskVolumeMount(volume v1.Volume, volumeIndex int) {
+	vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
+		Name:      volume.Name,
+		MountPath: filepath.Join(filepath.Join(util.VirtImageVolumeDir), fmt.Sprintf("disk_%d", volumeIndex)),
+	})
+}
+
+func (vr *VolumeRenderer) addKernelBootVolume(kbc *v1.KernelBootContainer) {
+	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
+		Name: containerdisk.KernelBootName,
+		VolumeSource: k8sv1.VolumeSource{
+			Image: &k8sv1.ImageVolumeSource{
+				Reference:  kbc.Image,
+				PullPolicy: kbc.ImagePullPolicy,
+			},
+		},
+	})
+}
+
+func (vr *VolumeRenderer) addKernelBootVolumeMount() {
+	vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
+		Name:      containerdisk.KernelBootName,
+		MountPath: util.VirtKernelBootVolumeDir,
 	})
 }
 
