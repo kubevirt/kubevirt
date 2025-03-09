@@ -90,6 +90,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
+	vfsmanager "kubevirt.io/kubevirt/pkg/virt-handler/virtiofs"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
 )
@@ -210,6 +211,7 @@ func NewController(
 		podIsolationDetector:             podIsolationDetector,
 		containerDiskMounter:             container_disk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
 		hotplugVolumeMounter:             hotplug_volume.NewVolumeMounter(hotplugState, kubeletPodsDir),
+		vfsManager:                       vfsmanager.NewVirtiofsManager("/pods"),
 		clusterConfig:                    clusterConfig,
 		virtLauncherFSRunDirPattern:      "/proc/%d/root/var/run",
 		capabilities:                     capabilities,
@@ -305,6 +307,7 @@ type VirtualMachineController struct {
 	podIsolationDetector     isolation.PodIsolationDetector
 	containerDiskMounter     container_disk.Mounter
 	hotplugVolumeMounter     hotplug_volume.VolumeMounter
+	vfsManager               *vfsmanager.VirtiofsManager
 	clusterConfig            *virtconfig.ClusterConfig
 	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
 	downwardMetricsManager   downwardMetricsManager
@@ -2767,9 +2770,18 @@ func (c *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		}
 	}
 
+	// Look for placeholder virtiofs sockets and launch the dispatcher
+	if err := c.vfsManager.StartVirtiofsDispatcher(vmi); err != nil {
+		return fmt.Errorf("failed to start the virtiofs dispatcher: %w", err)
+	}
+
 	isolationRes, err := c.podIsolationDetector.Detect(vmi)
 	if err != nil {
 		return fmt.Errorf(failedDetectIsolationFmt, err)
+	}
+
+	if err := c.configureVirtioFS(vmi, isolationRes); err != nil {
+		return err
 	}
 
 	if err := c.netConf.Setup(vmi, netsetup.FilterNetsForMigrationTarget(vmi), isolationRes.Pid()); err != nil {
@@ -3046,6 +3058,11 @@ func (c *VirtualMachineController) handleStartingVMI(
 
 	if err := c.hotplugVolumeMounter.Mount(vmi, cgroupManager); err != nil {
 		return false, err
+	}
+
+	// Look for placeholder virtiofs sockets and launch the dispatcher
+	if err := c.vfsManager.StartVirtiofsDispatcher(vmi); err != nil {
+		return false, fmt.Errorf("failed to start the virtiofs dispatcher: %w", err)
 	}
 
 	isolationRes, err := c.podIsolationDetector.Detect(vmi)
