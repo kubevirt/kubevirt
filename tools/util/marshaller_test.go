@@ -25,14 +25,21 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
 func TestMarshallObject(t *testing.T) {
-	var imagePullSecret []v1.LocalObjectReference
-	handler, err := components.NewHandlerDaemonSet("{{.Namespace}}", "", "{{.DockerPrefix}}", "{{.DockerTag}}", "", "", "", "", "", "", "", "", v1.PullIfNotPresent, imagePullSecret, nil, "2", nil, false)
-	if err != nil {
-		t.Fatalf("error generating virt-handler deployment for marshall test %v", err)
+	config := &util.KubeVirtDeploymentConfig{
+		Namespace:          "{{.Namespace}}",
+		Registry:           "",
+		ImagePrefix:        "{{.DockerPrefix}}",
+		VirtHandlerSha:     "{{.DockerTag}}",
+		PassthroughEnvVars: nil,
 	}
+	config.AdditionalProperties[util.AdditionalPropertiesNamePullPolicy] = string(v1.PullIfNotPresent)
+	config.AdditionalProperties[util.AdditionalPropertiesPullSecrets] = ""
+	config.AdditionalProperties[util.AdditionalPropertiesPersistentReservationEnabled] = ""
+	handler := components.NewHandlerDaemonSet(config)
 
 	writer := strings.Builder{}
 
