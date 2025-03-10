@@ -2,7 +2,6 @@ package tests_test
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -33,13 +32,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -137,44 +134,14 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 				}
 			})
 
-			It("should be able to start successfully", func() {
+			It("Should start successfully and be marked as non-migratable", func() {
 				var err error
 				By("Creating a windows VM")
 				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(reEnlightenmentVMI)
 				Expect(console.LoginToAlpine(reEnlightenmentVMI)).To(Succeed())
-			})
-
-			It("should be marked as non-migratable", func() {
-				var err error
-				By("Creating a windows VM")
-				reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), reEnlightenmentVMI, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStart(reEnlightenmentVMI)
-
-				conditionManager := controller.NewVirtualMachineInstanceConditionManager()
-				isNonMigratable := func() error {
-					reEnlightenmentVMI, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Get(context.Background(), reEnlightenmentVMI.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					cond := conditionManager.GetCondition(reEnlightenmentVMI, v1.VirtualMachineInstanceIsMigratable)
-					const errFmt = "condition " + string(v1.VirtualMachineInstanceIsMigratable) + " is expected to be %s %s"
-
-					if statusFalse := k8sv1.ConditionFalse; cond.Status != statusFalse {
-						return fmt.Errorf(errFmt, "of status", string(statusFalse))
-					}
-					if notMigratableNoTscReason := v1.VirtualMachineInstanceReasonNoTSCFrequencyMigratable; cond.Reason != notMigratableNoTscReason {
-						return fmt.Errorf(errFmt, "of reason", notMigratableNoTscReason)
-					}
-					if !strings.Contains(cond.Message, "HyperV Reenlightenment") {
-						return fmt.Errorf(errFmt, "with message that contains", "HyperV Reenlightenment")
-					}
-					return nil
-				}
-
-				Eventually(isNonMigratable, 30*time.Second, time.Second).ShouldNot(HaveOccurred())
-				Consistently(isNonMigratable, 15*time.Second, 3*time.Second).ShouldNot(HaveOccurred())
+				Eventually(matcher.ThisVMI(reEnlightenmentVMI)).WithTimeout(30 * time.Second).WithPolling(time.Second).Should(matcher.HaveConditionFalseWithMessage(v1.VirtualMachineInstanceIsMigratable, "HyperV Reenlightenment VMIs cannot migrate when TSC Frequency is not exposed on the cluster"))
 			})
 		})
 
