@@ -253,6 +253,7 @@ func (app *virtHandlerApp) Run() {
 	_ = virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(checkpointPath))
 
 	cmdclient.SetPodsBaseDir("/pods")
+	//TODO: Remove this code once ImageVolume is GAed
 	containerdisk.SetKubeletPodsDirectory(app.KubeletPodsDir)
 
 	if err := app.prepareCertManager(); err != nil {
