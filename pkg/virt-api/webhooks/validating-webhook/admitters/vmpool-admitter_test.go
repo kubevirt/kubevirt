@@ -28,6 +28,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -135,6 +136,173 @@ var _ = Describe("Validating Pool Admitter", func() {
 		}, []string{
 			"spec.virtualMachineTemplate.spec.running",
 			"spec.selector",
+		}),
+		Entry("with invalid maxUnavailable percentage", &poolv1.VirtualMachinePool{
+			Spec: poolv1.VirtualMachinePoolSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"match": "me"},
+				},
+				VirtualMachineTemplate: &poolv1.VirtualMachineTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"match": "me"},
+					},
+					Spec: v1.VirtualMachineSpec{
+						RunStrategy: &always,
+						Template: newVirtualMachineBuilder().
+							WithDisk(v1.Disk{
+								Name: "testdisk",
+							}).
+							WithVolume(v1.Volume{
+								Name: "testdisk",
+								VolumeSource: v1.VolumeSource{
+									ContainerDisk: testutils.NewFakeContainerDiskSource(),
+								},
+							}).
+							BuildTemplate(),
+					},
+				},
+				MaxUnavailable: &intstr.IntOrString{
+					Type:   intstr.String,
+					StrVal: "invalid",
+				},
+			},
+		}, []string{
+			"spec.maxUnavailable",
+		}),
+		Entry("with invalid maxUnavailable integer", &poolv1.VirtualMachinePool{
+			Spec: poolv1.VirtualMachinePoolSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"match": "me"},
+				},
+				VirtualMachineTemplate: &poolv1.VirtualMachineTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"match": "me"},
+					},
+					Spec: v1.VirtualMachineSpec{
+						RunStrategy: &always,
+						Template: newVirtualMachineBuilder().
+							WithDisk(v1.Disk{
+								Name: "testdisk",
+							}).
+							WithVolume(v1.Volume{
+								Name: "testdisk",
+								VolumeSource: v1.VolumeSource{
+									ContainerDisk: testutils.NewFakeContainerDiskSource(),
+								},
+							}).
+							BuildTemplate(),
+					},
+				},
+				MaxUnavailable: &intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: -1,
+				},
+			},
+		}, []string{
+			"spec.maxUnavailable",
+		}),
+		Entry("with invalid update strategy type", &poolv1.VirtualMachinePool{
+			Spec: poolv1.VirtualMachinePoolSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"match": "me"},
+				},
+				VirtualMachineTemplate: &poolv1.VirtualMachineTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"match": "me"},
+					},
+					Spec: v1.VirtualMachineSpec{
+						RunStrategy: &always,
+						Template: newVirtualMachineBuilder().
+							WithDisk(v1.Disk{
+								Name: "testdisk",
+							}).
+							WithVolume(v1.Volume{
+								Name: "testdisk",
+								VolumeSource: v1.VolumeSource{
+									ContainerDisk: testutils.NewFakeContainerDiskSource(),
+								},
+							}).
+							BuildTemplate(),
+					},
+				},
+				UpdateStrategy: &poolv1.UpdateStrategy{
+					StrategyType: "InvalidStrategy",
+				},
+			},
+		}, []string{
+			"spec.updateStrategy.strategyType",
+		}),
+		Entry("with proactive configuration for non-proactive strategy", &poolv1.VirtualMachinePool{
+			Spec: poolv1.VirtualMachinePoolSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"match": "me"},
+				},
+				VirtualMachineTemplate: &poolv1.VirtualMachineTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"match": "me"},
+					},
+					Spec: v1.VirtualMachineSpec{
+						RunStrategy: &always,
+						Template: newVirtualMachineBuilder().
+							WithDisk(v1.Disk{
+								Name: "testdisk",
+							}).
+							WithVolume(v1.Volume{
+								Name: "testdisk",
+								VolumeSource: v1.VolumeSource{
+									ContainerDisk: testutils.NewFakeContainerDiskSource(),
+								},
+							}).
+							BuildTemplate(),
+					},
+				},
+				UpdateStrategy: &poolv1.UpdateStrategy{
+					StrategyType: poolv1.StrategyTypeUnmanaged,
+					Proactive: &poolv1.Proactive{
+						SelectionPolicy: poolv1.SelectionPolicy{
+							BasePolicy: poolv1.Oldest,
+						},
+					},
+				},
+			},
+		}, []string{
+			"spec.updateStrategy.proactive",
+		}),
+		Entry("with invalid base policy", &poolv1.VirtualMachinePool{
+			Spec: poolv1.VirtualMachinePoolSpec{
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"match": "me"},
+				},
+				VirtualMachineTemplate: &poolv1.VirtualMachineTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{"match": "me"},
+					},
+					Spec: v1.VirtualMachineSpec{
+						RunStrategy: &always,
+						Template: newVirtualMachineBuilder().
+							WithDisk(v1.Disk{
+								Name: "testdisk",
+							}).
+							WithVolume(v1.Volume{
+								Name: "testdisk",
+								VolumeSource: v1.VolumeSource{
+									ContainerDisk: testutils.NewFakeContainerDiskSource(),
+								},
+							}).
+							BuildTemplate(),
+					},
+				},
+				UpdateStrategy: &poolv1.UpdateStrategy{
+					StrategyType: poolv1.StrategyTypeProactive,
+					Proactive: &poolv1.Proactive{
+						SelectionPolicy: poolv1.SelectionPolicy{
+							BasePolicy: "InvalidPolicy",
+						},
+					},
+				},
+			},
+		}, []string{
+			"spec.updateStrategy.proactive.selectionPolicy.basePolicy",
 		}),
 	)
 	It("should accept valid vm spec", func() {
