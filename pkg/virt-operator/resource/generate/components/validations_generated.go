@@ -19233,6 +19233,14 @@ var CRDsValidation map[string]string = map[string]string{
       type: object
     spec:
       properties:
+        maxUnavailable:
+          anyOf:
+          - type: integer
+          - type: string
+          description: (Defaults to 100%) Integer or string pointer, that when set
+            represents either a percentage or number of VMs in a pool that can be
+            unavailable (ready condition false) at a time during automated update.
+          x-kubernetes-int-or-string: true
         nameGeneration:
           description: Options for the name generation in a pool.
           properties:

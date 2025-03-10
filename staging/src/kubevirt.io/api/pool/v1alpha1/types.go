@@ -23,6 +23,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	intstr "k8s.io/apimachinery/pkg/util/intstr"
 	virtv1 "kubevirt.io/api/core/v1"
 )
 
@@ -112,6 +113,10 @@ type VirtualMachinePoolSpec struct {
 	// Options for the name generation in a pool.
 	// +optional
 	NameGeneration *VirtualMachinePoolNameGeneration `json:"nameGeneration,omitempty"`
+
+	// (Defaults to 100%) Integer or string pointer, that when set represents either a percentage or number of VMs in a pool that can be unavailable (ready condition false) at a time during automated update.
+	// +optional
+	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty" protobuf:"bytes,3,opt,name=maxUnavailable"`
 }
 
 // +k8s:openapi-gen=true
