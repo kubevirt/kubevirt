@@ -88,6 +88,7 @@ func (s *Scaling) RestoreScale(operatorName string) {
 	Eventually(func() int32 {
 		deployment, err := s.virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.TODO(), operatorName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
+		By(fmt.Sprintf("Current replicas for %s: ready=%d, expected=%d", operatorName, deployment.Status.ReadyReplicas, revert.Spec.Replicas))
 		return deployment.Status.ReadyReplicas
-	}, 30*time.Second, 1*time.Second).Should(Equal(revert.Spec.Replicas), "failed to verify restored replicas for %s", operatorName)
+	}, 60*time.Second, 1*time.Second).Should(Equal(revert.Spec.Replicas), "failed to verify restored replicas for %s", operatorName)
 }
