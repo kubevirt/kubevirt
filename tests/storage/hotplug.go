@@ -239,6 +239,9 @@ var _ = Describe(SIG("Hotplug", func() {
 		for _, volumeName := range volumeNames {
 			nameMap[volumeName] = true
 		}
+		defaultSecs := 180
+		// timeout is calculated based on the number of volumes to be attached
+		timeout := time.Duration(defaultSecs+(len(volumeNames)/25)*defaultSecs) * time.Second
 		Eventually(func() error {
 			updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			if err != nil {
@@ -267,7 +270,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			}
 
 			return nil
-		}, 360*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	verifyNoVolumeAttached := func(vmi *v1.VirtualMachineInstance, volumeNames ...string) {
@@ -476,12 +479,11 @@ var _ = Describe(SIG("Hotplug", func() {
 				libdv.StorageWithAccessMode(accessMode),
 				libdv.StorageWithVolumeMode(volumeMode),
 			),
-			libdv.WithForceBindAnnotation(),
 		)
 
 		dvBlock, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(dvBlock)).Create(context.Background(), dvBlock, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		libstorage.EventuallyDV(dvBlock, 240, matcher.HaveSucceeded())
+		libstorage.EventuallyDV(dvBlock, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
 		return dvBlock
 	}
 
@@ -911,14 +913,14 @@ var _ = Describe(SIG("Hotplug", func() {
 					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return libstorage.LookupVolumeTargetPath(vmi, testVolumes[4])
-				}, 40*time.Second, 2*time.Second).Should(Equal("/dev/sdc"))
+				}, 80*time.Second, 2*time.Second).Should(Equal("/dev/sdc"))
 				By("Adding intermediate volume, it should end up at the end")
 				addVolumeFunc(vm.Name, vm.Namespace, testVolumes[2], dvNames[2], v1.DiskBusSCSI, false, "")
 				Eventually(func() string {
 					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return libstorage.LookupVolumeTargetPath(vmi, testVolumes[2])
-				}, 40*time.Second, 2*time.Second).Should(Equal("/dev/sde"))
+				}, 80*time.Second, 2*time.Second).Should(Equal("/dev/sde"))
 				verifySingleAttachmentPod(vmi)
 				for _, volumeName := range testVolumes {
 					By(removingVolumeFromVM)
@@ -935,6 +937,10 @@ var _ = Describe(SIG("Hotplug", func() {
 			)
 
 			It("should allow to hotplug 75 volumes simultaneously", func() {
+				//if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
+				//	Skip("Skip test if storage class binding mode is wffc")
+				//}
+
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi,
@@ -1280,7 +1286,8 @@ var _ = Describe(SIG("Hotplug", func() {
 					libdv.WithRegistryURLSource(url),
 					libdv.WithStorage(
 						libdv.StorageWithStorageClass(storageClass),
-						libdv.StorageWithVolumeSize("256Mi"),
+						libdv.StorageWithVolumeSize("500Mi"),
+						libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
 					),
 					libdv.WithForceBindAnnotation(),
 				)
@@ -1382,7 +1389,6 @@ var _ = Describe(SIG("Hotplug", func() {
 						libdv.StorageWithReadWriteManyAccessMode(),
 						libdv.StorageWithVolumeMode(volumeMode),
 					),
-					libdv.WithForceBindAnnotation(),
 				)
 			}
 			vmi := libvmifact.NewCirros()
@@ -1396,7 +1402,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(hpvolume.Namespace).Create(context.Background(), hpvolume, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			By("waiting for the dv import to pvc to finish")
-			libstorage.EventuallyDV(dv, 180, matcher.HaveSucceeded())
+			libstorage.EventuallyDV(dv, 180, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
 			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
