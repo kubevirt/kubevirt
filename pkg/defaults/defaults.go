@@ -24,6 +24,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -392,5 +393,16 @@ func setDefaultCPUModel(clusterConfig *virtconfig.ClusterConfig, spec *v1.Virtua
 func setDefaultArchitecture(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
 	if spec.Architecture == "" {
 		spec.Architecture = clusterConfig.GetDefaultArchitecture()
+	}
+}
+
+// EnsureFirmwareUUID sets the VM's firmware UUID to the provided value if none exists
+func EnsureFirmwareUUID(vm *v1.VirtualMachine, uuid types.UID) {
+	if vm.Spec.Template.Spec.Domain.Firmware == nil {
+		vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{}
+	}
+
+	if vm.Spec.Template.Spec.Domain.Firmware.UUID == "" {
+		vm.Spec.Template.Spec.Domain.Firmware.UUID = uuid
 	}
 }

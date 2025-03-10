@@ -46,11 +46,13 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	typesutil "kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
+	firmware "kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
 )
 
 const (
@@ -859,13 +861,24 @@ func (t *vmRestoreTarget) reconcileSpec(restoredVM *kubevirtv1.VirtualMachine) (
 		return false, err
 	}
 
+	sourceVM, err := t.getSnapshotVM()
+	if err != nil {
+		return false, err
+	}
+
 	if !t.Exists() {
 		restoredVM, err = patchVM(restoredVM, t.vmRestore.Spec.Patches)
 		if err != nil {
 			return false, fmt.Errorf("error patching VM %s: %v", restoredVM.Name, err)
 		}
+
+		if restoredVM.Name == sourceVM.Name {
+			defaults.EnsureFirmwareUUID(restoredVM, firmware.CalculateLegacyFirmwareUUID(restoredVM.Name))
+		}
+
 		restoredVM, err = t.controller.Client.VirtualMachine(t.vmRestore.Namespace).Create(context.Background(), restoredVM, metav1.CreateOptions{})
 	} else {
+		defaults.EnsureFirmwareUUID(restoredVM, firmware.CalculateLegacyFirmwareUUID(restoredVM.Name))
 		restoredVM, err = t.controller.Client.VirtualMachine(restoredVM.Namespace).Update(context.Background(), restoredVM, metav1.UpdateOptions{})
 	}
 	if err != nil {

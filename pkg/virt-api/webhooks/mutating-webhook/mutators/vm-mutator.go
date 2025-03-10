@@ -22,8 +22,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/google/uuid"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -79,6 +81,10 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 
 	if response := mutator.instancetypeMutator.Mutate(vm, oldVM, ar); response != nil {
 		return response
+	}
+
+	if ar.Request.Operation == admissionv1.Create {
+		defaults.EnsureFirmwareUUID(vm, types.UID(uuid.New().String()))
 	}
 
 	// Set VM defaults

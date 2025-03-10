@@ -39,7 +39,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
-	"github.com/google/uuid"
 	appsv1 "k8s.io/api/apps/v1"
 	authv1 "k8s.io/api/authorization/v1"
 	k8score "k8s.io/api/core/v1"
@@ -1866,12 +1865,6 @@ func hasStopRequestForVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		*stateChange.UID == vmi.UID
 }
 
-// no special meaning, randomly generated on my box.
-// TODO: do we want to use another constants? see examples in RFC4122
-const magicUUID = "6a1a24a1-4061-4607-8bf4-a3963d0c5895"
-
-var firmwareUUIDns = uuid.MustParse(magicUUID)
-
 // setStableUUID makes sure the VirtualMachineInstance being started has a 'stable' UUID.
 // The UUID is 'stable' if doesn't change across reboots.
 func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
@@ -1888,7 +1881,7 @@ func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 		return
 	}
 
-	vmi.Spec.Domain.Firmware.UUID = types.UID(uuid.NewSHA1(firmwareUUIDns, []byte(vmi.ObjectMeta.Name)).String())
+	vmi.Spec.Domain.Firmware.UUID = CalculateLegacyFirmwareUUID(vmi.Name)
 }
 
 // listControllerFromNamespace takes a namespace and returns all VirtualMachines
@@ -2922,6 +2915,10 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 		lastSeenVM.Spec.Template.Spec.NodeSelector = currentVM.Spec.Template.Spec.NodeSelector
 		lastSeenVM.Spec.Template.Spec.Affinity = currentVM.Spec.Template.Spec.Affinity
 		lastSeenVM.Spec.Template.Spec.Tolerations = currentVM.Spec.Template.Spec.Tolerations
+
+		if lastSeenVM.Spec.Template.Spec.Domain.Firmware != nil {
+			lastSeenVM.Spec.Template.Spec.Domain.Firmware.UUID = currentVM.Spec.Template.Spec.Domain.Firmware.UUID
+		}
 	} else {
 		// In the case live-updates aren't enable the volume set of the VM can be still changed by volume hotplugging.
 		// For imperative volume hotplug, first the VM status with the request AND the VMI spec are updated, then in the
