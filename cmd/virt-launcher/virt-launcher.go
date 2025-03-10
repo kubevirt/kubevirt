@@ -21,6 +21,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	goflag "flag"
 	"fmt"
 	"os"
@@ -44,12 +45,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
+	virtioserial "kubevirt.io/kubevirt/pkg/downwardmetrics/virtio-serial"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	putil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
@@ -335,6 +338,20 @@ func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 	}
 }
 
+func runDownwardMetricsVirtioServer(ctx context.Context) error {
+	if _, ok := os.LookupEnv(services.ENV_VAR_VIRT_LAUNCHER_DOWNWARDMETRICS_SERVER); ok {
+		nodeName, ok := os.LookupEnv(services.ENV_VAR_NODE_NAME)
+		if !ok {
+			return errors.New(services.ENV_VAR_NODE_NAME + " environment variable not found")
+		}
+
+		if err := virtioserial.RunDownwardMetricsVirtioServer(ctx, nodeName, downwardmetrics.DownwardMetricsChannelSocket); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func main() {
 	qemuTimeout := pflag.Duration("qemu-timeout", defaultStartTimeout, "Amount of time to wait for qemu")
 	virtShareDir := pflag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
@@ -496,6 +513,13 @@ func main() {
 			finalShutdownCallback,
 			gracefulShutdownCallback)
 
+		ctx, cancelCtx := context.WithCancel(context.Background())
+		defer cancelCtx()
+
+		if err := runDownwardMetricsVirtioServer(ctx); err != nil {
+			log.Log.Reason(err).Error("failed to start the DownwardMetrics server")
+			cancelCtx()
+		}
 		// This is a wait loop that monitors the qemu pid. When the pid
 		// exits, the wait loop breaks.
 		mon.RunForever(*qemuTimeout, signalStopChan)

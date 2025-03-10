@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	metricsScraper "kubevirt.io/kubevirt/pkg/monitoring/domainstats/downwardmetrics"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
 const (
@@ -54,8 +55,8 @@ const (
 // (will also fail for `maxRequestsBurst` > 256)
 const _ = uint8(maxRequestsBurst - 1)
 
-func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocketPath, launcherSocketPath string) error {
-	report, err := newMetricsReporter(nodeName, launcherSocketPath)
+func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocketPath string) error {
+	report, err := newMetricsReporter(nodeName)
 	if err != nil {
 		return err
 	}
@@ -72,7 +73,8 @@ func RunDownwardMetricsVirtioServer(ctx context.Context, nodeName, channelSocket
 
 type metricsReporter func() (*api.Metrics, error)
 
-func newMetricsReporter(nodeName, launcherSocketPath string) (metricsReporter, error) {
+func newMetricsReporter(nodeName string) (metricsReporter, error) {
+	launcherSocketPath := cmdclient.SocketOnGuest()
 	exists, err := diskutils.FileExists(launcherSocketPath)
 	if err != nil {
 		return nil, err
