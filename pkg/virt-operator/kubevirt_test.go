@@ -3305,27 +3305,12 @@ func getDefaultVirtControllerDeployment(namespace string, config *util.KubeVirtD
 }
 
 func getDefaultVirtHandlerDaemonSet(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.DaemonSet {
-	return components.NewHandlerDaemonSet(
-		namespace,
-		config.GetImageRegistry(),
-		config.GetImagePrefix(),
-		config.GetHandlerVersion(),
-		"",
-		"",
-		"",
-		"",
-		config.GetLauncherVersion(),
-		config.GetPrHelperVersion(),
-		config.VirtHandlerImage,
-		config.VirtLauncherImage,
-		config.PrHelperImage,
-		config.SidecarShimImage,
-		config.GetImagePullPolicy(),
-		config.GetImagePullSecrets(),
-		nil,
-		config.GetVerbosity(),
-		config.GetExtraEnv(),
-		false)
+	config.Namespace = namespace
+	config.AdditionalProperties[util.ProductVersionKey] = ""
+	config.AdditionalProperties[util.ProductNameKey] = ""
+	config.AdditionalProperties[util.ProductComponentKey] = ""
+	config.PassthroughEnvVars = nil
+	return components.NewHandlerDaemonSet(config)
 }
 
 func getDefaultExportProxyDeployment(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.Deployment {
