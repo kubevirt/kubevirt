@@ -1089,6 +1089,15 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		c.GPUHostDevices = gpuHostDevices
 	}
 
+	if _, err := os.Stat("/dev/kvm"); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, err
+		}
+		c.DevKvmExists = false
+	} else {
+		c.DevKvmExists = true
+	}
+
 	return c, nil
 }
 

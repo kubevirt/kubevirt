@@ -22,7 +22,6 @@ package converter
 import (
 	_ "embed"
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -356,11 +355,6 @@ var _ = Describe("Converter", func() {
 	Context("with v1.VirtualMachineInstance", func() {
 
 		var vmi *v1.VirtualMachineInstance
-		domainType := "kvm"
-		if _, err := os.Stat("/dev/kvm"); errors.Is(err, os.ErrNotExist) {
-			domainType = "qemu"
-		}
-
 		BeforeEach(func() {
 
 			vmi = &v1.VirtualMachineInstance{
@@ -653,35 +647,35 @@ var _ = Describe("Converter", func() {
 			vmi.ObjectMeta.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
 		})
 
-		var convertedDomain = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateX86_64, domainType, "%s"))
+		var convertedDomain = strings.TrimSpace(embedDomainTemplateX86_64)
 		var convertedDomainWith5Period = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("virtio-non-transitional", 5))
 		var convertedDomainWith0Period = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("virtio-non-transitional", 0))
 		var convertedDomainWithFalseAutoattach = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("none", 0))
 
 		convertedDomain = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("virtio-non-transitional", 10))
 
-		var convertedDomainppc64le = strings.TrimSpace(fmt.Sprintf(embedDomainTemplatePPC64le, domainType, "%s"))
+		var convertedDomainppc64le = strings.TrimSpace(embedDomainTemplatePPC64le)
 		var convertedDomainppc64leWith5Period = fmt.Sprintf(convertedDomainppc64le, memBalloonWithModelAndPeriod("virtio-non-transitional", 5))
 		var convertedDomainppc64leWith0Period = fmt.Sprintf(convertedDomainppc64le, memBalloonWithModelAndPeriod("virtio-non-transitional", 0))
 		var convertedDomainppc64leWithFalseAutoattach = fmt.Sprintf(convertedDomainppc64le, memBalloonWithModelAndPeriod("none", 0))
 
 		convertedDomainppc64le = fmt.Sprintf(convertedDomainppc64le, memBalloonWithModelAndPeriod("virtio-non-transitional", 10))
 
-		var convertedDomainarm64 = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateARM64, domainType, "%s"))
+		var convertedDomainarm64 = strings.TrimSpace(embedDomainTemplateARM64)
 		var convertedDomainarm64With5Period = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("virtio-non-transitional", 5))
 		var convertedDomainarm64With0Period = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("virtio-non-transitional", 0))
 		var convertedDomainarm64WithFalseAutoattach = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("none", 0))
 
 		convertedDomainarm64 = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("virtio-non-transitional", 10))
 
-		var convertedDomains390x = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateS390X, domainType, "%s"))
+		var convertedDomains390x = strings.TrimSpace(embedDomainTemplateS390X)
 		var convertedDomains390xWith5Period = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("virtio", 5))
 		var convertedDomains390xWith0Period = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("virtio", 0))
 		var convertedDomains390xWithFalseAutoattach = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("none", 0))
 
 		convertedDomains390x = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("virtio", 10))
 
-		var convertedDomainWithDevicesOnRootBus = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateRootBus, domainType))
+		var convertedDomainWithDevicesOnRootBus = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateRootBus, "kvm"))
 
 		var c *ConverterContext
 
@@ -702,6 +696,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				AllowEmulation:                  true,
+				DevKvmExists:                    true,
 				IsBlockPVC:                      isBlockPVCMap,
 				IsBlockDV:                       isBlockDVMap,
 				SMBios:                          TestSmbios,
@@ -782,7 +777,21 @@ var _ = Describe("Converter", func() {
 
 		It("should use kvm if present", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			Expect(vmiToDomainXMLToDomainSpec(vmi, c).Type).To(Equal(domainType))
+			Expect(vmiToDomainXMLToDomainSpec(vmi, c).Type).To(Equal("kvm"))
+		})
+
+		It("should use qemu if allowed and kvm not present", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			c.AllowEmulation = true
+			c.DevKvmExists = false
+			Expect(vmiToDomainXMLToDomainSpec(vmi, c).Type).To(Equal("qemu"))
+		})
+
+		It("should use kvm if present even if emulation is allowed", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			c.AllowEmulation = true
+			c.DevKvmExists = true
+			Expect(vmiToDomainXMLToDomainSpec(vmi, c).Type).To(Equal("kvm"))
 		})
 
 		Context("when all addresses should be places at the root complex", func() {
