@@ -4,18 +4,17 @@ import (
 	"testing"
 
 	v1 "kubevirt.io/api/core/v1"
-	api2 "kubevirt.io/client-go/api"
-	"kubevirt.io/client-go/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-api/libvmi"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 func TestDomainSpec(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t)
+	libvmi.KubeVirtTestSuiteSetup(t)
 }
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {
-	vmi := api2.NewMinimalVMIWithNS(namespace, name)
+	vmi := libvmi.New(libvmi.WithName(name), libvmi.WithNamespace(namespace))
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 	return vmi
 }
@@ -23,7 +22,7 @@ func newVMI(namespace, name string) *v1.VirtualMachineInstance {
 func newVMIMasqueradeInterface(namespace, vmiName string) *v1.VirtualMachineInstance {
 	vmi := newVMI(namespace, vmiName)
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+	libvmi.SetObjectDefaults_VirtualMachineInstance(vmi)
 	return vmi
 }
 

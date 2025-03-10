@@ -27,6 +27,7 @@ import (
 	api2 "kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-api/libvmi"
 )
 
 var _ = Describe("VMNetworkConfigurator", func() {
@@ -38,10 +39,12 @@ var _ = Describe("VMNetworkConfigurator", func() {
 	Context("interface configuration", func() {
 
 		It("when vm has no network source should propagate errors when phase2 is called", func() {
-			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
+			vmi := libvmi.New(libvmi.WithName("testVmName"), libvmi.WithNamespace("testnamespace"))
 			vmi.Spec.Networks = []v1.Network{{
 				Name:          "default",
 				NetworkSource: v1.NetworkSource{},
+				// Assuming the default network is a pod network for simplicity
+				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 			}}
 			vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator)
 			var domain *api.Domain
@@ -51,7 +54,7 @@ var _ = Describe("VMNetworkConfigurator", func() {
 
 		Context("when calling []podNIC factory functions", func() {
 			It("should not process SR-IOV networks", func() {
-				vmi := api2.NewMinimalVMIWithNS("testnamespace", "testVmName")
+				vmi := libvmi.New(libvmi.WithName("testVmName"), libvmi.WithNamespace("testnamespace"))
 				const networkName = "sriov"
 				vmi.Spec.Networks = []v1.Network{{
 					Name: networkName,
