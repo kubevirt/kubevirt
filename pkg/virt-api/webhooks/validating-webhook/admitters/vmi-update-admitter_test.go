@@ -35,11 +35,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"kubevirt.io/client-go/api"
-
 	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -141,7 +140,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			)
 
 			DescribeTable("and NodeName set", func(handlernode string, matcher types.GomegaMatcher) {
-				vmi := api.NewMinimalVMI("testvmi")
+				vmi := libvmi.New(libvmi.WithName("testvmi"))
 				vmi.Status.NodeName = "got"
 
 				resp := vmiUpdateAdmitter.Admit(context.Background(), admission(vmi, handlernode))
@@ -156,7 +155,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			)
 
 			DescribeTable("and TargetNode set", func(handlernode string, matcher types.GomegaMatcher) {
-				vmi := api.NewMinimalVMI("testvmi")
+				vmi := libvmi.New(libvmi.WithName("testvmi"))
 				vmi.Status.NodeName = "got"
 				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 					TargetNode: "git",
@@ -174,7 +173,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			)
 
 			DescribeTable("and both NodeName and TargetNode set", func(handlernode string, matcher types.GomegaMatcher) {
-				vmi := api.NewMinimalVMI("testvmi")
+				vmi := libvmi.New(libvmi.WithName("testvmi"))
 				vmi.Status.NodeName = "got"
 				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 					TargetNode: "target",
@@ -196,7 +195,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			)
 
 			It("should allow finalize migration", func() {
-				vmi := api.NewMinimalVMI("testvmi")
+				vmi := libvmi.New(libvmi.WithName("testvmi"))
 				vmi.Status.NodeName = "got"
 				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 					TargetNode: "target",
@@ -210,7 +209,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			})
 
 			It("should not allow to set targetNode to source handler", func() {
-				vmi := api.NewMinimalVMI("testvmi")
+				vmi := libvmi.New(libvmi.WithName("testvmi"))
 				vmi.Status.NodeName = "got"
 
 				updatedVMI := vmi.DeepCopy()
@@ -223,7 +222,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 		})
 
 		DescribeTable("with Node Restriction feature gate disabled should allow different handler", func(migrationState *v1.VirtualMachineInstanceMigrationState) {
-			vmi := api.NewMinimalVMI("testvmi")
+			vmi := libvmi.New(libvmi.WithName("testvmi"))
 			vmi.Status.NodeName = "got"
 			vmi.Status.MigrationState = migrationState
 
@@ -261,7 +260,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	)
 
 	It("should reject valid VirtualMachineInstance spec on update", func() {
-		vmi := api.NewMinimalVMI("testvmi")
+		vmi := libvmi.New(libvmi.WithName("testvmi"))
 
 		updateVmi := vmi.DeepCopy()
 		updateVmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
@@ -298,7 +297,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	DescribeTable(
 		"Should allow VMI upon modification of non kubevirt.io/ labels by non kubevirt user or service account",
 		func(originalVmiLabels map[string]string, updateVmiLabels map[string]string) {
-			vmi := api.NewMinimalVMI("testvmi")
+			vmi := libvmi.New(libvmi.WithName("testvmi"))
 			updateVmi := vmi.DeepCopy() // Don't need to copy the labels
 			vmi.Labels = originalVmiLabels
 			updateVmi.Labels = updateVmiLabels
@@ -341,7 +340,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	DescribeTable(
 		"Should allow VMI upon modification of kubevirt.io/ labels by kubevirt internal service account",
 		func(originalVmiLabels map[string]string, updateVmiLabels map[string]string, serviceAccount string) {
-			vmi := api.NewMinimalVMI("testvmi")
+			vmi := libvmi.New(libvmi.WithName("testvmi"))
 			updateVmi := vmi.DeepCopy() // Don't need to copy the labels
 			vmi.Labels = originalVmiLabels
 			updateVmi.Labels = updateVmiLabels
@@ -384,7 +383,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	DescribeTable(
 		"Should reject VMI upon modification of kubevirt.io/ reserved labels by non kubevirt user or service account",
 		func(originalVmiLabels map[string]string, updateVmiLabels map[string]string) {
-			vmi := api.NewMinimalVMI("testvmi")
+			vmi := libvmi.New(libvmi.WithName("testvmi"))
 			updateVmi := vmi.DeepCopy() // Don't need to copy the labels
 			vmi.Labels = originalVmiLabels
 			updateVmi.Labels = updateVmiLabels
@@ -681,7 +680,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	)
 
 	testHotplugResponse := func(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks []v1.Disk, filesystems []v1.Filesystem, volumeStatuses []v1.VolumeStatus, expected *admissionv1.AdmissionResponse) {
-		newVMI := api.NewMinimalVMI("testvmi")
+		newVMI := libvmi.New(libvmi.WithName("testvmi"))
 		newVMI.Spec.Volumes = newVolumes
 		newVMI.Spec.Domain.Devices.Disks = newDisks
 		newVMI.Spec.Domain.Devices.Filesystems = filesystems
@@ -848,7 +847,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	})
 
 	DescribeTable("Admit or deny based on user", func(user string, expected types.GomegaMatcher) {
-		vmi := api.NewMinimalVMI("testvmi")
+		vmi := libvmi.New(libvmi.WithName("testvmi"))
 		vmi.Spec.Domain.CPU = &v1.CPU{}
 		vmi.Spec.Volumes = makeVolumes(1)
 		vmi.Spec.Domain.Devices.Disks = makeDisks(1)
@@ -881,7 +880,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 	)
 
 	DescribeTable("Updates in CPU topology", func(oldCPUTopology, newCPUTopology *v1.CPU, expected types.GomegaMatcher) {
-		vmi := api.NewMinimalVMI("testvmi")
+		vmi := libvmi.New(libvmi.WithName("testvmi"))
 		updateVmi := vmi.DeepCopy()
 		vmi.Spec.Domain.CPU = oldCPUTopology
 		updateVmi.Spec.Domain.CPU = newCPUTopology
@@ -914,7 +913,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			BeFalse()))
 
 	It("should reject updates to maxGuest", func() {
-		vmi := api.NewMinimalVMI("testvmi")
+		vmi := libvmi.New(libvmi.WithName("testvmi"))
 		vmi.Spec.Domain.CPU = &v1.CPU{}
 		updateVmi := vmi.DeepCopy()
 
@@ -1001,7 +1000,7 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			{Name: "vol0"},
 			{Name: "vol1"},
 		}
-		vmi := api.NewMinimalVMI("testvmi")
+		vmi := libvmi.New(libvmi.WithName("testvmi"))
 		vmi.Status.MigratedVolumes = []v1.StorageMigratedVolumeInfo{
 			{
 				VolumeName:         "vol1",
