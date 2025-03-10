@@ -28,6 +28,7 @@ go_library(
         "//pkg/storage/reservation:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/util:go_default_library",
+        "//pkg/util/hardware:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
         "//pkg/virt-controller/watch/topology:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
