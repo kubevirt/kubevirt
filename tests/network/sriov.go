@@ -103,8 +103,9 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 
 		It("should have cloud-init meta_data with tagged interface and aligned cpus to sriov interface numa node for VMIs with dedicatedCPUs", decorators.RequiresNodeWithCPUManager, func() {
 			vmi := newSRIOVVmi([]string{sriovnet1}, libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveNetworkData(defaultCloudInitNetworkData())))
+			const requestedNumberOfCores = 4
 			vmi.Spec.Domain.CPU = &v1.CPU{
-				Cores:                 4,
+				Cores:                 requestedNumberOfCores,
 				DedicatedCPUPlacement: true,
 			}
 
@@ -134,6 +135,7 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 			sourcePCIAddress := fmt.Sprintf("%s:%s:%s.%s", srcAddr.Domain[2:], srcAddr.Bus[2:], srcAddr.Slot[2:], srcAddr.Function[2:])
 			alignedCPUsInt, err := hardware.LookupDeviceVCPUAffinity(sourcePCIAddress, domSpec)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(alignedCPUsInt).To(HaveLen(requestedNumberOfCores))
 			deviceData := []cloudinit.DeviceData{
 				{
 					Type:        cloudinit.NICMetadataType,
