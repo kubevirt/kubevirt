@@ -410,7 +410,7 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additiona
 
 	// Having a TPM device will spawn a swtpm process
 	// In `ps`, swtpm has VSZ of 53808 and RSS of 3496, so 53Mi should do
-	if vmi.Spec.Domain.Devices.TPM != nil {
+	if util.HasTPMDevice(&vmi.Spec) {
 		overhead.Add(resource.MustParse("53Mi"))
 	}
 

@@ -268,9 +268,8 @@ func CurrentPVCName(vmi *corev1.VirtualMachineInstance) string {
 }
 
 func HasPersistentTPMDevice(vmiSpec *corev1.VirtualMachineInstanceSpec) bool {
-	return vmiSpec.Domain.Devices.TPM != nil &&
-		vmiSpec.Domain.Devices.TPM.Persistent != nil &&
-		*vmiSpec.Domain.Devices.TPM.Persistent
+	return util.HasTPMDevice(vmiSpec) &&
+		vmiSpec.Domain.Devices.TPM.Persistent != nil && *vmiSpec.Domain.Devices.TPM.Persistent
 }
 
 func HasPersistentEFI(vmiSpec *corev1.VirtualMachineInstanceSpec) bool {
