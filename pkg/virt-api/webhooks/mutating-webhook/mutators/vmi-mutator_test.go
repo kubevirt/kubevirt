@@ -1313,6 +1313,17 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 				Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(8)))
 			})
+
+			It("to calculate max sockets to be 4x times the configured sockets with upper bound 512 when no max sockets defined", func() {
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Sockets: 32,
+					Cores:   2,
+					Threads: 3,
+				}
+				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
+				Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(85)))
+			})
+
 			It("to calculate max sockets to be 4x times the default sockets when default CPU topology used", func() {
 				_, spec, _ := getMetaSpecStatusFromAdmit(rt.GOARCH)
 				Expect(spec.Domain.CPU.MaxSockets).To(Equal(uint32(4)))
