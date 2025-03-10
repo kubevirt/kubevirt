@@ -1038,6 +1038,10 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 					ObjectMeta: vm.Spec.DataVolumeTemplates[0].ObjectMeta,
 					Spec:       vm.Spec.DataVolumeTemplates[0].Spec,
 				}
+				if dv.Annotations == nil {
+					dv.Annotations = map[string]string{}
+				}
+				dv.Annotations["cdi.kubevirt.io/storage.bind.immediate.requested"] = "true"
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libstorage.EventuallyDV(dv, 90, HaveSucceeded())
