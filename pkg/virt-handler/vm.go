@@ -1046,8 +1046,13 @@ func (c *VirtualMachineController) updateAccessCredentialConditions(vmi *v1.Virt
 			Message:            message,
 		}
 		vmi.Status.Conditions = append(vmi.Status.Conditions, newCondition)
+
 		if status == k8sv1.ConditionTrue {
-			c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.AccessCredentialsSyncSuccess.String(), message)
+			if domain.Spec.Metadata.KubeVirt.AccessCredential.DeprecatedMethod {
+				c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.AccessCredentialsSyncSuccess.String(), message)
+			} else {
+				c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.AccessCredentialsSyncSuccess.String(), message)
+			}
 		} else {
 			c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.AccessCredentialsSyncFailed.String(), message)
 		}
