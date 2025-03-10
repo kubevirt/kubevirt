@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "datavolume.go",
+        "declarative-hotplug.go",
         "events.go",
         "export.go",
         "framework.go",
