@@ -41,6 +41,7 @@ go_test(
         "//pkg/checkpoint:go_default_library",
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/hotplug-disk:go_default_library",
+        "//pkg/libvmi:go_default_library",
         "//pkg/safepath:go_default_library",
         "//pkg/unsafepath:go_default_library",
         "//pkg/virt-handler/cgroup:go_default_library",

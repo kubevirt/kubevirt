@@ -33,14 +33,13 @@ import (
 	"golang.org/x/sys/unix"
 
 	"kubevirt.io/kubevirt/pkg/checkpoint"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"kubevirt.io/client-go/api"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -163,7 +162,9 @@ var _ = Describe("HotplugVolume", func() {
 			tempDir = GinkgoT().TempDir()
 			tmpDirSafe, err = safepath.JoinAndResolveWithRelativeRoot(tempDir)
 			Expect(err).ToNot(HaveOccurred())
-			vmi = api.NewMinimalVMI("fake-vmi")
+			vmi = libvmi.New(
+				libvmi.WithName("fake-vmi"),
+			)
 			vmi.UID = "1234"
 
 			m = &volumeMounter{
@@ -260,7 +261,9 @@ var _ = Describe("HotplugVolume", func() {
 			tempDir = GinkgoT().TempDir()
 			tmpDirSafe, err = safepath.JoinAndResolveWithRelativeRoot(tempDir)
 			Expect(err).ToNot(HaveOccurred())
-			vmi = api.NewMinimalVMI("fake-vmi")
+			vmi = libvmi.New(
+				libvmi.WithName("fake-vmi"),
+			)
 			vmi.UID = "1234"
 			activePods := make(map[types.UID]string, 0)
 			activePods["abcd"] = "host"
@@ -525,7 +528,9 @@ var _ = Describe("HotplugVolume", func() {
 
 			volumeDir, err := newDir(tempDir, "volumes")
 			Expect(err).ToNot(HaveOccurred())
-			vmi = api.NewMinimalVMI("fake-vmi")
+			vmi = libvmi.New(
+				libvmi.WithName("fake-vmi"),
+			)
 			vmi.UID = "1234"
 			activePods := make(map[types.UID]string, 0)
 			activePods["abcd"] = "host"
@@ -713,7 +718,9 @@ var _ = Describe("HotplugVolume", func() {
 			tempDir = GinkgoT().TempDir()
 			tmpDirSafe, err = safepath.JoinAndResolveWithRelativeRoot(tempDir)
 			Expect(err).ToNot(HaveOccurred())
-			vmi = api.NewMinimalVMI("fake-vmi")
+			vmi = libvmi.New(
+				libvmi.WithName("fake-vmi"),
+			)
 			vmi.UID = "1234"
 			activePods := make(map[types.UID]string, 0)
 			activePods["abcd"] = "host"
