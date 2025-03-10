@@ -50,11 +50,6 @@ func StartTCPServer(vmi *v1.VirtualMachineInstance, port int, loginTo console.Lo
 	TCPServer.Start(vmi, port)
 }
 
-func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int, loginTo console.LoginToFunction) {
-	ExpectWithOffset(1, loginTo(vmi)).To(Succeed())
-	HTTPServer.Start(vmi, port)
-}
-
 func StartHTTPServerWithSourceIP(vmi *v1.VirtualMachineInstance, port int, sourceIP string, loginTo console.LoginToFunction) {
 	ExpectWithOffset(1, loginTo(vmi)).To(Succeed())
 	HTTPServer.Start(vmi, port, fmt.Sprintf("-s %s", sourceIP))
