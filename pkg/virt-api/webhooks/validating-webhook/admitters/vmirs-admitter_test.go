@@ -29,7 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"kubevirt.io/client-go/api"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -166,7 +166,7 @@ func (b *virtualMachineBuilder) WithVolume(volume v1.Volume) *virtualMachineBuil
 
 func (b *virtualMachineBuilder) Build() *v1.VirtualMachineInstance {
 
-	vmi := api.NewMinimalVMI("testvmi")
+	vmi := libvmi.New(libvmi.WithName("testvmi"))
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, b.disks...)
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, b.volumes...)
 	vmi.Labels = b.labels
