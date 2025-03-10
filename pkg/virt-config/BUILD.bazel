@@ -32,7 +32,6 @@ go_test(
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
-        "//pkg/virt-config/featuregate:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
