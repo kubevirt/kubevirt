@@ -22,8 +22,6 @@ package network
 import (
 	"context"
 	"fmt"
-	"os"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -61,7 +59,6 @@ import (
 )
 
 const (
-	istioDeployedEnvVariable  = "KUBEVIRT_DEPLOY_ISTIO"
 	vmiAppSelectorKey         = "app"
 	vmiAppSelectorValue       = "istio-vmi-app"
 	vmiServerAppSelectorValue = "vmi-server-app"
@@ -108,12 +105,6 @@ var istioTests = func(vmType VmType) {
 	)
 	BeforeEach(func() {
 		namespace = testsuite.GetTestNamespace(nil)
-	})
-
-	BeforeEach(func() {
-		if !istioServiceMeshDeployed() {
-			Skip("Istio service mesh is required for service-mesh tests to run")
-		}
 	})
 
 	Context("Virtual Machine with istio supported interface", func() {
@@ -165,7 +156,7 @@ var istioTests = func(vmType VmType) {
 			By("Waiting for VMI to be ready")
 			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 		})
-		Describe("Live Migration", decorators.RequiresTwoSchedulableNodes, decorators.SigComputeMigrations, func() {
+		Describe("Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
 			var sourcePodName string
 			allContainersCompleted := func(podName string) error {
 				pod, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.TODO(), podName, metav1.GetOptions{})
@@ -495,10 +486,6 @@ var istioTestsWithPasstBinding = func() {
 var _ = Describe(SIG(" Istio with masquerade binding", decorators.Istio, Serial, istioTestsWithMasqueradeBinding))
 
 var _ = Describe(SIG(" Istio with passt binding", decorators.Istio, decorators.NetCustomBindingPlugins, Serial, istioTestsWithPasstBinding))
-
-func istioServiceMeshDeployed() bool {
-	return strings.ToLower(os.Getenv(istioDeployedEnvVariable)) == "true"
-}
 
 func newVMIWithIstioSidecar(ports []v1.Port, vmType VmType) (*v1.VirtualMachineInstance, error) {
 	if vmType == Masquerade {
