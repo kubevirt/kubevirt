@@ -22,10 +22,14 @@ package agentpoller
 import (
 	"time"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"libvirt.org/go/libvirt"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 )
 
 var _ = Describe("Qemu agent poller", func() {
@@ -55,6 +59,77 @@ var _ = Describe("Qemu agent poller", func() {
 			Id:            "testguestos",
 		}
 	})
+
+	Context("with libvirt API", func() {
+		var agentStore AsyncAgentStore
+		var ctrl *gomock.Controller
+		var mockConnection *cli.MockConnection
+		var mockDomain *cli.MockVirDomain
+
+		BeforeEach(func() {
+			agentStore = NewAsyncAgentStore()
+			ctrl = gomock.NewController(GinkgoT())
+			mockConnection = cli.NewMockConnection(ctrl)
+			mockDomain = cli.NewMockVirDomain(ctrl)
+			mockConnection.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil).AnyTimes()
+		})
+
+		It("should store the interfaces when GET_INTERFACES is requested", func() {
+			guestInfo := &libvirt.DomainGuestInfo{Interfaces: []libvirt.DomainGuestInfoInterface{{Name: "net0"}}}
+			mockDomain.EXPECT().GetGuestInfo(libvirt.DOMAIN_GUEST_INFO_INTERFACES, uint32(0)).Return(guestInfo, nil)
+
+			commands := []AgentCommand{GET_INTERFACES}
+			executeApiOperations(commands, mockConnection, &agentStore, "test-domain")
+
+			interfacesStatus := agentStore.GetInterfaceStatus()
+			Expect(interfacesStatus[0].InterfaceName).To(Equal("net0"))
+		})
+
+		It("should store the OS info when GET_OSINFO is requested", func() {
+			guestInfo := &libvirt.DomainGuestInfo{OS: &libvirt.DomainGuestInfoOS{Name: "fedora"}}
+			mockDomain.EXPECT().GetGuestInfo(libvirt.DOMAIN_GUEST_INFO_OS, uint32(0)).Return(guestInfo, nil)
+
+			commands := []AgentCommand{GET_OSINFO}
+			executeApiOperations(commands, mockConnection, &agentStore, "test-domain")
+
+			osInfo := agentStore.GetGuestOSInfo()
+			Expect(osInfo.Name).To(Equal("fedora"))
+		})
+
+		It("should store the hostname when GET_HOSTNAME is requested", func() {
+			guestInfo := &libvirt.DomainGuestInfo{Hostname: "test-host"}
+			mockDomain.EXPECT().GetGuestInfo(libvirt.DOMAIN_GUEST_INFO_HOSTNAME, uint32(0)).Return(guestInfo, nil)
+
+			commands := []AgentCommand{GET_HOSTNAME}
+			executeApiOperations(commands, mockConnection, &agentStore, "test-domain")
+
+			sysInfo := agentStore.GetSysInfo()
+			Expect(sysInfo.Hostname).To(Equal("test-host"))
+		})
+
+		It("should store the timezone when GET_TIMEZONE is requested", func() {
+			guestInfo := &libvirt.DomainGuestInfo{TimeZone: &libvirt.DomainGuestInfoTimeZone{Name: "EST"}}
+			mockDomain.EXPECT().GetGuestInfo(libvirt.DOMAIN_GUEST_INFO_TIMEZONE, uint32(0)).Return(guestInfo, nil)
+
+			commands := []AgentCommand{GET_TIMEZONE}
+			executeApiOperations(commands, mockConnection, &agentStore, "test-domain")
+
+			sysInfo := agentStore.GetSysInfo()
+			Expect(sysInfo.Timezone.Zone).To(Equal("EST"))
+		})
+
+		It("should store the users when GET_USERS is requested", func() {
+			guestInfo := &libvirt.DomainGuestInfo{Users: []libvirt.DomainGuestInfoUser{{Name: "admin"}}}
+			mockDomain.EXPECT().GetGuestInfo(libvirt.DOMAIN_GUEST_INFO_USERS, uint32(0)).Return(guestInfo, nil)
+
+			commands := []AgentCommand{GET_USERS}
+			executeApiOperations(commands, mockConnection, &agentStore, "test-domain")
+
+			users := agentStore.GetUsers(1)
+			Expect(users[0].Name).To(Equal("admin"))
+		})
+	})
+
 	Context("with AsyncAgentStore", func() {
 
 		It("should store and load the data", func() {

@@ -25,6 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 
+	"libvirt.org/go/libvirt"
+
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -325,6 +327,7 @@ func (p *AgentPoller) Start() {
 	for i := 0; i < len(p.workers); i++ {
 		log.Log.Infof("Starting agent poller with commands: %v", p.workers[i].AgentCommands)
 		go p.workers[i].Poll(func(commands []AgentCommand) {
+			executeApiOperations(commands, p.Connection, p.agentStore, p.domainName)
 			executeAgentCommands(commands, p.Connection, p.agentStore, p.domainName)
 		}, p.agentDone, pollInitialInterval)
 	}
@@ -338,54 +341,15 @@ func (p *AgentPoller) Stop() {
 	}
 }
 
-// With libvirt 5.6.0 direct call to agent can be replaced with call to libvirt Domain.GetGuestInfo
 func executeAgentCommands(commands []AgentCommand, con cli.Connection, agentStore *AsyncAgentStore, domainName string) {
 	for _, command := range commands {
-		// replace with direct call to libvirt function when 5.6.0 is available
 		cmdResult, err := con.QemuAgentCommand(`{"execute":"`+string(command)+`"}`, domainName)
 		if err != nil {
 			// skip the command on error, it is not vital
 			continue
 		}
 
-		// parse the json data and convert to domain api
-		// for libvirt 5.6.0 json conversion deprecated
 		switch command {
-		case GET_INTERFACES:
-			interfaces, err := parseInterfaces(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent interface %s", err.Error())
-				continue
-			}
-			agentStore.Store(GET_INTERFACES, interfaces)
-		case GET_OSINFO:
-			osInfo, err := parseGuestOSInfo(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent guestosinfo %s", err.Error())
-				continue
-			}
-			agentStore.Store(GET_OSINFO, osInfo)
-		case GET_HOSTNAME:
-			hostname, err := parseHostname(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent hostname %s", err.Error())
-				continue
-			}
-			agentStore.Store(GET_HOSTNAME, hostname)
-		case GET_TIMEZONE:
-			timezone, err := parseTimezone(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent timezone %s", err.Error())
-				continue
-			}
-			agentStore.Store(GET_TIMEZONE, timezone)
-		case GET_USERS:
-			users, err := parseUsers(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent users %s", err.Error())
-				continue
-			}
-			agentStore.Store(GET_USERS, users)
 		case GET_FSFREEZE_STATUS:
 			fsfreezeStatus, err := ParseFSFreezeStatus(cmdResult)
 			if err != nil {
@@ -409,4 +373,121 @@ func executeAgentCommands(commands []AgentCommand, con cli.Connection, agentStor
 			agentStore.Store(GET_AGENT, agent)
 		}
 	}
+}
+
+func executeApiOperations(commands []AgentCommand, con cli.Connection, agentStore *AsyncAgentStore, domainName string) {
+	for _, command := range commands {
+		domain, err := con.LookupDomainByName(domainName)
+		if err != nil {
+			// skip the command on error, it is not vital
+			continue
+		}
+
+		switch command {
+		case GET_INTERFACES:
+			if guestInfo, err := domain.GetGuestInfo(libvirt.DOMAIN_GUEST_INFO_INTERFACES, 0); err == nil {
+				agentStore.Store(GET_INTERFACES, convertToInterfaces(guestInfo))
+			}
+		case GET_OSINFO:
+			if guestInfo, err := domain.GetGuestInfo(libvirt.DOMAIN_GUEST_INFO_OS, 0); err == nil {
+				agentStore.Store(GET_OSINFO, convertToOSInfo(guestInfo))
+			}
+		case GET_HOSTNAME:
+			if guestInfo, err := domain.GetGuestInfo(libvirt.DOMAIN_GUEST_INFO_HOSTNAME, 0); err == nil {
+				agentStore.Store(GET_HOSTNAME, guestInfo.Hostname)
+			}
+		case GET_TIMEZONE:
+			if guestInfo, err := domain.GetGuestInfo(libvirt.DOMAIN_GUEST_INFO_TIMEZONE, 0); err == nil {
+				agentStore.Store(GET_TIMEZONE, convertToTimezone(guestInfo))
+			}
+		case GET_USERS:
+			if guestInfo, err := domain.GetGuestInfo(libvirt.DOMAIN_GUEST_INFO_USERS, 0); err == nil {
+				agentStore.Store(GET_USERS, convertToUsers(guestInfo))
+			}
+		}
+	}
+}
+
+func convertToInterfaces(guestInfo *libvirt.DomainGuestInfo) []api.InterfaceStatus {
+	var interfaceStatuses []api.InterfaceStatus
+	if guestInfo.Interfaces != nil {
+		for _, netInterface := range guestInfo.Interfaces {
+			if netInterface.Name == "lo" {
+				continue
+			}
+
+			interfaceIP, interfaceIPs := convertToIPAddresses(netInterface.Addrs)
+			interfaceStatuses = append(interfaceStatuses, api.InterfaceStatus{
+				Mac:           netInterface.Hwaddr,
+				Ip:            interfaceIP,
+				IPs:           interfaceIPs,
+				InterfaceName: netInterface.Name,
+			})
+		}
+	}
+	return interfaceStatuses
+}
+
+func convertToIPAddresses(ipAddresses []libvirt.DomainGuestInfoIPAddress) (string, []string) {
+	interfaceIPs := []string{}
+	var interfaceIP string
+
+	for _, ipAddr := range ipAddresses {
+		ip := ipAddr.Addr
+
+		// Prefer ipv4 as the main interface IP
+		if ipAddr.Type == "ipv4" && interfaceIP == "" {
+			interfaceIP = ip
+		}
+
+		interfaceIPs = append(interfaceIPs, ip)
+	}
+
+	// If no ipv4 interface was found, set any IP as the main IP of interface
+	if interfaceIP == "" && len(interfaceIPs) > 0 {
+		interfaceIP = interfaceIPs[0]
+	}
+	return interfaceIP, interfaceIPs
+}
+
+func convertToOSInfo(guestInfo *libvirt.DomainGuestInfo) api.GuestOSInfo {
+	guestInfoOS := api.GuestOSInfo{}
+	if guestInfo.OS != nil {
+		guestInfoOS = api.GuestOSInfo{
+			Name:          guestInfo.OS.Name,
+			KernelRelease: guestInfo.OS.KernelRelease,
+			Version:       guestInfo.OS.Version,
+			PrettyName:    guestInfo.OS.PrettyName,
+			VersionId:     guestInfo.OS.VersionID,
+			KernelVersion: guestInfo.OS.KernelVersion,
+			Machine:       guestInfo.OS.Machine,
+			Id:            guestInfo.OS.ID,
+		}
+	}
+	return guestInfoOS
+}
+
+func convertToTimezone(guestInfo *libvirt.DomainGuestInfo) api.Timezone {
+	timezone := api.Timezone{}
+	if guestInfo.TimeZone != nil {
+		timezone = api.Timezone{
+			Zone:   guestInfo.TimeZone.Name,
+			Offset: guestInfo.TimeZone.Offset,
+		}
+	}
+	return timezone
+}
+
+func convertToUsers(guestInfo *libvirt.DomainGuestInfo) []api.User {
+	var users []api.User
+	if guestInfo.Users != nil {
+		for _, user := range guestInfo.Users {
+			users = append(users, api.User{
+				Name:      user.Name,
+				Domain:    user.Domain,
+				LoginTime: float64(user.LoginTime),
+			})
+		}
+	}
+	return users
 }
