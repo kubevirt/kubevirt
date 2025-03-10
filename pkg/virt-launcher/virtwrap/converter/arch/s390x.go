@@ -78,6 +78,7 @@ func (converterS390X) TransitionalModelType(_ bool) string {
 }
 
 func (converterS390X) IsROMTuningSupported() bool {
+	// s390x does not support setting ROM tuning, as it is for PCI Devices only
 	return false
 }
 
