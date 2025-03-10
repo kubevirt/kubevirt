@@ -22,7 +22,6 @@ package rest
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -35,8 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/yaml"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -57,12 +54,11 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 	}
 
 	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			writeError(errors.NewInternalError(err), response)
-			return
-		}
+	if err != nil && !errors.IsNotFound(err) {
+		writeError(errors.NewInternalError(err), response)
+		return
 	}
+
 	if vmi != nil && !vmi.IsFinal() && vmi.Status.Phase != v1.Unknown && vmi.Status.Phase != v1.VmPhaseUnset {
 		writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("VM is already running")), response)
 		return
@@ -76,12 +72,8 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 	startChangeRequestData := make(map[string]string)
 	bodyStruct := &v1.StartOptions{}
 	if request.Request.Body != nil {
-		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
-		switch err {
-		case io.EOF, nil:
-			break
-		default:
-			writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
+		if err := decodeBody(request, bodyStruct); err != nil {
+			writeError(err, response)
 			return
 		}
 		startPaused = bodyStruct.Paused
@@ -119,9 +111,13 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 			log.Log.Object(vm).V(4).Infof(patchingVMStatusFmt, string(patchBytes))
 			_, patchErr = app.virtCli.VirtualMachine(vm.Namespace).PatchStatus(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
 		} else {
-			patchString := getRunningJson(vm, true)
-			log.Log.Object(vm).V(4).Infof(patchingVMFmt, patchString)
-			_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(context.Background(), vm.GetName(), types.MergePatchType, []byte(patchString), metav1.PatchOptions{DryRun: bodyStruct.DryRun})
+			patchBytes, err := getRunningPatch(vm, true)
+			if err != nil {
+				writeError(errors.NewInternalError(err), response)
+				return
+			}
+			log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
+			_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(context.Background(), vm.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
 		}
 
 	case v1.RunStrategyRerunOnFailure, v1.RunStrategyManual:
@@ -178,12 +174,8 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 
 	bodyStruct := &v1.StopOptions{}
 	if request.Request.Body != nil {
-		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
-		switch err {
-		case io.EOF, nil:
-			break
-		default:
-			writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
+		if err := decodeBody(request, bodyStruct); err != nil {
+			writeError(err, response)
 			return
 		}
 	}
@@ -210,17 +202,26 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	}
 
 	var oldGracePeriodSeconds int64
-	patchType := types.MergePatchType
 	var patchErr error
 	if hasVMI && !vmi.IsFinal() && bodyStruct.GracePeriod != nil {
+		patchSet := patch.New()
 		// used for stopping a VM with RunStrategyHalted
 		if vmi.Spec.TerminationGracePeriodSeconds != nil {
 			oldGracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
+			patchSet.AddOption(patch.WithTest("/spec/terminationGracePeriodSeconds", *vmi.Spec.TerminationGracePeriodSeconds))
+		} else {
+			patchSet.AddOption(patch.WithTest("/spec/terminationGracePeriodSeconds", nil))
 		}
 
-		bodyString := getUpdateTerminatingSecondsGracePeriod(*bodyStruct.GracePeriod)
-		log.Log.Object(vmi).V(2).Infof("Patching VMI: %s", bodyString)
-		_, err = app.virtCli.VirtualMachineInstance(namespace).Patch(context.Background(), vmi.GetName(), patchType, []byte(bodyString), metav1.PatchOptions{DryRun: bodyStruct.DryRun})
+		patchSet.AddOption(patch.WithReplace("/spec/terminationGracePeriodSeconds", *bodyStruct.GracePeriod))
+		patchBytes, err := patchSet.GeneratePayload()
+		if err != nil {
+			writeError(errors.NewInternalError(err), response)
+			return
+		}
+
+		log.Log.Object(vmi).V(2).Infof("Patching VMI: %s", string(patchBytes))
+		_, err = app.virtCli.VirtualMachineInstance(namespace).Patch(context.Background(), vmi.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
 		if err != nil {
 			writeError(errors.NewInternalError(err), response)
 			return
@@ -254,9 +255,13 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 			return
 		}
 	case v1.RunStrategyAlways, v1.RunStrategyOnce:
-		bodyString := getRunningJson(vm, false)
-		log.Log.Object(vm).V(4).Infof(patchingVMFmt, bodyString)
-		_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(context.Background(), vm.GetName(), patchType, []byte(bodyString), metav1.PatchOptions{DryRun: bodyStruct.DryRun})
+		patchBytes, err := getRunningPatch(vm, false)
+		if err != nil {
+			writeError(errors.NewInternalError(err), response)
+			return
+		}
+		log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
+		_, patchErr = app.virtCli.VirtualMachine(namespace).Patch(context.Background(), vm.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{DryRun: bodyStruct.DryRun})
 	}
 
 	if patchErr != nil {
@@ -293,12 +298,8 @@ func (app *SubresourceAPIApp) PauseVMIRequestHandler(request *restful.Request, r
 
 	bodyStruct := &v1.PauseOptions{}
 	if request.Request.Body != nil {
-		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
-		switch err {
-		case io.EOF, nil:
-			break
-		default:
-			writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
+		if err := decodeBody(request, bodyStruct); err != nil {
+			writeError(err, response)
 			return
 		}
 	}
@@ -328,12 +329,8 @@ func (app *SubresourceAPIApp) UnpauseVMIRequestHandler(request *restful.Request,
 
 	bodyStruct := &v1.UnpauseOptions{}
 	if request.Request.Body != nil {
-		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
-		switch err {
-		case io.EOF, nil:
-			break
-		default:
-			writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
+		if err := decodeBody(request, bodyStruct); err != nil {
+			writeError(err, response)
 			return
 		}
 	}
@@ -408,12 +405,8 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 	bodyStruct := &v1.RestartOptions{}
 
 	if request.Request.Body != nil {
-		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
-		switch err {
-		case io.EOF, nil:
-			break
-		default:
-			writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
+		if err := decodeBody(request, bodyStruct); err != nil {
+			writeError(err, response)
 			return
 		}
 	}
@@ -535,12 +528,8 @@ func (app *SubresourceAPIApp) MigrateVMRequestHandler(request *restful.Request, 
 
 	bodyStruct := &v1.MigrateOptions{}
 	if request.Request.Body != nil {
-		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
-		switch err {
-		case io.EOF, nil:
-			break
-		default:
-			writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
+		if err := decodeBody(request, bodyStruct); err != nil {
+			writeError(err, response)
 			return
 		}
 	}
@@ -655,18 +644,21 @@ func getChangeRequestJson(vm *v1.VirtualMachine, changes ...v1.VirtualMachineSta
 	return patchSet.GeneratePayload()
 }
 
-func getRunningJson(vm *v1.VirtualMachine, running bool) string {
+func getRunningPatch(vm *v1.VirtualMachine, running bool) ([]byte, error) {
 	runStrategy := v1.RunStrategyHalted
 	if running {
 		runStrategy = v1.RunStrategyAlways
 	}
-	if vm.Spec.RunStrategy != nil {
-		return fmt.Sprintf("{\"spec\":{\"runStrategy\": \"%s\"}}", runStrategy)
-	} else {
-		return fmt.Sprintf("{\"spec\":{\"running\": %t}}", running)
-	}
-}
 
-func getUpdateTerminatingSecondsGracePeriod(gracePeriod int64) string {
-	return fmt.Sprintf("{\"spec\":{\"terminationGracePeriodSeconds\": %d }}", gracePeriod)
+	if vm.Spec.RunStrategy != nil {
+		return patch.New(
+			patch.WithTest("/spec/runStrategy", vm.Spec.RunStrategy),
+			patch.WithReplace("/spec/runStrategy", runStrategy),
+		).GeneratePayload()
+	}
+
+	return patch.New(
+		patch.WithTest("/spec/running", vm.Spec.Running),
+		patch.WithReplace("/spec/running", running),
+	).GeneratePayload()
 }
