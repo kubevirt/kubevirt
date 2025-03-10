@@ -2594,7 +2594,7 @@ type KubeVirtConfiguration struct {
 	LiveUpdateConfiguration *LiveUpdateConfiguration `json:"liveUpdateConfiguration,omitempty"`
 
 	// VMRolloutStrategy defines how live-updatable fields, like CPU sockets, memory,
-	// tolerations, and affinity, are propagated from a VM to its VMI.
+	// tolerations, terminationGracePeriodSeconds and affinity, are propagated from a VM to its VMI.
 	// +nullable
 	// +kubebuilder:validation:Enum=Stage;LiveUpdate
 	VMRolloutStrategy *VMRolloutStrategy `json:"vmRolloutStrategy,omitempty"`
