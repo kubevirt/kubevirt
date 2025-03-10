@@ -1202,6 +1202,7 @@ var _ = Describe("Restore controller", func() {
 					updatedVM.Annotations = map[string]string{"restore.kubevirt.io/lastRestoreUID": "restore-uid"}
 					updatedVM.Spec.DataVolumeTemplates[0].Name = "restore-uid-disk1"
 					updatedVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = "restore-uid-disk1"
+					setLegacyFirmwareUUID(updatedVM)
 					vmInterface.EXPECT().Update(context.Background(), updatedVM, metav1.UpdateOptions{}).Return(updatedVM, nil).Times(1)
 				}
 
@@ -1687,6 +1688,7 @@ var _ = Describe("Restore controller", func() {
 			expectUpdateVMRestored := func(vm *kubevirtv1.VirtualMachine) {
 				expectedUpdatedVM := vm.DeepCopy()
 				expectedUpdatedVM.Annotations = map[string]string{"restore.kubevirt.io/lastRestoreUID": "restore-uid"}
+				setLegacyFirmwareUUID(expectedUpdatedVM)
 				vmInterface.EXPECT().
 					Update(context.Background(), expectedUpdatedVM, metav1.UpdateOptions{}).
 					Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {
