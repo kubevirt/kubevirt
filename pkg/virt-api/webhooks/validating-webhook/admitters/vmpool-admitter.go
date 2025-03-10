@@ -23,12 +23,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
@@ -129,6 +132,38 @@ func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, p
 			Message: fmt.Sprintf("selector does not match labels."),
 			Field:   field.Child("selector").String(),
 		})
+	}
+
+	// Validate MaxUnavailable if set
+	if spec.MaxUnavailable != nil {
+		if spec.MaxUnavailable.Type == intstr.String {
+			// Validate percentage string format (e.g. "25%")
+			if !strings.HasSuffix(spec.MaxUnavailable.StrVal, "%") {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("maxUnavailable percentage must end with %%"),
+					Field:   field.Child("maxUnavailable").String(),
+				})
+			} else {
+				percentage := strings.TrimSuffix(spec.MaxUnavailable.StrVal, "%")
+				if _, err := strconv.Atoi(percentage); err != nil {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("maxUnavailable percentage must be a valid number"),
+						Field:   field.Child("maxUnavailable").String(),
+					})
+				}
+			}
+		} else if spec.MaxUnavailable.Type == intstr.Int {
+			// Validate integer value is positive
+			if spec.MaxUnavailable.IntVal < 0 {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("maxUnavailable must be a positive number"),
+					Field:   field.Child("maxUnavailable").String(),
+				})
+			}
+		}
 	}
 
 	if ar.Request.Operation == admissionv1.Update {
