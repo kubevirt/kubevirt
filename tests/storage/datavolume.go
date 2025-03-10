@@ -868,6 +868,19 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 						Name:      snap.Name,
 					},
 				}
+
+				By("Waiting for snapshot to have restore size")
+				Eventually(func() bool {
+					snap, err = virtClient.KubernetesSnapshotClient().
+						SnapshotV1().
+						VolumeSnapshots(snap.Namespace).
+						Get(context.Background(), snap.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return snap.Status != nil && snap.Status.RestoreSize != nil
+				}, 90*time.Second, 1*time.Second).Should(BeTrue())
+
+				// set the target DV size to the snapshot restore size
+				dvt.Spec.Storage.Resources.Requests[k8sv1.ResourceStorage] = *snap.Status.RestoreSize
 			}
 
 			createSnapshotDataSource := func() *cdiv1.DataSource {
