@@ -1484,21 +1484,27 @@ func (c *Controller) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance) e
 	vmiKey := controller.VirtualMachineInstanceKey(vmi)
 
 	for _, pod := range pods {
-		if pod.DeletionTimestamp != nil {
-			continue
-		}
-
 		if !controller.IsControlledBy(pod, vmi) {
 			continue
 		}
 
+		if pod.DeletionTimestamp != nil && !isPodFinal(pod) {
+			continue
+		}
+
 		if err = c.deletePod(vmiKey, pod, v1.DeleteOptions{}); err != nil {
-			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Failed to delete virtual machine pod %s", pod.Name)
-			return err
+			if !k8serrors.IsNotFound(err) { // Skip the warning if the pod was already deleted, as this is an expected condition.
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Failed to delete virtual machine pod %s", pod.Name)
+				return err
+			}
 		}
 		c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, controller.SuccessfulDeletePodReason, "Deleted virtual machine pod %s", pod.Name)
 	}
 	return nil
+}
+
+func isPodFinal(pod *k8sv1.Pod) bool {
+	return pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed
 }
 
 // listPodsFromNamespace takes a namespace and returns all Pods from the pod cache which run in this namespace
