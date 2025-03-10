@@ -32,6 +32,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"golang.org/x/crypto/ssh"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 
@@ -41,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libsecret"
+	"kubevirt.io/kubevirt/tests/libssh"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -58,10 +60,11 @@ var _ = Describe(SIG("Guest Access Credentials", func() {
 		userData                 = "#cloud-config\nchpasswd: { expire: False }\n"
 	)
 
+	_, publicKey, _ := libssh.NewKeyPair()
 	keysSecretData := libsecret.DataBytes{
-		"my-key1": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key1"),
-		"my-key2": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key2"),
-		"my-key3": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key3"),
+		"my-key1": ssh.MarshalAuthorizedKey(publicKey),
+		"my-key2": ssh.MarshalAuthorizedKey(publicKey),
+		"my-key3": ssh.MarshalAuthorizedKey(publicKey),
 	}
 
 	DescribeTable("should have ssh-key under authorized keys added", func(withQEMUAccessCredential bool, options ...libvmi.Option) {
@@ -120,8 +123,9 @@ var _ = Describe(SIG("Guest Access Credentials", func() {
 	Context("with qemu guest agent", func() {
 		const customPassword = "imadethisup"
 
+		_, pub, _ := libssh.NewKeyPair()
 		pubKeyData := libsecret.DataBytes{
-			"my-key1": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key1"),
+			"my-key1": ssh.MarshalAuthorizedKey(pub),
 		}
 
 		userPassData := libsecret.DataBytes{
