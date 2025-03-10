@@ -171,7 +171,6 @@ func (c *FirmwareController) generateFirmwarePatch(vm *virtv1.VirtualMachine) (p
 
 const magicUUID = "6a1a24a1-4061-4607-8bf4-a3963d0c5895"
 
-var firmwareUUIDns = uuid.MustParse(magicUUID
 var firmwareUUIDns = uuid.MustParse(magicUUID)
 
 func CalculateLegacyUUID(name string) types.UID {
