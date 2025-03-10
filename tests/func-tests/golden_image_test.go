@@ -109,9 +109,9 @@ var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered
 		)
 	})
 
-	It("make sure the feature gate is set", func(ctx context.Context) {
+	It("make sure the enabler is set", func(ctx context.Context) {
 		hco := tests.GetHCO(ctx, cli)
-		Expect(hco.Spec.FeatureGates.EnableCommonBootImageImport).To(HaveValue(BeTrue()))
+		Expect(hco.Spec.EnableCommonBootImageImport).To(HaveValue(BeTrue()))
 	})
 
 	Context("check default golden images", func() {
@@ -190,7 +190,7 @@ var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered
 
 	Context("disable the feature", func() {
 		It("Should set the FG to false", func(ctx context.Context) {
-			patch := []byte(`[{ "op": "replace", "path": "/spec/featureGates/enableCommonBootImageImport", "value": false }]`)
+			patch := []byte(`[{ "op": "replace", "path": "/spec/enableCommonBootImageImport", "value": false }]`)
 			Eventually(func(ctx context.Context) error {
 				return tests.PatchHCO(ctx, cli, patch)
 			}).WithTimeout(5 * time.Second).WithPolling(100 * time.Millisecond).WithContext(ctx).Should(Succeed())
@@ -242,7 +242,7 @@ var _ = Describe("golden image test", Label("data-import-cron"), Serial, Ordered
 
 	Context("enable the feature again", func() {
 		It("Should set the FG to false", func(ctx context.Context) {
-			patch := []byte(`[{ "op": "replace", "path": "/spec/featureGates/enableCommonBootImageImport", "value": true }]`)
+			patch := []byte(`[{ "op": "replace", "path": "/spec/enableCommonBootImageImport", "value": true }]`)
 			Eventually(func(ctx context.Context) error {
 				return tests.PatchHCO(ctx, cli, patch)
 			}).WithTimeout(5 * time.Second).WithPolling(100 * time.Millisecond).WithContext(ctx).Should(Succeed())

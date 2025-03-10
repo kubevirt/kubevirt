@@ -154,7 +154,7 @@ func (wh *WebhookHandler) ValidateCreate(_ context.Context, dryrun bool, hc *v1b
 		return err
 	}
 
-	if err := wh.validateFeatureGates(hc); err != nil {
+	if err := wh.validateFeatureGatesOnCreate(hc); err != nil {
 		return err
 	}
 
@@ -221,7 +221,7 @@ func (wh *WebhookHandler) ValidateUpdate(ctx context.Context, dryrun bool, reque
 		return err
 	}
 
-	if err := wh.validateFeatureGates(requested); err != nil {
+	if err := wh.validateFeatureGatesOnUpdate(requested, exists); err != nil {
 		return err
 	}
 
@@ -433,7 +433,29 @@ const (
 	fgDeprecationWarning = "spec.featureGates.%s is deprecated and ignored. It will be removed in a future version;"
 )
 
-func (wh *WebhookHandler) validateFeatureGates(hc *v1beta1.HyperConverged) error {
+func (wh *WebhookHandler) validateFeatureGatesOnCreate(hc *v1beta1.HyperConverged) error {
+	warnings := wh.validateDeprecatedFeatureGates(hc)
+	warnings = validateOldFGOnCreate(warnings, hc)
+
+	if len(warnings) > 0 {
+		return newValidationWarning(warnings)
+	}
+
+	return nil
+}
+
+func (wh *WebhookHandler) validateFeatureGatesOnUpdate(requested, exists *v1beta1.HyperConverged) error {
+	warnings := wh.validateDeprecatedFeatureGates(requested)
+	warnings = validateOldFGOnUpdate(warnings, requested, exists)
+
+	if len(warnings) > 0 {
+		return newValidationWarning(warnings)
+	}
+
+	return nil
+}
+
+func (wh *WebhookHandler) validateDeprecatedFeatureGates(hc *v1beta1.HyperConverged) []string {
 	var warnings []string
 
 	//nolint:staticcheck
@@ -456,11 +478,29 @@ func (wh *WebhookHandler) validateFeatureGates(hc *v1beta1.HyperConverged) error
 		warnings = append(warnings, fmt.Sprintf(fgDeprecationWarning, "enableManagedTenantQuota"))
 	}
 
-	if len(warnings) > 0 {
-		return newValidationWarning(warnings)
+	return warnings
+}
+
+func validateOldFGOnCreate(warnings []string, hc *v1beta1.HyperConverged) []string {
+	//nolint:staticcheck
+	if hc.Spec.FeatureGates.EnableCommonBootImageImport != nil {
+		warnings = append(warnings, fmt.Sprintf(fgMovedWarning, "enableCommonBootImageImport"))
 	}
 
-	return nil
+	return warnings
+}
+
+func validateOldFGOnUpdate(warnings []string, hc, prevHC *v1beta1.HyperConverged) []string {
+	//nolint:staticcheck
+	if oldFGChanged(hc.Spec.FeatureGates.EnableCommonBootImageImport, prevHC.Spec.FeatureGates.EnableCommonBootImageImport) {
+		warnings = append(warnings, fmt.Sprintf(fgMovedWarning, "enableCommonBootImageImport"))
+	}
+
+	return warnings
+}
+
+func oldFGChanged(newFG, prevFG *bool) bool {
+	return newFG != nil && (prevFG == nil || *newFG != *prevFG)
 }
 
 func hasRequiredHTTP2Ciphers(ciphers []string) bool {

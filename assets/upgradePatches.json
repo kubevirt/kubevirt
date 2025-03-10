@@ -74,6 +74,36 @@
       "jsonPatchApplyOptions": {
         "allowMissingPathOnRemove": true
       }
+    },
+    {
+      "semverRange": "<1.15.0",
+      "jsonPatch": [
+        {
+          "op": "test",
+          "path": "/spec/featureGates/enableCommonBootImageImport",
+          "value": false
+        },
+        {
+          "op": "move",
+          "from": "/spec/featureGates/enableCommonBootImageImport",
+          "path": "/spec/enableCommonBootImageImport"
+        }
+      ],
+      "jsonPatchApplyOptions": {
+        "allowMissingPathOnRemove": true
+      }
+   },
+    {
+      "semverRange": "<1.15.0",
+      "jsonPatch": [
+        {
+          "op": "remove",
+          "path": "/spec/featureGates/enableCommonBootImageImport"
+        }
+      ],
+      "jsonPatchApplyOptions": {
+        "allowMissingPathOnRemove": true
+      }
     }
   ],
   "objectsToBeRemoved": [

@@ -56,13 +56,13 @@ spec:
                 server:
                   duration: 24h0m0s
                   renewBefore: 12h0m0s
+              enableCommonBootImageImport: true
               featureGates:
                 deployKubeSecondaryDNS: false
                 deployVmConsoleProxy: false
                 disableMDevConfiguration: false
                 downwardMetrics: false
                 enableApplicationAwareQuota: false
-                enableCommonBootImageImport: true
                 persistentReservation: false
               liveMigrationConfig:
                 allowAutoConverge: false
@@ -1015,6 +1015,14 @@ spec:
                   Default RuntimeClass can be changed when kubevirt is running, existing VMIs are not impacted till
                   the next restart/live-migration when they are eventually going to consume the new default RuntimeClass.
                 type: string
+              enableCommonBootImageImport:
+                default: true
+                description: |-
+                  Opt-in to automatic delivery/updates of the common data import cron templates.
+                  There are two sources for the data import cron templates: hard coded list of common templates, and custom (user
+                  defined) templates that can be added to the dataImportCronTemplates field. This field only controls the common
+                  templates. It is possible to use custom templates by adding them to the dataImportCronTemplates field.
+                type: boolean
               evictionStrategy:
                 description: |-
                   EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be
@@ -1039,7 +1047,6 @@ spec:
                   disableMDevConfiguration: false
                   downwardMetrics: false
                   enableApplicationAwareQuota: false
-                  enableCommonBootImageImport: true
                   persistentReservation: false
                 description: |-
                   featureGates is a map of feature gate flags. Setting a flag to `true` will enable
@@ -1088,12 +1095,12 @@ spec:
                       Application Aware Quota feature
                     type: boolean
                   enableCommonBootImageImport:
-                    default: true
                     description: |-
                       Opt-in to automatic delivery/updates of the common data import cron templates.
                       There are two sources for the data import cron templates: hard coded list of common templates, and custom
                       templates that can be added to the dataImportCronTemplates field. This feature gates only control the common
                       templates. It is possible to use custom templates by adding them to the dataImportCronTemplates field.
+                      Deprecated: This field is ignored. Use spec.enableCommonBootImageImport instead
                     type: boolean
                   enableManagedTenantQuota:
                     description: 'Deprecated: This field is ignored and will be removed

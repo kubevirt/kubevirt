@@ -514,7 +514,7 @@ var _ = Describe("webhooks validator", func() {
 						NonRoot:                     ptr.To(false),
 						EnableCommonBootImageImport: ptr.To(true),
 						EnableManagedTenantQuota:    ptr.To(false),
-					}, "enableManagedTenantQuota", "nonRoot"),
+					}, "enableManagedTenantQuota", "nonRoot", "enableCommonBootImageImport"),
 			)
 		})
 	})
@@ -1181,7 +1181,44 @@ var _ = Describe("webhooks validator", func() {
 						NonRoot:                     ptr.To(false),
 						EnableCommonBootImageImport: ptr.To(true),
 						EnableManagedTenantQuota:    ptr.To(false),
-					}, "enableManagedTenantQuota", "nonRoot"),
+					}, "enableManagedTenantQuota", "nonRoot", "enableCommonBootImageImport"),
+			)
+		})
+
+		Context("validate moved FG on update", func() {
+			DescribeTable("should return warning for enableCommonBootImageImport on update", func(newFG, oldFG *bool) {
+				newHCO := hco.DeepCopy()
+				hco.Spec.FeatureGates.EnableCommonBootImageImport = newFG
+				newHCO.Spec.FeatureGates.EnableCommonBootImageImport = oldFG
+
+				err := wh.ValidateUpdate(ctx, dryRun, newHCO, hco)
+
+				Expect(err).To(HaveOccurred())
+				expected := &ValidationWarning{}
+				Expect(errors.As(err, &expected)).To(BeTrue())
+
+				Expect(expected.warnings).To(HaveLen(1))
+				Expect(expected.warnings).To(ContainElements(ContainSubstring("enableCommonBootImageImport")))
+			},
+				Entry("should trigger warning if enableCommonBootImageImport appeared as true", nil, ptr.To(true)),
+				Entry("should trigger warning if enableCommonBootImageImport appeared as false", nil, ptr.To(false)),
+				Entry("should trigger warning if enableCommonBootImageImport has changed from true to false", ptr.To(true), ptr.To(false)),
+				Entry("should trigger warning if enableCommonBootImageImport has changed from false to true", ptr.To(false), ptr.To(true)),
+			)
+
+			DescribeTable("should not return warning for enableCommonBootImageImport if not change", func(newFG, oldFG *bool) {
+				cli := getFakeClient(hco)
+				wh := NewWebhookHandler(logger, cli, decoder, HcoValidNamespace, true, nil)
+				newHCO := hco.DeepCopy()
+				hco.Spec.FeatureGates.EnableCommonBootImageImport = newFG
+				newHCO.Spec.FeatureGates.EnableCommonBootImageImport = oldFG
+
+				Expect(wh.ValidateUpdate(ctx, dryRun, newHCO, hco)).To(Succeed())
+			},
+				Entry("should not trigger warning if enableCommonBootImageImport (true) disappeared", ptr.To(true), nil),
+				Entry("should not trigger warning if enableCommonBootImageImport (false) disappeared", ptr.To(false), nil),
+				Entry("should not trigger warning if enableCommonBootImageImport (true) wasn't changed", ptr.To(true), ptr.To(true)),
+				Entry("should not trigger warning if enableCommonBootImageImport (false) wasn't changed", ptr.To(false), ptr.To(false)),
 			)
 		})
 	})

@@ -238,6 +238,48 @@ var _ = Describe("upgradePatches", func() {
 			Expect(newHc.Spec.FeatureGates.WithHostPassthroughCPU).To(BeNil())
 			Expect(newHc.Spec.FeatureGates.PrimaryUserDefinedNetworkBinding).To(BeNil())
 		})
+
+		DescribeTable("Moving the deprecated EnableCommonBootImageImport FG to a new field",
+			func(oldFG, newFG *bool, ver semver.Version, assertField, assertFG types.GomegaMatcher) {
+				hc := components.GetOperatorCR()
+				hc.Spec.FeatureGates.EnableCommonBootImageImport = oldFG
+				hc.Spec.EnableCommonBootImageImport = newFG
+
+				newHc, err := ApplyUpgradePatch(GinkgoLogr, hc, ver)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(newHc.Spec.EnableCommonBootImageImport).To(assertField)
+				Expect(newHc.Spec.FeatureGates.EnableCommonBootImageImport).To(assertFG)
+			},
+			Entry("should move if the old value is not the default value",
+				ptr.To(false),
+				ptr.To(true),
+				semver.MustParse("1.14.0"),
+				HaveValue(BeFalse()),
+				BeNil(),
+			),
+			Entry("should not move for newer versions",
+				ptr.To(false),
+				ptr.To(true),
+				semver.MustParse("1.15.0"),
+				HaveValue(BeTrue()),
+				HaveValue(BeFalse()),
+			),
+			Entry("should not move if the old FG is empty",
+				nil,
+				ptr.To(true),
+				semver.MustParse("1.14.0"),
+				HaveValue(BeTrue()),
+				BeNil(),
+			),
+			Entry("should not move if the old FG is the default one",
+				ptr.To(true),
+				ptr.To(false),
+				semver.MustParse("1.14.0"),
+				HaveValue(BeFalse()),
+				BeNil(),
+			),
+		)
 	})
 })
 

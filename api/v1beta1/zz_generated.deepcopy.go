@@ -533,6 +533,11 @@ func (in *HyperConvergedSpec) DeepCopyInto(out *HyperConvergedSpec) {
 		*out = new(HigherWorkloadDensityConfiguration)
 		**out = **in
 	}
+	if in.EnableCommonBootImageImport != nil {
+		in, out := &in.EnableCommonBootImageImport, &out.EnableCommonBootImageImport
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

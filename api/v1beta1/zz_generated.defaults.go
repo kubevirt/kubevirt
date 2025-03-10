@@ -44,10 +44,6 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 		var ptrVar1 bool = false
 		in.Spec.FeatureGates.DownwardMetrics = &ptrVar1
 	}
-	if in.Spec.FeatureGates.EnableCommonBootImageImport == nil {
-		var ptrVar1 bool = true
-		in.Spec.FeatureGates.EnableCommonBootImageImport = &ptrVar1
-	}
 	if in.Spec.FeatureGates.DeployVMConsoleProxy == nil {
 		var ptrVar1 bool = false
 		in.Spec.FeatureGates.DeployVMConsoleProxy = &ptrVar1
@@ -163,6 +159,10 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 		if in.Spec.HigherWorkloadDensity.MemoryOvercommitPercentage == 0 {
 			in.Spec.HigherWorkloadDensity.MemoryOvercommitPercentage = 100
 		}
+	}
+	if in.Spec.EnableCommonBootImageImport == nil {
+		var ptrVar1 bool = true
+		in.Spec.EnableCommonBootImageImport = &ptrVar1
 	}
 }
 

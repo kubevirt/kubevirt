@@ -238,7 +238,7 @@ func getDataImportCronTemplates(hc *hcov1beta1.HyperConverged) ([]hcov1beta1.Dat
 	}
 
 	var dictList []hcov1beta1.DataImportCronTemplateStatus
-	if hc.Spec.FeatureGates.EnableCommonBootImageImport != nil && *hc.Spec.FeatureGates.EnableCommonBootImageImport {
+	if hc.Spec.EnableCommonBootImageImport != nil && *hc.Spec.EnableCommonBootImageImport {
 		dictList = getCommonDicts(dictList, crDicts, hc)
 	}
 	dictList = getCustomDicts(dictList, crDicts)

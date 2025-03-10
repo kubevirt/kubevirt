@@ -144,18 +144,6 @@ virtual machine.
 ### withHostPassthroughCPU Feature Gate
 This feature gate is deprecated and is ignored.
 
-### enableCommonBootImageImport Feature Gate
-
-Set the `enableCommonBootImageImport` feature gate to `false` in order to disable the common golden images in the cluster
-(for instance to reduce logs noise on disconnected environments).
-For additional information, see
-here: https://github.com/kubevirt/community/blob/master/design-proposals/golden-image-delivery-and-update-pipeline.md
-
-**Note**: Custom golden images are enabled by adding them
-the [dataImportCronTemplates field](#configure-custom-golden-images), even if this feature gate is `false`.
-
-**Default**: `true`
-
 ### deployVmConsoleProxy Feature Gate
 Set the `deployVmConsoleProxy` feature gate to true to allow SSP operator to deploy its resources. SSP operator will 
 deploy a proxy that provides an access to the VNC console of a KubeVirt Virtual Machine (VM).
@@ -215,7 +203,6 @@ spec:
   infra: {}
   workloads: {}
   featureGates:
-    enableCommonBootImageImport: true
     deployKubeSecondaryDNS: true
     enableApplicationAwareQuota: true
 ```
@@ -808,6 +795,21 @@ Golden images are root disk images for commonly used operating systems. HCO prov
 The list of all the golden images is available at the `status` field, under `dataImportCronTemplates` list. The common images are not part of list in the `spec` field. The list in the status is a reference for modifications. Add the image that requires modification to the list in the spec, and edit it.
 
 The supported modifications are: disabling a specific image, and changing the `storage` field. Editing other fields will be ignored by HCO.
+
+### Disabling all common golden images
+
+Set the `spec.enableCommonBootImageImport` to `false` in order to disable the common golden images in the cluster
+(for instance to reduce logs noise on disconnected environments).
+For additional information, see
+here: https://github.com/kubevirt/community/blob/master/design-proposals/golden-image-delivery-and-update-pipeline.md
+
+**Note**: `spec.enableCommonBootImageImport` is `true` by default.
+
+Example:
+```yaml
+spec:
+  enableCommonBootImageImport: false
+```
 
 ### Disabling a common golden image
 To disable a golden image, add it to the  dataImportCronTemplates` field in the spec object, with the `dataimportcrontemplate.kubevirt.io/enable` annotation, with the value of `false`; for example, disabling the fedora golden image:

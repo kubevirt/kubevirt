@@ -11,6 +11,7 @@ spec:
     server:
       duration: 24h0m0s
       renewBefore: 12h0m0s
+  enableCommonBootImageImport: true
   featureGates:
     alignCPUs: false
     deployKubeSecondaryDNS: false
@@ -18,7 +19,6 @@ spec:
     disableMDevConfiguration: false
     downwardMetrics: false
     enableApplicationAwareQuota: false
-    enableCommonBootImageImport: true
     persistentReservation: false
   higherWorkloadDensity:
     memoryOvercommitPercentage: 100
