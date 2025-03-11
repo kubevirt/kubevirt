@@ -191,7 +191,10 @@ var _ = Describe("VM Stats Collector", func() {
 				}
 			}
 
-			vms := []*k6tv1.VirtualMachine{{Spec: k6tv1.VirtualMachineSpec{Instancetype: instanceType}}}
+			vms := []*k6tv1.VirtualMachine{{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "test-ns"},
+				Spec:       k6tv1.VirtualMachineSpec{Instancetype: instanceType},
+			}}
 			crs := CollectVMsInfo(vms)
 			Expect(crs).To(HaveLen(1), "Expected 1 metric")
 
@@ -219,7 +222,10 @@ var _ = Describe("VM Stats Collector", func() {
 				}
 			}
 
-			vms := []*k6tv1.VirtualMachine{{Spec: k6tv1.VirtualMachineSpec{Preference: preference}}}
+			vms := []*k6tv1.VirtualMachine{{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "test-ns"},
+				Spec:       k6tv1.VirtualMachineSpec{Preference: preference},
+			}}
 			crs := CollectVMsInfo(vms)
 			Expect(crs).To(HaveLen(1), "Expected 1 metric")
 
