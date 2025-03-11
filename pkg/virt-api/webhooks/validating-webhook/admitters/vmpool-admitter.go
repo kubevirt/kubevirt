@@ -112,7 +112,7 @@ func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, p
 	if spec.VirtualMachineTemplate == nil {
 		return append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: fmt.Sprintf("missing virtual machine template."),
+			Message: "missing virtual machine template.",
 			Field:   field.Child("template").String(),
 		})
 	}
@@ -129,7 +129,7 @@ func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, p
 	} else if !selector.Matches(labels.Set(spec.VirtualMachineTemplate.ObjectMeta.Labels)) {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("selector does not match labels."),
+			Message: "selector does not match labels.",
 			Field:   field.Child("selector").String(),
 		})
 	}
@@ -141,7 +141,7 @@ func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, p
 			if !strings.HasSuffix(spec.MaxUnavailable.StrVal, "%") {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("maxUnavailable percentage must end with %%"),
+					Message: "maxUnavailable percentage must end with %",
 					Field:   field.Child("maxUnavailable").String(),
 				})
 			} else {
@@ -149,7 +149,7 @@ func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, p
 				if _, err := strconv.Atoi(percentage); err != nil {
 					causes = append(causes, metav1.StatusCause{
 						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("maxUnavailable percentage must be a valid number"),
+						Message: "maxUnavailable percentage must be a valid number",
 						Field:   field.Child("maxUnavailable").String(),
 					})
 				}
@@ -159,7 +159,7 @@ func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, p
 			if spec.MaxUnavailable.IntVal < 0 {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("maxUnavailable must be a positive number"),
+					Message: "maxUnavailable must be a positive number",
 					Field:   field.Child("maxUnavailable").String(),
 				})
 			}
@@ -178,7 +178,7 @@ func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, p
 		if !equality.Semantic.DeepEqual(pool.Spec.Selector, oldPool.Spec.Selector) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("selector is immutable after creation."),
+				Message: "selector is immutable after creation.",
 				Field:   field.Child("selector").String(),
 			})
 		}

@@ -953,13 +953,10 @@ func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedL
 		// If we've reached the remaining updates limit, wait for some updates to complete
 		if processedCount >= remainingUpdates {
 			// Wait for at least one update to complete before continuing
-			select {
-			case err := <-errChan:
-				if err != nil {
-					return err
-				}
-				processedCount--
+			if err := <-errChan; err != nil {
+				return err
 			}
+			processedCount--
 		}
 
 		wg.Add(1)
