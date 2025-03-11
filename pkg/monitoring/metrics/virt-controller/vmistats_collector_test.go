@@ -158,6 +158,7 @@ var _ = Describe("VMI Stats Collector", func() {
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "running",
+						Namespace:   "test-ns",
 						Annotations: annotations,
 					},
 				},
@@ -194,6 +195,7 @@ var _ = Describe("VMI Stats Collector", func() {
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "running",
+						Namespace:   "test-ns",
 						Annotations: annotations,
 					},
 				},
@@ -427,14 +429,14 @@ func setupTestCollector() {
 	vmiMigrationInformer, _ = testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstanceMigration{})
 
 	_ = instanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineInstancetype{
-		ObjectMeta: newObjectMetaForInstancetypes("i-managed", "kubevirt.io"),
+		ObjectMeta: newObjectMetaForInstancetypes("i-managed", "test-ns", "kubevirt.io"),
 	})
 	_ = instanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineInstancetype{
-		ObjectMeta: newObjectMetaForInstancetypes("i-unmanaged", "some-user"),
+		ObjectMeta: newObjectMetaForInstancetypes("i-unmanaged", "test-ns", "some-user"),
 	})
 
 	_ = clusterInstanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineClusterInstancetype{
-		ObjectMeta: newObjectMetaForInstancetypes("ci-managed", "kubevirt.io"),
+		ObjectMeta: newObjectMetaForInstancetypes("ci-managed", "", "kubevirt.io"),
 		Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
 			CPU: instancetypev1beta1.CPUInstancetype{
 				Guest: 2,
@@ -445,18 +447,18 @@ func setupTestCollector() {
 		},
 	})
 	_ = clusterInstanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineClusterInstancetype{
-		ObjectMeta: newObjectMetaForInstancetypes("ci-unmanaged", ""),
+		ObjectMeta: newObjectMetaForInstancetypes("ci-unmanaged", "", ""),
 	})
 
 	_ = preferenceInformer.GetStore().Add(&instancetypev1beta1.VirtualMachinePreference{
-		ObjectMeta: newObjectMetaForInstancetypes("p-managed", "kubevirt.io"),
+		ObjectMeta: newObjectMetaForInstancetypes("p-managed", "test-ns", "kubevirt.io"),
 	})
 	_ = preferenceInformer.GetStore().Add(&instancetypev1beta1.VirtualMachinePreference{
-		ObjectMeta: newObjectMetaForInstancetypes("p-unmanaged", "some-vendor.com"),
+		ObjectMeta: newObjectMetaForInstancetypes("p-unmanaged", "test-ns", "some-vendor.com"),
 	})
 
 	_ = clusterPreferenceInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineClusterPreference{
-		ObjectMeta: newObjectMetaForInstancetypes("cp-managed", "kubevirt.io"),
+		ObjectMeta: newObjectMetaForInstancetypes("cp-managed", "", "kubevirt.io"),
 	})
 
 	instancetypeMethods = &instancetype.InstancetypeMethods{
@@ -475,9 +477,15 @@ func setupTestCollector() {
 	})
 }
 
-func newObjectMetaForInstancetypes(name, vendor string) metav1.ObjectMeta {
-	return metav1.ObjectMeta{
+func newObjectMetaForInstancetypes(name, namespace, vendor string) metav1.ObjectMeta {
+	om := metav1.ObjectMeta{
 		Name:   name,
 		Labels: map[string]string{instancetypeVendorLabel: vendor},
 	}
+
+	if namespace != "" {
+		om.Namespace = namespace
+	}
+
+	return om
 }
