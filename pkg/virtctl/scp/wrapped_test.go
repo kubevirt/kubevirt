@@ -10,16 +10,16 @@ import (
 
 var _ = Describe("Wrapped SCP", func() {
 
-	var fakeLocal LocalArgument
-	var fakeRemote RemoteArgument
+	var fakeLocal *LocalArgument
+	var fakeRemote *RemoteArgument
 	var fakeToRemote bool
 	var scp SCP
 
 	BeforeEach(func() {
-		fakeLocal = LocalArgument{
+		fakeLocal = &LocalArgument{
 			Path: "/local/fakepath",
 		}
-		fakeRemote = RemoteArgument{
+		fakeRemote = &RemoteArgument{
 			Namespace: "fake-ns",
 			Name:      "fake-name",
 			Path:      "/remote/fakepath",
