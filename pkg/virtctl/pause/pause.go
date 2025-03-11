@@ -90,25 +90,24 @@ func executePauseCMD(client kubecli.KubevirtClient, namespace, resourceType, res
 
 		err = client.VirtualMachineInstance(namespace).Pause(context.Background(), vm.Name, &kubevirtV1.PauseOptions{DryRun: dryRunOption})
 		if errors.IsNotFound(err) {
-			return handleNotFoundError(vm, err)
+			return handleNotFoundError(vm)
 		}
 		if err != nil {
 			return fmt.Errorf("Error pausing VirtualMachineInstance %s: %v", vm.Name, err)
 		}
-		fmt.Printf("VMI %s was scheduled to pause\n", vm.Name)
 
 	case "virtualmachineinstance", "vmi":
 		err := client.VirtualMachineInstance(namespace).Pause(context.Background(), resourceName, &kubevirtV1.PauseOptions{DryRun: dryRunOption})
 		if err != nil {
 			return fmt.Errorf("Error pausing VirtualMachineInstance %s: %v", resourceName, err)
 		}
-		fmt.Printf("VMI %s was scheduled to pause\n", resourceName)
 	}
+	fmt.Printf("VMI %s was scheduled to pause\n", resourceName)
 
 	return nil
 }
 
-func handleNotFoundError(vm *kubevirtV1.VirtualMachine, err error) error {
+func handleNotFoundError(vm *kubevirtV1.VirtualMachine) error {
 	runningStrategy, err := vm.RunStrategy()
 	if err != nil {
 		return fmt.Errorf("Error pausing VirtualMachineInstance %s: %v", vm.Name, err)
