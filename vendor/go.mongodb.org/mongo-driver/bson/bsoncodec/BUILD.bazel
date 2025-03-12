@@ -6,6 +6,7 @@ go_library(
         "array_codec.go",
         "bsoncodec.go",
         "byte_slice_codec.go",
+        "codec_cache.go",
         "cond_addr_codec.go",
         "default_value_decoders.go",
         "default_value_encoders.go",
