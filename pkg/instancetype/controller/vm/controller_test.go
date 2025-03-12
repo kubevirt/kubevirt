@@ -4,6 +4,7 @@ package vm_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,6 +42,11 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 	const (
 		resourceUID        types.UID = "9160e5de-2540-476a-86d9-af0081aee68a"
 		resourceGeneration int64     = 1
+	)
+
+	const (
+		instancetypeName = "instancetype"
+		preferenceName   = "preference"
 	)
 
 	type instancetypeVMController interface {
@@ -139,7 +145,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				Kind:       "VirtualMachineInstancetype",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:       "instancetype",
+				Name:       instancetypeName,
 				Namespace:  vm.Namespace,
 				UID:        resourceUID,
 				Generation: resourceGeneration,
@@ -159,7 +165,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 
 		preference = &v1beta1.VirtualMachinePreference{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:       "preference",
+				Name:       preferenceName,
 				Namespace:  vm.Namespace,
 				UID:        resourceUID,
 				Generation: resourceGeneration,
@@ -480,38 +486,36 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(vmi.Annotations).ToNot(HaveKey(virtv1.ClusterPreferenceAnnotation))
 		})
 
-		It("should fail to sync if an invalid InstancetypeMatcher Kind is provided", func() {
-			vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
-				Name: instancetypeObj.Name,
-				Kind: "foobar",
-			}
+		DescribeTable("should fail to sync with FailedFindInstancetype reason",
+			func(matcher *virtv1.InstancetypeMatcher) {
+				vm.Spec.Instancetype = matcher
+				syncVM, err := instancetypeController.Sync(vm, vmi)
+				Expect(syncVM).To(Equal(vm))
+				Expect(err).To(HaveOccurred())
 
-			_, err := instancetypeController.Sync(vm, vmi)
-			Expect(err).To(MatchError(ContainSubstring("got unexpected kind in InstancetypeMatcher")))
-			testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
-		})
-
-		It("should fail to sync if a VirtualMachineInstancetype cannot be found", func() {
-			vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
-				Name: "foobar",
-				Kind: instancetypeapi.SingularResourceName,
-			}
-
-			_, err := instancetypeController.Sync(vm, vmi)
-			Expect(err).To(MatchError(ContainSubstring("not found")))
-			testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
-		})
-
-		It("should fail to sync if a VirtualMachineClusterInstancetype cannot be found", func() {
-			vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
-				Name: "foobar",
-				Kind: instancetypeapi.ClusterSingularResourceName,
-			}
-
-			_, err := instancetypeController.Sync(vm, vmi)
-			Expect(err).To(MatchError(ContainSubstring("not found")))
-			testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
-		})
+				var syncErr common.SyncError
+				Expect(errors.As(err, &syncErr)).To(BeTrue())
+				Expect(syncErr.Reason()).To(Equal("FailedFindInstancetype"))
+			},
+			Entry("if an invalid InstancetypeMatcher Kind is provided",
+				&virtv1.InstancetypeMatcher{
+					Name: instancetypeName,
+					Kind: "foobar",
+				},
+			),
+			Entry("if a VirtualMachineInstancetype cannot be found",
+				&virtv1.InstancetypeMatcher{
+					Name: "foobar",
+					Kind: instancetypeapi.SingularResourceName,
+				},
+			),
+			Entry("if a VirtualMachineClusterInstancetype cannot be found",
+				&virtv1.InstancetypeMatcher{
+					Name: "foobar",
+					Kind: instancetypeapi.ClusterSingularResourceName,
+				},
+			),
+		)
 
 		It("should fail to sync if the VirtualMachineInstancetype conflicts with the VirtualMachineInstance", func() {
 			vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
@@ -828,38 +832,36 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(vmi.Annotations).ToNot(HaveKey(virtv1.PreferenceAnnotation))
 		})
 
-		It("should fail to sync if an invalid PreferenceMatcher Kind is provided", func() {
-			vm.Spec.Preference = &virtv1.PreferenceMatcher{
-				Name: preference.Name,
-				Kind: "foobar",
-			}
+		DescribeTable("should fail to sync with FailedFindPreference reason",
+			func(matcher *virtv1.PreferenceMatcher) {
+				vm.Spec.Preference = matcher
+				syncVM, err := instancetypeController.Sync(vm, vmi)
+				Expect(syncVM).To(Equal(vm))
+				Expect(err).To(HaveOccurred())
 
-			_, err := instancetypeController.Sync(vm, vmi)
-			Expect(err).To(MatchError(ContainSubstring("got unexpected kind in PreferenceMatcher")))
-			testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
-		})
-
-		It("should fail to sync if a VirtualMachinePreference cannot be found", func() {
-			vm.Spec.Preference = &virtv1.PreferenceMatcher{
-				Name: "foobar",
-				Kind: instancetypeapi.SingularPreferenceResourceName,
-			}
-
-			_, err := instancetypeController.Sync(vm, vmi)
-			Expect(err).To(MatchError(ContainSubstring("not found")))
-			testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
-		})
-
-		It("should fail to sync if a VirtualMachineClusterPreference cannot be found", func() {
-			vm.Spec.Preference = &virtv1.PreferenceMatcher{
-				Name: "foobar",
-				Kind: instancetypeapi.ClusterSingularPreferenceResourceName,
-			}
-
-			_, err := instancetypeController.Sync(vm, vmi)
-			Expect(err).To(MatchError(ContainSubstring("not found")))
-			testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
-		})
+				var syncErr common.SyncError
+				Expect(errors.As(err, &syncErr)).To(BeTrue())
+				Expect(syncErr.Reason()).To(Equal("FailedFindPreference"))
+			},
+			Entry("if an invalid InstancetypeMatcher Kind is provided",
+				&virtv1.PreferenceMatcher{
+					Name: preferenceName,
+					Kind: "foobar",
+				},
+			),
+			Entry("if a VirtualMachinePreference cannot be found",
+				&virtv1.PreferenceMatcher{
+					Name: "foobar",
+					Kind: instancetypeapi.SingularPreferenceResourceName,
+				},
+			),
+			Entry("if a VirtualMachineClusterPreference cannot be found",
+				&virtv1.PreferenceMatcher{
+					Name: "foobar",
+					Kind: instancetypeapi.ClusterSingularPreferenceResourceName,
+				},
+			),
+		)
 
 		It("should fail to sync if an existing ControllerRevision is found with unexpected VirtualMachinePreferenceSpec data", func() {
 			unexpectedPreference := preference.DeepCopy()

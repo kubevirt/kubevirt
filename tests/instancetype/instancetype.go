@@ -109,77 +109,85 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 	})
 
-	Context("VM with invalid InstancetypeMatcher", func() {
-		var vmi *virtv1.VirtualMachineInstance
+	Context("A VirtualMachine", func() {
+		const (
+			resourceName     = "nonexistent"
+			failureCondition = "Failure"
+		)
+		DescribeTable("referencing a non-existent", func(vmOptionFunc func(*virtv1.VirtualMachine), createResourceFunc func(string) error) {
+			By("Creating the VM and asserting that it doesn't start and has the expected condition in place")
+			vm := libvmi.NewVirtualMachine(
+				libvmifact.NewGuestless(),
+				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
+				vmOptionFunc,
+			)
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm), time.Minute, time.Second).Should(matcher.HaveConditionTrue(failureCondition))
+			Eventually(matcher.ThisVM(vm), time.Minute, time.Second).Should(matcher.HavePrintableStatus(virtv1.VirtualMachineStatusStopped))
 
-		BeforeEach(func() {
-			vmi = libvmifact.NewGuestless()
-		})
-
-		It("[test_id:CNV-9086] should fail to create VM with non-existing cluster instancetype", func() {
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithClusterInstancetype("non-existing-cluster-instancetype"))
-			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).To(HaveOccurred())
-
-			var apiStatus errors.APIStatus
-			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
-			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
-			cause := apiStatus.Status().Details.Causes[0]
-			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
-			Expect(cause.Message).To(HavePrefix("Failure to find instancetype"))
-			Expect(cause.Field).To(Equal("spec.instancetype"))
-		})
-
-		It("[test_id:CNV-9089] should fail to create VM with non-existing namespaced instancetype", func() {
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithInstancetype("non-existing-instancetype"))
-			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).To(HaveOccurred())
-
-			var apiStatus errors.APIStatus
-			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
-			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
-			cause := apiStatus.Status().Details.Causes[0]
-			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
-			Expect(cause.Message).To(HavePrefix("Failure to find instancetype"))
-			Expect(cause.Field).To(Equal("spec.instancetype"))
-		})
+			By("Creating the missing resource and asserting that the condition is removed and the VM starts")
+			Expect(createResourceFunc(vm.Namespace)).To(Succeed())
+			Eventually(matcher.ThisVM(vm), time.Minute, time.Second).ShouldNot(matcher.HaveConditionTrue(failureCondition))
+			Eventually(matcher.ThisVM(vm), time.Minute, time.Second).Should(matcher.BeReady())
+		},
+			Entry("[test_id:CNV-9086] cluster instance type should still be created and eventually start when missing resource created",
+				libvmi.WithClusterInstancetype(resourceName),
+				func(_ string) error {
+					instancetype := builder.NewClusterInstancetype(
+						builder.WithCPUs(1),
+						builder.WithMemory("128Mi"),
+					)
+					// FIXME(lyarwood): builder should provide WithName()
+					instancetype.GenerateName = ""
+					instancetype.Name = resourceName
+					_, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), instancetype, metav1.CreateOptions{})
+					return err
+				},
+			),
+			Entry("[test_id:CNV-9089] instance type should still be created and eventually start when missing resource created",
+				libvmi.WithInstancetype(resourceName),
+				func(namespace string) error {
+					instancetype := builder.NewInstancetype(
+						builder.WithCPUs(1),
+						builder.WithMemory("128Mi"),
+					)
+					// FIXME(lyarwood): builder should provide WithName()
+					instancetype.GenerateName = ""
+					instancetype.Name = resourceName
+					_, err := virtClient.VirtualMachineInstancetype(namespace).Create(context.Background(), instancetype, metav1.CreateOptions{})
+					return err
+				},
+			),
+			Entry("[test_id:CNV-9091] cluster preference should still be created and eventually start when missing resource created",
+				libvmi.WithClusterPreference(resourceName),
+				func(_ string) error {
+					preference := builder.NewClusterPreference(
+						builder.WithPreferredCPUTopology(instancetypev1beta1.Cores),
+					)
+					// FIXME(lyarwood): builder should provide WithName()
+					preference.GenerateName = ""
+					preference.Name = resourceName
+					_, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), preference, metav1.CreateOptions{})
+					return err
+				},
+			),
+			Entry("[test_id:CNV-9090] preference should still be created and eventually start when missing resource created",
+				libvmi.WithPreference(resourceName),
+				func(namespace string) error {
+					preference := builder.NewPreference(
+						builder.WithPreferredCPUTopology(instancetypev1beta1.Cores),
+					)
+					// FIXME(lyarwood): builder should provide WithName()
+					preference.GenerateName = ""
+					preference.Name = resourceName
+					_, err := virtClient.VirtualMachinePreference(namespace).Create(context.Background(), preference, metav1.CreateOptions{})
+					return err
+				},
+			),
+		)
 	})
 
-	Context("VM with invalid PreferenceMatcher", func() {
-		var vmi *virtv1.VirtualMachineInstance
-
-		BeforeEach(func() {
-			vmi = libvmifact.NewGuestless()
-		})
-
-		It("[test_id:CNV-9091] should fail to create VM with non-existing cluster preference", func() {
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithClusterPreference("non-existing-cluster-preference"))
-			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).To(HaveOccurred())
-
-			var apiStatus errors.APIStatus
-			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
-			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
-			cause := apiStatus.Status().Details.Causes[0]
-			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
-			Expect(cause.Message).To(HavePrefix("Failure to find preference"))
-			Expect(cause.Field).To(Equal("spec.preference"))
-		})
-
-		It("[test_id:CNV-9090] should fail to create VM with non-existing namespaced preference", func() {
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithPreference("non-existing-preference"))
-			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).To(HaveOccurred())
-
-			var apiStatus errors.APIStatus
-			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
-			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
-			cause := apiStatus.Status().Details.Causes[0]
-			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
-			Expect(cause.Message).To(HavePrefix("Failure to find preference"))
-			Expect(cause.Field).To(Equal("spec.preference"))
-		})
-	})
 	Context("with cluster memory overcommit being applied", Serial, func() {
 		BeforeEach(func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
