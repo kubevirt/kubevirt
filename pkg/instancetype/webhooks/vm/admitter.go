@@ -19,11 +19,10 @@
 package vm
 
 import (
-	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/instancetype/v1beta1"
@@ -77,6 +76,8 @@ func NewAdmitter(virtClient kubecli.KubevirtClient) *admitter {
 	}
 }
 
+const ignoreFindFailureWarnFmt = "ignoring err %q when looking for %s"
+
 func (a *admitter) ApplyToVM(vm *virtv1.VirtualMachine) (
 	*v1beta1.VirtualMachineInstancetypeSpec,
 	*v1beta1.VirtualMachinePreferenceSpec,
@@ -84,20 +85,16 @@ func (a *admitter) ApplyToVM(vm *virtv1.VirtualMachine) (
 ) {
 	instancetypeSpec, err := a.Find(vm)
 	if err != nil {
-		return nil, nil, []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueNotFound,
-			Message: fmt.Sprintf("Failure to find instancetype: %v", err),
-			Field:   k8sfield.NewPath("spec", "instancetype").String(),
-		}}
+		log.Log.Object(vm).Warningf(ignoreFindFailureWarnFmt, err, "instance type")
 	}
 
 	preferenceSpec, err := a.FindPreference(vm)
 	if err != nil {
-		return nil, nil, []metav1.StatusCause{{
-			Type:    metav1.CauseTypeFieldValueNotFound,
-			Message: fmt.Sprintf("Failure to find preference: %v", err),
-			Field:   k8sfield.NewPath("spec", "preference").String(),
-		}}
+		log.Log.Object(vm).Warningf(ignoreFindFailureWarnFmt, err, "preference")
+	}
+
+	if instancetypeSpec == nil && preferenceSpec == nil {
+		return nil, nil, nil
 	}
 
 	if spreadConflict := validation.CheckSpreadCPUTopology(instancetypeSpec, preferenceSpec); spreadConflict != nil {
