@@ -833,6 +833,33 @@ func (c *Controller) scale(pool *poolv1.VirtualMachinePool, vms []*virtv1.Virtua
 	return nil, false
 }
 
+func (c *Controller) getUnavailableVMICount(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) (int, error) {
+	unavailableCount := 0
+	for _, vm := range vms {
+		vmiKey := controller.NamespacedKey(vm.Namespace, vm.Name)
+		obj, exists, err := c.vmiStore.GetByKey(vmiKey)
+		if err != nil {
+			return 0, err
+		}
+		if !exists {
+			_, err := c.clientset.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			if err != nil {
+				return 0, err
+			}
+		}
+		vmi := obj.(*virtv1.VirtualMachineInstance)
+		if vmi.DeletionTimestamp != nil {
+			continue
+		}
+
+		readyCondition := controller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi, virtv1.VirtualMachineInstanceReady)
+		if readyCondition == nil || readyCondition.Status != k8score.ConditionTrue {
+			unavailableCount++
+		}
+	}
+	return unavailableCount, nil
+}
+
 func (c *Controller) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vmOutdatedList []*virtv1.VirtualMachine) error {
 	var wg sync.WaitGroup
 
@@ -891,74 +918,53 @@ func (c *Controller) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vmOutd
 func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedList []*virtv1.VirtualMachine) error {
 	var wg sync.WaitGroup
 
-	// Calculate maxUnavailable value (defaults to 25% if not specified)
 	maxUnavailable := intstr.FromString("25%")
 	if pool.Spec.MaxUnavailable != nil {
 		maxUnavailable = *pool.Spec.MaxUnavailable
 	}
 
-	// Calculate the maximum number of VMIs that can be unavailable
+	totalReplicas := int32(1)
+	if pool.Spec.Replicas != nil {
+		totalReplicas = *pool.Spec.Replicas
+	}
+
 	var maxUnavailableInt int
 	if maxUnavailable.Type == intstr.String {
-		// Handle percentage
 		percentage, err := strconv.ParseInt(strings.TrimSuffix(maxUnavailable.StrVal, "%"), 10, 32)
 		if err != nil {
 			return fmt.Errorf("invalid maxUnavailable percentage: %v", err)
 		}
-		maxUnavailableInt = int(float64(len(vmUpdatedList)) * float64(percentage) / 100.0)
+		maxUnavailableInt = int(float64(totalReplicas) * float64(percentage) / 100.0)
 	} else {
-		// Handle absolute number
 		maxUnavailableInt = int(maxUnavailable.IntVal)
 	}
 
-	// Ensure at least one VMI can be unavailable
 	if maxUnavailableInt < 1 {
 		maxUnavailableInt = 1
 	}
 
-	// Count currently unavailable VMIs (those with ready condition false)
-	unavailableCount := 0
-	for _, vm := range vmUpdatedList {
-		vmiKey := controller.NamespacedKey(vm.Namespace, vm.Name)
-		obj, exists, _ := c.vmiStore.GetByKey(vmiKey)
-		if !exists {
-			continue
-		}
-		vmi := obj.(*virtv1.VirtualMachineInstance)
-
-		// Check if VMI is ready
-		readyCondition := controller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi, virtv1.VirtualMachineInstanceReady)
-		if readyCondition == nil || readyCondition.Status != k8score.ConditionTrue {
-			unavailableCount++
-		}
-	}
-
-	// If we've reached the maxUnavailable limit, don't proceed with more deletions
-	if unavailableCount >= maxUnavailableInt {
-		log.Log.Object(pool).Infof("Reached maxUnavailable limit (%d), skipping proactive updates", maxUnavailableInt)
-		return nil
-	}
-
-	// Calculate how many more VMIs we can update
-	remainingUpdates := maxUnavailableInt - unavailableCount
-	if remainingUpdates <= 0 {
-		return nil
-	}
-
-	// Process all VMs in vmUpdatedList, but limit concurrent updates to remainingUpdates
 	errChan := make(chan error, len(vmUpdatedList))
-	processedCount := 0
+	unavailableCount, err := c.getUnavailableVMICount(pool, vmUpdatedList)
+	if err != nil {
+		errChan <- err
+		return err
+	}
+
+	if unavailableCount > 0 {
+		return fmt.Errorf("cannot proceed with proactive updates: %d VMIs are unavailable", unavailableCount)
+	}
 
 	for i := 0; i < len(vmUpdatedList); i++ {
-		// If we've reached the remaining updates limit, wait for some updates to complete
-		if processedCount >= remainingUpdates {
-			// Wait for at least one update to complete before continuing
-			if err := <-errChan; err != nil {
-				return err
-			}
-			processedCount--
+		unavailableCount, err := c.getUnavailableVMICount(pool, vmUpdatedList)
+		if err != nil {
+			errChan <- err
+			return err
 		}
 
+		if unavailableCount >= maxUnavailableInt {
+			log.Log.Object(pool).Infof("Reached maxUnavailable limit (%d), waiting for some updates to complete before continuing", maxUnavailableInt)
+			wg.Wait()
+		}
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
@@ -980,8 +986,11 @@ func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedL
 			if err != nil {
 				errChan <- err
 				return
-
 			}
+			if updateType == proactiveUpdateTypeNone {
+				return
+			}
+
 			switch updateType {
 			case proactiveUpdateTypeRestart:
 				err := c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, v1.DeleteOptions{})
@@ -1037,7 +1046,6 @@ func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedL
 				}
 				log.Log.Object(pool).Infof("Proactively updating vm %s/%s in pool via label patch", vm.Namespace, vm.Name)
 			}
-			processedCount++
 		}(i)
 	}
 	wg.Wait()

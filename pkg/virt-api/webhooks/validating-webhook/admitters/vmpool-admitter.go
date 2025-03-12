@@ -134,10 +134,8 @@ func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, p
 		})
 	}
 
-	// Validate MaxUnavailable if set
 	if spec.MaxUnavailable != nil {
 		if spec.MaxUnavailable.Type == intstr.String {
-			// Validate percentage string format (e.g. "25%")
 			if !strings.HasSuffix(spec.MaxUnavailable.StrVal, "%") {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
@@ -155,7 +153,6 @@ func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, p
 				}
 			}
 		} else if spec.MaxUnavailable.Type == intstr.Int {
-			// Validate integer value is positive
 			if spec.MaxUnavailable.IntVal < 0 {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,

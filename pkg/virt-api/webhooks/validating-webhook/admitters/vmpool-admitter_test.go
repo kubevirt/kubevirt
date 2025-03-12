@@ -163,7 +163,7 @@ var _ = Describe("Validating Pool Admitter", func() {
 				},
 				MaxUnavailable: &intstr.IntOrString{
 					Type:   intstr.String,
-					StrVal: "invalid",
+					StrVal: "invalid%",
 				},
 			},
 		}, []string{
