@@ -73,7 +73,7 @@ func (vc *virtCommand) Run(cmd *cobra.Command, args []string) error {
 
 	var dryRunOption []string
 	if vc.dryRun {
-		fmt.Println("Dry Run execution")
+		cmd.Println("Dry Run execution")
 		dryRunOption = []string{v1.DryRunAll}
 	}
 
@@ -87,30 +87,33 @@ func executePauseCMD(client kubecli.KubevirtClient, namespace, resourceType, res
 		if err != nil {
 			return fmt.Errorf("Error getting VirtualMachine %s: %v", resourceName, err)
 		}
-		vmiName := vm.Name
-		err = client.VirtualMachineInstance(namespace).Pause(context.Background(), vmiName, &kubevirtV1.PauseOptions{DryRun: dryRunOption})
-		if err != nil {
-			if errors.IsNotFound(err) {
-				runningStrategy, err := vm.RunStrategy()
-				if err != nil {
-					return fmt.Errorf("Error pausing VirtualMachineInstance %s: %v", vmiName, err)
-				}
-				if runningStrategy == kubevirtV1.RunStrategyHalted {
-					return fmt.Errorf("Error pausing VirtualMachineInstance %s. VirtualMachine %s is not set to run", vmiName, vm.Name)
-				}
-				return fmt.Errorf("Error pausing VirtualMachineInstance %s, it was not found", vmiName)
-			}
-			return fmt.Errorf("Error pausing VirtualMachineInstance %s: %v", vmiName, err)
+
+		err = client.VirtualMachineInstance(namespace).Pause(context.Background(), vm.Name, &kubevirtV1.PauseOptions{DryRun: dryRunOption})
+		if errors.IsNotFound(err) {
+			return handleNotFoundError(vm)
 		}
-		fmt.Printf("VMI %s was scheduled to pause\n", vmiName)
+		if err != nil {
+			return fmt.Errorf("Error pausing VirtualMachineInstance %s: %v", vm.Name, err)
+		}
 
 	case "virtualmachineinstance", "vmi":
 		err := client.VirtualMachineInstance(namespace).Pause(context.Background(), resourceName, &kubevirtV1.PauseOptions{DryRun: dryRunOption})
 		if err != nil {
 			return fmt.Errorf("Error pausing VirtualMachineInstance %s: %v", resourceName, err)
 		}
-		fmt.Printf("VMI %s was scheduled to pause\n", resourceName)
 	}
+	fmt.Printf("VMI %s was scheduled to pause\n", resourceName)
 
 	return nil
+}
+
+func handleNotFoundError(vm *kubevirtV1.VirtualMachine) error {
+	runningStrategy, err := vm.RunStrategy()
+	if err != nil {
+		return fmt.Errorf("Error pausing VirtualMachineInstance %s: %v", vm.Name, err)
+	}
+	if runningStrategy == kubevirtV1.RunStrategyHalted {
+		return fmt.Errorf("Error pausing VirtualMachineInstance %s. VirtualMachine %s is not set to run", vm.Name, vm.Name)
+	}
+	return fmt.Errorf("Error pausing VirtualMachineInstance %s, it was not found", vm.Name)
 }
