@@ -36,6 +36,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/instancetype/v1beta1"
 
+	controllerpkg "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype/annotations"
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/expand"
@@ -116,6 +117,11 @@ func (c *controller) Sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		return vm, nil
 	}
 
+	// Before we sync ensure any referenced resources exist
+	if err := c.checkResourcesExist(vm); err != nil {
+		return vm, common.NewSyncError(err, common.FailedCreateVirtualMachineReason)
+	}
+
 	referencePolicy := c.clusterConfig.GetInstancetypeReferencePolicy()
 	switch referencePolicy {
 	case virtv1.Reference:
@@ -136,6 +142,44 @@ func (c *controller) Sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		return vm, common.NewSyncError(fmt.Errorf(upgradeControllerRevisionErrFmt, err), common.FailedCreateVirtualMachineReason)
 	}
 	return vm, nil
+}
+
+func (c *controller) checkResourcesExist(vm *virtv1.VirtualMachine) error {
+	conditionManager := controllerpkg.NewVirtualMachineConditionManager()
+
+	_, instancetypeErr := c.Find(vm)
+	if instancetypeErr != nil && !conditionManager.HasCondition(vm, virtv1.VirtualMachineInstancetypeNotFound) {
+		conditionManager.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachineInstancetypeNotFound,
+			LastTransitionTime: metav1.Now(),
+			Status:             corev1.ConditionTrue,
+			Message:            instancetypeErr.Error(),
+		})
+	}
+
+	if instancetypeErr == nil && conditionManager.HasCondition(vm, virtv1.VirtualMachineInstancetypeNotFound) {
+		conditionManager.RemoveCondition(vm, virtv1.VirtualMachineInstancetypeNotFound)
+	}
+
+	_, preferenceErr := c.FindPreference(vm)
+	if preferenceErr != nil && !conditionManager.HasCondition(vm, virtv1.VirtualMachinePreferenceNotFound) {
+		conditionManager.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
+			Type:               virtv1.VirtualMachinePreferenceNotFound,
+			LastTransitionTime: metav1.Now(),
+			Status:             corev1.ConditionTrue,
+			Message:            preferenceErr.Error(),
+		})
+	}
+
+	if preferenceErr == nil && conditionManager.HasCondition(vm, virtv1.VirtualMachinePreferenceNotFound) {
+		conditionManager.RemoveCondition(vm, virtv1.VirtualMachinePreferenceNotFound)
+	}
+
+	if instancetypeErr != nil || preferenceErr != nil {
+		return fmt.Errorf("failure to find instance type or preference resources referenced by the VirtualMachine")
+	}
+
+	return nil
 }
 
 func (c *controller) handleExpand(

@@ -1826,6 +1826,12 @@ const (
 
 	// VirtualMachineManualRecoveryRequired is added when the VM spec needs to be manually recovered by the user
 	VirtualMachineManualRecoveryRequired VirtualMachineConditionType = "ManualRecoveryRequired"
+
+	// VirtualMachineInstancetypeNotFound is added when the VM spec references an instance type that cannot be found
+	VirtualMachineInstancetypeNotFound VirtualMachineConditionType = "InstancetypeNotFound"
+
+	// VirtualMachinePreferenceNotFound is added when the VM spec referenced a preference that cannot be VirtualMachineInstancetypeNotFound
+	VirtualMachinePreferenceNotFound VirtualMachineConditionType = "PreferenceNotFound"
 )
 
 type HostDiskType string

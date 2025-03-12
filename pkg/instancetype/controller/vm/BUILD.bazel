@@ -9,6 +9,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/instancetype/controller/vm",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/controller:go_default_library",
         "//pkg/instancetype/annotations:go_default_library",
         "//pkg/instancetype/apply:go_default_library",
         "//pkg/instancetype/expand:go_default_library",
@@ -56,6 +57,7 @@ go_test(
         "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubevirt/fake:go_default_library",
+        "//tests/framework/matcher:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
