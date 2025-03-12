@@ -27,6 +27,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
+
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -135,32 +136,6 @@ var _ = Describe("Instance type and Preference VirtualMachine Admitter", func() 
 			)
 
 			admitter = webhook.NewAdmitter(virtClient)
-		})
-
-		It("should reject if instancetype is not found", func() {
-			vm.Spec.Instancetype.Name = unknownResource
-
-			instancetypeSpec, preferenceSpec, causes := admitter.ApplyToVM(vm)
-			Expect(instancetypeSpec).To(BeNil())
-			Expect(preferenceSpec).To(BeNil())
-			Expect(causes).To(ContainElement(metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: "Failure to find instancetype: virtualmachineinstancetypes.instancetype.kubevirt.io \"unknown\" not found",
-				Field:   "spec.instancetype",
-			}))
-		})
-
-		It("should reject if preference is not found", func() {
-			vm.Spec.Preference.Name = unknownResource
-
-			instancetypeSpec, preferenceSpec, causes := admitter.ApplyToVM(vm)
-			Expect(instancetypeSpec).To(BeNil())
-			Expect(preferenceSpec).To(BeNil())
-			Expect(causes).To(ContainElement(metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: "Failure to find preference: virtualmachinepreferences.instancetype.kubevirt.io \"unknown\" not found",
-				Field:   "spec.preference",
-			}))
 		})
 
 		It("should reject if instancetype fails to apply to VMI", func() {
@@ -498,6 +473,46 @@ var _ = Describe("Instance type and Preference VirtualMachine Admitter", func() 
 			},
 			Entry("with spread", v1beta1.Spread),
 			Entry("with preferSpread", v1beta1.DeprecatedPreferSpread),
+		)
+
+		DescribeTable("should admit when", func(vm *virtv1.VirtualMachine) {
+			instancetypeSpec, preferenceSpec, causes := admitter.ApplyToVM(vm)
+			Expect(instancetypeSpec).To(BeNil())
+			Expect(preferenceSpec).To(BeNil())
+			Expect(causes).To(BeNil())
+		},
+			Entry("VirtualMachineInstancetype is referenced but not found",
+				libvmi.NewVirtualMachine(
+					libvmi.New(
+						libvmi.WithNamespace(k8sv1.NamespaceDefault),
+					),
+					libvmi.WithInstancetype("unknown"),
+				),
+			),
+			Entry("VirtualMachineClusterInstancetype is referenced but not found",
+				libvmi.NewVirtualMachine(
+					libvmi.New(
+						libvmi.WithNamespace(k8sv1.NamespaceDefault),
+					),
+					libvmi.WithClusterInstancetype("unknown"),
+				),
+			),
+			Entry("VirtualMachinePreference is referenced but not found",
+				libvmi.NewVirtualMachine(
+					libvmi.New(
+						libvmi.WithNamespace(k8sv1.NamespaceDefault),
+					),
+					libvmi.WithPreference("unknown"),
+				),
+			),
+			Entry("VirtualMachineClusterPreference is referenced but not found",
+				libvmi.NewVirtualMachine(
+					libvmi.New(
+						libvmi.WithNamespace(k8sv1.NamespaceDefault),
+					),
+					libvmi.WithClusterPreference("unknown"),
+				),
+			),
 		)
 	})
 })
