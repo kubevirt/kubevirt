@@ -26,16 +26,16 @@ func NewContext(ctx context.Context, clientConfig clientcmd.ClientConfig) contex
 // ClientAndNamespaceFromContext tries to retrieve a clientcmd.Clientconfig value stored in ctx, if any.
 // It then creates a kubecli.KubevirtClient and gets the namespace from the client config and returns them.
 // Otherwise, it returns an error.
-func ClientAndNamespaceFromContext(ctx context.Context) (kubecli.KubevirtClient, string, bool, error) {
+func ClientAndNamespaceFromContext(ctx context.Context) (virtClient kubecli.KubevirtClient, namespace string, overridden bool, err error) {
 	clientConfig, ok := ctx.Value(clientConfigKey).(clientcmd.ClientConfig)
 	if !ok {
 		return nil, "", false, fmt.Errorf("unable to get client config from context")
 	}
-	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(clientConfig)
+	virtClient, err = kubecli.GetKubevirtClientFromClientConfig(clientConfig)
 	if err != nil {
 		return nil, "", false, err
 	}
-	namespace, overridden, err := clientConfig.Namespace()
+	namespace, overridden, err = clientConfig.Namespace()
 	if err != nil {
 		return nil, "", false, err
 	}
