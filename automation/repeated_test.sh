@@ -31,8 +31,7 @@ set -euo pipefail
 # * run all changed tests five times and
 # * randomize the test order each time
 
-BASEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-KUBEVIRT_ROOT=$(readlink --canonicalize ${BASEDIR}/..)
+KUBEVIRT_ROOT=$(realpath "$( dirname "${BASH_SOURCE[0]}")/..")
 
 # include defaults for retrieving proper vendored cluster-up version
 export DOCKER_TAG_ALT=''
@@ -44,16 +43,16 @@ export TIMESTAMP=${TIMESTAMP:-1}
 
 function usage {
     cat <<EOF
-usage: [NUM_TESTS=x]
-       [NEW_TESTS=file_name.json]
+usage: [NUM_TESTS=x] \
+       [NEW_TESTS=file_name.json] \
        [TARGET_COMMIT_RANGE=a1b2c3d4] $0 [TEST_LANE] [--dry-run]
 
-    run set of tests repeatedly using a json containing test names of tests that have been
+    run set of tests repeatedly using a json file containing the names of the tests that have been
     changed or added since last merge commit
     hint: set NEW_TESTS to explicitly name the json file containing test names to run
 
     options:
-        NUM_TESTS           how often the test lane is run, default is 5
+        NUM_TESTS           how many times the test lane is run, default is 5
         NEW_TESTS           the json file containing the (textual) names of the
                             tests to run, according to what is shown in the
                             junit.xml file
@@ -122,7 +121,7 @@ function should_skip_test_run_due_to_too_many_tests() {
     [ "$tests_total_for_all_runs_estimate" -gt $tests_total_estimate ]
 }
 
-ginko_params=''
+ginkgo_params=''
 if (( $# > 0 )); then
     if [[ "$1" =~ -h ]]; then
         usage
@@ -130,7 +129,7 @@ if (( $# > 0 )); then
     fi
 
     if [[ "$1" =~ --dry-run ]]; then
-        ginko_params='-dry-run'
+        ginkgo_params='-dry-run'
         shift
     fi
 fi
@@ -242,16 +241,17 @@ if [[ "${rwofs_sc}" == "local" ]]; then
 fi
 
 label_filter="(flake-check)||(${label_filter})"
-ginko_params="$ginko_params -no-color -succinct --label-filter=${label_filter} -randomize-all"
+ginkgo_params="$ginkgo_params -no-color -succinct --label-filter=${label_filter} -randomize-all"
 if [[ -n ${NEW_TESTS} ]]; then
-    IFS=$'\n'; for test_name in $(jq -r '.[]' "${NEW_TESTS}"); do
-        ginko_params+=" -focus='${test_name// /\\s}'"
+    readarray -t test_names <<<"$(jq -r '.[]' "${NEW_TESTS}")"
+    for test_name in "${test_names[@]}"; do
+        ginkgo_params+=" -focus='${test_name}'"
     done
 fi
 
 echo "Test lane: ${TEST_LANE}, preparing cluster up"
 
-if [[ ! "$ginko_params" =~ -dry-run ]]; then
+if [[ ! "$ginkgo_params" =~ -dry-run ]]; then
     make cluster-up
     make cluster-sync
 else
@@ -262,7 +262,7 @@ fi
 
 for i in $(seq 1 "$NUM_TESTS"); do
     echo "Test lane: ${TEST_LANE}, run: $i"
-    if ! FUNC_TEST_ARGS="$ginko_params" make functest; then
+    if ! FUNC_TEST_ARGS="$ginkgo_params" make functest; then
         echo "Test lane: ${TEST_LANE}, run: $i, tests failed!"
         exit 1
     fi
