@@ -160,7 +160,7 @@ func usage() string {
 
 // component name to JSON name
 func getJSONNameByComponentName(componentName string) string {
-	var componentNameToJSONName = map[string]string{
+	componentNameToJSONName := map[string]string{
 		"virt-api":        "virtAPI",
 		"virt-controller": "virtController",
 		"virt-handler":    "virtHandler",
@@ -171,7 +171,7 @@ func getJSONNameByComponentName(componentName string) string {
 	return componentNameToJSONName[componentName]
 }
 
-func detectInstallNamespaceAndName(virtClient kubecli.KubevirtClient) (string, string, error) {
+func detectInstallNamespaceAndName(virtClient kubecli.KubevirtClient) (namespace, name string, err error) {
 	kvs, err := virtClient.KubeVirt(k8smetav1.NamespaceAll).List(context.Background(), k8smetav1.ListOptions{})
 	if err != nil {
 		return "", "", fmt.Errorf("could not list KubeVirt CRs across all namespaces: %v", err)
@@ -182,14 +182,14 @@ func detectInstallNamespaceAndName(virtClient kubecli.KubevirtClient) (string, s
 	if len(kvs.Items) > 1 {
 		return "", "", errors.New("invalid kubevirt installation, more than one KubeVirt resource found")
 	}
-	namespace := kvs.Items[0].Namespace
-	name := kvs.Items[0].Name
+	namespace = kvs.Items[0].Namespace
+	name = kvs.Items[0].Name
 	return namespace, name, nil
 }
 
-func hasVerbosityInKV(kv *v1.KubeVirt) (map[string]uint, bool, error) {
-	verbosityMap := map[string]uint{} // key: component name, value: verbosity
-	hasDeveloperConfiguration := true
+func hasVerbosityInKV(kv *v1.KubeVirt) (verbosityMap map[string]uint, hasDeveloperConfiguration bool, err error) {
+	verbosityMap = map[string]uint{} // key: component name, value: verbosity
+	hasDeveloperConfiguration = true
 
 	if kv.Spec.Configuration.DeveloperConfiguration == nil {
 		// If DeveloperConfiguration is absent in the KubeVirt CR, need to add it before adding LogVerbosity.
@@ -235,7 +235,7 @@ func createOutputLines(verbosityVal map[string]uint) []string {
 func createShowMessage(currentLv map[string]uint) []string {
 	// fill the unattended verbosity with default verbosity
 	// key: JSONName, value: verbosity
-	var verbosityVal = map[string]uint{
+	verbosityVal := map[string]uint{
 		"virtAPI":        virtconfig.DefaultVirtAPILogVerbosity,
 		"virtController": virtconfig.DefaultVirtControllerLogVerbosity,
 		"virtHandler":    virtconfig.DefaultVirtHandlerLogVerbosity,
