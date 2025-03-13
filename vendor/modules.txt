@@ -872,7 +872,7 @@ kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1
 # kubevirt.io/controller-lifecycle-operator-sdk/api v0.2.4
 ## explicit; go 1.17
 kubevirt.io/controller-lifecycle-operator-sdk/api
-# kubevirt.io/ssp-operator/api v0.22.2
+# kubevirt.io/ssp-operator/api v0.22.3
 ## explicit; go 1.22.9
 kubevirt.io/ssp-operator/api/v1beta2
 # sigs.k8s.io/controller-runtime v0.19.3

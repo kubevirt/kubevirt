@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.15.0-unstable
-    createdAt: "2025-03-11 05:05:34"
+    createdAt: "2025-03-13 13:56:51"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     features.operators.openshift.io/cnf: "false"
@@ -3259,7 +3259,7 @@ spec:
                 - name: NETWORK_ADDONS_VERSION
                   value: v0.98.1
                 - name: SSP_VERSION
-                  value: v0.22.2
+                  value: v0.22.3
                 - name: HPPO_VERSION
                   value: v0.21.0
                 - name: AAQ_VERSION
@@ -3702,6 +3702,7 @@ spec:
             metadata:
               annotations:
                 kubectl.kubernetes.io/default-container: manager
+                openshift.io/required-scc: restricted-v2
               labels:
                 app.kubernetes.io/component: schedule
                 app.kubernetes.io/managed-by: olm
@@ -3718,15 +3719,15 @@ spec:
                 - /manager
                 env:
                 - name: VALIDATOR_IMAGE
-                  value: quay.io/kubevirt/kubevirt-template-validator@sha256:b227679f8ccc7c53469574ee5f58c9cc39eb6c54ec01377e4b3df3205a2f4ab4
+                  value: quay.io/kubevirt/kubevirt-template-validator@sha256:a1c4c966ea781d667aa7dc79078d90c8ca4f8b8bf911ce145e6e769072ee26cf
                 - name: OPERATOR_VERSION
-                  value: v0.22.2
+                  value: v0.22.3
                 - name: VM_CONSOLE_PROXY_IMAGE
                 - name: POD_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.namespace
-                image: quay.io/kubevirt/ssp-operator@sha256:61ac0c182528a9b54d84755fc0931ad8d408ae74e7e4b644316a5e9e630ab360
+                image: quay.io/kubevirt/ssp-operator@sha256:f851623dc8034e9efea514e360c9972143078d58ae552a8b126da2178b15c496
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -4806,7 +4807,7 @@ spec:
     name: kubevirt-apiserver-proxy
   - image: quay.io/kubevirt-ui/kubevirt-plugin@sha256:9656716bf6aca3ae2b81d28de6d228c1797d3f81934ccd862854be62a895cc2a
     name: kubevirt-plugin
-  - image: quay.io/kubevirt/kubevirt-template-validator@sha256:b227679f8ccc7c53469574ee5f58c9cc39eb6c54ec01377e4b3df3205a2f4ab4
+  - image: quay.io/kubevirt/kubevirt-template-validator@sha256:a1c4c966ea781d667aa7dc79078d90c8ca4f8b8bf911ce145e6e769072ee26cf
     name: kubevirt-template-validator
   - image: quay.io/kubevirt/libguestfs-tools@sha256:fd70eeaec26e29e3a4ad03d308b4bdac806fbb67391550874b5a7374e2f21deb
     name: libguestfs-tools
@@ -4830,7 +4831,7 @@ spec:
     name: pr-helper
   - image: quay.io/kubevirt/sidecar-shim@sha256:3741dc9c9619be64313c5d0f0d6bd4f1453871ed0910165e209ef9aaa3f273f6
     name: sidecar-shim
-  - image: quay.io/kubevirt/ssp-operator@sha256:61ac0c182528a9b54d84755fc0931ad8d408ae74e7e4b644316a5e9e630ab360
+  - image: quay.io/kubevirt/ssp-operator@sha256:f851623dc8034e9efea514e360c9972143078d58ae552a8b126da2178b15c496
     name: ssp-operator
   - image: quay.io/kubevirt/virt-api@sha256:44574ef09ef355a1a5daa139bddb7974bb7fb54f599a2da172992c30316e0656
     name: virt-api

@@ -63,7 +63,7 @@ spec:
         - name: NETWORK_ADDONS_VERSION
           value: v0.98.1
         - name: SSP_VERSION
-          value: v0.22.2
+          value: v0.22.3
         - name: HPPO_VERSION
           value: v0.21.0
         - name: AAQ_VERSION
@@ -528,6 +528,7 @@ spec:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: manager
+        openshift.io/required-scc: restricted-v2
       labels:
         app.kubernetes.io/component: schedule
         app.kubernetes.io/part-of: hyperconverged-cluster
@@ -543,15 +544,15 @@ spec:
         - /manager
         env:
         - name: VALIDATOR_IMAGE
-          value: quay.io/kubevirt/kubevirt-template-validator@sha256:b227679f8ccc7c53469574ee5f58c9cc39eb6c54ec01377e4b3df3205a2f4ab4
+          value: quay.io/kubevirt/kubevirt-template-validator@sha256:a1c4c966ea781d667aa7dc79078d90c8ca4f8b8bf911ce145e6e769072ee26cf
         - name: OPERATOR_VERSION
-          value: v0.22.2
+          value: v0.22.3
         - name: VM_CONSOLE_PROXY_IMAGE
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: quay.io/kubevirt/ssp-operator@sha256:61ac0c182528a9b54d84755fc0931ad8d408ae74e7e4b644316a5e9e630ab360
+        image: quay.io/kubevirt/ssp-operator@sha256:f851623dc8034e9efea514e360c9972143078d58ae552a8b126da2178b15c496
         livenessProbe:
           httpGet:
             path: /healthz
