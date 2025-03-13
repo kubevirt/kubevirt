@@ -20,6 +20,8 @@ go_library(
         "asm_linux_riscv64.s",
         "asm_linux_s390x.s",
         "asm_solaris_amd64.s",
+        "auxv.go",
+        "auxv_unsupported.go",
         "bluetooth_linux.go",
         "bpxsvc_zos.s",
         "cap_freebsd.go",
