@@ -284,8 +284,9 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 
 		It("should migrate the source volume from a source DV to a destination DV", func() {
 			volName := "disk0"
-			vm := createVMWithDV(createDV(), volName)
-			destDV := createBlankDV(virtClient, ns, size)
+			srcDV := createDV()
+			vm := createVMWithDV(srcDV, volName)
+			destDV := createBlankDV(virtClient, ns, "2Gi")
 			By("Update volumes")
 			updateVMWithDV(vm, volName, destDV.Name)
 			Eventually(func() bool {
@@ -295,6 +296,10 @@ var _ = SIGDescribe("[Serial]Volumes update with migration", Serial, func() {
 				claim := storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
 				return claim == destDV.Name
 			}, 120*time.Second, time.Second).Should(BeTrue())
+			waitForMigrationToSucceed(virtClient, vm.Name, ns)
+
+			By("Rollback to the original volumes")
+			updateVMWithDV(vm, volName, srcDV.Name)
 			waitForMigrationToSucceed(virtClient, vm.Name, ns)
 		})
 

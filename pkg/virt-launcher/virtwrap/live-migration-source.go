@@ -887,17 +887,14 @@ func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineI
 		// Configure the slice to enable to migrate the volume to a destination with different size
 		// See suggestion in: https://issues.redhat.com/browse/RHEL-4607
 		if dom.Devices.Disks[i].Source.Slices == nil {
-			dom.Devices.Disks[i].Source.Slices = &libvirtxml.DomainDiskSlices{}
-		}
-		slice := libvirtxml.DomainDiskSlice{
-			Type:   "storage",
-			Offset: 0,
-			Size:   uint(size),
-		}
-		if len(dom.Devices.Disks[i].Source.Slices.Slices) > 0 {
-			dom.Devices.Disks[i].Source.Slices.Slices[0] = slice
-		} else {
-			dom.Devices.Disks[i].Source.Slices.Slices = append(dom.Devices.Disks[i].Source.Slices.Slices, slice)
+			dom.Devices.Disks[i].Source.Slices = &libvirtxml.DomainDiskSlices{
+				Slices: []libvirtxml.DomainDiskSlice{
+					{
+						Type:   "storage",
+						Offset: 0,
+						Size:   uint(size),
+					},
+				}}
 		}
 		// Adjust the XML configuration when it migrates from a filesystem source to a block destination or vice versa
 		if _, ok := fsSrcBlockDstVols[name]; ok {
