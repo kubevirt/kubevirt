@@ -36,9 +36,10 @@ import (
 const (
 	create = "create"
 
-	vmKind, vmApiGroup             = "VirtualMachine", "kubevirt.io"
-	snapshotKind, snapshotApiGroup = "VirtualMachineSnapshot", "snapshot.kubevirt.io"
+	vmKind, vmAPIGroup             = "VirtualMachine", "kubevirt.io"
+	snapshotKind, snapshotAPIGroup = "VirtualMachineSnapshot", "snapshot.kubevirt.io"
 )
+
 const (
 	labelFilters = iota
 	annotationsFilters
@@ -50,7 +51,6 @@ const (
 
 var _ = Describe("create clone", func() {
 	Context("required arguments", func() {
-
 		It("source name must be specified", func() {
 			_, err := newCommand()
 			Expect(err).To(HaveOccurred())
@@ -64,8 +64,10 @@ var _ = Describe("create clone", func() {
 	})
 
 	Context("source and target", func() {
-
-		DescribeTable("supported types", func(sourceType, expectedSourceKind, expectedSourceApiGroup, targetType, expectedTargetKind, expectedTargetApiGroup string) {
+		DescribeTable("supported types", func(
+			sourceType, expectedSourceKind, expectedSourceAPIGroup,
+			targetType, expectedTargetKind, expectedTargetAPIGroup string,
+		) {
 			const sourceName, targetName = "source-name", "target-name"
 
 			flags := addFlag(nil, virtctlclone.SourceNameFlag, sourceName)
@@ -79,23 +81,23 @@ var _ = Describe("create clone", func() {
 			Expect(cloneObj.Spec.Source.Name).To(Equal(sourceName))
 			Expect(cloneObj.Spec.Source.Kind).To(Equal(expectedSourceKind))
 			Expect(cloneObj.Spec.Source.APIGroup).ToNot(BeNil())
-			Expect(*cloneObj.Spec.Source.APIGroup).To(Equal(expectedSourceApiGroup))
+			Expect(*cloneObj.Spec.Source.APIGroup).To(Equal(expectedSourceAPIGroup))
 
 			Expect(cloneObj.Spec.Target.Name).To(Equal(targetName))
 			Expect(cloneObj.Spec.Target.Kind).To(Equal(expectedTargetKind))
 			Expect(cloneObj.Spec.Target.APIGroup).ToNot(BeNil())
-			Expect(*cloneObj.Spec.Target.APIGroup).To(Equal(expectedTargetApiGroup))
+			Expect(*cloneObj.Spec.Target.APIGroup).To(Equal(expectedTargetAPIGroup))
 		},
-			Entry("vm source, vm target", "vm", vmKind, vmApiGroup, "vm", vmKind, vmApiGroup),
-			Entry("VM source, vm target", "VM", vmKind, vmApiGroup, "vm", vmKind, vmApiGroup),
-			Entry("VirtualMachine source, vm target", "VirtualMachine", vmKind, vmApiGroup, "vm", vmKind, vmApiGroup),
-			Entry("virtualmachine, vm target", "virtualmachine", vmKind, vmApiGroup, "vm", vmKind, vmApiGroup),
-			Entry("vm source, VirtualMachine target", "vm", vmKind, vmApiGroup, "VirtualMachine", vmKind, vmApiGroup),
+			Entry("vm source, vm target", "vm", vmKind, vmAPIGroup, "vm", vmKind, vmAPIGroup),
+			Entry("VM source, vm target", "VM", vmKind, vmAPIGroup, "vm", vmKind, vmAPIGroup),
+			Entry("VirtualMachine source, vm target", "VirtualMachine", vmKind, vmAPIGroup, "vm", vmKind, vmAPIGroup),
+			Entry("virtualmachine, vm target", "virtualmachine", vmKind, vmAPIGroup, "vm", vmKind, vmAPIGroup),
+			Entry("vm source, VirtualMachine target", "vm", vmKind, vmAPIGroup, "VirtualMachine", vmKind, vmAPIGroup),
 
-			Entry("snapshot source, vm target", "snapshot", snapshotKind, snapshotApiGroup, "vm", vmKind, vmApiGroup),
-			Entry("VirtualMachineSnapshot source, vm target", "VirtualMachineSnapshot", snapshotKind, snapshotApiGroup, "vm", vmKind, vmApiGroup),
-			Entry("vmsnapshot source, vm target", "vmsnapshot", snapshotKind, snapshotApiGroup, "vm", vmKind, vmApiGroup),
-			Entry("VMSnapshot source, vm target", "VMSnapshot", snapshotKind, snapshotApiGroup, "vm", vmKind, vmApiGroup),
+			Entry("snapshot source, vm target", "snapshot", snapshotKind, snapshotAPIGroup, "vm", vmKind, vmAPIGroup),
+			Entry("VirtualMachineSnapshot source, vm target", "VirtualMachineSnapshot", snapshotKind, snapshotAPIGroup, "vm", vmKind, vmAPIGroup),
+			Entry("vmsnapshot source, vm target", "vmsnapshot", snapshotKind, snapshotAPIGroup, "vm", vmKind, vmAPIGroup),
+			Entry("VMSnapshot source, vm target", "VMSnapshot", snapshotKind, snapshotAPIGroup, "vm", vmKind, vmAPIGroup),
 		)
 
 		It("snapshot is not supported as a target type", func() {
@@ -127,11 +129,9 @@ var _ = Describe("create clone", func() {
 			_, err := newCommand()
 			Expect(err).To(HaveOccurred())
 		})
-
 	})
 
 	Context("label and annotation filters", func() {
-
 		DescribeTable("with", func(filterType int) {
 			flags := getSourceNameFlags()
 
@@ -180,7 +180,6 @@ var _ = Describe("create clone", func() {
 				Expect(cloneObj.Spec.Template.LabelFilters).To(HaveLen(expectedLen))
 				Expect(cloneObj.Spec.Template.AnnotationFilters).To(HaveLen(expectedLen))
 			}
-
 		},
 			Entry("label filters", labelFilters),
 			Entry("annotation filters", annotationsFilters),
@@ -253,7 +252,6 @@ var _ = Describe("create clone", func() {
 
 		Expect(cloneObj.Namespace).To(Equal(namespace))
 	})
-
 })
 
 func addFlag(s []string, flag, value string) []string {
@@ -262,9 +260,9 @@ func addFlag(s []string, flag, value string) []string {
 
 func newCommand(createCloneFlags ...string) (*clone.VirtualMachineClone, error) {
 	baseArgs := []string{create, virtctlclone.Clone}
-	args := append(baseArgs, createCloneFlags...)
+	baseArgs = append(baseArgs, createCloneFlags...)
 
-	bytes, err := testing.NewRepeatableVirtctlCommandWithOut(args...)()
+	bytes, err := testing.NewRepeatableVirtctlCommandWithOut(baseArgs...)()
 	if err != nil {
 		return nil, err
 	}

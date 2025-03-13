@@ -27,7 +27,7 @@ import (
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
-	clone "kubevirt.io/api/clone/v1beta1"
+	cloneapi "kubevirt.io/api/clone/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"sigs.k8s.io/yaml"
 
@@ -52,6 +52,12 @@ const (
 
 	supportedSourceTypes = "vm, vmsnapshot"
 	supportedTargetTypes = "vm"
+
+	cloneRandomSuffixLength = 5
+	expectedSplitParamLen   = 2
+
+	virtualMachineKind     = "VirtualMachine"
+	virtualMachineSnapshot = "VirtualMachineSnapshot"
 )
 
 type createClone struct {
@@ -69,7 +75,8 @@ type createClone struct {
 	newSmbiosSerial           string
 }
 
-type cloneSpec clone.VirtualMachineCloneSpec
+type cloneSpec cloneapi.VirtualMachineCloneSpec
+
 type optionFn func(*createClone, *cloneSpec) error
 
 var optFns = map[string]optionFn{
@@ -91,13 +98,38 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().StringVar(&c.name, NameFlag, emptyValue, "Specify the name of the clone. If not specified, name would be randomized.")
 	cmd.Flags().StringVar(&c.sourceName, SourceNameFlag, emptyValue, "Specify the clone's source name.")
 	cmd.Flags().StringVar(&c.targetName, TargetNameFlag, emptyValue, "Specify the clone's target name.")
-	cmd.Flags().StringVar(&c.sourceType, SourceTypeFlag, emptyValue, "Specify the clone's source type. Default type is VM. Supported types: "+supportedSourceTypes)
-	cmd.Flags().StringVar(&c.targetType, TargetTypeFlag, emptyValue, "Specify the clone's target type. Default type is VM. Supported types: "+supportedTargetTypes)
+	cmd.Flags().StringVar(
+		&c.sourceType,
+		SourceTypeFlag,
+		emptyValue,
+		"Specify the clone's source type. Default type is VM. Supported types: "+supportedSourceTypes,
+	)
+	cmd.Flags().StringVar(
+		&c.targetType,
+		TargetTypeFlag,
+		emptyValue,
+		"Specify the clone's target type. Default type is VM. Supported types: "+supportedTargetTypes,
+	)
 	cmd.Flags().StringArrayVar(&c.labelFilters, LabelFilterFlag, nil, "Specify clone's label filters. "+supportsMultipleFlags)
 	cmd.Flags().StringArrayVar(&c.annotationFilters, AnnotationFilterFlag, nil, "Specify clone's annotation filters. "+supportsMultipleFlags)
-	cmd.Flags().StringArrayVar(&c.templateLabelFilters, TemplateLabelFilterFlag, nil, "Specify clone's template label filters. "+supportsMultipleFlags)
-	cmd.Flags().StringArrayVar(&c.templateAnnotationFilters, TemplateAnnotationFilterFlag, nil, "Specify clone's template annotation filters. "+supportsMultipleFlags)
-	cmd.Flags().StringArrayVar(&c.newMacAddresses, NewMacAddressesFlag, nil, "Specify clone's new mac addresses. For example: 'interfaceName0:newAddress0'")
+	cmd.Flags().StringArrayVar(
+		&c.templateLabelFilters,
+		TemplateLabelFilterFlag,
+		nil,
+		"Specify clone's template label filters. "+supportsMultipleFlags,
+	)
+	cmd.Flags().StringArrayVar(
+		&c.templateAnnotationFilters,
+		TemplateAnnotationFilterFlag,
+		nil,
+		"Specify clone's template annotation filters. "+supportsMultipleFlags,
+	)
+	cmd.Flags().StringArrayVar(
+		&c.newMacAddresses,
+		NewMacAddressesFlag,
+		nil,
+		"Specify clone's new mac addresses. For example: 'interfaceName0:newAddress0'",
+	)
 	cmd.Flags().StringVar(&c.newSmbiosSerial, NewSMBiosSerialFlag, emptyValue, "Specify the clone's new smbios serial")
 
 	if err := cmd.MarkFlagRequired(SourceNameFlag); err != nil {
@@ -110,7 +142,7 @@ func NewCommand() *cobra.Command {
 func withNewMacAddresses(c *createClone, cloneSpec *cloneSpec) error {
 	for _, param := range c.newMacAddresses {
 		splitParam := strings.Split(param, ":")
-		if len(splitParam) != 2 {
+		if len(splitParam) != expectedSplitParamLen {
 			return fmt.Errorf("newMacAddress parameter %s is invalid: exactly one ':' is expected. For example: 'interface0:address0'", param)
 		}
 
@@ -134,46 +166,46 @@ func withNewMacAddresses(c *createClone, cloneSpec *cloneSpec) error {
 
 func (c *createClone) usage() string {
 	return `  # Create a manifest for a clone with a random name:
-  {{ProgramName}} create clone --source-name sourceVM --target-name targetVM
-
-  # Create a manifest for a clone with a specified name:
-  {{ProgramName}} create clone --name my-clone --source-name sourceVM --target-name targetVM
-
-  # Create a manifest for a clone with a randomized target name (target name is omitted):
-  {{ProgramName}} create clone --source-name sourceVM
-
-  # Create a manifest for a clone with specified source / target types. The default type is VM.
-  {{ProgramName}} create clone --source-name sourceVM --source-type vm --target-name targetVM --target-type vm
-
-  # Supported source types are vm (aliases: VM, VirtualMachine, virtualmachine) and snapshot (aliases: vmsnapshot
-  # VirtualMachineSnapshot, VMSnapshot). The only supported target type is vm.
-
-  # Create a manifest for a clone with a source type snapshot to a target type VM:
-  {{ProgramName}} create clone --source-name mySnapshot --source-type snapshot --target-name targetVM
-
-  # Create a manifest for a clone with label filters:
-  {{ProgramName}} create clone --source-name sourceVM --label-filter '*' --label-filter '!some/key'
-
-  # Create a manifest for a clone with annotation filters:
-  {{ProgramName}} create clone --source-name sourceVM --annotation-filter '*' --annotation-filter '!some/key'
-
-  # Create a manifest for a clone with template label filters:
-  {{ProgramName}} create clone --source-name sourceVM --template-label-filter '*' --template-label-filter '!some/key'
-
-  # Create a manifest for a clone with template annotation filters:
-  {{ProgramName}} create clone --source-name sourceVM --template-annotation-filter '*' --template-annotation-filter '!some/key'
-
-  # Create a manifest for a clone with new MAC addresses:
-  {{ProgramName}} create clone --source-name sourceVM --new-mac-address interface1:00-11-22 --new-mac-address interface2:00-11-33
-
-  # Create a manifest for a clone with new SMBIOS serial:
-  {{ProgramName}} create clone --source-name sourceVM --new-smbios-serial "new-serial"
-
-  # Create a manifest for a clone and use it to create a resource with kubectl
-  {{ProgramName}} create clone --source-name sourceVM | kubectl create -f -`
+   {{ProgramName}} create clone --source-name sourceVM --target-name targetVM
+ 
+   # Create a manifest for a clone with a specified name:
+   {{ProgramName}} create clone --name my-clone --source-name sourceVM --target-name targetVM
+ 
+   # Create a manifest for a clone with a randomized target name (target name is omitted):
+   {{ProgramName}} create clone --source-name sourceVM
+ 
+   # Create a manifest for a clone with specified source / target types. The default type is VM.
+   {{ProgramName}} create clone --source-name sourceVM --source-type vm --target-name targetVM --target-type vm
+ 
+   # Supported source types are vm (aliases: VM, VirtualMachine, virtualmachine) and snapshot (aliases: vmsnapshot
+   # VirtualMachineSnapshot, VMSnapshot). The only supported target type is vm.
+ 
+   # Create a manifest for a clone with a source type snapshot to a target type VM:
+   {{ProgramName}} create clone --source-name mySnapshot --source-type snapshot --target-name targetVM
+ 
+   # Create a manifest for a clone with label filters:
+   {{ProgramName}} create clone --source-name sourceVM --label-filter '*' --label-filter '!some/key'
+ 
+   # Create a manifest for a clone with annotation filters:
+   {{ProgramName}} create clone --source-name sourceVM --annotation-filter '*' --annotation-filter '!some/key'
+ 
+   # Create a manifest for a clone with template label filters:
+   {{ProgramName}} create clone --source-name sourceVM --template-label-filter '*' --template-label-filter '!some/key'
+ 
+   # Create a manifest for a clone with template annotation filters:
+   {{ProgramName}} create clone --source-name sourceVM --template-annotation-filter '*' --template-annotation-filter '!some/key'
+ 
+   # Create a manifest for a clone with new MAC addresses:
+   {{ProgramName}} create clone --source-name sourceVM --new-mac-address interface1:00-11-22 --new-mac-address interface2:00-11-33
+ 
+   # Create a manifest for a clone with new SMBIOS serial:
+   {{ProgramName}} create clone --source-name sourceVM --new-smbios-serial "new-serial"
+ 
+   # Create a manifest for a clone and use it to create a resource with kubectl
+   {{ProgramName}} create clone --source-name sourceVM | kubectl create -f -`
 }
 
-func (c *createClone) newClone() (*clone.VirtualMachineClone, error) {
+func (c *createClone) newClone() (*cloneapi.VirtualMachineClone, error) {
 	vmClone := kubecli.NewMinimalClone(c.name)
 	if c.namespace != "" {
 		vmClone.Namespace = c.namespace
@@ -189,12 +221,12 @@ func (c *createClone) newClone() (*clone.VirtualMachineClone, error) {
 		return nil, err
 	}
 
-	vmClone.Spec = clone.VirtualMachineCloneSpec{
+	vmClone.Spec = cloneapi.VirtualMachineCloneSpec{
 		Source:            source,
 		Target:            target,
 		AnnotationFilters: c.annotationFilters,
 		LabelFilters:      c.labelFilters,
-		Template: clone.VirtualMachineCloneTemplateFilters{
+		Template: cloneapi.VirtualMachineCloneTemplateFilters{
 			AnnotationFilters: c.templateAnnotationFilters,
 			LabelFilters:      c.templateLabelFilters,
 		},
@@ -207,7 +239,7 @@ func (c *createClone) newClone() (*clone.VirtualMachineClone, error) {
 	return vmClone, nil
 }
 
-func (c *createClone) applyFlags(cmd *cobra.Command, spec *clone.VirtualMachineCloneSpec) error {
+func (c *createClone) applyFlags(cmd *cobra.Command, spec *cloneapi.VirtualMachineCloneSpec) error {
 	for flag := range optFns {
 		if cmd.Flags().Changed(flag) {
 			if err := optFns[flag](c, (*cloneSpec)(spec)); err != nil {
@@ -229,21 +261,21 @@ func (c *createClone) run(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	clone, err := c.newClone()
+	vmClone, err := c.newClone()
 	if err != nil {
 		return err
 	}
 
-	err = c.applyFlags(cmd, &clone.Spec)
+	err = c.applyFlags(cmd, &vmClone.Spec)
 	if err != nil {
 		return err
 	}
 
-	if clone.Name == "" {
-		clone.Name = "clone-" + rand.String(5)
+	if vmClone.Name == "" {
+		vmClone.Name = "clone-" + rand.String(cloneRandomSuffixLength)
 	}
 
-	cloneBytes, err := yaml.Marshal(clone)
+	cloneBytes, err := yaml.Marshal(vmClone)
 	if err != nil {
 		return err
 	}
@@ -252,7 +284,9 @@ func (c *createClone) run(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-func (c *createClone) typeToTypedLocalObjectReference(sourceOrTargetType, sourceOrTargetName string, isSource bool) (*v1.TypedLocalObjectReference, error) {
+func (c *createClone) typeToTypedLocalObjectReference(
+	sourceOrTargetType, sourceOrTargetName string, isSource bool,
+) (*v1.TypedLocalObjectReference, error) {
 	var kind, apiGroup string
 
 	generateErr := func() error {
@@ -267,19 +301,24 @@ func (c *createClone) typeToTypedLocalObjectReference(sourceOrTargetType, source
 			supportedTypes = supportedTargetTypes
 		}
 
-		return fmt.Errorf("%s type %s is not supported. Supported types: %s", sourceTargetStr, sourceOrTargetType, supportedTypes)
+		return fmt.Errorf(
+			"%s type %s is not supported. Supported types: %s",
+			sourceTargetStr,
+			sourceOrTargetType,
+			supportedTypes,
+		)
 	}
 
 	switch sourceOrTargetType {
-	case "vm", "VM", "VirtualMachine", "virtualmachine":
-		kind = "VirtualMachine"
+	case "vm", "VM", virtualMachineKind, "virtualmachine":
+		kind = virtualMachineKind
 		apiGroup = "kubevirt.io"
-	case "snapshot", "VirtualMachineSnapshot", "vmsnapshot", "VMSnapshot":
+	case "snapshot", virtualMachineSnapshot, "vmsnapshot", "VMSnapshot":
 		if !isSource {
 			return nil, generateErr()
 		}
 
-		kind = "VirtualMachineSnapshot"
+		kind = virtualMachineSnapshot
 		apiGroup = "snapshot.kubevirt.io"
 	default:
 		return nil, generateErr()
@@ -302,7 +341,7 @@ func (c *createClone) setDefaults(ctx context.Context) error {
 	}
 
 	if c.name == "" {
-		c.name = "clone-" + rand.String(5)
+		c.name = "clone-" + rand.String(cloneRandomSuffixLength)
 	}
 
 	const defaultType = "vm"
