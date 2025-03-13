@@ -1045,9 +1045,15 @@ func (c *VirtualMachineController) updateAccessCredentialConditions(vmi *v1.Virt
 		}
 		vmi.Status.Conditions = append(vmi.Status.Conditions, newCondition)
 		if status == k8sv1.ConditionTrue {
-			c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.AccessCredentialsSyncSuccess.String(), message)
+			eventMessage := "Access credentials sync successful."
+			if message != "" {
+				eventMessage = fmt.Sprintf("Access credentials sync successful: %s", message)
+			}
+			c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.AccessCredentialsSyncSuccess.String(), eventMessage)
 		} else {
-			c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.AccessCredentialsSyncFailed.String(), message)
+			c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.AccessCredentialsSyncFailed.String(),
+				fmt.Sprintf("Access credentials sync failed: %s", message),
+			)
 		}
 	}
 }
