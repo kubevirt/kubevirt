@@ -38,6 +38,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -50,7 +51,7 @@ var _ = Describe(SIG("[sig-compute]VNC", decorators.SigCompute, decorators.WgArm
 
 	BeforeEach(func() {
 		var err error
-		vmi = libvmifact.NewGuestless()
+		vmi = libvmifact.NewGuestless(libvmi.WithAutoattachGraphicsDevice(true))
 		vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).
 			Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())

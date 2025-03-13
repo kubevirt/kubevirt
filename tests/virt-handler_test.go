@@ -26,23 +26,21 @@ import (
 	"strings"
 	"time"
 
-	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
-
-	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libnode"
-	"kubevirt.io/kubevirt/tests/libvmops"
-
-	virt_api "kubevirt.io/kubevirt/pkg/virt-api"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
+	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	virt_api "kubevirt.io/kubevirt/pkg/virt-api"
+	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmifact"
+	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
 var _ = Describe("[sig-compute]virt-handler", decorators.SigCompute, func() {
@@ -94,7 +92,7 @@ var _ = Describe("[sig-compute]virt-handler", decorators.SigCompute, func() {
 		}
 
 		By("Running the VMI")
-		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
+		vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithAutoattachGraphicsDevice(true))
 		vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
 
 		By("VMI has the guest agent connected condition")

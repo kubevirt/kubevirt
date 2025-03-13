@@ -28,8 +28,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	v1 "kubevirt.io/api/core/v1"
-
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 )
@@ -41,7 +39,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 		Context("with headless", func() {
 
 			It("[test_id:709][posneg:positive]should connect to console", func() {
-				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(withAutoattachGraphicsDevice(false)), 30)
+				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(libvmi.WithAutoattachGraphicsDevice(false)), 30)
 
 				By("checking that console works")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
@@ -51,9 +49,3 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 	})
 
 })
-
-func withAutoattachGraphicsDevice(enable bool) libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = &enable
-	}
-}
