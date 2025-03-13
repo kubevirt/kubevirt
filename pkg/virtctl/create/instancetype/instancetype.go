@@ -46,6 +46,8 @@ const (
 
 	nameErr       = "name must be specified"
 	deviceNameErr = "deviceName must be specified"
+
+	randomNameSuffixLength = 5
 )
 
 type createInstancetype struct {
@@ -59,12 +61,8 @@ type createInstancetype struct {
 	namespaced      bool
 }
 
-type gpu struct {
-	Name       string `param:"name"`
-	DeviceName string `param:"devicename"`
-}
-
-type hostDevice struct {
+// deviceParam represents the parameters for device configuration
+type deviceParam struct {
 	Name       string `param:"name"`
 	DeviceName string `param:"devicename"`
 }
@@ -80,10 +78,14 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().StringVar(&c.name, NameFlag, c.name, "Specify the name of the Instancetype.")
 	cmd.Flags().Uint32Var(&c.cpu, CPUFlag, c.cpu, "Specify the count of CPUs of the Instancetype.")
 	cmd.Flags().StringVar(&c.memory, MemoryFlag, c.memory, "Specify the amount of memory of the Instancetype.")
-	cmd.Flags().StringVar(&c.ioThreadsPolicy, IOThreadsPolicyFlag, c.ioThreadsPolicy, "Specify IOThreadsPolicy to be used. Only valid values are \"auto\" and \"shared\".")
-	cmd.Flags().BoolVar(&c.namespaced, NamespacedFlag, false, "Specify if VirtualMachineInstancetype should be created. By default VirtualMachineClusterInstancetype is created.")
-	cmd.Flags().StringArrayVar(&c.gpus, GPUFlag, c.gpus, "Specify the list of vGPUs to passthrough. Can be provided multiple times.")
-	cmd.Flags().StringArrayVar(&c.hostDevices, HostDeviceFlag, c.hostDevices, "Specify list of HostDevices to passthrough. Can be provided multiple times.")
+	cmd.Flags().StringVar(&c.ioThreadsPolicy, IOThreadsPolicyFlag, c.ioThreadsPolicy,
+		"Specify IOThreadsPolicy to be used. Only valid values are \"auto\" and \"shared\".")
+	cmd.Flags().BoolVar(&c.namespaced, NamespacedFlag, false,
+		"Specify if VirtualMachineInstancetype should be created. By default VirtualMachineClusterInstancetype is created.")
+	cmd.Flags().StringArrayVar(&c.gpus, GPUFlag, c.gpus,
+		"Specify the list of vGPUs to passthrough. Can be provided multiple times.")
+	cmd.Flags().StringArrayVar(&c.hostDevices, HostDeviceFlag, c.hostDevices,
+		"Specify list of HostDevices to passthrough. Can be provided multiple times.")
 
 	if err := cmd.MarkFlagRequired(CPUFlag); err != nil {
 		panic(err)
@@ -110,9 +112,9 @@ func (c *createInstancetype) setDefaults(cmd *cobra.Command) error {
 	}
 
 	if c.namespaced {
-		c.name = "instancetype-" + rand.String(5)
+		c.name = "instancetype-" + rand.String(randomNameSuffixLength)
 	} else {
-		c.name = "clusterinstancetype-" + rand.String(5)
+		c.name = "clusterinstancetype-" + rand.String(randomNameSuffixLength)
 	}
 
 	return nil
@@ -126,44 +128,41 @@ func (c *createInstancetype) optFns() map[string]func(*instancetypev1beta1.Virtu
 	}
 }
 
-func (c *createInstancetype) withGPUs(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
-	for _, param := range c.gpus {
-		obj := gpu{}
-		if err := params.Map(GPUFlag, param, &obj); err != nil {
+func (c *createInstancetype) processDeviceParams(flagName string, deviceParams []string,
+	addToSpec func(name, deviceName string),
+) error {
+	for _, param := range deviceParams {
+		obj := deviceParam{}
+
+		if err := params.Map(flagName, param, &obj); err != nil {
 			return err
 		}
 
 		if obj.Name == "" {
-			return params.FlagErr(GPUFlag, nameErr)
+			return params.FlagErr(flagName, nameErr)
 		}
 		if obj.DeviceName == "" {
-			return params.FlagErr(GPUFlag, deviceNameErr)
+			return params.FlagErr(flagName, deviceNameErr)
 		}
 
-		instancetypeSpec.GPUs = append(instancetypeSpec.GPUs, v1.GPU{Name: obj.Name, DeviceName: obj.DeviceName})
+		addToSpec(obj.Name, obj.DeviceName)
 	}
 
 	return nil
 }
 
+func (c *createInstancetype) withGPUs(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
+	return c.processDeviceParams(GPUFlag, c.gpus, func(name, deviceName string) {
+		instancetypeSpec.GPUs = append(instancetypeSpec.GPUs,
+			v1.GPU{Name: name, DeviceName: deviceName})
+	})
+}
+
 func (c *createInstancetype) withHostDevices(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
-	for _, param := range c.hostDevices {
-		obj := hostDevice{}
-		if err := params.Map(HostDeviceFlag, param, &obj); err != nil {
-			return err
-		}
-
-		if obj.Name == "" {
-			return params.FlagErr(HostDeviceFlag, nameErr)
-		}
-		if obj.DeviceName == "" {
-			return params.FlagErr(HostDeviceFlag, deviceNameErr)
-		}
-
-		instancetypeSpec.HostDevices = append(instancetypeSpec.HostDevices, v1.HostDevice{Name: obj.Name, DeviceName: obj.DeviceName})
-	}
-
-	return nil
+	return c.processDeviceParams(HostDeviceFlag, c.hostDevices, func(name, deviceName string) {
+		instancetypeSpec.HostDevices = append(instancetypeSpec.HostDevices,
+			v1.HostDevice{Name: name, DeviceName: deviceName})
+	})
 }
 
 func (c *createInstancetype) withIOThreadsPolicy(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
@@ -279,11 +278,12 @@ func (c *createInstancetype) run(cmd *cobra.Command, _ []string) error {
 
 	var out []byte
 	var err error
+
 	if c.namespaced {
 		instancetype := c.newInstancetype()
 
-		if err = c.applyFlags(cmd, &instancetype.Spec); err != nil {
-			return err
+		if applyErr := c.applyFlags(cmd, &instancetype.Spec); applyErr != nil {
+			return applyErr
 		}
 
 		out, err = yaml.Marshal(instancetype)
@@ -293,8 +293,8 @@ func (c *createInstancetype) run(cmd *cobra.Command, _ []string) error {
 	} else {
 		clusterInstancetype := c.newClusterInstancetype()
 
-		if err = c.applyFlags(cmd, &clusterInstancetype.Spec); err != nil {
-			return err
+		if applyErr := c.applyFlags(cmd, &clusterInstancetype.Spec); applyErr != nil {
+			return applyErr
 		}
 
 		out, err = yaml.Marshal(clusterInstancetype)
