@@ -1031,20 +1031,18 @@ func (c *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 
 func (c *VirtualMachineController) updateGuestInfoFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 
-	if domain == nil {
+	if domain == nil || domain.Status.OSInfo.Name == "" || vmi.Status.GuestOSInfo.Name == domain.Status.OSInfo.Name {
 		return
 	}
 
-	if vmi.Status.GuestOSInfo.Name != domain.Status.OSInfo.Name {
-		vmi.Status.GuestOSInfo.Name = domain.Status.OSInfo.Name
-		vmi.Status.GuestOSInfo.Version = domain.Status.OSInfo.Version
-		vmi.Status.GuestOSInfo.KernelRelease = domain.Status.OSInfo.KernelRelease
-		vmi.Status.GuestOSInfo.PrettyName = domain.Status.OSInfo.PrettyName
-		vmi.Status.GuestOSInfo.VersionID = domain.Status.OSInfo.VersionId
-		vmi.Status.GuestOSInfo.KernelVersion = domain.Status.OSInfo.KernelVersion
-		vmi.Status.GuestOSInfo.Machine = domain.Status.OSInfo.Machine
-		vmi.Status.GuestOSInfo.ID = domain.Status.OSInfo.Id
-	}
+	vmi.Status.GuestOSInfo.Name = domain.Status.OSInfo.Name
+	vmi.Status.GuestOSInfo.Version = domain.Status.OSInfo.Version
+	vmi.Status.GuestOSInfo.KernelRelease = domain.Status.OSInfo.KernelRelease
+	vmi.Status.GuestOSInfo.PrettyName = domain.Status.OSInfo.PrettyName
+	vmi.Status.GuestOSInfo.VersionID = domain.Status.OSInfo.VersionId
+	vmi.Status.GuestOSInfo.KernelVersion = domain.Status.OSInfo.KernelVersion
+	vmi.Status.GuestOSInfo.Machine = domain.Status.OSInfo.Machine
+	vmi.Status.GuestOSInfo.ID = domain.Status.OSInfo.Id
 }
 
 func (c *VirtualMachineController) updateAccessCredentialConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) {
