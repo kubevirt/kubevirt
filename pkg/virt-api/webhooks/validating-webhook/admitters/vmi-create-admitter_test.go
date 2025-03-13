@@ -495,16 +495,26 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("when architecture is s390x", "s390x", "s390-ccw-virtio"),
 		)
 
-		It("should reject invalid machine type", func() {
+		DescribeTable("should reject invalid machine type", func(arch string, machineType string) {
+			enableFeatureGate(featuregate.MultiArchitecture)
+
 			vmi := api.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.Machine = &v1.Machine{Type: "test"}
+			vmi.Spec.Architecture = arch
+			vmi.Spec.Domain.Machine = &v1.Machine{Type: machineType}
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
 			Expect(causes[0].Field).To(Equal("fake.domain.machine.type"))
-			Expect(causes[0].Message).To(ContainSubstring("fake.domain.machine.type is not supported: test (allowed values:"))
-		})
+			Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("fake.domain.machine.type is not supported: %s (allowed values:", machineType)))
+		},
+			Entry("Simple wrong value", "amd64", "test"),
+			Entry("Wrong prefix amd64 q35", "amd64", "test-q35"),
+			Entry("Wrong prefix amd64 pc-q35", "amd64", "test-pc-q35"),
+			Entry("Wrong prefix arm64", "arm64", "test-virt"),
+			Entry("Wrong prefix ppc64le", "ppc64le", "test-pseries"),
+			Entry("Wrong prefix s390x", "s390x", "test-s390-ccw-virtio"),
+		)
 
 		It("should accept valid hostname", func() {
 			vmi := api.NewMinimalVMI("testvmi")
