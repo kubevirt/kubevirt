@@ -1,7 +1,12 @@
 package cluster
 
 import (
+	"context"
+	"encoding/json"
+	"strings"
+
 	secv1 "github.com/openshift/api/security/v1"
+	k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
 
 	"kubevirt.io/client-go/kubecli"
@@ -34,4 +39,22 @@ func IsOnOpenShift(clientset kubecli.KubevirtClient) (bool, error) {
 	}
 
 	return false, nil
+}
+
+func GetKubernetesVersion() (string, error) {
+	var info k8sversion.Info
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return "", err
+	}
+	response, err := virtClient.RestClient().Get().AbsPath("/version").DoRaw(context.Background())
+	if err != nil {
+		return "", err
+	}
+	if err := json.Unmarshal(response, &info); err != nil {
+		return "", err
+	}
+	curVersion := strings.Split(info.GitVersion, "+")[0]
+	curVersion = strings.Trim(curVersion, "v")
+	return curVersion, nil
 }

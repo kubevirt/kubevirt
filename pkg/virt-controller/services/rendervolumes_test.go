@@ -26,7 +26,7 @@ var _ = Describe("Container spec renderer", func() {
 	Context("without any options", func() {
 		BeforeEach(func() {
 			var err error
-			vsr, err = NewVolumeRenderer(namespace, ephemeralDisk, containerDisk, virtShareDir)
+			vsr, err = NewVolumeRenderer(false, namespace, ephemeralDisk, containerDisk, virtShareDir)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -64,7 +64,7 @@ var _ = Describe("Container spec renderer", func() {
 			}
 
 			var err error
-			vsr, err = NewVolumeRenderer(namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{ephemeralVolumeOption}, nil))
+			vsr, err = NewVolumeRenderer(false, namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{ephemeralVolumeOption}, nil))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -123,7 +123,7 @@ var _ = Describe("Container spec renderer", func() {
 			}
 
 			var err error
-			vsr, err = NewVolumeRenderer(namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{hostDisk}, nil))
+			vsr, err = NewVolumeRenderer(false, namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{hostDisk}, nil))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -180,7 +180,7 @@ var _ = Describe("Container spec renderer", func() {
 			}
 
 			var err error
-			vsr, err = NewVolumeRenderer(namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{cloudInitConfig}, nil))
+			vsr, err = NewVolumeRenderer(false, namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{cloudInitConfig}, nil))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -255,7 +255,7 @@ var _ = Describe("Container spec renderer", func() {
 			}
 
 			var err error
-			vsr, err = NewVolumeRenderer(namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{dataVolume}, nil))
+			vsr, err = NewVolumeRenderer(false, namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{dataVolume}, nil))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -303,7 +303,7 @@ var _ = Describe("Container spec renderer", func() {
 			disk := v1.Disk{Name: downwardAPIVolumeName}
 
 			var err error
-			vsr, err = NewVolumeRenderer(namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIConfigVolumes([]v1.Disk{disk}, []v1.Volume{downwardAPIVolume}))
+			vsr, err = NewVolumeRenderer(false, namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIConfigVolumes([]v1.Disk{disk}, []v1.Volume{downwardAPIVolume}))
 			Expect(err).NotTo(HaveOccurred())
 		})
 

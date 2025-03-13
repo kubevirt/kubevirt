@@ -227,7 +227,7 @@ var _ = Describe("LibvirtHelper", func() {
 			HotplugVolumes:   make(map[string]v1.VolumeStatus),
 			PermanentVolumes: make(map[string]v1.VolumeStatus),
 		}
-		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
+		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c, false)).To(Succeed())
 		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
 		wantedSpec := &domain.Spec
