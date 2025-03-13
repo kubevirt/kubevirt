@@ -33,3 +33,9 @@ func WithTablet(name string, bus v1.InputBus) Option {
 		)
 	}
 }
+
+func WithAutoattachGraphicsDevice(enable bool) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = &enable
+	}
+}
