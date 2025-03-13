@@ -37,9 +37,9 @@ kubevirtci/release-tool:latest \
 \"$@\""
 
 ${KUBEVIRT_CRI} run -it --rm \
-    -v ${GPG_PRIVATE_KEY_FILE}:/home/releaser/gpg-private \
-    -v ${GPG_PASSPHRASE_FILE}:/home/releaser/gpg-passphrase \
-    -v ${GITHUB_API_TOKEN_FILE}:/home/releaser/github-api-token \
+    -v ${GPG_PRIVATE_KEY_FILE}:/home/releaser/gpg-private:Z \
+    -v ${GPG_PASSPHRASE_FILE}:/home/releaser/gpg-passphrase:Z \
+    -v ${GITHUB_API_TOKEN_FILE}:/home/releaser/github-api-token:Z \
     quay.io/kubevirtci/release-tool:latest \
     --org=kubevirt \
     --repo=kubevirt \
