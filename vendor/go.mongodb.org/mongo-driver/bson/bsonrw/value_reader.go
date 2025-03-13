@@ -28,11 +28,15 @@ var vrPool = sync.Pool{
 }
 
 // BSONValueReaderPool is a pool for ValueReaders that read BSON.
+//
+// Deprecated: BSONValueReaderPool will not be supported in Go Driver 2.0.
 type BSONValueReaderPool struct {
 	pool sync.Pool
 }
 
 // NewBSONValueReaderPool instantiates a new BSONValueReaderPool.
+//
+// Deprecated: BSONValueReaderPool will not be supported in Go Driver 2.0.
 func NewBSONValueReaderPool() *BSONValueReaderPool {
 	return &BSONValueReaderPool{
 		pool: sync.Pool{
@@ -44,6 +48,8 @@ func NewBSONValueReaderPool() *BSONValueReaderPool {
 }
 
 // Get retrieves a ValueReader from the pool and uses src as the underlying BSON.
+//
+// Deprecated: BSONValueReaderPool will not be supported in Go Driver 2.0.
 func (bvrp *BSONValueReaderPool) Get(src []byte) ValueReader {
 	vr := bvrp.pool.Get().(*valueReader)
 	vr.reset(src)
@@ -52,6 +58,8 @@ func (bvrp *BSONValueReaderPool) Get(src []byte) ValueReader {
 
 // Put inserts a ValueReader into the pool. If the ValueReader is not a BSON ValueReader nothing
 // is inserted into the pool and ok will be false.
+//
+// Deprecated: BSONValueReaderPool will not be supported in Go Driver 2.0.
 func (bvrp *BSONValueReaderPool) Put(vr ValueReader) (ok bool) {
 	bvr, ok := vr.(*valueReader)
 	if !ok {
@@ -86,12 +94,11 @@ type valueReader struct {
 
 // NewBSONDocumentReader returns a ValueReader using b for the underlying BSON
 // representation. Parameter b must be a BSON Document.
-//
-// TODO(skriptble): There's a lack of symmetry between the reader and writer, since the reader takes
-// a []byte while the writer takes an io.Writer. We should have two versions of each, one that takes
-// a []byte and one that takes an io.Reader or io.Writer. The []byte version will need to return a
-// thing that can return the finished []byte since it might be reallocated when appended to.
 func NewBSONDocumentReader(b []byte) ValueReader {
+	// TODO(skriptble): There's a lack of symmetry between the reader and writer, since the reader takes a []byte while the
+	// TODO writer takes an io.Writer. We should have two versions of each, one that takes a []byte and one that takes an
+	// TODO io.Reader or io.Writer. The []byte version will need to return a thing that can return the finished []byte since
+	// TODO it might be reallocated when appended to.
 	return newValueReader(b)
 }
 
@@ -384,9 +391,13 @@ func (vr *valueReader) ReadBinary() (b []byte, btype byte, err error) {
 	if err != nil {
 		return nil, 0, err
 	}
+	// Make a copy of the returned byte slice because it's just a subslice from the valueReader's
+	// buffer and is not safe to return in the unmarshaled value.
+	cp := make([]byte, len(b))
+	copy(cp, b)
 
 	vr.pop()
-	return b, btype, nil
+	return cp, btype, nil
 }
 
 func (vr *valueReader) ReadBoolean() (bool, error) {
@@ -728,8 +739,7 @@ func (vr *valueReader) ReadValue() (ValueReader, error) {
 		return nil, ErrEOA
 	}
 
-	_, err = vr.readCString()
-	if err != nil {
+	if err := vr.skipCString(); err != nil {
 		return nil, err
 	}
 
@@ -737,6 +747,9 @@ func (vr *valueReader) ReadValue() (ValueReader, error) {
 	return vr, nil
 }
 
+// readBytes reads length bytes from the valueReader starting at the current offset. Note that the
+// returned byte slice is a subslice from the valueReader buffer and must be converted or copied
+// before returning in an unmarshaled value.
 func (vr *valueReader) readBytes(length int32) ([]byte, error) {
 	if length < 0 {
 		return nil, fmt.Errorf("invalid length: %d", length)
@@ -748,6 +761,7 @@ func (vr *valueReader) readBytes(length int32) ([]byte, error) {
 
 	start := vr.offset
 	vr.offset += int64(length)
+
 	return vr.d[start : start+int64(length)], nil
 }
 
@@ -777,6 +791,15 @@ func (vr *valueReader) readByte() (byte, error) {
 
 	vr.offset++
 	return vr.d[vr.offset-1], nil
+}
+
+func (vr *valueReader) skipCString() error {
+	idx := bytes.IndexByte(vr.d[vr.offset:], 0x00)
+	if idx < 0 {
+		return io.EOF
+	}
+	vr.offset += int64(idx) + 1
+	return nil
 }
 
 func (vr *valueReader) readCString() (string, error) {
