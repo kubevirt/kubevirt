@@ -3,7 +3,6 @@ pkg/instancetype
 pkg/libvmi
 pkg/network/admitter
 pkg/network/controllers
-pkg/virtctl/create/clone
 pkg/network/deviceinfo
 pkg/network/domainspec
 pkg/network/downwardapi
@@ -18,6 +17,8 @@ pkg/network/pod/annotations
 pkg/network/vmispec
 pkg/storage/pod/annotations
 pkg/virtctl/clientconfig
+pkg/virtctl/clone
+pkg/virtctl/create
 pkg/virtctl/credentials
 tests/console
 tests/decorators

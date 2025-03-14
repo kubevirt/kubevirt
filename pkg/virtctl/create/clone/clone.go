@@ -53,9 +53,6 @@ const (
 	supportedSourceTypes = "vm, vmsnapshot"
 	supportedTargetTypes = "vm"
 
-	cloneRandomSuffixLength = 5
-	expectedSplitParamLen   = 2
-
 	virtualMachineKind     = "VirtualMachine"
 	virtualMachineSnapshot = "VirtualMachineSnapshot"
 )
@@ -140,6 +137,8 @@ func NewCommand() *cobra.Command {
 }
 
 func withNewMacAddresses(c *createClone, cloneSpec *cloneSpec) error {
+	const expectedSplitParamLen = 2
+
 	for _, param := range c.newMacAddresses {
 		splitParam := strings.Split(param, ":")
 		if len(splitParam) != expectedSplitParamLen {
@@ -252,6 +251,8 @@ func (c *createClone) applyFlags(cmd *cobra.Command, spec *cloneapi.VirtualMachi
 }
 
 func (c *createClone) run(cmd *cobra.Command, _ []string) error {
+	const cloneRandomSuffixLength = 5
+
 	if err := c.setDefaults(cmd.Context()); err != nil {
 		return err
 	}
@@ -281,6 +282,41 @@ func (c *createClone) run(cmd *cobra.Command, _ []string) error {
 	}
 
 	cmd.Print(string(cloneBytes))
+	return nil
+}
+
+func (c *createClone) setDefaults(ctx context.Context) error {
+	const cloneRandomSuffixLength = 5
+
+	_, namespace, overridden, err := clientconfig.ClientAndNamespaceFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	if overridden {
+		c.namespace = namespace
+	}
+
+	if c.name == "" {
+		c.name = "clone-" + rand.String(cloneRandomSuffixLength)
+	}
+
+	const defaultType = "vm"
+
+	if c.sourceType == "" {
+		c.sourceType = defaultType
+	}
+	if c.targetType == "" {
+		c.targetType = defaultType
+	}
+
+	return nil
+}
+
+func (c *createClone) validateFlags() error {
+	if c.sourceName == "" {
+		return fmt.Errorf("source name must not be empty")
+	}
+
 	return nil
 }
 
@@ -329,37 +365,4 @@ func (c *createClone) typeToTypedLocalObjectReference(
 		Kind:     kind,
 		APIGroup: &apiGroup,
 	}, nil
-}
-
-func (c *createClone) setDefaults(ctx context.Context) error {
-	_, namespace, overridden, err := clientconfig.ClientAndNamespaceFromContext(ctx)
-	if err != nil {
-		return err
-	}
-	if overridden {
-		c.namespace = namespace
-	}
-
-	if c.name == "" {
-		c.name = "clone-" + rand.String(cloneRandomSuffixLength)
-	}
-
-	const defaultType = "vm"
-
-	if c.sourceType == "" {
-		c.sourceType = defaultType
-	}
-	if c.targetType == "" {
-		c.targetType = defaultType
-	}
-
-	return nil
-}
-
-func (c *createClone) validateFlags() error {
-	if c.sourceName == "" {
-		return fmt.Errorf("source name must not be empty")
-	}
-
-	return nil
 }
