@@ -289,8 +289,7 @@ func (c *createInstancetype) run(cmd *cobra.Command, _ []string) error {
 	} else {
 		clusterInstancetype := c.newClusterInstancetype()
 
-		err := c.applyFlags(cmd, &clusterInstancetype.Spec)
-		if err != nil {
+		if err := c.applyFlags(cmd, &clusterInstancetype.Spec); err != nil {
 			return err
 		}
 
