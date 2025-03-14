@@ -1450,23 +1450,6 @@ func (c *Controller) waitForFirstConsumerTemporaryPods(vmi *virtv1.VirtualMachin
 	return temporaryPods, nil
 }
 
-func hasPendingPods(pods []*k8sv1.Pod) bool {
-	for _, pod := range pods {
-		if pod.Status.Phase == k8sv1.PodRunning || pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed {
-			continue
-		}
-		return true
-	}
-	return false
-}
-
-func (c *Controller) requeueAfter(oldPods []*k8sv1.Pod, threshold time.Duration) (bool, time.Duration) {
-	if len(oldPods) > 0 && oldPods[0].CreationTimestamp.Time.After(time.Now().Add(-1*threshold)) {
-		return true, threshold - time.Since(oldPods[0].CreationTimestamp.Time)
-	}
-	return false, 0
-}
-
 func (c *Controller) volumeStatusContainsVolumeAndPod(volumeStatus []virtv1.VolumeStatus, volume *virtv1.Volume) bool {
 	for _, status := range volumeStatus {
 		if status.Name == volume.Name && status.HotplugVolume != nil && status.HotplugVolume.AttachPodName != "" {
