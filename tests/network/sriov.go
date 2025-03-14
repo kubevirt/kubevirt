@@ -79,7 +79,7 @@ const (
 
 var pciAddressRegex = regexp.MustCompile(hardware.PCI_ADDRESS_PATTERN)
 
-var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
+var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 	var virtClient kubecli.KubevirtClient
 
 	sriovResourceName := readSRIOVResourceName()
@@ -473,7 +473,7 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 			})
 		})
 	})
-})
+}))
 
 func readSRIOVResourceName() string {
 	sriovResourceName := os.Getenv("SRIOV_RESOURCE_NAME")
