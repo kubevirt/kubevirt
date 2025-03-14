@@ -168,35 +168,40 @@ var _ = Describe("create instancetype", func() {
 			Entry("VirtualMachinePreference", true),
 			Entry("VirtualMachineClusterPreference", false),
 		)
-		testDeviceConfig := func(flagName, deviceParam string, validateFunc func(spec *instancetypev1beta1.VirtualMachineInstancetypeSpec)) {
-			DescribeTable(fmt.Sprintf("with defined %s", flagName), func(extraArgs ...string) {
-				args := append([]string{
-					setFlag(CPUFlag, "1"),
-					setFlag(MemoryFlag, "128Mi"),
-					setFlag(flagName, deviceParam),
-				}, extraArgs...)
-				out, err := runCmd(args...)
-				Expect(err).ToNot(HaveOccurred())
 
-				spec := getInstancetypeSpec(out)
-				validateFunc(spec)
-				Expect(validateInstancetypeSpec(spec)).To(BeEmpty())
-			},
-				Entry("VirtualMachineInstancetype", setFlag(NamespacedFlag, "true")),
-				Entry("VirtualMachineClusterInstancetype"),
-			)
+		runDeviceTest := func(flagName, deviceParam string, extraArgs ...string) *instancetypev1beta1.VirtualMachineInstancetypeSpec {
+			args := append([]string{
+				setFlag(CPUFlag, "1"),
+				setFlag(MemoryFlag, "128Mi"),
+				setFlag(flagName, deviceParam),
+			}, extraArgs...)
+			out, err := runCmd(args...)
+			Expect(err).ToNot(HaveOccurred())
+
+			return getInstancetypeSpec(out)
 		}
-		testDeviceConfig(GPUFlag, "name:gpu1,devicename:nvidia", func(spec *instancetypev1beta1.VirtualMachineInstancetypeSpec) {
+
+		DescribeTable("with defined GPU", func(extraArgs ...string) {
+			spec := runDeviceTest(GPUFlag, "name:gpu1,devicename:nvidia", extraArgs...)
 			Expect(spec.GPUs).To(HaveLen(1))
 			Expect(spec.GPUs[0].Name).To(Equal("gpu1"))
 			Expect(spec.GPUs[0].DeviceName).To(Equal("nvidia"))
-		})
+			Expect(validateInstancetypeSpec(spec)).To(BeEmpty())
+		},
+			Entry("VirtualMachineInstancetype", setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineClusterInstancetype"),
+		)
 
-		testDeviceConfig(HostDeviceFlag, "name:device1,devicename:intel", func(spec *instancetypev1beta1.VirtualMachineInstancetypeSpec) {
+		DescribeTable("with defined HostDevice", func(extraArgs ...string) {
+			spec := runDeviceTest(HostDeviceFlag, "name:device1,devicename:intel", extraArgs...)
 			Expect(spec.HostDevices).To(HaveLen(1))
 			Expect(spec.HostDevices[0].Name).To(Equal("device1"))
 			Expect(spec.HostDevices[0].DeviceName).To(Equal("intel"))
-		})
+			Expect(validateInstancetypeSpec(spec)).To(BeEmpty())
+		},
+			Entry("VirtualMachineInstancetype", setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineClusterInstancetype"),
+		)
 
 		DescribeTable("with valid IOThreadsPolicy", func(policy v1.IOThreadsPolicy, extraArgs ...string) {
 			args := append([]string{

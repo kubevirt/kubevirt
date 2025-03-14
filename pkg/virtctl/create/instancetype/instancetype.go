@@ -122,14 +122,17 @@ func (c *createInstancetype) optFns() map[string]func(*instancetypev1beta1.Virtu
 	}
 }
 
+// DeviceParam represents the parameters for device configuration
+type DeviceParam struct {
+	Name       string `param:"name"`
+	DeviceName string `param:"devicename"`
+}
+
 func (c *createInstancetype) processDeviceParams(flagName string, deviceParams []string,
 	addToSpec func(name, deviceName string),
 ) error {
 	for _, param := range deviceParams {
-		obj := struct {
-			Name       string `param:"name"`
-			DeviceName string `param:"devicename"`
-		}{}
+		obj := DeviceParam{}
 
 		if err := params.Map(flagName, param, &obj); err != nil {
 			return err
@@ -274,12 +277,13 @@ func (c *createInstancetype) run(cmd *cobra.Command, _ []string) error {
 	}
 
 	var out []byte
+	var err error
 
 	if c.namespaced {
 		instancetype := c.newInstancetype()
 
-		if err := c.applyFlags(cmd, &instancetype.Spec); err != nil {
-			return err
+		if applyErr := c.applyFlags(cmd, &instancetype.Spec); applyErr != nil {
+			return applyErr
 		}
 
 		out, err = yaml.Marshal(instancetype)
@@ -289,8 +293,8 @@ func (c *createInstancetype) run(cmd *cobra.Command, _ []string) error {
 	} else {
 		clusterInstancetype := c.newClusterInstancetype()
 
-		if err := c.applyFlags(cmd, &clusterInstancetype.Spec); err != nil {
-			return err
+		if applyErr := c.applyFlags(cmd, &clusterInstancetype.Spec); applyErr != nil {
+			return applyErr
 		}
 
 		out, err = yaml.Marshal(clusterInstancetype)
