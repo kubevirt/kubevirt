@@ -375,3 +375,38 @@ func (c *Controller) getFilesystemOverhead(pvc *k8sv1.PersistentVolumeClaim) (vi
 	}
 	return storagetypes.GetFilesystemOverhead(pvc.Spec.VolumeMode, pvc.Spec.StorageClassName, cdiConfig)
 }
+
+func (c *Controller) syncVolumesUpdate(vmi *virtv1.VirtualMachineInstance) {
+	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
+	condition := virtv1.VirtualMachineInstanceCondition{
+		Type:               virtv1.VirtualMachineInstanceVolumesChange,
+		LastTransitionTime: v1.Now(),
+		Status:             k8sv1.ConditionTrue,
+		Message:            "migrate volumes",
+	}
+	vmiConditions.UpdateCondition(vmi, &condition)
+}
+
+func (c *Controller) requireVolumesUpdate(vmi *virtv1.VirtualMachineInstance) bool {
+	if len(vmi.Status.MigratedVolumes) < 1 {
+		return false
+	}
+	if controller.NewVirtualMachineInstanceConditionManager().HasCondition(vmi, virtv1.VirtualMachineInstanceVolumesChange) {
+		return false
+	}
+	migVolsMap := make(map[string]string)
+	for _, v := range vmi.Status.MigratedVolumes {
+		migVolsMap[v.SourcePVCInfo.ClaimName] = v.DestinationPVCInfo.ClaimName
+	}
+	for _, v := range vmi.Spec.Volumes {
+		claim := storagetypes.PVCNameFromVirtVolume(&v)
+		if claim == "" {
+			continue
+		}
+		if _, ok := migVolsMap[claim]; !ok {
+			return true
+		}
+	}
+
+	return false
+}
