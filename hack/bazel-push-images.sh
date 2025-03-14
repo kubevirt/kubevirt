@@ -36,6 +36,7 @@ default_targets="
     vm-killer
     sidecar-shim
     disks-images-provider
+    libguestfs-tools
 "
 
 case ${ARCHITECTURE} in
@@ -43,7 +44,6 @@ case ${ARCHITECTURE} in
 *)
     default_targets+="
         conformance
-        libguestfs-tools
         pr-helper
         example-hook-sidecar
         example-disk-mutation-hook-sidecar
