@@ -278,8 +278,7 @@ func (c *createInstancetype) run(cmd *cobra.Command, _ []string) error {
 	if c.namespaced {
 		instancetype := c.newInstancetype()
 
-		err := c.applyFlags(cmd, &instancetype.Spec)
-		if err != nil {
+		if err := c.applyFlags(cmd, &instancetype.Spec); err != nil {
 			return err
 		}
 
