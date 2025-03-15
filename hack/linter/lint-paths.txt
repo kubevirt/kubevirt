@@ -17,6 +17,7 @@ pkg/network/pod/annotations
 pkg/network/vmispec
 pkg/storage/pod/annotations
 pkg/virtctl/clientconfig
+pkg/virtctl/create/preference
 pkg/virtctl/credentials
 tests/console
 tests/decorators
