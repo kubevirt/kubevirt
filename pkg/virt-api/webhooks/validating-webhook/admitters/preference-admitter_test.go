@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
+	corev1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
@@ -73,6 +74,32 @@ var _ = Describe("Validating Preference Admitter", func() {
 		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
 		Expect(response.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf(preferredCPUTopologyUnknownErrFmt, unsupportedTopology)))
 		Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "cpu", "preferredCPUTopology").String()))
+	})
+
+	It("should reject invalid PanicDevice models", func() {
+		invalidPanicDeviceModel := corev1.PanicDeviceModel("foo")
+		preferenceObj = &instancetypev1beta1.VirtualMachinePreference{
+			Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+				Devices: &instancetypev1beta1.DevicePreferences{
+					PreferredPanicDevices: []corev1.PanicDevice{
+						{
+							Model: pointer.P(corev1.Hyperv),
+						},
+						{
+							Model: pointer.P(invalidPanicDeviceModel),
+						},
+					},
+				},
+			},
+		}
+		ar := createPreferenceAdmissionReview(preferenceObj, instancetypev1beta1.SchemeGroupVersion.Version)
+		response := admitter.Admit(context.Background(), ar)
+
+		Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
+		Expect(response.Result.Details.Causes).To(HaveLen(1))
+		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+		Expect(response.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf(invalidPanicDeviceModelErrFmt, invalidPanicDeviceModel)))
+		Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "devices", "preferredPanicDevices").Index(1).String()))
 	})
 
 	DescribeTable("should reject unsupported SpreadOptions Across value", func(preferredCPUTopology instancetypev1beta1.PreferredCPUTopology) {

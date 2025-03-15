@@ -88,6 +88,7 @@ func ApplyDevicePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec
 	applyDiskPreferences(preferenceSpec, vmiSpec)
 	applyInterfacePreferences(preferenceSpec, vmiSpec)
 	applyInputPreferences(preferenceSpec, vmiSpec)
+	applyPanicDevicePreferences(preferenceSpec, vmiSpec)
 }
 
 func applyInputPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
@@ -99,6 +100,33 @@ func applyInputPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
 
 		if preferenceSpec.Devices.PreferredInputType != "" && vmiInput.Type == "" {
 			vmiInput.Type = preferenceSpec.Devices.PreferredInputType
+		}
+	}
+}
+
+func applyPanicDevicePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+	if len(preferenceSpec.Devices.PreferredPanicDevices) == 0 {
+		return
+	}
+
+	const nilModel virtv1.PanicDeviceModel = "nilModel"
+	// Only apply any preferred panic device when the same panic device has not been provided by a user already
+	panicDeviceModels := make(map[virtv1.PanicDeviceModel]struct{})
+	for _, panicDevice := range vmiSpec.Domain.Devices.PanicDevices {
+		model := nilModel
+		if panicDevice.Model != nil {
+			model = *panicDevice.Model
+		}
+		panicDeviceModels[model] = struct{}{}
+	}
+
+	for _, preferredPanicDevice := range preferenceSpec.Devices.PreferredPanicDevices {
+		model := nilModel
+		if preferredPanicDevice.Model != nil {
+			model = *preferredPanicDevice.Model
+		}
+		if _, found := panicDeviceModels[model]; !found {
+			vmiSpec.Domain.Devices.PanicDevices = append(vmiSpec.Domain.Devices.PanicDevices, preferredPanicDevice)
 		}
 	}
 }

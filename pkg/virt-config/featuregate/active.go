@@ -67,6 +67,11 @@ const (
 
 	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
 	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
+
+	// Owner: @varunrsekar
+	// Alpha: v1.5.0
+	// PanicDevices allows defining panic devices for signalling crashes in the guest for a VirtualMachineInstance.
+	PanicDevicesGate = "PanicDevices"
 )
 
 func init() {
@@ -94,4 +99,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: InstancetypeReferencePolicy, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: Alpha})
 }
