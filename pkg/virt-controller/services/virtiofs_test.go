@@ -6,8 +6,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/api"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
@@ -57,8 +57,9 @@ var _ = Describe("virtiofs container", func() {
 	})
 
 	It("should create unprivileged containers only", func() {
-		vmi := api.NewMinimalVMI("testvm")
-
+		vmi := libvmi.New(
+			libvmi.WithName("testvm"),
+		)
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "sharedtestdisk",
 			VolumeSource: v1.VolumeSource{
