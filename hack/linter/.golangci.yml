@@ -1,0 +1,122 @@
+# golangci configuration
+
+linters-settings:
+  dupl:
+    threshold: 100
+  funlen:
+    lines: 100
+    statements: 50
+  goconst:
+    min-len: 2
+    min-occurrences: 2
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - dupImport # https://github.com/go-critic/go-critic/issues/845
+      - ifElseChain
+      - octalLiteral
+      - paramTypeCombine
+      - whyNoLint
+      - wrapperFunc
+    settings:
+      hugeParam:
+        sizeThreshold: 1024
+      rangeValCopy:
+        sizeThreshold: 1024
+  gocyclo:
+    min-complexity: 15
+  goimports:
+    local-prefixes: kubevirt.io/kubevirt
+  mnd:
+    # don't include the "operation" and "assign"
+    checks: argument,case,condition,return
+    ignored-functions:
+      - '^Eventually$'
+      - '^EventuallyWithOffset$'
+      - '^ExpectWithOffset$'
+      - '^console\.ExpectBatch$'
+      - '^console\.RunCommand$'
+  govet:
+    enable:
+      - shadow
+  lll:
+    line-length: 140
+  maligned:
+    suggest-new: true
+  misspell:
+    locale: US
+  nolintlint:
+    allow-leading-space: true # don't require machine-readable nolint directives (i.e. with no leading space)
+    allow-unused: false # report any unused nolint directives
+    require-explanation: false # don't require an explanation for nolint directives
+    require-specific: false # don't require nolint directives to be specific about which linter is being skipped
+  stylecheck:
+    dot-import-whitelist:
+      - "github.com/onsi/ginkgo/v2"
+      - "github.com/onsi/gomega"
+  gofumpt:
+    extra-rules: true
+
+linters:
+  disable-all: true
+  enable:
+    - bodyclose
+    - dogsled
+    - dupl
+    - errcheck
+    - exportloopref
+    - exhaustive
+    - funlen
+    - gochecknoinits
+    - goconst
+    - gocritic
+    - gocyclo
+    - gofmt
+    - gofumpt
+    - goheader
+    - goimports
+    - mnd
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - lll
+    - misspell
+    - nakedret
+    - noctx
+    - nolintlint
+    - rowserrcheck
+    - staticcheck
+    - stylecheck
+    - typecheck
+    - unconvert
+    - unused
+    - whitespace
+
+  # don't enable:
+  # - asciicheck
+  # - scopelint
+  # - gochecknoglobals
+  # - gocognit
+  # - godot
+  # - godox
+  # - goerr113
+  # - interfacer
+  # - maligned
+  # - nestif
+  # - prealloc
+  # - testpackage
+  # - revive
+  # - wsl
+
+issues:
+  exclude-rules:
+    - text: 'SA1019: checks.SkipTestIfNoCPUManager'
+      linters:
+        - staticcheck
