@@ -16,7 +16,6 @@
  * Copyright The KubeVirt Authors
  *
  */
-//nolint:dupl
 package vm
 
 import (
@@ -140,88 +139,57 @@ func validateMatcherUpdate(oldMatcher, newMatcher virtv1.Matcher) error {
 	return nil
 }
 
-func validateInstancetypeMatcher(vm *virtv1.VirtualMachine) []metav1.StatusCause {
-	if vm.Spec.Instancetype == nil {
+// validateMatcher is a generic function to validate both instancetype and preference matchers
+func validateMatcher(matcherType string, matcher virtv1.Matcher) []metav1.StatusCause {
+	if matcher == nil {
 		return nil
 	}
 
+	fieldPath := k8sfield.NewPath("spec", matcherType)
 	var causes []metav1.StatusCause
-	if vm.Spec.Instancetype.Name == "" && vm.Spec.Instancetype.InferFromVolume == "" {
+
+	if matcher.GetName() == "" && matcher.GetInferFromVolume() == "" {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueNotFound,
-			Message: "Either Name or InferFromVolume should be provided within the InstancetypeMatcher",
-			Field:   k8sfield.NewPath("spec", "instancetype").String(),
+			Message: fmt.Sprintf("Either Name or InferFromVolume should be provided within the %s matcher", matcherType),
+			Field:   fieldPath.String(),
 		})
 	}
-	if vm.Spec.Instancetype.InferFromVolume != "" {
-		if vm.Spec.Instancetype.Name != "" {
+	if matcher.GetInferFromVolume() != "" {
+		if matcher.GetName() != "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: "Name should not be provided when InferFromVolume is used within the InstancetypeMatcher",
-				Field:   k8sfield.NewPath("spec", "instancetype", "name").String(),
+				Message: fmt.Sprintf("Name should not be provided when InferFromVolume is used within the %s matcher", matcherType),
+				Field:   fieldPath.Child("name").String(),
 			})
 		}
-		if vm.Spec.Instancetype.Kind != "" {
+		if matcher.GetKind() != "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: "Kind should not be provided when InferFromVolume is used within the InstancetypeMatcher",
-				Field:   k8sfield.NewPath("spec", "instancetype", "kind").String(),
+				Message: fmt.Sprintf("Kind should not be provided when InferFromVolume is used within the %s matcher", matcherType),
+				Field:   fieldPath.Child("kind").String(),
 			})
 		}
 	}
-	if vm.Spec.Instancetype.InferFromVolumeFailurePolicy != nil {
-		failurePolicy := *vm.Spec.Instancetype.InferFromVolumeFailurePolicy
+	if matcher.GetInferFromVolumeFailurePolicy() != nil {
+		failurePolicy := *matcher.GetInferFromVolumeFailurePolicy()
 		if failurePolicy != virtv1.IgnoreInferFromVolumeFailure && failurePolicy != virtv1.RejectInferFromVolumeFailure {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("Invalid value '%s' for InferFromVolumeFailurePolicy", failurePolicy),
-				Field:   k8sfield.NewPath("spec", "instancetype", "inferFromVolumeFailurePolicy").String(),
+				Field:   fieldPath.Child("inferFromVolumeFailurePolicy").String(),
 			})
 		}
 	}
 	return causes
 }
 
-func validatePreferenceMatcher(vm *virtv1.VirtualMachine) []metav1.StatusCause {
-	if vm.Spec.Preference == nil {
-		return nil
-	}
+func validateInstancetypeMatcher(vm *virtv1.VirtualMachine) []metav1.StatusCause {
+	return validateMatcher("instancetype", vm.Spec.Instancetype)
+}
 
-	var causes []metav1.StatusCause
-	if vm.Spec.Preference.Name == "" && vm.Spec.Preference.InferFromVolume == "" {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueNotFound,
-			Message: "Either Name or InferFromVolume should be provided within the PreferenceMatcher",
-			Field:   k8sfield.NewPath("spec", "preference").String(),
-		})
-	}
-	if vm.Spec.Preference.InferFromVolume != "" {
-		if vm.Spec.Preference.Name != "" {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: "Name should not be provided when InferFromVolume is used within the PreferenceMatcher",
-				Field:   k8sfield.NewPath("spec", "preference", "name").String(),
-			})
-		}
-		if vm.Spec.Preference.Kind != "" {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: "Kind should not be provided when InferFromVolume is used within the PreferenceMatcher",
-				Field:   k8sfield.NewPath("spec", "preference", "kind").String(),
-			})
-		}
-	}
-	if vm.Spec.Preference.InferFromVolumeFailurePolicy != nil {
-		failurePolicy := *vm.Spec.Preference.InferFromVolumeFailurePolicy
-		if failurePolicy != virtv1.IgnoreInferFromVolumeFailure && failurePolicy != virtv1.RejectInferFromVolumeFailure {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Invalid value '%s' for InferFromVolumeFailurePolicy", failurePolicy),
-				Field:   k8sfield.NewPath("spec", "preference", "inferFromVolumeFailurePolicy").String(),
-			})
-		}
-	}
-	return causes
+func validatePreferenceMatcher(vm *virtv1.VirtualMachine) []metav1.StatusCause {
+	return validateMatcher("preference", vm.Spec.Preference)
 }
 
 func (m *mutator) inferMatchers(vm *virtv1.VirtualMachine) *admissionv1.AdmissionResponse {
