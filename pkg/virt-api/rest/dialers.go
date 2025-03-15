@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -9,6 +10,8 @@ import (
 
 	"github.com/emicklei/go-restful/v3"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	netutils "k8s.io/utils/net"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -21,6 +24,7 @@ import (
 
 type netDial struct {
 	request *restful.Request
+	app     *SubresourceAPIApp
 }
 
 type handlerDial struct {
@@ -55,7 +59,7 @@ func (n netDial) Dial(vmi *v1.VirtualMachineInstance) (*websocket.Conn, *k8serro
 func (n netDial) DialUnderlying(vmi *v1.VirtualMachineInstance) (net.Conn, *k8serrors.StatusError) {
 	logger := log.Log.Object(vmi)
 
-	targetIP, err := getTargetInterfaceIP(vmi)
+	targetIP, err := getTargetInterfaceIP(n.app, vmi)
 	if err != nil {
 		logger.Reason(err).Error("Can't establish TCP tunnel.")
 		return nil, k8serrors.NewBadRequest(err.Error())
@@ -114,10 +118,19 @@ func (app *SubresourceAPIApp) getVirtHandlerConnForVMI(vmi *v1.VirtualMachineIns
 
 // get the first available interface IP
 // if no interface is present, return error
-func getTargetInterfaceIP(vmi *v1.VirtualMachineInstance) (string, error) {
-	interfaces := vmi.Status.Interfaces
-	if len(interfaces) < 1 {
-		return "", fmt.Errorf("no network interfaces are present")
+func getTargetInterfaceIP(app *SubresourceAPIApp, vmi *v1.VirtualMachineInstance) (string, error) {
+	log.Log.Object(vmi).Warningf("DELETEME, getTargetInterfaceIP")
+	virtLauncherPodList, err := app.virtCli.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+		LabelSelector: labels.Set{v1.VirtualMachineNameLabel: vmi.Name}.String(),
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed looking for virt launcher pod for vm '%s/%s': %w", vmi.Namespace, vmi.Name, err)
 	}
-	return interfaces[0].IP, nil
+	virtLauncherPod := virtLauncherPodList.Items[0]
+	virtLauncherPodIP := virtLauncherPod.Status.PodIP
+	if virtLauncherPodIP == "" {
+		return "", fmt.Errorf("missing ip at virt launcher pod %q for vm '%s/%s': %w", virtLauncherPod.Name, vmi.Namespace, vmi.Name, err)
+	}
+	log.Log.Object(vmi).Warningf("DELETEME, getTargetInterfaceIP, virtLauncherPodList.Items[0].Status.PodIP: %s", virtLauncherPodList.Items[0].Status.PodIP)
+	return virtLauncherPodList.Items[0].Status.PodIP, nil
 }

@@ -22,7 +22,10 @@ func (app *SubresourceAPIApp) PortForwardRequestHandler(fetcher vmiFetcher) rest
 		streamer := NewWebsocketStreamer(
 			fetcher,
 			validateVMIForPortForward,
-			netDial{request: request},
+			netDial{
+				app:     app,
+				request: request,
+			},
 		)
 
 		streamer.Handle(request, response)
