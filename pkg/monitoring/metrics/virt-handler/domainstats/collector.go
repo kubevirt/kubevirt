@@ -40,6 +40,7 @@ var (
 		networkMetrics{},
 		cpuAffinityMetrics{},
 		filesystemMetrics{},
+		dirtyRateMetrics{},
 	}
 
 	Collector = operatormetrics.Collector{
