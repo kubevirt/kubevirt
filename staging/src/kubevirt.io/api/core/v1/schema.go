@@ -547,7 +547,11 @@ type SoundDevice struct {
 }
 
 type TPMDevice struct {
-	// Persistent indicates the state of the TPM device should be kept accross reboots
+	// Enabled, when set to false, ensure no TPM device is ever added.
+	// This is useful when using Instance Types / Preferences that include a TPM option.
+	// Defaults to true
+	Enabled *bool `json:"enabled,omitempty"`
+	// Persistent indicates the state of the TPM device should be kept across reboots
 	// Defaults to false
 	Persistent *bool `json:"persistent,omitempty"`
 }

@@ -133,6 +133,11 @@ func HasKernelBootContainerImage(vmi *v1.VirtualMachineInstance) bool {
 	return true
 }
 
+func HasTPMDevice(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
+	tpm := vmiSpec.Domain.Devices.TPM
+	return tpm != nil && (tpm.Enabled == nil || *tpm.Enabled)
+}
+
 // AlignImageSizeTo1MiB rounds down the size to the nearest multiple of 1MiB
 // A warning or an error may get logged
 // The caller is responsible for ensuring the rounded-down size is not 0
