@@ -40,6 +40,7 @@ import (
 
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
 	hooksV1alpha3 "kubevirt.io/kubevirt/pkg/hooks/v1alpha3"
+	"kubevirt.io/kubevirt/pkg/network/driver/netlink"
 )
 
 type InfoServer struct {
@@ -88,7 +89,7 @@ func (s V1alpha3Server) OnDefineDomain(_ context.Context, params *hooksV1alpha3.
 		IstioProxyInjectionEnabled: istioProxyInjectionEnabled,
 	}
 
-	passtConfigurator, err := domain.NewPasstNetworkConfigurator(vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, opts, nil)
+	passtConfigurator, err := domain.NewPasstNetworkConfigurator(vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, opts, &netlink.NetLink{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create passt configurator: %v", err)
 	}
