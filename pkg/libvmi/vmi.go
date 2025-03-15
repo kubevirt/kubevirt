@@ -25,6 +25,8 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -87,6 +89,19 @@ func WithName(name string) Option {
 func WithNamespace(namespace string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Namespace = namespace
+	}
+}
+
+func WithDeletionTimeStamp() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		now := k8smetav1.Now()
+		vmi.ObjectMeta.DeletionTimestamp = &now
+	}
+}
+
+func WithUID(uid types.UID) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.ObjectMeta.UID = uid
 	}
 }
 

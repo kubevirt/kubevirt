@@ -1918,6 +1918,14 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
+	if vmi.ObjectMeta.DeletionTimestamp != nil {
+		domain.ObjectMeta.DeletionTimestamp = vmi.ObjectMeta.DeletionTimestamp
+	}
+
+	if vmi.ObjectMeta.UID != "" {
+		domain.ObjectMeta.UID = vmi.ObjectMeta.UID
+	}
+
 	setIOThreads(vmi, domain, vcpus)
 
 	return nil
