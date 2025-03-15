@@ -84,6 +84,8 @@ const (
 	DisableCustomSELinuxPolicy = "DisableCustomSELinuxPolicy"
 
 	ClusterProfiler = "ClusterProfiler"
+
+	VMPersistentState = "VMPersistentState"
 )
 
 func init() {
@@ -105,6 +107,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: DisableCustomSELinuxPolicy, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: AutoResourceLimitsGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: ClusterProfiler, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: VMPersistentState, State: GA})
 
 	RegisterFeatureGate(FeatureGate{Name: DockerSELinuxMCSWorkaround, State: Deprecated, Message: fmt.Sprintf(
 		"DockerSELinuxMCSWorkaround has been deprecated since v1.4.")})
