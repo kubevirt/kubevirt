@@ -24,6 +24,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
+	"libvirt.org/go/libvirt"
 
 	"kubevirt.io/client-go/log"
 
@@ -35,20 +36,21 @@ import (
 type AgentCommand string
 
 // Aliases for commands executed on guest agent
-// TODO: when updated to libvirt 5.6.0 this can change to libvirt types
 // Aliases are also used as keys to the store, it does not matter how the keys are named,
 // only whether it relates to the right data
 const (
-	GET_OSINFO          AgentCommand = "guest-get-osinfo"
-	GET_HOSTNAME        AgentCommand = "guest-get-host-name"
-	GET_INTERFACES      AgentCommand = "guest-network-get-interfaces"
-	GET_TIMEZONE        AgentCommand = "guest-get-timezone"
-	GET_USERS           AgentCommand = "guest-get-users"
+	OSINFO     = libvirt.DOMAIN_GUEST_INFO_OS
+	HOSTNAME   = libvirt.DOMAIN_GUEST_INFO_HOSTNAME
+	INTERFACES = libvirt.DOMAIN_GUEST_INFO_INTERFACES
+	TIMEZONE   = libvirt.DOMAIN_GUEST_INFO_TIMEZONE
+	USERS      = libvirt.DOMAIN_GUEST_INFO_USERS
+
 	GET_FILESYSTEM      AgentCommand = "guest-get-fsinfo"
 	GET_AGENT           AgentCommand = "guest-info"
 	GET_FSFREEZE_STATUS AgentCommand = "guest-fsfreeze-status"
 
 	pollInitialInterval = 10 * time.Second
+	apiCallTick         = 10 * time.Second
 )
 
 // AgentUpdatedEvent fire up when data is changes in the store
@@ -74,7 +76,7 @@ func NewAsyncAgentStore() AsyncAgentStore {
 
 // Store saves the value with a key to the storage, when there is a change in data
 // it fires up updated event
-func (s *AsyncAgentStore) Store(key AgentCommand, value interface{}) {
+func (s *AsyncAgentStore) Store(key, value any) {
 
 	oldData, _ := s.store.Load(key)
 	updated := (oldData == nil) || !equality.Semantic.DeepEqual(oldData, value)
@@ -84,7 +86,7 @@ func (s *AsyncAgentStore) Store(key AgentCommand, value interface{}) {
 	if updated {
 		domainInfo := api.DomainGuestInfo{}
 		switch key {
-		case GET_OSINFO, GET_INTERFACES, GET_FSFREEZE_STATUS:
+		case OSINFO, INTERFACES, GET_FSFREEZE_STATUS:
 			domainInfo.OSInfo = s.GetGuestOSInfo()
 			domainInfo.Interfaces = s.GetInterfaceStatus()
 			domainInfo.FSFreezeStatus = s.GetFSFreezeStatus()
@@ -102,19 +104,19 @@ func (s *AsyncAgentStore) Store(key AgentCommand, value interface{}) {
 //   - Guest OS version and architecture
 //   - Guest Timezone
 func (s *AsyncAgentStore) GetSysInfo() api.DomainSysInfo {
-	data, ok := s.store.Load(GET_OSINFO)
+	data, ok := s.store.Load(OSINFO)
 	osinfo := api.GuestOSInfo{}
 	if ok {
 		osinfo = data.(api.GuestOSInfo)
 	}
 
-	data, ok = s.store.Load(GET_HOSTNAME)
+	data, ok = s.store.Load(HOSTNAME)
 	hostname := ""
 	if ok {
 		hostname = data.(string)
 	}
 
-	data, ok = s.store.Load(GET_TIMEZONE)
+	data, ok = s.store.Load(TIMEZONE)
 	timezone := api.Timezone{}
 	if ok {
 		timezone = data.(api.Timezone)
@@ -129,7 +131,7 @@ func (s *AsyncAgentStore) GetSysInfo() api.DomainSysInfo {
 
 // GetInterfaceStatus returns the interfaces Guest Agent reported
 func (s *AsyncAgentStore) GetInterfaceStatus() []api.InterfaceStatus {
-	data, ok := s.store.Load(GET_INTERFACES)
+	data, ok := s.store.Load(INTERFACES)
 	if ok {
 		return data.([]api.InterfaceStatus)
 	}
@@ -139,7 +141,7 @@ func (s *AsyncAgentStore) GetInterfaceStatus() []api.InterfaceStatus {
 
 // GetGuestOSInfo returns the Guest OS version and architecture
 func (s *AsyncAgentStore) GetGuestOSInfo() *api.GuestOSInfo {
-	data, ok := s.store.Load(GET_OSINFO)
+	data, ok := s.store.Load(OSINFO)
 	if ok {
 		osInfo := data.(api.GuestOSInfo)
 		return &osInfo
@@ -193,7 +195,7 @@ func (s *AsyncAgentStore) GetFS(limit int) []api.Filesystem {
 // GetUsers return the use list limited to the limit set
 // set limit to -1 to return all users
 func (s *AsyncAgentStore) GetUsers(limit int) []api.User {
-	data, ok := s.store.Load(GET_USERS)
+	data, ok := s.store.Load(USERS)
 	users := []api.User{}
 	if !ok {
 		return users
@@ -214,15 +216,18 @@ func (s *AsyncAgentStore) GetUsers(limit int) []api.User {
 type PollerWorker struct {
 	// AgentCommands is a list of commands executed on the guestAgent
 	AgentCommands []AgentCommand
-	// CallTick is how often to call this set of commands
+
+	// CallTick is how often to call the this
 	CallTick time.Duration
 }
 
 type agentCommandsExecutor func(commands []AgentCommand)
 
-// Poll is the call to the guestagent.
+type apiOperationsExecutor func()
+
+// Poll is the call to the guest agent using qemu agent commands.
 func (p *PollerWorker) Poll(execAgentCommands agentCommandsExecutor, closeChan chan struct{}, initialInterval time.Duration) {
-	log.Log.Infof("Polling command: %v", p.AgentCommands)
+	log.Log.Infof("Agent poller started with commands: %v", p.AgentCommands)
 
 	// Do the first round to fill the cache immediately.
 	execAgentCommands(p.AgentCommands)
@@ -241,6 +246,35 @@ func (p *PollerWorker) Poll(execAgentCommands agentCommandsExecutor, closeChan c
 			return
 		case <-ticker.C:
 			execAgentCommands(p.AgentCommands)
+		}
+		if pollInterval < pollMaxInterval {
+			pollInterval = incrementPollInterval(pollInterval, pollMaxInterval)
+			ticker.Reset(pollInterval)
+		}
+	}
+}
+
+// Poll is the call to the guest agent using libvirt API.
+func pollApiOperation(execApiOperation apiOperationsExecutor, closeChan chan struct{}, initialInterval time.Duration, callTick time.Duration) {
+	log.Log.Infof("Polling API operation")
+
+	// Do the first round to fill the cache immediately.
+	execApiOperation()
+
+	pollMaxInterval := callTick
+	pollInterval := pollMaxInterval
+	if initialInterval < pollMaxInterval {
+		pollInterval = initialInterval
+	}
+
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-closeChan:
+			return
+		case <-ticker.C:
+			execApiOperation()
 		}
 		if pollInterval < pollMaxInterval {
 			pollInterval = incrementPollInterval(pollInterval, pollMaxInterval)
@@ -272,9 +306,7 @@ func CreatePoller(
 	vmiUID types.UID,
 	domainName string,
 	store *AsyncAgentStore,
-	qemuAgentSysInterval time.Duration,
 	qemuAgentFileInterval time.Duration,
-	qemuAgentUserInterval time.Duration,
 	qemuAgentVersionInterval time.Duration,
 	qemuAgentFSFreezeStatusInterval time.Duration,
 ) *AgentPoller {
@@ -291,20 +323,10 @@ func CreatePoller(
 		CallTick:      qemuAgentVersionInterval,
 		AgentCommands: []AgentCommand{GET_AGENT},
 	})
-	// sys command group
-	p.workers = append(p.workers, PollerWorker{
-		CallTick:      qemuAgentSysInterval,
-		AgentCommands: []AgentCommand{GET_INTERFACES, GET_OSINFO, GET_TIMEZONE, GET_HOSTNAME},
-	})
 	// filesystem command group
 	p.workers = append(p.workers, PollerWorker{
 		CallTick:      qemuAgentFileInterval,
 		AgentCommands: []AgentCommand{GET_FILESYSTEM},
-	})
-	// user command group
-	p.workers = append(p.workers, PollerWorker{
-		CallTick:      qemuAgentUserInterval,
-		AgentCommands: []AgentCommand{GET_USERS},
 	})
 	// fsfreeze command group
 	p.workers = append(p.workers, PollerWorker{
@@ -315,7 +337,7 @@ func CreatePoller(
 	return p
 }
 
-// Start the poller workers
+// Start the poller workers and libvirt API operations
 func (p *AgentPoller) Start() {
 	if p.agentDone != nil {
 		return
@@ -323,14 +345,17 @@ func (p *AgentPoller) Start() {
 	p.agentDone = make(chan struct{})
 
 	for i := 0; i < len(p.workers); i++ {
-		log.Log.Infof("Starting agent poller with commands: %v", p.workers[i].AgentCommands)
 		go p.workers[i].Poll(func(commands []AgentCommand) {
 			executeAgentCommands(commands, p.Connection, p.agentStore, p.domainName)
 		}, p.agentDone, pollInitialInterval)
 	}
+
+	go pollApiOperation(func() {
+		fetchAndStoreGuestInfo(p.Connection, p.agentStore, p.domainName)
+	}, p.agentDone, pollInitialInterval, apiCallTick)
 }
 
-// Stop all poller workers
+// Stop all poller workers and libvirt API operations
 func (p *AgentPoller) Stop() {
 	if p.agentDone != nil {
 		close(p.agentDone)
@@ -338,54 +363,25 @@ func (p *AgentPoller) Stop() {
 	}
 }
 
-// With libvirt 5.6.0 direct call to agent can be replaced with call to libvirt Domain.GetGuestInfo
+// TODO: Remove all commands with this function.
+//
+// GET_FSFREEZE_STATUS - This is not implemented in libvirt API and won't be
+// implemented (KubeVirt is expected to provide its own implementation for it).
+//
+// GET_FILESYSTEM - We are missing busType field in the response, which will
+// be included in libvirt 11.2 upstream later (https://gitlab.com/libvirt/libvirt-go-module/-/issues/18).
+//
+// GET_AGENT - According to libvirt engineers this command shouldn't be used
+// by KubeVirt, because it provides irrelevant information (version and supported commands).
 func executeAgentCommands(commands []AgentCommand, con cli.Connection, agentStore *AsyncAgentStore, domainName string) {
 	for _, command := range commands {
-		// replace with direct call to libvirt function when 5.6.0 is available
 		cmdResult, err := con.QemuAgentCommand(`{"execute":"`+string(command)+`"}`, domainName)
 		if err != nil {
 			// skip the command on error, it is not vital
 			continue
 		}
 
-		// parse the json data and convert to domain api
-		// for libvirt 5.6.0 json conversion deprecated
 		switch command {
-		case GET_INTERFACES:
-			interfaces, err := parseInterfaces(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent interface %s", err.Error())
-				continue
-			}
-			agentStore.Store(GET_INTERFACES, interfaces)
-		case GET_OSINFO:
-			osInfo, err := parseGuestOSInfo(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent guestosinfo %s", err.Error())
-				continue
-			}
-			agentStore.Store(GET_OSINFO, osInfo)
-		case GET_HOSTNAME:
-			hostname, err := parseHostname(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent hostname %s", err.Error())
-				continue
-			}
-			agentStore.Store(GET_HOSTNAME, hostname)
-		case GET_TIMEZONE:
-			timezone, err := parseTimezone(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent timezone %s", err.Error())
-				continue
-			}
-			agentStore.Store(GET_TIMEZONE, timezone)
-		case GET_USERS:
-			users, err := parseUsers(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent users %s", err.Error())
-				continue
-			}
-			agentStore.Store(GET_USERS, users)
 		case GET_FSFREEZE_STATUS:
 			fsfreezeStatus, err := ParseFSFreezeStatus(cmdResult)
 			if err != nil {
@@ -409,4 +405,109 @@ func executeAgentCommands(commands []AgentCommand, con cli.Connection, agentStor
 			agentStore.Store(GET_AGENT, agent)
 		}
 	}
+}
+
+func fetchAndStoreGuestInfo(con cli.Connection, agentStore *AsyncAgentStore, domainName string) {
+	domain, err := con.LookupDomainByName(domainName)
+	if err != nil {
+		// Skip execution on error, domain lookup failed
+		return
+	}
+	defer domain.Free()
+
+	guestInfo, err := domain.GetGuestInfo(INTERFACES|OSINFO|HOSTNAME|TIMEZONE|USERS, 0)
+	if err != nil {
+		// If fetching guest info fails, skip processing
+		return
+	}
+
+	agentStore.Store(INTERFACES, convertToInterfaces(guestInfo))
+	agentStore.Store(OSINFO, convertToOSInfo(guestInfo))
+	agentStore.Store(HOSTNAME, guestInfo.Hostname)
+	agentStore.Store(TIMEZONE, convertToTimezone(guestInfo))
+	agentStore.Store(USERS, convertToUsers(guestInfo))
+}
+
+func convertToInterfaces(guestInfo *libvirt.DomainGuestInfo) []api.InterfaceStatus {
+	var interfaceStatuses []api.InterfaceStatus
+	if guestInfo.Interfaces != nil {
+		for _, netInterface := range guestInfo.Interfaces {
+			if netInterface.Name == "lo" {
+				continue
+			}
+
+			interfaceIP, interfaceIPs := convertToIPAddresses(netInterface.Addrs)
+			interfaceStatuses = append(interfaceStatuses, api.InterfaceStatus{
+				Mac:           netInterface.Hwaddr,
+				Ip:            interfaceIP,
+				IPs:           interfaceIPs,
+				InterfaceName: netInterface.Name,
+			})
+		}
+	}
+	return interfaceStatuses
+}
+
+func convertToIPAddresses(ipAddresses []libvirt.DomainGuestInfoIPAddress) (string, []string) {
+	var interfaceIPs []string
+	var interfaceIP string
+
+	for _, ipAddr := range ipAddresses {
+		ip := ipAddr.Addr
+
+		// Prefer ipv4 as the main interface IP
+		if ipAddr.Type == "ipv4" && interfaceIP == "" {
+			interfaceIP = ip
+		}
+
+		interfaceIPs = append(interfaceIPs, ip)
+	}
+
+	// If no ipv4 interface was found, set any IP as the main IP of interface
+	if interfaceIP == "" && len(interfaceIPs) > 0 {
+		interfaceIP = interfaceIPs[0]
+	}
+	return interfaceIP, interfaceIPs
+}
+
+func convertToOSInfo(guestInfo *libvirt.DomainGuestInfo) api.GuestOSInfo {
+	guestInfoOS := api.GuestOSInfo{}
+	if guestInfo.OS != nil {
+		guestInfoOS = api.GuestOSInfo{
+			Name:          guestInfo.OS.Name,
+			KernelRelease: guestInfo.OS.KernelRelease,
+			Version:       guestInfo.OS.Version,
+			PrettyName:    guestInfo.OS.PrettyName,
+			VersionId:     guestInfo.OS.VersionID,
+			KernelVersion: guestInfo.OS.KernelVersion,
+			Machine:       guestInfo.OS.Machine,
+			Id:            guestInfo.OS.ID,
+		}
+	}
+	return guestInfoOS
+}
+
+func convertToTimezone(guestInfo *libvirt.DomainGuestInfo) api.Timezone {
+	timezone := api.Timezone{}
+	if guestInfo.TimeZone != nil {
+		timezone = api.Timezone{
+			Zone:   guestInfo.TimeZone.Name,
+			Offset: guestInfo.TimeZone.Offset,
+		}
+	}
+	return timezone
+}
+
+func convertToUsers(guestInfo *libvirt.DomainGuestInfo) []api.User {
+	var users []api.User
+	if guestInfo.Users != nil {
+		for _, user := range guestInfo.Users {
+			users = append(users, api.User{
+				Name:      user.Name,
+				Domain:    user.Domain,
+				LoginTime: float64(user.LoginTime),
+			})
+		}
+	}
+	return users
 }
