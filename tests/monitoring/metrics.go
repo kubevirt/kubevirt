@@ -107,7 +107,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			err = virtcontroller.RegisterLeaderMetrics()
 			Expect(err).ToNot(HaveOccurred())
 
-			err = virthandler.SetupMetrics("", "", 0, nil)
+			err = virthandler.SetupMetrics("", "", 0, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			for _, metric := range operatormetrics.ListMetrics() {

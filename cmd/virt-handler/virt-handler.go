@@ -302,10 +302,7 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	var supportedMachines []libvirtxml.CapsGuestMachine
-	for _, guest := range capabilities.Guests {
-		supportedMachines = append(supportedMachines, guest.Arch.Machines...)
-	}
+	supportedMachines := getSupportedMachinesFromCapabilities(capabilities)
 
 	nodeLabellerrecorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "node-labeller", Host: app.HostOverride})
 	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig,
@@ -397,7 +394,7 @@ func (app *virtHandlerApp) Run() {
 
 	cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, factory.CRD().HasSynced, factory.KubeVirt().HasSynced)
 
-	if err := metrics.SetupMetrics(app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer); err != nil {
+	if err := metrics.SetupMetrics(app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, supportedMachines); err != nil {
 		panic(err)
 	}
 
@@ -461,6 +458,14 @@ func (app *virtHandlerApp) Run() {
 	case doneMsg := <-doneCh:
 		log.Log.Infof("cleanly exiting with reason: %s", doneMsg)
 	}
+}
+
+func getSupportedMachinesFromCapabilities(capabilities libvirtxml.Caps) []libvirtxml.CapsGuestMachine {
+	var supportedMachines []libvirtxml.CapsGuestMachine
+	for _, guest := range capabilities.Guests {
+		supportedMachines = append(supportedMachines, guest.Arch.Machines...)
+	}
+	return supportedMachines
 }
 
 // Update virt-handler log verbosity on relevant config changes
