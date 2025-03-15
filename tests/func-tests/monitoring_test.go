@@ -143,18 +143,6 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 				"expected different counter value; value before: %0.2f; expected value: %0.2f", valueBefore, valueBefore+float64(1),
 			)
 
-		By("checking that the prometheus metric was increased by 1")
-		Eventually(func(ctx context.Context) float64 {
-			return getMetricValue(ctx, promClient, query)
-		}).
-			WithTimeout(60*time.Second).
-			WithPolling(time.Second).
-			WithContext(ctx).
-			Should(
-				Equal(valueBefore+float64(1)),
-				"expected different counter value; value before: %0.2f; expected value: %0.2f", valueBefore, valueBefore+float64(1),
-			)
-
 		By("Checking the alert")
 		Eventually(func(ctx context.Context) *promApiv1.Alert {
 			alerts, err := promClient.Alerts(ctx)
