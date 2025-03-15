@@ -1,4 +1,5 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("//tests/conformance:def.bzl", "containertag_x_def")
 
 go_library(
     name = "go_default_library",
@@ -6,8 +7,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/conformance",
     visibility = ["//visibility:private"],
 )
-
-load("//tests/conformance:def.bzl", "containertag_x_def")
 
 go_binary(
     name = "conformance",
