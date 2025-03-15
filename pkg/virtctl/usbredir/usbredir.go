@@ -25,17 +25,22 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
-const usbredirClient = "usbredirect"
+const (
+	usbredirClient = "usbredirect"
+
+	optDisableClientLaunch = "no-launch"
+)
 
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "usbredir (vendor:product)|(bus-device) (VMI)",
 		Short:   "Redirect an USB device to a virtual machine instance.",
 		Example: usage(),
-		Args:    cobra.ExactArgs(2),
+		Args:    cobra.RangeArgs(1, 2),
 		RunE:    Run,
 	}
 	cmd.SetUsageTemplate(templates.UsageTemplate())
+	cmd.Flags().Bool(optDisableClientLaunch, false, "If set, you should launch the usbredir client yourself")
 	return cmd
 }
 
@@ -49,5 +54,8 @@ func usage() string {
 
 	# Redirect it with bus-device:
     {{ProgramName}} usbredir 02-03 testvmi
+
+	# Disabling auto-launch of usbredir client
+	{{ProgramName}} usbredir testvmi --no-launch
 	`
 }
