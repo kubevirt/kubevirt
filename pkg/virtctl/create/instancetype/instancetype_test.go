@@ -66,9 +66,12 @@ var _ = Describe("create instancetype", func() {
 			_, err := runCmd(args...)
 			Expect(err).To(MatchError(ContainSubstring(errMsg)))
 		},
-			Entry("VirtualMachineInstancetype invalid cpu string value", "two", "256Mi", `parsing "two": invalid syntax`, setFlag(NamespacedFlag, "true")),
-			Entry("VirtualMachineInstancetype invalid cpu negative value", "-2", "256Mi", `parsing "-2": invalid syntax`, setFlag(NamespacedFlag, "true")),
-			Entry("VirtualMachineInstancetype invalid memory value", "2", "256My", "quantities must match the regular expression", setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineInstancetype invalid cpu string value",
+				"two", "256Mi", `parsing "two": invalid syntax`, setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineInstancetype invalid cpu negative value",
+				"-2", "256Mi", `parsing "-2": invalid syntax`, setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineInstancetype invalid memory value",
+				"2", "256My", "quantities must match the regular expression", setFlag(NamespacedFlag, "true")),
 			Entry("VirtualMachineClusterInstancetype invalid cpu string value", "two", "256Mi", `parsing "two": invalid syntax`),
 			Entry("VirtualMachineClusterInstancetype invalid cpu negative value", "-2", "256Mi", `parsing "-2": invalid syntax`),
 			Entry("VirtualMachineClusterInstancetype invalid memory value", "2", "256My", "quantities must match the regular expression"),
@@ -82,16 +85,41 @@ var _ = Describe("create instancetype", func() {
 			_, err := runCmd(args...)
 			Expect(err).To(MatchError(ContainSubstring(errMsg)))
 		},
-			Entry("VirtualMachineInstancetype gpu missing name", nameErr, setFlag(GPUFlag, "devicename:nvidia"), setFlag(NamespacedFlag, "true")),
-			Entry("VirtualMachineInstancetype gpu missing deviceName", deviceNameErr, setFlag(GPUFlag, "name:gpu1"), setFlag(NamespacedFlag, "true")),
-			Entry("VirtualMachineInstancetype hostdevice missing name", nameErr, setFlag(HostDeviceFlag, "devicename:intel"), setFlag(NamespacedFlag, "true")),
-			Entry("VirtualMachineInstancetype hostdevice missing deviceName", deviceNameErr, setFlag(HostDeviceFlag, "name:device1"), setFlag(NamespacedFlag, "true")),
-			Entry("VirtualMachineInstancetype invalid IOThreadsPolicy", ioThreadErr, setFlag(IOThreadsPolicyFlag, "invalid-policy"), setFlag(NamespacedFlag, "true")),
-			Entry("VirtualMachineClusterInstancetype gpu missing name", nameErr, setFlag(GPUFlag, "devicename:nvidia")),
-			Entry("VirtualMachineClusterInstancetype gpu missing deviceName", deviceNameErr, setFlag(GPUFlag, "name:gpu1")),
-			Entry("VirtualMachineClusterInstancetype hostdevice missing name", nameErr, setFlag(HostDeviceFlag, "devicename:intel")),
-			Entry("VirtualMachineClusterInstancetype hostdevice missing deviceName", deviceNameErr, setFlag(HostDeviceFlag, "name:device1")),
-			Entry("VirtualMachineClusterInstancetype invalid IOThreadsPolicy", ioThreadErr, setFlag(IOThreadsPolicyFlag, "invalid-policy")),
+			Entry("VirtualMachineInstancetype gpu missing name",
+				nameErr,
+				setFlag(GPUFlag, "devicename:nvidia"),
+				setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineInstancetype gpu missing deviceName",
+				deviceNameErr,
+				setFlag(GPUFlag, "name:gpu1"),
+				setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineInstancetype hostdevice missing name",
+				nameErr,
+				setFlag(HostDeviceFlag, "devicename:intel"),
+				setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineInstancetype hostdevice missing deviceName",
+				deviceNameErr,
+				setFlag(HostDeviceFlag, "name:device1"),
+				setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineInstancetype invalid IOThreadsPolicy",
+				ioThreadErr,
+				setFlag(IOThreadsPolicyFlag, "invalid-policy"),
+				setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineClusterInstancetype gpu missing name",
+				nameErr,
+				setFlag(GPUFlag, "devicename:nvidia")),
+			Entry("VirtualMachineClusterInstancetype gpu missing deviceName",
+				deviceNameErr,
+				setFlag(GPUFlag, "name:gpu1")),
+			Entry("VirtualMachineClusterInstancetype hostdevice missing name",
+				nameErr,
+				setFlag(HostDeviceFlag, "devicename:intel")),
+			Entry("VirtualMachineClusterInstancetype hostdevice missing deviceName",
+				deviceNameErr,
+				setFlag(HostDeviceFlag, "name:device1")),
+			Entry("VirtualMachineClusterInstancetype invalid IOThreadsPolicy",
+				ioThreadErr,
+				setFlag(IOThreadsPolicyFlag, "invalid-policy")),
 		)
 	})
 
@@ -141,16 +169,20 @@ var _ = Describe("create instancetype", func() {
 			Entry("VirtualMachineClusterPreference", false),
 		)
 
-		DescribeTable("with defined gpus", func(extraArgs ...string) {
+		runDeviceTest := func(flagName, deviceParam string, extraArgs ...string) *instancetypev1beta1.VirtualMachineInstancetypeSpec {
 			args := append([]string{
 				setFlag(CPUFlag, "1"),
 				setFlag(MemoryFlag, "128Mi"),
-				setFlag(GPUFlag, "name:gpu1,devicename:nvidia"),
+				setFlag(flagName, deviceParam),
 			}, extraArgs...)
 			out, err := runCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 
-			spec := getInstancetypeSpec(out)
+			return getInstancetypeSpec(out)
+		}
+
+		DescribeTable("with defined GPU", func(extraArgs ...string) {
+			spec := runDeviceTest(GPUFlag, "name:gpu1,devicename:nvidia", extraArgs...)
 			Expect(spec.GPUs).To(HaveLen(1))
 			Expect(spec.GPUs[0].Name).To(Equal("gpu1"))
 			Expect(spec.GPUs[0].DeviceName).To(Equal("nvidia"))
@@ -160,16 +192,8 @@ var _ = Describe("create instancetype", func() {
 			Entry("VirtualMachineClusterInstancetype"),
 		)
 
-		DescribeTable("with defined hostDevices", func(extraArgs ...string) {
-			args := append([]string{
-				setFlag(CPUFlag, "1"),
-				setFlag(MemoryFlag, "128Mi"),
-				setFlag(HostDeviceFlag, "name:device1,devicename:intel"),
-			}, extraArgs...)
-			out, err := runCmd(args...)
-			Expect(err).ToNot(HaveOccurred())
-
-			spec := getInstancetypeSpec(out)
+		DescribeTable("with defined HostDevice", func(extraArgs ...string) {
+			spec := runDeviceTest(HostDeviceFlag, "name:device1,devicename:intel", extraArgs...)
 			Expect(spec.HostDevices).To(HaveLen(1))
 			Expect(spec.HostDevices[0].Name).To(Equal("device1"))
 			Expect(spec.HostDevices[0].DeviceName).To(Equal("intel"))
