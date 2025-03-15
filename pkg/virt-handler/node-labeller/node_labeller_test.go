@@ -303,7 +303,7 @@ var _ = Describe("Node-labeller ", func() {
 	})
 
 	DescribeTable("should add machine type labels", func(machines []libvirtxml.CapsGuestMachine, arch string) {
-		guestsCaps[0].Arch.Machines = machines
+		supportedMachines = machines
 
 		initNodeLabeller(&v1.KubeVirt{})
 		nlController.arch = newArchLabeller(arch)
