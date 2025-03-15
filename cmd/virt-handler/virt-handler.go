@@ -302,13 +302,18 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	var supportedMachines []libvirtxml.CapsGuestMachine
+	for _, guest := range capabilities.Guests {
+		supportedMachines = append(supportedMachines, guest.Arch.Machines...)
+	}
+
 	nodeLabellerrecorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "node-labeller", Host: app.HostOverride})
 	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig,
 		app.virtCli.CoreV1().Nodes(),
 		app.HostOverride,
 		nodeLabellerrecorder,
 		capabilities.Host.CPU.Counter,
-		capabilities.Guests,
+		supportedMachines,
 	)
 	if err != nil {
 		panic(err)
