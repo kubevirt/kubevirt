@@ -20,6 +20,7 @@
 package vnc
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -89,7 +90,10 @@ func NewCommand() *cobra.Command {
 type VNC struct{}
 
 func (o *VNC) Run(cmd *cobra.Command, args []string) error {
-	virtCli, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	ctx, cancel := context.WithCancel(cmd.Context())
+	defer cancel()
+
+	virtCli, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(ctx)
 	if err != nil {
 		return err
 	}
@@ -99,7 +103,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	// setup connection with VM
 	vnc, err := virtCli.VirtualMachineInstance(namespace).VNC(vmi)
 	if err != nil {
-		return fmt.Errorf("Can't access VMI %s: %s", vmi, err.Error())
+		return fmt.Errorf("can't access VMI %s: %s", vmi, err.Error())
 	}
 	// Format the listening address to account for the port (ex: 127.0.0.0:5900)
 	// Set listenAddress to localhost if proxy-only flag is not set
@@ -110,13 +114,13 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	listenAddressFmt = listenAddress + ":%d"
 	lnAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf(listenAddressFmt, customPort))
 	if err != nil {
-		return fmt.Errorf("Can't resolve the address: %s", err.Error())
+		return fmt.Errorf("can't resolve the address: %s", err.Error())
 	}
 
 	// The local tcp server is used to proxy the podExec websock connection to vnc client
 	ln, err := net.ListenTCP("tcp", lnAddr)
 	if err != nil {
-		return fmt.Errorf("Can't listen on unix socket: %s", err.Error())
+		return fmt.Errorf("can't listen on unix socket: %s", err.Error())
 	}
 	// End of pre-flight checks. Everything looks good, we can start
 	// the goroutines and let the data flow
@@ -126,17 +130,18 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	//                                       <- pipeOutReader <- pipeOutWriter
 	pipeInReader, pipeInWriter := io.Pipe()
 	pipeOutReader, pipeOutWriter := io.Pipe()
+	defer pipeInWriter.Close()
+	defer pipeOutWriter.Close()
 
-	k8ResChan := make(chan error)
-	listenResChan := make(chan error)
-	viewResChan := make(chan error)
-	stopChan := make(chan struct{}, 1)
-	doneChan := make(chan struct{}, 1)
+	k8ResChan := make(chan error, 1)
+	listenResChan := make(chan error, 1)
+	viewResChan := make(chan error, 1)
 	writeStop := make(chan error)
 	readStop := make(chan error)
 
 	go func() {
 		// transfer data from/to the VM
+		defer close(k8ResChan)
 		k8ResChan <- vnc.Stream(kvcorev1.StreamOptions{
 			In:  pipeInReader,
 			Out: pipeOutWriter,
@@ -145,6 +150,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 
 	// wait for vnc client to connect to our local proxy server
 	go func() {
+		defer close(listenResChan)
 		start := time.Now()
 		log.Log.Infof("connection timeout: %v", LISTEN_TIMEOUT)
 		// Don't set deadline if only proxy is running and VNC is to be connected manually
@@ -156,69 +162,78 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			log.Log.V(2).Infof("Failed to accept unix sock connection. %s", err.Error())
 			listenResChan <- err
+			return
 		}
 		defer fd.Close()
 
-		log.Log.V(2).Infof("VNC Client connected in %v", time.Now().Sub(start))
+		log.Log.V(2).Infof("VNC Client connected in %v", time.Since(start))
 		templates.PrintWarningForPausedVMI(virtCli, vmi, namespace)
 
 		// write to FD <- pipeOutReader
 		go func() {
+			defer close(readStop)
 			_, err := io.Copy(fd, pipeOutReader)
 			readStop <- err
 		}()
 
 		// read from FD -> pipeInWriter
 		go func() {
+			defer close(writeStop)
 			_, err := io.Copy(pipeInWriter, fd)
 			writeStop <- err
 		}()
 
 		// don't terminate until vnc client is done
-		<-doneChan
-		listenResChan <- err
+		<-ctx.Done()
+		listenResChan <- ctx.Err()
 	}()
 
 	port := ln.Addr().(*net.TCPAddr).Port
 
 	if proxyOnly {
-		defer close(doneChan)
 		optionString, err := json.Marshal(struct {
 			Port int `json:"port"`
 		}{port})
 		if err != nil {
-			return fmt.Errorf("Error encountered: %s", err.Error())
+			return fmt.Errorf("error encountered: %s", err.Error())
 		}
 		fmt.Fprintln(cmd.OutOrStdout(), string(optionString))
 	} else {
 		// execute VNC Viewer
-		go checkAndRunVNCViewer(doneChan, viewResChan, port)
+		go checkAndRunVNCViewer(ctx, viewResChan, port)
 	}
 
 	go func() {
-		defer close(stopChan)
 		interrupt := make(chan os.Signal, 1)
 		signal.Notify(interrupt, os.Interrupt)
-		<-interrupt
+		defer signal.Stop(interrupt)
+
+		select {
+		case <-interrupt:
+			cancel()
+		case <-ctx.Done():
+			// Context already canceled, exit quietly
+		}
 	}()
 
 	select {
-	case <-stopChan:
 	case err = <-readStop:
 	case err = <-writeStop:
 	case err = <-k8ResChan:
 	case err = <-viewResChan:
 	case err = <-listenResChan:
+	case <-ctx.Done():
+		err = ctx.Err()
 	}
 
-	if err != nil {
-		return fmt.Errorf("Error encountered: %s", err.Error())
+	if err != nil && !errors.Is(err, context.Canceled) {
+		return fmt.Errorf("error encountered: %s", err.Error())
 	}
 	return nil
 }
 
-func checkAndRunVNCViewer(doneChan chan struct{}, viewResChan chan error, port int) {
-	defer close(doneChan)
+func checkAndRunVNCViewer(ctx context.Context, viewResChan chan error, port int) {
+	defer close(viewResChan)
 	var err error
 	args := []string{}
 
@@ -273,11 +288,11 @@ func checkAndRunVNCViewer(doneChan chan struct{}, viewResChan chan error, port i
 
 	if vncBin == "" {
 		log.Log.Errorf("No supported VNC app found in %s", osType)
-		err = fmt.Errorf("No supported VNC app found in %s", osType)
+		err = fmt.Errorf("no supported VNC app found in %s", osType)
 	} else {
 		log.Log.V(4).Infof("Executing commandline: '%s %v'", vncBin, args)
 		// #nosec No risk for attacker injection. vncBin and args include predefined strings
-		cmnd := exec.Command(vncBin, args...)
+		cmnd := exec.CommandContext(ctx, vncBin, args...)
 		output, err := cmnd.CombinedOutput()
 		if err != nil {
 			log.Log.Errorf("%s execution failed: %v, output: %v", vncBin, err, string(output))
