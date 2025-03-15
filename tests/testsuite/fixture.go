@@ -159,6 +159,7 @@ func BeforeTestSuiteSetup(_ []byte) {
 
 	libvmifact.RegisterArchitecture(Arch)
 	libvmi.RegisterDefaultOption(addTestAnnotation)
+	libvmi.RegisterDefaultOption(libvmi.WithTerminationGracePeriod(0))
 }
 
 func EnsureKubevirtReady() {
