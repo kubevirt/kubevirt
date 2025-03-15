@@ -1317,26 +1317,6 @@ var _ = Describe("Validating VM Admitter", func() {
 			vmsAdmitter.InstancetypeAdmitter = instancetypeWebhooks.NewAdmitter(virtClient)
 		})
 
-		It("should reject if instancetype is not found", func() {
-			vm.Spec.Instancetype.Name = "unknown"
-
-			response := admitVm(vmsAdmitter, vm)
-			Expect(response.Allowed).To(BeFalse())
-			Expect(response.Result.Details.Causes).To(HaveLen(1))
-			Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
-			Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.instancetype"))
-		})
-
-		It("should reject if preference is not found", func() {
-			vm.Spec.Preference.Name = "unknown"
-
-			response := admitVm(vmsAdmitter, vm)
-			Expect(response.Allowed).To(BeFalse())
-			Expect(response.Result.Details.Causes).To(HaveLen(1))
-			Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
-			Expect(response.Result.Details.Causes[0].Field).To(Equal("spec.preference"))
-		})
-
 		It("should reject if instancetype fails to apply to VMI", func() {
 			vm.Spec.Template.Spec.Domain = v1.DomainSpec{
 				CPU: &v1.CPU{

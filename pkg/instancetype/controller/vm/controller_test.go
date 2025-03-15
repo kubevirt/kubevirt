@@ -37,6 +37,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 )
 
 var _ = Describe("Instance type and Preference VirtualMachine Controller", func() {
@@ -487,10 +488,9 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				Name: instancetypeObj.Name,
 				Kind: "foobar",
 			}
-
-			_, err := instancetypeController.Sync(vm, vmi)
-			Expect(err).To(MatchError(ContainSubstring("got unexpected kind in InstancetypeMatcher")))
-			testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
+			syncVM, err := instancetypeController.Sync(vm, vmi)
+			Expect(err).To(MatchError(ContainSubstring("failure to find instance type or preference resources referenced by the VirtualMachine")))
+			Expect(syncVM).To(HaveConditionTrue(virtv1.VirtualMachineInstancetypeNotFound))
 		})
 
 		It("should fail to sync if a VirtualMachineInstancetype cannot be found", func() {
@@ -498,10 +498,9 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				Name: "foobar",
 				Kind: instancetypeapi.SingularResourceName,
 			}
-
-			_, err := instancetypeController.Sync(vm, vmi)
-			Expect(err).To(MatchError(ContainSubstring("not found")))
-			testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
+			syncVM, err := instancetypeController.Sync(vm, vmi)
+			Expect(err).To(MatchError(ContainSubstring("failure to find instance type or preference resources referenced by the VirtualMachine")))
+			Expect(syncVM).To(HaveConditionTrue(virtv1.VirtualMachineInstancetypeNotFound))
 		})
 
 		It("should fail to sync if a VirtualMachineClusterInstancetype cannot be found", func() {
@@ -509,10 +508,9 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				Name: "foobar",
 				Kind: instancetypeapi.ClusterSingularResourceName,
 			}
-
-			_, err := instancetypeController.Sync(vm, vmi)
-			Expect(err).To(MatchError(ContainSubstring("not found")))
-			testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
+			syncVM, err := instancetypeController.Sync(vm, vmi)
+			Expect(err).To(MatchError(ContainSubstring("failure to find instance type or preference resources referenced by the VirtualMachine")))
+			Expect(syncVM).To(HaveConditionTrue(virtv1.VirtualMachineInstancetypeNotFound))
 		})
 
 		It("should fail to sync if the VirtualMachineInstancetype conflicts with the VirtualMachineInstance", func() {
@@ -835,10 +833,9 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				Name: preference.Name,
 				Kind: "foobar",
 			}
-
-			_, err := instancetypeController.Sync(vm, vmi)
-			Expect(err).To(MatchError(ContainSubstring("got unexpected kind in PreferenceMatcher")))
-			testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
+			syncVM, err := instancetypeController.Sync(vm, vmi)
+			Expect(err).To(MatchError(ContainSubstring("failure to find instance type or preference resources referenced by the VirtualMachine")))
+			Expect(syncVM).To(HaveConditionTrue(virtv1.VirtualMachinePreferenceNotFound))
 		})
 
 		It("should fail to sync if a VirtualMachinePreference cannot be found", func() {
@@ -846,10 +843,9 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				Name: "foobar",
 				Kind: instancetypeapi.SingularPreferenceResourceName,
 			}
-
-			_, err := instancetypeController.Sync(vm, vmi)
-			Expect(err).To(MatchError(ContainSubstring("not found")))
-			testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
+			syncVM, err := instancetypeController.Sync(vm, vmi)
+			Expect(err).To(MatchError(ContainSubstring("failure to find instance type or preference resources referenced by the VirtualMachine")))
+			Expect(syncVM).To(HaveConditionTrue(virtv1.VirtualMachinePreferenceNotFound))
 		})
 
 		It("should fail to sync if a VirtualMachineClusterPreference cannot be found", func() {
@@ -857,10 +853,9 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				Name: "foobar",
 				Kind: instancetypeapi.ClusterSingularPreferenceResourceName,
 			}
-
-			_, err := instancetypeController.Sync(vm, vmi)
-			Expect(err).To(MatchError(ContainSubstring("not found")))
-			testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
+			syncVM, err := instancetypeController.Sync(vm, vmi)
+			Expect(err).To(MatchError(ContainSubstring("failure to find instance type or preference resources referenced by the VirtualMachine")))
+			Expect(syncVM).To(HaveConditionTrue(virtv1.VirtualMachinePreferenceNotFound))
 		})
 
 		It("should fail to sync if an existing ControllerRevision is found with unexpected VirtualMachinePreferenceSpec data", func() {
