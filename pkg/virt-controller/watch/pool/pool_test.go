@@ -336,23 +336,7 @@ var _ = Describe("Pool", func() {
 			vm = injectPoolRevisionLabelsIntoVM(vm, newPoolRevision.Name)
 			vm.Name = fmt.Sprintf("%s-0", pool.Name)
 			markVmAsReady(vm)
-
-			vmi := api.NewMinimalVMI(vm.Name)
-			vmi.Spec = vm.Spec.Template.Spec
-			vmi.Name = vm.Name
-			vmi.Namespace = vm.Namespace
-			vmi.Labels = maps.Clone(vm.Spec.Template.ObjectMeta.Labels)
-			vmi.OwnerReferences = []metav1.OwnerReference{{
-				APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
-				Kind:               v1.VirtualMachineGroupVersionKind.Kind,
-				Name:               vm.ObjectMeta.Name,
-				UID:                vm.ObjectMeta.UID,
-				Controller:         pointer.P(true),
-				BlockOwnerDeletion: pointer.P(true),
-			}}
-
-			vmi.Labels[v1.VirtualMachinePoolRevisionName] = oldPoolRevision.Name
-
+			vmi := createReadyVMI(vm, oldPoolRevision)
 			addPool(pool)
 			addVM(vm)
 			addVMI(vmi)
@@ -377,11 +361,12 @@ var _ = Describe("Pool", func() {
 			poolRevision := createPoolRevision(pool)
 			vm = injectPoolRevisionLabelsIntoVM(vm, poolRevision.Name)
 			markVmAsReady(vm)
-
+			vmi := createReadyVMI(vm, poolRevision)
 			pool.Status.Replicas = 1
 			pool.Status.ReadyReplicas = 1
 			addPool(pool)
 			addVM(vm)
+			addVMI(vmi)
 			addCR(poolRevision)
 
 			sanityExecute()
@@ -397,11 +382,12 @@ var _ = Describe("Pool", func() {
 
 			oldPoolRevision := poolRevision.DeepCopy()
 			oldPoolRevision.Name = "madeup"
-
+			vmi := createReadyVMI(vm, poolRevision)
 			pool.Status.Replicas = 1
 			pool.Status.ReadyReplicas = 1
 			addPool(pool)
 			addVM(vm)
+			addVMI(vmi)
 			addCR(poolRevision)
 			addCR(oldPoolRevision)
 
@@ -816,4 +802,28 @@ func DefaultPool(replicas int32) (*poolv1.VirtualMachinePool, *v1.VirtualMachine
 
 func markVmAsReady(vm *v1.VirtualMachine) {
 	virtcontroller.NewVirtualMachineConditionManager().UpdateCondition(vm, &v1.VirtualMachineCondition{Type: v1.VirtualMachineReady, Status: k8sv1.ConditionTrue})
+}
+
+func createReadyVMI(vm *v1.VirtualMachine, poolRevision *appsv1.ControllerRevision) *v1.VirtualMachineInstance {
+	vmi := api.NewMinimalVMI(vm.Name)
+	vmi.Spec = vm.Spec.Template.Spec
+	vmi.Name = vm.Name
+	vmi.Namespace = vm.Namespace
+	vmi.Labels = maps.Clone(vm.Spec.Template.ObjectMeta.Labels)
+	vmi.Labels[v1.VirtualMachinePoolRevisionName] = poolRevision.Name
+	vmi.OwnerReferences = []metav1.OwnerReference{{
+		APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+		Kind:               v1.VirtualMachineGroupVersionKind.Kind,
+		Name:               vm.ObjectMeta.Name,
+		UID:                vm.ObjectMeta.UID,
+		Controller:         pointer.P(true),
+		BlockOwnerDeletion: pointer.P(true),
+	}}
+	vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+		{
+			Type:   v1.VirtualMachineInstanceReady,
+			Status: k8sv1.ConditionTrue,
+		},
+	}
+	return vmi
 }

@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/trace"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -832,6 +833,33 @@ func (c *Controller) scale(pool *poolv1.VirtualMachinePool, vms []*virtv1.Virtua
 	return nil, false
 }
 
+func (c *Controller) getUnavailableVMICount(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) (int, error) {
+	unavailableCount := 0
+	for _, vm := range vms {
+		vmiKey := controller.NamespacedKey(vm.Namespace, vm.Name)
+		obj, exists, err := c.vmiStore.GetByKey(vmiKey)
+		if err != nil {
+			return 0, err
+		}
+		if !exists {
+			_, err := c.clientset.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			if err != nil {
+				return 0, err
+			}
+		}
+		vmi := obj.(*virtv1.VirtualMachineInstance)
+		if vmi.DeletionTimestamp != nil {
+			continue
+		}
+
+		readyCondition := controller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi, virtv1.VirtualMachineInstanceReady)
+		if readyCondition == nil || readyCondition.Status != k8score.ConditionTrue {
+			unavailableCount++
+		}
+	}
+	return unavailableCount, nil
+}
+
 func (c *Controller) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vmOutdatedList []*virtv1.VirtualMachine) error {
 	var wg sync.WaitGroup
 
@@ -889,9 +917,55 @@ func (c *Controller) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vmOutd
 
 func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedList []*virtv1.VirtualMachine) error {
 	var wg sync.WaitGroup
-	wg.Add(len(vmUpdatedList))
+
+	maxUnavailable := intstr.FromString("25%")
+	if pool.Spec.MaxUnavailable != nil {
+		maxUnavailable = *pool.Spec.MaxUnavailable
+	}
+
+	totalReplicas := int32(1)
+	if pool.Spec.Replicas != nil {
+		totalReplicas = *pool.Spec.Replicas
+	}
+
+	var maxUnavailableInt int
+	if maxUnavailable.Type == intstr.String {
+		percentage, err := strconv.ParseInt(strings.TrimSuffix(maxUnavailable.StrVal, "%"), 10, 32)
+		if err != nil {
+			return fmt.Errorf("invalid maxUnavailable percentage: %v", err)
+		}
+		maxUnavailableInt = int(float64(totalReplicas) * float64(percentage) / 100.0)
+	} else {
+		maxUnavailableInt = int(maxUnavailable.IntVal)
+	}
+
+	if maxUnavailableInt < 1 {
+		maxUnavailableInt = 1
+	}
+
 	errChan := make(chan error, len(vmUpdatedList))
+	unavailableCount, err := c.getUnavailableVMICount(pool, vmUpdatedList)
+	if err != nil {
+		errChan <- err
+		return err
+	}
+
+	if unavailableCount > 0 {
+		return fmt.Errorf("cannot proceed with proactive updates: %d VMIs are unavailable", unavailableCount)
+	}
+
 	for i := 0; i < len(vmUpdatedList); i++ {
+		unavailableCount, err := c.getUnavailableVMICount(pool, vmUpdatedList)
+		if err != nil {
+			errChan <- err
+			return err
+		}
+
+		if unavailableCount >= maxUnavailableInt {
+			log.Log.Object(pool).Infof("Reached maxUnavailable limit (%d), waiting for some updates to complete before continuing", maxUnavailableInt)
+			wg.Wait()
+		}
+		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
 			vm := vmUpdatedList[idx]
@@ -912,8 +986,11 @@ func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedL
 			if err != nil {
 				errChan <- err
 				return
-
 			}
+			if updateType == proactiveUpdateTypeNone {
+				return
+			}
+
 			switch updateType {
 			case proactiveUpdateTypeRestart:
 				err := c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, v1.DeleteOptions{})
@@ -924,6 +1001,16 @@ func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedL
 				}
 				log.Log.Object(pool).Infof("Proactively updating vm %s/%s in pool via vmi deletion", vm.Namespace, vm.Name)
 				c.recorder.Eventf(pool, k8score.EventTypeNormal, common.SuccessfulDeleteVirtualMachineReason, "Proactive update of VM %s/%s by deleting outdated VMI", vm.Namespace, vm.Name)
+			case proactiveUpdateTypeVMDelete:
+				foreGround := metav1.DeletePropagationForeground
+				err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Delete(context.Background(), vm.ObjectMeta.Name, metav1.DeleteOptions{PropagationPolicy: &foreGround})
+				if err != nil {
+					c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedUpdateVirtualMachineReason, "Error proactively updating VM %s/%s by deleting VM due to data volume changes: %v", vm.Namespace, vm.Name, err)
+					errChan <- err
+					return
+				}
+				log.Log.Object(pool).Infof("Proactively updating vm %s/%s in pool via vm deletion due to data volume changes", vm.Namespace, vm.Name)
+				c.recorder.Eventf(pool, k8score.EventTypeNormal, common.SuccessfulDeleteVirtualMachineReason, "Proactive update of VM %s/%s by deleting VM due to data volume changes", vm.Namespace, vm.Name)
 			case proactiveUpdateTypePatchRevisionLabel:
 				patchSet := patch.New()
 				vmiCopy := vmi.DeepCopy()
@@ -982,6 +1069,8 @@ const (
 	proactiveUpdateTypePatchRevisionLabel proactiveUpdateType = "label-patch"
 	// VMI does not need an update
 	proactiveUpdateTypeNone proactiveUpdateType = "no-update"
+	// VM needs to be deleted due to data volume changes
+	proactiveUpdateTypeVMDelete proactiveUpdateType = "vm-delete"
 )
 
 func (c *Controller) isOutdatedVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (proactiveUpdateType, error) {
@@ -1004,6 +1093,7 @@ func (c *Controller) isOutdatedVMI(vm *virtv1.VirtualMachine, vmi *virtv1.Virtua
 	//    proactive restart is required.
 	// 4. If the expected VMI template specs from the revisions are not identical in name, but
 	//    are identical in DeepEquals, patch the VMI with the new revision name used on the vm.
+	// 5. If only the DataVolumeTemplates differ, the VM needs to be deleted to ensure proper data volume handling.
 
 	vmRevisionName, exists := vm.Labels[virtv1.VirtualMachinePoolRevisionName]
 	if !exists {
@@ -1036,6 +1126,7 @@ func (c *Controller) isOutdatedVMI(vm *virtv1.VirtualMachine, vmi *virtv1.Virtua
 		return proactiveUpdateTypeNone, nil
 	}
 	expectedVMITemplate := poolSpecRevisionForVM.VirtualMachineTemplate.Spec.Template
+	expectedDataVolumeTemplates := poolSpecRevisionForVM.VirtualMachineTemplate.Spec.DataVolumeTemplates
 
 	// Get the pool revision used to create the VMI
 	poolSpecRevisionForVMI, exists, err := c.getControllerRevision(vm.Namespace, vmiRevisionName)
@@ -1048,6 +1139,13 @@ func (c *Controller) isOutdatedVMI(vm *virtv1.VirtualMachine, vmi *virtv1.Virtua
 		return proactiveUpdateTypeRestart, nil
 	}
 	currentVMITemplate := poolSpecRevisionForVMI.VirtualMachineTemplate.Spec.Template
+	currentDataVolumeTemplates := poolSpecRevisionForVMI.VirtualMachineTemplate.Spec.DataVolumeTemplates
+
+	// If DataVolumeTemplates differ, we need to delete the VM to ensure proper data volume handling
+	if !equality.Semantic.DeepEqual(currentDataVolumeTemplates, expectedDataVolumeTemplates) {
+		log.Log.Infof("Marking vm %s/%s for deletion due to data volume changes", vm.Namespace, vm.Name)
+		return proactiveUpdateTypeVMDelete, nil
+	}
 
 	// If the VMI templates differ between the revision used to create
 	// the VM and the revision used to create the VMI, then the VMI
