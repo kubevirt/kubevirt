@@ -63,7 +63,7 @@ var _ = Describe("Node-labeller config", func() {
 			volumePath:              "testdata",
 			domCapabilitiesFileName: "virsh_domcapabilities.xml",
 			cpuCounter:              nil,
-			hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool, 0)},
+			hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool)},
 			arch:                    newArchLabeller(runtime.GOARCH),
 		}
 	})
