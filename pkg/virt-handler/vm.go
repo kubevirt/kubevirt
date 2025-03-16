@@ -2545,7 +2545,7 @@ func (c *VirtualMachineController) isMigrationSource(vmi *v1.VirtualMachineInsta
 
 func (c *VirtualMachineController) handleTargetMigrationProxy(vmi *v1.VirtualMachineInstance) error {
 	// handle starting/stopping target migration proxy
-	migrationTargetSockets := []string{}
+	var migrationTargetSockets []string
 	res, err := c.podIsolationDetector.Detect(vmi)
 	if err != nil {
 		return err
@@ -3221,7 +3221,7 @@ func (c *VirtualMachineController) handleHousekeeping(vmi *v1.VirtualMachineInst
 }
 
 func (c *VirtualMachineController) getPreallocatedVolumes(vmi *v1.VirtualMachineInstance) []string {
-	preallocatedVolumes := []string{}
+	var preallocatedVolumes []string
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.PersistentVolumeClaimInfo != nil && volumeStatus.PersistentVolumeClaimInfo.Preallocated {
 			preallocatedVolumes = append(preallocatedVolumes, volumeStatus.Name)

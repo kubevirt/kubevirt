@@ -620,7 +620,7 @@ func (c *VirtLauncherClient) GetGuestInfo() (*v1.VirtualMachineInstanceGuestAgen
 
 // GetUsers returns the list of the active users on the guest machine
 func (c *VirtLauncherClient) GetUsers() (v1.VirtualMachineInstanceGuestOSUserList, error) {
-	userList := []v1.VirtualMachineInstanceGuestOSUser{}
+	var userList []v1.VirtualMachineInstanceGuestOSUser
 
 	request := &cmdv1.EmptyRequest{}
 	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
@@ -652,7 +652,7 @@ func (c *VirtLauncherClient) GetUsers() (v1.VirtualMachineInstanceGuestOSUserLis
 
 // GetFilesystems returns the list of active filesystems on the guest machine
 func (c *VirtLauncherClient) GetFilesystems() (v1.VirtualMachineInstanceFileSystemList, error) {
-	fsList := []v1.VirtualMachineInstanceFileSystem{}
+	var fsList []v1.VirtualMachineInstanceFileSystem
 
 	request := &cmdv1.EmptyRequest{}
 	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
