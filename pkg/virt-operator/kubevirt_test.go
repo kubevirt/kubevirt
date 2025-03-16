@@ -2873,8 +2873,9 @@ var _ = Describe("KubeVirt Operator", func() {
 				kvTestData.makeDeploymentsReady(kv)
 				kvTestData.makeHandlerReady()
 
-				deploy := &appsv1.Deployment{}
+				var apiDeploy, ctrlDeploy *appsv1.Deployment
 				kvTestData.deploymentPatchReactionFunc = func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					deploy := &appsv1.Deployment{}
 					a := action.(testing.PatchActionImpl)
 					patch, err := jsonpatch.DecodePatch(a.Patch)
 					Expect(err).ToNot(HaveOccurred())
@@ -2890,6 +2891,11 @@ var _ = Describe("KubeVirt Operator", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(json.Unmarshal(targetDeploymentBytes, deploy)).To(Succeed())
+					if a.Name == "virt-api" {
+						apiDeploy = deploy.DeepCopy()
+					} else if a.Name == "virt-controller" {
+						ctrlDeploy = deploy.DeepCopy()
+					}
 
 					return true, deploy, nil
 				}
@@ -2924,7 +2930,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				Expect(kvtesting.FilterActions(&kvTestData.kubeClient.Fake, "patch", "deployments")).To(HaveLen(2))
 				Expect(kvtesting.FilterActions(&kvTestData.kubeClient.Fake, "patch", "daemonsets")).To(HaveLen(1))
 
-				for _, meta := range []metav1.Object{deploy, ds, &deploy.Spec.Template, &ds.Spec.Template} {
+				for _, meta := range []metav1.Object{apiDeploy, ctrlDeploy, ds, &apiDeploy.Spec.Template, &ctrlDeploy.Spec.Template, &ds.Spec.Template} {
 					// Labels should be on both the pod/workload controller resource
 					Expect(meta.GetLabels()[v1.AppPartOfLabel]).To(Equal(kv.Spec.ProductName))
 					Expect(meta.GetLabels()[v1.AppVersionLabel]).To(Equal(kv.Spec.ProductVersion))
