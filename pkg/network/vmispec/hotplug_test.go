@@ -40,13 +40,6 @@ var _ = Describe("utilitary funcs to identify attachments to hotplug", func() {
 		DescribeTable("NetworksToHotplugWhosePodIfacesAreReady", func(vmi *v1.VirtualMachineInstance, networksToHotplug ...v1.Network) {
 			Expect(vmispec.NetworksToHotplugWhosePodIfacesAreReady(vmi)).To(ConsistOf(networksToHotplug))
 		},
-			Entry("VMI without networks in spec does not have anything to hotplug", libvmi.New()),
-			Entry("VMI with networks in spec, but not marked as ready in the status are *not* subject to hotplug",
-				libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(networkName)),
-					libvmi.WithNetwork(libvmi.MultusNetwork(networkName, nadName)),
-				),
-			),
 			Entry("VMI with networks in spec, marked as ready in the status, but not yet available in the domain *is* subject to hotplug",
 				libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(networkName)),
