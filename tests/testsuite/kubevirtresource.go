@@ -112,14 +112,6 @@ func AdjustKubeVirtResource() {
 		featuregate.VMPersistentState,
 	)
 
-	if kv.Spec.Configuration.NetworkConfiguration == nil {
-		testDefaultPermitSlirpInterface := true
-
-		kv.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
-			DeprecatedPermitSlirpInterface: &testDefaultPermitSlirpInterface,
-		}
-	}
-
 	storageClass, exists := libstorage.GetVMStateStorageClass()
 	if exists {
 		kv.Spec.Configuration.VMStateStorageClass = storageClass
