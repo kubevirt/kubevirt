@@ -23,6 +23,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -101,6 +102,12 @@ func WithTerminationGracePeriod(seconds int64) Option {
 func WithRng() Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+	}
+}
+
+func WithUID(uid string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.UID = types.UID(uid)
 	}
 }
 
