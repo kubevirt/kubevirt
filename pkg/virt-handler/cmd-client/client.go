@@ -517,7 +517,7 @@ func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {
 		response = domainResponse.Response
 	}
 
-	if err = handleError(err, "GetDomain", response); err != nil {
+	if err = handleError(err, "GetDomain", response); err != nil || domainResponse == nil {
 		return domain, exists, err
 	}
 
@@ -567,7 +567,7 @@ func (c *VirtLauncherClient) GetDomainStats() (*stats.DomainStats, bool, error) 
 		response = domainStatsResponse.Response
 	}
 
-	if err = handleError(err, "GetDomainStats", response); err != nil {
+	if err = handleError(err, "GetDomainStats", response); err != nil || domainStatsResponse == nil {
 		return stats, exists, err
 	}
 
@@ -605,7 +605,7 @@ func (c *VirtLauncherClient) GetGuestInfo() (*v1.VirtualMachineInstanceGuestAgen
 		response = gaRespose.Response
 	}
 
-	if err = handleError(err, "GetGuestInfo", response); err != nil {
+	if err = handleError(err, "GetGuestInfo", response); err != nil || gaRespose == nil {
 		return guestInfo, err
 	}
 
@@ -620,7 +620,7 @@ func (c *VirtLauncherClient) GetGuestInfo() (*v1.VirtualMachineInstanceGuestAgen
 
 // GetUsers returns the list of the active users on the guest machine
 func (c *VirtLauncherClient) GetUsers() (v1.VirtualMachineInstanceGuestOSUserList, error) {
-	userList := []v1.VirtualMachineInstanceGuestOSUser{}
+	var userList []v1.VirtualMachineInstanceGuestOSUser
 
 	request := &cmdv1.EmptyRequest{}
 	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
@@ -632,7 +632,7 @@ func (c *VirtLauncherClient) GetUsers() (v1.VirtualMachineInstanceGuestOSUserLis
 		response = uResponse.Response
 	}
 
-	if err = handleError(err, "GetUsers", response); err != nil {
+	if err = handleError(err, "GetUsers", response); err != nil || uResponse == nil {
 		return v1.VirtualMachineInstanceGuestOSUserList{}, err
 	}
 
@@ -652,7 +652,7 @@ func (c *VirtLauncherClient) GetUsers() (v1.VirtualMachineInstanceGuestOSUserLis
 
 // GetFilesystems returns the list of active filesystems on the guest machine
 func (c *VirtLauncherClient) GetFilesystems() (v1.VirtualMachineInstanceFileSystemList, error) {
-	fsList := []v1.VirtualMachineInstanceFileSystem{}
+	var fsList []v1.VirtualMachineInstanceFileSystem
 
 	request := &cmdv1.EmptyRequest{}
 	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
@@ -664,7 +664,7 @@ func (c *VirtLauncherClient) GetFilesystems() (v1.VirtualMachineInstanceFileSyst
 		response = fsResponse.Response
 	}
 
-	if err = handleError(err, "GetFilesystems", response); err != nil {
+	if err = handleError(err, "GetFilesystems", response); err != nil || fsResponse == nil {
 		return v1.VirtualMachineInstanceFileSystemList{}, err
 	}
 
