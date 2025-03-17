@@ -20,8 +20,6 @@
 package network
 
 import (
-	"strings"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -36,12 +34,7 @@ func FilterNetsForVMStartup(vmi *v1.VirtualMachineInstance) []v1.Network {
 }
 
 func FilterNetsForLiveUpdate(vmi *v1.VirtualMachineInstance) []v1.Network {
-	netsToHotplug := networksToHotplugWhosePodIfacesAreReady(vmi)
-	nonAbsentIfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
-		return iface.State != v1.InterfaceStateAbsent
-	})
-	netsToHotplug = vmispec.FilterNetworksByInterfaces(netsToHotplug, nonAbsentIfaces)
-
+	netsToHotplug := filterNetsToHotplug(vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, vmi.Status.Interfaces)
 	netsToHotunplug := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, filterIfacesToUnplug(vmi))
 
 	return append(netsToHotplug, netsToHotunplug...)
@@ -51,18 +44,29 @@ func FilterNetsForMigrationTarget(vmi *v1.VirtualMachineInstance) []v1.Network {
 	return vmi.Spec.Networks
 }
 
-func networksToHotplugWhosePodIfacesAreReady(vmi *v1.VirtualMachineInstance) []v1.Network {
-	var networksToHotplug []v1.Network
-	interfacesToHoplug := vmispec.IndexInterfaceStatusByName(
-		vmi.Status.Interfaces,
+func filterNetsToHotplug(
+	ifaces []v1.Interface,
+	nets []v1.Network,
+	ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface,
+) []v1.Network {
+	nonAbsentIfaces := vmispec.FilterInterfacesSpec(ifaces, func(iface v1.Interface) bool {
+		return iface.State != v1.InterfaceStateAbsent
+	})
+
+	nonAbsentNets := vmispec.FilterNetworksByInterfaces(nets, nonAbsentIfaces)
+
+	ifaceStatusesInPodAndNotInDomain := vmispec.IndexInterfaceStatusByName(
+		ifaceStatuses,
 		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
-			return strings.Contains(ifaceStatus.InfoSource, vmispec.InfoSourceMultusStatus) &&
-				!strings.Contains(ifaceStatus.InfoSource, vmispec.InfoSourceDomain)
+			return vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceMultusStatus) &&
+				!vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceDomain)
 		},
 	)
 
-	for _, network := range vmi.Spec.Networks {
-		if _, isIfacePluggedIntoPod := interfacesToHoplug[network.Name]; isIfacePluggedIntoPod {
+	var networksToHotplug []v1.Network
+
+	for _, network := range nonAbsentNets {
+		if _, isIfaceInPodAndNotInDomain := ifaceStatusesInPodAndNotInDomain[network.Name]; isIfaceInPodAndNotInDomain {
 			networksToHotplug = append(networksToHotplug, network)
 		}
 	}
