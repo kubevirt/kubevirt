@@ -35,7 +35,7 @@ func FilterNetsForVMStartup(vmi *v1.VirtualMachineInstance) []v1.Network {
 
 func FilterNetsForLiveUpdate(vmi *v1.VirtualMachineInstance) []v1.Network {
 	netsToHotplug := filterNetsToHotplug(vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, vmi.Status.Interfaces)
-	netsToHotunplug := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, filterIfacesToUnplug(vmi))
+	netsToHotunplug := filterNetsToHotunplug(vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, vmi.Status.Interfaces)
 
 	return append(netsToHotplug, netsToHotunplug...)
 }
@@ -74,13 +74,19 @@ func filterNetsToHotplug(
 	return networksToHotplug
 }
 
-func filterIfacesToUnplug(vmi *v1.VirtualMachineInstance) []v1.Interface {
-	ifaceStatusesNotInDomain := vmispec.IndexInterfaceStatusByName(vmi.Status.Interfaces, func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
+func filterNetsToHotunplug(
+	ifaces []v1.Interface,
+	nets []v1.Network,
+	ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface,
+) []v1.Network {
+	ifaceStatusesNotInDomain := vmispec.IndexInterfaceStatusByName(ifaceStatuses, func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
 		return !vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceDomain)
 	})
 
-	return vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+	ifacesToUnplug := vmispec.FilterInterfacesSpec(ifaces, func(iface v1.Interface) bool {
 		_, isIfaceDetached := ifaceStatusesNotInDomain[iface.Name]
 		return iface.State == v1.InterfaceStateAbsent && isIfaceDetached
 	})
+
+	return vmispec.FilterNetworksByInterfaces(nets, ifacesToUnplug)
 }
