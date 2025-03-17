@@ -905,14 +905,6 @@ func (ctrl *VMSnapshotController) updateVolumeSnapshotStatuses(vm *kubevirtv1.Vi
 }
 
 func (ctrl *VMSnapshotController) getVolumeSnapshotStatus(vm *kubevirtv1.VirtualMachine, volume *kubevirtv1.Volume) kubevirtv1.VolumeSnapshotStatus {
-	if volume == nil {
-		return kubevirtv1.VolumeSnapshotStatus{
-			Name:    volume.Name,
-			Enabled: false,
-			Reason:  fmt.Sprintf("Volume is nil [%s]", volume.Name),
-		}
-	}
-
 	snapshottable := ctrl.isVolumeSnapshottable(volume)
 	if !snapshottable {
 		return kubevirtv1.VolumeSnapshotStatus{
