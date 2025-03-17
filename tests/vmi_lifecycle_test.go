@@ -1428,7 +1428,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 
 		It("[test_id:3083][test_id:3084]should be able to connect to serial console and VNC", func() {
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(), 90)
+			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(libvmi.WithAutoattachGraphicsDevice(true)), 90)
 
 			By("Pausing the VMI")
 			err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})

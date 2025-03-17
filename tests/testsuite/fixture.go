@@ -159,6 +159,7 @@ func BeforeTestSuiteSetup(_ []byte) {
 
 	libvmifact.RegisterArchitecture(Arch)
 	libvmi.RegisterDefaultOption(addTestAnnotation)
+	libvmi.RegisterDefaultOption(libvmi.WithAutoattachGraphicsDevice(false))
 }
 
 func EnsureKubevirtReady() {
