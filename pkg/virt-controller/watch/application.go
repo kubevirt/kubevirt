@@ -435,6 +435,7 @@ func Execute() {
 	if err := metrics.SetupMetrics(
 		app.vmInformer,
 		app.vmiInformer,
+		app.persistentVolumeClaimInformer,
 		app.migrationInformer,
 		app.clusterConfig,
 		&instancetype.InstancetypeMethods{

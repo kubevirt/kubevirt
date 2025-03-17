@@ -42,22 +42,25 @@ var (
 		vmSnapshotMetrics,
 	}
 
-	vmInformer           cache.SharedIndexInformer
-	vmiInformer          cache.SharedIndexInformer
-	vmiMigrationInformer cache.SharedIndexInformer
-	clusterConfig        *virtconfig.ClusterConfig
-	instancetypeMethods  *instancetype.InstancetypeMethods
+	vmInformer                    cache.SharedIndexInformer
+	vmiInformer                   cache.SharedIndexInformer
+	persistentVolumeClaimInformer cache.SharedIndexInformer
+	vmiMigrationInformer          cache.SharedIndexInformer
+	clusterConfig                 *virtconfig.ClusterConfig
+	instancetypeMethods           *instancetype.InstancetypeMethods
 )
 
 func SetupMetrics(
 	vm cache.SharedIndexInformer,
 	vmi cache.SharedIndexInformer,
+	pvc cache.SharedIndexInformer,
 	vmiMigration cache.SharedIndexInformer,
 	virtClusterConfig *virtconfig.ClusterConfig,
 	methods *instancetype.InstancetypeMethods,
 ) error {
 	vmInformer = vm
 	vmiInformer = vmi
+	persistentVolumeClaimInformer = pvc
 	vmiMigrationInformer = vmiMigration
 	clusterConfig = virtClusterConfig
 	instancetypeMethods = methods

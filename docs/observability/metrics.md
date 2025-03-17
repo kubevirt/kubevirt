@@ -84,6 +84,9 @@ The total number of VMs created by namespace and virt-api pod, since install. Ty
 ### kubevirt_vm_created_total
 The total number of VMs created by namespace, since install. Type: Counter.
 
+### kubevirt_vm_disk_allocated_size_bytes
+Allocated disk size of a Virtual Machine in bytes, based on its PersistentVolumeClaim. Includes persistentvolumeclaim (PVC name), volume_mode (disk presentation mode: Filesystem or Block), and device (disk name). Type: Gauge.
+
 ### kubevirt_vm_error_status_last_transition_timestamp_seconds
 Virtual Machine last transition timestamp to error status. Type: Counter.
 

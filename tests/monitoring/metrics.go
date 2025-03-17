@@ -29,6 +29,7 @@ import (
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 	"github.com/onsi/gomega/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -43,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
+	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -97,7 +99,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			err = virtapi.SetupMetrics()
 			Expect(err).ToNot(HaveOccurred())
 
-			err = virtcontroller.SetupMetrics(nil, nil, nil, nil, nil)
+			err = virtcontroller.SetupMetrics(nil, nil, nil, nil, nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = virtcontroller.RegisterLeaderMetrics()
@@ -138,6 +140,17 @@ func basicVMLifecycle(virtClient kubecli.KubevirtClient) {
 	By("Waiting for the VM domainstats metrics to be reported")
 	libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_vmi_filesystem_capacity_bytes", map[string]string{"namespace": vm.Namespace, "name": vm.Name}, 0, ">", 0)
 
+	By("Verifying kubevirt_vm_disk_allocated_size_bytes metric")
+	libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_vm_disk_allocated_size_bytes",
+		map[string]string{
+			"namespace":             vm.Namespace,
+			"name":                  vm.Name,
+			"persistentvolumeclaim": "test-vm-pvc",
+			"volume_mode":           "Filesystem",
+			"device":                "testdisk",
+		},
+		0, ">", 0)
+
 	By("Deleting the VirtualMachine")
 	err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 	Expect(err).ToNot(HaveOccurred())
@@ -147,10 +160,15 @@ func basicVMLifecycle(virtClient kubecli.KubevirtClient) {
 }
 
 func createAndRunVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
+	vmDiskPVC := "test-vm-pvc"
+	pvc := libstorage.CreateFSPVC(vmDiskPVC, testsuite.GetTestNamespace(nil), "512Mi", nil)
+
 	vmi := libvmifact.NewFedora(
 		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 		libvmi.WithLimitMemory("512Mi"),
+		libvmi.WithPersistentVolumeClaim("testdisk", pvc.Name),
 	)
+
 	vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())

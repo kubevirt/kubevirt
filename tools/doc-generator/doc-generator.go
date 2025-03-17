@@ -41,7 +41,7 @@ this document.
 `
 
 func main() {
-	if err := virtcontroller.SetupMetrics(nil, nil, nil, nil, nil); err != nil {
+	if err := virtcontroller.SetupMetrics(nil, nil, nil, nil, nil, nil); err != nil {
 		panic(err)
 	}
 
