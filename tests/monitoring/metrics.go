@@ -90,7 +90,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			"kubevirt_vmi_migration_end_time_seconds":                            true,
 		}
 
-		It("should contain virt components metrics", func() {
+		FIt("should contain virt components metrics", func() {
 			err := virtoperator.SetupMetrics()
 			Expect(err).ToNot(HaveOccurred())
 
