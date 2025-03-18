@@ -27,7 +27,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -39,85 +38,6 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 )
-
-// addDataVolume handles the addition of a DataVolume, enqueuing affected VMIs.
-func (c *Controller) addDataVolume(obj interface{}) {
-	dataVolume := obj.(*cdiv1.DataVolume)
-	if dataVolume.DeletionTimestamp != nil {
-		c.deleteDataVolume(dataVolume)
-		return
-	}
-	vmis, err := c.listVMIsMatchingDV(dataVolume.Namespace, dataVolume.Name)
-	if err != nil {
-		return
-	}
-	for _, vmi := range vmis {
-		log.Log.V(4).Object(dataVolume).Infof("DataVolume created for vmi %s", vmi.Name)
-		c.enqueueVirtualMachine(vmi)
-	}
-}
-
-// updateDataVolume handles updates to a DataVolume, enqueuing affected VMIs.
-func (c *Controller) updateDataVolume(old, cur interface{}) {
-	curDataVolume := cur.(*cdiv1.DataVolume)
-	oldDataVolume := old.(*cdiv1.DataVolume)
-	if curDataVolume.ResourceVersion == oldDataVolume.ResourceVersion {
-		// Periodic resync will send update events for all known DataVolumes.
-		// Two different versions of the same dataVolume will always
-		// have different RVs.
-		return
-	}
-	if curDataVolume.DeletionTimestamp != nil {
-		labelChanged := !equality.Semantic.DeepEqual(curDataVolume.Labels, oldDataVolume.Labels)
-		// having a DataVOlume marked for deletion is enough
-		// to count as a deletion expectation
-		c.deleteDataVolume(curDataVolume)
-		if labelChanged {
-			// we don't need to check the oldDataVolume.DeletionTimestamp
-			// because DeletionTimestamp cannot be unset.
-			c.deleteDataVolume(oldDataVolume)
-		}
-		return
-	}
-	vmis, err := c.listVMIsMatchingDV(curDataVolume.Namespace, curDataVolume.Name)
-	if err != nil {
-		log.Log.Object(curDataVolume).Errorf("Error encountered during datavolume update: %v", err)
-		return
-	}
-	for _, vmi := range vmis {
-		log.Log.V(4).Object(curDataVolume).Infof("DataVolume updated for vmi %s", vmi.Name)
-		c.enqueueVirtualMachine(vmi)
-	}
-}
-
-// deleteDataVolume handles the deletion of a DataVolume, enqueuing affected VMIs.
-func (c *Controller) deleteDataVolume(obj interface{}) {
-	dataVolume, ok := obj.(*cdiv1.DataVolume)
-	// When a delete is dropped, the relist will notice a dataVolume in the store not
-	// in the list, leading to the insertion of a tombstone object which contains
-	// the deleted key/value. Note that this value might be stale. If the dataVolume
-	// changed labels the new vmi will not be woken up till the periodic resync.
-	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			log.Log.Reason(fmt.Errorf(tombstoneGetObjectErrFmt, obj)).Error(deleteNotifFailed)
-			return
-		}
-		dataVolume, ok = tombstone.Obj.(*cdiv1.DataVolume)
-		if !ok {
-			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a DataVolume %#v", obj)).Error(deleteNotifFailed)
-			return
-		}
-	}
-	vmis, err := c.listVMIsMatchingDV(dataVolume.Namespace, dataVolume.Name)
-	if err != nil {
-		return
-	}
-	for _, vmi := range vmis {
-		log.Log.V(4).Object(dataVolume).Infof("DataVolume deleted for vmi %s", vmi.Name)
-		c.enqueueVirtualMachine(vmi)
-	}
-}
 
 // addPVC handles the addition of a PVC, enqueuing affected VMIs.
 func (c *Controller) addPVC(obj interface{}) {
