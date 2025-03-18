@@ -44,7 +44,7 @@ import (
 
 const startupTimeout = 60
 
-var _ = Describe(SIG("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]Console", func() {
+var _ = Describe(SIG("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]Console", decorators.WgS390x, func() {
 
 	expectConsoleOutput := func(vmi *v1.VirtualMachineInstance, expected string) {
 		By("Checking that the console output equals to expected one")
@@ -57,11 +57,11 @@ var _ = Describe(SIG("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@r
 	Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		Context("with a serial console", func() {
 			It("[test_id:1588]should return OS login", func() {
-				vmi := libvmifact.NewCirros()
+				vmi := libvmifact.NewAlpine()
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
 				expectConsoleOutput(
 					vmi,
-					"login as 'cirros' user",
+					"login",
 				)
 			})
 			It("[test_id:1590]should be able to reconnect to console multiple times", func() {

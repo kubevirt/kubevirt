@@ -88,17 +88,17 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			By("Checking QueueCount has the expected value")
 			Expect(vmi.Status.Interfaces[0].QueueCount).To(Equal(expectedQueueCount))
 		},
-			Entry("[test_id:4599] with default virtio interface", v1.VirtIO, numCpus),
+			Entry("[test_id:4599] with default virtio interface", decorators.WgS390x, v1.VirtIO, numCpus),
 			Entry("with e1000 interface", "e1000", int32(1)),
 		)
 
-		It("[test_id:959][rfe_id:2065] Should honor multiQueue requests", func() {
+		It("[test_id:959][rfe_id:2065] Should honor multiQueue requests", decorators.WgS390x, func() {
 			Expect(availableCPUs).To(BeNumerically(">=", numCpus),
 				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
 			)
 
 			cpuResources := strconv.Itoa(int(numCpus))
-			vmi := libvmifact.NewAlpine(libvmi.WithResourceCPU(cpuResources), libvmi.WithContainerDisk("disk1", cd.ContainerDiskFor(cd.ContainerDiskCirros)))
+			vmi := libvmifact.NewAlpine(libvmi.WithResourceCPU(cpuResources), libvmi.WithContainerDisk("disk1", cd.ContainerDiskFor(cd.ContainerDiskAlpine)))
 			vmi.Spec.Domain.Devices.BlockMultiQueue = pointer.P(true)
 
 			By("Creating VMI with 2 disks, 3 CPUs and multi-queue enabled")
@@ -130,8 +130,8 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			}
 		})
 
-		It("should be able to create a multi-queue VMI when requesting a single vCPU", func() {
-			vmi := libvmifact.NewCirros()
+		It("should be able to create a multi-queue VMI when requesting a single vCPU", decorators.WgS390x, func() {
+			vmi := libvmifact.NewAlpine()
 
 			vmi.Spec.Domain.CPU = &v1.CPU{Cores: 1, Sockets: 1, Threads: 1}
 			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.P(true)

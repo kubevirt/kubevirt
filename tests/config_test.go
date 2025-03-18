@@ -53,7 +53,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Config", decorators.SigCompute, func() {
+var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Config", decorators.SigCompute, decorators.WgS390x, func() {
 
 	var CheckIsoVolumeSizes = func(vmi *v1.VirtualMachineInstance) {
 		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
