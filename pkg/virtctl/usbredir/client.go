@@ -52,6 +52,7 @@ type Client struct {
 
 	ctx context.Context
 
+	LaunchClient  bool
 	ClientConnect ClientConnectFn
 }
 
@@ -65,6 +66,7 @@ func NewUSBRedirClient(ctx context.Context, address string, stream kvcorev1.Stre
 		outputReader:  outReader,
 		outputWriter:  outWriter,
 		ClientConnect: clientConnect,
+		LaunchClient:  true,
 	}
 
 	// Create local TCP server for usbredir client to connect
@@ -79,6 +81,15 @@ func NewUSBRedirClient(ctx context.Context, address string, stream kvcorev1.Stre
 	k.proxyUSBRedir()
 
 	return k, nil
+}
+
+// The address for usbredir client to connect
+func (k *Client) GetProxyAddress() string {
+	if k.listener == nil {
+		log.Log.Warning("Calling GetProxyAddress without a functioning Listener")
+		return ""
+	}
+	return k.listener.Addr().String()
 }
 
 func (k *Client) withRemoteVMIStream(usbredirStream kvcorev1.StreamInterface) {
@@ -176,12 +187,14 @@ func clientConnect(ctx context.Context, device, address string) error {
 
 func (k *Client) Redirect(device string) error {
 	// execute local usbredir binary
-	address := k.listener.Addr().String()
+	address := k.GetProxyAddress()
 	k.local = make(chan error)
-	go func() {
-		defer close(k.done)
-		k.local <- k.ClientConnect(k.ctx, device, address)
-	}()
+	if k.LaunchClient {
+		go func() {
+			defer close(k.done)
+			k.local <- k.ClientConnect(k.ctx, device, address)
+		}()
+	}
 
 	var err error
 	select {
