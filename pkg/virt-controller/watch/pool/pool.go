@@ -1082,9 +1082,7 @@ func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedL
 			log.Log.Object(pool).Infof("Proactively updating vm %s/%s in pool via label patch", vm.Namespace, vm.Name)
 		}
 	}
-
 	return nil
-
 }
 
 type proactiveUpdateType string
