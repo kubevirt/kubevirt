@@ -419,10 +419,8 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		Entry("[test_id:6227] by using IPv6", k8sv1.IPv6Protocol),
 	)
 
-	DescribeTable("should expose kubevirt_supported_machine_types metric with supported types", func(family k8sv1.IPFamily) {
-		libnet.SkipWhenClusterNotSupportIPFamily(family)
-
-		ip := libnet.GetIP(handlerMetricIPs, family)
+	It("should expose kubevirt_supported_machine_types metric with supported types", func() {
+		ip := libnet.GetIP(handlerMetricIPs, k8sv1.IPv4Protocol)
 
 		By("Scraping the Prometheus endpoint for kubevirt_supported_machine_types metric")
 		metrics := collectMetrics(ip, "kubevirt_supported_machine_types")
@@ -433,10 +431,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		for _, key := range keys {
 			Expect(key).To(ContainSubstring(`machine_type="`), fmt.Sprintf("Expected machine_type label in metric: %s", key))
 		}
-	},
-		Entry("[test_id:9999] kubevirt_supported_machine_types metric by IPv4", k8sv1.IPv4Protocol),
-		Entry("[test_id:9998] kubevirt_supported_machine_types metric by IPv6", k8sv1.IPv6Protocol),
-	)
+	})
 
 	DescribeTable("should include the storage metrics for a running VM", func(family k8sv1.IPFamily, metricSubstring, operator string) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)

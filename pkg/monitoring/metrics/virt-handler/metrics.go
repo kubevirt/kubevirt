@@ -42,7 +42,7 @@ func SetupMetrics(virtShareDir, nodeName string, MaxRequestsInFlight int, vmiInf
 		return err
 	}
 	SetVersionInfo()
-	ReportSupportedMachineTypes(supportedMachines)
+	ReportSupportedMachineTypes(nodeName, supportedMachines)
 
 	domainstats.SetupDomainStatsCollector(virtShareDir, nodeName, MaxRequestsInFlight, vmiInformer)
 

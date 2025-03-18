@@ -15,12 +15,12 @@ var (
 			Name: "kubevirt_supported_machine_types",
 			Help: "List of supported machine types.",
 		},
-		[]string{"machine_type", "deprecated"},
+		[]string{"node", "machine_type", "deprecated"},
 	)
 )
 
-func ReportSupportedMachineTypes(supportedMachines []libvirtxml.CapsGuestMachine) {
+func ReportSupportedMachineTypes(nodeName string, supportedMachines []libvirtxml.CapsGuestMachine) {
 	for _, machine := range supportedMachines {
-		supportedMachineTypeMetric.WithLabelValues(machine.Name, machine.Deprecated).Set(1)
+		supportedMachineTypeMetric.WithLabelValues(nodeName, machine.Name, machine.Deprecated).Set(1)
 	}
 }
