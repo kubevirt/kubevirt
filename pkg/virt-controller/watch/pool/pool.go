@@ -23,7 +23,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	k8score "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -139,7 +138,7 @@ func NewController(clientset kubecli.KubevirtClient,
 	return c, nil
 }
 
-func (c *Controller) resolveVMIControllerRef(namespace string, controllerRef *v1.OwnerReference) *virtv1.VirtualMachine {
+func (c *Controller) resolveVMIControllerRef(namespace string, controllerRef *metav1.OwnerReference) *virtv1.VirtualMachine {
 	// We can't look up by UID, so look up by Name and then verify UID.
 	// Don't even try to look up by Name if it's the wrong Kind.
 	if controllerRef.Kind != virtv1.VirtualMachineGroupVersionKind.Kind {
@@ -499,6 +498,12 @@ func (c *Controller) filterReadyVMs(vms []*virtv1.VirtualMachine) []*virtv1.Virt
 	})
 }
 
+func (c *Controller) filterNotReadyVMs(vms []*virtv1.VirtualMachine) []*virtv1.VirtualMachine {
+	return filterVMs(vms, func(vm *virtv1.VirtualMachine) bool {
+		return !controller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm, virtv1.VirtualMachineConditionType(k8score.PodReady), k8score.ConditionTrue)
+	})
+}
+
 func filterVMs(vms []*virtv1.VirtualMachine, f func(vmi *virtv1.VirtualMachine) bool) []*virtv1.VirtualMachine {
 	filtered := []*virtv1.VirtualMachine{}
 	for _, vm := range vms {
@@ -701,7 +706,7 @@ func (c *Controller) ensureControllerRevision(pool *poolv1.VirtualMachinePool) (
 	}
 
 	cr := &appsv1.ControllerRevision{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:            revisionName,
 			Namespace:       pool.Namespace,
 			OwnerReferences: []metav1.OwnerReference{poolOwnerRef(pool)},
@@ -711,7 +716,7 @@ func (c *Controller) ensureControllerRevision(pool *poolv1.VirtualMachinePool) (
 	}
 
 	c.expectations.RaiseExpectations(poolKey, 1, 0)
-	_, err = c.clientset.AppsV1().ControllerRevisions(pool.Namespace).Create(context.Background(), cr, v1.CreateOptions{})
+	_, err = c.clientset.AppsV1().ControllerRevisions(pool.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
 	if err != nil {
 		c.expectations.CreationObserved(poolKey)
 		return "", err
@@ -833,7 +838,7 @@ func (c *Controller) scale(pool *poolv1.VirtualMachinePool, vms []*virtv1.Virtua
 	return nil, false
 }
 
-func (c *Controller) getUnavailableVMICount(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) (int, error) {
+func (c *Controller) getUnavailableVMICount(vms []*virtv1.VirtualMachine) (int, error) {
 	unavailableCount := 0
 	for _, vm := range vms {
 		vmiKey := controller.NamespacedKey(vm.Namespace, vm.Name)
@@ -842,22 +847,61 @@ func (c *Controller) getUnavailableVMICount(pool *poolv1.VirtualMachinePool, vms
 			return 0, err
 		}
 		if !exists {
-			_, err := c.clientset.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			vmi, err := c.clientset.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			if err != nil {
-				return 0, err
+				unavailableCount++
+				continue
 			}
+			obj = vmi
 		}
 		vmi := obj.(*virtv1.VirtualMachineInstance)
-		if vmi.DeletionTimestamp != nil {
+		if vmi.DeletionTimestamp != nil || vmi.Status.Phase == virtv1.Failed || vmi.Status.Phase == virtv1.Unknown {
+			unavailableCount++
 			continue
 		}
-
 		readyCondition := controller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi, virtv1.VirtualMachineInstanceReady)
 		if readyCondition == nil || readyCondition.Status != k8score.ConditionTrue {
 			unavailableCount++
 		}
 	}
 	return unavailableCount, nil
+}
+
+func (c *Controller) handleUnhealthyVMIs(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) error {
+	notReadyVMs := c.filterNotReadyVMs(vms)
+	if len(notReadyVMs) == 0 {
+		return nil
+	}
+
+	for _, vm := range notReadyVMs {
+		vmiKey := controller.NamespacedKey(vm.Namespace, vm.Name)
+		obj, exists, _ := c.vmiStore.GetByKey(vmiKey)
+		if exists {
+			vmi := obj.(*virtv1.VirtualMachineInstance)
+			if vmi.DeletionTimestamp != nil {
+				continue
+			}
+			updateType, err := c.isOutdatedVMI(vm, vmi)
+			if err != nil {
+				return err
+			}
+			if updateType == proactiveUpdateTypeRestart {
+				err := c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
+				if err != nil {
+					c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedUpdateVirtualMachineReason, "Error deleting unhealthy VMI %s/%s: %v", vm.Namespace, vm.Name, err)
+					return err
+				}
+			} else if updateType == proactiveUpdateTypeVMDelete {
+				foreGround := metav1.DeletePropagationForeground
+				err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Delete(context.Background(), vm.ObjectMeta.Name, metav1.DeleteOptions{PropagationPolicy: &foreGround})
+				if err != nil {
+					c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedUpdateVirtualMachineReason, "Error deleting unhealthy VM %s/%s: %v", vm.Namespace, vm.Name, err)
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (c *Controller) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vmOutdatedList []*virtv1.VirtualMachine) error {
@@ -916,7 +960,10 @@ func (c *Controller) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vmOutd
 }
 
 func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedList []*virtv1.VirtualMachine) error {
-	var wg sync.WaitGroup
+	// Handle unhealthy VMIs first to rollover any changes to the VMI spec in case last update failed
+	if err := c.handleUnhealthyVMIs(pool, vmUpdatedList); err != nil {
+		return err
+	}
 
 	maxUnavailable := intstr.FromString("25%")
 	if pool.Spec.MaxUnavailable != nil {
@@ -943,120 +990,98 @@ func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedL
 		maxUnavailableInt = 1
 	}
 
-	errChan := make(chan error, len(vmUpdatedList))
-	unavailableCount, err := c.getUnavailableVMICount(pool, vmUpdatedList)
-	if err != nil {
-		errChan <- err
-		return err
-	}
+	for i := range vmUpdatedList {
+		timeout := time.After(1 * time.Minute)
+	waitLoop:
+		for {
+			select {
+			case <-timeout:
+				return fmt.Errorf("timeout as the new VMIs are not coming online after 1 minutes")
+			default:
+				time.Sleep(1 * time.Second)
+				unavailableCount, err := c.getUnavailableVMICount(vmUpdatedList)
+				if err != nil {
+					return err
+				}
+				if unavailableCount < maxUnavailableInt {
+					break waitLoop
+				}
+			}
+		}
+		vm := vmUpdatedList[i]
 
-	if unavailableCount > 0 {
-		return fmt.Errorf("cannot proceed with proactive updates: %d VMIs are unavailable", unavailableCount)
-	}
+		vmiKey := controller.NamespacedKey(vm.Namespace, vm.Name)
+		obj, exists, _ := c.vmiStore.GetByKey(vmiKey)
+		if !exists {
+			// no VMI to update
+			return nil
+		}
+		vmi := obj.(*virtv1.VirtualMachineInstance)
+		if vmi.DeletionTimestamp != nil {
+			// ignore VMIs which are already deleting
+			return nil
+		}
 
-	for i := 0; i < len(vmUpdatedList); i++ {
-		unavailableCount, err := c.getUnavailableVMICount(pool, vmUpdatedList)
+		updateType, err := c.isOutdatedVMI(vm, vmi)
 		if err != nil {
-			errChan <- err
 			return err
 		}
-
-		if unavailableCount >= maxUnavailableInt {
-			log.Log.Object(pool).Infof("Reached maxUnavailable limit (%d), waiting for some updates to complete before continuing", maxUnavailableInt)
-			wg.Wait()
+		if updateType == proactiveUpdateTypeNone {
+			return nil
 		}
-		wg.Add(1)
-		go func(idx int) {
-			defer wg.Done()
-			vm := vmUpdatedList[idx]
 
-			vmiKey := controller.NamespacedKey(vm.Namespace, vm.Name)
-			obj, exists, _ := c.vmiStore.GetByKey(vmiKey)
-			if !exists {
-				// no VMI to update
-				return
-			}
-			vmi := obj.(*virtv1.VirtualMachineInstance)
-			if vmi.DeletionTimestamp != nil {
-				// ignore VMIs which are already deleting
-				return
-			}
-
-			updateType, err := c.isOutdatedVMI(vm, vmi)
+		switch updateType {
+		case proactiveUpdateTypeRestart:
+			err := c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 			if err != nil {
-				errChan <- err
-				return
+				c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedUpdateVirtualMachineReason, "Error proactively updating VM %s/%s by deleting outdated VMI: %v", vm.Namespace, vm.Name, err)
+				return err
 			}
-			if updateType == proactiveUpdateTypeNone {
-				return
+			log.Log.Object(pool).Infof("Proactively updating vm %s/%s in pool via vmi deletion", vm.Namespace, vm.Name)
+			c.recorder.Eventf(pool, k8score.EventTypeNormal, common.SuccessfulDeleteVirtualMachineReason, "Proactive update of VM %s/%s by deleting outdated VMI", vm.Namespace, vm.Name)
+		case proactiveUpdateTypeVMDelete:
+			foreGround := metav1.DeletePropagationForeground
+			err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Delete(context.Background(), vm.ObjectMeta.Name, metav1.DeleteOptions{PropagationPolicy: &foreGround})
+			if err != nil {
+				c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedUpdateVirtualMachineReason, "Error proactively updating VM %s/%s by deleting VM due to data volume changes: %v", vm.Namespace, vm.Name, err)
+				return err
+			}
+			log.Log.Object(pool).Infof("Proactively updating vm %s/%s in pool via vm deletion due to data volume changes", vm.Namespace, vm.Name)
+			c.recorder.Eventf(pool, k8score.EventTypeNormal, common.SuccessfulDeleteVirtualMachineReason, "Proactive update of VM %s/%s by deleting VM due to data volume changes", vm.Namespace, vm.Name)
+		case proactiveUpdateTypePatchRevisionLabel:
+			patchSet := patch.New()
+			vmiCopy := vmi.DeepCopy()
+			if vmiCopy.Labels == nil {
+				vmiCopy.Labels = make(map[string]string)
+			}
+			revisionName, exists := vm.Labels[virtv1.VirtualMachinePoolRevisionName]
+			if !exists {
+				// nothing to do
+				return nil
+			}
+			vmiCopy.Labels[virtv1.VirtualMachinePoolRevisionName] = revisionName
+
+			if vmi.Labels == nil {
+				patchSet.AddOption(patch.WithAdd("/metadata/labels", vmi.Labels))
+			} else {
+				patchSet.AddOption(
+					patch.WithTest("/metadata/labels", vmiCopy.Labels),
+					patch.WithReplace("/metadata/labels", vmi.Labels),
+				)
 			}
 
-			switch updateType {
-			case proactiveUpdateTypeRestart:
-				err := c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, v1.DeleteOptions{})
-				if err != nil {
-					c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedUpdateVirtualMachineReason, "Error proactively updating VM %s/%s by deleting outdated VMI: %v", vm.Namespace, vm.Name, err)
-					errChan <- err
-					return
-				}
-				log.Log.Object(pool).Infof("Proactively updating vm %s/%s in pool via vmi deletion", vm.Namespace, vm.Name)
-				c.recorder.Eventf(pool, k8score.EventTypeNormal, common.SuccessfulDeleteVirtualMachineReason, "Proactive update of VM %s/%s by deleting outdated VMI", vm.Namespace, vm.Name)
-			case proactiveUpdateTypeVMDelete:
-				foreGround := metav1.DeletePropagationForeground
-				err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Delete(context.Background(), vm.ObjectMeta.Name, metav1.DeleteOptions{PropagationPolicy: &foreGround})
-				if err != nil {
-					c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedUpdateVirtualMachineReason, "Error proactively updating VM %s/%s by deleting VM due to data volume changes: %v", vm.Namespace, vm.Name, err)
-					errChan <- err
-					return
-				}
-				log.Log.Object(pool).Infof("Proactively updating vm %s/%s in pool via vm deletion due to data volume changes", vm.Namespace, vm.Name)
-				c.recorder.Eventf(pool, k8score.EventTypeNormal, common.SuccessfulDeleteVirtualMachineReason, "Proactive update of VM %s/%s by deleting VM due to data volume changes", vm.Namespace, vm.Name)
-			case proactiveUpdateTypePatchRevisionLabel:
-				patchSet := patch.New()
-				vmiCopy := vmi.DeepCopy()
-				if vmiCopy.Labels == nil {
-					vmiCopy.Labels = make(map[string]string)
-				}
-				revisionName, exists := vm.Labels[virtv1.VirtualMachinePoolRevisionName]
-				if !exists {
-					// nothing to do
-					return
-				}
-				vmiCopy.Labels[virtv1.VirtualMachinePoolRevisionName] = revisionName
-
-				if vmi.Labels == nil {
-					patchSet.AddOption(patch.WithAdd("/metadata/labels", vmi.Labels))
-				} else {
-					patchSet.AddOption(
-						patch.WithTest("/metadata/labels", vmiCopy.Labels),
-						patch.WithReplace("/metadata/labels", vmi.Labels),
-					)
-				}
-
-				patchBytes, err := patchSet.GeneratePayload()
-				if err != nil {
-					errChan <- err
-					return
-				}
-
-				_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
-				if err != nil {
-					errChan <- fmt.Errorf("patching of vmi labels with new pool revision name: %v", err)
-					return
-				}
-				log.Log.Object(pool).Infof("Proactively updating vm %s/%s in pool via label patch", vm.Namespace, vm.Name)
+			patchBytes, err := patchSet.GeneratePayload()
+			if err != nil {
+				return err
 			}
-		}(i)
+
+			_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+			if err != nil {
+				return fmt.Errorf("patching of vmi labels with new pool revision name: %v", err)
+			}
+			log.Log.Object(pool).Infof("Proactively updating vm %s/%s in pool via label patch", vm.Namespace, vm.Name)
+		}
 	}
-	wg.Wait()
-
-	select {
-	case err := <-errChan:
-		// Only return the first error which occurred. We log the rest
-		return err
-	default:
-	}
-
 	return nil
 }
 
@@ -1231,7 +1256,7 @@ func (c *Controller) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, vms [
 	}
 
 	for revisionName := range deletionMap {
-		err := c.clientset.AppsV1().ControllerRevisions(pool.Namespace).Delete(context.Background(), revisionName, v1.DeleteOptions{})
+		err := c.clientset.AppsV1().ControllerRevisions(pool.Namespace).Delete(context.Background(), revisionName, metav1.DeleteOptions{})
 		if err != nil {
 			return common.NewSyncError(fmt.Errorf("Error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason)
 		}
