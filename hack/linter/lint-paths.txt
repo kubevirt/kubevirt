@@ -19,6 +19,7 @@ pkg/storage/pod/annotations
 pkg/virtctl/clientconfig
 pkg/virtctl/credentials
 pkg/virtctl/create/params
+tests/conformance
 tests/console
 tests/decorators
 tests/infrastructure
