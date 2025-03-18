@@ -21,9 +21,12 @@ package tests_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
+
+	k8sversion "k8s.io/apimachinery/pkg/version"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -37,6 +40,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -46,11 +50,13 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
+	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
 var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]ContainerDisk", decorators.SigCompute, func() {
@@ -123,13 +129,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting from custom image location", func() {
 		Context("with disk at /custom-disk/downloaded", func() {
-
 			It("[test_id:1466]should boot normally", func() {
-				overrideCustomLocation := func(vmi *v1.VirtualMachineInstance) {
-					vmi.Spec.Volumes[0].ContainerDisk.Image = cd.ContainerDiskFor(cd.ContainerDiskCirrosCustomLocation)
-					vmi.Spec.Volumes[0].ContainerDisk.Path = "/custom-disk/downloaded"
-				}
-
 				By("Starting the VirtualMachineInstance")
 				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(overrideCustomLocation), 60)
 
@@ -220,4 +220,90 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 		})
 	})
+
+	Describe("Simulate an upgrade from a version where ImageVolume was disabled to a version where it is enabled", Serial, func() {
+		BeforeEach(func() {
+			v, err := getKubernetesVersion()
+			Expect(err).ToNot(HaveOccurred())
+			if v < "1.33" {
+				// Skip the test if the Kubernetes version is lower than 1.33
+				// ImageVolume won't work for versions < 1.33 because of this bug:
+				// https://github.com/kubernetes/kubernetes/pull/130394
+				// Additionally there is currently no way to enable k8s ImageVolume FG
+				// through kubevirtci. It is enabled by default since 1.33.
+				Skip("this test requires Kubernetes version >= 1.33")
+			}
+		})
+
+		DescribeTable("Migration from a source launcher with the bind mount workaround to a target launcher without the bind mount workaround should succeed when ", func(vmi *v1.VirtualMachineInstance) {
+			config.DisableFeatureGate(featuregate.ImageVolume)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+			By("Fetching virt-launcher pod without ImageVolume")
+			sourcePod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(sourcePod.Spec.InitContainers).ToNot(BeEmpty(), "without ImageVolume should include container-disk-binary init container to copy the container-disk binary")
+			config.EnableFeatureGate(featuregate.ImageVolume)
+			By("Starting new migration and waiting for it to succeed")
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+			By("Verifying Migration Succeeeds")
+			libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+
+			By("Fetching virt-launcher pod with ImageVolume")
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			targetPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(targetPod.Spec.InitContainers).To(BeEmpty(), "with ImageVolume should not include container-disk-binary init container")
+		},
+			Entry("using simple Cirros vmi",
+				libvmifact.NewCirros(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				),
+			),
+			Entry("using  Cirros vmi with custom location", decorators.Periodic,
+				libvmifact.NewCirros(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					overrideCustomLocation,
+				),
+			),
+			Entry("using  Cirros vmi with kernel boot", decorators.Periodic,
+				newCirrosWithKernelBoot(),
+			),
+		)
+	})
 })
+
+func overrideCustomLocation(vmi *v1.VirtualMachineInstance) {
+	vmi.Spec.Volumes[0].ContainerDisk.Image = cd.ContainerDiskFor(cd.ContainerDiskCirrosCustomLocation)
+	vmi.Spec.Volumes[0].ContainerDisk.Path = "/custom-disk/downloaded"
+}
+
+func newCirrosWithKernelBoot() *v1.VirtualMachineInstance {
+	vmi := libvmifact.NewCirros(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	)
+	utils.AddKernelBootToVMI(vmi)
+	return vmi
+}
+
+func getKubernetesVersion() (string, error) {
+	var info k8sversion.Info
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return "", err
+	}
+	response, err := virtClient.RestClient().Get().AbsPath("/version").DoRaw(context.Background())
+	if err != nil {
+		return "", err
+	}
+	if err := json.Unmarshal(response, &info); err != nil {
+		return "", err
+	}
+	curVersion := strings.Split(info.GitVersion, "+")[0]
+	curVersion = strings.Trim(curVersion, "v")
+	return curVersion, nil
+}
