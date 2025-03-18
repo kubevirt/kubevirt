@@ -29,6 +29,7 @@ type ContainerDisk string
 
 const (
 	ContainerDiskCirrosCustomLocation ContainerDisk = "cirros-custom"
+	ContainerDiskAlpineCustomLocation ContainerDisk = "alpine-custom"
 	ContainerDiskCirros               ContainerDisk = "cirros"
 	ContainerDiskAlpine               ContainerDisk = "alpine"
 	ContainerDiskAlpineTestTooling    ContainerDisk = "alpine-with-test-tooling"
@@ -62,7 +63,7 @@ func DataVolumeImportUrlFromRegistryForContainerDisk(registry string, name Conta
 
 func ContainerDiskFromRegistryFor(registry string, name ContainerDisk) string {
 	switch name {
-	case ContainerDiskCirros, ContainerDiskAlpine, ContainerDiskCirrosCustomLocation:
+	case ContainerDiskCirros, ContainerDiskAlpine, ContainerDiskCirrosCustomLocation, ContainerDiskAlpineCustomLocation:
 		return fmt.Sprintf("%s/%s-container-disk-demo:%s", registry, name, flags.KubeVirtUtilityVersionTag)
 	case ContainerDiskVirtio:
 		return fmt.Sprintf("%s/virtio-container-disk:%s", registry, flags.KubeVirtUtilityVersionTag)
