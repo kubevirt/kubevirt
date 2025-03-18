@@ -73,6 +73,9 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			// needs a snapshot - ignoring since already tested in - VM Monitoring, VM snapshot metrics
 			"kubevirt_vmsnapshot_succeeded_timestamp_seconds": true,
 
+			// needs a supportedMachines variable - ignoring since already tested in - tests/infrastructure/prometheus
+			"kubevirt_supported_machine_types": true,
+
 			// migration metrics
 			// needs a migration - ignoring since already tested in - VM Monitoring, VM migration metrics
 			"kubevirt_vmi_migration_phase_transition_time_from_creation_seconds": true,
