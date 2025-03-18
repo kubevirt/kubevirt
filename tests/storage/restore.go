@@ -315,18 +315,19 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			var err error
 			var snapshot *snapshotv1.VirtualMachineSnapshot
 
-			runStrategyHalted := v1.RunStrategyHalted
-
 			AfterEach(func() {
 				deleteSnapshot(snapshot)
 			})
 
 			It("should successfully restore", func() {
-				vm.Spec.RunStrategy = &runStrategyHalted
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyRerunOnFailure)
 				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 360).Should(BeInPhase(v1.Running))
 				snapshot = createSnapshot(vm)
 
+				vm = libvmops.StopVirtualMachine(vm)
+				Expect(vm.Spec.RunStrategy).To(HaveValue(Equal(v1.RunStrategyRerunOnFailure)))
 				restore := createRestoreDef(vm.Name, snapshot.Name)
 
 				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
@@ -335,6 +336,9 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
 				Expect(restore.Status.Restores).To(BeEmpty())
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
+				restoredVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(restoredVM.Spec.RunStrategy).To(HaveValue(Equal(v1.RunStrategyRerunOnFailure)))
 			})
 		})
 
