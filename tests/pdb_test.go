@@ -41,12 +41,12 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-compute]Pod Disruption Budget (PDB)", decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]Pod Disruption Budget (PDB)", decorators.SigCompute, decorators.WgS390x, func() {
 
 	It("should ensure the Pod Disruption Budget (PDB) is deleted when the VM is stopped via guest OS", func() {
 		By("Creating test VM")
 		vm := libvmi.NewVirtualMachine(
-			libvmifact.NewCirros(
+			libvmifact.NewAlpine(
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
@@ -64,11 +64,11 @@ var _ = Describe("[sig-compute]Pod Disruption Budget (PDB)", decorators.SigCompu
 
 		vmi, err := kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 		By("Issuing a poweroff command from inside VM")
 		Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-			&expect.BSnd{S: "sudo poweroff\n"},
+			&expect.BSnd{S: "poweroff\n"},
 			&expect.BExp{R: console.PromptExpression},
 		}, 10)).To(Succeed())
 

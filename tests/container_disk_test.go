@@ -61,11 +61,11 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		virtClient = kubevirt.Client()
 	})
 
-	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting and stopping the same VirtualMachine", func() {
+	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting and stopping the same VirtualMachine", decorators.WgS390x, func() {
 		Context("with ephemeral registry disk", func() {
 			It("[test_id:1463][Conformance] should success multiple times", decorators.Conformance, func() {
 				By("Creating the VirtualMachine")
-				vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
+				vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
 				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for range 5 {
@@ -79,7 +79,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					By("Expecting to be able to login")
 					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(console.LoginToCirros(vmi)).To(Succeed())
+					Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 					By("Stopping the VirtualMachine")
 					err = virtClient.VirtualMachine(vm.Namespace).Stop(context.TODO(), vm.Name, &v1.StopOptions{})
@@ -92,7 +92,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 
-	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting a VirtualMachineInstance", func() {
+	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting a VirtualMachineInstance", decorators.WgS390x, func() {
 		Context("should obey the disk verification limits in the KubeVirt CR", Serial, func() {
 			It("[test_id:7182]disk verification should fail when the memory limit is too low", func() {
 				By("Reducing the diskVerificaton memory usage limit")
@@ -103,7 +103,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				config.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 
 				By("Starting the VirtualMachineInstance")
-				vmi := libvmifact.NewCirros()
+				vmi := libvmifact.NewAlpine()
 				_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				By("Checking that the VMI failed")
@@ -168,7 +168,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 
-	Describe("[rfe_id:4052][crit:high][vendor:cnv-qe@redhat.com][level:component]VMI disk permissions", decorators.WgS390x, decorators.WgArm64, func() {
+	Describe("[rfe_id:4052][crit:high][vendor:cnv-qe@redhat.com][level:component]VMI disk permissions", decorators.WgArm64, decorators.WgS390x, func() {
 		Context("with ephemeral registry disk", func() {
 			It("[test_id:4299]should not have world write permissions", func() {
 				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), 60)
@@ -205,7 +205,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 		})
 	})
-	Describe("Bogus container disk path", func() {
+	Describe("Bogus container disk path", decorators.WgS390x, func() {
 		Context("that points to outside of the volume", func() {
 			//TODO this could be unit test
 			It("should be rejected on VMI creation", func() {

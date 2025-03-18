@@ -57,7 +57,7 @@ const (
 	newLabelValue = "newvalue"
 )
 
-var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, decorators.WgS390x, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -124,14 +124,14 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}
 
 		dataVolume := libdv.NewDataVolume(
-			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 			libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
 		)
 
 		vm := libvmi.NewVirtualMachine(
 			libvmi.New(
 				libvmi.WithDataVolume("disk0", dataVolume.Name),
-				libvmi.WithResourceMemory("100M"),
+				libvmi.WithResourceMemory("128M"),
 			),
 			libvmi.WithDataVolumeTemplate(dataVolume),
 		)
@@ -157,7 +157,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	newOfflineVirtualMachinePool := func() *poolv1.VirtualMachinePool {
 		By("Create a new VirtualMachinePool")
-		return createVirtualMachinePool(newPoolFromVMI(libvmifact.NewCirros()))
+		return createVirtualMachinePool(newPoolFromVMI(libvmifact.NewAlpine(libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()))))
 	}
 
 	DescribeTable("pool should scale", func(startScale int, stopScale int) {

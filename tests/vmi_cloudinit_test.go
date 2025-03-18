@@ -79,12 +79,12 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	})
 
 	Describe("[rfe_id:151][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
-		Context("with cloudInitNoCloud", func() {
+		Context("with cloudInitNoCloud", decorators.WgS390x, func() {
 			It("[test_id:1618]should take user-data from k8s secret", decorators.Conformance, func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
 				secretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
 
-				vmi := libvmifact.NewCirros(
+				vmi := libvmifact.NewAlpine(
 					libvmi.WithCloudInitNoCloud(libcloudinit.WithNoCloudUserDataSecretName(secretID)),
 				)
 
@@ -95,7 +95,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred())
 
 				runningVMI := libvmops.RunVMIAndExpectLaunch(vmi, 60)
-				runningVMI = libwait.WaitUntilVMIReady(runningVMI, console.LoginToCirros)
+				runningVMI = libwait.WaitUntilVMIReady(runningVMI, console.LoginToAlpine)
 
 				checkCloudInitIsoSize(runningVMI, cloudinit.DataSourceNoCloud)
 
@@ -114,12 +114,12 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			It("[test_id:1615]should have cloud-init data from userDataBase64 source", func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
-				vmi := libvmifact.NewCirros(
+				vmi := libvmifact.NewAlpine(
 					libvmi.WithCloudInitNoCloud(libcloudinit.WithNoCloudEncodedUserData(userData)),
 				)
 
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 				checkCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
 
 				By("Checking whether the user-data script had created the file")
@@ -152,7 +152,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("with cloudInitConfigDrive", func() {
+		Context("with cloudInitConfigDrive", decorators.WgS390x, func() {
 			It("[test_id:3178]should have cloud-init data from userDataBase64 source", decorators.Conformance, func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
 				vmi := libvmifact.NewCirros(libvmi.WithCloudInitConfigDrive(libcloudinit.WithConfigDriveUserData(userData)))
@@ -192,7 +192,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				})
 			})
 
-			It("cloud-init instance-id should be stable", func() {
+			It("cloud-init instance-id should be stable", decorators.WgS390x, func() {
 				getInstanceId := func(vmi *v1.VirtualMachineInstance) (string, error) {
 					cmd := "cat /var/lib/cloud/data/instance-id"
 					return console.RunCommandAndStoreOutput(vmi, cmd, time.Second*30)
