@@ -201,19 +201,14 @@ var _ = Describe("HyperconvergedController", func() {
 					"CPUManager",
 					"Snapshot",
 					"HotplugVolumes",
-					"GPU",
 					"HostDevices",
 					"WithHostModelCPU",
 					"HypervStrictCheck",
 					"ExpandDisks",
 					"DownwardMetrics",
 					"VMExport",
-					"DisableCustomSELinuxPolicy",
 					"KubevirtSeccompProfile",
 					"VMPersistentState",
-					"VMLiveUpdateFeatures",
-					"VolumesUpdateStrategy",
-					"VolumeMigration",
 				}
 				// Get the KV
 				kvList := &kubevirtcorev1.KubeVirtList{}

@@ -81,9 +81,6 @@ const (
 	// Allow attaching a data volume to a running VMI
 	kvHotplugVolumesGate = "HotplugVolumes"
 
-	// Allow assigning GPU and vGPU devices to virtual machines
-	kvGPUGate = "GPU"
-
 	// Allow assigning host devices to virtual machines
 	kvHostDevicesGate = "HostDevices"
 
@@ -93,23 +90,11 @@ const (
 	// Export VMs to outside of the cluster
 	kvVMExportGate = "VMExport"
 
-	// Disable the installation and usage of the custom SELinux policy
-	kvDisableCustomSELinuxPolicyGate = "DisableCustomSELinuxPolicy"
-
 	// Enable the installation of the KubeVirt seccomp profile
 	kvKubevirtSeccompProfile = "KubevirtSeccompProfile"
 
 	// Enable VM state persistence
 	kvVMPersistentState = "VMPersistentState"
-
-	// Enable VM live update, to allow live propagation of VM changes to their VMI
-	kvVMLiveUpdateFeatures = "VMLiveUpdateFeatures"
-
-	// enables to specify the strategy on the volume updates.
-	kvVolumesUpdateStrategyGate = "VolumesUpdateStrategy"
-
-	// enables to migrate the storage. It depends on the VolumesUpdateStrategy feature.
-	kvVolumeMigrationGate = "VolumeMigration"
 )
 
 const (
@@ -123,15 +108,10 @@ var (
 		kvSnapshotGate,
 		kvHotplugVolumesGate,
 		kvExpandDisksGate,
-		kvGPUGate,
 		kvHostDevicesGate,
 		kvVMExportGate,
-		kvDisableCustomSELinuxPolicyGate,
 		kvKubevirtSeccompProfile,
 		kvVMPersistentState,
-		kvVMLiveUpdateFeatures,
-		kvVolumesUpdateStrategyGate,
-		kvVolumeMigrationGate,
 	}
 
 	// holds a list of mandatory KubeVirt feature gates. Some of them are the hard coded feature gates and some of
