@@ -31,7 +31,7 @@ set -euo pipefail
 # * run all changed tests five times and
 # * randomize the test order each time
 
-KUBEVIRT_ROOT=$(realpath "$( dirname "${BASH_SOURCE[0]}")/..")
+KUBEVIRT_ROOT=$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")
 
 # include defaults for retrieving proper vendored cluster-up version
 export DOCKER_TAG_ALT=''
@@ -41,7 +41,7 @@ source hack/config-default.sh
 
 export TIMESTAMP=${TIMESTAMP:-1}
 
-function usage {
+function usage() {
     cat <<EOF
 usage: [NUM_TESTS=x] \
        [NEW_TESTS=file_name.json] \
@@ -81,13 +81,19 @@ usage: [NUM_TESTS=x] \
 EOF
 }
 
-# see CANNIER PR at https://github.com/kubevirt/project-infra/pull/3930
-function new_tests {
+function new_tests() {
     local target_commit_range
     target_commit_range="$1"
     if [ -n "${target_commit_range}" ]; then
         target_commit_range='-r '"${target_commit_range}"
     fi
+
+    # The CANNIER project provides (among others) the command `extract changed-tests` that extracts the names of
+    # changed tests from a commit range into a json file.
+    #
+    # For reference - the latter is part of a bigger effort implementing a new re-run strategy
+    # leveraging ML to predict test flakiness. Initial implementation of the CANNIER approach set of tools is done here:
+    # https://github.com/kubevirt/project-infra/pull/3930
 
     tmp_dir="$(mktemp -d)"
     podman run --rm \
@@ -95,9 +101,9 @@ function new_tests {
         -v "${tmp_dir}:/tmp" \
         quay.io/kubevirtci/cannier:v20250227-c93cf50 \
         extract changed-tests ${target_commit_range} \
-            -p /kubevirt \
-            -t /kubevirt/tests/ \
-            -o /tmp/changed-tests.json
+        -p /kubevirt \
+        -t /kubevirt/tests/ \
+        -o /tmp/changed-tests.json
 
     echo "${tmp_dir}/changed-tests.json"
 }
@@ -111,18 +117,18 @@ function should_skip_test_run_due_to_too_many_tests() {
     local test_start_pattern='(Specify|It|Entry)\('
     local tests_total_estimate=0
     while IFS= read -r -d '' test_file_name; do
-        tests_total_estimate=$(( tests_total_estimate + $(grep -hcE "${test_start_pattern}" "$test_file_name") ))
+        tests_total_estimate=$((tests_total_estimate + $(grep -hcE "${test_start_pattern}" "$test_file_name")))
     done < <(find tests/ -name '*.go' -print0)
     local tests_to_run_estimate
     tests_to_run_estimate=$(jq '. | length' "${new_tests}")
     local tests_total_for_all_runs_estimate
-    tests_total_for_all_runs_estimate=$(( tests_to_run_estimate * NUM_TESTS ))
+    tests_total_for_all_runs_estimate=$((tests_to_run_estimate * NUM_TESTS))
     echo -e "Estimates:\ttests_total_estimate: $tests_total_estimate\ttests_total_for_all_runs_estimate: $tests_total_for_all_runs_estimate"
     [ "$tests_total_for_all_runs_estimate" -gt $tests_total_estimate ]
 }
 
 ginkgo_params=''
-if (( $# > 0 )); then
+if (($# > 0)); then
     if [[ "$1" =~ -h ]]; then
         usage
         exit 0
@@ -134,7 +140,7 @@ if (( $# > 0 )); then
     fi
 fi
 
-if (( $# > 0 )); then
+if (($# > 0)); then
     TEST_LANE="$1"
     shift
 else
@@ -156,7 +162,10 @@ else
     fi
 fi
 echo "Test lane: ${TEST_LANE}"
-[ -d "kubevirtci/cluster-up/cluster/${TEST_LANE}" ] || ( echo "provider ${TEST_LANE} does not exist!"; exit 1 )
+[ -d "kubevirtci/cluster-up/cluster/${TEST_LANE}" ] || (
+    echo "provider ${TEST_LANE} does not exist!"
+    exit 1
+)
 
 if [[ -z ${TARGET_COMMIT_RANGE-} ]]; then
     # if there's no commit provided default to the latest merge commit
@@ -174,7 +183,7 @@ fi
 
 tests_changed=$(jq '. | length' "${NEW_TESTS}")
 echo "Tests changed: ${tests_changed}"
-if (( tests_changed == 0 )); then
+if ((tests_changed == 0)); then
     echo "Nothing to test"
     exit 0
 fi
@@ -215,13 +224,13 @@ export KUBEVIRT_PROVIDER="${TEST_LANE}"
 # - Dont run tests with label:
 #     add_to_label_filter '(!mylabel)' '&&'
 add_to_label_filter() {
-  local label=$1
-  local separator=$2
-  if [[ -z $label_filter ]]; then
-    label_filter="${1}"
-  else
-    label_filter="${label_filter}${separator}${1}"
-  fi
+    local label=$1
+    local separator=$2
+    if [[ -z $label_filter ]]; then
+        label_filter="${1}"
+    else
+        label_filter="${label_filter}${separator}${1}"
+    fi
 }
 
 label_filter="${KUBEVIRT_LABEL_FILTER:-}"
