@@ -207,6 +207,22 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 			Eventually(matcher.ThisVM(vm), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachinePaused))
 		})
 	})
+
+	Context("should not change anything if dry-run option is passed", func() {
+		It("[test_id:7530]when starting a VM", func() {
+			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyManual))
+
+			By("Creating VM")
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Performing dry run start")
+			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{DryRun: []string{metav1.DryRunAll}})
+			Expect(err).ToNot(HaveOccurred())
+
+			Consistently(matcher.ThisVMIWith(vm.Name, vm.Namespace), 30*time.Second, 5*time.Second).Should(matcher.BeGone())
+		})
+	})
 }))
 
 func withStartStrategy(strategy *v1.StartStrategy) libvmi.Option {

@@ -1024,21 +1024,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		}
 
 		Context("should not change anything if dry-run option is passed", func() {
-			It("[test_id:7530]when starting a VM", func() {
-				vm, vmJson := createVMAndGenerateJson()
-
-				By("Creating VM using k8s client binary")
-				_, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Performing dry run start")
-				err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{DryRun: []string{metav1.DryRunAll}})
-				Expect(err).ToNot(HaveOccurred())
-
-				_, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
-			})
-
 			DescribeTable("when stopping a VM", func(gracePeriod *int64) {
 				vm, vmJson := createVMAndGenerateJson(libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
