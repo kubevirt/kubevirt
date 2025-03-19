@@ -1579,7 +1579,6 @@ var _ = Describe("Manager", func() {
 				ProgressTimeout:         3,
 				CompletionTimeoutPerGiB: 1,
 				AllowPostCopy:           true,
-				AllowWorkloadDisruption: true,
 			}
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
@@ -1629,7 +1628,6 @@ var _ = Describe("Manager", func() {
 				ProgressTimeout:         3,
 				CompletionTimeoutPerGiB: 1,
 				AllowPostCopy:           true,
-				AllowWorkloadDisruption: true,
 			}
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
@@ -1763,6 +1761,7 @@ var _ = Describe("Manager", func() {
 			monitor := newMigrationMonitor(vmi, manager, options, migrationErrorChan)
 			monitor.startMonitor()
 		})
+
 		// This is incomplete as it is not verifying that we abort. Previously it wasn't even testing anything at all
 		It("migration should be canceled when requested", func() {
 			migrationUid := types.UID("111222333")

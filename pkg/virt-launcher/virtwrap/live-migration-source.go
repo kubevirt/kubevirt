@@ -438,11 +438,6 @@ func (m *migrationMonitor) isMigrationPostCopy() bool {
 	return migration.Mode == v1.MigrationPostCopy
 }
 
-func (m *migrationMonitor) isPausedMigration() bool {
-	migration, _ := m.l.metadataCache.Migration.Load()
-	return migration.Mode == v1.MigrationPaused
-}
-
 func (m *migrationMonitor) shouldTriggerTimeout(elapsed int64) bool {
 	if m.acceptableCompletionTime == 0 {
 		return false
@@ -451,8 +446,8 @@ func (m *migrationMonitor) shouldTriggerTimeout(elapsed int64) bool {
 	return elapsed/int64(time.Second) > m.acceptableCompletionTime
 }
 
-func (m *migrationMonitor) shouldAssistMigrationToComplete(elapsed int64) bool {
-	return m.shouldTriggerTimeout(elapsed) && m.options.AllowWorkloadDisruption
+func (m *migrationMonitor) shouldTriggerPostCopy(elapsed int64) bool {
+	return m.shouldTriggerTimeout(elapsed) && m.options.AllowPostCopy
 }
 
 func (m *migrationMonitor) isMigrationProgressing() bool {
@@ -534,35 +529,17 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 		// If we were to abort the migration due to a timeout while in post copy,
 		// then it would result in that active state being lost.
 
-	case m.shouldAssistMigrationToComplete(elapsed) && !m.isPausedMigration():
-		if m.options.AllowPostCopy {
-			logger.Info("Starting post copy mode for migration")
-			// if a migration has stalled too long, post copy will be
-			// triggered when allowPostCopy is enabled
-			err := dom.MigrateStartPostCopy(0)
-			if err != nil {
-				logger.Reason(err).Error("failed to start post migration")
-				return nil
-			}
-			m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
-		} else {
-
-			logger.Info("Pausing the guest to allow migration to complete")
-			// if a migration has stalled too long, the guest will be paused
-			// to complete the migration when allowPostCopy is disabled
-			err := dom.Suspend()
-			if err != nil {
-				logger.Reason(err).Error("Signalling suspension failed.")
-				return nil
-			}
-			logger.Infof("Signaled pause for %s", m.vmi.GetObjectMeta().GetName())
-
-			// update acceptableCompletionTime to prevent premature migration
-			// cancellation
-			m.acceptableCompletionTime *= 2
-			m.l.paused.add(m.vmi.UID)
-			m.l.updateVMIMigrationMode(v1.MigrationPaused)
+	case m.shouldTriggerPostCopy(elapsed):
+		logger.Info("Starting post copy mode for migration")
+		// if a migration has stalled too long, post copy will be
+		// triggered when allowPostCopy is enabled
+		err := dom.MigrateStartPostCopy(uint32(0))
+		if err != nil {
+			logger.Reason(err).Error("failed to start post migration")
+			return nil
 		}
+
+		m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
 
 	case !m.isMigrationProgressing():
 		// check if the migration is still progressing
