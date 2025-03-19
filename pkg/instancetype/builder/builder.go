@@ -40,6 +40,18 @@ func NewClusterInstancetype(opts ...InstancetypeOption) *v1beta1.VirtualMachineC
 	}
 }
 
+func WithName(name string) InstancetypeOption {
+	return func(instancetype *v1beta1.VirtualMachineInstancetype) {
+		instancetype.Name = name
+	}
+}
+
+func WithNamespace(namespace string) InstancetypeOption {
+	return func(instancetype *v1beta1.VirtualMachineInstancetype) {
+		instancetype.Namespace = namespace
+	}
+}
+
 func WithCPUs(vCPUs uint32) InstancetypeOption {
 	return func(instancetype *v1beta1.VirtualMachineInstancetype) {
 		instancetype.Spec.CPU.Guest = vCPUs
