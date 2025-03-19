@@ -25,6 +25,9 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	instancetypepkg "kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/builder"
+	builderv1alpha1 "kubevirt.io/kubevirt/pkg/instancetype/builder/v1alpha1"
+	builderv1alpha2 "kubevirt.io/kubevirt/pkg/instancetype/builder/v1alpha2"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	utils "kubevirt.io/kubevirt/pkg/util"
@@ -32,9 +35,6 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libinstancetype/builder"
-	builderv1alpha1 "kubevirt.io/kubevirt/tests/libinstancetype/builder/v1alpha1"
-	builderv1alpha2 "kubevirt.io/kubevirt/tests/libinstancetype/builder/v1alpha2"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )

@@ -12,6 +12,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/compute/subresources",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/instancetype/builder:go_default_library",
         "//pkg/instancetype/conflict:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",
@@ -22,7 +23,6 @@ go_library(
         "//tests/compute:go_default_library",
         "//tests/console:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
-        "//tests/libinstancetype/builder:go_default_library",
         "//tests/libvmifact:go_default_library",
         "//tests/libvmops:go_default_library",
         "//tests/testsuite:go_default_library",
