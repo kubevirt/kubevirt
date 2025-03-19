@@ -15113,16 +15113,12 @@
       "description": "AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs to successfully live-migrate. However, events like a network failure can cause a VMI crash. If set to true, migrations will still start in pre-copy, but switch to post-copy when CompletionTimeoutPerGiB triggers. Defaults to false",
       "type": "boolean"
      },
-     "allowWorkloadDisruption": {
-      "description": "AllowWorkloadDisruption indicates that the migration shouldn't be canceled after acceptableCompletionTime is exceeded. Instead, if permitted, migration will be switched to post-copy or the VMI will be paused to allow the migration to complete",
-      "type": "boolean"
-     },
      "bandwidthPerMigration": {
       "description": "BandwidthPerMigration limits the amount of network bandwidth live migrations are allowed to use. The value is in quantity per second. Defaults to 0 (no limit)",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      },
      "completionTimeoutPerGiB": {
-      "description": "CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take. If the timeout is reached, the migration will be either paused, switched to post-copy or cancelled depending on other settings. Defaults to 150",
+      "description": "CompletionTimeoutPerGiB is the maximum number of seconds per GiB a migration is allowed to take. If a live-migration takes longer to migrate than this value multiplied by the size of the VMI, the migration will be cancelled, unless AllowPostCopy is true. Defaults to 150",
       "type": "integer",
       "format": "int64"
      },
@@ -18113,9 +18109,6 @@
       "type": "boolean"
      },
      "allowPostCopy": {
-      "type": "boolean"
-     },
-     "allowWorkloadDisruption": {
       "type": "boolean"
      },
      "bandwidthPerMigration": {

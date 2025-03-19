@@ -948,7 +948,6 @@
         "progressTimeout": -15,
         "unsafeMigrationOverride": true,
         "allowPostCopy": true,
-        "allowWorkloadDisruption": true,
         "disableTLS": true,
         "network": "networkValue",
         "matchSELinuxLevelOnMigration": true

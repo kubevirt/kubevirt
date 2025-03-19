@@ -118,17 +118,7 @@ func (c *ClusterConfig) AllowEmulation() bool {
 }
 
 func (c *ClusterConfig) GetMigrationConfiguration() *v1.MigrationConfiguration {
-	migrationConfig := c.GetConfig().MigrationConfiguration
-	// For backward compatibility, AllowWorkloadDisruption will follow the
-	// value of AllowPostCopy, if not explicitly set
-	if migrationConfig.AllowWorkloadDisruption == nil {
-		allowPostCopy := false
-		if migrationConfig.AllowPostCopy != nil {
-			allowPostCopy = *migrationConfig.AllowPostCopy
-		}
-		migrationConfig.AllowWorkloadDisruption = &allowPostCopy
-	}
-	return migrationConfig
+	return c.GetConfig().MigrationConfiguration
 }
 
 func (c *ClusterConfig) GetImagePullPolicy() (policy k8sv1.PullPolicy) {

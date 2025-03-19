@@ -51,8 +51,6 @@ type MigrationPolicySpec struct {
 	CompletionTimeoutPerGiB *int64 `json:"completionTimeoutPerGiB,omitempty"`
 	//+optional
 	AllowPostCopy *bool `json:"allowPostCopy,omitempty"`
-	//+optional
-	AllowWorkloadDisruption *bool `json:"allowWorkloadDisruption,omitempty"`
 }
 
 type LabelSelector map[string]string
@@ -100,14 +98,6 @@ func (m *MigrationPolicy) GetMigrationConfByPolicy(clusterMigrationConfiguration
 	if policySpec.AllowPostCopy != nil {
 		changed = true
 		*clusterMigrationConfigurations.AllowPostCopy = *policySpec.AllowPostCopy
-	}
-	if policySpec.AllowWorkloadDisruption != nil {
-		changed = true
-		*clusterMigrationConfigurations.AllowWorkloadDisruption = *policySpec.AllowWorkloadDisruption
-	} else if policySpec.AllowWorkloadDisruption == nil && policySpec.AllowPostCopy != nil {
-		// For backward compatibility, AllowWorkloadDisruption will follow the
-		// value of AllowPostCopy, if not explicitly set
-		*clusterMigrationConfigurations.AllowWorkloadDisruption = *policySpec.AllowPostCopy
 	}
 
 	return changed, nil

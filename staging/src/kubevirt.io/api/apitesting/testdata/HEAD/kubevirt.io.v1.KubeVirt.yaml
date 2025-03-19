@@ -152,7 +152,6 @@ spec:
     migrations:
       allowAutoConverge: true
       allowPostCopy: true
-      allowWorkloadDisruption: true
       bandwidthPerMigration: "0"
       completionTimeoutPerGiB: -23
       disableTLS: true
