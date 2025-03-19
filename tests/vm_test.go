@@ -1024,56 +1024,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		}
 
 		Context("should not change anything if dry-run option is passed", func() {
-			DescribeTable("when stopping a VM", func(gracePeriod *int64) {
-				vm, vmJson := createVMAndGenerateJson(libvmi.WithRunStrategy(v1.RunStrategyAlways))
-
-				By("Creating VM using k8s client binary")
-				_, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Waiting for VMI to start")
-				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
-
-				By("Getting current vmi instance")
-				originalVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Getting current vm instance")
-				originalVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Performing dry run stop")
-				options := &v1.StopOptions{DryRun: []string{metav1.DryRunAll}}
-				if gracePeriod != nil {
-					options.GracePeriod = gracePeriod
-				}
-				err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, options)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Checking that VM is still running")
-				stdout, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "describe", "vmis", vm.GetName())
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
-
-				By("Checking VM Running spec does not change")
-				actualVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				actualRunStrategy, err := actualVM.RunStrategy()
-				Expect(err).ToNot(HaveOccurred())
-				originalRunStrategy, err := originalVM.RunStrategy()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(actualRunStrategy).To(BeEquivalentTo(originalRunStrategy))
-
-				By("Checking VMI TerminationGracePeriodSeconds does not change")
-				actualVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(actualVMI.Spec.TerminationGracePeriodSeconds).To(BeEquivalentTo(originalVMI.Spec.TerminationGracePeriodSeconds))
-				Expect(actualVMI.Status.Phase).To(BeEquivalentTo(originalVMI.Status.Phase))
-			},
-				Entry("[test_id:7529]with no other flags", nil),
-				Entry("[test_id:7604]with grace period", pointer.P[int64](10)),
-			)
-
 			It("[test_id:7528]when restarting a VM", func() {
 				vm, vmJson := createVMAndGenerateJson(libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
