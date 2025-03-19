@@ -2514,7 +2514,7 @@ func (c *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 func (d *VirtualMachineController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool {
 
 	if vmi.Status.MigrationState != nil &&
-		vmi.Status.MigrationState.SourceNode == c.host &&
+		vmi.Status.MigrationState.SourceNode == d.host &&
 		vmi.Status.MigrationState.TargetNodeAddress != "" &&
 		!vmi.Status.MigrationState.Completed {
 
