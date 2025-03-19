@@ -136,7 +136,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 	Context("with an invalid VM", func() {
 		It("should reject the request with unrecognized field", func() {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 			vm := &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
 					Running: pointer.P(false),
@@ -169,7 +169,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("reject syntax valid VM, but with invalid spec", func() {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 			// Add a disk that doesn't map to a volume.
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk",
@@ -191,7 +191,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	})
 
 	It("should allow VM that is being deleted", func() {
-		vmi := libvmi.New(libvmi.WithName("testvmi"))
+		vmi := libvmi.New()
 		now := metav1.Now()
 		vm := &v1.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{
@@ -209,7 +209,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	})
 
 	It("should allow VM with missing volume disk or filesystem", func() {
-		vmi := libvmi.New(libvmi.WithName("testvmi"))
+		vmi := libvmi.New()
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "testvol",
 			VolumeSource: v1.VolumeSource{
@@ -229,7 +229,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	})
 
 	It("should accept valid vmi spec", func() {
-		vmi := libvmi.New(libvmi.WithName("testvmi"))
+		vmi := libvmi.New()
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: "testdisk",
 		})
@@ -254,7 +254,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	})
 
 	It("should accept VM requesting hugepages but missing spec.template.spec.domain.resources.requests.memory - bug #9102", func() {
-		vmi := libvmi.New(libvmi.WithName("testvmi"))
+		vmi := libvmi.New()
 		vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
 		guestMemory := resource.MustParse("1Gi")
 		vmi.Spec.Domain.Memory = &v1.Memory{
@@ -277,7 +277,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	})
 
 	It("should accept VM requesting hugepages but missing spec.template.spec.domain.memory.guest", func() {
-		vmi := libvmi.New(libvmi.WithName("testvmi"))
+		vmi := libvmi.New()
 		vmi.Spec.Domain.Memory = &v1.Memory{
 			Hugepages: &v1.Hugepages{
 				PageSize: "2Mi",
@@ -304,7 +304,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 	DescribeTable("should reject VolumeRequests on a migrating vm", func(requests []v1.VirtualMachineVolumeRequest) {
 		now := metav1.Now()
-		vmi := libvmi.New(libvmi.WithName("testvmi"))
+		vmi := libvmi.New()
 		vmi.Status = v1.VirtualMachineInstanceStatus{
 			MigrationState: &v1.VirtualMachineInstanceMigrationState{
 				StartTimestamp: &now,
@@ -382,7 +382,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	)
 
 	DescribeTable("should validate VolumeRequest on running vm", func(requests []v1.VirtualMachineVolumeRequest, isValid bool) {
-		vmi := libvmi.New(libvmi.WithName("testvmi"))
+		vmi := libvmi.New()
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: "testdisk",
 		})
@@ -690,7 +690,7 @@ var _ = Describe("Validating VM Admitter", func() {
 	)
 
 	DescribeTable("should validate VolumeRequest on offline vm", func(requests []v1.VirtualMachineVolumeRequest, isValid bool) {
-		vmi := libvmi.New(libvmi.WithName("testvmi"))
+		vmi := libvmi.New()
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 			Name: "testdisk",
 		})
@@ -898,7 +898,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 		DescribeTable("should accept valid volumes",
 			func(volumeSource v1.VolumeSource) {
-				vmi := libvmi.New(libvmi.WithName("testvmi"))
+				vmi := libvmi.New()
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 					Name:         "testvolume",
 					VolumeSource: volumeSource,
@@ -920,7 +920,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			Entry("with serviceAccount volume source", v1.VolumeSource{ServiceAccount: &v1.ServiceAccountVolumeSource{ServiceAccountName: "fake"}}),
 		)
 		It("should allow create a vm using a DataVolume when cdi doesnt exist", func() {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name:         "testvolume",
@@ -932,7 +932,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		})
 		It("should reject DataVolume when DataVolume name is not set", func() {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name:         "testvolume",
@@ -947,7 +947,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(causes[0].Message).To(Equal("DataVolume 'name' must be set"))
 		})
 		It("should reject volume with no volume source set", func() {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
@@ -958,7 +958,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
 		It("should reject volume with multiple volume sources set", func() {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
@@ -973,7 +973,7 @@ var _ = Describe("Validating VM Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
 		It("should reject volumes with duplicate names", func() {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
@@ -994,7 +994,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		DescribeTable("should verify cloud-init userdata length", func(userDataLen int, expectedErrors int, base64Encode bool) {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 
 			// generate fake userdata
 			userdata := ""
@@ -1025,7 +1025,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		)
 
 		DescribeTable("should verify cloud-init networkdata length", func(networkDataLen int, expectedErrors int, base64Encode bool) {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 
 			// generate fake networkdata
 			networkdata := ""
@@ -1057,7 +1057,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		)
 
 		It("should reject cloud-init with invalid base64 userdata", func() {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
@@ -1073,7 +1073,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject cloud-init with invalid base64 networkdata", func() {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
@@ -1090,7 +1090,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject cloud-init with multiple userdata sources", func() {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
@@ -1109,7 +1109,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject cloud-init with multiple networkdata sources", func() {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
@@ -1129,7 +1129,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject hostDisk without required parameters", func() {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
 					HostDisk: &v1.HostDisk{},
@@ -1143,7 +1143,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject hostDisk without given 'path'", func() {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
 					HostDisk: &v1.HostDisk{
@@ -1158,7 +1158,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject hostDisk with invalid type", func() {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
 					HostDisk: &v1.HostDisk{
@@ -1174,7 +1174,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject hostDisk when the capacity is specified with a `DiskExists` type", func() {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
 					HostDisk: &v1.HostDisk{
@@ -1191,7 +1191,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject a configMap without the configMapName field", func() {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
@@ -1205,7 +1205,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject a secret without the secretName field", func() {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
@@ -1219,7 +1219,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject a serviceAccount without the serviceAccountName field", func() {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				VolumeSource: v1.VolumeSource{
@@ -1233,7 +1233,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 
 		It("should reject multiple serviceAccounts", func() {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "sa1",
@@ -1664,7 +1664,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		var vm *v1.VirtualMachine
 
 		BeforeEach(func() {
-			vmi := libvmi.New(libvmi.WithName("testvmi"))
+			vmi := libvmi.New()
 			enableLiveUpdate()
 			vm = &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
@@ -1839,7 +1839,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		})
 		DeferCleanup(featuregate.UnregisterFeatureGate, testsFGName)
 		enableFeatureGate(testsFGName)
-		vmi := libvmi.New(libvmi.WithName("testvmi"))
+		vmi := libvmi.New()
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
 				Running: pointer.P(false),
@@ -1870,7 +1870,7 @@ var _ = Describe("Validating VM Admitter", func() {
 		DeferCleanup(featuregate.UnregisterFeatureGate, fgName)
 		enableFeatureGate(fgName)
 
-		vmi := libvmi.New(libvmi.WithName("testvmi"))
+		vmi := libvmi.New()
 		vm := &v1.VirtualMachine{
 			Spec: v1.VirtualMachineSpec{
 				Running: pointer.P(false),
