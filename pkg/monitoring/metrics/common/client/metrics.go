@@ -31,6 +31,13 @@ import (
 
 var resourceParsingRegexs []*regexp.Regexp
 
+func init() {
+	metrics.Register(metrics.RegisterOpts{
+		RequestLatency:     &latencyAdapter{requestLatency},
+		RateLimiterLatency: &latencyAdapter{rateLimiterLatency},
+	})
+}
+
 // RegisterRestConfigHooks adds hooks to the KubeVirt client and should be executed before building its config
 func RegisterRestConfigHooks() {
 	setupResourcesToWatch()
@@ -38,11 +45,6 @@ func RegisterRestConfigHooks() {
 }
 
 func SetupMetrics() error {
-	metrics.Register(metrics.RegisterOpts{
-		RequestLatency:     &latencyAdapter{requestLatency},
-		RateLimiterLatency: &latencyAdapter{rateLimiterLatency},
-	})
-
 	return operatormetrics.RegisterMetrics(
 		restMetrics,
 	)
