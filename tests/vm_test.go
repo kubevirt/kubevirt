@@ -23,9 +23,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -52,7 +50,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -995,67 +992,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		Entry("with v1 api", "kubevirt.io/v1"),
 		Entry("with v1alpha3 api", "kubevirt.io/v1alpha3"),
 	)
-
-	Context("[rfe_id:273]with oc/kubectl", func() {
-		var k8sClient string
-		var workDir string
-		var vmRunningRe *regexp.Regexp
-
-		BeforeEach(func() {
-			k8sClient = clientcmd.GetK8sCmdClient()
-			clientcmd.FailIfNoCmd(k8sClient)
-			workDir = GinkgoT().TempDir()
-
-			// By default "." does not match newline: "Phase" and "Running" only match if on same line.
-			vmRunningRe = regexp.MustCompile("Phase.*Running")
-		})
-
-		createVMAndGenerateJson := func(opts ...libvmi.VMOption) (*v1.VirtualMachine, string) {
-			vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(), opts...)
-			vm.Namespace = testsuite.GetTestNamespace(vm)
-
-			data, err := json.Marshal(vm)
-			Expect(err).ToNot(HaveOccurred())
-			vmJson := filepath.Join(workDir, fmt.Sprintf("%s.json", vm.Name))
-			Expect(os.WriteFile(vmJson, data, 0644)).To(Succeed())
-			Expect(err).ToNot(HaveOccurred())
-
-			return vm, vmJson
-		}
-
-		Context("should not change anything if dry-run option is passed", func() {
-			It("[test_id:7528]when restarting a VM", func() {
-				vm, vmJson := createVMAndGenerateJson(libvmi.WithRunStrategy(v1.RunStrategyAlways))
-
-				By("Creating VM using k8s client binary")
-				_, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Waiting for VMI to start")
-				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
-
-				By("Getting current vmi instance")
-				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Performing dry run restart")
-				err = virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{DryRun: []string{metav1.DryRunAll}})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Comparing the CreationTimeStamp and UUID and check no Deletion Timestamp was set")
-				newVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.ObjectMeta.CreationTimestamp).To(Equal(newVMI.ObjectMeta.CreationTimestamp))
-				Expect(vmi.ObjectMeta.UID).To(Equal(newVMI.ObjectMeta.UID))
-				Expect(newVMI.ObjectMeta.DeletionTimestamp).To(BeNil())
-
-				By("Checking that VM is running")
-				stdout, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "describe", "vmis", vm.GetName())
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
-			})
-		})
-	})
 
 	Context("crash loop backoff", decorators.Conformance, func() {
 		It("should backoff attempting to create a new VMI when 'runStrategy: Always' during crash loop.", func() {

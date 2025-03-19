@@ -270,6 +270,35 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 			Entry("[test_id:7529]with no other flags", nil),
 			Entry("[test_id:7604]with grace period", pointer.P[int64](10)),
 		)
+
+		It("[test_id:7528]when restarting a VM", func() {
+			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+
+			By("Creating VM")
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for VMI to start")
+			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(matcher.BeRunning())
+
+			By("Getting current vmi instance")
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Performing dry run restart")
+			err = virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{DryRun: []string{metav1.DryRunAll}})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Comparing the CreationTimeStamp and UUID and check no Deletion Timestamp was set")
+			newVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmi.ObjectMeta.CreationTimestamp).To(Equal(newVMI.ObjectMeta.CreationTimestamp))
+			Expect(vmi.ObjectMeta.UID).To(Equal(newVMI.ObjectMeta.UID))
+			Expect(newVMI.ObjectMeta.DeletionTimestamp).To(BeNil())
+
+			By("Checking that VM is still running")
+			Consistently(matcher.ThisVMIWith(vm.Namespace, vm.Name), 30*time.Second, 5*time.Second).Should(matcher.BeRunning())
+		})
 	})
 }))
 
