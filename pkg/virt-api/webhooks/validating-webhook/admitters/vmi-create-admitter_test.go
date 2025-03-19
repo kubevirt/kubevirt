@@ -27,6 +27,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
+	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 
 	"kubevirt.io/client-go/api"
 
@@ -2278,6 +2279,33 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Serial:    sn,
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{},
+				},
+			})
+
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake[0].serial"))
+		})
+		It("should reject SN > maxScsiSerialLen characters", func() {
+			vmi := api.NewMinimalVMI("testvmi")
+			sn := strings.Repeat("1", hwutil.MaxSCSISerialLen+1)
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:   "testdisk",
+				Serial: sn,
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: v1.DiskBusSCSI,
+					},
+				},
+			})
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:   "testdiskvalid",
+				Serial: "validserial",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: v1.DiskBusSCSI,
+					},
 				},
 			})
 
