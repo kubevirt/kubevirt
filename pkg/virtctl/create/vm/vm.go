@@ -106,6 +106,7 @@ const (
 	volumeExistsErrorFmt                 = "there is already a volume with name \"%s\""
 	accessCredUserInvalidError           = "user cannot be specified with selected access credential type and method"
 	accessCredMethodFlagMismatchErrorFmt = "method param and value passed to --%s have to match: %s vs %s"
+	randSuffixLength                     = 5
 )
 
 type createVM struct {
@@ -174,7 +175,7 @@ var flags = []string{
 var volumeImportOptions = map[string]func(string) (*cdiv1.DataVolumeSpec, *uint, error){
 	blank:    withVolumeSourceBlank,
 	gcs:      withVolumeSourceGcs,
-	http:     withVolumeSourceHttp,
+	http:     withVolumeSourceHTTP,
 	imageIO:  withVolumeSourceImageIO,
 	pvc:      withVolumeSourcePVC,
 	registry: withVolumeSourceRegistry,
@@ -190,12 +191,15 @@ var volumeImportSizeOptional = map[string]bool{
 	ds:       true,
 }
 
+//nolint:funlen
 func NewCommand() *cobra.Command {
 	c := defaultCreateVM()
 	cmd := &cobra.Command{
-		Use:     "vm",
-		Short:   "Create a VirtualMachine manifest.",
-		Long:    "Create a VirtualMachine manifest.\n\nIf no boot order was specified volumes have the following fixed boot order:\nContainerdisk > PVC > DataSource > Clone PVC > Blank > Imported volumes",
+		Use:   "vm",
+		Short: "Create a VirtualMachine manifest.",
+		Long: "Create a VirtualMachine manifest.\n\n" +
+			"If no boot order was specified volumes have the following fixed boot order:\n" +
+			"Containerdisk > PVC > DataSource > Clone PVC > Blank > Imported volumes",
 		Args:    cobra.NoArgs,
 		Example: c.usage(),
 		RunE:    c.run,
@@ -203,54 +207,102 @@ func NewCommand() *cobra.Command {
 
 	cmd.Flags().StringVar(&c.name, NameFlag, c.name, "Specify the name of the VM.")
 	cmd.Flags().StringVar(&c.runStrategy, RunStrategyFlag, c.runStrategy, "Specify the RunStrategy of the VM.")
-	cmd.Flags().Int64Var(&c.terminationGracePeriod, TerminationGracePeriodFlag, c.terminationGracePeriod, "Specify the termination grace period of the VM.")
+	cmd.Flags().Int64Var(&c.terminationGracePeriod, TerminationGracePeriodFlag, c.terminationGracePeriod,
+		"Specify the termination grace period of the VM.")
 
-	cmd.Flags().StringVar(&c.memory, MemoryFlag, c.memory, "Specify the memory of the VM.")
-	cmd.Flags().StringVar(&c.instancetype, InstancetypeFlag, c.instancetype, "Specify the Instance Type of the VM. Mutually exclusive with instancetype inference flags.")
-	cmd.Flags().BoolVar(&c.inferInstancetype, InferInstancetypeFlag, c.inferInstancetype, "Specify if the Instance Type of the VM should be inferred from the first boot disk. Mutually exclusive with --infer-instancetype-from.")
-	cmd.Flags().StringVar(&c.inferInstancetypeFrom, InferInstancetypeFromFlag, c.inferInstancetypeFrom, "Specify the volume to infer the Instance Type of the VM from. Mutually exclusive with --infer-instancetype.")
+	cmd.Flags().StringVar(&c.memory, MemoryFlag, c.memory,
+		"Specify the memory of the VM.")
+	cmd.Flags().StringVar(&c.instancetype, InstancetypeFlag, c.instancetype,
+		"Specify the Instance Type of the VM. Mutually exclusive with instancetype inference flags.")
+	cmd.Flags().BoolVar(&c.inferInstancetype, InferInstancetypeFlag, c.inferInstancetype,
+		"Specify if the Instance Type of the VM should be inferred from the first boot disk. Mutually exclusive with --infer-instancetype-from.")
+	cmd.Flags().StringVar(&c.inferInstancetypeFrom, InferInstancetypeFromFlag, c.inferInstancetypeFrom,
+		"Specify the volume to infer the Instance Type of the VM from. Mutually exclusive with --infer-instancetype.")
 	cmd.MarkFlagsMutuallyExclusive(MemoryFlag, InstancetypeFlag, InferInstancetypeFlag, InferInstancetypeFromFlag)
 
-	cmd.Flags().StringVar(&c.preference, PreferenceFlag, c.preference, "Specify the Preference of the VM. Mutually exclusive with preference inference flags.")
-	cmd.Flags().BoolVar(&c.inferPreference, InferPreferenceFlag, c.inferPreference, "Specify if the Preference of the VM should be inferred from the first boot disk. Mutually exclusive with --infer-preference-from.")
-	cmd.Flags().StringVar(&c.inferPreferenceFrom, InferPreferenceFromFlag, c.inferPreferenceFrom, "Specify the volume to infer the Preference of the VM from. Mutually exclusive with --infer-preference.")
+	cmd.Flags().StringVar(&c.preference, PreferenceFlag, c.preference,
+		"Specify the Preference of the VM. Mutually exclusive with preference inference flags.")
+	cmd.Flags().BoolVar(&c.inferPreference, InferPreferenceFlag, c.inferPreference,
+		"Specify if the Preference of the VM should be inferred from the first boot disk. Mutually exclusive with --infer-preference-from.")
+	cmd.Flags().StringVar(&c.inferPreferenceFrom, InferPreferenceFromFlag, c.inferPreferenceFrom,
+		"Specify the volume to infer the Preference of the VM from. Mutually exclusive with --infer-preference.")
 	cmd.MarkFlagsMutuallyExclusive(PreferenceFlag, InferPreferenceFlag, InferPreferenceFromFlag)
 
-	cmd.Flags().StringArrayVar(&c.containerdiskVolumes, ContainerdiskVolumeFlag, c.containerdiskVolumes, fmt.Sprintf("Specify a containerdisk to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(volumeSource{})))
-	cmd.Flags().StringArrayVar(&c.pvcVolumes, PvcVolumeFlag, c.pvcVolumes, fmt.Sprintf("Specify a PVCs to be used by the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(volumeSource{})))
-	cmd.Flags().StringArrayVar(&c.volumeImport, VolumeImportFlag, c.volumeImport, fmt.Sprintf(
-		"Specify the source for DataVolume. Can be provided multiple times.\nSupported parameters:\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s\n  type %s - %s",
-		blank, params.Supported(dataVolumeSourceBlank{}),
-		gcs, params.Supported(dataVolumeSourceGcs{}),
-		http, params.Supported(dataVolumeSourceHttp{}),
-		imageIO, params.Supported(dataVolumeSourceImageIO{}),
-		pvc, params.Supported(dataVolumeSource{}),
-		registry, params.Supported(dataVolumeSourceRegistry{}),
-		s3, params.Supported(dataVolumeSourceS3{}),
-		vddk, params.Supported(dataVolumeSourceVDDK{}),
-		snapshot, params.Supported(dataVolumeSource{}),
-		ds, params.Supported(dataVolumeSource{}),
-	))
-	cmd.Flags().StringVar(&c.sysprepVolume, SysprepVolumeFlag, c.sysprepVolume, fmt.Sprintf("Specify a ConfigMap or Secret to be used as sysprep volume by the VM.\nSupported parameters: %s", params.Supported(sysprepVolumeSource{})))
+	cmd.Flags().StringArrayVar(&c.containerdiskVolumes, ContainerdiskVolumeFlag, c.containerdiskVolumes,
+		fmt.Sprintf("Specify a containerdisk to be used by the VM. Can be provided multiple times.\n"+
+			"Supported parameters: %s", params.Supported(volumeSource{})))
+	cmd.Flags().StringArrayVar(&c.pvcVolumes, PvcVolumeFlag, c.pvcVolumes,
+		fmt.Sprintf("Specify a PVCs to be used by the VM. Can be provided multiple times.\n"+
+			"Supported parameters: %s", params.Supported(volumeSource{})))
+
+	cmd.Flags().StringArrayVar(
+		&c.volumeImport, VolumeImportFlag, c.volumeImport,
+		fmt.Sprintf(
+			"Specify the source for DataVolume. Can be provided multiple times.\n"+
+				"Supported parameters:\n"+
+				"  type %s - %s\n"+
+				"  type %s - %s\n"+
+				"  type %s - %s\n"+
+				"  type %s - %s\n"+
+				"  type %s - %s\n"+
+				"  type %s - %s\n"+
+				"  type %s - %s\n"+
+				"  type %s - %s\n"+
+				"  type %s - %s\n"+
+				"  type %s - %s",
+			blank, params.Supported(dataVolumeSourceBlank{}),
+			gcs, params.Supported(dataVolumeSourceGcs{}),
+			http, params.Supported(dataVolumeSourceHTTP{}),
+			imageIO, params.Supported(dataVolumeSourceImageIO{}),
+			pvc, params.Supported(dataVolumeSource{}),
+			registry, params.Supported(dataVolumeSourceRegistry{}),
+			s3, params.Supported(dataVolumeSourceS3{}),
+			vddk, params.Supported(dataVolumeSourceVDDK{}),
+			snapshot, params.Supported(dataVolumeSource{}),
+			ds, params.Supported(dataVolumeSource{}),
+		))
+
+	cmd.Flags().StringVar(&c.sysprepVolume, SysprepVolumeFlag, c.sysprepVolume,
+		fmt.Sprintf("Specify a ConfigMap or Secret to be used as sysprep volume by the VM.\n"+
+			"Supported parameters: %s", params.Supported(sysprepVolumeSource{})))
 
 	cmd.Flags().StringVar(&c.user, UserFlag, c.user, "Specify the user in the cloud-init user data that is added to the VM.")
-	cmd.Flags().StringVar(&c.passwordFile, PasswordFileFlag, c.passwordFile, "Specify a file to read the password from for the cloud-init user data that is added to the VM.")
-	cmd.Flags().StringSliceVar(&c.sshKeys, SSHKeyFlag, c.sshKeys, "Specify one or more SSH authorized keys in the cloud-init user data that is added to the VM.")
-	cmd.Flags().BoolVar(&c.gaManageSSH, GAManageSSHFlag, c.gaManageSSH, "Specify if the qemu-guest-agent should be able to manage SSH in the cloud-init user data that is added to the VM.\nThis is useful in combination with the \"credentials add-ssh-key\" command or when using the --access-cred flag.")
-	cmd.Flags().StringArrayVar(&c.accessCreds, AccessCredFlag, c.accessCreds, fmt.Sprintf("Specify an access credential to be injected into the VM. Can be provided multiple times.\nSupported parameters: %s", params.Supported(accessCredential{})))
+	cmd.Flags().StringVar(&c.passwordFile, PasswordFileFlag, c.passwordFile,
+		"Specify a file to read the password from for the cloud-init user data that is added to the VM.")
+	cmd.Flags().StringSliceVar(&c.sshKeys, SSHKeyFlag, c.sshKeys,
+		"Specify one or more SSH authorized keys in the cloud-init user data that is added to the VM.")
+	cmd.Flags().BoolVar(&c.gaManageSSH, GAManageSSHFlag, c.gaManageSSH,
+		"Specify if the qemu-guest-agent should be able to manage SSH in the cloud-init user data that is added to the VM.\n"+
+			"This is useful in combination with the \"credentials add-ssh-key\" command or when using the --access-cred flag.")
+	cmd.Flags().StringArrayVar(&c.accessCreds, AccessCredFlag, c.accessCreds,
+		fmt.Sprintf("Specify an access credential to be injected into the VM. Can be provided multiple times.\n"+
+			"Supported parameters: %s", params.Supported(accessCredential{})))
 
-	cmd.Flags().StringVar(&c.cloudInit, CloudInitFlag, c.cloudInit, fmt.Sprintf("Specify the type of the generated cloud-init data source.\nSupported values: %s, %s, %s", cloudInitNoCloud, cloudInitConfigDrive, cloudInitNone))
-	cmd.Flags().StringVar(&c.cloudInitUserData, CloudInitUserDataFlag, c.cloudInitUserData, "Specify the base64 encoded cloud-init user data of the VM.")
-	cmd.Flags().StringVar(&c.cloudInitNetworkData, CloudInitNetworkDataFlag, c.cloudInitNetworkData, "Specify the base64 encoded cloud-init network data of the VM.")
+	cmd.Flags().StringVar(&c.cloudInit, CloudInitFlag, c.cloudInit,
+		fmt.Sprintf("Specify the type of the generated cloud-init data source.\n"+
+			"Supported values: %s, %s, %s", cloudInitNoCloud, cloudInitConfigDrive, cloudInitNone))
+	cmd.Flags().StringVar(&c.cloudInitUserData, CloudInitUserDataFlag, c.cloudInitUserData,
+		"Specify the base64 encoded cloud-init user data of the VM.")
+	cmd.Flags().StringVar(&c.cloudInitNetworkData, CloudInitNetworkDataFlag, c.cloudInitNetworkData,
+		"Specify the base64 encoded cloud-init network data of the VM.")
 	cmd.MarkFlagsMutuallyExclusive(CloudInitUserDataFlag, UserFlag)
 	cmd.MarkFlagsMutuallyExclusive(CloudInitUserDataFlag, PasswordFileFlag)
 	cmd.MarkFlagsMutuallyExclusive(CloudInitUserDataFlag, SSHKeyFlag)
 	cmd.MarkFlagsMutuallyExclusive(CloudInitUserDataFlag, GAManageSSHFlag)
 
 	// Deprecated flags
-	cmd.Flags().StringArrayVar(&c.dataSourceVolumes, DataSourceVolumeFlag, c.dataSourceVolumes, "Specify a DataSource to be cloned by the VM. Can be provided multiple times.\nSupported parameters: name:string,src:string,bootorder:uint,size:resource.Quantity\nDEPRECATED: Use --volume-import with type:ds and same params instead.")
-	cmd.Flags().StringArrayVar(&c.clonePvcVolumes, ClonePvcVolumeFlag, c.clonePvcVolumes, "Specify a PVC to be cloned by the VM. Can be provided multiple times.\nSupported parameters: name:string,src:string,bootorder:uint,size:resource.Quantity\nDEPRECATED: Use --volume-import with type:pvc and same params instead.")
-	cmd.Flags().StringArrayVar(&c.blankVolumes, BlankVolumeFlag, c.blankVolumes, "Specify a blank volume to be used by the VM. Can be provided multiple times.\nSupported parameters: name:string,size:resource.Quantity\nDEPRECATED: Use --volume-import with type:blank and same params instead.")
+	cmd.Flags().StringArrayVar(&c.dataSourceVolumes, DataSourceVolumeFlag, c.dataSourceVolumes,
+		"Specify a DataSource to be cloned by the VM. Can be provided multiple times.\n"+
+			"Supported parameters: name:string,src:string,bootorder:uint,size:resource.Quantity\n"+
+			"DEPRECATED: Use --volume-import with type:ds and same params instead.")
+	cmd.Flags().StringArrayVar(&c.clonePvcVolumes, ClonePvcVolumeFlag, c.clonePvcVolumes,
+		"Specify a PVC to be cloned by the VM. Can be provided multiple times.\n"+
+			"Supported parameters: name:string,src:string,bootorder:uint,size:resource.Quantity\n"+
+			"DEPRECATED: Use --volume-import with type:pvc and same params instead.")
+	cmd.Flags().StringArrayVar(&c.blankVolumes, BlankVolumeFlag, c.blankVolumes,
+		"Specify a blank volume to be used by the VM. Can be provided multiple times.\n"+
+			"Supported parameters: name:string,size:resource.Quantity\n"+
+			"DEPRECATED: Use --volume-import with type:blank and same params instead.")
 
 	cmd.Flags().SortFlags = false
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -317,7 +369,9 @@ func dataVolumeValidToInferFrom(vm *v1.VirtualMachine, name string) error {
 			if dvt.Spec.SourceRef != nil && dvt.Spec.SourceRef.Kind == "DataSource" {
 				return nil
 			}
-			return fmt.Errorf("this datavolume is not valid to infer an instancetype or preference from (source needs to be PVC, Registry or Snapshot, sourceRef needs to be DataSource)")
+			return fmt.Errorf(
+				"this datavolume is not valid to infer an instancetype or preference from " +
+					"(source needs to be PVC, Registry or Snapshot, sourceRef needs to be DataSource)")
 		}
 	}
 
@@ -325,8 +379,12 @@ func dataVolumeValidToInferFrom(vm *v1.VirtualMachine, name string) error {
 }
 
 func isCloudInitSourceEmpty(src *v1.VolumeSource) bool {
-	return (src.CloudInitNoCloud != nil && src.CloudInitNoCloud.UserData == cloudInitConfigHeader && src.CloudInitNoCloud.NetworkDataBase64 == "") ||
-		(src.CloudInitConfigDrive != nil && src.CloudInitConfigDrive.UserData == cloudInitConfigHeader && src.CloudInitConfigDrive.NetworkDataBase64 == "")
+	return (src.CloudInitNoCloud != nil &&
+		src.CloudInitNoCloud.UserData == cloudInitConfigHeader &&
+		src.CloudInitNoCloud.NetworkDataBase64 == "") ||
+		(src.CloudInitConfigDrive != nil &&
+			src.CloudInitConfigDrive.UserData == cloudInitConfigHeader &&
+			src.CloudInitConfigDrive.NetworkDataBase64 == "")
 }
 
 func (c *createVM) run(cmd *cobra.Command, _ []string) error {
@@ -341,18 +399,18 @@ func (c *createVM) run(cmd *cobra.Command, _ []string) error {
 
 	for _, flag := range flags {
 		if cmd.Flags().Changed(flag) {
-			if err := c.optFns()[flag](vm); err != nil {
-				return err
+			if flagErr := c.optFns()[flag](vm); flagErr != nil {
+				return flagErr
 			}
 		}
 	}
 
-	if err := c.cloudInitConfig(vm); err != nil {
-		return err
+	if cloudInitErr := c.cloudInitConfig(vm); cloudInitErr != nil {
+		return cloudInitErr
 	}
 
-	if err := c.inferFromVolume(vm); err != nil {
-		return err
+	if inferErr := c.inferFromVolume(vm); inferErr != nil {
+		return inferErr
 	}
 
 	out, err := yaml.Marshal(vm)
@@ -377,7 +435,7 @@ func (c *createVM) setDefaults(cmd *cobra.Command) error {
 	}
 
 	if c.name == "" {
-		c.name = "vm-" + rand.String(5)
+		c.name = "vm-" + rand.String(randSuffixLength)
 	}
 
 	c.explicitInstancetypeInference = cmd.Flags().Changed(InferInstancetypeFlag) ||
@@ -407,6 +465,7 @@ func (c *createVM) optFns() map[string]func(*v1.VirtualMachine) error {
 	}
 }
 
+//nolint:lll
 func (c *createVM) usage() string {
 	return `  # Create a manifest for a VirtualMachine with a random name:
   {{ProgramName}} create vm
@@ -485,7 +544,6 @@ func (c *createVM) newVM() (*v1.VirtualMachine, error) {
 	memory, err := resource.ParseQuantity(c.memory)
 	if err != nil {
 		return nil, params.FlagErr(MemoryFlag, "%w", err)
-
 	}
 
 	vm := &v1.VirtualMachine{
@@ -646,14 +704,18 @@ func (c *createVM) getInferFromVolume(vm *v1.VirtualMachine) (string, error) {
 	return vm.Spec.Template.Spec.Volumes[0].Name, nil
 }
 
+func (c *createVM) cloudInitFlagsChanged() bool {
+	return c.cmd.Flags().Changed(UserFlag) ||
+		c.cmd.Flags().Changed(PasswordFileFlag) ||
+		c.cmd.Flags().Changed(SSHKeyFlag) ||
+		c.cmd.Flags().Changed(GAManageSSHFlag) ||
+		c.cmd.Flags().Changed(CloudInitFlag) ||
+		c.cmd.Flags().Changed(CloudInitUserDataFlag) ||
+		c.cmd.Flags().Changed(CloudInitNetworkDataFlag)
+}
+
 func (c *createVM) cloudInitConfig(vm *v1.VirtualMachine) error {
-	if !c.cmd.Flags().Changed(UserFlag) &&
-		!c.cmd.Flags().Changed(PasswordFileFlag) &&
-		!c.cmd.Flags().Changed(SSHKeyFlag) &&
-		!c.cmd.Flags().Changed(GAManageSSHFlag) &&
-		!c.cmd.Flags().Changed(CloudInitFlag) &&
-		!c.cmd.Flags().Changed(CloudInitUserDataFlag) &&
-		!c.cmd.Flags().Changed(CloudInitNetworkDataFlag) {
+	if !c.cloudInitFlagsChanged() {
 		return nil
 	}
 
@@ -685,7 +747,9 @@ func (c *createVM) cloudInitConfig(vm *v1.VirtualMachine) error {
 		}
 		return nil
 	default:
-		return params.FlagErr(CloudInitFlag, "invalid cloud-init data source type \"%s\", supported values are: %s, %s, %s", c.cloudInit, cloudInitNoCloud, cloudInitConfigDrive, cloudInitNone)
+		return params.FlagErr(CloudInitFlag,
+			"invalid cloud-init data source type \"%s\", supported values are: %s, %s, %s",
+			c.cloudInit, cloudInitNoCloud, cloudInitConfigDrive, cloudInitNone)
 	}
 	if err != nil {
 		return err
@@ -787,13 +851,14 @@ func (c *createVM) withRunStrategy(vm *v1.VirtualMachine) error {
 	}
 
 	for _, runStrategy := range runStrategies {
-		if strings.ToLower(runStrategy) == strings.ToLower(c.runStrategy) {
+		if strings.EqualFold(runStrategy, c.runStrategy) {
 			vm.Spec.RunStrategy = pointer.P(v1.VirtualMachineRunStrategy(runStrategy))
 			return nil
 		}
 	}
 
-	return params.FlagErr(RunStrategyFlag, "invalid run strategy \"%s\", supported values are: %s", c.runStrategy, strings.Join(runStrategies, ", "))
+	return params.FlagErr(RunStrategyFlag, "invalid run strategy \"%s\", supported values are: %s",
+		c.runStrategy, strings.Join(runStrategies, ", "))
 }
 
 func (c *createVM) withInstancetype(vm *v1.VirtualMachine) error {
@@ -804,7 +869,8 @@ func (c *createVM) withInstancetype(vm *v1.VirtualMachine) error {
 
 	kind = strings.ToLower(kind)
 	if kind != "" && kind != instancetype.SingularResourceName && kind != instancetype.ClusterSingularResourceName {
-		return params.FlagErr(InstancetypeFlag, "invalid instancetype kind \"%s\", supported values are: %s, %s", kind, instancetype.SingularResourceName, instancetype.ClusterSingularResourceName)
+		return params.FlagErr(InstancetypeFlag, "invalid instancetype kind \"%s\", supported values are: %s, %s",
+			kind, instancetype.SingularResourceName, instancetype.ClusterSingularResourceName)
 	}
 
 	// If kind is empty we rely on the vm-mutator to fill in the default value VirtualMachineClusterInstancetype
@@ -825,7 +891,8 @@ func (c *createVM) withPreference(vm *v1.VirtualMachine) error {
 
 	kind = strings.ToLower(kind)
 	if kind != "" && kind != instancetype.SingularPreferenceResourceName && kind != instancetype.ClusterSingularPreferenceResourceName {
-		return params.FlagErr(PreferenceFlag, "invalid preference kind \"%s\", supported values are: %s, %s", kind, instancetype.SingularPreferenceResourceName, instancetype.ClusterSingularPreferenceResourceName)
+		return params.FlagErr(PreferenceFlag, "invalid preference kind \"%s\", supported values are: %s, %s",
+			kind, instancetype.SingularPreferenceResourceName, instancetype.ClusterSingularPreferenceResourceName)
 	}
 
 	// If kind is empty we rely on the vm-mutator to fill in the default value VirtualMachineClusterPreference
@@ -970,7 +1037,9 @@ func (c *createVM) withSysprepVolume(vm *v1.VirtualMachine) error {
 			},
 		}
 	default:
-		return params.FlagErr(SysprepVolumeFlag, "invalid sysprep source type \"%s\", supported values are: %s, %s", src.Type, sysprepConfigMap, sysprepSecret)
+		return params.FlagErr(SysprepVolumeFlag,
+			"invalid sysprep source type \"%s\", supported values are: %s, %s",
+			src.Type, sysprepConfigMap, sysprepSecret)
 	}
 
 	vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
@@ -987,7 +1056,7 @@ func (c *createVM) withImportedVolume(vm *v1.VirtualMachine) error {
 	for _, volume := range c.volumeImport {
 		srcType, err := params.GetParamByName("type", volume)
 		if err != nil {
-			return params.FlagErr(VolumeImportFlag, err.Error())
+			return params.FlagErr(VolumeImportFlag, "%w", err)
 		}
 
 		srcFn, found := volumeImportOptions[srcType]
@@ -1003,12 +1072,12 @@ func (c *createVM) withImportedVolume(vm *v1.VirtualMachine) error {
 		size, err := params.GetParamByName("size", volume)
 		if err != nil &&
 			(!volumeImportSizeOptional[srcType] || !errors.Is(err, params.NotFoundError{Name: "size"})) {
-			return params.FlagErr(VolumeImportFlag, err.Error())
+			return params.FlagErr(VolumeImportFlag, "%w", err)
 		}
 
 		name, err := params.GetParamByName("name", volume)
 		if err != nil {
-			name = "imported-volume-" + rand.String(5)
+			name = "imported-volume-" + rand.String(randSuffixLength)
 		}
 
 		if err := createDataVolume(spec, size, name, vm); err != nil {
@@ -1057,8 +1126,8 @@ func withVolumeSourceGcs(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) 
 	}, src.BootOrder, nil
 }
 
-func withVolumeSourceHttp(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) {
-	src := dataVolumeSourceHttp{}
+func withVolumeSourceHTTP(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) {
+	src := dataVolumeSourceHTTP{}
 	if err := params.Map(VolumeImportFlag, paramStr, &src); err != nil {
 		return nil, nil, err
 	}
@@ -1086,7 +1155,7 @@ func withVolumeSourceImageIO(paramStr string) (*cdiv1.DataVolumeSpec, *uint, err
 		return nil, nil, err
 	}
 
-	if src.URL == "" || src.DiskId == "" {
+	if src.URL == "" || src.DiskID == "" {
 		return nil, nil, params.FlagErr(VolumeImportFlag, "url and diskid are both required with imageio volume source")
 	}
 
@@ -1094,7 +1163,7 @@ func withVolumeSourceImageIO(paramStr string) (*cdiv1.DataVolumeSpec, *uint, err
 		Source: &cdiv1.DataVolumeSource{
 			Imageio: &cdiv1.DataVolumeSourceImageIO{
 				URL:           src.URL,
-				DiskID:        src.DiskId,
+				DiskID:        src.DiskID,
 				SecretRef:     src.SecretRef,
 				CertConfigMap: src.CertConfigMap,
 			},
@@ -1102,23 +1171,34 @@ func withVolumeSourceImageIO(paramStr string) (*cdiv1.DataVolumeSpec, *uint, err
 	}, src.BootOrder, nil
 }
 
-func withVolumeSourcePVC(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) {
+func parseVolumeSource(paramStr, kind string) (name, namespace string, bootOrder *uint, err error) {
 	src := dataVolumeSource{}
-	if err := params.Map(VolumeImportFlag, paramStr, &src); err != nil {
-		return nil, nil, err
+
+	err = params.Map(VolumeImportFlag, paramStr, &src)
+	if err != nil {
+		return "", "", nil, err
 	}
 
 	if src.Source == "" {
-		return nil, nil, params.FlagErr(VolumeImportFlag, "src must be specified")
+		return "", "", nil, params.FlagErr(VolumeImportFlag, "src must be specified")
 	}
 
-	namespace, name, err := params.SplitPrefixedName(src.Source)
+	namespace, name, err = params.SplitPrefixedName(src.Source)
 	if err != nil {
-		return nil, nil, params.FlagErr(VolumeImportFlag, "src invalid: %w", err)
+		return "", "", nil, params.FlagErr(VolumeImportFlag, "src invalid: %w", err)
 	}
 
 	if namespace == "" {
-		return nil, nil, params.FlagErr(VolumeImportFlag, "namespace of pvc \"%s\" must be specified", name)
+		return "", "", nil, params.FlagErr(VolumeImportFlag, "namespace of %s \"%s\" must be specified", kind, name)
+	}
+
+	return name, namespace, src.BootOrder, nil
+}
+
+func withVolumeSourcePVC(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) {
+	name, namespace, bootOrder, err := parseVolumeSource(paramStr, "pvc")
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return &cdiv1.DataVolumeSpec{
@@ -1128,7 +1208,7 @@ func withVolumeSourcePVC(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) 
 				Namespace: namespace,
 			},
 		},
-	}, src.BootOrder, nil
+	}, bootOrder, nil
 }
 
 func withVolumeSourceRegistry(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) {
@@ -1230,7 +1310,7 @@ func withVolumeSourceVDDK(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error)
 				UUID:         src.UUID,
 				Thumbprint:   src.ThumbPrint,
 				SecretRef:    src.SecretRef,
-				InitImageURL: src.InitImageUrl,
+				InitImageURL: src.InitImageURL,
 				BackingFile:  src.BackingFile,
 			},
 		},
@@ -1238,22 +1318,9 @@ func withVolumeSourceVDDK(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error)
 }
 
 func withVolumeSourceSnapshot(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) {
-	src := dataVolumeSource{}
-	if err := params.Map(VolumeImportFlag, paramStr, &src); err != nil {
-		return nil, nil, err
-	}
-
-	if src.Source == "" {
-		return nil, nil, params.FlagErr(VolumeImportFlag, "src must be specified")
-	}
-
-	namespace, name, err := params.SplitPrefixedName(src.Source)
+	name, namespace, bootOrder, err := parseVolumeSource(paramStr, "snapshot")
 	if err != nil {
-		return nil, nil, params.FlagErr(VolumeImportFlag, "src invalid: %w", err)
-	}
-
-	if namespace == "" {
-		return nil, nil, params.FlagErr(VolumeImportFlag, "namespace of snapshot \"%s\" must be specified", name)
+		return nil, nil, err
 	}
 
 	return &cdiv1.DataVolumeSpec{
@@ -1263,7 +1330,7 @@ func withVolumeSourceSnapshot(paramStr string) (*cdiv1.DataVolumeSpec, *uint, er
 				Namespace: namespace,
 			},
 		},
-	}, src.BootOrder, nil
+	}, bootOrder, nil
 }
 
 func withVolumeSourceRefDataSource(paramStr string) (*cdiv1.DataVolumeSpec, *uint, error) {
@@ -1294,7 +1361,7 @@ func withVolumeSourceRefDataSource(paramStr string) (*cdiv1.DataVolumeSpec, *uin
 	return spec, src.BootOrder, nil
 }
 
-func createDataVolume(spec *cdiv1.DataVolumeSpec, size string, name string, vm *v1.VirtualMachine) error {
+func createDataVolume(spec *cdiv1.DataVolumeSpec, size, name string, vm *v1.VirtualMachine) error {
 	if errs := validation.IsDNS1123Label(name); len(errs) > 0 {
 		return params.FlagErr(VolumeImportFlag, "invalid name \"%s\": %s", name, strings.Join(errs, ","))
 	}
@@ -1363,7 +1430,9 @@ func (c *createVM) withAccessCredential(vm *v1.VirtualMachine) error {
 				return err
 			}
 		default:
-			return params.FlagErr(AccessCredFlag, "invalid access credential type \"%s\", supported values are: %s, %s", src.Type, accessCredTypeSSH, accessCredTypePassword)
+			return params.FlagErr(AccessCredFlag,
+				"invalid access credential type \"%s\", supported values are: %s, %s",
+				src.Type, accessCredTypeSSH, accessCredTypePassword)
 		}
 
 		vm.Spec.Template.Spec.AccessCredentials = append(vm.Spec.Template.Spec.AccessCredentials, *apiAccessCred)
@@ -1381,7 +1450,9 @@ func (c *createVM) withAccessCredentialSSH(src *accessCredential) (*v1.AccessCre
 	case cloudInitConfigDrive:
 		return c.withAccessCredentialSSHMethodConfigDrive(src)
 	default:
-		return nil, params.FlagErr(AccessCredFlag, "invalid access credentials ssh method \"%s\", supported values are: %s, %s, %s", src.Method, accessCredMethodGA, cloudInitNoCloud, cloudInitConfigDrive)
+		return nil, params.FlagErr(AccessCredFlag,
+			"invalid access credentials ssh method \"%s\", supported values are: %s, %s, %s",
+			src.Method, accessCredMethodGA, cloudInitNoCloud, cloudInitConfigDrive)
 	}
 }
 
@@ -1392,7 +1463,8 @@ func (c *createVM) withAccessCredentialSSHMethodGA(src *accessCredential) (*v1.A
 		user = src.User
 	}
 	if user == "" {
-		return nil, params.FlagErr(AccessCredFlag, "user must be specified with access credential ssh method ga (\"--user\" flag or param \"user\")")
+		return nil, params.FlagErr(AccessCredFlag,
+			"user must be specified with access credential ssh method ga (\"--user\" flag or param \"user\")")
 	}
 
 	// Set --ga-manage-ssh flag to allow the guest agent to write public keys if it was not changed
@@ -1409,44 +1481,37 @@ func (c *createVM) withAccessCredentialSSHMethodGA(src *accessCredential) (*v1.A
 	}), nil
 }
 
-func (c *createVM) withAccessCredentialSSHMethodNoCloud(src *accessCredential) (*v1.AccessCredential, error) {
+func (c *createVM) withAccessCredentialSSHGeneric(
+	src *accessCredential, expectedCloudInit string, method *v1.SSHPublicKeyAccessCredentialPropagationMethod,
+) (*v1.AccessCredential, error) {
 	if src.User != "" {
 		return nil, params.FlagErr(AccessCredFlag, accessCredUserInvalidError)
 	}
 
-	// Set --cloud-init flag to nocloud to ensure the required noCloud volume exists if it was not changed
 	if !c.cmd.Flags().Lookup(CloudInitFlag).Changed {
-		if err := c.cmd.Flags().Set(CloudInitFlag, cloudInitNoCloud); err != nil {
+		if err := c.cmd.Flags().Set(CloudInitFlag, expectedCloudInit); err != nil {
 			return nil, err
 		}
 	}
-	if strings.ToLower(c.cloudInit) != cloudInitNoCloud {
-		return nil, params.FlagErr(AccessCredFlag, accessCredMethodFlagMismatchErrorFmt, CloudInitFlag, cloudInitNoCloud, c.cloudInit)
+
+	if !strings.EqualFold(c.cloudInit, expectedCloudInit) {
+		return nil, params.FlagErr(AccessCredFlag, accessCredMethodFlagMismatchErrorFmt,
+			CloudInitFlag, expectedCloudInit, c.cloudInit)
 	}
 
-	return createAccessCredentialSSH(src.Source, &v1.SSHPublicKeyAccessCredentialPropagationMethod{
+	return createAccessCredentialSSH(src.Source, method), nil
+}
+
+func (c *createVM) withAccessCredentialSSHMethodNoCloud(src *accessCredential) (*v1.AccessCredential, error) {
+	return c.withAccessCredentialSSHGeneric(src, cloudInitNoCloud, &v1.SSHPublicKeyAccessCredentialPropagationMethod{
 		NoCloud: &v1.NoCloudSSHPublicKeyAccessCredentialPropagation{},
-	}), nil
+	})
 }
 
 func (c *createVM) withAccessCredentialSSHMethodConfigDrive(src *accessCredential) (*v1.AccessCredential, error) {
-	if src.User != "" {
-		return nil, params.FlagErr(AccessCredFlag, accessCredUserInvalidError)
-	}
-
-	// Set --cloud-init flag to configdrive to ensure the required configDrive volume exists if it was not changed
-	if !c.cmd.Flags().Lookup(CloudInitFlag).Changed {
-		if err := c.cmd.Flags().Set(CloudInitFlag, cloudInitConfigDrive); err != nil {
-			return nil, err
-		}
-	}
-	if strings.ToLower(c.cloudInit) != cloudInitConfigDrive {
-		return nil, params.FlagErr(AccessCredFlag, accessCredMethodFlagMismatchErrorFmt, CloudInitFlag, cloudInitConfigDrive, c.cloudInit)
-	}
-
-	return createAccessCredentialSSH(src.Source, &v1.SSHPublicKeyAccessCredentialPropagationMethod{
+	return c.withAccessCredentialSSHGeneric(src, cloudInitConfigDrive, &v1.SSHPublicKeyAccessCredentialPropagationMethod{
 		ConfigDrive: &v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation{},
-	}), nil
+	})
 }
 
 func createAccessCredentialSSH(src string, method *v1.SSHPublicKeyAccessCredentialPropagationMethod) *v1.AccessCredential {
@@ -1463,8 +1528,10 @@ func createAccessCredentialSSH(src string, method *v1.SSHPublicKeyAccessCredenti
 }
 
 func (c *createVM) withAccessCredentialPassword(src *accessCredential) (*v1.AccessCredential, error) {
-	if src.Method != "" && strings.ToLower(src.Method) != accessCredMethodGA {
-		return nil, params.FlagErr(AccessCredFlag, "invalid access credentials password method \"%s\", supported values are: %s", src.Method, accessCredMethodGA)
+	if src.Method != "" && !strings.EqualFold(src.Method, accessCredMethodGA) {
+		return nil, params.FlagErr(AccessCredFlag,
+			"invalid access credentials password method \"%s\", supported values are: %s",
+			src.Method, accessCredMethodGA)
 	}
 
 	if src.User != "" {
