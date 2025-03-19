@@ -4,7 +4,8 @@ go_library(
     name = "go_default_library",
     srcs = [
         "strings.go",
-        "strings_unsafe.go",
+        "strings_unsafe_go120.go",
+        "strings_unsafe_go121.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/protobuf/internal/strs",
     importpath = "google.golang.org/protobuf/internal/strs",
