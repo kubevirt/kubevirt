@@ -4,18 +4,19 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+
+	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-type InstancetypeSpecOption func(*instancetypev1beta1.VirtualMachineInstancetypeSpec)
+type InstancetypeSpecOption func(*v1beta1.VirtualMachineInstancetypeSpec)
 
-func NewInstancetype(opts ...InstancetypeSpecOption) *instancetypev1beta1.VirtualMachineInstancetype {
-	instancetype := instancetypev1beta1.VirtualMachineInstancetype{
+func NewInstancetype(opts ...InstancetypeSpecOption) *v1beta1.VirtualMachineInstancetype {
+	instancetype := v1beta1.VirtualMachineInstancetype{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "instancetype-",
 			Namespace:    testsuite.GetTestNamespace(nil),
@@ -25,8 +26,8 @@ func NewInstancetype(opts ...InstancetypeSpecOption) *instancetypev1beta1.Virtua
 	return &instancetype
 }
 
-func NewClusterInstancetype(opts ...InstancetypeSpecOption) *instancetypev1beta1.VirtualMachineClusterInstancetype {
-	instancetype := instancetypev1beta1.VirtualMachineClusterInstancetype{
+func NewClusterInstancetype(opts ...InstancetypeSpecOption) *v1beta1.VirtualMachineClusterInstancetype {
+	instancetype := v1beta1.VirtualMachineClusterInstancetype{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "clusterinstancetype-",
 			Namespace:    testsuite.GetTestNamespace(nil),
@@ -39,8 +40,8 @@ func NewClusterInstancetype(opts ...InstancetypeSpecOption) *instancetypev1beta1
 	return &instancetype
 }
 
-func newInstancetypeSpec(opts ...InstancetypeSpecOption) instancetypev1beta1.VirtualMachineInstancetypeSpec {
-	spec := &instancetypev1beta1.VirtualMachineInstancetypeSpec{}
+func newInstancetypeSpec(opts ...InstancetypeSpecOption) v1beta1.VirtualMachineInstancetypeSpec {
+	spec := &v1beta1.VirtualMachineInstancetypeSpec{}
 	for _, f := range opts {
 		f(spec)
 	}
@@ -48,19 +49,19 @@ func newInstancetypeSpec(opts ...InstancetypeSpecOption) instancetypev1beta1.Vir
 }
 
 func WithCPUs(vCPUs uint32) InstancetypeSpecOption {
-	return func(spec *instancetypev1beta1.VirtualMachineInstancetypeSpec) {
+	return func(spec *v1beta1.VirtualMachineInstancetypeSpec) {
 		spec.CPU.Guest = vCPUs
 	}
 }
 
 func WithMemory(memory string) InstancetypeSpecOption {
-	return func(spec *instancetypev1beta1.VirtualMachineInstancetypeSpec) {
+	return func(spec *v1beta1.VirtualMachineInstancetypeSpec) {
 		spec.Memory.Guest = resource.MustParse(memory)
 	}
 }
 
-func fromVMI(vmi *v1.VirtualMachineInstance) InstancetypeSpecOption {
-	return func(spec *instancetypev1beta1.VirtualMachineInstancetypeSpec) {
+func fromVMI(vmi *virtv1.VirtualMachineInstance) InstancetypeSpecOption {
+	return func(spec *v1beta1.VirtualMachineInstancetypeSpec) {
 		// Copy the amount of memory set within the VMI so our tests don't randomly start using more resources
 		guestMemory := resource.MustParse("128M")
 		if vmi != nil {
@@ -68,37 +69,37 @@ func fromVMI(vmi *v1.VirtualMachineInstance) InstancetypeSpecOption {
 				guestMemory = vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory].DeepCopy()
 			}
 		}
-		spec.CPU = instancetypev1beta1.CPUInstancetype{
+		spec.CPU = v1beta1.CPUInstancetype{
 			Guest: uint32(1),
 		}
 		spec.Memory.Guest = guestMemory
 	}
 }
 
-func NewInstancetypeFromVMI(vmi *v1.VirtualMachineInstance) *instancetypev1beta1.VirtualMachineInstancetype {
+func NewInstancetypeFromVMI(vmi *virtv1.VirtualMachineInstance) *v1beta1.VirtualMachineInstancetype {
 	return NewInstancetype(
 		fromVMI(vmi),
 	)
 }
 
-func NewClusterInstancetypeFromVMI(vmi *v1.VirtualMachineInstance) *instancetypev1beta1.VirtualMachineClusterInstancetype {
+func NewClusterInstancetypeFromVMI(vmi *virtv1.VirtualMachineInstance) *v1beta1.VirtualMachineClusterInstancetype {
 	return NewClusterInstancetype(
 		fromVMI(vmi),
 	)
 }
 
-type PreferenceSpecOption func(*instancetypev1beta1.VirtualMachinePreferenceSpec)
+type PreferenceSpecOption func(*v1beta1.VirtualMachinePreferenceSpec)
 
-func newPreferenceSpec(opts ...PreferenceSpecOption) instancetypev1beta1.VirtualMachinePreferenceSpec {
-	spec := &instancetypev1beta1.VirtualMachinePreferenceSpec{}
+func newPreferenceSpec(opts ...PreferenceSpecOption) v1beta1.VirtualMachinePreferenceSpec {
+	spec := &v1beta1.VirtualMachinePreferenceSpec{}
 	for _, f := range opts {
 		f(spec)
 	}
 	return *spec
 }
 
-func NewPreference(opts ...PreferenceSpecOption) *instancetypev1beta1.VirtualMachinePreference {
-	preference := &instancetypev1beta1.VirtualMachinePreference{
+func NewPreference(opts ...PreferenceSpecOption) *v1beta1.VirtualMachinePreference {
+	preference := &v1beta1.VirtualMachinePreference{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "preference-",
 			Namespace:    testsuite.GetTestNamespace(nil),
@@ -108,8 +109,8 @@ func NewPreference(opts ...PreferenceSpecOption) *instancetypev1beta1.VirtualMac
 	return preference
 }
 
-func NewClusterPreference(opts ...PreferenceSpecOption) *instancetypev1beta1.VirtualMachineClusterPreference {
-	preference := &instancetypev1beta1.VirtualMachineClusterPreference{
+func NewClusterPreference(opts ...PreferenceSpecOption) *v1beta1.VirtualMachineClusterPreference {
+	preference := &v1beta1.VirtualMachineClusterPreference{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "clusterpreference-",
 			Namespace:    testsuite.GetTestNamespace(nil),
@@ -122,19 +123,19 @@ func NewClusterPreference(opts ...PreferenceSpecOption) *instancetypev1beta1.Vir
 	return preference
 }
 
-func WithPreferredCPUTopology(topology instancetypev1beta1.PreferredCPUTopology) PreferenceSpecOption {
-	return func(spec *instancetypev1beta1.VirtualMachinePreferenceSpec) {
+func WithPreferredCPUTopology(topology v1beta1.PreferredCPUTopology) PreferenceSpecOption {
+	return func(spec *v1beta1.VirtualMachinePreferenceSpec) {
 		if spec.CPU == nil {
-			spec.CPU = &instancetypev1beta1.CPUPreferences{}
+			spec.CPU = &v1beta1.CPUPreferences{}
 		}
 		spec.CPU.PreferredCPUTopology = pointer.P(topology)
 	}
 }
 
-func WithPreferredDiskBus(bus v1.DiskBus) PreferenceSpecOption {
-	return func(spec *instancetypev1beta1.VirtualMachinePreferenceSpec) {
+func WithPreferredDiskBus(bus virtv1.DiskBus) PreferenceSpecOption {
+	return func(spec *v1beta1.VirtualMachinePreferenceSpec) {
 		if spec.Devices == nil {
-			spec.Devices = &instancetypev1beta1.DevicePreferences{}
+			spec.Devices = &v1beta1.DevicePreferences{}
 		}
 		spec.Devices.PreferredDiskBus = bus
 	}
