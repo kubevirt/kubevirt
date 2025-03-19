@@ -169,7 +169,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 
 			contentName := *snapshot.Status.VirtualMachineSnapshotContentName
 			if running {
-				expectedIndications := []snapshotv1.Indication{snapshotv1.VMSnapshotOnlineSnapshotIndication, snapshotv1.VMSnapshotNoGuestAgentIndication}
+				expectedIndications := []snapshotv1.Indication{snapshotv1.VMSnapshotNoGuestAgentIndication, snapshotv1.VMSnapshotOnlineSnapshotIndication}
 				Expect(snapshot.Status.Indications).To(Equal(expectedIndications))
 				checkOnlineSnapshotExpectedContentSource(vm, contentName, false)
 			} else {
@@ -267,9 +267,9 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 			checkVMFreeze := func(snapshot *snapshotv1.VirtualMachineSnapshot, vmi *v1.VirtualMachineInstance, hasGuestAgent bool, assertionFunc func(*v1.VirtualMachineInstance)) {
 				var expectedIndications []snapshotv1.Indication
 				if hasGuestAgent {
-					expectedIndications = []snapshotv1.Indication{snapshotv1.VMSnapshotOnlineSnapshotIndication, snapshotv1.VMSnapshotGuestAgentIndication}
+					expectedIndications = []snapshotv1.Indication{snapshotv1.VMSnapshotGuestAgentIndication, snapshotv1.VMSnapshotOnlineSnapshotIndication}
 				} else {
-					expectedIndications = []snapshotv1.Indication{snapshotv1.VMSnapshotOnlineSnapshotIndication, snapshotv1.VMSnapshotNoGuestAgentIndication}
+					expectedIndications = []snapshotv1.Indication{snapshotv1.VMSnapshotNoGuestAgentIndication, snapshotv1.VMSnapshotOnlineSnapshotIndication}
 				}
 				Expect(snapshot.Status.Indications).To(Equal(expectedIndications))
 
@@ -597,7 +597,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				snapshot = libstorage.WaitSnapshotSucceeded(virtClient, vm.Namespace, snapshot.Name)
-				expectedIndications := []snapshotv1.Indication{snapshotv1.VMSnapshotOnlineSnapshotIndication, snapshotv1.VMSnapshotGuestAgentIndication}
+				expectedIndications := []snapshotv1.Indication{snapshotv1.VMSnapshotGuestAgentIndication, snapshotv1.VMSnapshotOnlineSnapshotIndication}
 				Expect(snapshot.Status.Indications).To(Equal(expectedIndications))
 
 				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
