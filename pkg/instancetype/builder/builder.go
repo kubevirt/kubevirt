@@ -13,55 +13,47 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-type InstancetypeSpecOption func(*v1beta1.VirtualMachineInstancetypeSpec)
+type InstancetypeOption func(*v1beta1.VirtualMachineInstancetype)
 
-func NewInstancetype(opts ...InstancetypeSpecOption) *v1beta1.VirtualMachineInstancetype {
-	instancetype := v1beta1.VirtualMachineInstancetype{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "instancetype-",
-			Namespace:    testsuite.GetTestNamespace(nil),
-		},
-		Spec: newInstancetypeSpec(opts...),
-	}
-	return &instancetype
-}
-
-func NewClusterInstancetype(opts ...InstancetypeSpecOption) *v1beta1.VirtualMachineClusterInstancetype {
-	instancetype := v1beta1.VirtualMachineClusterInstancetype{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "clusterinstancetype-",
-			Namespace:    testsuite.GetTestNamespace(nil),
-			Labels: map[string]string{
-				cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(nil)): "",
-			},
-		},
-		Spec: newInstancetypeSpec(opts...),
-	}
-	return &instancetype
-}
-
-func newInstancetypeSpec(opts ...InstancetypeSpecOption) v1beta1.VirtualMachineInstancetypeSpec {
-	spec := &v1beta1.VirtualMachineInstancetypeSpec{}
+func NewInstancetype(opts ...InstancetypeOption) *v1beta1.VirtualMachineInstancetype {
+	instancetype := &v1beta1.VirtualMachineInstancetype{}
 	for _, f := range opts {
-		f(spec)
+		f(instancetype)
 	}
-	return *spec
+
+	if instancetype.Name == "" {
+		instancetype.GenerateName = "instancetype-"
+	}
+
+	if instancetype.Namespace == "" {
+		instancetype.Namespace = testsuite.GetTestNamespace(nil)
+	}
+
+	return instancetype
 }
 
-func WithCPUs(vCPUs uint32) InstancetypeSpecOption {
-	return func(spec *v1beta1.VirtualMachineInstancetypeSpec) {
-		spec.CPU.Guest = vCPUs
+func NewClusterInstancetype(opts ...InstancetypeOption) *v1beta1.VirtualMachineClusterInstancetype {
+	instancetype := NewInstancetype(opts...)
+	return &v1beta1.VirtualMachineClusterInstancetype{
+		ObjectMeta: *instancetype.ObjectMeta.DeepCopy(),
+		Spec:       *instancetype.Spec.DeepCopy(),
 	}
 }
 
-func WithMemory(memory string) InstancetypeSpecOption {
-	return func(spec *v1beta1.VirtualMachineInstancetypeSpec) {
-		spec.Memory.Guest = resource.MustParse(memory)
+func WithCPUs(vCPUs uint32) InstancetypeOption {
+	return func(instancetype *v1beta1.VirtualMachineInstancetype) {
+		instancetype.Spec.CPU.Guest = vCPUs
 	}
 }
 
-func fromVMI(vmi *virtv1.VirtualMachineInstance) InstancetypeSpecOption {
-	return func(spec *v1beta1.VirtualMachineInstancetypeSpec) {
+func WithMemory(memory string) InstancetypeOption {
+	return func(instancetype *v1beta1.VirtualMachineInstancetype) {
+		instancetype.Spec.Memory.Guest = resource.MustParse(memory)
+	}
+}
+
+func fromVMI(vmi *virtv1.VirtualMachineInstance) InstancetypeOption {
+	return func(instancetype *v1beta1.VirtualMachineInstancetype) {
 		// Copy the amount of memory set within the VMI so our tests don't randomly start using more resources
 		guestMemory := resource.MustParse("128M")
 		if vmi != nil {
@@ -69,10 +61,10 @@ func fromVMI(vmi *virtv1.VirtualMachineInstance) InstancetypeSpecOption {
 				guestMemory = vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory].DeepCopy()
 			}
 		}
-		spec.CPU = v1beta1.CPUInstancetype{
+		instancetype.Spec.CPU = v1beta1.CPUInstancetype{
 			Guest: uint32(1),
 		}
-		spec.Memory.Guest = guestMemory
+		instancetype.Spec.Memory.Guest = guestMemory
 	}
 }
 
