@@ -36,6 +36,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller/vmi"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -44,6 +45,16 @@ var _ = BeforeSuite(func() {
 
 var _ = Describe("VMI Stats Collector", func() {
 	clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKV(&k6tv1.KubeVirt{})
+
+	Context("VMI collectors", func() {
+		It("should register their metrics", func() {
+			conditionMetrics := vmi.ConditionsCollector{}.Describe()
+
+			for _, metric := range conditionMetrics {
+				Expect(vmiStatsCollector.Metrics).To(ContainElement(metric))
+			}
+		})
+	})
 
 	Context("VMI info", func() {
 		setupTestCollector()
