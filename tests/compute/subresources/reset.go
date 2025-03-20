@@ -21,8 +21,8 @@ package subresources
 
 import (
 	"context"
+	"time"
 
-	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -48,24 +48,20 @@ var _ = compute.SIGDescribe("Reset subresource", func() {
 			By("Checking that the VirtualMachineInstance console has expected output")
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
-			By("Create a file that is not expected to survive the reset request")
-			err := console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "touch /tmp/non-persistent-file\n"},
-				&expect.BExp{R: console.PromptExpression},
-				&expect.BSnd{S: console.EchoLastReturnValue},
-				&expect.BExp{R: console.ShellSuccess},
-			}, 120)
+			By("Store boot time pre and post reset")
+			cmd := "cat /proc/stat | grep btime"
+			bTimePreReset, err := console.RunCommandAndStoreOutput(vmi, cmd, time.Second*30)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Reset(context.Background(), vmi.Name)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
-			err = console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "ls /tmp/non-persistent-file\n"},
-				&expect.BExp{R: `non-persistent-file: No such file or director`},
-			}, 20)
+			bTimePostReset, err := console.RunCommandAndStoreOutput(vmi, cmd, time.Second*30)
 			Expect(err).ToNot(HaveOccurred())
+
+			By("Check the pre and post reset boot times are different")
+			Expect(bTimePreReset).ToNot(Equal(bTimePostReset))
 
 			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
