@@ -849,8 +849,7 @@ func (c *Controller) getUnavailableVMICount(vms []*virtv1.VirtualMachine) (int, 
 		if !exists {
 			vmi, err := c.clientset.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			if err != nil {
-				unavailableCount++
-				continue
+				return 0, err
 			}
 			obj = vmi
 		}
@@ -996,7 +995,7 @@ func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedL
 		for {
 			select {
 			case <-timeout:
-				return fmt.Errorf("timeout as the new VMIs are not coming online after 1 minutes")
+				return fmt.Errorf("timeout occurred while waiting for the VMI to become healthy")
 			default:
 				time.Sleep(1 * time.Second)
 				unavailableCount, err := c.getUnavailableVMICount(vmUpdatedList)
