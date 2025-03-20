@@ -32,6 +32,7 @@ type HeartBeat struct {
 	cpuManagerPaths           []string
 	devicePluginPollIntervall time.Duration
 	devicePluginWaitTimeout   time.Duration
+	monitorMultipath          *MonitorMultipathSocket
 }
 
 func NewHeartBeat(clientset k8scli.CoreV1Interface, deviceManager device_manager.DeviceControllerInterface, clusterConfig *virtconfig.ClusterConfig, host string) *HeartBeat {
@@ -46,6 +47,7 @@ func NewHeartBeat(clientset k8scli.CoreV1Interface, deviceManager device_manager
 		cpuManagerPaths:           []string{cpuManagerPath, cpuManagerOS3Path},
 		devicePluginPollIntervall: 1 * time.Second,
 		devicePluginWaitTimeout:   10 * time.Second,
+		monitorMultipath:          NewMonitorMultipathSocket(),
 	}
 }
 
@@ -57,7 +59,13 @@ func (h *HeartBeat) Run(heartBeatInterval time.Duration, stopCh chan struct{}) (
 		h.labelNodeUnschedulable()
 		close(done)
 	}()
+	go h.monitorMultipath.Run()
+
 	return done
+}
+
+func (h *HeartBeat) Stop() {
+	h.monitorMultipath.Stop()
 }
 
 func (h *HeartBeat) heartBeat(heartBeatInterval time.Duration, stopCh chan struct{}) {

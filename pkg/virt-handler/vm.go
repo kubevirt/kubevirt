@@ -1670,6 +1670,7 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 
 	<-heartBeatDone
 	<-stopCh
+	c.heartBeat.Stop()
 	log.Log.Info("Stopping virt-handler controller.")
 }
 
