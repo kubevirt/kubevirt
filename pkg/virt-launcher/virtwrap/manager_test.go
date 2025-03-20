@@ -2239,7 +2239,7 @@ var _ = Describe("Manager", func() {
 				fakeInfo := api.GuestOSInfo{
 					Name: "TestGuestOSName",
 				}
-				agentStore.Store(agentpoller.GET_OSINFO, fakeInfo)
+				agentStore.Store(libvirt.DOMAIN_GUEST_INFO_OS, fakeInfo)
 
 				osInfo := libvirtmanager.GetGuestOSInfo()
 				Expect(*osInfo).To(Equal(fakeInfo))
@@ -2264,7 +2264,7 @@ var _ = Describe("Manager", func() {
 					InterfaceName: "eth1",
 					Mac:           "00:00:00:00:00:01",
 				}}
-				agentStore.Store(agentpoller.GET_INTERFACES, fakeInterfaces)
+				agentStore.Store(libvirt.DOMAIN_GUEST_INFO_INTERFACES, fakeInterfaces)
 				interfacesStatus := agentStore.GetInterfaceStatus()
 
 				Expect(interfacesStatus).To(Equal(fakeInterfaces))
@@ -2321,7 +2321,7 @@ var _ = Describe("Manager", func() {
 
 	It("executes GetGuestInfo", func() {
 		agentStore := agentpoller.NewAsyncAgentStore()
-		agentStore.Store(agentpoller.GET_USERS, []api.User{
+		agentStore.Store(libvirt.DOMAIN_GUEST_INFO_USERS, []api.User{
 			{
 				Name:      "test",
 				Domain:    "test",
@@ -2372,7 +2372,7 @@ var _ = Describe("Manager", func() {
 
 	It("executes GetUsers", func() {
 		agentStore := agentpoller.NewAsyncAgentStore()
-		agentStore.Store(agentpoller.GET_USERS, []api.User{
+		agentStore.Store(libvirt.DOMAIN_GUEST_INFO_USERS, []api.User{
 			{
 				Name:      "test",
 				Domain:    "test",
