@@ -44,7 +44,6 @@ const (
 	// PersistentReservation enables the use of the SCSI persistent reservation with the pr-helper daemon
 	PersistentReservation = "PersistentReservation"
 	// VMPersistentState enables persisting backend state files of VMs, such as the contents of the vTPM
-	VMPersistentState = "VMPersistentState"
 	MultiArchitecture = "MultiArchitecture"
 
 	// AlignCPUsGate allows emulator thread to assign two extra CPUs if needed to complete even parity.
@@ -87,7 +86,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: KubevirtSeccompProfile, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DisableMediatedDevicesHandling, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PersistentReservation, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: VMPersistentState, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: MultiArchitecture, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: AlignCPUsGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: NodeRestrictionGate, State: Alpha})
