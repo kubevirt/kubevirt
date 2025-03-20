@@ -42,12 +42,27 @@ var _ = Describe("[sig-compute]Watchdog", decorators.SigCompute, func() {
 
 	Context("A VirtualMachineInstance with a watchdog device", func() {
 
-		It("[test_id:4641]should be shut down when the watchdog expires", decorators.Conformance, func() {
+		It("[test_id:4641]should be shut down when the watchdog expires", decorators.Conformance, decorators.WgS390x, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(
 				libvmifact.NewAlpine(libvmi.WithWatchdog(v1.WatchdogActionPoweroff)), 360)
 
 			By("Expecting the VirtualMachineInstance console")
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+			// Watchdog module need to be loaded as it will not be loaded by default for s390x
+			if vmi.Spec.Architecture == "s390x" {
+				By("Ensuring watchdog module is loaded")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "modprobe diag288_wdt\n"},
+					&expect.BExp{R: console.PromptExpression},
+				}, 250)).To(Succeed())
+
+				By("Checking watchdog device presence")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "ls -l /dev/watchdog\n"},
+					&expect.BExp{R: "/dev/watchdog"},
+				}, 250)).To(Succeed())
+			}
 
 			By("Killing the watchdog device")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
