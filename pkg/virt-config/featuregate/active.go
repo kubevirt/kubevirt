@@ -89,7 +89,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: KubevirtSeccompProfile, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DisableMediatedDevicesHandling, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PersistentReservation, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: VMPersistentState, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: VMPersistentState, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: MultiArchitecture, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: AlignCPUsGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: NodeRestrictionGate, State: Alpha})
