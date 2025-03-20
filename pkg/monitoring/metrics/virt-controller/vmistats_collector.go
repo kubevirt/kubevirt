@@ -34,6 +34,7 @@ import (
 	k6tv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller/vmi"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 )
 
@@ -46,20 +47,17 @@ const (
 )
 
 var (
+	vmiCollectors = []vmi.Collector{
+		vmi.ConditionsCollector{},
+	}
+
 	whitelistedInstanceTypeVendors = map[string]bool{
 		"kubevirt.io": true,
 		"redhat.com":  true,
 	}
 
 	vmiStatsCollector = operatormetrics.Collector{
-		Metrics: []operatormetrics.Metric{
-			vmiInfo,
-			vmiEvictionBlocker,
-			vmiAddresses,
-			vmiMigrationStartTime,
-			vmiMigrationEndTime,
-			vmiVnicInfo,
-		},
+		Metrics:         describeVmiCollectors(),
 		CollectCallback: vmiStatsCollectorCallback,
 	}
 
@@ -128,6 +126,23 @@ var (
 	)
 )
 
+func describeVmiCollectors() []operatormetrics.Metric {
+	metrics := []operatormetrics.Metric{
+		vmiInfo,
+		vmiEvictionBlocker,
+		vmiAddresses,
+		vmiMigrationStartTime,
+		vmiMigrationEndTime,
+		vmiVnicInfo,
+	}
+
+	for _, collector := range vmiCollectors {
+		metrics = append(metrics, collector.Describe()...)
+	}
+
+	return metrics
+}
+
 func vmiStatsCollectorCallback() []operatormetrics.CollectorResult {
 	cachedObjs := informers.VMI.GetIndexer().List()
 	if len(cachedObjs) == 0 {
@@ -153,6 +168,10 @@ func reportVmisStats(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Col
 		crs = append(crs, collectVMIInterfacesInfo(vmi)...)
 		crs = append(crs, collectVMIMigrationTime(vmi)...)
 		crs = append(crs, CollectVmisVnicInfo(vmi)...)
+
+		for _, collector := range vmiCollectors {
+			crs = append(crs, collector.Collect(vmi)...)
+		}
 	}
 
 	return crs
