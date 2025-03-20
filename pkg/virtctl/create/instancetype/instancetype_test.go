@@ -169,7 +169,7 @@ var _ = Describe("create instancetype", func() {
 			Entry("VirtualMachineClusterPreference", false),
 		)
 
-		runDeviceTest := func(flagName, deviceParam string, extraArgs ...string) *instancetypev1beta1.VirtualMachineInstancetypeSpec {
+		runDeviceCmd := func(flagName, deviceParam string, extraArgs ...string) *instancetypev1beta1.VirtualMachineInstancetypeSpec {
 			args := append([]string{
 				setFlag(CPUFlag, "1"),
 				setFlag(MemoryFlag, "128Mi"),
