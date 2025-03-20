@@ -40,7 +40,7 @@ var _ = Describe("USB Device", func() {
 	}
 
 	findAll := func() *LocalDevices {
-		usbDevices := make(map[int][]*USBDevice, 0)
+		usbDevices := make(map[int][]*USBDevice)
 		for _, device := range usbs {
 			usbDevices[device.Vendor] = append(usbDevices[device.Vendor], device)
 		}

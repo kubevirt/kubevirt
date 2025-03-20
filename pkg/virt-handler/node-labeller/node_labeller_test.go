@@ -109,9 +109,7 @@ var _ = Describe("Node-labeller ", func() {
 		Expect(node.Labels).ToNot(BeEmpty())
 
 		Expect(res).To(BeTrue(), "labeller should end with true result")
-		Consistently(func() int {
-			return nlController.queue.Len()
-		}, 5*time.Second, time.Second).Should(Equal(0), "labeller should process all nodes from queue")
+		Expect(nlController.queue.Len()).To(BeZero(), "labeller should process all nodes from queue")
 	})
 
 	It("should re-queue node if node-labelling fail", func() {

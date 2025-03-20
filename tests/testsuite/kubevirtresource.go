@@ -109,16 +109,7 @@ func AdjustKubeVirtResource() {
 		featuregate.WorkloadEncryptionSEV,
 		featuregate.VMExportGate,
 		featuregate.KubevirtSeccompProfile,
-		featuregate.VMPersistentState,
 	)
-
-	if kv.Spec.Configuration.NetworkConfiguration == nil {
-		testDefaultPermitSlirpInterface := true
-
-		kv.Spec.Configuration.NetworkConfiguration = &v1.NetworkConfiguration{
-			DeprecatedPermitSlirpInterface: &testDefaultPermitSlirpInterface,
-		}
-	}
 
 	storageClass, exists := libstorage.GetVMStateStorageClass()
 	if exists {

@@ -625,7 +625,7 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cg
 			return nil
 		}
 
-		currentHotplugPaths := make(map[string]types.UID, 0)
+		currentHotplugPaths := make(map[string]types.UID)
 		virtlauncherUID := m.findVirtlauncherUID(vmi)
 
 		basePath, err := m.hotplugDiskManager.GetHotplugTargetPodPathOnHost(virtlauncherUID)

@@ -50,7 +50,7 @@ var _ = Describe(compute.SIG("Reset subresource", func() {
 
 			By("Create a file that is not expected to survive the reset request")
 			err := console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "touch non-persistent-file\n"},
+				&expect.BSnd{S: "touch /tmp/non-persistent-file\n"},
 				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: console.EchoLastReturnValue},
 				&expect.BExp{R: console.ShellSuccess},
@@ -62,7 +62,7 @@ var _ = Describe(compute.SIG("Reset subresource", func() {
 
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			err = console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "ls non-persistent-file\n"},
+				&expect.BSnd{S: "ls /tmp/non-persistent-file\n"},
 				&expect.BExp{R: `non-persistent-file: No such file or director`},
 			}, 20)
 			Expect(err).ToNot(HaveOccurred())

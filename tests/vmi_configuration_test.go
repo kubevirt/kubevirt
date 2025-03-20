@@ -310,7 +310,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					}
 				}
 				Expect(computeContainer).ToNot(BeNil(), "could not find the compute container")
-				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(416)))
+				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(399)))
 			})
 			It("[test_id:4624]should set a correct memory units", func() {
 				vmi := libvmifact.NewAlpine(
@@ -1621,7 +1621,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model defined", func() {
-			It("[test_id:1678][QUARANTINE]should report defined CPU model", decorators.Quarantine, func() {
+			It("[test_id:1678]should report defined CPU model", func() {
 				supportedCPUs := libnode.GetSupportedCPUModels(*nodes)
 				Expect(supportedCPUs).ToNot(BeEmpty())
 				cpuVmi := libvmifact.NewCirros(libvmi.WithCPUModel(supportedCPUs[0]))

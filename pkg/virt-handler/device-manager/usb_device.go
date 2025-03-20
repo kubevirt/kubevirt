@@ -528,7 +528,7 @@ func (l *LocalDevices) fetch(selectors []v1.USBSelector) ([]*USBDevice, bool) {
 }
 
 func discoverPluggedUSBDevices() *LocalDevices {
-	usbDevices := make(map[int][]*USBDevice, 0)
+	usbDevices := make(map[int][]*USBDevice)
 	err := filepath.Walk(pathToUSBDevices, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err

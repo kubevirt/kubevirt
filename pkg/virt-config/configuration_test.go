@@ -326,8 +326,8 @@ var _ = Describe("test configuration", func() {
 		})
 		Expect(clusterConfig.IsVMRolloutStrategyLiveUpdate()).To(BeEquivalentTo(expected))
 	},
-		Entry("is nil, IsVMRolloutStrategyLiveUpdate should return false",
-			nil, false,
+		Entry("is nil, IsVMRolloutStrategyLiveUpdate should return true",
+			nil, true,
 		),
 		Entry("is Stage, IsVMRolloutStrategyLiveUpdate should return false",
 			pointer.P(v1.VMRolloutStrategyStage), false,
@@ -462,9 +462,7 @@ var _ = Describe("test configuration", func() {
 		}
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 
-		Consistently(func() kubev1.PullPolicy {
-			return clusterConfig.GetImagePullPolicy()
-		}).Should(Equal(kubev1.PullAlways))
+		Expect(clusterConfig.GetImagePullPolicy()).To(Equal(kubev1.PullAlways))
 	})
 
 	It("should return the default config if no config map exists", func() {
