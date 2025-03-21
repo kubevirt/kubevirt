@@ -79,8 +79,8 @@ import (
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/tpm"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -1746,7 +1746,7 @@ func (l *LibvirtDomainManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreez
 	// The fsfreeze doesn't apply to the TPM, so we can at least do a fsync to the state
 	// directory to ensure data integrity. This explicit sync ensures that pending
 	// writes to the swtpm backing files are flushed to disk.
-	if backendstorage.HasPersistentTPMDevice(&vmi.Spec) {
+	if tpm.HasPersistentDevice(&vmi.Spec) {
 		cmd := exec.Command("/usr/bin/sync", services.PathForSwtpm(vmi))
 		out, err := cmd.CombinedOutput()
 		if err != nil {

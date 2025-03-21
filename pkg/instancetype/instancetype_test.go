@@ -1891,7 +1891,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 						PreferredInterfaceModel:      v1.VirtIO,
 						PreferredSoundModel:          "ac97",
 						PreferredRng:                 &v1.Rng{},
-						PreferredTPM:                 &v1.TPMDevice{},
 						PreferredInterfaceMasquerade: &v1.InterfaceMasquerade{},
 					},
 				}
@@ -1959,7 +1958,6 @@ var _ = Describe("Instancetype and Preferences", func() {
 				Expect(*vmi.Spec.Domain.Devices.Rng).To(Equal(*preferenceSpec.Devices.PreferredRng))
 				Expect(*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue).To(Equal(*preferenceSpec.Devices.PreferredNetworkInterfaceMultiQueue))
 				Expect(*vmi.Spec.Domain.Devices.BlockMultiQueue).To(Equal(*preferenceSpec.Devices.PreferredBlockMultiQueue))
-				Expect(*vmi.Spec.Domain.Devices.TPM).To(Equal(*preferenceSpec.Devices.PreferredTPM))
 			})
 
 			It("Should apply when a VMI disk doesn't have a DiskDevice target defined", func() {
@@ -2016,6 +2014,37 @@ var _ = Describe("Instancetype and Preferences", func() {
 						}
 					}
 				})
+			})
+
+			Context("PreferredTPM", func() {
+				DescribeTable("should",
+					func(vmiTPM, preferenceTPM, expectedTPM *v1.TPMDevice) {
+						vmi.Spec.Domain.Devices.TPM = vmiTPM
+						preferenceSpec.Devices.PreferredTPM = preferenceTPM
+						Expect(instancetypeMethods.ApplyToVmi(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(BeEmpty())
+						Expect(vmi.Spec.Domain.Devices.TPM).To(Equal(expectedTPM))
+					},
+					Entry("only apply when TPM device is nil within VMI spec",
+						nil,
+						&v1.TPMDevice{Persistent: pointer.P(true)},
+						&v1.TPMDevice{Persistent: pointer.P(true)},
+					),
+					Entry("not apply when TPM device is provided within VMI spec",
+						&v1.TPMDevice{Persistent: pointer.P(true)},
+						&v1.TPMDevice{},
+						&v1.TPMDevice{Persistent: pointer.P(true)},
+					),
+					Entry("not apply when TPM device is provided in the preference but disabled within VMI spec",
+						&v1.TPMDevice{Enabled: pointer.P(false)},
+						&v1.TPMDevice{},
+						&v1.TPMDevice{Enabled: pointer.P(false)},
+					),
+					Entry("not apply when TPM device is explicitly Enabled in the preference but disabled within VMI spec",
+						&v1.TPMDevice{Enabled: pointer.P(false)},
+						&v1.TPMDevice{Enabled: pointer.P(true)},
+						&v1.TPMDevice{Enabled: pointer.P(false)},
+					),
+				)
 			})
 		})
 
