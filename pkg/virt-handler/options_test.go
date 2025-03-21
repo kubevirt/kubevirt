@@ -43,79 +43,55 @@ var _ = Describe("Parsing VMI Options", func() {
 				},
 			}),
 		)
-		It("should panic when NUMA cells are nil", func() {
+		DescribeTable("should not panic when NUMA cells are nil or have nil components", func(cells *libvirtxml.CapsHostNUMACells) {
 			caps := &libvirtxml.Caps{Host: libvirtxml.CapsHost{NUMA: &libvirtxml.CapsHostNUMATopology{}}}
-			caps.Host.NUMA.Cells = nil
-
-			Expect(func() {
-				capabilitiesToTopology(caps)
-			}).To(Panic())
-		})
-
-		It("should panic when NUMA cell memory is nil", func() {
-			caps := &libvirtxml.Caps{Host: libvirtxml.CapsHost{NUMA: &libvirtxml.CapsHostNUMATopology{}}}
-			caps.Host.NUMA.Cells = &libvirtxml.CapsHostNUMACells{
-				Cells: []libvirtxml.CapsHostNUMACell{
-					{
-						Memory: nil, // This should cause a panic
-						PageInfo: []libvirtxml.CapsHostNUMAPageInfo{
-							{Unit: memoryUnit, Size: 4, Count: 4064224},
-						},
-						Distances: &libvirtxml.CapsHostNUMADistances{Siblings: []libvirtxml.CapsHostNUMASibling{{ID: 0, Value: 10}}},
-						CPUS: &libvirtxml.CapsHostNUMACPUs{CPUs: []libvirtxml.CapsHostNUMACPU{
-							{ID: 0, Siblings: "0,4"},
-						}},
-					},
-				},
-			}
-
-			Expect(func() {
-				capabilitiesToTopology(caps)
-			}).To(Panic())
-		})
-
-		It("should panic when NUMA cell CPUs are nil", func() {
-			caps := &libvirtxml.Caps{Host: libvirtxml.CapsHost{NUMA: &libvirtxml.CapsHostNUMATopology{}}}
-			caps.Host.NUMA.Cells = &libvirtxml.CapsHostNUMACells{
-				Cells: []libvirtxml.CapsHostNUMACell{
-					{
-						Memory: &libvirtxml.CapsHostNUMAMemory{Unit: memoryUnit, Size: 16256896},
-						PageInfo: []libvirtxml.CapsHostNUMAPageInfo{
-							{Unit: memoryUnit, Size: 4, Count: 4064224},
-						},
-						Distances: &libvirtxml.CapsHostNUMADistances{Siblings: []libvirtxml.CapsHostNUMASibling{{ID: 0, Value: 10}}},
-						CPUS: nil, // This should cause a panic
-					},
-				},
-			}
-
-			Expect(func() {
-				capabilitiesToTopology(caps)
-			}).To(Panic())
-		})
-
-		It("should panic when NUMA cell distances are nil", func() {
-			caps := &libvirtxml.Caps{Host: libvirtxml.CapsHost{NUMA: &libvirtxml.CapsHostNUMATopology{}}}
-			caps.Host.NUMA.Cells = &libvirtxml.CapsHostNUMACells{
-				Cells: []libvirtxml.CapsHostNUMACell{
-					{
-						Memory: &libvirtxml.CapsHostNUMAMemory{Unit: memoryUnit, Size: 16256896},
-						PageInfo: []libvirtxml.CapsHostNUMAPageInfo{
-							{Unit: memoryUnit, Size: 4, Count: 4064224},
-						},
-						Distances: nil, // This should cause a panic
-						CPUS: &libvirtxml.CapsHostNUMACPUs{CPUs: []libvirtxml.CapsHostNUMACPU{
-							{ID: 0, Siblings: "0,4"},
-						}},
-					},
-				},
-			}
-
-			Expect(func() {
-				capabilitiesToTopology(caps)
-			}).To(Panic())
-		})
+			caps.Host.NUMA.Cells = cells
 		
+			Expect(func() {
+				capabilitiesToTopology(caps)
+			}).ToNot(Panic())
+		},
+			Entry("when NUMA cells are nil", nil),
+			Entry("when NUMA cell memory is nil", &libvirtxml.CapsHostNUMACells{
+				Cells: []libvirtxml.CapsHostNUMACell{
+					{
+						Memory: nil, // Testing nil Memory handling
+						PageInfo: []libvirtxml.CapsHostNUMAPageInfo{
+							{Unit: memoryUnit, Size: 4, Count: 4064224},
+						},
+						Distances: &libvirtxml.CapsHostNUMADistances{Siblings: []libvirtxml.CapsHostNUMASibling{{ID: 0, Value: 10}}},
+						CPUS: &libvirtxml.CapsHostNUMACPUs{CPUs: []libvirtxml.CapsHostNUMACPU{
+							{ID: 0, Siblings: "0,4"},
+						}},
+					},
+				}}),
+			Entry("when NUMA cell CPUs are nil", &libvirtxml.CapsHostNUMACells{
+				Cells: []libvirtxml.CapsHostNUMACell{
+					{
+						Memory: &libvirtxml.CapsHostNUMAMemory{Unit: memoryUnit, Size: 16256896},
+						PageInfo: []libvirtxml.CapsHostNUMAPageInfo{
+							{Unit: memoryUnit, Size: 4, Count: 4064224},
+						},
+						Distances: &libvirtxml.CapsHostNUMADistances{Siblings: []libvirtxml.CapsHostNUMASibling{{ID: 0, Value: 10}}},
+						CPUS:      nil, // Testing nil CPUS handling
+					},
+				},
+			}),
+			Entry("when NUMA cell distances are nil", &libvirtxml.CapsHostNUMACells{
+				Cells: []libvirtxml.CapsHostNUMACell{
+					{
+						Memory: &libvirtxml.CapsHostNUMAMemory{Unit: memoryUnit, Size: 16256896},
+						PageInfo: []libvirtxml.CapsHostNUMAPageInfo{
+							{Unit: memoryUnit, Size: 4, Count: 4064224},
+						},
+						Distances: nil, // Testing nil Distances handling
+						CPUS: &libvirtxml.CapsHostNUMACPUs{CPUs: []libvirtxml.CapsHostNUMACPU{
+							{ID: 0, Siblings: "0,4"},
+						}},
+					},
+				},
+			}),
+		)
 		It("should convert libvirtxml.Caps to cmdv1.Topology with single NUMA node", func() {
 			caps := &libvirtxml.Caps{Host: libvirtxml.CapsHost{NUMA: &libvirtxml.CapsHostNUMATopology{}}}
 			caps.Host.NUMA.Cells = &libvirtxml.CapsHostNUMACells{

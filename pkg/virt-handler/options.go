@@ -71,14 +71,12 @@ func virtualMachineOptions(
 
 func capabilitiesToTopology(capabilities *libvirtxml.Caps) *cmdv1.Topology {
 	topology := &cmdv1.Topology{}
-	if capabilities == nil || capabilities.Host.NUMA == nil {
+	if capabilities == nil || capabilities.Host.NUMA == nil || capabilities.Host.NUMA.Cells != nil {
 		return topology
 	}
 
-	if capabilities.Host.NUMA.Cells != nil {
-		for _, cell := range capabilities.Host.NUMA.Cells.Cells {
-			topology.NumaCells = append(topology.NumaCells, cellToCell(cell))
-		}
+	for _, cell := range capabilities.Host.NUMA.Cells.Cells {
+		topology.NumaCells = append(topology.NumaCells, cellToCell(cell))
 	}
 	return topology
 }
@@ -94,18 +92,16 @@ func cellToCell(cell libvirtxml.CapsHostNUMACell) *cmdv1.Cell {
 			Unit:   cell.Memory.Unit,
 		},
 	}
-
-	if cell.PageInfo != nil {
-		for _, page := range cell.PageInfo {
+	
+	for _, page := range cell.PageInfo {
 			c.Pages = append(c.Pages, pageToPage(page))
-		}
 	}
-	if cell.Distances != nil && cell.Distances.Siblings != nil {
+	if cell.Distances != nil {
 		for _, distance := range cell.Distances.Siblings {
 			c.Distances = append(c.Distances, distanceToDistance(distance))
 		}
 	}
-	if cell.CPUS != nil && cell.CPUS.CPUs != nil {
+	if cell.CPUS != nil {
 		for _, cpu := range cell.CPUS.CPUs {
 			c.Cpus = append(c.Cpus, cpuToCPU(cpu))
 		}
