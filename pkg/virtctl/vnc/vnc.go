@@ -133,16 +133,11 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	defer pipeInWriter.Close()
 	defer pipeOutWriter.Close()
 
-	k8ResChan := make(chan error, 1)
-	listenResChan := make(chan error, 1)
-	viewResChan := make(chan error, 1)
-	writeStop := make(chan error)
-	readStop := make(chan error)
+	errChan := make(chan error, 6)
 
 	go func() {
 		// transfer data from/to the VM
-		defer close(k8ResChan)
-		k8ResChan <- vnc.Stream(kvcorev1.StreamOptions{
+		errChan <- vnc.Stream(kvcorev1.StreamOptions{
 			In:  pipeInReader,
 			Out: pipeOutWriter,
 		})
@@ -150,7 +145,6 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 
 	// wait for vnc client to connect to our local proxy server
 	go func() {
-		defer close(listenResChan)
 		start := time.Now()
 		log.Log.Infof("connection timeout: %v", LISTEN_TIMEOUT)
 		// Don't set deadline if only proxy is running and VNC is to be connected manually
@@ -161,7 +155,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		fd, err := ln.Accept()
 		if err != nil {
 			log.Log.V(2).Infof("Failed to accept unix sock connection. %s", err.Error())
-			listenResChan <- err
+			errChan <- err
 			return
 		}
 		defer fd.Close()
@@ -171,21 +165,18 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 
 		// write to FD <- pipeOutReader
 		go func() {
-			defer close(readStop)
 			_, err := io.Copy(fd, pipeOutReader)
-			readStop <- err
+			errChan <- err
 		}()
 
 		// read from FD -> pipeInWriter
 		go func() {
-			defer close(writeStop)
 			_, err := io.Copy(pipeInWriter, fd)
-			writeStop <- err
+			errChan <- err
 		}()
 
 		// don't terminate until vnc client is done
 		<-ctx.Done()
-		listenResChan <- ctx.Err()
 	}()
 
 	port := ln.Addr().(*net.TCPAddr).Port
@@ -200,7 +191,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(cmd.OutOrStdout(), string(optionString))
 	} else {
 		// execute VNC Viewer
-		go checkAndRunVNCViewer(ctx, viewResChan, port)
+		go checkAndRunVNCViewer(ctx, errChan, port)
 	}
 
 	go func() {
@@ -217,11 +208,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	}()
 
 	select {
-	case err = <-readStop:
-	case err = <-writeStop:
-	case err = <-k8ResChan:
-	case err = <-viewResChan:
-	case err = <-listenResChan:
+	case err = <-errChan:
 	case <-ctx.Done():
 		err = ctx.Err()
 	}
@@ -232,8 +219,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func checkAndRunVNCViewer(ctx context.Context, viewResChan chan error, port int) {
-	defer close(viewResChan)
+func checkAndRunVNCViewer(ctx context.Context, errChan chan error, port int) {
 	var err error
 	args := []string{}
 
@@ -246,26 +232,26 @@ func checkAndRunVNCViewer(ctx context.Context, viewResChan chan error, port int)
 			vncBin = matches[len(matches)-1]
 			args = tigerVncArgs(port)
 		} else if err == filepath.ErrBadPattern {
-			viewResChan <- err
+			errChan <- err
 			return
 		} else if _, err := os.Stat(MACOS_CHICKEN_VNC); err == nil {
 			vncBin = MACOS_CHICKEN_VNC
 			args = chickenVncArgs(port)
 		} else if !errors.Is(err, os.ErrNotExist) {
-			viewResChan <- err
+			errChan <- err
 			return
 		} else if _, err := os.Stat(MACOS_REAL_VNC); err == nil {
 			vncBin = MACOS_REAL_VNC
 			args = realVncArgs(port)
 		} else if !errors.Is(err, os.ErrNotExist) {
-			viewResChan <- err
+			errChan <- err
 			return
 		} else if _, err := exec.LookPath(REMOTE_VIEWER); err == nil {
 			// fall back to user supplied script/binary in path
 			vncBin = REMOTE_VIEWER
 			args = remoteViewerArgs(port)
 		} else if !errors.Is(err, os.ErrNotExist) {
-			viewResChan <- err
+			errChan <- err
 			return
 		}
 	case "linux", "windows":
@@ -276,13 +262,13 @@ func checkAndRunVNCViewer(ctx context.Context, viewResChan chan error, port int)
 			vncBin = TIGER_VNC
 			args = tigerVncArgs(port)
 		} else {
-			viewResChan <- fmt.Errorf("could not find %s or %s binary in $PATH",
+			errChan <- fmt.Errorf("could not find %s or %s binary in $PATH",
 				REMOTE_VIEWER, TIGER_VNC)
-			viewResChan <- err
+			errChan <- err
 			return
 		}
 	default:
-		viewResChan <- fmt.Errorf("virtctl does not support VNC on %v", osType)
+		errChan <- fmt.Errorf("virtctl does not support VNC on %v", osType)
 		return
 	}
 
@@ -300,7 +286,7 @@ func checkAndRunVNCViewer(ctx context.Context, viewResChan chan error, port int)
 			log.Log.V(2).Infof("%v output: %v", vncBin, string(output))
 		}
 	}
-	viewResChan <- err
+	errChan <- err
 }
 
 func tigerVncArgs(port int) (args []string) {
