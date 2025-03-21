@@ -520,6 +520,7 @@ spec:
             model: modelValue
             name: nameValue
           tpm:
+            enabled: true
             persistent: true
           useVirtioTransitional: true
           watchdog:
