@@ -140,7 +140,6 @@ func validateMatcherUpdate(oldMatcher, newMatcher virtv1.Matcher) error {
 	return nil
 }
 
-// validateMatcher is a generic function to validate both instancetype and preference matchers
 func validateMatcher(matcherType string, matcher virtv1.Matcher) []metav1.StatusCause {
 	if matcher == nil {
 		return nil
