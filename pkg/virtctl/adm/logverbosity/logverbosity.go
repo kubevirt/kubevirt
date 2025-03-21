@@ -188,7 +188,6 @@ func detectInstallNamespaceAndName(virtClient kubecli.KubevirtClient) (namespace
 }
 
 func hasVerbosityInKV(kv *v1.KubeVirt) (verbosityMap map[string]uint, hasDeveloperConfiguration bool, err error) {
-	verbosityMap = map[string]uint{} // key: component name, value: verbosity
 	hasDeveloperConfiguration = true
 
 	if kv.Spec.Configuration.DeveloperConfiguration == nil {
