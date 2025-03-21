@@ -25,6 +25,7 @@ import (
 
 	"k8s.io/client-go/tools/cache"
 
+	"kubevirt.io/kubevirt/pkg/tpm"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -46,12 +47,6 @@ func PVCForVMI(vmi *corev1.VirtualMachineInstance) string {
 	return PVCPrefix + vmi.Name
 }
 
-func HasPersistentTPMDevice(vmiSpec *corev1.VirtualMachineInstanceSpec) bool {
-	return vmiSpec.Domain.Devices.TPM != nil &&
-		vmiSpec.Domain.Devices.TPM.Persistent != nil &&
-		*vmiSpec.Domain.Devices.TPM.Persistent
-}
-
 func HasPersistentEFI(vmiSpec *corev1.VirtualMachineInstanceSpec) bool {
 	return vmiSpec.Domain.Firmware != nil &&
 		vmiSpec.Domain.Firmware.Bootloader != nil &&
@@ -61,14 +56,14 @@ func HasPersistentEFI(vmiSpec *corev1.VirtualMachineInstanceSpec) bool {
 }
 
 func IsBackendStorageNeededForVMI(vmiSpec *corev1.VirtualMachineInstanceSpec) bool {
-	return HasPersistentTPMDevice(vmiSpec) || HasPersistentEFI(vmiSpec)
+	return tpm.HasPersistentDevice(vmiSpec) || HasPersistentEFI(vmiSpec)
 }
 
 func IsBackendStorageNeededForVM(vm *corev1.VirtualMachine) bool {
 	if vm.Spec.Template == nil {
 		return false
 	}
-	return HasPersistentTPMDevice(&vm.Spec.Template.Spec) || HasPersistentEFI(&vm.Spec.Template.Spec)
+	return tpm.HasPersistentDevice(&vm.Spec.Template.Spec) || HasPersistentEFI(&vm.Spec.Template.Spec)
 }
 
 func CreateIfNeeded(vmi *corev1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig, client kubecli.KubevirtClient) error {

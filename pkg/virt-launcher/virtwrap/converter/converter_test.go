@@ -33,10 +33,12 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
+	"kubevirt.io/kubevirt/tests/libvmi"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -3069,6 +3071,60 @@ var _ = Describe("Converter", func() {
 		},
 			Entry("enabled when set", true),
 			Entry("disabled when not set", false),
+		)
+	})
+
+	Context("TPM", func() {
+		DescribeTable("should", func(vmiTPM *v1.TPMDevice, matcher types.GomegaMatcher) {
+			vmi := libvmi.New()
+			vmi.Spec.Domain.Devices.TPM = vmiTPM
+			domain := vmiToDomain(
+				vmi,
+				&ConverterContext{
+					AllowEmulation: true,
+				},
+			)
+			Expect(domain.Spec.Devices.TPMs).To(matcher)
+		},
+			Entry("be enabled within domain when empty device provided in VMI",
+				&v1.TPMDevice{},
+				ContainElement(api.TPM{
+					Model: "tpm-tis",
+					Backend: api.TPMBackend{
+						Type:    "emulator",
+						Version: "2.0",
+					},
+				}),
+			),
+			Entry("be enabled within domain when device provided and explicitly enabled in VMI",
+				&v1.TPMDevice{Enabled: kubevirtpointer.P(true)},
+				ContainElement(api.TPM{
+					Model: "tpm-tis",
+					Backend: api.TPMBackend{
+						Type:    "emulator",
+						Version: "2.0",
+					},
+				}),
+			),
+			Entry("be enabled within domain when device provided in VMI with persistent=true",
+				&v1.TPMDevice{Persistent: kubevirtpointer.P(true)},
+				ContainElement(api.TPM{
+					Model: "tpm-crb",
+					Backend: api.TPMBackend{
+						Type:            "emulator",
+						Version:         "2.0",
+						PersistentState: "yes",
+					},
+				}),
+			),
+			Entry("not be present within domain when nil in VMI",
+				nil,
+				BeEmpty(),
+			),
+			Entry("not be present within domain when explicitly disabled in VMI",
+				&v1.TPMDevice{Enabled: kubevirtpointer.P(false), Persistent: kubevirtpointer.P(true)},
+				BeEmpty(),
+			),
 		)
 	})
 })
