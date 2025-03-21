@@ -16155,6 +16155,10 @@
    "v1.TPMDevice": {
     "type": "object",
     "properties": {
+     "enabled": {
+      "description": "Enabled allows a user to explictly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine Defaults to True",
+      "type": "boolean"
+     },
      "persistent": {
       "description": "Persistent indicates the state of the TPM device should be kept accross reboots Defaults to false",
       "type": "boolean"
