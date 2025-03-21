@@ -745,7 +745,6 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.namespaceStore,
 		vca.persistentVolumeClaimInformer,
 		vca.controllerRevisionInformer,
-		vca.kvPodInformer,
 		recorder,
 		vca.clientSet,
 		vca.clusterConfig,
