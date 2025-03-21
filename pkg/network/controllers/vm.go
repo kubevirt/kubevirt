@@ -23,8 +23,6 @@ import (
 	"context"
 	"fmt"
 
-	k8sv1 "k8s.io/api/core/v1"
-
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,21 +30,14 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/client-go/kubevirt"
-	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 type VMController struct {
 	clientset kubevirt.Interface
-	podGetter podFromVMIGetter
-}
-
-type podFromVMIGetter interface {
-	CurrentPod(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 }
 
 type syncError struct {
@@ -70,10 +61,9 @@ const (
 	hotPlugNetworkInterfaceErrorReason = "HotPlugNetworkInterfaceError"
 )
 
-func NewVMController(clientset kubevirt.Interface, podGetter podFromVMIGetter) *VMController {
+func NewVMController(clientset kubevirt.Interface) *VMController {
 	return &VMController{
 		clientset: clientset,
-		podGetter: podGetter,
 	}
 }
 
@@ -100,13 +90,7 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 	vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
 	vmiCopy.Spec.Networks = networks
 
-	hasOrdinalIfaces, err := v.hasOrdinalNetworkInterfaces(vmi)
-	if err != nil {
-		return vm, &syncError{
-			fmt.Errorf("error encountered when trying to check if VMI has interface with ordinal names (e.g.: eth1, eth2..): %v", err),
-			hotPlugNetworkInterfaceErrorReason,
-		}
-	}
+	hasOrdinalIfaces := namescheme.HasOrdinalSecondaryIfaces(vmi.Spec.Networks, vmi.Status.Interfaces)
 	updatedVmiSpec := ApplyDynamicIfaceRequestOnVMI(vmCopy, vmiCopy, hasOrdinalIfaces)
 	vmiCopy.Spec = *updatedVmiSpec
 
@@ -118,21 +102,6 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 	}
 
 	return vmCopy, nil
-}
-
-func (v *VMController) hasOrdinalNetworkInterfaces(vmi *v1.VirtualMachineInstance) (bool, error) {
-	pod, err := v.podGetter.CurrentPod(vmi)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to fetch pod from cache.")
-		return false, err
-	}
-	if pod == nil {
-		// Pod may not exist yet, therefore assume the most conservative option:
-		// This is an old virt-launcher that uses ordinal network interface names.
-		return true, nil
-	}
-	hasOrdinalIfaces := namescheme.PodHasOrdinalInterfaceName(multus.NetworkStatusesFromPod(pod))
-	return hasOrdinalIfaces, nil
 }
 
 func (v *VMController) vmiInterfacesPatch(newVmiSpec *v1.VirtualMachineInstanceSpec, vmi *v1.VirtualMachineInstance) error {
