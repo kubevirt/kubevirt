@@ -29,6 +29,7 @@ go_library(
         "//pkg/storage/backend-storage:go_default_library",
         "//pkg/storage/reservation:go_default_library",
         "//pkg/storage/types:go_default_library",
+        "//pkg/tpm:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/util/hardware:go_default_library",
         "//pkg/util/net/dns:go_default_library",
