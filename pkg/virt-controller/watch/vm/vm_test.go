@@ -125,7 +125,6 @@ var _ = Describe("VirtualMachine", func() {
 					return nil, nil
 				},
 			})
-			podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
@@ -139,7 +138,6 @@ var _ = Describe("VirtualMachine", func() {
 				namespaceInformer.GetStore(),
 				pvcInformer,
 				crInformer,
-				podInformer,
 				recorder,
 				virtClient,
 				config,
