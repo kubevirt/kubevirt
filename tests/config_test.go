@@ -20,7 +20,6 @@ package tests_test
 
 import (
 	"context"
-	cryptorand "crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
@@ -48,6 +47,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
+	"kubevirt.io/kubevirt/tests/libssh"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -482,10 +482,10 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				secretPath string
 			)
 
-			var bitSize int = 2048
-			privateKey, _ := generatePrivateKey(bitSize)
-			publicKeyBytes, _ := generatePublicKey(&privateKey.PublicKey)
-			privateKeyBytes := encodePrivateKeyToPEM(privateKey)
+			privateKey, publicKey, _ := libssh.NewKeyPair()
+			publicKeyBytes := ssh.MarshalAuthorizedKey(publicKey)
+			marshalPrivateKey, _ := ssh.MarshalPrivateKey(privateKey, "private-key")
+			privateKeyBytes := marshalPrivateKey.Bytes
 
 			BeforeEach(func() {
 				secretName = "secret-" + uuid.NewString()
@@ -602,33 +602,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 })
-
-// generatePrivateKey creates a RSA Private Key of specified byte size
-func generatePrivateKey(bitSize int) (*rsa.PrivateKey, error) {
-	privateKey, err := rsa.GenerateKey(cryptorand.Reader, bitSize)
-	if err != nil {
-		return nil, err
-	}
-
-	err = privateKey.Validate()
-	if err != nil {
-		return nil, err
-	}
-
-	return privateKey, nil
-}
-
-// generatePublicKey will return in the format "ssh-rsa ..."
-func generatePublicKey(privatekey *rsa.PublicKey) ([]byte, error) {
-	publicRsaKey, err := ssh.NewPublicKey(privatekey)
-	if err != nil {
-		return nil, err
-	}
-
-	publicKeyBytes := ssh.MarshalAuthorizedKey(publicRsaKey)
-
-	return publicKeyBytes, nil
-}
 
 // encodePrivateKeyToPEM encodes Private Key from RSA to PEM format
 func encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
