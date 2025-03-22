@@ -128,7 +128,6 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 	namespaceStore cache.Store,
 	pvcInformer cache.SharedIndexInformer,
 	crInformer cache.SharedIndexInformer,
-	podInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
@@ -164,7 +163,7 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 	c.hasSynced = func() bool {
 		return vmiInformer.HasSynced() && vmInformer.HasSynced() &&
 			dataVolumeInformer.HasSynced() && dataSourceInformer.HasSynced() &&
-			pvcInformer.HasSynced() && crInformer.HasSynced() && podInformer.HasSynced()
+			pvcInformer.HasSynced() && crInformer.HasSynced()
 	}
 
 	_, err := vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
