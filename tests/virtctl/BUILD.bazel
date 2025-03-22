@@ -17,6 +17,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/virtctl",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/instancetype/builder:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/libvmi/cloudinit:go_default_library",
         "//pkg/pointer:go_default_library",
@@ -39,7 +40,6 @@ go_library(
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
         "//tests/libconfigmap:go_default_library",
-        "//tests/libinstancetype/builder:go_default_library",
         "//tests/libsecret:go_default_library",
         "//tests/libssh:go_default_library",
         "//tests/libstorage:go_default_library",
