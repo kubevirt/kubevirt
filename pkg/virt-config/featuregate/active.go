@@ -64,11 +64,20 @@ const (
 	// through the kv.spec.configuration.instancetype.referencePolicy configurable.
 	InstancetypeReferencePolicy = "InstancetypeReferencePolicy"
 
+	// Owner: @Barakmor1
+	// Alpha: v1.6.0
+	//
+	// ImageVolume The ImageVolume FG in KubeVirt uses Kubernetes ImageVolume FG to eliminate
+	// the need for an extra container for containerDisk, improving security by avoiding
+	// bind mounts in virt-handler.
+	ImageVolume = "ImageVolume"
+
 	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
 	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
 )
 
 func init() {
+	RegisterFeatureGate(FeatureGate{Name: ImageVolume, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ExpandDisksGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: CPUManager, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IgnitionGate, State: Alpha})
