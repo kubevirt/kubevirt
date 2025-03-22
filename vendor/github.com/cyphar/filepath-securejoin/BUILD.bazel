@@ -4,9 +4,25 @@ go_library(
     name = "go_default_library",
     srcs = [
         "join.go",
+        "lookup_linux.go",
+        "mkdir_linux.go",
+        "open_linux.go",
+        "openat2_linux.go",
+        "openat_linux.go",
+        "procfs_linux.go",
+        "testing_mocks_linux.go",
         "vfs.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/cyphar/filepath-securejoin",
     importpath = "github.com/cyphar/filepath-securejoin",
     visibility = ["//visibility:public"],
+    deps = select({
+        "@io_bazel_rules_go//go/platform:android": [
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux": [
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
 )

@@ -33,8 +33,8 @@ import (
 )
 
 const (
-	testMACAddress = "00:00:00:00:00:01"
-	testNSPath     = "/test/ns"
+	testNSPath = "/test/ns"
+	cniVersion = `{"cniVersion":"1.0.0"}`
 )
 
 var _ = Describe("passt-binding-plugin", func() {
@@ -46,7 +46,7 @@ var _ = Describe("passt-binding-plugin", func() {
 				ContainerID: "123456789",
 				Netns:       testNSPath,
 				IfName:      "",
-				StdinData:   []byte(`{"cniVersion":"1.0.0"}`),
+				StdinData:   []byte(cniVersion),
 			}
 			result, err := cmd.CmdAddResult(args)
 			Expect(err).NotTo(HaveOccurred())
@@ -56,11 +56,7 @@ var _ = Describe("passt-binding-plugin", func() {
 
 			var buf bytes.Buffer
 			Expect(versionedResult.PrintTo(&buf)).To(Succeed())
-			Expect(buf.String()).To(MatchJSON(`
-			{
-				"cniVersion": "1.0.0",
-				"dns": {}
-			}`))
+			Expect(buf.String()).To(MatchJSON(cniVersion))
 		})
 
 		unprivPortErr := errors.New("unpriv port")
@@ -72,7 +68,7 @@ var _ = Describe("passt-binding-plugin", func() {
 				ContainerID: "123456789",
 				Netns:       testNSPath,
 				IfName:      "",
-				StdinData:   []byte(`{"cniVersion":"1.0.0"}`),
+				StdinData:   []byte(cniVersion),
 			}
 			_, err := cmd.CmdAddResult(args)
 			Expect(err).To(MatchError(expectedErr))

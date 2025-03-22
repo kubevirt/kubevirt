@@ -13,6 +13,7 @@ go_library(
         "go_features_gen.go",
         "goname.go",
         "map_entry.go",
+        "name.go",
         "source_context_gen.go",
         "struct_gen.go",
         "timestamp_gen.go",
