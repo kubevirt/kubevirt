@@ -30,7 +30,7 @@ const (
 	NUMAFeatureGate        = "NUMA"
 	GPUGate                = "GPU"
 	// VMLiveUpdateFeaturesGate allows updating certain VM fields, such as CPU sockets to enable hot-plug functionality.
-	// GA:    v1.4.0
+	// GA:    v1.5.0
 	VMLiveUpdateFeaturesGate = "VMLiveUpdateFeatures"
 
 	// CommonInstancetypesDeploymentGate enables the deployment of common-instancetypes by virt-operator
