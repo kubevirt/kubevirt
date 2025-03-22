@@ -335,3 +335,20 @@ func podVolumesMatchesReadyVolumes(attachmentPod *k8sv1.Pod, volumes []*v1.Volum
 	}
 	return len(podVolumeMap) == 0
 }
+
+func hasPendingPods(pods []*k8sv1.Pod) bool {
+	for _, pod := range pods {
+		if pod.Status.Phase == k8sv1.PodRunning || pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func (c *Controller) requeueAfter(oldPods []*k8sv1.Pod, threshold time.Duration) (bool, time.Duration) {
+	if len(oldPods) > 0 && oldPods[0].CreationTimestamp.Time.After(time.Now().Add(-1*threshold)) {
+		return true, threshold - time.Since(oldPods[0].CreationTimestamp.Time)
+	}
+	return false, 0
+}
