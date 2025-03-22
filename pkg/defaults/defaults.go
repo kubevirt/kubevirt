@@ -144,24 +144,26 @@ func setupCPUHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMac
 }
 
 func setupMemoryHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) {
-	if vmi.Spec.Domain.Memory.MaxGuest != nil {
-		return
-	}
 
 	var maxGuest *resource.Quantity
-	switch {
-	case clusterConfig.GetMaximumGuestMemory() != nil:
-		maxGuest = clusterConfig.GetMaximumGuestMemory()
-	case vmi.Spec.Domain.Memory.Guest != nil:
-		maxGuest = resource.NewQuantity(vmi.Spec.Domain.Memory.Guest.Value()*int64(clusterConfig.GetMaxHotplugRatio()), resource.BinarySI)
+
+	if vmi.Spec.Domain.Memory.MaxGuest == nil {
+		switch {
+		case clusterConfig.GetMaximumGuestMemory() != nil:
+			maxGuest = clusterConfig.GetMaximumGuestMemory()
+		case vmi.Spec.Domain.Memory.Guest != nil:
+			maxGuest = resource.NewQuantity(vmi.Spec.Domain.Memory.Guest.Value()*int64(clusterConfig.GetMaxHotplugRatio()), resource.BinarySI)
+		}
+	} else {
+		maxGuest = vmi.Spec.Domain.Memory.MaxGuest
 	}
 
 	if err := memory.ValidateLiveUpdateMemory(&vmi.Spec, maxGuest); err != nil {
 		// memory hotplug is not compatible with this VM configuration
 		log.Log.V(2).Object(vmi).Infof("memory-hotplug disabled: %s", err)
+		vmi.Spec.Domain.Memory.MaxGuest = nil
 		return
 	}
-
 	vmi.Spec.Domain.Memory.MaxGuest = maxGuest
 }
 
