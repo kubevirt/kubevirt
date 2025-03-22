@@ -179,6 +179,8 @@ type LibvirtDomainManager struct {
 
 	metadataCache    *metadata.Cache
 	domainStatsCache *virtcache.TimeDefinedCache[*stats.DomainStats]
+
+	imageVolumeFeatureGateEnabled bool
 }
 
 type pausedVMIs struct {
@@ -205,13 +207,13 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 }
 
 func NewLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore,
-	ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, metadataCache *metadata.Cache, stopChan chan struct{}, diskMemoryLimitBytes int64) (DomainManager, error) {
+	ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, metadataCache *metadata.Cache, stopChan chan struct{}, diskMemoryLimitBytes int64, imageVolumeEnabled bool) (DomainManager, error) {
 	directIOChecker := converter.NewDirectIOChecker()
-	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache, stopChan, diskMemoryLimitBytes)
+	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache, stopChan, diskMemoryLimitBytes, imageVolumeEnabled)
 }
 
 func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string,
-	ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker, metadataCache *metadata.Cache, stopChan chan struct{}, diskMemoryLimitBytes int64) (DomainManager, error) {
+	ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker, metadataCache *metadata.Cache, stopChan chan struct{}, diskMemoryLimitBytes int64, imageVolumeEnabled bool) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		diskMemoryLimitBytes: diskMemoryLimitBytes,
 		virConn:              connection,
@@ -220,14 +222,15 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		paused: pausedVMIs{
 			paused: make(map[types.UID]bool, 0),
 		},
-		agentData:                agentStore,
-		efiEnvironment:           efi.DetectEFIEnvironment(runtime.GOARCH, ovmfPath),
-		ephemeralDiskCreator:     ephemeralDiskCreator,
-		directIOChecker:          directIOChecker,
-		disksInfo:                map[string]*osdisk.DiskInfo{},
-		cancelSafetyUnfreezeChan: make(chan struct{}),
-		migrateInfoStats:         &stats.DomainJobInfo{},
-		metadataCache:            metadataCache,
+		agentData:                     agentStore,
+		efiEnvironment:                efi.DetectEFIEnvironment(runtime.GOARCH, ovmfPath),
+		ephemeralDiskCreator:          ephemeralDiskCreator,
+		directIOChecker:               directIOChecker,
+		disksInfo:                     map[string]*osdisk.DiskInfo{},
+		cancelSafetyUnfreezeChan:      make(chan struct{}),
+		migrateInfoStats:              &stats.DomainJobInfo{},
+		metadataCache:                 metadataCache,
+		imageVolumeFeatureGateEnabled: imageVolumeEnabled,
 	}
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
@@ -1114,6 +1117,14 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	logger := log.Log.Object(vmi)
 
 	domain := &api.Domain{}
+
+	if l.imageVolumeFeatureGateEnabled {
+		err := l.linkImageVolumeFilePaths(vmi)
+		if err != nil {
+			logger.Reason(err).Error("failed link ImageVolumeFilePaths")
+			return nil, err
+		}
+	}
 
 	c, err := l.generateConverterContext(vmi, allowEmulation, options, false)
 	if err != nil {
@@ -2355,6 +2366,78 @@ func (l *LibvirtDomainManager) parseFSDisks(fsDisks []api.FSDisk) []v1.VirtualMa
 	}
 
 	return disks
+}
+
+func (l *LibvirtDomainManager) linkImageVolumeFilePaths(vmi *v1.VirtualMachineInstance) error {
+	for diskIndex, volume := range vmi.Spec.Volumes {
+		if volume.ContainerDisk == nil {
+			continue
+		}
+		backingFile := containerdisk.GetDiskTargetPathFromLauncherView(diskIndex)
+		fileToSoftLink, err := getDiskTargetPathFromImageVolumeView(diskIndex, volume.ContainerDisk.Path)
+		if err != nil {
+			return fmt.Errorf("failed to find disk file from ImageVolume: %v", err)
+		}
+		err = os.Symlink(fileToSoftLink, backingFile)
+		if err != nil && !os.IsExist(err) {
+			return fmt.Errorf("error creating symlink for containerDisk: %v", err)
+		}
+	}
+
+	firmware := vmi.Spec.Domain.Firmware
+	if firmware == nil {
+		return nil
+	}
+
+	if kutil.HasKernelBootContainerImage(vmi) {
+		kb := firmware.KernelBoot
+
+		err := os.MkdirAll(containerdisk.GetKernelBootArtifactPathFromLauncherView(""), 0755)
+		if err != nil {
+			return fmt.Errorf("error creating dir for KernelPath: %v", err)
+		}
+		log.Log.Object(vmi).Infof("kernel boot defined for VMI. Converting to domain XML")
+		if kb.Container.KernelPath != "" {
+			kernelPath := containerdisk.GetKernelBootArtifactPathFromLauncherView(kb.Container.KernelPath)
+			fileToSoftLink := getKernelBootArtifactPathFromImageVolumeView(kb.Container.KernelPath)
+			err := os.Symlink(fileToSoftLink, kernelPath)
+			if err != nil && !os.IsExist(err) {
+				return fmt.Errorf("error creating symlink for KernelPath: %v", err)
+			}
+		}
+
+		if kb.Container.InitrdPath != "" {
+			initrdPath := containerdisk.GetKernelBootArtifactPathFromLauncherView(kb.Container.InitrdPath)
+			fileToSoftLink := getKernelBootArtifactPathFromImageVolumeView(kb.Container.InitrdPath)
+			err := os.Symlink(fileToSoftLink, initrdPath)
+			if err != nil && !os.IsExist(err) {
+				return fmt.Errorf("error creating symlink for KernelPath: %v", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func getDiskTargetPathFromImageVolumeView(volumeIndex int, volumePath string) (string, error) {
+	if volumePath != "" {
+		return filepath.Join(kutil.VirtImageVolumeDir, fmt.Sprintf("disk_%d", volumeIndex), volumePath), nil
+	}
+	imageVolumeDir := filepath.Join(kutil.VirtImageVolumeDir, fmt.Sprintf("disk_%d", volumeIndex), osdisk.DiskSourceFallbackPath)
+	files, err := os.ReadDir(imageVolumeDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to check ImageVolume path %s: %v", imageVolumeDir, err)
+	}
+	if len(files) == 0 {
+		return "", fmt.Errorf("no file found in folder %s, no disk present", imageVolumeDir)
+	} else if len(files) > 1 {
+		return "", fmt.Errorf("more than one file found in folder %s, only one disk is allowed", imageVolumeDir)
+	}
+	return filepath.Join(imageVolumeDir, files[0].Name()), nil
+}
+
+func getKernelBootArtifactPathFromImageVolumeView(artifact string) string {
+	return filepath.Join(kutil.VirtKernelBootVolumeDir, artifact)
 }
 
 // check whether VMI has a certain condition

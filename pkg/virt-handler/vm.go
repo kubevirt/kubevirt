@@ -913,7 +913,7 @@ func (c *VirtualMachineController) updateChecksumInfo(vmi *v1.VirtualMachineInst
 		log.Log.Errorf("cannot compute checksums as containerdisk/kernelboot containers seem to have been terminated")
 		return nil
 	}
-	if err != nil {
+	if err != nil || diskChecksums == nil {
 		return err
 	}
 
