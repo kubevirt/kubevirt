@@ -974,7 +974,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		BeforeEach(func() {
 			k8sClient = clientcmd.GetK8sCmdClient()
-			clientcmd.SkipIfNoCmd(k8sClient)
+			clientcmd.FailIfNoCmd(k8sClient)
 			workDir = GinkgoT().TempDir()
 
 			// By default "." does not match newline: "Phase" and "Running" only match if on same line.
