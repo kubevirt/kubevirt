@@ -32,6 +32,7 @@ var _ = Describe("Qemu agent poller", func() {
 	var fakeInterfaces []api.InterfaceStatus
 	var fakeFSFreezeStatus api.FSFreeze
 	var fakeInfo api.GuestOSInfo
+	var fakeFileSystemInfo []api.Filesystem
 
 	BeforeEach(func() {
 		fakeInterfaces = []api.InterfaceStatus{
@@ -53,6 +54,12 @@ var _ = Describe("Qemu agent poller", func() {
 			KernelVersion: "1.1.0",
 			Machine:       "x86_64",
 			Id:            "testguestos",
+		}
+
+		fakeFileSystemInfo = []api.Filesystem{
+			{
+				Name: "test",
+			},
 		}
 	})
 	Context("with AsyncAgentStore", func() {
@@ -169,6 +176,15 @@ var _ = Describe("Qemu agent poller", func() {
 			osInfo := agentStore.GetGuestOSInfo()
 
 			Expect(*osInfo).To(Equal(fakeInfo))
+		})
+
+		It("should not fire an event for a new GET_FILESYSTEM", func() {
+			var agentStore = NewAsyncAgentStore()
+			agentStore.Store(GET_FILESYSTEM, fakeFileSystemInfo)
+
+			Expect(agentStore.AgentUpdated).NotTo(Receive(Equal(AgentUpdatedEvent{
+				DomainInfo: api.DomainGuestInfo{},
+			})))
 		})
 	})
 
