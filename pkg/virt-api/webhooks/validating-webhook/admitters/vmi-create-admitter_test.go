@@ -478,21 +478,23 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	})
 
 	Context("with VirtualMachineInstance spec", func() {
-		It("should accept valid machine type", func() {
+		DescribeTable("should accept valid machine type", func(arch string, machineType string) {
+			enableFeatureGate(featuregate.MultiArchitecture)
+
 			vmi := api.NewMinimalVMI("testvmi")
-			if webhooks.IsPPC64(&vmi.Spec) {
-				vmi.Spec.Domain.Machine = &v1.Machine{Type: "pseries"}
-			} else if webhooks.IsARM64(&vmi.Spec) {
-				vmi.Spec.Domain.Machine = &v1.Machine{Type: "virt"}
-			} else if webhooks.IsS390X(&vmi.Spec) {
-				vmi.Spec.Domain.Machine = &v1.Machine{Type: "s390-ccw-virtio"}
-			} else {
-				vmi.Spec.Domain.Machine = &v1.Machine{Type: "q35"}
-			}
+
+			vmi.Spec.Architecture = arch
+			vmi.Spec.Domain.Machine = &v1.Machine{Type: machineType}
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
-		})
+		},
+			Entry("when architecture is amd64", "amd64", "q35"),
+			Entry("when architecture is arm64", "arm64", "virt"),
+			Entry("when architecture is ppc64le", "ppc64le", "pseries"),
+			Entry("when architecture is s390x", "s390x", "s390-ccw-virtio"),
+		)
+
 		It("should reject invalid machine type", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Machine = &v1.Machine{Type: "test"}
