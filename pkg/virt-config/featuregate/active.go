@@ -56,13 +56,6 @@ const (
 	// This feature requires following Kubernetes feature gate "ServiceAccountTokenPodNodeInfo". The feature gate is available
 	// in Kubernetes 1.30 as Beta.
 	NodeRestrictionGate = "NodeRestriction"
-	// Owner: @lyarwood
-	// Alpha: v1.4.0
-	// Beta: v1.5.0
-	//
-	// InstancetypeReferencePolicy allows a cluster admin to control how a VirtualMachine references instance types and preferences
-	// through the kv.spec.configuration.instancetype.referencePolicy configurable.
-	InstancetypeReferencePolicy = "InstancetypeReferencePolicy"
 
 	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
 	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
@@ -89,7 +82,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: MultiArchitecture, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: AlignCPUsGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: NodeRestrictionGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: InstancetypeReferencePolicy, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
 }
