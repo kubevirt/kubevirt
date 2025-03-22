@@ -681,14 +681,9 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				return mtu
 			}
 
-			configureIpv6 := func(vmi *v1.VirtualMachineInstance) error {
+			configureIpv6Routes := func(vmi *v1.VirtualMachineInstance) error {
 				networkCIDR := api.DefaultVMIpv6CIDR
-
-				err := console.RunCommand(vmi, "dhclient -6 eth0", 30*time.Second)
-				if err != nil {
-					return err
-				}
-				err = console.RunCommand(vmi, "ip -6 route add "+networkCIDR+" dev eth0", 5*time.Second)
+				err := console.RunCommand(vmi, "ip -6 route add "+networkCIDR+" dev eth0", 5*time.Second)
 				if err != nil {
 					return err
 				}
@@ -701,24 +696,10 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			}
 
 			BeforeEach(func() {
-				var err error
-
 				By("Create masquerade VMI")
-				networkData, err := cloudinit.NewNetworkData(
-					cloudinit.WithEthernet("eth0",
-						cloudinit.WithDHCP4Enabled(),
-						cloudinit.WithDHCP6Enabled(),
-						cloudinit.WithAddresses(""), // This is a workaround o make fedora client to configure local IPv6
-					),
-				)
-				Expect(err).ToNot(HaveOccurred())
+				vmi = libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 
-				vmi = libvmifact.NewFedora(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
-				)
-
+				var err error
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -728,17 +709,17 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Wait for VMIs to be ready")
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 				anotherVmi = libwait.WaitUntilVMIReady(anotherVmi, console.LoginToAlpine)
-
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 			})
 
 			DescribeTable("should have the correct MTU", func(ipFamily k8sv1.IPFamily) {
 				libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
 				if ipFamily == k8sv1.IPv6Protocol {
-					// IPv6 address is configured via DHCP6 in this test and not via cloud-init
-					Expect(configureIpv6(vmi)).To(Succeed(), "failed to configure ipv6  on server vmi")
+					// IPv6 address is configured via DHCP6 in this test and not statically.
+					// The routes need to be added statically as RA is not supported.
+					Expect(configureIpv6Routes(vmi)).To(Succeed(), "failed to configure ipv6  on server vmi")
 				}
 
 				By("checking k6t-eth0 MTU inside the pod")
