@@ -58,7 +58,6 @@ go_test(
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/controller/testing:go_default_library",
-        "//pkg/instancetype:go_default_library",
         "//pkg/instancetype/controller/vm:go_default_library",
         "//pkg/instancetype/revision:go_default_library",
         "//pkg/libvmi:go_default_library",

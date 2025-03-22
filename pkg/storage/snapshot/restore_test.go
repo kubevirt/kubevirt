@@ -34,7 +34,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
@@ -1751,7 +1751,7 @@ var _ = Describe("Restore controller", func() {
 
 				instancetypeObj = createInstancetype()
 				var err error
-				instancetypeOriginalCR, err = instancetype.CreateControllerRevision(originalVM, instancetypeObj)
+				instancetypeOriginalCR, err = revision.CreateControllerRevision(originalVM, instancetypeObj)
 				Expect(err).ToNot(HaveOccurred())
 				crSource.Add(instancetypeOriginalCR)
 
@@ -1759,7 +1759,7 @@ var _ = Describe("Restore controller", func() {
 				crSource.Add(instancetypeSnapshotCR)
 
 				preferenceObj = createPreference()
-				preferenceOriginalCR, err = instancetype.CreateControllerRevision(originalVM, preferenceObj)
+				preferenceOriginalCR, err = revision.CreateControllerRevision(originalVM, preferenceObj)
 				Expect(err).ToNot(HaveOccurred())
 				crSource.Add(preferenceOriginalCR)
 
@@ -1992,7 +1992,7 @@ var _ = Describe("Restore controller", func() {
 
 				// Modify the original CR so it differs from the already generated instancetypeSnapshotCR
 				instancetypeObj.Spec.CPU.Guest = uint32(5)
-				instancetypeOriginalCR, err := instancetype.CreateControllerRevision(originalVM, instancetypeObj)
+				instancetypeOriginalCR, err := revision.CreateControllerRevision(originalVM, instancetypeObj)
 				Expect(err).ToNot(HaveOccurred())
 				crSource.Modify(instancetypeOriginalCR)
 
