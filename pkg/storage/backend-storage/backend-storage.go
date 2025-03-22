@@ -46,8 +46,11 @@ import (
 )
 
 const (
-	PVCPrefix = "persistent-state-for"
-	PVCSize   = "10Mi"
+	// BackendPVCSizeAnnotation allows specifying a specific size for the backend PVC
+	BackendPVCSizeAnnotation = "storage.kubevirt.io/backend-pvc-size"
+
+	PVCPrefix      = "persistent-state-for"
+	DefaultPVCSize = "10Mi"
 )
 
 func basePVC(vmi *corev1.VirtualMachineInstance) string {
@@ -418,6 +421,26 @@ func (bs *BackendStorage) getStorageClass() (string, error) {
 	}
 }
 
+func (bs *BackendStorage) getBackendPVCSize(storageClassName string) (string, error) {
+	// Default size is 10Mi if the annotation is not set
+	size := DefaultPVCSize
+
+	obj, exists, err := bs.scStore.GetByKey(storageClassName)
+	if err != nil || !exists {
+		return size, err
+	}
+
+	sc := obj.(*storagev1.StorageClass)
+	if val, ok := sc.Annotations[BackendPVCSizeAnnotation]; ok {
+		if _, parseErr := resource.ParseQuantity(val); parseErr == nil {
+			size = val
+		} else {
+			log.Log.V(1).Infof("invalid PVC size in annotation %s: %v, using default size instead", BackendPVCSizeAnnotation, parseErr)
+		}
+	}
+	return size, nil
+}
+
 func (bs *BackendStorage) getAccessMode(storageClass string, mode v1.PersistentVolumeMode) v1.PersistentVolumeAccessMode {
 	// The default access mode should be RWX if the storage class was manually specified.
 	// However, if we're using the cluster default storage class, default to access mode RWO.
@@ -504,6 +527,12 @@ func (bs *BackendStorage) createPVC(vmi *corev1.VirtualMachineInstance, labels m
 			*metav1.NewControllerRef(vmi, corev1.VirtualMachineInstanceGroupVersionKind),
 		}
 	}
+
+	size, err := bs.getBackendPVCSize(storageClass)
+	if err != nil {
+		return nil, err
+	}
+
 	pvc := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName:    basePVC(vmi) + "-",
@@ -513,7 +542,7 @@ func (bs *BackendStorage) createPVC(vmi *corev1.VirtualMachineInstance, labels m
 		Spec: v1.PersistentVolumeClaimSpec{
 			AccessModes: []v1.PersistentVolumeAccessMode{accessMode},
 			Resources: v1.VolumeResourceRequirements{
-				Requests: v1.ResourceList{v1.ResourceStorage: resource.MustParse(PVCSize)},
+				Requests: v1.ResourceList{v1.ResourceStorage: resource.MustParse(size)},
 			},
 			StorageClassName: &storageClass,
 			VolumeMode:       &mode,
