@@ -43,19 +43,19 @@ type vmApplyHandler interface {
 }
 
 type Informers struct {
-	VM                    cache.SharedIndexInformer
-	VMI                   cache.SharedIndexInformer
-	PersistentVolumeClaim cache.SharedIndexInformer
-	VMIMigration          cache.SharedIndexInformer
-	KVPod                 cache.SharedIndexInformer
 }
 
 type Stores struct {
-	Instancetype        cache.Store
-	ClusterInstancetype cache.Store
-	Preference          cache.Store
-	ClusterPreference   cache.Store
-	ControllerRevision  cache.Store
+	Instancetype          cache.Store
+	ClusterInstancetype   cache.Store
+	Preference            cache.Store
+	ClusterPreference     cache.Store
+	ControllerRevision    cache.Store
+	VM                    cache.Store
+	VMI                   cache.Store
+	PersistentVolumeClaim cache.Store
+	VMIMigration          cache.Store
+	KVPod                 cache.Store
 }
 
 var (
