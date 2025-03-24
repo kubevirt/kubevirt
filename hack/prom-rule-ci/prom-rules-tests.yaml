@@ -806,3 +806,33 @@ tests:
       - eval_time: 13m
         alertname: KubeVirtDeprecatedAPIRequested
         exp_alerts: []
+
+  # Unsynchronized VMI for more than 1 hour
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_conditions{namespace="ns1", name="vmi1", type="Ready", message="Guest VM is not reported as running", reason="GuestNotRunning"}'
+        values: '_ _ 0+0x60'
+      - series: 'kubevirt_vmi_conditions{namespace="ns1", name="vmi1", type="Synchronized", message="server error. command SyncVMI failed...", reason="Synchronizing with the Domain failed."}'
+        values: '_ _ 0+0x60'
+
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: KubeVirtUnsynchronizedVMI
+        exp_alerts: []
+      - eval_time: 62m
+        alertname: KubeVirtUnsynchronizedVMI
+        exp_alerts:
+          - exp_annotations:
+              summary: "Unsynchronized VMI for more than 1 hour."
+              description: "VirtualMachineInstance vmi1 in namespace ns1: Synchronizing with the Domain failed."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtUnsynchronizedVMI"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "vmi1"
+              namespace: "ns1"
+              type: "Synchronized"
+              message: "server error. command SyncVMI failed..."
+              reason: "Synchronizing with the Domain failed."
