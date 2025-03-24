@@ -211,6 +211,10 @@ var _ = Describe("VM Stats Collector", func() {
 			Entry("with no cluster instance type expect <none>", "VirtualMachineClusterInstancetype", "", "<none>"),
 			Entry("with managed cluster instance type expect its name", "VirtualMachineClusterInstancetype", "ci-managed", "ci-managed"),
 			Entry("with custom cluster instance type expect <other>", "VirtualMachineClusterInstancetype", "ci-unmanaged", "<other>"),
+			Entry("with an instance type which no longer exists expect <other>", "VirtualMachineInstancetype", "i-gone", "<other>"),
+			Entry("with a cluster instance type which no longer exists expect <other>", "VirtualMachineClusterInstancetype", "ci-gone", "<other>"),
+			Entry("with lowercase instance type expect the same behavior", "virtualmachineinstancetype", "i-managed", "i-managed"),
+			Entry("with lowercase cluster instance type expect the same behavior", "virtualmachineclusterinstancetype", "ci-managed", "ci-managed"),
 		)
 
 		DescribeTable("should show preference value correctly", func(preferenceAnnotationKey string, preferenceName string, expected string) {
@@ -242,6 +246,10 @@ var _ = Describe("VM Stats Collector", func() {
 			Entry("with no cluster preference expect <none>", "VirtualMachineClusterPreference", "", "<none>"),
 			Entry("with managed cluster preference expect its name", "VirtualMachineClusterPreference", "cp-managed", "cp-managed"),
 			Entry("with custom cluster preference expect <other>", "VirtualMachineClusterPreference", "cp-unmanaged", "<other>"),
+			Entry("with an preference which no longer exists expect <other>", "VirtualMachinePreference", "p-gone", "<other>"),
+			Entry("with a cluster preference which no longer exists expect <other>", "VirtualMachineClusterPreference", "cp-gone", "<other>"),
+			Entry("with lowercase preference expect the same behavior", "virtualmachinepreference", "p-managed", "p-managed"),
+			Entry("with lowercase cluster preference expect the same behavior", "virtualmachineclusterpreference", "cp-managed", "cp-managed"),
 		)
 	})
 
