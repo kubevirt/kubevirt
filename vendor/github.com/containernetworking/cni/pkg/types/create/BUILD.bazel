@@ -8,6 +8,9 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/github.com/containernetworking/cni/pkg/types:go_default_library",
+        "//vendor/github.com/containernetworking/cni/pkg/types/020:go_default_library",
+        "//vendor/github.com/containernetworking/cni/pkg/types/040:go_default_library",
+        "//vendor/github.com/containernetworking/cni/pkg/types/100:go_default_library",
         "//vendor/github.com/containernetworking/cni/pkg/types/internal:go_default_library",
     ],
 )
