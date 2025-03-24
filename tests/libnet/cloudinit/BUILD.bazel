@@ -9,6 +9,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/libnet/cloudinit",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/pointer:go_default_library",
         "//tests/libnet/dns:go_default_library",
         "//vendor/sigs.k8s.io/yaml:go_default_library",
     ],
