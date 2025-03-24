@@ -48,6 +48,7 @@ go_library(
         "//pkg/virt-handler/hotplug-disk:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-handler/migration-proxy:go_default_library",
+        "//pkg/virt-handler/multipath-monitor:go_default_library",
         "//pkg/virt-handler/selinux:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virtiofs:go_default_library",
