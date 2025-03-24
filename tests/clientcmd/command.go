@@ -36,13 +36,6 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-const (
-	commandPipeFailed    = "command pipe failed"
-	commandPipeFailedFmt = "command pipe failed: %v"
-
-	serverName = "--server"
-)
-
 func GetK8sCmdClient() string {
 	// use oc if it exists, otherwise use kubectl
 	if flags.KubeVirtOcPath != "" {
@@ -52,7 +45,7 @@ func GetK8sCmdClient() string {
 	return "kubectl"
 }
 
-func SkipIfNoCmd(cmdName string) {
+func FailIfNoCmd(cmdName string) {
 	var cmdPath string
 	switch strings.ToLower(cmdName) {
 	case "oc":
@@ -61,11 +54,9 @@ func SkipIfNoCmd(cmdName string) {
 		cmdPath = flags.KubeVirtKubectlPath
 	case "virtctl":
 		cmdPath = flags.KubeVirtVirtctlPath
-	case "gocli":
-		cmdPath = flags.KubeVirtGoCliPath
 	}
 	if cmdPath == "" {
-		ginkgo.Skip(fmt.Sprintf("Skip test that requires %s binary", cmdName))
+		ginkgo.Fail(fmt.Sprintf("Test requires %s binary", cmdName))
 	}
 }
 
@@ -117,8 +108,6 @@ func CreateCommandWithNS(namespace string, cmdName string, args ...string) (stri
 		cmdPath = flags.KubeVirtKubectlPath
 	case "virtctl":
 		cmdPath = flags.KubeVirtVirtctlPath
-	case "gocli":
-		cmdPath = flags.KubeVirtGoCliPath
 	}
 
 	if cmdPath == "" {
@@ -136,7 +125,7 @@ func CreateCommandWithNS(namespace string, cmdName string, args ...string) (stri
 
 	master := flag.Lookup("master").Value
 	if master != nil && master.String() != "" {
-		args = append(args, serverName, master.String())
+		args = append(args, "--server", master.String())
 	}
 	if namespace != "" {
 		args = append([]string{"-n", namespace}, args...)
