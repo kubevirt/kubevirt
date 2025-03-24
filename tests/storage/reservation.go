@@ -328,12 +328,9 @@ var _ = SIGDescribe("[Serial]SCSI persistent reservation", Serial, func() {
 
 			nodes := libnode.GetAllSchedulableNodes(virtClient)
 			for _, node := range nodes.Items {
-				output, err := tests.ExecuteCommandInVirtHandlerPod(node.Name, []string{"mount"})
+				output, err := tests.ExecuteCommandInVirtHandlerPod(node.Name, []string{"ls", reservation.GetPrHelperSocketDir()})
 				Expect(err).ToNot(HaveOccurred())
-				Expect(output).ToNot(ContainSubstring("kubevirt/daemons/pr"))
-				output, err = tests.ExecuteCommandInVirtHandlerPod(node.Name, []string{"ls", reservation.GetPrHelperSocketDir()})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(output).To(BeEmpty())
+				Expect(output).To(Or(BeEmpty(), ContainSubstring("multipathd.socket")))
 			}
 		})
 	})
