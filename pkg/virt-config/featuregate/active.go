@@ -26,7 +26,11 @@ const (
 	HypervStrictCheckGate = "HypervStrictCheck"
 	SidecarGate           = "Sidecar"
 	HostDevicesGate       = "HostDevices"
-	SnapshotGate          = "Snapshot"
+
+	// Owner: sig-storage
+	// Alpha: v0.30.0
+	// Beta: v1.3.0
+	SnapshotGate = "Snapshot"
 
 	// Owner: sig-storage
 	// Alpha: v0.55.0
@@ -79,7 +83,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: HypervStrictCheckGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: SidecarGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: HostDevicesGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: SnapshotGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: SnapshotGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VMExportGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: HotplugVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: HostDiskGate, State: Alpha})
