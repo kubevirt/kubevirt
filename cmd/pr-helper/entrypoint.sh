@@ -1,9 +1,8 @@
 #!/bin/bash
 
 set -x
-MULTIPATH_HOST="${MULTIPATH_HOST:-/run/multipathd.socket}"
 MULTIPATH_SOCKET_NAME="${MULTIPATH_SOCKET_NAME:-/run/multipathd.socket}"
-ln -s /proc/1/root${MULTIPATH_HOST} ${MULTIPATH_SOCKET_NAME}
+ln -s /var/run/kubevirt/daemons/pr/multipathd.socket ${MULTIPATH_SOCKET_NAME}
 
 set -e
 

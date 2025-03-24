@@ -367,7 +367,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
 					Path: "/etc/multipath",
-					Type: pointer.P(corev1.HostPathDirectoryOrCreate),
+					Type: &directoryOrCreate,
 				},
 			}})
 		pod.Containers = append(pod.Containers, RenderPrHelperContainer(prHelperImage, pullPolicy))
