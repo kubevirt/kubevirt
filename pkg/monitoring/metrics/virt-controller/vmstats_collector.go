@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	k6tv1 "kubevirt.io/api/core/v1"
+	instancetypeapi "kubevirt.io/api/instancetype"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -227,7 +228,7 @@ func getVMInstancetype(vm *k6tv1.VirtualMachine) string {
 		return none
 	}
 
-	if instancetype.Kind == "VirtualMachineInstancetype" {
+	if strings.EqualFold(instancetype.Kind, instancetypeapi.SingularResourceName) {
 		key := types.NamespacedName{
 			Namespace: vm.Namespace,
 			Name:      instancetype.Name,
@@ -235,7 +236,7 @@ func getVMInstancetype(vm *k6tv1.VirtualMachine) string {
 		return fetchResourceName(key.String(), instancetypeMethods.InstancetypeStore)
 	}
 
-	if instancetype.Kind == "VirtualMachineClusterInstancetype" {
+	if strings.EqualFold(instancetype.Kind, instancetypeapi.ClusterSingularResourceName) {
 		return fetchResourceName(instancetype.Name, instancetypeMethods.ClusterInstancetypeStore)
 	}
 
@@ -249,7 +250,7 @@ func getVMPreference(vm *k6tv1.VirtualMachine) string {
 		return none
 	}
 
-	if preference.Kind == "VirtualMachinePreference" {
+	if strings.EqualFold(preference.Kind, instancetypeapi.SingularPreferenceResourceName) {
 		key := types.NamespacedName{
 			Namespace: vm.Namespace,
 			Name:      preference.Name,
@@ -257,7 +258,7 @@ func getVMPreference(vm *k6tv1.VirtualMachine) string {
 		return fetchResourceName(key.String(), instancetypeMethods.PreferenceStore)
 	}
 
-	if preference.Kind == "VirtualMachineClusterPreference" {
+	if strings.EqualFold(preference.Kind, instancetypeapi.ClusterSingularPreferenceResourceName) {
 		return fetchResourceName(preference.Name, instancetypeMethods.ClusterPreferenceStore)
 	}
 
