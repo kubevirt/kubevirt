@@ -111,10 +111,12 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 	Context("A VirtualMachine", func() {
 		const (
-			resourceName     = "nonexistent"
-			failureCondition = "Failure"
+			resourceName               = "nonexistent"
+			failureCondition           = "Failure"
+			instancetypeNotFoundReason = "FailedFindInstancetype"
+			preferenceNotFoundReason   = "FailedFindPreference"
 		)
-		DescribeTable("referencing a non-existent", func(vmOptionFunc func(*virtv1.VirtualMachine), createResourceFunc func(string) error) {
+		DescribeTable("referencing a non-existent", func(vmOptionFunc func(*virtv1.VirtualMachine), expectedReason string, createResourceFunc func(string) error) {
 			By("Creating the VM and asserting that it doesn't start and has the expected condition in place")
 			vm := libvmi.NewVirtualMachine(
 				libvmifact.NewGuestless(),
@@ -123,16 +125,16 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			)
 			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVM(vm), time.Minute, time.Second).Should(matcher.HaveConditionTrue(failureCondition))
+			Eventually(matcher.ThisVM(vm), time.Minute, time.Second).Should(matcher.HaveConditionTrueWithReason(failureCondition, expectedReason))
 			Eventually(matcher.ThisVM(vm), time.Minute, time.Second).Should(matcher.HavePrintableStatus(virtv1.VirtualMachineStatusStopped))
-
 			By("Creating the missing resource and asserting that the condition is removed and the VM starts")
 			Expect(createResourceFunc(vm.Namespace)).To(Succeed())
-			Eventually(matcher.ThisVM(vm), time.Minute, time.Second).ShouldNot(matcher.HaveConditionTrue(failureCondition))
+			Eventually(matcher.ThisVM(vm), time.Minute, time.Second).ShouldNot(matcher.HaveConditionTrueWithReason(failureCondition, expectedReason))
 			Eventually(matcher.ThisVM(vm), time.Minute, time.Second).Should(matcher.BeReady())
 		},
 			Entry("[test_id:CNV-9086] cluster instance type should still be created and eventually start when missing resource created",
 				libvmi.WithClusterInstancetype(resourceName),
+				instancetypeNotFoundReason,
 				func(_ string) error {
 					instancetype := builder.NewClusterInstancetype(
 						builder.WithCPUs(1),
@@ -147,6 +149,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry("[test_id:CNV-9089] instance type should still be created and eventually start when missing resource created",
 				libvmi.WithInstancetype(resourceName),
+				instancetypeNotFoundReason,
 				func(namespace string) error {
 					instancetype := builder.NewInstancetype(
 						builder.WithCPUs(1),
@@ -161,6 +164,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry("[test_id:CNV-9091] cluster preference should still be created and eventually start when missing resource created",
 				libvmi.WithClusterPreference(resourceName),
+				preferenceNotFoundReason,
 				func(_ string) error {
 					preference := builder.NewClusterPreference(
 						builder.WithPreferredCPUTopology(instancetypev1beta1.Cores),
@@ -174,6 +178,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry("[test_id:CNV-9090] preference should still be created and eventually start when missing resource created",
 				libvmi.WithPreference(resourceName),
+				preferenceNotFoundReason,
 				func(namespace string) error {
 					preference := builder.NewPreference(
 						builder.WithPreferredCPUTopology(instancetypev1beta1.Cores),
