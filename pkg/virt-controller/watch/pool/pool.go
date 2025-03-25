@@ -551,10 +551,10 @@ func (c *Controller) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.Virt
 			vm := deleteList[idx]
 
 			foreGround := metav1.DeletePropagationForeground
-			err := c.clientset.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{PropagationPolicy: &foreGround})
+			err := c.clientset.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{PropagationPolicy: pointer.P(foreGround)})
 			if err != nil {
 				c.expectations.DeletionObserved(poolKey, controller.VirtualMachineKey(vm))
-				c.recorder.Eventf(pool, k8score.EventTypeWarning, common.FailedDeleteVirtualMachineReason, "Error deleting virtual machine %s: %v", vm.ObjectMeta.Name, err)
+				c.recorder.Eventf(pool, k8score.EventTypeWarning, common.FailedDeleteVirtualMachineReason, "Error deleting virtual machine %s/%s: %v", vm.ObjectMeta.Name, vm.Namespace, err)
 				errChan <- err
 				return
 			}
@@ -868,9 +868,6 @@ func (c *Controller) getUnavailableVMICount(vms []*virtv1.VirtualMachine) (int, 
 
 func (c *Controller) handleUnhealthyVMIs(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) error {
 	notReadyVMs := c.filterNotReadyVMs(vms)
-	if len(notReadyVMs) == 0 {
-		return nil
-	}
 
 	for _, vm := range notReadyVMs {
 		vmiKey := controller.NamespacedKey(vm.Namespace, vm.Name)
@@ -892,7 +889,7 @@ func (c *Controller) handleUnhealthyVMIs(pool *poolv1.VirtualMachinePool, vms []
 				}
 			} else if updateType == proactiveUpdateTypeVMDelete {
 				foreGround := metav1.DeletePropagationForeground
-				err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Delete(context.Background(), vm.ObjectMeta.Name, metav1.DeleteOptions{PropagationPolicy: &foreGround})
+				err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Delete(context.Background(), vm.ObjectMeta.Name, metav1.DeleteOptions{PropagationPolicy: pointer.P(foreGround)})
 				if err != nil {
 					c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedUpdateVirtualMachineReason, "Error deleting unhealthy VM %s/%s: %v", vm.Namespace, vm.Name, err)
 					return err
@@ -958,12 +955,7 @@ func (c *Controller) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vmOutd
 	return nil
 }
 
-func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedList []*virtv1.VirtualMachine) error {
-	// Handle unhealthy VMIs first to rollover any changes to the VMI spec in case last update failed
-	if err := c.handleUnhealthyVMIs(pool, vmUpdatedList); err != nil {
-		return err
-	}
-
+func calculateMaxUnavailableInt(pool *poolv1.VirtualMachinePool) (int, error) {
 	maxUnavailable := intstr.FromString("25%")
 	if pool.Spec.MaxUnavailable != nil {
 		maxUnavailable = *pool.Spec.MaxUnavailable
@@ -978,7 +970,7 @@ func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedL
 	if maxUnavailable.Type == intstr.String {
 		percentage, err := strconv.ParseInt(strings.TrimSuffix(maxUnavailable.StrVal, "%"), 10, 32)
 		if err != nil {
-			return fmt.Errorf("invalid maxUnavailable percentage: %v", err)
+			return 0, fmt.Errorf("invalid maxUnavailable percentage: %v", err)
 		}
 		maxUnavailableInt = int(float64(totalReplicas) * float64(percentage) / 100.0)
 	} else {
@@ -989,8 +981,22 @@ func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedL
 		maxUnavailableInt = 1
 	}
 
+	return maxUnavailableInt, nil
+}
+
+func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedList []*virtv1.VirtualMachine) error {
+	// Handle unhealthy VMIs first to rollover any changes to the VMI spec in case last update failed
+	if err := c.handleUnhealthyVMIs(pool, vmUpdatedList); err != nil {
+		return err
+	}
+
+	maxUnavailableInt, err := calculateMaxUnavailableInt(pool)
+	if err != nil {
+		return err
+	}
+
 	for i := range vmUpdatedList {
-		timeout := time.After(1 * time.Minute)
+		timeout := time.After(2 * time.Minute)
 	waitLoop:
 		for {
 			select {
@@ -1040,7 +1046,7 @@ func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedL
 			c.recorder.Eventf(pool, k8score.EventTypeNormal, common.SuccessfulDeleteVirtualMachineReason, "Proactive update of VM %s/%s by deleting outdated VMI", vm.Namespace, vm.Name)
 		case proactiveUpdateTypeVMDelete:
 			foreGround := metav1.DeletePropagationForeground
-			err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Delete(context.Background(), vm.ObjectMeta.Name, metav1.DeleteOptions{PropagationPolicy: &foreGround})
+			err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Delete(context.Background(), vm.ObjectMeta.Name, metav1.DeleteOptions{PropagationPolicy: pointer.P(foreGround)})
 			if err != nil {
 				c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedUpdateVirtualMachineReason, "Error proactively updating VM %s/%s by deleting VM due to data volume changes: %v", vm.Namespace, vm.Name, err)
 				return err

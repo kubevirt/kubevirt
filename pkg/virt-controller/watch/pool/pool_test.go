@@ -831,7 +831,7 @@ var _ = Describe("Pool", func() {
 				Expect(updateObj.Status.Conditions).To(HaveLen(1))
 				Expect(updateObj.Status.Conditions[0].Type).To(Equal(poolv1.VirtualMachinePoolReplicaFailure))
 				Expect(updateObj.Status.Conditions[0].Reason).To(Equal(FailedUpdateReason))
-				Expect(updateObj.Status.Conditions[0].Message).To(ContainSubstring("timeout as the new VMIs are not coming online after 1 minutes"))
+				Expect(updateObj.Status.Conditions[0].Message).To(ContainSubstring("timeout occurred while waiting for the VMI to become healthy"))
 				return true, update.GetObject(), nil
 			})
 

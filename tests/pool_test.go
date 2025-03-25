@@ -31,6 +31,7 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -610,6 +611,72 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		Entry("do not append index if set to false", pointer.P(false)),
 		Entry("append index if set to true", pointer.P(true)),
 	)
+
+	It("should respect maxUnavailable strategy during updates", func() {
+		newPool := newVirtualMachinePool()
+		doScale(newPool.ObjectMeta.Name, 3)
+		waitForVMIs(newPool.Namespace, newPool.Spec.Selector, 3)
+
+		By("Setting maxUnavailable to 1")
+		patchData, err := patch.New(patch.WithReplace("/spec/maxUnavailable", intstr.FromInt(1))).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+		_, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Patch(context.Background(), newPool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Making a VMI template change")
+		patchData, err = patch.New(patch.WithAdd(
+			fmt.Sprintf("/spec/virtualMachineTemplate/spec/template/metadata/labels/%s", newLabelKey), newLabelValue),
+		).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+		_, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Patch(context.Background(), newPool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Verifying maxUnavailable strategy")
+		Eventually(func() error {
+			vmis, err := virtClient.VirtualMachineInstance(newPool.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: labelSelectorToString(newPool.Spec.Selector),
+			})
+			if err != nil {
+				return err
+			}
+
+			updatedCount := 0
+			for _, vmi := range vmis.Items {
+				if _, ok := vmi.Labels[newLabelKey]; ok {
+					updatedCount++
+				}
+			}
+
+			deletingCount := 0
+			for _, vmi := range vmis.Items {
+				if vmi.DeletionTimestamp != nil {
+					deletingCount++
+				}
+			}
+
+			if deletingCount+updatedCount > 1 {
+				return fmt.Errorf("Too many VMIs being updated simultaneously. Deleting: %d, Updated: %d", deletingCount, updatedCount)
+			}
+
+			if updatedCount < 3 {
+				return fmt.Errorf("Not all VMIs updated yet. Updated: %d/3", updatedCount)
+			}
+
+			return nil
+		}, 180*time.Second, 1*time.Second).Should(BeNil())
+
+		By("Verifying all VMIs are running with new label")
+		vmis, err := virtClient.VirtualMachineInstance(newPool.Namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: labelSelectorToString(newPool.Spec.Selector),
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vmis.Items).To(HaveLen(3))
+		for _, vmi := range vmis.Items {
+			Expect(vmi.Status.Phase).To(Equal(v1.Running))
+			Expect(vmi.Labels).To(HaveKey(newLabelKey))
+			Expect(vmi.Labels[newLabelKey]).To(Equal(newLabelValue))
+		}
+	})
 })
 
 func newPoolFromVMI(vmi *v1.VirtualMachineInstance) *poolv1.VirtualMachinePool {
