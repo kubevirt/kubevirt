@@ -241,9 +241,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 	AfterEach(func() {
 		close(stop)
 		wg.Wait()
-
+		var events []string
 		// Ensure that we add checks for expected events to every test
-		Expect(recorder.Events).To(BeEmpty())
+		for len(recorder.Events) > 0 {
+			events = append(events, <-recorder.Events)
+		}
+		Expect(events).To(BeEmpty(), "unexpected events: %+v", events)
 	})
 
 	addDomain := func(domain *api.Domain) {
