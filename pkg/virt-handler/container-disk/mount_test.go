@@ -58,10 +58,11 @@ var _ = Describe("ContainerDisk", func() {
 		vmi.UID = "1234"
 
 		m = &mounter{
-			mountRecords:           make(map[types.UID]*vmiMountTargetRecord),
-			checkpointManager:      checkpoint.NewSimpleCheckpointManager(tmpDir),
-			suppressWarningTimeout: 1 * time.Minute,
-			socketPathGetter:       containerdisk.NewSocketPathGetter(""),
+			mountRecords:            make(map[types.UID]*vmiMountTargetRecord),
+			checkpointManager:       checkpoint.NewSimpleCheckpointManager(tmpDir),
+			suppressWarningTimeout:  1 * time.Minute,
+			bindMountNeededDetector: func(vmi *v1.VirtualMachineInstance) (bool, error) { return true, nil },
+			socketPathGetter:        containerdisk.NewSocketPathGetter(""),
 		}
 	})
 
