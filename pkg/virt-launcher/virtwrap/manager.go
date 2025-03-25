@@ -179,6 +179,8 @@ type LibvirtDomainManager struct {
 
 	metadataCache    *metadata.Cache
 	domainStatsCache *virtcache.TimeDefinedCache[*stats.DomainStats]
+
+	cpuSetGetter func() ([]int, error)
 }
 
 type pausedVMIs struct {
@@ -205,13 +207,15 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 }
 
 func NewLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore,
-	ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, metadataCache *metadata.Cache, stopChan chan struct{}, diskMemoryLimitBytes int64) (DomainManager, error) {
+	ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, metadataCache *metadata.Cache,
+	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error)) (DomainManager, error) {
 	directIOChecker := converter.NewDirectIOChecker()
-	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache, stopChan, diskMemoryLimitBytes)
+	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache, stopChan, diskMemoryLimitBytes, cpuSetGetter)
 }
 
 func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string,
-	ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker, metadataCache *metadata.Cache, stopChan chan struct{}, diskMemoryLimitBytes int64) (DomainManager, error) {
+	ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker, metadataCache *metadata.Cache,
+	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error)) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		diskMemoryLimitBytes: diskMemoryLimitBytes,
 		virConn:              connection,
@@ -228,6 +232,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		cancelSafetyUnfreezeChan: make(chan struct{}),
 		migrateInfoStats:         &stats.DomainJobInfo{},
 		metadataCache:            metadataCache,
+		cpuSetGetter:             cpuSetGetter,
 	}
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
@@ -489,7 +494,7 @@ func (l *LibvirtDomainManager) UpdateVCPUs(vmi *v1.VirtualMachineInstance, optio
 			topology = options.Topology
 		}
 
-		podCPUSet, err := util.GetPodCPUSet()
+		podCPUSet, err := l.cpuSetGetter()
 		if err != nil {
 			logger.Reason(err).Error("failed to read pod cpuset.")
 			return fmt.Errorf("failed to read pod cpuset: %v", err)
@@ -959,7 +964,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 
 	logger := log.Log.Object(vmi)
 
-	podCPUSet, err := util.GetPodCPUSet()
+	podCPUSet, err := l.cpuSetGetter()
 	if err != nil {
 		logger.Reason(err).Error("failed to read pod cpuset.")
 		return nil, fmt.Errorf("failed to read pod cpuset: %v", err)
