@@ -271,8 +271,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 		os.RemoveAll(podsDir)
 		os.RemoveAll(certDir)
 		os.RemoveAll(ghostCacheDir)
+
+		var events []string
 		// Ensure that we add checks for expected events to every test
-		Expect(recorder.Events).To(BeEmpty())
+		for len(recorder.Events) > 0 {
+			events = append(events, <-recorder.Events)
+		}
+		Expect(events).To(BeEmpty(), "unexpected events: %+v", events)
 	})
 
 	sanityExecute := func() {
