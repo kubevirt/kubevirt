@@ -41,7 +41,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -2291,12 +2291,12 @@ var _ = Describe("Snapshot controlleer", func() {
 					updateStatusCalls = expectVMSnapshotUpdateStatus(vmSnapshotClient, expectedSnapshotUpdate)
 
 					instancetypeObj = createInstancetype()
-					instancetypeCR, err = instancetype.CreateControllerRevision(vm, instancetypeObj)
+					instancetypeCR, err = revision.CreateControllerRevision(vm, instancetypeObj)
 					Expect(err).ToNot(HaveOccurred())
 					crSource.Add(instancetypeCR)
 
 					preferenceObj = createPreference()
-					preferenceCR, err = instancetype.CreateControllerRevision(vm, preferenceObj)
+					preferenceCR, err = revision.CreateControllerRevision(vm, preferenceObj)
 					Expect(err).ToNot(HaveOccurred())
 					crSource.Add(preferenceCR)
 				})
@@ -2836,7 +2836,7 @@ func createPreference() *instancetypev1beta1.VirtualMachinePreference {
 }
 
 func createInstancetypeVirtualMachineSnapshotCR(vm *v1.VirtualMachine, vmSnapshot *snapshotv1.VirtualMachineSnapshot, obj runtime.Object) *appsv1.ControllerRevision {
-	cr, err := instancetype.CreateControllerRevision(vm, obj)
+	cr, err := revision.CreateControllerRevision(vm, obj)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Replace the VM name with the vmSnapshot name and clear the namespace as we don't expect to see this set during creation, only after.
