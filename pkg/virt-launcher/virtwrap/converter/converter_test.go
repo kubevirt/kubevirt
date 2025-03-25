@@ -3163,7 +3163,7 @@ var _ = Describe("Converter", func() {
 				libvmi.WithName("testvmi"),
 				libvmistatus.WithStatus(
 					libvmistatus.New(
-						libvmistatus.WithTopologyHints(int64(fakeFrequency)),
+						libvmistatus.WithTSCFrequency(int64(fakeFrequency)),
 					)),
 			)
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
