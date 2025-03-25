@@ -11,6 +11,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/performance",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/instancetype/builder:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/libvmi/cloudinit:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
@@ -21,7 +22,6 @@ go_library(
         "//tests/decorators:go_default_library",
         "//tests/flags:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
-        "//tests/libinstancetype/builder:go_default_library",
         "//tests/libvmifact:go_default_library",
         "//tests/libwait:go_default_library",
         "//tests/testsuite:go_default_library",

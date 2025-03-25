@@ -46,6 +46,7 @@ import (
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/instancetype/builder"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	"kubevirt.io/kubevirt/pkg/virtctl/create/vm"
@@ -56,7 +57,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libconfigmap"
-	"kubevirt.io/kubevirt/tests/libinstancetype/builder"
 	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libssh"
 	"kubevirt.io/kubevirt/tests/libstorage"

@@ -36,12 +36,12 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
+	instancetypeBuilder "kubevirt.io/kubevirt/pkg/instancetype/builder"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	audit_api "kubevirt.io/kubevirt/tools/perfscale-audit/api"
 	metric_client "kubevirt.io/kubevirt/tools/perfscale-audit/metric-client"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	instancetypeBuilder "kubevirt.io/kubevirt/tests/libinstancetype/builder"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
