@@ -60,7 +60,9 @@ var _ = compute.SIGDescribe("Reset subresource", func() {
 			bTimePostReset, err := console.RunCommandAndStoreOutput(vmi, cmd, time.Second*30)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Check the pre and post reset boot times are different")
+			By("Check the pre and post reset boot times are different and non-empty")
+			Expect(bTimePreReset).ToNot(BeEmpty())
+			Expect(bTimePostReset).ToNot(BeEmpty())
 			Expect(bTimePreReset).ToNot(Equal(bTimePostReset))
 
 			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
