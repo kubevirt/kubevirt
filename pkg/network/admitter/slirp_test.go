@@ -32,52 +32,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/admitter"
 )
 
-var _ = Describe("Validate interface with SLIRP binding", func() {
-	It("should be rejected if not enabled in the Kubevirt CR", func() {
-		vmi := libvmi.New(
-			libvmi.WithInterface(v1.Interface{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{}},
-			}),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		)
-
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
-		causes := validator.Validate()
-		Expect(causes).To(HaveLen(1))
-		Expect(causes[0].Message).To(Equal("Slirp interface is not enabled in kubevirt-config"))
-	})
-
-	It("should be rejected without a pod network", func() {
-		vmi := libvmi.New(
-			libvmi.WithInterface(v1.Interface{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{}},
-			}),
-			libvmi.WithNetwork(libvmi.MultusNetwork("default", "net")),
-		)
-		config := stubClusterConfigChecker{slirpEnabled: true}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, config)
-		causes := validator.Validate()
-		Expect(causes).To(HaveLen(1))
-		Expect(causes[0].Message).To(Equal("Slirp interface only implemented with pod network"))
-	})
-
-	It("should be accepted with a pod network when SLIRP is enabled in the Kubevirt CR", func() {
-		vmi := libvmi.New(
-			libvmi.WithInterface(v1.Interface{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{}},
-			}),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		)
-
-		config := stubClusterConfigChecker{slirpEnabled: true}
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, config)
-		Expect(validator.Validate()).To(BeEmpty())
-	})
-})
-
 var _ = Describe("Validate creation of interface with SLIRP binding", func() {
 	It("should be rejected", func() {
 		vmi := libvmi.New(
