@@ -141,6 +141,16 @@ func WithNodeName(node string) Option {
 	}
 }
 
+// WithTSCFrequency sets the TSCFrequency in TopologyHints
+func WithTSCFrequency(tscFrequency int64) Option {
+	return func(vmiStatus *v1.VirtualMachineInstanceStatus) {
+		if vmiStatus.TopologyHints == nil {
+			vmiStatus.TopologyHints = &v1.TopologyHints{}
+		}
+		vmiStatus.TopologyHints.TSCFrequency = &tscFrequency
+	}
+}
+
 type VMOption func(vmiStatus *v1.VirtualMachineStatus)
 
 // WithStatus sets the status with specified value

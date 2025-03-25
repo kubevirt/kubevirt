@@ -3064,6 +3064,8 @@ var _ = Describe("Converter", func() {
 				libvmi.WithName("testvmi"),
 				libvmi.WithRng(),
 				libvmi.WithAutoattachMemBalloon(true),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
 				libvmi.WithInterface(v1.Interface{Name: "red", Model: "e1000"}),
 				libvmi.WithNetwork(&v1.Network{Name: "red"}),
 				libvmi.WithSEV(false),
@@ -3163,7 +3165,7 @@ var _ = Describe("Converter", func() {
 				libvmi.WithName("testvmi"),
 				libvmistatus.WithStatus(
 					libvmistatus.New(
-						libvmistatus.WithTopologyHints(int64(fakeFrequency)),
+						libvmistatus.WithTSCFrequency(int64(fakeFrequency)),
 					)),
 			)
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
