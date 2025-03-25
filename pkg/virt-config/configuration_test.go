@@ -48,19 +48,6 @@ var _ = Describe("test configuration", func() {
 
 	trueValue := true
 	falseValue := false
-	DescribeTable(" when permitSlirpInterface", func(value *bool, result bool) {
-		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
-			NetworkConfiguration: &v1.NetworkConfiguration{
-				DeprecatedPermitSlirpInterface: value,
-			},
-		})
-
-		Expect(clusterConfig.IsSlirpInterfaceEnabled()).To(Equal(result))
-	},
-		Entry("is true, IsSlirpInterfaceEnabled should return true", &trueValue, true),
-		Entry("is false, IsSlirpInterfaceEnabled should return false", &falseValue, false),
-		Entry("when unset, IsSlirpInterfaceEnabled should return false", nil, false),
-	)
 
 	DescribeTable(" when permitBridgeInterfaceOnPodNetwork", func(value *bool, result bool) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{

@@ -212,10 +212,6 @@ func (c *ClusterConfig) GetDefaultArchitecture() string {
 	return c.GetConfig().ArchitectureConfiguration.DefaultArchitecture
 }
 
-func (c *ClusterConfig) IsSlirpInterfaceEnabled() bool {
-	return *c.GetConfig().NetworkConfiguration.DeprecatedPermitSlirpInterface
-}
-
 func (c *ClusterConfig) GetSMBIOS() *v1.SMBiosConfiguration {
 	return c.GetConfig().SMBIOSConfig
 }
