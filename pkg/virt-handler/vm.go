@@ -1170,11 +1170,7 @@ func (c *VirtualMachineController) updatePausedConditions(vmi *v1.VirtualMachine
 	// Update paused condition in case VMI was paused / unpaused
 	if domain != nil && domain.Status.Status == api.Paused {
 		if !condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
-			reason := domain.Status.Reason
-			if c.isVMIPausedDuringMigration(vmi) {
-				reason = api.ReasonPausedMigration
-			}
-			calculatePausedCondition(vmi, reason)
+			c.calculatePausedCondition(vmi, domain.Status.Reason)
 		}
 	} else if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
 		log.Log.Object(vmi).V(3).Info("Removing paused condition")
@@ -1467,11 +1463,15 @@ func (c *VirtualMachineController) recordPhaseChangeEvent(vmi *v1.VirtualMachine
 	}
 }
 
-func calculatePausedCondition(vmi *v1.VirtualMachineInstance, reason api.StateChangeReason) {
+func (c *VirtualMachineController) calculatePausedCondition(vmi *v1.VirtualMachineInstance, reason api.StateChangeReason) {
 	now := metav1.NewTime(time.Now())
 	switch reason {
 	case api.ReasonPausedMigration:
-		log.Log.Object(vmi).V(3).Info("Adding paused condition")
+		if !isVMIPausedDuringMigration(vmi) || !c.isMigrationSource(vmi) {
+			log.Log.Object(vmi).V(3).Infof("Domain is paused after migration by qemu, no condition needed")
+			return
+		}
+		log.Log.Object(vmi).V(3).Info("Adding paused by migration monitor condition")
 		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
 			Type:               v1.VirtualMachineInstancePaused,
 			Status:             k8sv1.ConditionTrue,
@@ -2530,7 +2530,7 @@ func (c *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 	return
 }
 
-func (c *VirtualMachineController) isVMIPausedDuringMigration(vmi *v1.VirtualMachineInstance) bool {
+func isVMIPausedDuringMigration(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Status.MigrationState != nil &&
 		vmi.Status.MigrationState.Mode == v1.MigrationPaused &&
 		!vmi.Status.MigrationState.Completed
