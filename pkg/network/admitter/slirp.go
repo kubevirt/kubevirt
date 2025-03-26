@@ -23,45 +23,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
-
 	v1 "kubevirt.io/api/core/v1"
 )
-
-type slirpClusterConfigChecker interface {
-	IsSlirpInterfaceEnabled() bool
-}
-
-func validateSlirpBinding(
-	field *k8sfield.Path,
-	spec *v1.VirtualMachineInstanceSpec,
-	configChecker slirpClusterConfigChecker,
-) (causes []metav1.StatusCause) {
-	for idx, ifaceSpec := range spec.Domain.Devices.Interfaces {
-		if ifaceSpec.DeprecatedSlirp == nil {
-			continue
-		}
-		net := vmispec.LookupNetworkByName(spec.Networks, ifaceSpec.Name)
-		if net == nil {
-			continue
-		}
-
-		if net.Pod == nil {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "Slirp interface only implemented with pod network",
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-			})
-		} else if !configChecker.IsSlirpInterfaceEnabled() {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "Slirp interface is not enabled in kubevirt-config",
-				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-			})
-		}
-	}
-	return causes
-}
 
 func validateCreationSlirpBinding(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
