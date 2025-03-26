@@ -164,7 +164,6 @@ var _ = Describe("Application", func() {
 			namespaceInformer.GetStore(),
 			pvcInformer,
 			crInformer,
-			podInformer,
 			recorder,
 			virtClient,
 			config,
