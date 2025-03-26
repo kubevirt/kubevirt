@@ -861,7 +861,12 @@ func Convert_v1_Watchdog_To_api_Watchdog(source *v1.Watchdog, watchdog *api.Watc
 		watchdog.Model = "i6300esb"
 		watchdog.Action = string(source.I6300ESB.Action)
 		return nil
+	} else if source.Diag288 != nil {
+		watchdog.Model = "diag288"
+		watchdog.Action = string(source.Diag288.Action)
+		return nil
 	}
+
 	return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", source.Name)
 }
 

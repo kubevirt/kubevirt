@@ -1233,10 +1233,21 @@ type WatchdogDevice struct {
 	// i6300esb watchdog device.
 	// +optional
 	I6300ESB *I6300ESBWatchdog `json:"i6300esb,omitempty"`
+
+	// diag288 watchdog device (specific to s390x architecture).
+	// +optional
+	Diag288 *Diag288Watchdog `json:"diag288,omitempty"`
 }
 
 // i6300esb watchdog device.
 type I6300ESBWatchdog struct {
+	// The action to take. Valid values are poweroff, reset, shutdown.
+	// Defaults to reset.
+	Action WatchdogAction `json:"action,omitempty"`
+}
+
+// diag288 watchdog device.
+type Diag288Watchdog struct {
 	// The action to take. Valid values are poweroff, reset, shutdown.
 	// Defaults to reset.
 	Action WatchdogAction `json:"action,omitempty"`

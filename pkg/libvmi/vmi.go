@@ -20,6 +20,8 @@
 package libvmi
 
 import (
+	"runtime"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -107,14 +109,23 @@ func WithRng() Option {
 // WithWatchdog adds a watchdog to the vmi devices.
 func WithWatchdog(action v1.WatchdogAction) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
+		watchdog := &v1.Watchdog{
 			Name: "watchdog",
-			WatchdogDevice: v1.WatchdogDevice{
+		}
+		if runtime.GOARCH == "s390x" {
+			watchdog.WatchdogDevice = v1.WatchdogDevice{
+				Diag288: &v1.Diag288Watchdog{
+					Action: action,
+				},
+			}
+		} else {
+			watchdog.WatchdogDevice = v1.WatchdogDevice{
 				I6300ESB: &v1.I6300ESBWatchdog{
 					Action: action,
 				},
-			},
+			}
 		}
+		vmi.Spec.Domain.Devices.Watchdog = watchdog
 	}
 }
 
