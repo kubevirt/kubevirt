@@ -89,6 +89,7 @@ import (
 	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	multipath_monitor "kubevirt.io/kubevirt/pkg/virt-handler/multipath-monitor"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
@@ -220,6 +221,7 @@ func NewController(
 		netConf:                          netConf,
 		netStat:                          netStat,
 		netBindingPluginMemoryCalculator: netBindingPluginMemoryCalculator,
+		multipathSocketMonitor:           multipath_monitor.NewMultipathSocketMonitor(),
 	}
 
 	c.hasSynced = func() bool {
@@ -308,6 +310,7 @@ type VirtualMachineController struct {
 	clusterConfig            *virtconfig.ClusterConfig
 	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
 	downwardMetricsManager   downwardMetricsManager
+	multipathSocketMonitor   *multipath_monitor.MultipathSocketMonitor
 
 	netConf                          netconf
 	netStat                          netstat
@@ -1661,6 +1664,8 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 
 	heartBeatDone := c.heartBeat.Run(c.heartBeatInterval, stopCh)
 
+	c.multipathSocketMonitor.Run()
+
 	go c.ioErrorRetryManager.Run(stopCh)
 
 	// Start the actual work
@@ -1670,6 +1675,7 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 
 	<-heartBeatDone
 	<-stopCh
+	c.multipathSocketMonitor.Close()
 	log.Log.Info("Stopping virt-handler controller.")
 }
 
