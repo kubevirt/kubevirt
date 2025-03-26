@@ -148,6 +148,9 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 			if in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB != nil {
 				SetDefaults_I6300ESBWatchdog(in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
 			}
+			if in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.Diag288 != nil {
+				SetDefaults_Diag288Watchdog(in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.Diag288)
+			}
 		}
 		for i := range in.Spec.Template.Spec.Domain.Devices.GPUs {
 			a := &in.Spec.Template.Spec.Domain.Devices.GPUs[i]
@@ -284,6 +287,9 @@ func SetObjectDefaults_VirtualMachineInstance(in *VirtualMachineInstance) {
 		if in.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB != nil {
 			SetDefaults_I6300ESBWatchdog(in.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
 		}
+		if in.Spec.Domain.Devices.Watchdog.WatchdogDevice.Diag288 != nil {
+			SetDefaults_Diag288Watchdog(in.Spec.Domain.Devices.Watchdog.WatchdogDevice.Diag288)
+		}
 	}
 	for i := range in.Spec.Domain.Devices.GPUs {
 		a := &in.Spec.Domain.Devices.GPUs[i]
@@ -410,6 +416,9 @@ func SetObjectDefaults_VirtualMachineInstancePreset(in *VirtualMachineInstancePr
 			if in.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB != nil {
 				SetDefaults_I6300ESBWatchdog(in.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
 			}
+			if in.Spec.Domain.Devices.Watchdog.WatchdogDevice.Diag288 != nil {
+				SetDefaults_Diag288Watchdog(in.Spec.Domain.Devices.Watchdog.WatchdogDevice.Diag288)
+			}
 		}
 		for i := range in.Spec.Domain.Devices.GPUs {
 			a := &in.Spec.Domain.Devices.GPUs[i]
@@ -530,6 +539,9 @@ func SetObjectDefaults_VirtualMachineInstanceReplicaSet(in *VirtualMachineInstan
 			SetDefaults_Watchdog(in.Spec.Template.Spec.Domain.Devices.Watchdog)
 			if in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB != nil {
 				SetDefaults_I6300ESBWatchdog(in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
+			}
+			if in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.Diag288 != nil {
+				SetDefaults_Diag288Watchdog(in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.Diag288)
 			}
 		}
 		for i := range in.Spec.Template.Spec.Domain.Devices.GPUs {
