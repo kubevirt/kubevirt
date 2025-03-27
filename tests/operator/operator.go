@@ -821,6 +821,11 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Start(context.Background(), vmYaml.vmName, &v1.StartOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
+				By("Ensuring VMs dont have a firmware uuid in the spec")
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vm.Spec.Template.Spec.Domain.Firmware).To(BeNil())
+
 				By(fmt.Sprintf("Waiting for VM with %s api to become ready", vmYaml.apiVersion))
 
 				Eventually(func() bool {
@@ -914,6 +919,31 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					}
 					return nil
 				}, 60*time.Second, 1*time.Second).Should(BeNil())
+
+				By(fmt.Sprintf("Verifying firmware UUID for vm %s", vmYaml.vmName))
+				Eventually(func() error {
+					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+
+					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+
+					vmFirmwareUUID := vm.Spec.Template.Spec.Domain.Firmware.UUID
+					vmiFirmwareUUID := vmi.Spec.Domain.Firmware.UUID
+
+					if vmFirmwareUUID == "" {
+						return fmt.Errorf("expected firmware UUID in VM spec to be populated, but it's empty")
+					}
+					if vmFirmwareUUID != vmiFirmwareUUID {
+						return fmt.Errorf("firmware UUID mismatch: VM spec UUID (%s) does not match VMI UUID (%s)", vmFirmwareUUID, vmiFirmwareUUID)
+					}
+
+					return nil
+				}, 60*time.Second, 2*time.Second).Should(Succeed())
 
 				By("Stopping VM")
 				err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Stop(context.Background(), vmYaml.vmName, &v1.StopOptions{})
