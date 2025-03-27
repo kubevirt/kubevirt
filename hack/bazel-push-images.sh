@@ -36,6 +36,7 @@ default_targets="
     vm-killer
     sidecar-shim
     disks-images-provider
+    libguestfs-tools
 "
 
 case ${ARCHITECTURE} in
