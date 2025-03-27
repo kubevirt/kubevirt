@@ -504,7 +504,7 @@ var _ = Describe("VM Stats Collector", func() {
 				},
 			}
 
-			results := CollectDiskAllocatedSize([]*k6tv1.VirtualMachine{vm})
+			results := CollectDiskAllocatedSize(vm)
 
 			Expect(results).ToNot(BeEmpty())
 			Expect(results[0].Metric.GetOpts().Name).To(Equal("kubevirt_vm_disk_allocated_size_bytes"))
@@ -542,7 +542,7 @@ var _ = Describe("VM Stats Collector", func() {
 				},
 			}
 
-			results := CollectDiskAllocatedSize([]*k6tv1.VirtualMachine{vm})
+			results := CollectDiskAllocatedSize(vm)
 
 			Expect(results).ToNot(BeEmpty())
 			Expect(results[0].Metric.GetOpts().Name).To(Equal("kubevirt_vm_disk_allocated_size_bytes"))
@@ -594,7 +594,7 @@ var _ = Describe("VM Stats Collector", func() {
 				},
 			}
 
-			results := CollectDiskAllocatedSize([]*k6tv1.VirtualMachine{vm})
+			results := CollectDiskAllocatedSize(vm)
 
 			Expect(results).ToNot(BeEmpty())
 			Expect(results[0].Metric.GetOpts().Name).To(Equal("kubevirt_vm_disk_allocated_size_bytes"))

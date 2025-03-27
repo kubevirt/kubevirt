@@ -290,7 +290,7 @@ func CollectResourceRequestsAndLimits(vms []*k6tv1.VirtualMachine) []operatormet
 		_ = instancetypeMethods.ApplyToVM(vmCopy)
 
 		// Disk size
-		results = append(results, CollectDiskAllocatedSize(vms)...)
+		results = append(results, CollectDiskAllocatedSize(vmCopy)...)
 
 		// Memory requests and limits from domain resources
 		results = append(results, collectMemoryResourceRequestsFromDomainResources(vmCopy)...)
@@ -546,20 +546,12 @@ func containsCondition(target k6tv1.VirtualMachineConditionType, elems []k6tv1.V
 	return false
 }
 
-func CollectDiskAllocatedSize(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+func CollectDiskAllocatedSize(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
 	var cr []operatormetrics.CollectorResult
 
-	for _, vm := range vms {
-		if vm.Spec.Template != nil {
-			cr = append(cr, collectDiskMetricsFromPVC(vm)...)
-		}
+	if vm.Spec.Template == nil {
+		return cr
 	}
-
-	return cr
-}
-
-func collectDiskMetricsFromPVC(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
-	var cr []operatormetrics.CollectorResult
 
 	for _, vol := range vm.Spec.Template.Spec.Volumes {
 		pvcName, diskName, isDataVolume := getPVCAndDiskName(vol)
