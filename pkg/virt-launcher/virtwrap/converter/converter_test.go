@@ -44,7 +44,6 @@ import (
 	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-	kvapi "kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/defaults"
@@ -52,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -3060,33 +3060,18 @@ var _ = Describe("Converter", func() {
 		)
 
 		BeforeEach(func() {
-			vmi = kvapi.NewMinimalVMI("testvmi")
+			vmi = libvmi.New(
+				libvmi.WithName("testvmi"),
+				libvmi.WithRng(),
+				libvmi.WithAutoattachMemBalloon(true),
+				libvmi.WithInterface(v1.Interface{Name: "red", Model: "e1000"}),
+				libvmi.WithNetwork(&v1.Network{Name: "red"}),
+				libvmi.WithSEV(false),
+				libvmi.WithUefi(false),
+			)
+
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-			vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.P(true)
-			nonVirtioIface := v1.Interface{Name: "red", Model: "e1000"}
-			secondaryNetwork := v1.Network{Name: "red"}
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				*v1.DefaultBridgeNetworkInterface(), nonVirtioIface,
-			}
-			vmi.Spec.Networks = []v1.Network{
-				*v1.DefaultPodNetwork(), secondaryNetwork,
-			}
-			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
-				SEV: &v1.SEV{},
-			}
-			vmi.Spec.Domain.Features = &v1.Features{
-				SMM: &v1.FeatureState{
-					Enabled: pointer.P(false),
-				},
-			}
-			vmi.Spec.Domain.Firmware = &v1.Firmware{
-				Bootloader: &v1.Bootloader{
-					EFI: &v1.EFI{
-						SecureBoot: pointer.P(false),
-					},
-				},
-			}
+
 			c = &ConverterContext{
 				Architecture:      archconverter.NewConverter(runtime.GOARCH),
 				AllowEmulation:    true,
@@ -3174,9 +3159,14 @@ var _ = Describe("Converter", func() {
 		const fakeFrequency = 12345
 
 		BeforeEach(func() {
-			vmi = kvapi.NewMinimalVMI("testvmi")
+			vmi = libvmi.New(
+				libvmi.WithName("testvmi"),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithTopologyHints(int64(fakeFrequency)),
+					)),
+			)
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			vmi.Status.TopologyHints = &v1.TopologyHints{TSCFrequency: pointer.P(int64(fakeFrequency))}
 			c = &ConverterContext{
 				Architecture:   archconverter.NewConverter(runtime.GOARCH),
 				AllowEmulation: true,
@@ -3247,7 +3237,7 @@ var _ = Describe("Converter", func() {
 		)
 
 		BeforeEach(func() {
-			vmi = kvapi.NewMinimalVMI("testvmi")
+			vmi = libvmi.New(libvmi.WithName("testvmi"))
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 		})
 
@@ -3276,7 +3266,7 @@ var _ = Describe("Converter", func() {
 		)
 
 		BeforeEach(func() {
-			vmi = kvapi.NewMinimalVMI("testvmi")
+			vmi = libvmi.New(libvmi.WithName("testvmi"))
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 		})
 

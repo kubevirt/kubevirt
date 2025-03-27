@@ -44,13 +44,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
-	api2 "kubevirt.io/client-go/api"
 
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
@@ -3180,7 +3180,7 @@ var _ = Describe("Manager helper functions", func() {
 })
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {
-	vmi := api2.NewMinimalVMIWithNS(namespace, name)
+	vmi := libvmi.New(libvmi.WithNamespace(namespace), libvmi.WithName(name))
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 	return vmi
 }
