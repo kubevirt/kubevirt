@@ -27,7 +27,7 @@ import (
 )
 
 var _ = Describe("Qemu agent poller", func() {
-	Context("recieving a reply from the agent", func() {
+	Context("receiving a reply from the agent", func() {
 		It("should parse FSFreezeStatus", func() {
 			jsonInput := `{"return":"frozen"}`
 			expectedFSFreezeStatus := api.FSFreeze{Status: "frozen"}
@@ -67,7 +67,6 @@ var _ = Describe("Qemu agent poller", func() {
 		})
 
 		It("should parse Filesystem", func() {
-
 			jsonInput := `{
                 "return":[
                     {

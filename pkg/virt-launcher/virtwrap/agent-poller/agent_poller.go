@@ -39,9 +39,9 @@ type AgentCommand string
 // Aliases are also used as keys to the store, it does not matter how the keys are named,
 // only whether it relates to the right data
 const (
-	GET_FILESYSTEM      AgentCommand = "guest-get-fsinfo"
-	GET_AGENT           AgentCommand = "guest-info"
-	GET_FSFREEZE_STATUS AgentCommand = "guest-fsfreeze-status"
+	GetFilesystem     AgentCommand = "guest-get-fsinfo"
+	GetAgent          AgentCommand = "guest-info"
+	GetFSFreezeStatus AgentCommand = "guest-fsfreeze-status"
 
 	pollInitialInterval = 10 * time.Second
 )
@@ -61,16 +61,17 @@ type AsyncAgentStore struct {
 
 // NewAsyncAgentStore creates new agent store
 func NewAsyncAgentStore() AsyncAgentStore {
+	const agentUpdatedChanBuffer = 10
+
 	return AsyncAgentStore{
 		store:        sync.Map{},
-		AgentUpdated: make(chan AgentUpdatedEvent, 10),
+		AgentUpdated: make(chan AgentUpdatedEvent, agentUpdatedChanBuffer),
 	}
 }
 
 // Store saves the value with a key to the storage, when there is a change in data
 // it fires up updated event
 func (s *AsyncAgentStore) Store(key, value any) {
-
 	oldData, _ := s.store.Load(key)
 	updated := (oldData == nil) || !equality.Semantic.DeepEqual(oldData, value)
 
@@ -79,7 +80,7 @@ func (s *AsyncAgentStore) Store(key, value any) {
 	if updated {
 		domainInfo := api.DomainGuestInfo{}
 		switch key {
-		case libvirt.DOMAIN_GUEST_INFO_OS, libvirt.DOMAIN_GUEST_INFO_INTERFACES, GET_FSFREEZE_STATUS:
+		case libvirt.DOMAIN_GUEST_INFO_OS, libvirt.DOMAIN_GUEST_INFO_INTERFACES, GetFSFreezeStatus:
 			domainInfo.OSInfo = s.GetGuestOSInfo()
 			domainInfo.Interfaces = s.GetInterfaceStatus()
 			domainInfo.FSFreezeStatus = s.GetFSFreezeStatus()
@@ -145,7 +146,7 @@ func (s *AsyncAgentStore) GetGuestOSInfo() *api.GuestOSInfo {
 
 // GetGA returns guest agent record with its version if present
 func (s *AsyncAgentStore) GetGA() AgentInfo {
-	data, ok := s.store.Load(GET_AGENT)
+	data, ok := s.store.Load(GetAgent)
 	agent := AgentInfo{}
 	if !ok {
 		return agent
@@ -157,7 +158,7 @@ func (s *AsyncAgentStore) GetGA() AgentInfo {
 
 // GetFSFreezeStatus returns the Guest fsfreeze status
 func (s *AsyncAgentStore) GetFSFreezeStatus() *api.FSFreeze {
-	data, ok := s.store.Load(GET_FSFREEZE_STATUS)
+	data, ok := s.store.Load(GetFSFreezeStatus)
 	if !ok {
 		return nil
 	}
@@ -169,7 +170,7 @@ func (s *AsyncAgentStore) GetFSFreezeStatus() *api.FSFreeze {
 // GetFS returns the filesystem list limited to the limit set
 // set limit to -1 to return the whole list
 func (s *AsyncAgentStore) GetFS(limit int) []api.Filesystem {
-	data, ok := s.store.Load(GET_FILESYSTEM)
+	data, ok := s.store.Load(GetFilesystem)
 	filesystems := []api.Filesystem{}
 	if !ok {
 		return filesystems
@@ -220,7 +221,7 @@ type PollerWorker struct {
 // Poll is the call to the guestagent.
 func (p *PollerWorker) Poll(
 	commands []AgentCommand,
-	types libvirt.DomainGuestInfoTypes,
+	infoTypes libvirt.DomainGuestInfoTypes,
 	connection cli.Connection,
 	agentStore *AsyncAgentStore,
 	domainName string,
@@ -231,7 +232,7 @@ func (p *PollerWorker) Poll(
 	if len(p.AgentCommands) != 0 {
 		executeAgentCommands(p.AgentCommands, connection, agentStore, domainName)
 	} else {
-		fetchAndStoreGuestInfo(types, connection, agentStore, domainName)
+		fetchAndStoreGuestInfo(infoTypes, connection, agentStore, domainName)
 	}
 
 	pollMaxInterval := p.CallTick
@@ -251,7 +252,7 @@ func (p *PollerWorker) Poll(
 			if len(p.AgentCommands) != 0 {
 				executeAgentCommands(p.AgentCommands, connection, agentStore, domainName)
 			} else {
-				fetchAndStoreGuestInfo(types, connection, agentStore, domainName)
+				fetchAndStoreGuestInfo(infoTypes, connection, agentStore, domainName)
 			}
 		}
 		if pollInterval < pollMaxInterval {
@@ -261,7 +262,7 @@ func (p *PollerWorker) Poll(
 	}
 }
 
-func incrementPollInterval(interval time.Duration, maxInterval time.Duration) time.Duration {
+func incrementPollInterval(interval, maxInterval time.Duration) time.Duration {
 	interval *= 2
 	if interval > maxInterval {
 		interval = maxInterval
@@ -299,15 +300,15 @@ func CreatePoller(
 			// Polling for QEMU agent commands
 			{
 				CallTick:      qemuAgentVersionInterval,
-				AgentCommands: []AgentCommand{GET_AGENT},
+				AgentCommands: []AgentCommand{GetAgent},
 			},
 			{
 				CallTick:      qemuAgentFileInterval,
-				AgentCommands: []AgentCommand{GET_FILESYSTEM},
+				AgentCommands: []AgentCommand{GetFilesystem},
 			},
 			{
 				CallTick:      qemuAgentFSFreezeStatusInterval,
-				AgentCommands: []AgentCommand{GET_FSFREEZE_STATUS},
+				AgentCommands: []AgentCommand{GetFSFreezeStatus},
 			},
 			// Polling for guest info API
 			{
@@ -378,64 +379,68 @@ func executeAgentCommands(commands []AgentCommand, con cli.Connection, agentStor
 		}
 
 		switch command {
-		case GET_FSFREEZE_STATUS:
+		case GetFSFreezeStatus:
 			fsfreezeStatus, err := ParseFSFreezeStatus(cmdResult)
 			if err != nil {
 				log.Log.Errorf("Cannot parse guest agent fsfreeze status %s", err.Error())
 				continue
 			}
-			agentStore.Store(GET_FSFREEZE_STATUS, fsfreezeStatus)
-		case GET_FILESYSTEM:
+			agentStore.Store(GetFSFreezeStatus, fsfreezeStatus)
+		case GetFilesystem:
 			filesystems, err := parseFilesystem(cmdResult)
 			if err != nil {
 				log.Log.Errorf("Cannot parse guest agent filesystem %s", err.Error())
 				continue
 			}
-			agentStore.Store(GET_FILESYSTEM, filesystems)
-		case GET_AGENT:
+			agentStore.Store(GetFilesystem, filesystems)
+		case GetAgent:
 			agent, err := parseAgent(cmdResult)
 			if err != nil {
 				log.Log.Errorf("Cannot parse guest agent information %s", err.Error())
 				continue
 			}
-			agentStore.Store(GET_AGENT, agent)
+			agentStore.Store(GetAgent, agent)
 		}
 	}
 }
 
-func fetchAndStoreGuestInfo(types libvirt.DomainGuestInfoTypes, con cli.Connection, agentStore *AsyncAgentStore, domainName string) {
-	log.Log.Infof("Polling API operations: %v", types)
+func fetchAndStoreGuestInfo(infoTypes libvirt.DomainGuestInfoTypes, con cli.Connection, agentStore *AsyncAgentStore, domainName string) {
+	log.Log.Infof("Polling API operations: %v", infoTypes)
 
 	domain, err := con.LookupDomainByName(domainName)
 	if err != nil {
 		log.Log.Errorf("Domain lookup failed: %v", err)
 		return
 	}
-	defer domain.Free()
 
-	guestInfo, err := domain.GetGuestInfo(types, 0)
+	// Ignoring errors from domain.Free() is safe because it
+	// only fails if called multiple times or if the domain object
+	// is invalid, neither of which is the case here.
+	defer func() { _ = domain.Free() }()
+
+	guestInfo, err := domain.GetGuestInfo(infoTypes, 0)
 	if err != nil {
 		log.Log.Errorf("Fetching guest info failed: %v", err)
 		return
 	}
 
-	if types&libvirt.DOMAIN_GUEST_INFO_INTERFACES != 0 {
+	if infoTypes&libvirt.DOMAIN_GUEST_INFO_INTERFACES != 0 {
 		agentStore.Store(libvirt.DOMAIN_GUEST_INFO_INTERFACES, convertToInterfaces(guestInfo))
 	}
 
-	if types&libvirt.DOMAIN_GUEST_INFO_OS != 0 {
+	if infoTypes&libvirt.DOMAIN_GUEST_INFO_OS != 0 {
 		agentStore.Store(libvirt.DOMAIN_GUEST_INFO_OS, convertToOSInfo(guestInfo))
 	}
 
-	if types&libvirt.DOMAIN_GUEST_INFO_HOSTNAME != 0 {
+	if infoTypes&libvirt.DOMAIN_GUEST_INFO_HOSTNAME != 0 {
 		agentStore.Store(libvirt.DOMAIN_GUEST_INFO_HOSTNAME, guestInfo.Hostname)
 	}
 
-	if types&libvirt.DOMAIN_GUEST_INFO_TIMEZONE != 0 {
+	if infoTypes&libvirt.DOMAIN_GUEST_INFO_TIMEZONE != 0 {
 		agentStore.Store(libvirt.DOMAIN_GUEST_INFO_TIMEZONE, convertToTimezone(guestInfo))
 	}
 
-	if types&libvirt.DOMAIN_GUEST_INFO_USERS != 0 {
+	if infoTypes&libvirt.DOMAIN_GUEST_INFO_USERS != 0 {
 		agentStore.Store(libvirt.DOMAIN_GUEST_INFO_USERS, convertToUsers(guestInfo))
 	}
 }
@@ -460,7 +465,7 @@ func convertToInterfaces(guestInfo *libvirt.DomainGuestInfo) []api.InterfaceStat
 	return interfaceStatuses
 }
 
-func convertToIPAddresses(ipAddresses []libvirt.DomainGuestInfoIPAddress) (string, []string) {
+func convertToIPAddresses(ipAddresses []libvirt.DomainGuestInfoIPAddress) (primaryIP string, allIPs []string) {
 	var interfaceIPs []string
 	var interfaceIP string
 
