@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/nxadm/tail"
@@ -117,7 +118,7 @@ func main() {
 	}
 
 	// Create context that listens for the interrupt signal from the container runtime.
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
 	g, gctx := errgroup.WithContext(ctx)
