@@ -254,7 +254,11 @@ ginkgo_params="$ginkgo_params -no-color -succinct --label-filter=${label_filter}
 if [[ -n ${NEW_TESTS} ]]; then
     readarray -t test_names <<<"$(jq -r '.[]' "${NEW_TESTS}")"
     for test_name in "${test_names[@]}"; do
-        ginkgo_params+=" -focus='${test_name}'"
+        echo "test name: ${test_name}"
+        # escape square brackets, hopefully that is the only thing needed
+        escaped=$(echo "${test_name}" | sed -E 's/([][])/\\\1/g')
+        echo "test name escaped: ${escaped}"
+        ginkgo_params+=" -focus='${escaped}'"
     done
 fi
 
