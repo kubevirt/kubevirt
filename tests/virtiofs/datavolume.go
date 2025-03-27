@@ -34,7 +34,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -53,6 +52,7 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -334,6 +334,67 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+		})
+
+		It("should be successfully started and injected into the container", func() {
+			dataVolume := libdv.NewDataVolume(
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
+				),
+				libdv.WithNamespace(testsuite.NamespaceTestDefault),
+			)
+
+			By("creating the DataVolume")
+			dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespaceTestDefault).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("waiting until the DataVolume is ready")
+			if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(libstorage.Config.StorageRWOFileSystem) {
+				Eventually(ThisDV(dataVolume), 30).Should(WaitForFirstConsumer())
+			}
+
+			vmi = libvmifact.NewFedora(
+				libvmi.WithFilesystemDV(dataVolume.Name),
+				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
+			)
+
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both import and start
+			By("waiting until the DataVolume is ready")
+			libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
+
+			By("waiting until the VirtualMachineInstance starts")
+			vmi = libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running}, libwait.WithTimeout(500))
+
+			By("extracting process cgroup and NS info")
+			script := "export PID1=$(pidof virtiofs-placeholder) " +
+				"; grep ^0 /proc/$PID1/cgroup " +
+				"&& readlink -z /proc/$PID1/ns/{net,pid,ipc,mnt,cgroup,uts} ; echo " +
+				"&& export PID2=$(pidof virtiofsd) " +
+				"; grep ^0 /proc/$PID2/cgroup " +
+				"&& readlink -z /proc/$PID2/ns/{net,pid,ipc,mnt,cgroup,uts} ; echo " +
+				"&& awk -e '/^PPid:/ { print ENVIRON[\"PID1\"] == $2 }' /proc/$PID2/task/$PID2/status"
+
+			command := []string{"/bin/sh", "-c", script}
+			stdOut, err := libnode.ExecuteCommandInVirtHandlerPod(vmi.Status.NodeName, command)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("comparing process cgroup and NS")
+			// we got:
+			// 		0: virtiofs-placeholder's cgroup
+			// 		1: virtiofs-placeholder's namespaces
+			// 		2: virtiofsd's cgroup
+			// 		3: virtiofsd's namespaces
+			//		4: "1" if the virtiofs-placeholder is the virtiofsd's parent process, "0" otherwise
+			out := strings.Split(stdOut, "\n")
+			Expect(out).To(HaveLen(6)) // strings.Split() adds an extra empty string
+			Expect(out[0]).Should(Equal(out[2]))
+			Expect(out[1]).Should(Equal(out[3]))
+			Expect(out[4]).Should(Equal("1"))
 		})
 	})
 })
