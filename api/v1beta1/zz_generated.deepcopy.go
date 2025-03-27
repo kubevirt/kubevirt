@@ -538,6 +538,11 @@ func (in *HyperConvergedSpec) DeepCopyInto(out *HyperConvergedSpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.InstancetypeConfig != nil {
+		in, out := &in.InstancetypeConfig, &out.InstancetypeConfig
+		*out = new(corev1.InstancetypeConfiguration)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

@@ -95,6 +95,9 @@ const (
 
 	// Enable VM state persistence
 	kvVMPersistentState = "VMPersistentState"
+
+	// enables the instance type reference policy feature
+	kvInstancetypeReferencePolicy = "InstancetypeReferencePolicy"
 )
 
 const (
@@ -112,6 +115,7 @@ var (
 		kvVMExportGate,
 		kvKubevirtSeccompProfile,
 		kvVMPersistentState,
+		kvInstancetypeReferencePolicy,
 	}
 
 	// holds a list of mandatory KubeVirt feature gates. Some of them are the hard coded feature gates and some of
@@ -491,6 +495,11 @@ func getKVConfig(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.KubeVirtConfigu
 	if hc.Spec.ResourceRequirements != nil {
 		config.AutoCPULimitNamespaceLabelSelector = hc.Spec.ResourceRequirements.AutoCPULimitNamespaceLabelSelector.DeepCopy()
 	}
+
+	if hc.Spec.InstancetypeConfig != nil {
+		config.Instancetype = hc.Spec.InstancetypeConfig.DeepCopy()
+	}
+
 	return config, nil
 }
 

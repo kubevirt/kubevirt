@@ -2168,6 +2168,23 @@ spec:
                         type: array
                     type: object
                 type: object
+              instancetypeConfig:
+                description: InstancetypeConfig holds the configuration of instance
+                  type related functionality within KubeVirt.
+                properties:
+                  referencePolicy:
+                    description: |-
+                      ReferencePolicy defines how an instance type or preference should be referenced by the VM after submission, supported values are:
+                      reference (default) - Where a copy of the original object is stashed in a ControllerRevision and referenced by the VM.
+                      expand - Where the instance type or preference are expanded into the VM if no revisionNames have been populated.
+                      expandAll - Where the instance type or preference are expanded into the VM regardless of revisionNames previously being populated.
+                    enum:
+                    - reference
+                    - expand
+                    - expandAll
+                    nullable: true
+                    type: string
+                type: object
               ksmConfiguration:
                 description: |-
                   KSMConfiguration holds the information regarding

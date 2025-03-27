@@ -252,6 +252,10 @@ type HyperConvergedSpec struct {
 	// +kubebuilder:default=true
 	// +default=true
 	EnableCommonBootImageImport *bool `json:"enableCommonBootImageImport,omitempty"`
+
+	// InstancetypeConfig holds the configuration of instance type related functionality within KubeVirt.
+	// +optional
+	InstancetypeConfig *v1.InstancetypeConfiguration `json:"instancetypeConfig,omitempty"`
 }
 
 // CertRotateConfigCA contains the tunables for TLS certificates.

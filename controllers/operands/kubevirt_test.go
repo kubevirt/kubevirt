@@ -4077,6 +4077,27 @@ Version: 1.2.3`)
 				Expect(devConfig.MemoryOvercommit).To(Equal(expectedPercentage))
 			})
 		})
+
+		Context("InstancetypeConfig", func() {
+			DescribeTable("should", func(spec hcov1beta1.HyperConvergedSpec, expectedConfig *kubevirtcorev1.InstancetypeConfiguration) {
+				hco.Spec = spec
+				config, err := getKVConfig(hco)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(config.Instancetype).To(Equal(expectedConfig))
+			},
+				Entry("pass to KubeVirt when provided",
+					hcov1beta1.HyperConvergedSpec{
+						InstancetypeConfig: &kubevirtcorev1.InstancetypeConfiguration{
+							ReferencePolicy: ptr.To(kubevirtcorev1.Reference),
+						},
+					},
+					&kubevirtcorev1.InstancetypeConfiguration{
+						ReferencePolicy: ptr.To(kubevirtcorev1.Reference),
+					},
+				),
+				Entry("not pass to KubeVirt when nil", hcov1beta1.HyperConvergedSpec{}, nil),
+			)
+		})
 	})
 
 	Context("Test hcLiveMigrationToKv", func() {

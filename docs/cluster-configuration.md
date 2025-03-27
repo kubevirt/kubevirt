@@ -1502,3 +1502,19 @@ spec:
     devEnableEvictionsInBackground: true
 ```
 should be merged in its configuration.
+
+## KubeVirt Instance Type Configuration
+
+The configuration of [instance type and preference related features](https://kubevirt.io/user-guide/user_workloads/instancetypes/) within KubeVirt can be configured through the use of the `spec.instancetypeConfig` configurable. This field matches the field provided by the [KubeVirt CR](https://kubevirt.io/api-reference/main/definitions.html#_v1_instancetypeconfiguration).
+
+The following example configures an [InstancetypeReferencePolicy](https://kubevirt.io/user-guide/user_workloads/instancetypes/#instancetypereferencepolicy) of `expand`:
+
+~~~yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  instancetypeConfig:
+    referencePolicy: expand
+```
