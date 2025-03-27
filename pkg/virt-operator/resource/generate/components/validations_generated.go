@@ -1598,9 +1598,8 @@ var CRDsValidation map[string]string = map[string]string{
               nullable: true
               type: string
             vmStateStorageClass:
-              description: |-
-                VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.
-                The storage class must support RWX in filesystem mode.
+              description: VMStateStorageClass is the name of the storage class to
+                use for the PVCs created to preserve VM state, like TPM.
               type: string
             webhookConfiguration:
               description: |-
