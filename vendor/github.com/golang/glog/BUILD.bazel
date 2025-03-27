@@ -1,0 +1,22 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "glog.go",
+        "glog_file.go",
+        "glog_file_linux.go",
+        "glog_file_nonwindows.go",
+        "glog_file_other.go",
+        "glog_file_posix.go",
+        "glog_file_windows.go",
+        "glog_flags.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/golang/glog",
+    importpath = "github.com/golang/glog",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/golang/glog/internal/logsink:go_default_library",
+        "//vendor/github.com/golang/glog/internal/stackdump:go_default_library",
+    ],
+)

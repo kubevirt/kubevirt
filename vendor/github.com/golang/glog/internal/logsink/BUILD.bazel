@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "logsink.go",
+        "logsink_fatal.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/golang/glog/internal/logsink",
+    importpath = "github.com/golang/glog/internal/logsink",
+    visibility = ["//vendor/github.com/golang/glog:__subpackages__"],
+    deps = ["//vendor/github.com/golang/glog/internal/stackdump:go_default_library"],
+)
