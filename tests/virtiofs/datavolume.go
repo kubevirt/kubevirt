@@ -34,6 +34,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -47,6 +48,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	execute "kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -331,6 +333,114 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
+			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+		})
+
+		It("[Serial] should be successfully started and injected into the container", Serial, func() {
+			dataVolume := libdv.NewDataVolume(
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
+				),
+				libdv.WithNamespace(testsuite.NamespaceTestDefault),
+			)
+
+			By("creating the DataVolume")
+			dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.NamespaceTestDefault).Create(context.Background(), dataVolume, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("waiting until the DataVolume is ready")
+			if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(libstorage.Config.StorageRWOFileSystem) {
+				Eventually(ThisDV(dataVolume), 30).Should(WaitForFirstConsumer())
+			}
+
+			vmi = libvmifact.NewFedora(
+				libvmi.WithFilesystemDV(dataVolume.Name),
+				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
+			)
+
+			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both import and start
+			By("waiting until the DataVolume is ready")
+			libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
+
+			By("waiting until the VirtualMachineInstance starts")
+			vmi = libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running}, libwait.WithTimeout(500))
+
+			By("getting kubevirt client")
+			virtCli := kubevirt.Client()
+
+			By("creating a privileged pod")
+			podName := "info-pod"
+			debugPod := &k8sv1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: podName,
+				},
+				Spec: k8sv1.PodSpec{
+					Containers: []k8sv1.Container{
+						{
+							Name:    "debugger",
+							Image:   "busybox",
+							Command: []string{"/bin/sh", "-c", "sleep 3600"},
+							Stdin:   true,
+							TTY:     true,
+							SecurityContext: &k8sv1.SecurityContext{
+								Privileged: ptr.To(true),
+							},
+						},
+					},
+					HostNetwork: true,
+					HostPID:     true,
+					HostIPC:     true,
+					NodeName:    vmi.Status.NodeName,
+				},
+			}
+			pod, err := virtCli.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.TODO(), debugPod, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("waiting until the pod is running")
+			Eventually(func() k8sv1.PodPhase {
+				pod, err := virtCli.CoreV1().Pods(testsuite.NamespacePrivileged).Get(context.TODO(), podName, metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				return pod.Status.Phase
+			}, 30*time.Second, 1*time.Second).Should(Equal(k8sv1.PodRunning))
+
+			By("extracting process cgroup and NS info")
+			script := "PID1=$(pidof virtiofs-placeholder) " +
+				"; grep ^0 /proc/$PID1/cgroup " +
+				"&& echo $(cd /proc/$PID1/ns && echo net pid ipc mnt cgroup uts | xargs -n1 readlink) " +
+				"&& PID2=$(pidof virtiofsd) " +
+				"; grep ^0 /proc/$PID2/cgroup " +
+				"&& echo $(cd /proc/$PID2/ns && echo net pid ipc mnt cgroup uts | xargs -n1 readlink)"
+
+			command := []string{"/bin/sh", "-c", script}
+
+			stdOut, stdErr, err := execute.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, command)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(stdErr).To(BeEmpty())
+
+			By("comparing process cgroup and NS")
+			// we got 4 lines:
+			// 		0: virtiofs-placeholder's cgroup
+			// 		1: virtiofs-placeholder's namespaces
+			// 		2: virtiofsd's cgroup
+			// 		3: virtiofsd's namespaces
+			out := strings.Split(stdOut, "\n")
+			Expect(out).To(HaveLen(5)) // strings.Split() adds an extra empty string
+			Expect(out[0]).Should(Equal(out[2]))
+			Expect(out[1]).Should(Equal(out[3]))
+
+			By("deleting privileged pod")
+			// Clean up the pod
+			err = virtCli.CoreV1().Pods(testsuite.NamespacePrivileged).Delete(context.TODO(), podName, metav1.DeleteOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("deleting VMI")
 			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
