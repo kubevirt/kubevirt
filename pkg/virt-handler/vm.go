@@ -515,10 +515,14 @@ func (d *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (hasEx
 	}
 
 	startTime := int64(0)
-	if dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp != nil {
-		startTime = dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp.UTC().Unix()
+	gracePeriodMeta := dom.Spec.Metadata.KubeVirt.GracePeriod
+	if gracePeriodMeta == nil {
+		return true, 0
 	}
-	gracePeriod := dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds
+	if gracePeriodMeta.DeletionTimestamp != nil {
+		startTime = gracePeriodMeta.DeletionTimestamp.UTC().Unix()
+	}
+	gracePeriod := gracePeriodMeta.DeletionGracePeriodSeconds
 
 	// If gracePeriod == 0, then there will be no startTime set, deletion
 	// should occur immediately during shutdown.
@@ -2428,7 +2432,7 @@ func (d *VirtualMachineController) helperVmShutdown(vmi *v1.VirtualMachineInstan
 	}
 
 	// Only attempt to gracefully shutdown if the domain has the ACPI feature enabled
-	if isACPIEnabled(vmi, domain) && tryGracefully {
+	if isACPIEnabled(vmi, domain) || tryGracefully {
 		if expired, timeLeft := d.hasGracePeriodExpired(domain); !expired {
 			return d.handleVMIShutdown(vmi, domain, client, timeLeft)
 		}
