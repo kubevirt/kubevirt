@@ -1,0 +1,36 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "generated_mock_multipath_monitor.go",
+        "multipath_monitor.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-handler/multipath-monitor",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/safepath:go_default_library",
+        "//pkg/storage/reservation:go_default_library",
+        "//pkg/virt-handler/filewatcher:go_default_library",
+        "//pkg/virt-handler/isolation:go_default_library",
+        "//pkg/virt-handler/virt-chroot:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/github.com/golang/mock/gomock:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "multipath_monitor_suite_test.go",
+        "multipath_monitor_test.go",
+    ],
+    deps = [
+        ":go_default_library",
+        "//pkg/safepath:go_default_library",
+        "//pkg/virt-handler/filewatcher:go_default_library",
+        "//vendor/github.com/golang/mock/gomock:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
+)

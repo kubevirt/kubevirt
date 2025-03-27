@@ -22,16 +22,19 @@ const (
 	kubeletPodsPath = "/var/lib/kubelet/pods"
 	PrHelperName    = "pr-helper"
 	prVolumeName    = "pr-helper-socket-vol"
+	devDirVol       = "dev-dir"
 	SidecarShimName = "sidecar-shim"
+	etcMultipath    = "etc-multipath"
 )
 
 func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.Container {
 	bidi := corev1.MountPropagationBidirectional
+	htc := corev1.MountPropagationHostToContainer
 	return corev1.Container{
 		Name:            PrHelperName,
 		Image:           image,
 		ImagePullPolicy: pullPolicy,
-		Command:         []string{"/usr/bin/qemu-pr-helper"},
+		Command:         []string{"/entrypoint.sh"},
 		Args: []string{
 			"-k", reservation.GetPrHelperSocketPath(),
 		},
@@ -39,6 +42,16 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 			{
 				Name:             prVolumeName,
 				MountPath:        reservation.GetPrHelperSocketDir(),
+				MountPropagation: &bidi,
+			},
+			{
+				Name:             devDirVol,
+				MountPath:        "/dev",
+				MountPropagation: &htc,
+			},
+			{
+				Name:             etcMultipath,
+				MountPath:        "/etc/multipath",
 				MountPropagation: &bidi,
 			},
 		},
@@ -343,8 +356,20 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 					Path: reservation.GetPrHelperSocketDir(),
 					Type: &directoryOrCreate,
 				},
-			},
-		})
+			}}, corev1.Volume{
+			Name: devDirVol,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "/dev",
+				},
+			}}, corev1.Volume{
+			Name: etcMultipath,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "/etc/multipath",
+					Type: &directoryOrCreate,
+				},
+			}})
 		pod.Containers = append(pod.Containers, RenderPrHelperContainer(prHelperImage, pullPolicy))
 	}
 	return daemonset, nil
