@@ -899,7 +899,8 @@ func (r *KubernetesReporter) logLogs(virtCli kubecli.KubevirtClient, logsdir str
 	}
 
 	for _, pod := range pods.Items {
-		for _, container := range pod.Spec.Containers {
+		allContainers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
+		for _, container := range allContainers {
 			current, err := os.OpenFile(filepath.Join(logsdir, fmt.Sprintf("%d_%s_%s-%s.log", r.failureCount, pod.Namespace, pod.Name, container.Name)), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				printError(failedOpenFileFmt, err)
