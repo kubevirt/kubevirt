@@ -74,6 +74,7 @@ elif [[ $TARGET =~ sig-compute-realtime ]]; then
 elif [[ $TARGET =~ sig-compute-migrations ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-migrations/}
   export KUBEVIRT_E2E_PARALLEL_NODES=3
+  export KUBEVIRT_NUM_NODES=3
   export KUBEVIRT_WITH_CNAO=true
   export KUBEVIRT_NUM_SECONDARY_NICS=1
   export KUBEVIRT_DEPLOY_NFS_CSI=true
