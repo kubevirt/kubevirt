@@ -1,11 +1,10 @@
 load("@bazel_gazelle//:def.bzl", "gazelle")
-
-gazelle(name = "gazelle")
-
 load(
     "@io_bazel_rules_docker//container:container.bzl",
     "container_image",
 )
+
+gazelle(name = "gazelle")
 
 container_image(
     name = "winrmcli-image",
