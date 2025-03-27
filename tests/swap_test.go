@@ -53,7 +53,7 @@ import (
 )
 
 const (
-	//20% of the default size which is 2G in kubevirt-ci
+	// 20% of the default size which is 2G in kubevirt-ci
 	maxSwapSizeToUseKib = 415948
 	swapPartToUse       = 0.2
 	gigbytesInkib       = 1048576
@@ -72,7 +72,6 @@ var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes
 
 		skipIfSwapOff(fmt.Sprintf("swap should be enabled through env var: KUBEVIRT_SWAP_ON=true "+
 			"and contain at least %dMi in the nodes when running these tests", maxSwapSizeToUseKib/bytesInKib))
-
 	})
 
 	Context("Migration to/from memory overcommitted nodes", decorators.SigComputeMigrations, func() {
@@ -86,7 +85,7 @@ var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes
 			Expect(availableSwapSizeKib).Should(BeNumerically(">", maxSwapSizeToUseKib), "not enough available swap space")
 
 			swapSizeToUseKib := int(math.Min(maxSwapSizeToUseKib, swapPartToUse*float64(availableSwapSizeKib)))
-			//use more memory than what node can handle without swap memory
+			// use more memory than what node can handle without swap memory
 			memToUseInTheVmKib := availableMemSizeKib + swapSizeToUseKib
 
 			By("Allowing post-copy")
@@ -97,7 +96,7 @@ var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes
 			}
 			config.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 
-			//The vmi should have more memory than memToUseInTheVmKib
+			// The vmi should have more memory than memToUseInTheVmKib
 			vmiMemSizeMi := resource.MustParse(fmt.Sprintf("%dMi", int((float64(memToUseInTheVmKib)+float64(gigbytesInkib*2))/bytesInKib)))
 
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
@@ -148,14 +147,14 @@ var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes
 			availableSwapSizeKib := getSwapFreeSizeInKib(*targetNode)
 			swapSizeToUsekib := int(math.Min(maxSwapSizeToUseKib, swapPartToUse*float64(availableSwapSizeKib)))
 
-			//make sure that the vm migrate data to swap space (leave enough space for the vm that we will migrate)
+			// make sure that the vm migrate data to swap space (leave enough space for the vm that we will migrate)
 			memToUseInTargetNodeVmKib := availableMemSizeKib + swapSizeToUsekib - vmMemoryRequestkib
 
-			//The vmi should have more memory than memToUseInTheVm
+			// The vmi should have more memory than memToUseInTheVm
 			vmiMemSize := resource.MustParse(fmt.Sprintf("%dMi", int((float64(memToUseInTargetNodeVmKib)+float64(gigbytesInkib*2))/bytesInKib)))
 			vmiMemReq := resource.MustParse(fmt.Sprintf("%dMi", vmMemoryRequestkib/bytesInKib))
 			vmiToFillTargetNodeMem := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-			//we want vmiToFillTargetNodeMem to land on the target node to achieve memory-overcommitment in target
+			// we want vmiToFillTargetNodeMem to land on the target node to achieve memory-overcommitment in target
 			affinityRuleForVmiToFill, err := getAffinityForTargetNode(targetNode)
 			Expect(err).ToNot(HaveOccurred())
 			vmiToFillTargetNodeMem.Spec.Affinity = affinityRuleForVmiToFill
@@ -178,7 +177,7 @@ var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes
 				NodeAffinity: nodeAffinityRule,
 			}
 			vmiToMigrate.Spec.Domain.Resources.Requests["memory"] = vmiMemReq
-			//add label the source node to make sure that the vm we want to migrate will be scheduled to the source node
+			// add label the source node to make sure that the vm we want to migrate will be scheduled to the source node
 
 			By("Starting the VirtualMachineInstance that we should migrate to the target node")
 			vmiToMigrate = libvmops.RunVMIAndExpectLaunch(vmiToMigrate, 240)
@@ -207,7 +206,6 @@ var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmiToFillTargetNodeMem, 240)
 			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmiToMigrate, 240)
 		})
-
 	})
 })
 

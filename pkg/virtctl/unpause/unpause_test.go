@@ -17,7 +17,6 @@ import (
 )
 
 var _ = Describe("Unpausing", func() {
-
 	const (
 		COMMAND_UNPAUSE = "unpause"
 		vmName          = "testvm"

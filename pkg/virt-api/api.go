@@ -150,7 +150,6 @@ var (
 )
 
 func NewVirtApi() VirtApi {
-
 	app := &virtAPIApp{}
 	app.BindAddress = defaultHost
 	app.Port = defaultPort
@@ -227,7 +226,6 @@ func subresourceAPIGroup() metav1.APIGroup {
 }
 
 func (app *virtAPIApp) composeSubresources() {
-
 	var subwss []*restful.WebService
 
 	for _, version := range v1.SubresourceGroupVersions {
@@ -778,7 +776,6 @@ func (app *virtAPIApp) composeSubresources() {
 }
 
 func (app *virtAPIApp) Compose() {
-
 	app.composeSubresources()
 
 	restful.Filter(filter.RequestLoggingFilter())
@@ -945,7 +942,6 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 }
 
 func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {
-
 	http.HandleFunc(components.VMMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeVMs(w, r, app.clusterConfig, app.virtCli)
 	})
@@ -961,7 +957,6 @@ func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {
 }
 
 func (app *virtAPIApp) setupTLS(k8sCAManager kvtls.ClientCAManager, kubevirtCAManager kvtls.ClientCAManager) {
-
 	// A VerifyClientCertIfGiven request means we're not guaranteed
 	// a client has been authenticated unless they provide a peer
 	// cert.
@@ -982,7 +977,6 @@ func (app *virtAPIApp) setupTLS(k8sCAManager kvtls.ClientCAManager, kubevirtCAMa
 }
 
 func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory) error {
-
 	errors := make(chan error)
 	c := make(chan os.Signal, 1)
 
@@ -1143,7 +1137,6 @@ func (app *virtAPIApp) Run() {
 	if err != nil {
 		panic(err)
 	}
-
 }
 
 // Detects if a config has been applied that requires

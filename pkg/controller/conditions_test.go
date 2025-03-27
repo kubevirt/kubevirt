@@ -30,7 +30,6 @@ import (
 )
 
 var _ = Describe("VirtualMachineInstance ConditionManager", func() {
-
 	var vmi *v1.VirtualMachineInstance
 	var cm *VirtualMachineInstanceConditionManager
 	var pc1 *v12.PodCondition
@@ -52,7 +51,6 @@ var _ = Describe("VirtualMachineInstance ConditionManager", func() {
 	})
 
 	When("Adding a condition", func() {
-
 		It("should report condition available", func() {
 			cm.AddPodCondition(vmi, pc1)
 			Expect(cm.HasCondition(vmi, v1.VirtualMachineInstanceConditionType(pc1.Type))).To(BeTrue())
@@ -80,7 +78,6 @@ var _ = Describe("VirtualMachineInstance ConditionManager", func() {
 	})
 
 	When("Updating a condition", func() {
-
 		var vc1 *v1.VirtualMachineInstanceCondition
 		BeforeEach(func() {
 			vc1 = &v1.VirtualMachineInstanceCondition{

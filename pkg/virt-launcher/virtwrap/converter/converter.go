@@ -269,12 +269,12 @@ func (c *directIOChecker) CheckFile(path string) (bool, error) {
 // based on https://gitlab.com/qemu-project/qemu/-/blob/master/util/osdep.c#L344
 func (c *directIOChecker) check(path string, flags int) (bool, error) {
 	// #nosec No risk for path injection as we only open the file, not read from it. The function leaks only whether the directory to `path` exists.
-	f, err := os.OpenFile(path, flags|syscall.O_DIRECT, 0600)
+	f, err := os.OpenFile(path, flags|syscall.O_DIRECT, 0o600)
 	if err != nil {
 		// EINVAL is returned if the filesystem does not support the O_DIRECT flag
 		if err, ok := err.(*os.PathError); ok && err.Err == syscall.EINVAL {
 			// #nosec No risk for path injection as we only open the file, not read from it. The function leaks only whether the directory to `path` exists.
-			f, err := os.OpenFile(path, flags & ^syscall.O_DIRECT, 0600)
+			f, err := os.OpenFile(path, flags & ^syscall.O_DIRECT, 0o600)
 			if err == nil {
 				defer util.CloseIOAndCheckErr(f, nil)
 				return false, nil
@@ -548,7 +548,6 @@ func Add_Agent_To_api_Channel() (channel api.Channel) {
 }
 
 func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *ConverterContext, diskIndex int) error {
-
 	if source.ContainerDisk != nil {
 		return Convert_v1_ContainerDiskSource_To_api_Disk(source.Name, source.ContainerDisk, disk, c, diskIndex)
 	}
@@ -866,7 +865,6 @@ func Convert_v1_Watchdog_To_api_Watchdog(source *v1.Watchdog, watchdog *api.Watc
 }
 
 func Convert_v1_Rng_To_api_Rng(_ *v1.Rng, rng *api.Rng, c *ConverterContext) error {
-
 	// default rng model for KVM/QEMU virtualization
 	rng.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
 
@@ -1530,7 +1528,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		return err
 	}
 
-	var isMemfdRequired = false
+	isMemfdRequired := false
 	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
 		domain.Spec.MemoryBacking = &api.MemoryBacking{
 			HugePages: &api.HugePages{},

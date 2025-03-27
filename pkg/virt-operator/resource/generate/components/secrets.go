@@ -231,7 +231,6 @@ func NewCAConfigMaps(operatorNamespace string) []*k8sv1.ConfigMap {
 
 func NewCertSecrets(installNamespace string, operatorNamespace string) []*k8sv1.Secret {
 	secrets := []*k8sv1.Secret{
-
 		{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Secret",
@@ -324,7 +323,6 @@ func NewCertSecrets(installNamespace string, operatorNamespace string) []*k8sv1.
 // current certificate should be rotated, 80% of the expiration of the
 // certificate.
 func NextRotationDeadline(cert *tls.Certificate, ca *tls.Certificate, renewBefore *metav1.Duration, caRenewBefore *metav1.Duration) time.Time {
-
 	if cert == nil {
 		return time.Now()
 	}
@@ -337,7 +335,6 @@ func NextRotationDeadline(cert *tls.Certificate, ca *tls.Certificate, renewBefor
 			Roots:     certPool,
 			KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 		})
-
 		if err != nil {
 			log.DefaultLogger().Reason(err).Infof("The certificate with common name '%s' is not signed with the supplied CA. Triggering a rotation.", cert.Leaf.Subject.CommonName)
 			return time.Now()
@@ -374,7 +371,6 @@ func ValidateSecret(secret *k8sv1.Secret) error {
 }
 
 func LoadCertificates(secret *k8sv1.Secret) (serverCrt *tls.Certificate, err error) {
-
 	if err := ValidateSecret(secret); err != nil {
 		return nil, err
 	}

@@ -288,7 +288,7 @@ var _ = Describe("Virt remote commands", func() {
 			server := &Launcher{
 				domainManager: domainManager,
 			}
-			var mockedQemuVersion = "7.2.0"
+			mockedQemuVersion := "7.2.0"
 			domainManager.EXPECT().GetQemuVersion().Return(mockedQemuVersion, nil)
 			request := &cmdv1.EmptyRequest{}
 			qemuVersion, err := server.GetQemuVersion(context.TODO(), request)
@@ -439,13 +439,10 @@ var _ = Describe("Virt remote commands", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.Response.Success).To(BeTrue())
 			})
-
 		})
-
 	})
 
 	Describe("Version mismatch", func() {
-
 		var err error
 		var ctrl *gomock.Controller
 		var infoClient *info.MockCmdInfoClient
@@ -456,7 +453,6 @@ var _ = Describe("Virt remote commands", func() {
 		})
 
 		It("Should report error when server version mismatches", func() {
-
 			fakeResponse := info.CmdInfoResponse{
 				SupportedCmdVersions: []uint32{42},
 			}
@@ -467,8 +463,6 @@ var _ = Describe("Virt remote commands", func() {
 
 			Expect(err).To(HaveOccurred(), "Should have returned error about incompatible versions")
 			Expect(err.Error()).To(ContainSubstring("no compatible version found"), "Expected error message to contain 'no compatible version found'")
-
 		})
 	})
-
 })

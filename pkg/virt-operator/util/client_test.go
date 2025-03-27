@@ -31,7 +31,6 @@ import (
 )
 
 var _ = Describe("Operator Client", func() {
-
 	Describe("Conditions and Finalizers", func() {
 		getKubeVirtWithCreatedConditionAndRandomFinalizer := func() *v1.KubeVirt {
 			return &v1.KubeVirt{
@@ -63,7 +62,6 @@ var _ = Describe("Operator Client", func() {
 		})
 
 		Describe("Updating a condition", func() {
-
 			Context("When it doesn't exist yet", func() {
 				It("Should add the condition", func() {
 					updateCondition(kv, v1.KubeVirtConditionAvailable, k8sv1.ConditionTrue, "NewReason", "new message")
@@ -89,11 +87,9 @@ var _ = Describe("Operator Client", func() {
 					Expect(condition1.Message).To(Equal("new message"), "should update condition message")
 				})
 			})
-
 		})
 
 		Describe("Removing a condition", func() {
-
 			Context("When it doesn't exist", func() {
 				It("Should not change existing conditions", func() {
 					removeCondition(kv, v1.KubeVirtConditionAvailable)
@@ -112,7 +108,6 @@ var _ = Describe("Operator Client", func() {
 					Expect(kv.Status.Conditions).To(BeEmpty(), "should have no condition")
 				})
 			})
-
 		})
 
 		Describe("Adding a finalizer", func() {
@@ -200,6 +195,5 @@ var _ = Describe("Operator Client", func() {
 				})
 			})
 		})
-
 	})
 })

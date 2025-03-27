@@ -124,7 +124,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		_ = virtcache.InitializeGhostRecordCache(virtcache.NewIterableCheckpointManager(ghostCacheDir))
 
-		os.MkdirAll(filepath.Join(vmiShareDir, "var", "run", "kubevirt"), 0755)
+		os.MkdirAll(filepath.Join(vmiShareDir, "var", "run", "kubevirt"), 0o755)
 
 		cmdclient.SetPodsBaseDir(podsDir)
 
@@ -160,8 +160,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 		}}
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kv)
 
-		Expect(os.MkdirAll(filepath.Join(vmiShareDir, "dev"), 0755)).To(Succeed())
-		f, err := os.OpenFile(filepath.Join(vmiShareDir, "dev", "kvm"), os.O_CREATE, 0755)
+		Expect(os.MkdirAll(filepath.Join(vmiShareDir, "dev"), 0o755)).To(Succeed())
+		f, err := os.OpenFile(filepath.Join(vmiShareDir, "dev", "kvm"), os.O_CREATE, 0o755)
 		Expect(err).ToNot(HaveOccurred())
 		f.Close()
 
@@ -211,7 +211,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		vmiTestUUID = uuid.NewUUID()
 		podTestUUID = uuid.NewUUID()
 		sockFile = cmdclient.SocketFilePathOnHost(string(podTestUUID))
-		Expect(os.MkdirAll(filepath.Dir(sockFile), 0755)).To(Succeed())
+		Expect(os.MkdirAll(filepath.Dir(sockFile), 0o755)).To(Succeed())
 		f, err = os.Create(sockFile)
 		Expect(err).ToNot(HaveOccurred())
 		f.Close()
@@ -235,7 +235,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Ready:              true,
 		}
 		controller.addLauncherClient(vmiTestUUID, clientInfo)
-
 	})
 
 	AfterEach(func() {
@@ -381,19 +380,18 @@ var _ = Describe("VirtualMachineInstance", func() {
 			sanityExecute()
 			Expect(mockQueue.Len()).To(Equal(0))
 			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
-
 		})
 
 		It("should silently retry if the command socket is not yet ready", func() {
 			vmi := NewScheduledVMI(vmiTestUUID, "notexisingpoduid", host)
 			// the socket dir must exist, to not go immediately to failed
 			sockFile = cmdclient.SocketFilePathOnHost("notexisingpoduid")
-			Expect(os.MkdirAll(filepath.Dir(sockFile), 0755)).To(Succeed())
+			Expect(os.MkdirAll(filepath.Dir(sockFile), 0o755)).To(Succeed())
 
 			addVMI(vmi)
 			createVMI(vmi)
 
-			//Did not initialize yet
+			// Did not initialize yet
 			clientInfo := &virtcache.LauncherClientInfo{
 				DomainPipeStopChan:  make(chan struct{}),
 				Ready:               false,
@@ -415,12 +413,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi := NewScheduledVMI(vmiTestUUID, "notexisingpoduid", host)
 			// the socket dir must exist, to not go immediately to failed
 			sockFile = cmdclient.SocketFilePathOnHost("notexisingpoduid")
-			Expect(os.MkdirAll(filepath.Dir(sockFile), 0755)).To(Succeed())
+			Expect(os.MkdirAll(filepath.Dir(sockFile), 0o755)).To(Succeed())
 
 			addVMI(vmi)
 			createVMI(vmi)
 
-			//Did not initialize yet
+			// Did not initialize yet
 			clientInfo := &virtcache.LauncherClientInfo{
 				DomainPipeStopChan:  make(chan struct{}),
 				Ready:               false,
@@ -669,19 +667,23 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(updatedVMI.Status.Conditions).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(v1.VirtualMachineInstanceIsMigratable),
-					"Status": Equal(k8sv1.ConditionTrue)},
+					"Status": Equal(k8sv1.ConditionTrue),
+				},
 				),
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(v1.VirtualMachineInstanceAgentConnected),
-					"Status": Equal(k8sv1.ConditionTrue)},
+					"Status": Equal(k8sv1.ConditionTrue),
+				},
 				),
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(v1.VirtualMachineInstanceUnsupportedAgent),
-					"Status": Equal(k8sv1.ConditionTrue)},
+					"Status": Equal(k8sv1.ConditionTrue),
+				},
 				),
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(v1.VirtualMachineInstanceIsStorageLiveMigratable),
-					"Status": Equal(k8sv1.ConditionTrue)},
+					"Status": Equal(k8sv1.ConditionTrue),
+				},
 				),
 			))
 		})
@@ -786,11 +788,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(updatedVMI.Status.Conditions).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(v1.VirtualMachineInstanceIsMigratable),
-					"Status": Equal(k8sv1.ConditionTrue)},
+					"Status": Equal(k8sv1.ConditionTrue),
+				},
 				),
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(v1.VirtualMachineInstanceIsStorageLiveMigratable),
-					"Status": Equal(k8sv1.ConditionTrue)},
+					"Status": Equal(k8sv1.ConditionTrue),
+				},
 				),
 			))
 		})
@@ -825,15 +829,18 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(updatedVMI.Status.Conditions).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(v1.VirtualMachineInstanceAccessCredentialsSynchronized),
-					"Status": Equal(k8sv1.ConditionTrue)},
+					"Status": Equal(k8sv1.ConditionTrue),
+				},
 				),
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(v1.VirtualMachineInstanceIsMigratable),
-					"Status": Equal(k8sv1.ConditionTrue)},
+					"Status": Equal(k8sv1.ConditionTrue),
+				},
 				),
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(v1.VirtualMachineInstanceIsStorageLiveMigratable),
-					"Status": Equal(k8sv1.ConditionTrue)},
+					"Status": Equal(k8sv1.ConditionTrue),
+				},
 				),
 			))
 		})
@@ -916,16 +923,19 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(updatedVMI.Status.Conditions).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(v1.VirtualMachineInstanceIsMigratable),
-					"Status": Equal(k8sv1.ConditionTrue)},
+					"Status": Equal(k8sv1.ConditionTrue),
+				},
 				),
 				MatchFields(IgnoreExtras, Fields{
 					"Type":    Equal(v1.VirtualMachineInstanceAccessCredentialsSynchronized),
 					"Status":  Equal(k8sv1.ConditionFalse),
-					"Message": Equal("some message")},
+					"Message": Equal("some message"),
+				},
 				),
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(v1.VirtualMachineInstanceIsStorageLiveMigratable),
-					"Status": Equal(k8sv1.ConditionTrue)},
+					"Status": Equal(k8sv1.ConditionTrue),
+				},
 				),
 			))
 		})
@@ -972,7 +982,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Expect(updatedVMI.Status.Conditions).ToNot(ContainElements(
 					MatchFields(IgnoreExtras, Fields{
 						"Type":   Equal(v1.VirtualMachineInstancePaused),
-						"Status": Equal(k8sv1.ConditionTrue)},
+						"Status": Equal(k8sv1.ConditionTrue),
+					},
 					)),
 				)
 				return
@@ -981,7 +992,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(updatedVMI.Status.Conditions).To(ContainElements(
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(v1.VirtualMachineInstancePaused),
-					"Status": Equal(k8sv1.ConditionTrue)},
+					"Status": Equal(k8sv1.ConditionTrue),
+				},
 				)),
 			)
 			expectEvent(VMIMigrating, td.expectEvents)
@@ -1006,7 +1018,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(updatedVMI.Status.Conditions).NotTo(ContainElements(
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(v1.VirtualMachineInstancePaused),
-					"Status": Equal(k8sv1.ConditionTrue)},
+					"Status": Equal(k8sv1.ConditionTrue),
+				},
 				)))
 			expectEvent(VMIMigrating, td.expectEvents)
 		},
@@ -1124,7 +1137,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(updatedVMI.Status.Conditions).To(ContainElement(
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(v1.VirtualMachineInstanceIsMigratable),
-					"Status": Equal(k8sv1.ConditionTrue)},
+					"Status": Equal(k8sv1.ConditionTrue),
+				},
 				),
 			))
 		})
@@ -1188,7 +1202,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				vmi := NewScheduledVMIWithContainerDisk(vmiTestUUID, podTestUUID, host)
 				vmi.Status.Phase = v1.Running
 				vmi.Status.VolumeStatus = []v1.VolumeStatus{
-					v1.VolumeStatus{
+					{
 						Name: vmi.Spec.Volumes[0].Name,
 					},
 				}
@@ -1614,7 +1628,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(true, nil)
 				controller.updateVolumeStatusesFromDomain(vmi, domain)
 			})
-
 		})
 
 		DescribeTable("should leave the VirtualMachineInstance alone if it is in the final phase", func(phase v1.VirtualMachineInstancePhase) {
@@ -1803,7 +1816,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			// ensure cleanup occurred of previous connection
 			exists = virtcache.GhostRecordGlobalStore.Exists(vmi.Namespace, vmi.Name)
 			Expect(exists).To(BeFalse())
-
 		})
 
 		It("should migrate vmi once target address is known", func() {
@@ -2248,7 +2260,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 	})
 
 	Context("check if migratable", func() {
-
 		var testBlockPvc *k8sv1.PersistentVolumeClaim
 
 		BeforeEach(func() {
@@ -2265,10 +2276,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 					AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
 				},
 			}
-
 		})
 		It("should block migrate non-shared disks ", func() {
-
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
@@ -2298,7 +2307,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("should migrate shared disks without blockMigration flag", func() {
-
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
@@ -2335,7 +2343,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("should fail migration for non-shared PVCs", func() {
-
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
@@ -2374,7 +2381,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI: PVC testblock is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)")))
 		})
 		It("should fail migration for non-shared data volume PVCs", func() {
-
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
@@ -2413,7 +2419,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI: PVC testblock is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)")))
 		})
 		It("should be allowed to migrate a mix of shared and non-shared disks", func() {
-
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
@@ -2468,7 +2473,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("should be allowed to migrate a mix of non-shared and shared disks", func() {
-
 			vmi := api2.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
@@ -2617,7 +2621,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			} else {
 				Expect(err).ShouldNot(HaveOccurred())
 			}
-
 		},
 			Entry("exist migration should succeed", "Westmere"),
 			Entry("don't exist migration should fail", ""),
@@ -2918,7 +2921,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
 			Expect(cond.Reason).To(Equal(v1.VirtualMachineInstanceReasonHypervPassthroughNotMigratable))
 		})
-
 	})
 
 	Context("VirtualMachineInstance network status", func() {
@@ -3185,11 +3187,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(updatedVMI.Status.VolumeStatus).To(ConsistOf(
 				MatchFields(IgnoreExtras, Fields{
 					"Name":   Equal("hpvolume"),
-					"Target": Equal("sda")},
+					"Target": Equal("sda"),
+				},
 				),
 				MatchFields(IgnoreExtras, Fields{
 					"Name":   Equal("permvolume"),
-					"Target": Equal("vda")},
+					"Target": Equal("vda"),
+				},
 				),
 			))
 		})
@@ -3329,7 +3333,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	Context("Migration options", func() {
 		Context("multi-threaded qemu migrations", func() {
-
 			var (
 				vmi    *v1.VirtualMachineInstance
 				domain *api.Domain
@@ -3359,7 +3362,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 				domain.Status.Status = api.Running
 				addDomain(domain)
 				addVMI(vmi)
-
 			})
 
 			DescribeTable("should configure 8 threads when CPU is not limited", func(cpuQuantity *resource.Quantity) {
@@ -3393,7 +3395,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			})
 		})
 	})
-
 })
 
 var _ = Describe("DomainNotifyServerRestarts", func() {
@@ -3455,7 +3456,7 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 
 			pipePath := filepath.Join(shareDir, "client_path", "domain-notify-pipe.sock")
 			pipeDir := filepath.Join(shareDir, "client_path")
-			err := os.MkdirAll(pipeDir, 0755)
+			err := os.MkdirAll(pipeDir, 0o755)
 			Expect(err).ToNot(HaveOccurred())
 
 			listener, err := net.Listen("unix", pipePath)
@@ -3492,7 +3493,7 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 
 			pipePath := filepath.Join(shareDir, "client_path", "domain-notify-pipe.sock")
 			pipeDir := filepath.Join(shareDir, "client_path")
-			err := os.MkdirAll(pipeDir, 0755)
+			err := os.MkdirAll(pipeDir, 0o755)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Client should fail when pipe is offline
@@ -3513,7 +3514,6 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 			// Expect the client to reconnect and succeed despite initial failure
 			err = client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
 			Expect(err).ToNot(HaveOccurred())
-
 		})
 
 		It("should be resilient to notify server restarts", func() {
@@ -3527,7 +3527,7 @@ var _ = Describe("DomainNotifyServerRestarts", func() {
 
 			pipePath := filepath.Join(shareDir, "client_path", "domain-notify-pipe.sock")
 			pipeDir := filepath.Join(shareDir, "client_path")
-			err := os.MkdirAll(pipeDir, 0755)
+			err := os.MkdirAll(pipeDir, 0o755)
 			Expect(err).ToNot(HaveOccurred())
 
 			listener, err := net.Listen("unix", pipePath)
@@ -3598,7 +3598,6 @@ var _ = Describe("CurrentMemory in Libvirt Domain", func() {
 })
 
 func addActivePods(vmi *v1.VirtualMachineInstance, podUID types.UID, hostName string) *v1.VirtualMachineInstance {
-
 	if vmi.Status.ActivePods != nil {
 		vmi.Status.ActivePods[podUID] = hostName
 	} else {
@@ -3620,6 +3619,7 @@ func NewScheduledVMIWithContainerDisk(vmiUID types.UID, podUID types.UID, hostna
 	})
 	return vmi
 }
+
 func NewScheduledVMI(vmiUID types.UID, podUID types.UID, hostname string) *v1.VirtualMachineInstance {
 	vmi := api2.NewMinimalVMI("testvmi")
 	vmi.UID = vmiUID
@@ -3673,6 +3673,7 @@ func (ns *netStatStub) Teardown(vmi *v1.VirtualMachineInstance) {}
 func (ns *netStatStub) PodInterfaceVolatileDataIsCached(vmi *v1.VirtualMachineInstance, ifaceName string) bool {
 	return false
 }
+
 func (ns *netStatStub) CachePodInterfaceVolatileData(vmi *v1.VirtualMachineInstance, ifaceName string, data *netcache.PodIfaceCacheData) {
 }
 

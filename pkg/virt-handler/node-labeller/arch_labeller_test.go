@@ -24,7 +24,6 @@ import (
 )
 
 var _ = Describe("Arch Node Labeller", func() {
-
 	DescribeTable("Should create a new archLabeller for the correct architecture", func(arch string, result archLabeller) {
 		ac := newArchLabeller(arch)
 

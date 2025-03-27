@@ -28,7 +28,6 @@ import (
 )
 
 func (r *Reconciler) syncKubevirtNamespaceLabels() error {
-
 	targetNamespace := r.kv.ObjectMeta.Namespace
 	obj, exists, err := r.stores.NamespaceCache.GetByKey(targetNamespace)
 	if err != nil {
@@ -82,7 +81,6 @@ func (r *Reconciler) syncKubevirtNamespaceLabels() error {
 }
 
 func (r *Reconciler) createOrUpdateServices() (bool, error) {
-
 	for _, service := range r.targetStrategy.Services() {
 		pending, err := r.createOrUpdateService(service.DeepCopy())
 		if pending || err != nil {
@@ -290,7 +288,6 @@ func createSecretPatch(secret *corev1.Secret) ([]byte, error) {
 }
 
 func (r *Reconciler) createOrUpdateCertificateSecrets(queue workqueue.TypedRateLimitingInterface[string], caCert *tls.Certificate, duration *metav1.Duration, renewBefore *metav1.Duration, caRenewBefore *metav1.Duration) error {
-
 	for _, secret := range r.targetStrategy.CertificateSecrets() {
 
 		// The CA certificate needs to be handled separately and before other secrets, and ignore export CA
@@ -404,8 +401,8 @@ func hasImmutableFieldChanged(service, cachedService *corev1.Service) bool {
 
 func generateServicePatch(
 	cachedService *corev1.Service,
-	service *corev1.Service) ([]byte, error) {
-
+	service *corev1.Service,
+) ([]byte, error) {
 	patchOps := getObjectMetaPatch(service.ObjectMeta, cachedService.ObjectMeta)
 
 	// set these values in the case they are empty
@@ -471,7 +468,6 @@ func (r *Reconciler) createOrUpdateServiceAccount(sa *corev1.ServiceAccount) err
 }
 
 func (r *Reconciler) createOrUpdateRbac() error {
-
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 
 	// create/update ServiceAccounts

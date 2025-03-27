@@ -81,7 +81,6 @@ func NewKubeVirtController(
 	informers util.Informers,
 	operatorNamespace string,
 ) (*KubeVirtController, error) {
-
 	rl := workqueue.NewTypedMaxOfRateLimiter[string](
 		workqueue.NewTypedItemExponentialFailureRateLimiter[string](5*time.Second, 1000*time.Second),
 		&workqueue.TypedBucketRateLimiter[string]{Limiter: rate.NewLimiter(rate.Every(5*time.Second), 1)},
@@ -781,10 +780,8 @@ func (c *KubeVirtController) Execute() bool {
 }
 
 func (c *KubeVirtController) execute(key string) error {
-
 	// Fetch the latest KubeVirt from cache
 	obj, exists, err := c.stores.KubeVirtCache.GetByKey(key)
-
 	if err != nil {
 		return err
 	}
@@ -872,7 +869,6 @@ func (c *KubeVirtController) execute(key string) error {
 // Loads install strategies into memory, and generates jobs to
 // create install strategies that don't exist yet.
 func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*install.Strategy, bool, error) {
-
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
 		return nil, true, err
@@ -981,7 +977,6 @@ func (c *KubeVirtController) checkForActiveInstall(kv *v1.KubeVirt) error {
 }
 
 func isUpdating(kv *v1.KubeVirt) bool {
-
 	// first check to see if any version has been observed yet.
 	// If no version is observed, this means no version has been
 	// installed yet, so we can't be updating.
@@ -1062,7 +1057,6 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 	}
 
 	synced, err := reconciler.Sync(c.queue)
-
 	if err != nil {
 		// deployment failed
 		util.UpdateConditionsFailedError(kv, err)
@@ -1095,7 +1089,6 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 }
 
 func (c *KubeVirtController) isReady(kv *v1.KubeVirt) bool {
-
 	for _, obj := range c.stores.DeploymentCache.List() {
 		if deployment, ok := obj.(*appsv1.Deployment); ok {
 			if !util.DeploymentIsReady(kv, deployment, c.stores) {
@@ -1156,7 +1149,7 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 
 	// Once all deletions are complete,
 	// garbage collect all install strategies and
-	//remove the finalizer so kv object will disappear.
+	// remove the finalizer so kv object will disappear.
 	if c.stores.AllEmpty() {
 
 		err := c.deleteAllInstallStrategy()

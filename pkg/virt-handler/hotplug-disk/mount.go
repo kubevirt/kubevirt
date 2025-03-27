@@ -144,9 +144,9 @@ type VolumeMounter interface {
 	MountFromPod(vmi *v1.VirtualMachineInstance, sourceUID types.UID, cgroupManager cgroup.Manager) error
 	// Unmount any volumes no longer defined in the VMI
 	Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager) error
-	//UnmountAll cleans up all hotplug volumes
+	// UnmountAll cleans up all hotplug volumes
 	UnmountAll(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager) error
-	//IsMounted returns if the volume is mounted or not.
+	// IsMounted returns if the volume is mounted or not.
 	IsMounted(vmi *v1.VirtualMachineInstance, volume string, sourceUID types.UID) (bool, error)
 }
 

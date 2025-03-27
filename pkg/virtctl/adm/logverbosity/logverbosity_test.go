@@ -345,7 +345,6 @@ var _ = Describe("Log Verbosity", func() {
 			)
 		})
 	})
-
 })
 
 func expectAllComponentVerbosity(kv *v1.KubeVirt, output []uint) {
@@ -359,7 +358,7 @@ func expectAllComponentVerbosity(kv *v1.KubeVirt, output []uint) {
 // create an expected output message
 func createOutputMessage(output []uint) *string {
 	var message string
-	var components = []string{"virt-api", "virt-controller", "virt-handler", "virt-launcher", "virt-operator"}
+	components := []string{"virt-api", "virt-controller", "virt-handler", "virt-launcher", "virt-operator"}
 	for component := 0; component < len(components); component++ {
 		if output[component] == logverbosity.NoFlag {
 			continue

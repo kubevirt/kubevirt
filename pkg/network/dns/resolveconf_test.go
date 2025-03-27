@@ -126,8 +126,10 @@ var _ = Describe("Resolveconf", func() {
 		})
 
 		It("should be added to the right entry if the longest entry is not a service entry", func() {
-			searchDomains := []string{"default.svc.cluster.local", "svc.cluster.local",
-				"cluster.local", "this.is.a.very.very.very.long.entry"}
+			searchDomains := []string{
+				"default.svc.cluster.local", "svc.cluster.local",
+				"cluster.local", "this.is.a.very.very.very.long.entry",
+			}
 
 			const subdomain = "subdomain"
 			domain := DomainNameWithSubdomain(searchDomains, subdomain)

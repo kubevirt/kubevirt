@@ -146,7 +146,6 @@ func GenerateDataVolumeFromTemplate(clientset kubecli.KubevirtClient, dataVolume
 func GetDataVolumeFromCache(namespace, name string, dataVolumeStore cache.Store) (*cdiv1.DataVolume, error) {
 	key := controller.NamespacedKey(namespace, name)
 	obj, exists, err := dataVolumeStore.GetByKey(key)
-
 	if err != nil {
 		return nil, fmt.Errorf("error fetching DataVolume %s: %v", key, err)
 	}
@@ -300,8 +299,7 @@ func DataVolumeByNameFunc(dataVolumeStore cache.Store, dataVolumes []*cdiv1.Data
 	}
 }
 
-type DataVolumeConditionManager struct {
-}
+type DataVolumeConditionManager struct{}
 
 func NewDataVolumeConditionManager() *DataVolumeConditionManager {
 	return &DataVolumeConditionManager{}

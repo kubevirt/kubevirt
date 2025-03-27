@@ -11,7 +11,6 @@ import (
 )
 
 func (r *Reconciler) backupRBACs() error {
-
 	// Backup existing ClusterRoles
 	objects := r.stores.ClusterRoleCache.List()
 	for _, obj := range objects {
@@ -127,7 +126,6 @@ func shouldBackupRBACObject(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta) bool
 	}
 
 	return true
-
 }
 
 func needsBackup(kv *v1.KubeVirt, cache cache.Store, meta *metav1.ObjectMeta) bool {

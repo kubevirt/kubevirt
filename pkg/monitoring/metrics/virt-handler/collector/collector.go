@@ -29,8 +29,10 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
-const CollectionTimeout = 10 * time.Second            // "long enough", crude heuristic
-const StatsMaxAge = CollectionTimeout + 2*time.Second // "a bit more" than timeout, heuristic again
+const (
+	CollectionTimeout = 10 * time.Second                  // "long enough", crude heuristic
+	StatsMaxAge       = CollectionTimeout + 2*time.Second // "a bit more" than timeout, heuristic again
+)
 
 type vmiSocketMap map[string]*k6tv1.VirtualMachineInstance
 

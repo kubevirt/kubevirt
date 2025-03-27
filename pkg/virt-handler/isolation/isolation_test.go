@@ -17,9 +17,7 @@ import (
 )
 
 var _ = Describe("IsolationResult", func() {
-
 	Context("Node IsolationResult", func() {
-
 		isolationResult := NodeIsolationResult()
 
 		It("Should have mounts", func() {
@@ -38,7 +36,6 @@ var _ = Describe("IsolationResult", func() {
 	})
 
 	Context("Container IsolationResult", func() {
-
 		isolationResult := NewIsolationResult(os.Getpid(), os.Getppid())
 
 		It("Should have mounts", func() {
@@ -49,7 +46,6 @@ var _ = Describe("IsolationResult", func() {
 	})
 
 	Context("Mountpoint handling", func() {
-
 		var ctrl *gomock.Controller
 		var mockIsolationResultNode *MockIsolationResult
 		var mockIsolationResultContainer *MockIsolationResult
@@ -79,7 +75,6 @@ var _ = Describe("IsolationResult", func() {
 		})
 
 		Context("Using real world sampled host and launcher mountinfo data", func() {
-
 			type mountInfoData struct {
 				mountDriver              string
 				hostMountInfoFile        string
@@ -117,9 +112,7 @@ var _ = Describe("IsolationResult", func() {
 			}
 
 			for _, dataset := range mountInfoDataList {
-
 				Context(fmt.Sprintf("Using storage driver %v", dataset.mountDriver), func() {
-
 					BeforeEach(func() {
 						Expect(os.MkdirAll(filepath.Join(tmpDir, dataset.expectedPathToRootOnNode), os.ModePerm)).To(Succeed())
 						mockIsolationResultNode.EXPECT().
@@ -153,7 +146,6 @@ var _ = Describe("IsolationResult", func() {
 		})
 
 		Context("Using simulated mount data", func() {
-
 			rootMountPoint := &mount.Info{
 				Major:      1,
 				Minor:      1,
@@ -217,14 +209,16 @@ var _ = Describe("IsolationResult", func() {
 						Root:       "/",
 						Source:     "somehost:/someotherpath",
 						FSType:     "nfs4",
-					}, {
+					},
+					{
 						Major:      200,
 						Minor:      123,
 						Mountpoint: "/nomatch2",
 						Root:       "/",
 						Source:     "somehost:/somestrangepath",
 						FSType:     "nfs4",
-					}, {
+					},
+					{
 						Major:      200,
 						Minor:      123,
 						Mountpoint: "/match",
@@ -256,12 +250,14 @@ var _ = Describe("IsolationResult", func() {
 						Minor:      123,
 						Mountpoint: "/nomatch1",
 						Root:       "/",
-					}, {
+					},
+					{
 						Major:      200,
 						Minor:      123,
 						Mountpoint: "/match",
 						Root:       "/root",
-					}, {
+					},
+					{
 						Major:      200,
 						Minor:      123,
 						Mountpoint: "/nomatch2",

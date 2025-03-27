@@ -78,7 +78,8 @@ func (ctrl *VMExportController) getPVCFromSourceVMSnapshot(vmExport *exportv1.Vi
 			volumes:          nil,
 			inUse:            false,
 			isPopulated:      false,
-			availableMessage: fmt.Sprintf("VirtualMachineSnapshot %s/%s does not exist", vmExport.Namespace, vmExport.Spec.Source.Name)}, nil
+			availableMessage: fmt.Sprintf("VirtualMachineSnapshot %s/%s does not exist", vmExport.Namespace, vmExport.Spec.Source.Name),
+		}, nil
 	}
 	if vmSnapshot.Status != nil && vmSnapshot.Status.ReadyToUse != nil && *vmSnapshot.Status.ReadyToUse {
 		pvcs, restoreableSnapshots, err := ctrl.handlePVCsForVirtualMachineSnapshot(vmExport, vmSnapshot)
@@ -90,26 +91,30 @@ func (ctrl *VMExportController) getPVCFromSourceVMSnapshot(vmExport *exportv1.Vi
 				volumes:          pvcs,
 				inUse:            false,
 				isPopulated:      true,
-				availableMessage: ""}, nil
+				availableMessage: "",
+			}, nil
 		}
 		if restoreableSnapshots == 0 {
 			return &sourceVolumes{
 				volumes:          nil,
 				inUse:            false,
 				isPopulated:      false,
-				availableMessage: fmt.Sprintf("VirtualMachineSnapshot %s/%s does not contain any volume snapshots", vmExport.Namespace, vmExport.Spec.Source.Name)}, nil
+				availableMessage: fmt.Sprintf("VirtualMachineSnapshot %s/%s does not contain any volume snapshots", vmExport.Namespace, vmExport.Spec.Source.Name),
+			}, nil
 		}
 		return &sourceVolumes{
 			volumes:          nil,
 			inUse:            false,
 			isPopulated:      false,
-			availableMessage: "Not all PVCs have been successfully restored"}, nil
+			availableMessage: "Not all PVCs have been successfully restored",
+		}, nil
 	}
 	return &sourceVolumes{
 		volumes:          nil,
 		inUse:            false,
 		isPopulated:      false,
-		availableMessage: fmt.Sprintf("VirtualMachineSnapshot %s/%s is not ready to use", vmExport.Namespace, vmExport.Spec.Source.Name)}, nil
+		availableMessage: fmt.Sprintf("VirtualMachineSnapshot %s/%s is not ready to use", vmExport.Namespace, vmExport.Spec.Source.Name),
+	}, nil
 }
 
 func (ctrl *VMExportController) handlePVCsForVirtualMachineSnapshot(vmExport *exportv1.VirtualMachineExport, vmSnapshot *snapshotv1.VirtualMachineSnapshot) ([]*corev1.PersistentVolumeClaim, int, error) {

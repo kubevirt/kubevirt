@@ -157,7 +157,6 @@ func VirtVolumesToPVCMap(volumes []*virtv1.Volume, pvcStore cache.Store, namespa
 func GetPersistentVolumeClaimFromCache(namespace, name string, pvcStore cache.Store) (*k8sv1.PersistentVolumeClaim, error) {
 	key := controller.NamespacedKey(namespace, name)
 	obj, exists, err := pvcStore.GetByKey(key)
-
 	if err != nil {
 		return nil, fmt.Errorf("error fetching PersistentVolumeClaim %s: %v", key, err)
 	}

@@ -56,7 +56,8 @@ func migrateCancelRun(cmd *cobra.Command, args []string) error {
 	// get a list of migrations for vmiName (use LabelSelector filter)
 	labelselector := fmt.Sprintf("%s==%s", v1.MigrationSelectorLabel, vmiName)
 	migrations, err := virtClient.VirtualMachineInstanceMigration(namespace).List(context.Background(), metav1.ListOptions{
-		LabelSelector: labelselector})
+		LabelSelector: labelselector,
+	})
 	if err != nil {
 		return fmt.Errorf("Error fetching virtual machine instance migration list  %v", err)
 	}

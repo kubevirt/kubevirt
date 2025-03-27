@@ -151,7 +151,6 @@ func NewExportProxyService(namespace string) *corev1.Service {
 }
 
 func newPodTemplateSpec(podName, imageName, repository, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, podAffinity *corev1.Affinity, envVars *[]corev1.EnvVar) *corev1.PodTemplateSpec {
-
 	if image == "" {
 		image = fmt.Sprintf("%s/%s%s", repository, imageName, AddVersionSeparatorPrefix(version))
 	}
@@ -202,7 +201,6 @@ func newPodTemplateSpec(podName, imageName, repository, version, productName, pr
 }
 
 func attachProfileVolume(spec *corev1.PodSpec) {
-
 	volume := corev1.Volume{
 		Name: "profile-data",
 		VolumeSource: corev1.VolumeSource{
@@ -215,7 +213,6 @@ func attachProfileVolume(spec *corev1.PodSpec) {
 	}
 	spec.Volumes = append(spec.Volumes, volume)
 	spec.Containers[0].VolumeMounts = append(spec.Containers[0].VolumeMounts, volumeMount)
-
 }
 
 func attachCertificateSecret(spec *corev1.PodSpec, secretName string, mountPath string) {
@@ -240,7 +237,6 @@ func attachCertificateSecret(spec *corev1.PodSpec, secretName string, mountPath 
 }
 
 func newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, podAffinity *corev1.Affinity, envVars *[]corev1.EnvVar) *appsv1.Deployment {
-
 	podTemplateSpec := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, podAffinity, envVars)
 
 	deployment := &appsv1.Deployment{
@@ -494,8 +490,8 @@ func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersi
 // Used for manifest generation only
 func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosity, kubeVirtVersionEnv, virtApiShaEnv, virtControllerShaEnv, virtHandlerShaEnv, virtLauncherShaEnv, virtExportProxyShaEnv,
 	virtExportServerShaEnv, gsShaEnv, prHelperShaEnv, sidecarShimShaEnv, runbookURLTemplate, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv, virtExportServerImageEnv, gsImage, prHelperImage, sidecarShimImage,
-	image string, pullPolicy corev1.PullPolicy) *appsv1.Deployment {
-
+	image string, pullPolicy corev1.PullPolicy,
+) *appsv1.Deployment {
 	const kubernetesOSLinux = "linux"
 	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, corev1.LabelHostname, metav1.LabelSelectorOpIn, []string{VirtOperatorName})
 	version = AddVersionSeparatorPrefix(version)
@@ -757,8 +753,8 @@ func NewPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) *policyv
 
 func generateVirtOperatorEnvVars(virtApiShaEnv, virtControllerShaEnv, virtHandlerShaEnv, virtLauncherShaEnv, virtExportProxyShaEnv,
 	virtExportServerShaEnv, gsShaEnv, prHelperShaEnv, sidecarShimShaEnv, runbookURLTemplate, virtApiImageEnv, virtControllerImageEnv, virtHandlerImageEnv, virtLauncherImageEnv, virtExportProxyImageEnv,
-	virtExportServerImageEnv, gsImage, prHelperImage, sidecarShimImage, kubeVirtVersionEnv string) (envVars []corev1.EnvVar) {
-
+	virtExportServerImageEnv, gsImage, prHelperImage, sidecarShimImage, kubeVirtVersionEnv string,
+) (envVars []corev1.EnvVar) {
 	addEnvVar := func(envVarName, envVarValue string) {
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  envVarName,

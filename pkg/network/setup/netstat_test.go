@@ -1292,6 +1292,7 @@ func newVMISpecIfaceWithMasqueradeBinding(name string) v1.Interface {
 		},
 	}
 }
+
 func newVMISpecIfaceWithBridgeBinding(name string) v1.Interface {
 	return v1.Interface{
 		Name: name,
@@ -1320,6 +1321,7 @@ func newVMISpecMultusNetwork(name string) v1.Network {
 		NetworkSource: v1.NetworkSource{
 			Multus: &v1.MultusNetwork{
 				NetworkName: "test.network",
-			}},
+			},
+		},
 	}
 }

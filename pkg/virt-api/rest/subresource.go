@@ -115,11 +115,12 @@ type validation func(*v1.VirtualMachineInstance) (err *errors.StatusError)
 // the VMI might be nil.
 //
 // Use this function to inject more human readible context into the error response.
-type errorPostProcessing func(*v1.VirtualMachineInstance, error) (err error)
-type URLResolver func(*v1.VirtualMachineInstance, kubecli.VirtHandlerConn) (string, error)
+type (
+	errorPostProcessing func(*v1.VirtualMachineInstance, error) (err error)
+	URLResolver         func(*v1.VirtualMachineInstance, kubecli.VirtHandlerConn) (string, error)
+)
 
 func (app *SubresourceAPIApp) prepareConnection(request *restful.Request, validate validation, getVirtHandlerURL URLResolver) (vmi *v1.VirtualMachineInstance, url string, conn kubecli.VirtHandlerConn, statusError *errors.StatusError) {
-
 	vmiName := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 
@@ -150,12 +151,10 @@ func (app *SubresourceAPIApp) fetchAndValidateVirtualMachineInstance(namespace, 
 }
 
 func (app *SubresourceAPIApp) putRequestHandler(request *restful.Request, response *restful.Response, preValidate validation, getVirtHandlerURL URLResolver, dryRun bool) {
-
 	app.putRequestHandlerWithErrorPostProcessing(request, response, preValidate, nil, getVirtHandlerURL, dryRun)
 }
 
 func (app *SubresourceAPIApp) putRequestHandlerWithErrorPostProcessing(request *restful.Request, response *restful.Response, preValidate validation, errorPostProcessing errorPostProcessing, getVirtHandlerURL URLResolver, dryRun bool) {
-
 	if preValidate == nil {
 		preValidate = func(vmi *v1.VirtualMachineInstance) *errors.StatusError { return nil }
 	}
@@ -207,7 +206,6 @@ func (app *SubresourceAPIApp) httpGetRequestHandler(request *restful.Request, re
 }
 
 func (app *SubresourceAPIApp) fetchVirtualMachine(name string, namespace string) (*v1.VirtualMachine, *errors.StatusError) {
-
 	vm, err := app.virtCli.VirtualMachine(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -220,7 +218,6 @@ func (app *SubresourceAPIApp) fetchVirtualMachine(name string, namespace string)
 
 // FetchVirtualMachineInstance by namespace and name
 func (app *SubresourceAPIApp) FetchVirtualMachineInstance(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError) {
-
 	vmi, err := app.virtCli.VirtualMachineInstance(namespace).Get(context.Background(), name, k8smetav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {

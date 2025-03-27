@@ -78,7 +78,7 @@ var _ = Describe("Domain informer", func() {
 		cmdclient.SetPodsBaseDir(podsDir)
 
 		socketPath = cmdclient.SocketFilePathOnHost(podUID)
-		os.MkdirAll(filepath.Dir(socketPath), 0755)
+		os.MkdirAll(filepath.Dir(socketPath), 0o755)
 
 		informer = NewSharedInformer(shareDir, 10, nil, nil, time.Duration(resyncPeriod)*time.Second)
 		Expect(err).ToNot(HaveOccurred())
@@ -170,7 +170,6 @@ var _ = Describe("Domain informer", func() {
 			exists, err = diskutils.FileExists(filepath.Join(ghostCacheDir, "1234-1"))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(exists).To(BeFalse())
-
 		})
 
 		It("Should reject adding a ghost record with missing data", func() {
@@ -185,7 +184,6 @@ var _ = Describe("Domain informer", func() {
 
 			err = ghostRecordStore.Add("test1-namespace", "test1", "somefile1", "")
 			Expect(err).To(HaveOccurred())
-
 		})
 	})
 
@@ -270,7 +268,6 @@ var _ = Describe("Domain informer", func() {
 		})
 
 		It("should resync active domains after resync period.", func() {
-
 			domain := api.NewMinimalDomain("test")
 			domainManager.EXPECT().ListAllDomains().Return([]*api.Domain{domain}, nil)
 			domainManager.EXPECT().GetGuestOSInfo().Return(&api.GuestOSInfo{})
@@ -310,7 +307,6 @@ var _ = Describe("Domain informer", func() {
 		})
 
 		It("should detect unresponsive sockets.", func() {
-
 			f, err := os.Create(socketPath)
 			Expect(err).ToNot(HaveOccurred())
 			f.Close()
@@ -340,11 +336,9 @@ var _ = Describe("Domain informer", func() {
 			}
 
 			Expect(timedOut).To(BeFalse())
-
 		})
 
 		It("should detect responsive sockets and not mark for deletion.", func() {
-
 			l, err := net.Listen("unix", socketPath)
 			Expect(err).ToNot(HaveOccurred())
 			defer l.Close()
@@ -450,7 +444,8 @@ var _ = Describe("Iterable checkpoint manager", func() {
 func runCMDServer(wg *sync.WaitGroup, socketPath string,
 	domainManager virtwrap.DomainManager,
 	stopChan chan struct{},
-	options *cmdserver.ServerOptions) {
+	options *cmdserver.ServerOptions,
+) {
 	wg.Add(1)
 	done, _ := cmdserver.RunServer(socketPath, domainManager, stopChan, options)
 	go func() {

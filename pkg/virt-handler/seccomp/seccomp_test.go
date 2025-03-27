@@ -10,9 +10,7 @@ import (
 )
 
 var _ = Describe("Seccomp", func() {
-
 	Context("Install", func() {
-
 		var path string
 
 		BeforeEach(func() {
@@ -54,10 +52,10 @@ var _ = Describe("Seccomp", func() {
 		It("Should reinstall", func() {
 			policyDir := filepath.Join(path, "seccomp", "kubevirt")
 			policyPath := filepath.Join(policyDir, "kubevirt.json")
-			err := os.MkdirAll(policyDir, 0700)
+			err := os.MkdirAll(policyDir, 0o700)
 			Expect(err).NotTo(HaveOccurred())
 
-			err = os.WriteFile(policyPath, []byte{}, 0777)
+			err = os.WriteFile(policyPath, []byte{}, 0o777)
 			Expect(err).NotTo(HaveOccurred())
 
 			err = InstallPolicy(path)

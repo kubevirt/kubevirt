@@ -233,7 +233,7 @@ func SetHypervFeatureDependencies(spec *v1.VirtualMachineInstanceSpec) error {
 		}
 	}
 
-	//Check if vmi has EVMCS feature enabled. If yes, we have to add vmx cpu feature
+	// Check if vmi has EVMCS feature enabled. If yes, we have to add vmx cpu feature
 	if spec.Domain.Features != nil && spec.Domain.Features.Hyperv != nil && spec.Domain.Features.Hyperv.EVMCS != nil &&
 		(spec.Domain.Features.Hyperv.EVMCS.Enabled == nil || (*spec.Domain.Features.Hyperv.EVMCS.Enabled)) {
 		setEVMCSDependency(spec)
@@ -281,7 +281,6 @@ func setEVMCSDependency(spec *v1.VirtualMachineInstanceSpec) {
 			spec.Domain.CPU.Features = append(spec.Domain.CPU.Features, requiredFeature)
 		}
 	}
-
 }
 
 func getEVMCSDependency() v1.CPUFeature {

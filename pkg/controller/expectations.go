@@ -247,6 +247,7 @@ func (e *ControlleeExpectations) GetExpectations() (int64, int64) {
 func NewControllerExpectations() *ControllerExpectations {
 	return &ControllerExpectations{Store: cache.NewStore(ExpKeyFunc), name: "n/a"}
 }
+
 func NewControllerExpectationsWithName(name string) *ControllerExpectations {
 	return &ControllerExpectations{Store: cache.NewStore(ExpKeyFunc), name: name}
 }

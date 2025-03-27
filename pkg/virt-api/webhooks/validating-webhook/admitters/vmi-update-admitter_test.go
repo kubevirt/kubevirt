@@ -233,7 +233,6 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			Entry("when TargetNode is not set", nil),
 			Entry("when TargetNode is set", &v1.VirtualMachineInstanceMigrationState{TargetNode: "git"}),
 		)
-
 	})
 
 	DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse) {

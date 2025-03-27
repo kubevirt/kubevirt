@@ -204,7 +204,8 @@ func NewVirtualMachineCrd() (*extv1.CustomResourceDefinition, error) {
 		{Name: "Status", Description: "Human Readable Status", Type: "string", JSONPath: ".status.printableStatus"},
 		{Name: "Ready", Type: "string", JSONPath: ".status.conditions[?(@.type=='Ready')].status"},
 	}, &extv1.CustomResourceSubresources{
-		Status: &extv1.CustomResourceSubresourceStatus{}})
+		Status: &extv1.CustomResourceSubresourceStatus{},
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -278,12 +279,18 @@ func NewReplicaSetCrd() (*extv1.CustomResourceDefinition, error) {
 	}
 	err := addFieldsToAllVersions(crd,
 		[]extv1.CustomResourceColumnDefinition{
-			{Name: "Desired", Type: "integer", JSONPath: ".spec.replicas",
-				Description: "Number of desired VirtualMachineInstances"},
-			{Name: "Current", Type: "integer", JSONPath: ".status.replicas",
-				Description: "Number of managed and not final or deleted VirtualMachineInstances"},
-			{Name: "Ready", Type: "integer", JSONPath: ".status.readyReplicas",
-				Description: "Number of managed VirtualMachineInstances which are ready to receive traffic"},
+			{
+				Name: "Desired", Type: "integer", JSONPath: ".spec.replicas",
+				Description: "Number of desired VirtualMachineInstances",
+			},
+			{
+				Name: "Current", Type: "integer", JSONPath: ".status.replicas",
+				Description: "Number of managed and not final or deleted VirtualMachineInstances",
+			},
+			{
+				Name: "Ready", Type: "integer", JSONPath: ".status.readyReplicas",
+				Description: "Number of managed VirtualMachineInstances which are ready to receive traffic",
+			},
 			{Name: "Age", Type: "date", JSONPath: creationTimestampJSONPath},
 		}, &extv1.CustomResourceSubresources{
 			Scale: &extv1.CustomResourceSubresourceScale{
@@ -323,14 +330,17 @@ func NewVirtualMachineInstanceMigrationCrd() (*extv1.CustomResourceDefinition, e
 	}
 	err := addFieldsToAllVersions(crd,
 		[]extv1.CustomResourceColumnDefinition{
-			{Name: "Phase", Type: "string", JSONPath: phaseJSONPath,
-				Description: "The current phase of VM instance migration"},
-			{Name: "VMI", Type: "string", JSONPath: ".spec.vmiName",
-				Description: "The name of the VMI to perform the migration on"},
+			{
+				Name: "Phase", Type: "string", JSONPath: phaseJSONPath,
+				Description: "The current phase of VM instance migration",
+			},
+			{
+				Name: "VMI", Type: "string", JSONPath: ".spec.vmiName",
+				Description: "The name of the VMI to perform the migration on",
+			},
 		}, &extv1.CustomResourceSubresources{
 			Status: &extv1.CustomResourceSubresourceStatus{},
 		})
-
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +355,6 @@ func NewVirtualMachineInstanceMigrationCrd() (*extv1.CustomResourceDefinition, e
 // If you change something here, you probably need to change the CSV manifest too,
 // see /manifests/release/kubevirt.VERSION.csv.yaml.in
 func NewKubeVirtCrd() (*extv1.CustomResourceDefinition, error) {
-
 	// we use a different label here, so no newBlankCrd()
 	crd := &extv1.CustomResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
@@ -419,12 +428,18 @@ func NewVirtualMachinePoolCrd() (*extv1.CustomResourceDefinition, error) {
 
 	err := addFieldsToAllVersions(crd,
 		[]extv1.CustomResourceColumnDefinition{
-			{Name: "Desired", Type: "integer", JSONPath: ".spec.replicas",
-				Description: "Number of desired VirtualMachines"},
-			{Name: "Current", Type: "integer", JSONPath: ".status.replicas",
-				Description: "Number of managed and not final or deleted VirtualMachines"},
-			{Name: "Ready", Type: "integer", JSONPath: ".status.readyReplicas",
-				Description: "Number of managed VirtualMachines which are ready to receive traffic"},
+			{
+				Name: "Desired", Type: "integer", JSONPath: ".spec.replicas",
+				Description: "Number of desired VirtualMachines",
+			},
+			{
+				Name: "Current", Type: "integer", JSONPath: ".status.replicas",
+				Description: "Number of managed and not final or deleted VirtualMachines",
+			},
+			{
+				Name: "Ready", Type: "integer", JSONPath: ".status.readyReplicas",
+				Description: "Number of managed VirtualMachines which are ready to receive traffic",
+			},
 			{Name: "Age", Type: "date", JSONPath: creationTimestampJSONPath},
 		}, &extv1.CustomResourceSubresources{
 			Scale: &extv1.CustomResourceSubresourceScale{

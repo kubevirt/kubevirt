@@ -65,7 +65,6 @@ import (
 )
 
 var _ = Describe("Migration watcher", func() {
-
 	var (
 		controller    *Controller
 		recorder      *record.FakeRecorder
@@ -970,7 +969,6 @@ var _ = Describe("Migration watcher", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(updatedVMI.Spec.NodeSelector).To(Equal(vmi.Spec.NodeSelector))
 			Expect(updatedVMI.Spec.Affinity).To(Equal(vmi.Spec.Affinity))
-
 		})
 
 		It("should place migration in scheduling state if pod exists", func() {
@@ -1844,7 +1842,6 @@ var _ = Describe("Migration watcher", func() {
 		})
 
 		Context("matching and precedence", func() {
-
 			BeforeEach(func() {
 				vmi = newVirtualMachine("testvmi", virtv1.Running)
 			})
@@ -2375,7 +2372,6 @@ func newPDB(name string, vmi *virtv1.VirtualMachineInstance, pods int32) *policy
 }
 
 func newMigration(name string, vmiName string, phase virtv1.VirtualMachineInstanceMigrationPhase) *virtv1.VirtualMachineInstanceMigration {
-
 	migration := &virtv1.VirtualMachineInstanceMigration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,

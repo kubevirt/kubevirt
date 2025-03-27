@@ -5,8 +5,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var _true = t(true)
-var _false = t(false)
+var (
+	_true  = t(true)
+	_false = t(false)
+)
 
 func SetDefaults_HPETTimer(obj *HPETTimer) {
 	if obj.Enabled == nil {

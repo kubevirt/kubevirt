@@ -31,11 +31,9 @@ import (
 )
 
 var _ = Describe("RBAC", func() {
-
 	const expectedNamespace = "default"
 
 	Context("GetAllOperator", func() {
-
 		forOperator := GetAllOperator(expectedNamespace)
 
 		It("isn't nil", func() {
@@ -75,7 +73,6 @@ var _ = Describe("RBAC", func() {
 	})
 
 	Context("GetKubevirtComponentsServiceAccounts", func() {
-
 		serviceAccounts := GetKubevirtComponentsServiceAccounts(expectedNamespace)
 
 		DescribeTable("has service account",
@@ -87,9 +84,7 @@ var _ = Describe("RBAC", func() {
 			Entry("for Controller", components.ControllerServiceAccountName),
 			Entry("for Operator", components.OperatorServiceAccountName),
 		)
-
 	})
-
 })
 
 func getFirstItemOfType(items []interface{}, tp reflect.Type) interface{} {

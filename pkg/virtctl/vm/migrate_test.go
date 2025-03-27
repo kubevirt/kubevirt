@@ -69,23 +69,27 @@ var _ = Describe("Migrate command", func() {
 		Entry(
 			"with dry-run option",
 			&v1.MigrateOptions{
-				DryRun: []string{k8smetav1.DryRunAll}},
+				DryRun: []string{k8smetav1.DryRunAll},
+			},
 			"--dry-run"),
 		Entry(
 			"with addedNodeSelector option",
 			&v1.MigrateOptions{
-				AddedNodeSelector: map[string]string{"key1": "value1", "key2": "value2"}},
+				AddedNodeSelector: map[string]string{"key1": "value1", "key2": "value2"},
+			},
 			"--addedNodeSelector", "key1=value1,key2=value2"),
 		Entry(
 			"with dry-run and addedNodeSelector options",
 			&v1.MigrateOptions{
 				AddedNodeSelector: map[string]string{"key1": "value1", "key2": "value2"},
-				DryRun:            []string{k8smetav1.DryRunAll}},
+				DryRun:            []string{k8smetav1.DryRunAll},
+			},
 			"--dry-run", "--addedNodeSelector", "key1=value1,key2=value2"),
 		Entry(
 			"with repeated addedNodeSelector",
 			&v1.MigrateOptions{
-				AddedNodeSelector: map[string]string{"key1": "value1", "key2": "value2"}},
+				AddedNodeSelector: map[string]string{"key1": "value1", "key2": "value2"},
+			},
 			"--addedNodeSelector", "key1=value1", "--addedNodeSelector", "key2=value2"),
 	)
 
@@ -103,5 +107,4 @@ var _ = Describe("Migrate command", func() {
 			"with multiple keys only",
 			"--addedNodeSelector", "key1,key2"),
 	)
-
 })

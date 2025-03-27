@@ -134,7 +134,6 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 
 	Context("handler functions", func() {
 		DescribeTable("should return error when feature gate is not enabled", func(fn func(*restful.Request, *restful.Response)) {
-
 			fn(request, response)
 			Expect(recorder.Code).To(Equal(http.StatusForbidden))
 		},
@@ -143,7 +142,6 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 			Entry("dump function", app.DumpClusterProfilerHandler),
 		)
 		DescribeTable("start/stop should return success when feature gate is enabled", func(fn func(*restful.Request, *restful.Response), cmd string) {
-
 			results := v1.ClusterProfilerResults{
 				ComponentResults: make(map[string]v1.ProfilerResult),
 			}
@@ -165,7 +163,6 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 		)
 
 		DescribeTable("dump should return success when feature gate is enabled", func(fn func(*restful.Request, *restful.Response), cmd string) {
-
 			results := v1.ClusterProfilerResults{
 				ComponentResults: make(map[string]v1.ProfilerResult),
 			}

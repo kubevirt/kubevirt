@@ -186,7 +186,6 @@ var _ = Describe("Apply Instancetypes", func() {
 			Expect(reconciler.deletePreferences()).To(Succeed())
 		})
 	})
-
 })
 
 func expectCreate(fakeClient *fake.Clientset, resource string, object runtime.Object) *bool {

@@ -29,16 +29,13 @@ import (
 )
 
 var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateRolloutStrategy, func() {
-	var (
-		virtClient kubecli.KubevirtClient
-	)
+	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
 
 	Context("Updating VMs node affinity", func() {
 		patchVMNodeSelector := func(newNodeSelectorMap map[string]string, op string, vmName string, vmNamespace string) {
-
 			newNodeSelectorJson, err := json.Marshal(newNodeSelectorMap)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -92,7 +89,6 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 		}
 
 		It("[test_id:11208]should successfully update node selector", func() {
-
 			By("Creating a running VM")
 			vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(), libvmi.WithCPUCount(1, 2, 1))
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
@@ -144,10 +140,8 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 				}
 				return validateNodeSelector(vmNodeSelector, vmi.Spec.NodeSelector)
 			}, 240*time.Second, time.Second).Should(BeTrue())
-
 		})
 		It("[test_id:11209]should successfully update node affinity", func() {
-
 			By("Creating a running VM")
 			vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
@@ -196,8 +190,6 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 				Expect(err).NotTo(HaveOccurred())
 				return vmi.Spec.Affinity == nil
 			}, 240*time.Second, time.Second).Should(BeTrue())
-
 		})
-
 	})
 })

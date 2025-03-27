@@ -107,19 +107,17 @@ const (
 	exportPrefix = "virt-export"
 )
 
-var (
-	podReadyCondition = MatchConditionIgnoreTimeStamp(exportv1.Condition{
-		Type:   exportv1.ConditionReady,
-		Status: k8sv1.ConditionTrue,
-		Reason: podReadyReason,
-	})
-)
+var podReadyCondition = MatchConditionIgnoreTimeStamp(exportv1.Condition{
+	Type:   exportv1.ConditionReady,
+	Status: k8sv1.ConditionTrue,
+	Reason: podReadyReason,
+})
 
 var _ = Describe(SIG("Export", func() {
 	var err error
 	var token *k8sv1.Secret
 	var virtClient kubecli.KubevirtClient
-	var qemuGid = int64(107)
+	qemuGid := int64(107)
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -490,7 +488,8 @@ var _ = Describe(SIG("Export", func() {
 
 	DescribeTable("should make a PVC export available", decorators.StorageCritical, func(populateFunction populateFunction, verifyFunction verifyFunction,
 		storageClassFunction storageClassFunction, caBundleGenerator caBundleGenerator, urlGenerator urlGenerator,
-		expectedFormat exportv1.ExportVolumeFormat, urlTemplate string, volumeMode k8sv1.PersistentVolumeMode) {
+		expectedFormat exportv1.ExportVolumeFormat, urlTemplate string, volumeMode k8sv1.PersistentVolumeMode,
+	) {
 		sc, exists := storageClassFunction()
 		if !exists {
 			Fail("Fail test when right storage is not present")
@@ -1206,7 +1205,6 @@ var _ = Describe(SIG("Export", func() {
 			}
 			Expect(matchesCNOrAltName).To(BeTrue())
 			Expect(vmExport.Status.Links.External.Volumes[0].Formats[0].Url).To(ContainSubstring(host))
-
 		})
 	})
 

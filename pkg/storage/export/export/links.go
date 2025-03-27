@@ -282,7 +282,7 @@ func (ctrl *VMExportController) buildPemFromCert(matchingCert *x509.Certificate,
 	pemOut := strings.Builder{}
 	pem.Encode(&pemOut, &pem.Block{Type: "CERTIFICATE", Bytes: matchingCert.Raw})
 	if matchingCert.Issuer.CommonName != matchingCert.Subject.CommonName && !matchingCert.IsCA {
-		//lookup issuer recursively, if not found a blank is returned.
+		// lookup issuer recursively, if not found a blank is returned.
 		chain, err := ctrl.findCertByHostName(matchingCert.Issuer.CommonName, allCerts)
 		if err != nil {
 			return "", err

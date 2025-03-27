@@ -104,7 +104,6 @@ func (m MasqPod) Setup(bridgeIfaceSpec, podIfaceSpec *nmstate.Interface, vmiIfac
 }
 
 func (m MasqPod) setupNATByFamily(family nft.IPFamily, podIfaceSpec, bridgeIfaceSpec *nmstate.Interface, vmiIface v1.Interface) error {
-
 	if err := m.nftable.AddTable(family, natTable); err != nil {
 		return err
 	}

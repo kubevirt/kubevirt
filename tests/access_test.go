@@ -110,7 +110,6 @@ type rights struct {
 }
 
 func (r rights) list() (e []rightsEntry) {
-
 	for _, role := range r.Roles {
 		e = append(e,
 			rightsEntry{
@@ -159,7 +158,6 @@ func (r rights) list() (e []rightsEntry) {
 }
 
 var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:component][sig-compute]User Access", decorators.SigCompute, decorators.WgS390x, decorators.WgArm64, func() {
-
 	var authClient *authClientV1.AuthorizationV1Client
 
 	doSarRequest := func(group string, resource string, subresource string, namespace string, role string, verb string, expected, clusterWide bool) {

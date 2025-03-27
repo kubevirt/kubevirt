@@ -105,14 +105,17 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 		// mostly to test the SCSI persistent reservation ioctls.
 		executeTargetCli(podName, []string{
 			"backstores/fileio",
-			"create", backendDisk, "/disks/disk.img", "800M"})
+			"create", backendDisk, "/disks/disk.img", "800M",
+		})
 		executeTargetCli(podName, []string{
-			"loopback/", "create", naa})
+			"loopback/", "create", naa,
+		})
 		// Create LUN
 		executeTargetCli(podName, []string{
 			fmt.Sprintf("loopback/naa.%s/luns", naa),
 			"create",
-			fmt.Sprintf("/backstores/fileio/%s", backendDisk)})
+			fmt.Sprintf("/backstores/fileio/%s", backendDisk),
+		})
 	}
 
 	// findSCSIdisk returns the first scsi disk that correspond to the model. With targetcli the model name correspond to the name of the storage backend.
@@ -140,7 +143,6 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 			}
 		}
 		return device
-
 	}
 
 	checkResultCommand := func(vmi *v1.VirtualMachineInstance, cmd, output string) bool {
@@ -178,7 +180,6 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 				}
 			}
 			return ready
-
 		}, 90*time.Second, 1*time.Second).Should(BeTrue())
 	}
 	BeforeEach(func() {
@@ -189,7 +190,6 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 		if fgDisabled {
 			config.EnableFeatureGate(featuregate.PersistentReservation)
 		}
-
 	})
 	AfterEach(func() {
 		if fgDisabled {
@@ -223,11 +223,12 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 		AfterEach(func() {
 			// Delete the scsi disk
 			executeTargetCli(targetCliPod, []string{
-				"loopback/", "delete", naa})
+				"loopback/", "delete", naa,
+			})
 			executeTargetCli(targetCliPod, []string{
-				"backstores/fileio", "delete", backendDisk})
+				"backstores/fileio", "delete", backendDisk,
+			})
 			Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
-
 		})
 
 		It("Should successfully start a VM with persistent reservation", func() {
@@ -336,5 +337,4 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 			}
 		})
 	})
-
 }))

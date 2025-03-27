@@ -25,7 +25,6 @@ const (
 )
 
 var _ = Describe("Heartbeat", func() {
-
 	var node *v1.Node
 	var fakeClient *fake.Clientset
 

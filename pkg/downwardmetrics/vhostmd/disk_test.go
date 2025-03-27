@@ -12,9 +12,7 @@ import (
 )
 
 var _ = Describe("vhostmd", func() {
-
 	Context("given real data from a real vhostmd", func() {
-
 		It("should properly read and verify a real vhostmd0", func() {
 			v := NewMetricsIODisk("testdata/vhostmd0")
 			metrics, err := v.Read()
@@ -84,5 +82,4 @@ var _ = Describe("vhostmd", func() {
 			}
 		})
 	})
-
 })

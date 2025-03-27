@@ -61,21 +61,21 @@ func prepareDir(dir string, reuseOutputDir bool) error {
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	return os.MkdirAll(dir, 0744)
+	return os.MkdirAll(dir, 0o744)
 }
 
 func writeResultsToDisk(dir string, results *v1.ClusterProfilerResults) error {
 	for key, val := range results.ComponentResults {
 		componentDir := filepath.Join(dir, key)
 
-		err := os.Mkdir(componentDir, 0744)
+		err := os.Mkdir(componentDir, 0o744)
 		if err != nil {
 			return err
 		}
 
 		for pprofKey, pprofBytes := range val.PprofData {
 			filePath := filepath.Join(componentDir, pprofKey)
-			err = os.WriteFile(filePath, pprofBytes, 0644)
+			err = os.WriteFile(filePath, pprofBytes, 0o644)
 			if err != nil {
 				return err
 			}

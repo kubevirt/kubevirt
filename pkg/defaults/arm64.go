@@ -67,7 +67,6 @@ func setDefaultArm64DisksBus(spec *v1.VirtualMachineInstanceSpec) {
 			disk.LUN.Bus = bus
 		}
 	}
-
 }
 
 // SetArm64Defaults is mutating function for mutating-webhook

@@ -47,7 +47,6 @@ import (
 )
 
 var _ = Describe(SIG("Guest Access Credentials", func() {
-
 	const (
 		fedoraRunningTimeout     = 120
 		guestAgentConnectTimeout = 2 * time.Minute
@@ -152,7 +151,6 @@ var _ = Describe(SIG("Guest Access Credentials", func() {
 				&expect.BSnd{S: customPassword + "\n"},
 				&expect.BExp{R: "\\$"},
 			}, 3*time.Minute)).To(Succeed())
-
 		})
 
 		DescribeTable("should update to unsupported agent", func(secretID string, secretData libsecret.DataBytes, options ...libvmi.Option) {
@@ -168,7 +166,6 @@ var _ = Describe(SIG("Guest Access Credentials", func() {
 
 			By("Checking that denylisted commands triggered unsupported guest agent condition")
 			Eventually(matcher.ThisVMI(vmi), denyListTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceUnsupportedAgent))
-
 		},
 			Entry("[test_id:6222]for public ssh keys", pubKeySecretID, pubKeyData,
 				withSSHPK(pubKeySecretID, v1.SSHPublicKeyAccessCredentialPropagationMethod{

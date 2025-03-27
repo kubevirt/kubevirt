@@ -562,7 +562,6 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 			Entry("based on the limits if both requests and limits are provided", "3", "5", 5),
 			Entry("based on the requests if only requests are provided", "3", "", 3),
 		)
-
 	})
 
 	When("the vmi does not require auto attach graphics device", func() {
@@ -734,7 +733,6 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 			Entry("when wants QOSGuaranteed", false, true),
 		)
 	})
-
 })
 
 func addResources(firstQuantity resource.Quantity, resources ...resource.Quantity) resource.Quantity {

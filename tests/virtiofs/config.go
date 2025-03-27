@@ -94,7 +94,8 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			podOutput, err := exec.ExecuteCommandOnPod(
 				vmiPod,
 				fmt.Sprintf("virtiofs-%s", configMapName),
-				[]string{"cat",
+				[]string{
+					"cat",
 					configMapPath + "/option1",
 					configMapPath + "/option2",
 					configMapPath + "/option3",
@@ -152,7 +153,8 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			podOutput, err := exec.ExecuteCommandOnPod(
 				vmiPod,
 				fmt.Sprintf("virtiofs-%s", secretName),
-				[]string{"cat",
+				[]string{
+					"cat",
 					secretPath + "/user",
 					secretPath + "/password",
 				},
@@ -173,7 +175,6 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 	})
 
 	Context("With a ServiceAccount defined", func() {
-
 		serviceAccountPath := config.ServiceAccountSourceDir
 
 		It("Should be the namespace and token the same for a pod and vmi with virtiofs", func() {
@@ -195,7 +196,8 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			namespace, err := exec.ExecuteCommandOnPod(
 				vmiPod,
 				fmt.Sprintf("virtiofs-%s", serviceAccountVolumeName),
-				[]string{"cat",
+				[]string{
+					"cat",
 					serviceAccountPath + "/namespace",
 				},
 			)
@@ -205,7 +207,8 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			token, err := exec.ExecuteCommandOnPod(
 				vmiPod,
 				fmt.Sprintf("virtiofs-%s", serviceAccountVolumeName),
-				[]string{"tail", "-c", "20",
+				[]string{
+					"tail", "-c", "20",
 					serviceAccountPath + "/token",
 				},
 			)
@@ -236,7 +239,6 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 		expectedOutput := testLabelKey + "=" + "\"" + testLabelVal + "\""
 
 		It("Should be the namespace and token the same for a pod and vmi with virtiofs", func() {
-
 			By("Running VMI")
 			vmi := libvmifact.NewFedora(
 				libvmi.WithLabel(testLabelKey, testLabelVal),
@@ -254,7 +256,8 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			podOutput, err := exec.ExecuteCommandOnPod(
 				vmiPod,
 				fmt.Sprintf("virtiofs-%s", downwardAPIName),
-				[]string{"grep", testLabelKey,
+				[]string{
+					"grep", testLabelKey,
 					downwardAPIPath + "/labels",
 				},
 			)

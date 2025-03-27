@@ -36,7 +36,6 @@ import (
 )
 
 var _ = Describe("Deletion", func() {
-
 	Context("CRD deletion", func() {
 		It("Filter needs deletion", func() {
 			crds := []*extv1.CustomResourceDefinition{
@@ -113,7 +112,6 @@ var _ = Describe("Deletion", func() {
 						DeletionTimestamp: now(),
 					},
 					Status: extv1.CustomResourceDefinitionStatus{
-
 						Conditions: []extv1.CustomResourceDefinitionCondition{
 							instanceRemovedCondition(),
 						},
@@ -256,7 +254,6 @@ var _ = Describe("Deletion", func() {
 				}
 				return node3patchActions
 			}, BeEmpty()))
-
 		})
 	})
 })

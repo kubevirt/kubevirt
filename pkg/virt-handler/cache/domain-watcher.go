@@ -295,7 +295,6 @@ func (d *domainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 }
 
 func (d *domainWatcher) List(_ metav1.ListOptions) (runtime.Object, error) {
-
 	log.Log.V(3).Info("Synchronizing domains")
 	err := d.startBackground()
 	if err != nil {

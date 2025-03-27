@@ -48,7 +48,6 @@ import (
 )
 
 var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCompute, func() {
-
 	var virtClient kubecli.KubevirtClient
 	var err error
 
@@ -98,7 +97,6 @@ var _ = Describe("[sig-compute]VMI with external kernel boot", decorators.SigCom
 	})
 
 	Context("with illegal definition ensure rejection of", func() {
-
 		It("[test_id:7750]VMI defined without an image", func() {
 			vmi := utils.GetVMIKernelBootWithRandName()
 			kernelBoot := vmi.Spec.Domain.Firmware.KernelBoot

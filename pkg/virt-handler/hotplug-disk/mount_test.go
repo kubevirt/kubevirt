@@ -235,7 +235,7 @@ var _ = Describe("HotplugVolume", func() {
 		})
 
 		It("deleteMountTargetRecord should remove both record file and entry file", func() {
-			err := os.WriteFile(filepath.Join(tempDir, "test"), []byte("test"), 0644)
+			err := os.WriteFile(filepath.Join(tempDir, "test"), []byte("test"), 0o644)
 			Expect(err).ToNot(HaveOccurred())
 			err = m.deleteMountTargetRecord(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -267,7 +267,7 @@ var _ = Describe("HotplugVolume", func() {
 			vmi.Status.ActivePods = activePods
 
 			targetPodPath = filepath.Join(tempDir, "abcd/volumes/kubernetes.io~empty-dir/hotplug-disks/")
-			err = os.MkdirAll(targetPodPath, 0755)
+			err = os.MkdirAll(targetPodPath, 0o755)
 			Expect(err).ToNot(HaveOccurred())
 
 			record = &vmiMountTargetRecord{}
@@ -284,9 +284,8 @@ var _ = Describe("HotplugVolume", func() {
 				return newDir(tempDir, string(sourceUID), "volumes")
 			}
 			statSourceDevice = func(fileName *safepath.Path) (os.FileInfo, error) {
-				return fakeStat(true, 0777, 123456), nil
+				return fakeStat(true, 0o777, 123456), nil
 			}
-
 		})
 
 		AfterEach(func() {
@@ -337,7 +336,7 @@ var _ = Describe("HotplugVolume", func() {
 			res = m.findVirtlauncherUID(vmi)
 			Expect(res).To(BeEquivalentTo("abcd"))
 			vmi.Status.ActivePods["abcdef"] = "host"
-			err = os.MkdirAll(filepath.Join(tempDir, "abcdef/volumes/kubernetes.io~empty-dir/hotplug-disks"), 0755)
+			err = os.MkdirAll(filepath.Join(tempDir, "abcdef/volumes/kubernetes.io~empty-dir/hotplug-disks"), 0o755)
 			res = m.findVirtlauncherUID(vmi)
 			Expect(res).To(BeEquivalentTo(""))
 		})
@@ -346,21 +345,21 @@ var _ = Describe("HotplugVolume", func() {
 			By("Initializing cgroup mock files")
 			blockSourcePodUID := types.UID("fghij")
 			targetPodPath := hotplugdisk.TargetPodBasePath(tempDir, m.findVirtlauncherUID(vmi))
-			err = os.MkdirAll(targetPodPath, 0755)
+			err = os.MkdirAll(targetPodPath, 0o755)
 			Expect(err).ToNot(HaveOccurred())
 			deviceFile, err := newFile(tempDir, string(blockSourcePodUID), "volumes", "testvolume", "file")
 			Expect(err).ToNot(HaveOccurred())
-			Expect(os.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644)).To(Succeed())
+			Expect(os.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0o644)).To(Succeed())
 
 			vmi.Status.VolumeStatus = []v1.VolumeStatus{{Name: "testvolume", HotplugVolume: &v1.HotplugVolumeStatus{}}}
 			targetDevicePath, err := newFile(targetPodPath, "testvolume")
 			Expect(err).ToNot(HaveOccurred())
 			ownershipManager.EXPECT().SetFileOwnership(targetDevicePath)
 			statSourceDevice = func(fileName *safepath.Path) (os.FileInfo, error) {
-				return fakeStat(true, 0666, 123456), nil
+				return fakeStat(true, 0o666, 123456), nil
 			}
 			statDevice = func(fileName *safepath.Path) (os.FileInfo, error) {
-				return fakeStat(true, 0666, 123456), nil
+				return fakeStat(true, 0o666, 123456), nil
 			}
 			isBlockDevice = func(fileName *safepath.Path) (bool, error) {
 				return true, nil
@@ -386,20 +385,20 @@ var _ = Describe("HotplugVolume", func() {
 
 		It("getSourceMajorMinor should succeed if file exists", func() {
 			deviceFile := filepath.Join(tempDir, "fghij", "volumes", "test-volume", "file")
-			err = os.MkdirAll(filepath.Dir(deviceFile), 0755)
+			err = os.MkdirAll(filepath.Dir(deviceFile), 0o755)
 			Expect(err).ToNot(HaveOccurred())
-			err = os.WriteFile(deviceFile, []byte("test"), 0644)
+			err = os.WriteFile(deviceFile, []byte("test"), 0o644)
 			Expect(err).ToNot(HaveOccurred())
 			numbers, perm, err := m.getSourceMajorMinor("fghij", "test-volume")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(unix.Major(numbers)).To(Equal(uint32(482)))
 			Expect(unix.Minor(numbers)).To(Equal(uint32(64)))
-			Expect(perm & 0777).To(Equal(os.FileMode(0777)))
+			Expect(perm & 0o777).To(Equal(os.FileMode(0o777)))
 		})
 
 		It("getSourceMajorMinor should return error if file doesn't exists", func() {
 			deviceFile := filepath.Join(tempDir, "fghij", "volumes", "file")
-			err = os.MkdirAll(filepath.Dir(deviceFile), 0755)
+			err = os.MkdirAll(filepath.Dir(deviceFile), 0o755)
 			Expect(err).ToNot(HaveOccurred())
 			_, _, err := m.getSourceMajorMinor("fghij", "test-volume")
 			Expect(err).To(HaveOccurred())
@@ -418,13 +417,13 @@ var _ = Describe("HotplugVolume", func() {
 			}
 			Expect(unix.Major(numbers)).To(Equal(major))
 			Expect(unix.Minor(numbers)).To(Equal(minor))
-			Expect(perm).To(Equal(permRes & 0777))
+			Expect(perm).To(Equal(permRes & 0o777))
 		},
 			Entry("Should return values if stat command successful", func(safePath *safepath.Path) (os.FileInfo, error) {
-				return fakeStat(true, 0664, 123456), nil
-			}, uint32(482), uint32(64), os.FileMode(0664), false),
+				return fakeStat(true, 0o664, 123456), nil
+			}, uint32(482), uint32(64), os.FileMode(0o664), false),
 			Entry("Should not return error if stat command errors", func(safePath *safepath.Path) (os.FileInfo, error) {
-				return fakeStat(true, 0664, 123456), fmt.Errorf("Error")
+				return fakeStat(true, 0o664, 123456), fmt.Errorf("Error")
 			}, uint32(0), uint32(0), os.FileMode(0), true),
 		)
 
@@ -442,7 +441,7 @@ var _ = Describe("HotplugVolume", func() {
 		It("Should remove the block device and permissions on unmount", func() {
 			By("Initializing cgroup mock files")
 			statSourceDevice = func(fileName *safepath.Path) (os.FileInfo, error) {
-				return fakeStat(true, 0664, 123456), nil
+				return fakeStat(true, 0o664, 123456), nil
 			}
 			deviceFileName, err := newFile(tempDir, "devicefile")
 			Expect(err).ToNot(HaveOccurred())
@@ -456,7 +455,7 @@ var _ = Describe("HotplugVolume", func() {
 
 		It("Should return error if deviceFile doesn' exist", func() {
 			statSourceDevice = func(fileName *safepath.Path) (os.FileInfo, error) {
-				return fakeStat(true, 0664, 123456), nil
+				return fakeStat(true, 0o664, 123456), nil
 			}
 			deviceFileName, err := newFile(tempDir, "devicefile")
 			Expect(err).ToNot(HaveOccurred())
@@ -469,7 +468,7 @@ var _ = Describe("HotplugVolume", func() {
 		It("Should attempt to create a block device file if it doesn't exist", func() {
 			testMajor := uint32(482)
 			testMinor := uint32(64)
-			testPerm := os.FileMode(0664)
+			testPerm := os.FileMode(0o664)
 			mknodCommand = func(basePath *safepath.Path, deviceName string, dev uint64, blockDevicePermissions os.FileMode) error {
 				Expect(basePath).To(Equal(tmpDirSafe))
 				Expect(deviceName).To(Equal("testfile"))
@@ -496,7 +495,7 @@ var _ = Describe("HotplugVolume", func() {
 
 		It("Should not attempt to create a block device file if it exists", func() {
 			testFile := filepath.Join(tempDir, "testfile")
-			testPerm := os.FileMode(0664)
+			testPerm := os.FileMode(0o664)
 			_, err = os.Create(testFile)
 			Expect(err).ToNot(HaveOccurred())
 			mknodCommand = func(basePath *safepath.Path, deviceName string, dev uint64, blockDevicePermissions os.FileMode) error {
@@ -506,7 +505,6 @@ var _ = Describe("HotplugVolume", func() {
 			err := m.createBlockDeviceFile(tmpDirSafe, "testfile", 123456, testPerm)
 			Expect(err).ToNot(HaveOccurred())
 		})
-
 	})
 
 	Context("filesystem volumes", func() {
@@ -720,7 +718,7 @@ var _ = Describe("HotplugVolume", func() {
 			vmi.Status.ActivePods = activePods
 
 			targetPodPath = filepath.Join(tempDir, "abcd/volumes/kubernetes.io~empty-dir/hotplug-disks")
-			err = os.MkdirAll(targetPodPath, 0755)
+			err = os.MkdirAll(targetPodPath, 0o755)
 			Expect(err).ToNot(HaveOccurred())
 
 			m = &volumeMounter{
@@ -735,10 +733,10 @@ var _ = Describe("HotplugVolume", func() {
 				return newDir(tempDir, string(podUID), "volumes")
 			}
 			statSourceDevice = func(fileName *safepath.Path) (os.FileInfo, error) {
-				return fakeStat(true, 0777, 123456), nil
+				return fakeStat(true, 0o777, 123456), nil
 			}
 			statDevice = func(fileName *safepath.Path) (os.FileInfo, error) {
-				return fakeStat(true, 0777, 123456), nil
+				return fakeStat(true, 0o777, 123456), nil
 			}
 			isolationDetector = func(path string) isolation.PodIsolationDetector {
 				return &mockIsolationDetector{
@@ -800,7 +798,7 @@ var _ = Describe("HotplugVolume", func() {
 
 			deviceFile, err := newFile(unsafepath.UnsafeAbsolute(blockDevicePath.Raw()), "blockvolumefile")
 			Expect(err).ToNot(HaveOccurred())
-			err = os.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644)
+			err = os.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0o644)
 			Expect(err).ToNot(HaveOccurred())
 
 			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
@@ -924,7 +922,7 @@ var _ = Describe("HotplugVolume", func() {
 
 			deviceFile, err := newFile(unsafepath.UnsafeAbsolute(blockDevicePath.Raw()), "blockvolumefile")
 			Expect(err).ToNot(HaveOccurred())
-			err = os.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0644)
+			err = os.WriteFile(unsafepath.UnsafeAbsolute(deviceFile.Raw()), []byte("test"), 0o644)
 			Expect(err).ToNot(HaveOccurred())
 
 			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
@@ -992,7 +990,6 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).To(HaveOccurred(), "block device volume still exists %s", blockVolume)
 		})
 	})
-
 })
 
 type mockIsolationDetector struct {
@@ -1035,6 +1032,7 @@ func newFile(baseDir string, elems ...string) (*safepath.Path, error) {
 	f.Close()
 	return safepath.JoinAndResolveWithRelativeRoot(baseDir, elems...)
 }
+
 func newDir(baseDir string, elems ...string) (*safepath.Path, error) {
 	targetPath := filepath.Join(append([]string{baseDir}, elems...)...)
 	err := os.MkdirAll(targetPath, os.ModePerm)
@@ -1055,12 +1053,12 @@ type fakeFileInfo struct {
 }
 
 func (f fakeFileInfo) Name() string {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (f fakeFileInfo) Size() int64 {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
@@ -1072,12 +1070,12 @@ func (f fakeFileInfo) Mode() fs.FileMode {
 }
 
 func (f fakeFileInfo) ModTime() time.Time {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (f fakeFileInfo) IsDir() bool {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 

@@ -28,7 +28,6 @@ import (
 )
 
 var _ = Describe("PVC utils test", func() {
-
 	namespace := "testns"
 	file1Name := "file1"
 	file2Name := "file2"
@@ -59,7 +58,6 @@ var _ = Describe("PVC utils test", func() {
 	}
 
 	Context("PVC block device test with store", func() {
-
 		pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 		pvcCache.Add(&filePvc1)
 		pvcCache.Add(&filePvc2)
@@ -97,5 +95,4 @@ var _ = Describe("PVC utils test", func() {
 			Expect(isBlock).To(BeTrue(), "Is blockdevice PVC")
 		})
 	})
-
 })

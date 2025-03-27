@@ -21,7 +21,6 @@ import (
 type factoryFunc func(requestedToplogy *api.CPUTopology, nodeTopology *v1.Topology, cpuSet []int) VCPUPool
 
 var _ = Describe("VCPU pinning", func() {
-
 	BeforeEach(func() {
 		seed := time.Now().UnixNano()
 		rand.NewSource(seed)
@@ -351,6 +350,7 @@ func generateNegativeCPUPinningTests(testArgs ...*testArgs) {
 		})
 	}
 }
+
 func funcName(f interface{}) string {
 	arr := strings.Split(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), ".")
 	return arr[len(arr)-1]

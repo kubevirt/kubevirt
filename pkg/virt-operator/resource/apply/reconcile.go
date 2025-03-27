@@ -53,8 +53,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
-const Duration7d = time.Hour * 24 * 7
-const Duration1d = time.Hour * 24
+const (
+	Duration7d = time.Hour * 24 * 7
+	Duration1d = time.Hour * 24
+)
 
 type DefaultInfraComponentsNodePlacement int
 
@@ -236,7 +238,7 @@ func InjectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev
 						}
 					}
 
-					//PreferredDuringSchedulingIgnoredDuringExecution
+					// PreferredDuringSchedulingIgnoredDuringExecution
 					for _, term := range nodePlacement.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
 						podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution, term)
 					}
@@ -248,11 +250,11 @@ func InjectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev
 				if podSpec.Affinity.PodAffinity == nil {
 					podSpec.Affinity.PodAffinity = nodePlacement.Affinity.PodAffinity.DeepCopy()
 				} else {
-					//RequiredDuringSchedulingIgnoredDuringExecution
+					// RequiredDuringSchedulingIgnoredDuringExecution
 					for _, term := range nodePlacement.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution {
 						podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution, term)
 					}
-					//PreferredDuringSchedulingIgnoredDuringExecution
+					// PreferredDuringSchedulingIgnoredDuringExecution
 					for _, term := range nodePlacement.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
 						podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution, term)
 					}
@@ -263,11 +265,11 @@ func InjectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev
 				if podSpec.Affinity.PodAntiAffinity == nil {
 					podSpec.Affinity.PodAntiAffinity = nodePlacement.Affinity.PodAntiAffinity.DeepCopy()
 				} else {
-					//RequiredDuringSchedulingIgnoredDuringExecution
+					// RequiredDuringSchedulingIgnoredDuringExecution
 					for _, term := range nodePlacement.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution {
 						podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution, term)
 					}
-					//PreferredDuringSchedulingIgnoredDuringExecution
+					// PreferredDuringSchedulingIgnoredDuringExecution
 					for _, term := range nodePlacement.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution {
 						podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(podSpec.Affinity.PodAntiAffinity.PreferredDuringSchedulingIgnoredDuringExecution, term)
 					}
@@ -276,7 +278,7 @@ func InjectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev
 		}
 	}
 
-	//podSpec.Tolerations
+	// podSpec.Tolerations
 	if len(nodePlacement.Tolerations) != 0 {
 		if len(podSpec.Tolerations) == 0 {
 			podSpec.Tolerations = []corev1.Toleration{}
@@ -288,9 +290,11 @@ func InjectPlacementMetadata(componentConfig *v1.ComponentConfig, podSpec *corev
 }
 
 func createLabelsAndAnnotationsPatch(objectMeta *metav1.ObjectMeta) []patch.PatchOption {
-	return []patch.PatchOption{patch.WithAdd("/metadata/labels", objectMeta.Labels),
+	return []patch.PatchOption{
+		patch.WithAdd("/metadata/labels", objectMeta.Labels),
 		patch.WithAdd("/metadata/annotations", objectMeta.Annotations),
-		patch.WithAdd("/metadata/ownerReferences", objectMeta.OwnerReferences)}
+		patch.WithAdd("/metadata/ownerReferences", objectMeta.OwnerReferences),
+	}
 }
 
 func getPatchWithObjectMetaAndSpec(ops []patch.PatchOption, meta *metav1.ObjectMeta, spec interface{}) []patch.PatchOption {
@@ -377,7 +381,6 @@ func haveDaemonSetsRolledOver(targetStrategy install.StrategyInterface, kv *v1.K
 }
 
 func (r *Reconciler) createDummyWebhookValidator() error {
-
 	var webhooks []admissionregistrationv1.ValidatingWebhook
 
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
@@ -386,7 +389,6 @@ func (r *Reconciler) createDummyWebhookValidator() error {
 	objects := r.stores.ValidationWebhookCache.List()
 	for _, obj := range objects {
 		if webhook, ok := obj.(*admissionregistrationv1.ValidatingWebhookConfiguration); ok {
-
 			if objectMatchesVersion(&webhook.ObjectMeta, version, imageRegistry, id, r.kv.GetGeneration()) {
 				// already created blocking webhook for this version
 				return nil
@@ -550,7 +552,6 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 
 	infrastructureRolledOver := false
 	if apiDeploymentsRolledOver && controllerDeploymentsRolledOver && exportProxyDeploymentsRolledOver && daemonSetsRolledOver {
-
 		// infrastructure has rolled over and is available
 		infrastructureRolledOver = true
 	} else if (targetVersion == observedVersion) && (targetImageRegistry == observedImageRegistry) {
@@ -809,7 +810,6 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			}
 
 			for _, targetWebhook := range r.targetStrategy.ValidatingWebhookConfigurations() {
-
 				if targetWebhook.Name == webhook.Name {
 					found = true
 					break

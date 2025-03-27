@@ -40,12 +40,15 @@ type secretVolumeInfo struct{}
 func (i secretVolumeInfo) isValidType(v *v1.Volume) bool {
 	return v.Secret != nil
 }
+
 func (i secretVolumeInfo) getSourcePath(v *v1.Volume) string {
 	return GetSecretSourcePath(v.Name)
 }
+
 func (i secretVolumeInfo) getIsoPath(v *v1.Volume) string {
 	return GetSecretDiskPath(v.Name)
 }
+
 func (i secretVolumeInfo) getLabel(v *v1.Volume) string {
 	return v.Secret.VolumeLabel
 }

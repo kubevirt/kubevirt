@@ -33,7 +33,6 @@ import (
 )
 
 var _ = Describe("[sig-compute]Version", decorators.SigCompute, func() {
-
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -51,5 +50,4 @@ var _ = Describe("[sig-compute]Version", decorators.SigCompute, func() {
 			Expect(info.BuildDate).To(Not(SatisfyAny(Equal("1970-01-01T00:00:00Z"), Equal("{buildDate}"))))
 		})
 	})
-
 })

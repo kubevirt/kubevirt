@@ -35,9 +35,7 @@ const (
 	failedUnmountFmt         = "failed to unmount containerDisk %v: %v : %v"
 )
 
-var (
-	ErrDiskContainerGone = errors.New("disk container is gone")
-)
+var ErrDiskContainerGone = errors.New("disk container is gone")
 
 //go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
@@ -403,7 +401,7 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 	if err != nil {
 		return fmt.Errorf("failed to get disk target dir: %v", err)
 	}
-	if err := safepath.MkdirAtNoFollow(targetDir, containerdisk.KernelBootName, 0755); err != nil {
+	if err := safepath.MkdirAtNoFollow(targetDir, containerdisk.KernelBootName, 0o755); err != nil {
 		if !os.IsExist(err) {
 			return err
 		}
@@ -413,7 +411,7 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 	if err != nil {
 		return err
 	}
-	if err := safepath.ChpermAtNoFollow(targetDir, 0, 0, 0755); err != nil {
+	if err := safepath.ChpermAtNoFollow(targetDir, 0, 0, 0o755); err != nil {
 		return err
 	}
 
@@ -438,7 +436,7 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 	var targetKernelPath *safepath.Path
 
 	if kb.InitrdPath != "" {
-		if err := safepath.TouchAtNoFollow(targetDir, filepath.Base(kb.InitrdPath), 0655); err != nil && !os.IsExist(err) {
+		if err := safepath.TouchAtNoFollow(targetDir, filepath.Base(kb.InitrdPath), 0o655); err != nil && !os.IsExist(err) {
 			return err
 		}
 
@@ -449,7 +447,7 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 	}
 
 	if kb.KernelPath != "" {
-		if err := safepath.TouchAtNoFollow(targetDir, filepath.Base(kb.KernelPath), 0655); err != nil && !os.IsExist(err) {
+		if err := safepath.TouchAtNoFollow(targetDir, filepath.Base(kb.KernelPath), 0o655); err != nil && !os.IsExist(err) {
 			return err
 		}
 
@@ -663,7 +661,6 @@ func getDigest(imageFile *safepath.Path) (uint32, error) {
 }
 
 func (m *mounter) ComputeChecksums(vmi *v1.VirtualMachineInstance) (*DiskChecksums, error) {
-
 	diskChecksums := &DiskChecksums{
 		ContainerDiskChecksums: map[string]uint32{},
 	}

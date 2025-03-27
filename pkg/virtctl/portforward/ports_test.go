@@ -6,7 +6,6 @@ import (
 )
 
 var _ = Describe("Ports", func() {
-
 	DescribeTable("parsePort", func(arg string, port forwardedPort, success bool) {
 		result, err := parsePort(arg)
 		if success {

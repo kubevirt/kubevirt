@@ -26,8 +26,7 @@ import (
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
 )
 
-type VirtualMachinePoolConditionManager struct {
-}
+type VirtualMachinePoolConditionManager struct{}
 
 func NewVirtualMachinePoolConditionManager() *VirtualMachinePoolConditionManager {
 	return &VirtualMachinePoolConditionManager{}
@@ -77,8 +76,7 @@ func (d *VirtualMachinePoolConditionManager) UpdateCondition(pool *poolv1.Virtua
 	pool.Status.Conditions = append(pool.Status.Conditions, *cond)
 }
 
-type VirtualMachineConditionManager struct {
-}
+type VirtualMachineConditionManager struct{}
 
 func NewVirtualMachineConditionManager() *VirtualMachineConditionManager {
 	return &VirtualMachineConditionManager{}
@@ -116,8 +114,7 @@ func (d *VirtualMachineConditionManager) RemoveCondition(vm *v1.VirtualMachine, 
 	vm.Status.Conditions = conds
 }
 
-type VirtualMachineInstanceConditionManager struct {
-}
+type VirtualMachineInstanceConditionManager struct{}
 
 func NewVirtualMachineInstanceConditionManager() *VirtualMachineInstanceConditionManager {
 	return &VirtualMachineInstanceConditionManager{}
@@ -254,8 +251,7 @@ func (d *VirtualMachineInstanceConditionManager) ConditionsEqual(vmi1, vmi2 *v1.
 	return true
 }
 
-type VirtualMachineInstanceMigrationConditionManager struct {
-}
+type VirtualMachineInstanceMigrationConditionManager struct{}
 
 func NewVirtualMachineInstanceMigrationConditionManager() *VirtualMachineInstanceMigrationConditionManager {
 	return &VirtualMachineInstanceMigrationConditionManager{}
@@ -292,7 +288,8 @@ func (d *VirtualMachineInstanceMigrationConditionManager) RemoveCondition(migrat
 
 // UpdateCondition updates the given VirtualMachineMigrationCondition, unless it is already set with the same status and reason.
 func (d *VirtualMachineInstanceMigrationConditionManager) UpdateCondition(mig *v1.VirtualMachineInstanceMigration,
-	cond *v1.VirtualMachineInstanceMigrationCondition) {
+	cond *v1.VirtualMachineInstanceMigrationCondition,
+) {
 	for i, c := range mig.Status.Conditions {
 		if c.Type != cond.Type {
 			continue
@@ -308,8 +305,7 @@ func (d *VirtualMachineInstanceMigrationConditionManager) UpdateCondition(mig *v
 	mig.Status.Conditions = append(mig.Status.Conditions, *cond)
 }
 
-type PodConditionManager struct {
-}
+type PodConditionManager struct{}
 
 func NewPodConditionManager() *PodConditionManager {
 	return &PodConditionManager{}

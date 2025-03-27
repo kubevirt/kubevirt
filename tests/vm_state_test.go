@@ -39,9 +39,7 @@ var _ = Describe("[sig-compute]VM state", func() {
 		rwo = false
 	)
 
-	var (
-		virtClient kubecli.KubevirtClient
-	)
+	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
 		var err error
@@ -69,7 +67,6 @@ var _ = Describe("[sig-compute]VM state", func() {
 			By("Migrating the VMI")
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
-
 		}
 
 		addDataToTPM := func(vmi *v1.VirtualMachineInstance) {

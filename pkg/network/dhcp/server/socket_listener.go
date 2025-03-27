@@ -36,7 +36,6 @@ func NewUDP4FilterListener(interfaceName, laddr string) (c ServeIfConn, e error)
 	}
 	lc := CreateListenConfig()
 	l, err := lc.ListenPacket(context.Background(), "udp4", laddr)
-
 	if err != nil {
 		return nil, err
 	}

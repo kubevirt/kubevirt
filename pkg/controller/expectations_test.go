@@ -58,7 +58,6 @@ func NewFakeControllerExpectationsLookup(ttl time.Duration) (*ControllerExpectat
 }
 
 func newReplicationController(replicas int) *v1.ReplicationController {
-
 	rc := &v1.ReplicationController{
 		TypeMeta: metav1.TypeMeta{APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{

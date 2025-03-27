@@ -22,7 +22,6 @@ import (
 )
 
 var _ = Describe("Arch Converter", func() {
-
 	DescribeTable("Should create a new archConverter for the correct architecture", func(arch string, result Converter) {
 		ac := NewConverter(arch)
 

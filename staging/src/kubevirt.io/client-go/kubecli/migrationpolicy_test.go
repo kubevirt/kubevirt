@@ -41,7 +41,6 @@ const (
 )
 
 var _ = Describe("Kubevirt MigrationPolicy Client", func() {
-
 	var server *ghttp.Server
 	var basePath, policyPath string
 

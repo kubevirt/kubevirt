@@ -182,7 +182,6 @@ func (c *Controller) execute(key string) error {
 			params := []string{}
 			if namespace != "" {
 				params = append(params, "namespace", namespace)
-
 			}
 			params = append(params, "name", name)
 			params = append(params, "kind", "Node")
@@ -326,7 +325,6 @@ func (c *Controller) createEventIfNodeHasOrphanedVMIs(node *v1.Node, vmis []*vir
 		FieldSelector: handlerNodeSelector.String(),
 		LabelSelector: virtHandlerSelector.String(),
 	})
-
 	if err != nil {
 		return err
 	}
@@ -357,7 +355,6 @@ func checkDaemonSetStatus(clientset kubecli.KubevirtClient, selector fields.Sele
 	dss, err := clientset.AppsV1().DaemonSets(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{
 		LabelSelector: selector.String(),
 	})
-
 	if err != nil {
 		return false, err
 	}

@@ -61,7 +61,6 @@ func (v *ClusterProfiler) preferredVersion() (string, error) {
 	}
 
 	return group.PreferredVersion.GroupVersion, nil
-
 }
 
 func (v *ClusterProfiler) Start() error {
@@ -79,7 +78,6 @@ func (v *ClusterProfiler) Start() error {
 func (v *ClusterProfiler) Stop() error {
 	preferredVersion, err := v.preferredVersion()
 	if err != nil {
-
 		return fmt.Errorf("error encountered while detecting preferred version: %v", err)
 	}
 

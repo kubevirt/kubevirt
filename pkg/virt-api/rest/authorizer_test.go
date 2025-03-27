@@ -188,7 +188,6 @@ var _ = Describe("Authorizer", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(result).To(BeTrue())
 				})
-
 			})
 
 			DescribeTable("should allow all users for info endpoints", func(path string) {
@@ -229,7 +228,6 @@ var _ = Describe("Authorizer", func() {
 				result, _, err := app.Authorize(req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(BeFalse())
-
 			},
 				Entry("random1", "/apis/subresources.kubevirt.io/v1alpha3/madethisup"),
 				Entry("random2", "/1/2/3/4/5/6/7/8/9/0/1/2/3/4/5/6/7/8/9"),

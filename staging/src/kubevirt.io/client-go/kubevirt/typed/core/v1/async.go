@@ -43,7 +43,6 @@ func (a *AsyncSubresourceError) GetStatusCode() int {
 
 // params are strings with "key=value" format
 func AsyncSubresourceHelper(config *rest.Config, resource, namespace, name string, subresource string, queryParams url.Values) (StreamInterface, error) {
-
 	done := make(chan struct{})
 
 	aws := &AsyncWSRoundTripper{
@@ -67,7 +66,6 @@ func AsyncSubresourceHelper(config *rest.Config, resource, namespace, name strin
 	go func() {
 		// Send the request and let the callback do its work
 		response, err := wrappedRoundTripper.RoundTrip(req)
-
 		if err != nil {
 			statusCode := 0
 			if response != nil {
@@ -125,7 +123,6 @@ type AsyncWSRoundTripper struct {
 }
 
 func (aws *AsyncWSRoundTripper) WebsocketCallback(ws *websocket.Conn, resp *http.Response, err error) error {
-
 	if err != nil {
 		if resp != nil && resp.StatusCode != http.StatusOK {
 			return enrichError(err, resp)
@@ -140,7 +137,6 @@ func (aws *AsyncWSRoundTripper) WebsocketCallback(ws *websocket.Conn, resp *http
 }
 
 func roundTripperFromConfig(config *rest.Config, callback RoundTripCallback) (http.RoundTripper, error) {
-
 	// Configure TLS
 	tlsConfig, err := rest.TLSConfigFor(config)
 	if err != nil {
@@ -171,7 +167,6 @@ func roundTripperFromConfig(config *rest.Config, callback RoundTripCallback) (ht
 }
 
 func RequestFromConfig(config *rest.Config, resource, name, namespace, subresource string, queryParams url.Values) (*http.Request, error) {
-
 	u, err := url.Parse(config.Host)
 	if err != nil {
 		return nil, err

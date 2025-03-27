@@ -48,11 +48,13 @@ func WaitSnapshotSucceeded(virtClient kubecli.KubevirtClient, namespace string, 
 			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 				"Type":   Equal(snapshotv1.ConditionReady),
 				"Status": Equal(corev1.ConditionTrue),
-				"Reason": Equal("Ready")}),
+				"Reason": Equal("Ready"),
+			}),
 			gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 				"Type":   Equal(snapshotv1.ConditionProgressing),
 				"Status": Equal(corev1.ConditionFalse),
-				"Reason": Equal("Operation complete")}),
+				"Reason": Equal("Operation complete"),
+			}),
 		),
 	})))
 

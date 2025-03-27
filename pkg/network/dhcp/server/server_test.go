@@ -32,7 +32,6 @@ import (
 )
 
 var _ = Describe("DHCP Server", func() {
-
 	Context("check routes", func() {
 		It("verify should form correctly", func() {
 			expected := []byte{4, 224, 0, 0, 0, 0, 24, 192, 168, 1, 192, 168, 2, 1}

@@ -86,19 +86,27 @@ var _ = Describe("Mutating Webhook Presets", func() {
 						}},
 						CPU:      &v1.CPU{Cores: 4},
 						Firmware: &v1.Firmware{UUID: types.UID("11112222-3333-4444-5555-666677778888")},
-						Clock: &v1.Clock{ClockOffset: v1.ClockOffset{},
-							Timer: &v1.Timer{HPET: &v1.HPETTimer{TickPolicy: v1.HPETTickPolicyDelay}},
+						Clock: &v1.Clock{
+							ClockOffset: v1.ClockOffset{},
+							Timer:       &v1.Timer{HPET: &v1.HPETTimer{TickPolicy: v1.HPETTickPolicyDelay}},
 						},
-						Features: &v1.Features{ACPI: v1.FeatureState{Enabled: &truthy},
+						Features: &v1.Features{
+							ACPI:   v1.FeatureState{Enabled: &truthy},
 							APIC:   &v1.FeatureAPIC{Enabled: &falsy},
 							Hyperv: &v1.FeatureHyperv{},
 						},
 						Devices: v1.Devices{
-							Watchdog: &v1.Watchdog{Name: "testcase",
-								WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionReset}}},
-							Disks: []v1.Disk{{Name: "testdisk",
+							Watchdog: &v1.Watchdog{
+								Name:           "testcase",
+								WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionReset}},
+							},
+							Disks: []v1.Disk{{
+								Name: "testdisk",
 								DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{
-									Bus: v1.DiskBusVirtio, ReadOnly: true}}}}},
+									Bus: v1.DiskBusVirtio, ReadOnly: true,
+								}},
+							}},
+						},
 					},
 				},
 			}
@@ -227,8 +235,9 @@ var _ = Describe("Mutating Webhook Presets", func() {
 		})
 
 		It("Should detect Clock overrides", func() {
-			preset.Spec.Domain.Clock = &v1.Clock{ClockOffset: v1.ClockOffset{},
-				Timer: &v1.Timer{HPET: &v1.HPETTimer{TickPolicy: v1.HPETTickPolicyCatchup}},
+			preset.Spec.Domain.Clock = &v1.Clock{
+				ClockOffset: v1.ClockOffset{},
+				Timer:       &v1.Timer{HPET: &v1.HPETTimer{TickPolicy: v1.HPETTickPolicyCatchup}},
 			}
 
 			By("showing that an override occurs")
@@ -243,8 +252,9 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			Expect(vmi.Annotations).To(BeEmpty())
 			Expect(vmi.Spec.Domain.Clock.Timer.HPET.TickPolicy).To(Equal(v1.HPETTickPolicyDelay))
 
-			preset.Spec.Domain.Clock = &v1.Clock{ClockOffset: v1.ClockOffset{},
-				Timer: &v1.Timer{HPET: &v1.HPETTimer{TickPolicy: v1.HPETTickPolicyDelay}},
+			preset.Spec.Domain.Clock = &v1.Clock{
+				ClockOffset: v1.ClockOffset{},
+				Timer:       &v1.Timer{HPET: &v1.HPETTimer{TickPolicy: v1.HPETTickPolicyDelay}},
 			}
 
 			By("showing that an overide does not occur")
@@ -276,7 +286,8 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			Expect(vmi.Annotations).To(BeEmpty())
 			Expect(*vmi.Spec.Domain.Features.ACPI.Enabled).To(BeTrue())
 
-			preset.Spec.Domain.Features = &v1.Features{ACPI: v1.FeatureState{Enabled: &truthy},
+			preset.Spec.Domain.Features = &v1.Features{
+				ACPI:   v1.FeatureState{Enabled: &truthy},
 				APIC:   &v1.FeatureAPIC{Enabled: &falsy},
 				Hyperv: &v1.FeatureHyperv{},
 			}
@@ -559,7 +570,6 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			Expect(vmi.Spec.Domain.CPU).ToNot(BeNil())
 			Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(4)))
 			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal(fmt.Sprintf("kubevirt.io/%s", v1.ApiLatestVersion)))
-
 		})
 
 		It("Should apply Resources", func() {
@@ -587,8 +597,9 @@ var _ = Describe("Mutating Webhook Presets", func() {
 		})
 
 		It("Should apply Clock settings", func() {
-			clock := &v1.Clock{ClockOffset: v1.ClockOffset{},
-				Timer: &v1.Timer{HPET: &v1.HPETTimer{TickPolicy: v1.HPETTickPolicyDelay}},
+			clock := &v1.Clock{
+				ClockOffset: v1.ClockOffset{},
+				Timer:       &v1.Timer{HPET: &v1.HPETTimer{TickPolicy: v1.HPETTickPolicyDelay}},
 			}
 			preset.Spec.Domain.Clock = clock
 
@@ -600,7 +611,8 @@ var _ = Describe("Mutating Webhook Presets", func() {
 		})
 
 		It("Should apply Feature settings", func() {
-			features := &v1.Features{ACPI: v1.FeatureState{Enabled: &truthy},
+			features := &v1.Features{
+				ACPI:   v1.FeatureState{Enabled: &truthy},
 				APIC:   &v1.FeatureAPIC{Enabled: &falsy},
 				Hyperv: &v1.FeatureHyperv{},
 			}

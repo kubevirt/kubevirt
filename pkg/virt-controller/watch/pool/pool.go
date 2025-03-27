@@ -81,7 +81,8 @@ func NewController(clientset kubecli.KubevirtClient,
 	poolInformer cache.SharedIndexInformer,
 	revisionInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
-	burstReplicas uint) (*Controller, error) {
+	burstReplicas uint,
+) (*Controller, error) {
 	c := &Controller{
 		clientset: clientset,
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
@@ -199,7 +200,6 @@ func (c *Controller) addVMIHandler(obj interface{}) {
 
 	// enqueue the Pool due to a VMI detected that isn't up to date
 	c.enqueuePool(pool)
-
 }
 
 func (c *Controller) updateVMIHandler(old, cur interface{}) {
@@ -481,7 +481,6 @@ func (c *Controller) calcDiff(pool *poolv1.VirtualMachinePool, vms []*virtv1.Vir
 }
 
 func filterDeletingVMs(vms []*virtv1.VirtualMachine) []*virtv1.VirtualMachine {
-
 	filtered := []*virtv1.VirtualMachine{}
 	for _, vm := range vms {
 		if vm.DeletionTimestamp == nil {
@@ -509,7 +508,6 @@ func filterVMs(vms []*virtv1.VirtualMachine, f func(vmi *virtv1.VirtualMachine) 
 }
 
 func (c *Controller) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine, count int) error {
-
 	poolKey, err := controller.KeyFunc(pool)
 	if err != nil {
 		return err
@@ -661,7 +659,6 @@ func indexVMSpec(poolSpec *poolv1.VirtualMachinePoolSpec, idx int) *virtv1.Virtu
 }
 
 func injectPoolRevisionLabelsIntoVM(vm *virtv1.VirtualMachine, revisionName string) *virtv1.VirtualMachine {
-
 	if vm.Labels == nil {
 		vm.Labels = map[string]string{}
 	}
@@ -720,7 +717,6 @@ func (c *Controller) ensureControllerRevision(pool *poolv1.VirtualMachinePool) (
 }
 
 func (c *Controller) getControllerRevision(namespace, name string) (*poolv1.VirtualMachinePoolSpec, bool, error) {
-
 	key := controller.NamespacedKey(namespace, name)
 
 	storeObj, exists, err := c.revisionIndexer.GetByKey(key)
@@ -740,11 +736,9 @@ func (c *Controller) getControllerRevision(namespace, name string) (*poolv1.Virt
 		return nil, false, err
 	}
 	return spec, true, nil
-
 }
 
 func (c *Controller) scaleOut(pool *poolv1.VirtualMachinePool, count int) error {
-
 	var wg sync.WaitGroup
 
 	newNames := calculateNewVMNames(count, pool.Name, pool.Namespace, c.vmIndexer)
@@ -785,7 +779,6 @@ func (c *Controller) scaleOut(pool *poolv1.VirtualMachinePool, count int) error 
 			vm.ObjectMeta.OwnerReferences = []metav1.OwnerReference{poolOwnerRef(pool)}
 
 			vm, err = c.clientset.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-
 			if err != nil {
 				c.expectations.CreationObserved(poolKey)
 				log.Log.Object(pool).Reason(err).Errorf("Failed to add vm %s/%s to pool", pool.Namespace, name)
@@ -1063,7 +1056,6 @@ func (c *Controller) isOutdatedVMI(vm *virtv1.VirtualMachine, vmi *virtv1.Virtua
 }
 
 func (c *Controller) isOutdatedVM(pool *poolv1.VirtualMachinePool, vm *virtv1.VirtualMachine) (bool, error) {
-
 	if vm.Labels == nil {
 		log.Log.Object(pool).Infof("Marking vm %s/%s for update due to missing labels ", vm.Namespace, vm.Name)
 		return true, nil
@@ -1089,11 +1081,9 @@ func (c *Controller) isOutdatedVM(pool *poolv1.VirtualMachinePool, vm *virtv1.Vi
 	}
 
 	return false, nil
-
 }
 
 func (c *Controller) pruneUnusedRevisions(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) common.SyncError {
-
 	keys, err := c.revisionIndexer.IndexKeys("vmpool", string(pool.UID))
 	if err != nil {
 		return common.NewSyncError(fmt.Errorf("Error while pruning vmpool revisions: %v", err), FailedRevisionPruningReason)
@@ -1205,7 +1195,6 @@ func (c *Controller) Execute() bool {
 }
 
 func (c *Controller) updateStatus(origPool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine, syncErr common.SyncError) error {
-
 	key, err := controller.KeyFunc(origPool)
 	if err != nil {
 		return err
@@ -1264,7 +1253,6 @@ func (c *Controller) updateStatus(origPool *poolv1.VirtualMachinePool, vms []*vi
 	}
 
 	return nil
-
 }
 
 func (c *Controller) execute(key string) error {

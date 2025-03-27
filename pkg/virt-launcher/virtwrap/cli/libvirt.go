@@ -40,8 +40,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"
 )
 
-const ConnectionTimeout = 15 * time.Second
-const ConnectionInterval = 500 * time.Millisecond
+const (
+	ConnectionTimeout  = 15 * time.Second
+	ConnectionInterval = 500 * time.Millisecond
+)
 
 // TODO: Should we handle libvirt connection errors transparent or panic?
 type Connection interface {
@@ -600,7 +602,6 @@ func IsDown(domState libvirt.DomainState) bool {
 	switch domState {
 	case libvirt.DOMAIN_NOSTATE, libvirt.DOMAIN_SHUTDOWN, libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_CRASHED:
 		return true
-
 	}
 	return false
 }
@@ -609,7 +610,6 @@ func IsPaused(domState libvirt.DomainState) bool {
 	switch domState {
 	case libvirt.DOMAIN_PAUSED:
 		return true
-
 	}
 	return false
 }

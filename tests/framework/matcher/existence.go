@@ -18,8 +18,7 @@ func BeGone() types.GomegaMatcher {
 	return goneMatcher{}
 }
 
-type existMatcher struct {
-}
+type existMatcher struct{}
 
 func (e existMatcher) Match(actual interface{}) (success bool, err error) {
 	if helper.IsNil(actual) {
@@ -51,7 +50,6 @@ func formatObject(actual interface{}) string {
 }
 
 func (e existMatcher) FailureMessage(actual interface{}) (message string) {
-
 	return fmt.Sprintf("expected object to still exist, but it is gone: %s", formatObject(actual))
 }
 
@@ -59,8 +57,7 @@ func (e existMatcher) NegatedFailureMessage(actual interface{}) (message string)
 	return fmt.Sprintf("expected object to be gone, but it still exists: %s", formatObject(actual))
 }
 
-type goneMatcher struct {
-}
+type goneMatcher struct{}
 
 func (g goneMatcher) Match(actual interface{}) (success bool, err error) {
 	if helper.IsNil(actual) {

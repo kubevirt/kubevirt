@@ -44,7 +44,6 @@ var _ = Describe("VMI phase transition time histogram", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(diffSeconds).To(Equal(expectedVal))
-
 		},
 			Entry("Time between running and scheduled", 5.0, v1.Running, v1.Scheduled),
 			Entry("Time between running and scheduled using fraction of a second", .5, v1.Running, v1.Scheduled),
@@ -114,7 +113,6 @@ func createVMISForPhaseTransitionTime(phase v1.VirtualMachineInstancePhase, oldP
 			Phase:                    oldPhase,
 			PhaseTransitionTimestamp: old,
 		})
-
 	}
 
 	return vmi

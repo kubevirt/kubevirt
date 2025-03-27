@@ -100,7 +100,8 @@ func (ctrl *VMExportController) getPVCFromSourcePVC(vmExport *exportv1.VirtualMa
 			volumes:          nil,
 			inUse:            false,
 			isPopulated:      false,
-			availableMessage: fmt.Sprintf("pvc %s/%s not found", vmExport.Namespace, vmExport.Spec.Source.Name)}, nil
+			availableMessage: fmt.Sprintf("pvc %s/%s not found", vmExport.Namespace, vmExport.Spec.Source.Name),
+		}, nil
 	}
 
 	isPopulated, inUse, availableMessage, err := ctrl.isSourceAvailablePVC(vmExport, pvc)
@@ -111,7 +112,8 @@ func (ctrl *VMExportController) getPVCFromSourcePVC(vmExport *exportv1.VirtualMa
 		volumes:          []*corev1.PersistentVolumeClaim{pvc},
 		inUse:            inUse,
 		isPopulated:      isPopulated,
-		availableMessage: availableMessage}, nil
+		availableMessage: availableMessage,
+	}, nil
 }
 
 func (ctrl *VMExportController) isPVCInUse(vmExport *exportv1.VirtualMachineExport, pvc *corev1.PersistentVolumeClaim) (bool, error) {

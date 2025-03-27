@@ -277,7 +277,6 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 }
 
 func (app *SubresourceAPIApp) PauseVMIRequestHandler(request *restful.Request, response *restful.Response) {
-
 	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 		if vmi.Status.Phase != v1.Running {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmNotRunning))
@@ -308,11 +307,9 @@ func (app *SubresourceAPIApp) PauseVMIRequestHandler(request *restful.Request, r
 		dryRun = true
 	}
 	app.putRequestHandler(request, response, validate, getURL, dryRun)
-
 }
 
 func (app *SubresourceAPIApp) UnpauseVMIRequestHandler(request *restful.Request, response *restful.Response) {
-
 	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 		if vmi.Status.Phase != v1.Running {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotRunning))
@@ -339,11 +336,9 @@ func (app *SubresourceAPIApp) UnpauseVMIRequestHandler(request *restful.Request,
 		dryRun = true
 	}
 	app.putRequestHandler(request, response, validate, getURL, dryRun)
-
 }
 
 func (app *SubresourceAPIApp) FreezeVMIRequestHandler(request *restful.Request, response *restful.Response) {
-
 	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 		if vmi.Status.Phase != v1.Running {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmNotRunning))
@@ -359,7 +354,6 @@ func (app *SubresourceAPIApp) FreezeVMIRequestHandler(request *restful.Request, 
 }
 
 func (app *SubresourceAPIApp) UnfreezeVMIRequestHandler(request *restful.Request, response *restful.Response) {
-
 	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 		if vmi.Status.Phase != v1.Running {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotRunning))
@@ -370,11 +364,9 @@ func (app *SubresourceAPIApp) UnfreezeVMIRequestHandler(request *restful.Request
 		return conn.UnfreezeURI(vmi)
 	}
 	app.putRequestHandler(request, response, validate, getURL, false)
-
 }
 
 func (app *SubresourceAPIApp) ResetVMIRequestHandler(request *restful.Request, response *restful.Response) {
-
 	// Post process any error responses in order to append human
 	// readable explanation for why the reset may have failed.
 	errorPostProcessing := func(vmi *v1.VirtualMachineInstance, err error) error {
@@ -498,7 +490,6 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 }
 
 func (app *SubresourceAPIApp) SoftRebootVMIRequestHandler(request *restful.Request, response *restful.Response) {
-
 	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
 		if vmi.Status.Phase != v1.Running {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmNotRunning))

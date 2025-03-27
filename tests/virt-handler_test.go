@@ -46,7 +46,6 @@ import (
 var _ = Describe("[sig-compute]virt-handler", decorators.SigCompute, func() {
 	// Regression
 	It(" multiple HTTP calls should re-use connections and not grow the number of open connections", Serial, func() {
-
 		getHandlerConnectionCount := func(nodeName string) int {
 			cmd := []string{"bash", "-c", fmt.Sprintf("ss -ntlap | grep %d | wc -l", virt_api.DefaultConsoleServerPort)}
 			stdout, err := libnode.ExecuteCommandInVirtHandlerPod(nodeName, cmd)

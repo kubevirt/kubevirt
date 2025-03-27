@@ -67,7 +67,6 @@ func (m *mockCAManager) GetCurrentRaw() ([]byte, error) {
 }
 
 var _ = Describe("TLS", func() {
-
 	var caManager kvtls.ClientCAManager
 	var certmanagers map[string]certificate.Manager
 	var clusterConfig *virtconfig.ClusterConfig

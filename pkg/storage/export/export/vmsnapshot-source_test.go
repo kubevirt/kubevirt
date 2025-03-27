@@ -687,5 +687,4 @@ var _ = Describe("VMSnapshot source", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(retry).To(BeEquivalentTo(0))
 	})
-
 })

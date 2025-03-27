@@ -21,7 +21,6 @@ package kubecli
 
 import (
 	"context"
-
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -51,7 +50,6 @@ type ServerVersion struct {
 }
 
 func (v *ServerVersion) Get() (*version.Info, error) {
-
 	var group metav1.APIGroup
 	// First, find out which version to query
 	uri := ApiGroupName

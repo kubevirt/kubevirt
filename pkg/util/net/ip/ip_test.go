@@ -27,9 +27,7 @@ import (
 )
 
 var _ = Describe("IP utils test", func() {
-
 	Context("IsLoopbackAddress", func() {
-
 		It("should detect IPv4 loopback address", func() {
 			result := IsLoopbackAddress(IPv4Loopback)
 			Expect(result).To(BeTrue())
@@ -52,7 +50,6 @@ var _ = Describe("IP utils test", func() {
 	})
 
 	Context("NormalizeIPAddress", func() {
-
 		It("should not normalize IPv4 address", func() {
 			address := NormalizeIPAddress(IPv4Loopback)
 			Expect(address).To(Equal(IPv4Loopback))
@@ -75,7 +72,6 @@ var _ = Describe("IP utils test", func() {
 	})
 
 	Context("GetIPZeroAddress", func() {
-
 		It("should return IPv4 zero address", func() {
 			address := getIPZeroAddress(true)
 			Expect(address).To(Equal("0.0.0.0"))
@@ -88,7 +84,6 @@ var _ = Describe("IP utils test", func() {
 	})
 
 	Context("GetLoopbackAddress", func() {
-
 		It("should return IPv4 loopback address", func() {
 			address := getLoopbackAddress(true)
 			Expect(address).To(Equal("127.0.0.1"))

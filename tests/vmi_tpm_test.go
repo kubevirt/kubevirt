@@ -37,7 +37,6 @@ import (
 )
 
 var _ = Describe("[sig-compute]vTPM", decorators.SigCompute, func() {
-
 	Context("[rfe_id:5168][crit:high][vendor:cnv-qe@redhat.com][level:component] with TPM VMI option enabled", func() {
 		It("[test_id:8607] should expose a functional emulated TPM which persists across migrations", decorators.RequiresTwoSchedulableNodes, decorators.Conformance, func() {
 			By("Creating a VMI with TPM enabled")

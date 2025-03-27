@@ -32,8 +32,7 @@ import (
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 )
 
-type MigrationUpdateAdmitter struct {
-}
+type MigrationUpdateAdmitter struct{}
 
 func ensureSelectorLabelSafe(newMigration *v1.VirtualMachineInstanceMigration, oldMigration *v1.VirtualMachineInstanceMigration) []metav1.StatusCause {
 	if newMigration.Status.Phase != v1.MigrationSucceeded && newMigration.Status.Phase != v1.MigrationFailed && oldMigration.Labels != nil {

@@ -59,7 +59,6 @@ type Launcher struct {
 }
 
 func getVMIFromRequest(request *cmdv1.VMI) (*v1.VirtualMachineInstance, *cmdv1.Response) {
-
 	response := &cmdv1.Response{
 		Success: true,
 	}
@@ -74,7 +73,6 @@ func getVMIFromRequest(request *cmdv1.VMI) (*v1.VirtualMachineInstance, *cmdv1.R
 }
 
 func getMigrationOptionsFromRequest(request *cmdv1.MigrationRequest) (*cmdclient.MigrationOptions, error) {
-
 	if request.Options == nil {
 		return nil, fmt.Errorf("migration options object not present in command server request")
 	}
@@ -95,7 +93,6 @@ func getErrorMessage(err error) string {
 }
 
 func (l *Launcher) MigrateVirtualMachine(_ context.Context, request *cmdv1.MigrationRequest) (*cmdv1.Response, error) {
-
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
@@ -120,7 +117,6 @@ func (l *Launcher) MigrateVirtualMachine(_ context.Context, request *cmdv1.Migra
 }
 
 func (l *Launcher) CancelVirtualMachineMigration(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
-
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
@@ -135,11 +131,9 @@ func (l *Launcher) CancelVirtualMachineMigration(_ context.Context, request *cmd
 
 	log.Log.Object(vmi).Info("Live migration as been aborted")
 	return response, nil
-
 }
 
 func (l *Launcher) SignalTargetPodCleanup(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
-
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
@@ -156,7 +150,6 @@ func (l *Launcher) SignalTargetPodCleanup(_ context.Context, request *cmdv1.VMIR
 }
 
 func (l *Launcher) SyncMigrationTarget(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
-
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
@@ -171,7 +164,6 @@ func (l *Launcher) SyncMigrationTarget(_ context.Context, request *cmdv1.VMIRequ
 
 	log.Log.Object(vmi).Info("Prepared migration target pod")
 	return response, nil
-
 }
 
 func (l *Launcher) SyncVirtualMachineCPUs(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
@@ -192,7 +184,6 @@ func (l *Launcher) SyncVirtualMachineCPUs(_ context.Context, request *cmdv1.VMIR
 }
 
 func (l *Launcher) SyncVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
-
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
@@ -328,7 +319,6 @@ func (l *Launcher) SoftRebootVirtualMachine(_ context.Context, request *cmdv1.VM
 }
 
 func (l *Launcher) KillVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
-
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
@@ -346,7 +336,6 @@ func (l *Launcher) KillVirtualMachine(_ context.Context, request *cmdv1.VMIReque
 }
 
 func (l *Launcher) ShutdownVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
-
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
@@ -364,7 +353,6 @@ func (l *Launcher) ShutdownVirtualMachine(_ context.Context, request *cmdv1.VMIR
 }
 
 func (l *Launcher) DeleteVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
-
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
@@ -415,7 +403,6 @@ func (l *Launcher) HotplugHostDevices(_ context.Context, request *cmdv1.VMIReque
 }
 
 func (l *Launcher) GetDomain(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.DomainResponse, error) {
-
 	response := &cmdv1.DomainResponse{
 		Response: &cmdv1.Response{
 			Success: true,
@@ -466,7 +453,6 @@ func (l *Launcher) GetQemuVersion(_ context.Context, _ *cmdv1.EmptyRequest) (*cm
 }
 
 func (l *Launcher) GetDomainStats(_ context.Context, _ *cmdv1.EmptyRequest) (*cmdv1.DomainStatsResponse, error) {
-
 	response := &cmdv1.DomainStatsResponse{
 		Response: &cmdv1.Response{
 			Success: true,
@@ -594,8 +580,8 @@ func (l *Launcher) GuestPing(ctx context.Context, request *cmdv1.GuestPingReques
 func RunServer(socketPath string,
 	domainManager virtwrap.DomainManager,
 	stopChan chan struct{},
-	options *ServerOptions) (chan struct{}, error) {
-
+	options *ServerOptions,
+) (chan struct{}, error) {
 	allowEmulation := false
 	if options != nil {
 		allowEmulation = options.allowEmulation

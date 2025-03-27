@@ -610,13 +610,12 @@ var _ = Describe("Clone", func() {
 
 					addVM(sourceVM)
 					addClone(vmClone)
-					//no target vm added => target vm deleted
+					// no target vm added => target vm deleted
 
 					sanityExecute()
 					expectCloneDeletion()
 				})
 			})
-
 		})
 
 		Context("with source snapshot", func() {
@@ -1063,9 +1062,7 @@ var _ = Describe("Clone", func() {
 				controller.Execute()
 				expectTargetVMNameExist()
 			})
-
 		})
-
 	})
 })
 

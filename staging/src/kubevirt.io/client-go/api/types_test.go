@@ -30,7 +30,6 @@ import (
 )
 
 var _ = Describe("PodSelectors", func() {
-
 	It("should detect if VMIs want guaranteed QOS", func() {
 		vmi := NewMinimalVMI("testvmi")
 		vmi.Spec.Domain.Resources = v1.ResourceRequirements{
@@ -61,7 +60,6 @@ var _ = Describe("PodSelectors", func() {
 	})
 
 	Context("Pod affinity rules", func() {
-
 		It("should work", func() {
 			vmi := NewMinimalVMI("testvmi")
 			vmi.Status.NodeName = "test-node"
@@ -124,11 +122,12 @@ var _ = Describe("PodSelectors", func() {
 	})
 
 	Context("RunStrategy Rules", func() {
-		var vm = v1.VirtualMachine{}
+		vm := v1.VirtualMachine{}
 		BeforeEach(func() {
 			vm = v1.VirtualMachine{
 				TypeMeta:   k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachine"},
-				ObjectMeta: k8smetav1.ObjectMeta{Name: "testvm"}}
+				ObjectMeta: k8smetav1.ObjectMeta{Name: "testvm"},
+			}
 		})
 
 		It("should fail if both Running and RunStrategy are defined", func() {

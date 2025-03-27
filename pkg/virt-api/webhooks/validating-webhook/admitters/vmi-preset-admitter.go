@@ -34,8 +34,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
 
-type VMIPresetAdmitter struct {
-}
+type VMIPresetAdmitter struct{}
 
 func (admitter *VMIPresetAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if !webhookutils.ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineInstancePresetGroupVersionResource.Group, webhooks.VirtualMachineInstancePresetGroupVersionResource.Resource) {

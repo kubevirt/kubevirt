@@ -75,10 +75,10 @@ const (
 	processingWaitInterval = 2 * time.Second
 	processingWaitTotal    = 24 * time.Hour
 
-	//UploadProxyURIAsync is a URI of the upload proxy, the endpoint is asynchronous
+	// UploadProxyURIAsync is a URI of the upload proxy, the endpoint is asynchronous
 	UploadProxyURIAsync = "/v1beta1/upload-async"
 
-	//UploadProxyURI is a URI of the upload proxy, the endpoint is synchronous for backwards compatibility
+	// UploadProxyURI is a URI of the upload proxy, the endpoint is synchronous for backwards compatibility
 	UploadProxyURI = "/v1beta1/upload"
 
 	configName = "config"
@@ -399,7 +399,6 @@ func GetHTTPClient(insecure bool) *http.Client {
 // ConstructUploadProxyPath - receives uploadproxy address and concatenates to it URI
 func ConstructUploadProxyPath(uploadProxyURL string) (string, error) {
 	u, err := url.Parse(uploadProxyURL)
-
 	if err != nil {
 		return "", err
 	}
@@ -413,7 +412,6 @@ func ConstructUploadProxyPath(uploadProxyURL string) (string, error) {
 // ConstructUploadProxyPathAsync - receives uploadproxy address and concatenates to it URI
 func ConstructUploadProxyPathAsync(uploadProxyURL, token string, insecure bool) (string, error) {
 	u, err := url.Parse(uploadProxyURL)
-
 	if err != nil {
 		return "", err
 	}

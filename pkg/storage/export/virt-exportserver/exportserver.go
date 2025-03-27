@@ -161,7 +161,7 @@ func (s *exportServer) getHandlerMap(vi export.VolumeInfo) map[string]http.Handl
 		return nil
 	}
 
-	var result = make(map[string]http.Handler)
+	result := make(map[string]http.Handler)
 
 	if vi.ArchiveURI != "" {
 		result[vi.ArchiveURI] = s.ArchiveHandler(vi.Path)

@@ -170,7 +170,6 @@ func QueryRange(cli kubecli.KubevirtClient, query string, start time.Time, end t
 }
 
 func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte {
-
 	monitoringNs := getMonitoringNs(cli)
 	token := getAuthorizationToken(cli, monitoringNs)
 
@@ -356,7 +355,7 @@ func WaitUntilAlertDoesNotExist(virtClient kubecli.KubevirtClient, alertNames ..
 
 func ReduceAlertPendingTime(virtClient kubecli.KubevirtClient) {
 	newRules := getPrometheusAlerts(virtClient)
-	var re = regexp.MustCompile("\\[\\d+m\\]")
+	re := regexp.MustCompile("\\[\\d+m\\]")
 
 	var gs []promv1.RuleGroup
 	zeroMinutes := promv1.Duration("0m")

@@ -18,20 +18,17 @@ import (
 )
 
 var _ = Describe("OpenShift Test", func() {
-
 	var ctrl *gomock.Controller
 	var virtClient *kubecli.MockKubevirtClient
 	var discoveryClient *discoveryFake.FakeDiscovery
 
 	BeforeEach(func() {
-
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		discoveryClient = &discoveryFake.FakeDiscovery{
 			Fake: &fake.NewSimpleClientset().Fake,
 		}
 		virtClient.EXPECT().DiscoveryClient().Return(discoveryClient).AnyTimes()
-
 	})
 
 	getServerResources := func(onOpenShift bool) []*metav1.APIResourceList {
@@ -59,15 +56,12 @@ var _ = Describe("OpenShift Test", func() {
 	}
 
 	DescribeTable("Testing for OpenShift", func(onOpenShift bool) {
-
 		discoveryClient.Fake.Resources = getServerResources(onOpenShift)
 		isOnOpenShift, err := IsOnOpenShift(virtClient)
 		Expect(err).ToNot(HaveOccurred(), "should not return an error")
 		Expect(isOnOpenShift).To(Equal(onOpenShift), "should return "+strconv.FormatBool(onOpenShift))
-
 	},
 		Entry("on Kubernetes", false),
 		Entry("on OpenShift", true),
 	)
-
 })

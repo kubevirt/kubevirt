@@ -14,7 +14,6 @@ import (
 )
 
 func main() {
-
 	if path := os.Getenv("BUILD_WORKSPACE_DIRECTORY"); path != "" {
 		if err := os.Chdir(path); err != nil {
 			panic(err)

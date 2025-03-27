@@ -30,9 +30,7 @@ import (
 )
 
 var _ = Describe("[sig-compute]VM Rollout Strategy", decorators.SigCompute, Serial, func() {
-	var (
-		virtClient kubecli.KubevirtClient
-	)
+	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
@@ -81,5 +79,4 @@ var _ = Describe("[sig-compute]VM Rollout Strategy", decorators.SigCompute, Seri
 			Eventually(ThisVM(vm), time.Minute, time.Second).Should(HaveConditionTrue(v1.VirtualMachineRestartRequired))
 		})
 	})
-
 })

@@ -19,7 +19,6 @@ import (
 )
 
 func (r *Reconciler) createOrUpdateValidatingWebhookConfigurations(caBundle []byte) error {
-
 	for _, webhook := range r.targetStrategy.ValidatingWebhookConfigurations() {
 		err := r.createOrUpdateValidatingWebhookConfiguration(webhook, caBundle)
 		if err != nil {

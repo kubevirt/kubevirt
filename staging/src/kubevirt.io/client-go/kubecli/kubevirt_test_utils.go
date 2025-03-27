@@ -77,7 +77,8 @@ func NewMinimalVirtualMachineInstancePreset(name string) *v1.VirtualMachineInsta
 }
 
 func NewMinimalMigrationPolicy(name string) *v1alpha1.MigrationPolicy {
-	return &v1alpha1.MigrationPolicy{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1alpha1.GroupVersion.String(), Kind: v1alpha1.MigrationPolicyKind.Kind},
+	return &v1alpha1.MigrationPolicy{
+		TypeMeta: k8smetav1.TypeMeta{APIVersion: v1alpha1.GroupVersion.String(), Kind: v1alpha1.MigrationPolicyKind.Kind},
 		ObjectMeta: k8smetav1.ObjectMeta{
 			Name: name,
 		},

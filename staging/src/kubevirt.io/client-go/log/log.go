@@ -124,9 +124,11 @@ type NullLogger struct{}
 
 func (n NullLogger) Log(params ...interface{}) error { return nil }
 
-var loggers = make(map[string]*FilteredLogger)
-var defaultComponent = ""
-var defaultVerbosity = 0
+var (
+	loggers          = make(map[string]*FilteredLogger)
+	defaultComponent = ""
+	defaultVerbosity = 0
+)
 
 func createLogger(component string) {
 	lock.Lock()
@@ -243,7 +245,6 @@ func (l FilteredVerbosityLogger) Verbosity(level int) bool {
 }
 
 func (l FilteredLogger) Object(obj LoggableObject) *FilteredLogger {
-
 	name := obj.GetObjectMeta().GetName()
 	namespace := obj.GetObjectMeta().GetNamespace()
 	uid := obj.GetObjectMeta().GetUID()
@@ -347,7 +348,6 @@ func (l FilteredLogger) Criticalf(msg string, args ...interface{}) {
 }
 
 func LogLibvirtLogLine(logger *FilteredLogger, line string) {
-
 	if len(strings.TrimSpace(line)) == 0 {
 		return
 	}
@@ -379,7 +379,7 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 	pos := strings.TrimSpace(fragments[3])
 	msg := strings.TrimSpace(fragments[4])
 
-	//TODO: implement proper behavior for unsupported GA commands
+	// TODO: implement proper behavior for unsupported GA commands
 	// by either considering the GA version as unsupported or just don't
 	// send commands which not supported
 	if strings.Contains(msg, "unable to execute QEMU agent command") {
@@ -424,7 +424,6 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 var qemuLogLines = ""
 
 func LogQemuLogLine(logger *FilteredLogger, line string) {
-
 	if len(strings.TrimSpace(line)) == 0 {
 		return
 	}

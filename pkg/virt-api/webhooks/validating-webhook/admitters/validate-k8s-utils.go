@@ -263,9 +263,7 @@ func ValidateNodeFieldSelectorRequirement(req core.NodeSelectorRequirement, fldP
 	return allErrs
 }
 
-var (
-	supportedScheduleActions = sets.NewString(string(core.DoNotSchedule), string(core.ScheduleAnyway))
-)
+var supportedScheduleActions = sets.NewString(string(core.DoNotSchedule), string(core.ScheduleAnyway))
 
 // validateTopologySpreadConstraints validates given TopologySpreadConstraints.
 func validateTopologySpreadConstraints(constraints []core.TopologySpreadConstraint, fldPath *field.Path) field.ErrorList {

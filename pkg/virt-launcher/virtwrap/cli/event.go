@@ -36,8 +36,8 @@ type DomainEventDeviceRemoved struct {
 func NewDomainEventDeviceRemoved(
 	connection Connection,
 	domain VirDomain,
-	callback libvirt.DomainEventDeviceRemovedCallback, eventChan <-chan interface{}) *DomainEventDeviceRemoved {
-
+	callback libvirt.DomainEventDeviceRemovedCallback, eventChan <-chan interface{},
+) *DomainEventDeviceRemoved {
 	return &DomainEventDeviceRemoved{
 		connection: connection,
 		domain:     domain,

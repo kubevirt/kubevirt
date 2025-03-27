@@ -54,7 +54,6 @@ import (
 )
 
 var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]ContainerDisk", decorators.SigCompute, func() {
-
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -123,7 +122,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting from custom image location", func() {
 		Context("with disk at /custom-disk/downloaded", func() {
-
 			It("[test_id:1466]should boot normally", func() {
 				overrideCustomLocation := func(vmi *v1.VirtualMachineInstance) {
 					vmi.Spec.Volumes[0].ContainerDisk.Image = cd.ContainerDiskFor(cd.ContainerDiskCirrosCustomLocation)
@@ -137,7 +135,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 			})
 		})
-
 	})
 
 	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting with virtio-win", func() {
@@ -201,13 +198,12 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Checking the read-only Image Octal mode")
 				Expect(strings.Trim(readonlyImageOctalMode, "\n")).To(Equal("440"), "Octal Mode of read-only Image should be 440")
-
 			})
 		})
 	})
 	Describe("Bogus container disk path", func() {
 		Context("that points to outside of the volume", func() {
-			//TODO this could be unit test
+			// TODO this could be unit test
 			It("should be rejected on VMI creation", func() {
 				vmi := libvmifact.NewAlpine()
 				vmi.Spec.Volumes[0].ContainerDisk.Path = "../test"

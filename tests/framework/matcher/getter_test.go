@@ -31,7 +31,6 @@ var (
 )
 
 var _ = Describe("Getter Matchers", func() {
-
 	var (
 		virtClientset *kubevirtfake.Clientset
 		kubeClient    *fake.Clientset
@@ -379,5 +378,4 @@ var _ = Describe("Getter Matchers", func() {
 			}, false, errors.New("error")),
 		)
 	})
-
 })

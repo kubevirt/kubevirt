@@ -13,8 +13,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const pathSeparator = string(os.PathSeparator)
-const pathRoot = string(os.PathSeparator)
+const (
+	pathSeparator = string(os.PathSeparator)
+	pathRoot      = string(os.PathSeparator)
+)
 
 // advance will try to add the child to the parent. If it is a relative symlink it will resolve it
 // and return the parent with the new symlink. If it is an absolute symlink, parent will be reset to '/'

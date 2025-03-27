@@ -54,13 +54,12 @@ import (
 )
 
 var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Config", decorators.SigCompute, func() {
-
-	var CheckIsoVolumeSizes = func(vmi *v1.VirtualMachineInstance) {
+	CheckIsoVolumeSizes := func(vmi *v1.VirtualMachineInstance) {
 		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 		Expect(err).NotTo(HaveOccurred())
 
 		for _, volume := range vmi.Spec.Volumes {
-			var path = ""
+			path := ""
 			if volume.ConfigMap != nil {
 				path = config.GetConfigMapDiskPath(volume.Name)
 				By(fmt.Sprintf("Checking ConfigMap at '%s' is 4k-block fs compatible", path))
@@ -81,7 +80,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	}
 
 	Context("With a ConfigMap defined", func() {
-
 		Context("With a single volume", func() {
 			var (
 				configMapName string
@@ -125,7 +123,8 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				podOutput, err := exec.ExecuteCommandOnPod(
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
-					[]string{"cat",
+					[]string{
+						"cat",
 						configMapPath + "/option1",
 						configMapPath + "/option2",
 						configMapPath + "/option3",
@@ -185,7 +184,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	Context("With a Secret defined", func() {
-
 		Context("With a single volume", func() {
 			var (
 				secretName string
@@ -225,7 +223,8 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				podOutput, err := exec.ExecuteCommandOnPod(
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
-					[]string{"cat",
+					[]string{
+						"cat",
 						secretPath + "/user",
 						secretPath + "/password",
 					},
@@ -284,11 +283,9 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				CheckIsoVolumeSizes(vmi)
 			})
 		})
-
 	})
 
 	Context("With a ServiceAccount defined", func() {
-
 		serviceAccountPath := config.ServiceAccountSourceDir
 
 		It("[test_id:998]Should be the namespace and token the same for a pod and vmi", func() {
@@ -306,7 +303,8 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			namespace, err := exec.ExecuteCommandOnPod(
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
-				[]string{"cat",
+				[]string{
+					"cat",
 					serviceAccountPath + "/namespace",
 				},
 			)
@@ -317,7 +315,8 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			token, err := exec.ExecuteCommandOnPod(
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
-				[]string{"tail", "-c", "20",
+				[]string{
+					"tail", "-c", "20",
 					serviceAccountPath + "/token",
 				},
 			)
@@ -337,11 +336,9 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				&expect.BExp{R: token},
 			}, 200)).To(Succeed())
 		})
-
 	})
 
 	Context("With a Secret and a ConfigMap defined", func() {
-
 		Context("With a single volume", func() {
 			var (
 				configMapName string
@@ -413,7 +410,8 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				podOutputCfgMap, err := exec.ExecuteCommandOnPod(
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
-					[]string{"cat",
+					[]string{
+						"cat",
 						configMapPath + "/config1",
 						configMapPath + "/config2",
 						configMapPath + "/config3",
@@ -439,7 +437,8 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				podOutputSecret, err := exec.ExecuteCommandOnPod(
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
-					[]string{"cat",
+					[]string{
+						"cat",
 						secretPath + "/user",
 						secretPath + "/password",
 					},
@@ -475,7 +474,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	Context("With SSH Keys as a Secret defined", func() {
-
 		Context("With a single volume", func() {
 			var (
 				secretName string
@@ -522,7 +520,8 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				podOutput1, err := exec.ExecuteCommandOnPod(
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
-					[]string{"cat",
+					[]string{
+						"cat",
 						secretPath + "/ssh-privatekey",
 					},
 				)
@@ -532,7 +531,8 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				podOutput2, err := exec.ExecuteCommandOnPod(
 					vmiPod,
 					vmiPod.Spec.Containers[0].Name,
-					[]string{"cat",
+					[]string{
+						"cat",
 						secretPath + "/ssh-publickey",
 					},
 				)
@@ -558,7 +558,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	Context("With a DownwardAPI defined", func() {
-
 		downwardAPIName := "downwardapi-" + uuid.NewString()
 		downwardAPIPath := config.GetDownwardAPISourcePath(downwardAPIName)
 
@@ -583,7 +582,8 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			podOutput, err := exec.ExecuteCommandOnPod(
 				vmiPod,
 				vmiPod.Spec.Containers[0].Name,
-				[]string{"grep", testLabelKey,
+				[]string{
+					"grep", testLabelKey,
 					downwardAPIPath + "/labels",
 				},
 			)

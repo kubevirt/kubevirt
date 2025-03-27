@@ -36,9 +36,7 @@ const (
 	pausedArg     = "paused"
 )
 
-var (
-	startPaused bool
-)
+var startPaused bool
 
 func NewStartCommand() *cobra.Command {
 	c := Command{command: COMMAND_START}

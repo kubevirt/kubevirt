@@ -122,7 +122,6 @@ const (
 )
 
 var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func() {
-
 	const (
 		virtApiDepName        = "virt-api"
 		virtControllerDepName = "virt-controller"
@@ -207,7 +206,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	})
 
 	Describe("should reconcile components", Serial, func() {
-
 		deploymentName := "virt-controller"
 		daemonSetName := "virt-handler"
 		envVarDeploymentKeyToUpdate := "USER_ADDED_ENV"
@@ -407,7 +405,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should start a VM", func() {
 		It("[test_id:3144]using virt-launcher with a shasum", func() {
-
 			if flags.SkipShasumCheck {
 				Skip("Cannot currently test shasums, skipping")
 			}
@@ -429,7 +426,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	})
 
 	Describe("[test_id:6987]should apply component configuration", func() {
-
 		It("test VirtualMachineInstancesPerNode", func() {
 			newVirtualMachineInstancesPerNode := 10
 
@@ -486,7 +482,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	})
 
 	Describe("[test_id:4744]should apply component customization", Serial, func() {
-
 		It("test applying and removing a patch", func() {
 			annotationPatchValue := "new-annotation-value"
 			annotationPatchKey := "applied-patch"
@@ -589,7 +584,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		}
 
 		It("should not be present if not specified on the KubeVirt CR", func() {
-
 			By("Check that KubeVirt CR has empty imagePullSecrets")
 			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -606,13 +600,11 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			By("Ensuring that virt-launcher pod does not have additional image pull secrets")
 			checkVirtLauncherPod(vmi)
-
 		})
 
 		It("should be propagated if applied on the KubeVirt CR", func() {
-
 			const imagePullSecretName = "testmyregistrykey"
-			var imagePullSecrets = []k8sv1.LocalObjectReference{{Name: imagePullSecretName}}
+			imagePullSecrets := []k8sv1.LocalObjectReference{{Name: imagePullSecretName}}
 
 			By("Delete existing image pull secret")
 			_ = virtClient.CoreV1().Secrets(originalKv.Namespace).Delete(context.Background(), imagePullSecretName, metav1.DeleteOptions{})
@@ -668,9 +660,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			By("Ensuring that all virt components have empty image pull secrets")
 			checkVirtComponents(nil)
-
 		})
-
 	})
 
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should update kubevirt", decorators.Upgrade, func() {
@@ -785,10 +775,10 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			// need to ensure we're using a different cache directory after
 			// the update from the previous release occurs.
 			oldClientCacheDir := filepath.Join(workDir, "oldclient")
-			err = os.MkdirAll(oldClientCacheDir, 0755)
+			err = os.MkdirAll(oldClientCacheDir, 0o755)
 			Expect(err).ToNot(HaveOccurred())
 			newClientCacheDir := filepath.Join(workDir, "newclient")
-			err = os.MkdirAll(newClientCacheDir, 0755)
+			err = os.MkdirAll(newClientCacheDir, 0o755)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Create VM on previous release using a specific API.
@@ -1082,7 +1072,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 
 		It("[test_id:3148]should be able to create kubevirt install with custom image tag", decorators.Upgrade, func() {
-
 			if flags.KubeVirtVersionTagAlt == "" {
 				Skip("Skip operator custom image tag test because alt tag is not present")
 			}
@@ -1122,7 +1111,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 		// this test ensures that we can deal with image prefixes in case they are not used for tests already
 		It("[test_id:3149]should be able to create kubevirt install with image prefix", decorators.Upgrade, func() {
-
 			if flags.ImagePrefixAlt == "" {
 				Skip("Skip operator imagePrefix test because imagePrefixAlt is not present")
 			}
@@ -1267,7 +1255,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		// during operator updates. The only way the new infrastructure is deployed
 		// is if the update operator is capable of getting the lease.
 		It("[test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", decorators.Upgrade, func() {
-
 			if flags.KubeVirtVersionTagAlt == "" {
 				Skip("Skip operator custom image tag test because alt tag is not present")
 			}
@@ -1306,7 +1293,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 		// TODO: not Serial
 		It("[test_id:3152]should fail if KV object already exists", func() {
-
 			newKv := copyOriginalKv(originalKv)
 			newKv.Name = "someother-kubevirt"
 
@@ -1364,7 +1350,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 
 		Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster", func() {
-
 			BeforeEach(func() {
 				if !checks.IsOpenShift() {
 					Skip("OpenShift operator tests should not be started on k8s")
@@ -1419,7 +1404,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	})
 
 	Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Disabled", func() {
-
 		BeforeEach(func() {
 			if serviceMonitorEnabled() {
 				Skip("Test applies on when ServiceMonitor is not defined")
@@ -1441,7 +1425,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	})
 
 	Context("With PrometheusRule Enabled", func() {
-
 		BeforeEach(func() {
 			if !prometheusRuleEnabled() {
 				Skip("Test applies on when PrometheusRule is defined")
@@ -1455,12 +1438,10 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(prometheusRule.Spec).ToNot(BeNil())
 			Expect(prometheusRule.Spec.Groups).ToNot(BeEmpty())
 			Expect(prometheusRule.Spec.Groups[0].Rules).ToNot(BeEmpty())
-
 		})
 	})
 
 	Context("With PrometheusRule Disabled", func() {
-
 		BeforeEach(func() {
 			if prometheusRuleEnabled() {
 				Skip("Test applies on when PrometheusRule is not defined")
@@ -1475,7 +1456,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	})
 
 	Context("[rfe_id:2937][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Enabled", func() {
-
 		BeforeEach(func() {
 			if !serviceMonitorEnabled() {
 				Skip("Test requires ServiceMonitor to be valid")
@@ -1588,10 +1568,10 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				Eventually(func() bool {
 					return nodeSelectorExistInDeployment(virtClient, deploymentName, fakeLabelKey, fakeLabelValue)
 				}, 60*time.Second, 1*time.Second).Should(BeTrue(), errMsg)
-				//The reason we check this is that sometime it takes a while until the pod is created and
-				//if the pod is created after the call to allKvInfraPodsAreReady in the AfterEach scope
-				//than we will run the next test with side effect of pending pods of virt-api and virt-controller
-				//and increase flakiness
+				// The reason we check this is that sometime it takes a while until the pod is created and
+				// if the pod is created after the call to allKvInfraPodsAreReady in the AfterEach scope
+				// than we will run the next test with side effect of pending pods of virt-api and virt-controller
+				// and increase flakiness
 				errMsg = "the deployment should try to rollup the pods with the new selector and fail to schedule pods because the nodes don't have the fake label"
 				Eventually(func() bool {
 					return atLeastOnePendingPodExistInDeployment(virtClient, deploymentName)
@@ -1693,7 +1673,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		It("should dynamically adjust virt- pod count and PDBs", func() {
 			for _, replicas := range []uint8{3, 1, 2} {
 				By(fmt.Sprintf("Setting the replica count in kvInfra to %d", replicas))
-				var infra = &v1.ComponentConfig{
+				infra := &v1.ComponentConfig{
 					Replicas: &replicas,
 				}
 
@@ -1862,7 +1842,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	})
 
 	Context("with VMExport feature gate toggled", func() {
-
 		AfterEach(func() {
 			kvconfig.EnableFeatureGate(featuregate.VMExportGate)
 			testsuite.WaitExportProxyReady()
@@ -1880,20 +1859,19 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	})
 
 	Context(" Seccomp configuration", Serial, func() {
-
 		Context("Kubevirt profile", func() {
 			var nodeName string
 
 			const expectedSeccompProfilePath = "/proc/1/root/var/lib/kubelet/seccomp/kubevirt/kubevirt.json"
 
 			enableSeccompFeature := func() {
-				//Disable feature first to simulate addition
+				// Disable feature first to simulate addition
 				kvconfig.DisableFeatureGate(featuregate.KubevirtSeccompProfile)
 				kvconfig.EnableFeatureGate(featuregate.KubevirtSeccompProfile)
 			}
 
 			disableSeccompFeature := func() {
-				//Enable feature first to simulate removal
+				// Enable feature first to simulate removal
 				kvconfig.EnableFeatureGate(featuregate.KubevirtSeccompProfile)
 				kvconfig.DisableFeatureGate(featuregate.KubevirtSeccompProfile)
 			}
@@ -1919,7 +1897,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				}
 				if !enable {
 					vmProfile = nil
-
 				}
 
 				kv := libkubevirt.GetCurrentKv(virtClient)
@@ -2228,7 +2205,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				cpu         = uint32(1024)
 			)
 
-			var preferredTopology = v1beta1.Threads
+			preferredTopology := v1beta1.Threads
 
 			It("to instancetypes and preferences", func() {
 				By("Getting the deployed instancetypes")
@@ -2436,7 +2413,7 @@ func detectLatestUpstreamOfficialTag() (string, error) {
 }
 
 func getTagHint() string {
-	//git describe --tags --abbrev=0 "$(git rev-parse HEAD)"
+	// git describe --tags --abbrev=0 "$(git rev-parse HEAD)"
 	cmd := exec.Command("git", "rev-parse", "HEAD")
 	cmdOutput, err := cmd.Output()
 	if err != nil {
@@ -2530,7 +2507,6 @@ func eventuallyDeploymentNotFound(name string) {
 
 func allKvInfraPodsAreReady(kv *v1.KubeVirt) {
 	Eventually(func(g Gomega) error {
-
 		curKv, err := kubevirt.Client().KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
 		if err != nil {
 			return err
@@ -2992,7 +2968,6 @@ func verifyVMIsEvicted(vmis []*v1.VirtualMachineInstance) {
 		}
 		return nil
 	}, 320, 1).Should(Succeed(), "All VMIs should delete automatically")
-
 }
 
 func generateMigratableVMIs(num int) ([]*v1.VirtualMachineInstance, error) {

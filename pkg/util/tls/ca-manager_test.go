@@ -15,7 +15,6 @@ import (
 )
 
 var _ = Describe("CaManager", func() {
-
 	var configMap *v1.ConfigMap
 	var manager ClientCAManager
 	var store cache.Store

@@ -38,8 +38,10 @@ type IP struct {
 	Prefix int    `json:"prefix"`
 }
 
-var stripRE = regexp.MustCompile(`{\s*\"return\":\s*([{\[][\s\S]*[}\]])\s*}`)
-var stripStringRE = regexp.MustCompile(`{\s*\"return\":\s*\"([\s\S]*)\"\s*}`)
+var (
+	stripRE       = regexp.MustCompile(`{\s*\"return\":\s*([{\[][\s\S]*[}\]])\s*}`)
+	stripStringRE = regexp.MustCompile(`{\s*\"return\":\s*\"([\s\S]*)\"\s*}`)
+)
 
 // stripAgentResponse use regex to strip the wrapping item and returns the
 // embedded object.

@@ -45,7 +45,6 @@ type VMPoolAdmitter struct {
 }
 
 func (admitter *VMPoolAdmitter) Admit(_ context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-
 	if ar.Request == nil {
 		err := fmt.Errorf("Empty request for virtual machine pool validation")
 		return webhookutils.ToAdmissionResponseError(err)

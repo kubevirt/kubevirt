@@ -43,7 +43,6 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 	)
 
 	Context("CPU tune", func() {
-
 		iothreadpin := []api.CPUTuneIOThreadPin{
 			{IOThread: uint32(1), CPUSet: "test1"},
 			{IOThread: uint32(2), CPUSet: "test2"},
@@ -62,7 +61,8 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 		}
 
 		DescribeTable("ConvertKubeVirtCPUTuneIOThreadPinToDomainCPUTuneIOThreadPin", func(v []api.CPUTuneIOThreadPin,
-			expected []libvirtxml.DomainCPUTuneIOThreadPin) {
+			expected []libvirtxml.DomainCPUTuneIOThreadPin,
+		) {
 			res := ConvertKubeVirtCPUTuneIOThreadPinToDomainCPUTuneIOThreadPin(v)
 			Expect(res).To(Equal(expected))
 		},
@@ -71,7 +71,8 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 		)
 
 		DescribeTable("ConvertKubeVirtCPUTuneVCPUPinToDomainCPUTuneVCPUPin", func(v []api.CPUTuneVCPUPin,
-			expected []libvirtxml.DomainCPUTuneVCPUPin) {
+			expected []libvirtxml.DomainCPUTuneVCPUPin,
+		) {
 			res := ConvertKubeVirtCPUTuneVCPUPinToDomainCPUTuneVCPUPin(v)
 			Expect(res).To(Equal(expected))
 		},
@@ -80,7 +81,8 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 		)
 
 		DescribeTable("ConvertKubeVirtCPUTuneToDomainCPUTune", func(v *api.CPUTune,
-			expected *libvirtxml.DomainCPUTune) {
+			expected *libvirtxml.DomainCPUTune,
+		) {
 			res := ConvertKubeVirtCPUTuneToDomainCPUTune(v)
 			Expect(res).To(Equal(expected))
 		},
@@ -92,10 +94,10 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 			}, &libvirtxml.DomainCPUTune{
 				VCPUPin:     dpin,
 				IOThreadPin: diothreadpin,
-				EmulatorPin: &libvirtxml.DomainCPUTuneEmulatorPin{CPUSet: "test"}},
+				EmulatorPin: &libvirtxml.DomainCPUTuneEmulatorPin{CPUSet: "test"},
+			},
 			),
 		)
-
 	})
 
 	Context("NUMA tune", func() {
@@ -117,10 +119,10 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 		)
 
 		DescribeTable("ConvertKubeVirtNUMATuneToDomainNUMATune", func(v *api.NUMATune,
-			expected *libvirtxml.DomainNUMATune) {
+			expected *libvirtxml.DomainNUMATune,
+		) {
 			res := ConvertKubeVirtNUMATuneToDomainNUMATune(v)
 			Expect(res).To(Equal(expected))
-
 		},
 			Entry("empty", nil, nil),
 			Entry("with values", &api.NUMATune{
@@ -131,11 +133,9 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 				MemNodes: pmemNode,
 			}),
 		)
-
 	})
 
 	Context("MemoryBacking", func() {
-
 		hugePage := &api.HugePages{
 			HugePage: []api.HugePage{
 				{Size: "1", Unit: "G", NodeSet: "test1"},
@@ -150,7 +150,8 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 		}
 
 		DescribeTable("ConvertKubeVirtHugepageToDomainMemoryHugepages", func(v *api.HugePages,
-			expected *libvirtxml.DomainMemoryHugepages, expectErr string) {
+			expected *libvirtxml.DomainMemoryHugepages, expectErr string,
+		) {
 			res, err := ConvertKubeVirtHugepageToDomainMemoryHugepages(v)
 			if expectErr != "" {
 				Expect(err).Should(MatchError(ContainSubstring(expectErr)))
@@ -161,13 +162,15 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 		},
 			Entry("empty", nil, nil, nil),
 			Entry("error parsing the size", &api.HugePages{
-				HugePage: []api.HugePage{{Size: "wrongid"}}},
+				HugePage: []api.HugePage{{Size: "wrongid"}},
+			},
 				nil, "invalid syntax"),
 			Entry("with values", hugePage, dhugePage, nil),
 		)
 
 		DescribeTable("ConvertKubeVirtMemoryBackingToDomainMemoryBacking", func(v *api.MemoryBacking,
-			expected *libvirtxml.DomainMemoryBacking) {
+			expected *libvirtxml.DomainMemoryBacking,
+		) {
 			res, err := ConvertKubeVirtMemoryBackingToDomainMemoryBacking(v)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res).To(Equal(expected))
@@ -216,7 +219,6 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 			Entry("with some values", &api.NUMA{Cells: []api.NUMACell{cell}},
 				&libvirtxml.DomainNuma{Cell: []libvirtxml.DomainCell{dcell}}),
 		)
-
 	})
 
 	Context("Feature", func() {
@@ -231,7 +233,6 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 		DescribeTable("ConvertKubeVirtFeatureSpinlocksToDomainFeatureHyperVSpinlocks", func(v *api.FeatureSpinlocks, expected *libvirtxml.DomainFeatureHyperVSpinlocks) {
 			res := ConvertKubeVirtFeatureSpinlocksToDomainFeatureHyperVSpinlocks(v)
 			Expect(res).To(Equal(expected))
-
 		},
 			Entry("empty", nil, nil),
 			Entry("with values", &fspinlock, &dfspinlock),
@@ -240,7 +241,6 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 		DescribeTable("ConvertKubeVirtSyNICTimerToDomainFeatureHyperVSTimer", func(v *api.SyNICTimer, expected *libvirtxml.DomainFeatureHyperVSTimer) {
 			res := ConvertKubeVirtSyNICTimerToDomainFeatureHyperVSTimer(v)
 			Expect(res).To(Equal(expected))
-
 		},
 			Entry("empty", nil, nil),
 			Entry("with values", syncTimer, dsyncTimer),
@@ -249,7 +249,6 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 		DescribeTable("ConvertKubeVirtFeatureVendorIDToDomainFeatureHyperVVendorId", func(v *api.FeatureVendorID, expected *libvirtxml.DomainFeatureHyperVVendorId) {
 			res := ConvertKubeVirtFeatureVendorIDToDomainFeatureHyperVVendorId(v)
 			Expect(res).To(Equal(expected))
-
 		},
 			Entry("empty", nil, nil),
 			Entry("with values", &api.FeatureVendorID{State: "test", Value: "test"},
@@ -262,7 +261,6 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 		DescribeTable("ConverKubeVirtFeatureKVMToDomainFeatureKVM", func(v *api.FeatureKVM, expected *libvirtxml.DomainFeatureKVM) {
 			res := ConverKubeVirtFeatureKVMToDomainFeatureKVM(v)
 			Expect(res).To(Equal(expected))
-
 		},
 			Entry("empty", nil, nil),
 			Entry("with values", &api.FeatureKVM{Hidden: &fstate, HintDedicated: &fstate},
@@ -270,7 +268,8 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 		)
 
 		DescribeTable("ConvertKubeVirtFeatureHypervToDomainFeatureHyperV", func(v *api.FeatureHyperv,
-			expected *libvirtxml.DomainFeatureHyperV) {
+			expected *libvirtxml.DomainFeatureHyperV,
+		) {
 			res := ConvertKubeVirtFeatureHypervToDomainFeatureHyperV(v)
 			Expect(res).To(Equal(expected))
 		},
@@ -301,7 +300,8 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 				Reset:     &dfstate,
 				VendorId: &libvirtxml.DomainFeatureHyperVVendorId{
 					DomainFeatureState: setDomainFeatureState("test"),
-					Value:              "test"},
+					Value:              "test",
+				},
 				Frequencies:     &dfstate,
 				ReEnlightenment: &dfstate,
 				TLBFlush:        &dfhVTLBFlushState,

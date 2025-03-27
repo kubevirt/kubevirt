@@ -180,7 +180,8 @@ func admitStorageUpdate(newVolumes, oldVolumes []v1.Volume, newDisks, oldDisks [
 }
 
 func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1.Volume, newDisks, oldDisks map[string]v1.Disk,
-	migratedVols map[string]bool) *admissionv1.AdmissionResponse {
+	migratedVols map[string]bool,
+) *admissionv1.AdmissionResponse {
 	for k, v := range newHotplugVolumeMap {
 		if _, ok := oldHotplugVolumeMap[k]; ok {
 			_, okMigVol := migratedVols[k]
@@ -247,7 +248,6 @@ func verifyHotplugVolumes(newHotplugVolumeMap, oldHotplugVolumeMap map[string]v1
 							Message: fmt.Sprintf("hotplugged Disk %s does not use a scsi bus", k),
 						},
 					})
-
 				}
 				if disk.DedicatedIOThread != nil && *disk.DedicatedIOThread {
 					return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
@@ -405,7 +405,6 @@ func admitHotplug(
 	oldVMI, newVMI *v1.VirtualMachineInstance,
 	clusterConfig *virtconfig.ClusterConfig,
 ) *admissionv1.AdmissionResponse {
-
 	if response := admitHotplugCPU(oldVMI.Spec.Domain.CPU, newVMI.Spec.Domain.CPU); response != nil {
 		return response
 	}
@@ -422,11 +421,9 @@ func admitHotplug(
 		oldVMI.Status.VolumeStatus,
 		newVMI,
 		clusterConfig)
-
 }
 
 func admitHotplugCPU(oldCPUTopology, newCPUTopology *v1.CPU) *admissionv1.AdmissionResponse {
-
 	if oldCPUTopology.MaxSockets != newCPUTopology.MaxSockets {
 		return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
 			{

@@ -112,11 +112,9 @@ func memBalloonWithModelAndPeriod(model string, period int) string {
 	return fmt.Sprintf(argMemBalloonFmt, model, fmt.Sprintf(`
       <stats period="%d"></stats>
     `, period))
-
 }
 
 var _ = Describe("getOptimalBlockIO", func() {
-
 	It("Should detect disk block sizes for a file DiskSource", func() {
 		disk := &api.Disk{
 			Source: api.DiskSource{
@@ -143,7 +141,6 @@ var _ = Describe("getOptimalBlockIO", func() {
 })
 
 var _ = Describe("Converter", func() {
-
 	TestSmbios := &cmdv1.SMBios{}
 	EphemeralDiskImageCreator := &fake.MockEphemeralDiskImageCreator{BaseDir: "/var/run/libvirt/kubevirt-ephemeral-disk/"}
 
@@ -290,7 +287,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 			}
-			var convertedDisk = fmt.Sprintf(`<Disk device="disk" type="" model="%s">
+			convertedDisk := fmt.Sprintf(`<Disk device="disk" type="" model="%s">
   <source></source>
   <target bus="virtio" dev="vda"></target>
   <driver name="qemu" type="" discard="unmap"></driver>
@@ -336,7 +333,7 @@ var _ = Describe("Converter", func() {
 				},
 				Shareable: pointer.P(true),
 			}
-			var expectedXML = fmt.Sprintf(`<Disk device="disk" type="" model="%s">
+			expectedXML := fmt.Sprintf(`<Disk device="disk" type="" model="%s">
   <source></source>
   <target bus="virtio" dev="vda"></target>
   <driver cache="none" name="qemu" type="" discard="unmap"></driver>
@@ -354,7 +351,6 @@ var _ = Describe("Converter", func() {
 	})
 
 	Context("with v1.VirtualMachineInstance", func() {
-
 		var vmi *v1.VirtualMachineInstance
 		domainType := "kvm"
 		if _, err := os.Stat("/dev/kvm"); errors.Is(err, os.ErrNotExist) {
@@ -362,7 +358,6 @@ var _ = Describe("Converter", func() {
 		}
 
 		BeforeEach(func() {
-
 			vmi = &v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
 					Name:      "testvmi",
@@ -653,35 +648,35 @@ var _ = Describe("Converter", func() {
 			vmi.ObjectMeta.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
 		})
 
-		var convertedDomain = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateX86_64, domainType, "%s"))
-		var convertedDomainWith5Period = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("virtio-non-transitional", 5))
-		var convertedDomainWith0Period = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("virtio-non-transitional", 0))
-		var convertedDomainWithFalseAutoattach = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("none", 0))
+		convertedDomain := strings.TrimSpace(fmt.Sprintf(embedDomainTemplateX86_64, domainType, "%s"))
+		convertedDomainWith5Period := fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("virtio-non-transitional", 5))
+		convertedDomainWith0Period := fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("virtio-non-transitional", 0))
+		convertedDomainWithFalseAutoattach := fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("none", 0))
 
 		convertedDomain = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("virtio-non-transitional", 10))
 
-		var convertedDomainppc64le = strings.TrimSpace(fmt.Sprintf(embedDomainTemplatePPC64le, domainType, "%s"))
-		var convertedDomainppc64leWith5Period = fmt.Sprintf(convertedDomainppc64le, memBalloonWithModelAndPeriod("virtio-non-transitional", 5))
-		var convertedDomainppc64leWith0Period = fmt.Sprintf(convertedDomainppc64le, memBalloonWithModelAndPeriod("virtio-non-transitional", 0))
-		var convertedDomainppc64leWithFalseAutoattach = fmt.Sprintf(convertedDomainppc64le, memBalloonWithModelAndPeriod("none", 0))
+		convertedDomainppc64le := strings.TrimSpace(fmt.Sprintf(embedDomainTemplatePPC64le, domainType, "%s"))
+		convertedDomainppc64leWith5Period := fmt.Sprintf(convertedDomainppc64le, memBalloonWithModelAndPeriod("virtio-non-transitional", 5))
+		convertedDomainppc64leWith0Period := fmt.Sprintf(convertedDomainppc64le, memBalloonWithModelAndPeriod("virtio-non-transitional", 0))
+		convertedDomainppc64leWithFalseAutoattach := fmt.Sprintf(convertedDomainppc64le, memBalloonWithModelAndPeriod("none", 0))
 
 		convertedDomainppc64le = fmt.Sprintf(convertedDomainppc64le, memBalloonWithModelAndPeriod("virtio-non-transitional", 10))
 
-		var convertedDomainarm64 = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateARM64, domainType, "%s"))
-		var convertedDomainarm64With5Period = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("virtio-non-transitional", 5))
-		var convertedDomainarm64With0Period = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("virtio-non-transitional", 0))
-		var convertedDomainarm64WithFalseAutoattach = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("none", 0))
+		convertedDomainarm64 := strings.TrimSpace(fmt.Sprintf(embedDomainTemplateARM64, domainType, "%s"))
+		convertedDomainarm64With5Period := fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("virtio-non-transitional", 5))
+		convertedDomainarm64With0Period := fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("virtio-non-transitional", 0))
+		convertedDomainarm64WithFalseAutoattach := fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("none", 0))
 
 		convertedDomainarm64 = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("virtio-non-transitional", 10))
 
-		var convertedDomains390x = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateS390X, domainType, "%s"))
-		var convertedDomains390xWith5Period = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("virtio", 5))
-		var convertedDomains390xWith0Period = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("virtio", 0))
-		var convertedDomains390xWithFalseAutoattach = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("none", 0))
+		convertedDomains390x := strings.TrimSpace(fmt.Sprintf(embedDomainTemplateS390X, domainType, "%s"))
+		convertedDomains390xWith5Period := fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("virtio", 5))
+		convertedDomains390xWith0Period := fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("virtio", 0))
+		convertedDomains390xWithFalseAutoattach := fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("none", 0))
 
 		convertedDomains390x = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("virtio", 10))
 
-		var convertedDomainWithDevicesOnRootBus = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateRootBus, domainType))
+		convertedDomainWithDevicesOnRootBus := strings.TrimSpace(fmt.Sprintf(embedDomainTemplateRootBus, domainType))
 
 		var c *ConverterContext
 
@@ -726,7 +721,7 @@ var _ = Describe("Converter", func() {
 			Entry("on amd64 with success", amd64),
 			Entry("on arm64 with success", arm64),
 			Entry("on ppc64le with success", ppc64le),
-			//TODO add s390x entry with custom check of model used (disks/interfaces/controllers/devices will use different models)
+			// TODO add s390x entry with custom check of model used (disks/interfaces/controllers/devices will use different models)
 		)
 
 		It("should handle float memory", func() {
@@ -1091,7 +1086,8 @@ var _ = Describe("Converter", func() {
 							Reservation: true,
 						},
 					},
-				}}
+				},
+			}
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: name,
 				VolumeSource: v1.VolumeSource{
@@ -1339,7 +1335,6 @@ var _ = Describe("Converter", func() {
 				vmi.Spec.Domain.Devices.Interfaces[0].PciAddress = pciAddress
 				domain := vmiToDomain(vmi, c)
 				Expect(*domain.Spec.Devices.Interfaces[0].Address).To(Equal(expectedPCIAddress))
-
 			})
 		})
 
@@ -1427,7 +1422,6 @@ var _ = Describe("Converter", func() {
 
 		DescribeTable("Validate that QEMU SeaBios debug logs are ",
 			func(toDefineVerbosityEnvVariable bool, virtLauncherLogVerbosity int, shouldEnableDebugLogs bool) {
-
 				if toDefineVerbosityEnvVariable {
 					Expect(os.Setenv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, strconv.Itoa(virtLauncherLogVerbosity))).
 						To(Succeed())
@@ -1459,7 +1453,6 @@ var _ = Describe("Converter", func() {
 						ContainElements(api.Arg{Value: "isa-debugcon,iobase=0x402,chardev=firmwarelog"}),
 					))
 				}
-
 			},
 			Entry("disabled - virtLauncherLogVerbosity does not exceed verbosity threshold", true, 0, false),
 			Entry("enabled - virtLaucherLogVerbosity exceeds verbosity threshold", true, 1, true),
@@ -1683,13 +1676,15 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1, *v1.DefaultBridgeNetworkInterface()}
 			vmi.Spec.Domain.Devices.Interfaces[1].Name = "red1"
 
-			vmi.Spec.Networks = []v1.Network{*net1,
+			vmi.Spec.Networks = []v1.Network{
+				*net1,
 				{
 					Name: "red1",
 					NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: "red"},
 					},
-				}}
+				},
+			}
 
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())
@@ -1743,9 +1738,7 @@ var _ = Describe("Converter", func() {
 	})
 
 	Context("graphics and video device", func() {
-
 		DescribeTable("should check autoAttachGraphicsDevices", func(arch string, autoAttach *bool, devices int) {
-
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
 					Name:      "testvmi",
@@ -1833,7 +1826,6 @@ var _ = Describe("Converter", func() {
 
 			domain := vmiToDomain(&vmi, &ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true})
 			Expect(domain.Spec.Features.Hyperv).To(Equal(result))
-
 		},
 			Entry("and add the vapic feature", &v1.FeatureHyperv{VAPIC: &v1.FeatureState{}}, &api.FeatureHyperv{VAPIC: &api.FeatureState{State: "on"}}),
 			Entry("and add the stimer direct feature", &v1.FeatureHyperv{
@@ -1889,9 +1881,7 @@ var _ = Describe("Converter", func() {
 	})
 
 	Context("serial console", func() {
-
 		DescribeTable("should check autoAttachSerialConsole", func(autoAttach *bool, devices int) {
-
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
 					Name:      "testvmi",
@@ -1916,7 +1906,6 @@ var _ = Describe("Converter", func() {
 			domain := vmiToDomain(&vmi, &ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true})
 			Expect(domain.Spec.Devices.Serials).To(HaveLen(devices))
 			Expect(domain.Spec.Devices.Consoles).To(HaveLen(devices))
-
 		},
 			Entry("and add the serial console if it is not set", nil, 1),
 			Entry("and add the serial console if it is set to true", pointer.P(true), 1),
@@ -1925,7 +1914,6 @@ var _ = Describe("Converter", func() {
 	})
 
 	Context("IOThreads", func() {
-
 		DescribeTable("Should use correct IOThreads policies", func(policy v1.IOThreadsPolicy, cpuCores int, threadCount int, threadIDs []int) {
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
@@ -2289,8 +2277,7 @@ var _ = Describe("Converter", func() {
 				Sockets:    2,
 				MaxSockets: 8,
 			}
-			expectedNumOfBlkQueues :=
-				vmi.Spec.Domain.CPU.Cores * vmi.Spec.Domain.CPU.Threads * vmi.Spec.Domain.CPU.Sockets
+			expectedNumOfBlkQueues := vmi.Spec.Domain.CPU.Cores * vmi.Spec.Domain.CPU.Threads * vmi.Spec.Domain.CPU.Sockets
 
 			domain := vmiToDomain(vmi, &ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, SMBios: &cmdv1.SMBios{}})
 			Expect(domain.Spec.Devices.Disks).To(HaveLen(1))
@@ -2341,11 +2328,13 @@ var _ = Describe("Converter", func() {
 			},
 			Entry("when EmulatorThreadCompleteToEvenParity is disabled and there is one extra CPU assigned for emulatorThread",
 				v1.CPU{Sockets: 1, Cores: 2, Threads: 1},
-				&ConverterContext{CPUSet: []int{5, 6, 7},
+				&ConverterContext{
+					CPUSet: []int{5, 6, 7},
 					Topology: &cmdv1.Topology{
 						NumaCells: []*cmdv1.Cell{{
 							Cpus: []*cmdv1.CPU{
-								{Id: 5}, {Id: 6},
+								{Id: 5},
+								{Id: 6},
 								{Id: 7},
 							},
 						}},
@@ -2355,11 +2344,16 @@ var _ = Describe("Converter", func() {
 				1),
 			Entry("when EmulatorThreadCompleteToEvenParity is enabled and there is one extra CPU assigned for emulatorThread (odd CPUs)",
 				v1.CPU{Sockets: 1, Cores: 5, Threads: 1},
-				&ConverterContext{CPUSet: []int{5, 6, 7, 8, 9, 10},
+				&ConverterContext{
+					CPUSet: []int{5, 6, 7, 8, 9, 10},
 					Topology: &cmdv1.Topology{
 						NumaCells: []*cmdv1.Cell{{
 							Cpus: []*cmdv1.CPU{
-								{Id: 5}, {Id: 6}, {Id: 7}, {Id: 8}, {Id: 9},
+								{Id: 5},
+								{Id: 6},
+								{Id: 7},
+								{Id: 8},
+								{Id: 9},
 								{Id: 10},
 							},
 						}},
@@ -2369,12 +2363,19 @@ var _ = Describe("Converter", func() {
 				1),
 			Entry("when EmulatorThreadCompleteToEvenParity is enabled and there are two extra CPUs assigned for emulatorThread (even CPUs)",
 				v1.CPU{Sockets: 1, Cores: 6, Threads: 1},
-				&ConverterContext{CPUSet: []int{5, 6, 7, 8, 9, 10, 11, 12},
+				&ConverterContext{
+					CPUSet: []int{5, 6, 7, 8, 9, 10, 11, 12},
 					Topology: &cmdv1.Topology{
 						NumaCells: []*cmdv1.Cell{{
 							Cpus: []*cmdv1.CPU{
-								{Id: 5}, {Id: 6}, {Id: 7}, {Id: 8}, {Id: 9}, {Id: 10},
-								{Id: 11}, {Id: 12},
+								{Id: 5},
+								{Id: 6},
+								{Id: 7},
+								{Id: 8},
+								{Id: 9},
+								{Id: 10},
+								{Id: 11},
+								{Id: 12},
 							},
 						}},
 					},
@@ -2401,7 +2402,8 @@ var _ = Describe("Converter", func() {
 			},
 			Entry("when EmulatorThreadCompleteToEvenParity is disabled and there are not enough CPUs to allocate emulator threads",
 				v1.CPU{Sockets: 1, Cores: 2, Threads: 1},
-				&ConverterContext{CPUSet: []int{5, 6},
+				&ConverterContext{
+					CPUSet: []int{5, 6},
 					Topology: &cmdv1.Topology{
 						NumaCells: []*cmdv1.Cell{{
 							Cpus: []*cmdv1.CPU{
@@ -2414,11 +2416,13 @@ var _ = Describe("Converter", func() {
 				"no CPU allocated for the emulation thread"),
 			Entry("when EmulatorThreadCompleteToEvenParity is enabled and there are not enough Cores to allocate emulator threads (odd CPUs)",
 				v1.CPU{Sockets: 1, Cores: 3, Threads: 1},
-				&ConverterContext{CPUSet: []int{5, 6, 7},
+				&ConverterContext{
+					CPUSet: []int{5, 6, 7},
 					Topology: &cmdv1.Topology{
 						NumaCells: []*cmdv1.Cell{{
 							Cpus: []*cmdv1.CPU{
-								{Id: 5}, {Id: 6},
+								{Id: 5},
+								{Id: 6},
 								{Id: 7},
 							},
 						}},
@@ -2428,11 +2432,13 @@ var _ = Describe("Converter", func() {
 				"no CPU allocated for the emulation thread"),
 			Entry("when EmulatorThreadCompleteToEvenParity is enabled and there are not enough Cores to allocate emulator threads (even CPUs)",
 				v1.CPU{Sockets: 1, Cores: 2, Threads: 1},
-				&ConverterContext{CPUSet: []int{5, 6, 7},
+				&ConverterContext{
+					CPUSet: []int{5, 6, 7},
 					Topology: &cmdv1.Topology{
 						NumaCells: []*cmdv1.Cell{{
 							Cpus: []*cmdv1.CPU{
-								{Id: 5}, {Id: 6},
+								{Id: 5},
+								{Id: 6},
 								{Id: 7},
 							},
 						}},
@@ -2469,7 +2475,8 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.CPU.Cores = 16
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("16")
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			c := &ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH),
+			c := &ConverterContext{
+				Architecture:   archconverter.NewConverter(runtime.GOARCH),
 				CPUSet:         []int{5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
 				AllowEmulation: true,
 				SMBios:         &cmdv1.SMBios{},
@@ -2511,7 +2518,6 @@ var _ = Describe("Converter", func() {
 			}
 			isExpectedThreadsLayout := equality.Semantic.DeepEqual(expectedLayout, domain.Spec.CPUTune.IOThreadPin)
 			Expect(isExpectedThreadsLayout).To(BeTrue())
-
 		})
 		It("should pack iothreads equally on available vcpus, if there are more iothreads than vcpus", func() {
 			vmi.Spec.Domain.CPU.Cores = 2
@@ -2608,7 +2614,6 @@ var _ = Describe("Converter", func() {
 			Expect(*(domain.Spec.Devices.Interfaces[0].Driver.Queues)).To(Equal(expectedNumberQueues),
 				"should be capped to the maximum number of queues on tap devices")
 		})
-
 	})
 	Context("Realtime", func() {
 		var vmi *v1.VirtualMachineInstance
@@ -2620,11 +2625,15 @@ var _ = Describe("Converter", func() {
 				CPUSet:         []int{0, 1, 2, 3, 4},
 				Topology: &cmdv1.Topology{
 					NumaCells: []*cmdv1.Cell{
-						{Id: 0,
+						{
+							Id:        0,
 							Memory:    &cmdv1.Memory{Amount: 10737418240, Unit: "G"},
 							Pages:     []*cmdv1.Pages{{Count: 5, Unit: "G", Size: 1073741824}},
 							Distances: []*cmdv1.Sibling{{Id: 0, Value: 1}},
-							Cpus:      []*cmdv1.CPU{{Id: 0}, {Id: 1}, {Id: 2}}}}},
+							Cpus:      []*cmdv1.CPU{{Id: 0}, {Id: 1}, {Id: 2}},
+						},
+					},
+				},
 			}
 
 			vmi = &v1.VirtualMachineInstance{
@@ -2891,7 +2900,6 @@ var _ = Describe("Converter", func() {
 		var c *ConverterContext
 
 		Context("disk", func() {
-
 			type ConverterFunc = func(name string, disk *api.Disk, c *ConverterContext) error
 
 			BeforeEach(func() {
@@ -3299,7 +3307,6 @@ var _ = Describe("Converter", func() {
 			} else {
 				Expect(domain.Spec.OS.BootMenu).To(BeNil())
 			}
-
 		},
 			Entry("enabled when set", true),
 			Entry("disabled when not set", false),
@@ -3417,7 +3424,7 @@ var _ = Describe("direct IO checker", func() {
 		tmpDir, err = os.MkdirTemp("", "direct-io-checker")
 		Expect(err).ToNot(HaveOccurred())
 		existingFile = filepath.Join(tmpDir, "disk.img")
-		Expect(os.WriteFile(existingFile, []byte("test"), 0644)).To(Succeed())
+		Expect(os.WriteFile(existingFile, []byte("test"), 0o644)).To(Succeed())
 		nonExistingFile = filepath.Join(tmpDir, "non-existing-file")
 	})
 

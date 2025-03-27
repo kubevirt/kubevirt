@@ -46,8 +46,10 @@ const isoStagingFmt = "%s.staging"
 
 type IsoCreationFunc func(isoOutFile, volumeID string, inDir string) error
 
-var cloudInitLocalDir = "/var/run/libvirt/cloud-init-dir"
-var cloudInitIsoFunc = defaultIsoFunc
+var (
+	cloudInitLocalDir = "/var/run/libvirt/cloud-init-dir"
+	cloudInitIsoFunc  = defaultIsoFunc
+)
 
 // Locations of data source disk files
 const (
@@ -55,8 +57,10 @@ const (
 	configDriveFile = "configdrive.iso"
 )
 
-type DataSourceType string
-type DeviceMetadataType string
+type (
+	DataSourceType     string
+	DeviceMetadataType string
+)
 
 const (
 	DataSourceNoCloud     DataSourceType     = "noCloud"
@@ -200,7 +204,6 @@ func resolveSSHPublicKeys(accessCredentials []v1.AccessCredential, secretSourceD
 				continue
 			}
 			keyData, err := readFileFromDir(baseDir, file.Name())
-
 			if err != nil {
 				return keys, fmt.Errorf("Unable to read public keys found at volume: %s/%s error: %v", baseDir, file.Name(), err)
 			}
@@ -319,6 +322,7 @@ func readFirstFoundFileFromDir(basedir string, files []string) (string, error) {
 	}
 	return data, err
 }
+
 func readFileFromDir(basedir, file string) (string, error) {
 	filePath := filepath.Join(basedir, file)
 	// #nosec No risk for path injection: basedir & secretFile are static strings
@@ -423,7 +427,6 @@ func readCloudInitConfigDriveMetaData(name, uuid, hostname, namespace string, ke
 }
 
 func defaultIsoFunc(isoOutFile, volumeID string, inDir string) error {
-
 	var args []string
 
 	args = append(args, "-output")
@@ -643,20 +646,20 @@ func GenerateLocalData(vmi *v1.VirtualMachineInstance, instanceType string, data
 		return err
 	}
 
-	err = os.WriteFile(userFile, userData, 0600)
+	err = os.WriteFile(userFile, userData, 0o600)
 	if err != nil {
 		return err
 	}
 	defer os.Remove(userFile)
 
-	err = os.WriteFile(metaFile, metaData, 0600)
+	err = os.WriteFile(metaFile, metaData, 0o600)
 	if err != nil {
 		return err
 	}
 	defer os.Remove(metaFile)
 
 	if len(networkData) > 0 {
-		err = os.WriteFile(networkFile, networkData, 0600)
+		err = os.WriteFile(networkFile, networkData, 0o600)
 		if err != nil {
 			return err
 		}

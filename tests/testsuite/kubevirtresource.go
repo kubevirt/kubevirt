@@ -152,7 +152,6 @@ func RestoreKubeVirtResource() {
 
 // UpdateKubeVirtConfigValue updates the given configuration in the kubevirt custom resource
 func UpdateKubeVirtConfigValue(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
-
 	virtClient := kubevirt.Client()
 
 	kv := libkubevirt.GetCurrentKv(virtClient)

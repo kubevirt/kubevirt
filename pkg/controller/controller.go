@@ -327,7 +327,6 @@ func ApplyVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request
 }
 
 func CurrentVMIPod(vmi *v1.VirtualMachineInstance, podIndexer cache.Indexer) (*k8sv1.Pod, error) {
-
 	// current pod is the most recent pod created on the current VMI node
 	// OR the most recent pod created if no VMI node is set.
 
@@ -365,7 +364,6 @@ func CurrentVMIPod(vmi *v1.VirtualMachineInstance, podIndexer cache.Indexer) (*k
 }
 
 func VMIActivePodsCount(vmi *v1.VirtualMachineInstance, vmiPodIndexer cache.Indexer) int {
-
 	objs, err := vmiPodIndexer.ByIndex(cache.NamespaceIndex, vmi.Namespace)
 	if err != nil {
 		return 0
@@ -440,7 +438,6 @@ func SetSourcePod(migration *v1.VirtualMachineInstanceMigration, vmi *v1.Virtual
 		}
 		migration.Status.MigrationState.SourcePod = sourcePod.Name
 	}
-
 }
 
 func VMIHasHotplugVolumes(vmi *v1.VirtualMachineInstance) bool {
@@ -512,7 +509,6 @@ func IsPodReady(pod *k8sv1.Pod) bool {
 			if containerStatus.State.Running == nil {
 				return false
 			}
-
 		} else if containerStatus.Ready == false {
 			return false
 		}

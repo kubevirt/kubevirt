@@ -41,8 +41,7 @@ func MockDefaultOwnershipManager() {
 	DefaultOwnershipManager = &nonOpManager{}
 }
 
-type nonOpManager struct {
-}
+type nonOpManager struct{}
 
 func (no *nonOpManager) UnsafeSetFileOwnership(file string) error {
 	return nil
@@ -106,6 +105,7 @@ func RemoveFilesIfExist(paths ...string) error {
 	}
 	return nil
 }
+
 func FileExists(path string) (bool, error) {
 	_, err := os.Stat(path)
 	exists := false

@@ -44,7 +44,7 @@ var _ = Describe("MigrationProxy", func() {
 		var err error
 		tmpDir, err = os.MkdirTemp("", "migrationproxytest")
 		Expect(err).ToNot(HaveOccurred())
-		os.MkdirAll(tmpDir, 0755)
+		os.MkdirAll(tmpDir, 0o755)
 		store, err := certificates.GenerateSelfSignedCert(tmpDir, "test", "test")
 
 		ephemeraldiskutils.MockDefaultOwnershipManager()
@@ -213,7 +213,6 @@ var _ = Describe("MigrationProxy", func() {
 			)
 
 			DescribeTable("by ensuring no new listeners can be created after shutdown", func(migrationConfig *v1.MigrationConfiguration) {
-
 				key1 := "key1"
 				key2 := "key2"
 
@@ -252,7 +251,6 @@ var _ = Describe("MigrationProxy", func() {
 				err = manager.StartSourceListener(key2, "127.0.0.1", destSrcPortMap, tmpDir)
 				Expect(err).Should(HaveOccurred())
 				Expect(err.Error()).To(Equal("unable to process new migration connections during virt-handler shutdown"))
-
 			},
 				Entry("with TLS enabled", &v1.MigrationConfiguration{DisableTLS: pointer.P(false)}),
 				Entry("with TLS disabled", &v1.MigrationConfiguration{DisableTLS: pointer.P(true)}),

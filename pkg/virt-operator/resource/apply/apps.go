@@ -107,7 +107,8 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 	}
 
 	ops, err := patch.New(getPatchWithObjectMetaAndSpec([]patch.PatchOption{
-		patch.WithTest("/metadata/generation", cachedDeployment.ObjectMeta.Generation)},
+		patch.WithTest("/metadata/generation", cachedDeployment.ObjectMeta.Generation),
+	},
 		&deployment.ObjectMeta, deployment.Spec)...).GeneratePayload()
 	if err != nil {
 		return nil, err
@@ -133,7 +134,8 @@ func setMaxUnavailable(daemonSet *appsv1.DaemonSet, maxUnavailable intstr.IntOrS
 func generateDaemonSetPatch(oldDs, newDs *appsv1.DaemonSet) ([]byte, error) {
 	return patch.New(
 		getPatchWithObjectMetaAndSpec([]patch.PatchOption{
-			patch.WithTest("/metadata/generation", oldDs.ObjectMeta.Generation)},
+			patch.WithTest("/metadata/generation", oldDs.ObjectMeta.Generation),
+		},
 			&newDs.ObjectMeta, newDs.Spec)...).GeneratePayload()
 }
 

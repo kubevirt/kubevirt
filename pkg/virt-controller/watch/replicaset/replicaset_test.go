@@ -36,9 +36,7 @@ import (
 )
 
 var _ = Describe("Replicaset", func() {
-
 	Context("One valid ReplicaSet controller given", func() {
-
 		var ctrl *gomock.Controller
 		var virtClientset *fake.Clientset
 		var vmiSource *framework.FakeControllerSource
@@ -203,7 +201,8 @@ var _ = Describe("Replicaset", func() {
 			expectConditions(rs.Name, ContainElement(
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(v1.VirtualMachineInstanceReplicaSetReplicaPaused),
-					"Status": Equal(k8sv1.ConditionTrue)},
+					"Status": Equal(k8sv1.ConditionTrue),
+				},
 				),
 			))
 			testutils.ExpectEvent(recorder, SuccessfulPausedReplicaSetReason)
@@ -594,7 +593,8 @@ var _ = Describe("Replicaset", func() {
 					"Type":    Equal(v1.VirtualMachineInstanceReplicaSetReplicaFailure),
 					"Reason":  Equal("FailedCreate"),
 					"Message": Equal("failure"),
-					"Status":  Equal(k8sv1.ConditionTrue)},
+					"Status":  Equal(k8sv1.ConditionTrue),
+				},
 				),
 			))
 			testutils.ExpectEvents(recorder, common.SuccessfulCreateVirtualMachineReason, common.FailedCreateVirtualMachineReason)
@@ -618,7 +618,8 @@ var _ = Describe("Replicaset", func() {
 					"Type":    Equal(v1.VirtualMachineInstanceReplicaSetReplicaFailure),
 					"Reason":  Equal("FailedDelete"),
 					"Message": Equal("failure"),
-					"Status":  Equal(k8sv1.ConditionTrue)},
+					"Status":  Equal(k8sv1.ConditionTrue),
+				},
 				),
 			))
 			testutils.ExpectEvents(recorder,
@@ -647,7 +648,8 @@ var _ = Describe("Replicaset", func() {
 					"Type":    Equal(v1.VirtualMachineInstanceReplicaSetReplicaFailure),
 					"Reason":  Equal("FailedDelete"),
 					"Message": Equal("failure"),
-					"Status":  Equal(k8sv1.ConditionTrue)},
+					"Status":  Equal(k8sv1.ConditionTrue),
+				},
 				),
 			))
 			testutils.ExpectEvents(recorder,
@@ -677,7 +679,8 @@ var _ = Describe("Replicaset", func() {
 				MatchFields(IgnoreExtras, Fields{
 					"Type":               Equal(v1.VirtualMachineInstanceReplicaSetReplicaFailure),
 					"Message":            Equal(rs.Status.Conditions[0].Message),
-					"LastTransitionTime": Equal(rs.Status.Conditions[0].LastTransitionTime)},
+					"LastTransitionTime": Equal(rs.Status.Conditions[0].LastTransitionTime),
+				},
 				),
 			))
 			testutils.ExpectEvents(recorder,

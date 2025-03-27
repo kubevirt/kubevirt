@@ -91,7 +91,6 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 		patch.WithReplace("/spec", vm.Spec),
 		patch.WithReplace("/metadata", vm.ObjectMeta),
 	).GeneratePayload()
-
 	if err != nil {
 		log.Log.Reason(err).Error("admission failed to marshall patch to JSON")
 		return &admissionv1.AdmissionResponse{

@@ -79,37 +79,48 @@ var _ = ginkgo.Describe("Schema", func() {
 	exampleXMLarm64withNoneMemballoon = templateToString(exampleXMLarm64, argNoMemBalloon)
 	exampleXMLarm64 = templateToString(exampleXMLarm64, argMemBalloonVirtio)
 
-	//The example domain should stay in sync to the xml above
+	// The example domain should stay in sync to the xml above
 	var exampleDomain *Domain
 	var exampleDomainWithMemballonDevice *Domain
 
 	ginkgo.BeforeEach(func() {
 		exampleDomain = NewMinimalDomainWithNS("mynamespace", "testvmi")
 		exampleDomain.Spec.Devices.Disks = []Disk{
-			{Type: "network",
+			{
+				Type:   "network",
 				Device: "disk",
-				Driver: &DiskDriver{Name: "qemu",
-					Type: "raw"},
-				Source: DiskSource{Protocol: "iscsi",
-					Name: "iqn.2013-07.com.example:iscsi-nopool/2",
-					Host: &DiskSourceHost{Name: "example.com", Port: "3260"}},
+				Driver: &DiskDriver{
+					Name: "qemu",
+					Type: "raw",
+				},
+				Source: DiskSource{
+					Protocol: "iscsi",
+					Name:     "iqn.2013-07.com.example:iscsi-nopool/2",
+					Host:     &DiskSourceHost{Name: "example.com", Port: "3260"},
+				},
 				Target: DiskTarget{Device: "vda"},
 				Alias:  NewUserDefinedAlias("mydisk"),
 			},
-			{Type: "file",
+			{
+				Type:   "file",
 				Device: "disk",
-				Driver: &DiskDriver{Name: "qemu",
-					Type: "raw"},
+				Driver: &DiskDriver{
+					Name: "qemu",
+					Type: "raw",
+				},
 				Source: DiskSource{
 					File: "/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso",
 				},
 				Target: DiskTarget{Device: "vdb"},
 				Alias:  NewUserDefinedAlias("mydisk1"),
 			},
-			{Type: "block",
+			{
+				Type:   "block",
 				Device: "disk",
-				Driver: &DiskDriver{Name: "qemu",
-					Type: "raw"},
+				Driver: &DiskDriver{
+					Name: "qemu",
+					Type: "raw",
+				},
 				Source: DiskSource{
 					Dev: "/dev/testdev",
 				},
@@ -291,11 +302,10 @@ var _ = ginkgo.Describe("Schema", func() {
 			Expect(spec.CPUTune).To(Equal(expectedSpec.CPUTune))
 			Expect(spec.CPU).To(Equal(expectedSpec.CPU))
 		})
-
 	})
 
 	ginkgo.Context("With cpu pinning", func() {
-		var exampleCpuTune = CPUTune{
+		exampleCpuTune := CPUTune{
 			VCPUPin: []CPUTuneVCPUPin{
 				{
 					VCPU:   0,
@@ -351,11 +361,13 @@ var _ = ginkgo.Describe("Schema", func() {
 	})
 })
 
-var testAliasName = "alias0"
-var exampleXMLnonUserDefinedAlias = `<Alias name="alias0"></Alias>`
-var exampleXMLUserDefinedAlias = `<Alias name="ua-alias0"></Alias>`
-var exampleJSONnonUserDefinedAlias = `{"Name":"alias0","UserDefined":false}`
-var exampleJSONuserDefinedAlias = `{"Name":"alias0","UserDefined":true}`
+var (
+	testAliasName                  = "alias0"
+	exampleXMLnonUserDefinedAlias  = `<Alias name="alias0"></Alias>`
+	exampleXMLUserDefinedAlias     = `<Alias name="ua-alias0"></Alias>`
+	exampleJSONnonUserDefinedAlias = `{"Name":"alias0","UserDefined":false}`
+	exampleJSONuserDefinedAlias    = `{"Name":"alias0","UserDefined":true}`
+)
 
 func newLibvirtManagedAlias(aliasName string) *Alias {
 	return &Alias{name: aliasName}

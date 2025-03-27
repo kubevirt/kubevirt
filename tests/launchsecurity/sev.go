@@ -311,7 +311,6 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 	})
 
 	Context("lifecycle", func() {
-
 		DescribeTable("should start a SEV or SEV-ES VM",
 			func(withES bool, sevstr string) {
 				vmi := newSEVFedora(withES)

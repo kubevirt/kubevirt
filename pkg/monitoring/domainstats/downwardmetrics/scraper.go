@@ -20,9 +20,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
-const DownwardmetricsRefreshDuration = 5 * time.Second
-const DownwardmetricsCollectionTimeout = collector.CollectionTimeout
-const qemuVersionUnknown = "qemu-unknown"
+const (
+	DownwardmetricsRefreshDuration   = 5 * time.Second
+	DownwardmetricsCollectionTimeout = collector.CollectionTimeout
+	qemuVersionUnknown               = "qemu-unknown"
+)
 
 type StaticHostMetrics struct {
 	HostName             string
@@ -135,7 +137,6 @@ func guestCPUMetrics(vmStats *stats.DomainStats) []api.Metric {
 }
 
 func guestMemoryMetrics(vmStats *stats.DomainStats) []api.Metric {
-
 	return []api.Metric{
 		metricspkg.MustToVMMetric(vmStats.Memory.ActualBalloon, "PhysicalMemoryAllocatedToVirtualSystem", "KiB"),
 		// Since we don't do active ballooning, ActualBalloon is the same as the memory limit

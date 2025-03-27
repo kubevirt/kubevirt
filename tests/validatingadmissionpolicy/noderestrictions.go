@@ -128,7 +128,8 @@ var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdm
 		token, err := exec.ExecuteCommandOnPod(
 			pod,
 			"virt-handler",
-			[]string{"cat",
+			[]string{
+				"cat",
 				"/var/run/secrets/kubernetes.io/serviceaccount/token",
 			},
 		)
@@ -171,7 +172,8 @@ var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdm
 		token, err := exec.ExecuteCommandOnPod(
 			pod,
 			"virt-handler",
-			[]string{"cat",
+			[]string{
+				"cat",
 				"/var/run/secrets/kubernetes.io/serviceaccount/token",
 			},
 		)

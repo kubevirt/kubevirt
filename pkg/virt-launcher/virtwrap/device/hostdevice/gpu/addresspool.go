@@ -38,7 +38,7 @@ func NewMDEVAddressPool(gpuDevices []v1.GPU) *hostdevice.AddressPool {
 }
 
 func extractResources(gpuDevices []v1.GPU) []string {
-	var resourceSet = make(map[string]struct{})
+	resourceSet := make(map[string]struct{})
 	for _, gpuDevice := range gpuDevices {
 		resourceSet[gpuDevice.DeviceName] = struct{}{}
 	}

@@ -31,7 +31,7 @@ import (
 // returning the first unexpected error if any, or a custom error in case
 // there were no errors at all.
 func ValidatedHTTPResponses(errorsChan chan error, concurrency int) error {
-	var expectedErrorsCount = 0
+	expectedErrorsCount := 0
 	var unexpectedError error
 	for ix := 0; ix < concurrency; ix++ {
 		err := <-errorsChan

@@ -18,7 +18,6 @@ import (
 )
 
 func (c *KubeVirtController) generateInstallStrategyJob(infraPlacement *v1.ComponentConfig, config *operatorutil.KubeVirtDeploymentConfig) (*batchv1.Job, error) {
-
 	operatorImage := config.VirtOperatorImage
 	if operatorImage == "" {
 		operatorImage = fmt.Sprintf("%s/%s%s%s", config.GetImageRegistry(), config.GetImagePrefix(), VirtOperator, components.AddVersionSeparatorPrefix(config.GetOperatorVersion()))
@@ -105,6 +104,7 @@ func (c *KubeVirtController) generateInstallStrategyJob(infraPlacement *v1.Compo
 
 	return job, nil
 }
+
 func (c *KubeVirtController) getInstallStrategyJob(config *operatorutil.KubeVirtDeploymentConfig) (*batchv1.Job, bool) {
 	objs := c.stores.InstallStrategyJobCache.List()
 	for _, obj := range objs {

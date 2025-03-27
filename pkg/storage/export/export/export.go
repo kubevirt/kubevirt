@@ -544,8 +544,10 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 	return 0, nil
 }
 
-type pvcFromSourceFunc func(*exportv1.VirtualMachineExport) (*sourceVolumes, error)
-type updateVMExportStatusFunc func(*exportv1.VirtualMachineExport, *corev1.Pod, *corev1.Service, *sourceVolumes) (time.Duration, error)
+type (
+	pvcFromSourceFunc        func(*exportv1.VirtualMachineExport) (*sourceVolumes, error)
+	updateVMExportStatusFunc func(*exportv1.VirtualMachineExport, *corev1.Pod, *corev1.Service, *sourceVolumes) (time.Duration, error)
+)
 
 func (ctrl *VMExportController) handleSource(vmExport *exportv1.VirtualMachineExport, service *corev1.Service, getPVCFromSource pvcFromSourceFunc, updateStatus updateVMExportStatusFunc) (time.Duration, error) {
 	if err := ctrl.handleVMExportToken(vmExport, getPVCFromSource); err != nil {
@@ -1417,7 +1419,7 @@ func (ctrl *VMExportController) replaceUrlDVTemplate(volumeName string, template
 	res := make([]virtv1.DataVolumeTemplateSpec, 0)
 	for _, template := range templates {
 		if template.ObjectMeta.Name == volumeName {
-			//Replace template
+			// Replace template
 			replacement := template.DeepCopy()
 			replacement.Spec.Source = &cdiv1.DataVolumeSource{
 				HTTP: &cdiv1.DataVolumeSourceHTTP{

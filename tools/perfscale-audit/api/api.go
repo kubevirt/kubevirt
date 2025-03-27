@@ -58,7 +58,6 @@ type InputThreshold struct {
 }
 
 type InputConfig struct {
-
 	// StartTime when set, represents the beginning of the metric time range
 	// This defaults to EndTime - Duration when duration is set.
 	StartTime *time.Time `json:"startTime,omitempty"`
@@ -165,7 +164,7 @@ func (r *Result) DumpToFile(filePath string) error {
 
 	log.Printf("Writing results to file at path %s", filePath)
 
-	return os.WriteFile(filePath, []byte(str), 0644)
+	return os.WriteFile(filePath, []byte(str), 0o644)
 }
 
 func (r *Result) DumpToStdout() error {

@@ -217,7 +217,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 	Describe("Starting a VirtualMachineInstance ", func() {
 		Context("with bandwidth limitations", func() {
-
 			updateMigrationPolicyBandwidth := func(migrationPolicy *v1alpha1.MigrationPolicy, bandwidth resource.Quantity) {
 				var err error
 				migrationPolicy, err = virtClient.MigrationPolicy().Get(context.Background(), migrationPolicy.Name, metav1.GetOptions{})
@@ -444,7 +443,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(libinfra.GetHostnameFromMetrics(metrics)).To(Equal(vmi.Status.NodeName))
-
 			},
 				Entry("[test_id:6971]disk", libvmi.WithDownwardMetricsVolume("vhostmd"), libinfra.GetDownwardMetricsDisk),
 				Entry("channel", libvmi.WithDownwardMetricsChannel(), libinfra.GetDownwardMetricsVirtio),
@@ -523,7 +521,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			})
 
 			It("[test_id:9795]should migrate vmi with a usb disk", func() {
-
 				vmi := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithEmptyDisk("uniqueusbdisk", v1.DiskBusUSB, resource.MustParse("128Mi")),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -759,7 +756,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 		})
 		Context(" with auto converge enabled", Serial, func() {
 			BeforeEach(func() {
-
 				// set autoconverge flag
 				config := getCurrentKvConfig(virtClient)
 				config.MigrationConfiguration.AllowAutoConverge = pointer.P(true)
@@ -1278,7 +1274,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 						libvmi.WithPersistentVolumeClaim("disk0", dv.Name),
 						libvmi.WithResourceMemory("128Mi"),
 					)
-
 				}, console.LoginToAlpine),
 			)
 		})
@@ -1482,7 +1477,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				kvconfig.UpdateKubeVirtConfigValueAndWait(cfg)
 			})
 			Context("without progress", func() {
-
 				BeforeEach(func() {
 					cfg := getCurrentKvConfig(virtClient)
 					cfg.MigrationConfiguration = &v1.MigrationConfiguration{
@@ -1516,7 +1510,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					vmi = libmigration.ConfirmVMIPostMigrationFailed(vmi, migrationUID)
 					Expect(vmi.Status.MigrationState.FailureReason).To(ContainSubstring("has been aborted"))
 				})
-
 			})
 			It("[test_id:6978] Should detect a failed migration", func() {
 				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithResourceMemory("1Gi"))
@@ -1789,7 +1782,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			})
 		})
 		Context("[storage-req]with an Alpine non-shared block volume PVC", decorators.StorageReq, func() {
-
 			It("[test_id:1862][posneg:negative]should reject migrations for a non-migratable vmi", func() {
 				sc, exists := libstorage.GetRWOBlockStorageClass()
 				if !exists {
@@ -1890,7 +1882,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 						}
 					}
 					return false
-
 				}, timeout, 1*time.Second).Should(BeTrue())
 
 				By("Cancelling a Migration")
@@ -2016,7 +2007,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			})
 
 			Context("when target pod cannot be scheduled and is suck in Pending phase", Serial, func() {
-
 				var nodesSetUnschedulable []string
 
 				BeforeEach(func() {
@@ -2062,7 +2052,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 					var sourcePod *k8sv1.Pod
 					for _, pod := range vmiPods.Items {
-
 						if pod.Status.Phase == k8sv1.PodRunning {
 							sourcePod = pod.DeepCopy()
 						} else {
@@ -2088,9 +2077,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					By("Making sure the VMI's migration state remains nil")
 					Consistently(matcher.ThisVMI(vmi)).WithPolling(5 * time.Second).WithTimeout(30 * time.Second).Should(haveMigrationState(BeNil()))
 				})
-
 			})
-
 		})
 
 		Context(" with migration policies", Serial, func() {
@@ -2147,11 +2134,9 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Entry("should override cluster-wide policy if defined", true),
 				Entry("should not affect cluster-wide policy if not defined", false),
 			)
-
 		})
 
 		Context(" with freePageReporting", Serial, func() {
-
 			BeforeEach(func() {
 				kv := libkubevirt.GetCurrentKv(virtClient)
 				kvConfigurationCopy := kv.Spec.Configuration.DeepCopy()
@@ -2182,11 +2167,9 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domSpec.Devices.Ballooning.FreePageReporting).To(BeEquivalentTo("on"))
 			})
-
 		})
 
 		Context("with unsupported machine type", Serial, func() {
-
 			It("should prevent migration scheduling", func() {
 				vmi := libvmifact.NewGuestless(libnet.WithMasqueradeNetworking())
 				vmi.Namespace = testsuite.GetTestNamespace(vmi)
@@ -2236,12 +2219,10 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(scheduledCond.Reason).To(BeEquivalentTo(k8sv1.PodReasonUnschedulable), "PodScheduled reason should be Unschedulable")
 				Expect(scheduledCond.Message).To(ContainSubstring("node(s) didn't match Pod's node affinity/selector."), "PodScheduled message mismatch")
 			})
-
 		})
 	})
 
 	Context("with sata disks", func() {
-
 		It("[test_id:1853]VM with containerDisk + CloudInit + ServiceAccount + ConfigMap + Secret + DownwardAPI + External Kernel Boot + USB Disk", decorators.Conformance, func() {
 			vmi := prepareVMIWithAllVolumeSources(testsuite.GetTestNamespace(nil), true)
 
@@ -2420,7 +2401,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 		}
 
 		getPodCPUSet := func(pod *k8sv1.Pod) []int {
-
 			var cpusetPath string
 			if cgroupVersion == cgroup.V2 {
 				cpusetPath = "/sys/fs/cgroup/cpuset.cpus.effective"
@@ -2502,7 +2482,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 		})
 
 		It("should successfully update a VMI's CPU set on migration", func() {
-
 			By("starting a VMI on the first node of the list")
 			libnode.AddLabelToNode(nodes[0].Name, testLabel1, "true")
 
@@ -2675,15 +2654,12 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					}
 				}
 				return activeMigrations
-
 			}, time.Second*30, time.Second*1).Should(BeNumerically("<=", 1))
 		})
 	})
 
 	Context("topology hints", decorators.Reenlightenment, decorators.TscFrequencies, func() {
-
 		Context("needs to be set when", func() {
-
 			expectTopologyHintsToBeSet := func(vmi *v1.VirtualMachineInstance) {
 				EventuallyWithOffset(1, func() bool {
 					var err error
@@ -2713,9 +2689,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				expectTopologyHintsToBeSet(vmi)
 			})
-
 		})
-
 	})
 
 	Context("ResourceQuota rejection", func() {
@@ -2727,7 +2701,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libvmi.WithResourceMemory(vmiRequest.String()),
 			)
 
-			vmiRequest.Add(resource.MustParse("50Mi")) //add 50Mi memoryOverHead to make sure vmi creation won't be blocked
+			vmiRequest.Add(resource.MustParse("50Mi")) // add 50Mi memoryOverHead to make sure vmi creation won't be blocked
 			enoughMemoryToStartVmiButNotEnoughForMigration := services.GetMemoryOverhead(vmi, runtime.GOARCH, nil)
 			enoughMemoryToStartVmiButNotEnoughForMigration.Add(vmiRequest)
 			resourcesToLimit := k8sv1.ResourceList{
@@ -3025,7 +2999,6 @@ func getVirtqemudPid(pod *k8sv1.Pod) (string, error) {
 	}
 
 	return strings.TrimSuffix(stdout, "\n"), nil
-
 }
 
 // runCommandOnVmiTargetPod runs specified command on the target virt-launcher pod of a migration

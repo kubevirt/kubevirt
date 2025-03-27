@@ -1063,6 +1063,7 @@ func (f *kubeInformerFactory) OperatorClusterRole() cache.SharedIndexInformer {
 		return cache.NewSharedIndexInformer(lw, &rbacv1.ClusterRole{}, f.defaultResync, cache.Indexers{})
 	})
 }
+
 func (f *kubeInformerFactory) OperatorClusterRoleBinding() cache.SharedIndexInformer {
 	return f.getInformer("OperatorClusterRoleBindingInformer", func() cache.SharedIndexInformer {
 		labelSelector, err := labels.Parse(OperatorLabel)
@@ -1074,6 +1075,7 @@ func (f *kubeInformerFactory) OperatorClusterRoleBinding() cache.SharedIndexInfo
 		return cache.NewSharedIndexInformer(lw, &rbacv1.ClusterRoleBinding{}, f.defaultResync, cache.Indexers{})
 	})
 }
+
 func (f *kubeInformerFactory) OperatorRole() cache.SharedIndexInformer {
 	return f.getInformer("OperatorRoleInformer", func() cache.SharedIndexInformer {
 		labelSelector, err := labels.Parse(OperatorLabel)
@@ -1366,7 +1368,6 @@ func (f *kubeInformerFactory) K8SInformerFactory() informers.SharedInformerFacto
 
 func (f *kubeInformerFactory) CRD() cache.SharedIndexInformer {
 	return f.getInformer("CRDInformer", func() cache.SharedIndexInformer {
-
 		ext, err := extclient.NewForConfig(f.clientSet.Config())
 		if err != nil {
 			panic(err)

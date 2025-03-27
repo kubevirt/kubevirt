@@ -56,8 +56,8 @@ const (
 func deleteDummyWebhookValidators(kv *v1.KubeVirt,
 	clientset kubecli.KubevirtClient,
 	stores util.Stores,
-	expectations *util.Expectations) error {
-
+	expectations *util.Expectations,
+) error {
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
 		return err
@@ -96,8 +96,8 @@ func DeleteAll(kv *v1.KubeVirt,
 	stores util.Stores,
 	clientset kubecli.KubevirtClient,
 	aggregatorclient install.APIServiceInterface,
-	expectations *util.Expectations) error {
-
+	expectations *util.Expectations,
+) error {
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
 		return err
@@ -609,8 +609,8 @@ func crdFilterNeedFinalizerRemoved(crds []*extv1.CustomResourceDefinition) []*ex
 func crdHandleDeletion(kvkey string,
 	stores util.Stores,
 	clientset kubecli.KubevirtClient,
-	expectations *util.Expectations) error {
-
+	expectations *util.Expectations,
+) error {
 	ext := clientset.ExtensionsClient()
 	objects := stores.OperatorCrdCache.List()
 

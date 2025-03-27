@@ -46,6 +46,7 @@ func not(p resourcePredicate) resourcePredicate {
 		return !p(vmi)
 	}
 }
+
 func NewVMIResourceRule(p resourcePredicate, option ResourceRendererOption) VMIResourceRule {
 	return VMIResourceRule{predicate: p, option: option}
 }

@@ -84,7 +84,6 @@ var _ = Describe("[sig-compute]Windows VirtualMachineInstance", Serial, decorato
 		})
 
 		Context("[ref_id:139]VMI is created", func() {
-
 			BeforeEach(func() {
 				By("Starting the windows VirtualMachineInstance")
 				var err error
@@ -165,7 +164,6 @@ var _ = Describe("[sig-compute]Windows VirtualMachineInstance", Serial, decorato
 		})
 
 		Context("with bridge binding", func() {
-
 			BeforeEach(func() {
 				By("Starting Windows VirtualMachineInstance with bridge binding")
 				windowsVMI = libvmifact.NewWindows(libvmi.WithNetwork(v1.DefaultPodNetwork()), libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(v1.DefaultPodNetwork().Name)))
@@ -178,7 +176,6 @@ var _ = Describe("[sig-compute]Windows VirtualMachineInstance", Serial, decorato
 			})
 
 			It("should be recognized by other pods in cluster", func() {
-
 				By("Pinging virt-handler Pod from Windows VMI")
 				winVmiPod, err := libpod.GetPodByVirtualMachineInstance(windowsVMI, windowsVMI.Namespace)
 				Expect(err).NotTo(HaveOccurred())

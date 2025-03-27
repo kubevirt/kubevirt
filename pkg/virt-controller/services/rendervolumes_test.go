@@ -74,7 +74,8 @@ var _ = Describe("Container spec renderer", func() {
 					defaultVolumeMounts(),
 					k8sv1.VolumeMount{
 						Name:      ephemeralVolumeName,
-						MountPath: vmiDiskPath(ephemeralVolumeName)})))
+						MountPath: vmiDiskPath(ephemeralVolumeName),
+					})))
 		})
 
 		It("should feature the default volumes plus the ephemeral disk volume", func() {
@@ -133,7 +134,8 @@ var _ = Describe("Container spec renderer", func() {
 					defaultVolumeMounts(),
 					k8sv1.VolumeMount{
 						Name:      hostDiskName,
-						MountPath: vmiDiskPath(hostDiskName)})))
+						MountPath: vmiDiskPath(hostDiskName),
+					})))
 		})
 
 		It("should feature the default volumes plus the host disk volume", func() {
@@ -146,7 +148,8 @@ var _ = Describe("Container spec renderer", func() {
 							HostPath: &k8sv1.HostPathVolumeSource{
 								Type: &expectedHostPathType,
 								Path: hostDiskPath[:strings.LastIndex(hostDiskPath, "/")],
-							}},
+							},
+						},
 					})))
 		})
 
@@ -221,13 +224,15 @@ var _ = Describe("Container spec renderer", func() {
 							Secret: &k8sv1.SecretVolumeSource{
 								SecretName: "break-dancing-flamingo",
 							},
-						}}, k8sv1.Volume{
+						},
+					}, k8sv1.Volume{
 						Name: "pepitos-drive-ndata",
 						VolumeSource: k8sv1.VolumeSource{
 							Secret: &k8sv1.SecretVolumeSource{
 								SecretName: "hoooonk.hooooonk",
 							},
-						}})))
+						},
+					})))
 		})
 
 		It("does *not* have any volume devices", func() {
@@ -298,7 +303,8 @@ var _ = Describe("Container spec renderer", func() {
 				Name: downwardAPIVolumeName,
 				VolumeSource: v1.VolumeSource{
 					DownwardAPI: &v1.DownwardAPIVolumeSource{},
-				}}
+				},
+			}
 
 			disk := v1.Disk{Name: downwardAPIVolumeName}
 

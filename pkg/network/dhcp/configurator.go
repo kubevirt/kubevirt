@@ -54,7 +54,8 @@ type ConfigGenerator interface {
 }
 
 func NewBridgeConfigurator(cacheCreator cacheCreator, launcherPID string, advertisingIfaceName string, handler netdriver.NetworkHandler, podInterfaceName string,
-	vmiSpecIfaces []v1.Interface, vmiSpecIface *v1.Interface, subdomain string) *configurator {
+	vmiSpecIfaces []v1.Interface, vmiSpecIface *v1.Interface, subdomain string,
+) *configurator {
 	return &configurator{
 		podInterfaceName:     podInterfaceName,
 		advertisingIfaceName: advertisingIfaceName,
@@ -73,12 +74,15 @@ func NewBridgeConfigurator(cacheCreator cacheCreator, launcherPID string, advert
 }
 
 func NewMasqueradeConfigurator(advertisingIfaceName string, handler netdriver.NetworkHandler, vmiSpecIface *v1.Interface, vmiSpecNetwork *v1.Network, podInterfaceName string,
-	subdomain string) *configurator {
+	subdomain string,
+) *configurator {
 	return &configurator{
 		podInterfaceName:     podInterfaceName,
 		advertisingIfaceName: advertisingIfaceName,
-		configGenerator: &MasqueradeConfigGenerator{handler: handler, vmiSpecIface: vmiSpecIface, vmiSpecNetwork: vmiSpecNetwork,
-			subdomain: subdomain, podInterfaceName: podInterfaceName},
+		configGenerator: &MasqueradeConfigGenerator{
+			handler: handler, vmiSpecIface: vmiSpecIface, vmiSpecNetwork: vmiSpecNetwork,
+			subdomain: subdomain, podInterfaceName: podInterfaceName,
+		},
 		handler:              handler,
 		dhcpStartedDirectory: defaultDHCPStartedDirectory,
 	}

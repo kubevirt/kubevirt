@@ -29,7 +29,7 @@ import (
 
 func RequestLoggingFilter() restful.FilterFunction {
 	return func(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
-		var username = "-"
+		username := "-"
 		if req.Request.URL.User != nil {
 			if name := req.Request.URL.User.Username(); name != "" {
 				username = name

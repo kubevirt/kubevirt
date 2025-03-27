@@ -44,7 +44,6 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("Ignition", func() {
-
 	const vmName = "my-vm"
 	const namespace = "my-namespace"
 

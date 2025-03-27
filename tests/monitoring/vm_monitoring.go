@@ -102,7 +102,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 	})
 
 	Context("VM status metrics", func() {
-		var cpuMetrics = []string{
+		cpuMetrics := []string{
 			"kubevirt_vmi_cpu_system_usage_seconds_total",
 			"kubevirt_vmi_cpu_usage_seconds_total",
 			"kubevirt_vmi_cpu_user_usage_seconds_total",
@@ -119,7 +119,6 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 		}
 
 		It("Should be available for a running VM", func() {
-
 			By("Create a running VirtualMachine")
 			vm = libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -134,7 +133,6 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 		})
 
 		It("Should be available for a paused VM", func() {
-
 			By("Create a running VirtualMachine")
 			vm = libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})

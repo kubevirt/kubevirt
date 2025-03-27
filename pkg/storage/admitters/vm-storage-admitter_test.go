@@ -31,9 +31,7 @@ const kubeVirtNamespace = "kubevirt"
 
 var _ = Describe("Validating VM Admitter", func() {
 	config, crdInformer, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
-	var (
-		virtClient *kubecli.MockKubevirtClient
-	)
+	var virtClient *kubecli.MockKubevirtClient
 
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())

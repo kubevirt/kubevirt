@@ -112,5 +112,4 @@ var _ = Describe("Start command", func() {
 			Expect(cmd()).To(Succeed())
 		})
 	})
-
 })

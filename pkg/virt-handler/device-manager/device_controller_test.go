@@ -173,7 +173,6 @@ var _ = Describe("Device Controller", func() {
 			Consistently(func() int {
 				return int(atomic.LoadInt32(&plugin2.Starts))
 			}, 500*time.Millisecond).Should(BeNumerically("<", 3))
-
 		})
 
 		It("Should not block on other plugins", func() {

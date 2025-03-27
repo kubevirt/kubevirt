@@ -146,7 +146,8 @@ var _ = Describe("SEV Subresources", func() {
 		fullOpts := append([]libvmi.Option{
 			libvmi.WithName(testVMIName),
 			libvmi.WithNamespace(metav1.NamespaceDefault),
-			libvmistatus.WithStatus(libvmistatus.New(status...))},
+			libvmistatus.WithStatus(libvmistatus.New(status...)),
+		},
 			specOpts...,
 		)
 		vmi := libvmi.New(fullOpts...)

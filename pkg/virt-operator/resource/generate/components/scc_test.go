@@ -8,9 +8,7 @@ import (
 )
 
 var _ = Describe("SCC", func() {
-
 	Context("virt-controller", func() {
-
 		var scc *secv1.SecurityContextConstraints
 
 		BeforeEach(func() {
@@ -54,5 +52,4 @@ var _ = Describe("SCC", func() {
 				}))
 		})
 	})
-
 })

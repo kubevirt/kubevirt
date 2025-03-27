@@ -66,7 +66,6 @@ func byStartingTheVMI(vmi *v1.VirtualMachineInstance, virtClient kubecli.Kubevir
 }
 
 var _ = Describe("[sig-compute-realtime]Realtime", Serial, decorators.SigComputeRealtime, func() {
-
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -74,7 +73,6 @@ var _ = Describe("[sig-compute-realtime]Realtime", Serial, decorators.SigCompute
 	})
 
 	Context("should start the realtime VM", func() {
-
 		It("when no mask is specified", func() {
 			const noMask = ""
 			vmi := byStartingTheVMI(newFedoraRealtime(noMask), virtClient)

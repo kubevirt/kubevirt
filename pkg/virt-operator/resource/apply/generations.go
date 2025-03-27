@@ -19,7 +19,6 @@ import (
 )
 
 func getGroupResource(required runtime.Object) (group string, resource string, err error) {
-
 	switch required.(type) {
 	case *extv1.CustomResourceDefinition:
 		group = "apiextensions.k8s.io/v1"
@@ -65,7 +64,6 @@ func GetExpectedGeneration(required runtime.Object, previousGenerations []k6tv1.
 }
 
 func SetGeneration(generations *[]k6tv1.GenerationStatus, actual runtime.Object) {
-
 	if actual == nil {
 		return
 	}

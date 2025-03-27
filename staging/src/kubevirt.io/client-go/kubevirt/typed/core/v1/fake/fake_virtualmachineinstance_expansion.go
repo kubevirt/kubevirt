@@ -104,7 +104,6 @@ func (c *FakeVirtualMachineInstances) UserList(ctx context.Context, name string)
 		Invokes(testing.NewGetSubresourceAction(virtualmachineinstancesResource, c.ns, "userlist", name), &v1.VirtualMachineInstanceGuestOSUserList{})
 
 	return v1.VirtualMachineInstanceGuestOSUserList{}, err
-
 }
 
 func (c *FakeVirtualMachineInstances) FilesystemList(ctx context.Context, name string) (v1.VirtualMachineInstanceFileSystemList, error) {

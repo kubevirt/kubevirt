@@ -59,7 +59,6 @@ const (
 )
 
 var _ = Describe("ImageUpload", func() {
-
 	var (
 		ctrl       *gomock.Controller
 		kubeClient *fakek8sclient.Clientset
@@ -501,7 +500,6 @@ var _ = Describe("ImageUpload", func() {
 	}
 
 	Context("Successful upload to PVC", func() {
-
 		It("PVC does not exist deprecated args", func() {
 			testInit(http.StatusOK)
 			cmd := testing.NewRepeatableVirtctlCommand(commandName, "--pvc-name", targetName, "--pvc-size", pvcSize,

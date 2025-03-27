@@ -44,7 +44,6 @@ func (r *Reconciler) createOrUpdateRoleBinding(rb *rbacv1.RoleBinding, imageTag 
 }
 
 func rbacCreateOrUpdate(r *Reconciler, required runtime.Object, imageTag, imageRegistry, id string) (err error) {
-
 	roleTypeName := required.GetObjectKind().GroupVersionKind().Kind
 
 	cachedRoleInterface, exists, _ := getRbacCache(r, required).Get(required)
@@ -86,7 +85,6 @@ func rbacCreateOrUpdate(r *Reconciler, required runtime.Object, imageTag, imageR
 }
 
 func getRbacCreateFunction(r *Reconciler, obj runtime.Object) (createFunc func() error) {
-
 	rbacObj := r.clientset.RbacV1()
 	namespace := r.kv.Namespace
 

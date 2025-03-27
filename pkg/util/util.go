@@ -74,7 +74,6 @@ func IsHostDevVMI(vmi *v1.VirtualMachineInstance) bool {
 
 // Check if a VMI spec requests a VFIO device
 func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
-
 	if IsHostDevVMI(vmi) || IsGPUVMI(vmi) || isSRIOVVmi(vmi) {
 		return true
 	}
@@ -151,7 +150,6 @@ func AlignImageSizeTo1MiB(size int64, logger *log.FilteredLogger) int64 {
 		}
 		return newSize
 	}
-
 }
 
 func SetDefaultVolumeDisk(spec *v1.VirtualMachineInstanceSpec) {

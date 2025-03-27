@@ -60,10 +60,12 @@ type guestfsCommand struct {
 }
 
 // Following variables allow overriding the default functions (useful for unit testing)
-var CreateClientFunc = CreateClient
-var CreateAttacherFunc = CreateAttacher
-var ImageSetFunc = SetImage
-var ImageInfoGetFunc = GetImageInfo
+var (
+	CreateClientFunc   = CreateClient
+	CreateAttacherFunc = CreateAttacher
+	ImageSetFunc       = SetImage
+	ImageInfoGetFunc   = GetImageInfo
+)
 
 // NewGuestfsShellCommand returns a cobra.Command for starting libguestfs-tool pod and attach it to a pvc
 func NewGuestfsShellCommand() *cobra.Command {
@@ -263,7 +265,6 @@ func (client *K8sClient) waitForContainerRunning(podName, ns string, timeout tim
 			}
 			if pod.Status.Phase != corev1.PodPending {
 				c <- string(pod.Status.Phase)
-
 			}
 			for _, c := range pod.Status.ContainerStatuses {
 				if c.State.Waiting != nil {

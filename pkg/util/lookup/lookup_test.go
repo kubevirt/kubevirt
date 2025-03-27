@@ -27,7 +27,6 @@ var createVirtualMachineInstance = func(name, nodeName string, phase virtv1.Virt
 }
 
 var _ = Describe("Lookup", func() {
-
 	var virtClient *kubecli.MockKubevirtClient
 	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 

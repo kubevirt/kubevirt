@@ -316,7 +316,6 @@ func downloadMemoryDump(namespace, vmName string, virtClient kubecli.KubevirtCli
 	}
 	vmexportName := getVMExportName(vmName, claimName)
 	vmExportInfo := &vmexport.VMExportInfo{
-
 		ShouldCreate: true,
 		Insecure:     true,
 		KeepVme:      false,

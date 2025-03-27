@@ -74,16 +74,20 @@ const (
 	virtExporter     = "virt-exporter"
 )
 
-const KvmDevice = "devices.kubevirt.io/kvm"
-const TunDevice = "devices.kubevirt.io/tun"
-const VhostNetDevice = "devices.kubevirt.io/vhost-net"
-const SevDevice = "devices.kubevirt.io/sev"
-const VhostVsockDevice = "devices.kubevirt.io/vhost-vsock"
-const PrDevice = "devices.kubevirt.io/pr-helper"
+const (
+	KvmDevice        = "devices.kubevirt.io/kvm"
+	TunDevice        = "devices.kubevirt.io/tun"
+	VhostNetDevice   = "devices.kubevirt.io/vhost-net"
+	SevDevice        = "devices.kubevirt.io/sev"
+	VhostVsockDevice = "devices.kubevirt.io/vhost-vsock"
+	PrDevice         = "devices.kubevirt.io/pr-helper"
+)
 
-const debugLogs = "debugLogs"
-const logVerbosity = "logVerbosity"
-const virtiofsDebugLogs = "virtiofsdDebugLogs"
+const (
+	debugLogs         = "debugLogs"
+	logVerbosity      = "logVerbosity"
+	virtiofsDebugLogs = "virtiofsdDebugLogs"
+)
 
 const qemuTimeoutJitterRange = 120
 
@@ -98,10 +102,12 @@ const LibvirtStartupDelay = 10
 
 const IntelVendorName = "Intel"
 
-const ENV_VAR_LIBVIRT_DEBUG_LOGS = "LIBVIRT_DEBUG_LOGS"
-const ENV_VAR_VIRTIOFSD_DEBUG_LOGS = "VIRTIOFSD_DEBUG_LOGS"
-const ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY = "VIRT_LAUNCHER_LOG_VERBOSITY"
-const ENV_VAR_SHARED_FILESYSTEM_PATHS = "SHARED_FILESYSTEM_PATHS"
+const (
+	ENV_VAR_LIBVIRT_DEBUG_LOGS          = "LIBVIRT_DEBUG_LOGS"
+	ENV_VAR_VIRTIOFSD_DEBUG_LOGS        = "VIRTIOFSD_DEBUG_LOGS"
+	ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY = "VIRT_LAUNCHER_LOG_VERBOSITY"
+	ENV_VAR_SHARED_FILESYSTEM_PATHS     = "SHARED_FILESYSTEM_PATHS"
+)
 
 const ENV_VAR_POD_NAME = "POD_NAME"
 
@@ -203,7 +209,8 @@ func modifyNodeAffintyToRejectLabel(origAffinity *k8sv1.Affinity, labelToReject 
 		Operator: k8sv1.NodeSelectorOpDoesNotExist,
 	}
 	term := k8sv1.NodeSelectorTerm{
-		MatchExpressions: []k8sv1.NodeSelectorRequirement{requirement}}
+		MatchExpressions: []k8sv1.NodeSelectorRequirement{requirement},
+	}
 
 	nodeAffinity := &k8sv1.NodeAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
@@ -224,7 +231,6 @@ func modifyNodeAffintyToRejectLabel(origAffinity *k8sv1.Affinity, labelToReject 
 				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{term},
 			}
 		}
-
 	} else if affinity != nil {
 		affinity.NodeAffinity = nodeAffinity
 	} else {
@@ -404,16 +410,19 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	var command []string
-	var qemuTimeout = generateQemuTimeoutWithJitter(t.launcherQemuTimeout)
+	qemuTimeout := generateQemuTimeoutWithJitter(t.launcherQemuTimeout)
 
 	if tempPod {
 		logger := log.DefaultLogger()
 		logger.Infof("RUNNING doppleganger pod for %s", vmi.Name)
-		command = []string{"/bin/bash",
+		command = []string{
+			"/bin/bash",
 			"-c",
-			"echo", "bound PVCs"}
+			"echo", "bound PVCs",
+		}
 	} else {
-		command = []string{"/usr/bin/virt-launcher-monitor",
+		command = []string{
+			"/usr/bin/virt-launcher-monitor",
 			"--qemu-timeout", qemuTimeout,
 			"--name", domain,
 			"--uid", string(vmi.UID),
@@ -529,7 +538,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			volumeSource := k8sv1.VolumeSource{
 				ConfigMap: &k8sv1.ConfigMapVolumeSource{
 					LocalObjectReference: k8sv1.LocalObjectReference{Name: cm.Name},
-					DefaultMode:          pointer.P(int32(0755)),
+					DefaultMode:          pointer.P(int32(0o755)),
 				},
 			}
 			vol := k8sv1.Volume{
@@ -572,7 +581,8 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	var initContainers []k8sv1.Container
 
 	if HaveContainerDiskVolume(vmi.Spec.Volumes) || util.HasKernelBootContainerImage(vmi) {
-		initContainerCommand := []string{"/usr/bin/cp",
+		initContainerCommand := []string{
+			"/usr/bin/cp",
 			"/usr/bin/container-disk",
 			"/init/usr/bin/container-disk",
 		}
@@ -858,7 +868,6 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 		t.containerDiskDir,
 		t.virtShareDir,
 		volumeOpts...)
-
 	if err != nil {
 		return nil, err
 	}
@@ -1048,9 +1057,11 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 	sharedMount := k8sv1.MountPropagationHostToContainer
 	var command []string
 	if tempPod {
-		command = []string{"/bin/bash",
+		command = []string{
+			"/bin/bash",
 			"-c",
-			"exit", "0"}
+			"exit", "0",
+		}
 	} else {
 		command = []string{"/bin/sh", "-c", "/usr/bin/container-disk --copy-path /path/hp"}
 	}
@@ -1225,8 +1236,10 @@ func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret
 // The virtProbeTotalAdditionalOverhead is added for the virt-probe binary we use for probing and
 // only added once, while the virtProbeOverhead is the general memory consumption of virt-probe
 // that we add per added probe.
-var virtProbeTotalAdditionalOverhead = resource.MustParse("100Mi")
-var virtProbeOverhead = resource.MustParse("10Mi")
+var (
+	virtProbeTotalAdditionalOverhead = resource.MustParse("100Mi")
+	virtProbeOverhead                = resource.MustParse("10Mi")
+)
 
 func addProbeOverheads(vmi *v1.VirtualMachineInstance, to *resource.Quantity) {
 	hasLiveness := addProbeOverhead(vmi.Spec.LivenessProbe, to)
@@ -1271,7 +1284,6 @@ func NewTemplateService(launcherImage string,
 	namespaceStore cache.Store,
 	opts ...templateServiceOption,
 ) TemplateService {
-
 	precond.MustNotBeEmpty(launcherImage)
 	log.Log.V(1).Infof("Exporter Image: %s", exporterImage)
 	svc := templateService{

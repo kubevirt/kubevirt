@@ -90,7 +90,6 @@ type connectionStruct struct {
 }
 
 func (v *vmis) SerialConsole(name string, options *kvcorev1.SerialConsoleOptions) (kvcorev1.StreamInterface, error) {
-
 	if options != nil && options.ConnectionTimeout != 0 {
 		timeoutChan := time.Tick(options.ConnectionTimeout)
 		connectionChan := make(chan connectionStruct)

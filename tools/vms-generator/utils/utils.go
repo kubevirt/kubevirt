@@ -122,8 +122,11 @@ const (
 	imageFedora     = "fedora-with-test-tooling-container-disk"
 	imageKernelBoot = "alpine-ext-kernel-boot-demo"
 )
-const windowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
-const EthernetAdaptorModelToEnableMultiqueue = v1.VirtIO
+
+const (
+	windowsFirmware                        = "5d307ca9-b3ef-428c-8861-06e72d69f223"
+	EthernetAdaptorModelToEnableMultiqueue = v1.VirtIO
+)
 
 const (
 	cloudConfigHeader = "#cloud-config"
@@ -143,8 +146,10 @@ ethernets:
 `
 )
 
-var DockerPrefix = "registry:5000/kubevirt"
-var DockerTag = "devel"
+var (
+	DockerPrefix = "registry:5000/kubevirt"
+	DockerTag    = "devel"
+)
 
 var gracePeriod = int64(0)
 
@@ -182,6 +187,7 @@ func initFedora(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceS
 	addRNG(spec) // without RNG, newer fedora images may hang waiting for entropy sources
 	return spec
 }
+
 func initFedoraIsolated(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInstanceSpec {
 	addContainerDisk(spec, fmt.Sprintf(strFmt, DockerPrefix, imageFedora, DockerTag), v1.DiskBusVirtio)
 	addRNG(spec) // without RNG, newer fedora images may hang waiting for entropy sources
@@ -316,7 +322,6 @@ func addEmptyDisk(spec *v1.VirtualMachineInstanceSpec, size string) *v1.VirtualM
 }
 
 func addDataVolumeDisk(spec *v1.VirtualMachineInstanceSpec, dataVolumeName string, bus v1.DiskBus, diskName string) *v1.VirtualMachineInstanceSpec {
-
 	// Only add a reference to the disk if it isn't using the default v1.DiskBusSATA bus
 	if bus != v1.DiskBusSATA {
 		spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
@@ -341,7 +346,6 @@ func addDataVolumeDisk(spec *v1.VirtualMachineInstanceSpec, dataVolumeName strin
 }
 
 func addPVCDisk(spec *v1.VirtualMachineInstanceSpec, claimName string, bus v1.DiskBus, diskName string) *v1.VirtualMachineInstanceSpec {
-
 	// Only add a reference to the disk if it isn't using the default v1.DiskBusSATA bus
 	if bus != v1.DiskBusSATA {
 		spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
@@ -491,8 +495,10 @@ func GetVMISRIOV() *v1.VirtualMachineInstance {
 	initFedora(&vm.Spec)
 	addNoCloudDiskWitUserDataNetworkData(&vm.Spec, generateCloudConfigString(cloudConfigUserPassword), secondaryIfaceDhcpNetworkData)
 
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
-		{Name: "sriov-net", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}}
+	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
+		{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
+		{Name: "sriov-net", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+	}
 
 	return vm
 }
@@ -516,8 +522,10 @@ func GetVMIMultusMultipleNet() *v1.VirtualMachineInstance {
 	initFedora(&vm.Spec)
 	addNoCloudDiskWitUserDataNetworkData(&vm.Spec, generateCloudConfigString(cloudConfigUserPassword), secondaryIfaceDhcpNetworkData)
 
-	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
-		{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
+		{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}},
+		{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+	}
 
 	return vm
 }
@@ -840,7 +848,6 @@ func getBaseVMIReplicaSet(name string, replicas int, selectorLabels map[string]s
 }
 
 func GetVMPoolCirros() *poolv1.VirtualMachinePool {
-
 	vmPool := getBaseVMPool(VmPoolCirros, 3, map[string]string{
 		"kubevirt.io/vmpool": VmPoolCirros,
 	})
