@@ -317,6 +317,8 @@
           {
             "name": "nameValue",
             "deviceName": "deviceNameValue",
+            "claimName": "claimNameValue",
+            "requestName": "requestNameValue",
             "virtualGPUOptions": {
               "display": {
                 "enabled": true,
@@ -339,6 +341,10 @@
           {
             "name": "nameValue",
             "deviceName": "deviceNameValue",
+            "ClaimRequest": {
+              "claimName": "claimNameValue",
+              "requestName": "requestNameValue"
+            },
             "tag": "tagValue"
           }
         ],
@@ -870,7 +876,14 @@
         }
       }
     ],
-    "architecture": "architectureValue"
+    "architecture": "architectureValue",
+    "resourceClaims": [
+      {
+        "name": "nameValue",
+        "resourceClaimName": "resourceClaimNameValue",
+        "resourceClaimTemplateName": "resourceClaimTemplateNameValue"
+      }
+    ]
   },
   "status": {
     "nodeName": "nodeNameValue",
@@ -1070,6 +1083,34 @@
           "filesystemOverhead": "filesystemOverheadValue"
         }
       }
-    ]
+    ],
+    "deviceStatus": {
+      "gpuStatuses": [
+        {
+          "name": "nameValue",
+          "deviceResourceClaimStatus": {
+            "name": "nameValue",
+            "resourceClaimName": "resourceClaimNameValue",
+            "attributes": {
+              "pciAddress": "pciAddressValue",
+              "mdevUUID": "mdevUUIDValue"
+            }
+          }
+        }
+      ],
+      "hostDeviceStatuses": [
+        {
+          "name": "nameValue",
+          "deviceResourceClaimStatus": {
+            "name": "nameValue",
+            "resourceClaimName": "resourceClaimNameValue",
+            "attributes": {
+              "pciAddress": "pciAddressValue",
+              "mdevUUID": "mdevUUIDValue"
+            }
+          }
+        }
+      ]
+    }
   }
 }
