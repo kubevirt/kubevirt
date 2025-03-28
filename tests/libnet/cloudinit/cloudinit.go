@@ -22,6 +22,8 @@ package cloudinit
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	"kubevirt.io/kubevirt/tests/libnet/dns"
 
 	"sigs.k8s.io/yaml"
@@ -91,6 +93,13 @@ func WithDHCP6Enabled() NetworkDataInterfaceOption {
 	return func(networkDataInterface *CloudInitInterface) error {
 		enabled := true
 		networkDataInterface.DHCP6 = &enabled
+		return nil
+	}
+}
+
+func WithDHCP6Disabled() NetworkDataInterfaceOption {
+	return func(networkDataInterface *CloudInitInterface) error {
+		networkDataInterface.DHCP6 = pointer.P(false)
 		return nil
 	}
 }
