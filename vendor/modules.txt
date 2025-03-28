@@ -865,7 +865,7 @@ kubevirt.io/api/core/v1
 ## explicit; go 1.22.11
 kubevirt.io/application-aware-quota/staging/src/kubevirt.io/application-aware-quota-api/pkg/apis/core
 kubevirt.io/application-aware-quota/staging/src/kubevirt.io/application-aware-quota-api/pkg/apis/core/v1alpha1
-# kubevirt.io/containerized-data-importer-api v1.61.2
+# kubevirt.io/containerized-data-importer-api v1.61.4
 ## explicit; go 1.22.0
 kubevirt.io/containerized-data-importer-api/pkg/apis/core
 kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1
