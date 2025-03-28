@@ -482,13 +482,14 @@ func (n NetPod) managedTapSpec(podIfaceName string, vmiIfaceIndex int, ifaceStat
 	if !exist {
 		podStatusIface = ifaceStatusByName[podIfaceName]
 	}
-
+	bridgeInterFaceName := link.GenerateBridgeName(podIfaceName)
 	bridgeIface := nmstate.Interface{
-		Name:     link.GenerateBridgeName(podIfaceName),
-		TypeName: nmstate.TypeBridge,
-		State:    nmstate.IfaceStateUp,
-		Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
-		Metadata: &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
+		Name:        bridgeInterFaceName,
+		TypeName:    nmstate.TypeBridge,
+		State:       nmstate.IfaceStateUp,
+		CopyMacFrom: bridgeInterFaceName, // prevent bridge mac from changing
+		Ethtool:     nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
+		Metadata:    &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
 	}
 
 	podIface := nmstate.Interface{
