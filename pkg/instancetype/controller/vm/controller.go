@@ -116,6 +116,11 @@ func (c *controller) Sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		return vm, nil
 	}
 
+	// Before we sync ensure any referenced resources exist
+	if syncErr := c.checkResourcesExist(vm); syncErr != nil {
+		return vm, syncErr
+	}
+
 	referencePolicy := c.clusterConfig.GetInstancetypeReferencePolicy()
 	switch referencePolicy {
 	case virtv1.Reference:
@@ -136,6 +141,20 @@ func (c *controller) Sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		return vm, common.NewSyncError(fmt.Errorf(upgradeControllerRevisionErrFmt, err), common.FailedCreateVirtualMachineReason)
 	}
 	return vm, nil
+}
+
+func (c *controller) checkResourcesExist(vm *virtv1.VirtualMachine) error {
+	const (
+		failedFindInstancetype = "FailedFindInstancetype"
+		failedFindPreference   = "FailedFindPreference"
+	)
+	if _, err := c.Find(vm); err != nil {
+		return common.NewSyncError(err, failedFindInstancetype)
+	}
+	if _, err := c.FindPreference(vm); err != nil {
+		return common.NewSyncError(err, failedFindPreference)
+	}
+	return nil
 }
 
 func (c *controller) handleExpand(
