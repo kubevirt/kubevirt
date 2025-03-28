@@ -285,6 +285,7 @@ var _ = Describe("Backend Storage", func() {
 					Namespace: nsName,
 				},
 			}
+
 			pvc, err := backendStorage.CreatePVCForVMI(vmi)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pvc).NotTo(BeNil())
@@ -319,5 +320,70 @@ var _ = Describe("Backend Storage", func() {
 				vm.Spec.Template.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
 			}),
 		)
+	})
+
+	Context("PVC size", func() {
+		var (
+			k8sClient *k8sfake.Clientset
+		)
+
+		BeforeEach(func() {
+			k8sClient = k8sfake.NewSimpleClientset()
+			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+		})
+
+		It("Should return default size when no annotation is set", func() {
+			size, err := backendStorage.getBackendPVCSize("default")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(size).To(Equal(DefaultPVCSize))
+		})
+
+		It("Should return the size from the annotation when set", func() {
+			sc := &storagev1.StorageClass{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:        "annotated",
+					Annotations: map[string]string{MinimumSupportedPVCSize: "20Mi"},
+				},
+			}
+
+			err := storageClassStore.Add(sc)
+			Expect(err).NotTo(HaveOccurred())
+
+			size, err := backendStorage.getBackendPVCSize("annotated")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(size).To(Equal("20Mi"))
+		})
+
+		It("Should return default size when annotation is invalid", func() {
+			sc := &storagev1.StorageClass{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:        "invalid",
+					Annotations: map[string]string{MinimumSupportedPVCSize: "invalid-size"},
+				},
+			}
+
+			err := storageClassStore.Add(sc)
+			Expect(err).NotTo(HaveOccurred())
+
+			size, err := backendStorage.getBackendPVCSize("invalid")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(size).To(Equal(DefaultPVCSize))
+		})
+
+		It("Should return default size when annotation is smaller than default", func() {
+			sc := &storagev1.StorageClass{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:        "smaller-than-default",
+					Annotations: map[string]string{MinimumSupportedPVCSize: "1Mi"},
+				},
+			}
+
+			err := storageClassStore.Add(sc)
+			Expect(err).NotTo(HaveOccurred())
+
+			size, err := backendStorage.getBackendPVCSize("smaller-than-default")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(size).To(Equal(DefaultPVCSize))
+		})
 	})
 })
