@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
-	api2 "kubevirt.io/client-go/api"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -51,17 +51,23 @@ var _ = Describe("VMNetworkConfigurator", func() {
 
 		Context("when calling []podNIC factory functions", func() {
 			It("should not process SR-IOV networks", func() {
-				vmi := api2.NewMinimalVMIWithNS("testnamespace", "testVmName")
 				const networkName = "sriov"
-				vmi.Spec.Networks = []v1.Network{{
-					Name: networkName,
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.MultusNetwork{NetworkName: "sriov-nad"},
-					},
-				}}
-				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
-					Name: networkName, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
-				}}
+				vmi := libvmi.New(
+					libvmi.WithNamespace("testnamespace"),
+					libvmi.WithName("testVmName"),
+					libvmi.WithNetwork(&v1.Network{
+						Name: networkName,
+						NetworkSource: v1.NetworkSource{
+							Multus: &v1.MultusNetwork{NetworkName: "sriov-nad"},
+						},
+					}),
+					libvmi.WithInterface(v1.Interface{
+						Name: networkName,
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{
+							SRIOV: &v1.InterfaceSRIOV{},
+						},
+					}),
+				)
 
 				vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, nil)
 
