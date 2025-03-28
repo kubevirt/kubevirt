@@ -19,7 +19,9 @@
 
 package libvmi
 
-import v1 "kubevirt.io/api/core/v1"
+import (
+	v1 "kubevirt.io/api/core/v1"
+)
 
 // WithTablet adds tablet device with given name and bus
 func WithTablet(name string, bus v1.InputBus) Option {
@@ -37,5 +39,11 @@ func WithTablet(name string, bus v1.InputBus) Option {
 func WithAutoattachGraphicsDevice(enable bool) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = &enable
+	}
+}
+
+func WithAutoattachMemBalloon(enable bool) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.AutoattachMemBalloon = &enable
 	}
 }
