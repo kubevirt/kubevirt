@@ -28,6 +28,7 @@ http_archive(
     strip_prefix = "buildifier-prebuilt-7.3.1",
     urls = [
         "http://github.com/keith/buildifier-prebuilt/archive/7.3.1.tar.gz",
+        "https://storage.googleapis.com/builddeps/7f85b688a4b558e2d9099340cfb510ba7179f829454fba842370bccffb67d6cc",
     ],
 )
 
