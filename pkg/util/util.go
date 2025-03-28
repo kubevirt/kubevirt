@@ -81,6 +81,10 @@ func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+func UseLaunchSecurity(vmi *v1.VirtualMachineInstance) bool {
+	return IsSEVVMI(vmi) || IsSecureExecutionVMI(vmi)
+}
+
 // Check if a VMI spec requests AMD SEV
 func IsSEVVMI(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Spec.Domain.LaunchSecurity != nil && vmi.Spec.Domain.LaunchSecurity.SEV != nil
@@ -89,6 +93,11 @@ func IsSEVVMI(vmi *v1.VirtualMachineInstance) bool {
 // Check if a VMI spec requests SEV with attestation
 func IsSEVAttestationRequested(vmi *v1.VirtualMachineInstance) bool {
 	return IsSEVVMI(vmi) && vmi.Spec.Domain.LaunchSecurity.SEV.Attestation != nil
+}
+
+// Check if a VMI spec requests Secure Execution
+func IsSecureExecutionVMI(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Spec.Domain.LaunchSecurity != nil && vmi.Spec.Domain.LaunchSecurity.SecureExecution != nil
 }
 
 // WantVirtioNetDevice checks whether a VMI references at least one "virtio" network interface.

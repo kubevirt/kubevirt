@@ -595,6 +595,7 @@ spec:
           supplementalPoolThreadCount: 4294967269
         ioThreadsPolicy: ioThreadsPolicyValue
         launchSecurity:
+          secureExecution: {}
           sev:
             attestation: {}
             dhCert: dhCertValue
