@@ -18,6 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -1195,13 +1196,18 @@ var _ = Describe("Restore controller", func() {
 					pvcSource.Add(&pvc)
 					return calls
 				}
-				expectUpdateRestoredVM := func() {
+				expectUpdateRestoredVM := func(expectedFirmwareUUID *types.UID) {
 					updatedVM := createSnapshotVM()
 					updatedVM.Status.RestoreInProgress = &vmRestoreName
 					updatedVM.ResourceVersion = "1"
 					updatedVM.Annotations = map[string]string{"restore.kubevirt.io/lastRestoreUID": "restore-uid"}
 					updatedVM.Spec.DataVolumeTemplates[0].Name = "restore-uid-disk1"
 					updatedVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = "restore-uid-disk1"
+					if expectedFirmwareUUID != nil {
+						updatedVM.Spec.Template.Spec.Domain.Firmware = &kubevirtv1.Firmware{UUID: *expectedFirmwareUUID}
+					} else {
+						setLegacyFirmwareUUID(updatedVM)
+					}
 					vmInterface.EXPECT().Update(context.Background(), updatedVM, metav1.UpdateOptions{}).Return(updatedVM, nil).Times(1)
 				}
 
@@ -1211,7 +1217,7 @@ var _ = Describe("Restore controller", func() {
 					vmRestoreSource.Add(r)
 					addVM(vm)
 					if expecteUpdateVM == false {
-						expectUpdateRestoredVM()
+						expectUpdateRestoredVM(nil)
 					}
 					res, err := targetVM.Reconcile()
 					Expect(err).ShouldNot(HaveOccurred())
@@ -1225,6 +1231,23 @@ var _ = Describe("Restore controller", func() {
 					Entry("wait for dvs when dv phase pending", true, cdiv1.Pending, true),
 					Entry("create dvs when dv doesnt exists", false, cdiv1.PhaseUnset, true),
 				)
+
+				It("should not override existing firmware UUID", func() {
+					addRestoreVolumes(true, cdiv1.Succeeded)
+					vmRestoreSource.Add(r)
+
+					uid := types.UID("existing-uid")
+					existingFirmware := &kubevirtv1.Firmware{UUID: uid}
+
+					vm.Spec.Template.Spec.Domain.Firmware = existingFirmware
+					sc.Spec.Source.VirtualMachine.Spec.Template.Spec.Domain.Firmware = existingFirmware
+
+					addVM(vm)
+					expectUpdateRestoredVM(&uid)
+					res, err := targetVM.Reconcile()
+					Expect(err).ShouldNot(HaveOccurred())
+					Expect(res).To(BeTrue())
+				})
 			})
 
 			Context("target VM is different than source VM", func() {
@@ -1687,6 +1710,7 @@ var _ = Describe("Restore controller", func() {
 			expectUpdateVMRestored := func(vm *kubevirtv1.VirtualMachine) {
 				expectedUpdatedVM := vm.DeepCopy()
 				expectedUpdatedVM.Annotations = map[string]string{"restore.kubevirt.io/lastRestoreUID": "restore-uid"}
+				setLegacyFirmwareUUID(expectedUpdatedVM)
 				vmInterface.EXPECT().
 					Update(context.Background(), expectedUpdatedVM, metav1.UpdateOptions{}).
 					Do(func(ctx context.Context, obj interface{}, options metav1.UpdateOptions) {

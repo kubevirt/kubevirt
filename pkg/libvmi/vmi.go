@@ -23,6 +23,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -286,6 +287,15 @@ func WithTPM(persistent bool) Option {
 		vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{
 			Persistent: pointer.P(persistent),
 		}
+	}
+}
+
+func WithFirmwareUUID(uid string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Firmware == nil {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{}
+		}
+		vmi.Spec.Domain.Firmware.UUID = types.UID(uid)
 	}
 }
 
