@@ -45,7 +45,7 @@ func (r *Reconciler) createOrUpdateInstancetype(instancetype *instancetypev1beta
 	}
 
 	imageTag, imageRegistry, id := getTargetVersionRegistryID(r.kv)
-	injectOperatorMetadata(r.kv, &instancetype.ObjectMeta, imageTag, imageRegistry, id, true)
+	injectOperatorMetadata(r.kv, &instancetype.ObjectMeta, imageTag, imageRegistry, id)
 
 	if errors.IsNotFound(err) {
 		if _, err := r.clientset.VirtualMachineClusterInstancetype().Create(context.Background(), instancetype, metav1.CreateOptions{}); err != nil {
@@ -132,7 +132,7 @@ func (r *Reconciler) createOrUpdatePreference(preference *instancetypev1beta1.Vi
 	}
 
 	imageTag, imageRegistry, id := getTargetVersionRegistryID(r.kv)
-	injectOperatorMetadata(r.kv, &preference.ObjectMeta, imageTag, imageRegistry, id, true)
+	injectOperatorMetadata(r.kv, &preference.ObjectMeta, imageTag, imageRegistry, id)
 
 	if errors.IsNotFound(err) {
 		if _, err := r.clientset.VirtualMachineClusterPreference().Create(context.Background(), preference, metav1.CreateOptions{}); err != nil {
