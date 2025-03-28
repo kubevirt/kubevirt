@@ -15,7 +15,7 @@ require (
 	github.com/go-openapi/strfmt v0.23.0
 	github.com/go-openapi/validate v0.24.0
 	github.com/gogo/protobuf v1.3.2
-	github.com/golang/glog v1.2.1
+	github.com/golang/glog v1.2.4
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.4
 	github.com/google/go-github/v32 v32.0.0
@@ -168,8 +168,6 @@ require (
 )
 
 replace (
-	github.com/golang/glog => ./staging/src/github.com/golang/glog
-
 	github.com/nxadm/tail => github.com/nxadm/tail v0.0.0-20211216163028-4472660a31a6
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
