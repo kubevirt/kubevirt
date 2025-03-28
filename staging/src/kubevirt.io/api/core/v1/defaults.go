@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"runtime"
+
 	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -75,7 +77,9 @@ func SetDefaults_DiskDevice(obj *DiskDevice) {
 }
 
 func SetDefaults_Watchdog(obj *Watchdog) {
-	if obj.I6300ESB == nil {
+	if runtime.GOARCH == "s390x" && obj.Diag288 == nil {
+		obj.Diag288 = &Diag288Watchdog{}
+	} else if obj.I6300ESB == nil {
 		obj.I6300ESB = &I6300ESBWatchdog{}
 	}
 }
@@ -99,6 +103,12 @@ func SetDefaults_FeatureSpinlocks(obj *FeatureSpinlocks) {
 }
 
 func SetDefaults_I6300ESBWatchdog(obj *I6300ESBWatchdog) {
+	if obj.Action == "" {
+		obj.Action = WatchdogActionReset
+	}
+}
+
+func SetDefaults_Diag288Watchdog(obj *Diag288Watchdog) {
 	if obj.Action == "" {
 		obj.Action = WatchdogActionReset
 	}
