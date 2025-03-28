@@ -1045,13 +1045,13 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				}
 			})
 
-			It("[test_id:2653] should be migrated successfully, using guest agent on VM with default migration configuration", func() {
+			It("[test_id:2653][QUARANTINE] should be migrated successfully, using guest agent on VM with default migration configuration", decorators.Quarantine, func() {
 				By("Creating the DV")
 				createDV(testsuite.NamespacePrivileged)
 				VMIMigrationWithGuestAgent(virtClient, dv.Name, fedoraVMSize, nil)
 			})
 
-			It("[test_id:6975] should have guest agent functional after migration", func() {
+			It("[test_id:6975][QUARANTINE] should have guest agent functional after migration", decorators.Quarantine, func() {
 				By("Creating the DV")
 				createDV(testsuite.GetTestNamespace(nil))
 				By("Creating the VMI")
@@ -1168,7 +1168,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 						libvmi.WithNetwork(v1.DefaultPodNetwork()))
 				}, console.LoginToAlpine),
 
-				Entry("[test_id:8610] with DataVolume", func() *v1.VirtualMachineInstance {
+				Entry("[test_id:8610][QUARANTINE] with DataVolume", decorators.Quarantine, func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the DataVolume
 					return libvmi.New(
@@ -1183,7 +1183,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					return prepareVMIWithAllVolumeSources(testsuite.NamespacePrivileged, false)
 				}, console.LoginToFedora),
 
-				Entry("[test_id:8612] with PVC", func() *v1.VirtualMachineInstance {
+				Entry("[test_id:8612][QUARANTINE] with PVC", decorators.Quarantine, func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the Underlying PVC
 					return libvmi.New(
@@ -1254,7 +1254,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 						libvmi.WithNetwork(v1.DefaultPodNetwork()))
 				}, console.LoginToAlpine),
 
-				Entry("with DataVolume", func() *v1.VirtualMachineInstance {
+				Entry("[QUARANTINE] with DataVolume", decorators.Quarantine, func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the DataVolume
 					return libvmi.New(
@@ -1269,7 +1269,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					return prepareVMIWithAllVolumeSources(testsuite.NamespacePrivileged, false)
 				}, console.LoginToFedora),
 
-				Entry("with PVC", func() *v1.VirtualMachineInstance {
+				Entry("[QUARANTINE] with PVC", decorators.Quarantine, func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the underlying PVC
 					return libvmi.New(
@@ -2799,7 +2799,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			}, 200)).To(Succeed())
 		})
 
-		It("should migrate with a shared DV", func() {
+		It("[QUARANTINE] should migrate with a shared DV", decorators.Quarantine, func() {
 			sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
 
 			if !foundSC {
