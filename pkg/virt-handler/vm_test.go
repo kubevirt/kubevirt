@@ -3394,6 +3394,244 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 	})
 
+	Context("setMigrationProgressStatus", func() {
+		newDomainMigrationKubevirtMetadata := func(miguid types.UID, end *metav1.Time, completed, failed bool, mode v1.MigrationMode) *api.Domain {
+			d := api.NewMinimalDomainWithUUID("test", "1234")
+			d.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
+				UID:            miguid,
+				StartTimestamp: pointer.P(metav1.NewTime(time.Now())),
+				EndTimestamp:   end,
+				Completed:      completed,
+				Failed:         failed,
+				Mode:           mode,
+			}
+			return d
+		}
+		DescribeTable("should leave the VMI untouched", func(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+
+			vmiCopy := vmi.DeepCopy()
+			controller.setMigrationProgressStatus(vmi, domain)
+			Expect(vmi).To(Equal(vmiCopy))
+		},
+			Entry("with empty domain", libvmi.New(), nil),
+			Entry("without any migration metadata", libvmi.New(libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{}),
+			))), api.NewMinimalDomain("test")),
+			Entry("without any migration state", libvmi.New(libvmistatus.WithStatus(libvmistatus.New())),
+				newDomainMigrationKubevirtMetadata("1234", nil, false, false, v1.MigrationPreCopy)),
+			Entry("when the source of the migration ist running on the other node", libvmi.New(libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+				MigrationUID:      "1234",
+				SourceNode:        "othernode",
+				TargetNodeAddress: host,
+				Completed:         false,
+			})))), newDomainMigrationKubevirtMetadata("1234", nil, false, false, v1.MigrationPreCopy)),
+			Entry("when the migration UID in the metadata doesn't correspond to the one in the status", libvmi.New(libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+				MigrationUID:      "4321",
+				SourceNode:        host,
+				TargetNodeAddress: host,
+				Completed:         false,
+			})))), newDomainMigrationKubevirtMetadata("1234", nil, false, false, v1.MigrationPreCopy)),
+			Entry("when the migration is marked as completed in the VMI", libvmi.New(libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+				MigrationUID:      "1234",
+				SourceNode:        host,
+				TargetNodeAddress: "othernode",
+				Completed:         true,
+			})))), newDomainMigrationKubevirtMetadata("1234", nil, true, false, v1.MigrationPreCopy)),
+		)
+
+		It("should set the vmi migration state to the same state as the metadata", func() {
+			d := newDomainMigrationKubevirtMetadata("1234", pointer.P(metav1.NewTime(time.Now())),
+				true, false, v1.MigrationPreCopy)
+			vmi := libvmi.New(libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+					MigrationUID:      "1234",
+					SourceNode:        host,
+					TargetNodeAddress: "othernode",
+					Completed:         false,
+				}))))
+			controller.setMigrationProgressStatus(vmi, d)
+			Expect(vmi.Status.MigrationState.StartTimestamp).To(Equal(d.Spec.Metadata.KubeVirt.Migration.StartTimestamp))
+			Expect(vmi.Status.MigrationState.EndTimestamp).To(Equal(d.Spec.Metadata.KubeVirt.Migration.EndTimestamp))
+			Expect(vmi.Status.MigrationState.Completed).To(Equal(d.Spec.Metadata.KubeVirt.Migration.Completed))
+			Expect(vmi.Status.MigrationState.Failed).To(Equal(d.Spec.Metadata.KubeVirt.Migration.Failed))
+			Expect(vmi.Status.MigrationState.AbortStatus).To(Equal(v1.MigrationAbortStatus(
+				d.Spec.Metadata.KubeVirt.Migration.AbortStatus)))
+		})
+
+		It("should send an event if the migration failed", func() {
+			d := newDomainMigrationKubevirtMetadata("1234", pointer.P(metav1.NewTime(time.Now())),
+				true, true, v1.MigrationPreCopy)
+			vmi := libvmi.New(libvmistatus.WithStatus(libvmistatus.New(
+				libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+					MigrationUID:      "1234",
+					SourceNode:        host,
+					TargetNodeAddress: "othernode",
+					Completed:         false,
+				}))))
+			d.Spec.Metadata.KubeVirt.Migration.FailureReason = "some failure happend"
+
+			controller.setMigrationProgressStatus(vmi, d)
+
+			Expect(vmi.Status.MigrationState.StartTimestamp).To(Equal(d.Spec.Metadata.KubeVirt.Migration.StartTimestamp))
+			Expect(vmi.Status.MigrationState.EndTimestamp).To(Equal(d.Spec.Metadata.KubeVirt.Migration.EndTimestamp))
+			Expect(vmi.Status.MigrationState.Completed).To(Equal(d.Spec.Metadata.KubeVirt.Migration.Completed))
+			Expect(vmi.Status.MigrationState.Failed).To(Equal(d.Spec.Metadata.KubeVirt.Migration.Failed))
+			Expect(vmi.Status.MigrationState.AbortStatus).To(Equal(v1.MigrationAbortStatus(
+				d.Spec.Metadata.KubeVirt.Migration.AbortStatus)))
+			Expect(vmi.Status.MigrationState.FailureReason).To(Equal(d.Spec.Metadata.KubeVirt.Migration.FailureReason))
+			testutils.ExpectEvent(recorder, v1.Migrated.String())
+		})
+	})
+
+	Context("handleMigrationAbort", func() {
+		DescribeTable("should abort the migration with an abort request", func(vmi *v1.VirtualMachineInstance) {
+			client.EXPECT().CancelVirtualMachineMigration(vmi)
+			Expect(controller.handleMigrationAbort(vmi, client)).To(Succeed())
+			testutils.ExpectEvent(recorder, VMIAbortingMigration)
+		},
+			Entry("when the request failed", libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+						AbortRequested: true,
+						AbortStatus:    v1.MigrationAbortFailed,
+					})))),
+			),
+			Entry("when the request the abort status isn't set", libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+						AbortRequested: true,
+					})))),
+			),
+		)
+		DescribeTable("should do nothing", func(vmi *v1.VirtualMachineInstance) {
+
+			Expect(controller.handleMigrationAbort(vmi, client)).To(Succeed())
+		},
+			Entry("when the request succeeded", libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+						AbortRequested: true,
+						AbortStatus:    v1.MigrationAbortInProgress,
+					})))),
+			),
+			Entry("when the request is in progress", libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+						AbortRequested: true,
+						AbortStatus:    v1.MigrationAbortSucceeded,
+					})))),
+			),
+		)
+
+		It("should return an error if the migration cancellation failed", func() {
+			const errMsg = "some error"
+			vmi := libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+						AbortRequested: true,
+					}))))
+			client.EXPECT().CancelVirtualMachineMigration(vmi).Return(fmt.Errorf(errMsg))
+			Expect(controller.handleMigrationAbort(vmi, client)).To(MatchError(errMsg))
+		})
+	})
+
+	Context("claimDeviceOwnership", func() {
+		var path string
+		BeforeEach(func() {
+			path = GinkgoT().TempDir()
+		})
+
+		Context("with a generic device", func() {
+			const device = "device"
+			BeforeEach(func() {
+				Expect(os.Mkdir(filepath.Join(path, "dev"), 0o755)).To(Succeed())
+				f, err := os.Create(filepath.Join(path, "dev", device))
+				Expect(err).ToNot(HaveOccurred())
+				f.Close()
+			})
+
+			It("should succeed", func() {
+				p, err := safepath.JoinAndResolveWithRelativeRoot("/", path)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(controller.claimDeviceOwnership(p, device)).To(Succeed())
+			})
+
+			DescribeTable("should return an error if the device doesn't exist", func(softEmulation bool) {
+				kv := &v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						UseEmulation: softEmulation,
+					},
+				}
+				config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kv)
+				controller.clusterConfig = config
+
+				p, err := safepath.JoinAndResolveWithRelativeRoot("/", path)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(controller.claimDeviceOwnership(p, "noexist")).To(HaveOccurred())
+			},
+				Entry("with software emulation enabled", true),
+				Entry("with software emulation disable", false),
+			)
+		})
+
+		DescribeTable("iwith kvm device not existing should", func(softEmulation bool) {
+			kv := &v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					UseEmulation: softEmulation,
+				},
+			}
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kv)
+			controller.clusterConfig = config
+
+			p, err := safepath.JoinAndResolveWithRelativeRoot("/", path)
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.claimDeviceOwnership(p, "kvm")
+			if softEmulation {
+				Expect(err).NotTo(HaveOccurred())
+			} else {
+				Expect(err).To(HaveOccurred())
+			}
+		},
+			Entry("failed with software emulation enabled", true),
+			Entry("succeed with software emulation disable", false),
+		)
+	})
+
+	Context("vmUpdateHelperMigrationTarget", func() {
+		It("should succeed if the vmi is migrating ", func() {
+			vmi := libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmi.WithLabel(v1.MigrationTargetNodeNameLabel, host),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
+						StartTimestamp: pointer.P(metav1.Now()),
+					}))))
+			Expect(controller.vmUpdateHelperMigrationTarget(vmi)).To(Succeed())
+		})
+
+		It("should succeed if migration state isn't set", func() {
+			vmi := libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmi.WithLabel(v1.MigrationTargetNodeNameLabel, host),
+				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithMigrationState(
+					v1.VirtualMachineInstanceMigrationState{},
+				))))
+			client.EXPECT().SyncMigrationTarget(vmi, gomock.Any())
+
+			Expect(controller.vmUpdateHelperMigrationTarget(vmi)).To(Succeed())
+			testutils.ExpectEvent(recorder, VMIMigrationTargetPrepared)
+		})
+
+		It("should fail if sync with the migration target fails", func() {
+			vmi := libvmi.New(libvmi.WithUID(vmiTestUUID),
+				libvmi.WithLabel(v1.MigrationTargetNodeNameLabel, host),
+				libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithMigrationState(
+					v1.VirtualMachineInstanceMigrationState{},
+				))))
+			client.EXPECT().SyncMigrationTarget(vmi, gomock.Any()).Return(fmt.Errorf("some error"))
+
+			Expect(controller.vmUpdateHelperMigrationTarget(vmi)).To(MatchError(
+				ContainSubstring("syncing migration target failed")))
+		})
+	})
 })
 
 var _ = Describe("DomainNotifyServerRestarts", func() {
