@@ -29,8 +29,10 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-const DefaultFailureDeadline = 5 * time.Minute
-const DefaultGracePeriod = 5 * time.Minute
+const (
+	DefaultFailureDeadline = 5 * time.Minute
+	DefaultGracePeriod     = 5 * time.Minute
+)
 
 // VirtualMachineSnapshot defines the operation of snapshotting a VM
 // +genclient
@@ -325,7 +327,7 @@ const (
 	// If not ready in that time the restore will fail
 	VirtualMachineRestoreWaitGracePeriodAndFail TargetReadinessPolicy = "WaitGracePeriod"
 
-	//VirtualMachineRestoreFailImmediate defines TargetReadinessPolicy which if VirtualMachineRestore
+	// VirtualMachineRestoreFailImmediate defines TargetReadinessPolicy which if VirtualMachineRestore
 	// was initiated when target is not ready it fails the restore immediatly
 	VirtualMachineRestoreFailImmediate TargetReadinessPolicy = "FailImmediate"
 

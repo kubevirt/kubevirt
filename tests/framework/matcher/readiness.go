@@ -35,6 +35,7 @@ func (r *readiness) Match(actual interface{}) (success bool, err error) {
 	}
 	return r.comparator.Match(readyReplicas)
 }
+
 func (r *readiness) FailureMessage(actual interface{}) (message string) {
 	if helper.IsNil(actual) {
 		return "object must not be nil"
@@ -45,6 +46,7 @@ func (r *readiness) FailureMessage(actual interface{}) (message string) {
 	}
 	return r.comparator.FailureMessage(readyReplicas)
 }
+
 func (r *readiness) NegatedFailureMessage(actual interface{}) (message string) {
 	if helper.IsNil(actual) {
 		return "object must not be nil"

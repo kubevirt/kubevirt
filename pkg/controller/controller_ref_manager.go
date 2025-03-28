@@ -57,7 +57,6 @@ func (m *BaseControllerRefManager) CanAdopt() error {
 }
 
 func (m *BaseControllerRefManager) isOwned(obj metav1.Object) bool {
-
 	controllerRef := metav1.GetControllerOf(obj)
 	if controllerRef == nil {
 		// no ownership
@@ -72,7 +71,6 @@ func (m *BaseControllerRefManager) isOwned(obj metav1.Object) bool {
 }
 
 func (m *BaseControllerRefManager) isOwnedByOther(obj metav1.Object) bool {
-
 	controllerRef := metav1.GetControllerOf(obj)
 	if controllerRef == nil {
 		// no ownership
@@ -146,7 +144,6 @@ func (m *BaseControllerRefManager) ReleaseDetachedObject(obj metav1.Object, matc
 //
 // No reconciliation will be attempted if the controller is being deleted.
 func (m *BaseControllerRefManager) ClaimObject(obj metav1.Object, match func(metav1.Object) bool, adopt, release func(metav1.Object) error) (bool, error) {
-
 	owned := m.isOwned(obj)
 	ownedByOther := m.isOwnedByOther(obj)
 	matched := match(obj)
@@ -340,7 +337,6 @@ func (m *VirtualMachineControllerRefManager) ClaimMatchedDataVolumes(dataVolumes
 
 	match := func(obj metav1.Object) bool {
 		return true
-
 	}
 	adopt := func(obj metav1.Object) error {
 		return m.AdoptDataVolume(obj.(*cdiv1.DataVolume))

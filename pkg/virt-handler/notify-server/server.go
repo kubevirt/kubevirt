@@ -122,7 +122,6 @@ func (n *Notify) HandleK8SEvent(_ context.Context, request *notifyv1.K8SEventReq
 }
 
 func RunServer(virtShareDir string, stopChan chan struct{}, c chan watch.Event, recorder record.EventRecorder, vmiStore cache.Store) error {
-
 	grpcServer := grpc.NewServer([]grpc.ServerOption{}...)
 	notifyServer := &Notify{
 		EventChan: c,

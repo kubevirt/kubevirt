@@ -167,7 +167,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 		// Remove from map so I can detect existing volumes that have been removed from spec.
 		delete(oldStatusMap, volume.Name)
 
-		//if hotplugVolume, ok := hotplugVolumesMap[volume.Name]; ok {
+		// if hotplugVolume, ok := hotplugVolumesMap[volume.Name]; ok {
 		if _, ok := hotplugVolumesMap[volume.Name]; ok {
 			if status.HotplugVolume == nil {
 				status.HotplugVolume = &virtv1.HotplugVolumeStatus{}

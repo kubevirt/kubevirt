@@ -66,7 +66,6 @@ var _ = Describe("Apply Prometheus", func() {
 	})
 
 	It("should not patch ServiceMonitor on sync when they are equal", func() {
-
 		sm := components.NewServiceMonitorCR("namespace", "mNamespace", true)
 
 		version, imageRegistry, id := getTargetVersionRegistryID(kv)
@@ -133,7 +132,6 @@ var _ = Describe("Apply Prometheus", func() {
 	})
 
 	It("should not patch PrometheusRules on sync when they are equal", func() {
-
 		pr, err := rules.BuildPrometheusRule("namespace")
 		Expect(err).ToNot(HaveOccurred())
 
@@ -153,7 +151,6 @@ var _ = Describe("Apply Prometheus", func() {
 	})
 
 	It("should patch PrometheusRules on sync when they are equal", func() {
-
 		pr, err := rules.BuildPrometheusRule("namespace")
 		Expect(err).ToNot(HaveOccurred())
 

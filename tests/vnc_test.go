@@ -51,7 +51,6 @@ import (
 )
 
 var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VNC", decorators.SigCompute, decorators.WgArm64, func() {
-
 	var vmi *v1.VirtualMachineInstance
 
 	Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
@@ -120,7 +119,6 @@ var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			}
 
 			It("[test_id:1611]should allow accessing the VNC device multiple times", decorators.Conformance, func() {
-
 				for i := 0; i < 10; i++ {
 					vncConnect()
 				}
@@ -186,7 +184,6 @@ func (t *checkUpgradeRoundTripper) RoundTrip(r *http.Request) (*http.Response, e
 
 // upgradeCheckRoundTripperFromConfig returns a wrapped roundtripper which checks if an upgrade confirmation from servers is received
 func upgradeCheckRoundTripperFromConfig(config *rest.Config, subprotocols []string) (*checkUpgradeRoundTripper, error) {
-
 	// Configure TLS
 	tlsConfig, err := rest.TLSConfigFor(config)
 	if err != nil {

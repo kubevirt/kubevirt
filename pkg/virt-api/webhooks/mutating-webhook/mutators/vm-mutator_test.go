@@ -190,7 +190,6 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 		vmSpec, _ := getVMSpecMetaFromResponse(arch)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(result))
-
 	},
 		Entry("when override is for amd64 architecture", "amd64", machineTypeFromConfig, "", "", "", machineTypeFromConfig),
 		Entry("when override is for arm64 architecture", "arm64", "", machineTypeFromConfig, "", "", machineTypeFromConfig),
@@ -207,7 +206,6 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 		vmSpec, _ := getVMSpecMetaFromResponse("amd64")
 		Expect(vmSpec.Template.Spec.Architecture).To(Equal("amd64"))
-
 	})
 
 	It("should not override specified properties with defaults on VM create", func() {
@@ -320,7 +318,6 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		} else {
 			Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
 		}
-
 	})
 
 	It("should default instancetype kind to ClusterSingularResourceName when not provided", func() {
@@ -378,7 +375,6 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	)
 
 	Context("setPreferenceStorageClassName", func() {
-
 		var preference *instancetypev1beta1.VirtualMachineClusterPreference
 
 		BeforeEach(func() {

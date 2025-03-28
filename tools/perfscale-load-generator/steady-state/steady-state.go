@@ -106,7 +106,6 @@ func (b *SteadyStateLoadGenerator) Run(virtClient kubecli.KubevirtClient, worklo
 			ss.CreateWorkloads(ss.Workload.Churn)
 		}
 	}
-
 }
 
 func (b *SteadyStateJob) CreateWorkloads(replicas int) {

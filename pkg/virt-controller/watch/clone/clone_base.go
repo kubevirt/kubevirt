@@ -95,7 +95,6 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 			DeleteFunc: ctrl.handleVMClone,
 		},
 	)
-
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +106,6 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 			DeleteFunc: ctrl.handleSnapshot,
 		},
 	)
-
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +117,6 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 			DeleteFunc: ctrl.handleRestore,
 		},
 	)
-
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +128,6 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 			DeleteFunc: ctrl.handlePVC,
 		},
 	)
-
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +139,6 @@ func NewVmCloneController(client kubecli.KubevirtClient, vmCloneInformer, snapsh
 			DeleteFunc: ctrl.handleDeletedTargetVM,
 		},
 	)
-
 	if err != nil {
 		return nil, err
 	}

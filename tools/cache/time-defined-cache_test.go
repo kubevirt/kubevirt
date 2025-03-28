@@ -31,7 +31,6 @@ import (
 )
 
 var _ = Describe("time defined cache", func() {
-
 	getMockCalcFunc := func() func() (int, error) {
 		mockValue := 0
 		return func() (int, error) {
@@ -149,5 +148,4 @@ var _ = Describe("time defined cache", func() {
 			Expect(err).To(HaveOccurred(), "it should be illegal to use KeepValueUpdated() with a zero refresh duration")
 		})
 	})
-
 })

@@ -73,7 +73,6 @@ import (
 )
 
 var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component][sig-compute]VMIlifecycle", decorators.SigCompute, decorators.VMIlifecycle, decorators.WgArm64, func() {
-
 	const fakeLibvirtLogFilters = "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*"
 	const startupTimeout = 45
 
@@ -107,7 +106,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	})
 
 	Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:component]Creating a VirtualMachineInstance", func() {
-
 		It("[test_id:6095]should start in paused state if start strategy set to paused", decorators.WgS390x, decorators.Conformance, func() {
 			vmi := libvmifact.NewAlpine(libvmi.WithStartStrategy(v1.StartStrategyPaused))
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
@@ -143,7 +141,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Expect(pod.Annotations).To(HaveKey("kubevirt.io/test"), "kubevirt annotation should not be carried to the pod")
 			Expect(pod.Annotations).To(HaveKey("kubernetes.io/test"), "kubernetes annotation should not be carried to the pod")
 			Expect(pod.Annotations).To(HaveKeyWithValue("testannotation", "annotation from vmi"), "annotation should be carried to the pod")
-
 		})
 
 		It("Should prevent eviction when EvictionStratgy: External", decorators.WgS390x, decorators.Conformance, func() {
@@ -222,7 +219,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					checkIntervalTime).
 					ShouldNot(And(ContainSubstring(logEntryToSearch), ContainSubstring(subcomponent)))
 			}
-
 		},
 			Entry("[test_id:3197]enabled when debugLogs label defined", map[string]string{"debugLogs": "true"}, nil, true),
 			Entry("[test_id:8530]enabled when customLogFilters defined", nil, map[string]string{v1.CustomLibvirtLogFiltersAnnotation: fakeLibvirtLogFilters}, true),
@@ -323,9 +319,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 
 		Context("with user-data", func() {
-
 			Context("without k8s secret", func() {
-
 				It("[test_id:1630]should log warning and proceed once the secret is there", func() {
 					userData64 := ""
 					vmi := libvmifact.NewCirros()
@@ -417,7 +411,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			Context("for Machine Type", func() {
-
 				const unsupportedMachineType = "pc-q35-test1.2.3"
 
 				It("should prevent scheduling of a pod for a VMI with an unsupported machine type", func() {
@@ -524,7 +517,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		Context("when virt-handler is responsive", Serial, func() {
 			It("[test_id:1633]should indicate that a node is ready for vmis", decorators.WgS390x, func() {
-
 				By("adding a heartbeat annotation and a schedulable label to the node")
 				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
@@ -552,7 +544,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			It("[test_id:3198]device plugins should re-register if the kubelet restarts", func() {
-
 				By("starting a VMI on a node")
 				vmi := libvmifact.NewAlpine()
 				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -610,7 +601,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 
 		Context("when virt-handler is not responsive", Serial, func() {
-
 			var vmi *v1.VirtualMachineInstance
 			var nodeName string
 			var virtHandler *k8sv1.Pod
@@ -738,7 +728,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				data := []byte(`{"spec":{"taints":[{"effect":"NoSchedule","key":"test","timeAdded":null,"value":"123"}]}}`)
 				_, err := kubevirt.Client().CoreV1().Nodes().Patch(context.Background(), nodes.Items[0].Name, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should patch node")
-
 			})
 
 			AfterEach(func() {
@@ -790,7 +779,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				By("Asserting that VMI is scheduled on the pre-picked node")
 				Expect(vmi.Status.NodeName).To(Equal(node.Name), "Updated VMI name run on the same node")
-
 			})
 
 			It("[test_id:1638]the vmi with node affinity and anti-pod affinity should not be scheduled", decorators.Conformance, func() {
@@ -828,9 +816,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					}
 					return ""
 				}, 60*time.Second, 1*time.Second).Should(Equal(k8sv1.PodReasonUnschedulable), "VMI should be unchedulable")
-
 			})
-
 		})
 
 		Context("with default cpu model", Serial, decorators.WgS390x, decorators.CPUModel, func() {
@@ -839,7 +825,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var defaultCPUModel string
 			var vmiCPUModel string
 
-			//store old kubevirt-config
+			// store old kubevirt-config
 			BeforeEach(func() {
 				nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
@@ -853,7 +839,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				originalConfig = kv.Spec.Configuration
 			})
 
-			//replace new kubevirt-config with old config
+			// replace new kubevirt-config with old config
 			AfterEach(func() {
 				kvconfig.UpdateKubeVirtConfigValueAndWait(originalConfig)
 			})
@@ -868,7 +854,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				curVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 				Expect(curVMI.Spec.Domain.CPU.Model).To(Equal(defaultCPUModel), "Expected default CPU model")
-
 			})
 
 			It("[test_id:3200]should not set default cpu model when vmi has it set", func() {
@@ -885,7 +870,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				curVMI, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 				Expect(curVMI.Spec.Domain.CPU.Model).To(Equal(vmiCPUModel), "Expected vmi CPU model")
-
 			})
 
 			It("[sig-compute][test_id:3201]should set cpu model to default when vmi does not have it set and default cpu model is not set", func() {
@@ -913,7 +897,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(newVMI, newVMI.Namespace)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(virtLauncherPod.Spec.NodeSelector).To(HaveKey(ContainSubstring(defaultCPUModel)), "Node selector for the cpuModel in vmi spec should appear in virt-launcher pod")
-
 			})
 
 			It("should prefer node selector of the vmi if cpuModel field is set in kubevirtCR and in the vmi", func() {
@@ -935,7 +918,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(newVMI, newVMI.Namespace)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(virtLauncherPod.Spec.NodeSelector).To(HaveKey(ContainSubstring(vmiCPUModel)), "Node selector for the cpuModel in kubevirtCR should appear in virt-launcher pod")
-
 			})
 		})
 
@@ -967,7 +949,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						!strings.Contains(key, "synictimer") {
 						supportedKVMInfoFeature = append(supportedKVMInfoFeature, strings.TrimPrefix(key, v1.HypervLabel))
 					}
-
 				}
 
 				kvconfig.EnableFeatureGate(featuregate.HypervStrictCheckGate)
@@ -996,7 +977,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					Model: "486",
 				}
 
-				//Make sure the vmi should try to be scheduled only on master node
+				// Make sure the vmi should try to be scheduled only on master node
 				vmi.Spec.NodeSelector = map[string]string{k8sv1.LabelHostname: node.Name}
 
 				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -1016,7 +997,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			It("[test_id:3202]the vmi with cpu.features matching nfd labels on a node should be scheduled", func() {
-
 				By("adding a node-feature-discovery CPU model label to a node")
 				vmi := libvmifact.NewCirros()
 				const featureToDisable = "fpu"
@@ -1045,7 +1025,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			It("[test_id:3203]the vmi with cpu.features that cannot match nfd labels on a node should not be scheduled", func() {
-				var featureDenyList = map[string]struct{}{
+				featureDenyList := map[string]struct{}{
 					"svm": {},
 				}
 				appendFeatureFromFeatureLabel := func(supportedFeatures []string, label string) []string {
@@ -1135,7 +1115,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 
 			It("[test_id:3204]the vmi with cpu.feature policy 'forbid' should not be scheduled on a node with that cpu feature label", func() {
-
 				// Add node affinity first to test later on that although there is node affinity to
 				// the specific node - the feature policy 'forbid' will deny shceduling on that node.
 				vmi := libvmifact.NewCirros(libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
@@ -1164,7 +1143,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					return ""
 				}, 60*time.Second, 1*time.Second).Should(Equal(k8sv1.PodReasonUnschedulable), "VMI should be unschedulable")
 			})
-
 		})
 
 		Context("with non default namespace", func() {
@@ -1244,7 +1222,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 
 		Context("VM Accelerated Mode", decorators.WgS390x, func() {
-
 			It("[test_id:1648]Should provide KVM via plugin framework", func() {
 				nodeList := libnode.GetAllSchedulableNodes(kubevirt.Client())
 
@@ -1542,7 +1519,6 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 		Context("with ACPI and some grace period seconds", decorators.WgS390x, func() {
-
 			withoutTerminationGracePeriodSeconds := func(vmi *v1.VirtualMachineInstance) {
 				vmi.Spec.TerminationGracePeriodSeconds = nil
 			}
@@ -1616,12 +1592,13 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			objectEventWatcher := watcher.New(vmi).Timeout(60 * time.Second).SinceWatchedObjectResourceVersion()
-			wp := watcher.WarningsPolicy{FailOnWarnings: true, WarningsIgnoreList: []string{
-				"server error. command SyncVMI failed",
-				"The VirtualMachineInstance crashed",
-				"cannot detect vm",
-				"Can not update a VirtualMachineInstance with unresponsive command server",
-			},
+			wp := watcher.WarningsPolicy{
+				FailOnWarnings: true, WarningsIgnoreList: []string{
+					"server error. command SyncVMI failed",
+					"The VirtualMachineInstance crashed",
+					"cannot detect vm",
+					"Can not update a VirtualMachineInstance with unresponsive command server",
+				},
 			}
 			objectEventWatcher.SetWarningsPolicy(wp)
 			objectEventWatcher.WaitFor(ctx, watcher.WarningEvent, v1.Stopped)

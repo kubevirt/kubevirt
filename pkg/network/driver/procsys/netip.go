@@ -32,9 +32,7 @@ type ProcSys struct{}
 
 var sysCtl = sysctl.New()
 
-var (
-	enable = "1"
-)
+var enable = "1"
 
 func (p ProcSys) IPv4SetArpIgnore(iface string, replyMode ArpReplyMode) error {
 	return sysCtl.SetSysctl(fmt.Sprintf(sysctl.Ipv4ArpIgnore, iface), strconv.Itoa(int(replyMode)))
@@ -68,7 +66,7 @@ func (p ProcSys) IPv6EnableForwarding() error {
 func (p ProcSys) IPv6GetForwarding() (bool, error) {
 	val, err := sysCtl.GetSysctl(sysctl.NetIPv6Forwarding)
 
-	//when ipv6 has disabled, val will not exist, so need default return false
+	// when ipv6 has disabled, val will not exist, so need default return false
 	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
 	}

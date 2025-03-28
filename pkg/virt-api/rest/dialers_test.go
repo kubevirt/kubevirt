@@ -20,9 +20,7 @@ var _ = Describe("NetDialer", func() {
 		vmNamespace = "test-namespace"
 	)
 
-	var (
-		request *restful.Request
-	)
+	var request *restful.Request
 
 	BeforeEach(func() {
 		httpReq := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/apis/subresources.kubevirt.io/v1alpha3/namespaces/%s/virtualmachineinstances/%s/ssh/22", vmNamespace, vmName), nil)

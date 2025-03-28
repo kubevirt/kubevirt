@@ -30,18 +30,14 @@ import (
 type InfoServer struct{}
 
 func (i InfoServer) Info(context.Context, *info.NotifyInfoRequest) (*info.NotifyInfoResponse, error) {
-
 	// since this is the first versioned version, we only support the current versions
 	// add older versions as soon as they are supported
 	return &info.NotifyInfoResponse{
 		SupportedNotifyVersions: []uint32{notifyv1.NotifyVersion},
 	}, nil
-
 }
 
 func registerInfoServer(grpcServer *grpc.Server) {
-
 	infoServer := &InfoServer{}
 	info.RegisterNotifyInfoServer(grpcServer, infoServer)
-
 }

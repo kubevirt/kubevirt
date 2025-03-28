@@ -158,7 +158,6 @@ KubeVirt is distributed under the
 `
 
 func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.ClusterServiceVersion, error) {
-
 	deployment := components.NewOperatorDeployment(
 		data.Namespace,
 		data.DockerPrefix,
@@ -249,7 +248,6 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 			Name:      "kubevirtoperator." + data.CsvVersion,
 			Namespace: data.Namespace,
 			Annotations: map[string]string{
-
 				"capabilities":   "Seamless Upgrades",
 				"categories":     "OpenShift Optional",
 				"containerImage": data.DockerPrefix + "/virt-operator" + imageVersion,
@@ -323,7 +321,6 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 				StrategySpecRaw: json.RawMessage(strategySpecJsonBytes),
 			},
 			CustomResourceDefinitions: csvv1.CustomResourceDefinitions{
-
 				Owned: []csvv1.CRDDescription{
 					{
 						Name:        "kubevirts.kubevirt.io",
@@ -332,7 +329,6 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 						DisplayName: "KubeVirt deployment",
 						Description: "Represents a KubeVirt deployment",
 						SpecDescriptors: []csvv1.SpecDescriptor{
-
 							{
 								Description:  "The ImagePullPolicy to use for the KubeVirt components.",
 								DisplayName:  "ImagePullPolicy",

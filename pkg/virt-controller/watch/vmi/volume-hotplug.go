@@ -208,7 +208,7 @@ func (c *Controller) createAttachmentPodTemplate(vmi *v1.VirtualMachineInstance,
 		return nil, fmt.Errorf("failed to get PVC map: %v", err)
 	}
 	for volumeName, pvc := range volumeNamesPVCMap {
-		//Verify the PVC is ready to be used.
+		// Verify the PVC is ready to be used.
 		populated, err := cdiv1.IsSucceededOrPendingPopulation(pvc, func(name, namespace string) (*cdiv1.DataVolume, error) {
 			dv, exists, _ := c.dataVolumeIndexer.GetByKey(fmt.Sprintf("%s/%s", namespace, name))
 			if !exists {

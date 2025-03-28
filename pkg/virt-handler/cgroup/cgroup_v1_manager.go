@@ -39,7 +39,8 @@ func newV1Manager(config *runc_configs.Cgroup, controllerPaths map[string]string
 }
 
 func newCustomizedV1Manager(runcManager runc_cgroups.Manager, isRootless bool,
-	execVirtChroot execVirtChrootFunc, getCurrentlyDefinedRules getCurrentlyDefinedRulesFunc) (Manager, error) {
+	execVirtChroot execVirtChrootFunc, getCurrentlyDefinedRules getCurrentlyDefinedRulesFunc,
+) (Manager, error) {
 	manager := v1Manager{
 		runcManager,
 		runcManager.GetPaths(),
@@ -63,7 +64,7 @@ func (v *v1Manager) Set(r *runc_configs.Resources) error {
 	// We want to keep given resources untouched
 	resourcesToSet := *r
 
-	//Add default rules
+	// Add default rules
 	resourcesToSet.Devices = append(resourcesToSet.Devices, GenerateDefaultDeviceRules()...)
 
 	// Adding current rules, see addCurrentRules's documentation for more info
@@ -124,7 +125,7 @@ func rw_filecontents(fReadPath string, fWritePath string) (err error) {
 	}
 	defer rFile.Close()
 
-	wFile, err := os.OpenFile(fWritePath, os.O_RDWR, 0755)
+	wFile, err := os.OpenFile(fWritePath, os.O_RDWR, 0o755)
 	if err != nil {
 		return fmt.Errorf("OpenFile failed: %s (%v)", fWritePath, err)
 	}

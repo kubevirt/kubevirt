@@ -326,7 +326,6 @@ var _ = Describe("VMI Stats Collector", func() {
 	})
 
 	Context("VMI Eviction blocker", func() {
-
 		liveMigrateEvictPolicy := k6tv1.EvictionStrategyLiveMigrate
 		DescribeTable("Add eviction alert metrics", func(evictionPolicy *k6tv1.EvictionStrategy, migrateCondStatus k8sv1.ConditionStatus, expectedVal float64) {
 			informers.VMI, _ = testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstance{})

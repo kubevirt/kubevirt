@@ -89,5 +89,4 @@ func UpdateReactor(handle func(string) bool, tracker testing.ObjectTracker,
 			panic("Unexpected action implementation")
 		}
 	}
-
 }

@@ -69,7 +69,6 @@ var _ = Describe("EFI environment detection", func() {
 				Expect(efiEnv.EFICode(!secureBootEnabled, !sevEnabled)).To(Equal(filepath.Join(ovmfPath, code)))
 				Expect(efiEnv.EFIVars(!secureBootEnabled, !sevEnabled)).To(Equal(filepath.Join(ovmfPath, vars)))
 			}
-
 		},
 		Entry("SB and NoSB available", "x86_64", EFICodeSecureBoot, EFIVarsSecureBoot, EFICode, EFIVars, true, true),
 		Entry("Only SB available", "x86_64", EFICodeSecureBoot, EFIVarsSecureBoot, EFICodeSecureBoot, "", true, false),

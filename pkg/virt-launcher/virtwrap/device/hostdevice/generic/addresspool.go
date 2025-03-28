@@ -44,7 +44,7 @@ func NewUSBAddressPool(hostDevices []v1.HostDevice) *hostdevice.AddressPool {
 }
 
 func extractResources(hostDevices []v1.HostDevice) []string {
-	var resourceSet = make(map[string]struct{})
+	resourceSet := make(map[string]struct{})
 	for _, hostDevice := range hostDevices {
 		resourceSet[hostDevice.DeviceName] = struct{}{}
 	}

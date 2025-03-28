@@ -160,7 +160,7 @@ func usage() string {
 
 // component name to JSON name
 func getJSONNameByComponentName(componentName string) string {
-	var componentNameToJSONName = map[string]string{
+	componentNameToJSONName := map[string]string{
 		"virt-api":        "virtAPI",
 		"virt-controller": "virtController",
 		"virt-handler":    "virtHandler",
@@ -235,7 +235,7 @@ func createOutputLines(verbosityVal map[string]uint) []string {
 func createShowMessage(currentLv map[string]uint) []string {
 	// fill the unattended verbosity with default verbosity
 	// key: JSONName, value: verbosity
-	var verbosityVal = map[string]uint{
+	verbosityVal := map[string]uint{
 		"virtAPI":        virtconfig.DefaultVirtAPILogVerbosity,
 		"virtController": virtconfig.DefaultVirtControllerLogVerbosity,
 		"virtHandler":    virtconfig.DefaultVirtHandlerLogVerbosity,

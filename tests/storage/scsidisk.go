@@ -103,7 +103,6 @@ func FixErrorDevice(nodeName string) {
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to fix faulty disk")
 	ExpectWithOffset(1, strings.Contains(stdout, "0x0")).To(BeTrue(), fmt.Sprintf("Failed to fix faulty disk, opts don't contains 0x0, opts: %s", stdout))
 	ExpectWithOffset(1, !strings.Contains(stdout, "0x02")).To(BeTrue(), fmt.Sprintf("Failed to fix faulty disk, opts contains 0x02, opts: %s", stdout))
-
 }
 
 func CreatePVandPVCwithFaultyDisk(nodeName, devicePath, namespace string) (*corev1.PersistentVolume, *corev1.PersistentVolumeClaim, error) {

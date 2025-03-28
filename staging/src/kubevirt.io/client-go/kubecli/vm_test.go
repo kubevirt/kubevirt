@@ -40,7 +40,6 @@ import (
 )
 
 var _ = Describe("Kubevirt VirtualMachine Client", func() {
-
 	var server *ghttp.Server
 	basePath := "/apis/kubevirt.io/v1/namespaces/default/virtualmachines"
 	vmPath := path.Join(basePath, "testvm")

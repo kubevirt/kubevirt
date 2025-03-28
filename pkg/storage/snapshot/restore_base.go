@@ -78,7 +78,6 @@ func (ctrl *VMRestoreController) Init() error {
 			DeleteFunc: ctrl.handleVMRestore,
 		},
 	)
-
 	if err != nil {
 		return err
 	}

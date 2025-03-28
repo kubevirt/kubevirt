@@ -218,7 +218,6 @@ func exposeCapabilities(fd uintptr, supportedMSRS map[uint32]bool) []string {
 		}
 	}
 	return exposedCaps
-
 }
 
 func getCapLabels() []string {

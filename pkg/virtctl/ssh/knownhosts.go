@@ -79,7 +79,7 @@ Are you sure you want to continue connecting (yes/no)? `,
 }
 
 func addHostKey(knownHostsFilePath, hostname string, key ssh.PublicKey) error {
-	f, err := os.OpenFile(knownHostsFilePath, os.O_APPEND|os.O_WRONLY, 0600)
+	f, err := os.OpenFile(knownHostsFilePath, os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}

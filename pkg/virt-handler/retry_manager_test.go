@@ -56,13 +56,13 @@ var _ = Describe("virt-handler retry manager", func() {
 		retryManager.ShouldDelay(key, getBoolFunc(true))
 		retryManager.ShouldDelay(key, getBoolFunc(true))
 
-		//check waitInterval before the timer ends
+		// check waitInterval before the timer ends
 		time.Sleep(initialWait - buffer)
 		shouldDelay, _ := retryManager.ShouldDelay(key, getBoolFunc(true))
 		Expect(shouldDelay).To(BeTrue())
 		Expect(retryManager.retryStates[key].waitInterval).To(BeEquivalentTo(initialWait))
 
-		//check waitInterval just after the timer ends
+		// check waitInterval just after the timer ends
 		time.Sleep(buffer)
 		shouldDelay, _ = retryManager.ShouldDelay(key, getBoolFunc(true))
 		Expect(shouldDelay).To(BeFalse())

@@ -110,5 +110,4 @@ func PatchReactor(handle func(string) bool, tracker testing.ObjectTracker,
 			panic("Unexpected action implementation")
 		}
 	}
-
 }

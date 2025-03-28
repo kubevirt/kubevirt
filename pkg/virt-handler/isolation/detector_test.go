@@ -40,9 +40,7 @@ import (
 )
 
 var _ = Describe("Isolation Detector", func() {
-
 	Context("With an existing socket", func() {
-
 		var socket net.Listener
 		var tmpDir string
 		var podUID string
@@ -127,7 +125,8 @@ var _ = Describe("findIsolatedQemuProcess", func() {
 	virtLauncherProcesses := []ps.Process{
 		fakeProcess1,
 		fakeProcess2,
-		fakeProcess3}
+		fakeProcess3,
+	}
 
 	qemuKvmProc := ProcessStub{pid: 101, ppid: virtLauncherPid, binary: "qemu-kvm"}
 	qemuSystemProc := ProcessStub{pid: 101, ppid: virtLauncherPid, binary: "qemu-system-x86_64"}

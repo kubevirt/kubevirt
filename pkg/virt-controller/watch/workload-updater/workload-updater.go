@@ -56,8 +56,10 @@ const periodicReEnqueueIntervalSeconds = 30
 // ensures we don't execute more than once every 5 seconds
 const defaultThrottleInterval = 5 * time.Second
 
-const defaultBatchDeletionIntervalSeconds = 60
-const defaultBatchDeletionCount = 10
+const (
+	defaultBatchDeletionIntervalSeconds = 60
+	defaultBatchDeletionCount           = 10
+)
 
 type WorkloadUpdateController struct {
 	clientset             kubecli.KubevirtClient
@@ -95,7 +97,6 @@ func NewWorkloadUpdateController(
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
 ) (*WorkloadUpdateController, error) {
-
 	rl := workqueue.NewTypedMaxOfRateLimiter[string](
 		workqueue.NewTypedItemExponentialFailureRateLimiter[string](defaultThrottleInterval, 300*time.Second),
 		&workqueue.TypedBucketRateLimiter[string]{Limiter: rate.NewLimiter(rate.Every(defaultThrottleInterval), 1)},
@@ -456,7 +457,6 @@ func (c *WorkloadUpdateController) execute(key string) error {
 }
 
 func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
-
 	data := c.getUpdateData(kv)
 
 	key, err := controller.KeyFunc(kv)
@@ -634,7 +634,6 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 
 				}
 			}
-
 		}(vmi)
 	}
 	wg.Wait()

@@ -53,7 +53,7 @@ func (h *HeartBeat) Run(heartBeatInterval time.Duration, stopCh chan struct{}) (
 	done = make(chan struct{})
 	go func() {
 		h.heartBeat(heartBeatInterval, stopCh)
-		//ensure that the node is getting marked as unschedulable when removed
+		// ensure that the node is getting marked as unschedulable when removed
 		h.labelNodeUnschedulable()
 		close(done)
 	}()

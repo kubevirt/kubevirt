@@ -40,7 +40,6 @@ type ProfilerResults struct {
 }
 
 func NewProfileManager(clusterConfig *virtconfig.ClusterConfig) *ProfileManager {
-
 	return &ProfileManager{
 		clusterConfig:   clusterConfig,
 		processProfiler: &pprofData{},
@@ -48,7 +47,6 @@ func NewProfileManager(clusterConfig *virtconfig.ClusterConfig) *ProfileManager 
 }
 
 func (m *ProfileManager) startProfiler() error {
-
 	// make sure all profilers are stopped before
 	// we attempt to start again
 	err := m.stopProfiler(true)
@@ -81,11 +79,9 @@ func (m *ProfileManager) dumpProfilerResult() (*v1.ProfilerResult, error) {
 	}
 
 	return profilerResults, nil
-
 }
 
 func (m *ProfileManager) HandleStartProfiler(_ *restful.Request, response *restful.Response) {
-
 	if !m.clusterConfig.ClusterProfilerEnabled() {
 		response.WriteErrorString(http.StatusForbidden, "Unable to start profiler. \"ClusterProfiler\" feature gate must be enabled")
 		return
@@ -114,7 +110,6 @@ func (m *ProfileManager) HandleStopProfiler(_ *restful.Request, response *restfu
 }
 
 func (m *ProfileManager) HandleDumpProfiler(_ *restful.Request, response *restful.Response) {
-
 	if !m.clusterConfig.ClusterProfilerEnabled() {
 		response.WriteErrorString(http.StatusForbidden, "Unable to retrieve profiler data. \"ClusterProfiler\" feature gate must be enabled")
 		return

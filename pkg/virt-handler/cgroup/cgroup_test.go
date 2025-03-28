@@ -10,7 +10,6 @@ import (
 )
 
 var _ = Describe("cgroup manager", func() {
-
 	var (
 		ctrl                  *gomock.Controller
 		rulesDefined          []*devices.Rule
@@ -117,7 +116,6 @@ var _ = Describe("cgroup manager", func() {
 		Expect(err).ShouldNot(HaveOccurred())
 
 		Expect(rulesDefined).To(ContainElement(fakeRule1), "previous rule is expected to not be overridden")
-
 	},
 		Entry("for v1", V1),
 		Entry("for v2", V2),
@@ -136,7 +134,6 @@ var _ = Describe("cgroup manager", func() {
 
 		fakeRule.Permissions = "fake-permissions-456"
 		Expect(rulesDefined).To(ContainElement(fakeRule), "rule needs to be overridden since explicitly re-set")
-
 	},
 		Entry("for v1", V1),
 		Entry("for v2", V2),

@@ -100,7 +100,6 @@ var _ = Describe("AccessCredentials", func() {
 	})
 
 	It("should handle dynamically updating user/password with qemu agent", func() {
-
 		domName := "some-domain"
 		password := "1234"
 		user := "myuser"
@@ -247,10 +246,10 @@ var _ = Describe("AccessCredentials", func() {
 		Expect(secretDirs).To(HaveLen(1))
 
 		secretDir := secretDirs[0]
-		Expect(os.Mkdir(secretDir, 0755)).To(Succeed())
+		Expect(os.Mkdir(secretDir, 0o755)).To(Succeed())
 
 		authorizedKeys := "first key\nsecond key\n"
-		Expect(os.WriteFile(filepath.Join(secretDirs[0], "authorized_keys"), []byte(authorizedKeys), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(secretDirs[0], "authorized_keys"), []byte(authorizedKeys), 0o644)).To(Succeed())
 
 		keysLoaded := make(chan struct{})
 
@@ -310,12 +309,12 @@ var _ = Describe("AccessCredentials", func() {
 		Expect(secretDirs[0]).To(Equal(fmt.Sprintf("%s/%s-access-cred", tmpDir, secretID)))
 
 		for _, dir := range secretDirs {
-			Expect(os.Mkdir(dir, 0755)).To(Succeed())
+			Expect(os.Mkdir(dir, 0o755)).To(Succeed())
 			Expect(manager.watcher.Add(dir)).To(Succeed())
 		}
 
 		// Write the file
-		Expect(os.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0o644)).To(Succeed())
 
 		// set the expected command
 		base64Str := base64.StdEncoding.EncodeToString([]byte(password))
@@ -334,7 +333,6 @@ var _ = Describe("AccessCredentials", func() {
 		mockDomain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(string(xml), nil)
 
 		mockConn.EXPECT().DomainDefineXML(gomock.Any()).AnyTimes().DoAndReturn(func(xml string) (cli.VirDomain, error) {
-
 			match := `			<accessCredential>
 				<succeeded>true</succeeded>
 			</accessCredential>`
@@ -367,7 +365,7 @@ var _ = Describe("AccessCredentials", func() {
 		matched = false
 		manager.stopCh = make(chan struct{})
 		password = password + "morefake"
-		Expect(os.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0644)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0o644)).To(Succeed())
 		base64Str = base64.StdEncoding.EncodeToString([]byte(password))
 		cmdSetPassword = fmt.Sprintf(`{"execute":"guest-set-user-password", "arguments": {"username":"%s", "password": "%s", "crypted": false }}`, user, base64Str)
 		mockConn.EXPECT().QemuAgentCommand(cmdSetPassword, domName).MinTimes(1).Return("", nil)
@@ -381,5 +379,4 @@ var _ = Describe("AccessCredentials", func() {
 
 		manager.watchSecrets(vmi)
 	})
-
 })

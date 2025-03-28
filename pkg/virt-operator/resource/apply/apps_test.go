@@ -57,9 +57,7 @@ import (
 )
 
 var _ = Describe("Apply Apps", func() {
-
 	Context("on calling syncPodDisruptionBudgetForDeployment", func() {
-
 		var deployment *appsv1.Deployment
 		var err error
 		var clientset *kubecli.MockKubevirtClient
@@ -453,7 +451,6 @@ var _ = Describe("Apply Apps", func() {
 		})
 
 		Context("updating virt-handler", func() {
-
 			addCustomTargetDeployment := func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
 				version := "custom.version"
 				registry := "custom.registry"
@@ -527,7 +524,8 @@ var _ = Describe("Apply Apps", func() {
 					expectedStatus CanaryUpgradeStatus,
 					expectedDone bool,
 					expectingError bool,
-					expectingPatch bool) {
+					expectingPatch bool,
+				) {
 					patched := false
 
 					r := &Reconciler{
@@ -693,13 +691,10 @@ var _ = Describe("Apply Apps", func() {
 				),
 			)
 		})
-
 	})
 
 	Context("Injecting Metadata", func() {
-
 		It("should set expected values", func() {
-
 			kv := &v1.KubeVirt{}
 			kv.Status.TargetKubeVirtRegistry = Registry
 			kv.Status.TargetKubeVirtVersion = Version
@@ -893,7 +888,6 @@ var _ = Describe("Apply Apps", func() {
 					},
 				},
 			}
-
 		})
 
 		// Node Selectors
@@ -1012,7 +1006,6 @@ var _ = Describe("Apply Apps", func() {
 			nodePlacement.Affinity = affinity
 			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(equality.Semantic.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeTrue())
-
 		})
 
 		It("It should copy NodePlacement if Node, Pod and Anti affinities are empty", func() {
@@ -1020,7 +1013,6 @@ var _ = Describe("Apply Apps", func() {
 			podSpec.Affinity = &corev1.Affinity{}
 			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(equality.Semantic.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeTrue())
-
 		})
 
 		It("It should merge NodePlacement and podSpec affinity terms", func() {
@@ -1262,8 +1254,8 @@ var _ = Describe("Apply Apps", func() {
 				Resource:  "deployments",
 				Namespace: strategyDeployment.Namespace,
 				Name:      strategyDeployment.Name,
-				//Generation is not up-to-date with cachedDeployment
-				//therefore Operator need to update the deployment
+				// Generation is not up-to-date with cachedDeployment
+				// therefore Operator need to update the deployment
 				LastGeneration: cachedDeployment.Generation - 1,
 			}}
 			r := &Reconciler{

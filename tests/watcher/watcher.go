@@ -200,8 +200,8 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 				switch watchEvent.Object.(type) {
 				case *metav1.Status:
 					status := watchEvent.Object.(*metav1.Status)
-					//api server sometimes closes connections to Watch() client command
-					//ignore this error, because it will reconnect automatically
+					// api server sometimes closes connections to Watch() client command
+					// ignore this error, because it will reconnect automatically
 					if status.Message != "an error on the server (\"unable to decode an event from the watch stream: http2: response body closed\") has prevented the request from succeeding" {
 						Fail(fmt.Sprintf("unexpected error event: %v", errors.FromObject(watchEvent.Object)))
 					}

@@ -196,7 +196,6 @@ var _ = Describe(SIG("Storage", func() {
 				Eventually(ThisVMI(vmi), 100*time.Second, time.Second).Should(HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 
 				cleanUp(vmi)
-
 			})
 
 			It("should report IO errors in the guest with errorPolicy set to report", func() {
@@ -224,7 +223,6 @@ var _ = Describe(SIG("Storage", func() {
 
 				cleanUp(vmi)
 			})
-
 		})
 
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]with Alpine PVC", func() {
@@ -292,7 +290,6 @@ var _ = Describe(SIG("Storage", func() {
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With an emptyDisk defined", func() {
 			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
 			It("[test_id:3134]should create a writeable emptyDisk with the right capacity", func() {
-
 				// Start the VirtualMachineInstance with the empty disk attached
 				vmi = libvmifact.NewCirros(
 					libvmi.WithResourceMemory("512M"),
@@ -323,13 +320,11 @@ var _ = Describe(SIG("Storage", func() {
 					&expect.BExp{R: console.RetValue("0")},
 				}, 20)).To(Succeed())
 			})
-
 		})
 
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With an emptyDisk defined and a specified serial number", func() {
 			// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
 			It("[test_id:3135]should create a writeable emptyDisk with the specified serial number", func() {
-
 				// Start the VirtualMachineInstance with the empty disk attached
 				vmi = libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
@@ -359,7 +354,6 @@ var _ = Describe(SIG("Storage", func() {
 					&expect.BExp{R: diskSerial},
 				}, 10)).To(Succeed())
 			})
-
 		})
 
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ephemeral alpine PVC", func() {
@@ -528,7 +522,6 @@ var _ = Describe(SIG("Storage", func() {
 		})
 
 		Context("[rfe_id:2298][crit:medium][vendor:cnv-qe@redhat.com][level:component] With HostDisk and PVC initialization", func() {
-
 			BeforeEach(func() {
 				if !checks.HasFeature(featuregate.HostDiskGate) {
 					Skip("Cluster has the HostDisk featuregate disabled, skipping  the tests")
@@ -536,7 +529,6 @@ var _ = Describe(SIG("Storage", func() {
 			})
 
 			Context("With a HostDisk defined", func() {
-
 				var hostDiskDir string
 				var nodeName string
 
@@ -632,7 +624,6 @@ var _ = Describe(SIG("Storage", func() {
 						Expect(err).ToNot(HaveOccurred())
 						Expect(output).To(ContainSubstring(hostdisk.GetMountedHostDiskPath(hostDiskName, diskPath)))
 					})
-
 				})
 
 				Context("With 'DiskExists' type", func() {
@@ -718,8 +709,7 @@ var _ = Describe(SIG("Storage", func() {
 			})
 
 			Context("With multiple empty PVCs", func() {
-
-				var pvcs = []string{}
+				pvcs := []string{}
 				var node string
 
 				BeforeEach(func() {
@@ -770,7 +760,6 @@ var _ = Describe(SIG("Storage", func() {
 			})
 
 			Context("With smaller than requested PVCs", func() {
-
 				var mountDir string
 				var diskPath string
 				var pod *k8sv1.Pod
@@ -829,7 +818,6 @@ var _ = Describe(SIG("Storage", func() {
 
 				// Not a candidate for NFS test due to usage of host disk
 				It("[test_id:3108]Should not initialize an empty PVC with a disk.img when disk is too small even with toleration", Serial, func() {
-
 					configureToleration(10)
 
 					By(startingVMInstance)
@@ -851,12 +839,10 @@ var _ = Describe(SIG("Storage", func() {
 					ctx, cancel := context.WithCancel(context.Background())
 					defer cancel()
 					objectEventWatcher.WaitFor(ctx, watcher.WarningEvent, v1.SyncFailed.String())
-
 				})
 
 				// Not a candidate for NFS test due to usage of host disk
 				It("[test_id:3109]Should initialize an empty PVC with a disk.img when disk is too small but within toleration", Serial, func() {
-
 					configureToleration(30)
 
 					By(startingVMInstance)
@@ -920,7 +906,6 @@ var _ = Describe(SIG("Storage", func() {
 		})
 
 		Context("[storage-req][rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component]With Alpine block volume PVC", decorators.RequiresRWXBlock, decorators.StorageReq, func() {
-
 			It("[test_id:3139]should be successfully started", func() {
 				By("Create a VMIWithPVC")
 				sc, exists := libstorage.GetRWXBlockStorageClass()
@@ -991,13 +976,11 @@ var _ = Describe(SIG("Storage", func() {
 					expectPodScheduledCondition(vmi)
 					return true
 				}, time.Duration(10)*time.Second).Should(BeTrue(), "Timed out waiting for VMI to get Unschedulable condition")
-
 			})
 		})
 
 		Context("With both SCSI and SATA devices", func() {
 			It("should successfully start with distinct device names", func() {
-
 				vmi = libvmifact.NewAlpine(
 					libvmi.WithEmptyDisk("emptydisk1", v1.DiskBusSCSI, resource.MustParse("1Gi")),
 					libvmi.WithEmptyDisk("emptydisk2", v1.DiskBusSATA, resource.MustParse("1Gi")),
@@ -1039,9 +1022,7 @@ var _ = Describe(SIG("Storage", func() {
 						&expect.BExp{R: "mkdir: can't create directory '/sys/module/usb_storage': File exists"},
 					}, 10*time.Second)).To(Succeed())
 				})
-
 			})
-
 		})
 
 		Context("[storage-req] With a volumeMode block backed ephemeral disk", decorators.RequiresBlockStorage, decorators.StorageReq, func() {
@@ -1113,7 +1094,8 @@ var _ = Describe(SIG("Storage", func() {
 											{
 												Key:      labelKey,
 												Operator: metav1.LabelSelectorOpIn,
-												Values:   []string{""}},
+												Values:   []string{""},
+											},
 										},
 									},
 									TopologyKey: k8sv1.LabelHostname,
@@ -1172,7 +1154,8 @@ var _ = Describe(SIG("Storage", func() {
 											{
 												Key:      labelKey,
 												Operator: metav1.LabelSelectorOpIn,
-												Values:   []string{""}},
+												Values:   []string{""},
+											},
 										},
 									},
 									TopologyKey: k8sv1.LabelHostname,
@@ -1215,7 +1198,6 @@ var _ = Describe(SIG("Storage", func() {
 					&expect.BSnd{S: fmt.Sprintf("dd  if=/dev/vdb bs=1 count=150 conv=notrunc \n")},
 					&expect.BExp{R: "Test awesome shareable disks"},
 				}, 40)).To(Succeed())
-
 			})
 		})
 
@@ -1243,7 +1225,6 @@ var _ = Describe(SIG("Storage", func() {
 						}},
 					},
 				})
-
 			}
 			addDataVolumeLunDisk := func(vmi *v1.VirtualMachineInstance, deviceName, claimName string) {
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
@@ -1263,7 +1244,6 @@ var _ = Describe(SIG("Storage", func() {
 						},
 					},
 				})
-
 			}
 
 			BeforeEach(func() {

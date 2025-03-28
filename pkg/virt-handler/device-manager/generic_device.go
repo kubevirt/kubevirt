@@ -287,7 +287,6 @@ func (dpi *GenericDevicePlugin) healthCheck() error {
 	// Start watching the files before we check for their existence to avoid races
 	dirName := filepath.Dir(devicePath)
 	err = watcher.Add(dirName)
-
 	if err != nil {
 		return fmt.Errorf("failed to add the device root path to the watcher: %v", err)
 	}
@@ -304,7 +303,6 @@ func (dpi *GenericDevicePlugin) healthCheck() error {
 
 	dirName = filepath.Dir(dpi.socketPath)
 	err = watcher.Add(dirName)
-
 	if err != nil {
 		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
 	}

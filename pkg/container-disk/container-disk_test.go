@@ -52,7 +52,7 @@ var _ = Describe("ContainerDisk", func() {
 
 		// create a fake disk file
 		volumeMountDir := GetVolumeMountDirOnGuest(vmi)
-		err := os.MkdirAll(volumeMountDir, 0750)
+		err := os.MkdirAll(volumeMountDir, 0o750)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(expectedVolumeMountDir).To(Equal(volumeMountDir))
 
@@ -65,7 +65,7 @@ var _ = Describe("ContainerDisk", func() {
 		var err error
 		tmpDir, err = os.MkdirTemp("", "containerdisktest")
 		Expect(err).ToNot(HaveOccurred())
-		Expect(os.MkdirAll(tmpDir, 0755)).To(Succeed())
+		Expect(os.MkdirAll(tmpDir, 0o755)).To(Succeed())
 		err = SetLocalDirectory(tmpDir)
 		Expect(err).ToNot(HaveOccurred())
 		err = setPodsDirectory(tmpDir)
@@ -111,7 +111,7 @@ var _ = Describe("ContainerDisk", func() {
 
 				// should be found if dir does exist
 				expectedPath := fmt.Sprintf("%s/1234/volumes/kubernetes.io~empty-dir/container-disks", tmpDir)
-				Expect(os.MkdirAll(expectedPath, 0755)).To(Succeed())
+				Expect(os.MkdirAll(expectedPath, 0o755)).To(Succeed())
 				path, err = GetVolumeMountDirOnHost(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(Equal(expectedPath))
@@ -138,14 +138,14 @@ var _ = Describe("ContainerDisk", func() {
 
 				// should not return error if only one dir exists
 				expectedPath := fmt.Sprintf("%s/1234/volumes/kubernetes.io~empty-dir/container-disks", tmpDir)
-				Expect(os.MkdirAll(expectedPath, 0755)).To(Succeed())
+				Expect(os.MkdirAll(expectedPath, 0o755)).To(Succeed())
 				path, err := GetVolumeMountDirOnHost(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(Equal(expectedPath))
 
 				// return error if two dirs exist
 				secondPath := fmt.Sprintf("%s/5678/volumes/kubernetes.io~empty-dir/container-disks", tmpDir)
-				Expect(os.MkdirAll(secondPath, 0755)).To(Succeed())
+				Expect(os.MkdirAll(secondPath, 0o755)).To(Succeed())
 				path, err = GetVolumeMountDirOnHost(vmi)
 				Expect(err).To(HaveOccurred())
 			})
@@ -304,7 +304,6 @@ var _ = Describe("ContainerDisk", func() {
 				Expect(containers[1].ImagePullPolicy).To(Equal(k8sv1.PullAlways))
 			})
 			Context("which checks socket paths", func() {
-
 				var vmi *v1.VirtualMachineInstance
 				var tmpDir string
 
@@ -312,7 +311,7 @@ var _ = Describe("ContainerDisk", func() {
 					var err error
 					tmpDir, err = os.MkdirTemp("", "something")
 					Expect(err).ToNot(HaveOccurred())
-					err = os.MkdirAll(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", tmpDir, "poduid"), 0777)
+					err = os.MkdirAll(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", tmpDir, "poduid"), 0o777)
 					Expect(err).ToNot(HaveOccurred())
 					f, err := os.Create(fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks/disk_0.sock", tmpDir, "poduid"))
 					Expect(err).ToNot(HaveOccurred())

@@ -751,6 +751,7 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 		},
 	}
 }
+
 func newInstancetypeViewClusterRole() *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		TypeMeta: metav1.TypeMeta{

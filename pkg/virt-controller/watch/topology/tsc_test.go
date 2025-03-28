@@ -15,7 +15,6 @@ import (
 )
 
 var _ = Describe("TSC", func() {
-
 	It("should extract TSC frequencies on nodes from labels", func() {
 		n := node("mynode", true)
 		n.Labels[tscFrequencyLabel(123)] = "true"
@@ -83,7 +82,6 @@ var _ = Describe("TSC", func() {
 	)
 
 	Context("needs to be set when", func() {
-
 		newVmi := func(options ...libvmi.Option) *v1.VirtualMachineInstance {
 			vmi := libvmi.New(options...)
 			vmi.Status.TopologyHints = &v1.TopologyHints{TSCFrequency: pointer.P(int64(12345))}

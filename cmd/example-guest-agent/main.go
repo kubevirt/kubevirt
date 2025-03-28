@@ -136,14 +136,12 @@ func setupCert() (*tls.Certificate, error) {
 }
 
 func SetupTLSForVirtHandlerServer(cert *tls.Certificate) *tls.Config {
-
 	return &tls.Config{
 		InsecureSkipVerify: true,
 		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
 			return cert, nil
 		},
 		GetConfigForClient: func(info *tls.ClientHelloInfo) (config *tls.Config, err error) {
-
 			dialOpt := grpc.WithContextDialer(func(ctx context.Context, s string) (net.Conn, error) {
 				return vsock.Dial(vsock.Host, 1, &vsock.Config{})
 			})
@@ -168,7 +166,6 @@ func SetupTLSForVirtHandlerServer(cert *tls.Certificate) *tls.Config {
 				InsecureSkipVerify: true,
 				// XXX: We need to verify the cert ourselves because we don't have DNS or IP on the certs at the moment
 				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-
 					// impossible with RequireAnyClientCert
 					if len(rawCerts) == 0 {
 						return fmt.Errorf("no client certificate provided.")
@@ -184,7 +181,6 @@ func SetupTLSForVirtHandlerServer(cert *tls.Certificate) *tls.Config {
 						Roots:     certPool,
 						KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 					})
-
 					if err != nil {
 						return fmt.Errorf("could not verify peer certificate: %v", err)
 					}

@@ -28,8 +28,8 @@ import (
 )
 
 func main() {
-	var defaultInputConfigFile = "perf-audit-input.json"
-	var defaultResultsFile = "perf-audit-results.json"
+	defaultInputConfigFile := "perf-audit-input.json"
+	defaultResultsFile := "perf-audit-results.json"
 
 	var inputFile string
 	var outputFile string

@@ -8,10 +8,9 @@ import (
 )
 
 var _ = Describe("Owner", func() {
-
 	var toNilPointer *v1.Pod = nil
 
-	var ownedPod = func(ownerReferences []metav1.OwnerReference) *v1.Pod {
+	ownedPod := func(ownerReferences []metav1.OwnerReference) *v1.Pod {
 		return &v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				OwnerReferences: ownerReferences,

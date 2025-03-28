@@ -44,7 +44,6 @@ var _ = Describe("VMI migration phase transition time histogram", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(diffSeconds).To(Equal(expectedVal))
-
 		},
 			Entry("Time between succeeded and scheduled", 5.0, v1.MigrationSucceeded, v1.MigrationScheduled),
 			Entry("Time between succeeded and scheduled using fraction of a second", .5, v1.MigrationSucceeded, v1.MigrationScheduled),

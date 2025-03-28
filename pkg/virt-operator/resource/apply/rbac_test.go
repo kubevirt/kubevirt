@@ -42,7 +42,6 @@ import (
 )
 
 var _ = Describe("RBAC test", func() {
-
 	var (
 		clientset                  *kubecli.MockKubevirtClient
 		ctrl                       *gomock.Controller
@@ -237,7 +236,6 @@ var _ = Describe("RBAC test", func() {
 	})
 
 	Context("when reconciling", func() {
-
 		var reconciler Reconciler
 
 		updateResource := func(required runtime.Object) error {
@@ -280,7 +278,6 @@ var _ = Describe("RBAC test", func() {
 		})
 
 		DescribeTable("Check reconciliation of PolocyRules for", func(resourceType string, changeExisting bool) {
-
 			Expect(resourceType).To(Or(Equal(roleType), Equal(clusterRoleType)))
 			existing := newEmptyResource(resourceType)
 			required := newEmptyResource(resourceType)
@@ -304,7 +301,6 @@ var _ = Describe("RBAC test", func() {
 		)
 
 		DescribeTable("Check reconciliation of Subjects and RoleRef for", func(resourceType string, changeExistingSubjects, changeExistingRoleRef bool) {
-
 			Expect(resourceType).To(Or(Equal(roleBindingType), Equal(clusterRoleBindingType)))
 			existing := newEmptyResource(resourceType)
 			required := newEmptyResource(resourceType)
@@ -354,6 +350,5 @@ var _ = Describe("RBAC test", func() {
 			Entry("RoleBindings", roleBindingType),
 			Entry("ClusterRoleBinding", clusterRoleBindingType),
 		)
-
 	})
 })

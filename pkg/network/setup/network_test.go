@@ -36,7 +36,6 @@ var _ = Describe("VMNetworkConfigurator", func() {
 		Expect(baseCacheCreator.New("").Delete()).To(Succeed())
 	})
 	Context("interface configuration", func() {
-
 		It("when vm has no network source should propagate errors when phase2 is called", func() {
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 			vmi.Spec.Networks = []v1.Network{{

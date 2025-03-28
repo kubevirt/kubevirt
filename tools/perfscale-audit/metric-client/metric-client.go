@@ -99,7 +99,6 @@ type MetricClient struct {
 }
 
 func NewMetricClient(cfg *audit_api.InputConfig) (*MetricClient, error) {
-
 	url := cfg.PrometheusURL
 	token := cfg.PrometheusBearerToken
 	userName := cfg.PrometheusUserName
@@ -503,7 +502,6 @@ func (m *MetricClient) gatherMetrics() (*audit_api.Result, error) {
 }
 
 func (m *MetricClient) calculateThresholds(r *audit_api.Result) error {
-
 	inputCfg := m.cfg
 
 	if len(inputCfg.ThresholdExpectations) == 0 {

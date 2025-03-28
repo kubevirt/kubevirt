@@ -6,7 +6,6 @@ import (
 )
 
 var _ = Describe("Validation", func() {
-
 	var diskInfo DiskInfo
 	var sizeStub int64
 
@@ -16,7 +15,6 @@ var _ = Describe("Validation", func() {
 	})
 
 	Context("verify qcow2", func() {
-
 		It("should return error if format is not qcow2", func() {
 			diskInfo.Format = "not qcow2"
 			err := VerifyQCOW2(&diskInfo)
@@ -37,11 +35,9 @@ var _ = Describe("Validation", func() {
 			err := VerifyQCOW2(&diskInfo)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
-
 	})
 
 	Context("verify image", func() {
-
 		It("should be successful if image is raw", func() {
 			diskInfo.Format = "raw"
 			err := VerifyImage(&diskInfo)
@@ -61,7 +57,5 @@ var _ = Describe("Validation", func() {
 			err := VerifyImage(&diskInfo)
 			Expect(err).Should(HaveOccurred())
 		})
-
 	})
-
 })

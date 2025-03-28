@@ -78,7 +78,8 @@ var _ = Describe("Volume Migration", func() {
 				},
 				Spec: k8sv1.PersistentVolumeClaimSpec{
 					DataSourceRef: pointer.P(k8sv1.TypedObjectReference{}),
-				}}
+				},
+			}
 			pvcNOCSI := &k8sv1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      noCSIDVName,
@@ -202,7 +203,8 @@ var _ = Describe("Volume Migration", func() {
 		DescribeTable("should evaluate the volume migration cancellation", func(vmiVols, vmVols []string, migVols []migVolumes, expectRes bool, expectErr error, expectCancellation bool) {
 			vmi := libvmi.New(append(addVMIOptionsForVolumes(vmiVols), libvmi.WithNamespace(ns))...)
 			vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
-				Type: v1.VirtualMachineInstanceVolumesChange, Status: k8sv1.ConditionTrue})
+				Type: v1.VirtualMachineInstanceVolumesChange, Status: k8sv1.ConditionTrue,
+			})
 			for _, v := range migVols {
 				vmi.Status.MigratedVolumes = append(vmi.Status.MigratedVolumes, v1.StorageMigratedVolumeInfo{
 					VolumeName:         v.volName,
@@ -254,7 +256,8 @@ var _ = Describe("Volume Migration", func() {
 			Entry("with invalid update", []string{"dst0"}, []string{"other"}, []migVolumes{{generateDiskNameFromIndex(0), "src0", "dst0"}}, true,
 				fmt.Errorf(volumemigration.InvalidUpdateErrMsg), false),
 			Entry("with invalid partial update", []string{"dst0", "dst1", "dst2"}, []string{"src0", "dst1", "dst2"}, []migVolumes{
-				{generateDiskNameFromIndex(0), "src0", "dst0"}, {generateDiskNameFromIndex(1), "src1", "dst1"}, {generateDiskNameFromIndex(2), "src2", "dst2"}},
+				{generateDiskNameFromIndex(0), "src0", "dst0"}, {generateDiskNameFromIndex(1), "src1", "dst1"}, {generateDiskNameFromIndex(2), "src2", "dst2"},
+			},
 				true, fmt.Errorf(volumemigration.InvalidUpdateErrMsg), false),
 		)
 	})
@@ -269,9 +272,11 @@ var _ = Describe("Volume Migration", func() {
 		},
 			Entry("without the condition", nil, false),
 			Entry("with true condition", &v1.VirtualMachineInstanceCondition{
-				Type: v1.VirtualMachineInstanceVolumesChange, Status: k8sv1.ConditionTrue}, true),
+				Type: v1.VirtualMachineInstanceVolumesChange, Status: k8sv1.ConditionTrue,
+			}, true),
 			Entry("without false condition", &v1.VirtualMachineInstanceCondition{
-				Type: v1.VirtualMachineInstanceVolumesChange, Status: k8sv1.ConditionFalse}, false),
+				Type: v1.VirtualMachineInstanceVolumesChange, Status: k8sv1.ConditionFalse,
+			}, false),
 		)
 	})
 
@@ -349,13 +354,14 @@ var _ = Describe("Volume Migration", func() {
 			}
 		},
 			Entry("with an update of a volume", []string{"src0"}, []string{"dst0"},
-				map[string]migVolumes{generateDiskNameFromIndex(0): migVolumes{src: "src0", dst: "dst0"}}),
+				map[string]migVolumes{generateDiskNameFromIndex(0): {src: "src0", dst: "dst0"}}),
 			Entry("with an update of multiple volumes", []string{"src0", "src1"}, []string{"dst0", "dst1"},
-				map[string]migVolumes{generateDiskNameFromIndex(0): migVolumes{src: "src0", dst: "dst0"},
-					generateDiskNameFromIndex(1): migVolumes{src: "src1", dst: "dst1"}}),
+				map[string]migVolumes{
+					generateDiskNameFromIndex(0): {src: "src0", dst: "dst0"},
+					generateDiskNameFromIndex(1): {src: "src1", dst: "dst1"},
+				}),
 			Entry("without any update", []string{"vol0"}, []string{"vol0"}, map[string]migVolumes{}),
 		)
-
 	})
 
 	Context("ValidateVolumesUpdateMigration", func() {
@@ -383,7 +389,7 @@ var _ = Describe("Volume Migration", func() {
 						},
 					},
 					Conditions: []v1.VirtualMachineInstanceCondition{
-						v1.VirtualMachineInstanceCondition{
+						{
 							Type:   v1.VirtualMachineInstanceIsMigratable,
 							Status: k8sv1.ConditionFalse,
 							Reason: v1.VirtualMachineInstanceReasonDisksNotMigratable,
@@ -400,7 +406,7 @@ var _ = Describe("Volume Migration", func() {
 						},
 					},
 					Conditions: []v1.VirtualMachineInstanceCondition{
-						v1.VirtualMachineInstanceCondition{
+						{
 							Type:    v1.VirtualMachineInstanceIsStorageLiveMigratable,
 							Status:  k8sv1.ConditionFalse,
 							Reason:  v1.VirtualMachineInstanceReasonNotMigratable,
@@ -418,7 +424,7 @@ var _ = Describe("Volume Migration", func() {
 						},
 					},
 					Conditions: []v1.VirtualMachineInstanceCondition{
-						v1.VirtualMachineInstanceCondition{
+						{
 							Type:   v1.VirtualMachineInstanceIsMigratable,
 							Status: k8sv1.ConditionFalse,
 							Reason: v1.VirtualMachineInstanceReasonDisksNotMigratable,
@@ -452,7 +458,7 @@ var _ = Describe("Volume Migration", func() {
 							},
 						},
 						Conditions: []v1.VirtualMachineInstanceCondition{
-							v1.VirtualMachineInstanceCondition{
+							{
 								Type:   v1.VirtualMachineInstanceIsMigratable,
 								Status: k8sv1.ConditionFalse,
 								Reason: v1.VirtualMachineInstanceReasonDisksNotMigratable,
@@ -551,7 +557,8 @@ func addPVC(vmi *v1.VirtualMachineInstance, diskName, claim string) {
 		Name: diskName,
 		VolumeSource: v1.VolumeSource{
 			PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: claim}},
+				PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: claim},
+			},
 		},
 	})
 }
@@ -559,7 +566,8 @@ func addPVC(vmi *v1.VirtualMachineInstance, diskName, claim string) {
 func withShareableVolume(diskName, claim string) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks,
-			v1.Disk{Name: diskName,
+			v1.Disk{
+				Name: diskName,
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio},
 				},
@@ -583,7 +591,8 @@ func withFilesystemVolume(diskName, claim string) libvmi.Option {
 func withHotpluggedVolume(diskName, claim string) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks,
-			v1.Disk{Name: diskName,
+			v1.Disk{
+				Name: diskName,
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio},
 				},

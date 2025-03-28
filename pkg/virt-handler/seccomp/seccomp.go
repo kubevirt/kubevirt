@@ -16,7 +16,7 @@ func InstallPolicy(kubeletRoot string) error {
 	const errMsgFormat string = "failed to install default seccomp profile: %v"
 
 	installPath := filepath.Join(kubeletRoot, "seccomp/kubevirt")
-	if err := os.MkdirAll(installPath, 0700); err != nil {
+	if err := os.MkdirAll(installPath, 0o700); err != nil {
 		return fmt.Errorf(errMsgFormat, err)
 	}
 
@@ -34,7 +34,7 @@ func InstallPolicy(kubeletRoot string) error {
 		return nil
 	}
 
-	if err := os.WriteFile(profilePath, profileBytes, 0700); err != nil {
+	if err := os.WriteFile(profilePath, profileBytes, 0o700); err != nil {
 		return fmt.Errorf(errMsgFormat, err)
 	}
 

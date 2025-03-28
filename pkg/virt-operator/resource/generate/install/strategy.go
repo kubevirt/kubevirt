@@ -341,7 +341,6 @@ func getMonitorNamespace(clientset k8coresv1.CoreV1Interface, config *operatorut
 }
 
 func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNamespace string) error {
-
 	config, err := operatorutil.GetConfigFromEnv()
 	if err != nil {
 		return err
@@ -374,7 +373,6 @@ func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNa
 }
 
 func dumpInstallStrategyToBytes(strategy *Strategy) []byte {
-
 	var b bytes.Buffer
 	writer := bufio.NewWriter(&b)
 
@@ -452,7 +450,6 @@ func dumpInstallStrategyToBytes(strategy *Strategy) []byte {
 }
 
 func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfig, monitorNamespace string, operatorNamespace string) (*Strategy, error) {
-
 	strategy := &Strategy{}
 
 	functions := []func() (*extv1.CustomResourceDefinition, error){

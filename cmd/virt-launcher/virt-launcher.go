@@ -80,7 +80,8 @@ func markReady() {
 func startCmdServer(socketPath string,
 	domainManager virtwrap.DomainManager,
 	stopChan chan struct{},
-	options *cmdserver.ServerOptions) chan struct{} {
+	options *cmdserver.ServerOptions,
+) chan struct{} {
 	done, err := cmdserver.RunServer(socketPath, domainManager, stopChan, options)
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to start virt-launcher cmd server")
@@ -104,7 +105,6 @@ func startCmdServer(socketPath string,
 		}
 		return true, nil
 	})
-
 	if err != nil {
 		panic(fmt.Errorf("failed to connect to cmd server: %v", err))
 	}
@@ -160,8 +160,8 @@ func startDomainEventMonitoring(
 func initializeDirs(ephemeralDiskDir string,
 	containerDiskDir string,
 	hotplugDiskDir string,
-	uid string) {
-
+	uid string,
+) {
 	// Resolve permission mismatch when system default mask is set more restrictive than 022.
 	mask := syscall.Umask(0)
 	defer syscall.Umask(mask)
@@ -242,7 +242,6 @@ func detectDomainWithUUID(domainManager virtwrap.DomainManager) *api.Domain {
 }
 
 func waitForDomainUUID(timeout time.Duration, events chan watch.Event, stop chan struct{}, domainManager virtwrap.DomainManager) *api.Domain {
-
 	ticker := time.NewTicker(timeout)
 	defer ticker.Stop()
 	checkEarlyExit := time.NewTicker(time.Second * 2)
@@ -278,8 +277,8 @@ func waitForDomainUUID(timeout time.Duration, events chan watch.Event, stop chan
 
 func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 	domainManager virtwrap.DomainManager,
-	vmi *v1.VirtualMachineInstance) {
-
+	vmi *v1.VirtualMachineInstance,
+) {
 	log.Log.Info("Waiting on final notifications to be sent to virt-handler.")
 
 	// First attempt to wait for domain event to occur as a part of the normal shutdown flow.
@@ -422,7 +421,7 @@ func main() {
 	domainConn := createLibvirtConnection(*runWithNonRoot)
 	defer domainConn.Close()
 
-	var agentStore = agentpoller.NewAsyncAgentStore()
+	agentStore := agentpoller.NewAsyncAgentStore()
 
 	notifier := notifyclient.NewNotifier(*virtShareDir)
 	defer notifier.Close()

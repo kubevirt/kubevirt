@@ -21,7 +21,6 @@ import (
 )
 
 var _ = Describe("Apply Security Context Constraints", func() {
-
 	Context("Manage users", func() {
 		var stop chan struct{}
 		var ctrl *gomock.Controller
@@ -111,5 +110,4 @@ var _ = Describe("Apply Security Context Constraints", func() {
 			Entry("With custom users", []string{"someuser"}),
 		)
 	})
-
 })

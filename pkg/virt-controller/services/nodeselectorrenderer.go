@@ -96,11 +96,13 @@ func WithRealtime() NodeSelectorRendererOption {
 		renderer.realtimeEnabled = true
 	}
 }
+
 func WithSEVSelector() NodeSelectorRendererOption {
 	return func(renderer *NodeSelectorRenderer) {
 		renderer.sevEnabled = true
 	}
 }
+
 func WithSEVESSelector() NodeSelectorRendererOption {
 	return func(renderer *NodeSelectorRenderer) {
 		renderer.sevESEnabled = true

@@ -81,6 +81,7 @@ func cleanupServiceAccounts() {
 	cleanupServiceAccount(SubresourceServiceAccountName)
 	cleanupServiceAccount(SubresourceUnprivilegedServiceAccountName)
 }
+
 func createServiceAccount(saName string) {
 	virtCli := kubevirt.Client()
 

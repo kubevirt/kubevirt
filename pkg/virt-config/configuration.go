@@ -46,7 +46,8 @@ type ConfigModifiedFn func()
 // NewClusterConfig is a wrapper of NewClusterConfigWithCPUArch with default cpuArch.
 func NewClusterConfig(crdInformer cache.SharedIndexInformer,
 	kubeVirtInformer cache.SharedIndexInformer,
-	namespace string) (*ClusterConfig, error) {
+	namespace string,
+) (*ClusterConfig, error) {
 	return NewClusterConfigWithCPUArch(
 		crdInformer,
 		kubeVirtInformer,
@@ -62,8 +63,8 @@ func NewClusterConfig(crdInformer cache.SharedIndexInformer,
 // 3. In case of errors or no updates (resource version stays the same), it returns the values from the last good config
 func NewClusterConfigWithCPUArch(crdInformer cache.SharedIndexInformer,
 	kubeVirtInformer cache.SharedInformer,
-	namespace, cpuArch string) (*ClusterConfig, error) {
-
+	namespace, cpuArch string,
+) (*ClusterConfig, error) {
 	defaultConfig := defaultClusterConfig(cpuArch)
 
 	c := &ClusterConfig{
@@ -147,7 +148,6 @@ func (c *ClusterConfig) crdAddedDeleted(obj interface{}) {
 	if c.configModifiedCallback != nil {
 		for _, callback := range c.configModifiedCallback {
 			go callback()
-
 		}
 	}
 }

@@ -42,8 +42,10 @@ const (
 	DomainVersion = "v1"
 )
 
-type LifeCycle string
-type StateChangeReason string
+type (
+	LifeCycle         string
+	StateChangeReason string
+)
 
 const (
 	NoState     LifeCycle = "NoState"
@@ -354,8 +356,7 @@ type FeatureVendorID struct {
 	Value string `xml:"value,attr,omitempty"`
 }
 
-type FeatureEnabled struct {
-}
+type FeatureEnabled struct{}
 
 type Shareable struct{}
 
@@ -491,8 +492,7 @@ type MemoryBackingAccess struct {
 	Mode string `xml:"mode,attr"`
 }
 
-type NoSharePages struct {
-}
+type NoSharePages struct{}
 
 type MemoryAddress struct {
 	Base string `xml:"base,attr"`
@@ -866,8 +866,7 @@ type LinkState struct {
 	State string `xml:"state,attr"`
 }
 
-type BandWidth struct {
-}
+type BandWidth struct{}
 
 type BootOrder struct {
 	Order uint `xml:"order,attr"`
@@ -966,8 +965,7 @@ func (alias *Alias) UnmarshalJSON(data []byte) error {
 }
 
 // END Inteface -----------------------------
-//BEGIN OS --------------------
-
+// BEGIN OS --------------------
 type OS struct {
 	Type       OSType    `xml:"type"`
 	ACPI       *OSACPI   `xml:"acpi,omitempty"`
@@ -1040,9 +1038,8 @@ type Entry struct {
 	Value string `xml:",chardata"`
 }
 
-//END OS --------------------
-//BEGIN LaunchSecurity --------------------
-
+// END OS --------------------
+// BEGIN LaunchSecurity --------------------
 type LaunchSecurity struct {
 	Type            string `xml:"type,attr"`
 	Cbitpos         string `xml:"cbitpos,omitempty"`
@@ -1052,9 +1049,8 @@ type LaunchSecurity struct {
 	Session         string `xml:"session,omitempty"`
 }
 
-//END LaunchSecurity --------------------
-//BEGIN Clock --------------------
-
+// END LaunchSecurity --------------------
+// BEGIN Clock --------------------
 type Clock struct {
 	Offset     string  `xml:"offset,attr,omitempty"`
 	Timezone   string  `xml:"timezone,attr,omitempty"`
@@ -1070,10 +1066,9 @@ type Timer struct {
 	Frequency  string `xml:"frequency,attr,omitempty"`
 }
 
-//END Clock --------------------
+// END Clock --------------------
 
-//BEGIN Channel --------------------
-
+// BEGIN Channel --------------------
 type Channel struct {
 	Type   string         `xml:"type,attr"`
 	Source *ChannelSource `xml:"source,omitempty"`
@@ -1093,19 +1088,17 @@ type ChannelSource struct {
 	Path string `xml:"path,attr"`
 }
 
-//END Channel --------------------
+// END Channel --------------------
 
-//BEGIN Sound -------------------
-
+// BEGIN Sound -------------------
 type SoundCard struct {
 	Alias *Alias `xml:"alias,omitempty"`
 	Model string `xml:"model,attr"`
 }
 
-//END Sound -------------------
+// END Sound -------------------
 
-//BEGIN Video -------------------
-
+// BEGIN Video -------------------
 type Video struct {
 	Model VideoModel `xml:"model"`
 }
@@ -1151,10 +1144,9 @@ type Address struct {
 	DevNo      string `xml:"devno,attr,omitempty"`
 }
 
-//END Video -------------------
+// END Video -------------------
 
-//BEGIN VSOCK -------------------
-
+// BEGIN VSOCK -------------------
 type VSOCK struct {
 	Model string `xml:"model,attr,omitempty"`
 	CID   CID    `xml:"cid"`
@@ -1165,8 +1157,7 @@ type CID struct {
 	Address uint32 `xml:"address,attr,omitempty"`
 }
 
-//END VSOCK -------------------
-
+// END VSOCK -------------------
 type Stats struct {
 	Period uint `xml:"period,attr"`
 }

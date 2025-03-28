@@ -76,7 +76,7 @@ func newValidGetRequest() *http.Request {
 }
 
 var _ = Describe("Application", func() {
-	var app = VirtControllerApp{}
+	app := VirtControllerApp{}
 
 	It("Reports leader prometheus metric when onStartedLeading is called ", func() {
 		ctrl := gomock.NewController(GinkgoT())
@@ -279,7 +279,6 @@ var _ = Describe("Application", func() {
 
 		one := 1.0
 		Expect(dto.GetGauge().Value).To(Equal(&one))
-
 	})
 
 	Describe("Reinitialization conditions", func() {
@@ -336,7 +335,6 @@ var _ = Describe("Application", func() {
 
 		Context("with closed channel", func() {
 			It("should return 200 and that it is the leader", func() {
-
 				close(app.readyChan)
 				request.URL, _ = url.Parse("/leader")
 				handler.ServeHTTP(recorder, request)

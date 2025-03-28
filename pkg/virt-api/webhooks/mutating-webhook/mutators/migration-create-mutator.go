@@ -33,8 +33,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
 
-type MigrationCreateMutator struct {
-}
+type MigrationCreateMutator struct{}
 
 func (mutator *MigrationCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	if !webhookutils.ValidateRequestResource(ar.Request.Resource, webhooks.MigrationGroupVersionResource.Group, webhooks.MigrationGroupVersionResource.Resource) {

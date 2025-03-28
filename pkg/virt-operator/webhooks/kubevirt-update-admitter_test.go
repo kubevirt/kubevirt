@@ -40,7 +40,6 @@ import (
 )
 
 var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
-
 	test := field.NewPath("test")
 	vmProfileField := test.Child("virtualMachineInstanceProfile")
 
@@ -50,7 +49,6 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		for _, cause := range causes {
 			Expect(cause.Field).To(BeElementOf(expectedFields))
 		}
-
 	},
 		Entry("don't specifying custom ", &v1.SeccompConfiguration{
 			VirtualMachineInstanceProfile: &v1.VirtualMachineInstanceProfile{
@@ -115,7 +113,6 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				field = fmt.Sprintf("%s#%d", field, indexInField)
 			}
 			Expect(causes[0].Field).To(Equal(field))
-
 		},
 			Entry("with unspecified minTLSVersion but non empty ciphers",
 				&v1.TLSConfiguration{Ciphers: []string{tls.CipherSuiteName(tls.TLS_AES_256_GCM_SHA384)}},
@@ -156,7 +153,6 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		)
 
 		DescribeTable("valid values", func(validRatio string) {
-
 		},
 			Entry("1.0", "1.0"),
 			Entry("5", "5"),
@@ -214,7 +210,6 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			} else {
 				Expect(response.Warnings).To(BeEmpty())
 			}
-
 		},
 			Entry("should warn if used", warn, &v1.MediatedDevicesConfiguration{
 				MediatedDevicesTypes: []string{"test1", "test2"},

@@ -104,7 +104,8 @@ func emptyDirVolume(name string) k8sv1.Volume {
 	return k8sv1.Volume{
 		Name: name,
 		VolumeSource: k8sv1.VolumeSource{
-			EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+		},
 	}
 }
 

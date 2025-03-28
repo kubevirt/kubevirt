@@ -64,8 +64,7 @@ type Selectors struct {
 	VirtualMachineInstanceSelector LabelSelector `json:"virtualMachineInstanceSelector,omitempty"`
 }
 
-type MigrationPolicyStatus struct {
-}
+type MigrationPolicyStatus struct{}
 
 // MigrationPolicyList is a list of MigrationPolicy
 //

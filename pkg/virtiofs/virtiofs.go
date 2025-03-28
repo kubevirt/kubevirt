@@ -8,8 +8,10 @@ import (
 )
 
 // This is empty dir
-var VirtioFSContainers = "virtiofs-containers"
-var VirtioFSContainersMountBaseDir = filepath.Join(util.VirtShareDir, VirtioFSContainers)
+var (
+	VirtioFSContainers             = "virtiofs-containers"
+	VirtioFSContainersMountBaseDir = filepath.Join(util.VirtShareDir, VirtioFSContainers)
+)
 
 func VirtioFSSocketPath(volumeName string) string {
 	socketName := fmt.Sprintf("%s.sock", volumeName)

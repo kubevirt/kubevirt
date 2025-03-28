@@ -44,7 +44,6 @@ import (
 )
 
 var _ = Describe("Install Strategy", func() {
-
 	namespace := "fake-namespace"
 
 	getConfig := func(registry, version string) *util.KubeVirtDeploymentConfig {
@@ -112,7 +111,6 @@ var _ = Describe("Install Strategy", func() {
 				err := yaml.Unmarshal([]byte(entry), &obj)
 				Expect(err).NotTo(HaveOccurred())
 			}
-
 		})
 		It("latest install strategy with lossless byte conversion.", func() {
 			strategy, err := GenerateCurrentInstallStrategy(config, "openshift-monitoring", namespace)
@@ -220,9 +218,9 @@ var _ = Describe("Install Strategy", func() {
 						break
 					}
 				}
-				//delete ManagedByLabel labels from original config map.
-				//dumpInstallStrategyToBytes function deletes it, and then
-				//original and converted configmaps are not the same
+				// delete ManagedByLabel labels from original config map.
+				// dumpInstallStrategyToBytes function deletes it, and then
+				// original and converted configmaps are not the same
 				delete(original.Labels, v1.ManagedByLabel)
 				Expect(equality.Semantic.DeepEqual(original, converted)).To(BeTrue())
 			}

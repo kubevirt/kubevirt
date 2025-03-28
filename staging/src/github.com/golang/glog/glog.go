@@ -52,10 +52,12 @@ var logLevelNames = map[logLevel]string{
 	fatalLevel:   "fatal",
 }
 
-var glogVerbosity string
-var glogComponent string
-var toStderr bool
-var logger log2.Logger
+var (
+	glogVerbosity string
+	glogComponent string
+	toStderr      bool
+	logger        log2.Logger
+)
 
 func init() {
 	flag.StringVar(&glogVerbosity, "v", "2", "log level for V logs")

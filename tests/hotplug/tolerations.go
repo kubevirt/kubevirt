@@ -46,16 +46,13 @@ import (
 )
 
 var _ = Describe("[sig-compute]VM Tolerations", decorators.SigCompute, decorators.VMLiveUpdateRolloutStrategy, func() {
-	var (
-		virtClient kubecli.KubevirtClient
-	)
+	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
 
 	Context("Updating VMs tolerations", func() {
 		It("should successfully live update tolerations", func() {
-
 			By("Creating a running VM")
 			vmi := libvmifact.NewGuestless()
 			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))

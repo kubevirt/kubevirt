@@ -7,8 +7,10 @@ import (
 	"strings"
 )
 
-const ServiceAccountNamespaceFile = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
-const namespaceKubevirt = "kubevirt"
+const (
+	ServiceAccountNamespaceFile = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+	namespaceKubevirt           = "kubevirt"
+)
 
 func GetNamespace() (string, error) {
 	if data, err := os.ReadFile(ServiceAccountNamespaceFile); err == nil {

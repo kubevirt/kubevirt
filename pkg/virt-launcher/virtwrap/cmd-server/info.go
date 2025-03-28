@@ -30,18 +30,14 @@ import (
 type InfoServer struct{}
 
 func (i InfoServer) Info(context.Context, *info.CmdInfoRequest) (*info.CmdInfoResponse, error) {
-
 	// since this is the first versioned version, we only support the current versions
 	// add older versions as soon as they are supported
 	return &info.CmdInfoResponse{
 		SupportedCmdVersions: []uint32{cmdv1.CmdVersion},
 	}, nil
-
 }
 
 func registerInfoServer(grpcServer *grpc.Server) {
-
 	infoServer := &InfoServer{}
 	info.RegisterCmdInfoServer(grpcServer, infoServer)
-
 }

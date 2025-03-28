@@ -74,7 +74,6 @@ const (
 )
 
 var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
-
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -507,17 +506,18 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 							"Type":   Equal(snapshotv1.ConditionReady),
 							"Status": Equal(corev1.ConditionFalse),
-							"Reason": Equal("restore source and restore target are different but restore target already exists")}),
+							"Reason": Equal("restore source and restore target are different but restore target already exists"),
+						}),
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 							"Type":   Equal(snapshotv1.ConditionProgressing),
 							"Status": Equal(corev1.ConditionFalse),
-							"Reason": Equal("restore source and restore target are different but restore target already exists")}),
+							"Reason": Equal("restore source and restore target are different but restore target already exists"),
+						}),
 					),
 				})))
 			})
 
 			Context("restore to a new VM that does not exist", func() {
-
 				var (
 					newVmName string
 					newVM     *v1.VirtualMachine
@@ -579,7 +579,6 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					By("Making sure new VM is runnable")
 					_ = libvmops.StartVirtualMachine(newVM)
 				})
-
 			})
 		})
 		Context("with instancetype and preferences", decorators.RequiresSnapshotStorageClass, func() {
@@ -1257,7 +1256,6 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pvc.Status.Capacity["storage"]).To(Equal(expectedCapacity))
 				Expect(pvc.Spec.Resources.Requests["storage"]).To(Equal(expectedCapacity))
-
 			},
 				Entry("to the same VM", false),
 				Entry("to a new VM", true),
@@ -1585,7 +1583,6 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				if restoreToNewVM {
 					checkNewVMEquality()
 				}
-
 			},
 				Entry("[test_id:6053] to the same VM, stop VM after create restore", false),
 				Entry("to a new VM", true),
@@ -1647,7 +1644,6 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				if restoreToNewVM {
 					checkNewVMEquality()
 				}
-
 			},
 				Entry("[test_id:6766] to the same VM", false),
 				Entry("to a new VM", true),

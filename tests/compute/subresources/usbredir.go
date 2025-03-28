@@ -13,7 +13,6 @@ import (
 // Only checks for the default which is non configured usbredir.
 // The functest for configured usbredir is under tests/virtctl/usbredir.go
 var _ = Describe(compute.SIG("usbredir support", func() {
-
 	const enoughMemForSafeBiosEmulation = "32Mi"
 
 	It("should fail to connect to VMI's usbredir socket", func() {

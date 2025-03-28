@@ -40,9 +40,7 @@ import (
 )
 
 var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateRolloutStrategy, Serial, func() {
-	var (
-		virtClient kubecli.KubevirtClient
-	)
+	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 		originalKv := libkubevirt.GetCurrentKv(virtClient)
@@ -58,11 +56,9 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 			currentKv.ResourceVersion,
 			config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
 			time.Minute)
-
 	})
 
 	Context("with requests without topology", func() {
-
 		It("should be able to start", func() {
 			By("Kubevirt CR with default MaxHotplugRatio set to 4")
 
@@ -79,7 +75,6 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 	})
 
 	Context("with Kubevirt CR declaring MaxCpuSockets", func() {
-
 		It("should be able to start", func() {
 			By("Kubevirt CR with MaxCpuSockets set to 2")
 			kubevirt := libkubevirt.GetCurrentKv(virtClient)
@@ -98,7 +93,6 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 10*time.Second, 1*time.Second).Should(Exist())
 		})
-
 	})
 
 	Context("A VM with cpu.maxSockets set higher than cpu.sockets", func() {
@@ -386,7 +380,6 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 				}
 				return false
 			}, 30*time.Second, time.Second).Should(BeFalse())
-
 		})
 	})
 })

@@ -8,10 +8,9 @@ import (
 )
 
 var _ = Describe("Readiness", func() {
-
 	var toNilPointer *k8sv1.Deployment = nil
 
-	var readyDeployment = &k8sv1.Deployment{
+	readyDeployment := &k8sv1.Deployment{
 		Status: k8sv1.DeploymentStatus{
 			ReadyReplicas: 2,
 		},

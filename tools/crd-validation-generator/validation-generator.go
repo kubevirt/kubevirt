@@ -13,7 +13,6 @@ import (
 )
 
 func main() {
-
 	dirname := flag.String("crdDir", "staging/src/kubevirt.io/client-go/config/crd/", "path to directory with crds from where validation field will be parsed")
 	outputdir := flag.String("outputDir", "pkg/virt-operator/resource/generate/components/", "path to dir where go file will be generated")
 
@@ -50,7 +49,7 @@ var variable = " \"%s\" : `%s`,\n"
 func generateGoFile(outputDir string, validations map[string]*extv1.CustomResourceValidation) {
 	filepath := fmt.Sprintf("%svalidations_generated.go", outputDir)
 	os.Remove(filepath)
-	file, err := os.OpenFile(filepath, os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(filepath, os.O_CREATE|os.O_WRONLY, 0o644)
 	defer file.Close()
 	if err != nil {
 		panic(fmt.Errorf("Failed to create go file %v, %v", filepath, err))
@@ -73,7 +72,6 @@ func generateGoFile(outputDir string, validations map[string]*extv1.CustomResour
 		file.WriteString(fmt.Sprintf(variable, crdname, string(b)))
 	}
 	file.WriteString("}\n")
-
 }
 
 func getValidation(filename string) (string, *extv1.CustomResourceValidation) {

@@ -38,9 +38,7 @@ import (
 )
 
 var _ = Describe("Cluster role and cluster role bindings", func() {
-
 	Context("GetAllCluster", func() {
-
 		clusterObjects := GetAllCluster()
 
 		It("should not be nil", func() {
@@ -48,12 +46,10 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 		})
 
 		Context("default cluster role", func() {
-
 			DescribeTable("should contain rule to", func(apiGroup, resource string, verbs ...string) {
 				clusterRole := getObject(clusterObjects, reflect.TypeOf(&rbacv1.ClusterRole{}), defaultClusterRoleName).(*rbacv1.ClusterRole)
 				Expect(clusterRole).ToNot(BeNil())
 				expectExactRuleExists(clusterRole.Rules, apiGroup, resource, verbs...)
-
 			},
 				Entry(fmt.Sprintf("get and list %s/%s", GroupName, apiKubevirts), GroupName, apiKubevirts, "get", "list"),
 				Entry(fmt.Sprintf("get and list %s/%s", virtv1.SubresourceGroupName, apiVersion), virtv1.SubresourceGroupName, apiVersion, "get", "list"),
@@ -62,7 +58,6 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 		})
 
 		Context("default cluster role binding", func() {
-
 			It("should contain RoleRef to default cluster role", func() {
 				clusterRoleBinding := getObject(clusterObjects, reflect.TypeOf(&rbacv1.ClusterRoleBinding{}), defaultClusterRoleName).(*rbacv1.ClusterRoleBinding)
 				Expect(clusterRoleBinding).ToNot(BeNil())
@@ -79,7 +74,6 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 		})
 
 		Context("admin cluster role", func() {
-
 			DescribeTable("should contain rule to", func(apiGroup, resource string, verbs ...string) {
 				clusterRole := getObject(clusterObjects, reflect.TypeOf(&rbacv1.ClusterRole{}), "kubevirt.io:admin").(*rbacv1.ClusterRole)
 				Expect(clusterRole).ToNot(BeNil())
@@ -144,7 +138,6 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 		})
 
 		Context("edit cluster role", func() {
-
 			DescribeTable("should contain rule to", func(apiGroup, resource string, verbs ...string) {
 				clusterRole := getObject(clusterObjects, reflect.TypeOf(&rbacv1.ClusterRole{}), "kubevirt.io:edit").(*rbacv1.ClusterRole)
 				Expect(clusterRole).ToNot(BeNil())
@@ -211,7 +204,6 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 		})
 
 		Context("migrate cluster role", func() {
-
 			DescribeTable("should contain rule to", func(apiGroup, resource string, verbs ...string) {
 				clusterRole := getObject(clusterObjects, reflect.TypeOf(&rbacv1.ClusterRole{}), "kubevirt.io:migrate").(*rbacv1.ClusterRole)
 				Expect(clusterRole).ToNot(BeNil())
@@ -223,7 +215,6 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 		})
 
 		Context("view cluster role", func() {
-
 			DescribeTable("should contain rule to", func(apiGroup, resource string, verbs ...string) {
 				clusterRole := getObject(clusterObjects, reflect.TypeOf(&rbacv1.ClusterRole{}), "kubevirt.io:view").(*rbacv1.ClusterRole)
 				Expect(clusterRole).ToNot(BeNil())
@@ -266,7 +257,6 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 		})
 
 		Context("instance type view cluster role", func() {
-
 			DescribeTable("should contain rule to", func(apiGroup, resource string, verbs ...string) {
 				clusterRole := getObject(clusterObjects, reflect.TypeOf(&rbacv1.ClusterRole{}), instancetypeViewClusterRoleName).(*rbacv1.ClusterRole)
 				Expect(clusterRole).ToNot(BeNil())
@@ -278,7 +268,6 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 		})
 
 		Context("instance type view cluster role binding", func() {
-
 			It("should contain RoleRef to instancetype view cluster role", func() {
 				clusterRoleBinding := getObject(clusterObjects, reflect.TypeOf(&rbacv1.ClusterRoleBinding{}), instancetypeViewClusterRoleName).(*rbacv1.ClusterRoleBinding)
 				Expect(clusterRoleBinding).ToNot(BeNil())
@@ -294,7 +283,6 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 			)
 		})
 	})
-
 })
 
 func getObject(items []runtime.Object, tp reflect.Type, name string) runtime.Object {

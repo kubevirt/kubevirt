@@ -9,14 +9,13 @@ import (
 )
 
 var _ = Describe("selinux", func() {
-
 	var tempDir string
 	var selinux *SELinuxImpl
 
 	BeforeEach(func() {
 		tempDir = GinkgoT().TempDir()
-		Expect(os.MkdirAll(filepath.Join(tempDir, "/usr/sbin"), 0777)).ToNot(HaveOccurred())
-		Expect(os.MkdirAll(filepath.Join(tempDir, "/usr/bin"), 0777)).ToNot(HaveOccurred())
+		Expect(os.MkdirAll(filepath.Join(tempDir, "/usr/sbin"), 0o777)).ToNot(HaveOccurred())
+		Expect(os.MkdirAll(filepath.Join(tempDir, "/usr/bin"), 0o777)).ToNot(HaveOccurred())
 		selinux = &SELinuxImpl{
 			Paths:         []string{"/usr/bin", "/usr/sbin"},
 			procOnePrefix: tempDir,

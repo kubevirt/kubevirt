@@ -65,7 +65,6 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 }
 
 func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVersion, prHelperVersion, sidecarShimVersion, productName, productVersion, productComponent, image, launcherImage, prHelperImage, sidecarShimImage string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, migrationNetwork *string, verbosity string, extraEnv map[string]string, enablePrHelper bool) *appsv1.DaemonSet {
-
 	deploymentName := VirtHandlerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
 	env := operatorutil.NewEnvVarMap(extraEnv)
@@ -356,22 +355,24 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 					Path: reservation.GetPrHelperSocketDir(),
 					Type: &directoryOrCreate,
 				},
-			}}, corev1.Volume{
+			},
+		}, corev1.Volume{
 			Name: devDirVol,
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
 					Path: "/dev",
 				},
-			}}, corev1.Volume{
+			},
+		}, corev1.Volume{
 			Name: etcMultipath,
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
 					Path: "/etc/multipath",
 					Type: pointer.P(corev1.HostPathDirectoryOrCreate),
 				},
-			}})
+			},
+		})
 		pod.Containers = append(pod.Containers, RenderPrHelperContainer(prHelperImage, pullPolicy))
 	}
 	return daemonset
-
 }

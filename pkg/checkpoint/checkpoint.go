@@ -60,7 +60,7 @@ func (cp *simpleCheckpointManager) Store(key string, value interface{}) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(cp.basePath, key), b, 0600)
+	return os.WriteFile(filepath.Join(cp.basePath, key), b, 0o600)
 }
 
 func (cp *simpleCheckpointManager) Delete(key string) error {

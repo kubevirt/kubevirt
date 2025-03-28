@@ -30,7 +30,6 @@ import (
 )
 
 func DaemonsetIsReady(kv *v1.KubeVirt, daemonset *appsv1.DaemonSet, stores Stores) bool {
-
 	// ensure we're looking at the latest daemonset from cache
 	obj, exists, _ := stores.DaemonSetCache.Get(daemonset)
 	if exists {

@@ -144,7 +144,6 @@ func Execute() {
 	app.aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 	app.clientSet, err = kubecli.GetKubevirtClient()
-
 	if err != nil {
 		golog.Fatal(err)
 	}
@@ -282,7 +281,6 @@ func Execute() {
 		app.informerFactory.KubeVirt(),
 		app.operatorNamespace,
 	)
-
 	if err != nil {
 		panic(err)
 	}
@@ -303,7 +301,6 @@ func (app *VirtOperatorApp) Run() {
 	promTLSConfig := kvtls.SetupPromTLS(app.operatorCertManager, app.clusterConfig)
 
 	go func() {
-
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.Handler())
 
@@ -427,7 +424,6 @@ func (app *VirtOperatorApp) Run() {
 	leaderElector.Run(app.ctx)
 
 	panic("unreachable")
-
 }
 
 // Detects if ServiceMonitor or PrometheusRule crd has been applied or deleted that

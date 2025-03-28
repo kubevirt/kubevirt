@@ -61,7 +61,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 	})
 
 	Context("Prometheus metrics", func() {
-		var excludedMetrics = map[string]bool{
+		excludedMetrics := map[string]bool{
 			// virt-api
 			// can later be added in pre-existing feature tests
 			"kubevirt_portforward_active_tunnels":                true,

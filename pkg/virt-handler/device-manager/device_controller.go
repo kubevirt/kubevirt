@@ -103,7 +103,7 @@ func (c *controlledDevice) GetName() string {
 }
 
 func PermanentHostDevicePlugins(maxDevices int, permissions string) []Device {
-	var permanentDevicePluginPaths = map[string]string{
+	permanentDevicePluginPaths := map[string]string{
 		"kvm":       "/dev/kvm",
 		"tun":       "/dev/net/tun",
 		"vhost-net": "/dev/vhost-net",
@@ -173,7 +173,7 @@ func (c *DeviceController) NodeHasDevice(devicePath string) bool {
 func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 	var permittedDevices []Device
 
-	var featureGatedDevices = []struct {
+	featureGatedDevices := []struct {
 		Name      string
 		Path      string
 		IsAllowed func() bool
@@ -250,7 +250,6 @@ func removeSelectorSpaces(selectorName string) string {
 	typeNameStr := strings.Replace(string(selectorName), " ", "_", -1)
 	typeNameStr = strings.TrimSpace(typeNameStr)
 	return typeNameStr
-
 }
 
 func (c *DeviceController) splitPermittedDevices(devices []Device) (map[string]Device, map[string]struct{}) {

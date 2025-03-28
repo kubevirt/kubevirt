@@ -134,7 +134,6 @@ QEMU_AUDIO_DRV=none \
 )
 
 var _ = Describe("LibvirtHelper", func() {
-
 	It("should parse libvirt logs", func() {
 		buffer := bytes.NewBuffer(nil)
 
@@ -154,7 +153,7 @@ var _ = Describe("LibvirtHelper", func() {
 		for scanner.Scan() {
 			entry := map[string]string{}
 			Expect(json.Unmarshal(scanner.Bytes(), &entry)).To(Succeed())
-			//delete(entry, "timestamp")
+			// delete(entry, "timestamp")
 			loggedLines = append(loggedLines, entry)
 		}
 		Expect(scanner.Err()).ToNot(HaveOccurred())
@@ -164,7 +163,7 @@ var _ = Describe("LibvirtHelper", func() {
 		for scanner.Scan() {
 			entry := map[string]string{}
 			Expect(json.Unmarshal(scanner.Bytes(), &entry)).To(Succeed())
-			//delete(entry, "timestamp")
+			// delete(entry, "timestamp")
 			expectedLines = append(expectedLines, entry)
 		}
 		Expect(scanner.Err()).ToNot(HaveOccurred())
@@ -275,7 +274,6 @@ var _ = Describe("LibvirtHelper", func() {
 	})
 
 	Context("getLibvirtLogFilters()", func() {
-
 		DescribeTable("should return customLogFilters if defined and not empty with", func(libvirtLogVerbosityEnvVar *string, libvirtDebugLogsEnvVarDefined bool) {
 			customLogFilters := pointer.P("3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access")
 
@@ -290,7 +288,6 @@ var _ = Describe("LibvirtHelper", func() {
 		)
 
 		Context("with customLogFilters not defined", func() {
-
 			const verbosityThreshold = services.EXT_LOG_VERBOSITY_THRESHOLD
 
 			DescribeTable("logs should be enabled if debugLogs env var is defined when", func(libvirtLogVerbosityEnvVar *string) {
@@ -303,7 +300,6 @@ var _ = Describe("LibvirtHelper", func() {
 			)
 
 			DescribeTable("with debugLogs not defined logs should", func(libvirtLogVerbosity *int, expectedEnableDebugLogs bool) {
-
 				var libvirtLogVerbosityEnvVar *string
 				if libvirtLogVerbosity != nil {
 					libvirtLogVerbosityEnvVar = pointer.P(fmt.Sprintf("%d", *libvirtLogVerbosity))
@@ -317,9 +313,7 @@ var _ = Describe("LibvirtHelper", func() {
 				Entry("be enabled when libvirt log verbosity is above threshold", pointer.P(verbosityThreshold+1), true),
 				Entry("be disabled when libvirt log verbosity is not defined", nil, false),
 			)
-
 		})
-
 	})
 
 	Context("configureQemuConf()", func() {
@@ -338,7 +332,7 @@ var _ = Describe("LibvirtHelper", func() {
 
 			Expect(configureQemuConf(confPath)).To(Succeed())
 
-			file, err = os.OpenFile(confPath, os.O_RDONLY, 0644)
+			file, err = os.OpenFile(confPath, os.O_RDONLY, 0o644)
 			Expect(err).ToNot(HaveOccurred())
 			fileInfo, err := file.Stat()
 			Expect(err).ToNot(HaveOccurred())
@@ -352,6 +346,5 @@ var _ = Describe("LibvirtHelper", func() {
 			Entry("single shared filesystem", "/foo/bar", "shared_filesystems = [ \"/foo/bar\" ]"),
 			Entry("multiple shared filesystems", "/foo/bar1:/foo/bar2", "shared_filesystems = [ \"/foo/bar1\", \"/foo/bar2\" ]"),
 		)
-
 	})
 })

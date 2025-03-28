@@ -93,7 +93,6 @@ func pvcForMigrationTargetFromStore(pvcStore cache.Store, migration *corev1.Virt
 	}
 
 	return nil
-
 }
 
 func PVCForMigrationTarget(pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) *v1.PersistentVolumeClaim {
@@ -239,7 +238,6 @@ func buildRecoveryJob(jobName, launcherImage string, migration *corev1.VirtualMa
 			},
 		},
 	}
-
 }
 
 func (bs *BackendStorage) labelLegacyPVC(pvc *v1.PersistentVolumeClaim, name string) {
@@ -326,7 +324,6 @@ func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migra
 			patch.WithTest("/metadata/labels/"+patch.EscapeJSONPointer(corev1.MigrationNameLabel), migration.Name),
 			patch.WithRemove("/metadata/labels/"+patch.EscapeJSONPointer(corev1.MigrationNameLabel)),
 		).GeneratePayload()
-
 		if err != nil {
 			return fmt.Errorf("failed to generate PVC patch: %v", err)
 		}

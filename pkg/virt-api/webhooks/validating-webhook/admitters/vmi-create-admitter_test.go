@@ -1010,15 +1010,21 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			order := uint(1)
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, []v1.Disk{
 				{Name: "testvolume1", BootOrder: &order, DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{}}},
+					Disk: &v1.DiskTarget{},
+				}},
 				{Name: "testvolume2", BootOrder: &order, DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{}}}}...)
+					Disk: &v1.DiskTarget{},
+				}},
+			}...)
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, []v1.Volume{
 				{Name: "testvolume1", VolumeSource: v1.VolumeSource{
-					ContainerDisk: testutils.NewFakeContainerDiskSource()}},
+					ContainerDisk: testutils.NewFakeContainerDiskSource(),
+				}},
 				{Name: "testvolume2", VolumeSource: v1.VolumeSource{
-					ContainerDisk: testutils.NewFakeContainerDiskSource()}}}...)
+					ContainerDisk: testutils.NewFakeContainerDiskSource(),
+				}},
+			}...)
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
@@ -1137,7 +1143,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.GPUs"))
 		})
 		It("should accept legacy GPU devices if PermittedHostDevices aren't set", func() {
-
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
 				{
@@ -1185,7 +1190,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Field).To(Equal("fake.domain.devices.filesystems"))
 			}
-
 		},
 			Entry("PVC should be rejected when feature gate is disabled", "", false, libvmi.WithFilesystemPVC("sharedtestdisk")),
 			Entry("PVC should be accepted when feature gate is enabled", featuregate.VirtIOFSStorageVolumeGate, true, libvmi.WithFilesystemPVC("sharedtestdisk")),
@@ -1366,7 +1370,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Message).To(Equal("either fake.startStrategy or fake.livenessProbe should be provided.Pausing VMI with LivenessProbe is not supported"))
 		})
 		Context("with kernel boot defined", func() {
-
 			createKernelBoot := func(kernelArgs, initrdPath, kernelPath, image string) *v1.KernelBoot {
 				var kbContainer *v1.KernelBootContainer
 				if image != "" || kernelPath != "" || initrdPath != "" {
@@ -1542,7 +1545,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.domain.cpu.dedicatedCpuPlacement"))
 		})
 		It("should reject specs with IsolateEmulatorThread without DedicatedCPUPlacement set", func() {
-
 			vmi.Spec.Domain.CPU = &v1.CPU{
 				DedicatedCPUPlacement: false,
 				IsolateEmulatorThread: true,
@@ -1892,7 +1894,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 				causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
 				Expect(causes).To(BeEmpty())
-
 			},
 			Entry("with Disk target",
 				v1.Disk{Name: "testdisk", DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{}}},
@@ -1968,7 +1969,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{
 						PciAddress: "0000:04:10.0",
-						Bus:        v1.DiskBusSCSI},
+						Bus:        v1.DiskBusSCSI,
+					},
 				},
 			})
 			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
@@ -2040,7 +2042,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(resp.Allowed).To(BeFalse(), "The VMI should not be allowed")
 			Expect(resp.Result.Details.Causes).To(ContainElement(matcher))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0].cdrom.bus"))
-
 		},
 			Entry("virtio bus", "virtio", gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 				"Message": Equal("Bus type virtio is invalid for CD-ROM device"),
@@ -2204,7 +2205,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk", Cache: "unspported", DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{}}})
+					Disk: &v1.DiskTarget{},
+				},
+			})
 
 			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
 			Expect(causes).To(HaveLen(1))
@@ -2216,7 +2219,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk", Cache: mode, DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{}}})
+					Disk: &v1.DiskTarget{},
+				},
+			})
 
 			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
 			Expect(causes).To(BeEmpty())
@@ -2230,7 +2235,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk", ErrorPolicy: pointer.P(v1.DiskErrorPolicy(policy)), DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{}}})
+					Disk: &v1.DiskTarget{},
+				},
+			})
 
 			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
 			Expect(causes).To(HaveLen(1))
@@ -2246,7 +2253,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk", ErrorPolicy: pointer.P(mode), DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{}}})
+					Disk: &v1.DiskTarget{},
+				},
+			})
 
 			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
 			Expect(causes).To(BeEmpty())
@@ -2344,7 +2353,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(string(causes[0].Type)).To(Equal("FieldValueNotSupported"))
 			Expect(causes[0].Field).To(ContainSubstring("domain.devices.disks"))
 			Expect(causes[0].Message).To(Equal(fmt.Sprintf("IOThreads are not supported for disks on a %s bus", bus)))
-
 		},
 			Entry("SATA bus", v1.DiskBusSATA),
 			Entry("SCSI bus", v1.DiskBusSCSI),
@@ -2352,7 +2360,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		)
 
 		Context("With block size", func() {
-
 			DescribeTable("It should accept a disk with a valid block size of", func(logicalSize, physicalSize int) {
 				vmi := api.NewMinimalVMI("testvmi")
 
@@ -2494,9 +2501,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		It("should reject if feature gate is not enabled", func() {
 			causes := validate()
 			Expect(causes).To(HaveLen(1))
-			Expect(causes).To(ContainElement(metav1.StatusCause{Type: metav1.CauseTypeFieldValueInvalid,
+			Expect(causes).To(ContainElement(metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
 				Field:   "fake.domain.devices.downwardMetrics",
-				Message: "downwardMetrics virtio serial is not allowed: DownwardMetrics feature gate is not enabled"}))
+				Message: "downwardMetrics virtio serial is not allowed: DownwardMetrics feature gate is not enabled",
+			}))
 		})
 	})
 
@@ -2700,7 +2709,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Message).To(ContainSubstring("fake must have max one memory dump volume set"))
 		})
-
 	})
 
 	Context("with bootloader", func() {
@@ -3546,7 +3554,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			resp := vmiCreateAdmitter.Admit(context.Background(), ar)
 			Expect(resp.Allowed).To(BeTrue())
 		})
-
 	})
 
 	Context("with topologySpreadConstraints checks", func() {
@@ -3756,13 +3763,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Expect(resp.Allowed).To(BeFalse())
 				Expect(resp.Result.Details.Causes).To(HaveLen(1))
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.cpu.sockets"))
-
 			})
 		})
 	})
 
 	Context("hyperV passthrough", func() {
-
 		const useExplicitHyperV, useHyperVPassthrough = true, true
 		const doNotUseExplicitHyperV, doNotUseHyperVPassthrough = false, false
 

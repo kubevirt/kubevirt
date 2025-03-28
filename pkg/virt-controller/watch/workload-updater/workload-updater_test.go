@@ -70,7 +70,6 @@ var _ = Describe("Workload Updater", func() {
 	}
 
 	BeforeEach(func() {
-
 		expectedImage = "cur-image"
 
 		err := metrics.RegisterLeaderMetrics()
@@ -491,7 +490,6 @@ var _ = Describe("Workload Updater", func() {
 			testutils.ExpectEvents(recorder, reasons...)
 			Expect(evictionCount).To(Equal(batchDeletions * 2))
 		})
-
 	})
 
 	Context("LiveUpdate features", func() {
@@ -524,7 +522,8 @@ var _ = Describe("Workload Updater", func() {
 			statusOpts := []libvmistatus.Option{
 				libvmistatus.WithPhase(v1.Running),
 				libvmistatus.WithCondition(v1.VirtualMachineInstanceCondition{
-					Type: v1.VirtualMachineInstanceIsMigratable, Status: k8sv1.ConditionTrue},
+					Type: v1.VirtualMachineInstanceIsMigratable, Status: k8sv1.ConditionTrue,
+				},
 				),
 			}
 			if hasChangeCondition {
@@ -638,7 +637,8 @@ var _ = Describe("Workload Updater", func() {
 					libvmistatus.New(
 						libvmistatus.WithPhase(v1.Running),
 						libvmistatus.WithCondition(v1.VirtualMachineInstanceCondition{
-							Type: v1.VirtualMachineInstanceIsMigratable, Status: k8sv1.ConditionTrue}),
+							Type: v1.VirtualMachineInstanceIsMigratable, Status: k8sv1.ConditionTrue,
+						}),
 						libvmistatus.WithMigrationState(v1.VirtualMachineInstanceMigrationState{
 							StartTimestamp:                 pointer.P(metav1.Now()),
 							Completed:                      false,

@@ -252,7 +252,6 @@ func setDefaultMachineType(clusterConfig *virtconfig.ClusterConfig, spec *v1.Vir
 	} else {
 		spec.Domain.Machine = &v1.Machine{Type: machineType}
 	}
-
 }
 
 func setDefaultPullPoliciesOnContainerDisks(spec *v1.VirtualMachineInstanceSpec) {
@@ -287,7 +286,6 @@ func setGuestMemory(spec *v1.VirtualMachineInstanceSpec) {
 			spec.Domain.Memory.Guest = &hugepagesSize
 		}
 	}
-
 }
 
 func setDefaultResourceRequests(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
@@ -357,8 +355,8 @@ func SetDefaultGuestCPUTopology(clusterConfig *virtconfig.ClusterConfig, spec *v
 		if spec.Domain.CPU == nil {
 			spec.Domain.CPU = &v1.CPU{}
 		}
-		//if cores, sockets, threads are not set, take value from domain resources request or limits and
-		//set value into sockets, which have best performance (https://bugzilla.redhat.com/show_bug.cgi?id=1653453)
+		// if cores, sockets, threads are not set, take value from domain resources request or limits and
+		// set value into sockets, which have best performance (https://bugzilla.redhat.com/show_bug.cgi?id=1653453)
 		resources := spec.Domain.Resources
 		if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
 			sockets = uint32(cpuLimit.Value())
@@ -381,7 +379,7 @@ func setDefaultCPUModel(clusterConfig *virtconfig.ClusterConfig, spec *v1.Virtua
 	// if vmi doesn't have cpu model set
 	if spec.Domain.CPU.Model == "" {
 		if clusterConfigCPUModel := clusterConfig.GetCPUModel(); clusterConfigCPUModel != "" {
-			//set is as vmi cpu model
+			// set is as vmi cpu model
 			spec.Domain.CPU.Model = clusterConfigCPUModel
 		} else {
 			spec.Domain.CPU.Model = v1.DefaultCPUModel

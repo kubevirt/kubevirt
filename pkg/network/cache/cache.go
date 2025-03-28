@@ -88,7 +88,7 @@ type cacheCreator interface {
 }
 
 func writeToCachedFile(fs cacheFS, obj interface{}, fileName string) error {
-	if err := fs.MkdirAll(filepath.Dir(fileName), 0750); err != nil {
+	if err := fs.MkdirAll(filepath.Dir(fileName), 0o750); err != nil {
 		return err
 	}
 	buf, err := json.MarshalIndent(&obj, "", "  ")
@@ -96,7 +96,7 @@ func writeToCachedFile(fs cacheFS, obj interface{}, fileName string) error {
 		return fmt.Errorf("error marshaling cached object: %v", err)
 	}
 
-	err = fs.WriteFile(fileName, buf, 0604)
+	err = fs.WriteFile(fileName, buf, 0o604)
 	if err != nil {
 		return fmt.Errorf("error writing cached object: %v", err)
 	}

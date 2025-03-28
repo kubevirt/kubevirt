@@ -44,10 +44,7 @@ import (
 )
 
 var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, func() {
-
-	var (
-		virtClient kubecli.KubevirtClient
-	)
+	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
@@ -118,7 +115,6 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 		})
 
 		When(" TSC frequency is not exposed on the cluster", Serial, decorators.Reenlightenment, decorators.TscFrequencies, func() {
-
 			BeforeEach(func() {
 				if isTSCFrequencyExposed(virtClient) {
 					for _, node := range libnode.GetAllSchedulableNodes(virtClient).Items {
@@ -238,7 +234,6 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 				Expect(vmi.Spec.Domain.Features.Hyperv.VAPIC).To(BeNil(), "vapic should be nil")
 				Expect(vmi.Spec.Domain.CPU.Features).To(BeEmpty())
 			}
-
 		},
 			Entry("hyperv and cpu features should be auto filled when EVMCS is enabled", decorators.VMX, &v1.FeatureState{Enabled: virtpointer.P(true)}),
 			Entry("EVMCS should be enabled when vmi.Spec.Domain.Features.Hyperv.EVMCS is set but the EVMCS.Enabled field is nil ", decorators.VMX, &v1.FeatureState{Enabled: nil}),

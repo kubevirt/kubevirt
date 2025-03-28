@@ -137,5 +137,4 @@ var _ = Describe(SIG("Live Migration with addedNodeSelector", decorators.Require
 		Expect(virtLauncherPod.Spec.NodeSelector).ToNot(HaveKeyWithValue(cleanup.TestLabelForNamespace(vmi.Namespace), "target"))
 		Expect(virtLauncherPod.Spec.NodeSelector).To(HaveKeyWithValue(zoneLabelKey, vmiLabelValue))
 	})
-
 }))

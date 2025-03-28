@@ -45,7 +45,6 @@ import (
 )
 
 var _ = Describe("[sig-operator]virt-handler canary upgrade", Serial, decorators.SigOperator, func() {
-
 	var originalKV *v1.KubeVirt
 	var virtCli kubecli.KubevirtClient
 	var dsInformer cache.SharedIndexInformer

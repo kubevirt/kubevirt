@@ -79,6 +79,7 @@ func (j *capturedOutputEnricher) SuiteDidEnd(summary *types.SuiteSummary) {
 		report.SuiteDidEnd(summary)
 	}
 }
+
 func (j *capturedOutputEnricher) collect(duration time.Duration) string {
 	virtCli := kubevirt.Client()
 
@@ -89,7 +90,6 @@ func (j *capturedOutputEnricher) collect(duration time.Duration) string {
 }
 
 func (j *capturedOutputEnricher) getWarningEvents(virtCli kubecli.KubevirtClient, since time.Time) string {
-
 	events, err := virtCli.CoreV1().Events(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Failed to fetch events")

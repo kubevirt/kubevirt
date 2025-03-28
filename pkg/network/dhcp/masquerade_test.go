@@ -35,7 +35,6 @@ import (
 )
 
 var _ = Describe("Masquerade DHCP configurator", func() {
-
 	var mockHandler *netdriver.MockNetworkHandler
 	var ctrl *gomock.Controller
 	var generator MasqueradeConfigGenerator
@@ -63,7 +62,8 @@ var _ = Describe("Masquerade DHCP configurator", func() {
 		)
 
 		generateExpectedConfig := func(vmiSpecNetwork *v1.Network, macString *string, mtu int, ifaceName string, subdomain string) cache.DHCPConfig {
-			expectedConfig := cache.DHCPConfig{Name: ifaceName,
+			expectedConfig := cache.DHCPConfig{
+				Name:      ifaceName,
 				Mtu:       uint16(mtu),
 				Subdomain: subdomain,
 			}

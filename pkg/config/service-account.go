@@ -35,12 +35,15 @@ type serviceAccountVolumeInfo struct{}
 func (i serviceAccountVolumeInfo) isValidType(v *v1.Volume) bool {
 	return v.ServiceAccount != nil
 }
+
 func (i serviceAccountVolumeInfo) getSourcePath(v *v1.Volume) string {
 	return ServiceAccountSourceDir
 }
+
 func (i serviceAccountVolumeInfo) getIsoPath(v *v1.Volume) string {
 	return GetServiceAccountDiskPath()
 }
+
 func (i serviceAccountVolumeInfo) getLabel(v *v1.Volume) string {
 	return ""
 }

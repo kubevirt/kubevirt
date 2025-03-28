@@ -29,7 +29,6 @@ import (
 )
 
 var _ = Describe("PatchSet", func() {
-
 	It("should generate correct patch remove operation", func() {
 		Expect(patch.New(patch.WithRemove("/abcd")).GeneratePayload()).To(Equal([]byte(
 			`[{"op":"remove","path":"/abcd"}]`)))

@@ -165,7 +165,6 @@ func (b *virtualMachineBuilder) WithVolume(volume v1.Volume) *virtualMachineBuil
 }
 
 func (b *virtualMachineBuilder) Build() *v1.VirtualMachineInstance {
-
 	vmi := api.NewMinimalVMI("testvmi")
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, b.disks...)
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, b.volumes...)
@@ -181,7 +180,6 @@ func (b *virtualMachineBuilder) BuildTemplate() *v1.VirtualMachineInstanceTempla
 		ObjectMeta: vmi.ObjectMeta,
 		Spec:       vmi.Spec,
 	}
-
 }
 
 func newVirtualMachineBuilder() *virtualMachineBuilder {

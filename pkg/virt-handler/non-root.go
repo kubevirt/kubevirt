@@ -118,7 +118,7 @@ func (*VirtualMachineController) prepareVFIO(res isolation.IsolationResult) erro
 			return nil
 		}
 	}
-	err = safepath.ChmodAtNoFollow(vfioPath, 0666)
+	err = safepath.ChmodAtNoFollow(vfioPath, 0o666)
 	if err != nil {
 		return err
 	}

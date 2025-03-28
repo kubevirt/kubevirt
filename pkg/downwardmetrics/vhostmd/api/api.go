@@ -2,8 +2,10 @@ package api
 
 import "encoding/xml"
 
-type MetricContext string
-type MetricType string
+type (
+	MetricContext string
+	MetricType    string
+)
 
 const (
 	MetricContextHost MetricContext = "host"

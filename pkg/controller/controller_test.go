@@ -34,7 +34,6 @@ import (
 )
 
 var _ = Describe("Controller", func() {
-
 	Context("using pod utility functions", func() {
 		Context("IsPodReady", func() {
 			DescribeTable("should return", func(phase k8sv1.PodPhase, matcher gomegaTypes.GomegaMatcher) {
@@ -134,7 +133,6 @@ var _ = Describe("Controller", func() {
 				}
 				Expect(controller.IsPodReady(pod)).To(BeFalse())
 			})
-
 		})
 
 		Context("IsPodFailedOrGoingDown", func() {
@@ -191,7 +189,6 @@ var _ = Describe("Controller", func() {
 
 		Context("GetHotplugVolumes", func() {
 			DescribeTable("should not return the new volume", func(volume v1.Volume) {
-
 				vmi := &v1.VirtualMachineInstance{
 					Spec: v1.VirtualMachineInstanceSpec{
 						Volumes: []v1.Volume{volume},

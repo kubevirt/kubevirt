@@ -174,16 +174,16 @@ func writeKsmValuesToFiles(ksm ksmState) error {
 	if ksm.running {
 		run = "1"
 
-		err := os.WriteFile(ksmSleepPath, []byte(strconv.FormatUint(ksm.sleep, 10)), 0644)
+		err := os.WriteFile(ksmSleepPath, []byte(strconv.FormatUint(ksm.sleep, 10)), 0o644)
 		if err != nil {
 			return err
 		}
-		err = os.WriteFile(ksmPagesPath, []byte(strconv.Itoa(ksm.pages)), 0644)
+		err = os.WriteFile(ksmPagesPath, []byte(strconv.Itoa(ksm.pages)), 0o644)
 		if err != nil {
 			return err
 		}
 	}
-	err := os.WriteFile(ksmRunPath, []byte(run), 0644)
+	err := os.WriteFile(ksmRunPath, []byte(run), 0o644)
 	if err != nil {
 		return err
 	}
@@ -293,7 +293,7 @@ func handleKSM(node *v1.Node, clusterConfig *virtconfig.ClusterConfig) (ksmLabel
 
 func disableKSM(node *v1.Node) {
 	if value, found := node.GetAnnotations()[kubevirtv1.KSMHandlerManagedAnnotation]; found && value == "true" {
-		err := os.WriteFile(ksmRunPath, []byte("0\n"), 0644)
+		err := os.WriteFile(ksmRunPath, []byte("0\n"), 0o644)
 		if err != nil {
 			log.DefaultLogger().Errorf("Unable to write ksm: %s", err.Error())
 		}

@@ -86,9 +86,11 @@ const (
 	waitVolumeRequestProcessError = "waiting on all VolumeRequests to be processed"
 )
 
-type addVolumeFunction func(name, namespace, volumeName, claimName string, bus v1.DiskBus, dryRun bool, cache v1.DriverCache)
-type removeVolumeFunction func(name, namespace, volumeName string, dryRun bool)
-type storageClassFunction func() (string, bool)
+type (
+	addVolumeFunction    func(name, namespace, volumeName, claimName string, bus v1.DiskBus, dryRun bool, cache v1.DriverCache)
+	removeVolumeFunction func(name, namespace, volumeName string, dryRun bool)
+	storageClassFunction func() (string, bool)
+)
 
 var _ = Describe(SIG("Hotplug", func() {
 	var err error
@@ -518,9 +520,7 @@ var _ = Describe(SIG("Hotplug", func() {
 	}
 
 	Context("Offline VM", func() {
-		var (
-			vm *v1.VirtualMachine
-		)
+		var vm *v1.VirtualMachine
 		BeforeEach(func() {
 			By("Creating VirtualMachine")
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmi.NewVirtualMachine(libvmifact.NewCirros()), metav1.CreateOptions{})
@@ -1439,7 +1439,7 @@ var _ = Describe(SIG("Hotplug", func() {
 		createVMWithRatio := func(memRatio, cpuRatio float64) *v1.VirtualMachine {
 			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
-			memLimit := int64(1024 * 1024 * 128) //128Mi
+			memLimit := int64(1024 * 1024 * 128) // 128Mi
 			memRequest := int64(math.Ceil(float64(memLimit) / memRatio))
 			memRequestQuantity := resource.NewScaledQuantity(memRequest, 0)
 			memLimitQuantity := resource.NewScaledQuantity(memLimit, 0)
@@ -1686,9 +1686,7 @@ var _ = Describe(SIG("Hotplug", func() {
 	})
 
 	Context("hostpath", func() {
-		var (
-			vm *v1.VirtualMachine
-		)
+		var vm *v1.VirtualMachine
 
 		const (
 			hotplugPvPath = "/mnt/local-storage/hotplug-test"
@@ -1746,9 +1744,7 @@ var _ = Describe(SIG("Hotplug", func() {
 	})
 
 	Context("iothreads", func() {
-		var (
-			vm *v1.VirtualMachine
-		)
+		var vm *v1.VirtualMachine
 
 		BeforeEach(func() {
 			vmi := libvmifact.NewCirros()
@@ -1799,9 +1795,7 @@ var _ = Describe(SIG("Hotplug", func() {
 	})
 
 	Context("hostpath-separate-device", func() {
-		var (
-			vm *v1.VirtualMachine
-		)
+		var vm *v1.VirtualMachine
 
 		BeforeEach(func() {
 			libstorage.CreateAllSeparateDeviceHostPathPvs(customHostPath, testsuite.GetTestNamespace(nil))

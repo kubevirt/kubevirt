@@ -144,7 +144,6 @@ func ValidateStatus(data []byte) *admissionv1.AdmissionResponse {
 }
 
 func GetVMIFromAdmissionReview(ar *admissionv1.AdmissionReview) (new *v12.VirtualMachineInstance, old *v12.VirtualMachineInstance, err error) {
-
 	if !ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineInstanceGroupVersionResource.Group, webhooks.VirtualMachineInstanceGroupVersionResource.Resource) {
 		return nil, nil, fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstanceGroupVersionResource.Resource)
 	}
@@ -172,7 +171,6 @@ func GetVMIFromAdmissionReview(ar *admissionv1.AdmissionReview) (new *v12.Virtua
 }
 
 func GetVMFromAdmissionReview(ar *admissionv1.AdmissionReview) (new *v12.VirtualMachine, old *v12.VirtualMachine, err error) {
-
 	if !ValidateRequestResource(ar.Request.Resource, webhooks.VirtualMachineGroupVersionResource.Group, webhooks.VirtualMachineGroupVersionResource.Resource) {
 		return nil, nil, fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineGroupVersionResource.Resource)
 	}
@@ -200,7 +198,6 @@ func GetVMFromAdmissionReview(ar *admissionv1.AdmissionReview) (new *v12.Virtual
 }
 
 func GetInstanceTypeSpecFromAdmissionRequest(request *admissionv1.AdmissionRequest) (new *instancetypev1beta1.VirtualMachineInstancetypeSpec, old *instancetypev1beta1.VirtualMachineInstancetypeSpec, err error) {
-
 	raw := request.Object.Raw
 	instancetypeObj := instancetypev1beta1.VirtualMachineInstancetype{}
 

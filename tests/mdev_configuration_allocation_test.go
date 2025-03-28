@@ -49,7 +49,6 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 
 	waitForPod := func(outputPod *k8sv1.Pod, fetchPod func() (*k8sv1.Pod, error)) wait.ConditionFunc {
 		return func() (bool, error) {
-
 			latestPod, err := fetchPod()
 			if err != nil {
 				return false, err
@@ -85,7 +84,6 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 			err := virtwait.PollImmediately(5*time.Second, 1*time.Minute, waitForPod(&latestPod, ThisPod(testPod)).WithContext())
 			return &latestPod, err
 		}
-
 	}
 
 	checkAllMDEVRemoved := func() (*k8sv1.Pod, error) {
@@ -125,10 +123,10 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 	}
 
 	Context("with externally provided mediated devices", func() {
-		var deviceName = "nvidia.com/GRID_T4-1B"
-		var mdevSelector = "GRID T4-1B"
-		var desiredMdevTypeName = "nvidia-222"
-		var expectedInstancesNum = 16
+		deviceName := "nvidia.com/GRID_T4-1B"
+		mdevSelector := "GRID T4-1B"
+		desiredMdevTypeName := "nvidia-222"
+		expectedInstancesNum := 16
 		var config v1.KubeVirtConfiguration
 		var originalFeatureGates []string
 
@@ -164,7 +162,6 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 			cleanupConfiguredMdevs()
 		})
 		It("Should make sure that mdevs listed with ExternalResourceProvider are not removed", func() {
-
 			By("Listing the created mdevs as externally provided ")
 			config.PermittedHostDevices = &v1.PermittedHostDevices{
 				MediatedDevices: []v1.MediatedHostDevice{
@@ -184,7 +181,6 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		})
 
 		It("Should make sure that no mdev is removed if the feature is gated", func() {
-
 			By("Adding feature gate to disable mdevs handling")
 
 			config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, featuregate.DisableMediatedDevicesHandling)
@@ -200,15 +196,15 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 
 	Context("with mediated devices configuration", func() {
 		var vmi *v1.VirtualMachineInstance
-		var deviceName = "nvidia.com/GRID_T4-1B"
-		var mdevSelector = "GRID T4-1B"
-		var updatedDeviceName = "nvidia.com/GRID_T4-2B"
-		var updatedMdevSelector = "GRID T4-2B"
-		var parentDeviceID = "10de:1eb8"
-		var desiredMdevTypeName = "nvidia-222"
-		var expectedInstancesNum = 16
+		deviceName := "nvidia.com/GRID_T4-1B"
+		mdevSelector := "GRID T4-1B"
+		updatedDeviceName := "nvidia.com/GRID_T4-2B"
+		updatedMdevSelector := "GRID T4-2B"
+		parentDeviceID := "10de:1eb8"
+		desiredMdevTypeName := "nvidia-222"
+		expectedInstancesNum := 16
 		var config v1.KubeVirtConfiguration
-		var mdevTestLabel = "mdevTestLabel1"
+		mdevTestLabel := "mdevTestLabel1"
 
 		BeforeEach(func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
@@ -251,7 +247,6 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		})
 
 		It("Should successfully passthrough a mediated device", func() {
-
 			By("Creating a Fedora VMI")
 			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithAutoattachGraphicsDevice(true))
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1G")
@@ -351,7 +346,6 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 
 			By("Verifying that an expected amount of devices has been created")
 			Eventually(checkAllMDEVCreated(newDesiredMdevTypeName, newExpectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))
-
 		})
 	})
 	Context("with generic mediated devices", func() {

@@ -82,7 +82,6 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 
 	Context("with a live-migrate eviction strategy set", func() {
 		Context("[ref_id:2293] with a VMI running with an eviction strategy set", func() {
-
 			It("[test_id:3242]should block the eviction api and migrate", decorators.Conformance, func() {
 				vmi := libvmops.RunVMIAndExpectLaunch(alpineVMIWithEvictionStrategy(), 180)
 
@@ -240,7 +239,6 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 			})
 
 			Context(" with node tainted during node drain", Serial, func() {
-
 				var (
 					nodeAffinity     *k8sv1.NodeAffinity
 					nodeAffinityTerm k8sv1.PreferredSchedulingTerm
@@ -315,7 +313,6 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 						}
 						return nil
 					}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
 				})
 
 				It("[test_id:2221] should migrate a VMI under load to another node", func() {
@@ -367,7 +364,8 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 									{
 										Key:      labelKey,
 										Operator: metav1.LabelSelectorOpIn,
-										Values:   []string{""}},
+										Values:   []string{""},
+									},
 								},
 							},
 							TopologyKey: k8sv1.LabelHostname,
@@ -457,12 +455,10 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 						Expect(vmi.Status.MigrationState).To(BeNil())
 						return nil
 					}, 180*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
 				})
 			})
 		})
 		Context("with multiple VMIs with eviction policies set", Serial, func() {
-
 			It("[release-blocker][test_id:3245]should not migrate more than two VMIs at the same time from a node", func() {
 				var vmis []*v1.VirtualMachineInstance
 				for i := 0; i < 4; i++ {

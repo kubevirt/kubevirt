@@ -35,8 +35,10 @@ type pprofData struct {
 	lock        sync.Mutex
 }
 
-var ProcessProfileBaseDir = "/profile-data"
-var cpuProfileFilePath = filepath.Join(ProcessProfileBaseDir, "cpu.pprof")
+var (
+	ProcessProfileBaseDir = "/profile-data"
+	cpuProfileFilePath    = filepath.Join(ProcessProfileBaseDir, "cpu.pprof")
+)
 
 func (p *pprofData) startProcessProfiler() error {
 	var err error
@@ -71,7 +73,6 @@ func (p *pprofData) stopProcessProfiler(clearResults bool) {
 	if clearResults {
 		p.hasResults = false
 	}
-
 }
 
 func (p *pprofData) dumpProcessProfilerResults() (map[string][]byte, error) {

@@ -1281,7 +1281,8 @@ var _ = Describe("Manager", func() {
 			Entry("disabled if vmi is requesting Hugepages", &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "1Gi"}}, false, nil, "false", "off"),
 			Entry("disabled if vmi is requesting Realtime", nil, false, &v1.CPU{Realtime: &v1.Realtime{}}, "false", "off"),
 			Entry("disabled if vmi is requesting DedicatedCPU", nil, false, &v1.CPU{
-				DedicatedCPUPlacement: true}, "false", "off"),
+				DedicatedCPUPlacement: true,
+			}, "false", "off"),
 			Entry("disabled if vmi has the disable free page reporting annotation", nil, false, nil, "true", "off"),
 		)
 
@@ -1320,7 +1321,7 @@ var _ = Describe("Manager", func() {
 			ovmfDir, err := os.MkdirTemp("", "ovmfdir")
 			Expect(err).ToNot(HaveOccurred())
 			defer os.RemoveAll(ovmfDir)
-			err = os.WriteFile(filepath.Join(ovmfDir, efi.EFICodeSEV), loaderBytes, 0644)
+			err = os.WriteFile(filepath.Join(ovmfDir, efi.EFICodeSEV), loaderBytes, 0o644)
 			Expect(err).ToNot(HaveOccurred())
 
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, ovmfDir, ephemeralDiskCreatorMock, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter)
@@ -1528,7 +1529,7 @@ var _ = Describe("Manager", func() {
 		It("migration should be canceled if timeout has been reached", func() {
 			migrationErrorChan := make(chan error)
 			defer close(migrationErrorChan)
-			var migrationData = 32479827394
+			migrationData := 32479827394
 			fake_jobinfo := func() *libvirt.DomainJobInfo {
 				migrationData -= 125
 				return &libvirt.DomainJobInfo{
@@ -1566,7 +1567,7 @@ var _ = Describe("Manager", func() {
 		It("migration should switch to PostCopy", func() {
 			migrationErrorChan := make(chan error)
 			defer close(migrationErrorChan)
-			var migrationData = 32479827394
+			migrationData := 32479827394
 			fake_jobinfo := func() *libvirt.DomainJobInfo {
 				// stop decreasing data and send a different event otherwise this
 				// job will run indefinitely until timeout
@@ -1617,7 +1618,7 @@ var _ = Describe("Manager", func() {
 		It("migration should switch to PostCopy eventually", func() {
 			migrationErrorChan := make(chan error)
 			defer close(migrationErrorChan)
-			var migrationData = 32479827394
+			migrationData := 32479827394
 			fake_jobinfo := func() *libvirt.DomainJobInfo {
 				// stop decreasing data and send a different event otherwise this
 				// job will run indefinitely until timeout
@@ -1665,7 +1666,6 @@ var _ = Describe("Manager", func() {
 				if counter == 0 {
 					counter += 1
 					return libvirt.Error{
-
 						Code:    1,
 						Domain:  1,
 						Message: "internal error: unable to execute QEMU command 'migrate-start-postcopy': Postcopy must be started after migration has been started",
@@ -1681,7 +1681,7 @@ var _ = Describe("Manager", func() {
 		It("migration should switch to Paused if AllowWorkloadDisruption is allowed and PostCopy is not", func() {
 			migrationErrorChan := make(chan error)
 			defer close(migrationErrorChan)
-			var migrationData = 32479827394
+			migrationData := 32479827394
 			fake_jobinfo := func() *libvirt.DomainJobInfo {
 				// stop decreasing data and send a different event otherwise this
 				// job will run indefinitely until timeout
@@ -1734,7 +1734,7 @@ var _ = Describe("Manager", func() {
 		It("migration should be canceled if Paused workload didn't migrate until timeout was reached", func() {
 			migrationErrorChan := make(chan error)
 			defer close(migrationErrorChan)
-			var migrationData = 32479827394
+			migrationData := 32479827394
 			fake_jobinfo := func() *libvirt.DomainJobInfo {
 				migrationData -= 125
 				return &libvirt.DomainJobInfo{
@@ -1944,7 +1944,6 @@ var _ = Describe("Manager", func() {
 				return migration.Failed
 			}, 5*time.Second, 2).Should(BeTrue())
 		})
-
 	})
 
 	Context("on successful VirtualMachineInstance migrate", func() {
@@ -2153,7 +2152,6 @@ var _ = Describe("Manager", func() {
 
 	DescribeTable("on successful list all domains",
 		func(state libvirt.DomainState, kubevirtState api.LifeCycle, libvirtReason int, kubevirtReason api.StateChangeReason) {
-
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
 			mockDomain.EXPECT().GetState().Return(state, libvirtReason, nil).AnyTimes()
@@ -2312,10 +2310,12 @@ var _ = Describe("Manager", func() {
 		)
 		vmi.Spec.Networks = append(
 			vmi.Spec.Networks,
-			v1.Network{Name: "test1",
+			v1.Network{
+				Name: "test1",
 				NetworkSource: v1.NetworkSource{
 					Multus: &v1.MultusNetwork{NetworkName: "test1"},
-				}},
+				},
+			},
 		)
 		vmi.Status = v1.VirtualMachineInstanceStatus{
 			Interfaces: []v1.VirtualMachineInstanceNetworkInterface{{
@@ -2682,6 +2682,7 @@ var _ = Describe("getDetachedDisks", func() {
 			[]api.Disk{}),
 	)
 })
+
 var _ = Describe("migratableDomXML", func() {
 	var ctrl *gomock.Controller
 	var mockDomain *cli.MockVirDomain
@@ -2905,9 +2906,7 @@ var _ = Describe("migratableDomXML", func() {
 })
 
 var _ = Describe("Manager helper functions", func() {
-
 	Context("getVMIEphemeralDisksTotalSize", func() {
-
 		var tmpDir string
 		var zeroQuantity resource.Quantity
 
@@ -2938,14 +2937,14 @@ var _ = Describe("Manager helper functions", func() {
 
 		It("successful run with non-zero size", func() {
 			By("Creating a file with non-zero size")
-			Expect(os.WriteFile(filepath.Join(tmpDir, "testfile"), []byte("file contents"), 0666)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(tmpDir, "testfile"), []byte("file contents"), 0o666)).To(Succeed())
 
 			expectNonZeroQuantity(tmpDir)
 		})
 
 		It("successful run with zero size", func() {
 			By("Creating a file with non-zero size")
-			Expect(os.WriteFile(filepath.Join(tmpDir, "testfile"), []byte("file contents"), 0666)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(tmpDir, "testfile"), []byte("file contents"), 0o666)).To(Succeed())
 
 			expectNonZeroQuantity(tmpDir)
 		})
@@ -2957,11 +2956,9 @@ var _ = Describe("Manager helper functions", func() {
 		It("expect zero quantity in an empty directory", func() {
 			expectZeroQuantity(tmpDir)
 		})
-
 	})
 
 	Context("possibleGuestSize", func() {
-
 		var properDisk api.Disk
 		var fakePercentFloat float64
 
@@ -3016,7 +3013,6 @@ var _ = Describe("Manager helper functions", func() {
 				return disk
 			}),
 		)
-
 	})
 
 	Context("configureLocalDiskToMigrate", func() {
@@ -3192,7 +3188,6 @@ var _ = Describe("Manager helper functions", func() {
 			Expect(shouldConfigure).To(BeTrue())
 		})
 	})
-
 })
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {

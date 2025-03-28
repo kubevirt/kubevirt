@@ -59,7 +59,6 @@ const (
 )
 
 var _ = Describe("[ref_id:2717][sig-compute]KubeVirt control plane resilience", Serial, decorators.SigCompute, func() {
-
 	var virtCli kubecli.KubevirtClient
 
 	RegisterFailHandler(Fail)
@@ -178,9 +177,7 @@ var _ = Describe("[ref_id:2717][sig-compute]KubeVirt control plane resilience", 
 	})
 
 	Context("control plane components check", func() {
-
 		When("control plane pods are running", func() {
-
 			It("[test_id:2806]virt-controller and virt-api pods have a pod disruption budget", decorators.MultiReplica, func() {
 				deploymentsClient := virtCli.AppsV1().Deployments(flags.KubeVirtInstallNamespace)
 				By("check deployments")
@@ -218,7 +215,6 @@ var _ = Describe("[ref_id:2717][sig-compute]KubeVirt control plane resilience", 
 					}
 				}
 			})
-
 		})
 
 		When("Control plane pods temporarily lose connection to Kubernetes API", func() {
@@ -269,7 +265,5 @@ var _ = Describe("[ref_id:2717][sig-compute]KubeVirt control plane resilience", 
 				config.WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", kv.ResourceVersion, config.ExpectResourceVersionToBeLessEqualThanConfigVersion, 60*time.Second)
 			})
 		})
-
 	})
-
 })

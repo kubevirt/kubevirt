@@ -133,7 +133,7 @@ func (m *MDEVTypesManager) discoverConfigurableMDEVTypes(desiredTypesMap map[str
 		}
 		parentID := filePathParts[len(filePathParts)-3]
 
-		//find the type's name
+		// find the type's name
 		rawName, err := os.ReadFile(filepath.Join(file, "name"))
 		if err != nil {
 			if !errors.Is(err, os.ErrNotExist) {
@@ -245,7 +245,6 @@ func createMdevTypes(mdevType string, parentID string) error {
 }
 
 func shouldRemoveMDEV(mdevUUID string, desiredTypesMap map[string]struct{}) bool {
-
 	if rawName, err := os.ReadFile(filepath.Join(mdevBasePath, mdevUUID, "mdev_type/name")); err == nil {
 		typeNameStr := strings.Replace(string(rawName), " ", "_", -1)
 		typeNameStr = strings.TrimSpace(typeNameStr)

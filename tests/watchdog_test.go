@@ -39,9 +39,7 @@ import (
 )
 
 var _ = Describe("[sig-compute]Watchdog", decorators.SigCompute, func() {
-
 	Context("A VirtualMachineInstance with a watchdog device", func() {
-
 		It("[test_id:4641]should be shut down when the watchdog expires", decorators.Conformance, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(
 				libvmifact.NewAlpine(libvmi.WithWatchdog(v1.WatchdogActionPoweroff)), 360)
@@ -61,7 +59,5 @@ var _ = Describe("[sig-compute]Watchdog", decorators.SigCompute, func() {
 			Eventually(matcher.ThisVMI(vmi)).WithTimeout(40 * time.Second).WithPolling(time.Second).
 				Should(matcher.BeInPhase(v1.Failed))
 		})
-
 	})
-
 })

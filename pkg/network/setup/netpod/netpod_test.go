@@ -54,12 +54,9 @@ const (
 	primaryIPv6Address = "2001::1"
 )
 
-var (
-	ipDisabled = nmstate.IP{Enabled: pointer.P(false)}
-)
+var ipDisabled = nmstate.IP{Enabled: pointer.P(false)}
 
 var _ = Describe("netpod", func() {
-
 	var (
 		baseCacheCreator tempCacheCreator
 		state            *netpod.State
@@ -683,7 +680,6 @@ var _ = Describe("netpod", func() {
 	})
 
 	When("using secondary network", func() {
-
 		const (
 			secondaryPodInterfaceName        = "pod914f438d88d"
 			secondaryPodInterfaceOrderedName = "net1"

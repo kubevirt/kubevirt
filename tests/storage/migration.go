@@ -166,11 +166,9 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 					return true
 				}
 				return false
-
 			}, 120*time.Second, time.Second).Should(BeTrue())
 		}
 		waitVMIToHaveVolumeChangeCond := func(vmiName, ns string) {
-
 			Eventually(func() bool {
 				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vmiName,
 					metav1.GetOptions{})
@@ -229,7 +227,9 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				VolumeSource: virtv1.VolumeSource{PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
 					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
 						ClaimName: claim,
-					}}}}
+					},
+				}},
+			}
 
 			p, err := patch.New(
 				patch.WithReplace("/spec/dataVolumeTemplates", []virtv1.DataVolumeTemplateSpec{}),
@@ -256,7 +256,8 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				Name: volName,
 				VolumeSource: virtv1.VolumeSource{DataVolume: &virtv1.DataVolumeSource{
 					Name: name,
-				}}}
+				}},
+			}
 
 			p, err := patch.New(
 				patch.WithReplace("/spec/dataVolumeTemplates/0/metadata/name", name),
@@ -302,7 +303,6 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 		BeforeEach(func() {
 			ns = testsuite.GetTestNamespace(nil)
 			destPVC = "dest-" + rand.String(5)
-
 		})
 
 		DescribeTable("should migrate the source volume from a source DV to a destination PVC", func(mode string) {
@@ -578,7 +578,8 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				Name: volName,
 				VolumeSource: virtv1.VolumeSource{DataVolume: &virtv1.DataVolumeSource{
 					Name: dv.Name,
-				}}}
+				}},
+			}
 			p, err := patch.New(
 				patch.WithReplace(fmt.Sprintf("/spec/template/spec/volumes/0"), updatedVolume),
 			).GeneratePayload()
@@ -759,7 +760,6 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			if fgDisabled {
 				config.EnableFeatureGate(featuregate.HotplugVolumesGate)
 			}
-
 		})
 		AfterEach(func() {
 			if fgDisabled {
@@ -1064,7 +1064,6 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			)
 		})
 	})
-
 }))
 
 func createUnschedulablePVC(name, namespace, size string) *k8sv1.PersistentVolumeClaim {
@@ -1094,7 +1093,8 @@ func createSmallImageForDestinationMigration(vm *virtv1.VirtualMachine, name, si
 			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 				ClaimName: name,
 			},
-		}}
+		},
+	}
 	q := resource.MustParse(size)
 	q.Sub(resource.MustParse("0.5Gi"))
 	smallerSize := q.AsApproximateFloat64()
@@ -1171,7 +1171,6 @@ func waitMigrationToExist(virtClient kubecli.KubevirtClient, vmiName, ns string)
 			return false
 		}
 		return true
-
 	}, 120*time.Second, time.Second).Should(BeTrue())
 }
 

@@ -75,8 +75,10 @@ const (
 	maxDNSSearchListChars = 256
 )
 
-var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto, v1.IOThreadsPolicySupplementalPool}
-var validCPUFeaturePolicies = map[string]*struct{}{"": nil, "force": nil, "require": nil, "optional": nil, "disable": nil, "forbid": nil}
+var (
+	validIOThreadsPolicies  = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto, v1.IOThreadsPolicySupplementalPool}
+	validCPUFeaturePolicies = map[string]*struct{}{"": nil, "force": nil, "require": nil, "optional": nil, "disable": nil, "forbid": nil}
+)
 
 var restrictedVmiLabels = map[string]bool{
 	v1.CreatedByLabel:               true,
@@ -495,7 +497,6 @@ func validateMDEVRamFB(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec
 			Message: "configuring multiple displays with ramfb is not valid ",
 			Field:   field.Child("GPUs").String(),
 		})
-
 	}
 	return causes
 }
@@ -968,7 +969,7 @@ func validateEmulatedMachine(field *k8sfield.Path, spec *v1.VirtualMachineInstan
 	var causes []metav1.StatusCause
 	if machine := spec.Domain.Machine; machine != nil && len(machine.Type) > 0 {
 		supportedMachines := config.GetEmulatedMachines(spec.Architecture)
-		var match = false
+		match := false
 		for _, val := range supportedMachines {
 			if regexp.MustCompile(val).MatchString(machine.Type) {
 				match = true
@@ -1153,7 +1154,6 @@ func validateArchitecture(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 				field.Child("architecture").String()),
 			Field: field.Child("architecture").String(),
 		})
-
 	}
 	return causes
 }
@@ -1195,7 +1195,6 @@ func validatePath(field *k8sfield.Path, path string) []metav1.StatusCause {
 	}
 
 	return causes
-
 }
 
 func validateCPURealtime(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
@@ -1526,7 +1525,6 @@ func validateAccessCredentials(field *k8sfield.Path, accessCredentials []v1.Acce
 						Message: fmt.Sprintf("%s requires a noCloud volume to exist when the noCloud propagationMethod is in use.", field.Index(idx).String()),
 						Field:   field.Index(idx).Child("sshPublicKey", "propagationMethod").String(),
 					})
-
 				}
 			}
 
@@ -1538,7 +1536,6 @@ func validateAccessCredentials(field *k8sfield.Path, accessCredentials []v1.Acce
 						Message: fmt.Sprintf("%s requires a configDrive volume to exist when the configDrive propagationMethod is in use.", field.Index(idx).String()),
 						Field:   field.Index(idx).Child("sshPublicKey", "propagationMethod").String(),
 					})
-
 				}
 			}
 
@@ -2271,7 +2268,7 @@ func validateSpecAffinity(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 
 	errorList := validateAffinity(spec.Affinity, field)
 
-	//convert errorList to []metav1.StatusCause
+	// convert errorList to []metav1.StatusCause
 	for _, validationErr := range errorList {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -2293,7 +2290,7 @@ func validateSpecTopologySpreadConstraints(field *k8sfield.Path, spec *v1.Virtua
 
 	errorList := validateTopologySpreadConstraints(spec.TopologySpreadConstraints, field.Child("topologySpreadConstraints"))
 
-	//convert errorList to []metav1.StatusCause
+	// convert errorList to []metav1.StatusCause
 	for _, validationErr := range errorList {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,

@@ -53,8 +53,10 @@ type callBackClient struct {
 	subscribedHookPoints []*hooksInfo.HookPoint
 }
 
-var manager Manager
-var once sync.Once
+var (
+	manager Manager
+	once    sync.Once
+)
 
 type (
 	Manager interface {

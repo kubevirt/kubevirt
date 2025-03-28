@@ -11,10 +11,8 @@ import (
 )
 
 var _ = Describe("Generated deepcopy functions", func() {
-
 	var structs []interface{}
 	BeforeEach(func() {
-
 		structs = []interface{}{
 			&v1.CloudInitNoCloudSource{},
 			&v1.DomainSpec{},

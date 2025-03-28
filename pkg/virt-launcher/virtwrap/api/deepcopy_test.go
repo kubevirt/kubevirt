@@ -9,10 +9,8 @@ import (
 )
 
 var _ = ginkgo.Describe("Generated deepcopy functions", func() {
-
 	var structs []interface{}
 	ginkgo.BeforeEach(func() {
-
 		structs = []interface{}{
 			&Domain{},
 			&DomainStatus{},
@@ -98,6 +96,5 @@ var _ = ginkgo.Describe("Generated deepcopy functions", func() {
 			reflect.ValueOf(s).MethodByName("DeepCopyInto").Call([]reflect.Value{new})
 			Expect(new.Interface()).To(Equal(s))
 		}
-
 	})
 })

@@ -198,11 +198,14 @@ var _ = Describe("Container spec renderer", func() {
 
 		BeforeEach(func() {
 			const ifaceName = "not-relevant"
-			ports = []v1.Port{{
-				Name: "http", Port: 80},
+			ports = []v1.Port{
+				{
+					Name: "http", Port: 80,
+				},
 				{Protocol: "UDP", Port: 80},
 				{Port: 90},
-				{Name: "other-http", Port: 80}}
+				{Name: "other-http", Port: 80},
+			}
 			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithPorts(
 				vmiWithInterfaceWithPortAllowList(ifaceName, ports...)))
 		})
@@ -265,7 +268,7 @@ var _ = Describe("Container spec renderer", func() {
 
 		Context("pre-wrapped liveness exec probe", func() {
 			It("should avoid wrapping the liveness exec probe a second time", func() {
-				var expectedExecCmd = []string{"virt-probe", "--", "dummy-cli"}
+				expectedExecCmd := []string{"virt-probe", "--", "dummy-cli"}
 				probe := dummyProbe()
 				probe.Handler = v1.Handler{
 					Exec: &k8sv1.ExecAction{Command: expectedExecCmd},
@@ -284,7 +287,8 @@ func vmiWithInterfaceWithPortAllowList(ifaceName string, ports ...v1.Port) *v1.V
 		Devices: v1.Devices{
 			Interfaces: []v1.Interface{
 				{Name: ifaceName, Ports: ports},
-			}},
+			},
+		},
 	}
 	return vmi
 }

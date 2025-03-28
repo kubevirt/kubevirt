@@ -494,7 +494,6 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 			)
 
 			Context("when using Patches", func() {
-
 				var restore *snapshotv1.VirtualMachineRestore
 
 				BeforeEach(func() {
@@ -560,7 +559,6 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 					Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.patches"))
 				})
 			})
-
 		})
 	})
 })

@@ -48,17 +48,17 @@ func CloseIOAndCheckErr(c io.Closer, err *error) {
 
 func MkdirAllWithNosec(pathName string) error {
 	// #nosec G301, Expect directory permissions to be 0750 or less
-	return os.MkdirAll(pathName, 0755)
+	return os.MkdirAll(pathName, 0o755)
 }
 
 func OpenFileWithNosec(pathName string, flag int) (*os.File, error) {
 	// #nosec G304 G302, Expect file permissions to be 0600 or less
-	return os.OpenFile(pathName, flag, 0644)
+	return os.OpenFile(pathName, flag, 0o644)
 }
 
 func WriteFileWithNosec(pathName string, data []byte) error {
 	// #nosec G306, Expect WriteFile permissions to be 0600 or less
-	return os.WriteFile(pathName, data, 0644)
+	return os.WriteFile(pathName, data, 0o644)
 }
 
 func WriteBytes(f *os.File, c byte, n int64) error {

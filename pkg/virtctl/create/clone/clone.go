@@ -69,8 +69,10 @@ type createClone struct {
 	newSmbiosSerial           string
 }
 
-type cloneSpec clone.VirtualMachineCloneSpec
-type optionFn func(*createClone, *cloneSpec) error
+type (
+	cloneSpec clone.VirtualMachineCloneSpec
+	optionFn  func(*createClone, *cloneSpec) error
+)
 
 var optFns = map[string]optionFn{
 	NewMacAddressesFlag: withNewMacAddresses,

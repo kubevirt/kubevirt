@@ -32,6 +32,4 @@ const (
 	ResourceVMClonePlural   = ResourceVMCloneSingular + "s"
 )
 
-var (
-	ApiSupportedWebhookVersions = []string{LatestVersion}
-)
+var ApiSupportedWebhookVersions = []string{LatestVersion}

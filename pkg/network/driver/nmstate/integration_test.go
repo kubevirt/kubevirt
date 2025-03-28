@@ -47,7 +47,7 @@ var _ = Describe("NMState", integrationLabel, func() {
 		}
 	})
 
-	var nmState = nmstate.New()
+	nmState := nmstate.New()
 
 	It("reports actual network devices", func() {
 		status, err := nmState.Read()
@@ -423,7 +423,6 @@ var _ = Describe("NMState", integrationLabel, func() {
 			IPv6: nmstate.LinuxStackIP6{Forwarding: pointer.P(true)},
 		}))
 	})
-
 })
 
 func lookupIface(ifaces []nmstate.Interface, name string) *nmstate.Interface {

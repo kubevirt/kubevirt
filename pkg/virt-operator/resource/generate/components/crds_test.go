@@ -7,7 +7,6 @@ import (
 )
 
 var _ = Describe("CRDs", func() {
-
 	DescribeTable("Should patch validation", func(crdFunc func() (*extv1.CustomResourceDefinition, error)) {
 		crd, err := crdFunc()
 		Expect(err).NotTo(HaveOccurred())

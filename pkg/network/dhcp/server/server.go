@@ -60,8 +60,8 @@ func SingleClientDHCPServer(
 	routes *[]netlink.Route,
 	searchDomains []string,
 	mtu uint16,
-	customDHCPOptions *v1.DHCPOptions) error {
-
+	customDHCPOptions *v1.DHCPOptions,
+) error {
 	log.Log.Info("Starting SingleClientDHCPServer")
 
 	hostname, err := os.Hostname()
@@ -108,8 +108,8 @@ func prepareDHCPOptions(
 	searchDomains []string,
 	mtu uint16,
 	hostname string,
-	customDHCPOptions *v1.DHCPOptions) (dhcp.Options, error) {
-
+	customDHCPOptions *v1.DHCPOptions,
+) (dhcp.Options, error) {
 	mtuArray := make([]byte, 2)
 	binary.BigEndian.PutUint16(mtuArray, mtu)
 

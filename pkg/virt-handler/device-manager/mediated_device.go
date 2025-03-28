@@ -20,6 +20,7 @@
 package device_manager
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -27,8 +28,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-
-	"context"
 
 	"github.com/fsnotify/fsnotify"
 	"google.golang.org/grpc"
@@ -280,7 +279,6 @@ func (dpi *MediatedDevicePlugin) HealthCheck() error {
 
 	dirName = filepath.Dir(dpi.socketPath)
 	err = watcher.Add(dirName)
-
 	if err != nil {
 		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
 	}

@@ -261,8 +261,10 @@ var _ = Describe("nic hot-unplug on virt-launcher", func() {
 		Entry("given 1 VMI absent interface and an associated interface in the domain is using hashed device",
 			[]v1.Interface{{Name: networkName, State: v1.InterfaceStateAbsent, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}},
 			[]v1.Network{{Name: networkName, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}}},
-			[]api.Interface{{
-				Target: &api.InterfaceTarget{Device: hashedDevice}, Alias: api.NewUserDefinedAlias(networkName)},
+			[]api.Interface{
+				{
+					Target: &api.InterfaceTarget{Device: hashedDevice}, Alias: api.NewUserDefinedAlias(networkName),
+				},
 			},
 			[]api.Interface{
 				{Target: &api.InterfaceTarget{Device: hashedDevice}, Alias: api.NewUserDefinedAlias(networkName)},
@@ -272,7 +274,6 @@ var _ = Describe("nic hot-unplug on virt-launcher", func() {
 })
 
 var _ = Describe("domain network interfaces resources", func() {
-
 	DescribeTable("are ignored when",
 		func(vmiSpecIfaces []v1.Interface) {
 			vmi := &v1.VirtualMachineInstance{}
@@ -349,8 +350,8 @@ var _ = Describe("interface link state update", func() {
 	DescribeTable("no change in state",
 		func(domainFrom *api.Domain,
 			domainTo *api.Domain,
-			expectMockFunc func(*gomock.Controller) *cli.MockVirDomain) {
-
+			expectMockFunc func(*gomock.Controller) *cli.MockVirDomain,
+		) {
 			networkInterfaceManager := newVirtIOInterfaceManager(
 				expectMockFunc(gomock.NewController(GinkgoT())),
 				&fakeVMConfigurator{})
@@ -455,7 +456,8 @@ func generateNetwork(name string, nadName string) v1.Network {
 	return v1.Network{
 		Name: name,
 		NetworkSource: v1.NetworkSource{
-			Multus: &v1.MultusNetwork{NetworkName: nadName}},
+			Multus: &v1.MultusNetwork{NetworkName: nadName},
+		},
 	}
 }
 

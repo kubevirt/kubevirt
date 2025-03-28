@@ -215,7 +215,6 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 
 	dirName = filepath.Dir(dpi.socketPath)
 	err = watcher.Add(dirName)
-
 	if err != nil {
 		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
 	}

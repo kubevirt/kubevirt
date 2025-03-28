@@ -27,8 +27,10 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-const HookSidecarListAnnotationName = "hooks.kubevirt.io/hookSidecars"
-const HookSocketsSharedDirectory = "/var/run/kubevirt-hooks"
+const (
+	HookSidecarListAnnotationName = "hooks.kubevirt.io/hookSidecars"
+	HookSocketsSharedDirectory    = "/var/run/kubevirt-hooks"
+)
 
 type HookSidecarList []HookSidecar
 

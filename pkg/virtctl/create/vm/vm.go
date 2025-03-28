@@ -485,7 +485,6 @@ func (c *createVM) newVM() (*v1.VirtualMachine, error) {
 	memory, err := resource.ParseQuantity(c.memory)
 	if err != nil {
 		return nil, params.FlagErr(MemoryFlag, "%w", err)
-
 	}
 
 	vm := &v1.VirtualMachine{

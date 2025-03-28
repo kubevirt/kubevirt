@@ -128,7 +128,6 @@ func (admitter *MigrationCreateAdmitter) Admit(ctx context.Context, ar *admissio
 }
 
 func getAdmissionReviewMigration(ar *admissionv1.AdmissionReview) (new *v1.VirtualMachineInstanceMigration, old *v1.VirtualMachineInstanceMigration, err error) {
-
 	if !webhookutils.ValidateRequestResource(ar.Request.Resource, webhooks.MigrationGroupVersionResource.Group, webhooks.MigrationGroupVersionResource.Resource) {
 		return nil, nil, fmt.Errorf("expect resource to be '%s'", webhooks.MigrationGroupVersionResource)
 	}

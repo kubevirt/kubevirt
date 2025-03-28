@@ -134,7 +134,6 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 		)
 
 		DescribeTable("should verify set of wide columns for", func(verb, resource, option string, expectedHeader []string, verifyPos int, expectedData string) {
-
 			result, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, verb, resource, vm.Name, "-o", option)
 			// due to issue of kubectl that sometimes doesn't show CRDs on the first try, retry the same command
 			if err != nil {
@@ -152,12 +151,10 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 			Expect(resultFields[len(expectedHeader)]).To(Equal(vm.Name))
 			// Verify one of the wide column output field
 			Expect(resultFields[len(resultFields)-verifyPos]).To(Equal(expectedData))
-
 		},
 			Entry("[test_id:3468]virtualmachine", "get", "vm", "wide", []string{"NAME", "AGE", "STATUS", "READY"}, 1, "True"),
 			Entry("[test_id:3466]virtualmachineinstance", "get", "vmi", "wide", []string{"NAME", "AGE", "PHASE", "IP", "NODENAME", "READY", "LIVE-MIGRATABLE", "PAUSED"}, 1, "True"),
 		)
-
 	})
 
 	Describe("VM instance migration", decorators.RequiresTwoSchedulableNodes, func() {
@@ -222,9 +219,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 	})
 
 	Describe("oc/kubectl logs", func() {
-		var (
-			vm *v1.VirtualMachineInstance
-		)
+		var vm *v1.VirtualMachineInstance
 
 		It("oc/kubectl logs <vmi-pod> return default container log", func() {
 			vm = libvmifact.NewCirros()

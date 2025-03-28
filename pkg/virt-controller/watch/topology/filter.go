@@ -11,10 +11,12 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-const TSCFrequencyLabel = virtv1.CPUTimerLabel + "tsc-frequency"
-const TSCFrequencySchedulingLabel = "scheduling.node.kubevirt.io/tsc-frequency"
-const TSCScalableLabel = virtv1.CPUTimerLabel + "tsc-scalable"
-const TSCTolerancePPM float64 = 250
+const (
+	TSCFrequencyLabel                   = virtv1.CPUTimerLabel + "tsc-frequency"
+	TSCFrequencySchedulingLabel         = "scheduling.node.kubevirt.io/tsc-frequency"
+	TSCScalableLabel                    = virtv1.CPUTimerLabel + "tsc-scalable"
+	TSCTolerancePPM             float64 = 250
+)
 
 type FilterPredicateFunc func(node *v1.Node) bool
 

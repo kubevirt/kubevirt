@@ -60,7 +60,6 @@ func NewEvacuationController(
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
 ) (*EvacuationController, error) {
-
 	c := &EvacuationController{
 		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
 			workqueue.DefaultTypedControllerRateLimiter[string](),
@@ -85,7 +84,6 @@ func NewEvacuationController(
 		DeleteFunc: c.deleteVirtualMachineInstance,
 		UpdateFunc: c.updateVirtualMachineInstance,
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +93,6 @@ func NewEvacuationController(
 		DeleteFunc: c.deleteMigration,
 		UpdateFunc: c.updateMigration,
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +101,6 @@ func NewEvacuationController(
 		DeleteFunc: c.deleteNode,
 		UpdateFunc: c.updateNode,
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -327,10 +323,8 @@ func (c *EvacuationController) Execute() bool {
 }
 
 func (c *EvacuationController) execute(key string) error {
-
 	// Fetch the latest node state from cache
 	obj, exists, err := c.nodeStore.GetByKey(key)
-
 	if err != nil {
 		return err
 	}
@@ -367,7 +361,6 @@ func getMarkedForEvictionVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.V
 }
 
 func GenerateNewMigration(vmiName string, key string) *virtv1.VirtualMachineInstanceMigration {
-
 	annotations := map[string]string{
 		virtv1.EvacuationMigrationAnnotation: key,
 	}
@@ -402,8 +395,7 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 
 	runningMigrations := migrationutils.FilterRunningMigrations(activeMigrations)
 	activeMigrationsFromThisSourceNode := c.numOfVMIMForThisSourceNode(vmisOnNode, runningMigrations)
-	maxParallelMigrationsPerOutboundNode :=
-		int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode)
+	maxParallelMigrationsPerOutboundNode := int(*c.clusterConfig.GetMigrationConfiguration().ParallelOutboundMigrationsPerNode)
 	maxParallelMigrations := int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster)
 	freeSpotsPerCluster := maxParallelMigrations - len(runningMigrations)
 	freeSpotsPerThisSourceNode := maxParallelMigrationsPerOutboundNode - activeMigrationsFromThisSourceNode
@@ -422,7 +414,6 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 		for _, vmi := range nonMigrateable[0:remainingForNonMigrateableDiff] {
 			c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, FailedCreateVirtualMachineInstanceMigrationReason, "VirtualMachineInstance is not migrateable")
 		}
-
 	}
 
 	if diff == 0 {
@@ -554,8 +545,8 @@ func nodeHasTaint(taint *k8sv1.Taint, node *k8sv1.Node) bool {
 
 func (c *EvacuationController) numOfVMIMForThisSourceNode(
 	vmisOnNode []*virtv1.VirtualMachineInstance,
-	activeMigrations []*virtv1.VirtualMachineInstanceMigration) (activeMigrationsFromThisSourceNode int) {
-
+	activeMigrations []*virtv1.VirtualMachineInstanceMigration,
+) (activeMigrationsFromThisSourceNode int) {
 	vmiMap := make(map[string]bool)
 	for _, vmi := range vmisOnNode {
 		vmiMap[vmi.Name] = true

@@ -93,7 +93,6 @@ var _ = Describe("Node Selector Renderer", func() {
 			})
 
 			When("architecture set on VMI", func() {
-
 				BeforeEach(func() {
 					nsr = NewNodeSelectorRenderer(
 						emptySelectors(),
@@ -109,7 +108,6 @@ var _ = Describe("Node Selector Renderer", func() {
 						}))
 				})
 			})
-
 		})
 
 		When("user defined selectors are present", func() {

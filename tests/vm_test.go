@@ -988,7 +988,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			data, err := json.Marshal(vm)
 			Expect(err).ToNot(HaveOccurred())
 			vmJson := filepath.Join(workDir, fmt.Sprintf("%s.json", vm.Name))
-			Expect(os.WriteFile(vmJson, data, 0644)).To(Succeed())
+			Expect(os.WriteFile(vmJson, data, 0o644)).To(Succeed())
 			Expect(err).ToNot(HaveOccurred())
 
 			return vm, vmJson
@@ -1003,7 +1003,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			data, err := json.Marshal(vm)
 			Expect(err).ToNot(HaveOccurred())
 			vmJson := filepath.Join(workDir, fmt.Sprintf("%s.json", vm.Name))
-			Expect(os.WriteFile(vmJson, data, 0644)).To(Succeed())
+			Expect(os.WriteFile(vmJson, data, 0o644)).To(Succeed())
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating VM using k8s client binary")

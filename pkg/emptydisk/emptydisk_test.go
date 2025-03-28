@@ -12,7 +12,6 @@ import (
 )
 
 var _ = Describe("EmptyDisk", func() {
-
 	var emptyDiskBaseDir string
 	var creator *emptyDiskCreator
 
@@ -62,7 +61,7 @@ var _ = Describe("EmptyDisk", func() {
 				libvmi.WithEmptyDisk("testdisk", "", resource.MustParse("3Gi")),
 			)
 
-			err := os.WriteFile(filePathForVolumeName(emptyDiskBaseDir, "testdisk"), []byte("test"), 0777)
+			err := os.WriteFile(filePathForVolumeName(emptyDiskBaseDir, "testdisk"), []byte("test"), 0o777)
 			Expect(err).ToNot(HaveOccurred())
 			err = creator.CreateTemporaryDisks(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -71,7 +70,6 @@ var _ = Describe("EmptyDisk", func() {
 			Expect(string(data)).To(Equal("test"))
 		})
 	})
-
 })
 
 func fakeCreatorFunc(filePath string, _ string) error {

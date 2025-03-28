@@ -95,7 +95,6 @@ var _ = Describe("config state cache", func() {
 			podIfaceCacheData, err := cache.ReadPodInterfaceCache(&baseCacheCreator, uid, testNet)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(podIfaceCacheData.State).To(Equal(cache.PodIfaceNetworkPreparationStarted))
-
 		})
 		It("to a non empty cache", func() {
 			err := configStateCache.Write(testNet, cache.PodIfaceNetworkPreparationStarted)
@@ -111,7 +110,6 @@ var _ = Describe("config state cache", func() {
 			podIfaceCacheData, err = cache.ReadPodInterfaceCache(&baseCacheCreator, uid, testNet)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(podIfaceCacheData.State).To(Equal(cache.PodIfaceNetworkPreparationFinished))
-
 		})
 	})
 

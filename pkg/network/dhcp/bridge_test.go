@@ -22,7 +22,6 @@ const (
 )
 
 var _ = Describe("Bridge DHCP configurator", func() {
-
 	var mockHandler *netdriver.MockNetworkHandler
 	var ctrl *gomock.Controller
 	var generator BridgeConfigGenerator

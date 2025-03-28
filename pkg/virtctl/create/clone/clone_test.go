@@ -39,6 +39,7 @@ const (
 	vmKind, vmApiGroup             = "VirtualMachine", "kubevirt.io"
 	snapshotKind, snapshotApiGroup = "VirtualMachineSnapshot", "snapshot.kubevirt.io"
 )
+
 const (
 	labelFilters = iota
 	annotationsFilters
@@ -50,7 +51,6 @@ const (
 
 var _ = Describe("create clone", func() {
 	Context("required arguments", func() {
-
 		It("source name must be specified", func() {
 			_, err := newCommand()
 			Expect(err).To(HaveOccurred())
@@ -64,7 +64,6 @@ var _ = Describe("create clone", func() {
 	})
 
 	Context("source and target", func() {
-
 		DescribeTable("supported types", func(sourceType, expectedSourceKind, expectedSourceApiGroup, targetType, expectedTargetKind, expectedTargetApiGroup string) {
 			const sourceName, targetName = "source-name", "target-name"
 
@@ -127,11 +126,9 @@ var _ = Describe("create clone", func() {
 			_, err := newCommand()
 			Expect(err).To(HaveOccurred())
 		})
-
 	})
 
 	Context("label and annotation filters", func() {
-
 		DescribeTable("with", func(filterType int) {
 			flags := getSourceNameFlags()
 
@@ -180,7 +177,6 @@ var _ = Describe("create clone", func() {
 				Expect(cloneObj.Spec.Template.LabelFilters).To(HaveLen(expectedLen))
 				Expect(cloneObj.Spec.Template.AnnotationFilters).To(HaveLen(expectedLen))
 			}
-
 		},
 			Entry("label filters", labelFilters),
 			Entry("annotation filters", annotationsFilters),
@@ -253,7 +249,6 @@ var _ = Describe("create clone", func() {
 
 		Expect(cloneObj.Namespace).To(Equal(namespace))
 	})
-
 })
 
 func addFlag(s []string, flag, value string) []string {

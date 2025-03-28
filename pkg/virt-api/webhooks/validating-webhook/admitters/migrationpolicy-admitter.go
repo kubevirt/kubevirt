@@ -37,8 +37,7 @@ import (
 )
 
 // MigrationPolicyAdmitter validates VirtualMachineSnapshots
-type MigrationPolicyAdmitter struct {
-}
+type MigrationPolicyAdmitter struct{}
 
 // NewMigrationPolicyAdmitter creates a MigrationPolicyAdmitter
 func NewMigrationPolicyAdmitter() *MigrationPolicyAdmitter {

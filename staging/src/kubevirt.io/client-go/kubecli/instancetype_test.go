@@ -32,7 +32,6 @@ import (
 )
 
 var _ = Describe("Kubevirt ExpandSpec Client", func() {
-
 	var server *ghttp.Server
 	expandSpecPath := fmt.Sprintf("/apis/subresources.kubevirt.io/%s/namespaces/%s/expand-vm-spec", v1.SubresourceStorageGroupVersion.Version, k8sv1.NamespaceDefault)
 	proxyPath := "/proxy/path"

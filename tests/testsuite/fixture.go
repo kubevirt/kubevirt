@@ -81,7 +81,6 @@ func SynchronizedAfterTestSuiteCleanup() {
 }
 
 func AfterTestSuiteCleanup() {
-
 	cleanupServiceAccounts()
 	CleanNamespaces()
 
@@ -121,7 +120,6 @@ func addTestAnnotation(vmi *v1.VirtualMachineInstance) {
 }
 
 func BeforeTestSuiteSetup(_ []byte) {
-
 	worker := GinkgoParallelProcess()
 	rand.Seed(int64(worker))
 	log.InitializeLogging("tests")
@@ -359,7 +357,6 @@ func waitForAllDaemonSetsReady(timeout time.Duration) {
 			}
 		}
 		return dsNotReady
-
 	}
 	Eventually(checkForDaemonSetsReady, timeout, 2*time.Second).Should(BeEmpty(), "There are daemonsets in system which are not ready.")
 }

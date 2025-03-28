@@ -408,7 +408,6 @@ var _ = Describe("Expose", func() {
 			key, value := getSelectorKeyAndValue(resType, resName)
 			Expect(service.Spec.Selector).To(HaveKeyWithValue(key, value))
 			Expect(*service.Spec.IPFamilyPolicy).To(Equal(ipFamilyPolicy))
-
 		},
 			Entry("with VirtualMachineInstance and IPFamilyPolicy SingleStack", "vmi", k8sv1.IPFamilyPolicySingleStack),
 			Entry("with VirtualMachineInstance and IPFamilyPolicy PreferDualStack", "vmi", k8sv1.IPFamilyPolicyPreferDualStack),

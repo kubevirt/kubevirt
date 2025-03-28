@@ -35,7 +35,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 	var fakeMdevDevicesPath string
 	var configuredMdevTypesOnCards map[string]map[string]struct{}
 	var clientTest *fake.Clientset
-	var mdevTypesDetailsMap = map[string]mdevTypesDetails{
+	mdevTypesDetailsMap := map[string]mdevTypesDetails{
 		"nvidia-222": {
 			name:               "GRID T4-1B",
 			availableInstances: 16,
@@ -84,7 +84,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			for _, mdevType := range mdevTypesForPciDevices {
 				// create a fake path to mdev type for each card
 				fakeNvidiaTypePath := filepath.Join(fakeMdevBasePath, pciAddr, "mdev_supported_types", mdevType)
-				err = os.MkdirAll(fakeNvidiaTypePath, 0700)
+				err = os.MkdirAll(fakeNvidiaTypePath, 0o700)
 				Expect(err).ToNot(HaveOccurred())
 
 				// create a create file in the nvidia type directory
@@ -142,7 +142,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 		mockMDEV.EXPECT().CreateMDEVType(gomock.Any(), gomock.Any()).DoAndReturn(func(mdevType string, parentID string) error {
 			mdevUUID := string(uuid.NewUUID())
 			mdevUUIDDirPath := filepath.Join(fakeMdevDevicesPath, mdevUUID)
-			err := os.MkdirAll(mdevUUIDDirPath, 0700)
+			err := os.MkdirAll(mdevUUIDDirPath, 0o700)
 			Expect(err).ToNot(HaveOccurred())
 			mdevTypeDirPath := filepath.Join(fakeMdevBasePath, parentID, "mdev_supported_types", mdevType)
 			err = os.Symlink(mdevTypeDirPath, filepath.Join(mdevUUIDDirPath, "mdev_type"))
@@ -166,7 +166,6 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			Expect(err).ToNot(HaveOccurred())
 			return nil
 		}).AnyTimes()
-
 	})
 	AfterEach(func() {
 		os.RemoveAll(fakeMdevBasePath)
@@ -358,7 +357,6 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			kvConfig := kv.DeepCopy()
 			kvConfig.Spec.Configuration.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{
 				MediatedDeviceTypes: []string{
-
 					"nvidia-222",
 					"nvidia-228",
 					"i915-GVTg_V5_4",

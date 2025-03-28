@@ -117,7 +117,6 @@ func generateMigrationFlags(isBlockMigration, migratePaused bool, options *cmdcl
 	}
 
 	return migrateFlags
-
 }
 
 func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
@@ -140,6 +139,7 @@ func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
 	}
 	return nil
 }
+
 func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (*api.Domain, error) {
 	var targetTopology cmdv1.Topology
 	targetNodeCPUSet := vmi.Status.MigrationState.TargetCPUSet
@@ -717,7 +717,6 @@ func logMigrationInfo(logger *log.FilteredLogger, uid string, info *libvirt.Doma
 
 func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstance) {
 	go func(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance) {
-
 		domName := api.VMINamespaceKeyFunc(vmi)
 		dom, err := l.virConn.LookupDomainByName(domName)
 		if err != nil {
@@ -918,7 +917,8 @@ func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineI
 						Offset: 0,
 						Size:   uint(size),
 					},
-				}}
+				},
+			}
 		}
 		var path string
 		_, hotplugVol := hotplugVols[name]
@@ -953,7 +953,6 @@ func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineI
 }
 
 func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {
-
 	var err error
 	var params *libvirt.DomainMigrateParameters
 

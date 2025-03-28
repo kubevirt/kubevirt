@@ -91,7 +91,6 @@ var _ = Describe("ContainerDisk", func() {
 	}
 
 	Context("checking if containerDisks are ready", func() {
-
 		DescribeTable("should", func(
 			pathGetter containerdisk.SocketPathGetter,
 			mockSetup func(*isolation.MockPodIsolationDetector),
@@ -154,7 +153,6 @@ var _ = Describe("ContainerDisk", func() {
 		)
 
 		Context("with kernelBoot container", func() {
-
 			BeforeEach(func() {
 				vmi.Spec.Volumes = []v1.Volume{}
 
@@ -234,7 +232,6 @@ var _ = Describe("ContainerDisk", func() {
 
 	Context("verify mount target recording for vmi", func() {
 		It("should set and get same results", func() {
-
 			// verify reading non-existent results just returns empty slice
 			record, err := m.getMountTargetRecord(vmi)
 			Expect(err).ToNot(HaveOccurred())

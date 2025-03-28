@@ -41,7 +41,7 @@ var (
 )
 
 func newControllerRef(controller metav1.Object) *metav1.OwnerReference {
-	var controllerKind = v1beta1.SchemeGroupVersion.WithKind("Fake")
+	controllerKind := v1beta1.SchemeGroupVersion.WithKind("Fake")
 	blockOwnerDeletion := true
 	isController := true
 	return &metav1.OwnerReference{
@@ -80,7 +80,7 @@ func TestClaimVirtualMachineInstance(t *testing.T) {
 		released        []*virtv1.VirtualMachineInstance
 		expectError     bool
 	}
-	var tests = []test{
+	tests := []test{
 		{
 			name: "Claim virtualmachines with correct label",
 			manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
@@ -210,7 +210,7 @@ func TestClaimDataVolume(t *testing.T) {
 		released    []*cdiv1.DataVolume
 		expectError bool
 	}
-	var tests = []test{
+	tests := []test{
 		func() test {
 			controller := v1.ReplicationController{}
 			controller.UID = types.UID(controllerUID)

@@ -65,7 +65,6 @@ timeoutSeconds: 10
 )
 
 var _ = Describe("WebhookConfiguration types", func() {
-
 	Context("ValidatingWebhookConfiguration", func() {
 		It("conversion from v1 to v1beta should match", func() {
 			webhook := &admissionregistrationv1.ValidatingWebhookConfiguration{}

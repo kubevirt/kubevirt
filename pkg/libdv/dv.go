@@ -80,8 +80,10 @@ func WithAnnotation(ann, val string) dvOption {
 	}
 }
 
-type pvcOption func(*corev1.PersistentVolumeClaimSpec)
-type storageOption func(*v1beta1.StorageSpec)
+type (
+	pvcOption     func(*corev1.PersistentVolumeClaimSpec)
+	storageOption func(*v1beta1.StorageSpec)
+)
 
 // WithStorage is a dvOption to add a StorageOption spec to the DataVolume
 // The function receives an optional list of StorageOption, to override the defaults

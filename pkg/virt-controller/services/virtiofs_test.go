@@ -13,7 +13,6 @@ import (
 )
 
 var _ = Describe("virtiofs container", func() {
-
 	kv := &v1.KubeVirt{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kubevirt",

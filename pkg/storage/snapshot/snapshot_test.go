@@ -204,7 +204,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				Name: storageClassName,
 			},
 			Status: cdiv1.StorageProfileStatus{
-
 				SnapshotClass: pointer.P(volumeSnapshotClassName2),
 			},
 		}
@@ -265,7 +264,6 @@ var _ = Describe("Snapshot controlleer", func() {
 	}
 
 	Context("One valid Snapshot controller given", func() {
-
 		var ctrl *gomock.Controller
 		var vmInterface *kubecli.MockVirtualMachineInterface
 		var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
@@ -462,7 +460,6 @@ var _ = Describe("Snapshot controlleer", func() {
 		}
 
 		Context("with VolumeSnapshot and VolumeSnapshotContent informers", func() {
-
 			BeforeEach(func() {
 				stopCh := make(chan struct{})
 				volumeSnapshotInformer.AddEventHandler(controller.eventHandlerMap[volumeSnapshotCRD])
@@ -1071,7 +1068,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					},
 				})
 				// Add volume to vm in content that is not in the volumebackup list
-				//this is a simulation for a volume that is not included in the snapshot
+				// this is a simulation for a volume that is not included in the snapshot
 				vmSnapshotContent.Spec.Source.VirtualMachine.Spec = *vm.Spec.DeepCopy()
 
 				vmSnapshot := createVMSnapshotInProgress()
@@ -2357,7 +2354,6 @@ var _ = Describe("Snapshot controlleer", func() {
 						},
 					),
 				)
-
 			})
 		})
 

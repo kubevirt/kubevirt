@@ -10,7 +10,6 @@ import (
 )
 
 var _ = Describe("Certificates", func() {
-
 	var certDir string
 
 	BeforeEach(func() {

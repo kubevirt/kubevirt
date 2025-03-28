@@ -400,7 +400,8 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 			}
 
 			DescribeTable("should be able to ping between two vms", func(interfaces []v1.Interface,
-				networks []v1.Network, ifaceName, staticIPVm1, staticIPVm2 string) {
+				networks []v1.Network, ifaceName, staticIPVm1, staticIPVm2 string,
+			) {
 				if staticIPVm2 == "" || staticIPVm1 == "" {
 					ipam := map[string]string{"type": "host-local", "subnet": ptpSubnet}
 					Expect(createBridgeNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), linuxBridgeVlan100WithIPAMNetwork, bridge10Name, 0, ipam, bridge10MacSpoofCheck)).To(Succeed())

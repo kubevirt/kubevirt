@@ -473,7 +473,6 @@ func (n NetPod) masqueradeBindingSpec(podIfaceName string, vmiIfaceIndex int, if
 }
 
 func (n NetPod) managedTapSpec(podIfaceName string, vmiIfaceIndex int, ifaceStatusByName map[string]nmstate.Interface) ([]nmstate.Interface, error) {
-
 	vmiNetworkName := n.vmiSpecIfaces[vmiIfaceIndex].Name
 	vmiNetwork := vmispec.LookupNetworkByName(n.vmiSpecNets, vmiNetworkName)
 

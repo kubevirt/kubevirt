@@ -79,7 +79,8 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Selector: selector,
 				Domain: &v1.DomainSpec{
 					Resources: v1.ResourceRequirements{Requests: k8sv1.ResourceList{
-						"memory": memory}},
+						"memory": memory,
+					}},
 				},
 			},
 		}
@@ -314,7 +315,8 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					Selector: selector,
 					Domain: &v1.DomainSpec{
 						Resources: v1.ResourceRequirements{Requests: k8sv1.ResourceList{
-							"memory": conflictMemory}},
+							"memory": conflictMemory,
+						}},
 					},
 				},
 			}
@@ -338,9 +340,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	Context("Override", func() {
-		var (
-			overridePreset *v1.VirtualMachineInstancePreset
-		)
+		var overridePreset *v1.VirtualMachineInstancePreset
 
 		const (
 			overrideKey    = "kubevirt.io/vmPreset"
@@ -356,7 +356,8 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					Selector: selector,
 					Domain: &v1.DomainSpec{
 						Resources: v1.ResourceRequirements{Requests: k8sv1.ResourceList{
-							"memory": resource.MustParse("64M")}},
+							"memory": resource.MustParse("64M"),
+						}},
 					},
 				},
 			}
@@ -403,7 +404,8 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					Selector: selector,
 					Domain: &v1.DomainSpec{
 						Resources: v1.ResourceRequirements{Requests: k8sv1.ResourceList{
-							"memory": memory}},
+							"memory": memory,
+						}},
 					},
 				},
 			}
@@ -457,7 +459,8 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					Selector: selector,
 					Domain: &v1.DomainSpec{
 						Resources: v1.ResourceRequirements{Requests: k8sv1.ResourceList{
-							"memory": memory}},
+							"memory": memory,
+						}},
 					},
 				},
 			}

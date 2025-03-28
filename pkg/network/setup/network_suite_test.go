@@ -29,16 +29,17 @@ func newVMIBridgeInterface(namespace string, name string) *v1.VirtualMachineInst
 
 func NewDomainWithBridgeInterface() *api.Domain {
 	domain := &api.Domain{}
-	domain.Spec.Devices.Interfaces = []api.Interface{{
-		Model: &api.Model{
-			Type: v1.VirtIO,
+	domain.Spec.Devices.Interfaces = []api.Interface{
+		{
+			Model: &api.Model{
+				Type: v1.VirtIO,
+			},
+			Type: "bridge",
+			Source: api.InterfaceSource{
+				Bridge: api.DefaultBridgeName,
+			},
+			Alias: api.NewUserDefinedAlias("default"),
 		},
-		Type: "bridge",
-		Source: api.InterfaceSource{
-			Bridge: api.DefaultBridgeName,
-		},
-		Alias: api.NewUserDefinedAlias("default"),
-	},
 	}
 	return domain
 }

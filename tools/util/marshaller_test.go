@@ -43,5 +43,4 @@ func TestMarshallObject(t *testing.T) {
 	if !strings.Contains(result, "namespace: {{.Namespace}}") {
 		t.Fail()
 	}
-
 }

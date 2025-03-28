@@ -32,7 +32,7 @@ import (
 
 var _ = Describe("QEMU slirp networking", func() {
 	Context("configure domain spec slirp interface QMEU command line", func() {
-		var testSearchDomain = []string{"dns.com"}
+		testSearchDomain := []string{"dns.com"}
 
 		DescribeTable("should fail, given",
 			func(iface vmschema.Interface, network vmschema.Network) {
@@ -52,13 +52,15 @@ var _ = Describe("QEMU slirp networking", func() {
 				vmschema.Network{Name: "secondary", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
 			),
 			Entry("iface with no slirp binding method",
-				vmschema.Interface{Name: "secondary",
+				vmschema.Interface{
+					Name:                   "secondary",
 					InterfaceBindingMethod: vmschema.InterfaceBindingMethod{Bridge: &vmschema.InterfaceBridge{}},
 				},
 				vmschema.Network{Name: "secondary", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
 			),
 			Entry("iface with no slirp network binding plugin",
-				vmschema.Interface{Name: "secondary",
+				vmschema.Interface{
+					Name:    "secondary",
 					Binding: &vmschema.PluginBinding{Name: "sriov"},
 				},
 				vmschema.Network{Name: "secondary", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
@@ -82,12 +84,15 @@ var _ = Describe("QEMU slirp networking", func() {
 					VMNetworkCIDR: "192.168.100.0/24",
 				}}},
 				[]domainschema.Arg{
-					{Value: `-netdev`}, {Value: `user,id=slirpTest,net=192.168.100.0/24,dnssearch=dns.com`},
-					{Value: `-device`}, {Value: `{"driver":"e1000","netdev":"slirpTest","id":"slirpTest"}`},
+					{Value: `-netdev`},
+					{Value: `user,id=slirpTest,net=192.168.100.0/24,dnssearch=dns.com`},
+					{Value: `-device`},
+					{Value: `{"driver":"e1000","netdev":"slirpTest","id":"slirpTest"}`},
 				},
 			),
 			Entry("ports",
-				vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName},
+				vmschema.Interface{
+					Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName},
 					Ports: []vmschema.Port{
 						{Name: "http", Protocol: "TCP", Port: 80},
 						{Port: 8080},
@@ -95,38 +100,49 @@ var _ = Describe("QEMU slirp networking", func() {
 				},
 				vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
 				[]domainschema.Arg{
-					{Value: `-netdev`}, {Value: `user,id=slirpTest,net=10.0.2.0/24,dnssearch=dns.com,hostfwd=tcp::80-:80,hostfwd=tcp::8080-:8080`},
-					{Value: `-device`}, {Value: `{"driver":"e1000","netdev":"slirpTest","id":"slirpTest"}`},
+					{Value: `-netdev`},
+					{Value: `user,id=slirpTest,net=10.0.2.0/24,dnssearch=dns.com,hostfwd=tcp::80-:80,hostfwd=tcp::8080-:8080`},
+					{Value: `-device`},
+					{Value: `{"driver":"e1000","netdev":"slirpTest","id":"slirpTest"}`},
 				},
 			),
 			Entry("slirp interface with virtio model type - should be changed to e1000",
-				vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName},
+				vmschema.Interface{
+					Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName},
 					Model: "virtio",
 				},
 				vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
 				[]domainschema.Arg{
-					{Value: `-netdev`}, {Value: `user,id=slirpTest,net=10.0.2.0/24,dnssearch=dns.com`},
-					{Value: `-device`}, {Value: `{"driver":"e1000","netdev":"slirpTest","id":"slirpTest"}`},
+					{Value: `-netdev`},
+					{Value: `user,id=slirpTest,net=10.0.2.0/24,dnssearch=dns.com`},
+					{Value: `-device`},
+					{Value: `{"driver":"e1000","netdev":"slirpTest","id":"slirpTest"}`},
 				},
 			),
 			Entry("custom MAC address",
-				vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName},
+				vmschema.Interface{
+					Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName},
 					MacAddress: "02:02:02:02:02:02",
 				},
 				vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
 				[]domainschema.Arg{
-					{Value: `-netdev`}, {Value: `user,id=slirpTest,net=10.0.2.0/24,dnssearch=dns.com`},
-					{Value: `-device`}, {Value: `{"driver":"e1000","netdev":"slirpTest","id":"slirpTest","mac":"02:02:02:02:02:02"}`},
+					{Value: `-netdev`},
+					{Value: `user,id=slirpTest,net=10.0.2.0/24,dnssearch=dns.com`},
+					{Value: `-device`},
+					{Value: `{"driver":"e1000","netdev":"slirpTest","id":"slirpTest","mac":"02:02:02:02:02:02"}`},
 				},
 			),
 			Entry("iface model 'rtl8139'",
-				vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName},
+				vmschema.Interface{
+					Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName},
 					Model: "rtl8139",
 				},
 				vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
 				[]domainschema.Arg{
-					{Value: `-netdev`}, {Value: `user,id=slirpTest,net=10.0.2.0/24,dnssearch=dns.com`},
-					{Value: `-device`}, {Value: `{"driver":"rtl8139","netdev":"slirpTest","id":"slirpTest"}`},
+					{Value: `-netdev`},
+					{Value: `user,id=slirpTest,net=10.0.2.0/24,dnssearch=dns.com`},
+					{Value: `-device`},
+					{Value: `{"driver":"rtl8139","netdev":"slirpTest","id":"slirpTest"}`},
 				},
 			),
 		)
@@ -149,26 +165,34 @@ var _ = Describe("QEMU slirp networking", func() {
 				vmschema.Interface{Name: "slirpTest", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{DeprecatedSlirp: &vmschema.DeprecatedInterfaceSlirp{}}},
 				vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
 				[]domainschema.Arg{
-					{Value: "-device"}, {Value: "foo"},
+					{Value: "-device"},
+					{Value: "foo"},
 					{Value: "-M"},
 				},
 				[]domainschema.Arg{
-					{Value: "-device"}, {Value: "foo"},
+					{Value: "-device"},
+					{Value: "foo"},
 					{Value: "-M"},
-					{Value: `-netdev`}, {Value: `user,id=slirpTest,net=10.0.2.0/24,dnssearch=dns.com`},
-					{Value: `-device`}, {Value: `{"driver":"e1000","netdev":"slirpTest","id":"slirpTest"}`},
+					{Value: `-netdev`},
+					{Value: `user,id=slirpTest,net=10.0.2.0/24,dnssearch=dns.com`},
+					{Value: `-device`},
+					{Value: `{"driver":"e1000","netdev":"slirpTest","id":"slirpTest"}`},
 				},
 			),
 			Entry("slirp iface qemu cmd args already exist",
 				vmschema.Interface{Name: "slirpTest", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{DeprecatedSlirp: &vmschema.DeprecatedInterfaceSlirp{}}},
 				vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}},
 				[]domainschema.Arg{
-					{Value: `-netdev`}, {Value: `user,id=slirpTest,net=10.0.2.0/24,dnssearch=dns.com`},
-					{Value: `-device`}, {Value: `{"driver":"e1000","netdev":"slirpTest","id":"slirpTest"}`},
+					{Value: `-netdev`},
+					{Value: `user,id=slirpTest,net=10.0.2.0/24,dnssearch=dns.com`},
+					{Value: `-device`},
+					{Value: `{"driver":"e1000","netdev":"slirpTest","id":"slirpTest"}`},
 				},
 				[]domainschema.Arg{
-					{Value: `-netdev`}, {Value: `user,id=slirpTest,net=10.0.2.0/24,dnssearch=dns.com`},
-					{Value: `-device`}, {Value: `{"driver":"e1000","netdev":"slirpTest","id":"slirpTest"}`},
+					{Value: `-netdev`},
+					{Value: `user,id=slirpTest,net=10.0.2.0/24,dnssearch=dns.com`},
+					{Value: `-device`},
+					{Value: `{"driver":"e1000","netdev":"slirpTest","id":"slirpTest"}`},
 				},
 			),
 		)
@@ -177,7 +201,8 @@ var _ = Describe("QEMU slirp networking", func() {
 			iface := vmschema.Interface{Name: "slirpTest", InterfaceBindingMethod: vmschema.InterfaceBindingMethod{DeprecatedSlirp: &vmschema.DeprecatedInterfaceSlirp{}}}
 			network := vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}}
 			existingArgs := []domainschema.Arg{
-				{Value: "-device"}, {Value: "foo"},
+				{Value: "-device"},
+				{Value: "foo"},
 				{Value: "-M"},
 			}
 
@@ -217,7 +242,8 @@ var _ = Describe("QEMU slirp networking", func() {
 
 		DescribeTable("should fail given invalid port",
 			func(port int32) {
-				iface := vmschema.Interface{Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName},
+				iface := vmschema.Interface{
+					Name: "slirpTest", Binding: &vmschema.PluginBinding{Name: domain.SlirpPluginName},
 					Ports: []vmschema.Port{{Port: port}},
 				}
 				network := vmschema.Network{Name: "slirpTest", NetworkSource: vmschema.NetworkSource{Pod: &vmschema.PodNetwork{}}}

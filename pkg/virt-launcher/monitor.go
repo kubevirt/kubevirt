@@ -37,8 +37,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
-type OnShutdownCallback func(pid int)
-type OnGracefulShutdownCallback func()
+type (
+	OnShutdownCallback         func(pid int)
+	OnGracefulShutdownCallback func()
+)
 
 type monitor struct {
 	timeout                  time.Duration
@@ -89,13 +91,13 @@ func InitializeConsoleLogFile(baseDir string) error {
 }
 
 func InitializeDisksDirectories(baseDir string) error {
-	err := os.MkdirAll(baseDir, 0750)
+	err := os.MkdirAll(baseDir, 0o750)
 	if err != nil {
 		return err
 	}
 
 	// #nosec G302: Poor file permissions used with chmod. Using the safe permission setting for a directory.
-	err = os.Chmod(baseDir, 0750)
+	err = os.Chmod(baseDir, 0o750)
 	if err != nil {
 		return err
 	}
@@ -110,7 +112,8 @@ func NewProcessMonitor(domainName string,
 	pidDir string,
 	gracePeriod int,
 	finalShutdownCallback OnShutdownCallback,
-	gracefulShutdownCallback OnGracefulShutdownCallback) ProcessMonitor {
+	gracefulShutdownCallback OnGracefulShutdownCallback,
+) ProcessMonitor {
 	return &monitor{
 		domainName:               domainName,
 		pidDir:                   pidDir,
@@ -227,7 +230,6 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalStopChan chan 
 			mon.gracePeriodStartTime = time.Now().UTC().Unix()
 		}
 	}
-
 }
 
 func (mon *monitor) RunForever(startTimeout time.Duration, signalStopChan chan struct{}) {
@@ -235,7 +237,6 @@ func (mon *monitor) RunForever(startTimeout time.Duration, signalStopChan chan s
 }
 
 func pidExists(pid int) (exists bool, isZombie bool, err error) {
-
 	pathCmdline := fmt.Sprintf("/proc/%d/cmdline", pid)
 	pathStatus := fmt.Sprintf("/proc/%d/status", pid)
 

@@ -19,7 +19,6 @@ import (
 )
 
 var _ = Describe("cert-manager", func() {
-
 	Context("based on mounted files", func() {
 		var certDir string
 		var certFilePath string
@@ -67,8 +66,8 @@ var _ = Describe("cert-manager", func() {
 
 			newCertFilePath := filepath.Join(newCertDir, "tls.crt")
 			newKeyFilePath := filepath.Join(newKeyDir, "tls.key")
-			Expect(os.WriteFile(newCertFilePath, crt, 0777)).To(Succeed())
-			Expect(os.WriteFile(newKeyFilePath, key, 0777)).To(Succeed())
+			Expect(os.WriteFile(newCertFilePath, crt, 0o777)).To(Succeed())
+			Expect(os.WriteFile(newKeyFilePath, key, 0o777)).To(Succeed())
 
 			certManager := NewFileCertificateManager(newCertFilePath, newKeyFilePath)
 			go certManager.Start()
@@ -99,7 +98,7 @@ var _ = Describe("cert-manager", func() {
 			Eventually(func() *tls.Certificate {
 				return certManager.Current()
 			}, time.Second).Should(Not(BeNil()))
-			Expect(os.WriteFile(filepath.Join(certDir, CertBytesValue), []byte{}, 0777)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(certDir, CertBytesValue), []byte{}, 0o777)).To(Succeed())
 			Consistently(func() *tls.Certificate {
 				return certManager.Current()
 			}, 2*time.Second).ShouldNot(BeNil())
@@ -180,8 +179,8 @@ func writeCertsToDir(dir string) {
 	)
 	crt := cert.EncodeCertPEM(keyPair.Cert)
 	key := cert.EncodePrivateKeyPEM(keyPair.Key)
-	Expect(os.WriteFile(filepath.Join(dir, CertBytesValue), crt, 0777)).To(Succeed())
-	Expect(os.WriteFile(filepath.Join(dir, KeyBytesValue), key, 0777)).To(Succeed())
+	Expect(os.WriteFile(filepath.Join(dir, CertBytesValue), crt, 0o777)).To(Succeed())
+	Expect(os.WriteFile(filepath.Join(dir, KeyBytesValue), key, 0o777)).To(Succeed())
 }
 
 func writeCertsToSecret(name string, namespace string, revision string) *k8sv1.Secret {

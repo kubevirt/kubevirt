@@ -37,8 +37,10 @@ const (
 	FSOverheadMsg     = "Using default 5.5%% filesystem overhead for pvc size"
 )
 
-var ErrFailedToFindCdi error = errors.New("No CDI instances found")
-var ErrMultipleCdiInstances error = errors.New("Detected more than one CDI instance")
+var (
+	ErrFailedToFindCdi      error = errors.New("No CDI instances found")
+	ErrMultipleCdiInstances error = errors.New("Detected more than one CDI instance")
+)
 
 func GetFilesystemOverhead(volumeMode *k8sv1.PersistentVolumeMode, storageClass *string, cdiConfig *cdiv1.CDIConfig) (virtv1.Percent, error) {
 	if IsPVCBlock(volumeMode) {
