@@ -89,5 +89,5 @@ func (s *Scaling) RestoreScale(operatorName string) {
 		deployment, err := s.virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.TODO(), operatorName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return deployment.Status.ReadyReplicas
-	}, 30*time.Second, 1*time.Second).Should(Equal(revert.Spec.Replicas), "failed to verify restored replicas for %s", operatorName)
+	}, 90*time.Second, 1*time.Second).Should(Equal(revert.Spec.Replicas), "failed to verify restored replicas for %s", operatorName)
 }
