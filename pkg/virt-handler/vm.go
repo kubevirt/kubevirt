@@ -63,6 +63,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
@@ -1722,7 +1723,7 @@ func (c *VirtualMachineController) getVMIFromCache(key string) (vmi *v1.VirtualM
 			// TODO log and don't retry
 			return nil, false, err
 		}
-		vmi = v1.NewVMIReferenceFromNameWithNS(namespace, name)
+		vmi = libvmi.New(libvmi.WithName(name), libvmi.WithNamespace(namespace))
 	} else {
 		vmi = obj.(*v1.VirtualMachineInstance)
 	}
@@ -2085,7 +2086,7 @@ func (c *VirtualMachineController) execute(key string) error {
 	}
 
 	if vmiExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
-		oldVMI := v1.NewVMIReferenceFromNameWithNS(vmi.Namespace, vmi.Name)
+		oldVMI := libvmi.New(libvmi.WithName(vmi.Name), libvmi.WithNamespace(vmi.Namespace))
 		oldVMI.UID = domain.Spec.Metadata.KubeVirt.UID
 		expired, initialized, err := c.isLauncherClientUnresponsive(oldVMI)
 		if err != nil {
