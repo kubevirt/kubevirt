@@ -800,6 +800,15 @@ func (ctrl *VMExportController) getExportPodName(vmExport *exportv1.VirtualMachi
 	return naming.GetName(exportPrefix, vmExport.Name, validation.DNS1035LabelMaxLength)
 }
 
+func (ctrl *VMExportController) getExportPodVolumeName(pvc *corev1.PersistentVolumeClaim) string {
+	pvcName := strings.ReplaceAll(pvc.Name, ".", "-")
+	// Using the formatted PVC name if it's under the max length.
+	if len(pvcName) <= validation.DNS1035LabelMaxLength {
+		return pvcName
+	}
+	return naming.GetName(exportPrefix, pvcName, validation.DNS1035LabelMaxLength)
+}
+
 // getExportLabelValue will return the virtual machine's name if it is under the
 // DNS1035-specified max length, or a normalized name otherwise.
 func (ctrl *VMExportController) getExportLabelValue(vmExport *exportv1.VirtualMachineExport) string {
@@ -933,7 +942,7 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 	}
 	for i, pvc := range pvcs {
 		var mountPoint string
-		volumeName := strings.ReplaceAll(pvc.Name, ".", "-")
+		volumeName := ctrl.getExportPodVolumeName(pvc)
 		if types.IsPVCBlock(pvc.Spec.VolumeMode) {
 			mountPoint = fmt.Sprintf("%s/%s", blockVolumeMountPath, volumeName)
 			podManifest.Spec.Containers[0].VolumeDevices = append(podManifest.Spec.Containers[0].VolumeDevices, corev1.VolumeDevice{
