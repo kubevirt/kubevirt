@@ -87,27 +87,6 @@ if [[ "$KUBEVIRT_DEPLOY_CDI" != "false" ]] && [[ ${ARCHITECTURE} != *aarch64 ]];
     _ensure_cdi_deployment
 fi
 
-if [[ "${KUBEVIRT_DEPLOY_NFS_CSI}" == "true" ]]; then
-    # W/A for nfs server becoming unreachable mid run
-    _kubectl delete sc nfs-csi
-    podip=$(_kubectl get pod -n nfs-csi -l=app=nfs-server -ojsonpath="{ $.items[0].status.podIP }")
-    _kubectl create -f - <<EOF
----
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: nfs-csi
-mountOptions:
-- nfsvers=4.1
-parameters:
-  server: $podip
-  share: /
-provisioner: nfs.csi.k8s.io
-reclaimPolicy: Delete
-volumeBindingMode: Immediate
-EOF
-fi
-
 # Deploy kubevirt operator
 _kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt-operator.yaml
 
