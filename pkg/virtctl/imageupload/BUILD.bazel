@@ -3,12 +3,22 @@ load("@kubevirt//tools/ginkgo:ginkgo.bzl", "ginkgo_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["imageupload.go"],
+    srcs = [
+        "command.go",
+        "datasource.go",
+        "datavolume.go",
+        "imageupload.go",
+        "pvc.go",
+        "upload.go",
+        "util.go",
+        "wait.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/imageupload",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/apimachinery/wait:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virtctl/clientconfig:go_default_library",
@@ -21,6 +31,7 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/fields:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
