@@ -21,6 +21,9 @@ set -ex
 
 export TIMESTAMP=${TIMESTAMP:-1}
 
+export KUBEVIRT_PROVIDER_EXTRA_ARGS="${KUBEVIRT_PROVIDER_EXTRA_ARGS} --kernel-args='psi=1'"
+
+
 export WORKSPACE="${WORKSPACE:-$PWD}"
 readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="gs://kubevirt-vm-images"
@@ -541,6 +544,51 @@ spec:
   storageClassName: rhel
 EOF
 fi
+
+kubectl create namespace io-monitor
+kubectl label --overwrite ns io-monitor pod-security.kubernetes.io/enforce=privileged
+kubectl create -f - <<EOF
+---
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: psi-io-monitor
+  namespace: io-monitor
+spec:
+  selector:
+    matchLabels:
+      name: psi-io-monitor
+  template:
+    metadata:
+      labels:
+        name: psi-io-monitor
+    spec:
+      containers:
+        - image: >-
+            quay.io/ibezukh/psi-io-monitor:v1
+          imagePullPolicy: IfNotPresent
+          name: psi-io-monitor
+          resources:
+            requests:
+              cpu: 100m
+              memory: 50M
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - mountPath: /host
+              name: host
+      hostPID: true
+      hostUsers: true
+      volumes:
+        - hostPath:
+            path: /
+          name: host
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 10%
+
+EOF
 
 
 # Run functional tests
