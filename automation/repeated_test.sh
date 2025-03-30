@@ -260,7 +260,7 @@ if [[ -n ${NEW_TESTS} ]]; then
         echo "test name: ${test_name}"
         # escape steps:
         # 1) whitespaces - this avoids skipping tests
-        # 2) square brackets - which make the regex bail and
+        # 2) square brackets - which make the regex bail
         escaped=$(echo "${test_name// /\\s}" | sed -E 's/([][])/\\\1/g')
         echo "test name escaped: ${escaped}"
         ginkgo_params+=" -focus=${escaped}"
