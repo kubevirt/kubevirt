@@ -41,8 +41,7 @@ jobs:
       - name: set unstable tag
         # This workflow always pushes unstable tags, both from main and release branches.
         run: |
-          echo "IMAGE_TAG=${CSV_VERSION}-unstable" >> $GITHUB_ENV
-          echo "UNSTABLE=UNSTABLE" >> $GITHUB_ENV
+          echo "IMAGE_TAG=$(date -u +%Y%m%d-%H%M%S) >> $GITHUB_ENV
 
       - name: Build and Push Applications Images
         env:
@@ -71,4 +70,10 @@ jobs:
       - name: Build and Push the Index Image
         run: |
           export OPM=$(pwd)/linux-amd64-opm
-          ./hack/build-index-image.sh latest ${{ env.UNSTABLE }}
+          ./hack/build-index-image.sh latest UNSTABLE
+      - name: Re-tag and Push all the Images
+        env:
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          CSV_VERSION: ${{ env.CSV_VERSION }}
+        run: |
+          IMAGE_TAG="${IMAGE_TAG}" NEW_TAG="${CSV_VERSION}-unstable" make retag-push-all-images

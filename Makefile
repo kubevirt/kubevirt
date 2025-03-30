@@ -10,6 +10,8 @@ OPERATOR_IMAGE     ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-operator
 WEBHOOK_IMAGE      ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-webhook
 FUNC_TEST_IMAGE    ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-functest
 VIRT_ARTIFACTS_SERVER ?= $(REGISTRY_NAMESPACE)/virt-artifacts-server
+BUNDLE_IMAGE       ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-bundle
+INDEX_IMAGE        ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-index
 LDFLAGS            ?= -w -s
 GOLANDCI_LINT_VERSION ?= v1.64.4
 HCO_BUMP_LEVEL ?= minor
@@ -144,6 +146,14 @@ container-push-functest:
 
 container-push-artifacts-server:
 	. "hack/cri-bin.sh" && $$CRI_BIN manifest push $(IMAGE_REGISTRY)/$(VIRT_ARTIFACTS_SERVER):$(IMAGE_TAG)
+
+retag-push-all-images:
+	IMAGE_REPO=$(IMAGE_REGISTRY)/$(OPERATOR_IMAGE) MULTIARCH=true CURRENT_TAG=$(IMAGE_TAG) NEW_TAG=$(NEW_TAG) ./hack/retag-multi-arch-images.sh
+	IMAGE_REPO=$(IMAGE_REGISTRY)/$(WEBHOOK_IMAGE) MULTIARCH=true CURRENT_TAG=$(IMAGE_TAG) NEW_TAG=$(NEW_TAG) ./hack/retag-multi-arch-images.sh
+	IMAGE_REPO=$(IMAGE_REGISTRY)/$(FUNC_TEST_IMAGE) MULTIARCH=true CURRENT_TAG=$(IMAGE_TAG) NEW_TAG=$(NEW_TAG) ./hack/retag-multi-arch-images.sh
+	IMAGE_REPO=$(IMAGE_REGISTRY)/$(VIRT_ARTIFACTS_SERVER) MULTIARCH=true CURRENT_TAG=$(IMAGE_TAG) NEW_TAG=$(NEW_TAG) ./hack/retag-multi-arch-images.sh
+	IMAGE_REPO=$(IMAGE_REGISTRY)/$(BUNDLE_IMAGE) CURRENT_TAG=$(IMAGE_TAG) NEW_TAG=$(NEW_TAG) ./hack/retag-multi-arch-images.sh
+	IMAGE_REPO=$(IMAGE_REGISTRY)/$(INDEX_IMAGE) MULTIARCH=true CURRENT_TAG=$(IMAGE_TAG) NEW_TAG=$(NEW_TAG) ./hack/retag-multi-arch-images.sh
 
 cluster-up:
 	./cluster/up.sh
@@ -331,4 +341,5 @@ bump-hco:
 		build-push-multi-arch-webhook-image \
 		build-push-multi-arch-functest-image \
 		build-push-multi-arch-artifacts-server \
-		build-push-multi-arch-images
+		build-push-multi-arch-images \
+		retag-push-all-images
