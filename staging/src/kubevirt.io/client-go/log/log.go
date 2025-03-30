@@ -33,7 +33,7 @@ import (
 	"sync"
 	"time"
 
-	klog "github.com/go-kit/kit/log"
+	klog "github.com/go-kit/log"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 )
