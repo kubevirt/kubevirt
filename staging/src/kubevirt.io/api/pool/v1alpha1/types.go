@@ -114,7 +114,7 @@ type VirtualMachinePoolSpec struct {
 	// +optional
 	NameGeneration *VirtualMachinePoolNameGeneration `json:"nameGeneration,omitempty"`
 
-	// (Defaults to 25%) Integer or string pointer, that when set represents either a percentage or number of VMs in a pool that can be unavailable (ready condition false) at a time during automated update.
+	// (Defaults to 100%) Integer or string pointer, that when set represents either a percentage or number of VMs in a pool that can be unavailable (ready condition false) at a time during automated update.
 	// +optional
 	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty" protobuf:"bytes,3,opt,name=maxUnavailable"`
 }

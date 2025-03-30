@@ -956,7 +956,7 @@ func (c *Controller) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vmOutd
 }
 
 func calculateMaxUnavailableInt(pool *poolv1.VirtualMachinePool) (int, error) {
-	maxUnavailable := intstr.FromString("25%")
+	maxUnavailable := intstr.FromString("100%")
 	if pool.Spec.MaxUnavailable != nil {
 		maxUnavailable = *pool.Spec.MaxUnavailable
 	}
