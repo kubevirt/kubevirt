@@ -749,7 +749,7 @@ func (c *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 		c.finalizeMigration(vmiCopy)
 	}
 
-	if !migrations.IsMigrating(vmi) {
+	if !vmi.IsMigrating() {
 		destSrcPortsMap := c.migrationProxy.GetTargetListenerPorts(string(vmi.UID))
 		if len(destSrcPortsMap) == 0 {
 			msg := "target migration listener is not up for this vmi"
@@ -2735,7 +2735,7 @@ func (c *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 		// Re-enqueue to trigger handler final cleanup
 		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second)
 		return nil
-	} else if migrations.IsMigrating(vmi) {
+	} else if vmi.IsMigrating() {
 		// If the migration has already started,
 		// then there's nothing left to prepare on the target side
 		return nil
