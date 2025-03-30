@@ -56,10 +56,10 @@ spec:
                 server:
                   duration: 24h0m0s
                   renewBefore: 12h0m0s
+              deployVmConsoleProxy: false
               enableCommonBootImageImport: true
               featureGates:
                 deployKubeSecondaryDNS: false
-                deployVmConsoleProxy: false
                 disableMDevConfiguration: false
                 downwardMetrics: false
                 enableApplicationAwareQuota: false
@@ -1015,6 +1015,10 @@ spec:
                   Default RuntimeClass can be changed when kubevirt is running, existing VMIs are not impacted till
                   the next restart/live-migration when they are eventually going to consume the new default RuntimeClass.
                 type: string
+              deployVmConsoleProxy:
+                default: false
+                description: deploy VM console proxy resources in SSP operator
+                type: boolean
               enableCommonBootImageImport:
                 default: true
                 description: |-
@@ -1043,7 +1047,6 @@ spec:
               featureGates:
                 default:
                   deployKubeSecondaryDNS: false
-                  deployVmConsoleProxy: false
                   disableMDevConfiguration: false
                   downwardMetrics: false
                   enableApplicationAwareQuota: false
@@ -1077,8 +1080,9 @@ spec:
                       on the next version of the API.'
                     type: boolean
                   deployVmConsoleProxy:
-                    default: false
-                    description: deploy VM console proxy resources in SSP operator
+                    description: |-
+                      Deprecated: This field is ignored and will be removed on the next version of the API.
+                      Use spec.deployVmConsoleProxy instead
                     type: boolean
                   disableMDevConfiguration:
                     default: false
@@ -1095,12 +1099,8 @@ spec:
                       Application Aware Quota feature
                     type: boolean
                   enableCommonBootImageImport:
-                    description: |-
-                      Opt-in to automatic delivery/updates of the common data import cron templates.
-                      There are two sources for the data import cron templates: hard coded list of common templates, and custom
-                      templates that can be added to the dataImportCronTemplates field. This feature gates only control the common
-                      templates. It is possible to use custom templates by adding them to the dataImportCronTemplates field.
-                      Deprecated: This field is ignored. Use spec.enableCommonBootImageImport instead
+                    description: 'Deprecated: This field is ignored. Use spec.enableCommonBootImageImport
+                      instead'
                     type: boolean
                   enableManagedTenantQuota:
                     description: 'Deprecated: This field is ignored and will be removed

@@ -144,12 +144,6 @@ virtual machine.
 ### withHostPassthroughCPU Feature Gate
 This feature gate is deprecated and is ignored.
 
-### deployVmConsoleProxy Feature Gate
-Set the `deployVmConsoleProxy` feature gate to true to allow SSP operator to deploy its resources. SSP operator will 
-deploy a proxy that provides an access to the VNC console of a KubeVirt Virtual Machine (VM).
-
-**Default**: `false`
-
 ### deployKubeSecondaryDNS Feature Gate
 Set the `deployKubeSecondaryDNS` feature gate to true to allow deploying KubeSecondaryDNS by CNAO.
 For additional information, see here: [KubeSecondaryDNS](https://github.com/kubevirt/kubesecondarydns)
@@ -1186,6 +1180,19 @@ spec:
 As an example, if the VM compute container requests 4Gi memory, then the corresponding VM guest OS will see `4Gi * 150 / 100 = 6Gi`.
 
 **Note**: When updating the overcommit percentage, changes will apply to existing VM workloads only after a power cycle or after live-imgration. 
+
+## Allow access to the Virtual Machine's VNC Console
+In order to allow access toe the Virtual Machine's VNC Console, set the `spec.deployVmConsoleProxy` field to `true`.
+
+SSP operator will deploy a proxy that provides the required access.
+
+**Default**: `false`
+
+### Example
+```yaml
+spec:
+  deployVmConsoleProxy: true
+```
 
 ## Configurations via Annotations
 

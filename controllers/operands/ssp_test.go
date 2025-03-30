@@ -191,7 +191,7 @@ var _ = Describe("SSP Operands", func() {
 
 		It("should create ssp with deployVmConsoleProxy feature gate enabled", func() {
 			hco := commontestutils.NewHco()
-			hco.Spec.FeatureGates.DeployVMConsoleProxy = ptr.To(true)
+			hco.Spec.DeployVMConsoleProxy = ptr.To(true)
 
 			expectedResource, _, err := NewSSP(hco)
 			Expect(err).ToNot(HaveOccurred())

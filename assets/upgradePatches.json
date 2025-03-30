@@ -92,13 +92,35 @@
       "jsonPatchApplyOptions": {
         "allowMissingPathOnRemove": true
       }
-   },
+    },
+    {
+      "semverRange": "<1.15.0",
+      "jsonPatch": [
+        {
+          "op": "test",
+          "path": "/spec/featureGates/deployVmConsoleProxy",
+          "value": true
+        },
+        {
+          "op": "move",
+          "from": "/spec/featureGates/enableCommonBootImageImport",
+          "path": "/spec/enableCommonBootImageImport"
+        }
+      ],
+      "jsonPatchApplyOptions": {
+        "allowMissingPathOnRemove": true
+      }
+    },
     {
       "semverRange": "<1.15.0",
       "jsonPatch": [
         {
           "op": "remove",
           "path": "/spec/featureGates/enableCommonBootImageImport"
+        },
+        {
+          "op": "remove",
+          "path": "/spec/featureGates/deployVmConsoleProxy"
         }
       ],
       "jsonPatchApplyOptions": {

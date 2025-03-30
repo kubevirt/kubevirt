@@ -10,7 +10,6 @@
     "workloads": {},
     "featureGates": {
       "downwardMetrics": false,
-      "deployVmConsoleProxy": false,
       "deployKubeSecondaryDNS": false,
       "disableMDevConfiguration": false,
       "persistentReservation": false,
@@ -50,7 +49,8 @@
     "higherWorkloadDensity": {
       "memoryOvercommitPercentage": 100
     },
-    "enableCommonBootImageImport": true
+    "enableCommonBootImageImport": true,
+    "deployVmConsoleProxy": false
   },
   "status": {}
 }

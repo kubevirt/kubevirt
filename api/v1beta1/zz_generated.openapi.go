@@ -248,7 +248,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 					},
 					"enableCommonBootImageImport": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Opt-in to automatic delivery/updates of the common data import cron templates. There are two sources for the data import cron templates: hard coded list of common templates, and custom templates that can be added to the dataImportCronTemplates field. This feature gates only control the common templates. It is possible to use custom templates by adding them to the dataImportCronTemplates field. Deprecated: This field is ignored. Use spec.enableCommonBootImageImport instead",
+							Description: "Deprecated: This field is ignored. Use spec.enableCommonBootImageImport instead",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -262,8 +262,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 					},
 					"deployVmConsoleProxy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "deploy VM console proxy resources in SSP operator",
-							Default:     false,
+							Description: "Deprecated: This field is ignored and will be removed on the next version of the API. Use spec.deployVmConsoleProxy instead",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -657,6 +656,14 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedS
 						SchemaProps: spec.SchemaProps{
 							Description: "InstancetypeConfig holds the configuration of instance type related functionality within KubeVirt.",
 							Ref:         ref("kubevirt.io/api/core/v1.InstancetypeConfiguration"),
+						},
+					},
+					"deployVmConsoleProxy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "deploy VM console proxy resources in SSP operator",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},

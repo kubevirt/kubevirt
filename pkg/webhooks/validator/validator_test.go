@@ -514,7 +514,8 @@ var _ = Describe("webhooks validator", func() {
 						NonRoot:                     ptr.To(false),
 						EnableCommonBootImageImport: ptr.To(true),
 						EnableManagedTenantQuota:    ptr.To(false),
-					}, "enableManagedTenantQuota", "nonRoot", "enableCommonBootImageImport"),
+						DeployVMConsoleProxy:        ptr.To(false),
+					}, "enableManagedTenantQuota", "nonRoot", "enableCommonBootImageImport", "deployVmConsoleProxy"),
 			)
 		})
 	})
@@ -1186,6 +1187,7 @@ var _ = Describe("webhooks validator", func() {
 		})
 
 		Context("validate moved FG on update", func() {
+			//nolint:staticcheck
 			DescribeTable("should return warning for enableCommonBootImageImport on update", func(newFG, oldFG *bool) {
 				newHCO := hco.DeepCopy()
 				hco.Spec.FeatureGates.EnableCommonBootImageImport = newFG
@@ -1206,6 +1208,7 @@ var _ = Describe("webhooks validator", func() {
 				Entry("should trigger warning if enableCommonBootImageImport has changed from false to true", ptr.To(false), ptr.To(true)),
 			)
 
+			//nolint:staticcheck
 			DescribeTable("should not return warning for enableCommonBootImageImport if not change", func(newFG, oldFG *bool) {
 				cli := getFakeClient(hco)
 				wh := NewWebhookHandler(logger, cli, decoder, HcoValidNamespace, true, nil)
@@ -1219,6 +1222,43 @@ var _ = Describe("webhooks validator", func() {
 				Entry("should not trigger warning if enableCommonBootImageImport (false) disappeared", ptr.To(false), nil),
 				Entry("should not trigger warning if enableCommonBootImageImport (true) wasn't changed", ptr.To(true), ptr.To(true)),
 				Entry("should not trigger warning if enableCommonBootImageImport (false) wasn't changed", ptr.To(false), ptr.To(false)),
+			)
+
+			//nolint:staticcheck
+			DescribeTable("should return warning for deployVmConsoleProxy on update", func(newFG, oldFG *bool) {
+				newHCO := hco.DeepCopy()
+				hco.Spec.FeatureGates.DeployVMConsoleProxy = newFG
+				newHCO.Spec.FeatureGates.DeployVMConsoleProxy = oldFG
+
+				err := wh.ValidateUpdate(ctx, dryRun, newHCO, hco)
+
+				Expect(err).To(HaveOccurred())
+				expected := &ValidationWarning{}
+				Expect(errors.As(err, &expected)).To(BeTrue())
+
+				Expect(expected.warnings).To(HaveLen(1))
+				Expect(expected.warnings).To(ContainElements(ContainSubstring("deployVmConsoleProxy")))
+			},
+				Entry("should trigger warning if deployVmConsoleProxy appeared as true", nil, ptr.To(true)),
+				Entry("should trigger warning if deployVmConsoleProxy appeared as false", nil, ptr.To(false)),
+				Entry("should trigger warning if deployVmConsoleProxy has changed from true to false", ptr.To(true), ptr.To(false)),
+				Entry("should trigger warning if deployVmConsoleProxy has changed from false to true", ptr.To(false), ptr.To(true)),
+			)
+
+			//nolint:staticcheck
+			DescribeTable("should not return warning for deployVmConsoleProxy if not change", func(newFG, oldFG *bool) {
+				cli := getFakeClient(hco)
+				wh := NewWebhookHandler(logger, cli, decoder, HcoValidNamespace, true, nil)
+				newHCO := hco.DeepCopy()
+				hco.Spec.FeatureGates.DeployVMConsoleProxy = newFG
+				newHCO.Spec.FeatureGates.DeployVMConsoleProxy = oldFG
+
+				Expect(wh.ValidateUpdate(ctx, dryRun, newHCO, hco)).To(Succeed())
+			},
+				Entry("should not trigger warning if deployVmConsoleProxy (true) disappeared", ptr.To(true), nil),
+				Entry("should not trigger warning if deployVmConsoleProxy (false) disappeared", ptr.To(false), nil),
+				Entry("should not trigger warning if deployVmConsoleProxy (true) wasn't changed", ptr.To(true), ptr.To(true)),
+				Entry("should not trigger warning if deployVmConsoleProxy (false) wasn't changed", ptr.To(false), ptr.To(false)),
 			)
 		})
 	})

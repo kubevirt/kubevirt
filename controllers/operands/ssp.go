@@ -157,9 +157,9 @@ func NewSSP(hc *hcov1beta1.HyperConverged, opts ...string) (*sspv1beta2.SSP, []h
 		FeatureGates:       &sspv1beta2.FeatureGates{},
 	}
 
-	if hc.Spec.FeatureGates.DeployVMConsoleProxy != nil {
+	if hc.Spec.DeployVMConsoleProxy != nil {
 		spec.TokenGenerationService = &sspv1beta2.TokenGenerationService{
-			Enabled: *hc.Spec.FeatureGates.DeployVMConsoleProxy,
+			Enabled: *hc.Spec.DeployVMConsoleProxy,
 		}
 	}
 

@@ -66,7 +66,7 @@ type HyperConvergedSpec struct {
 
 	// featureGates is a map of feature gate flags. Setting a flag to `true` will enable
 	// the feature. Setting `false` or removing the feature gate, disables the feature.
-	// +kubebuilder:default={"downwardMetrics": false, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "disableMDevConfiguration": false, "persistentReservation": false, "enableApplicationAwareQuota": false}
+	// +kubebuilder:default={"downwardMetrics": false, "deployKubeSecondaryDNS": false, "disableMDevConfiguration": false, "persistentReservation": false, "enableApplicationAwareQuota": false}
 	// +optional
 	FeatureGates HyperConvergedFeatureGates `json:"featureGates,omitempty"`
 
@@ -256,6 +256,12 @@ type HyperConvergedSpec struct {
 	// InstancetypeConfig holds the configuration of instance type related functionality within KubeVirt.
 	// +optional
 	InstancetypeConfig *v1.InstancetypeConfiguration `json:"instancetypeConfig,omitempty"`
+
+	// deploy VM console proxy resources in SSP operator
+	// +optional
+	// +kubebuilder:default=false
+	// +default=false
+	DeployVMConsoleProxy *bool `json:"deployVmConsoleProxy,omitempty"`
 }
 
 // CertRotateConfigCA contains the tunables for TLS certificates.
@@ -419,21 +425,14 @@ type HyperConvergedFeatureGates struct {
 	// Deprecated: there is no such FG in KubeVirt. This field is ignored
 	WithHostPassthroughCPU *bool `json:"withHostPassthroughCPU,omitempty"`
 
-	// Opt-in to automatic delivery/updates of the common data import cron templates.
-	// There are two sources for the data import cron templates: hard coded list of common templates, and custom
-	// templates that can be added to the dataImportCronTemplates field. This feature gates only control the common
-	// templates. It is possible to use custom templates by adding them to the dataImportCronTemplates field.
-	// +optional
 	// Deprecated: This field is ignored. Use spec.enableCommonBootImageImport instead
 	EnableCommonBootImageImport *bool `json:"enableCommonBootImageImport,omitempty"`
 
 	// Deprecated: This field is ignored and will be removed on the next version of the API.
 	DeployTektonTaskResources *bool `json:"deployTektonTaskResources,omitempty"`
 
-	// deploy VM console proxy resources in SSP operator
-	// +optional
-	// +kubebuilder:default=false
-	// +default=false
+	// Deprecated: This field is ignored and will be removed on the next version of the API.
+	// Use spec.deployVmConsoleProxy instead
 	DeployVMConsoleProxy *bool `json:"deployVmConsoleProxy,omitempty"`
 
 	// Deploy KubeSecondaryDNS by CNAO
@@ -851,7 +850,7 @@ type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"downwardMetrics": false, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false, "disableMDevConfiguration": false, "persistentReservation": false, "enableApplicationAwareQuota": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 150, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist", "virtualMachineOptions": {"disableFreePageReporting": false, "disableSerialConsoleLog": false}, "enableCommonBootImageImport": true}
+	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"downwardMetrics": false, "deployKubeSecondaryDNS": false, "disableMDevConfiguration": false, "persistentReservation": false, "enableApplicationAwareQuota": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 150, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist", "virtualMachineOptions": {"disableFreePageReporting": false, "disableSerialConsoleLog": false}, "enableCommonBootImageImport": true, "deployVmConsoleProxy": false}
 	// +optional
 	Spec   HyperConvergedSpec   `json:"spec,omitempty"`
 	Status HyperConvergedStatus `json:"status,omitempty"`
