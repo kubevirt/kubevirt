@@ -15,7 +15,6 @@ import (
 )
 
 var _ = Describe("Nodetopologyupdater", func() {
-
 	var topologyUpdater *nodeTopologyUpdater
 	var ctrl *gomock.Controller
 	var hinter *MockHinter
@@ -35,7 +34,6 @@ var _ = Describe("Nodetopologyupdater", func() {
 	})
 
 	Context("with no VMs with TSC frequency set running", func() {
-
 		BeforeEach(func() {
 			hinter.EXPECT().LowestTSCFrequencyOnCluster().Return(int64(100), nil)
 			hinter.EXPECT().TSCFrequenciesInUse().Return(nil)
@@ -93,7 +91,6 @@ var _ = Describe("Nodetopologyupdater", func() {
 			g.Expect(node.Labels).ToNot(g.HaveKeyWithValue(ToTSCSchedulableLabel(99), "true"))
 			g.Expect(node.Labels).ToNot(g.HaveKeyWithValue(ToTSCSchedulableLabel(200), "true"))
 		})
-
 	})
 
 	Context("with repeated labels", func() {

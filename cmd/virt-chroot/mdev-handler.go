@@ -12,11 +12,12 @@ import (
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 )
 
-var mdevBasePath string = "/sys/bus/mdev/devices"
-var mdevClassBusPath string = "/sys/class/mdev_bus"
+var (
+	mdevBasePath     string = "/sys/bus/mdev/devices"
+	mdevClassBusPath string = "/sys/class/mdev_bus"
+)
 
 func createMDEVType(mdevType string, parentID string, uid string) error {
-
 	path := filepath.Join(mdevClassBusPath, parentID, "mdev_supported_types", mdevType, "create")
 	// wait for interface to become available
 	if !isInterfaceAvailable(path) {
@@ -25,7 +26,7 @@ func createMDEVType(mdevType string, parentID string, uid string) error {
 		fmt.Println(msg)
 		return errMsg
 	}
-	f, err := os.OpenFile(path, os.O_WRONLY, 0200)
+	f, err := os.OpenFile(path, os.O_WRONLY, 0o200)
 	if err != nil {
 		fmt.Printf("failed to create mdev type %s, can't open path %s\n", mdevType, path)
 		return err
@@ -51,7 +52,7 @@ func removeMDEVType(mdevUUID string) error {
 		return errMsg
 	}
 
-	f, err := os.OpenFile(removePath, os.O_WRONLY, 0200)
+	f, err := os.OpenFile(removePath, os.O_WRONLY, 0o200)
 	if err != nil {
 		fmt.Printf("failed to remove mdev %s, can't open path %s\n", mdevUUID, removePath)
 		return err
@@ -99,7 +100,6 @@ func isInterfaceAvailable(interfacePath string) bool {
 		}
 		return true, nil
 	})
-
 	if err != nil {
 		fmt.Printf("interface %s is not available after multiple tries\n", interfacePath)
 		return false

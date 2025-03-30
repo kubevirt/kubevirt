@@ -42,7 +42,6 @@ import (
 )
 
 var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
-
 	var upgrader websocket.Upgrader
 	var server *ghttp.Server
 	basePath := "/apis/kubevirt.io/v1/namespaces/default/virtualmachineinstances"

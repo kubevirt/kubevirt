@@ -374,7 +374,6 @@ func NewTargetProxy(tcpBindAddress string, tcpBindPort int, serverTLSConfig *tls
 		clientTLSConfig: clientTLSConfig,
 		logger:          log.Log.With("uid", vmiUID).With("outbound", filepath.Base(virtqemudSocketPath)),
 	}
-
 }
 
 func (m *migrationProxy) createTcpListener() error {
@@ -404,7 +403,6 @@ func (m *migrationProxy) createTcpListener() error {
 }
 
 func (m *migrationProxy) createUnixListener() error {
-
 	os.RemoveAll(m.unixSocketPath)
 	err := util.MkdirAllWithNosec(filepath.Dir(m.unixSocketPath))
 	if err != nil {
@@ -424,11 +422,9 @@ func (m *migrationProxy) createUnixListener() error {
 
 	m.listener = listener
 	return nil
-
 }
 
 func (m *migrationProxy) Stop() {
-
 	close(m.stopChan)
 	if m.listener != nil {
 		m.logger.Infof("proxy stopped listening")
@@ -455,13 +451,13 @@ func (m *migrationProxy) handleConnection(fd net.Conn) {
 	}
 
 	go func() {
-		//from outbound connection to proxy
+		// from outbound connection to proxy
 		n, err := io.Copy(fd, conn)
 		m.logger.Infof("%d bytes copied outbound to inbound", n)
 		inBoundErr <- err
 	}()
 	go func() {
-		//from proxy to outbound connection
+		// from proxy to outbound connection
 		n, err := io.Copy(conn, fd)
 		m.logger.Infof("%d bytes copied from inbound to outbound", n)
 		outBoundErr <- err
@@ -482,7 +478,6 @@ func (m *migrationProxy) handleConnection(fd net.Conn) {
 }
 
 func (m *migrationProxy) Start() error {
-
 	if m.unixSocketPath != "" {
 		err := m.createUnixListener()
 		if err != nil {
@@ -526,7 +521,6 @@ func (m *migrationProxy) Start() error {
 				return
 			}
 		}
-
 	}(m)
 
 	m.logger.Infof("proxy started listening")

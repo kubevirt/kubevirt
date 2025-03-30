@@ -72,7 +72,6 @@ func ExpectMigrationToSucceedWithOffset(offset int, virtClient kubecli.KubevirtC
 			return nil
 		}
 		return fmt.Errorf("migration is in the phase: %s", migration.Status.Phase)
-
 	}, timeout, 1*time.Second).ShouldNot(HaveOccurred(), fmt.Sprintf("migration should succeed after %d s", timeout))
 	return migration
 }
@@ -231,8 +230,8 @@ func EnsureNoMigrationMetadataInPersistentXML(vmi *v1.VirtualMachineInstance) {
 	domXML := libpod.RunCommandOnVmiPod(vmi, []string{"virsh", "dumpxml", "1"})
 	decoder := xml.NewDecoder(bytes.NewReader([]byte(domXML)))
 
-	var location = make([]string, 0)
-	var found = false
+	location := make([]string, 0)
+	found := false
 	for {
 		token, err := decoder.RawToken()
 		if err == io.EOF {
@@ -355,6 +354,7 @@ func CreateNodeAffinityRuleToMigrateFromSourceToTargetAndBack(sourceNode *k8sv1.
 		},
 	}, nil
 }
+
 func ConfirmVMIPostMigrationFailed(vmi *v1.VirtualMachineInstance, migrationUID string) *v1.VirtualMachineInstance {
 	virtClient := kubevirt.Client()
 	By("Retrieving the VMI post migration")
@@ -389,7 +389,6 @@ func ConfirmVMIPostMigrationAborted(vmi *v1.VirtualMachineInstance, migrationUID
 			return *vmi.Status.MigrationState
 		}
 		return v1.VirtualMachineInstanceMigrationState{}
-
 	}, timeout, 1*time.Second).Should(
 		gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 			"Completed":   BeTrue(),
@@ -418,7 +417,6 @@ func ConfirmVMIPostMigrationAborted(vmi *v1.VirtualMachineInstance, migrationUID
 }
 
 func RunMigrationAndExpectFailure(migration *v1.VirtualMachineInstanceMigration, timeout int) string {
-
 	virtClient := kubevirt.Client()
 	By("Starting a Migration")
 	createdMigration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(context.Background(), migration, metav1.CreateOptions{})
@@ -433,7 +431,6 @@ func RunMigrationAndExpectFailure(migration *v1.VirtualMachineInstanceMigration,
 		Expect(phase).NotTo(Equal(v1.MigrationSucceeded))
 
 		return phase
-
 	}, timeout, 1*time.Second).Should(Equal(v1.MigrationFailed))
 	return string(createdMigration.UID)
 }
@@ -443,7 +440,7 @@ func RunMigrationAndCollectMigrationMetrics(vmi *v1.VirtualMachineInstance, migr
 	virtClient := kubevirt.Client()
 	var pod *k8sv1.Pod
 	var metricsIPs []string
-	var migrationMetrics = []string{
+	migrationMetrics := []string{
 		"kubevirt_vmi_migration_data_total_bytes",
 		"kubevirt_vmi_migration_data_remaining_bytes",
 		"kubevirt_vmi_migration_data_processed_bytes",

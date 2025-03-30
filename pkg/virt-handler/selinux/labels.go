@@ -21,8 +21,10 @@ import (
 
 const procOnePrefix = "/proc/1/root"
 
-type execFunc = func(binary string, args ...string) ([]byte, error)
-type copyPolicy = func(policyName string, dir string) (err error)
+type (
+	execFunc   = func(binary string, args ...string) ([]byte, error)
+	copyPolicy = func(policyName string, dir string) (err error)
+)
 
 func defaultExecFunc(binary string, args ...string) ([]byte, error) {
 	// #nosec No risk for attacker injection. args get specific selinux exec parameters
@@ -93,7 +95,7 @@ func defaultCopyPolicyFunc(policyName string, dir string) (err error) {
 	}
 
 	destinationFile := filepath.Join(dir, sourceFile)
-	err = os.WriteFile(destinationFile, input, 0600)
+	err = os.WriteFile(destinationFile, input, 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to create a policy file %v: %v ", destinationFile, err)
 	}

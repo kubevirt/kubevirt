@@ -161,7 +161,6 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 			libmonitoring.WaitUntilAlertDoesNotExistWithCustomTime(virtClient, 15*time.Minute, "KubeVirtDeprecatedAPIRequested")
 		})
 	})
-
 })
 
 func disableVirtHandler(virtClient kubecli.KubevirtClient, originalKv *v1.KubeVirt) error {

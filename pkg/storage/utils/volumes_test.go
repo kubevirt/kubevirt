@@ -29,7 +29,6 @@ import (
 )
 
 var _ = Describe("GetVolumes", func() {
-
 	const backendVolume = "persistent-state-for-"
 
 	createVMI := func(hasEFI, hasTPM bool) *v1.VirtualMachineInstance {

@@ -8,7 +8,6 @@ import (
 )
 
 var _ = Describe("Running real time workloads", func() {
-
 	Context("captures the correct CPU ID from the thread command value", func() {
 		DescribeTable("extracts the CPU ID", func(comm []byte, cpuID string, parseOK bool) {
 			v, ok := isVCPU(comm)
@@ -99,7 +98,6 @@ var _ = Describe("Running real time workloads", func() {
 			Entry("Extracts a multiple range, multiple index and negate ids with overlap", "^1,0-3,^3,4,5,6-8,^7", newMask([]string{"0", "2", "4", "5", "6", "8"}, []string{"1", "3", "7"}), nil),
 		)
 	})
-
 })
 
 func newMask(cpuEnabled, cpuDisabled []string) cpuMask {

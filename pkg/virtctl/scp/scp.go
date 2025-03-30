@@ -165,7 +165,6 @@ func ParseTarget(source, destination string) (*LocalArgument, *RemoteArgument, b
 	}
 	var err error
 	remote.Kind, remote.Namespace, remote.Name, remote.Username, err = ssh.ParseTarget(split[0])
-
 	if err != nil {
 		return nil, nil, false, err
 	}

@@ -32,7 +32,6 @@ import (
 const resolvConf = "/etc/resolv.conf"
 
 func ReadResolvConfSearchDomains() ([]string, error) {
-
 	// #nosec No risk for path injection. resolvConf is static "/etc/resolve.conf"
 	resolvConfRaw, err := os.ReadFile(resolvConf)
 	if err != nil {

@@ -40,12 +40,15 @@ type downwardAPIVolumeInfo struct{}
 func (i downwardAPIVolumeInfo) isValidType(v *v1.Volume) bool {
 	return v.DownwardAPI != nil
 }
+
 func (i downwardAPIVolumeInfo) getSourcePath(v *v1.Volume) string {
 	return GetDownwardAPISourcePath(v.Name)
 }
+
 func (i downwardAPIVolumeInfo) getIsoPath(v *v1.Volume) string {
 	return GetDownwardAPIDiskPath(v.Name)
 }
+
 func (i downwardAPIVolumeInfo) getLabel(v *v1.Volume) string {
 	return v.DownwardAPI.VolumeLabel
 }

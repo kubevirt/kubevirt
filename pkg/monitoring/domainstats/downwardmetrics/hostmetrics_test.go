@@ -10,10 +10,7 @@ import (
 )
 
 var _ = Describe("Hostmetrics", func() {
-
-	var (
-		tempSysDir string
-	)
+	var tempSysDir string
 
 	BeforeEach(func() {
 		tempSysDir = GinkgoT().TempDir()

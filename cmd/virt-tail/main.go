@@ -45,8 +45,10 @@ import (
 // initial timeout for serial console socket creation
 const initialSocketTimeout = time.Second * 20
 
-type TermFileError struct{}
-type SocketFileError struct{}
+type (
+	TermFileError   struct{}
+	SocketFileError struct{}
+)
 
 func (m *TermFileError) Error() string {
 	return "termFile got detected"
@@ -130,7 +132,6 @@ func (v *VirtTail) watchFS() error {
 		}
 		return false, nil
 	})
-
 	if err != nil {
 		if wait.Interrupted(err) {
 			rerr := errors.New("expected directory is still not ready")

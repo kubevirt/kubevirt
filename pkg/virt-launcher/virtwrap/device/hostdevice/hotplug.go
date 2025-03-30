@@ -98,7 +98,7 @@ func detachHostDevices(dom DeviceDetacher, hostDevices []api.HostDevice) error {
 
 func waitHostDevicesToDetach(eventDetach EventRegistrar, hostDevices []api.HostDevice, timeout time.Duration) error {
 	var detachedHostDevices []string
-	var desiredDetachCount = len(hostDevices)
+	desiredDetachCount := len(hostDevices)
 
 	for {
 		select {

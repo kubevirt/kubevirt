@@ -14,7 +14,6 @@ import (
 )
 
 func main() {
-
 	// kubecli.DefaultClientConfig() prepares config using kubeconfig.
 	// typically, you need to set env variable, KUBECONFIG=<path-to-kubeconfig>/.kubeconfig
 	clientConfig := kubecli.DefaultClientConfig(&pflag.FlagSet{})

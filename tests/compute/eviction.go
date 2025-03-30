@@ -45,7 +45,6 @@ import (
 )
 
 var _ = Describe(SIG("Eviction", func() {
-
 	It("should not shutdown VM", func() {
 		vmi := libvmifact.NewAlpine(
 			libvmi.WithEvictionStrategy(v1.EvictionStrategyExternal),
@@ -96,7 +95,6 @@ var _ = Describe(SIG("Eviction", func() {
 				}
 
 			}
-
 		}()
 		Eventually(matcher.ThisVMI(vmi)).WithTimeout(time.Minute).WithPolling(20 * time.Second).Should(
 			gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
@@ -110,7 +108,6 @@ var _ = Describe(SIG("Eviction", func() {
 		for i := 0; i < 3; i++ {
 			Eventually(errors).WithTimeout(3*time.Second).WithPolling(time.Second).
 				Should(Receive(MatchError(ContainSubstring("Evacuation in progress"))), fmt.Sprintf("Failed in iteration %d", i+1))
-
 		}
 
 		Expect(matcher.ThisVMI(vmi)()).To(matcher.BeRunning())

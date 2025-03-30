@@ -34,7 +34,6 @@ import (
 
 func ExecuteCommandOnPod(pod *k8sv1.Pod, containerName string, command []string) (string, error) {
 	stdout, stderr, err := ExecuteCommandOnPodWithResults(pod, containerName, command)
-
 	if err != nil {
 		return "", fmt.Errorf("failed executing command on pod: %v: stderr %v: stdout: %v", err, stderr, stdout)
 	}

@@ -34,7 +34,8 @@ var _ = Describe("Reinitialization conditions", func() {
 		hasServiceMonitor bool, hasPrometheusRules bool,
 		addServiceMonitorCrd bool, removeServiceMonitorCrd bool,
 		addPrometheusRuleCrd bool, removePrometheusRuleCrd bool,
-		expectReInit bool) {
+		expectReInit bool,
+	) {
 		var reInitTriggered bool
 
 		app := VirtOperatorApp{}

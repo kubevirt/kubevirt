@@ -32,7 +32,6 @@ import (
 )
 
 var _ = Describe("state", func() {
-
 	const netName = "foo"
 
 	readErr := errors.New("read test error")

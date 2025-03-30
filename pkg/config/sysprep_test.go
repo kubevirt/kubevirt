@@ -33,7 +33,7 @@ import (
 
 func createFiles(filenames []string) {
 	for _, f := range filenames {
-		f, err := os.OpenFile(filepath.Join(SysprepSourceDir, "sysprep-volume", f), os.O_RDONLY|os.O_CREATE, 0666)
+		f, err := os.OpenFile(filepath.Join(SysprepSourceDir, "sysprep-volume", f), os.O_RDONLY|os.O_CREATE, 0o666)
 		Expect(err).NotTo(HaveOccurred())
 		if f != nil {
 			f.Close()
@@ -42,13 +42,12 @@ func createFiles(filenames []string) {
 }
 
 var _ = Describe("SysprepConfigMap", func() {
-
 	BeforeEach(func() {
 		var err error
 
 		SysprepSourceDir, err = os.MkdirTemp("", "sysprep")
 		Expect(err).NotTo(HaveOccurred())
-		os.MkdirAll(filepath.Join(SysprepSourceDir, "sysprep-volume"), 0755)
+		os.MkdirAll(filepath.Join(SysprepSourceDir, "sysprep-volume"), 0o755)
 
 		SysprepDisksDir, err = os.MkdirTemp("", "sysprep-disks")
 		Expect(err).NotTo(HaveOccurred())

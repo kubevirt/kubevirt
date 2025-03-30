@@ -101,7 +101,6 @@ var _ = Describe("podNIC", func() {
 			It("phase2 should succeed", func() {
 				Expect(podnic.PlugPhase2(domain)).To(Succeed())
 			})
-
 		})
 	})
 })
@@ -115,5 +114,4 @@ func (b *fakeLibvirtSpecGenerator) Generate() error {
 		return fmt.Errorf("Fake LibvirtSpecGenerator.Generate failure")
 	}
 	return nil
-
 }

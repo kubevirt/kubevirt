@@ -7,9 +7,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 )
 
-var (
-	TestRunConfiguration RunConfiguration
-)
+var TestRunConfiguration RunConfiguration
 
 type RunConfiguration struct {
 	WarningToIgnoreList []string

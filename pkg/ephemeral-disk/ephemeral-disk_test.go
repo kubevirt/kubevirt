@@ -39,7 +39,7 @@ var _ = Describe("ContainerDisk", func() {
 	var creator *ephemeralDiskCreator
 
 	createBackingImageForPVC := func(volumeName string, isBlock bool) error {
-		if err := os.Mkdir(filepath.Join(pvcBaseTempDirPath, volumeName), 0755); err != nil {
+		if err := os.Mkdir(filepath.Join(pvcBaseTempDirPath, volumeName), 0o755); err != nil {
 			return err
 		}
 		f, err := os.Create(creator.getBackingFilePath(volumeName, isBlock))

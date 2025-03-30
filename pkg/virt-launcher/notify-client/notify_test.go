@@ -49,7 +49,6 @@ import (
 )
 
 var _ = Describe("Notify", func() {
-
 	Describe("Domain Events", func() {
 		var err error
 		var shareDir string
@@ -301,7 +300,6 @@ var _ = Describe("Notify", func() {
 		})
 
 		It("Should send a k8s event", func() {
-
 			vmi := api2.NewMinimalVMI("fake-vmi")
 			vmi.UID = "4321"
 			vmiStore.Add(vmi)
@@ -349,11 +347,9 @@ var _ = Describe("Notify", func() {
 			event := <-recorder.Events
 			Expect(event).To(Equal(fmt.Sprintf("%s %s %s involvedObject{kind=VirtualMachineInstance,apiVersion=kubevirt.io/v1}", eventType, eventReason, eventMessage)))
 		})
-
 	})
 
 	Describe("Version mismatch", func() {
-
 		var err error
 		var ctrl *gomock.Controller
 		var infoClient *info.MockNotifyInfoClient
@@ -364,7 +360,6 @@ var _ = Describe("Notify", func() {
 		})
 
 		It("Should report error when server version mismatches", func() {
-
 			fakeResponse := info.NotifyInfoResponse{
 				SupportedNotifyVersions: []uint32{42},
 			}
@@ -375,7 +370,6 @@ var _ = Describe("Notify", func() {
 
 			Expect(err).To(HaveOccurred(), "Should have returned error about incompatible versions")
 			Expect(err.Error()).To(ContainSubstring("no compatible version found"), "Expected error message to contain 'no compatible version found'")
-
 		})
 	})
 })

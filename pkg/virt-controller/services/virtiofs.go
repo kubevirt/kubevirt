@@ -67,7 +67,6 @@ func resourcesForVirtioFSContainer(dedicatedCPUs bool, guaranteedQOS bool, confi
 	}
 
 	return resources
-
 }
 
 func isAutoMount(volume *v1.Volume) bool {
@@ -92,7 +91,6 @@ func virtioFSMountPoint(volume *v1.Volume) string {
 }
 
 func generateContainerFromVolume(volume *v1.Volume, image string, resources k8sv1.ResourceRequirements) k8sv1.Container {
-
 	socketPathArg := fmt.Sprintf("--socket-path=%s", virtiofs.VirtioFSSocketPath(volume.Name))
 	sourceArg := fmt.Sprintf("--shared-dir=%s", virtioFSMountPoint(volume))
 

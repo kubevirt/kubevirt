@@ -103,11 +103,9 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 		It("[test_id:5004] should be migrated successfully, using guest agent on VM with post-copy", func() {
 			VMIMigrationWithGuestAgent(virtClient, dv.Name, "1Gi", migrationPolicy)
 		})
-
 	})
 
 	Context("should migrate using post-copy", func() {
-
 		applyMigrationPolicy := func(vmi *v1.VirtualMachineInstance) {
 			AlignPolicyAndVmi(vmi, migrationPolicy)
 			migrationPolicy = CreateMigrationPolicy(virtClient, migrationPolicy)

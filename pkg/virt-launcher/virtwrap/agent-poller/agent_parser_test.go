@@ -115,7 +115,6 @@ var _ = Describe("Qemu agent poller", func() {
             }`
 			_, err := parseInterfaces(malformedJSONInput)
 			Expect(err).To(HaveOccurred(), "should not parse network interfaces")
-
 		})
 
 		It("should parse it into a list of interfaces", func() {
@@ -149,7 +148,6 @@ var _ = Describe("Qemu agent poller", func() {
 		})
 
 		It("should parse Guest OS Info", func() {
-
 			JSONInput := `{
                 "return": {
                     "name": "TestGuestOSName",
@@ -166,14 +164,16 @@ var _ = Describe("Qemu agent poller", func() {
 			guestOSInfoStatus, err := parseGuestOSInfo(JSONInput)
 			Expect(err).ToNot(HaveOccurred(), "Should parse the info")
 
-			expectedGuestOSInfo := api.GuestOSInfo{Name: "TestGuestOSName",
+			expectedGuestOSInfo := api.GuestOSInfo{
+				Name:          "TestGuestOSName",
 				KernelRelease: "1.1.0-Generic",
 				Version:       "1.0.0",
 				PrettyName:    "TestGuestOSName 1.0.0",
 				VersionId:     "1.0.0",
 				KernelVersion: "1.1.0",
 				Machine:       "x86_64",
-				Id:            "testguestos"}
+				Id:            "testguestos",
+			}
 			Expect(guestOSInfoStatus).To(Equal(expectedGuestOSInfo))
 		})
 
@@ -244,7 +244,6 @@ var _ = Describe("Qemu agent poller", func() {
 		})
 
 		It("should parse Timezone", func() {
-
 			jsonInput := `{
                 "return":{
                     "zone":"Prague",
@@ -260,7 +259,6 @@ var _ = Describe("Qemu agent poller", func() {
 		})
 
 		It("should parse Filesystem", func() {
-
 			jsonInput := `{
                 "return":[
                     {
@@ -298,7 +296,6 @@ var _ = Describe("Qemu agent poller", func() {
 		})
 
 		It("should parse Users", func() {
-
 			jsonInput := `{
                 "return":[
                     {

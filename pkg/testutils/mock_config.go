@@ -98,7 +98,6 @@ func AddDataVolumeAPI(crdInformer cache.SharedIndexInformer) {
 func GetFakeKubeVirtClusterConfig(kubeVirtStore cache.Store) *KVv1.KubeVirt {
 	obj, _, _ := kubeVirtStore.GetByKey(kvObjectNamespace + "/" + kvObjectName)
 	return obj.(*KVv1.KubeVirt)
-
 }
 
 func UpdateFakeKubeVirtClusterConfig(kubeVirtStore cache.Store, kv *KVv1.KubeVirt) {

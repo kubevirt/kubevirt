@@ -41,7 +41,6 @@ import (
 )
 
 var _ = Describe("CloudInit", func() {
-
 	var (
 		isoCreationFunc IsoCreationFunc
 		tmpDir          string
@@ -57,13 +56,13 @@ var _ = Describe("CloudInit", func() {
 
 	fakeVolumeMountDir := func(dirName string, files map[string]string) string {
 		volumeDir := filepath.Join(tmpDir, dirName)
-		err := os.Mkdir(volumeDir, 0700)
+		err := os.Mkdir(volumeDir, 0o700)
 		Expect(err).To(Not(HaveOccurred()), "could not create volume dir: ", volumeDir)
 		for fileName, content := range files {
 			err = os.WriteFile(
 				filepath.Join(volumeDir, fileName),
 				[]byte(content),
-				0644)
+				0o644)
 			Expect(err).To(Not(HaveOccurred()), "could not create file: ", fileName)
 		}
 		return volumeDir
@@ -582,7 +581,6 @@ var _ = Describe("CloudInit", func() {
 						Expect(err).To(HaveOccurred(), "expected a failure when no sources found")
 						Expect(err.Error()).To(Equal("no cloud-init data-source found at volume: test-volume"))
 						Expect(keys).To(BeEmpty())
-
 					})
 				})
 			})

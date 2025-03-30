@@ -49,7 +49,6 @@ import (
 const cloudinitHookSidecarImage = "example-cloudinit-hook-sidecar"
 
 var _ = Describe("[sig-compute]CloudInitHookSidecars", decorators.SigCompute, func() {
-
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -139,5 +138,4 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", decorators.SigCompute, fu
 			})
 		})
 	})
-
 })

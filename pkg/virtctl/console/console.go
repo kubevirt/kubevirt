@@ -114,7 +114,6 @@ func (c *consoleCommand) handleConsoleConnection(client kubecli.KubevirtClient, 
 	err := Attach(stdinReader, stdoutReader, stdinWriter, stdoutWriter,
 		fmt.Sprintf("Successfully connected to %s console. Press Ctrl+] or Ctrl+5 to exit console.\n", vmi),
 		resChan)
-
 	if err != nil {
 		if e, ok := err.(*websocket.CloseError); ok && e.Code == websocket.CloseAbnormalClosure {
 			fmt.Fprint(os.Stderr, "\n"+

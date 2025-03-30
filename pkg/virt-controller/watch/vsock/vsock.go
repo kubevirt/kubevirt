@@ -17,8 +17,10 @@ type Allocator interface {
 	Remove(key string)
 }
 
-type randCIDFunc func() uint32
-type nextCIDFunc func(uint32) uint32
+type (
+	randCIDFunc func() uint32
+	nextCIDFunc func(uint32) uint32
+)
 
 type cidsMap struct {
 	mu      sync.Mutex

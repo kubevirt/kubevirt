@@ -82,7 +82,6 @@ func IsMigrating(vmi *v1.VirtualMachineInstance) bool {
 }
 
 func MigrationFailed(vmi *v1.VirtualMachineInstance) bool {
-
 	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Failed {
 		return true
 	}

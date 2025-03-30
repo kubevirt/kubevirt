@@ -228,7 +228,7 @@ func getTLSConfiguration(kubevirt *v1.KubeVirt) *v1.TLSConfiguration {
 }
 
 func CipherSuiteIds(names []string) []uint16 {
-	var idByName = CipherSuiteNameMap()
+	idByName := CipherSuiteNameMap()
 	var ids []uint16
 	for _, name := range names {
 		if id, ok := idByName[name]; ok {
@@ -239,7 +239,7 @@ func CipherSuiteIds(names []string) []uint16 {
 }
 
 func CipherSuiteNameMap() map[string]uint16 {
-	var idByName = map[string]uint16{}
+	idByName := map[string]uint16{}
 	for _, cipherSuite := range cipherSuites {
 		idByName[cipherSuite.Name] = cipherSuite.ID
 	}

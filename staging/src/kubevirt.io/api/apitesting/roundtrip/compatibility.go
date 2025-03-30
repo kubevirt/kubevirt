@@ -205,7 +205,6 @@ func (c *CompatibilityTestOptions) Run(t *testing.T) {
 	var ranCurrentTests bool
 	for _, gvk := range c.Kinds {
 		t.Run(makeName(gvk), func(t *testing.T) {
-
 			t.Run("HEAD", func(t *testing.T) {
 				c.runCurrentVersionTest(t, gvk, usedHEADFixtures)
 				ranCurrentTests = true
@@ -216,7 +215,6 @@ func (c *CompatibilityTestOptions) Run(t *testing.T) {
 					c.runPreviousVersionTest(t, gvk, previousVersionDir, nil)
 				})
 			}
-
 		})
 	}
 
@@ -343,10 +341,10 @@ func read(dir string, gvk schema.GroupVersionKind, suffix string, usedFiles sets
 }
 
 func writeFile(t *testing.T, dir string, gvk schema.GroupVersionKind, suffix, extension string, data []byte) {
-	if err := os.MkdirAll(dir, os.FileMode(0755)); err != nil {
+	if err := os.MkdirAll(dir, os.FileMode(0o755)); err != nil {
 		t.Fatal("error making directory", err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, makeName(gvk)+suffix+"."+extension), data, os.FileMode(0644)); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, makeName(gvk)+suffix+"."+extension), data, os.FileMode(0o644)); err != nil {
 		t.Fatalf("error writing %s: %v", extension, err)
 	}
 }

@@ -511,15 +511,15 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		presentVolumeName := "present-vol"
 		missingVolumeName := "missing-vol"
 		vmi.Spec.Domain.Devices.Disks = []v1.Disk{
-			v1.Disk{
+			{
 				Name: presentVolumeName,
 			},
 		}
 		vmi.Spec.Volumes = []v1.Volume{
-			v1.Volume{
+			{
 				Name: presentVolumeName,
 			},
-			v1.Volume{
+			{
 				Name: missingVolumeName,
 			},
 		}
@@ -1002,7 +1002,6 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		} else {
 			Expect(vmi.Spec.Domain.CPU).To(Equal(resultCPUTopology), "cpu topologies should equal")
 		}
-
 	},
 		Entry("if hyperV doesn't contain EVMCS", api.NewMinimalVMI("testvmi"),
 			&v1.FeatureHyperv{
@@ -1130,7 +1129,6 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	)
 
 	When("Root feature gate is enabled", func() {
-
 		BeforeEach(func() {
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 				Spec: v1.KubeVirtSpec{

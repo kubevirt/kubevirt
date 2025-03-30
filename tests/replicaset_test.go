@@ -67,7 +67,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	doScale := func(name string, scale int32) {
-
 		By(fmt.Sprintf("Scaling to %d", scale))
 		rs, err := virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Patch(context.Background(), name, types.JSONPatchType, []byte(fmt.Sprintf("[{ \"op\": \"replace\", \"path\": \"/spec/replicas\", \"value\": %v }]", scale)), metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
@@ -85,7 +84,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	}
 
 	doScaleWithHPA := func(name string, min int32, max int32, expected int32) {
-
 		// Status updates can conflict with our desire to change the spec
 		By(fmt.Sprintf("Scaling to %d", min))
 		hpa := &autov1.HorizontalPodAutoscaler{
@@ -141,7 +139,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		doScale(newRS.ObjectMeta.Name, int32(startScale))
 		doScale(newRS.ObjectMeta.Name, int32(stopScale))
 		doScale(newRS.ObjectMeta.Name, int32(0))
-
 	},
 		Entry("[test_id:1405]to three, to two and then to zero replicas", 3, 2),
 		Entry("[test_id:1406]to five, to six and then to zero replicas", 5, 6),
@@ -168,7 +165,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		doScaleWithHPA(newRS.ObjectMeta.Name, int32(startScale), int32(startScale), int32(startScale))
 		doScaleWithHPA(newRS.ObjectMeta.Name, int32(stopScale), int32(stopScale), int32(stopScale))
 		doScaleWithHPA(newRS.ObjectMeta.Name, int32(1), int32(1), int32(1))
-
 	},
 		Entry("[test_id:1409]to three, to two and then to one replicas", 3, 2),
 		Entry("[test_id:1410]to five, to six and then to one replicas", 5, 6),
@@ -193,7 +189,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		statusCode := 0
 		result.StatusCode(&statusCode)
 		Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
-
 	})
 	It("[test_id:1412]should reject POST if validation webhoook deems the spec is invalid", func() {
 		newRS := newReplicaSet()

@@ -67,7 +67,7 @@ func (s infoServer) Info(ctx context.Context, params *hooksInfo.InfoParams) (*ho
 		hooksInfo.OnDefineDomainHookPointName:  onDefineDomainBin,
 		hooksInfo.PreCloudInitIsoHookPointName: preCloudInitIsoBin,
 	}
-	var hookPoints = []*hooksInfo.HookPoint{}
+	hookPoints := []*hooksInfo.HookPoint{}
 
 	// Shutdown fixes proper termination of Sidecars. It isn't related to
 	// user's binaries nor scripts.
@@ -101,11 +101,13 @@ func (s infoServer) Info(ctx context.Context, params *hooksInfo.InfoParams) (*ho
 	}, nil
 }
 
-type v1Alpha1Server struct{}
-type v1Alpha2Server struct{}
-type v1Alpha3Server struct {
-	done chan struct{}
-}
+type (
+	v1Alpha1Server struct{}
+	v1Alpha2Server struct{}
+	v1Alpha3Server struct {
+		done chan struct{}
+	}
+)
 
 func (s v1Alpha3Server) OnDefineDomain(_ context.Context, params *hooksV1alpha3.OnDefineDomainParams) (*hooksV1alpha3.OnDefineDomainResult, error) {
 	log.Log.Info(onDefineDomainLoggingMessage)

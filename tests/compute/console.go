@@ -45,7 +45,6 @@ import (
 const startupTimeout = 60
 
 var _ = Describe(SIG("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]Console", func() {
-
 	expectConsoleOutput := func(vmi *v1.VirtualMachineInstance, expected string) {
 		By("Checking that the console output equals to expected one")
 		ExpectWithOffset(1, console.SafeExpectBatch(vmi, []expect.Batcher{

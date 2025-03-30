@@ -19,7 +19,6 @@ import (
 
 var _ = Describe("Certificate Management", func() {
 	Context("CA certificate bundle", func() {
-
 		It("should drop expired CAs", func() {
 			now := time.Now()
 			current := newSelfSignedCert(now, now.Add(1*time.Hour))

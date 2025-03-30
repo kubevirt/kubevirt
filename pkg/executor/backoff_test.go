@@ -31,7 +31,6 @@ import (
 )
 
 var _ = Describe("exponential limited backoff", func() {
-
 	var testsClock *clock.FakeClock
 	var backoff executor.LimitedBackoff
 

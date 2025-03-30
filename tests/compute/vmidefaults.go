@@ -79,7 +79,6 @@ var _ = Describe(SIG("VMIDefaults", func() {
 		})
 
 		It("[test_id:]Should be applied to any auto attached volume disks", func() {
-
 			// Drop the disks to ensure they are added in by setDefaultVolumeDisk
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{}
 
@@ -94,7 +93,6 @@ var _ = Describe(SIG("VMIDefaults", func() {
 			Expect(newVMI.Spec.Domain.Devices.Disks[0].Disk).ToNot(BeNil(), "DiskTarget should not be nil")
 			Expect(newVMI.Spec.Domain.Devices.Disks[0].Disk.Bus).ToNot(BeEmpty(), "DiskTarget's bus should not be empty")
 		})
-
 	})
 
 	Context("MemBalloon defaults", func() {
@@ -215,13 +213,10 @@ var _ = Describe(SIG("VMIDefaults", func() {
 			Expect(domain.Devices.Ballooning).ToNot(BeNil(), "There should be memballoon device")
 			Expect(*domain.Devices.Ballooning).To(Equal(expected))
 		})
-
 	})
 
 	Context("Input defaults", func() {
-
 		It("[test_id:TODO]Should be set in VirtualMachineInstance", func() {
-
 			By("Creating a VirtualMachineInstance with an input device without a bus or type set")
 			vmi = libvmifact.NewCirros()
 			vmi.Spec.Domain.Devices.Inputs = append(vmi.Spec.Domain.Devices.Inputs, v1.Input{
@@ -235,7 +230,6 @@ var _ = Describe(SIG("VMIDefaults", func() {
 			Expect(vmi.Spec.Domain.Devices.Inputs[0].Name).To(Equal("foo-1"))
 			Expect(vmi.Spec.Domain.Devices.Inputs[0].Type).To(Equal(v1.InputTypeTablet))
 			Expect(vmi.Spec.Domain.Devices.Inputs[0].Bus).To(Equal(v1.InputBusUSB))
-
 		})
 
 		It("[test_id:TODO]Should be applied to a device added by AutoattachInputDevice", func() {
@@ -255,6 +249,5 @@ var _ = Describe(SIG("VMIDefaults", func() {
 			Expect(vmi.Spec.Domain.Devices.Inputs[0].Type).To(Equal(v1.InputTypeTablet))
 			Expect(vmi.Spec.Domain.Devices.Inputs[0].Bus).To(Equal(v1.InputBusUSB))
 		})
-
 	})
 }))

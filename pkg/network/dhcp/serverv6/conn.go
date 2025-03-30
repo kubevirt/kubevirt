@@ -90,7 +90,8 @@ func NewConnection(serverIface *net.Interface) (*FilteredConn, error) {
 
 	group := net.UDPAddr{
 		IP:   dhcpv6.AllDHCPRelayAgentsAndServers,
-		Port: dhcpv6.DefaultServerPort}
+		Port: dhcpv6.DefaultServerPort,
+	}
 	if err := packetConn.JoinGroup(serverIface, &group); err != nil {
 		return nil, fmt.Errorf(errFmt, errorString, err)
 	}

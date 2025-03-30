@@ -155,7 +155,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			if addOpts != nil {
 				vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions) (interface{}, interface{}) {
-						//check that dryRun option has been propagated to patch request
+						// check that dryRun option has been propagated to patch request
 						Expect(opts.DryRun).To(BeEquivalentTo(addOpts.DryRun))
 						return patchedVM, nil
 					}).AnyTimes()
@@ -163,7 +163,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			} else {
 				vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions) (interface{}, interface{}) {
-						//check that dryRun option has been propagated to patch request
+						// check that dryRun option has been propagated to patch request
 						Expect(opts.DryRun).To(BeEquivalentTo(removeOpts.DryRun))
 						return patchedVM, nil
 					})
@@ -174,7 +174,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			if addOpts != nil {
 				vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions, _ ...string) (interface{}, interface{}) {
-						//check that dryRun option has been propagated to patch request
+						// check that dryRun option has been propagated to patch request
 						Expect(opts.DryRun).To(BeEquivalentTo(addOpts.DryRun))
 						return vmi, nil
 					}).AnyTimes()
@@ -182,7 +182,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			} else {
 				vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions, _ ...string) (interface{}, interface{}) {
-						//check that dryRun option has been propagated to patch request
+						// check that dryRun option has been propagated to patch request
 						Expect(opts.DryRun).To(BeEquivalentTo(removeOpts.DryRun))
 						return vmi, nil
 					}).AnyTimes()
@@ -280,7 +280,6 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 	)
 
 	DescribeTable("Should generate expected vmi patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, expectedPatchSet *patch.PatchSet) {
-
 		vmi := api.NewMinimalVMI(request.PathParameter("name"))
 		vmi.Namespace = metav1.NamespaceDefault
 		vmi.Status.Phase = v1.Running
@@ -357,7 +356,6 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 	)
 
 	DescribeTable("Should generate expected vm patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, existingVolumeRequests []v1.VirtualMachineVolumeRequest, expectedPatchSet *patch.PatchSet, expectError bool) {
-
 		vm := newMinimalVM(request.PathParameter("name"))
 		vm.Namespace = metav1.NamespaceDefault
 
@@ -456,7 +454,8 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 		Entry("remove volume request with no existing volume request", &v1.VirtualMachineVolumeRequest{
 			RemoveVolumeOptions: &v1.RemoveVolumeOptions{
 				Name: "vol1",
-			}},
+			},
+		},
 			nil,
 			patch.New(
 				patch.WithTest("/status/volumeRequests", nil),

@@ -228,7 +228,6 @@ var _ = Describe("Restore controller", func() {
 	}
 
 	Context("One valid Restore controller given", func() {
-
 		var ctrl *gomock.Controller
 
 		var vmInterface *kubecli.MockVirtualMachineInterface
@@ -398,7 +397,6 @@ var _ = Describe("Restore controller", func() {
 		}
 
 		Context("with initialized snapshot and content", func() {
-
 			var (
 				s            *snapshotv1.VirtualMachineSnapshot
 				vm           *kubevirtv1.VirtualMachine
@@ -687,7 +685,7 @@ var _ = Describe("Restore controller", func() {
 						StorageClassName: &storageClass.Name,
 					},
 				})
-				//add pvc volume and disk to vm
+				// add pvc volume and disk to vm
 				disk := kubevirtv1.Disk{
 					Name: "disk2",
 					DiskDevice: kubevirtv1.DiskDevice{
@@ -700,7 +698,8 @@ var _ = Describe("Restore controller", func() {
 					Name: "disk2",
 					VolumeSource: kubevirtv1.VolumeSource{
 						PersistentVolumeClaim: &kubevirtv1.PersistentVolumeClaimVolumeSource{
-							PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: "extra-pvc"}},
+							PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: "extra-pvc"},
+						},
 					},
 				}
 				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, disk)
@@ -847,7 +846,7 @@ var _ = Describe("Restore controller", func() {
 						StorageClassName: &storageClass.Name,
 					},
 				})
-				//add pvc volume and disk to vm
+				// add pvc volume and disk to vm
 				disk := kubevirtv1.Disk{
 					Name: "disk2",
 					DiskDevice: kubevirtv1.DiskDevice{
@@ -860,7 +859,8 @@ var _ = Describe("Restore controller", func() {
 					Name: "disk2",
 					VolumeSource: kubevirtv1.VolumeSource{
 						PersistentVolumeClaim: &kubevirtv1.PersistentVolumeClaimVolumeSource{
-							PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: "extra-pvc"}},
+							PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{ClaimName: "extra-pvc"},
+						},
 					},
 				}
 				vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, disk)
@@ -1228,7 +1228,6 @@ var _ = Describe("Restore controller", func() {
 			})
 
 			Context("target VM is different than source VM", func() {
-
 				It("should be able to restore to a new VM", func() {
 					By("Creating new VM")
 					newVM := createVirtualMachine(testNamespace, newVMName)
@@ -1328,7 +1327,6 @@ var _ = Describe("Restore controller", func() {
 				})
 
 				Context("new VM does not exist, should create new VM", func() {
-
 					const (
 						newVmName     = "new-vm"
 						newMacAddress = "00:00:5e:00:53:01"
@@ -1406,7 +1404,6 @@ var _ = Describe("Restore controller", func() {
 						Expect(success).To(BeTrue())
 						Expect(err).ShouldNot(HaveOccurred())
 					})
-
 				})
 
 				It("should update condition if deleted and failed to restore", func() {
@@ -1465,7 +1462,7 @@ var _ = Describe("Restore controller", func() {
 				It("WaitEventually - should not fail even if grace period passed", func() {
 					r := createRestoreWithOwner()
 					r.Spec.TargetReadinessPolicy = pointer.P(snapshotv1.VirtualMachineRestoreWaitEventually)
-					//change creation time such that it will make the default grace period pass
+					// change creation time such that it will make the default grace period pass
 					// with TargetReadinessPolicy waitEventually restore should not fail
 					r.CreationTimestamp = metav1.Time{Time: r.CreationTimestamp.Time.Add(-snapshotv1.DefaultGracePeriod)}
 					vm := createModifiedVM()
@@ -1514,7 +1511,7 @@ var _ = Describe("Restore controller", func() {
 
 				It("default - GracePeriodAndFail - should fail when grace period passed", func() {
 					r := createRestoreWithOwner()
-					//change creation time such that it will make the default grace period pass
+					// change creation time such that it will make the default grace period pass
 					// with default TargetReadinessPolicy GracePeriodAndFail restore should fail once
 					// the grace period passed
 					r.CreationTimestamp = metav1.Time{Time: r.CreationTimestamp.Time.Add(-snapshotv1.DefaultGracePeriod)}
@@ -1548,7 +1545,7 @@ var _ = Describe("Restore controller", func() {
 							newReadyCondition(corev1.ConditionFalse, "Waiting for target to be ready"),
 						},
 					}
-					//change creation time such that it will make the default grace period pass
+					// change creation time such that it will make the default grace period pass
 					// with default TargetReadinessPolicy GracePeriodAndFail if target became ready
 					// in that time restore should not fail
 					r.CreationTimestamp = metav1.Time{Time: r.CreationTimestamp.Time.Add(-snapshotv1.DefaultGracePeriod)}

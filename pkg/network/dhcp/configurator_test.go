@@ -17,7 +17,6 @@ import (
 )
 
 var _ = Describe("DHCP configurator", func() {
-
 	const (
 		advertisingCIDR    = "10.10.10.0/24"
 		bridgeName         = "br0"
@@ -30,7 +29,7 @@ var _ = Describe("DHCP configurator", func() {
 
 	BeforeEach(func() {
 		// make sure the test can write a file in the whatever dir ensure uses.
-		Expect(os.MkdirAll(fakeDhcpStartedDir, 0755)).To(Succeed())
+		Expect(os.MkdirAll(fakeDhcpStartedDir, 0o755)).To(Succeed())
 	})
 
 	AfterEach(func() {

@@ -120,7 +120,6 @@ var _ = Describe("VNC Subresource api", func() {
 	})
 
 	It("should fail with internal at fetching vmi errors", func() {
-
 		request.PathParameters()["name"] = testVMIName
 		request.PathParameters()["namespace"] = metav1.NamespaceDefault
 

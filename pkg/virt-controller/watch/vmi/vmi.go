@@ -71,7 +71,6 @@ func NewController(templateService services.TemplateService,
 	netStatusUpdater statusUpdater,
 	netSpecValidator specValidator,
 ) (*Controller, error) {
-
 	c := &Controller{
 		templateService: templateService,
 		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
@@ -250,10 +249,8 @@ func (c *Controller) Execute() bool {
 }
 
 func (c *Controller) execute(key string) error {
-
 	// Fetch the latest Vm state from cache
 	obj, exists, err := c.vmiIndexer.GetByKey(key)
-
 	if err != nil {
 		return err
 	}

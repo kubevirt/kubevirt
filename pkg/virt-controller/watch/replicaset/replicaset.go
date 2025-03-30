@@ -60,7 +60,6 @@ const (
 )
 
 func NewController(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient, burstReplicas uint) (*Controller, error) {
-
 	c := &Controller{
 		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
 			workqueue.DefaultTypedControllerRateLimiter[string](),
@@ -83,7 +82,6 @@ func NewController(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache.Sh
 		DeleteFunc: c.deleteReplicaSet,
 		UpdateFunc: c.updateReplicaSet,
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +91,6 @@ func NewController(vmiInformer cache.SharedIndexInformer, vmiRSInformer cache.Sh
 		DeleteFunc: c.deleteVirtualMachine,
 		UpdateFunc: c.updateVirtualMachine,
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +148,6 @@ func (c *Controller) Execute() bool {
 }
 
 func (c *Controller) execute(key string) error {
-
 	obj, exists, err := c.vmiRSIndexer.GetByKey(key)
 	if err != nil {
 		return nil
@@ -174,7 +170,7 @@ func (c *Controller) execute(key string) error {
 		return err
 	}
 
-	//TODO default rs if necessary, the aggregated apiserver will do that in the future
+	// TODO default rs if necessary, the aggregated apiserver will do that in the future
 	if rs.Spec.Template == nil || rs.Spec.Selector == nil || len(rs.Spec.Template.ObjectMeta.Labels) == 0 {
 		logger.Error("Invalid controller spec, will not re-enqueue.")
 		return nil
@@ -195,7 +191,6 @@ func (c *Controller) execute(key string) error {
 
 	// get all potentially interesting VMIs from the cache
 	vmis, err := c.listVMIsFromNamespace(rs.ObjectMeta.Namespace)
-
 	if err != nil {
 		logger.Reason(err).Error("Failed to fetch vmis for namespace from cache.")
 		return err
@@ -644,7 +639,6 @@ func (c *Controller) updateStatus(rs *virtv1.VirtualMachineInstanceReplicaSet, v
 	c.checkFailure(rs, diff, scaleErr)
 
 	_, err = c.clientset.ReplicaSet(rs.Namespace).UpdateStatus(context.Background(), rs, metav1.UpdateOptions{})
-
 	if err != nil {
 		return err
 	}
@@ -671,7 +665,6 @@ func (c *Controller) calcDiff(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 }
 
 func (c *Controller) getVirtualMachineBaseName(replicaset *virtv1.VirtualMachineInstanceReplicaSet) string {
-
 	// TODO defaulting should make sure that the right field is set, instead of doing this
 	if len(replicaset.Spec.Template.ObjectMeta.Name) > 0 {
 		return replicaset.Spec.Template.ObjectMeta.Name
@@ -683,9 +676,7 @@ func (c *Controller) getVirtualMachineBaseName(replicaset *virtv1.VirtualMachine
 }
 
 func (c *Controller) checkPaused(rs *virtv1.VirtualMachineInstanceReplicaSet) {
-
 	if rs.Spec.Paused == true && !c.hasCondition(rs, virtv1.VirtualMachineInstanceReplicaSetReplicaPaused) {
-
 		rs.Status.Conditions = append(rs.Status.Conditions, virtv1.VirtualMachineInstanceReplicaSetCondition{
 			Type:               virtv1.VirtualMachineInstanceReplicaSetReplicaPaused,
 			Reason:             "Paused",

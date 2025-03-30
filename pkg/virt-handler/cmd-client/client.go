@@ -64,9 +64,11 @@ var (
 	podsBaseDir          = "/pods"
 )
 
-const StandardLauncherSocketFileName = "launcher-sock"
-const StandardInitLauncherSocketFileName = "launcher-init-sock"
-const StandardLauncherUnresponsiveFileName = "launcher-unresponsive"
+const (
+	StandardLauncherSocketFileName       = "launcher-sock"
+	StandardInitLauncherSocketFileName   = "launcher-init-sock"
+	StandardLauncherUnresponsiveFileName = "launcher-unresponsive"
+)
 
 type MigrationOptions struct {
 	Bandwidth                resource.Quantity
@@ -196,7 +198,6 @@ func SocketFilePathOnHost(podUID string) string {
 
 // gets the cmd socket for a VMI
 func FindPodDirOnHost(vmi *v1.VirtualMachineInstance) (string, error) {
-
 	// It is possible for multiple pods to be active on a single VMI
 	// during migrations. This loop will discover the active pod on
 	// this particular local node if it exists. A active pod not
@@ -298,8 +299,8 @@ func (c *VirtLauncherClient) Close() {
 
 func (c *VirtLauncherClient) genericSendVMICmd(cmdName string,
 	cmdFunc func(ctx context.Context, request *cmdv1.VMIRequest, opts ...grpc.CallOption) (*cmdv1.Response, error),
-	vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
-
+	vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions,
+) error {
 	vmiJson, err := json.Marshal(vmi)
 	if err != nil {
 		return err
@@ -319,6 +320,7 @@ func (c *VirtLauncherClient) genericSendVMICmd(cmdName string,
 	err = handleError(err, cmdName, response)
 	return err
 }
+
 func IsUnimplemented(err error) bool {
 	if grpcStatus, ok := status.FromError(err); ok {
 		if grpcStatus.Code() == codes.Unimplemented {
@@ -327,6 +329,7 @@ func IsUnimplemented(err error) bool {
 	}
 	return false
 }
+
 func handleError(err error, cmdName string, response *cmdv1.Response) error {
 	if IsDisconnected(err) {
 		return err
@@ -360,14 +363,12 @@ func IsDisconnected(err error) bool {
 	}
 
 	if grpcStatus, ok := status.FromError(err); ok {
-
 		// see https://github.com/grpc/grpc-go/blob/master/codes/codes.go
 		switch grpcStatus.Code() {
 		case codes.Canceled:
 			// e.g. v1client connection closing
 			return true
 		}
-
 	}
 
 	return false
@@ -451,7 +452,6 @@ func (c *VirtLauncherClient) DeleteDomain(vmi *v1.VirtualMachineInstance) error 
 }
 
 func (c *VirtLauncherClient) MigrateVirtualMachine(vmi *v1.VirtualMachineInstance, options *MigrationOptions) error {
-
 	vmiJson, err := json.Marshal(vmi)
 	if err != nil {
 		return err
@@ -475,7 +475,6 @@ func (c *VirtLauncherClient) MigrateVirtualMachine(vmi *v1.VirtualMachineInstanc
 
 	err = handleError(err, "Migrate", response)
 	return err
-
 }
 
 func (c *VirtLauncherClient) CancelVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error {
@@ -503,7 +502,6 @@ func (c *VirtLauncherClient) HotplugHostDevices(vmi *v1.VirtualMachineInstance) 
 }
 
 func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {
-
 	domain := &api.Domain{}
 	exists := false
 

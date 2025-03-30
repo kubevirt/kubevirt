@@ -62,5 +62,4 @@ var _ = Describe("profiler manager http handler callbacks", func() {
 		manager.HandleDumpProfiler(nil, response)
 		Expect(response.StatusCode()).To(Equal(http.StatusForbidden))
 	})
-
 })

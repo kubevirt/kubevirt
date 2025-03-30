@@ -32,11 +32,12 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-var logCalled bool = false
-var logParams []interface{} = make([]interface{}, 0)
+var (
+	logCalled bool          = false
+	logParams []interface{} = make([]interface{}, 0)
+)
 
-type MockLogger struct {
-}
+type MockLogger struct{}
 
 func (l MockLogger) Log(params ...interface{}) error {
 	logCalled = true
@@ -59,7 +60,6 @@ func setUp() {
 }
 
 func tearDown() {
-
 }
 
 func TestDefaultLogLevels(t *testing.T) {

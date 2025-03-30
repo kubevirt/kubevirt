@@ -34,6 +34,7 @@ var _ = Describe("FileExists", func() {
 		Expect(FileExists("no one would ever have this file")).To(BeFalse())
 	})
 })
+
 var _ = Describe("RemoveFilesIfExist", func() {
 	It("silently ignores non-existing file", func() {
 		Expect(RemoveFilesIfExist("no one would ever have this file")).To(Succeed())

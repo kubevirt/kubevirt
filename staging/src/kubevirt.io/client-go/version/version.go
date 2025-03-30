@@ -20,11 +20,10 @@
 package version
 
 import (
-	"fmt"
-	"runtime"
-
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"runtime"
 )
 
 func Get() Info {

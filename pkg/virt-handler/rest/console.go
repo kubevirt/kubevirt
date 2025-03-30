@@ -291,7 +291,7 @@ func unixSocketDialer(vmi *v1.VirtualMachineInstance, unixSocketPath string) fun
 }
 
 func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful.Request, response *restful.Response, dial func() (net.Conn, error), stopCh chan struct{}) {
-	var upgrader = kvcorev1.NewUpgrader()
+	upgrader := kvcorev1.NewUpgrader()
 	clientSocket, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to upgrade client websocket connection")

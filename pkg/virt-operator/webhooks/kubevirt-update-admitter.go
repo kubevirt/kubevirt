@@ -104,7 +104,6 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.SeccompConfiguration, newKV.Spec.Configuration.SeccompConfiguration) {
 		results = append(results,
 			validateSeccompConfiguration(field.NewPath("spec").Child("configuration", "seccompConfiguration"), newKV.Spec.Configuration.SeccompConfiguration)...)
-
 	}
 
 	if newKV.Spec.Infra != nil {
@@ -217,7 +216,6 @@ func validateCertificates(certConfig *v1.KubeVirtSelfSignConfiguration) []metav1
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("CA RenewBefore cannot exceed Duration (spec.certificateRotationStrategy.selfSigned.ca.duration < spec.certificateRotationStrategy.selfSigned.ca.renewBefore)"),
 		})
-
 	}
 
 	if certDuration.Duration < certRenewBefore.Duration {
@@ -256,7 +254,7 @@ func validateTLSConfiguration(tlsConfiguration *v1.TLSConfiguration) []metav1.St
 	}
 
 	if len(tlsConfiguration.Ciphers) > 0 {
-		var idByName = kvtls.CipherSuiteNameMap()
+		idByName := kvtls.CipherSuiteNameMap()
 		for index, cipher := range tlsConfiguration.Ciphers {
 			if _, exists := idByName[cipher]; !exists {
 				statuses = append(statuses, metav1.StatusCause{
@@ -306,7 +304,6 @@ func validateSeccompConfiguration(field *field.Path, seccompConf *v1.SeccompConf
 	}
 
 	return statuses
-
 }
 
 func validateWorkloadPlacement(ctx context.Context, namespace string, placementConfig *v1.NodePlacement, client kubecli.KubevirtClient) []metav1.StatusCause {
@@ -353,7 +350,6 @@ func validateWorkloadPlacement(ctx context.Context, namespace string, placementC
 	}
 
 	_, err := client.AppsV1().DaemonSets(namespace).Create(ctx, mockDaemonSet, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
-
 	if err != nil {
 		statuses = append(statuses, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -408,7 +404,6 @@ func validateInfraPlacement(ctx context.Context, namespace string, placementConf
 	}
 
 	_, err := client.AppsV1().Deployments(namespace).Create(ctx, mockDeployment, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
-
 	if err != nil {
 		statuses = append(statuses, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,

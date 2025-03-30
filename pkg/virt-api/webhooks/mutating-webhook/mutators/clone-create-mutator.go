@@ -79,7 +79,6 @@ func (mutator *CloneCreateMutator) Mutate(ar *admissionv1.AdmissionReview) *admi
 	}
 
 	patchBytes, err := patch.New(patch.WithReplace("/spec", vmClone.Spec)).GeneratePayload()
-
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}

@@ -21,13 +21,11 @@ package domainstats
 
 import "github.com/machadovilaca/operator-observability/pkg/operatormetrics"
 
-var (
-	nodeCpuAffinity = operatormetrics.NewGauge(
-		operatormetrics.MetricOpts{
-			Name: "kubevirt_vmi_node_cpu_affinity",
-			Help: "Number of VMI CPU affinities to node physical cores.",
-		},
-	)
+var nodeCpuAffinity = operatormetrics.NewGauge(
+	operatormetrics.MetricOpts{
+		Name: "kubevirt_vmi_node_cpu_affinity",
+		Help: "Number of VMI CPU affinities to node physical cores.",
+	},
 )
 
 type cpuAffinityMetrics struct{}

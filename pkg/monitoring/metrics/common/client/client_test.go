@@ -36,7 +36,6 @@ var _ = BeforeSuite(func() {
 var _ = Describe("URL Parsing", func() {
 	Context("with resource and operation", func() {
 		DescribeTable("accurately parse resource and operation", func(urlStr, queryStr, method, expectedResource, expectedOperation string) {
-
 			request := &http.Request{
 				Method: method,
 				URL: &url.URL{
@@ -48,7 +47,6 @@ var _ = Describe("URL Parsing", func() {
 			resource, operation := parseURLResourceOperation(request)
 			Expect(resource).To(Equal(expectedResource))
 			Expect(operation).To(Equal(expectedOperation))
-
 		},
 			Entry("should handle an empty URL and method", "", "", " ", "none", "none"),
 			Entry("should handle an empty URL", "", "", "GET", "none", "none"),

@@ -691,9 +691,7 @@ var _ = Describe("exportserver", func() {
 			return "token-secret", nil
 		}
 
-		var (
-			orgGetExportName = getExportName
-		)
+		orgGetExportName := getExportName
 
 		BeforeEach(func() {
 			getExportName = func() (string, error) {

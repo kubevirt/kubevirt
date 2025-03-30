@@ -27,7 +27,7 @@ func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image str
 			Command:         []string{"/usr/bin/virt-tail"},
 			Args:            []string{"--logfile", logFile, "--socket-timeout", socketTimeout},
 			VolumeMounts: []k8sv1.VolumeMount{
-				k8sv1.VolumeMount{
+				{
 					Name:      "private",
 					MountPath: util.VirtPrivateDir,
 					ReadOnly:  true,

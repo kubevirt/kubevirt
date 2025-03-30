@@ -38,7 +38,6 @@ import (
 )
 
 var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:component][sig-compute]IgnitionData", decorators.SigCompute, func() {
-
 	BeforeEach(func() {
 		if !checks.HasFeature("ExperimentalIgnitionSupport") {
 			Skip("ExperimentalIgnitionSupport feature gate is not enabled in kubevirt-config")
@@ -62,6 +61,5 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				})
 			})
 		})
-
 	})
 })

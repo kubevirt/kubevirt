@@ -66,7 +66,6 @@ func NewDisruptionBudgetController(
 	clientset kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
 ) (*DisruptionBudgetController, error) {
-
 	c := &DisruptionBudgetController{
 		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
 			workqueue.DefaultTypedControllerRateLimiter[string](),
@@ -371,14 +370,12 @@ func (c *DisruptionBudgetController) Execute() bool {
 }
 
 func (c *DisruptionBudgetController) execute(key string) error {
-
 	if !c.podDisruptionBudgetExpectations.SatisfiedExpectations(key) {
 		return nil
 	}
 
 	// Fetch the latest Vm state from cache
 	obj, vmiExists, err := c.vmiStore.GetByKey(key)
-
 	if err != nil {
 		return err
 	}

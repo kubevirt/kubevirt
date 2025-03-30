@@ -56,7 +56,7 @@ var _ = Describe("HostDisk", func() {
 	createTempDiskImg := func(volumeName string) os.FileInfo {
 		imgPath := path.Join(tempDir, volumeName, "disk.img")
 
-		err := os.Mkdir(path.Join(tempDir, volumeName), 0755)
+		err := os.Mkdir(path.Join(tempDir, volumeName), 0o755)
 		Expect(err).NotTo(HaveOccurred())
 
 		// 67108864 = 64Mi
@@ -80,10 +80,9 @@ var _ = Describe("HostDisk", func() {
 
 		hostDiskCreator = NewHostDiskCreator(recorder, 0, 0, root)
 		hostDiskCreatorWithReserve = NewHostDiskCreator(recorder, 10, 1048576, root)
-
 	})
 	createHostDisk := func(volumeName string) string {
-		if err := os.Mkdir(path.Join(tempDir, volumeName), 0755); err != nil {
+		if err := os.Mkdir(path.Join(tempDir, volumeName), 0o755); err != nil {
 			Expect(err).To(MatchError(os.ErrExist))
 		}
 		return path.Join(tempDir, volumeName, "disk.img")
@@ -285,7 +284,6 @@ var _ = Describe("HostDisk", func() {
 
 					testutils.ExpectEvent(recorder, "PV size too small")
 				})
-
 			})
 		})
 		Context("With existing disk.img", func() {
@@ -332,7 +330,6 @@ var _ = Describe("HostDisk", func() {
 	})
 
 	Describe("VMI with PVC volume", func() {
-
 		var (
 			virtClient *kubecli.MockKubevirtClient
 			vmi        *v1.VirtualMachineInstance

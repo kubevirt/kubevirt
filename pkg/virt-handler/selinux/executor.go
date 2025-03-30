@@ -40,8 +40,7 @@ type Executor interface {
 	Run(cmd *exec.Cmd) error
 }
 
-type SELinuxExecutor struct {
-}
+type SELinuxExecutor struct{}
 
 func (se SELinuxExecutor) NewSELinux() (SELinux, bool, error) {
 	return NewSELinux()

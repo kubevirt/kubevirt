@@ -1,9 +1,9 @@
 package healthz
 
 import (
-	"kubevirt.io/client-go/testutils"
-
 	"testing"
+
+	"kubevirt.io/client-go/testutils"
 )
 
 func TestHealthz(t *testing.T) {

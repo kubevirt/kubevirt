@@ -114,7 +114,6 @@ func (c *Controller) deleteDataVolume(obj interface{}) {
 }
 
 func (c *Controller) areDataVolumesReady(vmi *v1.VirtualMachineInstance, dataVolumes []*cdiv1.DataVolume) (bool, bool, common.SyncError) {
-
 	ready := true
 	wffc := false
 

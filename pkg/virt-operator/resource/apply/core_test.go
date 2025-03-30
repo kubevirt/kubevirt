@@ -50,9 +50,7 @@ import (
 )
 
 var _ = Describe("Apply", func() {
-
 	Context("Services", func() {
-
 		It("should not patch if ClusterIp is empty during update", func() {
 			cachedService := &corev1.Service{}
 			cachedService.Spec.Type = corev1.ServiceTypeClusterIP
@@ -91,7 +89,6 @@ var _ = Describe("Apply", func() {
 	})
 
 	Context("should reconcile configmap", func() {
-
 		var clientset *kubecli.MockKubevirtClient
 		var ctrl *gomock.Controller
 		var coreclientset *fake.Clientset
@@ -273,7 +270,6 @@ var _ = Describe("Apply", func() {
 	})
 
 	Context("should reconcile service account", func() {
-
 		newServiceAccount := func() *corev1.ServiceAccount {
 			return &corev1.ServiceAccount{
 				TypeMeta: metav1.TypeMeta{
@@ -318,7 +314,6 @@ var _ = Describe("Apply", func() {
 		})
 
 		It("should not patch ServiceAccount on sync when they are equal", func() {
-
 			pr := newServiceAccount()
 
 			version, imageRegistry, id := getTargetVersionRegistryID(kv)
@@ -383,15 +378,14 @@ var _ = Describe("Apply", func() {
 	})
 
 	Context("should handle service endpoint updates", func() {
-
 		config := getConfig("fake-registry", "v9.9.9")
 
 		DescribeTable("with either patch",
 			func(cachedService *corev1.Service,
 				targetService *corev1.Service,
 				expectLabelsAnnotationsPatch bool,
-				expectSpecPatch bool) {
-
+				expectSpecPatch bool,
+			) {
 				Expect(hasImmutableFieldChanged(targetService, cachedService)).To(BeFalse())
 				ops, err := generateServicePatch(cachedService, targetService)
 				Expect(err).ToNot(HaveOccurred())
@@ -665,8 +659,8 @@ var _ = Describe("Apply", func() {
 
 		DescribeTable("complete replacement",
 			func(cachedService *corev1.Service,
-				targetService *corev1.Service) {
-
+				targetService *corev1.Service,
+			) {
 				shouldDeleteAndReplace := hasImmutableFieldChanged(targetService, cachedService)
 				Expect(shouldDeleteAndReplace).To(BeTrue())
 			},

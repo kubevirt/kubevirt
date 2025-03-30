@@ -106,8 +106,10 @@ const (
 	affectDomainVCPULiveAndConfigLibvirtFlags = libvirt.DOMAIN_VCPU_LIVE | libvirt.DOMAIN_VCPU_CONFIG
 )
 
-const maxConcurrentHotplugHostDevices = 1
-const maxConcurrentMemoryDumps = 1
+const (
+	maxConcurrentHotplugHostDevices = 1
+	maxConcurrentMemoryDumps        = 1
+)
 
 type contextStore struct {
 	ctx    context.Context
@@ -208,14 +210,16 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 
 func NewLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore,
 	ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, metadataCache *metadata.Cache,
-	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error)) (DomainManager, error) {
+	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error),
+) (DomainManager, error) {
 	directIOChecker := converter.NewDirectIOChecker()
 	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache, stopChan, diskMemoryLimitBytes, cpuSetGetter)
 }
 
 func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string,
 	ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker, metadataCache *metadata.Cache,
-	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error)) (DomainManager, error) {
+	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error),
+) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		diskMemoryLimitBytes: diskMemoryLimitBytes,
 		virConn:              connection,
@@ -552,7 +556,7 @@ func (l *LibvirtDomainManager) UpdateVCPUs(vmi *v1.VirtualMachineInstance, optio
 }
 
 func maxSlice(slice []int) int {
-	var max = slice[0]
+	max := slice[0]
 	for _, value := range slice {
 		if max < value {
 			max = value
@@ -961,7 +965,6 @@ func shouldExpandOffline(disk api.Disk) bool {
 }
 
 func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineInstance, allowEmulation bool, options *cmdv1.VirtualMachineOptions, isMigrationTarget bool) (*converter.ConverterContext, error) {
-
 	logger := log.Log.Object(vmi)
 
 	podCPUSet, err := l.cpuSetGetter()
@@ -1364,7 +1367,7 @@ func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 		return false, err
 	}
 	if (info.Mode() & os.ModeDevice) != 0 {
-		file, err := os.OpenFile(filename, os.O_RDONLY, 0600)
+		file, err := os.OpenFile(filename, os.O_RDONLY, 0o600)
 		if err != nil {
 			log.DefaultLogger().V(1).Infof("Unable to open file: %v", err)
 			return false, nil
@@ -1375,7 +1378,7 @@ func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 		return true, nil
 	}
 	// Before attempting to attach, ensure we can open the file
-	file, err := os.OpenFile(filename, os.O_RDWR, 0600)
+	file, err := os.OpenFile(filename, os.O_RDWR, 0o600)
 	if err != nil {
 		return false, nil
 	}
@@ -1956,7 +1959,6 @@ func (l *LibvirtDomainManager) DeleteVMI(vmi *v1.VirtualMachineInstance) error {
 }
 
 func (l *LibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
-
 	doms, err := l.virConn.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
 	if err != nil {
 		return nil, err

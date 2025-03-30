@@ -16,8 +16,7 @@ func HaveOwners() types.GomegaMatcher {
 	return ownedMatcher{}
 }
 
-type ownedMatcher struct {
-}
+type ownedMatcher struct{}
 
 func (o ownedMatcher) Match(actual interface{}) (success bool, err error) {
 	u, err := helper.ToUnstructured(actual)

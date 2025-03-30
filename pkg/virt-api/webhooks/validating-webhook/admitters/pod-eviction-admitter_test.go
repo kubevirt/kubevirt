@@ -57,7 +57,7 @@ var _ = Describe("Pod eviction admitter", func() {
 		testNodeName  = "node01"
 	)
 
-	var defaultVMIOptions = []libvmi.Option{
+	defaultVMIOptions := []libvmi.Option{
 		libvmi.WithNamespace(testNamespace),
 		withStatusNodeName(testNodeName),
 	}

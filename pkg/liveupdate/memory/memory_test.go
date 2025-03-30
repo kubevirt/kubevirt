@@ -34,9 +34,7 @@ import (
 
 var _ = Describe("LiveUpdate Memory", func() {
 	Context("Memory", func() {
-
 		Context("Validation", func() {
-
 			DescribeTable("should reject VM creation if", func(maxGuestStr string, opts ...libvmi.Option) {
 				vmiOpts := []libvmi.Option{
 					libvmi.WithArchitecture("amd64"),
@@ -85,7 +83,6 @@ var _ = Describe("LiveUpdate Memory", func() {
 		})
 
 		Context("virtio-mem device", func() {
-
 			DescribeTable("should be correctly built", func(opts ...libvmi.Option) {
 				currentGuestMemory := resource.MustParse("64Mi")
 
@@ -141,6 +138,5 @@ var _ = Describe("LiveUpdate Memory", func() {
 				Entry("when using a VM with 1Gi sized hugepages", libvmi.WithHugepages("1Gi")),
 			)
 		})
-
 	})
 })

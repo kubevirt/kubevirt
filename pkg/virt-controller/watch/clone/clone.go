@@ -342,7 +342,6 @@ func (ctrl *VMCloneController) updateStatus(origClone *clone.VirtualMachineClone
 
 		if syncInfo.targetVMCreated {
 			assignPhase(clone.Succeeded)
-
 		}
 	}
 	if isInPhase(vmClone, clone.Succeeded) {
@@ -639,7 +638,6 @@ func (ctrl *VMCloneController) verifyPVCBound(vmClone *clone.VirtualMachineClone
 	syncInfo.pvcBound = true
 
 	return syncInfo
-
 }
 
 func (ctrl *VMCloneController) cleanupSnapshot(vmClone *clone.VirtualMachineClone, syncInfo syncInfoType) syncInfoType {

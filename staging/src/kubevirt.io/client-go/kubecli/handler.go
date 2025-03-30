@@ -98,6 +98,7 @@ func (v *virtHandler) Port(port int) VirtHandlerClient {
 	v.virtHandlerPort = port
 	return v
 }
+
 func (v *virtHandler) ForNode(nodeName string) VirtHandlerConn {
 	var err error
 
@@ -126,7 +127,6 @@ func (v *virtHandler) ForNode(nodeName string) VirtHandlerConn {
 }
 
 func (v *virtHandler) getVirtHandler(nodeName string, namespace string) (*v1.Pod, bool, error) {
-
 	handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + nodeName)
 	labelSelector, err := labels.Parse(virtv1.AppLabel + " in (virt-handler)")
 	if err != nil {
@@ -136,7 +136,8 @@ func (v *virtHandler) getVirtHandler(nodeName string, namespace string) (*v1.Pod
 	pods, err := v.virtCli.CoreV1().Pods(namespace).List(context.Background(),
 		k8smetav1.ListOptions{
 			FieldSelector: handlerNodeSelector.String(),
-			LabelSelector: labelSelector.String()})
+			LabelSelector: labelSelector.String(),
+		})
 	if err != nil {
 		return nil, false, err
 	}

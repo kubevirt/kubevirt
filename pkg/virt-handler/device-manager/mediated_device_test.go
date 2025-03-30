@@ -51,17 +51,17 @@ var _ = Describe("Mediated Device", func() {
 		Expect(err).ToNot(HaveOccurred())
 		// create a fake path to nvidia mdev type
 		fakeNvidiaTypePath := filepath.Join(fakeSupportedTypesPath, "nvidia-222")
-		err = os.MkdirAll(fakeNvidiaTypePath, 0700)
+		err = os.MkdirAll(fakeNvidiaTypePath, 0o700)
 		Expect(err).ToNot(HaveOccurred())
 		// create a fake path to Intel mdev type
 		fakeIntelTypePath := filepath.Join(fakeSupportedTypesPath, fakeIntelMdevNameSelector)
-		err = os.MkdirAll(fakeIntelTypePath, 0700)
+		err = os.MkdirAll(fakeIntelTypePath, 0o700)
 		Expect(err).ToNot(HaveOccurred())
 		mdevBasePath = fakeMdevBasePath
 		// create mdev directories and symlinks
 		for _, uuid := range []string{fakeMdevUUID, fakeIntelMdevUUID} {
 			mdevTypePath := filepath.Join(fakeMdevBasePath, uuid+"real")
-			err = os.MkdirAll(mdevTypePath, 0700)
+			err = os.MkdirAll(mdevTypePath, 0o700)
 			Expect(err).ToNot(HaveOccurred())
 			err = os.Symlink(filepath.Join(fakeMdevBasePath, uuid+"real"), filepath.Join(fakeMdevBasePath, uuid))
 			Expect(err).ToNot(HaveOccurred())
@@ -79,7 +79,6 @@ var _ = Describe("Mediated Device", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(n).To(Equal(len(fakeMdevNameSelector) + 1))
 		mdevNameWriter.Flush()
-
 	})
 
 	AfterEach(func() {

@@ -39,7 +39,6 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = Describe("Creating config images", func() {
-
 	Context("With creating file system layout", func() {
 		var tempConfDir string
 		var tempISODir string
@@ -53,10 +52,9 @@ var _ = Describe("Creating config images", func() {
 			Expect(err).NotTo(HaveOccurred())
 			expectedLayout = []string{"test-dir=" + filepath.Join(tempConfDir, "test-dir"), "test-file2=" + filepath.Join(tempConfDir, "test-file2")}
 
-			os.Mkdir(filepath.Join(tempConfDir, "test-dir"), 0755)
-			os.OpenFile(filepath.Join(tempConfDir, "test-dir", "test-file1"), os.O_RDONLY|os.O_CREATE, 0666)
-			os.OpenFile(filepath.Join(tempConfDir, "test-file2"), os.O_RDONLY|os.O_CREATE, 0666)
-
+			os.Mkdir(filepath.Join(tempConfDir, "test-dir"), 0o755)
+			os.OpenFile(filepath.Join(tempConfDir, "test-dir", "test-file1"), os.O_RDONLY|os.O_CREATE, 0o666)
+			os.OpenFile(filepath.Join(tempConfDir, "test-file2"), os.O_RDONLY|os.O_CREATE, 0o666)
 		})
 
 		AfterEach(func() {

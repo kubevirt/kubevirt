@@ -64,8 +64,10 @@ const (
 	memoryDumpPVCSize                = "500Mi"
 )
 
-type memoryDumpFunction func(name, namespace, claimNames string)
-type removeMemoryDumpFunction func(name, namespace string)
+type (
+	memoryDumpFunction       func(name, namespace, claimNames string)
+	removeMemoryDumpFunction func(name, namespace string)
+)
 
 var _ = Describe(SIG("Memory dump", func() {
 	var (
@@ -194,7 +196,6 @@ var _ = Describe(SIG("Memory dump", func() {
 
 			return nil
 		}, 90*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
-
 	}
 
 	waitAndVerifyMemoryDumpDissociation := func(vm *v1.VirtualMachine, memoryDumpPVC string) {
@@ -221,7 +222,6 @@ var _ = Describe(SIG("Memory dump", func() {
 
 			return nil
 		}, 90*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
-
 	}
 
 	verifyMemoryDumpOutput := func(memoryDumpPVC *k8sv1.PersistentVolumeClaim, previousOutput string, shouldEqual bool) string {

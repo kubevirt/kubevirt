@@ -221,7 +221,6 @@ func gRPCConnect(socketPath string, timeout time.Duration) (*grpc.ClientConn, er
 			return net.DialTimeout("unix", addr, timeout)
 		}),
 	)
-
 	if err != nil {
 		return nil, err
 	}

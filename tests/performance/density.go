@@ -162,7 +162,6 @@ func runAudit(startTime time.Time, endTime time.Time, outputFile string) {
 	duration := audit_api.Duration(endTime.Sub(startTime))
 
 	inputCfg := &audit_api.InputConfig{
-
 		PrometheusURL:            fmt.Sprintf("http://127.0.0.1:%v", prometheusPort),
 		StartTime:                &startTime,
 		EndTime:                  &endTime,

@@ -34,9 +34,7 @@ import (
 )
 
 var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateRolloutStrategy, Serial, func() {
-	var (
-		virtClient kubecli.KubevirtClient
-	)
+	var virtClient kubecli.KubevirtClient
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 		originalKv := libkubevirt.GetCurrentKv(virtClient)
@@ -52,11 +50,9 @@ var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorator
 			currentKv.ResourceVersion,
 			config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
 			time.Minute)
-
 	})
 
 	Context("A VM with memory liveUpdate enabled", func() {
-
 		createHotplugVM := func(sockets *uint32, maxSockets uint32, opts ...libvmi.Option) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
 			vmiOpts := append([]libvmi.Option{},
 				libnet.WithMasqueradeNetworking(),
@@ -394,7 +390,6 @@ var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorator
 			migration := getVMIMigration(virtClient, vmi)
 			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
 		})
-
 	})
 })
 

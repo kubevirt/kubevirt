@@ -119,7 +119,6 @@ var _ = Describe("Evacuation", func() {
 		controllertesting.SanityExecute(controller, []cache.Store{
 			controller.vmiIndexer, controller.vmiPodIndexer, controller.migrationStore, controller.nodeStore,
 		}, Default)
-
 	}
 
 	Context("migration object creation", func() {
@@ -128,11 +127,9 @@ var _ = Describe("Evacuation", func() {
 			Expect(migration.Spec.VMIName).To(Equal("my-vmi"))
 			Expect(migration.Annotations[v1.EvacuationMigrationAnnotation]).To(Equal("somenode"))
 		})
-
 	})
 
 	Context("no node eviction in progress", func() {
-
 		It("should do nothing with VMIs", func() {
 			node := newNode("testnode")
 			addNode(node)
@@ -157,7 +154,6 @@ var _ = Describe("Evacuation", func() {
 	})
 
 	Context("node eviction in progress", func() {
-
 		It("should evict the VMI", func() {
 			node := newNode("testnode")
 			node1 := newNode("anothernode")
@@ -217,7 +213,6 @@ var _ = Describe("Evacuation", func() {
 			migrationFeeder.Add(newMigration("mig5", vmi.Name, v1.MigrationRunning))
 
 			sanityExecute()
-
 		})
 
 		It("should start another migration if one completes and we have a free spot", func() {
@@ -250,7 +245,6 @@ var _ = Describe("Evacuation", func() {
 	})
 
 	Context("VMIs marked for eviction", func() {
-
 		It("Should evict the VMI", func() {
 			node := newNode("foo")
 			addNode(node)
@@ -321,15 +315,14 @@ var _ = Describe("Evacuation", func() {
 			nodeName := "node01"
 			addNode(newNode(nodeName))
 
-			controller, _ =
-				NewEvacuationController(
-					vmiInformer,
-					migrationInformer,
-					nodeInformer,
-					podInformer,
-					recorder,
-					virtClient,
-					config)
+			controller, _ = NewEvacuationController(
+				vmiInformer,
+				migrationInformer,
+				nodeInformer,
+				podInformer,
+				recorder,
+				virtClient,
+				config)
 
 			for i := 1; i <= activeMigrations; i++ {
 				vmiName := fmt.Sprintf("testvmi-migrating-%d", i)
@@ -452,8 +445,8 @@ var _ = Describe("Evacuation", func() {
 		It("Should create new evictions up to the configured maximum migrations per outbound node", func() {
 			var maxParallelMigrationsPerCluster uint32 = 10
 			var maxParallelMigrationsPerOutboundNode uint32 = 5
-			var activeMigrationsFromThisSourceNode = 4
-			var migrationCandidatesFromThisSourceNode = 4
+			activeMigrationsFromThisSourceNode := 4
+			migrationCandidatesFromThisSourceNode := 4
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 				MigrationConfiguration: &v1.MigrationConfiguration{
 					ParallelMigrationsPerCluster:      &maxParallelMigrationsPerCluster,
@@ -461,15 +454,14 @@ var _ = Describe("Evacuation", func() {
 				},
 			})
 
-			controller, _ =
-				NewEvacuationController(
-					vmiInformer,
-					migrationInformer,
-					nodeInformer,
-					podInformer,
-					recorder,
-					virtClient,
-					config)
+			controller, _ = NewEvacuationController(
+				vmiInformer,
+				migrationInformer,
+				nodeInformer,
+				podInformer,
+				recorder,
+				virtClient,
+				config)
 
 			nodeName := "node01"
 			addNode(newNode(nodeName))
@@ -507,15 +499,14 @@ var _ = Describe("Evacuation", func() {
 				},
 			})
 
-			controller, _ =
-				NewEvacuationController(
-					vmiInformer,
-					migrationInformer,
-					nodeInformer,
-					podInformer,
-					recorder,
-					virtClient,
-					config)
+			controller, _ = NewEvacuationController(
+				vmiInformer,
+				migrationInformer,
+				nodeInformer,
+				podInformer,
+				recorder,
+				virtClient,
+				config)
 
 			nodeName := "node01"
 			addNode(newNode(nodeName))
@@ -535,7 +526,6 @@ var _ = Describe("Evacuation", func() {
 
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineInstanceMigrationReason)
 			expectMigrationCreation()
-
 		})
 	})
 

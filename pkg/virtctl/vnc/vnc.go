@@ -62,10 +62,12 @@ const (
 	TIGER_VNC     = "vncviewer"
 )
 
-var listenAddressFmt string
-var listenAddress = "127.0.0.1"
-var proxyOnly bool
-var customPort = 0
+var (
+	listenAddressFmt string
+	listenAddress    = "127.0.0.1"
+	proxyOnly        bool
+	customPort       = 0
+)
 
 func NewCommand() *cobra.Command {
 	log.InitializeLogging("vnc")

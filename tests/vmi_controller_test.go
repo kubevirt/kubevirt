@@ -11,7 +11,6 @@ import (
 )
 
 var _ = Describe("[sig-compute]Controller devices", decorators.SigCompute, func() {
-
 	Context("with ephemeral disk", func() {
 		DescribeTable("a scsi controller", func(enabled bool) {
 			vmi := libvmifact.NewCirros()

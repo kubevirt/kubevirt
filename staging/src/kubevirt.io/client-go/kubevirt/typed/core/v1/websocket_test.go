@@ -35,7 +35,6 @@ import (
 )
 
 var _ = ginkgo.Describe("Websocket", func() {
-
 	ginkgo.Context("data proxied through our websocket proxy", func() {
 		var proxy *httptest.Server
 		var target *httptest.Server
@@ -75,7 +74,6 @@ var _ = ginkgo.Describe("Websocket", func() {
 			gomega.Expect(fmt.Sprintf("%x", expectedDataHash.Sum(nil))).To(gomega.Equal(fmt.Sprintf("%x", receivedDataHash.Sum(nil))))
 		})
 	})
-
 })
 
 func newTargetServer(writer io.Writer, done chan error) *httptest.Server {

@@ -205,7 +205,6 @@ func getSystemInfoFromAnnotations(annotations map[string]string) (os, workload, 
 }
 
 func getGuestOSInfo(vmi *k6tv1.VirtualMachineInstance) (kernelRelease, guestOSMachineArch, name, versionID string) {
-
 	if vmi.Status.GuestOSInfo == (k6tv1.VirtualMachineInstanceGuestOSInfo{}) {
 		return
 	}
@@ -399,7 +398,8 @@ func collectVMIMigrationTime(vmi *k6tv1.VirtualMachineInstance) []operatormetric
 		cr = append(cr, operatormetrics.CollectorResult{
 			Metric: vmiMigrationEndTime,
 			Value:  float64(vmi.Status.MigrationState.EndTimestamp.Time.Unix()),
-			Labels: []string{vmi.Status.NodeName, vmi.Namespace, vmi.Name, migrationName,
+			Labels: []string{
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name, migrationName,
 				calculateMigrationStatus(vmi.Status.MigrationState),
 			},
 		})

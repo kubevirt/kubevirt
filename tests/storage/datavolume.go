@@ -87,7 +87,6 @@ const (
 const InvalidDataVolumeUrl = "docker://127.0.0.1/invalid:latest"
 
 var _ = Describe(SIG("DataVolume Integration", func() {
-
 	var virtClient kubecli.KubevirtClient
 	var err error
 
@@ -324,7 +323,6 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			})
 
 			It("[test_id:6686]should successfully start multiple concurrent VMIs", func() {
-
 				sc, exists := libstorage.GetRWOFileSystemStorageClass()
 				if !exists {
 					Fail("Fail test when Filesystem storage is not present")
@@ -629,7 +627,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			data, err := json.Marshal(vm)
 			Expect(err).ToNot(HaveOccurred())
 			vmJson = filepath.Join(GinkgoT().TempDir(), fmt.Sprintf("%s.json", vm.Name))
-			Expect(os.WriteFile(vmJson, data, 0644)).To(Succeed())
+			Expect(os.WriteFile(vmJson, data, 0o644)).To(Succeed())
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -706,7 +704,6 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			By("Verifying VMI still exists with owner references removed")
 			Consistently(ThisVMIWith(vm.Namespace, vm.Name), 60, 1).Should(And(BeRunning(), Not(BeOwned())))
 		})
-
 	})
 
 	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachine with a DataVolume", func() {

@@ -26,42 +26,48 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-var KubeVirtUtilityVersionTag = ""
-var KubeVirtVersionTag = "latest"
-var KubeVirtVersionTagAlt = ""
-var KubeVirtUtilityRepoPrefix = ""
-var KubeVirtRepoPrefix = "quay.io/kubevirt"
-var ImagePrefixAlt = ""
-var ContainerizedDataImporterNamespace = "cdi"
-var KubeVirtKubectlPath = ""
-var KubeVirtOcPath = ""
-var KubeVirtVirtctlPath = ""
-var KubeVirtExampleGuestAgentPath = ""
-var KubeVirtInstallNamespace string
-var PrometheusNamespace string
-var PreviousReleaseTag = ""
-var PreviousReleaseRegistry = ""
-var PreviousUtilityRegistry = ""
-var PreviousUtilityTag = ""
-var ConfigFile = ""
-var SkipShasumCheck bool
-var SkipDualStackTests bool
-var IPV4ConnectivityCheckAddress = ""
-var IPV6ConnectivityCheckAddress = ""
-var ConnectivityCheckDNS = ""
-var ArtifactsDir string
-var OperatorManifestPath string
-var TestingManifestPath string
-var ApplyDefaulte2eConfiguration bool
+var (
+	KubeVirtUtilityVersionTag          = ""
+	KubeVirtVersionTag                 = "latest"
+	KubeVirtVersionTagAlt              = ""
+	KubeVirtUtilityRepoPrefix          = ""
+	KubeVirtRepoPrefix                 = "quay.io/kubevirt"
+	ImagePrefixAlt                     = ""
+	ContainerizedDataImporterNamespace = "cdi"
+	KubeVirtKubectlPath                = ""
+	KubeVirtOcPath                     = ""
+	KubeVirtVirtctlPath                = ""
+	KubeVirtExampleGuestAgentPath      = ""
+	KubeVirtInstallNamespace           string
+	PrometheusNamespace                string
+	PreviousReleaseTag                 = ""
+	PreviousReleaseRegistry            = ""
+	PreviousUtilityRegistry            = ""
+	PreviousUtilityTag                 = ""
+	ConfigFile                         = ""
+	SkipShasumCheck                    bool
+	SkipDualStackTests                 bool
+	IPV4ConnectivityCheckAddress       = ""
+	IPV6ConnectivityCheckAddress       = ""
+	ConnectivityCheckDNS               = ""
+	ArtifactsDir                       string
+	OperatorManifestPath               string
+	TestingManifestPath                string
+	ApplyDefaulte2eConfiguration       bool
+)
 
-var DeployFakeKWOKNodesFlag = false
-var DeployTestingInfrastructureFlag = false
-var PathToTestingInfrastrucureManifests = ""
-var DNSServiceName = ""
-var DNSServiceNamespace = ""
+var (
+	DeployFakeKWOKNodesFlag             = false
+	DeployTestingInfrastructureFlag     = false
+	PathToTestingInfrastrucureManifests = ""
+	DNSServiceName                      = ""
+	DNSServiceNamespace                 = ""
+)
 
-var MigrationNetworkNIC = "eth1"
-var MigrationNetworkName string
+var (
+	MigrationNetworkNIC  = "eth1"
+	MigrationNetworkName string
+)
 
 func init() {
 	kubecli.Init()
@@ -118,5 +124,4 @@ func NormalizeFlags() {
 	if PreviousUtilityTag == "" {
 		PreviousUtilityTag = PreviousReleaseTag
 	}
-
 }

@@ -311,7 +311,6 @@ func (app *SubresourceAPIApp) DumpClusterProfilerHandler(request *restful.Reques
 			resultsLock.Lock()
 			defer resultsLock.Unlock()
 			results.ComponentResults[name] = componentResult
-
 		}(ip, name)
 	}
 
@@ -321,7 +320,7 @@ func (app *SubresourceAPIApp) DumpClusterProfilerHandler(request *restful.Reques
 		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Internal error encountered: %v", err))
 		return
 	default:
-		//no error
+		// no error
 	}
 
 	response.WriteAsJson(results)

@@ -438,12 +438,14 @@ var _ = Describe("vmexport", func() {
 
 			vme, err = virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
-				Name: volumeName,
-				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
-					Format: exportv1.KubeVirtGz,
-					Url:    server.URL,
-				}}},
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{
+				{
+					Name: volumeName,
+					Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+						Format: exportv1.KubeVirtGz,
+						Url:    server.URL,
+					}},
+				},
 			})
 			vme, err = virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Update(context.Background(), vme, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -475,12 +477,14 @@ var _ = Describe("vmexport", func() {
 					Expect(ok).To(BeTrue())
 					vme, ok := create.GetObject().(*exportv1.VirtualMachineExport)
 					Expect(ok).To(BeTrue())
-					vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
-						Name: volumeName,
-						Formats: []exportv1.VirtualMachineExportVolumeFormat{{
-							Format: format,
-							Url:    server.URL,
-						}}},
+					vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{
+						{
+							Name: volumeName,
+							Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+								Format: format,
+								Url:    server.URL,
+							}},
+						},
 					})
 					return false, vme, nil
 				})
@@ -563,12 +567,14 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("Succesfully download a VirtualMachineExport with just 'raw' links", func() {
-			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
-				Name: volumeName,
-				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
-					Format: exportv1.KubeVirtRaw,
-					Url:    server.URL,
-				}}},
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{
+				{
+					Name: volumeName,
+					Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+						Format: exportv1.KubeVirtRaw,
+						Url:    server.URL,
+					}},
+				},
 			})
 			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -585,12 +591,14 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("VirtualMachineExport download succeeds when the volume has a different name than expected but there's only one volume", func() {
-			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
-				Name: "no-test-volume",
-				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
-					Format: exportv1.KubeVirtRaw,
-					Url:    server.URL,
-				}}},
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{
+				{
+					Name: "no-test-volume",
+					Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+						Format: exportv1.KubeVirtRaw,
+						Url:    server.URL,
+					}},
+				},
 			})
 			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -606,12 +614,14 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("VirtualMachineExport download succeeds when there's only one volume and no --volume has been specified", func() {
-			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
-				Name: "no-test-volume",
-				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
-					Format: exportv1.KubeVirtRaw,
-					Url:    server.URL,
-				}}},
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{
+				{
+					Name: "no-test-volume",
+					Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+						Format: exportv1.KubeVirtRaw,
+						Url:    server.URL,
+					}},
+				},
 			})
 			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -673,12 +683,14 @@ var _ = Describe("vmexport", func() {
 				w.WriteHeader(http.StatusOK)
 			})
 
-			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
-				Name: volumeName,
-				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
-					Format: exportv1.KubeVirtGz,
-					Url:    server.URL,
-				}}},
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{
+				{
+					Name: volumeName,
+					Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+						Format: exportv1.KubeVirtGz,
+						Url:    server.URL,
+					}},
+				},
 			})
 			vme.Status.Links.External.Manifests = append(vme.Status.Links.External.Manifests,
 				exportv1.VirtualMachineExportManifest{
@@ -714,12 +726,14 @@ var _ = Describe("vmexport", func() {
 				w.WriteHeader(http.StatusOK)
 			})
 
-			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
-				Name: volumeName,
-				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
-					Format: exportv1.KubeVirtGz,
-					Url:    server.URL,
-				}}},
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{
+				{
+					Name: volumeName,
+					Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+						Format: exportv1.KubeVirtGz,
+						Url:    server.URL,
+					}},
+				},
 			})
 			vme.Status.Links.External.Manifests = append(vme.Status.Links.External.Manifests,
 				exportv1.VirtualMachineExportManifest{
@@ -757,12 +771,14 @@ var _ = Describe("vmexport", func() {
 				w.WriteHeader(http.StatusBadRequest)
 			})
 
-			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
-				Name: volumeName,
-				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
-					Format: exportv1.KubeVirtGz,
-					Url:    server.URL,
-				}}},
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{
+				{
+					Name: volumeName,
+					Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+						Format: exportv1.KubeVirtGz,
+						Url:    server.URL,
+					}},
+				},
 			})
 			vme.Status.Links.External.Manifests = append(vme.Status.Links.External.Manifests,
 				exportv1.VirtualMachineExportManifest{
@@ -816,12 +832,14 @@ var _ = Describe("vmexport", func() {
 						Name:     "test-vm",
 					},
 				},
-				Status: vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
-					Name: volumeName,
-					Formats: []exportv1.VirtualMachineExportVolumeFormat{{
-						Format: exportv1.KubeVirtRaw,
-						Url:    server.URL,
-					}}},
+				Status: vmeStatusReady([]exportv1.VirtualMachineExportVolume{
+					{
+						Name: volumeName,
+						Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+							Format: exportv1.KubeVirtRaw,
+							Url:    server.URL,
+						}},
+					},
 				}),
 			}
 			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
@@ -903,26 +921,28 @@ var _ = Describe("vmexport", func() {
 
 	Context("getUrlFromVirtualMachineExport", func() {
 		It("Should get compressed URL even when there's multiple URLs", func() {
-			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
-				Name: volumeName,
-				Formats: []exportv1.VirtualMachineExportVolumeFormat{
-					{
-						Format: exportv1.KubeVirtRaw,
-						Url:    "raw",
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{
+				{
+					Name: volumeName,
+					Formats: []exportv1.VirtualMachineExportVolumeFormat{
+						{
+							Format: exportv1.KubeVirtRaw,
+							Url:    "raw",
+						},
+						{
+							Format: exportv1.KubeVirtRaw,
+							Url:    "raw",
+						},
+						{
+							Format: exportv1.KubeVirtGz,
+							Url:    "compressed",
+						},
+						{
+							Format: exportv1.KubeVirtRaw,
+							Url:    "raw",
+						},
 					},
-					{
-						Format: exportv1.KubeVirtRaw,
-						Url:    "raw",
-					},
-					{
-						Format: exportv1.KubeVirtGz,
-						Url:    "compressed",
-					},
-					{
-						Format: exportv1.KubeVirtRaw,
-						Url:    "raw",
-					},
-				}},
+				},
 			})
 			vmeInfo := &vmexport.VMExportInfo{
 				Name:       vme.Name,
@@ -935,12 +955,14 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("Should get raw URL when there's no other option", func() {
-			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
-				Name: volumeName,
-				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
-					Format: exportv1.KubeVirtRaw,
-					Url:    "raw",
-				}}},
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{
+				{
+					Name: volumeName,
+					Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+						Format: exportv1.KubeVirtRaw,
+						Url:    "raw",
+					}},
+				},
 			})
 			vmeInfo := &vmexport.VMExportInfo{
 				Name:       vme.Name,
@@ -953,12 +975,14 @@ var _ = Describe("vmexport", func() {
 		})
 
 		It("Should not get any URL when there's no valid options", func() {
-			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
-				Name: volumeName,
-				Formats: []exportv1.VirtualMachineExportVolumeFormat{{
-					Format: exportv1.Dir,
-					Url:    server.URL,
-				}}},
+			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{
+				{
+					Name: volumeName,
+					Formats: []exportv1.VirtualMachineExportVolumeFormat{{
+						Format: exportv1.Dir,
+						Url:    server.URL,
+					}},
+				},
 			})
 			vmeInfo := &vmexport.VMExportInfo{
 				Name:       vme.Name,

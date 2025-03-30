@@ -43,9 +43,7 @@ import (
 	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
 
-var (
-	pathToUSBDevices = "/sys/bus/usb/devices"
-)
+var pathToUSBDevices = "/sys/bus/usb/devices"
 
 var discoverLocalUSBDevicesFunc = discoverPluggedUSBDevices
 
@@ -549,7 +547,6 @@ func discoverPluggedUSBDevices() *LocalDevices {
 		}
 		return nil
 	})
-
 	if err != nil {
 		log.Log.Reason(err).Error("Failed when walking usb devices tree")
 	}

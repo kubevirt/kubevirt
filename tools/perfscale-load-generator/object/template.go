@@ -43,9 +43,7 @@ const (
 	containerTag    = "containerTag"
 )
 
-var (
-	codecs serializer.CodecFactory
-)
+var codecs serializer.CodecFactory
 
 func init() {
 	scheme := runtime.NewScheme()

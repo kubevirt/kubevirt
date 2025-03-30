@@ -64,7 +64,6 @@ func GenerateMasqueradeGatewayAndVmIPAddrs(vmiSpecNetwork *v1.Network, ipVersion
 		} else {
 			cidrToConfigure = vmiSpecNetwork.Pod.VMNetworkCIDR
 		}
-
 	}
 
 	if ipVersion == netdriver.IPv6 {
@@ -73,7 +72,6 @@ func GenerateMasqueradeGatewayAndVmIPAddrs(vmiSpecNetwork *v1.Network, ipVersion
 		} else {
 			cidrToConfigure = vmiSpecNetwork.Pod.VMIPv6NetworkCIDR
 		}
-
 	}
 
 	gatewayIP, vmIP, err := getMasqueradeGwAndHostAddressesFromCIDR(cidrToConfigure)

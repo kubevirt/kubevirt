@@ -41,11 +41,9 @@ const (
 	libvirtEventChannelFull        = "Libvirt event channel is full, dropping event."
 )
 
-var (
-	// add older version when supported
-	// don't use the variable in pkg/handler-launcher-com/notify/v1/version.go in order to detect version mismatches early
-	supportedNotifyVersions = []uint32{1}
-)
+// add older version when supported
+// don't use the variable in pkg/handler-launcher-com/notify/v1/version.go in order to detect version mismatches early
+var supportedNotifyVersions = []uint32{1}
 
 type Notifier struct {
 	v1client         notifyv1.NotifyClient
@@ -118,11 +116,9 @@ func (n *Notifier) SetCustomTimeouts(interval, send, total time.Duration) {
 	n.intervalTimeout = interval
 	n.sendTimeout = send
 	n.totalTimeout = total
-
 }
 
 func (n *Notifier) detectSocketPath() string {
-
 	// use the legacy domain socket if it exists. This would
 	// occur if the vmi was started with a hostPath shared mount
 	// using our old method for virt-handler to virt-launcher communication
@@ -173,7 +169,6 @@ func (n *Notifier) connect() error {
 }
 
 func (n *Notifier) SendDomainEvent(event watch.Event) error {
-
 	var domainJSON []byte
 	var statusJSON []byte
 	var err error
@@ -220,7 +215,6 @@ func (n *Notifier) SendDomainEvent(event watch.Event) error {
 		}
 
 		return true, nil
-
 	})
 
 	if err != nil {
@@ -259,8 +253,8 @@ func (e *eventCaller) updateStatus(status *api.DomainStatus) {
 
 func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
 	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, vmi *v1.VirtualMachineInstance, fsFreezeStatus *api.FSFreeze,
-	metadataCache *metadata.Cache) {
-
+	metadataCache *metadata.Cache,
+) {
 	d, err := c.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
 	if err != nil {
 		if !domainerrors.IsNotFound(err) {
@@ -397,7 +391,6 @@ func (n *Notifier) StartDomainNotifier(
 	qemuAgentFSFreezeStatusInterval time.Duration,
 	metadataCache *metadata.Cache,
 ) error {
-
 	eventChan := make(chan libvirtEvent, 10)
 
 	reconnectChan := make(chan bool, 10)
@@ -476,7 +469,6 @@ func (n *Notifier) StartDomainNotifier(
 	}()
 
 	domainEventLifecycleCallback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventLifecycle) {
-
 		log.Log.Infof("DomainLifecycle event %s with event id %d reason %d received", event.String(), event.Event, event.Detail)
 		name, err := d.GetName()
 		if err != nil {
@@ -640,5 +632,4 @@ func (n *Notifier) Close() {
 	n.connLock.Lock()
 	defer n.connLock.Unlock()
 	n._close()
-
 }

@@ -290,7 +290,6 @@ func groupVersionProxyBase(gv schema.GroupVersion) (*restful.WebService, error) 
 }
 
 func genericNamespacedResourceProxy(ws *restful.WebService, gvr schema.GroupVersionResource, objPointer runtime.Object, objKind string, objListPointer runtime.Object) (*restful.WebService, error) {
-
 	objExample := reflect.ValueOf(objPointer).Elem().Interface()
 	listExample := reflect.ValueOf(objListPointer).Elem().Interface()
 
@@ -360,7 +359,6 @@ func genericNamespacedResourceProxy(ws *restful.WebService, gvr schema.GroupVers
 }
 
 func genericClusterResourceProxy(ws *restful.WebService, gvr schema.GroupVersionResource, objPointer runtime.Object, objKind string, objListPointer runtime.Object) (*restful.WebService, error) {
-
 	objExample := reflect.ValueOf(objPointer).Elem().Interface()
 	listExample := reflect.ValueOf(objListPointer).Elem().Interface()
 

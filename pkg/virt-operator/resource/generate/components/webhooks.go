@@ -29,8 +29,10 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 )
 
-var sideEffectNone = admissionregistrationv1.SideEffectClassNone
-var sideEffectNoneOnDryRun = admissionregistrationv1.SideEffectClassNoneOnDryRun
+var (
+	sideEffectNone         = admissionregistrationv1.SideEffectClassNone
+	sideEffectNoneOnDryRun = admissionregistrationv1.SideEffectClassNoneOnDryRun
+)
 
 const certificatesSecretAnnotationKey = "certificates.kubevirt.io/secret"
 
@@ -288,7 +290,6 @@ func NewVirtAPIMutatingWebhookConfiguration(installNamespace string) *admissionr
 			},
 		},
 	}
-
 }
 
 func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissionregistrationv1.ValidatingWebhookConfiguration {

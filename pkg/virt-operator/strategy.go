@@ -33,7 +33,6 @@ func (c *KubeVirtController) cacheInstallStrategy(cachedEntry *install.Strategy,
 }
 
 func (c *KubeVirtController) deleteAllInstallStrategy() error {
-
 	for _, obj := range c.stores.InstallStrategyConfigMapCache.List() {
 		configMap, ok := obj.(*k8sv1.ConfigMap)
 		if ok && configMap.DeletionTimestamp == nil {

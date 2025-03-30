@@ -41,12 +41,12 @@ const (
 	loggingVerbosity = 2
 )
 
-var (
-	defaultDeviceRules []*devices.Rule
-)
+var defaultDeviceRules []*devices.Rule
 
-type execVirtChrootFunc func(r *runc_configs.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error
-type getCurrentlyDefinedRulesFunc func(runcManager runc_cgroups.Manager) ([]*devices.Rule, error)
+type (
+	execVirtChrootFunc           func(r *runc_configs.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error
+	getCurrentlyDefinedRulesFunc func(runcManager runc_cgroups.Manager) ([]*devices.Rule, error)
+)
 
 // addCurrentRules gets a slice of rules as a parameter and returns a new slice that contains all given rules
 // and all of the rules that are currently set. This way rules that are already defined won't be deleted by this
@@ -168,7 +168,7 @@ func newAllowedDeviceRule(devicePath *safepath.Path) (*devices.Rule, error) {
 		return nil, err
 	}
 	if (fileInfo.Mode() & os.ModeDevice) == 0 {
-		return nil, nil //not a device file
+		return nil, nil // not a device file
 	}
 	deviceType := devices.BlockDevice
 	if (fileInfo.Mode() & os.ModeCharDevice) != 0 {

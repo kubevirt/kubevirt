@@ -119,11 +119,11 @@ func CleanNamespaces() {
 			Expect(virtCli.VirtualMachinePreference(namespace).Delete(context.Background(), preference.Name, metav1.DeleteOptions{})).To(Succeed())
 		}
 
-		//Remove all Jobs
+		// Remove all Jobs
 		jobDeleteStrategy := metav1.DeletePropagationOrphan
 		jobDeleteOptions := metav1.DeleteOptions{PropagationPolicy: &jobDeleteStrategy}
 		Expect(virtCli.BatchV1().RESTClient().Delete().Namespace(namespace).Resource("jobs").Body(&jobDeleteOptions).Do(context.Background()).Error()).To(Succeed())
-		//Remove all HPA
+		// Remove all HPA
 		Expect(virtCli.AutoscalingV1().RESTClient().Delete().Namespace(namespace).Resource("horizontalpodautoscalers").Do(context.Background()).Error()).To(Succeed())
 
 		// Remove all VirtualMachinePools

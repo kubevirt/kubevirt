@@ -14,12 +14,11 @@ import (
 )
 
 var _ = Describe("NumaPlacement", func() {
-
 	var givenSpec *api.DomainSpec
 	var givenVMI *v1.VirtualMachineInstance
 	var givenTopology *cmdv1.Topology
 	var expectedSpec *api.DomainSpec
-	var MiBInBytes_2 = strconv.Itoa(2 * 1024 * 1024)
+	MiBInBytes_2 := strconv.Itoa(2 * 1024 * 1024)
 	var MiBInBytes_22 uint64 = 22 * 1024 * 1024
 	var MiBInBytes_20 uint64 = 20 * 1024 * 1024
 	var MiBInBytes_32 uint64 = 32 * 1024 * 1024
@@ -72,7 +71,8 @@ var _ = Describe("NumaPlacement", func() {
 				MemNodes: []api.MemNode{
 					{CellID: 0, Mode: "strict", NodeSet: "0"},
 					{CellID: 1, Mode: "strict", NodeSet: "4"},
-				}},
+				},
+			},
 		}
 		givenVMI = &v1.VirtualMachineInstance{}
 		memory := resource.MustParse("64Mi")

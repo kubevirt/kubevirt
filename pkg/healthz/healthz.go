@@ -71,7 +71,7 @@ func (h *KubeApiHealthzVersion) GetVersion() (v interface{}) {
 func KubeConnectionHealthzFuncFactory(clusterConfig *virtconfig.ClusterConfig, hVersion *KubeApiHealthzVersion) func(_ *restful.Request, response *restful.Response) {
 	return func(_ *restful.Request, response *restful.Response) {
 		res := map[string]interface{}{}
-		var version = hVersion.GetVersion()
+		version := hVersion.GetVersion()
 
 		if version == nil {
 			cli, err := kubecli.GetKubevirtClient()

@@ -10,7 +10,6 @@ import (
 )
 
 var _ = Describe("Wrapped SSH", func() {
-
 	var fakeKind, fakeNamespace, fakeName string
 	var ssh SSH
 
@@ -22,7 +21,6 @@ var _ = Describe("Wrapped SSH", func() {
 	})
 
 	Context("buildSSHTarget", func() {
-
 		It("with SSH username", func() {
 			ssh.options = SSHOptions{SSHUsername: "testuser"}
 			sshTarget := ssh.buildSSHTarget(fakeKind, fakeNamespace, fakeName)
@@ -33,7 +31,6 @@ var _ = Describe("Wrapped SSH", func() {
 			sshTarget := ssh.buildSSHTarget(fakeKind, fakeNamespace, fakeName)
 			Expect(sshTarget[0]).To(Equal("fake-kind.fake-name.fake-ns"))
 		})
-
 	})
 
 	It("buildProxyCommandOption", func() {

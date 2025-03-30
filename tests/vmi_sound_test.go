@@ -40,9 +40,7 @@ import (
 )
 
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Sound", decorators.SigCompute, func() {
-
 	Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component] A VirtualMachineInstance with default sound support", func() {
-
 		It("should create an ich9 sound device on empty model", func() {
 			vmi := libvmifact.NewCirros()
 			vmi.Spec.Domain.Devices.Sound = &v1.SoundDevice{
@@ -56,7 +54,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred(), "ICH9 sound device was no found")
 		})
 	})
-
 })
 
 func checkICH9AudioDeviceInGuest(vmi *v1.VirtualMachineInstance) error {

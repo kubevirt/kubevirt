@@ -80,7 +80,6 @@ var _ = Describe("Virt-api", func() {
 	})
 
 	Context("Virt api server", func() {
-
 		It("should return error if extension-apiserver-authentication ConfigMap doesn't exist", func() {
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -91,11 +90,9 @@ var _ = Describe("Virt-api", func() {
 
 			err := app.readRequestHeader()
 			Expect(err).To(HaveOccurred())
-
 		})
 
 		It("should fail without requestheader CA", func() {
-
 			configMap := &k8sv1.ConfigMap{}
 			configMap.Data = make(map[string]string)
 			server.AppendHandlers(
@@ -223,7 +220,6 @@ var _ = Describe("Virt-api", func() {
 			Expect(app.SwaggerUI).To(Equal("third_party/swagger-ui"))
 			Expect(app.SubresourcesOnly).To(BeFalse())
 		})
-
 	})
 
 	AfterEach(func() {

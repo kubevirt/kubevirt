@@ -41,7 +41,6 @@ func DialSocket(socketPath string) (*grpc.ClientConn, error) {
 }
 
 func DialSocketWithTimeout(socketPath string, timeout int) (*grpc.ClientConn, error) {
-
 	options := []grpc.DialOption{
 		grpc.WithAuthority("localhost"),
 		grpc.WithInsecure(),
@@ -63,7 +62,6 @@ func DialSocketWithTimeout(socketPath string, timeout int) (*grpc.ClientConn, er
 	defer cancel()
 
 	return grpc.DialContext(ctx, socketPath, options...)
-
 }
 
 func CreateSocket(socketPath string) (net.Listener, error) {
@@ -76,7 +74,6 @@ func CreateSocket(socketPath string) (net.Listener, error) {
 	}
 
 	socket, err := net.Listen("unix", socketPath)
-
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create unix socket %v", socketPath)
 		return nil, err

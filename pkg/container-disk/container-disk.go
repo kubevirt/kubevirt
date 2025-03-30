@@ -47,11 +47,15 @@ var podsBaseDir = util.KubeletPodsDir
 
 var mountBaseDir = filepath.Join(util.VirtShareDir, "/container-disks")
 
-type SocketPathGetter func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error)
-type KernelBootSocketPathGetter func(vmi *v1.VirtualMachineInstance) (string, error)
+type (
+	SocketPathGetter           func(vmi *v1.VirtualMachineInstance, volumeIndex int) (string, error)
+	KernelBootSocketPathGetter func(vmi *v1.VirtualMachineInstance) (string, error)
+)
 
-const KernelBootName = "kernel-boot"
-const KernelBootVolumeName = KernelBootName + "-volume"
+const (
+	KernelBootName       = "kernel-boot"
+	KernelBootVolumeName = KernelBootName + "-volume"
+)
 
 const ephemeralStorageOverheadSize = "50M"
 
@@ -121,7 +125,7 @@ func SetLocalDirectoryOnly(dir string) {
 
 func SetLocalDirectory(dir string) error {
 	SetLocalDirectoryOnly(dir)
-	return os.MkdirAll(dir, 0750)
+	return os.MkdirAll(dir, 0o750)
 }
 
 func SetKubeletPodsDirectory(dir string) {
@@ -131,12 +135,11 @@ func SetKubeletPodsDirectory(dir string) {
 // used for testing - we don't want to MkdirAll on a production host mount
 func setPodsDirectory(dir string) error {
 	podsBaseDir = dir
-	return os.MkdirAll(dir, 0750)
+	return os.MkdirAll(dir, 0o750)
 }
 
 // GetDiskTargetPartFromLauncherView returns (path to disk image, image type, and error)
 func GetDiskTargetPartFromLauncherView(volumeIndex int) (string, error) {
-
 	path := GetDiskTargetPathFromLauncherView(volumeIndex)
 	exists, err := diskutils.FileExists(path)
 	if err != nil {

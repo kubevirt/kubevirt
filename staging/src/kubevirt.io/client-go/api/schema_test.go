@@ -239,7 +239,7 @@ var exampleJSONFmt = `{
 var exampleJSON = fmt.Sprintf(exampleJSONFmt, v12.ApiLatestVersion, v12.ApiLatestVersion)
 
 var _ = Describe("Schema", func() {
-	//The example domain should stay in sync to the json above
+	// The example domain should stay in sync to the json above
 	var exampleVMI *v12.VirtualMachineInstance
 
 	BeforeEach(func() {
@@ -376,7 +376,7 @@ var _ = Describe("Schema", func() {
 			DedicatedCPUPlacement: true,
 		}
 		exampleVMI.Spec.Networks = []v12.Network{
-			v12.Network{
+			{
 				Name: "default",
 				NetworkSource: v12.NetworkSource{
 					Pod: &v12.PodNetwork{},
@@ -392,7 +392,7 @@ var _ = Describe("Schema", func() {
 	Context("With example schema in json use pod network and bridge interface", func() {
 		It("Unmarshal json into struct", func() {
 			exampleVMI.Spec.Domain.Devices.Interfaces = []v12.Interface{
-				v12.Interface{
+				{
 					Name: "default",
 					InterfaceBindingMethod: v12.InterfaceBindingMethod{
 						Bridge: &v12.InterfaceBridge{},
@@ -412,7 +412,7 @@ var _ = Describe("Schema", func() {
 		})
 		It("Marshal struct into json", func() {
 			exampleVMI.Spec.Domain.Devices.Interfaces = []v12.Interface{
-				v12.Interface{
+				{
 					Name: "default",
 					InterfaceBindingMethod: v12.InterfaceBindingMethod{
 						Bridge: &v12.InterfaceBridge{},
@@ -435,7 +435,7 @@ var _ = Describe("Schema", func() {
 	Context("With example schema in json use pod network and slirp interface", func() {
 		It("Unmarshal json into struct", func() {
 			exampleVMI.Spec.Domain.Devices.Interfaces = []v12.Interface{
-				v12.Interface{
+				{
 					Name: "default",
 					InterfaceBindingMethod: v12.InterfaceBindingMethod{
 						DeprecatedSlirp: &v12.DeprecatedInterfaceSlirp{},
@@ -455,7 +455,7 @@ var _ = Describe("Schema", func() {
 		})
 		It("Marshal struct into json", func() {
 			exampleVMI.Spec.Domain.Devices.Interfaces = []v12.Interface{
-				v12.Interface{
+				{
 					Name: "default",
 					InterfaceBindingMethod: v12.InterfaceBindingMethod{
 						DeprecatedSlirp: &v12.DeprecatedInterfaceSlirp{},
@@ -476,10 +476,11 @@ var _ = Describe("Schema", func() {
 		})
 		It("Marshal struct into json with port configure", func() {
 			exampleVMI.Spec.Domain.Devices.Interfaces = []v12.Interface{
-				v12.Interface{
+				{
 					Name: "default",
 					InterfaceBindingMethod: v12.InterfaceBindingMethod{
-						DeprecatedSlirp: &v12.DeprecatedInterfaceSlirp{}},
+						DeprecatedSlirp: &v12.DeprecatedInterfaceSlirp{},
+					},
 					Ports: []v12.Port{{Port: 80}},
 				},
 			}

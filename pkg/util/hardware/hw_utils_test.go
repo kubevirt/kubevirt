@@ -27,7 +27,6 @@ import (
 )
 
 var _ = Describe("Hardware utils test", func() {
-
 	Context("cpuset parser", func() {
 		It("shoud parse cpuset correctly", func() {
 			expectedList := []int{0, 1, 2, 7, 12, 13, 14}

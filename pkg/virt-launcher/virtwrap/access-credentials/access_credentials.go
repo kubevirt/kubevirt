@@ -110,17 +110,14 @@ func getSecretDir(secretName string) string {
 }
 
 func getSecretBaseDir() string {
-
 	if unitTestSecretDir != "" {
 		return unitTestSecretDir
 	}
 
 	return config.SecretSourceDir
-
 }
 
 func (l *AccessCredentialManager) writeGuestFile(contents string, domName string, filePath string, owner string, fileExists bool) error {
-
 	// ensure the directory exists with the correct permissions
 	err := l.agentCreateDirectory(domName, filepath.Dir(filePath), "700", owner)
 	if err != nil {
@@ -130,7 +127,6 @@ func (l *AccessCredentialManager) writeGuestFile(contents string, domName string
 	if fileExists {
 		// ensure the file has the correct permissions for writing
 		l.agentSetFilePermissions(domName, filePath, "600", owner)
-
 	}
 
 	// write the file
@@ -184,7 +180,6 @@ func (l *AccessCredentialManager) readGuestFile(domName string, filePath string)
 
 	cmdReadFile := fmt.Sprintf(`{"execute": "guest-file-read", "arguments": { "handle": %d } }`, openRes.Return)
 	readOutput, err := l.virConn.QemuAgentCommand(cmdReadFile, domName)
-
 	if err != nil {
 		return contents, err
 	}
@@ -285,7 +280,6 @@ func (l *AccessCredentialManager) agentSetFilePermissions(domName string, filePa
 }
 
 func (l *AccessCredentialManager) agentSetUserPassword(domName string, user string, password string) error {
-
 	base64Str := base64.StdEncoding.EncodeToString([]byte(password))
 
 	cmdSetPassword := fmt.Sprintf(`{"execute":"guest-set-user-password", "arguments": {"username":"%s", "password": "%s", "crypted": false }}`, user, base64Str)
@@ -381,7 +375,6 @@ func isSSHPublicKey(accessCred *v1.AccessCredential) bool {
 }
 
 func isUserPassword(accessCred *v1.AccessCredential) bool {
-
 	if accessCred.UserPassword != nil && accessCred.UserPassword.PropagationMethod.QemuGuestAgent != nil {
 		return true
 	}

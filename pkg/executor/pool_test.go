@@ -29,7 +29,6 @@ import (
 )
 
 var _ = Describe("rate limited executor pool", func() {
-
 	const (
 		key1 = types.UID("20007000")
 		key2 = types.UID("20006000")

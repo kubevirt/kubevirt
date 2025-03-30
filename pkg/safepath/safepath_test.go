@@ -84,7 +84,6 @@ func (p *pathBuilder) Build() (string, error) {
 }
 
 var _ = Describe("safepath", func() {
-
 	DescribeTable("should prevent an escape via", func(builder *pathBuilder, expectedPath string) {
 		path, err := builder.Build()
 		Expect(err).ToNot(HaveOccurred())
@@ -217,16 +216,16 @@ var _ = Describe("safepath", func() {
 		Expect(err).ToNot(HaveOccurred())
 		gid, err := strconv.Atoi(u.Gid)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(ChpermAtNoFollow(root, uid, gid, 0777)).To(Succeed())
+		Expect(ChpermAtNoFollow(root, uid, gid, 0o777)).To(Succeed())
 		stat, err := StatAtNoFollow(root)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(stat.Sys().(*syscall.Stat_t).Gid).To(Equal(uint32(gid)))
 		Expect(stat.Sys().(*syscall.Stat_t).Uid).To(Equal(uint32(uid)))
-		Expect(stat.Mode() & 0777).To(Equal(fs.FileMode(0777)))
-		Expect(ChpermAtNoFollow(root, uid, gid, 0770)).To(Succeed())
+		Expect(stat.Mode() & 0o777).To(Equal(fs.FileMode(0o777)))
+		Expect(ChpermAtNoFollow(root, uid, gid, 0o770)).To(Succeed())
 		stat, err = StatAtNoFollow(root)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(stat.Mode() & 0777).To(Equal(fs.FileMode(0770)))
+		Expect(stat.Mode() & 0o777).To(Equal(fs.FileMode(0o770)))
 		Expect(stat.Sys().(*syscall.Stat_t).Gid).To(Equal(uint32(gid)))
 		Expect(stat.Sys().(*syscall.Stat_t).Uid).To(Equal(uint32(uid)))
 	})

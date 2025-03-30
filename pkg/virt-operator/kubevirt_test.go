@@ -127,7 +127,6 @@ type KubeVirtTestData struct {
 }
 
 func (k *KubeVirtTestData) BeforeTest() {
-
 	k.mockEnvVarManager = &util.EnvVarManagerMock{}
 
 	err := k.mockEnvVarManager.Setenv(util.OldOperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", "someregistry", "v9.9.9"))
@@ -352,7 +351,6 @@ func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatus(times int) {
 func (k *KubeVirtTestData) shouldExpectKubeVirtUpdateStatusVersion(times int, config *util.KubeVirtDeploymentConfig) {
 	update := k.kvInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{})
 	update.Do(func(ctx context.Context, kv *v1.KubeVirt, options metav1.UpdateOptions) {
-
 		Expect(kv.Status.TargetKubeVirtVersion).To(Equal(config.GetKubeVirtVersion()))
 		Expect(kv.Status.ObservedKubeVirtVersion).To(Equal(config.GetKubeVirtVersion()))
 		k.controller.stores.KubeVirtCache.Update(kv)
@@ -1396,7 +1394,6 @@ func (k *KubeVirtTestData) shouldExpectJobDeletion() {
 
 func (k *KubeVirtTestData) shouldExpectInstallStrategyDeletion() {
 	k.kubeClient.Fake.PrependReactor("delete", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-
 		deleted, ok := action.(testing.DeleteAction)
 		Expect(ok).To(BeTrue())
 		if deleted.GetName() == components.KubeVirtCASecretName || deleted.GetName() == components.KubeVirtExportCASecretName {
@@ -1564,7 +1561,8 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	configExportProxy *util.KubeVirtDeploymentConfig,
 	configHandler *util.KubeVirtDeploymentConfig,
 	shouldAddPodDisruptionBudgets bool,
-	kv *v1.KubeVirt) {
+	kv *v1.KubeVirt,
+) {
 	// we need at least one active pod for
 	// virt-api
 	// virt-controller
@@ -1665,11 +1663,8 @@ func (k *KubeVirtTestData) getConfig(registry, version string) *util.KubeVirtDep
 }
 
 var _ = Describe("KubeVirt Operator", func() {
-
 	Context("On valid KubeVirt object", func() {
-
 		It("Should not patch kubevirt namespace when labels are already defined", func() {
-
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -1836,7 +1831,6 @@ var _ = Describe("KubeVirt Operator", func() {
 		})
 
 		It("should delete old serviceMonitor on update", func() {
-
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -2054,7 +2048,6 @@ var _ = Describe("KubeVirt Operator", func() {
 		})
 
 		It("should fail if KubeVirt object already exists", func() {
-
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -2091,7 +2084,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectKubeVirtUpdateStatusFailureCondition(util.ConditionReasonDeploymentFailedExisting)
 
 			kvTestData.controller.execute(fmt.Sprintf("%s/%s", kv2.Namespace, kv2.Name))
-
 		})
 
 		It("should generate install strategy creation job for update version", func() {
@@ -2130,7 +2122,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
 			kvTestData.shouldExpectJobCreation()
 			kvTestData.controller.Execute()
-
 		})
 
 		It("should create an install strategy creation job with passthrough env vars, if provided in config", func() {
@@ -2236,7 +2227,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
 			kvTestData.shouldExpectJobCreation()
 			kvTestData.controller.Execute()
-
 		})
 
 		It("should apply the infra placement config on the install job", func() {
@@ -2254,17 +2244,18 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 
 			affinity := &k8sv1.Affinity{
-				NodeAffinity: &k8sv1.NodeAffinity{RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
-					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
-						{MatchExpressions: []k8sv1.NodeSelectorRequirement{
-							{
-								Key:      "test",
-								Operator: "In",
-								Values:   []string{"something"},
-							},
-						}},
+				NodeAffinity: &k8sv1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+						NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+							{MatchExpressions: []k8sv1.NodeSelectorRequirement{
+								{
+									Key:      "test",
+									Operator: "In",
+									Values:   []string{"something"},
+								},
+							}},
+						},
 					},
-				},
 				},
 			}
 			job, err := kvTestData.controller.generateInstallStrategyJob(&v1.ComponentConfig{
@@ -2273,7 +2264,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(job.Spec.Template.Spec.Affinity).To(Equal(affinity))
-
 		})
 
 		It("should label install strategy creation job", func() {
@@ -2328,7 +2318,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
 
 			kvTestData.controller.Execute()
-
 		})
 
 		It("should not delete completed install strategy creation job if job has failed less that 10 seconds ago", func() {
@@ -2360,11 +2349,9 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
 
 			kvTestData.controller.Execute()
-
 		})
 
 		It("should add resources on create", func() {
-
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -2427,7 +2414,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.controller.stores.PrometheusRuleCache.List()).To(HaveLen(1))
 
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Added]).To(Equal(1))
-
 		})
 
 		It("should pause rollback until api server is rolled over.", func() {
@@ -3002,7 +2988,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.totalUpdates + kvTestData.totalPatches).To(Equal(resourceCount))
 
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(numPDBs))
-
 		},
 			// -1 for virt-handler which is already updated
 			// -3 for virt-exportproxy
@@ -3084,7 +3069,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			// + 1 is for the namespace patch which we don't consider as a resource we own.
 			// - 1 is for virt-handler.
 			Expect(kvTestData.totalUpdates + kvTestData.totalPatches).To(Equal(resourceCount))
-
 		},
 			// -1 for virt-handler which is already updated
 			// -3 for virt-exportproxy
@@ -3157,14 +3141,12 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.controller.Execute()
 
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(numPDBs))
-
 		},
 			Entry("without export", false, 2),
 			Entry("with export", true, 3),
 		)
 
 		DescribeTable("should remove resources on deletion", func(withExport bool, resourceCount int) {
-
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -3211,7 +3193,6 @@ var _ = Describe("KubeVirt Operator", func() {
 		)
 
 		DescribeTable("should remove poddisruptionbudgets on deletion", func(withExport bool, numPDBs int) {
-
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -3253,7 +3234,6 @@ var _ = Describe("KubeVirt Operator", func() {
 
 	Context("when the monitor namespace does not exist", func() {
 		It("should not create ServiceMonitor resources", func() {
-
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()

@@ -158,7 +158,6 @@ func SetDomainSpecStrWithHooks(virConn cli.Connection, vmi *v1.VirtualMachineIns
 
 // GetDomainSpecWithRuntimeInfo return the active domain XML with runtime information embedded
 func GetDomainSpecWithRuntimeInfo(dom cli.VirDomain) (*api.DomainSpec, error) {
-
 	// get libvirt xml with runtime status
 	activeSpec, err := GetDomainSpecWithFlags(dom, 0)
 	if err != nil {
@@ -172,12 +171,10 @@ func GetDomainSpecWithRuntimeInfo(dom cli.VirDomain) (*api.DomainSpec, error) {
 // GetDomainSpec return the domain XML without runtime information.
 // The result XML is merged from inactive XML and migratable XML.
 func GetDomainSpec(status libvirt.DomainState, dom cli.VirDomain) (*api.DomainSpec, error) {
-
 	var spec, inactiveSpec *api.DomainSpec
 	var err error
 
 	inactiveSpec, err = GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_INACTIVE)
-
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +334,7 @@ func startVirtlogdLogging(stopChan chan struct{}, domainName string, nonRoot boo
 }
 
 func startQEMUSeaBiosLogging(stopChan chan struct{}) {
-	const QEMUSeaBiosDebugPipeMode uint32 = 0666
+	const QEMUSeaBiosDebugPipeMode uint32 = 0o666
 	const logLinePrefix = "[SeaBios]:"
 
 	err := syscall.Mkfifo(QEMUSeaBiosDebugPipe, QEMUSeaBiosDebugPipeMode)
@@ -353,8 +350,7 @@ func startQEMUSeaBiosLogging(stopChan chan struct{}) {
 		return
 	}
 
-	QEMUPipe, err := os.OpenFile(QEMUSeaBiosDebugPipe, os.O_RDONLY, 0604)
-
+	QEMUPipe, err := os.OpenFile(QEMUSeaBiosDebugPipe, os.O_RDONLY, 0o604)
 	if err != nil {
 		log.Log.Reason(err).Error(fmt.Sprintf("%s failed to open %s", logLinePrefix, QEMUSeaBiosDebugPipe))
 		return
@@ -410,7 +406,6 @@ func DomainFromNamespaceName(namespace, name string) string {
 }
 
 func NewDomain(dom cli.VirDomain) (*api.Domain, error) {
-
 	name, err := dom.GetName()
 	if err != nil {
 		return nil, err
@@ -432,7 +427,7 @@ func NewDomainFromName(name string, vmiUID types.UID) *api.Domain {
 }
 
 func configureQemuConf(qemuFilename string) (err error) {
-	qemuConf, err := os.OpenFile(qemuFilename, os.O_APPEND|os.O_WRONLY, 0644)
+	qemuConf, err := os.OpenFile(qemuFilename, os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
 	}
@@ -467,12 +462,12 @@ func configureQemuConf(qemuFilename string) (err error) {
 }
 
 func copyFile(from, to string) error {
-	f, err := os.OpenFile(from, os.O_RDONLY, 0644)
+	f, err := os.OpenFile(from, os.O_RDONLY, 0o644)
 	if err != nil {
 		return err
 	}
 	defer util.CloseIOAndCheckErr(f, &err)
-	newFile, err := os.OpenFile(to, os.O_CREATE|os.O_WRONLY, 0644)
+	newFile, err := os.OpenFile(to, os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
 	}
@@ -487,7 +482,7 @@ func (l LibvirtWrapper) SetupLibvirt(customLogFilters *string) (err error) {
 	if !l.root() {
 		runtimeQemuConfPath = qemuNonRootConfPath
 
-		if err := os.MkdirAll(libvirtHomePath, 0755); err != nil {
+		if err := os.MkdirAll(libvirtHomePath, 0o755); err != nil {
 			return err
 		}
 		if err := copyFile(qemuConfPath, runtimeQemuConfPath); err != nil {
@@ -511,7 +506,7 @@ func (l LibvirtWrapper) SetupLibvirt(customLogFilters *string) (err error) {
 	_, libvirtDebugLogsEnvVarDefined := os.LookupEnv(services.ENV_VAR_LIBVIRT_DEBUG_LOGS)
 
 	if logFilters, enableDebugLogs := getLibvirtLogFilters(customLogFilters, libvirtLogVerbosityEnvVar, libvirtDebugLogsEnvVarDefined); enableDebugLogs {
-		virtqemudConf, err := os.OpenFile(runtimeVirtqemudConfPath, os.O_APPEND|os.O_WRONLY, 0644)
+		virtqemudConf, err := os.OpenFile(runtimeVirtqemudConfPath, os.O_APPEND|os.O_WRONLY, 0o644)
 		if err != nil {
 			return err
 		}
@@ -535,7 +530,6 @@ func (l LibvirtWrapper) SetupLibvirt(customLogFilters *string) (err error) {
 //     and set to the highest verbosity level.
 //   - If verbosity level is below threshold and debug logs environment variable is not defined - debug logs are disabled.
 func getLibvirtLogFilters(customLogFilters, libvirtLogVerbosityEnvVar *string, libvirtDebugLogsEnvVarDefined bool) (logFilters string, enableDebugLogs bool) {
-
 	if customLogFilters != nil && *customLogFilters != "" {
 		return *customLogFilters, true
 	}

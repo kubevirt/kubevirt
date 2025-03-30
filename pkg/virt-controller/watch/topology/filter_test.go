@@ -15,7 +15,6 @@ import (
 )
 
 var _ = Describe("Filter", func() {
-
 	It("should filter out not schedulable nodes", func() {
 		nodes := topology.NodesToObjects(
 			node("node0", true),

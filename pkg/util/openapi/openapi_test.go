@@ -13,7 +13,6 @@ import (
 )
 
 var _ = Describe("Openapi", func() {
-
 	var validator *openapi.Validator
 	var vmi *v1.VirtualMachineInstance
 	var obj *unstructured.Unstructured
@@ -24,12 +23,12 @@ var _ = Describe("Openapi", func() {
 		obj = &unstructured.Unstructured{}
 	})
 
-	var expectValidationsToSucceed = func() {
+	expectValidationsToSucceed := func() {
 		Expect(validator.Validate(obj.GroupVersionKind(), obj.Object)).To(BeEmpty())
 		Expect(validator.ValidateStatus(obj.GroupVersionKind(), obj.Object)).To(BeEmpty())
 	}
 
-	var expectValidationsToFail = func() {
+	expectValidationsToFail := func() {
 		Expect(validator.Validate(obj.GroupVersionKind(), obj.Object)).ToNot(BeEmpty())
 		Expect(validator.ValidateSpec(obj.GroupVersionKind(), obj.Object)).ToNot(BeEmpty())
 	}
@@ -58,5 +57,4 @@ var _ = Describe("Openapi", func() {
 		Expect(json.Unmarshal(data, obj)).To(Succeed())
 		expectValidationsToSucceed()
 	})
-
 })

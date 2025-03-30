@@ -17,10 +17,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/definitions"
 )
 
-type vmiFetcher func(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError)
-type validator func(vmi *v1.VirtualMachineInstance) *errors.StatusError
-type streamFunc func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult)
-type streamFuncResult error
+type (
+	vmiFetcher       func(namespace, name string) (*v1.VirtualMachineInstance, *errors.StatusError)
+	validator        func(vmi *v1.VirtualMachineInstance) *errors.StatusError
+	streamFunc       func(clientConn *websocket.Conn, serverConn net.Conn, result chan<- streamFuncResult)
+	streamFuncResult error
+)
 
 type dialer interface {
 	Dial(vmi *v1.VirtualMachineInstance) (*websocket.Conn, *errors.StatusError)

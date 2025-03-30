@@ -156,7 +156,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	})
 
 	Context("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]for CPU and memory limits should", func() {
-
 		It("[test_id:3110]lead to get the burstable QOS class assigned when limit and requests differ", decorators.Conformance, func() {
 			vmi := libvmops.RunVMIAndExpectScheduling(libvmifact.NewAlpine(), 60)
 
@@ -209,7 +208,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(vmi.Spec.Domain.Resources.Requests.Cpu().Cmp(*vmi.Spec.Domain.Resources.Limits.Cpu())).To(BeZero(), "Requests and Limits for CPU on VMI should match")
 			Expect(vmi.Spec.Domain.Resources.Requests.Memory().Cmp(*vmi.Spec.Domain.Resources.Limits.Memory())).To(BeZero(), "Requests and Limits for memory on VMI should match")
 		})
-
 	})
 
 	Describe("VirtualMachineInstance definition", func() {
@@ -239,7 +237,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domXml).To(ContainSubstring(expectedMemoryXMLStr))
-
 		},
 			Entry("provided by domain spec directly",
 				[]libvmi.Option{
@@ -572,7 +569,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					volumeSlicSecretName = "volume-slic-secret"
 					secretWithSlicName   = "secret-with-slic-data"
 				)
-				var slicTable = []byte{
+				slicTable := []byte{
 					0x53, 0x4c, 0x49, 0x43, 0x24, 0x00, 0x00, 0x00, 0x01, 0x49, 0x43, 0x52,
 					0x41, 0x53, 0x48, 0x20, 0x4d, 0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 					0x88, 0x04, 0x00, 0x00, 0x71, 0x65, 0x6d, 0x75, 0x00, 0x00, 0x00, 0x00,
@@ -673,7 +670,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
 					&expect.BExp{R: console.RetValue("225")},
 				}, 10)).To(Succeed())
-
 			})
 		})
 
@@ -693,7 +689,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
 					&expect.BExp{R: console.RetValue("225")},
 				}, 10)).To(Succeed())
-
 			})
 		})
 
@@ -727,7 +722,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(computeContainer).ToNot(BeNil(), "could not find the computer container")
 				Expect(computeContainer.Resources.Requests.Cpu().String()).To(Equal("600m"))
 			})
-
 		})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with support memory over commitment", func() {
@@ -764,11 +758,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Checking if pod memory usage is > 64Mi")
 				Expect(m).To(BeNumerically(">", 67108864), "67108864 B = 64 Mi")
 			})
-
 		})
 
 		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]Support memory over commitment test", func() {
-
 			startOverCommitGuestOverheadVMI := func() (*v1.VirtualMachineInstance, error) {
 				vmi := libvmifact.NewCirros(overcommitGuestOverhead())
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -929,7 +921,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			It("should fail admission", func() {
 				// create a namespace default limit
 				limitRangeObj := k8sv1.LimitRange{
-
 					ObjectMeta: metav1.ObjectMeta{Name: "abc1", Namespace: testsuite.GetTestNamespace(nil)},
 					Spec: k8sv1.LimitRangeSpec{
 						Limits: []k8sv1.LimitRangeItem{
@@ -1168,7 +1159,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 							IgnoreExtras,
 							Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
 					"agent should already be connected")
-
 			})
 
 			It("[test_id:4625]should remove condition when agent is off", func() {
@@ -1265,7 +1255,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						guestInfo.GAVersion != "" &&
 						guestInfo.OS.Name != "" &&
 						len(guestInfo.FSInfo.Filesystems) > 0
-
 				}, 240*time.Second, 2).Should(BeTrue(), "Should have guest OS Info in subresource")
 			})
 
@@ -1305,7 +1294,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					}
 
 					return len(userList.Items) > 0 && userList.Items[0].UserName == "fedora"
-
 				}, 240*time.Second, 2).Should(BeTrue(), "Should have fedora users")
 			})
 
@@ -1322,14 +1310,11 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 					return len(fsList.Items) > 0 && fsList.Items[0].DiskName != "" && fsList.Items[0].MountPoint != "" &&
 						len(fsList.Items[0].Disk) > 0 && fsList.Items[0].Disk[0].BusType != ""
-
 				}, 240*time.Second, 2).Should(BeTrue(), "Should have some filesystem")
 			})
-
 		})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with serial-number", func() {
-
 			It("[test_id:3121]should have serial-number set when present", func() {
 				snVmi := libvmifact.NewAlpine()
 				snVmi.Spec.Domain.Firmware = &v1.Firmware{Serial: "4b2f5496-f3a3-460b-a375-168223f68845"}
@@ -1427,7 +1412,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		Context("with Clock and timezone", func() {
-
 			It("[sig-compute][test_id:5268]guest should see timezone", func() {
 				vmi := libvmifact.NewCirros()
 				timezone := "America/New_York"
@@ -1460,12 +1444,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					&expect.BSnd{S: "sudo hwclock --localtime \n"},
 					&expect.BExp{R: expected},
 				}, 20)).To(Succeed(), "Expected the VM time to be within 20 seconds of "+now.String())
-
 			})
 		})
 
 		Context("with volumes, disks and filesystem defined", func() {
-
 			It("[test_id:6960]should reject disk with missing volume", func() {
 				vmi := libvmifact.NewGuestless()
 				const diskName = "testdisk"
@@ -1598,7 +1580,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			updatedCPUName := strings.Replace(name, "\n", "", -1)
 			if strings.Contains(updatedCPUName, ":") {
 				updatedCPUName = strings.Split(name, ":")[1]
-
 			}
 			updatedCPUName = strings.Replace(updatedCPUName, " ", "", 1)
 			updatedCPUName = strings.Replace(updatedCPUName, "(", "", -1)
@@ -1801,7 +1782,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	})
 
 	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with CPU request settings", func() {
-
 		It("[test_id:3127]should set CPU request from VMI spec", func() {
 			vmi := libvmi.New(
 				libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
@@ -1895,7 +1875,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	})
 
 	Context("using automatic resource limits", func() {
-
 		When("there is no ResourceQuota with memory and cpu limits associated with the creation namespace", func() {
 			It("[test_id:11215]should not automatically set memory limits in the virt-launcher pod", func() {
 				vmi := libvmifact.NewCirros()
@@ -1966,7 +1945,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	})
 
 	Context("[rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache and io settings and PVC", decorators.SigStorage, decorators.StorageReq, func() {
-
 		It("[test_id:1681]should set appropriate cache modes", decorators.HostDiskGate, func() {
 			if !checks.HasFeature(featuregate.HostDiskGate) {
 				Fail("Cluster has the HostDisk featuregate disabled, use skip for HostDiskGate")
@@ -2094,14 +2072,11 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			By("checking if requested io mode 'threads' has been set")
 			Expect(disks[3].Alias.GetName()).To(Equal("ephemeral-disk2"))
 			Expect(disks[3].Driver.IO).To(Equal(ioThreads))
-
 		})
 	})
 
 	Context("Block size configuration set", func() {
-
 		It("[test_id:6965]Should set BlockIO when using custom block sizes", decorators.SigStorage, decorators.RequiresBlockStorage, func() {
-
 			By("creating a block volume")
 			sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
 			if !foundSC {
@@ -2150,7 +2125,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		It("[test_id:6966]Should set BlockIO when set to match volume block sizes on block devices", decorators.SigStorage, decorators.RequiresBlockStorage, func() {
-
 			By("creating a block volume")
 			sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
 			if !foundSC {
@@ -2253,7 +2227,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	})
 
 	Context("[rfe_id:898][crit:medium][vendor:cnv-qe@redhat.com][level:component]New VirtualMachineInstance with all supported drives", func() {
-
 		// ordering:
 		// use a small disk for the other ones
 		testVMI := func() *v1.VirtualMachineInstance {
@@ -2334,7 +2307,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	})
 	Describe("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with CPU pinning", decorators.WgArm64, decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
 		isNodeHasCPUManagerLabel := func(nodeName string) bool {
-
 			nodeObject, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			nodeHaveCpuManagerLabel := false
@@ -2358,9 +2330,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		Context("with cpu pinning enabled", Serial, func() {
-
 			It("[test_id:1684]should set the cpumanager label to false when it's not running", func() {
-
 				By("adding a cpumanger=true label to a node")
 				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: v1.CPUManager + "=" + "false"})
 				Expect(err).ToNot(HaveOccurred())
@@ -2794,7 +2764,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	})
 
 	Context("[rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check Chassis value", func() {
-
 		It("[test_id:2927]Test Chassis value in a newly created VM", Serial, func() {
 			vmi := libvmifact.NewFedora()
 			vmi.Spec.Domain.Chassis = &v1.Chassis{
@@ -2824,7 +2793,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	})
 
 	Context("[rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check SMBios with default and custom values", func() {
-
 		It("[test_id:2751]test default SMBios", func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			config := kv.Spec.Configuration
@@ -2857,7 +2825,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				&expect.BExp{R: console.RetValue("pass")},
 			}, 1)).To(Succeed())
 		})
-
 	})
 
 	Context("Custom PCI Addresses configuration", func() {
@@ -2943,7 +2910,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	})
 
 	Context("Check KVM CPUID advertisement", func() {
-
 		It("[test_id:5271]test cpuid hidden", func() {
 			vmi := libvmifact.NewFedora()
 			vmi.Spec.Domain.Features = &v1.Features{
@@ -2966,7 +2932,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				&expect.BExp{R: console.RetValue("pass")},
 			}, 2*time.Second)).To(Succeed())
 		})
-
 	})
 	Context("virt-launcher processes memory usage", func() {
 		doesntExceedMemoryUsage := func(processRss *map[string]resource.Quantity, process string, memoryLimit resource.Quantity) {
@@ -3036,7 +3001,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			doesntExceedMemoryUsage(&processRss, "qemu", qemuExpected)
 		})
 	})
-
 })
 
 func createRuntimeClass(name, handler string) error {

@@ -29,7 +29,6 @@ import (
 )
 
 var _ = Describe("Disruptionbudget", func() {
-
 	var ctrl *gomock.Controller
 	var stop chan struct{}
 	var virtClient *kubecli.MockKubevirtClient
@@ -150,7 +149,6 @@ var _ = Describe("Disruptionbudget", func() {
 			return true, nil, nil
 		})
 		syncCaches(stop)
-
 	})
 
 	sanityExecute := func() {
@@ -160,7 +158,6 @@ var _ = Describe("Disruptionbudget", func() {
 	}
 
 	Context("A VirtualMachineInstance given which does not want to live-migrate on evictions", func() {
-
 		It("should do nothing, if no pdb exists", func() {
 			addVirtualMachine(nonMigratableVirtualMachine())
 			sanityExecute()
@@ -195,7 +192,6 @@ var _ = Describe("Disruptionbudget", func() {
 	})
 
 	Context("A VirtualMachineInstance given which wants perform action on evictions", func() {
-
 		DescribeTable("should do nothing, if a pdb exists", func(evictionStrategy v1.EvictionStrategy, vmi *v1.VirtualMachineInstance) {
 			vmi.Spec.EvictionStrategy = &evictionStrategy
 			addVirtualMachine(vmi)

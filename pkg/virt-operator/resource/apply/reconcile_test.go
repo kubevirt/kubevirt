@@ -55,6 +55,7 @@ func (m *MockStore) Get(_ interface{}) (item interface{}, exists bool, err error
 	}
 	return
 }
+
 func (m *MockStore) GetByKey(_ string) (item interface{}, exists bool, err error) {
 	return nil, false, nil
 }
@@ -114,9 +115,7 @@ func loadTargetStrategy(resource interface{}, config *util.KubeVirtDeploymentCon
 }
 
 var _ = Describe("Apply", func() {
-
 	Context("should calculate", func() {
-
 		DescribeTable("update path based on semver", func(target string, current string, expected bool) {
 			takeUpdatePath := shouldTakeUpdatePath(target, current)
 
@@ -135,9 +134,7 @@ var _ = Describe("Apply", func() {
 	})
 
 	Context("Injecting Metadata", func() {
-
 		It("should set expected values", func() {
-
 			kv := &v1.KubeVirt{}
 			kv.Status.TargetKubeVirtRegistry = Registry
 			kv.Status.TargetKubeVirtVersion = Version
@@ -331,7 +328,6 @@ var _ = Describe("Apply", func() {
 					},
 				},
 			}
-
 		})
 
 		// Node Selectors
@@ -450,7 +446,6 @@ var _ = Describe("Apply", func() {
 			nodePlacement.Affinity = affinity
 			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(equality.Semantic.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeTrue())
-
 		})
 
 		It("It should copy NodePlacement if Node, Pod and Anti affinities are empty", func() {
@@ -458,7 +453,6 @@ var _ = Describe("Apply", func() {
 			podSpec.Affinity = &corev1.Affinity{}
 			InjectPlacementMetadata(componentConfig, podSpec, AnyNode)
 			Expect(equality.Semantic.DeepEqual(nodePlacement.Affinity, podSpec.Affinity)).To(BeTrue())
-
 		})
 
 		It("It should merge NodePlacement and podSpec affinity terms", func() {
@@ -601,7 +595,6 @@ var _ = Describe("Apply", func() {
 					Expect(podSpec.Affinity).To(BeNil())
 				})
 			})
-
 		})
 	})
 })

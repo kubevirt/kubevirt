@@ -31,7 +31,6 @@ import (
 )
 
 var _ = Describe("Operator Config", func() {
-
 	var envVarManager EnvVarManager
 
 	BeforeEach(func() {
@@ -116,7 +115,6 @@ var _ = Describe("Operator Config", func() {
 			Expect(parsedConfig.GetHandlerVersion()).To(Equal(expectedConfig.GetKubeVirtVersion()), "handler version should be tag")
 			Expect(parsedConfig.GetLauncherVersion()).To(Equal(expectedConfig.GetKubeVirtVersion()), "launcher version should be tag")
 		}
-
 	},
 		Entry("with no shasum given", "kubevirt/virt-operator:v123",
 			&KubeVirtDeploymentConfig{},
@@ -156,7 +154,6 @@ var _ = Describe("Operator Config", func() {
 		Expect("virt-launcher-sha").To(Equal(parsedConfig.GetLauncherVersion()))
 		Expect("virt-exportproxy-sha").To(Equal(parsedConfig.GetExportProxyVersion()))
 		Expect("virt-exportserver-sha").To(Equal(parsedConfig.GetExportServerVersion()))
-
 	})
 
 	Describe("GetPassthroughEnv()", func() {
@@ -181,7 +178,6 @@ var _ = Describe("Operator Config", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(envMap).To(Equal(map[string]string{realKey: val}))
-
 		})
 	})
 
@@ -261,7 +257,6 @@ var _ = Describe("Operator Config", func() {
 	})
 
 	Describe("creating config ID", func() {
-
 		var idMissing, idEmpty, idFilled string
 
 		BeforeEach(func() {
@@ -292,7 +287,6 @@ var _ = Describe("Operator Config", func() {
 			Expect(idFilled).ToNot(BeEmpty())
 			Expect(idFilled).ToNot(Equal(idEmpty))
 		})
-
 	})
 
 	Context("Product Names and Versions", func() {
@@ -315,7 +309,6 @@ var _ = Describe("Operator Config", func() {
 	})
 
 	Context("custom component images", func() {
-
 		var definedEnvVars []string
 
 		setCustomImageForComponent := func(component string) string {
@@ -429,7 +422,6 @@ var _ = Describe("Operator Config", func() {
 
 			kubevirtVersion := parsedConfig.GetKubeVirtVersion()
 			Expect(kubevirtVersion).To(Equal(input.version))
-
 		},
 			Entry("virt-operator image tag when both KUBEVIRT_VERSION is set and virt-operator provided with tag",
 				&testInput{

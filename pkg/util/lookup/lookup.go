@@ -20,7 +20,6 @@ func VirtualMachinesOnNode(cli kubecli.KubevirtClient, nodeName string) ([]*virt
 	list, err := cli.VirtualMachineInstance(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{
 		LabelSelector: labelSelector.String(),
 	})
-
 	if err != nil {
 		return nil, err
 	}

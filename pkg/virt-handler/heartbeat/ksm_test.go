@@ -57,11 +57,11 @@ var _ = Describe("KSM", func() {
 		var err error
 		fakeSysKSMDir, err = os.MkdirTemp("", "ksm")
 		Expect(err).NotTo(HaveOccurred())
-		err = os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte("0\n"), 0644)
+		err = os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte("0\n"), 0o644)
 		Expect(err).NotTo(HaveOccurred())
-		err = os.WriteFile(filepath.Join(fakeSysKSMDir, "sleep_millisecs"), []byte("20\n"), 0644)
+		err = os.WriteFile(filepath.Join(fakeSysKSMDir, "sleep_millisecs"), []byte("20\n"), 0o644)
 		Expect(err).NotTo(HaveOccurred())
-		err = os.WriteFile(filepath.Join(fakeSysKSMDir, "pages_to_scan"), []byte("100\n"), 0644)
+		err = os.WriteFile(filepath.Join(fakeSysKSMDir, "pages_to_scan"), []byte("100\n"), 0o644)
 		Expect(err).NotTo(HaveOccurred())
 	}
 
@@ -131,7 +131,7 @@ var _ = Describe("KSM", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(node.Labels).To(HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "false"))
 
-			err = os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte("1\n"), 0644)
+			err = os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte("1\n"), 0o644)
 			Expect(err).ToNot(HaveOccurred())
 
 			heartbeat.do()
@@ -196,7 +196,8 @@ var _ = Describe("KSM", func() {
 
 		DescribeTable("with memory pressure, should", func(initialKsmValue string, selectorOverride *metav1.LabelSelector,
 			nodeLabels, nodeAnnotations map[string]string,
-			labelsMatcher gomegatypes.GomegaMatcher, annotationsMatcher gomegatypes.GomegaMatcher, expectedKsmValue string) {
+			labelsMatcher gomegatypes.GomegaMatcher, annotationsMatcher gomegatypes.GomegaMatcher, expectedKsmValue string,
+		) {
 			if selectorOverride != nil {
 				kv.Spec.Configuration.KSMConfiguration.NodeLabelSelector = selectorOverride
 			}
@@ -209,7 +210,7 @@ var _ = Describe("KSM", func() {
 				},
 			}
 			fakeClient := fake.NewSimpleClientset(node)
-			err := os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte(initialKsmValue), 0644)
+			err := os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte(initialKsmValue), 0o644)
 			Expect(err).ToNot(HaveOccurred())
 			createCustomMemInfo(true)
 			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), clusterConfig, "mynode")

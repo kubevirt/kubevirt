@@ -55,13 +55,15 @@ var _ = Describe("Kubevirt Version Client", func() {
 			PreferredVersion: metav1.GroupVersionForDiscovery{GroupVersion: ApiGroupName + "/v1alpha3", Version: "v1alpha3"},
 		}
 
-		info := version.Info{GitVersion: "v0.5.1-alpha.1.43+fda30004223b51-clean",
+		info := version.Info{
+			GitVersion:   "v0.5.1-alpha.1.43+fda30004223b51-clean",
 			GitCommit:    "fda30004223b51f9e604276419a2b376652cb5ad",
 			GitTreeState: "clear",
 			BuildDate:    time.Now().Format("%Y-%m-%dT%H:%M:%SZ"),
 			GoVersion:    runtime.Version(),
 			Compiler:     runtime.Compiler,
-			Platform:     fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)}
+			Platform:     fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
+		}
 
 		server.AppendHandlers(
 			ghttp.CombineHandlers(

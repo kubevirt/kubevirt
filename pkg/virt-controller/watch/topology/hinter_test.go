@@ -19,7 +19,6 @@ import (
 )
 
 var _ = Describe("Hinter", func() {
-
 	It("should return the lowes TSC frequency in the cluster", func() {
 		hinter := hinterWithNodes(
 			NodeWithInvalidTSC("node0"),
@@ -90,7 +89,6 @@ var _ = Describe("Hinter", func() {
 })
 
 func hinterWithNodes(nodes ...*v1.Node) *topologyHinter {
-
 	return &topologyHinter{
 		clusterConfig: clusterConfigWithoutTSCFrequency(),
 		nodeStore: &cache.FakeCustomStore{
@@ -155,6 +153,7 @@ func NodeWithInvalidTSC(name string) *v1.Node {
 		},
 	}
 }
+
 func vmiWithoutTSCFrequency(vmiName string) *virtv1.VirtualMachineInstance {
 	return &virtv1.VirtualMachineInstance{
 		ObjectMeta: metav1.ObjectMeta{

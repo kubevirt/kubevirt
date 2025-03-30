@@ -63,9 +63,7 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 	})
 
 	Context("VirtualMachineInstances", func() {
-		var (
-			vmi *v1.VirtualMachineInstance
-		)
+		var vmi *v1.VirtualMachineInstance
 		resource := "virtualmachineinstances"
 
 		BeforeEach(func() {
@@ -285,7 +283,6 @@ var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() 
 					"key": "42",
 				}
 				return dryRunUpdate(restClient, resource, vmim.Name, vmim.Namespace, vmim, nil)
-
 			})
 
 			Expect(err).ToNot(HaveOccurred())

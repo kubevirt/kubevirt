@@ -708,7 +708,7 @@ func (t *vmRestoreTarget) getSnapshotVM() (*snapshotv1.VirtualMachine, error) {
 }
 
 func (t *vmRestoreTarget) updateVMRestoreRestores(snapshotVM *snapshotv1.VirtualMachine) (bool, error) {
-	var restores = make([]snapshotv1.VolumeRestore, len(t.vmRestore.Status.Restores))
+	restores := make([]snapshotv1.VolumeRestore, len(t.vmRestore.Status.Restores))
 	for i, t := range t.vmRestore.Status.Restores {
 		t.DeepCopyInto(&restores[i])
 	}
@@ -759,7 +759,7 @@ func (t *vmRestoreTarget) UpdateTarget(obj metav1.Object) {
 
 func (t *vmRestoreTarget) generateRestoredVMSpec(snapshotVM *snapshotv1.VirtualMachine) (*kubevirtv1.VirtualMachine, error) {
 	log.Log.Object(t.vmRestore).V(3).Info("generating restored VM spec")
-	var newTemplates = make([]kubevirtv1.DataVolumeTemplateSpec, len(snapshotVM.Spec.DataVolumeTemplates))
+	newTemplates := make([]kubevirtv1.DataVolumeTemplateSpec, len(snapshotVM.Spec.DataVolumeTemplates))
 	var newVolumes []kubevirtv1.Volume
 
 	for i, t := range snapshotVM.Spec.DataVolumeTemplates {
@@ -830,7 +830,6 @@ func (t *vmRestoreTarget) generateRestoredVMSpec(snapshotVM *snapshotv1.VirtualM
 			Spec:   *snapshotVM.Spec.DeepCopy(),
 			Status: kubevirtv1.VirtualMachineStatus{},
 		}
-
 	} else {
 		newVM = t.vm.DeepCopy()
 		newVM.Spec = *snapshotVM.Spec.DeepCopy()
@@ -1174,6 +1173,7 @@ func (ctrl *VMRestoreController) deleteObsoleteBackendPVC(vmRestore *snapshotv1.
 func (t *vmRestoreTarget) TargetRestored() bool {
 	return t.Exists() && hasLastRestoreAnnotation(t.vmRestore, t.vm)
 }
+
 func (t *vmRestoreTarget) UID() types.UID {
 	return t.vm.UID
 }

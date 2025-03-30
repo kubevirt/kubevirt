@@ -100,7 +100,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 	}
 
 	Context("VM clone", func() {
-
 		const (
 			targetVMName                     = "vm-clone-target"
 			cloneShouldEqualSourceMsgPattern = "cloned VM's %s should be equal to source"
@@ -165,7 +164,6 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		}
 
 		Context("[sig-compute]simple VM and cloning operations", decorators.SigCompute, func() {
-
 			expectVMRunnable := func(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
 				return expectVMRunnable(vm, console.LoginToCirros)
 			}
@@ -400,11 +398,9 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 					Expect(targetVM.Spec.Template.Spec.Domain.Firmware.UUID).ToNot(Equal(sourceVM.Spec.Template.Spec.Domain.Firmware.UUID))
 				})
 			})
-
 		})
 
 		Context("[sig-storage]with more complicated VM", decorators.SigStorage, func() {
-
 			expectVMRunnable := func(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
 				return expectVMRunnable(vm, console.LoginToAlpine)
 			}
@@ -444,9 +440,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 			}
 
 			Context("and snapshot storage class", decorators.RequiresSnapshotStorageClass, func() {
-				var (
-					snapshotStorageClass string
-				)
+				var snapshotStorageClass string
 
 				BeforeEach(func() {
 					snapshotStorageClass, err = libstorage.GetSnapshotStorageClass(virtClient)
@@ -678,9 +672,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 							g.Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 						}, 1*time.Minute).Should(Succeed(), "vmsnapshot and vmrestore should be deleted once the pvc is bound")
 					})
-
 				})
-
 			})
 		})
 	})

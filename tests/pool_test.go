@@ -83,7 +83,6 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 			return nil
 		}, 120*time.Second, 1*time.Second).Should(BeNil())
-
 	}
 
 	doScale := func(name string, scale int32) {
@@ -290,7 +289,6 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 				return fmt.Errorf("Waiting on VM named %s with new UID to appear", name)
 			}
 			return nil
-
 		}, 120*time.Second, 1*time.Second).Should(BeNil())
 
 		By("Waiting until all VMIs are created and online again")
@@ -354,9 +352,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 				return fmt.Errorf("Waiting on VM named %s with new UID to appear", name)
 			}
 			return nil
-
 		}, 120*time.Second, 1*time.Second).Should(BeNil())
-
 	})
 
 	It("should roll out VM template changes without impacting VMI", func() {
@@ -390,7 +386,6 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		By("Ensuring VM picks up label")
 		Eventually(func() error {
-
 			vm, err := virtClient.VirtualMachine(newPool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
 			if err != nil {
 				return err
@@ -449,7 +444,6 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		By("Ensuring VM picks up label")
 		Eventually(func() error {
-
 			vm, err := virtClient.VirtualMachine(newPool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
 			if err != nil {
 				return err

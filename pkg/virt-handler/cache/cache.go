@@ -57,7 +57,6 @@ func (icp *iterableCheckpointManager) ListKeys() []string {
 		keys = append(keys, entry.Name())
 	}
 	return keys
-
 }
 
 func NewIterableCheckpointManager(base string) IterableCheckpointManager {
@@ -83,7 +82,6 @@ type GhostRecordStore struct {
 }
 
 func InitializeGhostRecordCache(iterableCPManager IterableCheckpointManager) *GhostRecordStore {
-
 	GhostRecordGlobalStore = GhostRecordStore{
 		cache:             make(map[string]ghostRecord),
 		checkpointManager: iterableCPManager,

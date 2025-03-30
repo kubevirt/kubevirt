@@ -349,7 +349,6 @@ var _ = Describe("test configuration", func() {
 	)
 
 	It("Should return migration config values", func() {
-
 		parallelOutboundMigrationsPerNode := uint32(10)
 		parallelMigrationsPerCluster := uint32(20)
 		bandwidthPerMigration := resource.MustParse("110Mi")
@@ -426,7 +425,6 @@ var _ = Describe("test configuration", func() {
 	})
 
 	It("Should stick with the last good config", func() {
-
 		clusterConfig, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 			ImagePullPolicy: kubev1.PullAlways,
 		})
@@ -487,7 +485,6 @@ var _ = Describe("test configuration", func() {
 	)
 
 	DescribeTable(" when OVMFPath", func(cpuArch string, ovmfPathKeyAMD64 string, ovmfPathKeyARM64 string, ovmfPathKeyPPC64le64 string, ovmfPathKeyS390X string, result string) {
-
 		kv := &v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
@@ -592,7 +589,6 @@ var _ = Describe("test configuration", func() {
 				Configuration: v1.KubeVirtConfiguration{
 					MediatedDevicesConfiguration: &v1.MediatedDevicesConfiguration{
 						MediatedDeviceTypes: []string{
-
 							"nvidia-222",
 							"nvidia-228",
 							"i915-GVTg_V5_4",
@@ -766,7 +762,8 @@ var _ = Describe("test configuration", func() {
 	})
 
 	DescribeTable("GetInstancetypeReferencePolicy should return", func(
-		instancetypeConfig *v1.InstancetypeConfiguration, expectedPolicy v1.InstancetypeReferencePolicy) {
+		instancetypeConfig *v1.InstancetypeConfiguration, expectedPolicy v1.InstancetypeReferencePolicy,
+	) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(
 			&v1.KubeVirtConfiguration{
 				Instancetype: instancetypeConfig,

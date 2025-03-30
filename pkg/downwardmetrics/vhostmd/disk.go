@@ -12,8 +12,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
-const fileSize = 262144
-const maxBodyLength = fileSize - 24
+const (
+	fileSize      = 262144
+	maxBodyLength = fileSize - 24
+)
 
 var signature = [4]byte{'m', 'v', 'b', 'd'}
 
@@ -131,7 +133,7 @@ func readDisk(filePath string) (*Disk, error) {
 func createDisk(filePath string) (err error) {
 	var f *os.File
 
-	if f, err = os.OpenFile(filePath, os.O_CREATE|os.O_RDWR, 0755); err != nil {
+	if f, err = os.OpenFile(filePath, os.O_CREATE|os.O_RDWR, 0o755); err != nil {
 		return fmt.Errorf("failed getting vhostmd disk filestats: %v", err)
 	}
 	defer func() {

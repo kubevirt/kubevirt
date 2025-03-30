@@ -59,9 +59,7 @@ func ProcessWorkItem(queue workqueue.TypedRateLimitingInterface[string], handler
 		queue.Forget(obj)
 
 		return nil
-
 	}(obj)
-
 	if err != nil {
 		utilruntime.HandleError(err)
 		return true

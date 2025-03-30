@@ -323,7 +323,8 @@ var _ = Describe("[Sysprep][sig-compute]Syspreped VirtualMachineInstance", Seria
 				windowsSysprepedVMIUser,
 				"-password",
 				windowsSysprepedVMIPassword,
-				"echo works"}
+				"echo works",
+			}
 			Eventually(func() (string, error) {
 				return exec.ExecuteCommandOnPod(
 					winrmcliPod,

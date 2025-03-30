@@ -9,7 +9,6 @@ import (
 )
 
 var _ = Describe("Defaults", func() {
-
 	It("should leave the scheduler name unset by default", func() {
 		vmi := &v1.VirtualMachineInstance{}
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)

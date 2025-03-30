@@ -51,7 +51,6 @@ var _ = Describe("Simple checkpoint manager", func() {
 
 		Expect(cp.Get("win", r)).To(Succeed())
 		Expect(r.Name).To(Equal("300"))
-
 	})
 
 	It("should return ErrNotExist when asked for non-existing key", func() {

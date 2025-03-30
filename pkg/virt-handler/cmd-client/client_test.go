@@ -40,7 +40,6 @@ import (
 )
 
 var _ = Describe("Virt remote commands", func() {
-
 	var (
 		shareDir      string
 		podsDir       string
@@ -73,11 +72,10 @@ var _ = Describe("Virt remote commands", func() {
 		podSocketFile = SocketFilePathOnHost(podUID)
 
 		// Create a new socket
-		os.MkdirAll(filepath.Dir(podSocketFile), 0755)
+		os.MkdirAll(filepath.Dir(podSocketFile), 0o755)
 		f, err := os.Create(podSocketFile)
 		Expect(err).ToNot(HaveOccurred())
 		f.Close()
-
 	})
 
 	AfterEach(func() {
@@ -118,7 +116,7 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(IsSocketUnresponsive(sock)).To(BeTrue())
 
 			// unresponsive is false when socket file exists
-			os.Mkdir(filepath.Dir(sock), 0755)
+			os.Mkdir(filepath.Dir(sock), 0o755)
 			f, err := os.Create(sock)
 			Expect(err).ToNot(HaveOccurred())
 			f.Close()

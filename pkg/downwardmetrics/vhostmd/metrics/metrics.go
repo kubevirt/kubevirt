@@ -27,7 +27,6 @@ func MustToMetric(value interface{}, name string, unit string, context api.Metri
 }
 
 func ToMetric(value interface{}, name string, unit string, context api.MetricContext) (api.Metric, error) {
-
 	metric := api.Metric{
 		Name:    name,
 		Context: context,

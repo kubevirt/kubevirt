@@ -75,7 +75,7 @@ func CreateConfig() *common.Config {
 				// keeping for validation
 				return name[strings.LastIndex(name, "/")+1:], nil
 			}
-			//adpting k8s style
+			// adpting k8s style
 			return strings.ReplaceAll(name, "/", "."), nil
 		},
 	}
@@ -130,7 +130,7 @@ func CreateV3Config() *common.OpenAPIV3Config {
 				// keeping for validation
 				return name[strings.LastIndex(name, "/")+1:], nil
 			}
-			//adpting k8s style
+			// adpting k8s style
 			return strings.ReplaceAll(name, "/", "."), nil
 		},
 	}

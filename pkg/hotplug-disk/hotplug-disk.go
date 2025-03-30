@@ -38,12 +38,10 @@ const (
 	hotplugDisksKubeletVolumePath = "volumes/kubernetes.io~empty-dir/hotplug-disks"
 )
 
-var (
-	// visible for testing
-	TargetPodBasePath = func(podBaseDir string, podUID types.UID) string {
-		return filepath.Join(podBaseDir, string(podUID), hotplugDisksKubeletVolumePath)
-	}
-)
+// visible for testing
+var TargetPodBasePath = func(podBaseDir string, podUID types.UID) string {
+	return filepath.Join(podBaseDir, string(podUID), hotplugDisksKubeletVolumePath)
+}
 
 type HotplugDiskManagerInterface interface {
 	GetHotplugTargetPodPathOnHost(virtlauncherPodUID types.UID) (*safepath.Path, error)
@@ -81,7 +79,7 @@ func (h *hotplugDiskManager) GetFileSystemDirectoryTargetPathFromHostView(virtla
 	}
 	_, err = safepath.JoinNoFollow(targetPath, volumeName)
 	if errors.Is(err, os.ErrNotExist) && create {
-		if err := safepath.MkdirAtNoFollow(targetPath, volumeName, 0750); err != nil {
+		if err := safepath.MkdirAtNoFollow(targetPath, volumeName, 0o750); err != nil {
 			return nil, err
 		}
 	} else if err != nil {
@@ -97,7 +95,7 @@ func (h *hotplugDiskManager) GetFileSystemDiskTargetPathFromHostView(virtlaunche
 		return targetPath, err
 	}
 	diskName := fmt.Sprintf("%s.img", volumeName)
-	if err := safepath.TouchAtNoFollow(targetPath, diskName, 0666); err != nil && !os.IsExist(err) {
+	if err := safepath.TouchAtNoFollow(targetPath, diskName, 0o666); err != nil && !os.IsExist(err) {
 		return nil, err
 	}
 	return safepath.JoinNoFollow(targetPath, diskName)
@@ -107,7 +105,7 @@ func (h *hotplugDiskManager) GetFileSystemDiskTargetPathFromHostView(virtlaunche
 // a directory under this, that contains the volume name. block volumes will be in this directory as a block device.
 func SetLocalDirectory(dir string) error {
 	mountBaseDir = dir
-	return os.MkdirAll(dir, 0755)
+	return os.MkdirAll(dir, 0o755)
 }
 
 func GetVolumeMountDir(volumeName string) string {

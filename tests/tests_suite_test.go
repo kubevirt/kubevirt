@@ -63,8 +63,10 @@ import (
 	_ "kubevirt.io/kubevirt/tests/virtiofs"
 )
 
-var afterSuiteReporters = []Reporter{}
-var k8sReporter *reporter.KubernetesReporter
+var (
+	afterSuiteReporters = []Reporter{}
+	k8sReporter         *reporter.KubernetesReporter
+)
 
 func TestTests(t *testing.T) {
 	flags.NormalizeFlags()

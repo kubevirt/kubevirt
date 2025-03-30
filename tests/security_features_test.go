@@ -80,7 +80,6 @@ var _ = Describe("[sig-compute]SecurityFeatures", decorators.SigCompute, func() 
 			})
 
 			It("[test_id:2953][test_id:2895]Ensure virt-launcher pod securityContext type is correctly set and not privileged", func() {
-
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -102,7 +101,6 @@ var _ = Describe("[sig-compute]SecurityFeatures", decorators.SigCompute, func() 
 			})
 
 			It("[test_id:4297]Make sure qemu processes are MCS constrained", func() {
-
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -135,7 +133,6 @@ var _ = Describe("[sig-compute]SecurityFeatures", decorators.SigCompute, func() 
 		})
 
 		Context("With selinuxLauncherType defined as spc_t", func() {
-
 			It("[test_id:3787]Should honor custom SELinux type for virt-launcher", func() {
 				config := kubevirtConfiguration.DeepCopy()
 				superPrivilegedType := "spc_t"

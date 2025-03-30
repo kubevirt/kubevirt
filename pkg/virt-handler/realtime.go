@@ -76,8 +76,8 @@ func isVCPU(comm []byte) (string, bool) {
 	v := vcpuRegex.FindSubmatch(comm)
 	return string(v[1]), true
 }
-func getVCPUThreadIDs(pid int) (map[string]string, error) {
 
+func getVCPUThreadIDs(pid int) (map[string]string, error) {
 	p := filepath.Join(string(os.PathSeparator), "proc", strconv.Itoa(pid), "task")
 	d, err := os.ReadDir(p)
 	if err != nil {
@@ -104,7 +104,6 @@ func getVCPUThreadIDs(pid int) (map[string]string, error) {
 // https://github.com/libvirt/libvirt/blob/56de80cb793aa7aedc45572f8b6ec3fc32c99309/src/util/virbitmap.c#L382
 // except that in this case it uses a map[string]maskType instead of a bit array.
 func parseCPUMask(mask string) (*cpuMask, error) {
-
 	vcpus := cpuMask{}
 	if len(mask) == 0 {
 		return &vcpus, nil

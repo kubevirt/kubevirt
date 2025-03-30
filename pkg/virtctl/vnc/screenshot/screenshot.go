@@ -62,7 +62,7 @@ func (s *Screenshot) Run(cmd *cobra.Command, args []string) error {
 		if _, err := os.Stdout.Write(screenshot); err != nil {
 			return fmt.Errorf("failed to write image to stdout: %v", err)
 		}
-	} else if err := os.WriteFile(s.fileName, screenshot, 0644); err != nil {
+	} else if err := os.WriteFile(s.fileName, screenshot, 0o644); err != nil {
 		return fmt.Errorf("Can't write image to a file: %v", err)
 	}
 	return nil

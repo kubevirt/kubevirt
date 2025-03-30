@@ -347,7 +347,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(&vmi, nil)
 				vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts k8smetav1.PatchOptions) (interface{}, interface{}) {
-						//check that dryRun option has been propagated to patch request
+						// check that dryRun option has been propagated to patch request
 						Expect(opts.DryRun).To(BeEquivalentTo(restartOptions.DryRun))
 						return vm, nil
 					})
@@ -484,13 +484,13 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				vmiClient.EXPECT().Get(context.Background(), vmi.Name, k8smetav1.GetOptions{}).Return(&vmi, nil)
 				vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
-						//check that dryRun option has been propagated to patch request
+						// check that dryRun option has been propagated to patch request
 						Expect(opts.DryRun).To(BeEquivalentTo(stopOptions.DryRun))
 						return &vmi, nil
 					}).AnyTimes()
 				vmClient.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
-						//check that dryRun option has been propagated to patch request
+						// check that dryRun option has been propagated to patch request
 						Expect(opts.DryRun).To(BeEquivalentTo(stopOptions.DryRun))
 						return vm, nil
 					})
@@ -673,7 +673,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			if !expectError {
 				vmClient.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
-						//check that dryRun option has been propagated to patch request
+						// check that dryRun option has been propagated to patch request
 						Expect(opts.DryRun).To(BeEquivalentTo(stopOptions.DryRun))
 						return vm, nil
 					})
@@ -686,10 +686,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				// check the msg string that would be presented to virtctl output
 				Expect(statusErr.Error()).To(ContainSubstring(msg))
 			} else {
-
 				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			}
-
 		},
 			Entry("RunStrategyAlways", v1.RunStrategyAlways, "", false, &v1.StopOptions{}),
 			Entry("RunStrategyOnce", v1.RunStrategyOnce, "", false, &v1.StopOptions{}),
@@ -736,7 +734,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			if graceperiod != nil {
 				vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, name string, patchType types.PatchType, data []byte, opts k8smetav1.PatchOptions, _ ...string) (interface{}, interface{}) {
-						//check that dryRun option has been propagated to patch request
+						// check that dryRun option has been propagated to patch request
 						Expect(opts.DryRun).To(BeEquivalentTo(stopOptions.DryRun))
 
 						patchSet := patch.New()
@@ -800,7 +798,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 	Context("Subresource api - MigrateVMRequestHandler", func() {
 		DescribeTable("should fail if VirtualMachine not exists according to options", func(migrateOptions *v1.MigrateOptions) {
-
 			request.PathParameters()["name"] = testVMName
 			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 
@@ -910,7 +907,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			Expect(response.Error()).To(HaveOccurred(), "Response should indicate VM not found")
 			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
-
 		},
 			Entry("for GuestOSInfo", app.GuestOSInfo),
 			Entry("for UserList", app.UserList),
@@ -1138,7 +1134,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 	Context("Freezing", func() {
 		It("Should freeze a running VMI", func() {
-
 			backend.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("PUT", "/v1/namespaces/default/virtualmachineinstances/testvmi/freeze"),
@@ -1154,7 +1149,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 
 		It("Should fail freezing a not running VMI", func() {
-
 			expectVMI(NotRunning, UnPaused)
 
 			app.FreezeVMIRequestHandler(request, response)
@@ -1163,7 +1157,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 
 		It("Should fail unfreezing a not running VMI", func() {
-
 			expectVMI(NotRunning, UnPaused)
 
 			app.UnfreezeVMIRequestHandler(request, response)
@@ -1203,7 +1196,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 
 		It("Should fail reset on a not running VMI", func() {
-
 			expectVMI(NotRunning, UnPaused)
 
 			app.ResetVMIRequestHandler(request, response)
@@ -1229,7 +1221,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 
 		It("Should fail soft reboot a not running VMI", func() {
-
 			expectVMI(false, false, guestAgentConnected)
 
 			app.SoftRebootVMIRequestHandler(request, response)
@@ -1238,7 +1229,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 
 		It("Should fail soft reboot a paused VMI", func() {
-
 			expectVMI(true, true, guestAgentConnected)
 
 			app.SoftRebootVMIRequestHandler(request, response)
@@ -1247,7 +1237,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 
 		It("Should fail soft reboot a guest agent disconnected and ACPI feature disabled VMI", func() {
-
 			expectVMI(true, false, ACPIDisabled)
 
 			app.SoftRebootVMIRequestHandler(request, response)
@@ -1258,7 +1247,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 	Context("Pausing", func() {
 		DescribeTable("Should pause a running, not paused VMI according to options", func(pauseOptions *v1.PauseOptions, matchExpectation gomegatypes.GomegaMatcher) {
-
 			backend.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("PUT", "/v1/namespaces/default/virtualmachineinstances/testvmi/pause"),
@@ -1273,7 +1261,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.PauseVMIRequestHandler(request, response)
 
 			Expect(response.StatusCode()).To(Equal(http.StatusOK))
-			//In case of dry-run the request is not propagated to the handler
+			// In case of dry-run the request is not propagated to the handler
 			Expect(backend.ReceivedRequests()).To(matchExpectation)
 		},
 			Entry("with default", &v1.PauseOptions{}, HaveLen(1)),
@@ -1316,7 +1304,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		)
 
 		DescribeTable("Should fail unpausing", func(running bool, paused bool, unpauseOptions *v1.UnpauseOptions, expectedError string) {
-
 			expectVMI(running, paused)
 
 			bytesRepresentation, _ := json.Marshal(unpauseOptions)
@@ -1335,7 +1322,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		)
 
 		DescribeTable("Should unpause a running, paused VMI according to options", func(unpauseOptions *v1.UnpauseOptions, matchExpectation gomegatypes.GomegaMatcher) {
-
 			backend.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("PUT", "/v1/namespaces/default/virtualmachineinstances/testvmi/unpause"),
@@ -1350,7 +1336,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.UnpauseVMIRequestHandler(request, response)
 
 			Expect(response.StatusCode()).To(Equal(http.StatusOK))
-			//In case of dry-run the request is not propagated to the handler
+			// In case of dry-run the request is not propagated to the handler
 			Expect(backend.ReceivedRequests()).To(matchExpectation)
 		},
 			Entry("with default", &v1.UnpauseOptions{}, HaveLen(1)),
@@ -1364,7 +1350,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
 		})
 		DescribeTable("should patch status on start according to options", func(startOptions *v1.StartOptions) {
-
 			bytesRepresentation, _ := json.Marshal(startOptions)
 			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
@@ -1387,7 +1372,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vmiClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(&vmi, nil)
 			vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
 				func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts k8smetav1.PatchOptions) (interface{}, interface{}) {
-					//check that dryRun option has been propagated to patch request
+					// check that dryRun option has been propagated to patch request
 					Expect(opts.DryRun).To(BeEquivalentTo(startOptions.DryRun))
 					return &vm, nil
 				})

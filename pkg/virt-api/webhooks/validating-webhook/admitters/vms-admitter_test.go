@@ -452,9 +452,10 @@ var _ = Describe("Validating VM Admitter", func() {
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "testpvcdisk-extra",
 			VolumeSource: v1.VolumeSource{
-				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-					ClaimName: "testpvcdiskclaim-extra",
-				},
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "testpvcdiskclaim-extra",
+					},
 				},
 			},
 		})
@@ -477,9 +478,10 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 					VolumeSource: &v1.HotplugVolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "madeup",
-						},
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "madeup",
+							},
 						},
 					},
 				},
@@ -499,9 +501,10 @@ var _ = Describe("Validating VM Admitter", func() {
 						},
 					},
 					VolumeSource: &v1.HotplugVolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "madeupLUN",
-						},
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "madeupLUN",
+							},
 						},
 					},
 				},
@@ -886,7 +889,6 @@ var _ = Describe("Validating VM Admitter", func() {
 	)
 
 	Context("with Volume", func() {
-
 		BeforeEach(func() {
 			enableFeatureGate(featuregate.HostDiskGate)
 		})
@@ -1458,7 +1460,6 @@ var _ = Describe("Validating VM Admitter", func() {
 				}),
 			)
 		})
-
 	})
 
 	It("should raise a warning when Deprecated API is used", func() {

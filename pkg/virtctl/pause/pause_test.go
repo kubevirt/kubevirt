@@ -17,7 +17,6 @@ import (
 )
 
 var _ = Describe("Pausing", func() {
-
 	const (
 		COMMAND_PAUSE = "pause"
 		vmName        = "testvm"

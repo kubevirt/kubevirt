@@ -33,7 +33,6 @@ import (
 )
 
 var _ = Describe("RBAC", func() {
-
 	const expectedNamespace = "default"
 
 	Context("GetAllController", func() {

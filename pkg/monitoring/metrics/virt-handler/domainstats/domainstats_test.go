@@ -30,14 +30,14 @@ import (
 
 var _ = Describe("domainstats", func() {
 	Context("collector functions", func() {
-		var metric = operatormetrics.NewCounter(
+		metric := operatormetrics.NewCounter(
 			operatormetrics.MetricOpts{
 				Name: "test-metric-1",
 				Help: "test help 1",
 			},
 		)
 
-		var vmiReport = &VirtualMachineInstanceReport{
+		vmiReport := &VirtualMachineInstanceReport{
 			vmi: &k6tv1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vmi-1",

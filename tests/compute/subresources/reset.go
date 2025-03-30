@@ -37,7 +37,6 @@ import (
 )
 
 var _ = Describe(compute.SIG("Reset subresource", func() {
-
 	Describe("Reset a VirtualMachineInstance", func() {
 		const vmiLaunchTimeout = 360
 

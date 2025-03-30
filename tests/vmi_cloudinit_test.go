@@ -68,7 +68,6 @@ const (
 )
 
 var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:component][sig-compute]CloudInit UserData", decorators.SigCompute, func() {
-
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
@@ -253,7 +252,6 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				By("checking cloudinit network-config")
 				checkCloudInitFile(vmi, "network-config", testNetworkData)
-
 			})
 			It("[test_id:3182]should have cloud-init network-config with NetworkDataBase64 source", func() {
 				vmi := libvmifact.NewCirros(
@@ -271,7 +269,6 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				By("checking cloudinit network-config")
 				checkCloudInitFile(vmi, "network-config", testNetworkData)
-
 			})
 			It("[test_id:3183]should have cloud-init network-config from k8s secret", func() {
 				secretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
@@ -308,7 +305,6 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(testVolume.CloudInitNoCloud.NetworkData).To(BeEmpty())
 				Expect(testVolume.CloudInitNoCloud.NetworkDataBase64).To(BeEmpty())
 			})
-
 		})
 
 		Context("with cloudInitConfigDrive networkData", func() {
@@ -396,7 +392,6 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				By("checking cloudinit network-config")
 				checkCloudInitFile(vmi, "openstack/latest/network_data.json", testNetworkData)
-
 			})
 			It("[test_id:3186]should have cloud-init network-config from k8s secret", func() {
 				secretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
@@ -506,7 +501,6 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Entry("with camelCase labels", "userData", "networkData"),
 			)
 		})
-
 	})
 })
 

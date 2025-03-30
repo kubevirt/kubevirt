@@ -75,7 +75,7 @@ func init() {
 	// registering a single version
 	registerVersion := os.Getenv(v1.KubeVirtClientGoSchemeRegistrationVersionEnvVar)
 	if registerVersion != "" {
-		SchemeBuilder = runtime.NewSchemeBuilder(v1.AddKnownTypesGenerator([]schema.GroupVersion{schema.GroupVersion{Group: core.GroupName, Version: registerVersion}}))
+		SchemeBuilder = runtime.NewSchemeBuilder(v1.AddKnownTypesGenerator([]schema.GroupVersion{{Group: core.GroupName, Version: registerVersion}}))
 	} else {
 		SchemeBuilder = runtime.NewSchemeBuilder(v1.AddKnownTypesGenerator(v1.GroupVersions))
 	}
@@ -89,11 +89,15 @@ func init() {
 
 type RestConfigHookFunc func(*rest.Config)
 
-var restConfigHooks []RestConfigHookFunc
-var restConfigHooksLock sync.Mutex
+var (
+	restConfigHooks     []RestConfigHookFunc
+	restConfigHooksLock sync.Mutex
+)
 
-var virtclient KubevirtClient
-var once sync.Once
+var (
+	virtclient KubevirtClient
+	once       sync.Once
+)
 
 // Init adds the default `kubeconfig` and `master` flags. It is not added by default to allow integration into
 // the different controller generators which normally add these flags too.
@@ -321,7 +325,6 @@ var GetKubevirtClientFromClientConfig = func(cmdConfig clientcmd.ClientConfig) (
 		return nil, err
 	}
 	return GetKubevirtClientFromRESTConfig(config)
-
 }
 
 func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error) {

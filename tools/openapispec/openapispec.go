@@ -41,7 +41,7 @@ func dumpOpenApiSpec(dumppath *string, apiws []*restful.WebService) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = os.WriteFile(*dumppath, data, 0644)
+	err = os.WriteFile(*dumppath, data, 0o644)
 	if err != nil {
 		log.Fatal(err)
 	}

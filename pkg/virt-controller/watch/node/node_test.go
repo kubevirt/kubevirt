@@ -33,7 +33,6 @@ import (
 )
 
 var _ = Describe("Node controller with", func() {
-
 	var ctrl *gomock.Controller
 	var fakeVirtClient *kubevirtfake.Clientset
 	var nodeSource *framework.FakeControllerSource
@@ -356,7 +355,6 @@ var _ = Describe("Node controller with", func() {
 	})
 
 	Context("check for orphaned vmis", func() {
-
 		var node *k8sv1.Node
 		var vmi *v1.VirtualMachineInstance
 
@@ -366,7 +364,6 @@ var _ = Describe("Node controller with", func() {
 		})
 
 		DescribeTable("testing orpahned event", func(returnVirtHandler bool, ds *appv1.DaemonSet, hasrunningvmi bool, expectEvent bool) {
-
 			kubeClient.Fake.PrependReactor("list", "pods", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
 				if returnVirtHandler {
 					return true, &k8sv1.PodList{Items: []k8sv1.Pod{*NewVirtHandlerPod(node.Name)}}, nil
@@ -402,7 +399,6 @@ var _ = Describe("Node controller with", func() {
 		// Ensure that we add checks for expected events to every test
 		Expect(recorder.Events).To(BeEmpty())
 	})
-
 })
 
 func NewHealthyNode(nodeName string) *k8sv1.Node {

@@ -6,7 +6,6 @@ import (
 )
 
 var _ = ginkgo.Describe("ArchSpecificDefaults", func() {
-
 	ginkgo.DescribeTable("should set architecture", func(arch string, targetArch string) {
 		domain := &Domain{}
 		NewDefaulter(arch).setDefaults_OSType(&domain.Spec.OS.Type)

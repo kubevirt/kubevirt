@@ -32,14 +32,13 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-const cirrosStartupTimeout = 60
-const testString = "GuestConsoleTest3413254123535234523"
+const (
+	cirrosStartupTimeout = 60
+	testString           = "GuestConsoleTest3413254123535234523"
+)
 
 var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func() {
-
-	var (
-		cirrosVmi *v1.VirtualMachineInstance
-	)
+	var cirrosVmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
 		cirrosVmi = libvmifact.NewCirros(libvmi.WithLogSerialConsole(true))
@@ -78,13 +77,12 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 					g.Expect(virtlauncherPod).To(matcher.BeInPhase(k8sv1.PodSucceeded))
 				}, 60*time.Second, 1*time.Second).Should(Succeed(), "virt-launcher should reach the PodSucceeded phase never hitting the PodFailed one")
 			})
-
 		})
 
 		Context("fetch logs", func() {
 			var vmi *v1.VirtualMachineInstance
 
-			var cirrosLogo = `
+			cirrosLogo := `
   ____               ____  ____
  / __/ __ ____ ____ / __ \/ __/
 / /__ / // __// __// /_/ /\ \ 
@@ -222,15 +220,13 @@ var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func()
 							if err == nil {
 								lpath := filepath.Join(artifactsDir, fmt.Sprintf("serial_logs_content_%v.txt", vmi.UID))
 								_, _ = fmt.Fprintf(GinkgoWriter, "Serial console log failed, serial console logs dump from virt-launcher pod collected at file at %s\n", lpath)
-								_ = os.WriteFile(lpath, []byte(outputString), 0644)
+								_ = os.WriteFile(lpath, []byte(outputString), 0o644)
 							}
 						}
 					}
 				}
 			})
-
 		})
-
 	})
 })
 

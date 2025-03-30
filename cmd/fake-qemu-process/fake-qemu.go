@@ -43,7 +43,7 @@ func main() {
 
 	if *pidFile != "" {
 		pid := os.Getpid()
-		err := os.WriteFile(*pidFile, []byte(strconv.Itoa(pid)), 0644)
+		err := os.WriteFile(*pidFile, []byte(strconv.Itoa(pid)), 0o644)
 		if err != nil {
 			fmt.Printf("Could not write to PID file %s: %v\n", *pidFile, err)
 			os.Exit(1)

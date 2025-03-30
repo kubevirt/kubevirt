@@ -153,6 +153,7 @@ func ConvertKubeVirtNUMATuneToDomainNUMATune(numatune *api.NUMATune) *libvirtxml
 		MemNodes: ConvertKubeVirtMemNodeToDomainNUMATuneMemNode(numatune.MemNodes),
 	}
 }
+
 func ConvertKubeVirtHugepageToDomainMemoryHugepages(hugepage *api.HugePages) (*libvirtxml.DomainMemoryHugepages, error) {
 	var h *libvirtxml.DomainMemoryHugepages
 	if hugepage == nil {
@@ -313,5 +314,4 @@ func ConvertKubeVirtFeaturesToDomainFeatureList(features *api.Features) *libvirt
 	f.KVM = ConverKubeVirtFeatureKVMToDomainFeatureKVM(features.KVM)
 	f.VMPort = setDomainFeatureState(features.VMPort)
 	return f
-
 }

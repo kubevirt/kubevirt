@@ -103,5 +103,4 @@ var _ = Describe("Migrate cancel command", func() {
 		errstr := fmt.Sprintf("Found no migration to cancel for %s", vm.Name)
 		Expect(err.Error()).To(ContainSubstring(errstr))
 	})
-
 })

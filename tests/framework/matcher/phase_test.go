@@ -15,23 +15,22 @@ import (
 )
 
 var _ = Describe("Matcher", func() {
-
 	var toNilPointer *v1.Pod = nil
 	var toNilSlicePointer []*v1.Pod = nil
 
-	var runningPod = &v1.Pod{
+	runningPod := &v1.Pod{
 		Status: v1.PodStatus{
 			Phase: v1.PodRunning,
 		},
 	}
 
-	var stoppedPod = &v1.Pod{
+	stoppedPod := &v1.Pod{
 		Status: v1.PodStatus{
 			Phase: v1.PodSucceeded,
 		},
 	}
 
-	var nameAndKindPod = &v1.Pod{
+	nameAndKindPod := &v1.Pod{
 		ObjectMeta: v12.ObjectMeta{
 			Name: "testpod",
 		},
@@ -40,7 +39,7 @@ var _ = Describe("Matcher", func() {
 		},
 	}
 
-	var nameAndKindDV = &v1beta1.DataVolume{
+	nameAndKindDV := &v1beta1.DataVolume{
 		ObjectMeta: v12.ObjectMeta{
 			Name: "testdv",
 		},
@@ -49,7 +48,7 @@ var _ = Describe("Matcher", func() {
 		},
 	}
 
-	var nameAndKindVMI = &v13.VirtualMachineInstance{
+	nameAndKindVMI := &v13.VirtualMachineInstance{
 		ObjectMeta: v12.ObjectMeta{
 			Name: "testvmi",
 		},
@@ -58,37 +57,37 @@ var _ = Describe("Matcher", func() {
 		},
 	}
 
-	var onlyKindPod = &v1.Pod{
+	onlyKindPod := &v1.Pod{
 		TypeMeta: v12.TypeMeta{
 			Kind: "Pod",
 		},
 	}
 
-	var onlyKindDV = &v1beta1.DataVolume{
+	onlyKindDV := &v1beta1.DataVolume{
 		TypeMeta: v12.TypeMeta{
 			Kind: "DataVolume",
 		},
 	}
 
-	var onlyKindVMI = &v13.VirtualMachineInstance{
+	onlyKindVMI := &v13.VirtualMachineInstance{
 		TypeMeta: v12.TypeMeta{
 			Kind: "VirtualMachineInstance",
 		},
 	}
 
-	var onlyNamePod = &v1.Pod{
+	onlyNamePod := &v1.Pod{
 		ObjectMeta: v12.ObjectMeta{
 			Name: "testpod",
 		},
 	}
 
-	var onlyNameDV = &v1beta1.DataVolume{
+	onlyNameDV := &v1beta1.DataVolume{
 		ObjectMeta: v12.ObjectMeta{
 			Name: "testdv",
 		},
 	}
 
-	var onlyNameVMI = &v13.VirtualMachineInstance{
+	onlyNameVMI := &v13.VirtualMachineInstance{
 		ObjectMeta: v12.ObjectMeta{
 			Name: "testvmi",
 		},
@@ -150,7 +149,6 @@ var _ = Describe("Matcher", func() {
 			Expect(BeInPhase("testPhase").FailureMessage(object)).Should(HavePrefix(" expected"))
 			Expect(BeInPhase("testPhase").NegatedFailureMessage(object)).Should(HavePrefix(" expected"))
 		}
-
 	},
 		Entry("with a Pod having name and kind", nameAndKindPod, nameAndKindPod.Kind, nameAndKindPod.Name),
 		Entry("with a DataVolume having name and kind", nameAndKindDV, nameAndKindDV.Kind, nameAndKindDV.Name),

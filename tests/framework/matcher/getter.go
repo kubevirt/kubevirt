@@ -113,7 +113,7 @@ func ThisDVWith(namespace string, name string) func() (*v1beta1.DataVolume, erro
 			}
 			return nil, err
 		}
-		//Since https://github.com/kubernetes/client-go/issues/861 we manually add the Kind
+		// Since https://github.com/kubernetes/client-go/issues/861 we manually add the Kind
 		p.Kind = "DataVolume"
 		return p, nil
 	}
@@ -135,7 +135,7 @@ func ThisPVCWith(namespace string, name string) func() (*v1.PersistentVolumeClai
 			}
 			return nil, err
 		}
-		//Since https://github.com/kubernetes/client-go/issues/861 we manually add the Kind
+		// Since https://github.com/kubernetes/client-go/issues/861 we manually add the Kind
 		p.Kind = "PersistentVolumeClaim"
 		return p, nil
 	}
@@ -172,7 +172,7 @@ func ThisDeploymentWith(namespace string, name string) func() (*k8sv1.Deployment
 			}
 			return nil, err
 		}
-		//Since https://github.com/kubernetes/client-go/issues/861 we manually add the Kind
+		// Since https://github.com/kubernetes/client-go/issues/861 we manually add the Kind
 		p.Kind = "Deployment"
 		return p, nil
 	}

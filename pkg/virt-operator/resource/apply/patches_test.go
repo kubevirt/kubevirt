@@ -35,7 +35,6 @@ import (
 )
 
 var _ = Describe("Patches", func() {
-
 	namespace := "fake-namespace"
 
 	deployment := &appsv1.Deployment{
@@ -81,7 +80,6 @@ var _ = Describe("Patches", func() {
 	config := getCustomizer()
 
 	Context("generically apply patches", func() {
-
 		It("should apply to deployments", func() {
 			deployments := []*appsv1.Deployment{
 				deployment,
@@ -103,7 +101,6 @@ var _ = Describe("Patches", func() {
 	})
 
 	Context("apply patch", func() {
-
 		It("should not error on empty patch", func() {
 			err := applyPatch(nil, v1.CustomizeComponentsPatch{})
 			Expect(err).ToNot(HaveOccurred())
@@ -111,7 +108,6 @@ var _ = Describe("Patches", func() {
 	})
 
 	Context("get hash", func() {
-
 		c1 := v1.CustomizeComponents{
 			Patches: []v1.CustomizeComponentsPatch{
 				{
@@ -193,10 +189,8 @@ var _ = Describe("Patches", func() {
 	})
 
 	DescribeTable("valueMatchesKey", func(value, key string, expected bool) {
-
 		matches := valueMatchesKey(value, key)
 		Expect(matches).To(Equal(expected))
-
 	},
 		Entry("should match wildcard", "*", "Deployment", true),
 		Entry("should match with different cases", "deployment", "Deployment", true),
@@ -251,5 +245,4 @@ var _ = Describe("Patches", func() {
 			Expect(patches).To(HaveLen(1))
 		})
 	})
-
 })

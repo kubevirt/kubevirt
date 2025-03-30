@@ -67,15 +67,19 @@ type NetworkUtilsHandler struct{}
 func (h *NetworkUtilsHandler) LinkByName(name string) (netlink.Link, error) {
 	return netlink.LinkByName(name)
 }
+
 func (h *NetworkUtilsHandler) AddrList(link netlink.Link, family int) ([]netlink.Addr, error) {
 	return netlink.AddrList(link, family)
 }
+
 func (h *NetworkUtilsHandler) RouteList(link netlink.Link, family int) ([]netlink.Route, error) {
 	return netlink.RouteList(link, family)
 }
+
 func (h *NetworkUtilsHandler) LinkDel(link netlink.Link) error {
 	return netlink.LinkDel(link)
 }
+
 func (h *NetworkUtilsHandler) ParseAddr(s string) (*netlink.Addr, error) {
 	return netlink.ParseAddr(s)
 }
@@ -209,5 +213,7 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *cache.DHCPConfig, bridgeInterfaceNa
 }
 
 // Allow mocking for tests
-var DHCPServer = dhcpserver.SingleClientDHCPServer
-var DHCPv6Server = dhcpserverv6.SingleClientDHCPv6Server
+var (
+	DHCPServer   = dhcpserver.SingleClientDHCPServer
+	DHCPv6Server = dhcpserverv6.SingleClientDHCPv6Server
+)

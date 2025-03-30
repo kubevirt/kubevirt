@@ -31,7 +31,6 @@ func GetHighestCompatibleVersion(serverVersions []uint32, clientVersions []uint3
 			if s == c {
 				return s, nil
 			}
-
 		}
 	}
 	return 0, fmt.Errorf("no compatible version found, server: %v, client: %v", serverVersions, clientVersions)

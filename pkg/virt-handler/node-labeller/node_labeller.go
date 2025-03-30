@@ -83,8 +83,8 @@ type NodeLabeller struct {
 
 func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter, guestCaps []libvirtxml.CapsGuest) (*NodeLabeller, error) {
 	return newNodeLabeller(clusterConfig, nodeClient, host, NodeLabellerVolumePath, recorder, cpuCounter, guestCaps)
-
 }
+
 func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host, volumePath string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter, guestCaps []libvirtxml.CapsGuest) (*NodeLabeller, error) {
 	n := &NodeLabeller{
 		recorder:      recorder,
@@ -193,11 +193,11 @@ func (n *NodeLabeller) run() error {
 	node := originalNode.DeepCopy()
 
 	if !skipNodeLabelling(node) {
-		//prepare new labels
+		// prepare new labels
 		newLabels := n.prepareLabels(node, cpuModels, cpuFeatures, hostCPUModel, obsoleteCPUsx86)
-		//remove old labeller labels
+		// remove old labeller labels
 		n.removeLabellerLabels(node)
-		//add new labels
+		// add new labels
 		n.addLabellerLabels(node, newLabels)
 	}
 
@@ -220,7 +220,6 @@ func (n *NodeLabeller) patchNode(originalNode, node *v1.Node) error {
 		patch.WithTest("/metadata/labels", originalNode.Labels),
 		patch.WithReplace("/metadata/labels", node.Labels),
 	).GeneratePayload()
-
 	if err != nil {
 		return err
 	}

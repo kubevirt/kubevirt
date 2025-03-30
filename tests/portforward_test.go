@@ -39,7 +39,6 @@ import (
 )
 
 var _ = Describe("[sig-compute]PortForward", decorators.SigCompute, func() {
-
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {

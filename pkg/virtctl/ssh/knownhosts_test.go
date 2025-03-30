@@ -15,7 +15,6 @@ import (
 )
 
 var _ = Describe("Known Hosts", func() {
-
 	var knowHostFile string
 	BeforeEach(func() {
 		tmpDir := GinkgoT().TempDir()

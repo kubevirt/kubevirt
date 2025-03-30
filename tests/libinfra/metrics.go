@@ -63,7 +63,6 @@ func runAndCheckDumpMetrics(vmi *v1.VirtualMachineInstance, cmd string) (*api.Me
 }
 
 func GetTimeFromMetrics(metrics *api.Metrics) int {
-
 	for _, m := range metrics.Metrics {
 		if m.Name == "Time" {
 			val, err := strconv.Atoi(m.Value)

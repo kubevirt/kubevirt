@@ -45,7 +45,6 @@ const (
 )
 
 var _ = Describe("HostDevice", func() {
-
 	createMDEVWithoutDisplay := func(hostDevicesMetaData []hostdevice.HostDeviceMetaData, pool hostdevice.AddressPooler) ([]api.HostDevice, error) {
 		return hostdevice.CreateMDEVHostDevices(hostDevicesMetaData, pool, false)
 	}

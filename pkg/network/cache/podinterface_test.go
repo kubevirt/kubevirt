@@ -32,7 +32,6 @@ import (
 )
 
 var _ = Describe("Pod Interface", func() {
-
 	const UID = "123"
 	var cacheCreator tempCacheCreator
 	var podIfaceCache netcache.PodInterfaceCache

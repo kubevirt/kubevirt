@@ -36,7 +36,6 @@ var _ = Describe("Generic Device", func() {
 		dpi.deviceRoot = "/"
 		stop = make(chan struct{})
 		dpi.stop = stop
-
 	})
 
 	AfterEach(func() {
@@ -45,7 +44,7 @@ var _ = Describe("Generic Device", func() {
 	})
 
 	It("Should stop if the device plugin socket file is deleted", func() {
-		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
+		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0o666)
 
 		errChan := make(chan error, 1)
 		go func(errChan chan error) {
@@ -60,8 +59,7 @@ var _ = Describe("Generic Device", func() {
 	})
 
 	It("Should monitor health of device node", func() {
-
-		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
+		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0o666)
 
 		go dpi.healthCheck()
 		Expect(dpi.devs[0].Health).To(Equal(pluginapi.Healthy))

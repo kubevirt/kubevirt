@@ -2,11 +2,10 @@ package main
 
 import (
 	"encoding/json"
-
-	"kubevirt.io/kubevirt/pkg/monitoring/rules"
-
 	"fmt"
 	"os"
+
+	"kubevirt.io/kubevirt/pkg/monitoring/rules"
 )
 
 func verifyArgs(args []string) error {
@@ -38,7 +37,7 @@ func main() {
 		panic(err)
 	}
 
-	err = os.WriteFile(targetFile, b, 0644)
+	err = os.WriteFile(targetFile, b, 0o644)
 	if err != nil {
 		panic(err)
 	}

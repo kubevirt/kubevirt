@@ -48,8 +48,10 @@ func sysprepVolumeHasContents(sysprepVolume *v1.SysprepSource) bool {
 }
 
 // Explained here: https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/windows-setup-automation-overview
-const autounattendFilename = "autounattend.xml"
-const unattendFilename = "unattend.xml"
+const (
+	autounattendFilename = "autounattend.xml"
+	unattendFilename     = "unattend.xml"
+)
 
 func validateUnattendPresence(dirPath string) error {
 	files, err := os.ReadDir(dirPath)

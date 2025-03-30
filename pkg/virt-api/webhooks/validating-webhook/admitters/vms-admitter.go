@@ -440,7 +440,6 @@ func (admitter *VMsAdmitter) validateVolumeRequests(ctx context.Context, vm *v1.
 	}
 
 	return nil, nil
-
 }
 
 func validateDiskConfiguration(disk *v1.Disk, name string) []metav1.StatusCause {

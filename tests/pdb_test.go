@@ -42,7 +42,6 @@ import (
 )
 
 var _ = Describe("[sig-compute]Pod Disruption Budget (PDB)", decorators.SigCompute, func() {
-
 	It("should ensure the Pod Disruption Budget (PDB) is deleted when the VM is stopped via guest OS", func() {
 		By("Creating test VM")
 		vm := libvmi.NewVirtualMachine(

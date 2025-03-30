@@ -63,7 +63,6 @@ const (
 )
 
 var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
-
 	var (
 		err        error
 		virtClient kubecli.KubevirtClient
@@ -227,18 +226,18 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 			}, 180*time.Second, time.Second).Should(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 				"VolumeSnapshotStatuses": HaveExactElements(
 					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Name": Equal("disk0")}),
+						"Name": Equal("disk0"),
+					}),
 					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Name": Equal(libvmi.CloudInitDiskName)}),
+						"Name": Equal(libvmi.CloudInitDiskName),
+					}),
 				),
 			}))
 		})
 	})
 
 	Context("[storage-req]", decorators.StorageReq, decorators.RequiresSnapshotStorageClass, func() {
-		var (
-			snapshotStorageClass string
-		)
+		var snapshotStorageClass string
 
 		BeforeEach(func() {
 			sc, err := libstorage.GetSnapshotStorageClass(virtClient)
@@ -556,15 +555,18 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 							"Type":   Equal(snapshotv1.ConditionProgressing),
 							"Status": Equal(corev1.ConditionFalse),
-							"Reason": Equal("Operation failed")}),
+							"Reason": Equal("Operation failed"),
+						}),
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 							"Type":   Equal(snapshotv1.ConditionReady),
 							"Status": Equal(corev1.ConditionFalse),
-							"Reason": Equal(notReady)}),
+							"Reason": Equal(notReady),
+						}),
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 							"Type":   Equal(snapshotv1.ConditionFailure),
 							"Status": Equal(corev1.ConditionTrue),
-							"Reason": Equal(snapshotDeadlineExceeded)}),
+							"Reason": Equal(snapshotDeadlineExceeded),
+						}),
 					),
 					"Phase": Equal(snapshotv1.Failed),
 				})))
@@ -719,11 +721,13 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 							"Type":   Equal(snapshotv1.ConditionReady),
 							"Status": Equal(corev1.ConditionFalse),
-							"Reason": Equal("Not ready")}),
+							"Reason": Equal("Not ready"),
+						}),
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 							"Type":   Equal(snapshotv1.ConditionProgressing),
 							"Status": Equal(corev1.ConditionFalse),
-							"Reason": Equal("In error state")}),
+							"Reason": Equal("In error state"),
+						}),
 					),
 					"Phase": Equal(snapshotv1.InProgress),
 					"Error": gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
@@ -1068,7 +1072,8 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				}, 180*time.Second, time.Second).Should(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"VolumeSnapshotStatuses": HaveExactElements(
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-							"Enabled": BeTrue()})),
+							"Enabled": BeTrue(),
+						})),
 				}))
 			})
 
@@ -1190,15 +1195,18 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 					"Conditions": ContainElements(
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 							"Type":   Equal(snapshotv1.ConditionReady),
-							"Status": Equal(corev1.ConditionFalse)}),
+							"Status": Equal(corev1.ConditionFalse),
+						}),
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 							"Type":   Equal(snapshotv1.ConditionProgressing),
 							"Status": Equal(corev1.ConditionFalse),
-							"Reason": Equal("Operation failed")}),
+							"Reason": Equal("Operation failed"),
+						}),
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 							"Type":   Equal(snapshotv1.ConditionFailure),
 							"Status": Equal(corev1.ConditionTrue),
-							"Reason": Equal(snapshotDeadlineExceeded)}),
+							"Reason": Equal(snapshotDeadlineExceeded),
+						}),
 					),
 					"Phase": Equal(snapshotv1.Failed),
 				})))
@@ -1254,11 +1262,13 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"Type":   Equal(snapshotv1.ConditionReady),
 						"Status": Equal(corev1.ConditionFalse),
-						"Reason": Equal("Not ready")}),
+						"Reason": Equal("Not ready"),
+					}),
 					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"Type":   Equal(snapshotv1.ConditionProgressing),
 						"Status": Equal(corev1.ConditionFalse),
-						"Reason": Equal("In error state")}),
+						"Reason": Equal("In error state"),
+					}),
 				),
 				"Phase": Equal(snapshotv1.InProgress),
 				"Error": gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
@@ -1318,10 +1328,12 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"Type":   Equal(snapshotv1.ConditionProgressing),
 						"Status": Equal(corev1.ConditionFalse),
-						"Reason": Equal("Source does not exist")}),
+						"Reason": Equal("Source does not exist"),
+					}),
 					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"Type":   Equal(snapshotv1.ConditionReady),
-						"Status": Equal(corev1.ConditionFalse)}),
+						"Status": Equal(corev1.ConditionFalse),
+					}),
 				),
 				"Phase": Equal(snapshotv1.InProgress),
 			})))
@@ -1342,10 +1354,12 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 							"Type":   Equal(snapshotv1.ConditionProgressing),
 							"Status": Equal(corev1.ConditionFalse),
-							"Reason": ContainSubstring(fmt.Sprintf("Source not locked source %s/%s volume not bound", vm.Namespace, vm.Name))}),
+							"Reason": ContainSubstring(fmt.Sprintf("Source not locked source %s/%s volume not bound", vm.Namespace, vm.Name)),
+						}),
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 							"Type":   Equal(snapshotv1.ConditionReady),
-							"Status": Equal(corev1.ConditionFalse)}),
+							"Status": Equal(corev1.ConditionFalse),
+						}),
 					),
 					"Phase": Equal(snapshotv1.InProgress),
 				})))
@@ -1363,11 +1377,13 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				"Conditions": ContainElements(
 					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"Type":   Equal(snapshotv1.ConditionReady),
-						"Status": Equal(corev1.ConditionFalse)}),
+						"Status": Equal(corev1.ConditionFalse),
+					}),
 					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 						"Type":   Equal(snapshotv1.ConditionProgressing),
 						"Status": Equal(corev1.ConditionTrue),
-						"Reason": Equal("Source locked and operation in progress")}),
+						"Reason": Equal("Source locked and operation in progress"),
+					}),
 				),
 				"Phase": Equal(snapshotv1.InProgress),
 			})))
@@ -1427,7 +1443,8 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				}, 180*time.Second, time.Second).Should(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"VolumeSnapshotStatuses": HaveExactElements(
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-							"Enabled": BeFalse()})),
+							"Enabled": BeFalse(),
+						})),
 				}))
 
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
@@ -1441,7 +1458,8 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				}, 180*time.Second, time.Second).Should(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"VolumeSnapshotStatuses": HaveExactElements(
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-							"Enabled": BeTrue()})),
+							"Enabled": BeTrue(),
+						})),
 				}))
 			},
 				Entry("with DataVolume volume", libvmi.WithDataVolume, "1Gi"),
@@ -1492,9 +1510,11 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				}, 180*time.Second, 3*time.Second).Should(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"VolumeSnapshotStatuses": HaveExactElements(
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-							"Enabled": BeTrue()}),
+							"Enabled": BeTrue(),
+						}),
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-							"Enabled": BeFalse()})),
+							"Enabled": BeFalse(),
+						})),
 				}))
 
 				By("Create Snapshot")
@@ -1554,9 +1574,11 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				}, 180*time.Second, 3*time.Second).Should(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 					"VolumeSnapshotStatuses": HaveExactElements(
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-							"Enabled": BeTrue()}),
+							"Enabled": BeTrue(),
+						}),
 						gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-							"Enabled": BeTrue()})),
+							"Enabled": BeTrue(),
+						})),
 				}))
 
 				snapshot = libstorage.WaitSnapshotSucceeded(virtClient, vm.Namespace, snapshot.Name)
@@ -1567,7 +1589,6 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 		})
 
 		Context("With VM using instancetype and preferences", func() {
-
 			var instancetype *instancetypev1beta1.VirtualMachineInstancetype
 
 			BeforeEach(func() {

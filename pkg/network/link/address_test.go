@@ -113,15 +113,15 @@ var _ = Describe("Common Methods", func() {
 	})
 	Context("GetFakeBridgeIP function", func() {
 		It("Should return empty string when interface name is not in the interface list", func() {
-			ip := GetFakeBridgeIP([]v1.Interface{v1.Interface{Name: "aaaa"}}, &v1.Interface{Name: "abcd"})
+			ip := GetFakeBridgeIP([]v1.Interface{{Name: "aaaa"}}, &v1.Interface{Name: "abcd"})
 			Expect(ip).To(Equal(""))
 		})
 		It("Should return the correct ip when the interface is the first in the list", func() {
-			ip := GetFakeBridgeIP([]v1.Interface{v1.Interface{Name: "abcd"}}, &v1.Interface{Name: "abcd"})
+			ip := GetFakeBridgeIP([]v1.Interface{{Name: "abcd"}}, &v1.Interface{Name: "abcd"})
 			Expect(ip).To(Equal(fmt.Sprintf(bridgeFakeIP, 0)))
 		})
 		It("Should return the correct ip when the interface is not the first in the list", func() {
-			ip := GetFakeBridgeIP([]v1.Interface{v1.Interface{Name: "aaaa"}, v1.Interface{Name: "abcd"}}, &v1.Interface{Name: "abcd"})
+			ip := GetFakeBridgeIP([]v1.Interface{{Name: "aaaa"}, {Name: "abcd"}}, &v1.Interface{Name: "abcd"})
 			Expect(ip).To(Equal(fmt.Sprintf(bridgeFakeIP, 1)))
 		})
 	})

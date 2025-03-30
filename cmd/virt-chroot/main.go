@@ -14,9 +14,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/safepath"
 )
 
-var (
-	mntNamespace string
-)
+var mntNamespace string
 
 func init() {
 	// main needs to be locked on one thread and no go routines
@@ -27,7 +25,6 @@ func main() {
 	rootCmd := &cobra.Command{
 		Use: "virt-chroot",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-
 			if mntNamespace != "" {
 				// join the mount namespace of a process
 				fd, err := os.Open(mntNamespace)

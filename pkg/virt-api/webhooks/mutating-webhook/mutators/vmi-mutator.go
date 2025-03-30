@@ -128,7 +128,6 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 				patchSet.AddOption(patch.WithReplace("/status", oldVMI.Status))
 			}
 		}
-
 	}
 
 	if patchSet.IsEmpty() {

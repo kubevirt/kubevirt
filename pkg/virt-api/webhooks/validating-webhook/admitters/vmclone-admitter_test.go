@@ -244,7 +244,6 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 	)
 
 	Context("source types", func() {
-
 		DescribeTable("should allow legal types", func(kind string) {
 			vmClone.Spec.Source.Kind = kind
 			admitter.admitAndExpect(vmClone, true)
@@ -359,7 +358,6 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 
 		DescribeTable("Should reject", func(filter string) {
 			testFilter(filter, false)
-
 		},
 			Entry("negation character alone", "!"),
 			Entry("negation in the middle", "mykey/!something"),
@@ -414,7 +412,6 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		Entry("valid mac address", "00:00:00:00:00:00", true),
 		Entry("invalid mac address", "00:00:00:00:00", false),
 	)
-
 })
 
 func createCloneAdmissionReview(vmClone *clone.VirtualMachineClone) *admissionv1.AdmissionReview {

@@ -102,7 +102,8 @@ var (
 		}, {
 			Name:  "TOKEN_FILE",
 			Value: "/token/token",
-		}}
+		},
+	}
 )
 
 var _ = Describe("Export controller", func() {
@@ -375,8 +376,8 @@ var _ = Describe("Export controller", func() {
 		return generateCertFromTime("working cert", &before, &after)
 	}
 
-	var expectedFuturePemAll = generateFutureCert()
-	var expectedExpiredPemAll = generateExpiredCert()
+	expectedFuturePemAll := generateFutureCert()
+	expectedExpiredPemAll := generateExpiredCert()
 
 	generateExpectedPem := func(allPem string) string {
 		now := time.Now()
@@ -391,9 +392,9 @@ var _ = Describe("Export controller", func() {
 		return strings.TrimSpace(pemOut.String())
 	}
 
-	var expectedPem = generateExpectedCert()
-	var expectedFuturePem = generateExpectedPem(expectedFuturePemAll)
-	var expectedExpiredPem = generateExpectedPem(expectedExpiredPemAll)
+	expectedPem := generateExpectedCert()
+	expectedFuturePem := generateExpectedPem(expectedFuturePemAll)
+	expectedExpiredPem := generateExpectedPem(expectedExpiredPemAll)
 
 	generateOverlappingCert := func() string {
 		before := time.Now().AddDate(0, 0, -3)
@@ -1568,8 +1569,8 @@ func writeCertsToDir(dir string) {
 	caKeyPair, _ := triple.NewCA("kubevirt.io", time.Hour*24*7)
 	crt := certutil.EncodeCertPEM(caKeyPair.Cert)
 	key := certutil.EncodePrivateKeyPEM(caKeyPair.Key)
-	Expect(os.WriteFile(filepath.Join(dir, bootstrap.CertBytesValue), crt, 0777)).To(Succeed())
-	Expect(os.WriteFile(filepath.Join(dir, bootstrap.KeyBytesValue), key, 0777)).To(Succeed())
+	Expect(os.WriteFile(filepath.Join(dir, bootstrap.CertBytesValue), crt, 0o777)).To(Succeed())
+	Expect(os.WriteFile(filepath.Join(dir, bootstrap.KeyBytesValue), key, 0o777)).To(Succeed())
 }
 
 func createVMExportMeta(name string) metav1.ObjectMeta {

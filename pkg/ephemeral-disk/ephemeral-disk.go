@@ -63,7 +63,7 @@ func NewEphemeralDiskCreator(mountBaseDir string) *ephemeralDiskCreator {
 }
 
 func (c *ephemeralDiskCreator) Init() error {
-	return os.MkdirAll(c.mountBaseDir, 0755)
+	return os.MkdirAll(c.mountBaseDir, 0o755)
 }
 
 func (c *ephemeralDiskCreator) generateVolumeMountDir(volumeName string) string {
@@ -108,14 +108,13 @@ func (c *ephemeralDiskCreator) CreateBackedImageForVolume(volume v1.Volume, back
 	}
 
 	output, err := c.discCreateFunc(backingFile, backingFormat, imagePath)
-
 	// Cleanup of previous images isn't really necessary as they're all on EmptyDir.
 	if err != nil {
 		return fmt.Errorf("qemu-img failed with output '%s': %v", string(output), err)
 	}
 
 	// #nosec G302: Poor file permissions used with chmod. Safe permission setting for files shared between virt-launcher and qemu.
-	if err = os.Chmod(imagePath, 0640); err != nil {
+	if err = os.Chmod(imagePath, 0o640); err != nil {
 		return fmt.Errorf("failed to change permissions on %s", imagePath)
 	}
 

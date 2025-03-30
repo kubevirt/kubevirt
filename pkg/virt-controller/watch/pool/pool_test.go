@@ -52,9 +52,7 @@ import (
 )
 
 var _ = Describe("Pool", func() {
-
 	DescribeTable("Calculate new VM names on scale out", func(existing []string, expected []string, count int) {
-
 		namespace := "test"
 		baseName := "my-pool"
 		vmInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachine{})
@@ -71,7 +69,6 @@ var _ = Describe("Pool", func() {
 
 		Expect(newNames).To(HaveLen(len(expected)))
 		Expect(newNames).To(Equal(expected))
-
 	},
 		Entry("should fill in name gaps",
 			[]string{"my-pool-1", "my-pool-3"},
@@ -84,7 +81,6 @@ var _ = Describe("Pool", func() {
 	)
 
 	Context("One valid Pool controller given", func() {
-
 		const (
 			testNamespace = "default"
 		)
@@ -472,7 +468,6 @@ var _ = Describe("Pool", func() {
 		})
 
 		It("should remove failed condition when no reconcile error occurs", func() {
-
 			pool, _ := DefaultPool(0)
 			pool.Status.Conditions = append(pool.Status.Conditions,
 				poolv1.VirtualMachinePoolCondition{
@@ -593,7 +588,6 @@ var _ = Describe("Pool", func() {
 		})
 
 		It("should not delete vms which are already marked deleted", func() {
-
 			pool, vm := DefaultPool(0)
 
 			addPool(pool)
@@ -631,7 +625,6 @@ var _ = Describe("Pool", func() {
 		})
 
 		It("should ignore and skip the name for non-matching VMs", func() {
-
 			pool, vm := DefaultPool(3)
 
 			nonMatchingVM := vm.DeepCopy()
@@ -678,7 +671,6 @@ var _ = Describe("Pool", func() {
 			sanityExecute()
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
-
 		})
 
 		It("should detect a VM is detached, then release and replace it", func() {

@@ -8,7 +8,6 @@ import (
 )
 
 var _ = Describe("Existence matchers", func() {
-
 	var toNilPointer *v1.Pod = nil
 
 	DescribeTable("should detect with the positive matcher", func(obj interface{}, existence bool) {

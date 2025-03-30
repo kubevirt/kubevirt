@@ -40,12 +40,15 @@ type confgMapVolumeInfo struct{}
 func (i confgMapVolumeInfo) isValidType(v *v1.Volume) bool {
 	return v.ConfigMap != nil
 }
+
 func (i confgMapVolumeInfo) getSourcePath(v *v1.Volume) string {
 	return GetConfigMapSourcePath(v.Name)
 }
+
 func (i confgMapVolumeInfo) getIsoPath(v *v1.Volume) string {
 	return GetConfigMapDiskPath(v.Name)
 }
+
 func (i confgMapVolumeInfo) getLabel(v *v1.Volume) string {
 	return v.ConfigMap.VolumeLabel
 }
