@@ -103,7 +103,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	// setup connection with VM
 	vnc, err := virtCli.VirtualMachineInstance(namespace).VNC(vmi)
 	if err != nil {
-		return fmt.Errorf("Can't access VMI %s: %s", vmi, err.Error())
+		return fmt.Errorf("can't access VMI %s: %s", vmi, err.Error())
 	}
 	// Format the listening address to account for the port (ex: 127.0.0.0:5900)
 	// Set listenAddress to localhost if proxy-only flag is not set
@@ -114,13 +114,13 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	listenAddressFmt = listenAddress + ":%d"
 	lnAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf(listenAddressFmt, customPort))
 	if err != nil {
-		return fmt.Errorf("Can't resolve the address: %s", err.Error())
+		return fmt.Errorf("can't resolve the address: %s", err.Error())
 	}
 
 	// The local tcp server is used to proxy the podExec websock connection to vnc client
 	ln, err := net.ListenTCP("tcp", lnAddr)
 	if err != nil {
-		return fmt.Errorf("Can't listen on unix socket: %s", err.Error())
+		return fmt.Errorf("can't listen on unix socket: %s", err.Error())
 	}
 	// End of pre-flight checks. Everything looks good, we can start
 	// the goroutines and let the data flow
@@ -160,7 +160,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		}
 		defer fd.Close()
 
-		log.Log.V(2).Infof("VNC Client connected in %v", time.Now().Sub(start))
+		log.Log.V(2).Infof("VNC Client connected in %v", time.Since(start))
 		templates.PrintWarningForPausedVMI(virtCli, vmi, namespace)
 
 		// write to FD <- pipeOutReader
@@ -186,7 +186,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 			Port int `json:"port"`
 		}{port})
 		if err != nil {
-			return fmt.Errorf("Error encountered: %s", err.Error())
+			return fmt.Errorf("error encountered: %s", err.Error())
 		}
 		fmt.Fprintln(cmd.OutOrStdout(), string(optionString))
 	} else {
@@ -206,7 +206,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	if err != nil && !errors.Is(err, context.Canceled) {
-		return fmt.Errorf("Error encountered: %s", err.Error())
+		return fmt.Errorf("error encountered: %s", err.Error())
 	}
 	return nil
 }
@@ -266,7 +266,7 @@ func checkAndRunVNCViewer(ctx context.Context, errChan chan error, port int) {
 
 	if vncBin == "" {
 		log.Log.Errorf("No supported VNC app found in %s", osType)
-		err = fmt.Errorf("No supported VNC app found in %s", osType)
+		err = fmt.Errorf("no supported VNC app found in %s", osType)
 	} else {
 		log.Log.V(4).Infof("Executing commandline: '%s %v'", vncBin, args)
 		// #nosec No risk for attacker injection. vncBin and args include predefined strings
