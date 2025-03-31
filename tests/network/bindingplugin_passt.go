@@ -112,22 +112,6 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 	Context("should allow regular network connection", func() {
 		Context("should have client server connectivity", func() {
 			Context("TCP", func() {
-				verifyClientServerConnectivity := func(clientVMI, serverVMI *v1.VirtualMachineInstance, tcpPort int, ipFamily k8sv1.IPFamily) error {
-					serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
-					err := libnet.PingFromVMConsole(clientVMI, serverIP)
-					if err != nil {
-						return err
-					}
-
-					By("Connecting from the client VM")
-					err = console.RunCommand(clientVMI, connectToServerCmd(serverIP, tcpPort), 30*time.Second)
-					if err != nil {
-						return err
-					}
-
-					return nil
-				}
-
 				DescribeTable("Client server connectivity", func(ports []v1.Port, tcpPort int, ipFamily k8sv1.IPFamily) {
 					libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
@@ -152,7 +136,11 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 					By("starting a TCP server")
 					vmnetserver.StartTCPServer(serverVMI, tcpPort, console.LoginToAlpine)
 
-					Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, ipFamily)).To(Succeed())
+					serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
+					Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed())
+
+					By("Connecting from the client VM")
+					Expect(console.RunCommand(clientVMI, connectToServerCmd(serverIP, tcpPort), 30*time.Second)).To(Succeed())
 
 					if len(ports) != 0 {
 						By("starting a TCP server on a port not specified on the VM spec")
