@@ -38,6 +38,8 @@ const (
 	MachineTypeFlag        = "machine-type"
 	NameFlag               = "name"
 	NamespacedFlag         = "namespaced"
+
+	randomNameSuffixLength = 5
 )
 
 type createPreference struct {
@@ -57,7 +59,9 @@ func NewCommand() *cobra.Command {
 		Example: c.usage(),
 		RunE:    c.run,
 	}
-	cmd.Flags().BoolVar(&c.namespaced, NamespacedFlag, c.namespaced, "Specify if VirtualMachinePreference should be created. By default VirtualMachineClusterPreference is created.")
+	cmd.Flags().BoolVar(&c.namespaced, NamespacedFlag, c.namespaced,
+		`Specify if VirtualMachinePreference should be created.
+By default VirtualMachineClusterPreference is created.`)
 	cmd.Flags().StringVar(&c.name, NameFlag, c.name, "Specify the name of the Preference.")
 	cmd.Flags().StringVar(&c.preferredStorageClass, VolumeStorageClassFlag, c.preferredStorageClass, "Defines the preferred storage class")
 	cmd.Flags().StringVar(&c.machineType, MachineTypeFlag, c.machineType, "Defines the preferred machine type to use.")
@@ -81,9 +85,9 @@ func (c *createPreference) setDefaults(cmd *cobra.Command) error {
 	}
 
 	if c.namespaced {
-		c.name = "preference-" + rand.String(5)
+		c.name = "preference-" + rand.String(randomNameSuffixLength)
 	} else {
-		c.name = "clusterpreference-" + rand.String(5)
+		c.name = "clusterpreference-" + rand.String(randomNameSuffixLength)
 	}
 
 	return nil
@@ -184,7 +188,7 @@ func (c *createPreference) run(cmd *cobra.Command, _ []string) error {
 	}
 
 	var out []byte
-	var err error
+	var marshalErr error
 	if c.namespaced {
 		preference := c.newPreference()
 
@@ -192,9 +196,9 @@ func (c *createPreference) run(cmd *cobra.Command, _ []string) error {
 			return err
 		}
 
-		out, err = yaml.Marshal(preference)
-		if err != nil {
-			return err
+		out, marshalErr = yaml.Marshal(preference)
+		if marshalErr != nil {
+			return marshalErr
 		}
 	} else {
 		clusterPreference := c.newClusterPreference()
@@ -203,9 +207,9 @@ func (c *createPreference) run(cmd *cobra.Command, _ []string) error {
 			return err
 		}
 
-		out, err = yaml.Marshal(clusterPreference)
-		if err != nil {
-			return err
+		out, marshalErr = yaml.Marshal(clusterPreference)
+		if marshalErr != nil {
+			return marshalErr
 		}
 	}
 
