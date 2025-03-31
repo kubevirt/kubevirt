@@ -25,9 +25,12 @@ import (
 	"strconv"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
+	"kubevirt.io/kubevirt/tests/libstorage"
+
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libmigration"
-	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmops"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -36,7 +39,6 @@ import (
 	"github.com/onsi/gomega/types"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -59,7 +61,6 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 	var (
 		err        error
 		virtClient kubecli.KubevirtClient
-		vm         *v1.VirtualMachine
 	)
 
 	BeforeEach(func() {
@@ -98,74 +99,6 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 
 			labels := map[string]string{"resource": "virtualmachineinstances"}
 			libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_rest_client_requests_total", labels, 0, ">", 0)
-		})
-	})
-
-	Context("VM status metrics", func() {
-		var cpuMetrics = []string{
-			"kubevirt_vmi_cpu_system_usage_seconds_total",
-			"kubevirt_vmi_cpu_usage_seconds_total",
-			"kubevirt_vmi_cpu_user_usage_seconds_total",
-		}
-
-		checkMetricTo := func(metric string, labels map[string]string, matcher types.GomegaMatcher, description string) {
-			EventuallyWithOffset(1, func() float64 {
-				i, err := libmonitoring.GetMetricValueWithLabels(virtClient, metric, labels)
-				if err != nil {
-					return -1
-				}
-				return i
-			}, 3*time.Minute, 20*time.Second).Should(matcher, description)
-		}
-
-		It("Should be available for a running VM", func() {
-
-			By("Create a running VirtualMachine")
-			vm = libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
-
-			By("Checking that the VM metrics are available")
-			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
-			for _, metric := range cpuMetrics {
-				checkMetricTo(metric, metricLabels, BeNumerically(">=", 0), "VM metrics should be available for a running VM")
-			}
-		})
-
-		It("Should be available for a paused VM", func() {
-
-			By("Create a running VirtualMachine")
-			vm = libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
-
-			By("Pausing the VM")
-			err := virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Waiting until next Prometheus scrape")
-			time.Sleep(35 * time.Second)
-
-			By("Checking that the VM metrics are available")
-			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
-			for _, metric := range cpuMetrics {
-				checkMetricTo(metric, metricLabels, BeNumerically(">=", 0), "VM metrics should be available for a paused VM")
-			}
-		})
-
-		It("Should not be available for a stopped VM", func() {
-			By("Create a stopped VirtualMachine")
-			vm = libvmi.NewVirtualMachine(libvmifact.NewGuestless())
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Checking that the VM metrics are not available")
-			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
-			for _, metric := range cpuMetrics {
-				checkMetricTo(metric, metricLabels, BeNumerically("==", -1), "VM metrics should not be available for a stopped VM")
-			}
 		})
 	})
 
@@ -232,6 +165,120 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 		})
 	})
 
+	Context("VM alerts", func() {
+		var scales *libmonitoring.Scaling
+
+		BeforeEach(func() {
+			scales = libmonitoring.NewScaling(virtClient, []string{virtOperator.deploymentName})
+			scales.UpdateScale(virtOperator.deploymentName, int32(0))
+
+			libmonitoring.ReduceAlertPendingTime(virtClient)
+		})
+
+		AfterEach(func() {
+			scales.RestoreAllScales()
+		})
+
+		It("[test_id:9260] should fire OrphanedVirtualMachineInstances alert", func() {
+			By("starting VMI")
+			vmi := libvmifact.NewGuestless()
+			libvmops.RunVMIAndExpectLaunch(vmi, 240)
+
+			By("delete virt-handler daemonset")
+			err = virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Delete(context.Background(), virtHandler.deploymentName, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("waiting for OrphanedVirtualMachineInstances alert")
+			libmonitoring.VerifyAlertExist(virtClient, "OrphanedVirtualMachineInstances")
+		})
+
+		It("should fire VMCannotBeEvicted alert", func() {
+			By("starting non-migratable VMI with eviction strategy set to LiveMigrate ")
+			vmi := libvmifact.NewAlpine(libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate))
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("waiting for VMCannotBeEvicted alert")
+			libmonitoring.VerifyAlertExist(virtClient, "VMCannotBeEvicted")
+		})
+	})
+})
+
+var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func() {
+	var virtClient kubecli.KubevirtClient
+
+	BeforeEach(func() {
+		virtClient = kubevirt.Client()
+	})
+
+	Context("VM status metrics", func() {
+		var cpuMetrics = []string{
+			"kubevirt_vmi_cpu_system_usage_seconds_total",
+			"kubevirt_vmi_cpu_usage_seconds_total",
+			"kubevirt_vmi_cpu_user_usage_seconds_total",
+		}
+
+		checkMetricTo := func(metric string, labels map[string]string, matcher types.GomegaMatcher, description string) {
+			EventuallyWithOffset(1, func() float64 {
+				i, err := libmonitoring.GetMetricValueWithLabels(virtClient, metric, labels)
+				if err != nil {
+					return -1
+				}
+				return i
+			}, 3*time.Minute, 20*time.Second).Should(matcher, description)
+		}
+
+		It("Should be available for a running VM", func() {
+
+			By("Create a running VirtualMachine")
+			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+
+			By("Checking that the VM metrics are available")
+			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
+			for _, metric := range cpuMetrics {
+				checkMetricTo(metric, metricLabels, BeNumerically(">=", 0), "VM metrics should be available for a running VM")
+			}
+		})
+
+		It("Should be available for a paused VM", func() {
+
+			By("Create a running VirtualMachine")
+			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+
+			By("Pausing the VM")
+			err = virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting until next Prometheus scrape")
+			time.Sleep(35 * time.Second)
+
+			By("Checking that the VM metrics are available")
+			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
+			for _, metric := range cpuMetrics {
+				checkMetricTo(metric, metricLabels, BeNumerically(">=", 0), "VM metrics should be available for a paused VM")
+			}
+		})
+
+		It("Should not be available for a stopped VM", func() {
+			By("Create a stopped VirtualMachine")
+			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless())
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Checking that the VM metrics are not available")
+			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
+			for _, metric := range cpuMetrics {
+				checkMetricTo(metric, metricLabels, BeNumerically("==", -1), "VM metrics should not be available for a stopped VM")
+			}
+		})
+	})
+
 	Context("VM snapshot metrics", func() {
 		quantity, _ := resource.ParseQuantity("500Mi")
 
@@ -274,7 +321,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 			virtClient = kubevirt.Client()
 			By("Creating a Virtual Machine")
 			vmi := libvmifact.NewGuestless()
-			vm = libvmi.NewVirtualMachine(vmi)
+			vm := libvmi.NewVirtualMachine(vmi)
 			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -321,7 +368,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 		It("should have kubevirt_vmi_last_api_connection_timestamp_seconds correctly configured", func() {
 			By("Starting a VirtualMachineInstance")
 			vmi := libvmifact.NewAlpine()
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -345,43 +392,6 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 		})
 	})
 
-	Context("VM alerts", func() {
-		var scales *libmonitoring.Scaling
-
-		BeforeEach(func() {
-			scales = libmonitoring.NewScaling(virtClient, []string{virtOperator.deploymentName})
-			scales.UpdateScale(virtOperator.deploymentName, int32(0))
-
-			libmonitoring.ReduceAlertPendingTime(virtClient)
-		})
-
-		AfterEach(func() {
-			scales.RestoreAllScales()
-		})
-
-		It("[test_id:9260] should fire OrphanedVirtualMachineInstances alert", func() {
-			By("starting VMI")
-			vmi := libvmifact.NewGuestless()
-			libvmops.RunVMIAndExpectLaunch(vmi, 240)
-
-			By("delete virt-handler daemonset")
-			err = virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Delete(context.Background(), virtHandler.deploymentName, metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("waiting for OrphanedVirtualMachineInstances alert")
-			libmonitoring.VerifyAlertExist(virtClient, "OrphanedVirtualMachineInstances")
-		})
-
-		It("should fire VMCannotBeEvicted alert", func() {
-			By("starting non-migratable VMI with eviction strategy set to LiveMigrate ")
-			vmi := libvmifact.NewAlpine(libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate))
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("waiting for VMCannotBeEvicted alert")
-			libmonitoring.VerifyAlertExist(virtClient, "VMCannotBeEvicted")
-		})
-	})
 })
 
 func createAgentVMI() *v1.VirtualMachineInstance {
