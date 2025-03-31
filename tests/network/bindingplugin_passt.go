@@ -97,12 +97,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 
 		vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		vmi = libwait.WaitUntilVMIReady(
-			vmi,
-			console.LoginToAlpine,
-			libwait.WithFailOnWarnings(false),
-			libwait.WithTimeout(180),
-		)
+		waitUntilVMIsReady(console.LoginToAlpine, vmi)
 
 		Expect(vmi.Status.Interfaces).To(HaveLen(1))
 		Expect(vmi.Status.Interfaces[0].IPs).NotTo(BeEmpty())
@@ -152,18 +147,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 					serverVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), serverVMI, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					clientVMI = libwait.WaitUntilVMIReady(clientVMI,
-						console.LoginToAlpine,
-						libwait.WithFailOnWarnings(false),
-						libwait.WithTimeout(180),
-					)
-
-					serverVMI = libwait.WaitUntilVMIReady(
-						serverVMI,
-						console.LoginToAlpine,
-						libwait.WithFailOnWarnings(false),
-						libwait.WithTimeout(180),
-					)
+					waitUntilVMIsReady(console.LoginToAlpine, clientVMI, serverVMI)
 
 					By("starting a TCP server")
 					vmnetserver.StartTCPServer(serverVMI, tcpPort, console.LoginToAlpine)
@@ -240,18 +224,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 					clientVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientVMI, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					serverVMI = libwait.WaitUntilVMIReady(
-						serverVMI,
-						console.LoginToAlpine,
-						libwait.WithFailOnWarnings(false),
-						libwait.WithTimeout(180),
-					)
-
-					clientVMI = libwait.WaitUntilVMIReady(clientVMI,
-						console.LoginToAlpine,
-						libwait.WithFailOnWarnings(false),
-						libwait.WithTimeout(180),
-					)
+					waitUntilVMIsReady(console.LoginToAlpine, serverVMI, clientVMI)
 
 					By("Starting a UDP server")
 					vmnetserver.StartPythonUDPServer(serverVMI, SERVER_PORT, ipFamily)
@@ -289,11 +262,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 			)
 			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vmi = libwait.WaitUntilVMIReady(vmi,
-				console.LoginToAlpine,
-				libwait.WithFailOnWarnings(false),
-				libwait.WithTimeout(180),
-			)
+			waitUntilVMIsReady(console.LoginToAlpine, vmi)
 
 			By("Checking ping (IPv4)")
 			Expect(libnet.PingFromVMConsole(vmi, ipv4Address, "-c 5", "-w 15")).To(Succeed())
@@ -318,11 +287,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 			Expect(err).ToNot(HaveOccurred())
 			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vmi = libwait.WaitUntilVMIReady(vmi,
-				console.LoginToAlpine,
-				libwait.WithFailOnWarnings(false),
-				libwait.WithTimeout(180),
-			)
+			waitUntilVMIsReady(console.LoginToAlpine, vmi)
 
 			By("Checking ping (IPv6) from VM to cluster nodes gateway")
 			Expect(libnet.PingFromVMConsole(vmi, ipv6Address)).To(Succeed())
@@ -333,16 +298,19 @@ EOL`, inetSuffix, serverIP, serverPort)
 
 			By("Starting a VMI")
 			migrateVMI := startPasstVMI()
-			beforeMigNodeName := migrateVMI.Status.NodeName
 
 			By("Starting another VMI")
 			anotherVMI := startPasstVMI()
+
+			waitUntilVMIsReady(console.LoginToFedora, migrateVMI, anotherVMI)
 
 			By("Verify the VMIs can ping each other")
 			migrateVmiBeforeMigIP := libnet.GetVmiPrimaryIPByFamily(migrateVMI, ipFamily)
 			anotherVmiIP := libnet.GetVmiPrimaryIPByFamily(anotherVMI, ipFamily)
 			Expect(libnet.PingFromVMConsole(migrateVMI, anotherVmiIP)).To(Succeed())
 			Expect(libnet.PingFromVMConsole(anotherVMI, migrateVmiBeforeMigIP)).To(Succeed())
+
+			beforeMigNodeName := migrateVMI.Status.NodeName
 
 			By("Perform migration")
 			migration := libmigration.New(migrateVMI.Name, migrateVMI.Namespace)
@@ -401,12 +369,18 @@ func startPasstVMI() *v1.VirtualMachineInstance {
 	)
 	vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-	vmi = libwait.WaitUntilVMIReady(vmi,
-		console.LoginToFedora,
-		libwait.WithFailOnWarnings(false),
-		libwait.WithTimeout(180),
-	)
 	return vmi
+}
+
+func waitUntilVMIsReady(loginTo console.LoginToFunction, vmis ...*v1.VirtualMachineInstance) {
+	for idx, vmi := range vmis {
+		*vmis[idx] = *libwait.WaitUntilVMIReady(
+			vmi,
+			loginTo,
+			libwait.WithFailOnWarnings(false),
+			libwait.WithTimeout(180),
+		)
+	}
 }
 
 func connectToServerCmd(serverIP string, port int) string {
