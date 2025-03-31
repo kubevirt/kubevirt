@@ -38,10 +38,10 @@ jobs:
           CSV_VERSION=$(ls -d ${PACKAGE_DIR}/*/ | sort -rV | awk "NR==$((RELEASE_DELTA+1))" | cut -d '/' -f 5)
           echo "CSV_VERSION=${CSV_VERSION}" >> $GITHUB_ENV
           echo "PACKAGE_DIR=${PACKAGE_DIR}" >> $GITHUB_ENV
-      - name: set unstable tag
+      - name: set temporary image tag
         # This workflow always pushes unstable tags, both from main and release branches.
         run: |
-          echo "IMAGE_TAG=$(date -u +%Y%m%d-%H%M%S) >> $GITHUB_ENV
+          echo "IMAGE_TAG=$(date -u +%Y%m%d-%H%M%S)" >> $GITHUB_ENV
 
       - name: Build and Push Applications Images
         env:
