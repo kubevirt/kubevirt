@@ -91,7 +91,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			}
 		})
 
-		It("should contain virt components metrics", func() {
+		It("should contain virt components metrics", Serial, func() {
 			basicVMLifecycle(virtClient)
 			metrics := fetchPrometheusMetrics(virtClient)
 
