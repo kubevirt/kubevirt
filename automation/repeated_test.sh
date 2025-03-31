@@ -39,6 +39,8 @@ export IMAGE_PREFIX=''
 export IMAGE_PREFIX_ALT=''
 source hack/config-default.sh
 
+CANNIER_IMAGE="${CANNIER_IMAGE-quay.io/kubevirtci/cannier:v20250328-a1ef64e}"
+
 export TIMESTAMP=${TIMESTAMP:-1}
 
 function usage() {
@@ -52,6 +54,7 @@ usage: [NUM_TESTS=x] \
     hint: set NEW_TESTS to explicitly name the json file containing test names to run
 
     options:
+        CANNIER_IMAGE       the container image to use to execute cannier command
         NUM_TESTS           how many times the test lane is run, default is 5
         NEW_TESTS           the json file containing the (textual) names of the
                             tests to run, according to what is shown in the
@@ -99,7 +102,7 @@ function new_tests() {
     podman run --rm \
         -v "${KUBEVIRT_ROOT}:/kubevirt/" \
         -v "${tmp_dir}:/tmp" \
-        quay.io/kubevirtci/cannier:v20250227-c93cf50 \
+        "${CANNIER_IMAGE}" \
         extract changed-tests ${target_commit_range} \
         -p /kubevirt \
         -t /kubevirt/tests/ \
@@ -255,10 +258,12 @@ if [[ -n ${NEW_TESTS} ]]; then
     readarray -t test_names <<<"$(jq -r '.[]' "${NEW_TESTS}")"
     for test_name in "${test_names[@]}"; do
         echo "test name: ${test_name}"
-        # escape square brackets, hopefully that is the only thing needed
-        escaped=$(echo "${test_name}" | sed -E 's/([][])/\\\1/g')
+        # escape steps:
+        # 1) whitespaces - this avoids skipping tests
+        # 2) square brackets - which make the regex bail
+        escaped=$(echo "${test_name// /\\s}" | sed -E 's/([][])/\\\1/g')
         echo "test name escaped: ${escaped}"
-        ginkgo_params+=" -focus='${escaped}'"
+        ginkgo_params+=" -focus=${escaped}"
     done
 fi
 
