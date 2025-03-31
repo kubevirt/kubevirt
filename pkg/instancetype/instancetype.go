@@ -43,6 +43,7 @@ const (
 
 type Methods interface {
 	FindInstancetypeSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachineInstancetypeSpec, error)
+	ApplyToVM(vm *virtv1.VirtualMachine) error
 	ApplyToVmi(field *k8sfield.Path, instancetypespec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) Conflicts
 	FindPreferenceSpec(vm *virtv1.VirtualMachine) (*instancetypev1beta1.VirtualMachinePreferenceSpec, error)
 	StoreControllerRevisions(vm *virtv1.VirtualMachine) error
@@ -433,6 +434,30 @@ func (m *InstancetypeMethods) CheckPreferenceRequirements(instancetypeSpec *inst
 	}
 
 	return nil, nil
+}
+
+func (m *InstancetypeMethods) ApplyToVM(vm *virtv1.VirtualMachine) error {
+	if vm.Spec.Instancetype == nil && vm.Spec.Preference == nil {
+		return nil
+	}
+	instancetypeSpec, err := m.FindInstancetypeSpec(vm)
+	if err != nil {
+		return err
+	}
+	preferenceSpec, err := m.FindPreferenceSpec(vm)
+	if err != nil {
+		return err
+	}
+	if conflicts := m.ApplyToVmi(
+		k8sfield.NewPath("spec"),
+		instancetypeSpec,
+		preferenceSpec,
+		&vm.Spec.Template.Spec,
+		&vm.Spec.Template.ObjectMeta,
+	); len(conflicts) > 0 {
+		return fmt.Errorf("VM conflicts with instancetype spec in fields: [%s]", conflicts.String())
+	}
+	return nil
 }
 
 func (m *InstancetypeMethods) ApplyToVmi(field *k8sfield.Path, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec, vmiMetadata *metav1.ObjectMeta) Conflicts {

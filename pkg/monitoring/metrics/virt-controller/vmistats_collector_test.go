@@ -25,11 +25,13 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	k6tv1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -97,7 +99,7 @@ func createVMISForEviction(evictionStrategy *k6tv1.EvictionStrategy, migratableC
 }
 
 var _ = Describe("Utility functions", func() {
-	setupTestVMICollector()
+	setupTestCollector()
 
 	Context("VMI Count map reporting", func() {
 		It("should handle missing VMs", func() {
@@ -249,6 +251,7 @@ var _ = Describe("Utility functions", func() {
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "running",
+						Namespace:   "test-ns",
 						Annotations: annotations,
 					},
 				},
@@ -282,6 +285,7 @@ var _ = Describe("Utility functions", func() {
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "running",
+						Namespace:   "test-ns",
 						Annotations: annotations,
 					},
 				},
@@ -307,41 +311,75 @@ var _ = Describe("Utility functions", func() {
 	})
 })
 
-func setupTestVMICollector() {
-	instanceTypeInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
-	clusterInstanceTypeInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
-	preferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
-	clusterPreferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
+func setupTestCollector() {
+	instanceTypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
+	clusterInstanceTypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
+	preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
+	clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 
 	_ = instanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineInstancetype{
-		ObjectMeta: newObjectMetaForInstancetypes("i-managed", "kubevirt.io"),
+		ObjectMeta: newObjectMetaForInstancetypes("i-managed", "test-ns", "kubevirt.io"),
 	})
+
 	_ = instanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineInstancetype{
-		ObjectMeta: newObjectMetaForInstancetypes("i-unmanaged", "some-user"),
+		ObjectMeta: newObjectMetaForInstancetypes("i-unmanaged", "test-ns", "some-user"),
 	})
 
 	_ = clusterInstanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineClusterInstancetype{
-		ObjectMeta: newObjectMetaForInstancetypes("ci-managed", "kubevirt.io"),
+		ObjectMeta: newObjectMetaForInstancetypes("ci-managed", "", "kubevirt.io"),
+		Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+			CPU: instancetypev1beta1.CPUInstancetype{
+				Guest: 2,
+			},
+			Memory: instancetypev1beta1.MemoryInstancetype{
+				Guest: *resource.NewQuantity(2048, resource.BinarySI),
+			},
+		},
 	})
+
 	_ = clusterInstanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineClusterInstancetype{
-		ObjectMeta: newObjectMetaForInstancetypes("ci-unmanaged", ""),
+		ObjectMeta: newObjectMetaForInstancetypes("ci-unmanaged", "", ""),
 	})
 
 	_ = preferenceInformer.GetStore().Add(&instancetypev1beta1.VirtualMachinePreference{
-		ObjectMeta: newObjectMetaForInstancetypes("p-managed", "kubevirt.io"),
+		ObjectMeta: newObjectMetaForInstancetypes("p-managed", "test-ns", "kubevirt.io"),
 	})
+
 	_ = preferenceInformer.GetStore().Add(&instancetypev1beta1.VirtualMachinePreference{
-		ObjectMeta: newObjectMetaForInstancetypes("p-unmanaged", "some-vendor.com"),
+		ObjectMeta: newObjectMetaForInstancetypes("p-unmanaged", "test-ns", "some-vendor.com"),
 	})
 
 	_ = clusterPreferenceInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineClusterPreference{
-		ObjectMeta: newObjectMetaForInstancetypes("cp-managed", "kubevirt.io"),
+		ObjectMeta: newObjectMetaForInstancetypes("cp-managed", "", "kubevirt.io"),
+	})
+
+	instancetypeMethods = &instancetype.InstancetypeMethods{
+		InstancetypeStore:        instanceTypeInformer.GetStore(),
+		ClusterInstancetypeStore: clusterInstanceTypeInformer.GetStore(),
+		PreferenceStore:          preferenceInformer.GetStore(),
+		ClusterPreferenceStore:   clusterPreferenceInformer.GetStore(),
+	}
+
+	vmiMigrationInformer, _ = testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstanceMigration{})
+
+	_ = vmiMigrationInformer.GetStore().Add(&k6tv1.VirtualMachineInstanceMigration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-migration",
+			Namespace: "test-ns",
+			UID:       "test-migration-uid",
+		},
 	})
 }
 
-func newObjectMetaForInstancetypes(name, vendor string) metav1.ObjectMeta {
-	return metav1.ObjectMeta{
+func newObjectMetaForInstancetypes(name, namespace, vendor string) metav1.ObjectMeta {
+	om := metav1.ObjectMeta{
 		Name:   name,
 		Labels: map[string]string{instancetypeVendorLabel: vendor},
 	}
+
+	if namespace != "" {
+		om.Namespace = namespace
+	}
+
+	return om
 }
