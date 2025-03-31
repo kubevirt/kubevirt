@@ -239,9 +239,6 @@ func main() {
 	err = metrics.SetupMetrics()
 	cmdHelper.ExitOnError(err, "failed to setup metrics: %v")
 
-	err = hcoutil.CheckPrimaryUDNImageEnvExists()
-	cmdHelper.ExitOnError(err, "failed to retrieve primary UDN env var")
-
 	logger.Info("Starting the Cmd.")
 	eventEmitter.EmitEvent(nil, corev1.EventTypeNormal, "Init", "Starting the HyperConverged Pod")
 

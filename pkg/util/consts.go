@@ -17,7 +17,6 @@ const (
 	AaqVersionEnvV                   = "AAQ_VERSION"
 	KVUIPluginImageEnvV              = "KV_CONSOLE_PLUGIN_IMAGE"
 	KVUIProxyImageEnvV               = "KV_CONSOLE_PROXY_IMAGE"
-	PrimaryUDNImageEnvV              = "PRIMARY_UDN_SIDECAR_IMAGE"
 	HcoValidatingWebhook             = "validate-hco.kubevirt.io"
 	HcoMutatingWebhookNS             = "mutate-ns-hco.kubevirt.io"
 	PrometheusRuleCRDName            = "prometheusrules.monitoring.coreos.com"

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"maps"
 	"os"
-	"path"
 	"reflect"
 	"strconv"
 	"strings"
@@ -46,13 +45,7 @@ const (
 	DefaultARM64EmulatedMachines = "virt*"
 )
 
-const (
-	primaryUDNNetworkBindingName = "l2bridge"
-	passtUDNNetworkBindingName   = "passt"
-	// Needs to align with the NAD that will be deployed by CNAO
-	primaryUDNNetworkBindingNADName      = "primary-udn-kubevirt-binding"
-	primaryUDNNetworkBindingNADNamespace = "default"
-)
+const primaryUDNNetworkBindingName = "l2bridge"
 
 var (
 	useKVMEmulation = false
@@ -510,10 +503,7 @@ func getNetworkBindings(hcoNetworkBindings map[string]kubevirtcorev1.InterfaceBi
 		networkBindings = make(map[string]kubevirtcorev1.InterfaceBindingPlugin)
 	}
 
-	sidecarImage, _ := os.LookupEnv(hcoutil.PrimaryUDNImageEnvV)
 	networkBindings[primaryUDNNetworkBindingName] = primaryUserDefinedNetworkBinding()
-	networkBindings[passtUDNNetworkBindingName] = passtUserDefinedNetworkBinding(sidecarImage)
-
 	return networkBindings
 }
 
@@ -744,22 +734,6 @@ func primaryUserDefinedNetworkBinding() kubevirtcorev1.InterfaceBindingPlugin {
 	return kubevirtcorev1.InterfaceBindingPlugin{
 		DomainAttachmentType: kubevirtcorev1.ManagedTap,
 		Migration:            &kubevirtcorev1.InterfaceBindingMigration{},
-	}
-}
-
-func passtUserDefinedNetworkBinding(sidecarImage string) kubevirtcorev1.InterfaceBindingPlugin {
-	const bindingComputeMemoryOverhead = "500Mi"
-	return kubevirtcorev1.InterfaceBindingPlugin{
-		NetworkAttachmentDefinition: path.Join(primaryUDNNetworkBindingNADNamespace, primaryUDNNetworkBindingNADName),
-		SidecarImage:                sidecarImage,
-		Migration: &kubevirtcorev1.InterfaceBindingMigration{
-			Method: kubevirtcorev1.LinkRefresh,
-		},
-		ComputeResourceOverhead: &kubevirtcorev1.ResourceRequirementsWithoutClaims{
-			Requests: corev1.ResourceList{
-				corev1.ResourceMemory: resource.MustParse(bindingComputeMemoryOverhead),
-			},
-		},
 	}
 }
 

@@ -280,15 +280,6 @@ Version: 1.2.3`)
 			bindingPlugins := map[string]kubevirtcorev1.InterfaceBindingPlugin{
 				"binding1": {SidecarImage: "image1", NetworkAttachmentDefinition: "nad1"},
 				"l2bridge": {Migration: &kubevirtcorev1.InterfaceBindingMigration{}, DomainAttachmentType: "managedTap"},
-				"passt": {
-					Migration:                   &kubevirtcorev1.InterfaceBindingMigration{Method: "link-refresh"},
-					NetworkAttachmentDefinition: "default/primary-udn-kubevirt-binding",
-					ComputeResourceOverhead: &kubevirtcorev1.ResourceRequirementsWithoutClaims{
-						Requests: corev1.ResourceList{
-							corev1.ResourceMemory: resource.MustParse("500Mi"),
-						},
-					},
-				},
 			}
 			hco.Spec.NetworkBinding = bindingPlugins
 
@@ -1902,7 +1893,6 @@ Version: 1.2.3`)
 		Context("Feature Gates", func() {
 
 			getClusterInfo := hcoutil.GetClusterInfo
-			const expectedPrimaryUDNImage = "quay.io/some-org/some-repo@some-sha"
 
 			BeforeEach(func() {
 				hcoutil.GetClusterInfo = func() hcoutil.ClusterInfo {
@@ -1912,14 +1902,6 @@ Version: 1.2.3`)
 
 			AfterEach(func() {
 				hcoutil.GetClusterInfo = getClusterInfo
-			})
-
-			BeforeEach(func() {
-				Expect(os.Setenv(hcoutil.PrimaryUDNImageEnvV, expectedPrimaryUDNImage)).To(Succeed())
-			})
-
-			AfterEach(func() {
-				Expect(os.Unsetenv(hcoutil.PrimaryUDNImageEnvV)).To(Succeed())
 			})
 
 			Context("test feature gates in NewKubeVirt", func() {

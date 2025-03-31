@@ -70,8 +70,6 @@ spec:
           value: v1.4.0
         - name: KV_CONSOLE_PLUGIN_IMAGE
         - name: KV_CONSOLE_PROXY_IMAGE
-        - name: PRIMARY_UDN_SIDECAR_IMAGE
-          value: quay.io/kubevirt/network-passt-binding@sha256:e6e01ca7adedb6215caa7284c8e38ee5afa9ff9033180907d6027941b2477f0a
         image: quay.io/kubevirt/hyperconverged-cluster-operator:1.15.0-unstable
         imagePullPolicy: Always
         livenessProbe:

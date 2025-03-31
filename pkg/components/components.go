@@ -84,7 +84,6 @@ type DeploymentOperatorParams struct {
 	HppoVersion            string
 	MtqVersion             string
 	AaqVersion             string
-	PrimaryUDNImage        string
 	Env                    []corev1.EnvVar
 }
 
@@ -290,10 +289,6 @@ func buildEnvVars(params *DeploymentOperatorParams) []corev1.EnvVar {
 		{
 			Name:  util.KVUIProxyImageEnvV,
 			Value: params.KVUIProxyImage,
-		},
-		{
-			Name:  util.PrimaryUDNImageEnvV,
-			Value: params.PrimaryUDNImage,
 		},
 	}, params.Env...)
 
