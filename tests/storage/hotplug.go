@@ -933,11 +933,7 @@ var _ = SIGDescribe("Hotplug", func() {
 				Entry(" with VMs and block", Serial, addDVVolumeVM, removeVolumeVM, k8sv1.PersistentVolumeBlock, false),
 			)
 
-			It("should allow to hotplug 75 volumes simultaneously", func() {
-				if libstorage.IsStorageClassBindingModeWaitForFirstConsumer(sc) {
-					Skip("Skip test if storage class binding mode is wffc")
-				}
-
+			It("should allow to hotplug 75 volumes simultaneously", decorators.LargeStoragePoolRequired, func() {
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi,
