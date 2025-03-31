@@ -51,46 +51,50 @@ import (
 )
 
 var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
-	var virtClient kubecli.KubevirtClient
-	var metrics *libmonitoring.QueryRequestResult
-
-	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-		basicVMLifecycle(virtClient)
-		metrics = fetchPrometheusMetrics(virtClient)
-	})
 
 	Context("Prometheus metrics", func() {
-		var excludedMetrics = map[string]bool{
-			// virt-api
-			// can later be added in pre-existing feature tests
-			"kubevirt_portforward_active_tunnels":                true,
-			"kubevirt_usbredir_active_connections":               true,
-			"kubevirt_vnc_active_connections":                    true,
-			"kubevirt_console_active_connections":                true,
-			"kubevirt_vmi_last_api_connection_timestamp_seconds": true,
+		var (
+			excludedMetrics map[string]bool
+			virtClient      kubecli.KubevirtClient
+		)
 
-			// needs a snapshot - ignoring since already tested in - VM Monitoring, VM snapshot metrics
-			"kubevirt_vmsnapshot_succeeded_timestamp_seconds": true,
+		BeforeEach(func() {
+			virtClient = kubevirt.Client()
 
-			// migration metrics
-			// needs a migration - ignoring since already tested in - VM Monitoring, VM migration metrics
-			"kubevirt_vmi_migration_phase_transition_time_from_creation_seconds": true,
-			"kubevirt_vmi_migrations_in_pending_phase":                           true,
-			"kubevirt_vmi_migrations_in_scheduling_phase":                        true,
-			"kubevirt_vmi_migrations_in_running_phase":                           true,
-			"kubevirt_vmi_migration_succeeded":                                   true,
-			"kubevirt_vmi_migration_failed":                                      true,
-			"kubevirt_vmi_migration_data_remaining_bytes":                        true,
-			"kubevirt_vmi_migration_data_processed_bytes":                        true,
-			"kubevirt_vmi_migration_dirty_memory_rate_bytes":                     true,
-			"kubevirt_vmi_migration_disk_transfer_rate_bytes":                    true,
-			"kubevirt_vmi_migration_data_total_bytes":                            true,
-			"kubevirt_vmi_migration_start_time_seconds":                          true,
-			"kubevirt_vmi_migration_end_time_seconds":                            true,
-		}
+			excludedMetrics = map[string]bool{
+				// virt-api
+				// can later be added in pre-existing feature tests
+				"kubevirt_portforward_active_tunnels":                true,
+				"kubevirt_usbredir_active_connections":               true,
+				"kubevirt_vnc_active_connections":                    true,
+				"kubevirt_console_active_connections":                true,
+				"kubevirt_vmi_last_api_connection_timestamp_seconds": true,
+
+				// needs a snapshot - ignoring since already tested in - VM Monitoring, VM snapshot metrics
+				"kubevirt_vmsnapshot_succeeded_timestamp_seconds": true,
+
+				// migration metrics
+				// needs a migration - ignoring since already tested in - VM Monitoring, VM migration metrics
+				"kubevirt_vmi_migration_phase_transition_time_from_creation_seconds": true,
+				"kubevirt_vmi_migrations_in_pending_phase":                           true,
+				"kubevirt_vmi_migrations_in_scheduling_phase":                        true,
+				"kubevirt_vmi_migrations_in_running_phase":                           true,
+				"kubevirt_vmi_migration_succeeded":                                   true,
+				"kubevirt_vmi_migration_failed":                                      true,
+				"kubevirt_vmi_migration_data_remaining_bytes":                        true,
+				"kubevirt_vmi_migration_data_processed_bytes":                        true,
+				"kubevirt_vmi_migration_dirty_memory_rate_bytes":                     true,
+				"kubevirt_vmi_migration_disk_transfer_rate_bytes":                    true,
+				"kubevirt_vmi_migration_data_total_bytes":                            true,
+				"kubevirt_vmi_migration_start_time_seconds":                          true,
+				"kubevirt_vmi_migration_end_time_seconds":                            true,
+			}
+		})
 
 		It("should contain virt components metrics", func() {
+			basicVMLifecycle(virtClient)
+			metrics := fetchPrometheusMetrics(virtClient)
+
 			err := virtoperator.SetupMetrics()
 			Expect(err).ToNot(HaveOccurred())
 
