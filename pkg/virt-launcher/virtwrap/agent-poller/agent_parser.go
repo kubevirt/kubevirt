@@ -12,8 +12,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-var stripRE = regexp.MustCompile(`{\s*\"return\":\s*([{\[][\s\S]*[}\]])\s*}`)
-var stripStringRE = regexp.MustCompile(`{\s*\"return\":\s*\"([\s\S]*)\"\s*}`)
+var (
+	stripRE       = regexp.MustCompile(`{\s*\"return\":\s*([{\[][\s\S]*[}\]])\s*}`)
+	stripStringRE = regexp.MustCompile(`{\s*\"return\":\s*\"([\s\S]*)\"\s*}`)
+)
 
 // stripAgentResponse use regex to strip the wrapping item and returns the
 // embedded object.
@@ -27,8 +29,10 @@ func stripAgentResponse(agentReply string) string {
 // unlike stripAgentResponse the response is a simple string
 // rather then a complex object
 func stripAgentStringResponse(agentReply string) string {
+	const minMatchGroups = 2
+
 	result := stripStringRE.FindStringSubmatch(agentReply)
-	if len(result) < 2 {
+	if len(result) < minMatchGroups {
 		return ""
 	}
 
@@ -62,7 +66,7 @@ type AgentInfo struct {
 func ParseFSFreezeStatus(agentReply string) (api.FSFreeze, error) {
 	response := stripAgentStringResponse(agentReply)
 	if response == "" {
-		return api.FSFreeze{}, fmt.Errorf("Failed to strip FSFreeze status: %v", agentReply)
+		return api.FSFreeze{}, fmt.Errorf("failed to strip FSFreeze status: %v", agentReply)
 	}
 
 	return api.FSFreeze{
@@ -110,6 +114,8 @@ func parseFSDisks(fsDisks []FSDisk) []api.FSDisk {
 
 // parseAgent gets the agent version from response
 func parseAgent(agentReply string) (AgentInfo, error) {
+	const logLevelDebug = 3
+
 	gaInfo := AgentInfo{}
 	response := stripAgentResponse(agentReply)
 
@@ -118,7 +124,7 @@ func parseAgent(agentReply string) (AgentInfo, error) {
 		return AgentInfo{}, err
 	}
 
-	log.Log.V(3).Infof("guest agent info: %v", gaInfo)
+	log.Log.V(logLevelDebug).Infof("guest agent info: %v", gaInfo)
 
 	return gaInfo, nil
 }
