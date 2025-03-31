@@ -162,34 +162,6 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 			})
 
 			Context("UDP", func() {
-				startAndVerifyUDPClient := func(vmi *v1.VirtualMachineInstance, serverIP string, serverPort int, ipFamily k8sv1.IPFamily) error {
-					var inetSuffix string
-					if ipFamily == k8sv1.IPv6Protocol {
-						inetSuffix = "6"
-					}
-
-					createClientScript := fmt.Sprintf(`cat >udp_client.py <<EOL
-import socket
-try:
-  client = socket.socket(socket.AF_INET%s, socket.SOCK_DGRAM);
-  client.sendto("Hello Server".encode(), ("%s",%d));
-  client.settimeout(5);
-  response = client.recv(1024);
-  print(response.decode("utf-8"));
-
-except socket.timeout:
-    client.close();
-EOL`, inetSuffix, serverIP, serverPort)
-					runClient := "python3 udp_client.py"
-					return console.ExpectBatch(vmi, []expect.Batcher{
-						&expect.BSnd{S: fmt.Sprintf("%s\n", createClientScript)},
-						&expect.BExp{R: console.PromptExpression},
-						&expect.BSnd{S: fmt.Sprintf("%s\n", runClient)},
-						&expect.BExp{R: console.RetValue("Hello Client")},
-						&expect.BSnd{S: console.EchoLastReturnValue},
-						&expect.BExp{R: console.ShellSuccess},
-					}, 60*time.Second)
-				}
 				DescribeTable("Client server connectivity", func(ipFamily k8sv1.IPFamily) {
 					libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
@@ -373,4 +345,33 @@ func waitUntilVMIsReady(loginTo console.LoginToFunction, vmis ...*v1.VirtualMach
 
 func connectToServerCmd(serverIP string, port int) string {
 	return fmt.Sprintf("echo test | nc %s %d -i 1 -w 1 1> /dev/null", serverIP, port)
+}
+
+func startAndVerifyUDPClient(vmi *v1.VirtualMachineInstance, serverIP string, serverPort int, ipFamily k8sv1.IPFamily) error {
+	var inetSuffix string
+	if ipFamily == k8sv1.IPv6Protocol {
+		inetSuffix = "6"
+	}
+
+	createClientScript := fmt.Sprintf(`cat >udp_client.py <<EOL
+import socket
+try:
+  client = socket.socket(socket.AF_INET%s, socket.SOCK_DGRAM);
+  client.sendto("Hello Server".encode(), ("%s",%d));
+  client.settimeout(5);
+  response = client.recv(1024);
+  print(response.decode("utf-8"));
+
+except socket.timeout:
+    client.close();
+EOL`, inetSuffix, serverIP, serverPort)
+	runClient := "python3 udp_client.py"
+	return console.ExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: fmt.Sprintf("%s\n", createClientScript)},
+		&expect.BExp{R: console.PromptExpression},
+		&expect.BSnd{S: fmt.Sprintf("%s\n", runClient)},
+		&expect.BExp{R: console.RetValue("Hello Client")},
+		&expect.BSnd{S: console.EchoLastReturnValue},
+		&expect.BExp{R: console.ShellSuccess},
+	}, 60*time.Second)
 }
