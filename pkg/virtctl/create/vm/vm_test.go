@@ -1,3 +1,4 @@
+//nolint:dupl,gocritic,lll
 package vm_test
 
 import (
@@ -781,7 +782,7 @@ chpasswd: { expire: False }`
 			Expect(vm.Spec.Instancetype).To(BeNil())
 			Expect(vm.Spec.Preference).To(BeNil())
 		},
-			Entry("ConfigMap with src (implicity default)", "src:my-src", sysprepConfigMap),
+			Entry("ConfigMap with src (implicitly default)", "src:my-src", sysprepConfigMap),
 			Entry("ConfigMap with src and type", "src:my-src,type:configMap", sysprepConfigMap),
 			Entry("Secret with src and type", "src:my-src,type:secret", sysprepSecret),
 		)
@@ -958,7 +959,7 @@ chpasswd: { expire: False }`
 			Entry("with CloudInitConfigDrive (explicit)", configDriveNetworkDataB64, setFlag(CloudInitFlag, cloudInitConfigDrive)),
 		)
 
-		DescribeTable("VM with specified cloud-init user and network data", func(userDataFn func(*v1.VirtualMachine) string, networkDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
+		DescribeTable("VM with specified cloud-init user and network data", func(userDataFn, networkDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
 			userDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitUserData))
 			networkDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitNetworkData))
 
@@ -993,7 +994,7 @@ chpasswd: { expire: False }`
 			Entry("with CloudInitConfigDrive (explicit)", configDriveUserDataB64, configDriveNetworkDataB64, setFlag(CloudInitFlag, cloudInitConfigDrive)),
 		)
 
-		DescribeTable("VM with generated cloud-init user and specified network data", func(userDataFn func(*v1.VirtualMachine) string, networkDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
+		DescribeTable("VM with generated cloud-init user and specified network data", func(userDataFn, networkDataFn func(*v1.VirtualMachine) string, extraArgs ...string) {
 			const user = "my-user"
 			networkDataB64 := base64.StdEncoding.EncodeToString([]byte(cloudInitNetworkData))
 
@@ -1811,7 +1812,7 @@ chpasswd: { expire: False }`
 			Entry("bool", "true"),
 		)
 
-		DescribeTable("CloudInitUserDataFlag and generated cloud-init config are mutually exclusive", func(flag string, arg string) {
+		DescribeTable("CloudInitUserDataFlag and generated cloud-init config are mutually exclusive", func(flag, arg string) {
 			out, err := runCmd(
 				setFlag(CloudInitUserDataFlag, "test"),
 				arg,
