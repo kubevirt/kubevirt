@@ -125,7 +125,6 @@ func FuzzExecute(f *testing.F) {
 		vmInformer, vCs := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
 		pvcInformer, piCs := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		namespaceInformer, nsCs := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
-		podInformer, pCs := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 
 		// When running this fuzzer on OSS-Fuzz, we need to shut down
 		// the controller sources to avoid consuming too much memory.
@@ -135,7 +134,6 @@ func FuzzExecute(f *testing.F) {
 		defer vCs.Shutdown()
 		defer piCs.Shutdown()
 		defer nsCs.Shutdown()
-		defer pCs.Shutdown()
 
 		ns1 := &k8sv1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -206,7 +204,6 @@ func FuzzExecute(f *testing.F) {
 			namespaceInformer.GetStore(),
 			pvcInformer,
 			crInformer,
-			podInformer,
 			recorder,
 			virtClient,
 			config,
