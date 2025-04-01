@@ -13,6 +13,7 @@ go_library(
         "jump_string.go",
         "load_store.go",
         "load_store_string.go",
+        "metadata.go",
         "opcode.go",
         "opcode_string.go",
         "register.go",
@@ -20,5 +21,8 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/cilium/ebpf/asm",
     importpath = "github.com/cilium/ebpf/asm",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/github.com/cilium/ebpf/internal/unix:go_default_library"],
+    deps = [
+        "//vendor/github.com/cilium/ebpf/internal/sys:go_default_library",
+        "//vendor/github.com/cilium/ebpf/internal/unix:go_default_library",
+    ],
 )

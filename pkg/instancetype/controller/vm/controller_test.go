@@ -4,6 +4,7 @@ package vm_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -28,14 +29,12 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
 
-	"kubevirt.io/kubevirt/pkg/instancetype"
 	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 )
 
@@ -43,6 +42,11 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 	const (
 		resourceUID        types.UID = "9160e5de-2540-476a-86d9-af0081aee68a"
 		resourceGeneration int64     = 1
+	)
+
+	const (
+		instancetypeName = "instancetype"
+		preferenceName   = "preference"
 	)
 
 	type instancetypeVMController interface {
@@ -141,7 +145,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				Kind:       "VirtualMachineInstancetype",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:       "instancetype",
+				Name:       instancetypeName,
 				Namespace:  vm.Namespace,
 				UID:        resourceUID,
 				Generation: resourceGeneration,
@@ -161,7 +165,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 
 		preference = &v1beta1.VirtualMachinePreference{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:       "preference",
+				Name:       preferenceName,
 				Namespace:  vm.Namespace,
 				UID:        resourceUID,
 				Generation: resourceGeneration,
@@ -257,7 +261,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedRevision, err := instancetype.CreateControllerRevision(vm, instancetypeObj)
+			expectedRevision, err := revision.CreateControllerRevision(vm, instancetypeObj)
 			Expect(err).ToNot(HaveOccurred())
 
 			sanitySync(vm, vmi)
@@ -401,7 +405,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 		)
 
 		It("should sync correctly if an existing ControllerRevision is present but not referenced by InstancetypeMatcher", func() {
-			instancetypeRevision, err := instancetype.CreateControllerRevision(vm, instancetypeObj)
+			instancetypeRevision, err := revision.CreateControllerRevision(vm, instancetypeObj)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -433,10 +437,10 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedRevisionName := instancetype.GetRevisionName(
+			expectedRevisionName := revision.GenerateName(
 				vm.Name, clusterInstancetypeObj.Name, clusterInstancetypeObj.GroupVersionKind().Version,
 				clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation)
-			expectedRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetypeObj)
+			expectedRevision, err := revision.CreateControllerRevision(vm, clusterInstancetypeObj)
 			Expect(err).ToNot(HaveOccurred())
 
 			sanitySync(vm, vmi)
@@ -456,7 +460,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 		})
 
 		It("should apply VirtualMachineClusterInstancetype from ControllerRevision to VirtualMachineInstance", func() {
-			instancetypeRevision, err := instancetype.CreateControllerRevision(vm, clusterInstancetypeObj)
+			instancetypeRevision, err := revision.CreateControllerRevision(vm, clusterInstancetypeObj)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -482,38 +486,36 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(vmi.Annotations).ToNot(HaveKey(virtv1.ClusterPreferenceAnnotation))
 		})
 
-		It("should fail to sync if an invalid InstancetypeMatcher Kind is provided", func() {
-			vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
-				Name: instancetypeObj.Name,
-				Kind: "foobar",
-			}
+		DescribeTable("should fail to sync with FailedFindInstancetype reason",
+			func(matcher *virtv1.InstancetypeMatcher) {
+				vm.Spec.Instancetype = matcher
+				syncVM, err := instancetypeController.Sync(vm, vmi)
+				Expect(syncVM).To(Equal(vm))
+				Expect(err).To(HaveOccurred())
 
-			_, err := instancetypeController.Sync(vm, vmi)
-			Expect(err).To(MatchError(ContainSubstring("got unexpected kind in InstancetypeMatcher")))
-			testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
-		})
-
-		It("should fail to sync if a VirtualMachineInstancetype cannot be found", func() {
-			vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
-				Name: "foobar",
-				Kind: instancetypeapi.SingularResourceName,
-			}
-
-			_, err := instancetypeController.Sync(vm, vmi)
-			Expect(err).To(MatchError(ContainSubstring("not found")))
-			testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
-		})
-
-		It("should fail to sync if a VirtualMachineClusterInstancetype cannot be found", func() {
-			vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
-				Name: "foobar",
-				Kind: instancetypeapi.ClusterSingularResourceName,
-			}
-
-			_, err := instancetypeController.Sync(vm, vmi)
-			Expect(err).To(MatchError(ContainSubstring("not found")))
-			testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
-		})
+				var syncErr common.SyncError
+				Expect(errors.As(err, &syncErr)).To(BeTrue())
+				Expect(syncErr.Reason()).To(Equal("FailedFindInstancetype"))
+			},
+			Entry("if an invalid InstancetypeMatcher Kind is provided",
+				&virtv1.InstancetypeMatcher{
+					Name: instancetypeName,
+					Kind: "foobar",
+				},
+			),
+			Entry("if a VirtualMachineInstancetype cannot be found",
+				&virtv1.InstancetypeMatcher{
+					Name: "foobar",
+					Kind: instancetypeapi.SingularResourceName,
+				},
+			),
+			Entry("if a VirtualMachineClusterInstancetype cannot be found",
+				&virtv1.InstancetypeMatcher{
+					Name: "foobar",
+					Kind: instancetypeapi.ClusterSingularResourceName,
+				},
+			),
+		)
 
 		It("should fail to sync if the VirtualMachineInstancetype conflicts with the VirtualMachineInstance", func() {
 			vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
@@ -536,7 +538,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			unexpectedInstancetype := instancetypeObj.DeepCopy()
 			unexpectedInstancetype.Spec.CPU.Guest = 15
 
-			instancetypeRevision, err := instancetype.CreateControllerRevision(vm, unexpectedInstancetype)
+			instancetypeRevision, err := revision.CreateControllerRevision(vm, unexpectedInstancetype)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -597,9 +599,9 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedPreferenceRevisionName := instancetype.GetRevisionName(
+			expectedPreferenceRevisionName := revision.GenerateName(
 				vm.Name, preference.Name, preference.GroupVersionKind().Version, preference.UID, preference.Generation)
-			expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
+			expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, preference)
 			Expect(err).ToNot(HaveOccurred())
 
 			sanitySync(vm, vmi)
@@ -754,7 +756,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 		)
 
 		It("should sync corrrectly if an existing ControllerRevision is present but not referenced by PreferenceMatcher", func() {
-			preferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
+			preferenceRevision, err := revision.CreateControllerRevision(vm, preference)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -786,7 +788,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, clusterPreference)
+			expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, clusterPreference)
 			Expect(err).ToNot(HaveOccurred())
 
 			sanitySync(vm, vmi)
@@ -805,7 +807,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 		})
 
 		It("should apply VirtualMachineClusterPreference from ControllerRevision to VirtualMachineInstance", func() {
-			preferenceRevision, err := instancetype.CreateControllerRevision(vm, clusterPreference)
+			preferenceRevision, err := revision.CreateControllerRevision(vm, clusterPreference)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -830,38 +832,36 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(vmi.Annotations).ToNot(HaveKey(virtv1.PreferenceAnnotation))
 		})
 
-		It("should fail to sync if an invalid PreferenceMatcher Kind is provided", func() {
-			vm.Spec.Preference = &virtv1.PreferenceMatcher{
-				Name: preference.Name,
-				Kind: "foobar",
-			}
+		DescribeTable("should fail to sync with FailedFindPreference reason",
+			func(matcher *virtv1.PreferenceMatcher) {
+				vm.Spec.Preference = matcher
+				syncVM, err := instancetypeController.Sync(vm, vmi)
+				Expect(syncVM).To(Equal(vm))
+				Expect(err).To(HaveOccurred())
 
-			_, err := instancetypeController.Sync(vm, vmi)
-			Expect(err).To(MatchError(ContainSubstring("got unexpected kind in PreferenceMatcher")))
-			testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
-		})
-
-		It("should fail to sync if a VirtualMachinePreference cannot be found", func() {
-			vm.Spec.Preference = &virtv1.PreferenceMatcher{
-				Name: "foobar",
-				Kind: instancetypeapi.SingularPreferenceResourceName,
-			}
-
-			_, err := instancetypeController.Sync(vm, vmi)
-			Expect(err).To(MatchError(ContainSubstring("not found")))
-			testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
-		})
-
-		It("should fail to sync if a VirtualMachineClusterPreference cannot be found", func() {
-			vm.Spec.Preference = &virtv1.PreferenceMatcher{
-				Name: "foobar",
-				Kind: instancetypeapi.ClusterSingularPreferenceResourceName,
-			}
-
-			_, err := instancetypeController.Sync(vm, vmi)
-			Expect(err).To(MatchError(ContainSubstring("not found")))
-			testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
-		})
+				var syncErr common.SyncError
+				Expect(errors.As(err, &syncErr)).To(BeTrue())
+				Expect(syncErr.Reason()).To(Equal("FailedFindPreference"))
+			},
+			Entry("if an invalid InstancetypeMatcher Kind is provided",
+				&virtv1.PreferenceMatcher{
+					Name: preferenceName,
+					Kind: "foobar",
+				},
+			),
+			Entry("if a VirtualMachinePreference cannot be found",
+				&virtv1.PreferenceMatcher{
+					Name: "foobar",
+					Kind: instancetypeapi.SingularPreferenceResourceName,
+				},
+			),
+			Entry("if a VirtualMachineClusterPreference cannot be found",
+				&virtv1.PreferenceMatcher{
+					Name: "foobar",
+					Kind: instancetypeapi.ClusterSingularPreferenceResourceName,
+				},
+			),
+		)
 
 		It("should fail to sync if an existing ControllerRevision is found with unexpected VirtualMachinePreferenceSpec data", func() {
 			unexpectedPreference := preference.DeepCopy()
@@ -869,7 +869,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				PreferredUseBios: pointer.P(true),
 			}
 
-			preferenceRevision, err := instancetype.CreateControllerRevision(vm, unexpectedPreference)
+			preferenceRevision, err := revision.CreateControllerRevision(vm, unexpectedPreference)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -889,14 +889,14 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 
 	Context("InstancetypeReferencePolicy", func() {
 		addRevisionsToVMFunc := func() {
-			instancetypeRevision, err := instancetype.CreateControllerRevision(vm, instancetypeObj)
+			instancetypeRevision, err := revision.CreateControllerRevision(vm, instancetypeObj)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
 				context.Background(), instancetypeRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			preferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
+			preferenceRevision, err := revision.CreateControllerRevision(vm, preference)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
@@ -915,12 +915,9 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			}
 		}
 
-		kvWithFGEnabledReferencePolicyExpand := &virtv1.KubeVirt{
+		kvWithReferencePolicyExpand := &virtv1.KubeVirt{
 			Spec: virtv1.KubeVirtSpec{
 				Configuration: virtv1.KubeVirtConfiguration{
-					DeveloperConfiguration: &virtv1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.InstancetypeReferencePolicy},
-					},
 					Instancetype: &virtv1.InstancetypeConfiguration{
 						ReferencePolicy: pointer.P(virtv1.Expand),
 					},
@@ -928,12 +925,9 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			},
 		}
 
-		kvWithFGEnabledReferencePolicyExpandAll := &virtv1.KubeVirt{
+		kvWithReferencePolicyExpandAll := &virtv1.KubeVirt{
 			Spec: virtv1.KubeVirtSpec{
 				Configuration: virtv1.KubeVirtConfiguration{
-					DeveloperConfiguration: &virtv1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.InstancetypeReferencePolicy},
-					},
 					Instancetype: &virtv1.InstancetypeConfiguration{
 						ReferencePolicy: pointer.P(virtv1.ExpandAll),
 					},
@@ -975,9 +969,9 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(vm.Spec.Preference.RevisionName).To(BeEmpty())
 			Expect(revision.HasControllerRevisionRef(vm.Status.PreferenceRef)).To(BeTrue())
 		},
-			Entry("with FG disabled and default referencePolicy",
+			Entry("default referencePolicy",
 				&virtv1.KubeVirt{Spec: virtv1.KubeVirtSpec{Configuration: virtv1.KubeVirtConfiguration{}}}, func() {}),
-			Entry("with FG disabled and referencePolicy reference",
+			Entry("referencePolicy reference",
 				&virtv1.KubeVirt{
 					Spec: virtv1.KubeVirtSpec{
 						Configuration: virtv1.KubeVirtConfiguration{
@@ -987,47 +981,8 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 						},
 					},
 				}, func() {}),
-			Entry("with FG disabled and referencePolicy expand",
-				&virtv1.KubeVirt{
-					Spec: virtv1.KubeVirtSpec{
-						Configuration: virtv1.KubeVirtConfiguration{
-							Instancetype: &virtv1.InstancetypeConfiguration{
-								ReferencePolicy: pointer.P(virtv1.Expand),
-							},
-						},
-					},
-				}, func() {}),
-			Entry("with FG disabled and referencePolicy expandAll",
-				&virtv1.KubeVirt{
-					Spec: virtv1.KubeVirtSpec{
-						Configuration: virtv1.KubeVirtConfiguration{
-							Instancetype: &virtv1.InstancetypeConfiguration{
-								ReferencePolicy: pointer.P(virtv1.ExpandAll),
-							},
-						},
-					},
-				}, func() {}),
-			Entry("with FG enabled and default referencePolicy", &virtv1.KubeVirt{
-				Spec: virtv1.KubeVirtSpec{Configuration: virtv1.KubeVirtConfiguration{
-					DeveloperConfiguration: &virtv1.DeveloperConfiguration{
-						FeatureGates: []string{featuregate.InstancetypeReferencePolicy},
-					},
-				}},
-			}, func() {}),
-			Entry("with FG enabled and referencePolicy reference", &virtv1.KubeVirt{
-				Spec: virtv1.KubeVirtSpec{
-					Configuration: virtv1.KubeVirtConfiguration{
-						DeveloperConfiguration: &virtv1.DeveloperConfiguration{
-							FeatureGates: []string{featuregate.InstancetypeReferencePolicy},
-						},
-						Instancetype: &virtv1.InstancetypeConfiguration{
-							ReferencePolicy: pointer.P(virtv1.Reference),
-						},
-					},
-				},
-			}, func() {}),
-			Entry("with FG enabled, referencePolicy expand and revisionNames already captured",
-				kvWithFGEnabledReferencePolicyExpand, addRevisionsToVMFunc,
+			Entry("referencePolicy expand and revisionNames already captured",
+				kvWithReferencePolicyExpand, addRevisionsToVMFunc,
 			),
 		)
 
@@ -1067,10 +1022,10 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 			}
 		},
-			Entry("with FG enabled and referencePolicy expand", kvWithFGEnabledReferencePolicyExpand, func() {}),
-			Entry("with FG enabled and referencePolicy expandAll", kvWithFGEnabledReferencePolicyExpandAll, func() {}),
-			Entry("with FG enabled and referencePolicy expandAll and revisionNames already captured",
-				kvWithFGEnabledReferencePolicyExpandAll, addRevisionsToVMFunc),
+			Entry("referencePolicy expand", kvWithReferencePolicyExpand, func() {}),
+			Entry("referencePolicy expandAll", kvWithReferencePolicyExpandAll, func() {}),
+			Entry("referencePolicy expandAll and revisionNames already captured",
+				kvWithReferencePolicyExpandAll, addRevisionsToVMFunc),
 		)
 	})
 })

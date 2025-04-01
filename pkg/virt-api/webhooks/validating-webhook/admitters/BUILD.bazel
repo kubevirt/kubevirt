@@ -33,7 +33,6 @@ go_library(
         "//pkg/network/link:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/storage/admitters:go_default_library",
-        "//pkg/storage/backend-storage:go_default_library",
         "//pkg/storage/reservation:go_default_library",
         "//pkg/storage/types:go_default_library",
         "//pkg/storage/utils:go_default_library",
@@ -94,7 +93,6 @@ go_test(
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/hooks:go_default_library",
-        "//pkg/instancetype/conflict:go_default_library",
         "//pkg/instancetype/webhooks/vm:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/libvmi/cloudinit:go_default_library",
@@ -143,7 +141,6 @@ go_test(
         "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
         "//vendor/k8s.io/client-go/testing:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
-        "//vendor/k8s.io/utils/ptr:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
     ],
 )

@@ -4,7 +4,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "defaults.go",
-        "hotplug.go",
         "infosource.go",
         "interface.go",
         "network.go",
@@ -18,7 +17,6 @@ go_test(
     name = "go_default_test",
     srcs = [
         "defaults_test.go",
-        "hotplug_test.go",
         "infosource_test.go",
         "interface_test.go",
         "network_test.go",
@@ -27,7 +25,6 @@ go_test(
     deps = [
         ":go_default_library",
         "//pkg/libvmi:go_default_library",
-        "//pkg/libvmi/status:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",

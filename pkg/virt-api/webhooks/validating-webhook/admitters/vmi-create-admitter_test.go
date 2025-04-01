@@ -25,11 +25,6 @@ import (
 	"fmt"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/libvmi"
-	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
-
-	"kubevirt.io/client-go/api"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -43,11 +38,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -731,7 +728,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.cpu"))
 		})
-		It("should accept correct cpu size values", func() {
+		It("should accept correct cpu size values even if vmRolloutStrategy is set to Stage", func() {
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.VMRolloutStrategy = pointer.P(v1.VMRolloutStrategyStage)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
 			vm := api.NewMinimalVMI("testvm")
 
 			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
@@ -792,7 +793,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 		})
-		It("should accept correct memory size values", func() {
+		It("should accept correct memory size values even if vmRolloutStrategy is set to Stage", func() {
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.VMRolloutStrategy = pointer.P(v1.VMRolloutStrategyStage)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
 			vm := api.NewMinimalVMI("testvm")
 
 			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
@@ -831,7 +836,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 		})
-		It("should allow smaller guest memory than requested memory", func() {
+		It("should allow smaller guest memory than requested memory even if vmRolloutStrategy is set to Stage", func() {
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.VMRolloutStrategy = pointer.P(v1.VMRolloutStrategyStage)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
 			vmi := api.NewMinimalVMI("testvmi")
 			guestMemory := resource.MustParse("1Mi")
 
@@ -843,7 +852,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
-		It("should reject bigger guest memory than the memory limit", func() {
+		It("should reject bigger guest memory than the memory limit if vmRolloutStrategy is set to Stage", func() {
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.VMRolloutStrategy = pointer.P(v1.VMRolloutStrategyStage)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
 			vmi := api.NewMinimalVMI("testvmi")
 			guestMemory := resource.MustParse("128Mi")
 
@@ -856,11 +869,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.memory.guest"))
 		})
-		It("should allow bigger guest memory than the memory limit if vmRolloutStrategy is set to LiveUpdate", func() {
-			kvConfig := kv.DeepCopy()
-			kvConfig.Spec.Configuration.VMRolloutStrategy = ptr.To(v1.VMRolloutStrategyLiveUpdate)
-			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
-
+		It("should allow bigger guest memory than the memory limit", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			guestMemory := resource.MustParse("128Mi")
 
@@ -3728,52 +3737,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Expect(causes).To(HaveLen(1))
 				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.PersistentReservation)))
 			})
-		})
-	})
-
-	Context("with VM persistent state defined", func() {
-		var vmi *v1.VirtualMachineInstance
-		addPersistentTPM := func() {
-			vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
-		}
-		addPersistentEFI := func() {
-			vmi.Spec.Domain.Firmware = &v1.Firmware{
-				Bootloader: &v1.Bootloader{
-					EFI: &v1.EFI{
-						Persistent: pointer.P(true),
-						SecureBoot: pointer.P(false),
-					},
-				},
-			}
-		}
-		BeforeEach(func() {
-			vmi = api.NewMinimalVMI("testvmi")
-			enableFeatureGate(featuregate.VMPersistentState)
-		})
-		Context("feature gate enabled", func() {
-			It("should accept vmi with no persistent TPM/EFI defined", func() {
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-				Expect(causes).To(BeEmpty())
-			})
-			It("should accept vmi with persistent TPM+EFI defined", func() {
-				addPersistentTPM()
-				addPersistentEFI()
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-				Expect(causes).To(BeEmpty())
-			})
-		})
-		Context("feature gate disabled", func() {
-			DescribeTable("should reject when the feature gate is disabled", func(persist func()) {
-				disableFeatureGates()
-				persist()
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-				Expect(causes).To(HaveLen(1))
-				Expect(causes[0].Field).To(ContainSubstring(".persistent"))
-				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.VMPersistentState)))
-			},
-				Entry("with persistent TPM", addPersistentTPM),
-				Entry("with persistent EFI", addPersistentEFI),
-			)
 		})
 	})
 

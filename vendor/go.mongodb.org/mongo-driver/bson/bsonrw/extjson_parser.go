@@ -313,7 +313,7 @@ func (ejp *extJSONParser) readValue(t bsontype.Type) (*extJSONValue, error) {
 				// convert hex to bytes
 				bytes, err := hex.DecodeString(uuidNoHyphens)
 				if err != nil {
-					return nil, fmt.Errorf("$uuid value does not follow RFC 4122 format regarding hex bytes: %v", err)
+					return nil, fmt.Errorf("$uuid value does not follow RFC 4122 format regarding hex bytes: %w", err)
 				}
 
 				ejp.advanceState()
@@ -423,7 +423,7 @@ func (ejp *extJSONParser) readValue(t bsontype.Type) (*extJSONValue, error) {
 				if ejp.canonical {
 					return nil, invalidJSONErrorForType("object", t)
 				}
-				return nil, invalidJSONErrorForType("ISO-8601 Internet Date/Time Format as decribed in RFC-3339", t)
+				return nil, invalidJSONErrorForType("ISO-8601 Internet Date/Time Format as described in RFC-3339", t)
 			}
 
 			ejp.advanceState()

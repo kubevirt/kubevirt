@@ -747,7 +747,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 					return controller.NewVirtualMachineConditionManager().HasCondition(
 						vm, virtv1.VirtualMachineManualRecoveryRequired)
 				}).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(BeFalse())
-				libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running})
+				Eventually(matcher.ThisVMI(vmi), 360*time.Second, time.Second).Should(matcher.BeInPhase(v1.Running))
 			})
 		})
 	})

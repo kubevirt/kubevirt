@@ -41,7 +41,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
-	"kubevirt.io/kubevirt/pkg/instancetype"
 	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -125,7 +124,6 @@ var _ = Describe("VirtualMachine", func() {
 					return nil, nil
 				},
 			})
-			podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
@@ -139,7 +137,6 @@ var _ = Describe("VirtualMachine", func() {
 				namespaceInformer.GetStore(),
 				pvcInformer,
 				crInformer,
-				podInformer,
 				recorder,
 				virtClient,
 				config,
@@ -4221,7 +4218,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
-					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
+					expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, preference)
 					Expect(err).ToNot(HaveOccurred())
 
 					sanityExecute(vm)
@@ -4267,7 +4264,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
-					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, autoattachPodInterfacePreference)
+					expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, autoattachPodInterfacePreference)
 					Expect(err).ToNot(HaveOccurred())
 
 					sanityExecute(vm)
@@ -4315,7 +4312,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
-					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
+					expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, preference)
 					Expect(err).ToNot(HaveOccurred())
 
 					sanityExecute(vm)
@@ -4344,7 +4341,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.P(true)
 
-					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, preference)
+					expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, preference)
 					Expect(err).ToNot(HaveOccurred())
 
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -4390,7 +4387,7 @@ var _ = Describe("VirtualMachine", func() {
 						Kind: instancetypeapi.SingularPreferenceResourceName,
 					}
 
-					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, autoattachInputDevicePreference)
+					expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, autoattachInputDevicePreference)
 					Expect(err).ToNot(HaveOccurred())
 
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
@@ -4439,7 +4436,7 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
-					expectedPreferenceRevision, err := instancetype.CreateControllerRevision(vm, autoattachInputDevicePreference)
+					expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, autoattachInputDevicePreference)
 					Expect(err).ToNot(HaveOccurred())
 
 					sanityExecute(vm)
@@ -5448,7 +5445,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					}
 
-					revision, err := instancetype.CreateControllerRevision(originalVM, originalInstancetype)
+					revision, err := revision.CreateControllerRevision(originalVM, originalInstancetype)
 					Expect(err).ToNot(HaveOccurred())
 
 					err = controllerrevisionInformerStore.Add(revision)
@@ -5486,7 +5483,7 @@ var _ = Describe("VirtualMachine", func() {
 					updatedInstancetype.Spec.CPU.Guest = uint32(2)
 					updatedInstancetype.Spec.Memory.Guest = resource.MustParse("256M")
 
-					updatedRevision, err := instancetype.CreateControllerRevision(originalVM, originalInstancetype)
+					updatedRevision, err := revision.CreateControllerRevision(originalVM, originalInstancetype)
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(controllerrevisionInformerStore.Add(updatedRevision)).To(Succeed())
@@ -5510,7 +5507,7 @@ var _ = Describe("VirtualMachine", func() {
 					// Enabling DedicatedCPUPlacement is not a supported live updatable attribute and should require a reboot
 					updatedInstancetype.Spec.CPU.DedicatedCPUPlacement = pointer.P(true)
 
-					updatedRevision, err := instancetype.CreateControllerRevision(originalVM, updatedInstancetype)
+					updatedRevision, err := revision.CreateControllerRevision(originalVM, updatedInstancetype)
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(controllerrevisionInformerStore.Add(updatedRevision)).To(Succeed())
@@ -5758,7 +5755,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).To(Succeed())
 				addVirtualMachine(vm)
 
-				By("Executing the controller expecting the RestartRequired condition to appear")
+				By("Executing the controller expecting the RestartRequired condition to appear as needed")
 				sanityExecute(vm)
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(Succeed())
@@ -5770,8 +5767,8 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(uint32(4)))
 				}
 			},
-				Entry("should appear if the VM rollout strategy is not set",
-					nil, restartRequiredMatcher(k8sv1.ConditionTrue)),
+				Entry("should not appear if the VM rollout strategy is not set",
+					nil, Not(restartRequiredMatcher(k8sv1.ConditionTrue))),
 				Entry("should appear if the VM rollout strategy is set to Stage",
 					&stage, restartRequiredMatcher(k8sv1.ConditionTrue)),
 				Entry("should not appear if VM rollout strategy is set to LiveUpdate",

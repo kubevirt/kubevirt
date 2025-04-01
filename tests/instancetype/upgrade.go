@@ -24,8 +24,8 @@ import (
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	instancetypepkg "kubevirt.io/kubevirt/pkg/instancetype"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
+	"kubevirt.io/kubevirt/pkg/instancetype/upgrade"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	utils "kubevirt.io/kubevirt/pkg/util"
 
@@ -49,7 +49,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	var vm *virtv1.VirtualMachine
 
 	createControllerRevision := func(obj runtime.Object) (*appsv1.ControllerRevision, error) {
-		cr, err := instancetypepkg.CreateControllerRevision(vm, obj)
+		cr, err := revision.CreateControllerRevision(vm, obj)
 		Expect(err).ToNot(HaveOccurred())
 		return virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
 	}
@@ -63,7 +63,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	}
 
 	createLegacyControllerRevision := func(obj runtime.Object) (*appsv1.ControllerRevision, error) {
-		cr, err := instancetypepkg.CreateControllerRevision(vm, obj)
+		cr, err := revision.CreateControllerRevision(vm, obj)
 		Expect(err).ToNot(HaveOccurred())
 
 		// The legacy naming convention did not include the object version so replace that here
@@ -159,7 +159,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			g.Expect(err).ToNot(HaveOccurred())
 
 			By("Ensuring the referenced ControllerRevision has the latest version label")
-			g.Expect(instancetypepkg.IsObjectLatestVersion(cr)).To(BeTrue())
+			g.Expect(upgrade.IsObjectLatestVersion(cr)).To(BeTrue())
 
 			By("Ensuring the referenced ControllerRevision contains an object of the latest version")
 			decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), cr.Data.Raw)
@@ -207,8 +207,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					builderv1alpha2.WithCPUs(1),
 					builderv1alpha2.WithMemory("128Mi"),
 				)
-				instancetype, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineInstancetypes(instancetype.Namespace).Create(context.Background(), instancetype, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
 				return createLegacyControllerRevision(instancetype)
 			},
 			updateInstancetypeMatcher,
@@ -220,8 +218,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					builderv1alpha1.WithCPUs(1),
 					builderv1alpha1.WithMemory("128Mi"),
 				)
-				instancetype, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineInstancetypes(instancetype.Namespace).Create(context.Background(), instancetype, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
 				return createLegacyControllerRevision(instancetype)
 			},
 			updateInstancetypeMatcher,
@@ -289,8 +285,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					builderv1alpha2.WithCPUs(1),
 					builderv1alpha2.WithMemory("128Mi"),
 				)
-				instancetype, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineClusterInstancetypes().Create(context.Background(), instancetype, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
 				return createLegacyControllerRevision(instancetype)
 			},
 			updateInstancetypeMatcher,
@@ -302,8 +296,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					builderv1alpha1.WithCPUs(1),
 					builderv1alpha1.WithMemory("128Mi"),
 				)
-				instancetype, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineClusterInstancetypes().Create(context.Background(), instancetype, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
 				return createLegacyControllerRevision(instancetype)
 			},
 			updateInstancetypeMatcher,
@@ -338,8 +330,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				preference := builderv1alpha2.NewPreference(
 					builderv1alpha2.WithPreferredCPUTopology(instancetypev1alpha2.PreferSockets),
 				)
-				preference, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachinePreferences(preference.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
 				return createLegacyControllerRevision(preference)
 			},
 			updatePreferenceMatcher,
@@ -350,8 +340,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				preference := builderv1alpha1.NewPreference(
 					builderv1alpha1.WithPreferredCPUTopology(instancetypev1alpha1.PreferSockets),
 				)
-				preference, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachinePreferences(preference.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
 				return createLegacyControllerRevision(preference)
 			},
 			updatePreferenceMatcher,
@@ -415,8 +403,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				preference := builderv1alpha2.NewClusterPreference(
 					builderv1alpha2.WithPreferredCPUTopology(instancetypev1alpha2.PreferSockets),
 				)
-				preference, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineClusterPreferences().Create(context.Background(), preference, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
 				return createLegacyControllerRevision(preference)
 			},
 			updatePreferenceMatcher,
@@ -427,8 +413,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				preference := builderv1alpha1.NewClusterPreference(
 					builderv1alpha1.WithPreferredCPUTopology(instancetypev1alpha1.PreferSockets),
 				)
-				preference, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineClusterPreferences().Create(context.Background(), preference, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
 				return createLegacyControllerRevision(preference)
 			},
 			updatePreferenceMatcher,

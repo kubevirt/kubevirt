@@ -4,6 +4,8 @@ go_library(
     name = "go_default_library",
     srcs = [
         "datavolumes.go",
+        "lifecycle.go",
+        "storage.go",
         "vmi.go",
         "volume-hotplug.go",
     ],

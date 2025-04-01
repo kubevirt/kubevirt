@@ -58,7 +58,7 @@ echo 'ARTIFACTS ' ${ARTIFACTS}
 echo 'TESTS_OUT_DIR ' ${TESTS_OUT_DIR}
 
 function perftest() {
-    _out/tests/ginkgo -r -slow-spec-threshold=60s $@ _out/tests/tests.test -- ${extra_args} -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${perftest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -oc-path=${oc} -kubectl-path=${kubectl} -gocli-path=${gocli} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${KUBEVIRT_DIR}/tests/default-config.json --artifacts=${ARTIFACTS}
+    _out/tests/ginkgo -r -slow-spec-threshold=60s $@ _out/tests/tests.test -- ${extra_args} -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${perftest_docker_prefix} -image-prefix-alt=${image_prefix_alt} -oc-path=${oc} -kubectl-path=${kubectl} -installed-namespace=${namespace} -previous-release-tag=${PREVIOUS_RELEASE_TAG} -previous-release-registry=${previous_release_registry} -deploy-testing-infra=${deploy_testing_infra} -config=${KUBEVIRT_DIR}/tests/default-config.json --artifacts=${ARTIFACTS}
 }
 
 function perfaudit() {
