@@ -35,6 +35,8 @@ import (
 	"strings"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/watchdog"
+
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 
 	"golang.org/x/sys/unix"
@@ -101,8 +103,8 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	multipath_monitor "kubevirt.io/kubevirt/pkg/virt-handler/multipath-monitor"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 type netconf interface {
@@ -244,6 +246,7 @@ func NewController(
 		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		sriovHotplugExecutorPool:    executor.NewRateLimitedExecutorPool(executor.NewExponentialLimitedBackoffCreator()),
 		ioErrorRetryManager:         NewFailRetryManager("io-error-retry", 10*time.Second, 3*time.Minute, 30*time.Second),
+		multipathSocketMonitor:      multipath_monitor.NewMultipathSocketMonitor(),
 	}
 
 	_, err := vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -328,6 +331,7 @@ type VirtualMachineController struct {
 	clusterConfig            *virtconfig.ClusterConfig
 	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
 	downwardMetricsManager   downwardMetricsManager
+	multipathSocketMonitor   *multipath_monitor.MultipathSocketMonitor
 
 	netConf netconf
 	netStat netstat
@@ -1660,6 +1664,8 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 		close(heartBeatDone)
 	}()
 
+	c.multipathSocketMonitor.Run()
+
 	go c.ioErrorRetryManager.Run(stopCh)
 
 	// Start the actual work
@@ -1669,6 +1675,7 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 
 	<-stopCh
 	<-heartBeatDone
+	c.multipathSocketMonitor.Close()
 	log.Log.Info("Stopping virt-handler controller.")
 }
 
