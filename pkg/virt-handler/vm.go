@@ -3527,7 +3527,7 @@ func (c *VirtualMachineController) claimDeviceOwnership(virtLauncherRootMount *s
 	softwareEmulation := c.clusterConfig.AllowEmulation()
 	devicePath, err := safepath.JoinNoFollow(virtLauncherRootMount, filepath.Join("dev", deviceName))
 	if err != nil {
-		if softwareEmulation {
+		if softwareEmulation && deviceName == "kvm" {
 			return nil
 		}
 		return err
@@ -3568,17 +3568,17 @@ func (c *VirtualMachineController) reportTargetTopologyForMigratingVMI(vmi *v1.V
 }
 
 func (c *VirtualMachineController) handleMigrationAbort(vmi *v1.VirtualMachineInstance, client cmdclient.LauncherClient) error {
-	if vmi.Status.MigrationState.AbortStatus == v1.MigrationAbortInProgress {
+	if vmi.Status.MigrationState.AbortStatus == v1.MigrationAbortInProgress || vmi.Status.MigrationState.AbortStatus == v1.MigrationAbortSucceeded {
 		return nil
 	}
 
-	err := client.CancelVirtualMachineMigration(vmi)
-	if err != nil && err.Error() == migrations.CancelMigrationFailedVmiNotMigratingErr {
-		// If migration did not even start there is no need to cancel it
-		log.Log.Object(vmi).Infof("skipping migration cancellation since vmi is not migrating")
+	if err := client.CancelVirtualMachineMigration(vmi); err != nil {
+		if err.Error() == migrations.CancelMigrationFailedVmiNotMigratingErr {
+			// If migration did not even start there is no need to cancel it
+			log.Log.Object(vmi).Infof("skipping migration cancellation since vmi is not migrating")
+		}
 		return err
 	}
-
 	c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), VMIAbortingMigration)
 	return nil
 }
