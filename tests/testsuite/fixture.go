@@ -120,6 +120,27 @@ func addTestAnnotation(vmi *v1.VirtualMachineInstance) {
 	vmi.Annotations["kubevirt.io/created-by-test"] = GinkgoT().Name()
 }
 
+func nfsAntiAffinity(vmi *v1.VirtualMachineInstance) {
+	for _, s := range CurrentSpecReport().Labels() {
+		if s == "RequiresRWXFsVMStateStorageClass" {
+			if vmi.Spec.Affinity == nil {
+				vmi.Spec.Affinity = &k8sv1.Affinity{}
+			}
+			if vmi.Spec.Affinity.PodAntiAffinity == nil {
+				vmi.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{}
+			}
+			vmi.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution =
+				append(vmi.Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution,
+					k8sv1.PodAffinityTerm{
+						LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "nfs-server"}},
+						Namespaces:    []string{"nfs-csi"},
+						TopologyKey:   k8sv1.LabelHostname,
+					})
+			break
+		}
+	}
+}
+
 func BeforeTestSuiteSetup(_ []byte) {
 
 	worker := GinkgoParallelProcess()
@@ -160,6 +181,12 @@ func BeforeTestSuiteSetup(_ []byte) {
 	libvmifact.RegisterArchitecture(Arch)
 	libvmi.RegisterDefaultOption(addTestAnnotation)
 	libvmi.RegisterDefaultOption(libvmi.WithAutoattachGraphicsDevice(false))
+	rwxfssc, found := libstorage.GetRWXFileSystemStorageClass()
+	if found && rwxfssc == "nfs-csi" {
+		// For tests that use nfs-csi as a storage class,
+		// we need to ensure VMIs won't be scheduled on the same node as the NFS server
+		libvmi.RegisterDefaultOption(nfsAntiAffinity)
+	}
 }
 
 func EnsureKubevirtReady() {
