@@ -242,10 +242,14 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 		var clientVMI *v1.VirtualMachineInstance
 		var serverVMI *v1.VirtualMachineInstance
 
-		const udpPort = 1700
+		const udpPortForIPv4 = 1700
+		const udpPortForIPv6 = 1701
 
 		BeforeEach(func() {
-			var ports = []v1.Port{{Port: udpPort, Protocol: "UDP"}}
+			var ports = []v1.Port{
+				{Port: udpPortForIPv4, Protocol: "UDP"},
+				{Port: udpPortForIPv6, Protocol: "UDP"},
+			}
 
 			By("Starting server VMI")
 			serverVMI = libvmifact.NewAlpineWithTestTooling(
@@ -265,7 +269,8 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 
 			waitUntilVMIsReady(console.LoginToAlpine, serverVMI, clientVMI)
 		})
-		DescribeTable("connectivity", func(ipFamily k8sv1.IPFamily) {
+
+		DescribeTable("connectivity", func(udpPort int, ipFamily k8sv1.IPFamily) {
 			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
 			By("Starting a UDP server")
@@ -281,8 +286,8 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 			serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
 			Expect(startAndVerifyUDPClient(clientVMI, serverIP, udpPort, ipFamily)).To(Succeed())
 		},
-			Entry("[IPv4]", k8sv1.IPv4Protocol),
-			Entry("[IPv6]", k8sv1.IPv6Protocol),
+			Entry("[IPv4]", udpPortForIPv4, k8sv1.IPv4Protocol),
+			Entry("[IPv6]", udpPortForIPv6, k8sv1.IPv6Protocol),
 		)
 	})
 
