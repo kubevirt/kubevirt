@@ -39,7 +39,7 @@ func (converterAMD64) AddGraphicsDevice(_ *v1.VirtualMachineInstance, domain *ap
 		domain.Spec.Devices.Video = []api.Video{
 			{
 				Model: api.VideoModel{
-					Type:  "bochs",
+					Type:  v1.VirtIO,
 					Heads: pointer.P(graphicsDeviceDefaultHeads),
 				},
 			},
