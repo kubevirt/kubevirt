@@ -22,7 +22,7 @@ require (
 	k8s.io/apimachinery v0.31.0
 	k8s.io/apiserver v0.31.0
 	k8s.io/client-go v0.31.0
-	k8s.io/kube-openapi v0.31.0
+	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
 	kubevirt.io/api v0.0.0-00010101000000-000000000000
 	kubevirt.io/containerized-data-importer-api v1.60.3-0.20241105012228-50fbed985de9
@@ -93,7 +93,6 @@ replace (
 	k8s.io/klog => k8s.io/klog v0.4.0
 	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.31.0
 	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.31.0
-	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20240430033511-f0e62f92d13f
 	k8s.io/kube-proxy => k8s.io/kube-proxy v0.31.0
 	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.31.0
 	k8s.io/kubectl => k8s.io/kubectl v0.31.0
