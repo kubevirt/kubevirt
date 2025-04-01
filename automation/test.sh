@@ -353,7 +353,7 @@ if [[ $TARGET =~ .*kind.* ]] || [[ $TARGET =~ .*k3d.* ]] || [[ $TARGET =~ wg-arm
   export KUBEVIRT_E2E_PARALLEL=false
 fi
 
-ginko_params="--no-color --seed=42"
+ginko_params="--no-color"
 
 # Prepare PV for Windows testing
 if [[ $TARGET =~ windows.* ]]; then
