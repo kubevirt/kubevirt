@@ -56,10 +56,10 @@ spec:
                 server:
                   duration: 24h0m0s
                   renewBefore: 12h0m0s
+              deployKubeSecondaryDNS: false
               deployVmConsoleProxy: false
               enableCommonBootImageImport: true
               featureGates:
-                deployKubeSecondaryDNS: false
                 disableMDevConfiguration: false
                 downwardMetrics: false
                 enableApplicationAwareQuota: false
@@ -1015,6 +1015,10 @@ spec:
                   Default RuntimeClass can be changed when kubevirt is running, existing VMIs are not impacted till
                   the next restart/live-migration when they are eventually going to consume the new default RuntimeClass.
                 type: string
+              deployKubeSecondaryDNS:
+                default: false
+                description: Deploy KubeSecondaryDNS by CNAO
+                type: boolean
               deployVmConsoleProxy:
                 default: false
                 description: deploy VM console proxy resources in SSP operator
@@ -1046,7 +1050,6 @@ spec:
                 type: string
               featureGates:
                 default:
-                  deployKubeSecondaryDNS: false
                   disableMDevConfiguration: false
                   downwardMetrics: false
                   enableApplicationAwareQuota: false
@@ -1067,13 +1070,13 @@ spec:
                       in the next version of the API.'
                     type: boolean
                   deployKubeSecondaryDNS:
-                    default: false
-                    description: Deploy KubeSecondaryDNS by CNAO
+                    description: |-
+                      Deprecated: This field is ignored and will be removed on the next version of the API.
+                      Use spec.deployKubeSecondaryDNS instead
                     type: boolean
                   deployKubevirtIpamController:
-                    description: |-
-                      Deploy KubevirtIpamController by CNAO.
-                      Deprecated: this field is ignored and will be removed in the next version of the API.
+                    description: 'Deprecated: this field is ignored and will be removed
+                      in the next version of the API.'
                     type: boolean
                   deployTektonTaskResources:
                     description: 'Deprecated: This field is ignored and will be removed

@@ -605,7 +605,7 @@ var _ = Describe("CNA Operand", func() {
 
 			const kubeSecondaryDNSNameServerIP = "127.0.0.1"
 			if o.setFeatureGate {
-				hco.Spec.FeatureGates.DeployKubeSecondaryDNS = ptr.To(o.featureGateValue)
+				hco.Spec.DeployKubeSecondaryDNS = ptr.To(o.featureGateValue)
 				hco.Spec.KubeSecondaryDNSNameServerIP = ptr.To(kubeSecondaryDNSNameServerIP)
 			}
 

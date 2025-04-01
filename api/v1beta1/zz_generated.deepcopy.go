@@ -548,6 +548,11 @@ func (in *HyperConvergedSpec) DeepCopyInto(out *HyperConvergedSpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.DeployKubeSecondaryDNS != nil {
+		in, out := &in.DeployKubeSecondaryDNS, &out.DeployKubeSecondaryDNS
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

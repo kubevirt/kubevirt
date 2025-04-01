@@ -492,6 +492,11 @@ func validateOldFGOnCreate(warnings []string, hc *v1beta1.HyperConverged) []stri
 		warnings = append(warnings, fmt.Sprintf(fgMovedWarning, "deployVmConsoleProxy"))
 	}
 
+	//nolint:staticcheck
+	if hc.Spec.FeatureGates.DeployKubeSecondaryDNS != nil {
+		warnings = append(warnings, fmt.Sprintf(fgMovedWarning, "deployKubeSecondaryDNS"))
+	}
+
 	return warnings
 }
 
@@ -504,6 +509,11 @@ func validateOldFGOnUpdate(warnings []string, hc, prevHC *v1beta1.HyperConverged
 	//nolint:staticcheck
 	if oldFGChanged(hc.Spec.FeatureGates.DeployVMConsoleProxy, prevHC.Spec.FeatureGates.DeployVMConsoleProxy) {
 		warnings = append(warnings, fmt.Sprintf(fgMovedWarning, "deployVmConsoleProxy"))
+	}
+
+	//nolint:staticcheck
+	if oldFGChanged(hc.Spec.FeatureGates.DeployKubeSecondaryDNS, prevHC.Spec.FeatureGates.DeployKubeSecondaryDNS) {
+		warnings = append(warnings, fmt.Sprintf(fgMovedWarning, "deployKubeSecondaryDNS"))
 	}
 
 	return warnings
