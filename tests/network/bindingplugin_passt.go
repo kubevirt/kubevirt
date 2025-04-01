@@ -286,52 +286,49 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 		)
 	})
 
-	It("should be able to reach the outside world [IPv4]", Label("RequiresOutsideConnectivity"), func() {
-		libnet.SkipWhenClusterNotSupportIpv4()
-		ipv4Address := "8.8.8.8"
-		if flags.IPV4ConnectivityCheckAddress != "" {
-			ipv4Address = flags.IPV4ConnectivityCheckAddress
-		}
-		dns := "google.com"
-		if flags.ConnectivityCheckDNS != "" {
-			dns = flags.ConnectivityCheckDNS
-		}
+	Context("egress connectivity", func() {
+		var vmi *v1.VirtualMachineInstance
 
-		vmi := libvmifact.NewAlpineWithTestTooling(
-			libvmi.WithPasstInterfaceWithPort(),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		)
-		vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		waitUntilVMIsReady(console.LoginToAlpine, vmi)
+		BeforeEach(func() {
+			vmi = libvmifact.NewAlpineWithTestTooling(
+				libvmi.WithPasstInterfaceWithPort(),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-		By("Checking ping (IPv4)")
-		Expect(libnet.PingFromVMConsole(vmi, ipv4Address, "-c 5", "-w 15")).To(Succeed())
-		Expect(libnet.PingFromVMConsole(vmi, dns, "-c 5", "-w 15")).To(Succeed())
-	})
+			waitUntilVMIsReady(console.LoginToAlpine, vmi)
+		})
 
-	It("should be able to reach the outside world", Label("RequiresOutsideConnectivity", "IPv6"), func() {
-		libnet.SkipWhenClusterNotSupportIpv6()
-		// Cluster nodes subnet (docker network gateway)
-		// Docker network subnet cidr definition:
-		// https://github.com/kubevirt/project-infra/blob/master/github/ci/shared-deployments/files/docker-daemon-mirror.conf#L5
-		ipv6Address := "2001:db8:1::1"
-		if flags.IPV6ConnectivityCheckAddress != "" {
-			ipv6Address = flags.IPV6ConnectivityCheckAddress
-		}
+		It("should be able to reach the outside world [IPv4]", Label("RequiresOutsideConnectivity"), func() {
+			libnet.SkipWhenClusterNotSupportIpv4()
+			ipv4Address := "8.8.8.8"
+			if flags.IPV4ConnectivityCheckAddress != "" {
+				ipv4Address = flags.IPV4ConnectivityCheckAddress
+			}
+			dns := "google.com"
+			if flags.ConnectivityCheckDNS != "" {
+				dns = flags.ConnectivityCheckDNS
+			}
 
-		vmi := libvmifact.NewAlpineWithTestTooling(
-			libvmi.WithPasstInterfaceWithPort(),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			libvmi.WithAnnotation("kubevirt.io/libvirt-log-filters", "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*"),
-		)
-		Expect(err).ToNot(HaveOccurred())
-		vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		waitUntilVMIsReady(console.LoginToAlpine, vmi)
+			By("Checking ping (IPv4)")
+			Expect(libnet.PingFromVMConsole(vmi, ipv4Address, "-c 5", "-w 15")).To(Succeed())
+			Expect(libnet.PingFromVMConsole(vmi, dns, "-c 5", "-w 15")).To(Succeed())
+		})
 
-		By("Checking ping (IPv6) from VM to cluster nodes gateway")
-		Expect(libnet.PingFromVMConsole(vmi, ipv6Address)).To(Succeed())
+		It("should be able to reach the outside world", Label("RequiresOutsideConnectivity", "IPv6"), func() {
+			libnet.SkipWhenClusterNotSupportIpv6()
+			// Cluster nodes subnet (docker network gateway)
+			// Docker network subnet cidr definition:
+			// https://github.com/kubevirt/project-infra/blob/master/github/ci/shared-deployments/files/docker-daemon-mirror.conf#L5
+			ipv6Address := "2001:db8:1::1"
+			if flags.IPV6ConnectivityCheckAddress != "" {
+				ipv6Address = flags.IPV6ConnectivityCheckAddress
+			}
+
+			By("Checking ping (IPv6) from VM to cluster nodes gateway")
+			Expect(libnet.PingFromVMConsole(vmi, ipv6Address)).To(Succeed())
+		})
 	})
 
 	Context("migration", func() {
