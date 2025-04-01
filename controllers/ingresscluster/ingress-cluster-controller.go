@@ -184,7 +184,7 @@ func (r *ReconcileIngressCluster) hyperConvergedExists(ctx context.Context, loog
 		return false, err
 	}
 
-	hcExists := hc.ObjectMeta.DeletionTimestamp.IsZero()
+	hcExists := hc.DeletionTimestamp.IsZero()
 	if !hcExists {
 		looger.Info("HyperConverged resource found, but it was already been deleted.")
 	}

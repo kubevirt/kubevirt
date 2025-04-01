@@ -14,7 +14,6 @@ import (
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 const (
@@ -56,7 +55,7 @@ func (*cdiHooks) getConditions(cr runtime.Object) []metav1.Condition {
 }
 func (*cdiHooks) checkComponentVersion(cr runtime.Object) bool {
 	found := cr.(*cdiv1beta1.CDI)
-	return checkComponentVersion(hcoutil.CdiVersionEnvV, found.Status.ObservedVersion)
+	return checkComponentVersion(util.CdiVersionEnvV, found.Status.ObservedVersion)
 }
 func (h *cdiHooks) reset() {
 	h.cache = nil
@@ -105,7 +104,7 @@ func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) (*cdiv1beta1.CDI, err
 		UninstallStrategy: &uninstallStrategy,
 		Config: &cdiv1beta1.CDIConfigSpec{
 			FeatureGates:       getDefaultFeatureGates(),
-			TLSSecurityProfile: openshift2CdiSecProfile(hcoutil.GetClusterInfo().GetTLSSecurityProfile(hc.Spec.TLSSecurityProfile)),
+			TLSSecurityProfile: openshift2CdiSecProfile(util.GetClusterInfo().GetTLSSecurityProfile(hc.Spec.TLSSecurityProfile)),
 		},
 		CertConfig: &cdiv1beta1.CDICertConfig{
 			CA: &cdiv1beta1.CertConfig{
@@ -164,8 +163,8 @@ func NewCDIWithNameOnly(hc *hcov1beta1.HyperConverged, opts ...string) *cdiv1bet
 	return &cdiv1beta1.CDI{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "cdi-" + hc.Name,
-			Labels:      getLabels(hc, hcoutil.AppComponentStorage),
-			Namespace:   getNamespace(hcoutil.UndefinedNamespace, opts),
+			Labels:      getLabels(hc, util.AppComponentStorage),
+			Namespace:   getNamespace(util.UndefinedNamespace, opts),
 			Annotations: map[string]string{cdiConfigAuthorityAnnotation: ""},
 		},
 	}
@@ -176,8 +175,8 @@ func openshift2CdiSecProfile(hcProfile *openshiftconfigv1.TLSSecurityProfile) *c
 	if hcProfile.Custom != nil {
 		custom = &cdiv1beta1.CustomTLSProfile{
 			TLSProfileSpec: cdiv1beta1.TLSProfileSpec{
-				Ciphers:       hcProfile.Custom.TLSProfileSpec.Ciphers,
-				MinTLSVersion: cdiv1beta1.TLSProtocolVersion(hcProfile.Custom.TLSProfileSpec.MinTLSVersion),
+				Ciphers:       hcProfile.Custom.Ciphers,
+				MinTLSVersion: cdiv1beta1.TLSProtocolVersion(hcProfile.Custom.MinTLSVersion),
 			},
 		}
 	}

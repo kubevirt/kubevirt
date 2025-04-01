@@ -379,7 +379,7 @@ func (wh *WebhookHandler) validateDataImportCronTemplates(hc *v1beta1.HyperConve
 	for _, dict := range hc.Spec.DataImportCronTemplates {
 		val, ok := dict.Annotations[hcoutil.DataImportCronEnabledAnnotation]
 		val = strings.ToLower(val)
-		if ok && !(val == "false" || val == "true") {
+		if ok && val != "false" && val != "true" {
 			return fmt.Errorf(`the %s annotation of a dataImportCronTemplate must be either "true" or "false"`, hcoutil.DataImportCronEnabledAnnotation)
 		}
 
@@ -539,7 +539,7 @@ func SelectCipherSuitesAndMinTLSVersion() ([]string, openshiftconfigv1.TLSProtoc
 	profile := ci.GetTLSSecurityProfile(hcoTLSConfigCache)
 
 	if profile.Custom != nil {
-		return profile.Custom.TLSProfileSpec.Ciphers, profile.Custom.TLSProfileSpec.MinTLSVersion
+		return profile.Custom.Ciphers, profile.Custom.MinTLSVersion
 	}
 
 	return openshiftconfigv1.TLSProfiles[profile.Type].Ciphers, openshiftconfigv1.TLSProfiles[profile.Type].MinTLSVersion

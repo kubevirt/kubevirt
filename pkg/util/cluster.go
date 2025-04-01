@@ -378,11 +378,11 @@ func (c *ClusterInfoImp) validateAPIServerTLSSecurityProfile(apiServerTLSSecurit
 		},
 	}
 	if apiServerTLSSecurityProfile.Custom != nil {
-		validatedAPIServerTLSSecurityProfile.Custom.TLSProfileSpec.MinTLSVersion = apiServerTLSSecurityProfile.Custom.TLSProfileSpec.MinTLSVersion
-		validatedAPIServerTLSSecurityProfile.Custom.TLSProfileSpec.Ciphers = nil
-		for _, cipher := range apiServerTLSSecurityProfile.Custom.TLSProfileSpec.Ciphers {
+		validatedAPIServerTLSSecurityProfile.Custom.MinTLSVersion = apiServerTLSSecurityProfile.Custom.MinTLSVersion
+		validatedAPIServerTLSSecurityProfile.Custom.Ciphers = nil
+		for _, cipher := range apiServerTLSSecurityProfile.Custom.Ciphers {
 			if isValidCipherName(cipher) {
-				validatedAPIServerTLSSecurityProfile.Custom.TLSProfileSpec.Ciphers = append(validatedAPIServerTLSSecurityProfile.Custom.TLSProfileSpec.Ciphers, cipher)
+				validatedAPIServerTLSSecurityProfile.Custom.Ciphers = append(validatedAPIServerTLSSecurityProfile.Custom.Ciphers, cipher)
 			} else {
 				c.logger.Error(nil, "invalid cipher name on the APIServer CR, ignoring it", "cipher", cipher)
 			}

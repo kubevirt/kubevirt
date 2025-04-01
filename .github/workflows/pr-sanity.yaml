@@ -65,8 +65,7 @@ jobs:
           go-version-file: go.mod
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v5
+        uses: golangci/golangci-lint-action@v7
         with:
-          version: v1.64.4
-          skip-pkg-cache: true
-          args: --timeout=5m --out-${NO_FUTURE}format line-number
+          version: v2.0.2
+          args: --timeout=5m

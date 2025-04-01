@@ -22,7 +22,6 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/commontestutils"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/operands"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 var _ = Describe("test HyperConverged mutator", func() {
@@ -261,10 +260,10 @@ var _ = Describe("test HyperConverged mutator", func() {
 
 		Context("Check defaults for cluster level EvictionStrategy", func() {
 
-			getClusterInfo := hcoutil.GetClusterInfo
+			getClusterInfo := util.GetClusterInfo
 
 			AfterEach(func() {
-				hcoutil.GetClusterInfo = getClusterInfo
+				util.GetClusterInfo = getClusterInfo
 			})
 
 			DescribeTable("check EvictionStrategy default", func(SNO bool, strategy *kubevirtcorev1.EvictionStrategy, patches []jsonpatch.JsonPatchOperation) {

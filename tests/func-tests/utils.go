@@ -169,9 +169,9 @@ func UpdateHCO(ctx context.Context, cli client.Client, input *v1beta1.HyperConve
 
 	hco := GetHCO(ctx, cli)
 	input.Spec.DeepCopyInto(&hco.Spec)
-	hco.ObjectMeta.Annotations = input.ObjectMeta.Annotations
-	hco.ObjectMeta.Finalizers = input.ObjectMeta.Finalizers
-	hco.ObjectMeta.Labels = input.ObjectMeta.Labels
+	hco.Annotations = input.Annotations
+	hco.Finalizers = input.Finalizers
+	hco.Labels = input.Labels
 	hco.Status = v1beta1.HyperConvergedStatus{} // to silence warning about unknown fields.
 
 	err = cli.Update(ctx, hco)

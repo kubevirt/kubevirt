@@ -333,8 +333,8 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			expectedResource := deploymentManifestor(hco)
 			outdatedResource := deploymentManifestor(hco)
 
-			outdatedResource.ObjectMeta.UID = "oldObjectUID"
-			outdatedResource.ObjectMeta.ResourceVersion = "1234"
+			outdatedResource.UID = "oldObjectUID"
+			outdatedResource.ResourceVersion = "1234"
 
 			outdatedResource.Spec.Replicas = ptr.To(int32(123))
 			outdatedResource.Spec.Template.Spec.Containers[0].Image = "quay.io/fake/image:latest"
@@ -381,10 +381,10 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			expectedResource := deploymentManifestor(hco)
 			outdatedResource := deploymentManifestor(hco)
 
-			outdatedResource.ObjectMeta.UID = "oldObjectUID"
-			outdatedResource.ObjectMeta.ResourceVersion = "1234"
+			outdatedResource.UID = "oldObjectUID"
+			outdatedResource.ResourceVersion = "1234"
 
-			outdatedResource.ObjectMeta.Labels[hcoutil.AppLabel] = "wrong label"
+			outdatedResource.Labels[hcoutil.AppLabel] = "wrong label"
 			outdatedResource.Spec.Selector.MatchLabels[hcoutil.AppLabel] = "wrong label"
 			outdatedResource.Spec.Template.Labels[hcoutil.AppLabel] = "wrong label"
 
@@ -404,8 +404,8 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 					foundResource),
 			).To(Succeed())
 
-			Expect(foundResource.ObjectMeta.Labels).ToNot(Equal(outdatedResource.ObjectMeta.Labels))
-			Expect(foundResource.ObjectMeta.Labels).To(Equal(expectedResource.ObjectMeta.Labels))
+			Expect(foundResource.Labels).ToNot(Equal(outdatedResource.Labels))
+			Expect(foundResource.Labels).To(Equal(expectedResource.Labels))
 			Expect(reflect.DeepEqual(expectedResource.Spec, foundResource.Spec)).To(BeTrue())
 
 			// ObjectReference should have been updated
@@ -931,7 +931,7 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 			expectedResource := serviceManifestor(hco)
 			outdatedResource := serviceManifestor(hco)
 
-			outdatedResource.ObjectMeta.Labels[hcoutil.AppLabel] = "wrong label"
+			outdatedResource.Labels[hcoutil.AppLabel] = "wrong label"
 			outdatedResource.Spec.Ports[0].Port = 6666
 
 			cl := commontestutils.InitClient([]client.Object{hco, outdatedResource})
@@ -949,8 +949,8 @@ var _ = Describe("Kubevirt Console Plugin", func() {
 					foundResource),
 			).To(Succeed())
 
-			Expect(foundResource.ObjectMeta.Labels).ToNot(Equal(outdatedResource.ObjectMeta.Labels))
-			Expect(foundResource.ObjectMeta.Labels).To(Equal(expectedResource.ObjectMeta.Labels))
+			Expect(foundResource.Labels).ToNot(Equal(outdatedResource.Labels))
+			Expect(foundResource.Labels).To(Equal(expectedResource.Labels))
 			Expect(foundResource.Spec.Ports).ToNot(Equal(outdatedResource.Spec.Ports))
 			Expect(foundResource.Spec.Ports).To(Equal(expectedResource.Spec.Ports))
 

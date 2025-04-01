@@ -36,7 +36,7 @@ var _ = Describe("Deployment Handler", func() {
 			modifiedDeployment.Spec.Selector = &metav1.LabelSelector{
 				MatchLabels: map[string]string{"key2": "value2"},
 			}
-			modifiedDeployment.ObjectMeta.UID = "oldObjectUID"
+			modifiedDeployment.UID = "oldObjectUID"
 
 			// let's initialize the fake client with a modified object
 			cl := commontestutils.InitClient([]client.Object{modifiedDeployment})
@@ -64,7 +64,7 @@ var _ = Describe("Deployment Handler", func() {
 
 			Expect(foundResource.Spec.Selector).To(Equal(expectedDeployment.Spec.Selector))
 			// let's check the object UID to ensure that the object get really deleted and recreated
-			Expect(foundResource.ObjectMeta.UID).ToNot(Equal(modifiedDeployment.ObjectMeta.UID))
+			Expect(foundResource.ObjectMeta.UID).ToNot(Equal(modifiedDeployment.UID))
 		})
 
 		It("should only update, not recreate, the Deployment since LabelSelector hasn't changed", func() {
@@ -75,7 +75,7 @@ var _ = Describe("Deployment Handler", func() {
 			gotLabels["key1"] = "wrongValue1"
 			gotLabels["key2"] = "newValue2"
 			modifiedDeployment.SetLabels(gotLabels)
-			modifiedDeployment.ObjectMeta.UID = "oldObjectUID"
+			modifiedDeployment.UID = "oldObjectUID"
 
 			// let's initialize the fake client with a modified object
 			cl := commontestutils.InitClient([]client.Object{modifiedDeployment})

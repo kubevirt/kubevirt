@@ -22,7 +22,6 @@ import (
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 const (
@@ -31,7 +30,7 @@ const (
 	// and let the webhook set the default.
 	defaultTemplateValidatorReplicas = int32(2)
 
-	defaultCommonTemplatesNamespace = hcoutil.OpenshiftNamespace
+	defaultCommonTemplatesNamespace = util.OpenshiftNamespace
 
 	dataImportCronTemplatesFileLocation = "./dataImportCronTemplates"
 
@@ -85,7 +84,7 @@ func (*sspHooks) getConditions(cr runtime.Object) []metav1.Condition {
 }
 func (*sspHooks) checkComponentVersion(cr runtime.Object) bool {
 	found := cr.(*sspv1beta2.SSP)
-	return checkComponentVersion(hcoutil.SspVersionEnvV, found.Status.ObservedVersion)
+	return checkComponentVersion(util.SspVersionEnvV, found.Status.ObservedVersion)
 }
 func (h *sspHooks) reset() {
 	h.cache = nil
@@ -153,7 +152,7 @@ func NewSSP(hc *hcov1beta1.HyperConverged, opts ...string) (*sspv1beta2.SSP, []h
 		// NodeLabeller field is explicitly initialized to its zero-value,
 		// in order to future-proof from bugs if SSP changes it to pointer-type,
 		// causing nil pointers dereferences at the DeepCopyInto() below.
-		TLSSecurityProfile: hcoutil.GetClusterInfo().GetTLSSecurityProfile(hc.Spec.TLSSecurityProfile),
+		TLSSecurityProfile: util.GetClusterInfo().GetTLSSecurityProfile(hc.Spec.TLSSecurityProfile),
 		FeatureGates:       &sspv1beta2.FeatureGates{},
 	}
 
@@ -184,7 +183,7 @@ func NewSSPWithNameOnly(hc *hcov1beta1.HyperConverged, opts ...string) *sspv1bet
 	return &sspv1beta2.SSP{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "ssp-" + hc.Name,
-			Labels:    getLabels(hc, hcoutil.AppComponentSchedule),
+			Labels:    getLabels(hc, util.AppComponentSchedule),
 			Namespace: getNamespace(hc.Namespace, opts),
 		},
 	}
@@ -267,10 +266,10 @@ func getCommonDicts(list []hcov1beta1.DataImportCronTemplateStatus, crDicts map[
 				crDict.Spec.Schedule = targetDict.Spec.Schedule
 			}
 			targetDict.Spec = crDict.Spec.DeepCopy()
-			targetDict.ObjectMeta.Namespace = crDict.Namespace
+			targetDict.Namespace = crDict.Namespace
 			targetDict.Status.Modified = true
 		} else if ns := hc.Spec.CommonBootImageNamespace; ns != nil && len(*ns) > 0 {
-			targetDict.ObjectMeta.Namespace = *ns
+			targetDict.Namespace = *ns
 		}
 
 		list = append(list, targetDict)
@@ -280,7 +279,7 @@ func getCommonDicts(list []hcov1beta1.DataImportCronTemplateStatus, crDicts map[
 }
 
 func isDataImportCronTemplateEnabled(dict hcov1beta1.DataImportCronTemplate) bool {
-	annotationVal, found := dict.Annotations[hcoutil.DataImportCronEnabledAnnotation]
+	annotationVal, found := dict.Annotations[util.DataImportCronEnabledAnnotation]
 	return !found || strings.ToLower(annotationVal) == "true"
 }
 

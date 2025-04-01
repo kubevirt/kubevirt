@@ -38,7 +38,6 @@ import (
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -131,11 +130,11 @@ func main() {
 		overwriteDeploymentLabels(&deployments[i], hcoutil.AppComponentDeployment)
 	}
 
-	services := []v1.Service{
+	services := []corev1.Service{
 		components.GetServiceWebhook(),
 	}
 
-	serviceAccounts := map[string]v1.ServiceAccount{
+	serviceAccounts := map[string]corev1.ServiceAccount{
 		"hyperconverged-cluster-operator":     components.GetServiceAccount(*operatorNamespace),
 		"hyperconverged-cluster-cli-download": components.GetCLIDownloadServiceAccount(*operatorNamespace),
 	}
@@ -205,7 +204,7 @@ func main() {
 	writeClusterRoles(permissions, clusterPermissions)
 }
 
-func getServices(csvStruct *csvv1alpha1.ClusterServiceVersion, services []v1.Service) []v1.Service {
+func getServices(csvStruct *csvv1alpha1.ClusterServiceVersion, services []corev1.Service) []corev1.Service {
 	for _, webhook := range csvStruct.Spec.WebhookDefinitions {
 		services = append(services, createService(webhook, csvStruct))
 	}
@@ -255,8 +254,8 @@ func createClusterRole(clusterPermission csvv1alpha1.StrategyDeploymentPermissio
 	}
 }
 
-func createServiceAccount(clusterPermission csvv1alpha1.StrategyDeploymentPermissions) v1.ServiceAccount {
-	return v1.ServiceAccount{
+func createServiceAccount(clusterPermission csvv1alpha1.StrategyDeploymentPermissions) corev1.ServiceAccount {
+	return corev1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "ServiceAccount",
@@ -315,8 +314,8 @@ func getRole(permission csvv1alpha1.StrategyDeploymentPermissions) rbacv1.Role {
 	}
 }
 
-func getBasicServiceAccount(permission csvv1alpha1.StrategyDeploymentPermissions) v1.ServiceAccount {
-	return v1.ServiceAccount{
+func getBasicServiceAccount(permission csvv1alpha1.StrategyDeploymentPermissions) corev1.ServiceAccount {
+	return corev1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "ServiceAccount",
@@ -347,8 +346,8 @@ func getBasicDeployment(deploymentSpec csvv1alpha1.StrategyDeploymentSpec) appsv
 	}
 }
 
-func createService(webhook csvv1alpha1.WebhookDescription, csvStruct *csvv1alpha1.ClusterServiceVersion) v1.Service {
-	return v1.Service{
+func createService(webhook csvv1alpha1.WebhookDescription, csvStruct *csvv1alpha1.ClusterServiceVersion) corev1.Service {
+	return corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Service",
@@ -359,9 +358,9 @@ func createService(webhook csvv1alpha1.WebhookDescription, csvStruct *csvv1alpha
 				"name": webhook.DeploymentName,
 			},
 		},
-		Spec: v1.ServiceSpec{
+		Spec: corev1.ServiceSpec{
 			Selector: getSelectorOfWebhookDeployment(webhook.DeploymentName, csvStruct.Spec.InstallStrategy.StrategySpec.DeploymentSpecs),
-			Ports: []v1.ServicePort{
+			Ports: []corev1.ServicePort{
 				{
 					Name:       strconv.Itoa(int(webhook.ContainerPort)),
 					Port:       webhook.ContainerPort,
@@ -449,7 +448,7 @@ func writeOperatorCRD() {
 	check(util.MarshallObject(components.GetOperatorCRD(*apiSources), operatorCrd))
 }
 
-func writeOperatorDeploymentsAndServices(deployments []appsv1.Deployment, services []v1.Service) {
+func writeOperatorDeploymentsAndServices(deployments []appsv1.Deployment, services []corev1.Service) {
 	operatorYaml, err := os.Create(path.Join(*deployDir, "operator.yaml"))
 	check(err)
 	defer operatorYaml.Close()
@@ -469,7 +468,7 @@ func writeOperatorDeploymentsAndServices(deployments []appsv1.Deployment, servic
 	}
 }
 
-func writeServiceAccounts(serviceAccounts map[string]v1.ServiceAccount) {
+func writeServiceAccounts(serviceAccounts map[string]corev1.ServiceAccount) {
 	var keys []string
 	for saName := range serviceAccounts {
 		keys = append(keys, saName)

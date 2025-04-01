@@ -276,9 +276,9 @@ func getHcoCsv() {
 	csvBase := components.GetCSVBase(csvParams)
 
 	if *enableUniqueSemver {
-		csvBase.ObjectMeta.Annotations["olm.skipRange"] = fmt.Sprintf("<%v", version.String())
+		csvBase.Annotations["olm.skipRange"] = fmt.Sprintf("<%v", version.String())
 	} else if *olmSkipRange != "" {
-		csvBase.ObjectMeta.Annotations["olm.skipRange"] = *olmSkipRange
+		csvBase.Annotations["olm.skipRange"] = *olmSkipRange
 	}
 
 	params := getDeploymentParams()
@@ -319,7 +319,7 @@ func getHcoCsv() {
 		csvBase.Annotations[mgImageAnnotation] = *mgImage
 	}
 	if *testImagesNVRs != "" {
-		csvBase.ObjectMeta.Annotations["test-images-nvrs"] = *testImagesNVRs
+		csvBase.Annotations["test-images-nvrs"] = *testImagesNVRs
 	}
 
 	setSupported(csvBase)

@@ -13,7 +13,6 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -35,7 +34,6 @@ import (
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 const DisableOperandDeletionAnnotation = "console.openshift.io/disable-operand-delete"
@@ -129,8 +127,8 @@ func GetDeploymentCliDownloads(params *DeploymentOperatorParams) appsv1.Deployme
 	}
 }
 
-func GetServiceWebhook() v1.Service {
-	return v1.Service{
+func GetServiceWebhook() corev1.Service {
+	return corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Service",
@@ -138,11 +136,11 @@ func GetServiceWebhook() v1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: hcoNameWebhook + "-service",
 		},
-		Spec: v1.ServiceSpec{
+		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
 				"name": hcoNameWebhook,
 			},
-			Ports: []v1.ServicePort{
+			Ports: []corev1.ServicePort{
 				{
 					Name:       strconv.Itoa(util.WebhookPort),
 					Port:       util.WebhookPort,
@@ -181,13 +179,13 @@ func GetDeploymentSpecOperator(params *DeploymentOperatorParams) appsv1.Deployme
 						Image:           params.Image,
 						ImagePullPolicy: corev1.PullPolicy(params.ImagePullPolicy),
 						Command:         stringListToSlice(hcoName),
-						ReadinessProbe:  getReadinessProbe(hcoutil.ReadinessEndpointName, hcoutil.HealthProbePort),
-						LivenessProbe:   getLivenessProbe(hcoutil.LivenessEndpointName, hcoutil.HealthProbePort),
+						ReadinessProbe:  getReadinessProbe(util.ReadinessEndpointName, util.HealthProbePort),
+						LivenessProbe:   getLivenessProbe(util.LivenessEndpointName, util.HealthProbePort),
 						Env:             envs,
-						Resources: v1.ResourceRequirements{
-							Requests: map[v1.ResourceName]resource.Quantity{
-								v1.ResourceCPU:    resource.MustParse("10m"),
-								v1.ResourceMemory: resource.MustParse("96Mi"),
+						Resources: corev1.ResourceRequirements{
+							Requests: map[corev1.ResourceName]resource.Quantity{
+								corev1.ResourceCPU:    resource.MustParse("10m"),
+								corev1.ResourceMemory: resource.MustParse("96Mi"),
 							},
 						},
 						SecurityContext: GetStdContainerSecurityContext(),
@@ -326,15 +324,15 @@ func GetDeploymentSpecCliDownloads(params *DeploymentOperatorParams) appsv1.Depl
 						Name:            "server",
 						Image:           params.CliDownloadsImage,
 						ImagePullPolicy: corev1.PullPolicy(params.ImagePullPolicy),
-						Resources: v1.ResourceRequirements{
-							Requests: map[v1.ResourceName]resource.Quantity{
-								v1.ResourceCPU:    resource.MustParse("10m"),
-								v1.ResourceMemory: resource.MustParse("96Mi"),
+						Resources: corev1.ResourceRequirements{
+							Requests: map[corev1.ResourceName]resource.Quantity{
+								corev1.ResourceCPU:    resource.MustParse("10m"),
+								corev1.ResourceMemory: resource.MustParse("96Mi"),
 							},
 						},
-						Ports: []v1.ContainerPort{
+						Ports: []corev1.ContainerPort{
 							{
-								Protocol:      v1.ProtocolTCP,
+								Protocol:      corev1.ProtocolTCP,
 								ContainerPort: int32(8080),
 							},
 						},
@@ -351,27 +349,27 @@ func GetDeploymentSpecCliDownloads(params *DeploymentOperatorParams) appsv1.Depl
 
 func getLabels(name, hcoKvIoVersion string) map[string]string {
 	return map[string]string{
-		"name":                    name,
-		hcoutil.AppLabelVersion:   hcoKvIoVersion,
-		hcoutil.AppLabelPartOf:    hcoutil.HyperConvergedCluster,
-		hcoutil.AppLabelComponent: string(hcoutil.AppComponentDeployment),
+		"name":                 name,
+		util.AppLabelVersion:   hcoKvIoVersion,
+		util.AppLabelPartOf:    util.HyperConvergedCluster,
+		util.AppLabelComponent: string(util.AppComponentDeployment),
 	}
 }
 
-func GetStdPodSecurityContext() *v1.PodSecurityContext {
-	return &v1.PodSecurityContext{
+func GetStdPodSecurityContext() *corev1.PodSecurityContext {
+	return &corev1.PodSecurityContext{
 		RunAsNonRoot: ptr.To(true),
-		SeccompProfile: &v1.SeccompProfile{
+		SeccompProfile: &corev1.SeccompProfile{
 			Type: corev1.SeccompProfileTypeRuntimeDefault,
 		},
 	}
 }
 
-func GetStdContainerSecurityContext() *v1.SecurityContext {
-	return &v1.SecurityContext{
+func GetStdContainerSecurityContext() *corev1.SecurityContext {
+	return &corev1.SecurityContext{
 		AllowPrivilegeEscalation: ptr.To(false),
-		Capabilities: &v1.Capabilities{
-			Drop: []v1.Capability{"ALL"},
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
 		},
 	}
 }
@@ -412,8 +410,8 @@ func GetDeploymentSpecWebhook(namespace, image, imagePullPolicy, hcoKvIoVersion 
 						Image:           image,
 						ImagePullPolicy: corev1.PullPolicy(imagePullPolicy),
 						Command:         stringListToSlice(hcoNameWebhook),
-						ReadinessProbe:  getReadinessProbe(hcoutil.ReadinessEndpointName, hcoutil.HealthProbePort),
-						LivenessProbe:   getLivenessProbe(hcoutil.LivenessEndpointName, hcoutil.HealthProbePort),
+						ReadinessProbe:  getReadinessProbe(util.ReadinessEndpointName, util.HealthProbePort),
+						LivenessProbe:   getLivenessProbe(util.LivenessEndpointName, util.HealthProbePort),
 						Env: append([]corev1.EnvVar{
 							{
 								// deprecated: left here for CI test.
@@ -445,10 +443,10 @@ func GetDeploymentSpecWebhook(namespace, image, imagePullPolicy, hcoKvIoVersion 
 								},
 							},
 						}, env...),
-						Resources: v1.ResourceRequirements{
-							Requests: map[v1.ResourceName]resource.Quantity{
-								v1.ResourceCPU:    resource.MustParse("5m"),
-								v1.ResourceMemory: resource.MustParse("48Mi"),
+						Resources: corev1.ResourceRequirements{
+							Requests: map[corev1.ResourceName]resource.Quantity{
+								corev1.ResourceCPU:    resource.MustParse("5m"),
+								corev1.ResourceMemory: resource.MustParse("48Mi"),
 							},
 						},
 						SecurityContext: GetStdContainerSecurityContext(),
@@ -624,16 +622,16 @@ func roleWithAllPermissions(apiGroup string, resources []string) rbacv1.PolicyRu
 	}
 }
 
-func GetServiceAccount(namespace string) v1.ServiceAccount {
+func GetServiceAccount(namespace string) corev1.ServiceAccount {
 	return createServiceAccount(namespace, hcoName)
 }
 
-func GetCLIDownloadServiceAccount(namespace string) v1.ServiceAccount {
+func GetCLIDownloadServiceAccount(namespace string) corev1.ServiceAccount {
 	return createServiceAccount(namespace, cliDownloadsName)
 }
 
-func createServiceAccount(namespace, name string) v1.ServiceAccount {
-	return v1.ServiceAccount{
+func createServiceAccount(namespace, name string) corev1.ServiceAccount {
+	return corev1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "ServiceAccount",
@@ -1093,7 +1091,7 @@ func InjectVolumesForWebHookCerts(deploy *appsv1.Deployment) {
 		}
 	}
 
-	volume := v1.Volume{
+	volume := corev1.Volume{
 		Name: certVolume,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
@@ -1102,11 +1100,11 @@ func InjectVolumesForWebHookCerts(deploy *appsv1.Deployment) {
 				Items: []corev1.KeyToPath{
 					{
 						Key:  "tls.crt",
-						Path: hcoutil.WebhookCertName,
+						Path: util.WebhookCertName,
 					},
 					{
 						Key:  "tls.key",
-						Path: hcoutil.WebhookKeyName,
+						Path: util.WebhookKeyName,
 					},
 				},
 			},
@@ -1118,7 +1116,7 @@ func InjectVolumesForWebHookCerts(deploy *appsv1.Deployment) {
 		deploy.Spec.Template.Spec.Containers[index].VolumeMounts = append(container.VolumeMounts,
 			corev1.VolumeMount{
 				Name:      certVolume,
-				MountPath: hcoutil.DefaultWebhookCertDir,
+				MountPath: util.DefaultWebhookCertDir,
 			})
 	}
 }

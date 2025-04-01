@@ -188,7 +188,7 @@ var _ = Describe("webhooks validator", func() {
 		})
 
 		It("should reject creation of a resource with an arbitrary namespace", func() {
-			cr.ObjectMeta.Namespace = ResourceInvalidNamespace
+			cr.Namespace = ResourceInvalidNamespace
 			Expect(wh.ValidateCreate(ctx, dryRun, cr)).ToNot(Succeed())
 		})
 

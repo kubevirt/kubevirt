@@ -900,11 +900,12 @@ var _ = Describe("SSP Operands", func() {
 					modifiedImage1.Spec.Schedule = image1.Spec.Schedule
 
 					for _, dict := range goldenImageList {
-						if dict.Name == "image1" {
+						switch dict.Name {
+						case "image1":
 							Expect(dict.Spec).To(Equal(modifiedImage1.Spec))
 							Expect(dict.Status.Modified).To(BeTrue())
 							Expect(dict.Status.CommonTemplate).To(BeTrue())
-						} else if dict.Name == "image2" {
+						case "image2":
 							Expect(dict.Status.Modified).To(BeFalse())
 							Expect(dict.Status.CommonTemplate).To(BeTrue())
 						}
@@ -950,11 +951,12 @@ var _ = Describe("SSP Operands", func() {
 					Expect(goldenImageList).To(HaveCap(4))
 
 					for _, dict := range goldenImageList {
-						if dict.Name == "image1" {
+						switch dict.Name {
+						case "image1":
 							Expect(dict.Spec.Template.Spec.Storage).To(BeEquivalentTo(storageFromCr))
 							Expect(dict.Status.Modified).To(BeTrue())
 							Expect(dict.Status.CommonTemplate).To(BeTrue())
-						} else if dict.Name == "image2" {
+						case "image2":
 							Expect(dict.Status.Modified).To(BeFalse())
 							Expect(dict.Status.CommonTemplate).To(BeTrue())
 						}
@@ -1256,7 +1258,7 @@ var _ = Describe("SSP Operands", func() {
 					var commonImages []hcov1beta1.DataImportCronTemplate
 					for _, d := range dataImportCronTemplateHardCodedMap {
 						dict := *d.DeepCopy()
-						dict.ObjectMeta.Namespace = customNS
+						dict.Namespace = customNS
 
 						commonImages = append(commonImages, dict)
 					}
@@ -1539,7 +1541,7 @@ var _ = Describe("SSP Operands", func() {
 							VolumeName:       "volumeName",
 						}
 
-						modifiedCentos8.ObjectMeta.Namespace = ""
+						modifiedCentos8.Namespace = ""
 						modifiedCentos8.Spec.Template.Spec.Storage = modifiedStorage.DeepCopy()
 						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*modifiedCentos8, image3, image4}
 						hco.Spec.CommonBootImageNamespace = ptr.To(customNS)
@@ -1823,7 +1825,7 @@ var _ = Describe("SSP Operands", func() {
 						sspCentos8 := dataImportCronTemplateHardCodedMap["centos8-image-cron"]
 						modifiedCentos8 := sspCentos8.DeepCopy()
 						modifiedCentos8.Spec.Template.Spec.Storage = &cdiv1beta1.StorageSpec{StorageClassName: ptr.To(scName)}
-						modifiedCentos8.ObjectMeta.Namespace = ""
+						modifiedCentos8.Namespace = ""
 
 						hco.Spec.DataImportCronTemplates = []hcov1beta1.DataImportCronTemplate{*modifiedCentos8, image3, image4}
 						hco.Spec.CommonBootImageNamespace = ptr.To(customNS)

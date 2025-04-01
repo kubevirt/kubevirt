@@ -13,7 +13,7 @@ VIRT_ARTIFACTS_SERVER ?= $(REGISTRY_NAMESPACE)/virt-artifacts-server
 BUNDLE_IMAGE       ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-bundle
 INDEX_IMAGE        ?= $(REGISTRY_NAMESPACE)/hyperconverged-cluster-index
 LDFLAGS            ?= -w -s
-GOLANDCI_LINT_VERSION ?= v1.64.4
+GOLANDCI_LINT_VERSION ?= v2.0.2
 HCO_BUMP_LEVEL ?= minor
 UNAME_ARCH     := $(shell uname -m)
 ifeq ($(UNAME_ARCH),x86_64)
@@ -48,7 +48,7 @@ goimport:
 
 
 lint:
-	GOTOOLCHAIN=go1.23.4 go install github.com/golangci/golangci-lint/cmd/golangci-lint@${GOLANDCI_LINT_VERSION}
+	GOTOOLCHAIN=go1.23.4 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANDCI_LINT_VERSION}
 	golangci-lint run
 
 build: build-operator build-csv-merger build-webhook

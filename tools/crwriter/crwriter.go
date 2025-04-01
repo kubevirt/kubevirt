@@ -128,7 +128,7 @@ func writeBoilerplate(w io.Writer) error {
 
 	year := []byte(time.Now().UTC().Format("2006"))
 
-	boilerplate = bytes.Replace(boilerplate, []byte("YEAR"), year, -1)
+	boilerplate = bytes.ReplaceAll(boilerplate, []byte("YEAR"), year)
 	_, err = w.Write(boilerplate)
 
 	return err

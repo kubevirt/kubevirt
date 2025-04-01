@@ -349,9 +349,10 @@ func getHcoHighBurstProfileTuningValues(hc *hcov1beta1.HyperConverged) (*kubevir
 }
 
 func hcoTuning2Kv(hc *hcov1beta1.HyperConverged) (*kubevirtcorev1.ReloadableComponentConfiguration, error) {
-	if hc.Spec.TuningPolicy == hcov1beta1.HyperConvergedAnnotationTuningPolicy {
+	switch hc.Spec.TuningPolicy {
+	case hcov1beta1.HyperConvergedAnnotationTuningPolicy:
 		return getHcoAnnotationTuning(hc)
-	} else if hc.Spec.TuningPolicy == hcov1beta1.HyperConvergedHighBurstProfile {
+	case hcov1beta1.HyperConvergedHighBurstProfile:
 		return getHcoHighBurstProfileTuningValues(hc)
 	}
 	return nil, nil
@@ -689,8 +690,8 @@ func hcTLSSecurityProfileToKv(profile *openshiftconfigv1.TLSSecurityProfile) *ku
 	}
 
 	if profile.Custom != nil {
-		profileCiphers = profile.Custom.TLSProfileSpec.Ciphers
-		profileMinVersion = profile.Custom.TLSProfileSpec.MinTLSVersion
+		profileCiphers = profile.Custom.Ciphers
+		profileMinVersion = profile.Custom.MinTLSVersion
 	} else {
 		profileCiphers = openshiftconfigv1.TLSProfiles[profile.Type].Ciphers
 		profileMinVersion = openshiftconfigv1.TLSProfiles[profile.Type].MinTLSVersion

@@ -83,7 +83,7 @@ func fixQuoteIssues(yamlBytes []byte) []byte {
 	s = re.ReplaceAllString(s, "$1")
 
 	// fix quoted empty square brackets by removing unneeded single quotes...
-	s = strings.Replace(s, " '[]'", " []", -1)
+	s = strings.ReplaceAll(s, " '[]'", " []")
 
 	yamlBytes = []byte(s)
 	return yamlBytes

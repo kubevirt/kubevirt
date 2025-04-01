@@ -425,8 +425,8 @@ func (r *ReconcileHyperConverged) EnsureOperandAndComplete(req *common.HcoReques
 }
 
 func updateStatusGeneration(req *common.HcoRequest) {
-	if req.Instance.ObjectMeta.Generation != req.Instance.Status.ObservedGeneration {
-		req.Instance.Status.ObservedGeneration = req.Instance.ObjectMeta.Generation
+	if req.Instance.Generation != req.Instance.Status.ObservedGeneration {
+		req.Instance.Status.ObservedGeneration = req.Instance.Generation
 		req.StatusDirty = true
 	}
 }
@@ -481,9 +481,9 @@ func (r *ReconcileHyperConverged) updateHyperConverged(request *common.HcoReques
 	}
 
 	if request.Dirty {
-		request.Instance.ObjectMeta.Annotations = meta.Annotations
-		request.Instance.ObjectMeta.Finalizers = meta.Finalizers
-		request.Instance.ObjectMeta.Labels = meta.Labels
+		request.Instance.Annotations = meta.Annotations
+		request.Instance.Finalizers = meta.Finalizers
+		request.Instance.Labels = meta.Labels
 		request.Instance.Spec = spec
 
 		err = r.updateHyperConvergedSpecMetadata(request)
@@ -522,7 +522,7 @@ func (r *ReconcileHyperConverged) updateHyperConvergedStatus(request *common.Hco
 func (r *ReconcileHyperConverged) validateNamespace(req *common.HcoRequest) bool {
 	// Ignore invalid requests
 	if !reqresolver.IsTriggeredByHyperConverged(req.NamespacedName) {
-		req.Logger.Info("Invalid request", "HyperConverged.Namespace", req.NamespacedName.Namespace, "HyperConverged.Name", req.NamespacedName.Name)
+		req.Logger.Info("Invalid request", "HyperConverged.Namespace", req.Namespace, "HyperConverged.Name", req.Name)
 		hc := reqresolver.GetHyperConvergedNamespacedName()
 		req.Conditions.SetStatusCondition(metav1.Condition{
 			Type:               hcov1beta1.ConditionReconcileComplete,
@@ -589,8 +589,8 @@ func (r *ReconcileHyperConverged) ensureHcoDeleted(req *common.HcoRequest) (reco
 
 	// Remove the finalizers
 	finDropped := false
-	if slices.Contains(req.Instance.ObjectMeta.Finalizers, FinalizerName) {
-		req.Instance.ObjectMeta.Finalizers, finDropped = drop(req.Instance.ObjectMeta.Finalizers, FinalizerName)
+	if slices.Contains(req.Instance.Finalizers, FinalizerName) {
+		req.Instance.Finalizers, finDropped = drop(req.Instance.Finalizers, FinalizerName)
 		req.Dirty = true
 		requeue = finDropped
 	}
@@ -871,7 +871,7 @@ func (r *ReconcileHyperConverged) updateConditions(req *common.HcoRequest) {
 				Status:             metav1.ConditionUnknown,
 				Message:            "Unknown Status",
 				Reason:             "StatusUnknown",
-				ObservedGeneration: req.Instance.ObjectMeta.Generation,
+				ObservedGeneration: req.Instance.Generation,
 			}
 		}
 
@@ -897,11 +897,11 @@ func (r *ReconcileHyperConverged) updateConditions(req *common.HcoRequest) {
 }
 
 func (r *ReconcileHyperConverged) setLabels(req *common.HcoRequest) {
-	if req.Instance.ObjectMeta.Labels == nil {
-		req.Instance.ObjectMeta.Labels = map[string]string{}
+	if req.Instance.Labels == nil {
+		req.Instance.Labels = map[string]string{}
 	}
-	if req.Instance.ObjectMeta.Labels[hcoutil.AppLabel] == "" {
-		req.Instance.ObjectMeta.Labels[hcoutil.AppLabel] = req.Instance.Name
+	if req.Instance.Labels[hcoutil.AppLabel] == "" {
+		req.Instance.Labels[hcoutil.AppLabel] = req.Instance.Name
 		req.Dirty = true
 	}
 }
@@ -914,7 +914,7 @@ func (r *ReconcileHyperConverged) detectTaintedConfiguration(req *common.HcoRequ
 	tainted := false
 	for _, jpa := range JSONPatchAnnotationNames {
 		NumOfChanges := 0
-		jsonPatch, exists := req.Instance.ObjectMeta.Annotations[jpa]
+		jsonPatch, exists := req.Instance.Annotations[jpa]
 		if exists {
 			if NumOfChanges = getNumOfChangesJSONPatch(jsonPatch); NumOfChanges > 0 {
 				tainted = true
@@ -929,7 +929,7 @@ func (r *ReconcileHyperConverged) detectTaintedConfiguration(req *common.HcoRequ
 			Status:             metav1.ConditionTrue,
 			Reason:             taintedConfigurationReason,
 			Message:            taintedConfigurationMessage,
-			ObservedGeneration: req.Instance.ObjectMeta.Generation,
+			ObservedGeneration: req.Instance.Generation,
 		})
 
 		if !conditionExists {
@@ -1216,11 +1216,11 @@ func drop(slice []string, s string) ([]string, bool) {
 }
 
 func checkFinalizers(req *common.HcoRequest) bool {
-	if req.Instance.ObjectMeta.DeletionTimestamp.IsZero() {
+	if req.Instance.DeletionTimestamp.IsZero() {
 		// Add the finalizer if it's not there
-		if !slices.Contains(req.Instance.ObjectMeta.Finalizers, FinalizerName) {
+		if !slices.Contains(req.Instance.Finalizers, FinalizerName) {
 			req.Logger.Info("setting a finalizer (with fully qualified name)")
-			req.Instance.ObjectMeta.Finalizers = append(req.Instance.ObjectMeta.Finalizers, FinalizerName)
+			req.Instance.Finalizers = append(req.Instance.Finalizers, FinalizerName)
 			req.Dirty = true
 		}
 		return true

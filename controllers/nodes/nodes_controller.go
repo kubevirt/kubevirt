@@ -117,7 +117,7 @@ func (r *ReconcileNodeCounter) Reconcile(ctx context.Context, _ reconcile.Reques
 		return reconcile.Result{}, err
 	}
 
-	if !hco.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !hco.DeletionTimestamp.IsZero() {
 		return reconcile.Result{}, nil
 	}
 

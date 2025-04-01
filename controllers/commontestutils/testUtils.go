@@ -61,7 +61,7 @@ var (
 
 func NewHco() *hcov1beta1.HyperConverged {
 	hco := components.GetOperatorCR()
-	hco.ObjectMeta.Namespace = Namespace
+	hco.Namespace = Namespace
 	return hco
 }
 

@@ -164,7 +164,7 @@ func (h isHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 		return false, false, errors.New("can't convert to ImageStream")
 	}
 
-	if label, ok := found.ObjectMeta.Labels[util.AppLabelManagedBy]; !ok || util.OperatorName != label {
+	if label, ok := found.Labels[util.AppLabelManagedBy]; !ok || util.OperatorName != label {
 		// not our imageStream. we won't reconcile it.
 		return false, false, nil
 	}
@@ -306,9 +306,9 @@ func processImageStreamFile(path string, info os.FileInfo, logger log.Logger, hc
 			return nil, err
 		}
 
-		origNS := is.ObjectMeta.Namespace
+		origNS := is.Namespace
 		if ns := hc.Spec.CommonBootImageNamespace; ns != nil && len(*ns) > 0 {
-			is.ObjectMeta.Namespace = *ns
+			is.Namespace = *ns
 		}
 
 		is.Labels = getLabels(hc, util.AppComponentCompute)

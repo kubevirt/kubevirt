@@ -238,11 +238,11 @@ func fmtRawDoc(rawDoc string) string {
 	}
 
 	postDoc := strings.TrimRight(buffer.String(), "\n")
-	postDoc = strings.Replace(postDoc, "\\\"", "\"", -1) // replace user's \" to "
-	postDoc = strings.Replace(postDoc, "\"", "\\\"", -1) // Escape "
-	postDoc = strings.Replace(postDoc, "\n", "\\n", -1)
-	postDoc = strings.Replace(postDoc, "\t", "\\t", -1)
-	postDoc = strings.Replace(postDoc, "|", "\\|", -1)
+	postDoc = strings.ReplaceAll(postDoc, "\\\"", "\"") // replace user's \" to "
+	postDoc = strings.ReplaceAll(postDoc, "\"", "\\\"") // Escape "
+	postDoc = strings.ReplaceAll(postDoc, "\n", "\\n")
+	postDoc = strings.ReplaceAll(postDoc, "\t", "\\t")
+	postDoc = strings.ReplaceAll(postDoc, "|", "\\|")
 
 	return postDoc
 }
@@ -356,7 +356,7 @@ func getK8sAPIVersion() (string, error) {
 
 	for _, req := range gomod.Require {
 		if req.Mod.Path == "k8s.io/api" {
-			v := strings.Replace(req.Mod.Version, "v0.", "v1.", -1)
+			v := strings.ReplaceAll(req.Mod.Version, "v0.", "v1.")
 			return semver.MajorMinor(v), nil
 		}
 	}

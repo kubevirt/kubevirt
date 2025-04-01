@@ -112,7 +112,7 @@ func (hcoCli HCOPrometheusClient) GetHCOMetric(ctx context.Context, query string
 			}
 			res, err := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
 			if err != nil {
-				return 0, fmt.Errorf("error converting %s to int: %v\n", line, err)
+				return 0, fmt.Errorf("error converting %s to int: %v", line, err)
 			}
 			return res, nil
 		}

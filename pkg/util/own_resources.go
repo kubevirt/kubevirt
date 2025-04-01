@@ -122,8 +122,8 @@ func getPod(ctx context.Context, c client.Reader, logger logr.Logger) (*corev1.P
 
 	// .Get() clears the APIVersion and Kind,
 	// so we need to set them before returning the object.
-	pod.TypeMeta.APIVersion = "v1"
-	pod.TypeMeta.Kind = "Pod"
+	pod.APIVersion = "v1"
+	pod.Kind = "Pod"
 
 	logger.Info("Found Pod", "Pod.Namespace", operatorNs, "Pod.Name", pod.Name)
 

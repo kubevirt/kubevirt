@@ -21,7 +21,6 @@ import (
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 type cnaHandler genericOperand
@@ -58,7 +57,7 @@ func (h *cnaHooks) getConditions(cr runtime.Object) []metav1.Condition {
 }
 func (h *cnaHooks) checkComponentVersion(cr runtime.Object) bool {
 	found := cr.(*networkaddonsv1.NetworkAddonsConfig)
-	return checkComponentVersion(hcoutil.CnaoVersionEnvV, found.Status.ObservedVersion)
+	return checkComponentVersion(util.CnaoVersionEnvV, found.Status.ObservedVersion)
 }
 func (h *cnaHooks) reset() {
 	h.cache = nil
@@ -152,14 +151,14 @@ func NewNetworkAddons(hc *hcov1beta1.HyperConverged, opts ...string) (*networkad
 	}
 
 	if hc.Spec.FeatureGates.DeployKubeSecondaryDNS != nil && *hc.Spec.FeatureGates.DeployKubeSecondaryDNS {
-		baseDomain := hcoutil.GetClusterInfo().GetBaseDomain()
+		baseDomain := util.GetClusterInfo().GetBaseDomain()
 		cnaoSpec.KubeSecondaryDNS = &networkaddonsshared.KubeSecondaryDNS{
 			Domain:       baseDomain,
 			NameServerIP: nameServerIP,
 		}
 	}
 
-	cnaoSpec.Ovs = hcoAnnotation2CnaoSpec(hc.ObjectMeta.Annotations)
+	cnaoSpec.Ovs = hcoAnnotation2CnaoSpec(hc.Annotations)
 	cnaoInfra := hcoConfig2CnaoPlacement(hc.Spec.Infra.NodePlacement)
 	cnaoWorkloads := hcoConfig2CnaoPlacement(hc.Spec.Workloads.NodePlacement)
 	if cnaoInfra != nil || cnaoWorkloads != nil {
@@ -170,7 +169,7 @@ func NewNetworkAddons(hc *hcov1beta1.HyperConverged, opts ...string) (*networkad
 	}
 	cnaoSpec.SelfSignConfiguration = hcoCertConfig2CnaoSelfSignedConfig(&hc.Spec.CertConfig)
 
-	cnaoSpec.TLSSecurityProfile = hcoutil.GetClusterInfo().GetTLSSecurityProfile(hc.Spec.TLSSecurityProfile)
+	cnaoSpec.TLSSecurityProfile = util.GetClusterInfo().GetTLSSecurityProfile(hc.Spec.TLSSecurityProfile)
 
 	cna := NewNetworkAddonsWithNameOnly(hc, opts...)
 	cna.Spec = cnaoSpec
@@ -198,8 +197,8 @@ func NewNetworkAddonsWithNameOnly(hc *hcov1beta1.HyperConverged, opts ...string)
 	return &networkaddonsv1.NetworkAddonsConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      networkaddonsnames.OPERATOR_CONFIG,
-			Labels:    getLabels(hc, hcoutil.AppComponentNetwork),
-			Namespace: getNamespace(hcoutil.UndefinedNamespace, opts),
+			Labels:    getLabels(hc, util.AppComponentNetwork),
+			Namespace: getNamespace(util.UndefinedNamespace, opts),
 		},
 	}
 }

@@ -19,7 +19,6 @@ import (
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/downloadhost"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
-	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
 const (
@@ -83,7 +82,7 @@ func NewConsoleCLIDownload(hc *hcov1beta1.HyperConverged) *consolev1.ConsoleCLID
 	return &consolev1.ConsoleCLIDownload{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "virtctl-clidownloads-" + hc.Name,
-			Labels: getLabels(hc, hcoutil.AppComponentCompute),
+			Labels: getLabels(hc, util.AppComponentCompute),
 		},
 
 		Spec: consolev1.ConsoleCLIDownloadSpec{
@@ -132,7 +131,7 @@ func NewCliDownloadsService(hc *hcov1beta1.HyperConverged) *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      downloadhost.CLIDownloadsServiceName,
 			Namespace: hc.Namespace,
-			Labels:    getLabels(hc, hcoutil.AppComponentCompute),
+			Labels:    getLabels(hc, util.AppComponentCompute),
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
@@ -205,7 +204,7 @@ func NewCliDownloadsRoute(hc *hcov1beta1.HyperConverged) *routev1.Route {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      downloadhost.CLIDownloadsServiceName,
 			Namespace: hc.Namespace,
-			Labels:    getLabels(hc, hcoutil.AppComponentCompute),
+			Labels:    getLabels(hc, util.AppComponentCompute),
 		},
 		Spec: routev1.RouteSpec{
 			Host: string(downloadhost.Get().CurrentHost),
