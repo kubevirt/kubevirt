@@ -87,6 +87,26 @@ if [[ "$KUBEVIRT_DEPLOY_CDI" != "false" ]] && [[ ${ARCHITECTURE} != *aarch64 ]];
     _ensure_cdi_deployment
 fi
 
+if [[ "${KUBEVIRT_DEPLOY_NFS_CSI}" == "true" ]]; then
+    # Hack to change the nfs-csi storage class outside of kubevirtci/gocli
+    _kubectl delete sc nfs-csi
+    _kubectl create -f - <<EOF
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nfs-csi
+provisioner: nfs.csi.k8s.io
+parameters:
+  server: nfs
+  share: /
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+mountOptions:
+  - nfsvers=4.1
+EOF
+fi
+
 # Deploy kubevirt operator
 _kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt-operator.yaml
 

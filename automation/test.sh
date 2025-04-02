@@ -140,6 +140,7 @@ export WINDOWS_NFS_DIR=${WINDOWS_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/
 export WINDOWS_LOCK_PATH=${WINDOWS_LOCK_PATH:-/var/lib/stdci/shared/download_windows_image.lock}
 export WINDOWS_SYSPREP_NFS_DIR=${WINDOWS_SYSPREP_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/windows2012_syspreped}
 export WINDOWS_SYSPREP_LOCK_PATH=${WINDOWS_SYSPREP_LOCK_PATH:-/var/lib/stdci/shared/download_windows_syspreped_image.lock}
+export KUBEVIRT_NFS_DIR=${KUBEVIRT_NFS_DIR:-/var/lib/containers/nfs-data}
 
 wait_for_download_lock() {
   local max_lock_attempts=60
