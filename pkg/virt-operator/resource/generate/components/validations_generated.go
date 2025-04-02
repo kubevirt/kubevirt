@@ -1059,8 +1059,9 @@ var CRDsValidation map[string]string = map[string]string{
                 features
               properties:
                 maxCpuSockets:
-                  description: MaxCpuSockets holds the maximum amount of sockets that
-                    can be hotplugged
+                  description: |-
+                    MaxCpuSockets provides a MaxSockets value for VMs that do not provide their own.
+                    For VMs with more sockets than maximum the MaxSockets will be set to equal number of sockets.
                   format: int32
                   type: integer
                 maxGuest:
