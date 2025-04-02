@@ -101,6 +101,11 @@ const (
 	HostDeviceUSB  = "usb"
 	AddressPCI     = "pci"
 	AddressCCW     = "ccw"
+
+	ControllerTypePCI              = "pci"
+	ControllerModelPCIeRoot        = "pcie-root"
+	ControllerModelPCIeRootPort    = "pcie-root-port"
+	ControllerModelPCIeExpanderBus = "pcie-expander-bus"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -641,9 +646,17 @@ type Controller struct {
 	Driver  *ControllerDriver `xml:"driver,omitempty"`
 	Alias   *Alias            `xml:"alias,omitempty"`
 	Address *Address          `xml:"address,omitempty"`
+	Target  *ControllerTarget `xml:"target,omitempty"`
 }
 
 // END Controller -----------------------------
+
+// BEGIN ControllerTarget
+type ControllerTarget struct {
+	Node *uint32 `xml:"node,omitempty"`
+}
+
+// END ControllerTarget -----------------------
 
 // BEGIN ControllerDriver
 type ControllerDriver struct {

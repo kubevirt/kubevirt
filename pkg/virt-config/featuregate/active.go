@@ -67,6 +67,12 @@ const (
 
 	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
 	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
+
+	// Owner: @jimkingstone
+	// Alpha: v1.5.0
+	//
+	// GPUDeviceNUMAGate supports associating NUMA nodes with GPU devices
+	GPUDeviceNUMAGate = "GPUDeviceNUMA"
 )
 
 func init() {
@@ -94,4 +100,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: InstancetypeReferencePolicy, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: GPUDeviceNUMAGate, State: Alpha})
 }

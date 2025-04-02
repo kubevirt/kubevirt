@@ -2,9 +2,11 @@ package converter
 
 import (
 	"fmt"
+	"strconv"
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -126,4 +128,100 @@ func (p *pciRootSlotAssigner) PlacePCIDeviceAtNextSlot(address *api.Address) (*a
 	address.Slot = fmt.Sprintf("%#02x", slot)
 	address.Function = "0x0"
 	return address, nil
+}
+
+type pcieExpanderBusAssigner struct {
+	domainSpec  *api.DomainSpec
+	hasPCIeRoot bool
+	index       int
+}
+
+func NewPCIeExpanderBusAssigner(domainSpec *api.DomainSpec) *pcieExpanderBusAssigner {
+	return &pcieExpanderBusAssigner{
+		domainSpec:  domainSpec,
+		hasPCIeRoot: false,
+		index:       1,
+	}
+}
+
+func (a *pcieExpanderBusAssigner) addPCIeRoot() {
+	if !a.hasPCIeRoot {
+		a.hasPCIeRoot = true
+
+		for _, controller := range a.domainSpec.Devices.Controllers {
+			if controller.Model == api.ControllerModelPCIeRoot {
+				return
+			}
+		}
+
+		a.domainSpec.Devices.Controllers = append(
+			a.domainSpec.Devices.Controllers,
+			api.Controller{
+				Type:  api.ControllerTypePCI,
+				Index: "0",
+				Model: api.ControllerModelPCIeRoot,
+			},
+		)
+	}
+}
+
+func (a *pcieExpanderBusAssigner) addPCIeExpanderBus(numaNode *uint32) int {
+	pcieExpanderBusIndex := a.index
+	a.domainSpec.Devices.Controllers = append(
+		a.domainSpec.Devices.Controllers,
+		api.Controller{
+			Type:  api.ControllerTypePCI,
+			Index: strconv.Itoa(pcieExpanderBusIndex),
+			Model: api.ControllerModelPCIeExpanderBus,
+			Target: &api.ControllerTarget{
+				Node: numaNode,
+			},
+		},
+	)
+	a.index = a.index + 1
+	return pcieExpanderBusIndex
+}
+
+func (a *pcieExpanderBusAssigner) addPCIeRootPort(pcieExpanderBusIndex int) int {
+	pcieRootPortIndex := a.index
+	a.domainSpec.Devices.Controllers = append(
+		a.domainSpec.Devices.Controllers,
+		api.Controller{
+			Type:  api.ControllerTypePCI,
+			Index: strconv.Itoa(pcieRootPortIndex),
+			Model: api.ControllerModelPCIeRootPort,
+			Address: &api.Address{
+				Type:     api.AddressPCI,
+				Domain:   "0x0000",
+				Bus:      fmt.Sprintf("%#02x", pcieExpanderBusIndex),
+				Slot:     "0x00",
+				Function: "0x0",
+			},
+		},
+	)
+	a.index = a.index + 1
+	return pcieRootPortIndex
+}
+
+func (a *pcieExpanderBusAssigner) AddDevice(hostDevice *api.HostDevice) {
+	guestOSNumaNode := hardware.LookupDeviceVCPUNumaNode(
+		hostDevice.Source.Address,
+		a.domainSpec,
+	)
+
+	if guestOSNumaNode == nil {
+		return
+	}
+
+	a.addPCIeRoot()
+	pcieExpanderBusIndex := a.addPCIeExpanderBus(guestOSNumaNode)
+	pcieRootPortIndex := a.addPCIeRootPort(pcieExpanderBusIndex)
+
+	hostDevice.Address = &api.Address{
+		Type:     api.AddressPCI,
+		Domain:   "0x0000",
+		Bus:      fmt.Sprintf("%#02x", pcieRootPortIndex),
+		Slot:     "0x00",
+		Function: "0x0",
+	}
 }

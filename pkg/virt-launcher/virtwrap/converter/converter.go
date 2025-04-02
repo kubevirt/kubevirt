@@ -112,6 +112,7 @@ type ConverterContext struct {
 	FreePageReporting               bool
 	BochsForEFIGuests               bool
 	SerialConsoleLog                bool
+	GPUDeviceNUMAEnabled            bool
 	DomainAttachmentByInterfaceName map[string]string
 }
 
@@ -1763,6 +1764,13 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, c.Topology, c.CPUSet, hasIOThreads(vmi))
 			if err != nil {
 				return err
+			}
+
+			if c.GPUDeviceNUMAEnabled {
+				assigner := NewPCIeExpanderBusAssigner(&domain.Spec)
+				for i := range c.GPUHostDevices {
+					assigner.AddDevice(&c.GPUHostDevices[i])
+				}
 			}
 		}
 	}
