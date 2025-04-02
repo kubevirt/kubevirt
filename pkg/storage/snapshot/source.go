@@ -286,17 +286,12 @@ func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
 }
 
 func (s *vmSnapshotSource) Online() (bool, error) {
-	vmRunning, err := checkVMRunning(s.vm)
-	if err != nil {
-		return false, err
-	}
-
 	exists, err := s.controller.checkVMIRunning(s.vm)
 	if err != nil {
 		return false, err
 	}
 
-	return (vmRunning || exists), nil
+	return exists, nil
 }
 
 func (s *vmSnapshotSource) GuestAgent() (bool, error) {

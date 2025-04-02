@@ -1052,15 +1052,6 @@ func (ctrl *VMSnapshotController) checkVMIRunning(vm *kubevirtv1.VirtualMachine)
 	return exists, err
 }
 
-func checkVMRunning(vm *kubevirtv1.VirtualMachine) (bool, error) {
-	rs, err := vm.RunStrategy()
-	if err != nil {
-		return false, err
-	}
-
-	return rs == kubevirtv1.RunStrategyAlways || rs == kubevirtv1.RunStrategyRerunOnFailure, nil
-}
-
 func updateSnapshotCondition(ss *snapshotv1.VirtualMachineSnapshot, c snapshotv1.Condition) {
 	ss.Status.Conditions = updateCondition(ss.Status.Conditions, c, false)
 }
