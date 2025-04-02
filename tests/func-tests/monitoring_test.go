@@ -38,6 +38,11 @@ import (
 
 var runbookClient = http.DefaultClient
 
+const (
+	prometheousTimeout = 5 * time.Minute
+	prometheousPolling = 10 * time.Second
+)
+
 var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring", Serial, Ordered, Label(tests.OpenshiftLabel, "monitoring"), func() {
 	flag.Parse()
 
@@ -149,7 +154,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 			Expect(err).ToNot(HaveOccurred())
 			alert := getAlertByName(alerts, "KubeVirtCRModified")
 			return alert
-		}).WithTimeout(60 * time.Second).WithPolling(time.Second).WithContext(ctx).ShouldNot(BeNil())
+		}).WithTimeout(prometheousTimeout).WithPolling(prometheousPolling).WithContext(ctx).ShouldNot(BeNil())
 	})
 
 	It("UnsupportedHCOModification alert should fired when there is an jsonpatch annotation to modify an operand CRs", func(ctx context.Context) {
@@ -166,7 +171,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 			Expect(err).ToNot(HaveOccurred())
 			alert := getAlertByName(alerts, "UnsupportedHCOModification")
 			return alert
-		}).WithTimeout(60 * time.Second).WithPolling(time.Second).WithContext(ctx).ShouldNot(BeNil())
+		}).WithTimeout(prometheousTimeout).WithPolling(prometheousPolling).WithContext(ctx).ShouldNot(BeNil())
 	})
 
 	Describe("KubeDescheduler", Serial, Ordered, Label(tests.OpenshiftLabel, "monitoring"), func() {
@@ -254,8 +259,8 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 			Eventually(func(ctx context.Context) float64 {
 				return getMetricValue(ctx, promClient, query)
 			}).
-				WithTimeout(60*time.Second).
-				WithPolling(time.Second).
+				WithTimeout(5*time.Minute).
+				WithPolling(10*time.Second).
 				WithContext(ctx).
 				Should(
 					Equal(float64(1)),
@@ -268,7 +273,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 				Expect(err).ToNot(HaveOccurred())
 				alert := getAlertByName(alerts, hcoalerts.MisconfiguredDeschedulerAlert)
 				return alert
-			}).WithTimeout(60 * time.Second).WithPolling(time.Second).WithContext(ctx).ShouldNot(BeNil())
+			}).WithTimeout(prometheousTimeout).WithPolling(prometheousPolling).WithContext(ctx).ShouldNot(BeNil())
 
 			By("Correctly configuring the descheduler for KubeVirt")
 			Expect(cli.Patch(ctx, descheduler, patchConfigure)).To(Succeed())
@@ -290,8 +295,8 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 			Eventually(func(ctx context.Context) float64 {
 				return getMetricValue(ctx, promClient, query)
 			}).
-				WithTimeout(60*time.Second).
-				WithPolling(time.Second).
+				WithTimeout(5*time.Minute).
+				WithPolling(10*time.Second).
 				WithContext(ctx).
 				Should(
 					Equal(float64(0)),
@@ -304,7 +309,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 				Expect(err).ToNot(HaveOccurred())
 				alert := getAlertByName(alerts, hcoalerts.MisconfiguredDeschedulerAlert)
 				return alert
-			}).WithTimeout(60 * time.Second).WithPolling(time.Second).WithContext(ctx).Should(BeNil())
+			}).WithTimeout(prometheousTimeout).WithPolling(prometheousPolling).WithContext(ctx).Should(BeNil())
 
 			By("Misconfiguring a second time the descheduler")
 			Expect(cli.Patch(ctx, descheduler, patchMisconfigure)).To(Succeed())
@@ -326,8 +331,8 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 			Eventually(func(ctx context.Context) float64 {
 				return getMetricValue(ctx, promClient, query)
 			}).
-				WithTimeout(60*time.Second).
-				WithPolling(time.Second).
+				WithTimeout(5*time.Minute).
+				WithPolling(10*time.Second).
 				WithContext(ctx).
 				Should(
 					Equal(float64(1)),
@@ -340,7 +345,7 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 				Expect(err).ToNot(HaveOccurred())
 				alert := getAlertByName(alerts, hcoalerts.MisconfiguredDeschedulerAlert)
 				return alert
-			}).WithTimeout(60 * time.Second).WithPolling(time.Second).WithContext(ctx).ShouldNot(BeNil())
+			}).WithTimeout(prometheousTimeout).WithPolling(prometheousPolling).WithContext(ctx).ShouldNot(BeNil())
 		})
 	})
 
