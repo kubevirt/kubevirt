@@ -839,6 +839,65 @@ var _ = Describe("Pool", func() {
 			// Should not see any VMI deletions since one VMI is not ready
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(BeEmpty())
 		})
+
+		It("should back off and respect maxUnavailable when updates fail", func() {
+			pool, vm := DefaultPool(4)
+			pool.Status.Replicas = 4
+			pool.Status.ReadyReplicas = 4
+			maxUnavailable := intstr.FromString("25%")
+			pool.Spec.MaxUnavailable = &maxUnavailable
+
+			oldPoolRevision := createPoolRevision(pool)
+
+			pool.Generation = 123
+			pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels = map[string]string{}
+			pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels["newkey"] = "newval"
+			newPoolRevision := createPoolRevision(pool)
+
+			addPool(pool)
+			// Create 4 VMs with their VMIs
+			for i := 0; i < 4; i++ {
+				vmCopy := vm.DeepCopy()
+				vmCopy.Name = fmt.Sprintf("%s-%d", pool.Name, i)
+				vmCopy = injectPoolRevisionLabelsIntoVM(vmCopy, newPoolRevision.Name)
+				markVmAsReady(vmCopy)
+				vmi := createReadyVMI(vmCopy, oldPoolRevision)
+				addVM(vmCopy)
+				addVMI(vmi)
+			}
+
+			addCR(oldPoolRevision)
+			addCR(newPoolRevision)
+			expectControllerRevisionCreation(newPoolRevision)
+
+			// Simulate failed VMI deletion
+			deleteCount := 0
+			fakeVirtClient.Fake.PrependReactor("delete", "virtualmachineinstances", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+				deleteCount++
+				if deleteCount == 1 {
+					// First deletion fails
+					return true, nil, fmt.Errorf("simulated deletion failure")
+				}
+				return true, nil, nil
+			})
+
+			// Expect pool to be updated with failure condition
+			fakeVirtClient.Fake.PrependReactor("update", "virtualmachinepools", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+				update, ok := action.(k8stesting.UpdateAction)
+				Expect(ok).To(BeTrue())
+				updateObj := update.GetObject().(*poolv1.VirtualMachinePool)
+				Expect(updateObj.Status.Conditions).To(HaveLen(1))
+				Expect(updateObj.Status.Conditions[0].Type).To(Equal(poolv1.VirtualMachinePoolReplicaFailure))
+				Expect(updateObj.Status.Conditions[0].Reason).To(Equal(FailedUpdateReason))
+				return true, update.GetObject(), nil
+			})
+
+			sanityExecute()
+
+			// Verify that only one VMI deletion was attempted
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "delete", "virtualmachineinstances")).To(HaveLen(1))
+			testutils.ExpectEvent(recorder, common.FailedUpdateVirtualMachineReason)
+		})
 	})
 })
 
