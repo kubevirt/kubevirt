@@ -358,9 +358,6 @@ func main() {
 	simulateCrash := pflag.Bool("simulate-crash", false, "Causes virt-launcher to immediately crash. This is used by functional tests to simulate crash loop scenarios.")
 	libvirtLogFilters := pflag.String("libvirt-log-filters", "", "Set custom log filters for libvirt")
 
-	// set new default verbosity, was set to 0 by glog
-	goflag.Set("v", "2")
-
 	pflag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
 	pflag.Parse()
 

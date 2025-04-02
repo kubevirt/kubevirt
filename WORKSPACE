@@ -433,13 +433,6 @@ http_file(
 
 # some repos which are not part of go_rules anymore
 go_repository(
-    name = "com_github_golang_glog",
-    importpath = "github.com/golang/glog",
-    sum = "h1:VKtxabqXZkF25pY9ekfRL6a582T4P37/31XEstQ5p58=",
-    version = "v0.0.0-20160126235308-23def4e6c14b",
-)
-
-go_repository(
     name = "org_golang_x_net",
     importpath = "golang.org/x/net",
     sum = "h1:oWX7TPOiFAMXLq8o0ikBYfCJVlRHBcsciT5bXOrH628=",

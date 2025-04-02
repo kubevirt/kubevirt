@@ -3,13 +3,13 @@ package openapi
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/emicklei/go-restful/v3"
 	openapi_spec "github.com/go-openapi/spec"
 	"github.com/go-openapi/strfmt"
 	openapi_validate "github.com/go-openapi/validate"
-	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kube-openapi/pkg/builder"
 	"k8s.io/kube-openapi/pkg/common"
@@ -228,7 +228,7 @@ func CreateOpenAPIValidator(webServices []*restful.WebService) *Validator {
 	openapispec := LoadOpenAPISpec(webServices)
 	data, err := json.Marshal(openapispec)
 	if err != nil {
-		glog.Fatal(err)
+		log.Fatal(err)
 	}
 
 	specSchema := &openapi_spec.Schema{}
@@ -247,7 +247,7 @@ func CreateOpenAPIValidator(webServices []*restful.WebService) *Validator {
 	// Expand the specSchemes
 	err = openapi_spec.ExpandSchema(specSchema, specSchema, nil)
 	if err != nil {
-		glog.Fatal(err)
+		log.Fatal(err)
 	}
 
 	// Load spec once again for status. The status should accept unknown fields
@@ -260,7 +260,7 @@ func CreateOpenAPIValidator(webServices []*restful.WebService) *Validator {
 	// Expand the statusSchemes
 	err = openapi_spec.ExpandSchema(statusSchema, statusSchema, nil)
 	if err != nil {
-		glog.Fatal(err)
+		log.Fatal(err)
 	}
 
 	return &Validator{

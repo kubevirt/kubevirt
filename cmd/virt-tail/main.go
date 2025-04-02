@@ -194,8 +194,6 @@ func (v *VirtTail) watchFS() error {
 }
 
 func main() {
-	// set new default verbosity, was set to 0 by glog
-	goflag.Set("v", "2")
 	pflag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
 	pflag.CommandLine.ParseErrorsWhitelist = pflag.ParseErrorsWhitelist{UnknownFlags: true}
 	logFile := pflag.String("logfile", "", "path of the logfile to be streamed")
