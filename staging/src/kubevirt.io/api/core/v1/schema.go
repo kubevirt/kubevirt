@@ -201,7 +201,7 @@ type DomainSpec struct {
 	Devices Devices `json:"devices"`
 	// Controls whether or not disks will share IOThreads.
 	// Omitting IOThreadsPolicy disables use of IOThreads.
-	// One of: shared, auto
+	// One of: shared, auto, supplementalPool
 	// +optional
 	IOThreadsPolicy *IOThreadsPolicy `json:"ioThreadsPolicy,omitempty"`
 	// IOThreads specifies the IOThreads options.
