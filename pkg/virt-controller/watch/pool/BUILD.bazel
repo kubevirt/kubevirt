@@ -6,7 +6,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-controller/watch/pool",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/apimachinery/patch:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/util/trace:go_default_library",

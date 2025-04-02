@@ -632,13 +632,11 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Verifying maxUnavailable strategy")
-		Eventually(func() error {
+		Eventually(func() {
 			vmis, err := virtClient.VirtualMachineInstance(newPool.Namespace).List(context.Background(), metav1.ListOptions{
 				LabelSelector: labelSelectorToString(newPool.Spec.Selector),
 			})
-			if err != nil {
-				return err
-			}
+			Expect(err).ToNot(HaveOccurred())
 
 			updatedCount := 0
 			for _, vmi := range vmis.Items {
@@ -654,16 +652,12 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 				}
 			}
 
-			if deletingCount+updatedCount > 1 {
-				return fmt.Errorf("Too many VMIs being updated simultaneously. Deleting: %d, Updated: %d", deletingCount, updatedCount)
-			}
+			Expect(deletingCount+updatedCount).To(BeNumerically("<=", 1),
+				fmt.Sprintf("Too many VMIs being updated simultaneously. Deleting: %d, Updated: %d", deletingCount, updatedCount))
 
-			if updatedCount < 3 {
-				return fmt.Errorf("Not all VMIs updated yet. Updated: %d/3", updatedCount)
-			}
-
-			return nil
-		}, 180*time.Second, 1*time.Second).Should(BeNil())
+			Expect(updatedCount).To(Equal(3),
+				fmt.Sprintf("Not all VMIs updated yet. Updated: %d/3", updatedCount))
+		}, 180*time.Second, 1*time.Second).Should(Succeed())
 
 		By("Verifying all VMIs are running with new label")
 		vmis, err := virtClient.VirtualMachineInstance(newPool.Namespace).List(context.Background(), metav1.ListOptions{
