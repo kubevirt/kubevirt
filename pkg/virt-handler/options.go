@@ -84,24 +84,28 @@ func capabilitiesToTopology(capabilities *libvirtxml.Caps) *cmdv1.Topology {
 func cellToCell(cell libvirtxml.CapsHostNUMACell) *cmdv1.Cell {
 	c := &cmdv1.Cell{
 		Id: uint32(cell.ID),
-		Memory: &cmdv1.Memory{
+	}
+
+	if cell.Memory != nil {
+		c.Memory = &cmdv1.Memory{
 			Amount: cell.Memory.Size,
 			Unit:   cell.Memory.Unit,
-		},
+		}
 	}
 
 	for _, page := range cell.PageInfo {
 		c.Pages = append(c.Pages, pageToPage(page))
 	}
-
-	for _, distance := range cell.Distances.Siblings {
-		c.Distances = append(c.Distances, distanceToDistance(distance))
+	if cell.Distances != nil {
+		for _, distance := range cell.Distances.Siblings {
+			c.Distances = append(c.Distances, distanceToDistance(distance))
+		}
 	}
-
-	for _, cpu := range cell.CPUS.CPUs {
-		c.Cpus = append(c.Cpus, cpuToCPU(cpu))
+	if cell.CPUS != nil {
+		for _, cpu := range cell.CPUS.CPUs {
+			c.Cpus = append(c.Cpus, cpuToCPU(cpu))
+		}
 	}
-
 	return c
 }
 
