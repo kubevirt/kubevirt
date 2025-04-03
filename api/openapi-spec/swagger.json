@@ -13396,6 +13396,16 @@
      }
     }
    },
+   "v1.Diag288Watchdog": {
+    "description": "diag288 watchdog device.",
+    "type": "object",
+    "properties": {
+     "action": {
+      "description": "The action to take. Valid values are poweroff, reset, shutdown. Defaults to reset.",
+      "type": "string"
+     }
+    }
+   },
    "v1.DisableFreePageReporting": {
     "type": "object"
    },
@@ -18038,6 +18048,10 @@
      "name"
     ],
     "properties": {
+     "diag288": {
+      "description": "diag288 watchdog device (specific to s390x architecture).",
+      "$ref": "#/definitions/v1.Diag288Watchdog"
+     },
      "i6300esb": {
       "description": "i6300esb watchdog device.",
       "$ref": "#/definitions/v1.I6300ESBWatchdog"
