@@ -20,6 +20,7 @@
 package compute
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -30,14 +31,18 @@ import (
 
 	k8scorev1 "k8s.io/api/core/v1"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 var _ = Describe(SIG("GuestAgent", func() {
@@ -128,6 +133,35 @@ var _ = Describe(SIG("GuestAgent", func() {
 			})
 		})
 	})
+
+	Context("Liveness probe", func() {
+		It("Should not fail the VMI", func() {
+			const (
+				period         = 5
+				initialSeconds = 90
+				timeoutSeconds = 1
+			)
+
+			livenessProbe := createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a")
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivenessProbe(livenessProbe))
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+
+			By("Waiting for agent to connect")
+			Eventually(matcher.ThisVMI(vmi)).
+				WithTimeout(12 * time.Minute).
+				WithPolling(2 * time.Second).
+				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+			By("Checking that the VMI is still running after a while")
+			Consistently(func() bool {
+				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vmi.IsFinal()
+			}).WithTimeout(2 * time.Minute).
+				WithPolling(1 * time.Second).
+				Should(Not(BeTrue()))
+		})
+	})
 }))
 
 func createExecProbe(period, initialSeconds, timeoutSeconds int32, command ...string) *v1.Probe {
@@ -152,6 +186,12 @@ func createProbeSpecification(period, initialSeconds, timeoutSeconds int32, hand
 func withReadinessProbe(probe *v1.Probe) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.ReadinessProbe = probe
+	}
+}
+
+func withLivenessProbe(probe *v1.Probe) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.LivenessProbe = probe
 	}
 }
 

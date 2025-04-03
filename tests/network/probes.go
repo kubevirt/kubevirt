@@ -39,10 +39,9 @@ const (
 
 var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 	var (
-		err           error
-		virtClient    kubecli.KubevirtClient
-		vmi           *v1.VirtualMachineInstance
-		blankIPFamily = *new(k8sv1.IPFamily)
+		err        error
+		virtClient kubecli.KubevirtClient
+		vmi        *v1.VirtualMachineInstance
 	)
 
 	BeforeEach(func() {
@@ -99,26 +98,15 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 			port           = 1500
 		)
 
-		DescribeTable("should not fail the VMI", func(livenessProbe *v1.Probe, ipFamily k8sv1.IPFamily) {
-			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
+		It("should not fail the VMI with working TCP probe and tcp server on ipv4", func() {
+			libnet.SkipWhenClusterNotSupportIPFamily(k8sv1.IPv4Protocol)
 
-			if isExecProbe(livenessProbe) {
-				By(specifyingVMLivenessProbe)
-				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivenessProbe(livenessProbe))
-				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+			By(specifyingVMLivenessProbe)
+			livenessProbe := createTCPProbe(period, initialSeconds, port)
+			vmi = createReadyAlpineVMIWithLivenessProbe(livenessProbe)
 
-				By("Waiting for agent to connect")
-				Eventually(matcher.ThisVMI(vmi)).
-					WithTimeout(12 * time.Minute).
-					WithPolling(2 * time.Second).
-					Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-			} else {
-				By(specifyingVMLivenessProbe)
-				vmi = createReadyAlpineVMIWithLivenessProbe(livenessProbe)
-
-				By("Starting the server inside the VMI")
-				vmnetserver.StartTCPServer(vmi, 1500, console.LoginToAlpine)
-			}
+			By("Starting the server inside the VMI")
+			vmnetserver.StartTCPServer(vmi, 1500, console.LoginToAlpine)
 
 			By("Checking that the VMI is still running after a while")
 			Consistently(func() bool {
@@ -128,10 +116,7 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 			}).WithTimeout(2 * time.Minute).
 				WithPolling(1 * time.Second).
 				Should(Not(BeTrue()))
-		},
-			Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server on ipv4", createTCPProbe(period, initialSeconds, port), k8sv1.IPv4Protocol),
-			Entry("[test_id:5879]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily),
-		)
+		})
 
 		Context("guest agent ping", func() {
 			BeforeEach(func() {
@@ -176,10 +161,6 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 		)
 	})
 }))
-
-func isExecProbe(probe *v1.Probe) bool {
-	return probe.Exec != nil
-}
 
 func stopGuestAgent(vmi *v1.VirtualMachineInstance) error {
 	return guestAgentOperation(vmi, stopAgent)
