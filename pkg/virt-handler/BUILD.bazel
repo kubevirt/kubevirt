@@ -92,6 +92,7 @@ go_test(
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/libvmi:go_default_library",
+        "//pkg/libvmi/status:go_default_library",
         "//pkg/network/cache:go_default_library",
         "//pkg/network/errors:go_default_library",
         "//pkg/pointer:go_default_library",

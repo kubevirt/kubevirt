@@ -56,6 +56,7 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	netcache "kubevirt.io/kubevirt/pkg/network/cache"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -271,8 +272,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 		os.RemoveAll(podsDir)
 		os.RemoveAll(certDir)
 		os.RemoveAll(ghostCacheDir)
+
+		var events []string
 		// Ensure that we add checks for expected events to every test
-		Expect(recorder.Events).To(BeEmpty())
+		for len(recorder.Events) > 0 {
+			events = append(events, <-recorder.Events)
+		}
+		Expect(events).To(BeEmpty(), "unexpected events: %+v", events)
 	})
 
 	sanityExecute := func() {
@@ -301,6 +307,18 @@ var _ = Describe("VirtualMachineInstance", func() {
 		}
 		dom.Spec.Metadata.KubeVirt.GracePeriod = &api.GracePeriodMetadata{}
 		dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = gracePeriod
+	}
+
+	vmiWithResourceVersion := func(resourceVersion string) libvmi.Option {
+		return func(vmi *v1.VirtualMachineInstance) {
+			vmi.ObjectMeta.ResourceVersion = resourceVersion
+		}
+	}
+
+	vmiWithUID := func(uid types.UID) libvmi.Option {
+		return func(vmi *v1.VirtualMachineInstance) {
+			vmi.UID = uid
+		}
 	}
 
 	Context("VirtualMachineInstance controller gets informed about a Domain change through the Domain controller", func() {
@@ -929,72 +947,108 @@ var _ = Describe("VirtualMachineInstance", func() {
 			))
 		})
 
-		It("should add and remove paused condition", func() {
-			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.UID = vmiTestUUID
-			vmi.ObjectMeta.ResourceVersion = "1"
-			vmi.Status.Phase = v1.Running
-			vmi = addActivePods(vmi, podTestUUID, host)
+		type domainIsPausedTest struct {
+			domainStateChangeReason api.StateChangeReason
+			vmiMigrationState       v1.VirtualMachineInstanceMigrationState
+			expectPausedCondition   bool
+			expectEvents            bool
+		}
+		DescribeTable("when domain is paused", func(td domainIsPausedTest) {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(k8sv1.NamespaceDefault),
+				vmiWithResourceVersion("1"),
+				vmiWithUID(vmiTestUUID),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithPhase(v1.Running),
+					libvmistatus.WithMigrationState(td.vmiMigrationState),
+					libvmistatus.WithActivePod(podTestUUID, host),
+				)),
+			)
 
-			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain := api.NewMinimalDomainWithUUID(vmi.Name, vmiTestUUID)
 
 			By("pausing domain")
 			domain.Status.Status = api.Paused
-			domain.Status.Reason = api.ReasonPausedUser
+			domain.Status.Reason = td.domainStateChangeReason
 
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
 			createVMI(vmi)
 
-			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
-			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
-			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
+			client.EXPECT().MigrateVirtualMachine(gomock.Any(), gomock.Any()).AnyTimes()
+			client.EXPECT().SyncVirtualMachine(gomock.Any(), gomock.Any()).AnyTimes()
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil).AnyTimes()
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil).AnyTimes()
 
 			sanityExecute()
 
 			updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(updatedVMI.Status.Conditions).To(ConsistOf(
-				MatchFields(IgnoreExtras, Fields{
-					"Type":   Equal(v1.VirtualMachineInstanceIsMigratable),
-					"Status": Equal(k8sv1.ConditionTrue)},
-				),
+
+			if !td.expectPausedCondition {
+				Expect(updatedVMI.Status.Conditions).ToNot(ContainElements(
+					MatchFields(IgnoreExtras, Fields{
+						"Type":   Equal(v1.VirtualMachineInstancePaused),
+						"Status": Equal(k8sv1.ConditionTrue)},
+					)),
+				)
+				return
+			}
+
+			Expect(updatedVMI.Status.Conditions).To(ContainElements(
 				MatchFields(IgnoreExtras, Fields{
 					"Type":   Equal(v1.VirtualMachineInstancePaused),
 					"Status": Equal(k8sv1.ConditionTrue)},
-				),
-				MatchFields(IgnoreExtras, Fields{
-					"Type":   Equal(v1.VirtualMachineInstanceIsStorageLiveMigratable),
-					"Status": Equal(k8sv1.ConditionTrue)},
-				),
-			))
+				)),
+			)
+			expectEvent(VMIMigrating, td.expectEvents)
 
 			By("unpausing domain")
 			domain.Status.Status = api.Running
-			domain.Status.Reason = ""
+			domain.Status.Reason = td.domainStateChangeReason
 
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
 
-			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any())
-			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
-			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
-
+			Expect(controller.domainStore.List()).To(ConsistOf(domain))
+			// TODO split this test
+			key, err := virtcontroller.KeyFunc(domain)
+			Expect(err).To(Not(HaveOccurred()))
+			controller.vmiExpectations.SetExpectations(key, 0, 0)
 			sanityExecute()
 
 			updatedVMI, err = virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(updatedVMI.Status.Conditions).To(ConsistOf(
+			Expect(updatedVMI.Status.Conditions).NotTo(ContainElements(
 				MatchFields(IgnoreExtras, Fields{
-					"Type":   Equal(v1.VirtualMachineInstanceIsMigratable),
+					"Type":   Equal(v1.VirtualMachineInstancePaused),
 					"Status": Equal(k8sv1.ConditionTrue)},
-				),
-				MatchFields(IgnoreExtras, Fields{
-					"Type":   Equal(v1.VirtualMachineInstanceIsStorageLiveMigratable),
-					"Status": Equal(k8sv1.ConditionTrue)},
-				),
-			))
-		})
+				)))
+			expectEvent(VMIMigrating, td.expectEvents)
+		},
+			Entry("by user should add and remove paused condition", domainIsPausedTest{
+				domainStateChangeReason: api.ReasonPausedUser,
+				expectPausedCondition:   true,
+			}),
+			Entry("by migration monitor should add and remove paused condition", domainIsPausedTest{
+				domainStateChangeReason: api.ReasonPausedMigration,
+				vmiMigrationState: v1.VirtualMachineInstanceMigrationState{
+					Mode:                           v1.MigrationPaused,
+					Completed:                      false,
+					TargetNode:                     "othernode",
+					TargetNodeAddress:              "127.0.0.1:12345",
+					SourceNode:                     host,
+					MigrationUID:                   "123",
+					TargetDirectMigrationNodePorts: map[string]int{"49152": 12132},
+				},
+				expectPausedCondition: true,
+				expectEvents:          true,
+			}),
+			Entry("by qemu during migration should skip paused condition", domainIsPausedTest{
+				domainStateChangeReason: api.ReasonPausedMigration,
+				expectPausedCondition:   false,
+			}),
+		)
 
 		It("should move VirtualMachineInstance from Scheduled to Failed if watchdog file is missing", func() {
 			cmdclient.MarkSocketUnresponsive(sockFile)
