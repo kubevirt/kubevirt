@@ -589,7 +589,7 @@ var _ = Describe("Manager", func() {
 		It("should freeze a VirtualMachineInstance", func() {
 			vmi := newVMI(testNamespace, testVmName)
 
-			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
+			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
 			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-freeze"}`, testDomainName).Return("1", nil)
 			manager, _ := newLibvirtDomainManagerDefault()
 
@@ -609,7 +609,7 @@ var _ = Describe("Manager", func() {
 		It("should unfreeze a VirtualMachineInstance", func() {
 			vmi := newVMI(testNamespace, testVmName)
 
-			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedFrozenOutput, nil)
+			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedFrozenOutput, nil)
 			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-thaw"}`, testDomainName).Return("1", nil)
 			manager, _ := newLibvirtDomainManagerDefault()
 
@@ -618,9 +618,9 @@ var _ = Describe("Manager", func() {
 		It("should automatically unfreeze after a timeout a frozen VirtualMachineInstance", func() {
 			vmi := newVMI(testNamespace, testVmName)
 
-			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
+			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
 			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-freeze"}`, testDomainName).Return("1", nil)
-			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedFrozenOutput, nil)
+			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedFrozenOutput, nil)
 			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-thaw"}`, testDomainName).Return("1", nil)
 			manager, _ := newLibvirtDomainManagerDefault()
 
@@ -632,9 +632,9 @@ var _ = Describe("Manager", func() {
 		It("should freeze and unfreeze a VirtualMachineInstance without a trigger to the unfreeze timeout", func() {
 			vmi := newVMI(testNamespace, testVmName)
 
-			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
+			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
 			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-freeze"}`, testDomainName).Return("1", nil)
-			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedFrozenOutput, nil)
+			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedFrozenOutput, nil)
 			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-thaw"}`, testDomainName).Return("1", nil)
 
 			manager, _ := newLibvirtDomainManagerDefault()
@@ -2255,7 +2255,7 @@ var _ = Describe("Manager", func() {
 				fakeInfo := api.GuestOSInfo{
 					Name: "TestGuestOSName",
 				}
-				agentStore.Store(agentpoller.GET_OSINFO, fakeInfo)
+				agentStore.Store(libvirt.DOMAIN_GUEST_INFO_OS, fakeInfo)
 
 				osInfo := libvirtmanager.GetGuestOSInfo()
 				Expect(*osInfo).To(Equal(fakeInfo))
@@ -2280,7 +2280,7 @@ var _ = Describe("Manager", func() {
 					InterfaceName: "eth1",
 					Mac:           "00:00:00:00:00:01",
 				}}
-				agentStore.Store(agentpoller.GET_INTERFACES, fakeInterfaces)
+				agentStore.Store(libvirt.DOMAIN_GUEST_INFO_INTERFACES, fakeInterfaces)
 				interfacesStatus := agentStore.GetInterfaceStatus()
 
 				Expect(interfacesStatus).To(Equal(fakeInterfaces))
@@ -2337,14 +2337,14 @@ var _ = Describe("Manager", func() {
 
 	It("executes GetGuestInfo", func() {
 		agentStore := agentpoller.NewAsyncAgentStore()
-		agentStore.Store(agentpoller.GET_USERS, []api.User{
+		agentStore.Store(libvirt.DOMAIN_GUEST_INFO_USERS, []api.User{
 			{
 				Name:      "test",
 				Domain:    "test",
 				LoginTime: 0,
 			},
 		})
-		agentStore.Store(agentpoller.GET_FILESYSTEM, []api.Filesystem{
+		agentStore.Store(agentpoller.GetFilesystem, []api.Filesystem{
 			{
 				Name:       "test",
 				Mountpoint: "/mnt/whatever",
@@ -2388,7 +2388,7 @@ var _ = Describe("Manager", func() {
 
 	It("executes GetUsers", func() {
 		agentStore := agentpoller.NewAsyncAgentStore()
-		agentStore.Store(agentpoller.GET_USERS, []api.User{
+		agentStore.Store(libvirt.DOMAIN_GUEST_INFO_USERS, []api.User{
 			{
 				Name:      "test",
 				Domain:    "test",
@@ -2407,7 +2407,7 @@ var _ = Describe("Manager", func() {
 
 	It("executes GetFilesystems", func() {
 		agentStore := agentpoller.NewAsyncAgentStore()
-		agentStore.Store(agentpoller.GET_FILESYSTEM, []api.Filesystem{
+		agentStore.Store(agentpoller.GetFilesystem, []api.Filesystem{
 			{
 				Name:       "test",
 				Mountpoint: "/mnt/whatever",
@@ -2434,7 +2434,7 @@ var _ = Describe("Manager", func() {
 
 	It("executes generateCloudInitEmptyISO and succeeds", func() {
 		agentStore := agentpoller.NewAsyncAgentStore()
-		agentStore.Store(agentpoller.GET_FILESYSTEM, []api.Filesystem{
+		agentStore.Store(agentpoller.GetFilesystem, []api.Filesystem{
 			{
 				Name:       "test",
 				Mountpoint: "/mnt/whatever",
@@ -2480,7 +2480,7 @@ var _ = Describe("Manager", func() {
 
 	It("executes generateCloudInitEmptyISO and fails", func() {
 		agentStore := agentpoller.NewAsyncAgentStore()
-		agentStore.Store(agentpoller.GET_FILESYSTEM, []api.Filesystem{
+		agentStore.Store(agentpoller.GetFilesystem, []api.Filesystem{
 			{
 				Name:       "test",
 				Mountpoint: "/mnt/whatever",

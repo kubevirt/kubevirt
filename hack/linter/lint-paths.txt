@@ -16,6 +16,7 @@ pkg/network/netns
 pkg/network/pod/annotations
 pkg/network/vmispec
 pkg/storage/pod/annotations
+pkg/virt-launcher/virtwrap/agent-poller
 pkg/virtctl/clientconfig
 pkg/virtctl/create/params
 pkg/virtctl/create/vm
