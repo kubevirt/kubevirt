@@ -94,7 +94,6 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 		const (
 			period         = 5
 			initialSeconds = 90
-			timeoutSeconds = 1
 			port           = 1500
 		)
 
@@ -142,9 +141,11 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 			})
 		})
 
-		DescribeTable("should fail the VMI", func(livenessProbe *v1.Probe, vmiFactory func(opts ...libvmi.Option) *v1.VirtualMachineInstance) {
+		It("should fail when there is no TCP server listening inside the guest", func() {
 			By("Specifying a VMI with a livenessProbe probe")
-			vmi = vmiFactory(withLivenessProbe(livenessProbe))
+
+			livenessProbe := createTCPProbe(period, initialSeconds, port)
+			vmi = libvmifact.NewCirros(withLivenessProbe(livenessProbe))
 			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 			By("Checking that the VMI is in a final state after a while")
@@ -155,10 +156,7 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 			}).WithTimeout(2 * time.Minute).
 				WithPolling(1 * time.Second).
 				Should(BeTrue())
-		},
-			Entry("[test_id:1217][posneg:negative]with working TCP probe and no running server", createTCPProbe(period, initialSeconds, port), libvmifact.NewCirros),
-			Entry("[test_id:5880]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmifact.NewFedora),
-		)
+		})
 	})
 }))
 
@@ -200,11 +198,6 @@ func createTCPProbe(period, initialSeconds int32, port int) *v1.Probe {
 func createGuestAgentPingProbe(period, initialSeconds int32) *v1.Probe {
 	handler := v1.Handler{GuestAgentPing: &v1.GuestAgentPing{}}
 	return createProbeSpecification(period, initialSeconds, 1, handler)
-}
-
-func createExecProbe(period, initialSeconds, timeoutSeconds int32, command ...string) *v1.Probe {
-	execHandler := v1.Handler{Exec: &k8sv1.ExecAction{Command: command}}
-	return createProbeSpecification(period, initialSeconds, timeoutSeconds, execHandler)
 }
 
 func createProbeSpecification(period, initialSeconds, timeoutSeconds int32, handler v1.Handler) *v1.Probe {

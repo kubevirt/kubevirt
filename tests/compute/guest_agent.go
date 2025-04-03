@@ -135,13 +135,13 @@ var _ = Describe(SIG("GuestAgent", func() {
 	})
 
 	Context("Liveness probe", func() {
-		It("Should not fail the VMI", func() {
-			const (
-				period         = 5
-				initialSeconds = 90
-				timeoutSeconds = 1
-			)
+		const (
+			period         = 5
+			initialSeconds = 90
+			timeoutSeconds = 1
+		)
 
+		It("Should not fail the VMI", func() {
 			livenessProbe := createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a")
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivenessProbe(livenessProbe))
 			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
@@ -160,6 +160,21 @@ var _ = Describe(SIG("GuestAgent", func() {
 			}).WithTimeout(2 * time.Minute).
 				WithPolling(1 * time.Second).
 				Should(Not(BeTrue()))
+		})
+
+		It("Should fail the VMI with working Exec probe and invalid command", func() {
+			livenessProbe := createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1")
+			vmi := libvmifact.NewFedora(withLivenessProbe(livenessProbe))
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+
+			By("Checking that the VMI is in a final state after a while")
+			Eventually(func() bool {
+				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vmi.IsFinal()
+			}).WithTimeout(2 * time.Minute).
+				WithPolling(1 * time.Second).
+				Should(BeTrue())
 		})
 	})
 }))
