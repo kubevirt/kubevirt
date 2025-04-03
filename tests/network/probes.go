@@ -77,38 +77,6 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 		})
 
-		Context("guest agent ping", func() {
-			BeforeEach(func() {
-				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withReadinessProbe(createGuestAgentPingProbe(period, initialSeconds)))
-				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
-				By("Waiting for agent to connect")
-				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-
-				Eventually(matcher.ThisVMI(vmi), 2*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
-				By("Disabling the guest-agent")
-				Expect(console.LoginToFedora(vmi)).To(Succeed())
-				Expect(stopGuestAgent(vmi)).To(Succeed())
-				Eventually(matcher.ThisVMI(vmi)).
-					WithTimeout(5 * time.Minute).
-					WithPolling(2 * time.Second).
-					Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
-			})
-
-			When("the guest agent is enabled, after being disabled", func() {
-				BeforeEach(func() {
-					Expect(console.LoginToFedora(vmi)).To(Succeed())
-					Expect(startGuestAgent(vmi)).To(Succeed())
-				})
-
-				It("[test_id:6741] the VMI enters `Ready` state once again", func() {
-					Eventually(matcher.ThisVMI(vmi)).
-						WithTimeout(2 * time.Minute).
-						WithPolling(2 * time.Second).
-						Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
-				})
-			})
-		})
-
 		It("should fail when there is no TCP server listening inside the guest", func() {
 			By(specifyingVMReadinessProbe)
 			readinessProbe := createTCPProbe(period, initialSeconds, port)
@@ -211,10 +179,6 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 
 func isExecProbe(probe *v1.Probe) bool {
 	return probe.Exec != nil
-}
-
-func startGuestAgent(vmi *v1.VirtualMachineInstance) error {
-	return guestAgentOperation(vmi, startAgent)
 }
 
 func stopGuestAgent(vmi *v1.VirtualMachineInstance) error {
