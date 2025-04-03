@@ -2,10 +2,8 @@ package network
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -30,11 +28,6 @@ import (
 const (
 	specifyingVMReadinessProbe = "Specifying a VMI with a readiness probe"
 	specifyingVMLivenessProbe  = "Specifying a VMI with a liveness probe"
-)
-
-const (
-	startAgent = "start"
-	stopAgent  = "stop"
 )
 
 var _ = Describe(SIG("[ref_id:1182]Probes", func() {
@@ -117,30 +110,6 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 				Should(Not(BeTrue()))
 		})
 
-		Context("guest agent ping", func() {
-			BeforeEach(func() {
-				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivenessProbe(createGuestAgentPingProbe(period, initialSeconds)))
-				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
-
-				By("Waiting for agent to connect")
-				Eventually(matcher.ThisVMI(vmi)).
-					WithTimeout(12 * time.Minute).
-					WithPolling(2 * time.Second).
-					Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-				Expect(console.LoginToFedora(vmi)).To(Succeed())
-			})
-
-			It("[test_id:9299] VM stops when guest agent is disabled", func() {
-				Expect(stopGuestAgent(vmi)).To(Succeed())
-
-				Eventually(func() (*v1.VirtualMachineInstance, error) {
-					return virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				}).WithTimeout(2 * time.Minute).
-					WithPolling(1 * time.Second).
-					Should(Or(matcher.BeInPhase(v1.Failed), matcher.HaveSucceeded()))
-			})
-		})
-
 		It("should fail when there is no TCP server listening inside the guest", func() {
 			By("Specifying a VMI with a livenessProbe probe")
 
@@ -160,21 +129,6 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 	})
 }))
 
-func stopGuestAgent(vmi *v1.VirtualMachineInstance) error {
-	return guestAgentOperation(vmi, stopAgent)
-}
-
-func guestAgentOperation(vmi *v1.VirtualMachineInstance, startStopOperation string) error {
-	if startStopOperation != startAgent && startStopOperation != stopAgent {
-		return fmt.Errorf("invalid qemu-guest-agent request: %s. Allowed values are: '%s' *or* '%s'", startStopOperation, startAgent, stopAgent)
-	}
-	guestAgentSysctlString := fmt.Sprintf("sudo systemctl %s qemu-guest-agent\n", startStopOperation)
-	return console.SafeExpectBatch(vmi, []expect.Batcher{
-		&expect.BSnd{S: guestAgentSysctlString},
-		&expect.BExp{R: console.PromptExpression},
-	}, 120)
-}
-
 func createReadyAlpineVMIWithReadinessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
 	vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(), withReadinessProbe(probe))
 	return libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
@@ -193,11 +147,6 @@ func createTCPProbe(period, initialSeconds int32, port int) *v1.Probe {
 		},
 	}
 	return createProbeSpecification(period, initialSeconds, 1, httpHandler)
-}
-
-func createGuestAgentPingProbe(period, initialSeconds int32) *v1.Probe {
-	handler := v1.Handler{GuestAgentPing: &v1.GuestAgentPing{}}
-	return createProbeSpecification(period, initialSeconds, 1, handler)
 }
 
 func createProbeSpecification(period, initialSeconds, timeoutSeconds int32, handler v1.Handler) *v1.Probe {

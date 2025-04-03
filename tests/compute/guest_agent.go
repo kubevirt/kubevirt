@@ -177,6 +177,37 @@ var _ = Describe(SIG("GuestAgent", func() {
 				Should(BeTrue())
 		})
 	})
+
+	Context("Liveness probe with guest agent ping", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		const (
+			period         = 5
+			initialSeconds = 90
+		)
+
+		BeforeEach(func() {
+			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivenessProbe(createGuestAgentPingProbe(period, initialSeconds)))
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+
+			By("Waiting for agent to connect")
+			Eventually(matcher.ThisVMI(vmi)).
+				WithTimeout(12 * time.Minute).
+				WithPolling(2 * time.Second).
+				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
+		})
+
+		It("[test_id:9299] VM stops when guest agent is disabled", func() {
+			Expect(stopGuestAgent(vmi)).To(Succeed())
+
+			Eventually(func() (*v1.VirtualMachineInstance, error) {
+				return kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			}).WithTimeout(2 * time.Minute).
+				WithPolling(1 * time.Second).
+				Should(Or(matcher.BeInPhase(v1.Failed), matcher.HaveSucceeded()))
+		})
+	})
 }))
 
 func createExecProbe(period, initialSeconds, timeoutSeconds int32, command ...string) *v1.Probe {
