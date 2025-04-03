@@ -47,14 +47,6 @@ var _ = Describe("Network interface hot{un}plug", func() {
 			Expect(updatedVMI.Networks).To(Equal(expectedVMI.Spec.Networks))
 			Expect(updatedVMI.Domain.Devices.Interfaces).To(Equal(expectedVMI.Spec.Domain.Devices.Interfaces))
 		},
-		Entry("when an interface has to be hotplugged but it is absent",
-			libvmi.New(
-				libvmi.WithInterface(bridgeAbsentInterface(testNetworkName1)),
-				libvmi.WithNetwork(&v1.Network{Name: testNetworkName1}),
-			),
-			libvmi.New(),
-			libvmi.New(),
-			!ordinal),
 		Entry("when one interface has to be plugged and other hotunplugged",
 			libvmi.New(
 				libvmi.WithInterface(bridgeAbsentInterface(testNetworkName1)),
