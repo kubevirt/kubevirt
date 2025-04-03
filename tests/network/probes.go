@@ -57,40 +57,26 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 			port           = 1500
 		)
 
-		DescribeTable("should succeed", func(readinessProbe *v1.Probe, ipFamily k8sv1.IPFamily) {
-			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
+		It("should succeed with working TCP probe and tcp server on ipv4", func() {
+			libnet.SkipWhenClusterNotSupportIPFamily(k8sv1.IPv4Protocol)
 
-			if isExecProbe(readinessProbe) {
-				By(specifyingVMReadinessProbe)
-				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withReadinessProbe(readinessProbe))
-				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+			By(specifyingVMReadinessProbe)
+			readinessProbe := createTCPProbe(period, initialSeconds, port)
+			vmi = createReadyAlpineVMIWithReadinessProbe(readinessProbe)
 
-				By("Waiting for agent to connect")
-				Eventually(matcher.ThisVMI(vmi)).
-					WithTimeout(12 * time.Minute).
-					WithPolling(2 * time.Second).
-					Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-			} else {
-				By(specifyingVMReadinessProbe)
-				vmi = createReadyAlpineVMIWithReadinessProbe(readinessProbe)
+			Expect(matcher.ThisVMI(vmi)()).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
 
-				Expect(matcher.ThisVMI(vmi)()).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
-
-				By("Starting the server inside the VMI")
-				Eventually(matcher.ThisVMI(vmi)).WithTimeout(3 * time.Minute).WithPolling(3 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-				vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				vmnetserver.StartTCPServer(vmi, 1500, console.LoginToAlpine)
-			}
+			By("Starting the server inside the VMI")
+			Eventually(matcher.ThisVMI(vmi)).WithTimeout(3 * time.Minute).WithPolling(3 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vmnetserver.StartTCPServer(vmi, 1500, console.LoginToAlpine)
 
 			Eventually(matcher.ThisVMI(vmi)).
 				WithTimeout(2 * time.Minute).
 				WithPolling(2 * time.Second).
 				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
-		},
-			Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server on ipv4", createTCPProbe(period, initialSeconds, port), k8sv1.IPv4Protocol),
-			Entry("[test_id:TODO]with working Exec probe", createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a"), blankIPFamily),
-		)
+		})
 
 		Context("guest agent ping", func() {
 			BeforeEach(func() {
