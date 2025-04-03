@@ -3029,7 +3029,7 @@ func generateMigratableVMIs(num int) ([]*v1.VirtualMachineInstance, error) {
 			libvmi.WithSecretDisk(secretName, secretName),
 			libvmi.WithServiceAccountDisk("default"),
 			libvmi.WithDownwardAPIDisk(downwardAPIName),
-			libvmi.WithWatchdog(v1.WatchdogActionPoweroff),
+			libvmi.WithWatchdog(v1.WatchdogActionPoweroff, libnode.GetArch()),
 		)
 		// In case there are no existing labels add labels to add some data to the downwardAPI disk
 		if vmi.ObjectMeta.Labels == nil {
