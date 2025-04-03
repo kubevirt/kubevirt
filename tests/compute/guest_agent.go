@@ -38,13 +38,13 @@ import (
 
 var _ = Describe(SIG("GuestAgent", func() {
 	Context("Readiness Probe", func() {
-		It("should succeed", func() {
-			const (
-				period         = 5
-				initialSeconds = 5
-				timeoutSeconds = 1
-			)
+		const (
+			period         = 5
+			initialSeconds = 5
+			timeoutSeconds = 1
+		)
 
+		It("should succeed", func() {
 			readinessProbe := createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a")
 			vmi := libvmifact.NewFedora(
 				libnet.WithMasqueradeNetworking(),
@@ -63,6 +63,27 @@ var _ = Describe(SIG("GuestAgent", func() {
 				WithPolling(2 * time.Second).
 				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 		})
+
+		DescribeTable("Should fail", func(readinessProbe *v1.Probe) {
+			vmi := libvmifact.NewFedora(
+				libnet.WithMasqueradeNetworking(),
+				withReadinessProbe(readinessProbe),
+			)
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+
+			By("Checking that the VMI is consistently non-ready")
+			Consistently(matcher.ThisVMI(vmi)).
+				WithTimeout(30 * time.Second).
+				WithPolling(100 * time.Millisecond).
+				Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
+		},
+			Entry("with working Exec probe and invalid command",
+				createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"),
+			),
+			Entry("with working Exec probe and infinitely running command",
+				createExecProbe(period, initialSeconds, timeoutSeconds, "tail", "-f", "/dev/null"),
+			),
+		)
 	})
 }))
 

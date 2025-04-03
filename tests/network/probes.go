@@ -53,7 +53,6 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 		const (
 			period         = 5
 			initialSeconds = 5
-			timeoutSeconds = 1
 			port           = 1500
 		)
 
@@ -110,9 +109,10 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 			})
 		})
 
-		DescribeTable("should fail", func(readinessProbe *v1.Probe, vmiFactory func(opts ...libvmi.Option) *v1.VirtualMachineInstance) {
+		It("should fail when there is no TCP server listening inside the guest", func() {
 			By(specifyingVMReadinessProbe)
-			vmi = vmiFactory(withReadinessProbe(readinessProbe))
+			readinessProbe := createTCPProbe(period, initialSeconds, port)
+			vmi = libvmifact.NewAlpine(withReadinessProbe(readinessProbe))
 			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 			By("Checking that the VMI is consistently non-ready")
@@ -120,11 +120,7 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 				WithTimeout(30 * time.Second).
 				WithPolling(100 * time.Millisecond).
 				Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
-		},
-			Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", createTCPProbe(period, initialSeconds, port), libvmifact.NewAlpine),
-			Entry("[test_id:TODO]with working Exec probe and invalid command", createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1"), libvmifact.NewFedora),
-			Entry("[test_id:TODO]with working Exec probe and infinitely running command", createExecProbe(period, initialSeconds, timeoutSeconds, "tail", "-f", "/dev/null"), libvmifact.NewFedora),
-		)
+		})
 	})
 
 	Context("for liveness", func() {
