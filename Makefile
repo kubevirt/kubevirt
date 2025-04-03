@@ -145,7 +145,7 @@ container-push-functest:
 	. "hack/cri-bin.sh" && $$CRI_BIN push $$CRI_INSECURE $(IMAGE_REGISTRY)/$(FUNC_TEST_IMAGE):$(IMAGE_TAG)
 
 container-push-artifacts-server:
-	. "hack/cri-bin.sh" && $$CRI_BIN manifest push $(IMAGE_REGISTRY)/$(VIRT_ARTIFACTS_SERVER):$(IMAGE_TAG)
+	. "hack/cri-bin.sh" && $$CRI_BIN push $(IMAGE_REGISTRY)/$(VIRT_ARTIFACTS_SERVER):$(IMAGE_TAG)
 
 retag-push-all-images:
 	IMAGE_REPO=$(IMAGE_REGISTRY)/$(OPERATOR_IMAGE) MULTIARCH=true CURRENT_TAG=$(IMAGE_TAG) NEW_TAG=$(NEW_TAG) ./hack/retag-multi-arch-images.sh
