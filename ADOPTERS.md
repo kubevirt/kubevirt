@@ -42,6 +42,7 @@
 | Vendor | Red Hat, Inc. | 2016 | [link](https://www.redhat.com) | As a distributor we are building OpenShift Virtualization on KubeVirt in order to enable VM workloads and -flows on Kubernetes. |
 | Vendor | Spectro Cloud | 2022 | [link](https://www.spectrocloud.com/solutions/vms-on-kubernetes) | Spectro Cloud Palette's Virtual Machine Orchestrator (VMO) feature builds on KubeVirt. It gives enterprises an easy yet powerful way to bring their VM workloads into their Kubernetes clusters, on bare metal and at the edge — with full lifecycle management and unified policies and governance. |
 | Vendor | SUSE | 2020 | [link](https://www.suse.com/) | SUSE believes KubeVirt is the best open source way to handle Virtual Machines on Kubernetes today. We offer this additional possibility to our customers by leveraging KubeVirt in our products. |
+| End-user | Aussie Broadband | 2023 | [link](https://www.aussiebroadband.com.au) | Aussie Broadband is adopting Kubernetes as the base-layer for our infrastructure. KubeVirt enables us to bridge the gap between virtual machines and containers on baremetal. |
 
 
 ### Adopter Types
