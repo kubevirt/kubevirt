@@ -9,6 +9,7 @@
 | Type | Name | Since | Website | Use-Case |
 |:-|:-|:-|:-|:-|
 | End-user | arm | 2021 | [link](https://www.arm.com) | KubeVirt enables seamless transition from legacy Virtual Machine based workloads to cloud-native container platforms. Arm believes KubeVirt addresses this challenge, allowing Virtual Machines workloads to easily deploy and scale in the cloud and at the edge. <br><br>Arm is an active contributor to the project, focused on enabling and optimizing Kubevirt performance on aarch64 and working with the ecosystem to facilitate users in deploying their workloads on cloud-native platforms. |
+| End-user | Aussie Broadband | 2023 | [link](https://www.aussiebroadband.com.au) | Aussie Broadband is adopting Kubernetes as the base-layer for our infrastructure. KubeVirt enables us to bridge the gap between virtual machines and containers on baremetal. |
 | End-user| Bytedance | 2023 | [link](https://www.bytedance.com/en/) | We use KubeVirt as part of our innovation Trusted Container Stack for TEE cluster provisioning. |
 | End-user| Civo | 2020 | [link](https://www.civo.com) | We are using KubeVirt as part of our stack to enable tenant cluster provisioning within Civo cloud. |
 | End-user | Cloudflare | 2018 | [link](https://www.cloudflare.com/) | Cloudflare uses KubeVirt within its core data centers to accommodate use cases of our teams that are less container friendly, such as our CI runners, while still taking advantage of the Kubernetes environment. |
@@ -42,7 +43,6 @@
 | Vendor | Red Hat, Inc. | 2016 | [link](https://www.redhat.com) | As a distributor we are building OpenShift Virtualization on KubeVirt in order to enable VM workloads and -flows on Kubernetes. |
 | Vendor | Spectro Cloud | 2022 | [link](https://www.spectrocloud.com/solutions/vms-on-kubernetes) | Spectro Cloud Palette's Virtual Machine Orchestrator (VMO) feature builds on KubeVirt. It gives enterprises an easy yet powerful way to bring their VM workloads into their Kubernetes clusters, on bare metal and at the edge — with full lifecycle management and unified policies and governance. |
 | Vendor | SUSE | 2020 | [link](https://www.suse.com/) | SUSE believes KubeVirt is the best open source way to handle Virtual Machines on Kubernetes today. We offer this additional possibility to our customers by leveraging KubeVirt in our products. |
-| End-user | Aussie Broadband | 2023 | [link](https://www.aussiebroadband.com.au) | Aussie Broadband is adopting Kubernetes as the base-layer for our infrastructure. KubeVirt enables us to bridge the gap between virtual machines and containers on baremetal. |
 
 
 ### Adopter Types
