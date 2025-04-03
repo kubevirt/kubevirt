@@ -17,6 +17,8 @@
 package arch
 
 import (
+	"fmt"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -92,4 +94,14 @@ func (converterS390X) ShouldVerboseLogsBeEnabled() bool {
 
 func (converterS390X) HasVMPort() bool {
 	return false
+}
+
+func (converterS390X) ConvertWatchdog(source *v1.Watchdog, watchdog *api.Watchdog) error {
+	watchdog.Alias = api.NewUserDefinedAlias(source.Name)
+	if source.Diag288 != nil {
+		watchdog.Model = "diag288"
+		watchdog.Action = string(source.Diag288.Action)
+		return nil
+	}
+	return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", source.Name)
 }
