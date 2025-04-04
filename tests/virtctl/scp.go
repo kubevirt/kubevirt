@@ -20,35 +20,30 @@
 package virtctl
 
 import (
-	"context"
-	"crypto/ecdsa"
 	"os"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"golang.org/x/crypto/ssh"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 
-	"kubevirt.io/client-go/kubecli"
+	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/libvmi"
-	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/tests/clientcmd"
-	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libssh"
-	"kubevirt.io/kubevirt/tests/libvmifact"
-	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("[sig-compute]SCP", decorators.SigCompute, func() {
-	var pub ssh.PublicKey
-	var keyFile string
-	var virtClient kubecli.KubevirtClient
+var _ = Describe(SIG("[sig-compute]SCP", decorators.SigCompute, Ordered, decorators.OncePerOrderedCleanup, func() {
+	const (
+		randSuffixLen = 8
+	)
+
+	var (
+		keyFile string
+		vmi     *v1.VirtualMachineInstance
+	)
 
 	copyNative := func(src, dst string, recursive bool) {
 		args := []string{
@@ -94,29 +89,12 @@ var _ = Describe(SIG("[sig-compute]SCP", decorators.SigCompute, func() {
 		}
 	}
 
-	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-		// Disable SSH_AGENT to not influence test results
-		Expect(os.Setenv("SSH_AUTH_SOCK", "/dev/null")).To(Succeed())
-		keyFile = filepath.Join(GinkgoT().TempDir(), "id_rsa")
-		var err error
-		var priv *ecdsa.PrivateKey
-		priv, pub, err = libssh.NewKeyPair()
-		Expect(err).ToNot(HaveOccurred())
-		Expect(libssh.DumpPrivateKey(priv, keyFile)).To(Succeed())
+	BeforeAll(func() {
+		vmi, keyFile = createVMWithPublicKey()
 	})
 
 	DescribeTable("[test_id:11659]should copy a local file back and forth", func(copyFn func(string, string, bool)) {
-		By("injecting a SSH public key into a VMI")
-		vmi := libvmifact.NewAlpineWithTestTooling(
-			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(libssh.RenderUserDataWithKey(pub))),
-		)
-		vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-
-		remoteFile := "vmi/" + vmi.Name + ":./keyfile"
+		remoteFile := "vmi/" + vmi.Name + ":./keyfile-" + rand.String(randSuffixLen)
 
 		By("copying a file to the VMI")
 		copyFn(keyFile, remoteFile, false)
@@ -134,15 +112,6 @@ var _ = Describe(SIG("[sig-compute]SCP", decorators.SigCompute, func() {
 	)
 
 	DescribeTable("[test_id:11660]should copy a local directory back and forth", func(copyFn func(string, string, bool)) {
-		By("injecting a SSH public key into a VMI")
-		vmi := libvmifact.NewAlpineWithTestTooling(
-			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(libssh.RenderUserDataWithKey(pub))),
-		)
-		vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-
 		By("creating a few random files")
 		copyFromDir := filepath.Join(GinkgoT().TempDir(), "sourcedir")
 		copyToDir := filepath.Join(GinkgoT().TempDir(), "targetdir")
@@ -155,11 +124,13 @@ var _ = Describe(SIG("[sig-compute]SCP", decorators.SigCompute, func() {
 		Expect(os.WriteFile(filepath.Join(copyFromDir, "file1"), []byte("test"), permRW)).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(copyFromDir, "file2"), []byte("test1"), permRW)).To(Succeed())
 
+		remoteDir := "vmi/" + vmi.Name + ":./sourcedir-" + rand.String(randSuffixLen)
+
 		By("copying a file to the VMI")
-		copyFn(copyFromDir, "vmi/"+vmi.Name+":"+"./sourcedir", true)
+		copyFn(copyFromDir, remoteDir, true)
 
 		By("copying the file back")
-		copyFn("vmi/"+vmi.Name+":"+"./sourcedir", copyToDir, true)
+		copyFn(remoteDir, copyToDir, true)
 
 		By("comparing the two directories")
 		compareFile(filepath.Join(copyFromDir, "file1"), filepath.Join(copyToDir, "file1"))
