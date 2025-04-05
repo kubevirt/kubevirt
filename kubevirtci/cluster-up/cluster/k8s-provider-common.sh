@@ -39,6 +39,19 @@ function wait_for_kwok_ready() {
     fi
 }
 
+function configure_nfs() {
+    if [[ "$KUBEVIRT_DEPLOY_NFS_CSI" == "true" ]] && [[ -n "$KUBEVIRT_NFS_DIR" ]]; then
+        ${_cri_bin} run --privileged --rm -v /:/hostroot \
+            --entrypoint /bin/sh ${_cli_container} \
+            -c "mkdir -p /hostroot/${KUBEVIRT_NFS_DIR} && chmod 777 /hostroot/${KUBEVIRT_NFS_DIR}"
+
+        ${_cri_bin} run --privileged --rm -v $KUBEVIRT_NFS_DIR:/nfsdir \
+            --entrypoint /bin/sh ${_cli_container} \
+            -c 'for disk in disk1 disk2 disk3 disk4 disk5 disk6 disk7 disk8 disk9 disk10 extraDisk1 extraDisk2; do \
+            mkdir -p /nfsdir/${disk} && chmod 777 /nfsdir/${disk}; done'
+    fi
+}
+
 function up() {
     params=$(_add_common_params)
     if echo "$params" | grep -q ERROR; then
@@ -83,6 +96,8 @@ function up() {
     # [1] https://github.com/kubevirt/kubevirtci/issues/906
     # [2] https://github.com/k8snetworkplumbingwg/multus-cni/issues/982
     copy_istio_cni_conf_files
+
+    configure_nfs
 }
 
 # The scp command for docker and podman is different, in order to avoid segmentation fault
