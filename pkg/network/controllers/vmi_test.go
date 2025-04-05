@@ -98,6 +98,8 @@ var _ = Describe("Status Update", func() {
 
 		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 		Expect(vmi.Status.Interfaces).To(BeEmpty())
+
+		Expect(vmi.Status.Conditions).To(BeEmpty())
 	},
 		Entry("When the Multus network-status annotation is absent", nil),
 		Entry("When the Multus network-status annotation exists",
@@ -119,6 +121,8 @@ var _ = Describe("Status Update", func() {
 		}
 
 		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
+
+		Expect(vmi.Status.Conditions).To(BeEmpty())
 	},
 		Entry("When Multus network status is absent", map[string]string{}),
 		Entry("When Multus network status does not report interface name",
@@ -498,6 +502,44 @@ var _ = Describe("Status Update", func() {
 		}
 
 		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
+	})
+
+	It("Should add the vNIC change condition when a secondary NIC hotplug is being performed", func() {
+		vmi := libvmi.New(
+			libvmi.WithNamespace(testNamespace),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName)),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, secondaryNetworkAttachmentDefinitionName)),
+		)
+
+		podAnnotations := map[string]string{
+			networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryNet,
+		}
+
+		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+		Expect(vmi.Status.Conditions).To(HaveLen(1))
+	})
+
+	It("Should add the vNIC change condition when a secondary NIC hot untplug is being performed", func() {
+		unpluggedIface := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName)
+		unpluggedIface.State = v1.InterfaceStateAbsent
+
+		vmi := libvmi.New(
+			libvmi.WithNamespace(testNamespace),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+			libvmi.WithInterface(unpluggedIface),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, secondaryNetworkAttachmentDefinitionName)),
+		)
+
+		podAnnotations := map[string]string{
+			networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
+			networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
+		}
+
+		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+		Expect(vmi.Status.Conditions).To(HaveLen(1))
 	})
 })
 

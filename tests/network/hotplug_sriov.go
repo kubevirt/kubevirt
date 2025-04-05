@@ -87,9 +87,28 @@ var _ = Describe(SIG(" SRIOV nic-hotplug", Serial, decorators.SRIOV, func() {
 		It("can hotplug a network interface", func() {
 			libnet.WaitForSingleHotPlugIfaceOnVMISpec(hotPluggedVMI, ifaceName, nadName)
 
-			migration := libmigration.New(hotPluggedVMI.Name, hotPluggedVMI.Namespace)
-			migrationUID := libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(kubevirt.Client(), migration)
-			libmigration.ConfirmVMIPostMigration(kubevirt.Client(), hotPluggedVMI, migrationUID)
+			virtClient := kubevirt.Client()
+
+			By("Waiting for vNIC change condition to appear")
+			Eventually(matcher.ThisVMI(hotPluggedVMI), 1*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceVNICChange))
+
+			By("Ensuring live-migration started")
+			var migration *v1.VirtualMachineInstanceMigration
+			Eventually(func() bool {
+				migrations, err := virtClient.VirtualMachineInstanceMigration(hotPluggedVMI.Namespace).List(context.Background(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				for _, mig := range migrations.Items {
+					if mig.Spec.VMIName == hotPluggedVMI.Name {
+						migration = mig.DeepCopy()
+						return true
+					}
+				}
+				return false
+			}, 30*time.Second, time.Second).Should(BeTrue())
+
+			libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration)
+			libmigration.ConfirmVMIPostMigration(kubevirt.Client(), hotPluggedVMI, migration)
 
 			hotPluggedVMI = verifySriovDynamicInterfaceChange(hotPluggedVMI)
 
