@@ -8,8 +8,8 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/storage/utils"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
@@ -75,39 +75,22 @@ func isAutoMount(volume *v1.Volume) bool {
 	return volume.ServiceAccount != nil
 }
 
-func virtioFSMountPoint(volume *v1.Volume) string {
-	volumeMountPoint := fmt.Sprintf("/%s", volume.Name)
+// virtiofsRequiresExtraVolume returns if the container needs an extra virtiofs volume
+// where the socket for the virtiofs placeholder will be located
+func virtiofsRequiresExtraVolume(vmi *v1.VirtualMachineInstance) bool {
+	return virtiofs.HasFilesystemPersistentVolumes(vmi)
+}
 
-	if volume.ConfigMap != nil {
-		volumeMountPoint = config.GetConfigMapSourcePath(volume.Name)
-	} else if volume.Secret != nil {
-		volumeMountPoint = config.GetSecretSourcePath(volume.Name)
-	} else if volume.ServiceAccount != nil {
-		volumeMountPoint = config.ServiceAccountSourceDir
-	} else if volume.DownwardAPI != nil {
-		volumeMountPoint = config.GetDownwardAPISourcePath(volume.Name)
+func virtiofsExtraVolume() k8sv1.Volume {
+	return k8sv1.Volume{
+		Name: virtiofs.PlaceholderSocketVolumeName,
+		VolumeSource: k8sv1.VolumeSource{
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+		},
 	}
-
-	return volumeMountPoint
 }
 
 func generateContainerFromVolume(volume *v1.Volume, image string, resources k8sv1.ResourceRequirements) k8sv1.Container {
-
-	socketPathArg := fmt.Sprintf("--socket-path=%s", virtiofs.VirtioFSSocketPath(volume.Name))
-	sourceArg := fmt.Sprintf("--shared-dir=%s", virtioFSMountPoint(volume))
-
-	args := []string{socketPathArg, sourceArg, "--sandbox=none", "--cache=auto"}
-
-	// If some files cannot be migrated, let's allow the migration to finish.
-	// Mark these files as invalid, the guest will not be able to access any such files,
-	// receiving only errors
-	args = append(args, "--migration-on-error=guest-error")
-
-	// This mode look up its file references paths by reading the symlinks in /proc/self/fd,
-	// falling back to iterating through the shared directory (exhaustive search) to find those paths.
-	// This migration mode doesn't require any privileges.
-	args = append(args, "--migration-mode=find-paths")
-
 	volumeMounts := []k8sv1.VolumeMount{
 		// This is required to pass socket to compute
 		{
@@ -116,18 +99,51 @@ func generateContainerFromVolume(volume *v1.Volume, image string, resources k8sv
 		},
 	}
 
+	volumeMountPath := virtiofs.FSMountPoint(volume)
 	if !isAutoMount(volume) {
 		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 			Name:      volume.Name,
-			MountPath: virtioFSMountPoint(volume),
+			MountPath: volumeMountPath,
 		})
+	}
+
+	var (
+		cmd  []string
+		args []string
+	)
+
+	switch {
+	case utils.IsStorageVolume(volume):
+		cmd = []string{"/usr/bin/virtiofs-placeholder"}
+		args = []string{"--socket", virtiofs.PlaceholderSocketPath(volume.Name)}
+
+		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+			Name:      virtiofs.PlaceholderSocketVolumeName,
+			MountPath: virtiofs.PlaceholderSocketVolumeMountPoint,
+		})
+	case utils.IsConfigVolume(volume):
+		cmd = []string{"/usr/libexec/virtiofsd"}
+
+		socketPathArg := "--socket-path=" + virtiofs.VirtioFSSocketPath(volume.Name)
+		sourceArg := "--shared-dir=" + volumeMountPath
+		args = []string{socketPathArg, sourceArg, "--sandbox=none", "--cache=auto"}
+
+		// If some files cannot be migrated, let's allow the migration to finish.
+		// Mark these files as invalid, the guest will not be able to access any such files,
+		// receiving only errors
+		args = append(args, "--migration-on-error=guest-error")
+
+		// This mode look up its file references paths by reading the symlinks in /proc/self/fd,
+		// falling back to iterating through the shared directory (exhaustive search) to find those paths.
+		// This migration mode doesn't require any privileges.
+		args = append(args, "--migration-mode=find-paths")
 	}
 
 	return k8sv1.Container{
 		Name:            fmt.Sprintf("virtiofs-%s", volume.Name),
 		Image:           image,
 		ImagePullPolicy: k8sv1.PullIfNotPresent,
-		Command:         []string{"/usr/libexec/virtiofsd"},
+		Command:         cmd,
 		Args:            args,
 		VolumeMounts:    volumeMounts,
 		Resources:       resources,
