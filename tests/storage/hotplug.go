@@ -742,6 +742,9 @@ var _ = Describe(SIG("Hotplug", func() {
 				Expect(err).ToNot(HaveOccurred())
 				for _, node := range nodes.Items {
 					nodeLabels := node.GetLabels()
+					if v, ok := nodeLabels["test.kubevirt.io/excludenode"]; ok && v == "true" {
+						continue
+					}
 
 					for label, val := range nodeLabels {
 						if label == v1.CPUManager && val == "true" {

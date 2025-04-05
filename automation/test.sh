@@ -70,6 +70,8 @@ elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
 elif [[ $TARGET =~ sig-storage ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
+  # extra cordoned node for NFS to avoid loopback (mounting a share on same server)
+  export KUBEVIRT_NUM_NODES=$((2 + 1))
   export KUBEVIRT_STORAGE="rook-ceph-default"
   export KUBEVIRT_DEPLOY_NFS_CSI=true
   export KUBEVIRT_WITH_ETC_CAPACITY="1G"
@@ -79,8 +81,9 @@ elif [[ $TARGET =~ sig-compute-realtime ]]; then
   export KUBEVIRT_REALTIME_SCHEDULER=true
 elif [[ $TARGET =~ sig-compute-migrations ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-migrations/}
-  export KUBEVIRT_E2E_PARALLEL_NODES=3
-  export KUBEVIRT_NUM_NODES=3
+  export KUBEVIRT_E2E_PARALLEL_NODES=4
+  # extra cordoned node for NFS to avoid loopback (mounting a share on same server)
+  export KUBEVIRT_NUM_NODES=$((3 + 1))
   export KUBEVIRT_STORAGE="rook-ceph-default"
   export KUBEVIRT_WITH_CNAO=true
   export KUBEVIRT_NUM_SECONDARY_NICS=1
@@ -549,6 +552,112 @@ spec:
 EOF
 fi
 
+if [[ "${KUBEVIRT_DEPLOY_NFS_CSI}" == "true" ]]; then
+  # reschedule pod/recreate volume so everything ends up on worker
+  kubectl delete deploy -n nfs-csi -l=app=nfs-server
+  kubectl delete pvc -n nfs-csi nfs-data
+  kubectl create -f - <<EOF
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-data
+  namespace: nfs-csi
+spec:
+  storageClassName: local
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 30Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nfs-server
+  namespace: nfs-csi
+  labels:
+    app: "nfs-server"
+    cdi.kubevirt.io/testing: ""
+spec:
+  selector:
+    matchLabels:
+      app: nfs-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nfs-server
+        cdi.kubevirt.io/testing: ""
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/worker: ""
+      containers:
+      - image: quay.io/kubevirtci/gists-nfs-server:2.6.4
+        imagePullPolicy: IfNotPresent
+        name: nfs-server
+        env:
+        - name: NFS_DIR
+          value: /data/nfs
+        - name: NFS_OPTION
+          value: fsid=0,rw,sync,insecure,no_root_squash,no_subtree_check,nohide
+        securityContext:
+          privileged: true
+        ports:
+          - name: tcp-2049
+            containerPort: 2049
+            protocol: TCP
+          - name: udp-111
+            containerPort: 111
+            protocol: UDP
+        volumeMounts:
+        - mountPath: "/data/nfs"
+          name: nfsdata
+        command: ["sh", "-c"]
+        args:
+          - |
+            chmod 777 /data/nfs;
+            mkdir /data/nfs/disk1;
+            chmod 777 /data/nfs/disk1;
+            mkdir /data/nfs/disk2;
+            chmod 777 /data/nfs/disk2;
+            mkdir /data/nfs/disk3;
+            chmod 777 /data/nfs/disk3;
+            mkdir /data/nfs/disk4;
+            chmod 777 /data/nfs/disk4;
+            mkdir /data/nfs/disk5;
+            chmod 777 /data/nfs/disk5;
+            mkdir /data/nfs/disk6;
+            chmod 777 /data/nfs/disk6;
+            mkdir /data/nfs/disk7;
+            chmod 777 /data/nfs/disk7;
+            mkdir /data/nfs/disk8;
+            chmod 777 /data/nfs/disk8;
+            mkdir /data/nfs/disk9;
+            chmod 777 /data/nfs/disk9;
+            mkdir /data/nfs/disk10;
+            chmod 777 /data/nfs/disk10;
+            mkdir /data/nfs/extraDisk1;
+            chmod 777 /data/nfs/extraDisk1;
+            mkdir /data/nfs/extraDisk2;
+            chmod 777 /data/nfs/extraDisk2;
+            /bin/nfsd.sh
+      volumes:
+      - name: nfsdata
+        persistentVolumeClaim:
+          claimName: nfs-data
+EOF
+  kubectl wait deployment nfs-server \
+    --namespace="nfs-csi" \
+    --for=condition='Available' \
+    --timeout='2m'
+  # W/A - extra cordoned node for NFS to avoid loopback (mounting a share on same server)
+  node=$(kubectl get pod -n nfs-csi -l=app=nfs-server -ojsonpath="{ $.items[0].spec.nodeName }")
+  kubectl cordon ${node}
+  kubectl label node ${node} test.kubevirt.io/excludenode=true
+  # Ensure NFS CSI controller also ends up on different node than NFS server
+  kubectl delete pod -n nfs-csi -l=app=csi-nfs-controller
+fi
 
 # Run functional tests
 FUNC_TEST_ARGS=$ginko_params FUNC_TEST_LABEL_FILTER="--label-filter=(!flake-check)&&(${label_filter})" make functest
