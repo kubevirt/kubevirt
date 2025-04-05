@@ -41,8 +41,16 @@ if [[ ! -z "$SKIP_OUTSIDE_CONN_TESTS" ]]; then
     add_to_label_filter "(!RequiresOutsideConnectivity)" "&&"
 fi
 
+# skip following tests on Arm64 conformance test lane
+# 1. skip outside connection test: outside connection not works in current Arm64 CI infra
+# 2. skip CDI related tests: we need to verify the CDI setup in arm64 e2e test environment
+# 3. skip ACPI related tests: ACPI is not support on Arm
+# 4. skip tests that use NewAlpineWithTestTooling image: currently we do not have Arm64 version NewAlpineWithTestTooling image
+# 5. skip watchdog related tests: watchdog devices is not support by the qemu-kvm in the arm64 version virt-launcher
+# 6. skip SATA related tests: SATA bus is not support by the qemu-kvm in the arm64 version virt-launcher
 if [[ ! -z "$RUN_ON_ARM64_INFRA" ]]; then
-    add_to_label_filter "(!(RequiresOutsideConnectivity && IPv6))" "&&"
+    add_to_label_filter "(!RequiresOutsideConnectivity)&&(!RequiresBlockStorage)&&(!RequiresSnapshotStorageClass)&&(!storage-req)&&(!ACPI)&&(!WgArm64Invalid)" "&&"
+    sonobuoy_args="${sonobuoy_args} --plugin-env kubevirt-conformance.E2E_SKIP=Alpine"
 fi
 
 if [[ ! -z "$SKIP_BLOCK_STORAGE_TESTS" ]]; then
