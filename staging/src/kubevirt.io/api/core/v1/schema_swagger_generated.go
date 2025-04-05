@@ -387,7 +387,8 @@ func (DiskTarget) SwaggerDoc() map[string]string {
 
 func (LaunchSecurity) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"sev": "AMD Secure Encrypted Virtualization (SEV).",
+		"sev":             "AMD Secure Encrypted Virtualization (SEV).",
+		"secureExecution": "IBM Secure Execution (Protected Virtualization on s390)",
 	}
 }
 
@@ -398,6 +399,10 @@ func (SEV) SwaggerDoc() map[string]string {
 		"session":     "Base64 encoded session blob.",
 		"dhCert":      "Base64 encoded guest owner's Diffie-Hellman key.",
 	}
+}
+
+func (SecureExecution) SwaggerDoc() map[string]string {
+	return map[string]string{}
 }
 
 func (SEVPolicy) SwaggerDoc() map[string]string {
