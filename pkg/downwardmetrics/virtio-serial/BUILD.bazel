@@ -9,6 +9,7 @@ go_library(
         "//pkg/downwardmetrics/vhostmd/api:go_default_library",
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/monitoring/domainstats/downwardmetrics:go_default_library",
+        "//pkg/virt-handler/cmd-client:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/golang.org/x/time/rate:go_default_library",
     ],
