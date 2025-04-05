@@ -144,9 +144,13 @@ libguestfstools_main="
   guestfs-tools-${GUESTFSTOOLS_VERSION}
   libvirt-daemon-driver-qemu-${LIBVIRT_VERSION}
   qemu-kvm-core-${QEMU_VERSION}
-  seabios-${SEABIOS_VERSION}
 "
 libguestfstools_x86_64="
+  edk2-ovmf-${EDK2_VERSION}
+  seabios-${SEABIOS_VERSION}
+"
+
+libguestfstools_s390x="
   edk2-ovmf-${EDK2_VERSION}
 "
 libguestfstools_extra="
@@ -240,7 +244,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name libguestfs-tools \
+        --name libguestfs-tools_x86_64 \
         --basesystem ${BASESYSTEM} \
         $centos_main \
         $centos_extra \
@@ -493,6 +497,24 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         $centos_main \
         $centos_extra \
         $exportserverbase_main
+
+    bazel run \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name libguestfs-tools_s390x --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        $centos_main \
+        $centos_extra \
+        $libguestfstools_main \
+        $libguestfstools_s390x \
+        $libguestfstools_extra \
+        ${bazeldnf_repos} \
+        --force-ignore-with-dependencies '^(kernel-|linux-firmware)' \
+        --force-ignore-with-dependencies '^(python[3]{0,1}-)' \
+        --force-ignore-with-dependencies '^mozjs60' \
+        --force-ignore-with-dependencies '^(libvirt-daemon-kvm|swtpm)' \
+        --force-ignore-with-dependencies '^(man-db|mandoc)' \
+        --force-ignore-with-dependencies '^dbus'
 
     bazel run \
         --config=${ARCHITECTURE} \
