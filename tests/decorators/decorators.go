@@ -110,4 +110,10 @@ var (
 	NoFlakeCheck = Label("no-flake-check")
 	// FlakeCheck decorates tests that are dedicated to the check-tests-for-flakes test lane.
 	FlakeCheck = Label("flake-check")
+
+	/* Potentially disruptive tests */
+
+	// LargeStoragePoolRequired indicates that the test may fail in a cluster with a low storage pool capacity.
+	// This decorator can be used to skip the test as the failure might not indicate a functional problem.
+	LargeStoragePoolRequired = Label("large-storage-pool-required")
 )
