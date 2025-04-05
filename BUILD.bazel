@@ -700,6 +700,16 @@ genrule(
     executable = 1,
 )
 
+genrule(
+    name = "coverage-report",
+    srcs = [
+        ":coverage_files",
+    ],
+    outs = ["bazel-coverage-report"],
+    cmd = "echo '#!/bin/sh\n\necho $(SRCS) | hack/coverage-report.sh'  > \"$@\"",
+    executable = 1,
+)
+
 go_library(
     name = "go_default_library",
     srcs = ["doc.go"],
