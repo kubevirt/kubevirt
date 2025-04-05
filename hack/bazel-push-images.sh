@@ -50,6 +50,7 @@ case ${ARCHITECTURE} in
         example-cloudinit-hook-sidecar
         cirros-container-disk-demo
         cirros-custom-container-disk-demo
+        alpine-custom-container-disk-demo
         virtio-container-disk
         alpine-ext-kernel-boot-demo
         alpine-with-test-tooling-container-disk
