@@ -305,6 +305,7 @@ func (app *virtHandlerApp) Run() {
 		app.HostOverride,
 		nodeLabellerrecorder,
 		capabilities.Host.CPU.Counter,
+		capabilities.Guests,
 	)
 	if err != nil {
 		panic(err)

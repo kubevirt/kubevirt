@@ -54,6 +54,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
@@ -74,6 +75,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -2179,6 +2181,60 @@ var _ = SIGMigrationDescribe("VM Live Migration", decorators.RequiresTwoSchedula
 				domSpec, err = tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domSpec.Devices.Ballooning.FreePageReporting).To(BeEquivalentTo("on"))
+			})
+
+		})
+
+		Context("with unsupported machine type", Serial, func() {
+
+			It("should prevent migration scheduling", func() {
+				vmi := libvmifact.NewGuestless(libnet.WithMasqueradeNetworking())
+				vmi.Namespace = testsuite.GetTestNamespace(vmi)
+
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+				machineType := vmi.Status.Machine.Type
+				Expect(machineType).ToNot(BeEmpty(), "VMI should have a valid machine type in its status")
+
+				By("Fetching all nodes in the cluster")
+				nodeList, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(nodeList.Items).ToNot(BeEmpty())
+
+				By("Patching all nodes to remove the supported machine type label")
+				for _, node := range nodeList.Items {
+					nodeName := node.Name
+					libinfra.ExpectStoppingNodeLabellerToSucceed(nodeName, virtClient)
+
+					// we remove the vmi specific machine type from all the labels on all nodes to render it unsupported for scheduling
+					libnode.RemoveLabelFromNode(node.Name, v1.SupportedMachineTypeLabel+machineType)
+				}
+
+				DeferCleanup(func() {
+					By("Restoring the machine type label for all nodes")
+					for _, node := range nodeList.Items {
+						libinfra.ExpectResumingNodeLabellerToSucceed(node.Name, virtClient)
+					}
+				})
+
+				By("Initiating a migration")
+				migration := libmigration.New(vmi.Name, vmi.Namespace)
+				createdMigration := libmigration.RunMigration(virtClient, migration)
+
+				Eventually(ThisMigration(createdMigration), 30*time.Second, 1*time.Second).Should(BeInPhase(v1.MigrationScheduling))
+
+				targetPod, err := libpod.GetTargetPodForMigration(createdMigration)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(targetPod.Spec.NodeSelector).To(HaveKey(v1.SupportedMachineTypeLabel + machineType))
+
+				var scheduledCond *k8sv1.PodCondition
+				Eventually(func() *k8sv1.PodCondition {
+					scheduledCond = controller.NewPodConditionManager().GetCondition(targetPod, k8sv1.PodScheduled)
+					return scheduledCond
+				}, 30*time.Second, 1*time.Second).ShouldNot(BeNil(), "PodScheduled condition should not be nil")
+
+				Expect(scheduledCond.Status).To(BeEquivalentTo(k8sv1.ConditionFalse), "PodScheduled status should be False")
+				Expect(scheduledCond.Reason).To(BeEquivalentTo(k8sv1.PodReasonUnschedulable), "PodScheduled reason should be Unschedulable")
+				Expect(scheduledCond.Message).To(ContainSubstring("node(s) didn't match Pod's node affinity/selector."), "PodScheduled message mismatch")
 			})
 
 		})
