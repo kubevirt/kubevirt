@@ -289,7 +289,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 		BeforeEach(func() {
 			vm = libvmi.NewVirtualMachine(
-				libvmifact.NewCirros(
+				libvmifact.NewAlpine(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				))
@@ -491,7 +491,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 			It("should fail restoring to a different VM that already exists", func() {
 				By("Creating a new VM")
-				newVM := libvmi.NewVirtualMachine(libvmifact.NewCirros())
+				newVM := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
 				newVM, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), newVM, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				defer deleteVM(newVM)
@@ -1172,7 +1172,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			}
 
 			It("[test_id:5259]should restore a vm multiple from the same snapshot", func() {
-				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass))
 
 				By(stoppingVM)
 				vm = libvmops.StopVirtualMachine(vm)
@@ -1194,7 +1194,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			})
 
 			It("restore should allow grace period for the target to be ready", func() {
-				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass))
 
 				By(creatingSnapshot)
 				snapshot = createSnapshot(vm)
@@ -1211,7 +1211,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			})
 
 			It("restore should stop target if targetReadinessPolicy is StopTarget", func() {
-				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass))
 
 				By(creatingSnapshot)
 				snapshot = createSnapshot(vm)
@@ -1469,7 +1469,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			)
 
 			DescribeTable("should reject vm start if restore in progress", func(deleteFunc string) {
-				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass))
 
 				By(stoppingVM)
 				vm = libvmops.StopVirtualMachine(vm)
