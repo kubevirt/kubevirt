@@ -76,5 +76,18 @@ var (
 				operatorHealthImpactLabelKey: "none",
 			},
 		},
+		{
+			Alert: "KubeVirtUnsynchronizedVMI",
+			Expr:  intstr.FromString("kubevirt_vmi_conditions{type='Synchronized'} == 0 and on(namespace,name) kubevirt_vmi_conditions{type='Ready'} == 0"),
+			For:   ptr.To(promv1.Duration("1h")),
+			Annotations: map[string]string{
+				"summary":     "Unsynchronized VMI for more than 1 hour.",
+				"description": "VirtualMachineInstance {{ $labels.name }} in namespace {{ $labels.namespace }}: {{ $labels.reason }}",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
 	}
 )
