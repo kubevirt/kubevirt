@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/klog/v2"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -49,7 +50,6 @@ type alerts struct {
 	downAlert            string
 	noReadyAlert         string
 	restErrorsBurtsAlert string
-	restErrorsHighAlert  string
 	lowCountAlert        string
 }
 
@@ -58,7 +58,6 @@ var (
 		deploymentName:       "virt-api",
 		downAlert:            "VirtAPIDown",
 		restErrorsBurtsAlert: "VirtApiRESTErrorsBurst",
-		restErrorsHighAlert:  "VirtApiRESTErrorsHigh",
 		lowCountAlert:        "LowVirtAPICount",
 	}
 	virtController = alerts{
@@ -66,20 +65,17 @@ var (
 		downAlert:            "VirtControllerDown",
 		noReadyAlert:         "NoReadyVirtController",
 		restErrorsBurtsAlert: "VirtControllerRESTErrorsBurst",
-		restErrorsHighAlert:  "VirtControllerRESTErrorsHigh",
 		lowCountAlert:        "LowVirtControllersCount",
 	}
 	virtHandler = alerts{
 		deploymentName:       "virt-handler",
 		restErrorsBurtsAlert: "VirtHandlerRESTErrorsBurst",
-		restErrorsHighAlert:  "VirtHandlerRESTErrorsHigh",
 	}
 	virtOperator = alerts{
 		deploymentName:       "virt-operator",
 		downAlert:            "VirtOperatorDown",
 		noReadyAlert:         "NoReadyVirtOperator",
 		restErrorsBurtsAlert: "VirtOperatorRESTErrorsBurst",
-		restErrorsHighAlert:  "VirtOperatorRESTErrorsHigh",
 		lowCountAlert:        "LowVirtOperatorCount",
 	}
 )
@@ -119,7 +115,7 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, decorators.SigM
 		})
 
 		AfterEach(func() {
-			scales.RestoreAllScales()
+			scales.RestoreScale(virtOperator.deploymentName)
 			waitUntilComponentsAlertsDoNotExist(virtClient)
 		})
 
@@ -134,8 +130,20 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, decorators.SigM
 
 		It("VirtControllerDown and NoReadyVirtController should be triggered when virt-controller is down", func() {
 			scales.UpdateScale(virtController.deploymentName, int32(0))
-			libmonitoring.VerifyAlertExist(virtClient, virtController.downAlert)
-			libmonitoring.VerifyAlertExist(virtClient, virtController.noReadyAlert)
+			klog.Info("Waiting for metric 'kubevirt_virt_controller_up' to reach 0...")
+			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_controller_up", 0)
+
+			klog.Info("Verifying that 'VirtControllerDown' alert is triggered...")
+			Expect(func() {
+				libmonitoring.VerifyAlertExist(virtClient, virtController.downAlert)
+			}).ToNot(Panic(), "Expected 'VirtControllerDown' alert to be triggered, but verification failed")
+
+			klog.Info("Verifying that 'NoReadyVirtController' alert is triggered...")
+			Expect(func() {
+				libmonitoring.VerifyAlertExist(virtClient, virtController.noReadyAlert)
+			}).ToNot(Panic(), "Expected 'NoReadyVirtController' alert to be triggered, but verification failed")
+
+			klog.Info("Test completed successfully: Both 'VirtControllerDown' and 'NoReadyVirtController' alerts were triggered.")
 		})
 
 		It("LowVirtControllersCount should be triggered when virt-controller count is low", decorators.RequiresTwoSchedulableNodes, func() {
@@ -192,16 +200,15 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, decorators.SigM
 			waitUntilComponentsAlertsDoNotExist(virtClient)
 		})
 
-		It("VirtApiRESTErrorsBurst and VirtApiRESTErrorsHigh should be triggered when requests to virt-api are failing", func() {
+		It("VirtApiRESTErrorsBurst should be triggered when requests to virt-api are failing", func() {
 			Eventually(func(g Gomega) {
 				_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).VNC(rand.String(6))
 				g.Expect(err).To(MatchError(ContainSubstring("not found")))
 				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtApi.restErrorsBurtsAlert)).To(BeTrue())
-				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtApi.restErrorsHighAlert)).To(BeTrue())
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
-		It("VirtOperatorRESTErrorsBurst and VirtOperatorRESTErrorsHigh should be triggered when requests to virt-operator are failing", func() {
+		It("VirtOperatorRESTErrorsBurst should be triggered when requests to virt-operator are failing", func() {
 			scales.RestoreScale(virtOperator.deploymentName)
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), crb.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -210,11 +217,10 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, decorators.SigM
 
 			Eventually(func(g Gomega) {
 				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtOperator.restErrorsBurtsAlert)).To(BeTrue())
-				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtOperator.restErrorsHighAlert)).To(BeTrue())
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
-		PIt("VirtControllerRESTErrorsBurst and VirtControllerRESTErrorsHigh should be triggered when requests to virt-controller are failing", func() {
+		PIt("VirtControllerRESTErrorsBurst should be triggered when requests to virt-controller are failing", func() {
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-controller", metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -225,11 +231,10 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, decorators.SigM
 				_ = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 
 				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtController.restErrorsBurtsAlert)).To(BeTrue())
-				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtController.restErrorsHighAlert)).To(BeTrue())
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
-		It("VirtHandlerRESTErrorsBurst and VirtHandlerRESTErrorsHigh should be triggered when requests to virt-handler are failing", func() {
+		It("VirtHandlerRESTErrorsBurst should be triggered when requests to virt-handler are failing", func() {
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-handler", metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -240,7 +245,6 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, decorators.SigM
 				_ = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 
 				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtHandler.restErrorsBurtsAlert)).To(BeTrue())
-				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtHandler.restErrorsHighAlert)).To(BeTrue())
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 	})

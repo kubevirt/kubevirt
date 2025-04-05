@@ -50,7 +50,7 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "VirtControllerDown",
-			Expr:  intstr.FromString("kubevirt_virt_controller_up == 0"),
+			Expr:  intstr.FromString("max_over_time(kubevirt_virt_controller_up[10m]) == 0"),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				"summary": "No running virt-controller was detected for the last 10 min.",
@@ -66,17 +66,6 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				"summary": "More than one virt-controller should be ready if more than one worker node.",
-			},
-			Labels: map[string]string{
-				severityAlertLabelKey:        "warning",
-				operatorHealthImpactLabelKey: "warning",
-			},
-		},
-		{
-			Alert: "VirtControllerRESTErrorsHigh",
-			Expr:  intstr.FromString(getErrorRatio(namespace, "virt-controller", "(4|5)[0-9][0-9]", 60) + " >= 0.05"),
-			Annotations: map[string]string{
-				"summary": getRestCallsFailedWarning(5, "virt-controller", "hour"),
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "warning",
