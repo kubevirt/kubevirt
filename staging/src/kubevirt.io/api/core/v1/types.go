@@ -468,6 +468,24 @@ func (v *VirtualMachineInstance) IsMigratable() bool {
 	return false
 }
 
+func (v *VirtualMachineInstance) IsMigrating() bool {
+	now := metav1.Now()
+
+	migrating := false
+	if v.Status.MigrationState != nil {
+		start := v.Status.MigrationState.StartTimestamp
+		stop := v.Status.MigrationState.EndTimestamp
+		if start != nil && (now.After(start.Time) || now.Equal(start)) {
+			migrating = true
+		}
+
+		if stop != nil && (now.After(stop.Time) || now.Equal(stop)) {
+			migrating = false
+		}
+	}
+	return migrating
+}
+
 func (v *VirtualMachineInstance) IsBlockMigration() bool {
 	return v.Status.MigrationMethod == BlockMigration ||
 		len(v.Status.MigratedVolumes) > 0
