@@ -88,6 +88,11 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			"kubevirt_vmi_migration_data_total_bytes":                            true,
 			"kubevirt_vmi_migration_start_time_seconds":                          true,
 			"kubevirt_vmi_migration_end_time_seconds":                            true,
+
+			// PSI metrics need kernel psi args to be set
+			"kubevirt_vmi_psi_memory_pressure": true,
+			"kubevirt_vmi_psi_cpu_pressure":    true,
+			"kubevirt_vmi_psi_io_pressure":     true,
 		}
 
 		It("should contain virt components metrics", func() {
