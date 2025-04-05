@@ -152,7 +152,11 @@ function _add_common_params() {
     fi
 
     if [ $KUBEVIRT_DEPLOY_NFS_CSI == "true" ]; then
-        params=" --enable-nfs-csi $params"
+        if [ -z $KUBEVIRT_NFS_DIR ]; then
+            >&2 echo "NFS requested but no NFS directory specified (KUBEVIRT_NFS_DIR)"
+            exit 1
+        fi
+        params=" --enable-nfs-csi --nfs-data $KUBEVIRT_NFS_DIR $params"
     fi
 
     # alternate (new) way to specify storage providers
