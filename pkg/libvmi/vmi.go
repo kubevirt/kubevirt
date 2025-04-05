@@ -106,16 +106,18 @@ func WithRng() Option {
 }
 
 // WithWatchdog adds a watchdog to the vmi devices.
-func WithWatchdog(action v1.WatchdogAction) Option {
+func WithWatchdog(action v1.WatchdogAction, arch string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
+		watchdog := &v1.Watchdog{
 			Name: "watchdog",
-			WatchdogDevice: v1.WatchdogDevice{
-				I6300ESB: &v1.I6300ESBWatchdog{
-					Action: action,
-				},
-			},
 		}
+		if arch == "s390x" {
+			watchdog.WatchdogDevice.Diag288 = &v1.Diag288Watchdog{Action: action}
+		} else {
+			watchdog.WatchdogDevice.I6300ESB = &v1.I6300ESBWatchdog{Action: action}
+		}
+
+		vmi.Spec.Domain.Devices.Watchdog = watchdog
 	}
 }
 
