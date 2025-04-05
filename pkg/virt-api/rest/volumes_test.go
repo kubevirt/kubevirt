@@ -40,7 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -281,20 +280,16 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 
 	DescribeTable("Should generate expected vmi patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, expectedPatchSet *patch.PatchSet) {
 
-		vmi := api.NewMinimalVMI(request.PathParameter("name"))
-		vmi.Namespace = metav1.NamespaceDefault
-		vmi.Status.Phase = v1.Running
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: "existingvol",
-		})
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: "existingvol",
-			VolumeSource: v1.VolumeSource{
-				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
-					ClaimName: "testpvcdiskclaim",
-				}},
-			},
-		})
+		vmi := libvmi.New(
+			libvmi.WithName(request.PathParameter("name")),
+			libvmi.WithNamespace(metav1.NamespaceDefault),
+			libvmi.WithPersistentVolumeClaim("existingvol", "testpvcdiskclaim"),
+			libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running))),
+		)
+
+		//workaround to use libvmi. generateVMIVolumeRequestPatch() does not generate Disk value but
+		//	libvmi.WithPersistentVolumeClaim does
+		vmi.Spec.Domain.Devices.Disks[0].Disk = nil
 
 		patch, err := generateVMIVolumeRequestPatch(vmi, volumeRequest)
 		Expect(err).ToNot(HaveOccurred())
