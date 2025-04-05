@@ -57,6 +57,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -1879,7 +1880,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	if vmi.Spec.Domain.Devices.TPM != nil {
+	if tpm.HasDevice(&vmi.Spec) {
 		domain.Spec.Devices.TPMs = []api.TPM{
 			{
 				Model: "tpm-tis",
@@ -1889,7 +1890,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				},
 			},
 		}
-		if vmi.Spec.Domain.Devices.TPM.Persistent != nil && *vmi.Spec.Domain.Devices.TPM.Persistent {
+		if tpm.HasPersistentDevice(&vmi.Spec) {
 			domain.Spec.Devices.TPMs[0].Backend.PersistentState = "yes"
 			// tpm-crb is not techincally required for persistence, but since there was a desire for both,
 			//   we decided to introduce them together. Ultimately, we should use tpm-crb for all cases,
