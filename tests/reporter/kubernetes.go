@@ -457,9 +457,8 @@ func (r *KubernetesReporter) logVMICommands(virtCli kubecli.KubevirtClient, vmiN
 	}
 
 	for _, vmi := range runningVMIs {
-		vmiType, err := getVmiType(vmi)
-		if err != nil {
-			printError("skipping vmi %s/%s: failed to get vmi type: %v", vmi.Namespace, vmi.Name, err)
+		vmiType := getVmiType(vmi)
+		if vmiType == "" {
 			continue
 		}
 
@@ -481,9 +480,8 @@ func (r *KubernetesReporter) logCloudInit(virtCli kubecli.KubevirtClient, vmiNam
 	}
 
 	for _, vmi := range runningVMIs {
-		vmiType, err := getVmiType(vmi)
-		if err != nil {
-			printError("skipping vmi %s/%s: failed to get vmi type: %v", vmi.Namespace, vmi.Name, err)
+		vmiType := getVmiType(vmi)
+		if vmiType == "" {
 			continue
 		}
 
@@ -989,14 +987,9 @@ func getRunningVMIs(virtCli kubecli.KubevirtClient, namespace []string) []v12.Vi
 				continue
 			}
 
-			vmiType, err := getVmiType(vmi)
-			if err != nil {
-				printError("skipping vmi %s/%s: failed to get vmi type: %v", vmi.Namespace, vmi.Name, err)
-				continue
-			}
+			vmiType := getVmiType(vmi)
 
-			if err := prepareVmiConsole(vmi, vmiType); err != nil {
-				printError("skipping vmi %s/%s: failed to login: %v", vmi.Namespace, vmi.Name, err)
+			if vmiType == "" || prepareVmiConsole(vmi, vmiType) != nil {
 				continue
 			}
 			runningVMIs = append(runningVMIs, vmi)
@@ -1187,7 +1180,7 @@ func writeStringToFile(filePath string, data string) error {
 	return err
 }
 
-func getVmiType(vmi v12.VirtualMachineInstance) (string, error) {
+func getVmiType(vmi v12.VirtualMachineInstance) string {
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.VolumeSource.ContainerDisk == nil {
 			continue
@@ -1195,19 +1188,15 @@ func getVmiType(vmi v12.VirtualMachineInstance) (string, error) {
 
 		image := volume.VolumeSource.ContainerDisk.Image
 		if strings.Contains(image, "fedora") {
-			return "fedora", nil
+			return "fedora"
 		} else if strings.Contains(image, "cirros") {
-			return "cirros", nil
+			return "cirros"
 		} else if strings.Contains(image, "alpine") {
-			return "alpine", nil
+			return "alpine"
 		}
 	}
 
-	if vmiJson, err := json.Marshal(vmi); err == nil {
-		return "", fmt.Errorf("unknown type, vmi %s", vmiJson)
-	} else {
-		return "", fmt.Errorf("%w: unknown type, vmi %s", err, vmi.ObjectMeta.Name)
-	}
+	return ""
 }
 
 func prepareVmiConsole(vmi v12.VirtualMachineInstance, vmiType string) error {
