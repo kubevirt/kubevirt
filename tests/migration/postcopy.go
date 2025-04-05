@@ -100,7 +100,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("[test_id:5004][QUARANTINE] should be migrated successfully, using guest agent on VM with post-copy", decorators.Quarantine, func() {
+		It("[test_id:5004] should be migrated successfully, using guest agent on VM with post-copy", func() {
 			VMIMigrationWithGuestAgent(virtClient, dv.Name, "1Gi", migrationPolicy)
 		})
 
