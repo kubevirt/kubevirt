@@ -426,7 +426,8 @@
           "launchSecurity": {
             "sev": {
               "policy": {
-                "encryptedState": true
+                "encryptedState": true,
+                "secureNestedPaging": true
               },
               "attestation": {},
               "session": "sessionValue",

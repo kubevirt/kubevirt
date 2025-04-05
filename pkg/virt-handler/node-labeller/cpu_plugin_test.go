@@ -163,9 +163,11 @@ var _ = Describe("Node-labeller config", func() {
 
 	Context("return correct SEV capabilities", func() {
 		DescribeTable("for SEV and SEV-ES",
-			func(isSupported bool, withES bool) {
-				if isSupported && withES {
+			func(isSupported bool, withES bool, withSNP bool) {
+				if isSupported && withES && !withSNP {
 					nlController.domCapabilitiesFileName = "domcapabilities_sev.xml"
+				} else if isSupported && withES && withSNP {
+					nlController.domCapabilitiesFileName = "domcapabilities_sevsnp.xml"
 				} else if isSupported {
 					nlController.domCapabilitiesFileName = "domcapabilities_noseves.xml"
 				} else {
@@ -183,6 +185,10 @@ var _ = Describe("Node-labeller config", func() {
 					if withES {
 						Expect(nlController.SEV.SupportedES).To(Equal("yes"))
 						Expect(nlController.SEV.MaxESGuests).To(Equal(uint(15)))
+
+						if withSNP {
+							Expect(nlController.SEV.SupportedSNP).To(Equal("yes"))
+						}
 					} else {
 						Expect(nlController.SEV.SupportedES).To(Equal("no"))
 						Expect(nlController.SEV.MaxESGuests).To(BeZero())
@@ -196,9 +202,10 @@ var _ = Describe("Node-labeller config", func() {
 					Expect(nlController.SEV.MaxESGuests).To(BeZero())
 				}
 			},
-			Entry("when only SEV is supported", true, false),
-			Entry("when both SEV and SEV-ES are supported", true, true),
-			Entry("when neither SEV nor SEV-ES are supported", false, false),
+			Entry("when only SEV is supported", true, false, false),
+			Entry("when both SEV and SEV-ES are supported", true, true, false),
+			Entry("when SEV, SEV-ES, and SEV-SNP are all supported", true, true, true),
+			Entry("when none of SEV, SEV-ES, and SEV-SNP is supported", false, false, false),
 		)
 	})
 
