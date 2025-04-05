@@ -109,6 +109,14 @@ done
 # Deploy KubeVirt
 _kubectl create -n ${namespace} -f ${MANIFESTS_OUT_DIR}/release/kubevirt-cr.yaml
 
+if [[ ${CI} == "true" ]]; then
+    if [[ $TARGET =~ sig-storage ]]; then
+        # The extra container causes flakes due to racy synchronization
+        # https://github.com/kubevirt/kubevirt/pull/13422
+        _kubectl patch kv -n ${namespace} kubevirt --type merge -p '{"spec": {"configuration": {"virtualMachineOptions": {"disableSerialConsoleLog": {}}}}}'
+    fi
+fi
+
 # Ensure the KubeVirt CR is created
 count=0
 until _kubectl -n ${namespace} get kv kubevirt; do
