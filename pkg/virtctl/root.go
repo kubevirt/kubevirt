@@ -93,7 +93,7 @@ func NewVirtctlCommandFn() *cobra.Command {
 			cmd.Printf(cmd.UsageString())
 		},
 	}
-	addGLogVerbosityFlag(rootCmd.PersistentFlags())
+	addVerbosityFlag(rootCmd.PersistentFlags())
 	rootCmd.SetUsageTemplate(templates.MainUsageTemplate())
 	rootCmd.SetOut(os.Stdout)
 	rootCmd.SetContext(clientconfig.NewContext(
@@ -138,9 +138,9 @@ func NewVirtctlCommandFn() *cobra.Command {
 	return rootCmd
 }
 
-func addGLogVerbosityFlag(fs *pflag.FlagSet) {
-	// The glog verbosity flag is added to the default flag set
-	// by init() in vendor/github.com/golang/glog/glog.go.
+func addVerbosityFlag(fs *pflag.FlagSet) {
+	// The verbosity flag is added to the default flag set
+	// by init() in staging/src/kubevirt.io/client-go/log/log.go.
 	// We re-add it here to make it available in virtctl commands.
 	if f := flag.CommandLine.Lookup("v"); f != nil {
 		fs.AddFlag(pflag.PFlagFromGoFlag(f))
