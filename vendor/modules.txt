@@ -72,9 +72,6 @@ github.com/fsnotify/fsnotify
 # github.com/fxamacker/cbor/v2 v2.7.0
 ## explicit; go 1.17
 github.com/fxamacker/cbor/v2
-# github.com/go-kit/kit v0.13.0
-## explicit; go 1.17
-github.com/go-kit/kit/log
 # github.com/go-kit/log v0.2.1
 ## explicit; go 1.17
 github.com/go-kit/log
