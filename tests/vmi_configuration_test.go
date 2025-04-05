@@ -1988,6 +1988,10 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheNone
 			// ephemeral-disk2
 			vmi.Spec.Domain.Devices.Disks[1].Cache = v1.CacheWriteThrough
+			// ephemeral-disk3
+			vmi.Spec.Domain.Devices.Disks[3].Cache = v1.CacheDirectSync
+			// ephemeral-disk4
+			vmi.Spec.Domain.Devices.Disks[4].Cache = v1.CacheUnsafe
 			// ephemeral-disk5
 			vmi.Spec.Domain.Devices.Disks[2].Cache = v1.CacheWriteBack
 
@@ -2002,6 +2006,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			cacheNone := string(v1.CacheNone)
 			cacheWritethrough := string(v1.CacheWriteThrough)
 			cacheWriteback := string(v1.CacheWriteBack)
+			cacheDirectsync := string(v1.CacheDirectSync)
+			cacheUnsafe := string(v1.CacheUnsafe)
 
 			By("checking if requested cache 'none' has been set")
 			Expect(disks[0].Alias.GetName()).To(Equal("ephemeral-disk1"))
@@ -2014,6 +2020,14 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			By("checking if requested cache 'writeback' has been set")
 			Expect(disks[2].Alias.GetName()).To(Equal("ephemeral-disk5"))
 			Expect(disks[2].Driver.Cache).To(Equal(cacheWriteback))
+
+			By("checking if requested cache 'directsync' has been set")
+			Expect(disks[3].Alias.GetName()).To(Equal("ephemeral-disk3"))
+			Expect(disks[3].Driver.Cache).To(Equal(cacheDirectsync))
+
+			By("checking if requested cache 'unsafe' has been set")
+			Expect(disks[4].Alias.GetName()).To(Equal("ephemeral-disk4"))
+			Expect(disks[4].Driver.Cache).To(Equal(cacheUnsafe))
 
 			By("checking if default cache 'none' has been set to ephemeral disk")
 			Expect(disks[3].Alias.GetName()).To(Equal("ephemeral-disk3"))

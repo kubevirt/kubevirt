@@ -160,7 +160,9 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 		// Verify if cache mode is valid
 		if hotplugRequest.Disk.Cache != v1.CacheNone &&
 			hotplugRequest.Disk.Cache != v1.CacheWriteThrough &&
-			hotplugRequest.Disk.Cache != v1.CacheWriteBack {
+			hotplugRequest.Disk.Cache != v1.CacheWriteBack &&
+			hotplugRequest.Disk.Cache != v1.CacheUnsafe &&
+			hotplugRequest.Disk.Cache != v1.CacheDirectSync {
 			return fmt.Errorf("error adding volume, invalid cache value %s", cache)
 		}
 	}
