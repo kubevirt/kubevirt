@@ -118,3 +118,7 @@ func (t *TimeDefinedCache[T]) setWithoutLock(value T) {
 		t.lastRefresh = k6tpointer.P(time.Now())
 	}
 }
+
+func (t *TimeDefinedCache[T]) SetReCalcFunc(reCalcFunc func() (T, error)) {
+	t.reCalcFunc = reCalcFunc
+}
