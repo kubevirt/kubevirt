@@ -32,28 +32,8 @@ import (
  This module is intended for determining whether an optional feature is enabled or not at the cluster-level.
 */
 
-func (config *ClusterConfig) isFeatureGateDefined(featureGate string) bool {
-	if isEnabled, exists := config.GetConfig().DeveloperConfiguration.FeatureGatesMap[featureGate]; exists {
-		return isEnabled
-	}
-
-	for _, fg := range config.GetConfig().DeveloperConfiguration.FeatureGates {
-		if fg == featureGate {
-			return true
-		}
-	}
-	return false
-}
-
 func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
-	if fg := featuregate.FeatureGateInfo(featureGate); fg != nil && fg.State == featuregate.GA {
-		return true
-	}
-
-	if config.isFeatureGateDefined(featureGate) {
-		return true
-	}
-	return false
+	return IsFeatureGateEnabled(featureGate, config.GetConfig().DeveloperConfiguration)
 }
 
 func (config *ClusterConfig) ExpandDisksEnabled() bool {
@@ -208,4 +188,20 @@ func GetEnabledFeatureGates(kubevirtDevConfig *v1.DeveloperConfiguration) []stri
 	}
 
 	return enabledFeatureGates
+}
+
+func IsFeatureGateEnabled(featureGate string, kubevirtDevConfig *v1.DeveloperConfiguration) bool {
+	if kubevirtDevConfig == nil {
+		return false
+	}
+
+	if featuregate.FeatureGateInfo(featureGate).IsGA() {
+		return true
+	}
+
+	if isEnabled, exists := kubevirtDevConfig.FeatureGatesMap[featureGate]; exists {
+		return isEnabled
+	}
+
+	return slices.Contains(kubevirtDevConfig.FeatureGates, featureGate)
 }
