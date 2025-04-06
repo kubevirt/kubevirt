@@ -207,6 +207,9 @@ Number of current running migrations. Type: Gauge.
 ### kubevirt_vmi_migrations_in_scheduling_phase
 Number of current scheduling migrations. Type: Gauge.
 
+### kubevirt_vmi_migrations_in_unset_phase
+Number of current unset migrations. These are pending items the virt-controller hasn’t processed yet from the queue. Type: Gauge.
+
 ### kubevirt_vmi_network_receive_bytes_total
 Total network traffic received in bytes. Type: Counter.
 
