@@ -30,6 +30,8 @@ import (
 )
 
 func ValidateFeatureGates(featureGates []string, vmiSpec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	featureGates, _ = ParseEnableFeatureGates(featureGates)
+
 	var causes []metav1.StatusCause
 	for _, fgName := range featureGates {
 		fg := FeatureGateInfo(fgName)
