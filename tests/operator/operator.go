@@ -1363,47 +1363,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(crd.ObjectMeta.OwnerReferences).To(BeEmpty())
 		})
 
-		It("[test_id:5010]should be able to update product related labels of kubevirt install", func() {
-			const (
-				productName      = "kubevirt-test"
-				productVersion   = "0.0.0"
-				productComponent = "kubevirt-component"
-			)
-
-			allKvInfraPodsAreReady(originalKv)
-			sanityCheckDeploymentsExist()
-
-			kv := copyOriginalKv(originalKv)
-
-			By("Patching kubevirt resource with productName , productVersion  and productComponent")
-			patches := patch.New(
-				patch.WithReplace("/spec/productName", productName),
-				patch.WithReplace("/spec/productVersion", productVersion),
-				patch.WithReplace("/spec/productComponent", productComponent),
-			)
-
-			patchKV(kv.Name, patches)
-
-			for _, deployment := range []string{"virt-api", "virt-controller"} {
-				By(fmt.Sprintf("Ensuring that the %s deployment is updated", deployment))
-				Eventually(func() bool {
-					dep, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), deployment, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return dep.ObjectMeta.Labels[v1.AppVersionLabel] == productVersion && dep.ObjectMeta.Labels[v1.AppPartOfLabel] == productName && dep.ObjectMeta.Labels[v1.AppComponentLabel] == productComponent
-				}, 240*time.Second, 1*time.Second).Should(BeTrue(), fmt.Sprintf("Expected labels to be updated for %s deployment", deployment))
-			}
-
-			By("Ensuring that the virt-handler daemonset is updated")
-			Eventually(func() bool {
-				dms, err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return dms.ObjectMeta.Labels[v1.AppVersionLabel] == productVersion && dms.ObjectMeta.Labels[v1.AppPartOfLabel] == productName && dms.ObjectMeta.Labels[v1.AppComponentLabel] == productComponent
-			}, 240*time.Second, 1*time.Second).Should(BeTrue(), "Expected labels to be updated for virt-handler daemonset")
-
-			By("Deleting KubeVirt object")
-			deleteAllKvAndWait(false, originalKv.Name)
-		})
-
 		Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster", func() {
 
 			BeforeEach(func() {

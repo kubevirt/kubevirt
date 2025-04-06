@@ -19,5 +19,5 @@
 
 set -e
 
-covered_paths=$(cat hack/lint-paths.txt | tr '\n' ' ')
+covered_paths=$(cat hack/linter/lint-paths.txt | tr '\n' ' ')
 gofumpt -l -w -extra ${covered_paths}

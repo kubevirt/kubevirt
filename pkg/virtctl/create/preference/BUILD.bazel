@@ -6,7 +6,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/create/preference",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/instancetype:go_default_library",
+        "//pkg/instancetype/preference/validation:go_default_library",
         "//pkg/virtctl/clientconfig:go_default_library",
         "//pkg/virtctl/create/params:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
@@ -25,7 +25,7 @@ go_test(
     ],
     deps = [
         ":go_default_library",
-        "//pkg/virt-api/webhooks/validating-webhook/admitters:go_default_library",
+        "//pkg/instancetype/preference/webhooks:go_default_library",
         "//pkg/virtctl/create:go_default_library",
         "//pkg/virtctl/testing:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype:go_default_library",

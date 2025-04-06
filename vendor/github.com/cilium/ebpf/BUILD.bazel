@@ -21,8 +21,11 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/github.com/cilium/ebpf/asm:go_default_library",
+        "//vendor/github.com/cilium/ebpf/btf:go_default_library",
         "//vendor/github.com/cilium/ebpf/internal:go_default_library",
-        "//vendor/github.com/cilium/ebpf/internal/btf:go_default_library",
+        "//vendor/github.com/cilium/ebpf/internal/kconfig:go_default_library",
+        "//vendor/github.com/cilium/ebpf/internal/sys:go_default_library",
+        "//vendor/github.com/cilium/ebpf/internal/tracefs:go_default_library",
         "//vendor/github.com/cilium/ebpf/internal/unix:go_default_library",
     ],
 )

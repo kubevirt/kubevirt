@@ -42,8 +42,8 @@ func registerBindingPugins(config v1.KubeVirtConfiguration, name string, binding
 
 	if config.NetworkConfiguration == nil {
 		patchSet.AddOption(patch.WithAdd("/spec/configuration/network", v1.NetworkConfiguration{}))
-	}
-	if config.NetworkConfiguration.Binding == nil {
+		patchSet.AddOption(patch.WithAdd("/spec/configuration/network/binding", map[string]v1.InterfaceBindingPlugin{}))
+	} else if config.NetworkConfiguration.Binding == nil {
 		patchSet.AddOption(patch.WithAdd("/spec/configuration/network/binding", map[string]v1.InterfaceBindingPlugin{}))
 	}
 

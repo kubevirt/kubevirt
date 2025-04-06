@@ -26,7 +26,6 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -161,7 +160,6 @@ func (r rights) list() (e []rightsEntry) {
 
 var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:component][sig-compute]User Access", decorators.SigCompute, decorators.WgS390x, decorators.WgArm64, func() {
 
-	var k8sClient string
 	var authClient *authClientV1.AuthorizationV1Client
 
 	doSarRequest := func(group string, resource string, subresource string, namespace string, role string, verb string, expected, clusterWide bool) {
@@ -207,8 +205,6 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 	}
 
 	BeforeEach(func() {
-		k8sClient = clientcmd.GetK8sCmdClient()
-		clientcmd.SkipIfNoCmd(k8sClient)
 		virtClient := kubevirt.Client()
 		var err error
 		authClient, err = authClientV1.NewForConfig(virtClient.Config())

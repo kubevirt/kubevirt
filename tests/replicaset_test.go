@@ -461,7 +461,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	It("[test_id:4121]should create and verify kubectl/oc output for vm replicaset", func() {
 		k8sClient := clientcmd.GetK8sCmdClient()
-		clientcmd.SkipIfNoCmd(k8sClient)
+		clientcmd.FailIfNoCmd(k8sClient)
 
 		newRS := newReplicaSet()
 		doScale(newRS.ObjectMeta.Name, 2)

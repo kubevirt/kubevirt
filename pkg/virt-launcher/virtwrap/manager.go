@@ -69,8 +69,8 @@ import (
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/tpm"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
@@ -179,6 +179,8 @@ type LibvirtDomainManager struct {
 
 	metadataCache    *metadata.Cache
 	domainStatsCache *virtcache.TimeDefinedCache[*stats.DomainStats]
+
+	cpuSetGetter func() ([]int, error)
 }
 
 type pausedVMIs struct {
@@ -205,13 +207,15 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 }
 
 func NewLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore,
-	ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, metadataCache *metadata.Cache, stopChan chan struct{}, diskMemoryLimitBytes int64) (DomainManager, error) {
+	ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, metadataCache *metadata.Cache,
+	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error)) (DomainManager, error) {
 	directIOChecker := converter.NewDirectIOChecker()
-	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache, stopChan, diskMemoryLimitBytes)
+	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache, stopChan, diskMemoryLimitBytes, cpuSetGetter)
 }
 
 func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string,
-	ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker, metadataCache *metadata.Cache, stopChan chan struct{}, diskMemoryLimitBytes int64) (DomainManager, error) {
+	ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker, metadataCache *metadata.Cache,
+	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error)) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		diskMemoryLimitBytes: diskMemoryLimitBytes,
 		virConn:              connection,
@@ -228,6 +232,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		cancelSafetyUnfreezeChan: make(chan struct{}),
 		migrateInfoStats:         &stats.DomainJobInfo{},
 		metadataCache:            metadataCache,
+		cpuSetGetter:             cpuSetGetter,
 	}
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
@@ -489,7 +494,7 @@ func (l *LibvirtDomainManager) UpdateVCPUs(vmi *v1.VirtualMachineInstance, optio
 			topology = options.Topology
 		}
 
-		podCPUSet, err := util.GetPodCPUSet()
+		podCPUSet, err := l.cpuSetGetter()
 		if err != nil {
 			logger.Reason(err).Error("failed to read pod cpuset.")
 			return fmt.Errorf("failed to read pod cpuset: %v", err)
@@ -959,7 +964,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 
 	logger := log.Log.Object(vmi)
 
-	podCPUSet, err := util.GetPodCPUSet()
+	podCPUSet, err := l.cpuSetGetter()
 	if err != nil {
 		logger.Reason(err).Error("failed to read pod cpuset.")
 		return nil, fmt.Errorf("failed to read pod cpuset: %v", err)
@@ -1716,7 +1721,7 @@ func (l *LibvirtDomainManager) cancelSafetyUnfreeze() {
 }
 
 func (l *LibvirtDomainManager) getParsedFSStatus(domainName string) (string, error) {
-	cmdResult, err := l.virConn.QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, domainName)
+	cmdResult, err := l.virConn.QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, domainName)
 	if err != nil {
 		return "", err
 	}
@@ -1749,7 +1754,7 @@ func (l *LibvirtDomainManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreez
 	// The fsfreeze doesn't apply to the TPM, so we can at least do a fsync to the state
 	// directory to ensure data integrity. This explicit sync ensures that pending
 	// writes to the swtpm backing files are flushed to disk.
-	if backendstorage.HasPersistentTPMDevice(&vmi.Spec) {
+	if tpm.HasPersistentDevice(&vmi.Spec) {
 		cmd := exec.Command("/usr/bin/sync", services.PathForSwtpm(vmi))
 		out, err := cmd.CombinedOutput()
 		if err != nil {

@@ -260,6 +260,7 @@ var _ = Describe("HotplugVolume", func() {
 			tempDir = GinkgoT().TempDir()
 			tmpDirSafe, err = safepath.JoinAndResolveWithRelativeRoot(tempDir)
 			Expect(err).ToNot(HaveOccurred())
+      
 			vmi = libvmi.New(
 				libvmi.WithName("fake-vmi"),
 				libvmi.WithUID("1234"),
@@ -527,6 +528,7 @@ var _ = Describe("HotplugVolume", func() {
 
 			volumeDir, err := newDir(tempDir, "volumes")
 			Expect(err).ToNot(HaveOccurred())
+
 			vmi = libvmi.New(
 				libvmi.WithName("fake-vmi"),
 				libvmi.WithUID("1234"),
@@ -717,6 +719,7 @@ var _ = Describe("HotplugVolume", func() {
 			tempDir = GinkgoT().TempDir()
 			tmpDirSafe, err = safepath.JoinAndResolveWithRelativeRoot(tempDir)
 			Expect(err).ToNot(HaveOccurred())
+
 			vmi = libvmi.New(
 				libvmi.WithName("fake-vmi"),
 				libvmi.WithUID("1234"),

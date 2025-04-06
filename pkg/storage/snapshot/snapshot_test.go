@@ -41,7 +41,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -163,12 +163,11 @@ var _ = Describe("Snapshot controlleer", func() {
 		return createVirtualMachineSnapshotContent(vmSnapshot, vm, pvcs)
 	}
 
-	createErrorVMSnapshotContent := func() *snapshotv1.VirtualMachineSnapshotContent {
+	createErrorVMSnapshotContent := func(errorMessage string) *snapshotv1.VirtualMachineSnapshotContent {
 		content := createVMSnapshotContent()
 		content.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 			ReadyToUse: pointer.P(false),
 		}
-		errorMessage := "VolumeSnapshot vol1 error: error"
 		content.Status.Error = &snapshotv1.Error{
 			Time:    timeFunc(),
 			Message: &errorMessage,
@@ -187,10 +186,10 @@ var _ = Describe("Snapshot controlleer", func() {
 
 	createVMSnapshotErrored := func() *snapshotv1.VirtualMachineSnapshot {
 		vms := createVMSnapshotInProgress()
-		content := createErrorVMSnapshotContent()
+		errorMessage := "VolumeSnapshot vol1 error: error"
+		content := createErrorVMSnapshotContent(errorMessage)
 		vms.Status.VirtualMachineSnapshotContentName = &content.Name
 		vms.Status.ReadyToUse = pointer.P(false)
-		vms.Status.Indications = nil
 		vms.Status.Conditions = []snapshotv1.Condition{
 			newProgressingCondition(corev1.ConditionFalse, "In error state"),
 			newReadyCondition(corev1.ConditionFalse, "Not ready"),
@@ -587,7 +586,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot := vmSnapshot.DeepCopy()
 				updatedSnapshot.ResourceVersion = "1"
 				updatedSnapshot.Status.Phase = snapshotv1.Deleting
-				updatedSnapshot.Status.Indications = nil
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, "VM snapshot is deleting"),
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
@@ -768,8 +766,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.Indications = nil
 				if vmiExists {
 					updatedSnapshot.Status.Indications = []snapshotv1.Indication{
-						snapshotv1.VMSnapshotOnlineSnapshotIndication,
 						snapshotv1.VMSnapshotNoGuestAgentIndication,
+						snapshotv1.VMSnapshotOnlineSnapshotIndication,
 					}
 				}
 				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
@@ -982,8 +980,8 @@ var _ = Describe("Snapshot controlleer", func() {
 					},
 				}
 				updatedSnapshot.Status.Indications = []snapshotv1.Indication{
-					snapshotv1.VMSnapshotOnlineSnapshotIndication,
 					snapshotv1.VMSnapshotNoGuestAgentIndication,
+					snapshotv1.VMSnapshotOnlineSnapshotIndication,
 				}
 				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
@@ -1105,7 +1103,8 @@ var _ = Describe("Snapshot controlleer", func() {
 			It("should update VirtualMachineSnapshot error when VirtualMachineSnapshotContent error", func() {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createLockedVM()
-				vmSnapshotContent := createErrorVMSnapshotContent()
+				errorMessage := "VolumeSnapshot vol1 error: error"
+				vmSnapshotContent := createErrorVMSnapshotContent(errorMessage)
 
 				vmSnapshotContentSource.Add(vmSnapshotContent)
 				vmSource.Add(vm)
@@ -1132,7 +1131,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				negativeDeadline, _ := time.ParseDuration("-1m")
 				vmSnapshot.Spec.FailureDeadline = &metav1.Duration{Duration: negativeDeadline}
 				vm := createLockedVM()
-				vmSnapshotContent := createErrorVMSnapshotContent()
+				errorMessage := "VolumeSnapshot vol1 error: error"
+				vmSnapshotContent := createErrorVMSnapshotContent(errorMessage)
 
 				vmSnapshotContentSource.Add(vmSnapshotContent)
 				vmSource.Add(vm)
@@ -1363,6 +1363,119 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(*snapshotCreates).To(Equal(1))
 			})
 
+			It("should set content error if failed freeze vm", func() {
+				storageClass := createStorageClass()
+				storageClassSource.Add(storageClass)
+
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshotSource.Add(vmSnapshot)
+
+				vmSnapshotContent := createVMSnapshotContent()
+				vmSnapshotContent.UID = contentUID
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+
+				vm := createLockedVM()
+				vmSource.Add(vm)
+
+				vmi := createVMI(vm)
+				agentCondition := v1.VirtualMachineInstanceCondition{
+					Type:          v1.VirtualMachineInstanceAgentConnected,
+					LastProbeTime: metav1.Now(),
+					Status:        corev1.ConditionTrue,
+				}
+				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
+				vmiSource.Add(vmi)
+
+				updatedContent := vmSnapshotContent.DeepCopy()
+				updatedContent.ResourceVersion = "1"
+				errorMessage := "Failed freezing vm"
+				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
+					ReadyToUse: pointer.P(false),
+					Error: &snapshotv1.Error{
+						Time:    timeFunc(),
+						Message: &errorMessage,
+					},
+				}
+
+				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
+				addVolumeSnapshotClass(volumeSnapshotClass)
+
+				vmiInterface.EXPECT().Freeze(context.Background(), vm.Name, 0*time.Second).Return(fmt.Errorf(errorMessage)).Times(1)
+				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
+
+				controller.processVMSnapshotContentWorkItem()
+				Expect(*updateStatusCalls).To(Equal(1))
+			})
+
+			It("should set QuiesceFailed indication if failed freeze vm", func() {
+				vm := createLockedVM()
+				vmSource.Add(vm)
+				vmi := createVMI(vm)
+				agentCondition := v1.VirtualMachineInstanceCondition{
+					Type:          v1.VirtualMachineInstanceAgentConnected,
+					LastProbeTime: metav1.Now(),
+					Status:        corev1.ConditionTrue,
+				}
+				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
+				vmiSource.Add(vmi)
+
+				errorMessage := "Failed freezing vm"
+				vmSnapshotContent := createErrorVMSnapshotContent(errorMessage)
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+
+				vmSnapshot := createVMSnapshotInProgress()
+				addVirtualMachineSnapshot(vmSnapshot)
+
+				updatedSnapshot := vmSnapshot.DeepCopy()
+				updatedSnapshot.Status.VirtualMachineSnapshotContentName = &vmSnapshotContent.Name
+				updatedSnapshot.Status.ReadyToUse = pointer.P(false)
+				updatedSnapshot.Status.Indications = []snapshotv1.Indication{
+					snapshotv1.VMSnapshotGuestAgentIndication,
+					snapshotv1.VMSnapshotOnlineSnapshotIndication,
+					snapshotv1.VMSnapshotQuiesceFailedIndication,
+				}
+				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
+					newProgressingCondition(corev1.ConditionFalse, "In error state"),
+					newReadyCondition(corev1.ConditionFalse, "Not ready"),
+				}
+				updatedSnapshot.Status.Error = vmSnapshotContent.Status.Error
+
+				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
+
+				controller.processVMSnapshotWorkItem()
+				Expect(*updateStatusCalls).To(Equal(1))
+			})
+
+			It("should not unset QuiesceFailed indication if freeze succeeded afterwards", func() {
+				vm := createLockedVM()
+				vmSource.Add(vm)
+				vmi := createVMI(vm)
+				agentCondition := v1.VirtualMachineInstanceCondition{
+					Type:          v1.VirtualMachineInstanceAgentConnected,
+					LastProbeTime: metav1.Now(),
+					Status:        corev1.ConditionTrue,
+				}
+				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
+				vmiSource.Add(vmi)
+
+				vmSnapshot := createVMSnapshotInProgress()
+				vmSnapshot.Status.Conditions = []snapshotv1.Condition{
+					newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
+					newReadyCondition(corev1.ConditionFalse, "Not ready"),
+				}
+				vmSnapshot.Status.Indications = []snapshotv1.Indication{
+					snapshotv1.VMSnapshotGuestAgentIndication,
+					snapshotv1.VMSnapshotOnlineSnapshotIndication,
+					snapshotv1.VMSnapshotQuiesceFailedIndication,
+				}
+				addVirtualMachineSnapshot(vmSnapshot)
+
+				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, vmSnapshot)
+
+				controller.processVMSnapshotWorkItem()
+				Expect(*updateStatusCalls).To(Equal(0))
+			})
+
 			It("should freeze vm with online snapshot and guest agent", func() {
 				storageClass := createStorageClass()
 				vmSnapshot := createVMSnapshotInProgress()
@@ -1381,8 +1494,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				}
 				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
 				vmiSource.Add(vmi)
-
-				vmSnapshot.Status.Indications = append(vmSnapshot.Status.Indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
 
 				updatedContent := vmSnapshotContent.DeepCopy()
 				updatedContent.ResourceVersion = "1"
@@ -1616,7 +1727,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				Entry("created and ready", timeFunc(), true),
 			)
 
-			DescribeTable("should attempt to unfreeze vm and remove content finalizer if vmsnapshot deleting", func(freezeError error) {
+			DescribeTable("should attempt to unfreeze vm and remove content finalizer if vmsnapshot deleting", func(unfreezeError error) {
 				vm := createLockedVM()
 				vmSource.Add(vm)
 				vmi := createVMI(vm)
@@ -1642,14 +1753,14 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedContent.ResourceVersion = "1"
 				updatedContent.Finalizers = []string{}
 
-				vmiInterface.EXPECT().Unfreeze(context.Background(), vm.Name).Return(freezeError).Times(1)
+				vmiInterface.EXPECT().Unfreeze(context.Background(), vm.Name).Return(unfreezeError).Times(1)
 				patchCalls := expectVMSnapshotContentPatch(vmSnapshotClient, vmSnapshotContent, updatedContent)
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotContentWorkItem()
 				Expect(*patchCalls).To(Equal(1))
 			},
-				Entry("Freeze success", nil),
-				Entry("Freeze error", fmt.Errorf("error")),
+				Entry("UnFreeze success", nil),
+				Entry("UnFreeze error", fmt.Errorf("error")),
 			)
 
 			DescribeTable("should delete informer", func(crdName string) {
@@ -2180,12 +2291,12 @@ var _ = Describe("Snapshot controlleer", func() {
 					updateStatusCalls = expectVMSnapshotUpdateStatus(vmSnapshotClient, expectedSnapshotUpdate)
 
 					instancetypeObj = createInstancetype()
-					instancetypeCR, err = instancetype.CreateControllerRevision(vm, instancetypeObj)
+					instancetypeCR, err = revision.CreateControllerRevision(vm, instancetypeObj)
 					Expect(err).ToNot(HaveOccurred())
 					crSource.Add(instancetypeCR)
 
 					preferenceObj = createPreference()
-					preferenceCR, err = instancetype.CreateControllerRevision(vm, preferenceObj)
+					preferenceCR, err = revision.CreateControllerRevision(vm, preferenceObj)
 					Expect(err).ToNot(HaveOccurred())
 					crSource.Add(preferenceCR)
 				})
@@ -2725,7 +2836,7 @@ func createPreference() *instancetypev1beta1.VirtualMachinePreference {
 }
 
 func createInstancetypeVirtualMachineSnapshotCR(vm *v1.VirtualMachine, vmSnapshot *snapshotv1.VirtualMachineSnapshot, obj runtime.Object) *appsv1.ControllerRevision {
-	cr, err := instancetype.CreateControllerRevision(vm, obj)
+	cr, err := revision.CreateControllerRevision(vm, obj)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Replace the VM name with the vmSnapshot name and clear the namespace as we don't expect to see this set during creation, only after.

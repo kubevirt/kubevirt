@@ -46,7 +46,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	typesutil "kubevirt.io/kubevirt/pkg/storage/types"
@@ -830,20 +830,28 @@ func (t *vmRestoreTarget) generateRestoredVMSpec(snapshotVM *snapshotv1.VirtualM
 			Spec:   *snapshotVM.Spec.DeepCopy(),
 			Status: kubevirtv1.VirtualMachineStatus{},
 		}
-
+		if newVM.Spec.Running != nil {
+			newVM.Spec.Running = pointer.P(false)
+		} else {
+			newVM.Spec.RunStrategy = pointer.P(kubevirtv1.RunStrategyHalted)
+		}
 	} else {
 		newVM = t.vm.DeepCopy()
 		newVM.Spec = *snapshotVM.Spec.DeepCopy()
+		if t.vm.Spec.Running != nil {
+			newVM.Spec.Running = pointer.P(false)
+			newVM.Spec.RunStrategy = nil
+		} else {
+			runStrategy, err := t.vm.RunStrategy()
+			if err != nil {
+				return nil, err
+			}
+			// make sure an existing VM keeps the same run strategy as before the restore
+			newVM.Spec.RunStrategy = pointer.P(runStrategy)
+			newVM.Spec.Running = nil
+		}
 	}
 
-	// update Running state in case snapshot was on online VM
-	if newVM.Spec.RunStrategy != nil {
-		runStrategyHalted := kubevirtv1.RunStrategyHalted
-		newVM.Spec.RunStrategy = &runStrategyHalted
-	} else if newVM.Spec.Running != nil {
-		running := false
-		newVM.Spec.Running = &running
-	}
 	newVM.Spec.DataVolumeTemplates = newTemplates
 	newVM.Spec.Template.Spec.Volumes = newVolumes
 	setLastRestoreAnnotation(t.vmRestore, newVM)
@@ -997,7 +1005,7 @@ func (t *vmRestoreTarget) restoreInstancetypeControllerRevision(vmSnapshotRevisi
 		}
 		if existingCR != nil {
 			// Ensure that the existing CR contains the expected data from the snapshot before returning it
-			equal, err := instancetype.CompareRevisions(snapshotCR, existingCR)
+			equal, err := revision.Compare(snapshotCR, existingCR)
 			if err != nil {
 				return nil, err
 			}

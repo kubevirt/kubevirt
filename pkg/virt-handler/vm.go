@@ -89,6 +89,7 @@ import (
 	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	multipath_monitor "kubevirt.io/kubevirt/pkg/virt-handler/multipath-monitor"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
@@ -153,8 +154,8 @@ const (
 	memoryHotplugFailedReason = "Memory Hotplug Failed"
 )
 
-var getCgroupManager = func(vmi *v1.VirtualMachineInstance) (cgroup.Manager, error) {
-	return cgroup.NewManagerFromVM(vmi)
+var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string) (cgroup.Manager, error) {
+	return cgroup.NewManagerFromVM(vmi, host)
 }
 
 func NewController(
@@ -209,7 +210,7 @@ func NewController(
 		migrationProxy:                   migrationProxy,
 		podIsolationDetector:             podIsolationDetector,
 		containerDiskMounter:             container_disk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
-		hotplugVolumeMounter:             hotplug_volume.NewVolumeMounter(hotplugState, kubeletPodsDir),
+		hotplugVolumeMounter:             hotplug_volume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
 		clusterConfig:                    clusterConfig,
 		virtLauncherFSRunDirPattern:      "/proc/%d/root/var/run",
 		capabilities:                     capabilities,
@@ -220,6 +221,7 @@ func NewController(
 		netConf:                          netConf,
 		netStat:                          netStat,
 		netBindingPluginMemoryCalculator: netBindingPluginMemoryCalculator,
+		multipathSocketMonitor:           multipath_monitor.NewMultipathSocketMonitor(),
 	}
 
 	c.hasSynced = func() bool {
@@ -308,6 +310,7 @@ type VirtualMachineController struct {
 	clusterConfig            *virtconfig.ClusterConfig
 	sriovHotplugExecutorPool *executor.RateLimitedExecutorPool
 	downwardMetricsManager   downwardMetricsManager
+	multipathSocketMonitor   *multipath_monitor.MultipathSocketMonitor
 
 	netConf                          netconf
 	netStat                          netstat
@@ -1001,20 +1004,18 @@ func (c *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 
 func (c *VirtualMachineController) updateGuestInfoFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 
-	if domain == nil {
+	if domain == nil || domain.Status.OSInfo.Name == "" || vmi.Status.GuestOSInfo.Name == domain.Status.OSInfo.Name {
 		return
 	}
 
-	if vmi.Status.GuestOSInfo.Name != domain.Status.OSInfo.Name {
-		vmi.Status.GuestOSInfo.Name = domain.Status.OSInfo.Name
-		vmi.Status.GuestOSInfo.Version = domain.Status.OSInfo.Version
-		vmi.Status.GuestOSInfo.KernelRelease = domain.Status.OSInfo.KernelRelease
-		vmi.Status.GuestOSInfo.PrettyName = domain.Status.OSInfo.PrettyName
-		vmi.Status.GuestOSInfo.VersionID = domain.Status.OSInfo.VersionId
-		vmi.Status.GuestOSInfo.KernelVersion = domain.Status.OSInfo.KernelVersion
-		vmi.Status.GuestOSInfo.Machine = domain.Status.OSInfo.Machine
-		vmi.Status.GuestOSInfo.ID = domain.Status.OSInfo.Id
-	}
+	vmi.Status.GuestOSInfo.Name = domain.Status.OSInfo.Name
+	vmi.Status.GuestOSInfo.Version = domain.Status.OSInfo.Version
+	vmi.Status.GuestOSInfo.KernelRelease = domain.Status.OSInfo.KernelRelease
+	vmi.Status.GuestOSInfo.PrettyName = domain.Status.OSInfo.PrettyName
+	vmi.Status.GuestOSInfo.VersionID = domain.Status.OSInfo.VersionId
+	vmi.Status.GuestOSInfo.KernelVersion = domain.Status.OSInfo.KernelVersion
+	vmi.Status.GuestOSInfo.Machine = domain.Status.OSInfo.Machine
+	vmi.Status.GuestOSInfo.ID = domain.Status.OSInfo.Id
 }
 
 func (c *VirtualMachineController) updateAccessCredentialConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) {
@@ -1047,9 +1048,15 @@ func (c *VirtualMachineController) updateAccessCredentialConditions(vmi *v1.Virt
 		}
 		vmi.Status.Conditions = append(vmi.Status.Conditions, newCondition)
 		if status == k8sv1.ConditionTrue {
-			c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.AccessCredentialsSyncSuccess.String(), message)
+			eventMessage := "Access credentials sync successful."
+			if message != "" {
+				eventMessage = fmt.Sprintf("Access credentials sync successful: %s", message)
+			}
+			c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.AccessCredentialsSyncSuccess.String(), eventMessage)
 		} else {
-			c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.AccessCredentialsSyncFailed.String(), message)
+			c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.AccessCredentialsSyncFailed.String(),
+				fmt.Sprintf("Access credentials sync failed: %s", message),
+			)
 		}
 	}
 }
@@ -1163,11 +1170,7 @@ func (c *VirtualMachineController) updatePausedConditions(vmi *v1.VirtualMachine
 	// Update paused condition in case VMI was paused / unpaused
 	if domain != nil && domain.Status.Status == api.Paused {
 		if !condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
-			reason := domain.Status.Reason
-			if c.isVMIPausedDuringMigration(vmi) {
-				reason = api.ReasonPausedMigration
-			}
-			calculatePausedCondition(vmi, reason)
+			c.calculatePausedCondition(vmi, domain.Status.Reason)
 		}
 	} else if condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
 		log.Log.Object(vmi).V(3).Info("Removing paused condition")
@@ -1460,11 +1463,15 @@ func (c *VirtualMachineController) recordPhaseChangeEvent(vmi *v1.VirtualMachine
 	}
 }
 
-func calculatePausedCondition(vmi *v1.VirtualMachineInstance, reason api.StateChangeReason) {
+func (c *VirtualMachineController) calculatePausedCondition(vmi *v1.VirtualMachineInstance, reason api.StateChangeReason) {
 	now := metav1.NewTime(time.Now())
 	switch reason {
 	case api.ReasonPausedMigration:
-		log.Log.Object(vmi).V(3).Info("Adding paused condition")
+		if !isVMIPausedDuringMigration(vmi) || !c.isMigrationSource(vmi) {
+			log.Log.Object(vmi).V(3).Infof("Domain is paused after migration by qemu, no condition needed")
+			return
+		}
+		log.Log.Object(vmi).V(3).Info("Adding paused by migration monitor condition")
 		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
 			Type:               v1.VirtualMachineInstancePaused,
 			Status:             k8sv1.ConditionTrue,
@@ -1657,6 +1664,8 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 
 	heartBeatDone := c.heartBeat.Run(c.heartBeatInterval, stopCh)
 
+	c.multipathSocketMonitor.Run()
+
 	go c.ioErrorRetryManager.Run(stopCh)
 
 	// Start the actual work
@@ -1666,6 +1675,7 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 
 	<-heartBeatDone
 	<-stopCh
+	c.multipathSocketMonitor.Close()
 	log.Log.Info("Stopping virt-handler controller.")
 }
 
@@ -2144,7 +2154,7 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	// UnmountAll does the cleanup on the "best effort" basis: it is
 	// safe to pass a nil cgroupManager.
-	cgroupManager, _ := getCgroupManager(vmi)
+	cgroupManager, _ := getCgroupManager(vmi, c.host)
 	if err := c.hotplugVolumeMounter.UnmountAll(vmi, cgroupManager); err != nil {
 		return err
 	}
@@ -2520,7 +2530,7 @@ func (c *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 	return
 }
 
-func (c *VirtualMachineController) isVMIPausedDuringMigration(vmi *v1.VirtualMachineInstance) bool {
+func isVMIPausedDuringMigration(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Status.MigrationState != nil &&
 		vmi.Status.MigrationState.Mode == v1.MigrationPaused &&
 		!vmi.Status.MigrationState.Completed
@@ -2541,7 +2551,7 @@ func (c *VirtualMachineController) isMigrationSource(vmi *v1.VirtualMachineInsta
 
 func (c *VirtualMachineController) handleTargetMigrationProxy(vmi *v1.VirtualMachineInstance) error {
 	// handle starting/stopping target migration proxy
-	migrationTargetSockets := []string{}
+	var migrationTargetSockets []string
 	res, err := c.podIsolationDetector.Detect(vmi)
 	if err != nil {
 		return err
@@ -2758,7 +2768,7 @@ func (c *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 
 	// Mount hotplug disks
 	if attachmentPodUID := vmi.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != types.UID("") {
-		cgroupManager, err := getCgroupManager(vmi)
+		cgroupManager, err := getCgroupManager(vmi, c.host)
 		if err != nil {
 			return err
 		}
@@ -2951,7 +2961,7 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		return err
 	}
 
-	cgroupManager, err := getCgroupManager(vmi)
+	cgroupManager, err := getCgroupManager(vmi, c.host)
 	if err != nil {
 		return err
 	}
@@ -3217,7 +3227,7 @@ func (c *VirtualMachineController) handleHousekeeping(vmi *v1.VirtualMachineInst
 }
 
 func (c *VirtualMachineController) getPreallocatedVolumes(vmi *v1.VirtualMachineInstance) []string {
-	preallocatedVolumes := []string{}
+	var preallocatedVolumes []string
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.PersistentVolumeClaimInfo != nil && volumeStatus.PersistentVolumeClaimInfo.Preallocated {
 			preallocatedVolumes = append(preallocatedVolumes, volumeStatus.Name)
@@ -3517,7 +3527,7 @@ func (c *VirtualMachineController) claimDeviceOwnership(virtLauncherRootMount *s
 	softwareEmulation := c.clusterConfig.AllowEmulation()
 	devicePath, err := safepath.JoinNoFollow(virtLauncherRootMount, filepath.Join("dev", deviceName))
 	if err != nil {
-		if softwareEmulation {
+		if softwareEmulation && deviceName == "kvm" {
 			return nil
 		}
 		return err
@@ -3527,7 +3537,7 @@ func (c *VirtualMachineController) claimDeviceOwnership(virtLauncherRootMount *s
 }
 
 func (c *VirtualMachineController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
-	cgroupManager, err := getCgroupManager(vmi)
+	cgroupManager, err := getCgroupManager(vmi, c.host)
 	if err != nil {
 		return err
 	}
@@ -3558,17 +3568,17 @@ func (c *VirtualMachineController) reportTargetTopologyForMigratingVMI(vmi *v1.V
 }
 
 func (c *VirtualMachineController) handleMigrationAbort(vmi *v1.VirtualMachineInstance, client cmdclient.LauncherClient) error {
-	if vmi.Status.MigrationState.AbortStatus == v1.MigrationAbortInProgress {
+	if vmi.Status.MigrationState.AbortStatus == v1.MigrationAbortInProgress || vmi.Status.MigrationState.AbortStatus == v1.MigrationAbortSucceeded {
 		return nil
 	}
 
-	err := client.CancelVirtualMachineMigration(vmi)
-	if err != nil && err.Error() == migrations.CancelMigrationFailedVmiNotMigratingErr {
-		// If migration did not even start there is no need to cancel it
-		log.Log.Object(vmi).Infof("skipping migration cancellation since vmi is not migrating")
+	if err := client.CancelVirtualMachineMigration(vmi); err != nil {
+		if err.Error() == migrations.CancelMigrationFailedVmiNotMigratingErr {
+			// If migration did not even start there is no need to cancel it
+			log.Log.Object(vmi).Infof("skipping migration cancellation since vmi is not migrating")
+		}
 		return err
 	}
-
 	c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), VMIAbortingMigration)
 	return nil
 }

@@ -44,6 +44,9 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
+	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
@@ -267,12 +270,11 @@ func classifyVolumesForMigration(vmi *v1.VirtualMachineInstance) *migrationDisks
 				disks.shared[volume.Name] = true
 			}
 		case volSrc.HostDisk != nil:
-			if volSrc.HostDisk.Shared != nil && *volSrc.HostDisk.Shared {
-				disks.shared[volume.Name] = true
-			} else if _, ok := migrateDisks[volume.Name]; ok {
+			if _, ok := migrateDisks[volume.Name]; ok {
 				disks.localToMigrate[volume.Name] = true
+			} else if volSrc.HostDisk.Shared != nil && *volSrc.HostDisk.Shared {
+				disks.shared[volume.Name] = true
 			}
-
 		case volSrc.ConfigMap != nil || volSrc.Secret != nil || volSrc.DownwardAPI != nil ||
 			volSrc.ServiceAccount != nil || volSrc.CloudInitNoCloud != nil ||
 			volSrc.CloudInitConfigDrive != nil || volSrc.ContainerDisk != nil:
@@ -884,6 +886,13 @@ func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineI
 	migDisks := classifyVolumesForMigration(vmi)
 	fsSrcBlockDstVols := getFsSrcBlockDstVols(vmi)
 	blockSrcFsDstVols := getBlockSrcFsDstVols(vmi)
+	hotplugVols := make(map[string]bool)
+
+	for _, v := range vmi.Spec.Volumes {
+		if storagetypes.IsHotplugVolume(&v) {
+			hotplugVols[v.Name] = true
+		}
+	}
 
 	for i, d := range dom.Devices.Disks {
 		if d.Alias == nil {
@@ -901,30 +910,39 @@ func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineI
 		// Configure the slice to enable to migrate the volume to a destination with different size
 		// See suggestion in: https://issues.redhat.com/browse/RHEL-4607
 		if dom.Devices.Disks[i].Source.Slices == nil {
-			dom.Devices.Disks[i].Source.Slices = &libvirtxml.DomainDiskSlices{}
+			dom.Devices.Disks[i].Source.Slices = &libvirtxml.DomainDiskSlices{
+				Slices: []libvirtxml.DomainDiskSlice{
+					{
+						Type:   "storage",
+						Offset: 0,
+						Size:   uint(size),
+					},
+				}}
 		}
-		slice := libvirtxml.DomainDiskSlice{
-			Type:   "storage",
-			Offset: 0,
-			Size:   uint(size),
-		}
-		if len(dom.Devices.Disks[i].Source.Slices.Slices) > 0 {
-			dom.Devices.Disks[i].Source.Slices.Slices[0] = slice
-		} else {
-			dom.Devices.Disks[i].Source.Slices.Slices = append(dom.Devices.Disks[i].Source.Slices.Slices, slice)
-		}
+		var path string
+		_, hotplugVol := hotplugVols[name]
 		// Adjust the XML configuration when it migrates from a filesystem source to a block destination or vice versa
 		if _, ok := fsSrcBlockDstVols[name]; ok {
 			log.Log.V(2).Infof("Replace filesystem source with block destination for volume %s", name)
+			if hotplugVol {
+				path = hotplugdisk.GetVolumeMountDir(name)
+			} else {
+				path = filepath.Join(string(filepath.Separator), "dev", name)
+			}
 			dom.Devices.Disks[i].Source.Block = &libvirtxml.DomainDiskSourceBlock{
-				Dev: filepath.Join(string(filepath.Separator), "dev", name),
+				Dev: path,
 			}
 			dom.Devices.Disks[i].Source.File = nil
 		}
 		if _, ok := blockSrcFsDstVols[name]; ok {
 			log.Log.V(2).Infof("Replace block source with destination for volume %s", name)
+			if hotplugVol {
+				path = hotplugdisk.GetVolumeMountDir(name) + ".img"
+			} else {
+				path = filepath.Join(hostdisk.GetMountedHostDiskDir(name), "disk.img")
+			}
 			dom.Devices.Disks[i].Source.File = &libvirtxml.DomainDiskSourceFile{
-				File: filepath.Join(hostdisk.GetMountedHostDiskDir(name), "disk.img"),
+				File: path,
 			}
 			dom.Devices.Disks[i].Source.Block = nil
 		}

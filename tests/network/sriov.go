@@ -79,7 +79,7 @@ const (
 
 var pciAddressRegex = regexp.MustCompile(hardware.PCI_ADDRESS_PATTERN)
 
-var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
+var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 	var virtClient kubecli.KubevirtClient
 
 	sriovResourceName := readSRIOVResourceName()
@@ -87,10 +87,8 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		// Check if the hardware supports SRIOV
-		if err := validateSRIOVSetup(virtClient, sriovResourceName, 1); err != nil {
-			Skip("Sriov is not enabled in this environment. Skip these tests using - export FUNC_TEST_ARGS='--skip=SRIOV'")
-		}
+		Expect(validateSRIOVSetup(sriovResourceName, 1)).To(Succeed(),
+			"Sriov is not enabled in this environment: %v. Skip these tests using - export FUNC_TEST_ARGS='--label-filter=!SRIOV'")
 	})
 
 	Context("VMI connected to single SRIOV network", func() {
@@ -256,11 +254,10 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 				vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent, vmispec.InfoSourceMultusStatus)))
 		})
 
-		Context("migration", func() {
+		Context("migration", decorators.RequiresTwoSchedulableNodes, func() {
 			BeforeEach(func() {
-				if err := validateSRIOVSetup(virtClient, sriovResourceName, 2); err != nil {
-					Skip("Migration tests require at least 2 nodes: " + err.Error())
-				}
+				Expect(validateSRIOVSetup(sriovResourceName, 2)).To(Succeed(),
+					"Migration tests require at least 2 nodes with SR-IOV resources")
 			})
 
 			var vmi *v1.VirtualMachineInstance
@@ -476,7 +473,7 @@ var _ = Describe("SRIOV", Serial, decorators.SRIOV, func() {
 			})
 		})
 	})
-})
+}))
 
 func readSRIOVResourceName() string {
 	sriovResourceName := os.Getenv("SRIOV_RESOURCE_NAME")
@@ -517,7 +514,7 @@ func getInterfaceNetworkNameByMAC(vmi *v1.VirtualMachineInstance, macAddress str
 	return ""
 }
 
-func validateSRIOVSetup(virtClient kubecli.KubevirtClient, sriovResourceName string, minRequiredNodes int) error {
+func validateSRIOVSetup(sriovResourceName string, minRequiredNodes int) error {
 	sriovNodes := getNodesWithAllocatedResource(sriovResourceName)
 	if len(sriovNodes) < minRequiredNodes {
 		return fmt.Errorf("not enough compute nodes with SR-IOV support detected")

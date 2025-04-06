@@ -10,8 +10,10 @@ import (
 )
 
 const (
-	someMsg      = "Some message"
-	someOtherMsg = "Some other message"
+	someMsg         = "Some message"
+	someOtherMsg    = "Some other message"
+	someReason      = "SomeReason"
+	someOtherReason = "SomeOtherReason"
 )
 
 var _ = Describe("Condition matcher", func() {
@@ -22,6 +24,7 @@ var _ = Describe("Condition matcher", func() {
 					Type:    k8sv1.PodReady,
 					Status:  k8sv1.ConditionTrue,
 					Message: someMsg,
+					Reason:  someReason,
 				},
 			},
 		},
@@ -39,6 +42,7 @@ var _ = Describe("Condition matcher", func() {
 					Type:    v1.VirtualMachineInstancePaused,
 					Status:  k8sv1.ConditionTrue,
 					Message: someMsg,
+					Reason:  someReason,
 				},
 			},
 		},
@@ -53,6 +57,7 @@ var _ = Describe("Condition matcher", func() {
 			Type:    v1.VirtualMachineInstanceAgentConnected,
 			Status:  k8sv1.ConditionTrue,
 			Message: someMsg,
+			Reason:  someReason,
 		},
 	}
 
@@ -176,6 +181,32 @@ var _ = Describe("Condition matcher", func() {
 			Entry("with nil object", HaveConditionTrueWithMessage(v1.VirtualMachineInstancePaused, someMsg), nilVMI, false),
 			Entry("with nil", HaveConditionTrueWithMessage(v1.VirtualMachineInstancePaused, someMsg), nil, false),
 			Entry("with nil as condition type", HaveConditionTrueWithMessage(nil, someMsg), nil, false),
+		)
+	})
+
+	Context("True with reason", func() {
+		DescribeTable("should work with", func(matcher types.GomegaMatcher, obj interface{}, shouldMatch bool) {
+			match, err := matcher.Match(obj)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(match).To(Equal(shouldMatch))
+		},
+			Entry("pod that has positive condition and expectedReason", HaveConditionTrueWithReason(k8sv1.PodReady, someReason), readyPod, true),
+			Entry("pod that has positive condition and not expectedReason", HaveConditionTrueWithReason(k8sv1.PodReady, someOtherReason), readyPod, false),
+			Entry("pod that has negative condition and expectedReason", HaveConditionTrueWithReason(k8sv1.PodReady, someReason), notReadyPod, false),
+			Entry("pod that has negative condition and not expectedReason", HaveConditionTrueWithReason(k8sv1.PodReady, someOtherReason), notReadyPod, false),
+			Entry("pod that is missing condition", HaveConditionTrueWithReason(k8sv1.PodReady, someReason), missingReadyPod, false),
+
+			Entry("vmi that has positive condition and expectedReason", HaveConditionTrueWithReason(v1.VirtualMachineInstancePaused, someReason), pausedVMI, true),
+			Entry("vmi that has positive condition and not expectedReason", HaveConditionTrueWithReason(v1.VirtualMachineInstancePaused, someOtherReason), pausedVMI, false),
+			Entry("vmi that has negative condition and expectedReason", HaveConditionTrueWithReason(v1.VirtualMachineInstancePaused, someReason), notPausedVMI, false),
+			Entry("vmi that has negative condition and not expectedReason", HaveConditionTrueWithReason(v1.VirtualMachineInstancePaused, someOtherReason), notPausedVMI, false),
+			Entry("vmi that is missing condition", HaveConditionTrueWithReason(v1.VirtualMachineInstancePaused, someReason), missingPausedVMI, false),
+			Entry("vmi that is missing conditions", HaveConditionTrueWithReason(v1.VirtualMachineInstancePaused, someReason), missingConditionsVMI, false),
+
+			Entry("condition type as string", HaveConditionTrueWithReason("Paused", someReason), pausedVMI, true),
+			Entry("with nil object", HaveConditionTrueWithReason(v1.VirtualMachineInstancePaused, someReason), nilVMI, false),
+			Entry("with nil", HaveConditionTrueWithReason(v1.VirtualMachineInstancePaused, someReason), nil, false),
+			Entry("with nil as condition type", HaveConditionTrueWithReason(nil, someReason), nil, false),
 		)
 	})
 })

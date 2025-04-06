@@ -5,11 +5,11 @@ import (
 	"sync"
 	"testing"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	kfs "kubevirt.io/kubevirt/pkg/os/fs"
 
 	v1 "kubevirt.io/api/core/v1"
-	api2 "kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/testutils"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -20,9 +20,12 @@ func TestNetwork(t *testing.T) {
 }
 
 func newVMIBridgeInterface(namespace string, name string) *v1.VirtualMachineInstance {
-	vmi := api2.NewMinimalVMIWithNS(namespace, name)
-	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+	vmi := libvmi.New(
+		libvmi.WithNamespace(namespace),
+		libvmi.WithName(name),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+		libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+	)
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 	return vmi
 }

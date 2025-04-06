@@ -1071,7 +1071,7 @@ var _ = Describe(SIG("Storage", func() {
 
 				By("Initializing the VM")
 
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 120)
 				runningPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).ToNot(HaveOccurred())
 

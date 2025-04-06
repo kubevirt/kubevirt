@@ -16,7 +16,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -33,7 +32,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		BeforeEach(func() {
 			virtClient = kubevirt.Client()
-			kvconfig.EnableFeatureGate(featuregate.InstancetypeReferencePolicy)
 		})
 
 		DescribeTable("should result in running VirtualMachine when set to", func(policy virtv1.InstancetypeReferencePolicy) {

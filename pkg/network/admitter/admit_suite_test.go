@@ -30,15 +30,10 @@ func TestAdmitter(t *testing.T) {
 }
 
 type stubClusterConfigChecker struct {
-	slirpEnabled                 bool
 	bridgeBindingOnPodNetEnabled bool
 	macvtapFeatureGateEnabled    bool
 	passtFeatureGateEnabled      bool
 	bindingPluginFGEnabled       bool
-}
-
-func (s stubClusterConfigChecker) IsSlirpInterfaceEnabled() bool {
-	return s.slirpEnabled
 }
 
 func (s stubClusterConfigChecker) IsBridgeInterfaceOnPodNetworkEnabled() bool {

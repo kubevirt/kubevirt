@@ -12,7 +12,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: alpine
 spec:
   annotations:
@@ -39,7 +39,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: centos.stream10
 spec:
   annotations:
@@ -68,7 +68,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: centos.stream10.desktop
 spec:
   annotations:
@@ -100,7 +100,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: centos.stream9
 spec:
   annotations:
@@ -129,7 +129,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: centos.stream9.desktop
 spec:
   annotations:
@@ -161,7 +161,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: centos.stream9.dpdk
 spec:
   annotations:
@@ -196,7 +196,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: cirros
 spec:
   annotations:
@@ -214,6 +214,37 @@ apiVersion: instancetype.kubevirt.io/v1beta1
 kind: VirtualMachineClusterPreference
 metadata:
   annotations:
+    iconClass: icon-debian
+    openshift.io/display-name: Debian
+    openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
+    openshift.io/provider-display-name: KubeVirt
+    openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
+    tags: hidden,kubevirt,debian
+  labels:
+    instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+  name: debian
+spec:
+  annotations:
+    vm.kubevirt.io/os: linux
+  devices:
+    preferredDiskBus: virtio
+    preferredInterfaceModel: virtio
+    preferredRng: {}
+  firmware:
+    preferredEfi:
+      secureBoot: false
+  requirements:
+    cpu:
+      guest: 1
+    memory:
+      guest: 512Mi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterPreference
+metadata:
+  annotations:
     iconClass: icon-fedora
     openshift.io/display-name: Fedora (amd64)
     openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
@@ -224,7 +255,7 @@ metadata:
     instancetype.kubevirt.io/arch: amd64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: fedora
 spec:
   annotations:
@@ -258,7 +289,7 @@ metadata:
     instancetype.kubevirt.io/arch: arm64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: fedora.arm64
 spec:
   annotations:
@@ -287,7 +318,7 @@ metadata:
     instancetype.kubevirt.io/arch: s390x
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: fedora.s390x
 spec:
   annotations:
@@ -306,6 +337,77 @@ apiVersion: instancetype.kubevirt.io/v1beta1
 kind: VirtualMachineClusterPreference
 metadata:
   annotations:
+    iconClass: icon-other
+    openshift.io/display-name: Legacy Guest
+    openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
+    openshift.io/provider-display-name: KubeVirt
+    openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
+    tags: hidden,kubevirt,legacy
+  labels:
+    instancetype.kubevirt.io/os-type: legacy
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+  name: legacy
+spec:
+  annotations:
+    vm.kubevirt.io/os: legacy
+  devices:
+    preferredDiskBus: scsi
+    preferredInterfaceModel: e1000
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterPreference
+metadata:
+  annotations:
+    iconClass: icon-linux
+    openshift.io/display-name: Linux Guest
+    openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
+    openshift.io/provider-display-name: KubeVirt
+    openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
+    tags: hidden,kubevirt,linux
+  labels:
+    instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+  name: linux
+spec:
+  annotations:
+    vm.kubevirt.io/os: linux
+  devices:
+    preferredDiskBus: virtio
+    preferredInterfaceModel: virtio
+    preferredRng: {}
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterPreference
+metadata:
+  annotations:
+    iconClass: icon-linux
+    openshift.io/display-name: Linux EFI Guest
+    openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
+    openshift.io/provider-display-name: KubeVirt
+    openshift.io/support-url: https://github.com/kubevirt/common-instancetypes/issues
+    tags: hidden,kubevirt,linux-efi
+  labels:
+    instancetype.kubevirt.io/os-type: linux
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
+  name: linux.efi
+spec:
+  annotations:
+    vm.kubevirt.io/os: linux
+  devices:
+    preferredDiskBus: virtio
+    preferredInterfaceModel: virtio
+    preferredRng: {}
+  firmware:
+    preferredEfi:
+      secureBoot: false
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterPreference
+metadata:
+  annotations:
     iconClass: icon-opensuse-leap
     openshift.io/display-name: OpenSUSE Leap
     openshift.io/documentation-url: https://github.com/kubevirt/common-instancetypes
@@ -315,7 +417,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: opensuse.leap
 spec:
   annotations:
@@ -343,7 +445,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: opensuse.tumbleweed
 spec:
   annotations:
@@ -372,7 +474,7 @@ metadata:
     instancetype.kubevirt.io/arch: amd64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: rhel.10
 spec:
   annotations:
@@ -407,7 +509,7 @@ metadata:
     instancetype.kubevirt.io/arch: arm64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: rhel.10.arm64
 spec:
   annotations:
@@ -436,7 +538,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: rhel.7
 spec:
   annotations:
@@ -463,7 +565,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: rhel.7.desktop
 spec:
   annotations:
@@ -493,7 +595,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: rhel.8
 spec:
   annotations:
@@ -520,7 +622,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: rhel.8.desktop
 spec:
   annotations:
@@ -550,7 +652,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: rhel.8.dpdk
 spec:
   annotations:
@@ -584,7 +686,7 @@ metadata:
     instancetype.kubevirt.io/arch: amd64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: rhel.9
 spec:
   annotations:
@@ -619,7 +721,7 @@ metadata:
     instancetype.kubevirt.io/arch: arm64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: rhel.9.arm64
 spec:
   annotations:
@@ -649,7 +751,7 @@ metadata:
     instancetype.kubevirt.io/arch: amd64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: rhel.9.desktop
 spec:
   annotations:
@@ -687,7 +789,7 @@ metadata:
     instancetype.kubevirt.io/arch: amd64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: rhel.9.dpdk
 spec:
   annotations:
@@ -728,7 +830,7 @@ metadata:
     instancetype.kubevirt.io/arch: amd64
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: rhel.9.realtime
 spec:
   annotations:
@@ -771,7 +873,7 @@ metadata:
     instancetype.kubevirt.io/arch: s390x
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: rhel.9.s390x
 spec:
   annotations:
@@ -800,7 +902,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: sles
 spec:
   annotations:
@@ -828,7 +930,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: linux
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: ubuntu
 spec:
   annotations:
@@ -856,7 +958,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: windows.10
 spec:
   annotations:
@@ -920,7 +1022,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: windows.10.virtio
 spec:
   annotations:
@@ -986,7 +1088,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: windows.11
 spec:
   annotations:
@@ -1053,7 +1155,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: windows.11.virtio
 spec:
   annotations:
@@ -1122,7 +1224,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: windows.2k16
 spec:
   annotations:
@@ -1186,7 +1288,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: windows.2k16.virtio
 spec:
   annotations:
@@ -1252,7 +1354,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: windows.2k19
 spec:
   annotations:
@@ -1316,7 +1418,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: windows.2k19.virtio
 spec:
   annotations:
@@ -1382,7 +1484,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: windows.2k22
 spec:
   annotations:
@@ -1449,7 +1551,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: windows.2k22.virtio
 spec:
   annotations:
@@ -1518,7 +1620,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: windows.2k25
 spec:
   annotations:
@@ -1585,7 +1687,7 @@ metadata:
   labels:
     instancetype.kubevirt.io/os-type: windows
     instancetype.kubevirt.io/vendor: kubevirt.io
-    instancetype.kubevirt.io/common-instancetypes-version: v1.3.0
+    instancetype.kubevirt.io/common-instancetypes-version: v1.3.1
   name: windows.2k25.virtio
 spec:
   annotations:

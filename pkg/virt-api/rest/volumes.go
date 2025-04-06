@@ -22,7 +22,6 @@ package rest
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/emicklei/go-restful/v3"
@@ -30,8 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/yaml"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -68,19 +65,15 @@ func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request, 
 		return
 	}
 
-	opts := &v1.AddVolumeOptions{}
-	if request.Request.Body != nil {
-		defer request.Request.Body.Close()
-		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts)
-		switch err {
-		case io.EOF, nil:
-			break
-		default:
-			writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
-			return
-		}
-	} else {
+	if request.Request.Body == nil {
 		writeError(errors.NewBadRequest("Request with no body, a new name is expected as the request body"), response)
+		return
+	}
+
+	opts := &v1.AddVolumeOptions{}
+	defer request.Request.Body.Close()
+	if err := decodeBody(request, opts); err != nil {
+		writeError(err, response)
 		return
 	}
 
@@ -130,21 +123,15 @@ func (app *SubresourceAPIApp) removeVolumeRequestHandler(request *restful.Reques
 		return
 	}
 
-	opts := &v1.RemoveVolumeOptions{}
-	if request.Request.Body != nil {
-		defer request.Request.Body.Close()
-		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts)
-		switch err {
-		case io.EOF, nil:
-			break
-		default:
-			writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt,
-				err)), response)
-			return
-		}
-	} else {
+	if request.Request.Body == nil {
 		writeError(errors.NewBadRequest("Request with no body, a new name is expected as the request body"),
 			response)
+		return
+	}
+	opts := &v1.RemoveVolumeOptions{}
+	defer request.Request.Body.Close()
+	if err := decodeBody(request, opts); err != nil {
+		writeError(err, response)
 		return
 	}
 

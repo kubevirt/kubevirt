@@ -201,7 +201,7 @@ type DomainSpec struct {
 	Devices Devices `json:"devices"`
 	// Controls whether or not disks will share IOThreads.
 	// Omitting IOThreadsPolicy disables use of IOThreads.
-	// One of: shared, auto
+	// One of: shared, auto, supplementalPool
 	// +optional
 	IOThreadsPolicy *IOThreadsPolicy `json:"ioThreadsPolicy,omitempty"`
 	// IOThreads specifies the IOThreads options.
@@ -547,6 +547,9 @@ type SoundDevice struct {
 }
 
 type TPMDevice struct {
+	// Enabled allows a user to explictly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
+	// Defaults to True
+	Enabled *bool `json:"enabled,omitempty"`
 	// Persistent indicates the state of the TPM device should be kept accross reboots
 	// Defaults to false
 	Persistent *bool `json:"persistent,omitempty"`

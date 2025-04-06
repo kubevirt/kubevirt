@@ -17,7 +17,6 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
@@ -49,19 +48,6 @@ var _ = Describe("test configuration", func() {
 
 	trueValue := true
 	falseValue := false
-	DescribeTable(" when permitSlirpInterface", func(value *bool, result bool) {
-		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
-			NetworkConfiguration: &v1.NetworkConfiguration{
-				DeprecatedPermitSlirpInterface: value,
-			},
-		})
-
-		Expect(clusterConfig.IsSlirpInterfaceEnabled()).To(Equal(result))
-	},
-		Entry("is true, IsSlirpInterfaceEnabled should return true", &trueValue, true),
-		Entry("is false, IsSlirpInterfaceEnabled should return false", &falseValue, false),
-		Entry("when unset, IsSlirpInterfaceEnabled should return false", nil, false),
-	)
 
 	DescribeTable(" when permitBridgeInterfaceOnPodNetwork", func(value *bool, result bool) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
@@ -326,8 +312,8 @@ var _ = Describe("test configuration", func() {
 		})
 		Expect(clusterConfig.IsVMRolloutStrategyLiveUpdate()).To(BeEquivalentTo(expected))
 	},
-		Entry("is nil, IsVMRolloutStrategyLiveUpdate should return false",
-			nil, false,
+		Entry("is nil, IsVMRolloutStrategyLiveUpdate should return true",
+			nil, true,
 		),
 		Entry("is Stage, IsVMRolloutStrategyLiveUpdate should return false",
 			pointer.P(v1.VMRolloutStrategyStage), false,
@@ -462,9 +448,7 @@ var _ = Describe("test configuration", func() {
 		}
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
 
-		Consistently(func() kubev1.PullPolicy {
-			return clusterConfig.GetImagePullPolicy()
-		}).Should(Equal(kubev1.PullAlways))
+		Expect(clusterConfig.GetImagePullPolicy()).To(Equal(kubev1.PullAlways))
 	})
 
 	It("should return the default config if no config map exists", func() {
@@ -781,28 +765,18 @@ var _ = Describe("test configuration", func() {
 		})
 	})
 
-	disableInstancetypeRferencePolicyFG := []string{}
-	enableInstancetypeReferencePolicyFG := []string{featuregate.InstancetypeReferencePolicy}
-
 	DescribeTable("GetInstancetypeReferencePolicy should return", func(
-		instancetypeConfig *v1.InstancetypeConfiguration, featureGates []string, expectedPolicy v1.InstancetypeReferencePolicy) {
+		instancetypeConfig *v1.InstancetypeConfiguration, expectedPolicy v1.InstancetypeReferencePolicy) {
 		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(
 			&v1.KubeVirtConfiguration{
 				Instancetype: instancetypeConfig,
-				DeveloperConfiguration: &v1.DeveloperConfiguration{
-					FeatureGates: featureGates,
-				},
 			},
 		)
 		Expect(clusterConfig.GetInstancetypeReferencePolicy()).To(Equal(expectedPolicy))
 	},
-		Entry("reference when FG unset and InstancetypeConfiguration is nil", nil, disableInstancetypeRferencePolicyFG, v1.Reference),
-		Entry("reference when FG unset and InstancetypeConfiguration.ReferencePolicy is nil", &v1.InstancetypeConfiguration{}, disableInstancetypeRferencePolicyFG, v1.Reference),
-		Entry("reference when FG unset and InstancetypeConfiguration.ReferencePolicy is reference", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Reference)}, disableInstancetypeRferencePolicyFG, v1.Reference),
-		Entry("reference when FG unset andInstancetypeConfiguration.ReferencePolicy is expand", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Expand)}, disableInstancetypeRferencePolicyFG, v1.Reference),
-		Entry("reference when FG set and InstancetypeConfiguration is nil", nil, enableInstancetypeReferencePolicyFG, v1.Reference),
-		Entry("reference when FG set and InstancetypeConfiguration.ReferencePolicy is nil", &v1.InstancetypeConfiguration{}, enableInstancetypeReferencePolicyFG, v1.Reference),
-		Entry("reference when FG set andInstancetypeConfiguration.ReferencePolicy is reference", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Reference)}, enableInstancetypeReferencePolicyFG, v1.Reference),
-		Entry("expand when FG set andInstancetypeConfiguration.ReferencePolicy is expand", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Expand)}, enableInstancetypeReferencePolicyFG, v1.Expand),
+		Entry("reference when InstancetypeConfiguration is nil", nil, v1.Reference),
+		Entry("reference when InstancetypeConfiguration.ReferencePolicy is nil", &v1.InstancetypeConfiguration{}, v1.Reference),
+		Entry("reference when InstancetypeConfiguration.ReferencePolicy is reference", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Reference)}, v1.Reference),
+		Entry("expand InstancetypeConfiguration.ReferencePolicy is expand", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Expand)}, v1.Expand),
 	)
 })

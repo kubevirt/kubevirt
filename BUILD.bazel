@@ -1,5 +1,27 @@
+load("@bazel_gazelle//:def.bzl", "gazelle")
+load("@bazel_skylib//lib:dicts.bzl", "dicts")
+
 # See https://github.com/bazelbuild/bazel/issues/7899
 load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
+load("@bazeldnf//:def.bzl", "bazeldnf")
+load("@buildifier_prebuilt//:rules.bzl", "buildifier")
+load("@com_github_ash2k_bazel_tools//goimports:def.bzl", "goimports")
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_bundle",
+    "container_image",
+    "container_push",
+)
+load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
+
+# heads up: docker_push is loaded from contrib:push-all, while container_push is loaded earlier from container:container
+load("@io_bazel_rules_docker//contrib:push-all.bzl", "docker_push")
+load(
+    "@io_bazel_rules_docker//repositories:repositories.bzl",
+    container_repositories = "repositories",
+)
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "nogo")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 py_runtime(
     name = "py2_runtime",
@@ -24,12 +46,6 @@ toolchain(
     toolchain = "py_runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
 )
-
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-load("@bazel_gazelle//:def.bzl", "gazelle")
-load("@io_bazel_rules_go//go:def.bzl", "nogo")
-load("@com_github_ash2k_bazel_tools//goimports:def.bzl", "goimports")
-load("@bazeldnf//:def.bzl", "bazeldnf")
 
 goimports(
     name = "goimports",
@@ -95,8 +111,6 @@ gazelle(
 
 bazeldnf(name = "bazeldnf")
 
-load("@buildifier_prebuilt//:rules.bzl", "buildifier")
-
 alias(
     name = "buildozer",
     actual = "@buildifier_prebuilt//:buildozer",
@@ -136,9 +150,6 @@ cc_library(
     visibility = ["//visibility:public"],
 )
 
-load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
-
 passwd_entry(
     name = "nonroot-user",
     gid = 1001,
@@ -163,13 +174,6 @@ pkg_tar(
     visibility = ["//visibility:public"],
 )
 
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_bundle",
-    "container_image",
-    "container_push",
-)
-
 container_image(
     name = "passwd-image",
     architecture = select({
@@ -187,17 +191,10 @@ container_image(
     visibility = ["//visibility:public"],
 )
 
-load(
-    "@io_bazel_rules_docker//repositories:repositories.bzl",
-    container_repositories = "repositories",
-)
-
 config_setting(
     name = "release",
     values = {"define": "release=true"},
 )
-
-load("@bazel_skylib//lib:dicts.bzl", "dicts")
 
 build_other_images_default = {
     # cmd images
@@ -264,9 +261,6 @@ container_bundle(
         "$(container_prefix)/$(image_prefix)virt-operator:$(container_tag)": "//cmd/virt-operator:virt-operator-image",
     },
 )
-
-# heads up: docker_push is loaded from contrib:push-all, while container_push is loaded earlier from container:container
-load("@io_bazel_rules_docker//contrib:push-all.bzl", "docker_push")
 
 # we need to push virt images with the rule from container:container in order to get the digest file
 container_push(
@@ -703,6 +697,16 @@ genrule(
     ],
     outs = ["bazel-goveralls"],
     cmd = "echo '#!/bin/sh\n\necho $(SRCS) | hack/goveralls.sh'  > \"$@\"",
+    executable = 1,
+)
+
+genrule(
+    name = "coverage-report",
+    srcs = [
+        ":coverage_files",
+    ],
+    outs = ["bazel-coverage-report"],
+    cmd = "echo '#!/bin/sh\n\necho $(SRCS) | hack/coverage-report.sh'  > \"$@\"",
     executable = 1,
 )
 

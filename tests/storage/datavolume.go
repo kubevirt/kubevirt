@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 
 	expect "github.com/google/goexpect"
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	storagev1 "k8s.io/api/storage/v1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -868,6 +869,20 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 						Name:      snap.Name,
 					},
 				}
+
+				By("Waiting for snapshot to have restore size")
+				Eventually(func() (*vsv1.VolumeSnapshot, error) {
+					snap, err = virtClient.KubernetesSnapshotClient().
+						SnapshotV1().
+						VolumeSnapshots(snap.Namespace).
+						Get(context.Background(), snap.Name, metav1.GetOptions{})
+					return snap, err
+				}).WithTimeout(90 * time.Second).WithPolling(time.Second).Should(HaveField("Status.RestoreSize", Not(BeNil())))
+
+				// set the target DV size to the snapshot restore size if it is not zero
+				if !snap.Status.RestoreSize.IsZero() {
+					dvt.Spec.Storage.Resources.Requests[k8sv1.ResourceStorage] = *snap.Status.RestoreSize
+				}
 			}
 
 			createSnapshotDataSource := func() *cdiv1.DataSource {
@@ -1040,7 +1055,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				}
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libstorage.EventuallyDV(dv, 90, HaveSucceeded())
+				libstorage.EventuallyDV(dv, 90, Or(HaveSucceeded(), WaitForFirstConsumer()))
 
 				err := virtClient.RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(context.Background(), cloneRoleBinding.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())

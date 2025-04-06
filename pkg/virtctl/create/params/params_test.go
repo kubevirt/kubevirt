@@ -135,7 +135,7 @@ var _ = Describe("params", func() {
 			param2 := rand.Intn(10)
 			param3 := fmt.Sprintf("%dGi", rand.Intn(10))
 			var param4 []string
-			for _ = range rand.IntnRange(1, 10) {
+			for range rand.IntnRange(1, 10) {
 				param4 = append(param4, rand.String(10))
 			}
 			paramsStr := fmt.Sprintf("param1:%s,param2:%d,param3:%s,param4:%s", param1, param2, param3, strings.Join(param4, ";"))
@@ -173,9 +173,12 @@ var _ = Describe("params", func() {
 			err := params.Map(flagName, paramsStr, testStruct)
 			Expect(err).To(MatchError(parseFlagErr + errMsg))
 		},
-			Entry("uint negative", "uint:-1,quantity:1Gi", "failed to parse param \"uint\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
-			Entry("uint too large", "uint:9999999999999,quantity:1Gi", "failed to parse param \"uint\": strconv.ParseUint: parsing \"9999999999999\": value out of range"),
-			Entry("quantity suffix invalid", "uint:8,quantity:1Gu", "failed to parse param \"quantity\": unable to parse quantity's suffix"),
+			Entry("uint negative", "uint:-1,quantity:1Gi",
+				"failed to parse param \"uint\": strconv.ParseUint: parsing \"-1\": invalid syntax"),
+			Entry("uint too large", "uint:9999999999999,quantity:1Gi",
+				"failed to parse param \"uint\": strconv.ParseUint: parsing \"9999999999999\": value out of range"),
+			Entry("quantity suffix invalid", "uint:8,quantity:1Gu",
+				"failed to parse param \"quantity\": unable to parse quantity's suffix"),
 		)
 
 		It("should fail on unsupported fields with param tag", func() {

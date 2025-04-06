@@ -296,6 +296,12 @@ func WithTPM(persistent bool) Option {
 	}
 }
 
+func WithUID(uid types.UID) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.ObjectMeta.UID = uid
+	}
+}
+
 func baseVmi(name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewVMIReferenceFromNameWithNS("", name)
 	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}

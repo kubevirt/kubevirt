@@ -215,7 +215,7 @@ var _ = Describe(compute.SIG("ExpandSpec subresource", func() {
 			var err error
 			preference = instancetypebuilder.NewPreference()
 			preference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
-				PreferredAutoattachGraphicsDevice: pointer.P(true),
+				PreferredAutoattachSerialConsole: pointer.P(true),
 			}
 			preference, err = virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
 				Create(context.Background(), preference, metav1.CreateOptions{})
@@ -227,7 +227,7 @@ var _ = Describe(compute.SIG("ExpandSpec subresource", func() {
 
 			clusterPreference = instancetypebuilder.NewClusterPreference()
 			clusterPreference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
-				PreferredAutoattachGraphicsDevice: pointer.P(true),
+				PreferredAutoattachSerialConsole: pointer.P(true),
 			}
 			clusterPreference, err = virtClient.VirtualMachineClusterPreference().
 				Create(context.Background(), clusterPreference, metav1.CreateOptions{})
@@ -271,7 +271,7 @@ var _ = Describe(compute.SIG("ExpandSpec subresource", func() {
 					GetWithExpandedSpec(context.Background(), vm.GetName())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(expandedVm.Spec.Preference).To(BeNil(), "Expanded VM should not have InstancetypeMatcher")
-				Expect(*expandedVm.Spec.Template.Spec.Domain.Devices.AutoattachGraphicsDevice).To(BeTrue(), "VM should have preference expanded")
+				Expect(*expandedVm.Spec.Template.Spec.Domain.Devices.AutoattachSerialConsole).To(BeTrue(), "VM should have preference expanded")
 			},
 				Entry("with VirtualMachinePreference", preferenceMatcherFn),
 				Entry("with VirtualMachineClusterPreference", clusterPreferenceMatcherFn),
@@ -296,7 +296,7 @@ var _ = Describe(compute.SIG("ExpandSpec subresource", func() {
 				expandedVm, err := virtClient.ExpandSpec(testsuite.GetTestNamespace(vm)).ForVirtualMachine(vm)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(expandedVm.Spec.Preference).To(BeNil(), "Expanded VM should not have InstancetypeMatcher")
-				Expect(*expandedVm.Spec.Template.Spec.Domain.Devices.AutoattachGraphicsDevice).To(BeTrue(), "VM should have preference expanded")
+				Expect(*expandedVm.Spec.Template.Spec.Domain.Devices.AutoattachSerialConsole).To(BeTrue(), "VM should have preference expanded")
 			},
 				Entry("with VirtualMachinePreference", preferenceMatcherFn),
 				Entry("with VirtualMachineClusterPreference", clusterPreferenceMatcherFn),
