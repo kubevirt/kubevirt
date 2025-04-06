@@ -55,6 +55,10 @@ type FeatureGate struct {
 	Message     string
 }
 
+func (fg *FeatureGate) IsGA() bool {
+	return fg != nil && fg.State == GA
+}
+
 var featureGates = map[string]FeatureGate{}
 
 // RegisterFeatureGate adds a given feature-gate to the FG list
