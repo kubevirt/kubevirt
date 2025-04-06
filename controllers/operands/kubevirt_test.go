@@ -3977,6 +3977,9 @@ Version: 1.2.3`)
 				}
 
 				if isAnnotationPresentOnKV {
+					if existingResource.Annotations == nil {
+						existingResource.Annotations = make(map[string]string)
+					}
 					existingResource.Annotations[kubevirtcorev1.EmulatorThreadCompleteToEvenParity] = ""
 				}
 
@@ -4016,6 +4019,9 @@ Version: 1.2.3`)
 				}
 
 				if isAnnotationPresentOnKV {
+					if existingResource.Annotations == nil {
+						existingResource.Annotations = make(map[string]string)
+					}
 					existingResource.Annotations[kubevirtcorev1.EmulatorThreadCompleteToEvenParity] = ""
 				}
 
@@ -4418,4 +4424,17 @@ Version: 1.2.3`)
 
 	})
 
+	Context("Quantity", func() {
+		It("should add a quantity type if missing", func() {
+			hco := commontestutils.NewHco()
+			hco.Spec.LiveMigrationConfig.BandwidthPerMigration = ptr.To("1.5")
+
+			kv, err := NewKubeVirt(hco)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(kv).ToNot(BeNil())
+			Expect(kv.Spec.Configuration.MigrationConfiguration).ToNot(BeNil())
+			Expect(kv.Spec.Configuration.MigrationConfiguration.BandwidthPerMigration).ToNot(BeNil())
+			Expect(kv.Spec.Configuration.MigrationConfiguration.BandwidthPerMigration).To(HaveValue(Equal(resource.MustParse("1500m"))))
+		})
+	})
 })

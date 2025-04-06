@@ -3,6 +3,7 @@ package operands
 import (
 	"errors"
 	"reflect"
+	"sync"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,6 +15,7 @@ import (
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/reformatobj"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
@@ -35,12 +37,20 @@ func newAAQHandler(Client client.Client, Scheme *runtime.Scheme) Operand {
 }
 
 type aaqHooks struct {
+	sync.Mutex
 	cache *aaqv1alpha1.AAQ
 }
 
 func (h *aaqHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
+	h.Lock()
+	defer h.Unlock()
+
 	if h.cache == nil {
-		h.cache = NewAAQ(hc)
+		aaq, err := NewAAQ(hc)
+		if err != nil {
+			return nil, err
+		}
+		h.cache = aaq
 	}
 	return h.cache, nil
 }
@@ -89,7 +99,7 @@ func (*aaqHooks) updateCr(req *common.HcoRequest, Client client.Client, exists r
 
 func (*aaqHooks) justBeforeComplete(_ *common.HcoRequest) { /* no implementation */ }
 
-func NewAAQ(hc *hcov1beta1.HyperConverged) *aaqv1alpha1.AAQ {
+func NewAAQ(hc *hcov1beta1.HyperConverged) (*aaqv1alpha1.AAQ, error) {
 	spec := aaqv1alpha1.AAQSpec{
 		PriorityClass:   ptr.To[aaqv1alpha1.AAQPriorityClass](kvPriorityClass),
 		ImagePullPolicy: corev1.PullIfNotPresent,
@@ -128,7 +138,8 @@ func NewAAQ(hc *hcov1beta1.HyperConverged) *aaqv1alpha1.AAQ {
 
 	aaq := NewAAQWithNameOnly(hc)
 	aaq.Spec = spec
-	return aaq
+
+	return reformatobj.ReformatObj(aaq)
 }
 
 func NewAAQWithNameOnly(hc *hcov1beta1.HyperConverged) *aaqv1alpha1.AAQ {

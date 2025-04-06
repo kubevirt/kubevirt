@@ -69,7 +69,8 @@ var _ = Describe("AAQ tests", func() {
 
 	Context("test NewAAQ", func() {
 		It("should have all default fields", func() {
-			aaq := NewAAQ(hco)
+			aaq, err := NewAAQ(hco)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(aaq.Name).To(Equal("aaq-" + hco.Name))
 			Expect(aaq.Namespace).To(BeEmpty())
@@ -108,7 +109,8 @@ var _ = Describe("AAQ tests", func() {
 				},
 			}
 
-			aaq := NewAAQ(hco)
+			aaq, err := NewAAQ(hco)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(aaq.Spec.NamespaceSelector).ToNot(BeNil())
 			Expect(aaq.Spec.NamespaceSelector.MatchLabels).To(Equal(labels))
 		})
@@ -118,7 +120,8 @@ var _ = Describe("AAQ tests", func() {
 				VmiCalcConfigName: ptr.To(aaqv1alpha1.VmiPodUsage),
 			}
 
-			aaq := NewAAQ(hco)
+			aaq, err := NewAAQ(hco)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(aaq.Spec.Configuration.VmiCalculatorConfiguration.ConfigName).To(Equal(aaqv1alpha1.VmiPodUsage))
 		})
 
@@ -127,7 +130,8 @@ var _ = Describe("AAQ tests", func() {
 				AllowApplicationAwareClusterResourceQuota: true,
 			}
 
-			aaq := NewAAQ(hco)
+			aaq, err := NewAAQ(hco)
+			Expect(err).ToNot(HaveOccurred())
 			Expect(aaq.Spec.Configuration.AllowApplicationAwareClusterResourceQuota).To(BeTrue())
 		})
 
@@ -135,7 +139,8 @@ var _ = Describe("AAQ tests", func() {
 			hco.Spec.Infra.NodePlacement = &testNodePlacement
 			hco.Spec.Workloads.NodePlacement = &testNodePlacement
 
-			aaq := NewAAQ(hco)
+			aaq, err := NewAAQ(hco)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(aaq.Spec.Infra).To(Equal(testNodePlacement))
 			Expect(aaq.Spec.Workloads).To(Equal(testNodePlacement))
@@ -154,7 +159,8 @@ var _ = Describe("AAQ tests", func() {
 				},
 			}
 
-			aaq := NewAAQ(hco)
+			aaq, err := NewAAQ(hco)
+			Expect(err).ToNot(HaveOccurred())
 
 			Expect(aaq.Spec.CertConfig.CA).ToNot(BeNil())
 			Expect(aaq.Spec.CertConfig.CA.Duration).ToNot(BeNil())
@@ -187,7 +193,8 @@ var _ = Describe("AAQ tests", func() {
 		})
 
 		It("should delete AAQ if the enableApplicationAwareQuota FG is not set", func() {
-			aaq := NewAAQ(hco)
+			aaq, err := NewAAQ(hco)
+			Expect(err).ToNot(HaveOccurred())
 			cl = commontestutils.InitClient([]client.Object{hco, aaq})
 
 			handler := newAAQHandler(cl, commontestutils.GetScheme())

@@ -5,12 +5,10 @@ import (
 	"maps"
 	"time"
 
-	openshiftconfigv1 "github.com/openshift/api/config/v1"
-	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
+	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	conditionsv1 "github.com/openshift/custom-resource-status/conditions/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -1380,6 +1378,23 @@ var _ = Describe("CDI Operand", func() {
 			})
 		})
 
+		It("should reformat quantity field to add the quantity type, if missing", func() {
+			hco.Spec.ResourceRequirements = &hcov1beta1.OperandResourceRequirements{
+				StorageWorkloads: &corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU: resource.MustParse("1.5"),
+					},
+				},
+			}
+			cdi, err := NewCDI(hco)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cdi).ToNot(BeNil())
+			Expect(cdi.Spec.Config).ToNot(BeNil())
+			Expect(cdi.Spec.Config.PodResourceRequirements).ToNot(BeNil())
+			Expect(cdi.Spec.Config.PodResourceRequirements.Requests).ToNot(BeEmpty())
+			Expect(cdi.Spec.Config.PodResourceRequirements.Requests[corev1.ResourceCPU]).ToNot(Equal(resource.MustParse("1.5")))
+			Expect(cdi.Spec.Config.PodResourceRequirements.Requests[corev1.ResourceCPU]).To(Equal(resource.MustParse("1500m")))
+		})
 	})
 
 })

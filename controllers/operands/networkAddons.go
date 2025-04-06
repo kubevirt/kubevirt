@@ -4,8 +4,7 @@ import (
 	"errors"
 	"maps"
 	"reflect"
-
-	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
+	"sync"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,6 +19,8 @@ import (
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/reformatobj"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
@@ -37,10 +38,14 @@ func newCnaHandler(Client client.Client, Scheme *runtime.Scheme) *cnaHandler {
 }
 
 type cnaHooks struct {
+	sync.Mutex
 	cache *networkaddonsv1.NetworkAddonsConfig
 }
 
 func (h *cnaHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
+	h.Lock()
+	defer h.Unlock()
+
 	if h.cache == nil {
 		cna, err := NewNetworkAddons(hc)
 		if err != nil {
@@ -60,6 +65,9 @@ func (h *cnaHooks) checkComponentVersion(cr runtime.Object) bool {
 	return checkComponentVersion(util.CnaoVersionEnvV, found.Status.ObservedVersion)
 }
 func (h *cnaHooks) reset() {
+	h.Lock()
+	defer h.Unlock()
+
 	h.cache = nil
 }
 
@@ -174,11 +182,11 @@ func NewNetworkAddons(hc *hcov1beta1.HyperConverged, opts ...string) (*networkad
 	cna := NewNetworkAddonsWithNameOnly(hc, opts...)
 	cna.Spec = cnaoSpec
 
-	if err := applyPatchToSpec(hc, common.JSONPatchCNAOAnnotationName, cna); err != nil {
+	if err = applyPatchToSpec(hc, common.JSONPatchCNAOAnnotationName, cna); err != nil {
 		return nil, err
 	}
 
-	return cna, nil
+	return reformatobj.ReformatObj(cna)
 }
 
 func getKSDNameServerIP(nameServerIPPtr *string) (string, error) {

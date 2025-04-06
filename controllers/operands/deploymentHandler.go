@@ -3,6 +3,7 @@ package operands
 import (
 	"errors"
 	"reflect"
+	"sync"
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,6 +28,7 @@ func newDeploymentHandler(Client client.Client, Scheme *runtime.Scheme, deployme
 }
 
 type deploymentHooks struct {
+	sync.Mutex
 	deploymentGenerator newDeploymentFunc
 	cache               *appsv1.Deployment
 }
@@ -39,10 +41,16 @@ func newDeploymentHooks(deploymentGenerator newDeploymentFunc, hc *hcov1beta1.Hy
 }
 
 func (h *deploymentHooks) reset() {
+	h.Lock()
+	defer h.Unlock()
+
 	h.cache = nil
 }
 
 func (h *deploymentHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
+	h.Lock()
+	defer h.Unlock()
+
 	if h.cache == nil {
 		h.cache = h.deploymentGenerator(hc)
 	}

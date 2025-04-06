@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/crypto"
@@ -25,6 +26,7 @@ import (
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/reformatobj"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 	kubevirtcorev1 "kubevirt.io/api/core/v1"
 )
@@ -182,6 +184,7 @@ func newKubevirtHandler(Client client.Client, Scheme *runtime.Scheme) *kubevirtH
 }
 
 type kubevirtHooks struct {
+	sync.Mutex
 	cache *kubevirtcorev1.KubeVirt
 }
 
@@ -191,6 +194,9 @@ type rateLimits struct {
 }
 
 func (h *kubevirtHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
+	h.Lock()
+	defer h.Unlock()
+
 	if h.cache == nil {
 		kv, err := NewKubeVirt(hc)
 		if err != nil {
@@ -210,6 +216,8 @@ func (*kubevirtHooks) checkComponentVersion(cr runtime.Object) bool {
 	return checkComponentVersion(hcoutil.KubevirtVersionEnvV, found.Status.ObservedKubeVirtVersion)
 }
 func (h *kubevirtHooks) reset() {
+	h.Lock()
+	defer h.Unlock()
 	h.cache = nil
 }
 
@@ -276,11 +284,11 @@ func NewKubeVirt(hc *hcov1beta1.HyperConverged, opts ...string) (*kubevirtcorev1
 	setAnnotationsToReqState(hc, kv)
 	kv.Spec = spec
 
-	if err := applyPatchToSpec(hc, common.JSONPatchKVAnnotationName, kv); err != nil {
+	if err = applyPatchToSpec(hc, common.JSONPatchKVAnnotationName, kv); err != nil {
 		return nil, err
 	}
 
-	return kv, nil
+	return reformatobj.ReformatObj(kv)
 }
 
 func isAnnotationStateMeetingRequirements(requiredAnnotations, actualAnnotations map[string]string) bool {

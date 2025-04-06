@@ -3,6 +3,7 @@ package operands
 import (
 	"errors"
 	"reflect"
+	"sync"
 
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,6 +14,7 @@ import (
 
 	hcov1beta1 "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
 	"github.com/kubevirt/hyperconverged-cluster-operator/controllers/common"
+	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/reformatobj"
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
 )
 
@@ -34,12 +36,16 @@ func newCdiHandler(Client client.Client, Scheme *runtime.Scheme) *cdiHandler {
 }
 
 type cdiHooks struct {
+	sync.Mutex
 	Client client.Client
 	Scheme *runtime.Scheme
 	cache  *cdiv1beta1.CDI
 }
 
 func (h *cdiHooks) getFullCr(hc *hcov1beta1.HyperConverged) (client.Object, error) {
+	h.Lock()
+	defer h.Unlock()
+
 	if h.cache == nil {
 		cdi, err := NewCDI(hc)
 		if err != nil {
@@ -58,6 +64,9 @@ func (*cdiHooks) checkComponentVersion(cr runtime.Object) bool {
 	return checkComponentVersion(util.CdiVersionEnvV, found.Status.ObservedVersion)
 }
 func (h *cdiHooks) reset() {
+	h.Lock()
+	defer h.Unlock()
+
 	h.cache = nil
 }
 
@@ -156,7 +165,7 @@ func NewCDI(hc *hcov1beta1.HyperConverged, opts ...string) (*cdiv1beta1.CDI, err
 		return nil, err
 	}
 
-	return cdi, nil
+	return reformatobj.ReformatObj(cdi)
 }
 
 func NewCDIWithNameOnly(hc *hcov1beta1.HyperConverged, opts ...string) *cdiv1beta1.CDI {
