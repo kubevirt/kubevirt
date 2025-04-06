@@ -2819,6 +2819,10 @@ type DiskVerification struct {
 type DeveloperConfiguration struct {
 	// FeatureGates is the list of experimental features to enable. Defaults to none
 	FeatureGates []string `json:"featureGates,omitempty"`
+	// FeatureGatesMap is a map of experimental features to either enable or disable.
+	// If a feature is being defined in both FeatureGates and FeatureGatesMap, the feature in
+	// FeatureGatesMap will take precedence.
+	FeatureGatesMap map[string]bool `json:"featureGatesMap,omitempty"`
 	// LessPVCSpaceToleration determines how much smaller, in percentage, disk PVCs are
 	// allowed to be compared to the requested size (to account for various overheads).
 	// Defaults to 10
