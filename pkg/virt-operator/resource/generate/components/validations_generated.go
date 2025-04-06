@@ -911,11 +911,20 @@ var CRDsValidation map[string]string = map[string]string{
                   - memoryLimit
                   type: object
                 featureGates:
-                  description: FeatureGates is the list of experimental features to
-                    enable. Defaults to none
+                  description: |-
+                    FeatureGates is the list of experimental features to enable.
+                    It is recommended to use the new FeatureGatesMap field instead, which allows better control.
                   items:
                     type: string
                   type: array
+                featureGatesMap:
+                  additionalProperties:
+                    type: boolean
+                  description: |-
+                    FeatureGatesMap is a map of experimental features to either enable or disable.
+                    If a feature is being defined in both FeatureGates and FeatureGatesMap, the feature in
+                    FeatureGatesMap will take precedence.
+                  type: object
                 logVerbosity:
                   description: LogVerbosity sets log verbosity level of  various components
                   properties:
