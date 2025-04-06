@@ -25,7 +25,6 @@ import (
 	"fmt"
 
 	admissionv1 "k8s.io/api/admission/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	clonebase "kubevirt.io/api/clone"
 	clone "kubevirt.io/api/clone/v1beta1"
@@ -74,37 +73,7 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ctx context.Context, ar *admi
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	var causes []metav1.StatusCause
-
-	if newCauses := clonecontroller.ValidateFilters(vmClone.Spec.AnnotationFilters, "spec.annotations"); newCauses != nil {
-		causes = append(causes, newCauses...)
-	}
-	if newCauses := clonecontroller.ValidateFilters(vmClone.Spec.LabelFilters, "spec.labels"); newCauses != nil {
-		causes = append(causes, newCauses...)
-	}
-	if newCauses := clonecontroller.ValidateFilters(vmClone.Spec.Template.AnnotationFilters, "spec.template.annotations"); newCauses != nil {
-		causes = append(causes, newCauses...)
-	}
-	if newCauses := clonecontroller.ValidateFilters(vmClone.Spec.Template.LabelFilters, "spec.template.labels"); newCauses != nil {
-		causes = append(causes, newCauses...)
-	}
-
-	if newCauses := clonecontroller.ValidateSourceAndTargetKind(vmClone); newCauses != nil {
-		causes = append(causes, newCauses...)
-	}
-
-	if newCauses := clonecontroller.ValidateSource(ctx, admitter.Client, vmClone); newCauses != nil {
-		causes = append(causes, newCauses...)
-	}
-
-	if newCauses := clonecontroller.ValidateTarget(vmClone); newCauses != nil {
-		causes = append(causes, newCauses...)
-	}
-
-	if newCauses := clonecontroller.ValidateNewMacAddresses(vmClone); newCauses != nil {
-		causes = append(causes, newCauses...)
-	}
-
+	causes := clonecontroller.GetCauses(vmClone, ctx, admitter.Client)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}

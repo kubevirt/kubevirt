@@ -574,3 +574,37 @@ func doesSliceContainStr(slice []string, str string) (isFound bool) {
 
 	return isFound
 }
+
+func GetCauses(vmClone *clone.VirtualMachineClone, ctx context.Context, admitterClient kubecli.KubevirtClient) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	if newCauses := ValidateFilters(vmClone.Spec.AnnotationFilters, "spec.annotations"); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+	if newCauses := ValidateFilters(vmClone.Spec.LabelFilters, "spec.labels"); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+	if newCauses := ValidateFilters(vmClone.Spec.Template.AnnotationFilters, "spec.template.annotations"); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+	if newCauses := ValidateFilters(vmClone.Spec.Template.LabelFilters, "spec.template.labels"); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+
+	if newCauses := ValidateSourceAndTargetKind(vmClone); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+
+	if newCauses := ValidateSource(ctx, admitterClient, vmClone); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+
+	if newCauses := ValidateTarget(vmClone); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+
+	if newCauses := ValidateNewMacAddresses(vmClone); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+
+	return causes
+}
