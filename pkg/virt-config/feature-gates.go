@@ -19,17 +19,22 @@
 
 package virtconfig
 
-import "kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+import (
+	"maps"
+	"slices"
+
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+)
 
 /*
  This module is intended for determining whether an optional feature is enabled or not at the cluster-level.
 */
 
 func (config *ClusterConfig) isFeatureGateDefined(featureGate string) bool {
-	if fgMap := config.GetConfig().DeveloperConfiguration.FeatureGatesMap; fgMap != nil {
-		if isEnabled, exists := fgMap[featureGate]; exists {
-			return isEnabled
-		}
+	if isEnabled, exists := config.GetConfig().DeveloperConfiguration.FeatureGatesMap[featureGate]; exists {
+		return isEnabled
 	}
 
 	for _, fg := range config.GetConfig().DeveloperConfiguration.FeatureGates {
@@ -177,4 +182,30 @@ func (config *ClusterConfig) AlignCPUsEnabled() bool {
 
 func (config *ClusterConfig) NodeRestrictionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.NodeRestrictionGate)
+}
+
+func GetEnabledFeatureGates(kubevirtDevConfig *v1.DeveloperConfiguration) []string {
+	if kubevirtDevConfig == nil || (kubevirtDevConfig.FeatureGates == nil && kubevirtDevConfig.FeatureGatesMap == nil) {
+		return nil
+	}
+
+	featureGateMap := maps.Clone(kubevirtDevConfig.FeatureGatesMap)
+	if featureGateMap == nil {
+		return slices.Clone(kubevirtDevConfig.FeatureGates)
+	}
+
+	for _, fgFromList := range kubevirtDevConfig.FeatureGates {
+		if _, existsInMap := featureGateMap[fgFromList]; !existsInMap {
+			featureGateMap[fgFromList] = true
+		}
+	}
+
+	enabledFeatureGates := make([]string, 0, len(featureGateMap))
+	for fg, enabled := range featureGateMap {
+		if enabled {
+			enabledFeatureGates = append(enabledFeatureGates, fg)
+		}
+	}
+
+	return enabledFeatureGates
 }
