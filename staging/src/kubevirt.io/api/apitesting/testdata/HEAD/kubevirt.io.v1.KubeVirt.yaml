@@ -95,6 +95,8 @@ spec:
         memoryLimit: "0"
       featureGates:
       - featureGatesValue
+      featureGatesMap:
+        featureGatesMapKey: true
       logVerbosity:
         nodeVerbosity:
           nodeVerbosityKey: 18446744073709551603
