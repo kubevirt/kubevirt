@@ -26,6 +26,12 @@ import "kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 */
 
 func (config *ClusterConfig) isFeatureGateDefined(featureGate string) bool {
+	if fgMap := config.GetConfig().DeveloperConfiguration.FeatureGatesMap; fgMap != nil {
+		if isEnabled, exists := fgMap[featureGate]; exists {
+			return isEnabled
+		}
+	}
+
 	for _, fg := range config.GetConfig().DeveloperConfiguration.FeatureGates {
 		if fg == featureGate {
 			return true
