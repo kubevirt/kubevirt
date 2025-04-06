@@ -29,6 +29,7 @@ var (
 		Metrics: []operatormetrics.Metric{
 			pendingMigrations,
 			schedulingMigrations,
+			unsetMigration,
 			runningMigrations,
 			succeededMigration,
 			failedMigration,
@@ -47,6 +48,13 @@ var (
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_migrations_in_scheduling_phase",
 			Help: "Number of current scheduling migrations.",
+		},
+	)
+
+	unsetMigration = operatormetrics.NewGauge(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_migrations_in_unset_phase",
+			Help: "Number of current unset migrations. These are pending items the virt-controller hasn’t processed yet from the queue.",
 		},
 	)
 
@@ -89,6 +97,7 @@ func reportMigrationStats(vmims []*k6tv1.VirtualMachineInstanceMigration) []oper
 
 	pendingCount := 0
 	schedulingCount := 0
+	unsetCount := 0
 	runningCount := 0
 
 	for _, vmim := range vmims {
@@ -97,6 +106,8 @@ func reportMigrationStats(vmims []*k6tv1.VirtualMachineInstanceMigration) []oper
 			pendingCount++
 		case k6tv1.MigrationScheduling:
 			schedulingCount++
+		case k6tv1.MigrationPhaseUnset:
+			unsetCount++
 		case k6tv1.MigrationRunning, k6tv1.MigrationScheduled, k6tv1.MigrationPreparingTarget, k6tv1.MigrationTargetReady:
 			runningCount++
 		case k6tv1.MigrationSucceeded:
@@ -109,6 +120,7 @@ func reportMigrationStats(vmims []*k6tv1.VirtualMachineInstanceMigration) []oper
 	return append(cr,
 		operatormetrics.CollectorResult{Metric: pendingMigrations, Value: float64(pendingCount)},
 		operatormetrics.CollectorResult{Metric: schedulingMigrations, Value: float64(schedulingCount)},
+		operatormetrics.CollectorResult{Metric: unsetMigration, Value: float64(unsetCount)},
 		operatormetrics.CollectorResult{Metric: runningMigrations, Value: float64(runningCount)},
 	)
 }
