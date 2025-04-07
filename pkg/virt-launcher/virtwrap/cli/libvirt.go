@@ -64,6 +64,7 @@ type Connection interface {
 	// 1. avoid to expose to the client code the libvirt-specific return type, see docs in stats/ subpackage
 	// 2. transparently handling the addition of the memory stats, currently (libvirt 4.9) not handled by the bulk stats API
 	GetDomainStats(statsTypes libvirt.DomainStatsTypes, l *stats.DomainJobInfo, flags libvirt.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error)
+	GetDomainDirtyRate(calculationDuration time.Duration, flags libvirt.DomainDirtyRateCalcFlags) ([]*stats.DomainStatsDirtyRate, error)
 	GetQemuVersion() (string, error)
 	GetSEVInfo() (*api.SEVNodeParameters, error)
 }
@@ -343,6 +344,58 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 	}
 
 	return list, nil
+}
+
+func (l *LibvirtConnection) GetDomainDirtyRate(calculationDuration time.Duration, flags libvirt.DomainDirtyRateCalcFlags) ([]*stats.DomainStatsDirtyRate, error) {
+	domStats, err := l.GetAllDomainStats(libvirt.DOMAIN_STATS_DIRTYRATE, libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING|libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED)
+	if err != nil {
+		return nil, err
+	}
+
+	// Free memory allocated for domains
+	defer func() {
+		for i := range domStats {
+			err := domStats[i].Domain.Free()
+			if err != nil {
+				log.Log.Reason(err).Warning("Error freeing a domain.")
+			}
+		}
+	}()
+
+	for i := range domStats {
+		err := domStats[i].Domain.StartDirtyRateCalc(int(calculationDuration.Seconds()), flags)
+		if err != nil {
+			log.Log.Reason(err).Warning("Can't start dirty rate calc")
+		}
+	}
+
+	// Wait for the dirty rate calculation to finish
+	const extraSleepTime = 300 * time.Millisecond
+	time.Sleep(calculationDuration + extraSleepTime)
+
+	var dirtyRateStats []*stats.DomainStatsDirtyRate
+	for _, domStat := range domStats {
+		dirtyRateInfo := domStat.DirtyRate
+
+		// warn if dirty rate calc is not set or not finished
+		if !dirtyRateInfo.CalcStatusSet {
+			return nil, fmt.Errorf("dirty rate stats calculation status is not set")
+		} else if dirtyRateInfo.CalcStatus != int(libvirt.DOMAIN_DIRTYRATE_MEASURED) {
+			var status string
+			switch dirtyRateInfo.CalcStatus {
+			case int(libvirt.DOMAIN_DIRTYRATE_UNSTARTED):
+				status = "DOMAIN_DIRTYRATE_UNSTARTED"
+			case int(libvirt.DOMAIN_DIRTYRATE_MEASURING):
+				status = "DOMAIN_DIRTYRATE_MEASURING"
+			}
+			return nil, fmt.Errorf("dirty calc status is %s", status)
+		} else {
+			dirtyRateStat := statsconv.Convert_libvirt_DomainStatsDirtyRate_To_stats_DomainStatsDirtyRate(dirtyRateInfo)
+			dirtyRateStats = append(dirtyRateStats, dirtyRateStat)
+		}
+	}
+
+	return dirtyRateStats, nil
 }
 
 func (l *LibvirtConnection) GetSEVInfo() (*api.SEVNodeParameters, error) {
