@@ -1421,7 +1421,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			})
 
 			DescribeTable("should leave MaxGuest empty when memory hotplug is incompatible", func(vmiSetup func(*v1.VirtualMachineInstanceSpec)) {
-				vmi := api.NewMinimalVMI("testvm")
+				vmi = api.NewMinimalVMI("testvm")
 				vmi.Spec.Domain.Memory = &v1.Memory{Guest: pointer.P(resource.MustParse("128Mi"))}
 				vmiSetup(&vmi.Spec)
 
