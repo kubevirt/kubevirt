@@ -11,7 +11,7 @@ require (
 	github.com/go-logr/logr v1.4.2
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/google/uuid v1.6.0
-	github.com/kubevirt/cluster-network-addons-operator v0.98.1
+	github.com/kubevirt/cluster-network-addons-operator v0.98.2
 	github.com/kubevirt/monitoring/pkg/metrics/parser v0.0.0-20240505100225-e29dee0bb12b
 	github.com/machadovilaca/operator-observability v0.0.24
 	github.com/onsi/ginkgo/v2 v2.20.2

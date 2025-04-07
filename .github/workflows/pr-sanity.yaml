@@ -47,6 +47,7 @@ jobs:
       - uses: shogo82148/actions-goveralls@v1
         with:
           path-to-profile: coverprofiles/cover.coverprofile
+        continue-on-error: true
 
       - name: Verify the current manifests pass validation
         run: make container-build-validate-bundles

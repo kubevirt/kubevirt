@@ -149,14 +149,13 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 	})
 
 	Context("validate node placement in workloads nodes", func() {
-		It("[test_id:5677] all expected 'workloads' pod must be on infra node", Label("test_id:5677"), func(ctx context.Context) {
+		It("[test_id:5677] all expected 'workloads' pod must be on workloads node", Label("test_id:5677"), func(ctx context.Context) {
 			expectedWorkloadsPods := map[string]bool{
-				"bridge-marker":       false,
-				"cni-plugins":         false,
-				"ovs-cni-marker":      false,
-				"virt-handler":        false,
-				"secondary-dns":       false,
-				"ipam-virt-workloads": false,
+				"bridge-marker":  false,
+				"cni-plugins":    false,
+				"ovs-cni-marker": false,
+				"virt-handler":   false,
+				"secondary-dns":  false,
 			}
 
 			By("Getting Network Addons Configs")
@@ -184,13 +183,14 @@ var _ = Describe("[rfe_id:4356][crit:medium][vendor:cnv-qe@redhat.com][level:sys
 	Context("validate node placement on infra nodes", func() {
 		It("[test_id:5678] all expected 'infra' pod must be on infra node", Label("test_id:5678"), func(ctx context.Context) {
 			expectedInfraPods := map[string]bool{
-				"cdi-apiserver":    false,
-				"cdi-deployment":   false,
-				"cdi-uploadproxy":  false,
-				"kubemacpool":      false,
-				"virt-api":         false,
-				"virt-controller":  false,
-				"virt-exportproxy": false,
+				"cdi-apiserver":       false,
+				"cdi-deployment":      false,
+				"cdi-uploadproxy":     false,
+				"kubemacpool":         false,
+				"virt-api":            false,
+				"virt-controller":     false,
+				"virt-exportproxy":    false,
+				"ipam-virt-workloads": false,
 			}
 
 			Eventually(func(g Gomega, ctx context.Context) {
