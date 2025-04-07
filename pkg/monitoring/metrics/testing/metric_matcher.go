@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright The Kubevirt Authors
+ * Copyright The KubeVirt Authors
  *
  */
 
