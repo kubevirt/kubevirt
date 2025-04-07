@@ -44,10 +44,12 @@ jobs:
       - name: Prometheus alerts tests
         run: make prom-rules-verify
 
-      - uses: shogo82148/actions-goveralls@v1
+      - name: Coveralls
+        uses: coverallsapp/github-action@v2
         with:
-          path-to-profile: coverprofiles/cover.coverprofile
-        continue-on-error: true
+          file: coverprofiles/cover.coverprofile
+          flag-name: Unit
+          format: golang
 
       - name: Verify the current manifests pass validation
         run: make container-build-validate-bundles
