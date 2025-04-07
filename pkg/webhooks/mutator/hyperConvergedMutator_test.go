@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gomodules.xyz/jsonpatch/v2"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -260,20 +261,13 @@ var _ = Describe("test HyperConverged mutator", func() {
 
 		Context("Check defaults for cluster level EvictionStrategy", func() {
 
-			getClusterInfo := util.GetClusterInfo
-
-			AfterEach(func() {
-				util.GetClusterInfo = getClusterInfo
-			})
-
-			DescribeTable("check EvictionStrategy default", func(SNO bool, strategy *kubevirtcorev1.EvictionStrategy, patches []jsonpatch.JsonPatchOperation) {
-				if SNO {
-					cr.Status.InfrastructureHighlyAvailable = ptr.To(false)
-				} else {
-					cr.Status.InfrastructureHighlyAvailable = ptr.To(true)
-				}
+			DescribeTable("check EvictionStrategy default", func(SNO bool, strategy *kubevirtcorev1.EvictionStrategy, patches []jsonpatch.JsonPatchOperation, workerNodeArches []string) {
+				cr.Status.InfrastructureHighlyAvailable = ptr.To(!SNO)
 
 				cr.Spec.EvictionStrategy = strategy
+
+				cli = commontestutils.InitClient(createFakeNodes(workerNodeArches))
+				mutator = initHCMutator(s, cli)
 
 				req := admission.Request{AdmissionRequest: newCreateRequest(cr, hcoV1beta1Codec)}
 
@@ -285,50 +279,96 @@ var _ = Describe("test HyperConverged mutator", func() {
 				Entry("should set EvictionStrategyNone if not set and on SNO",
 					true,
 					nil,
-					[]jsonpatch.JsonPatchOperation{jsonpatch.JsonPatchOperation{
+					[]jsonpatch.JsonPatchOperation{{
 						Operation: "replace",
 						Path:      "/spec/evictionStrategy",
 						Value:     kubevirtcorev1.EvictionStrategyNone,
 					}},
+					[]string{"amd64"},
 				),
 				Entry("should not override EvictionStrategy if set and on SNO - 1",
 					true,
 					ptr.To(kubevirtcorev1.EvictionStrategyNone),
 					nil,
+					[]string{"amd64"},
 				),
 				Entry("should not override EvictionStrategy if set and on SNO - 2",
 					true,
 					ptr.To(kubevirtcorev1.EvictionStrategyLiveMigrate),
 					nil,
+					[]string{"amd64"},
 				),
 				Entry("should not override EvictionStrategy if set and on SNO - 3",
 					true,
 					ptr.To(kubevirtcorev1.EvictionStrategyExternal),
 					nil,
+					[]string{"amd64"},
 				),
 				Entry("should set EvictionStrategyLiveMigrate if not set and not on SNO",
 					false,
 					nil,
-					[]jsonpatch.JsonPatchOperation{jsonpatch.JsonPatchOperation{
+					[]jsonpatch.JsonPatchOperation{{
 						Operation: "replace",
 						Path:      "/spec/evictionStrategy",
 						Value:     kubevirtcorev1.EvictionStrategyLiveMigrate,
 					}},
+					[]string{"amd64", "amd64"},
 				),
 				Entry("should not override EvictionStrategy if set and not on SNO - 1",
 					false,
 					ptr.To(kubevirtcorev1.EvictionStrategyNone),
 					nil,
+					[]string{"amd64", "amd64"},
 				),
 				Entry("should not override EvictionStrategy if set and not on SNO - 2",
 					false,
 					ptr.To(kubevirtcorev1.EvictionStrategyLiveMigrate),
 					nil,
+					[]string{"amd64", "amd64"},
 				),
 				Entry("should not override EvictionStrategy if set and not on SNO - 3",
 					false,
 					ptr.To(kubevirtcorev1.EvictionStrategyExternal),
 					nil,
+					[]string{"amd64", "amd64"},
+				),
+				Entry("should set EvictionStrategyNone if not set and all ARM64 nodes",
+					false,
+					nil,
+					[]jsonpatch.JsonPatchOperation{{
+						Operation: "replace",
+						Path:      "/spec/evictionStrategy",
+						Value:     kubevirtcorev1.EvictionStrategyNone,
+					}},
+					[]string{"arm64", "arm64"},
+				),
+				Entry("should not override EvictionStrategy if set and all ARM64 nodes",
+					false,
+					ptr.To(kubevirtcorev1.EvictionStrategyLiveMigrate),
+					nil,
+					[]string{"arm64", "arm64"},
+				),
+				Entry("should not override EvictionStrategy if set and all ARM64 nodes",
+					false,
+					ptr.To(kubevirtcorev1.EvictionStrategyLiveMigrate),
+					nil,
+					[]string{"arm64", "arm64"},
+				),
+				Entry("should set LiveMigrate if not set, not SNO, mixed ARM64/AMD64",
+					false,
+					nil,
+					[]jsonpatch.JsonPatchOperation{{
+						Operation: "replace",
+						Path:      "/spec/evictionStrategy",
+						Value:     kubevirtcorev1.EvictionStrategyLiveMigrate,
+					}},
+					[]string{"arm64", "amd64"},
+				),
+				Entry("should not override if set, not SNO, mixed ARM64/AMD64",
+					false,
+					ptr.To(kubevirtcorev1.EvictionStrategyNone),
+					nil,
+					[]string{"arm64", "amd64"},
 				),
 			)
 		})
@@ -464,4 +504,21 @@ func initHCMutator(s *runtime.Scheme, testClient client.Client) *HyperConvergedM
 	mutator := NewHyperConvergedMutator(testClient, decoder)
 
 	return mutator
+}
+
+func createFakeNodes(architectures []string) []client.Object {
+	var nodes []client.Object
+	for i, arch := range architectures {
+		node := &corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("node-%d", i),
+				Labels: map[string]string{
+					"node-role.kubernetes.io/worker": "",
+					"kubernetes.io/arch":             arch,
+				},
+			},
+		}
+		nodes = append(nodes, node)
+	}
+	return nodes
 }
