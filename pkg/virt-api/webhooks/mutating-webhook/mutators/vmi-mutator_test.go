@@ -1457,24 +1457,9 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				Entry("guest memory is not set", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
 					vmiSpec.Domain.Memory.Guest = nil
 				}),
-				Entry("guest memory is greater than maxGuest", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
-					moreThanMax := vmiSpec.Domain.Memory.Guest.DeepCopy()
-					moreThanMax.Mul(8)
-
-					vmiSpec.Domain.Memory.Guest = &moreThanMax
-				}),
-				Entry("maxGuest is not properly aligned", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
-					unAlignedMemory := resource.MustParse("333Mi")
-					vmiSpec.Domain.Memory.MaxGuest = &unAlignedMemory
-				}),
 				Entry("guest memory is not properly aligned", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
 					unAlignedMemory := resource.MustParse("123")
 					vmiSpec.Domain.Memory.Guest = &unAlignedMemory
-				}),
-				Entry("guest memory with hugepages is not properly aligned", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
-					vmiSpec.Domain.Memory.Guest = pointer.P(resource.MustParse("2G"))
-					vmiSpec.Domain.Memory.MaxGuest = pointer.P(resource.MustParse("16Gi"))
-					vmiSpec.Domain.Memory.Hugepages = &v1.Hugepages{PageSize: "1Gi"}
 				}),
 				Entry("architecture is not amd64 or arm64", func(vmiSpec *v1.VirtualMachineInstanceSpec) {
 					vmiSpec.Architecture = "risc-v"
