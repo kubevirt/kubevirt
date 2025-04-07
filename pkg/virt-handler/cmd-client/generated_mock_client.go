@@ -362,3 +362,14 @@ func (_m *MockLauncherClient) SyncVirtualMachineMemory(vmi *v1.VirtualMachineIns
 func (_mr *_MockLauncherClientRecorder) SyncVirtualMachineMemory(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVirtualMachineMemory", arg0, arg1)
 }
+
+func (_m *MockLauncherClient) GetDomainDirtyRateStats() (int64, error) {
+	ret := _m.ctrl.Call(_m, "GetDomainDirtyRateStats")
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockLauncherClientRecorder) GetDomainDirtyRateStats() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDomainDirtyRateStats")
+}
