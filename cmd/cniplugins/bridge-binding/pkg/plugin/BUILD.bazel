@@ -1,0 +1,20 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "config.go",
+        "plugin.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/cmd/cniplugins/bridge-binding/pkg/plugin",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//cmd/cniplugins/bridge-binding/pkg/plugin/netlink:go_default_library",
+        "//cmd/cniplugins/bridge-binding/pkg/plugin/sysctl:go_default_library",
+        "//vendor/github.com/containernetworking/cni/pkg/skel:go_default_library",
+        "//vendor/github.com/containernetworking/cni/pkg/types:go_default_library",
+        "//vendor/github.com/containernetworking/cni/pkg/types/100:go_default_library",
+        "//vendor/github.com/containernetworking/plugins/pkg/ns:go_default_library",
+        "//vendor/github.com/vishvananda/netlink:go_default_library",
+    ],
+)
