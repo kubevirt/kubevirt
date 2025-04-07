@@ -285,16 +285,15 @@ func (l *AccessCredentialManager) agentSetFilePermissions(domName string, filePa
 }
 
 func (l *AccessCredentialManager) agentSetUserPassword(domName string, user string, password string) error {
-
-	base64Str := base64.StdEncoding.EncodeToString([]byte(password))
-
-	cmdSetPassword := fmt.Sprintf(`{"execute":"guest-set-user-password", "arguments": {"username":"%s", "password": "%s", "crypted": false }}`, user, base64Str)
-
-	_, err := l.virConn.QemuAgentCommand(cmdSetPassword, domName)
+	domain, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
+		log.Log.Errorf("Domain lookup failed: %v", err)
 		return err
 	}
-	return nil
+	defer domain.Free()
+
+	encodedPassword := base64.StdEncoding.EncodeToString([]byte(password))
+	return domain.SetUserPassword(user, encodedPassword, 0)
 }
 
 func (l *AccessCredentialManager) pingAgent(domName string) error {
