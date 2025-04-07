@@ -4,6 +4,8 @@
 package cli
 
 import (
+	time "time"
+
 	gomock "github.com/golang/mock/gomock"
 	libvirt "libvirt.org/go/libvirt"
 
@@ -186,6 +188,17 @@ func (_m *MockConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, l 
 
 func (_mr *_MockConnectionRecorder) GetDomainStats(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDomainStats", arg0, arg1, arg2)
+}
+
+func (_m *MockConnection) GetDomainDirtyRate(calculationDuration time.Duration, flags libvirt.DomainDirtyRateCalcFlags) ([]*stats.DomainStatsDirtyRate, error) {
+	ret := _m.ctrl.Call(_m, "GetDomainDirtyRate", calculationDuration, flags)
+	ret0, _ := ret[0].([]*stats.DomainStatsDirtyRate)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockConnectionRecorder) GetDomainDirtyRate(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDomainDirtyRate", arg0, arg1)
 }
 
 func (_m *MockConnection) GetQemuVersion() (string, error) {
