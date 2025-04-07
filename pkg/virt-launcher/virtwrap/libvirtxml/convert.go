@@ -213,6 +213,17 @@ func setDomainFeatureState(fs *api.FeatureState) *libvirtxml.DomainFeatureState 
 	}
 }
 
+func ConvertKubeVirtFeatureToDomainFeatureHyperVTLBFlush(fs *api.FeatureState) *libvirtxml.DomainFeatureHyperVTLBFlush {
+	if fs == nil {
+		return nil
+	}
+	return &libvirtxml.DomainFeatureHyperVTLBFlush{
+		DomainFeatureState: libvirtxml.DomainFeatureState{
+			State: fs.State,
+		},
+	}
+}
+
 func ConvertKubeVirtFeatureSpinlocksToDomainFeatureHyperVSpinlocks(s *api.FeatureSpinlocks) *libvirtxml.DomainFeatureHyperVSpinlocks {
 	if s == nil {
 		return nil
@@ -262,7 +273,7 @@ func ConvertKubeVirtFeatureHypervToDomainFeatureHyperV(hv *api.FeatureHyperv) *l
 		VendorId:        ConvertKubeVirtFeatureVendorIDToDomainFeatureHyperVVendorId(hv.VendorID),
 		Frequencies:     setDomainFeatureState(hv.Frequencies),
 		ReEnlightenment: setDomainFeatureState(hv.Reenlightenment),
-		TLBFlush:        setDomainFeatureState(hv.TLBFlush),
+		TLBFlush:        ConvertKubeVirtFeatureToDomainFeatureHyperVTLBFlush(hv.TLBFlush),
 		IPI:             setDomainFeatureState(hv.IPI),
 		EVMCS:           setDomainFeatureState(hv.EVMCS),
 	}
