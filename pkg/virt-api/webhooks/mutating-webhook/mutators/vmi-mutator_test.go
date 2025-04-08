@@ -36,8 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 
-	"kubevirt.io/client-go/api"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -49,6 +47,8 @@ import (
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
+
+const testVMIName = "testvmi"
 
 var _ = Describe("VirtualMachineInstance Mutator", func() {
 	const kubeVirtNamespace = "kubevirt"
@@ -732,7 +732,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	})
 
 	It("Should not mutate VMIs without HyperV configuration", func() {
-		vmi := api.NewMinimalVMI("testvmi")
+		vmi := libvmi.New(libvmi.WithName(testVMIName))
 		Expect(vmi.Spec.Domain.Features).To(BeNil())
 		err := webhooks.SetHypervFeatureDependencies(&vmi.Spec)
 		Expect(err).ToNot(HaveOccurred())
@@ -740,7 +740,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	})
 
 	It("Should not mutate VMIs with empty HyperV configuration", func() {
-		vmi := api.NewMinimalVMI("testvmi")
+		vmi := libvmi.New(libvmi.WithName(testVMIName))
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{},
 		}
@@ -757,7 +757,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	})
 
 	It("Should not mutate VMIs with hyperv configuration without deps", func() {
-		vmi := api.NewMinimalVMI("testvmi")
+		vmi := libvmi.New(libvmi.WithName(testVMIName))
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
@@ -796,7 +796,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	})
 
 	It("Should mutate VMIs with hyperv configuration to fix deps", func() {
-		vmi := api.NewMinimalVMI("testvmi")
+		vmi := libvmi.New(libvmi.WithName(testVMIName))
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
@@ -835,7 +835,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	})
 
 	It("Should partially mutate VMIs with explicit hyperv configuration", func() {
-		vmi := api.NewMinimalVMI("testvmi")
+		vmi := libvmi.New(libvmi.WithName(testVMIName))
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				VPIndex: &v1.FeatureState{
@@ -996,28 +996,28 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		}
 
 	},
-		Entry("if hyperV doesn't contain EVMCS", api.NewMinimalVMI("testvmi"),
+		Entry("if hyperV doesn't contain EVMCS", libvmi.New(libvmi.WithName(testVMIName)),
 			&v1.FeatureHyperv{
 				Relaxed: &v1.FeatureState{
 					Enabled: pointer.P(true),
 				},
 			}, nil),
 
-		Entry("if EVMCS is explicitly false ", api.NewMinimalVMI("testvmi"),
+		Entry("if EVMCS is explicitly false ", libvmi.New(libvmi.WithName(testVMIName)),
 			&v1.FeatureHyperv{
 				EVMCS: &v1.FeatureState{Enabled: pointer.P(false)},
 			},
 			nil,
 		),
 
-		Entry("if hyperV does contain EVMCS", api.NewMinimalVMI("testvmi"),
+		Entry("if hyperV does contain EVMCS", libvmi.New(libvmi.WithName(testVMIName)),
 			&v1.FeatureHyperv{
 				EVMCS: &v1.FeatureState{},
 			}, &v1.CPU{
 				Features: cpuFeatures,
 			}),
 
-		Entry("if EVMCS is explicitly true ", api.NewMinimalVMI("testvmi"),
+		Entry("if EVMCS is explicitly true ", libvmi.New(libvmi.WithName(testVMIName)),
 			&v1.FeatureHyperv{
 				EVMCS: &v1.FeatureState{Enabled: pointer.P(true)},
 			}, &v1.CPU{
@@ -1413,7 +1413,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 			})
 
 			DescribeTable("should leave MaxGuest empty when memory hotplug is incompatible", func(vmiSetup func(*v1.VirtualMachineInstanceSpec)) {
-				vmi := api.NewMinimalVMI("testvm")
+				vmi := libvmi.New(libvmi.WithName("testvm"))
 				vmi.Spec.Domain.Memory = &v1.Memory{Guest: pointer.P(resource.MustParse("128Mi"))}
 				vmiSetup(&vmi.Spec)
 
