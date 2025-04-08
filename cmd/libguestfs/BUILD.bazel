@@ -19,13 +19,27 @@ genrule(
 )
 
 pkg_tar(
-    name = "appliance_layer",
+    name = "appliance_layer_x86_64",
     srcs = [
         ":done-file",
-        "@libguestfs-appliance//appliance:README.fixed",
-        "@libguestfs-appliance//appliance:initrd",
-        "@libguestfs-appliance//appliance:kernel",
-        "@libguestfs-appliance//appliance:root",
+        "@libguestfs-appliance-x86_64//appliance:README.fixed",
+        "@libguestfs-appliance-x86_64//appliance:initrd",
+        "@libguestfs-appliance-x86_64//appliance:kernel",
+        "@libguestfs-appliance-x86_64//appliance:root",
+    ],
+    mode = "0444",
+    package_dir = "/usr/local/lib/guestfs/appliance",
+    visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "appliance_layer_s390x",
+    srcs = [
+        ":done-file",
+        "@libguestfs-appliance-s390x//appliance:README.fixed",
+        "@libguestfs-appliance-s390x//appliance:initrd",
+        "@libguestfs-appliance-s390x//appliance:kernel",
+        "@libguestfs-appliance-s390x//appliance:root",
     ],
     mode = "0444",
     package_dir = "/usr/local/lib/guestfs/appliance",
@@ -39,18 +53,27 @@ container_image(
     files = [
         "//:get-version",
     ],
-    tars = [
-        "//:passwd-tar",
-        "//rpm:libguestfs-tools",
-        ":appliance_layer",
-        ":entrypoint",
-    ],
+    tars = select({
+        "@io_bazel_rules_go//go/platform:linux_s390x": [
+            "//:passwd-tar",
+            "//rpm:libguestfs-tools_s390x",
+            ":appliance_layer_s390x",
+            ":entrypoint",
+        ],
+        "//conditions:default": [
+            "//:passwd-tar",
+            "//rpm:libguestfs-tools_x86_64",
+            ":appliance_layer_x86_64",
+            ":entrypoint",
+        ],
+    }),
 )
 
 container_image(
     name = "libguestfs-tools-image",
     architecture = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
         "//conditions:default": "amd64",
     }),
     base = ":version-container",
