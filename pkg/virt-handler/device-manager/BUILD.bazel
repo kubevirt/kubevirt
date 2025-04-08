@@ -9,6 +9,7 @@ go_library(
         "device_controller.go",
         "device_plugin_base.go",
         "generated_mock_common.go",
+        "generated_mock_socket_device.go",
         "generic_device.go",
         "mediated_device.go",
         "mediated_devices_types.go",
