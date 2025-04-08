@@ -1,248 +1,40 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "github>platform-engineering-org/.github"
+  "baseBranches": [
+    "main",
+    "/^release-(([1-9]+\\.([0-9]+))|(0\\.([1-9][0-9]{2,}|[2-9][0-9]|1[6-9])))$/"
   ],
-  "automerge": false,
-  "customManagers": [
-    {
-      "customType": "regex",
-      "fileMatch": [
-        "hack/config"
-      ],
-      "matchStrings": [
-        "KUBEVIRT_VERSION=\"(?<currentValue>.*)\""
-      ],
-      "datasourceTemplate": "github-releases",
-      "depNameTemplate": "kubevirt/kubevirt"
-    },
-    {
-      "customType": "regex",
-      "fileMatch": [
-        "hack/config"
-      ],
-      "matchStrings": [
-        "CDI_VERSION=\"(?<currentValue>.*)\""
-      ],
-      "datasourceTemplate": "github-releases",
-      "depNameTemplate": "kubevirt/containerized-data-importer"
-    },
-    {
-      "customType": "regex",
-      "fileMatch": [
-        "hack/config"
-      ],
-      "matchStrings": [
-        "NETWORK_ADDONS_VERSION=\"(?<currentValue>.*)\""
-      ],
-      "datasourceTemplate": "github-releases",
-      "depNameTemplate": "kubevirt/cluster-network-addons-operator"
-    },
-    {
-      "customType": "regex",
-      "fileMatch": [
-        "hack/config"
-      ],
-      "matchStrings": [
-        "SSP_VERSION=\"(?<currentValue>.*)\""
-      ],
-      "datasourceTemplate": "github-releases",
-      "depNameTemplate": "kubevirt/ssp-operator"
-    },
-    {
-      "customType": "regex",
-      "fileMatch": [
-        "hack/config"
-      ],
-      "matchStrings": [
-        "HPPO_VERSION=\"(?<currentValue>.*)\""
-      ],
-      "datasourceTemplate": "github-releases",
-      "depNameTemplate": "kubevirt/hostpath-provisioner-operator"
-    },
-    {
-      "customType": "regex",
-      "fileMatch": [
-        "hack/config"
-      ],
-      "matchStrings": [
-        "HPP_VERSION=\"(?<currentValue>.*)\""
-      ],
-      "datasourceTemplate": "github-releases",
-      "depNameTemplate": "kubevirt/hostpath-provisioner"
-    },
-    {
-      "customType": "regex",
-      "fileMatch": [
-        "hack/config"
-      ],
-      "matchStrings": [
-        "MTQ_VERSION=\"(?<currentValue>.*)\""
-      ],
-      "datasourceTemplate": "github-releases",
-      "depNameTemplate": "kubevirt/managed-tenant-quota"
-    },
-    {
-      "customType": "regex",
-      "fileMatch": [
-        "hack/config"
-      ],
-      "matchStrings": [
-        "KUBEVIRT_CONSOLE_PLUGIN_VERSION=\"(?<currentValue>.*)\""
-      ],
-      "datasourceTemplate": "github-releases",
-      "depNameTemplate": "kubevirt-ui/kubevirt-plugin"
-    },
-    {
-      "customType": "regex",
-      "fileMatch": [
-        "hack/config"
-      ],
-      "matchStrings": [
-        "KUBEVIRT_CONSOLE_PROXY_VERSION=\"(?<currentValue>.*)\""
-      ],
-      "datasourceTemplate": "github-releases",
-      "depNameTemplate": "kubevirt-ui/kubevirt-apiserver-proxy"
-    },
-    {
-      "customType": "regex",
-      "fileMatch": [
-        "hack/config"
-      ],
-      "matchStrings": [
-        "NODE_DRIVER_REG_VERSION=\"(?<currentValue>.*)\""
-      ],
-      "datasourceTemplate": "github-releases",
-      "depNameTemplate": "kubernetes-csi/node-driver-registrar"
-    },
-    {
-      "customType": "regex",
-      "fileMatch": [
-        "hack/config"
-      ],
-      "matchStrings": [
-        "LIVENESS_PROBE_VERSION=\"(?<currentValue>.*)\""
-      ],
-      "datasourceTemplate": "github-releases",
-      "depNameTemplate": "kubernetes-csi/livenessprobe"
-    },
-    {
-      "customType": "regex",
-      "fileMatch": [
-        "hack/config"
-      ],
-      "matchStrings": [
-        "CSI_SNAPSHOT_VERSION=\"(?<currentValue>.*)\""
-      ],
-      "datasourceTemplate": "github-releases",
-      "depNameTemplate": "kubernetes-csi/external-snapshotter"
-    },
-    {
-      "customType": "regex",
-      "fileMatch": [
-        "deploy/images.tmp.env"
-      ],
-      "matchStrings": [
-        "registry.k8s.io/sig-storage/csi-snapshotter@(?<currentDigest>.*)(\"?) # (?<currentValue>.*)"
-      ],
-      "datasourceTemplate": "docker",
-      "depNameTemplate": "registry.k8s.io/sig-storage/csi-snapshotter"
-    },
-    {
-      "customType": "regex",
-      "fileMatch": [
-        "deploy/images.tmp.env"
-      ],
-      "matchStrings": [
-        "registry.k8s.io/sig-storage/csi-node-driver-registrar@(?<currentDigest>.*)(\"?) # (?<currentValue>.*)"
-      ],
-      "datasourceTemplate": "docker",
-      "depNameTemplate": "registry.k8s.io/sig-storage/csi-node-driver-registrar"
-    },
-    {
-      "customType": "regex",
-      "fileMatch": [
-        "hack/config"
-      ],
-      "matchStrings": [
-        "CSI_SIG_STORAGE_PROVISIONER_VERSION=\"(?<currentValue>.*)\""
-      ],
-      "datasourceTemplate": "github-releases",
-      "depNameTemplate": "kubernetes-csi/external-provisioner"
-    }
+  "prConcurrentLimit": 3,
+  "lockFileMaintenance": {
+    "enabled": false
+  },
+  "postUpdateOptions": [
+    "gomodTidy",
+    "gomodVendor"
+  ],
+  "labels": [
+    "release-note-none"
+  ],
+  "extends": [
+    ":gitSignOff"
   ],
   "packageRules": [
     {
-      "description": "Components",
+      "groupName": "all dependencies",
+      "groupSlug": "all",
+      "enabled": false,
       "matchPackageNames": [
-        "kubevirt/kubevirt",
-        "kubevirt/containerized-data-importer",
-        "kubevirt/cluster-network-addons-operator",
-        "kubevirt/ssp-operator",
-        "kubevirt/hostpath-provisioner-operator",
-        "kubevirt/hostpath-provisioner",
-        "kubevirt/managed-tenant-quota",
-        "kubevirt-ui/kubevirt-plugin",
-        "kubevirt-ui/kubevirt-apiserver-proxy",
-        "kubernetes-csi/livenessprobe",
-        "kubernetes-csi/external-provisioner"
-      ],
-      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<prerelease>.*))?$",
-      "dependencyDashboardApproval": true,
-      "groupName": null
-    },
-    {
-      "description": "csi snapshot",
-      "matchPackageNames": [
-        "kubernetes-csi/external-snapshotter",
-        "registry.k8s.io/sig-storage/csi-snapshotter"
-      ],
-      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<prerelease>.*))?$",
-      "groupName": "csi-snapshot"
-    },
-    {
-      "description": "csi node driver",
-      "matchPackageNames": [
-        "kubernetes-csi/node-driver-registrar",
-        "registry.k8s.io/sig-storage/csi-node-driver-registrar"
-      ],
-      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(-(?<prerelease>.*))?$",
-      "groupName": "csi-node-driver"
-    },
-    {
-      "description": "Group GitHub Actions updates",
-      "matchManagers": [
-        "github-actions"
-      ],
-      "groupName": "github-actions",
-      "pinDigests": false
-    },
-    {
-      "description": "Group pip requirements updates",
-      "matchManagers": [
-        "pip_requirements"
-      ],
-      "groupName": "pip_requirements"
-    },
-    {
-      "matchPackageNames": [
-        "docker.io/golang"
-      ],
-      "dependencyDashboardApproval": true,
-      "groupName": null
-    },
-    {
-      "matchPackageNames": [
-        "quay.io/centos/centos"
-      ],
-      "pinDigests": false,
-      "groupName": null
-    },
-    {
-      "matchManagers": [
-        "gomod"
-      ],
-      "enabled": false
+        "*"
+      ]
     }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true
+  },
+  "osvVulnerabilityAlerts": true,
+  "assigneesFromCodeOwners": true,
+  "separateMajorMinor": true,
+  "ignorePaths": [
+    "**/vendor/**"
   ]
 }
