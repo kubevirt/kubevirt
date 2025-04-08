@@ -329,6 +329,8 @@ spec:
         persistent: true
       useVirtioTransitional: true
       watchdog:
+        diag288:
+          action: actionValue
         i6300esb:
           action: actionValue
         name: nameValue
