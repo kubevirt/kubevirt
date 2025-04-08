@@ -32,6 +32,7 @@ const (
 	defaultImage     = "quay.io/kubevirt/" + defaultImageName + ":latest"
 	// KvmDevice defines the resource as in pkg/virt-controller/services/template.go, but we don't import the package to avoid compile conflicts when the os is windows
 	KvmDevice         = "devices.kubevirt.io/kvm"
+	fuseDevice        = "devices.kubevirt.io/fuse"
 	volume            = "volume"
 	contName          = "libguestfs"
 	diskDir           = "/disk"
@@ -377,6 +378,7 @@ func (c *guestfsCommand) createLibguestfsPod(client *K8sClient, ns, cmd string, 
 		resources = corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				KvmDevice: resource.MustParse("1"),
+				fuseDevice: resource.MustParse("1"),
 			},
 		}
 	}
