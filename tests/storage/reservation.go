@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -25,6 +26,7 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -257,6 +259,33 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 				Within(60 * time.Second).
 				WithPolling(10 * time.Second).
 				Should(Succeed())
+
+			// Restart virt-handler
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(),
+				vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			pod, err := libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
+			Expect(err).ToNot(HaveOccurred())
+			err = virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			// Wait unti new handler pod is ready
+			oldPodName := pod.Name
+			Eventually(func(g Gomega) bool {
+				pod, err = libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
+				g.Expect(err).To(Or(Succeed(), MatchError("Expected to find one Pod, found 2 Pods")))
+				if err != nil {
+					return false
+				}
+				pod, err = virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+				return pod.Name != oldPodName
+			}).WithTimeout(time.Minute).WithPolling(time.Second).Should(BeTrue())
+			Eventually(matcher.ThisPod(pod)).WithTimeout(30 * time.Second).
+				WithPolling(1 * time.Second).Should(matcher.HaveConditionTrue(k8sv1.PodReady))
+
+			Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
+			Expect(
+				checkResultCommand(vmi, "sg_persist -i -k /dev/sda", "1 registered reservation key follows:\r\n    0x12345678\r\n"),
+			).To(BeTrue())
 		})
 
 		It("Should successfully start 2 VMs with persistent reservation on the same LUN", func() {
