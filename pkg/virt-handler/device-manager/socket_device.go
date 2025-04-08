@@ -42,11 +42,29 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 )
 
+//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+
+type PermissionManager interface {
+	ChownAtNoFollow(path *safepath.Path, uid, gid int) error
+}
+
+type permissionManager struct{}
+
+func NewPermissionManager() PermissionManager {
+	return &permissionManager{}
+}
+
+func (p *permissionManager) ChownAtNoFollow(path *safepath.Path, uid, gid int) error {
+	return safepath.ChownAtNoFollow(path, uid, gid)
+}
+
 type SocketDevicePlugin struct {
 	*DevicePluginBase
 	socketDir  string
 	socket     string
 	socketName string
+	executor   selinux.Executor
+	p          PermissionManager
 }
 
 func (dpi *SocketDevicePlugin) Start(stop <-chan struct{}) (err error) {
@@ -95,7 +113,47 @@ func (dpi *SocketDevicePlugin) Start(stop <-chan struct{}) (err error) {
 	return err
 }
 
-func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int) *SocketDevicePlugin {
+func (dpi *SocketDevicePlugin) setSocketPermissions() error {
+	prSock, err := safepath.JoinAndResolveWithRelativeRoot("/", dpi.socketDir, dpi.socket)
+	if err != nil {
+		return fmt.Errorf("error opening the socket %s/%s: %v", dpi.socketDir, dpi.socketName, err)
+	}
+	err = dpi.p.ChownAtNoFollow(prSock, util.NonRootUID, util.NonRootUID)
+	if err != nil {
+		return fmt.Errorf("error setting the permission the socket %s/%s:%v", dpi.socketDir, dpi.socketName, err)
+	}
+	if se, exists, err := dpi.executor.NewSELinux(); err == nil && exists {
+		if err := selinux.RelabelFilesUnprivileged(se.IsPermissive(), prSock); err != nil {
+			return fmt.Errorf("error relabeling required files: %v", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("failed to detect the presence of selinux: %v", err)
+	}
+
+	return nil
+}
+
+func (dpi *SocketDevicePlugin) setSocketDirectoryPermissions() error {
+	dir, err := safepath.JoinAndResolveWithRelativeRoot("/", dpi.socketDir)
+	if err != nil {
+		return fmt.Errorf("error opening the socket dir %s: %v", dpi.socket, err)
+	}
+	err = dpi.p.ChownAtNoFollow(dir, util.NonRootUID, util.NonRootUID)
+	if err != nil {
+		return fmt.Errorf("error setting the permission the socket dir %s: %v", dpi.socketDir, err)
+	}
+	if se, exists, err := dpi.executor.NewSELinux(); err == nil && exists {
+		if err := selinux.RelabelFilesUnprivileged(se.IsPermissive(), dir); err != nil {
+			return fmt.Errorf("error relabeling required files: %v", err)
+		}
+	} else if err != nil {
+		return fmt.Errorf("failed to detect the presence of selinux: %v", err)
+	}
+
+	return nil
+}
+
+func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int, executor selinux.Executor, p PermissionManager) (*SocketDevicePlugin, error) {
 	dpi := &SocketDevicePlugin{
 		DevicePluginBase: &DevicePluginBase{
 			health:       make(chan deviceHealth),
@@ -109,6 +167,8 @@ func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int)
 		socket:     socket,
 		socketDir:  socketDir,
 		socketName: socketName,
+		executor:   executor,
+		p:          p,
 	}
 
 	for i := 0; i < maxDevices; i++ {
@@ -118,7 +178,14 @@ func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int)
 			Health: pluginapi.Healthy,
 		})
 	}
-	return dpi
+	if err := dpi.setSocketDirectoryPermissions(); err != nil {
+		return nil, err
+	}
+	if err := dpi.setSocketPermissions(); err != nil {
+		return nil, err
+	}
+
+	return dpi, nil
 }
 
 // Register registers the device plugin for the given resourceName with Kubelet.
@@ -148,22 +215,6 @@ func (dpi *SocketDevicePlugin) Allocate(ctx context.Context, r *pluginapi.Alloca
 	log.DefaultLogger().Infof("Socket Allocate: request: %v", r.ContainerRequests)
 	response := pluginapi.AllocateResponse{}
 	containerResponse := new(pluginapi.ContainerAllocateResponse)
-
-	prSock, err := safepath.JoinAndResolveWithRelativeRoot("/", dpi.socketDir, dpi.socket)
-	if err != nil {
-		return nil, fmt.Errorf("error opening the socket %s/%s: %v", dpi.socketDir, dpi.socket, err)
-	}
-	err = safepath.ChownAtNoFollow(prSock, util.NonRootUID, util.NonRootUID)
-	if err != nil {
-		return nil, fmt.Errorf("error setting the permission the socket %s/%s:%v", dpi.socketDir, dpi.socket, err)
-	}
-	if se, exists, err := selinux.NewSELinux(); err == nil && exists {
-		if err := selinux.RelabelFilesUnprivileged(se.IsPermissive(), prSock); err != nil {
-			return nil, fmt.Errorf("error relabeling required files: %v", err)
-		}
-	} else if err != nil {
-		return nil, fmt.Errorf("failed to detect the presence of selinux: %v", err)
-	}
 
 	m := new(pluginapi.Mount)
 	m.HostPath = dpi.socketDir
