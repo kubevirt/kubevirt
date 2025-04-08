@@ -1267,6 +1267,46 @@ var _ = Describe("Converter", func() {
 			Entry("should be disabled on s390x when device with no bus is present", s390x, "", BeTrue()),
 		)
 
+		DescribeTable("PCIHole64 on pcie-root Controller should", func(arch, value string, expected bool) {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			if value != "" {
+				if vmi.Annotations == nil {
+					vmi.Annotations = make(map[string]string)
+				}
+				vmi.Annotations[v1.DisablePCIHole64] = value
+			}
+			c.Architecture = archconverter.NewConverter(arch)
+			domain := vmiToDomain(vmi, c)
+
+			containElement := ContainElement(api.Controller{
+				Type:  "pci",
+				Index: "0",
+				Model: "pcie-root",
+				PCIHole64: &api.PCIHole64{
+					Value: 0,
+					Unit:  "KiB",
+				},
+			})
+			if expected {
+				Expect(domain.Spec.Devices.Controllers).To(containElement, "Expected pcihole64 to be set to zero")
+			} else {
+				Expect(domain.Spec.Devices.Controllers).ToNot(containElement, "Expected pcihole64 to not be set")
+			}
+		},
+			Entry("be set to zero on amd64 when annotation was set to true", amd64, "true", true),
+			Entry("not be set on amd64 when annotation was not set", amd64, "", false),
+			Entry("not be set on amd64 when annotation was set not to true", amd64, "something", false),
+			Entry("not be set on arm64 when annotation was set to true", arm64, "true", false),
+			Entry("not be set on arm64 when annotation was not set", arm64, "", false),
+			Entry("not be set on arm64 when annotation was set not to true", arm64, "something", false),
+			Entry("not be set on ppc64le when annotation was set to true", ppc64le, "true", false),
+			Entry("not be set on ppc64le when annotation was not set", ppc64le, "", false),
+			Entry("not be set on ppc64le when annotation was set not to true", ppc64le, "something", false),
+			Entry("not be set on s390x when annotation was set to true", s390x, "true", false),
+			Entry("not be set on s390x when annotation was not set", s390x, "", false),
+			Entry("not be set on s390x when annotation was set not to true", s390x, "something", false),
+		)
+
 		It("should fail when input device is set to ps2 bus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = "ps2"
