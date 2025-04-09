@@ -114,4 +114,9 @@ var (
 	// LargeStoragePoolRequired indicates that the test may fail in a cluster with a low storage pool capacity.
 	// This decorator can be used to skip the test as the failure might not indicate a functional problem.
 	LargeStoragePoolRequired = Label("large-storage-pool-required")
+
+	// OncePerOrderedCleanup decorates Ordered tests to only cleanup after the last
+	// test in an Ordered container.
+	// Currently, in pilot mode, restricted to SIG-Network and virtctl only.
+	OncePerOrderedCleanup = Label("OncePerOrderedCleanup")
 )
