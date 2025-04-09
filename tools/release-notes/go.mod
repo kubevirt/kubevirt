@@ -8,7 +8,7 @@ require (
 	github.com/golang/glog v1.2.4
 	github.com/google/go-github/v32 v32.1.0
 	github.com/joho/godotenv v1.5.1
-	golang.org/x/oauth2 v0.24.0
+	golang.org/x/oauth2 v0.27.0
 )
 
 require (
