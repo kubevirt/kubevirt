@@ -115,7 +115,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	const migratableNetworkBindingPlugin = "mig_plug"
 	const host = "master"
 
-	getCgroupManager = func(_ *v1.VirtualMachineInstance) (cgroup.Manager, error) {
+	getCgroupManager = func(_ *v1.VirtualMachineInstance, _ string) (cgroup.Manager, error) {
 		return mockCgroupManager, nil
 	}
 
