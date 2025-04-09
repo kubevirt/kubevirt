@@ -934,6 +934,65 @@ var _ = Describe("Export controller", func() {
 		Entry("Snapshot", populateVmExportVMSnapshot, controller.getPVCFromSourceVMSnapshot, 4),
 	)
 
+	DescribeTable("Volumemount names should be trimmed depending on the PVC name", func(pvcName string) {
+		testVMExport := createPVCVMExportWithName(pvcName)
+		testPVC := &k8sv1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      pvcName,
+				Namespace: testNamespace,
+			},
+			Spec: k8sv1.PersistentVolumeClaimSpec{
+				VolumeMode: (*k8sv1.PersistentVolumeMode)(pointer.P(string(k8sv1.PersistentVolumeBlock))),
+			},
+		}
+		populateInitialVMExportStatus(testVMExport)
+		err := controller.handleVMExportToken(testVMExport, controller.getPVCFromSourceVMSnapshot)
+		Expect(testVMExport.Status.TokenSecretRef).ToNot(BeNil())
+		Expect(err).ToNot(HaveOccurred())
+		k8sClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			create, ok := action.(testing.CreateAction)
+			Expect(ok).To(BeTrue())
+			pod, ok := create.GetObject().(*k8sv1.Pod)
+			Expect(ok).To(BeTrue())
+			Expect(pod.GetName()).To(Equal(controller.getExportPodName(testVMExport)))
+			Expect(len(pod.GetName())).To(BeNumerically("<=", validation.DNS1035LabelMaxLength))
+			Expect(pod.GetNamespace()).To(Equal(testNamespace))
+			return true, pod, nil
+		})
+		var service *k8sv1.Service
+		k8sClient.Fake.PrependReactor("create", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			create, ok := action.(testing.CreateAction)
+			Expect(ok).To(BeTrue())
+			service, ok = create.GetObject().(*k8sv1.Service)
+			Expect(ok).To(BeTrue())
+			service.Status.Conditions = make([]metav1.Condition, 1)
+			service.Status.Conditions[0].Type = "test"
+			Expect(service.GetName()).To(Equal(controller.getExportServiceName(testVMExport)))
+			Expect(service.GetNamespace()).To(Equal(testNamespace))
+			return true, service, nil
+		})
+		service, err = controller.getOrCreateExportService(testVMExport)
+		Expect(err).ToNot(HaveOccurred())
+		pod, err := controller.createExporterPod(testVMExport, service, []*k8sv1.PersistentVolumeClaim{testPVC})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pod).ToNot(BeNil())
+		Expect(pod.Spec.Containers).To(HaveLen(1))
+		Expect(pod.Spec.Containers[0].VolumeDevices).To(HaveLen(1))
+		Expect(pod.Spec.Containers[0].VolumeDevices).To(ContainElement(k8sv1.VolumeDevice{
+			Name:       controller.getExportPodVolumeName(testPVC),
+			DevicePath: fmt.Sprintf("%s/%s", blockVolumeMountPath, controller.getExportPodVolumeName(testPVC)),
+		}))
+		if len(pvcName) > validation.DNS1035LabelMaxLength {
+			Expect(len(pod.Spec.Containers[0].VolumeDevices[0].Name)).To(BeNumerically("<", 63))
+		} else {
+			Expect(pod.Spec.Containers[0].VolumeDevices[0].Name).To(Equal(pvcName))
+		}
+	},
+		Entry("PVC name within limit", "pvc-name-within-limit"),
+		Entry("PVC name exceeding limit", strings.Repeat("a", validation.DNS1035LabelMaxLength+1)),
+		Entry("PVC name with same length as limit", strings.Repeat("a", validation.DNS1035LabelMaxLength)),
+	)
+
 	It("Should create a secret based on the vm export", func() {
 		cp := &CertParams{Duration: 24 * time.Hour, RenewBefore: 2 * time.Hour}
 		scp, err := serializeCertParams(cp)
