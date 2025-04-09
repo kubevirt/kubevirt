@@ -413,7 +413,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			}
 
 			By("starting a VM")
-			vmi := libvmifact.NewCirros()
+			vmi := libvmifact.NewAlpine()
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			libwait.WaitForSuccessfulVMIStart(vmi)
@@ -909,7 +909,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				Eventually(func() error {
 					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					if err := console.LoginToCirros(vmi); err != nil {
+					if err := console.LoginToAlpine(vmi); err != nil {
 						return err
 					}
 					return nil
@@ -1070,7 +1070,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			It("[test_id:3683]should be blocked if a workload exists", func() {
 				By("creating a simple VMI")
-				vmi := libvmifact.NewCirros()
+				vmi := libvmifact.NewAlpine()
 				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1200,7 +1200,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				vmis, err = generateMigratableVMIs(2)
 				Expect(err).NotTo(HaveOccurred())
 			}
-			vmisNonMigratable := []*v1.VirtualMachineInstance{libvmifact.NewCirros(), libvmifact.NewCirros()}
+			vmisNonMigratable := []*v1.VirtualMachineInstance{libvmifact.NewAlpine(), libvmifact.NewAlpine()}
 
 			allKvInfraPodsAreReady(originalKv)
 			sanityCheckDeploymentsExist()
@@ -1442,7 +1442,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				)
 
 				By("Checking if virt-launcher is assigned to kubevirt-controller SCC")
-				vmi := libvmifact.NewCirros()
+				vmi := libvmifact.NewAlpine()
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(vmi)
@@ -2007,7 +2007,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				kvconfig.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 
 				By("Checking launcher seccomp policy")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewCirros(), metav1.CreateOptions{})
+				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewAlpine(), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				fetchVMI := matcher.ThisVMI(vmi)
 				psaRelatedErrorDetected := false
@@ -2973,7 +2973,7 @@ func generatePreviousVersionVmYamls(workDir, previousUtilityRegistry, previousUt
 		supportedVersions = append(supportedVersions, version.Name)
 	}
 
-	imageName := fmt.Sprintf("%s/%s-container-disk-demo:%s", previousUtilityRegistry, cd.ContainerDiskCirros, previousUtilityTag)
+	imageName := fmt.Sprintf("%s/%s-container-disk-demo:%s", previousUtilityRegistry, cd.ContainerDiskAlpine, previousUtilityTag)
 
 	for i, version := range supportedVersions {
 		yamlFileName := filepath.Join(workDir, fmt.Sprintf("vm-%s.yaml", version))
@@ -3113,7 +3113,7 @@ func generateMigratableVMIs(num int) ([]*v1.VirtualMachineInstance, error) {
 			return nil, err
 		}
 
-		vmi := libvmifact.NewCirros(
+		vmi := libvmifact.NewAlpine(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithConfigMapDisk(configMapName, configMapName),
