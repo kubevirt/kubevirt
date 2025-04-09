@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.15.0-unstable
-    createdAt: "2025-04-09 05:05:49"
+    createdAt: "2025-04-09 13:08:20"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     features.operators.openshift.io/cnf: "false"
@@ -3297,6 +3297,7 @@ spec:
                   capabilities:
                     drop:
                     - ALL
+                terminationMessagePolicy: FallbackToLogsOnError
               priorityClassName: system-cluster-critical
               securityContext:
                 runAsNonRoot: true
@@ -3372,6 +3373,7 @@ spec:
                   capabilities:
                     drop:
                     - ALL
+                terminationMessagePolicy: FallbackToLogsOnError
               priorityClassName: system-node-critical
               securityContext:
                 runAsNonRoot: true
@@ -3434,6 +3436,7 @@ spec:
                   capabilities:
                     drop:
                     - ALL
+                terminationMessagePolicy: FallbackToLogsOnError
               priorityClassName: system-cluster-critical
               securityContext:
                 runAsNonRoot: true

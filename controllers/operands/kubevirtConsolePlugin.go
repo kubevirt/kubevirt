@@ -170,7 +170,7 @@ func getKvUIDeployment(hc *hcov1beta1.HyperConverged, deploymentName string, ima
 							}},
 							SecurityContext:          components.GetStdContainerSecurityContext(),
 							TerminationMessagePath:   corev1.TerminationMessagePathDefault,
-							TerminationMessagePolicy: corev1.TerminationMessageReadFile,
+							TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      servingCertName,

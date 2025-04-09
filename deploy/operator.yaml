@@ -98,6 +98,7 @@ spec:
           capabilities:
             drop:
             - ALL
+        terminationMessagePolicy: FallbackToLogsOnError
       priorityClassName: system-cluster-critical
       securityContext:
         runAsNonRoot: true
@@ -175,6 +176,7 @@ spec:
           capabilities:
             drop:
             - ALL
+        terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /apiserver.local.config/certificates
           name: apiservice-cert
@@ -252,6 +254,7 @@ spec:
           capabilities:
             drop:
             - ALL
+        terminationMessagePolicy: FallbackToLogsOnError
       priorityClassName: system-cluster-critical
       securityContext:
         runAsNonRoot: true

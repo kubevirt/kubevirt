@@ -81,6 +81,7 @@ spec:
       runAsUser: 0
       capabilities:
         add: ["NET_RAW"]
+    terminationMessagePolicy: FallbackToLogsOnError
   - name: copy
     imagePullPolicy: Always
     image: $FUNC_TEST_IMAGE
@@ -93,6 +94,7 @@ spec:
       runAsUser: 0
       capabilities:
         add: ["NET_RAW"]
+    terminationMessagePolicy: FallbackToLogsOnError
   volumes:
     - name: output-volume
       emptyDir: { }
