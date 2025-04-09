@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 
 	expect "github.com/google/goexpect"
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	storagev1 "k8s.io/api/storage/v1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -867,6 +868,20 @@ var _ = SIGDescribe("DataVolume Integration", func() {
 						Namespace: snap.Namespace,
 						Name:      snap.Name,
 					},
+				}
+
+				By("Waiting for snapshot to have restore size")
+				Eventually(func() (*vsv1.VolumeSnapshot, error) {
+					snap, err = virtClient.KubernetesSnapshotClient().
+						SnapshotV1().
+						VolumeSnapshots(snap.Namespace).
+						Get(context.Background(), snap.Name, metav1.GetOptions{})
+					return snap, err
+				}).WithTimeout(90 * time.Second).WithPolling(time.Second).Should(HaveField("Status.RestoreSize", Not(BeNil())))
+
+				// set the target DV size to the snapshot restore size if it is not zero
+				if !snap.Status.RestoreSize.IsZero() {
+					dvt.Spec.Storage.Resources.Requests[k8sv1.ResourceStorage] = *snap.Status.RestoreSize
 				}
 			}
 
