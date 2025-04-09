@@ -834,32 +834,23 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 					if tpm {
 						batch = append(batch, []expect.Batcher{
-							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_createprimary -C o -c %s.ctx\n", "/dev/tpm0")},
-							&expect.BExp{R: console.PromptExpression},
-							&expect.BSnd{S: console.EchoLastReturnValue},
+							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_createprimary -C o -c %s.ctx && %s", "/dev/tpm0", console.EchoLastReturnValue)},
 							&expect.BExp{R: console.RetValue("0")},
 
-							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvdefine -C o -s %d 1\n", len(string(vm.UID))+1)},
-							&expect.BExp{R: console.PromptExpression},
-							&expect.BSnd{S: console.EchoLastReturnValue},
+							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvdefine -C o -s %d 1 && %s", len(string(vm.UID))+1, console.EchoLastReturnValue)},
 							&expect.BExp{R: console.RetValue("0")},
 
-							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvwrite -C o -i /test/data/message 1\n")},
-							&expect.BExp{R: console.PromptExpression},
-							&expect.BSnd{S: console.EchoLastReturnValue},
+							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvwrite -C o -i /test/data/message 1 && %s", console.EchoLastReturnValue)},
 							&expect.BExp{R: console.RetValue("0")},
 
 							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvread -s %d -C o 1\n", len(string(vm.UID)))},
 							&expect.BExp{R: string(vm.UID)},
-							&expect.BSnd{S: console.EchoLastReturnValue},
-							&expect.BExp{R: console.RetValue("0")},
 							&expect.BSnd{S: syncName},
 							&expect.BExp{R: console.PromptExpression},
 							&expect.BSnd{S: syncName},
 							&expect.BExp{R: console.PromptExpression},
 						}...)
 					}
-
 					Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())
 				}
 			}
@@ -910,11 +901,9 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 						batch = append(batch, []expect.Batcher{
 							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvread -s %d -C o 1\n", len(string(vm.UID)))},
 							&expect.BExp{R: string(vm.UID)},
-							&expect.BSnd{S: console.EchoLastReturnValue},
-							&expect.BExp{R: console.RetValue("0")},
-							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvwrite -C o -i /test/data/message 1\n")},
+							&expect.BSnd{S: syncName},
 							&expect.BExp{R: console.PromptExpression},
-							&expect.BSnd{S: console.EchoLastReturnValue},
+							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvwrite -C o -i /test/data/message 1 && %s", console.EchoLastReturnValue)},
 							&expect.BExp{R: console.RetValue("0")},
 							&expect.BSnd{S: syncName},
 							&expect.BExp{R: console.PromptExpression},
@@ -966,8 +955,6 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 						batch = append(batch, []expect.Batcher{
 							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvread -s %d -C o 1\n", len(string(vm.UID)))},
 							&expect.BExp{R: string(vm.UID)},
-							&expect.BSnd{S: console.EchoLastReturnValue},
-							&expect.BExp{R: console.RetValue("0")},
 							&expect.BSnd{S: syncName},
 							&expect.BExp{R: console.PromptExpression},
 							&expect.BSnd{S: syncName},
