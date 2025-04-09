@@ -67,6 +67,9 @@ func (*aaqHooks) checkComponentVersion(cr runtime.Object) bool {
 }
 
 func (h *aaqHooks) reset() {
+	h.Lock()
+	defer h.Unlock()
+
 	h.cache = nil
 }
 
