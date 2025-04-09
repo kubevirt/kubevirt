@@ -328,8 +328,7 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 					},
 					"enableApplicationAwareQuota": {
 						SchemaProps: spec.SchemaProps{
-							Description: "EnableApplicationAwareQuota if true, enables the Application Aware Quota feature",
-							Default:     false,
+							Description: "Deprecated: This field is ignored and will be removed on the next version of the API. Use spec.enableApplicationAwareQuota instead",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -668,6 +667,14 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedS
 					"deployKubeSecondaryDNS": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Deploy KubeSecondaryDNS by CNAO",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"enableApplicationAwareQuota": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EnableApplicationAwareQuota if true, enables the Application Aware Quota feature",
 							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",

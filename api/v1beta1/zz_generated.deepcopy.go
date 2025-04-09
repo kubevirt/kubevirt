@@ -553,6 +553,11 @@ func (in *HyperConvergedSpec) DeepCopyInto(out *HyperConvergedSpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.EnableApplicationAwareQuota != nil {
+		in, out := &in.EnableApplicationAwareQuota, &out.EnableApplicationAwareQuota
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

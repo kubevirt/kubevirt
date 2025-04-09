@@ -513,10 +513,11 @@ var _ = Describe("webhooks validator", func() {
 						DownwardMetrics:             ptr.To(true),
 						NonRoot:                     ptr.To(false),
 						EnableCommonBootImageImport: ptr.To(true),
+						EnableApplicationAwareQuota: ptr.To(false),
 						EnableManagedTenantQuota:    ptr.To(false),
 						DeployVMConsoleProxy:        ptr.To(false),
 						DeployKubeSecondaryDNS:      ptr.To(false),
-					}, "enableManagedTenantQuota", "nonRoot", "enableCommonBootImageImport", "deployVmConsoleProxy", "deployKubeSecondaryDNS"),
+					}, "enableManagedTenantQuota", "nonRoot", "enableApplicationAwareQuota", "enableCommonBootImageImport", "deployVmConsoleProxy", "deployKubeSecondaryDNS"),
 			)
 		})
 	})
@@ -1188,6 +1189,43 @@ var _ = Describe("webhooks validator", func() {
 		})
 
 		Context("validate moved FG on update", func() {
+			//nolint:staticcheck
+			DescribeTable("should return warning for enableApplicationAwareQuota on update", func(newFG, oldFG *bool) {
+				newHCO := hco.DeepCopy()
+				hco.Spec.FeatureGates.EnableApplicationAwareQuota = newFG
+				newHCO.Spec.FeatureGates.EnableApplicationAwareQuota = oldFG
+
+				err := wh.ValidateUpdate(ctx, dryRun, newHCO, hco)
+
+				Expect(err).To(HaveOccurred())
+				expected := &ValidationWarning{}
+				Expect(errors.As(err, &expected)).To(BeTrue())
+
+				Expect(expected.warnings).To(HaveLen(1))
+				Expect(expected.warnings).To(ContainElements(ContainSubstring("enableApplicationAwareQuota")))
+			},
+				Entry("should trigger warning if enableApplicationAwareQuota appeared as true", nil, ptr.To(true)),
+				Entry("should trigger warning if enableApplicationAwareQuota appeared as false", nil, ptr.To(false)),
+				Entry("should trigger warning if enableApplicationAwareQuota has changed from true to false", ptr.To(true), ptr.To(false)),
+				Entry("should trigger warning if enableApplicationAwareQuota has changed from false to true", ptr.To(false), ptr.To(true)),
+			)
+
+			//nolint:staticcheck
+			DescribeTable("should not return warning for enableApplicationAwareQuota if not change", func(newFG, oldFG *bool) {
+				cli := getFakeClient(hco)
+				wh := NewWebhookHandler(logger, cli, decoder, HcoValidNamespace, true, nil)
+				newHCO := hco.DeepCopy()
+				hco.Spec.FeatureGates.EnableApplicationAwareQuota = newFG
+				newHCO.Spec.FeatureGates.EnableApplicationAwareQuota = oldFG
+
+				Expect(wh.ValidateUpdate(ctx, dryRun, newHCO, hco)).To(Succeed())
+			},
+				Entry("should not trigger warning if enableApplicationAwareQuota (true) disappeared", ptr.To(true), nil),
+				Entry("should not trigger warning if enableApplicationAwareQuota (false) disappeared", ptr.To(false), nil),
+				Entry("should not trigger warning if enableApplicationAwareQuota (true) wasn't changed", ptr.To(true), ptr.To(true)),
+				Entry("should not trigger warning if enableApplicationAwareQuota (false) wasn't changed", ptr.To(false), ptr.To(false)),
+			)
+
 			//nolint:staticcheck
 			DescribeTable("should return warning for enableCommonBootImageImport on update", func(newFG, oldFG *bool) {
 				newHCO := hco.DeepCopy()

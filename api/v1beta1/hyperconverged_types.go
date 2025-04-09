@@ -66,7 +66,7 @@ type HyperConvergedSpec struct {
 
 	// featureGates is a map of feature gate flags. Setting a flag to `true` will enable
 	// the feature. Setting `false` or removing the feature gate, disables the feature.
-	// +kubebuilder:default={"downwardMetrics": false, "disableMDevConfiguration": false, "persistentReservation": false, "enableApplicationAwareQuota": false}
+	// +kubebuilder:default={"downwardMetrics": false, "disableMDevConfiguration": false, "persistentReservation": false}
 	// +optional
 	FeatureGates HyperConvergedFeatureGates `json:"featureGates,omitempty"`
 
@@ -268,6 +268,12 @@ type HyperConvergedSpec struct {
 	// +kubebuilder:default=false
 	// +default=false
 	DeployKubeSecondaryDNS *bool `json:"deployKubeSecondaryDNS,omitempty"`
+
+	// EnableApplicationAwareQuota if true, enables the Application Aware Quota feature
+	// +optional
+	// +kubebuilder:default=false
+	// +default=false
+	EnableApplicationAwareQuota *bool `json:"enableApplicationAwareQuota,omitempty"`
 }
 
 // CertRotateConfigCA contains the tunables for TLS certificates.
@@ -482,10 +488,8 @@ type HyperConvergedFeatureGates struct {
 	// +default=false
 	AlignCPUs *bool `json:"alignCPUs,omitempty"`
 
-	// EnableApplicationAwareQuota if true, enables the Application Aware Quota feature
-	// +optional
-	// +kubebuilder:default=false
-	// +default=false
+	// Deprecated: This field is ignored and will be removed on the next version of the API.
+	// Use spec.enableApplicationAwareQuota instead
 	EnableApplicationAwareQuota *bool `json:"enableApplicationAwareQuota,omitempty"`
 
 	// primaryUserDefinedNetworkBinding deploys the needed configurations for kubevirt users to
@@ -853,7 +857,7 @@ type HyperConverged struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"downwardMetrics": false, "disableMDevConfiguration": false, "persistentReservation": false, "enableApplicationAwareQuota": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 150, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist", "virtualMachineOptions": {"disableFreePageReporting": false, "disableSerialConsoleLog": false}, "enableCommonBootImageImport": true, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false}
+	// +kubebuilder:default={"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"downwardMetrics": false, "disableMDevConfiguration": false, "persistentReservation": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 150, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist", "virtualMachineOptions": {"disableFreePageReporting": false, "disableSerialConsoleLog": false}, "enableApplicationAwareQuota": false, "enableCommonBootImageImport": true, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false}
 	// +optional
 	Spec   HyperConvergedSpec   `json:"spec,omitempty"`
 	Status HyperConvergedStatus `json:"status,omitempty"`

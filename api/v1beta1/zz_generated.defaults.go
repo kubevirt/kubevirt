@@ -56,10 +56,6 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 		var ptrVar1 bool = false
 		in.Spec.FeatureGates.AlignCPUs = &ptrVar1
 	}
-	if in.Spec.FeatureGates.EnableApplicationAwareQuota == nil {
-		var ptrVar1 bool = false
-		in.Spec.FeatureGates.EnableApplicationAwareQuota = &ptrVar1
-	}
 	if in.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster == nil {
 		var ptrVar1 uint32 = 5
 		in.Spec.LiveMigrationConfig.ParallelMigrationsPerCluster = &ptrVar1
@@ -163,6 +159,10 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 	if in.Spec.DeployKubeSecondaryDNS == nil {
 		var ptrVar1 bool = false
 		in.Spec.DeployKubeSecondaryDNS = &ptrVar1
+	}
+	if in.Spec.EnableApplicationAwareQuota == nil {
+		var ptrVar1 bool = false
+		in.Spec.EnableApplicationAwareQuota = &ptrVar1
 	}
 }
 

@@ -13,12 +13,12 @@ spec:
       renewBefore: 12h0m0s
   deployKubeSecondaryDNS: false
   deployVmConsoleProxy: false
+  enableApplicationAwareQuota: false
   enableCommonBootImageImport: true
   featureGates:
     alignCPUs: false
     disableMDevConfiguration: false
     downwardMetrics: false
-    enableApplicationAwareQuota: false
     persistentReservation: false
   higherWorkloadDensity:
     memoryOvercommitPercentage: 100

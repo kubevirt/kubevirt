@@ -66,11 +66,10 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 
 	Context("feature gate defaults", func() {
 		defaultFeatureGates := v1beta1.HyperConvergedFeatureGates{
-			DownwardMetrics:             ptr.To(false),
-			DisableMDevConfiguration:    ptr.To(false),
-			PersistentReservation:       ptr.To(false),
-			AlignCPUs:                   ptr.To(false),
-			EnableApplicationAwareQuota: ptr.To(false),
+			DownwardMetrics:          ptr.To(false),
+			DisableMDevConfiguration: ptr.To(false),
+			PersistentReservation:    ptr.To(false),
+			AlignCPUs:                ptr.To(false),
 		}
 
 		DescribeTable("Check that featureGates defaults are behaving as expected", func(ctx context.Context, path string) {

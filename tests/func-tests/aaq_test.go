@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	setAAQFGPatchTemplate = `[{"op": "replace", "path": "/spec/featureGates/enableApplicationAwareQuota", "value": %t}]`
+	setAAQFGPatchTemplate = `[{"op": "replace", "path": "/spec/enableApplicationAwareQuota", "value": %t}]`
 )
 
 var _ = Describe("Test AAQ", Label("AAQ"), Serial, Ordered, func() {

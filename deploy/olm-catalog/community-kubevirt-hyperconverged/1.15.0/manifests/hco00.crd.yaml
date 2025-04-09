@@ -58,11 +58,11 @@ spec:
                   renewBefore: 12h0m0s
               deployKubeSecondaryDNS: false
               deployVmConsoleProxy: false
+              enableApplicationAwareQuota: false
               enableCommonBootImageImport: true
               featureGates:
                 disableMDevConfiguration: false
                 downwardMetrics: false
-                enableApplicationAwareQuota: false
                 persistentReservation: false
               liveMigrationConfig:
                 allowAutoConverge: false
@@ -1023,6 +1023,11 @@ spec:
                 default: false
                 description: deploy VM console proxy resources in SSP operator
                 type: boolean
+              enableApplicationAwareQuota:
+                default: false
+                description: EnableApplicationAwareQuota if true, enables the Application
+                  Aware Quota feature
+                type: boolean
               enableCommonBootImageImport:
                 default: true
                 description: |-
@@ -1052,7 +1057,6 @@ spec:
                 default:
                   disableMDevConfiguration: false
                   downwardMetrics: false
-                  enableApplicationAwareQuota: false
                   persistentReservation: false
                 description: |-
                   featureGates is a map of feature gate flags. Setting a flag to `true` will enable
@@ -1097,9 +1101,9 @@ spec:
                       guests.
                     type: boolean
                   enableApplicationAwareQuota:
-                    default: false
-                    description: EnableApplicationAwareQuota if true, enables the
-                      Application Aware Quota feature
+                    description: |-
+                      Deprecated: This field is ignored and will be removed on the next version of the API.
+                      Use spec.enableApplicationAwareQuota instead
                     type: boolean
                   enableCommonBootImageImport:
                     description: 'Deprecated: This field is ignored. Use spec.enableCommonBootImageImport

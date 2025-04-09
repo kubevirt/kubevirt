@@ -116,6 +116,24 @@
       "jsonPatch": [
         {
           "op": "test",
+          "path": "/spec/featureGates/enableApplicationAwareQuota",
+          "value": true
+        },
+        {
+          "op": "move",
+          "from": "/spec/featureGates/enableApplicationAwareQuota",
+          "path": "/spec/enableApplicationAwareQuota"
+        }
+      ],
+      "jsonPatchApplyOptions": {
+        "allowMissingPathOnRemove": true
+      }
+    },
+    {
+      "semverRange": "<1.15.0",
+      "jsonPatch": [
+        {
+          "op": "test",
           "path": "/spec/featureGates/deployKubeSecondaryDNS",
           "value": true
         },
@@ -139,6 +157,10 @@
         {
           "op": "remove",
           "path": "/spec/featureGates/deployVmConsoleProxy"
+        },
+        {
+          "op": "remove",
+          "path": "/spec/featureGates/enableApplicationAwareQuota"
         },
         {
           "op": "remove",

@@ -483,6 +483,11 @@ func (wh *WebhookHandler) validateDeprecatedFeatureGates(hc *v1beta1.HyperConver
 
 func validateOldFGOnCreate(warnings []string, hc *v1beta1.HyperConverged) []string {
 	//nolint:staticcheck
+	if hc.Spec.FeatureGates.EnableApplicationAwareQuota != nil {
+		warnings = append(warnings, fmt.Sprintf(fgMovedWarning, "enableApplicationAwareQuota"))
+	}
+
+	//nolint:staticcheck
 	if hc.Spec.FeatureGates.EnableCommonBootImageImport != nil {
 		warnings = append(warnings, fmt.Sprintf(fgMovedWarning, "enableCommonBootImageImport"))
 	}
@@ -501,6 +506,11 @@ func validateOldFGOnCreate(warnings []string, hc *v1beta1.HyperConverged) []stri
 }
 
 func validateOldFGOnUpdate(warnings []string, hc, prevHC *v1beta1.HyperConverged) []string {
+	//nolint:staticcheck
+	if oldFGChanged(hc.Spec.FeatureGates.EnableApplicationAwareQuota, prevHC.Spec.FeatureGates.EnableApplicationAwareQuota) {
+		warnings = append(warnings, fmt.Sprintf(fgMovedWarning, "enableApplicationAwareQuota"))
+	}
+
 	//nolint:staticcheck
 	if oldFGChanged(hc.Spec.FeatureGates.EnableCommonBootImageImport, prevHC.Spec.FeatureGates.EnableCommonBootImageImport) {
 		warnings = append(warnings, fmt.Sprintf(fgMovedWarning, "enableCommonBootImageImport"))

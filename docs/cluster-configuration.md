@@ -173,13 +173,6 @@ to an even parity when using emulator thread isolation.
 
 **Default**: `false`
 
-### enableApplicationAwareQuota Feature Gate
-Set the `enableApplicationAwareQuota` feature gate to `true` to enable the [Application Aware Quota](https://github.com/kubevirt/application-aware-quota) feature 
-
-See [below](#configure-application-aware-quota-aaq) for Application Aware Quota configurations.
-
-**Default**: `false`
-
 ### Feature Gates Example
 
 ```yaml
@@ -1127,7 +1120,7 @@ With the `Custom` profile, the cipher list should be expressed according to Open
 On plain k8s, where APIServer CR is not available, the default value will be `Intermediate`.
 
 ## Configure Application Aware Quota (AAQ)
-To enable the AAQ feature, set the `spec.featureGates.enableApplicationAwareQuota` field to `true`. See [featureGates](#enableapplicationawarequota-feature-gate) above.
+To enable the AAQ feature, set the `spec.enableApplicationAwareQuota` field to `true`.
 
 To configure AAQ, set the fields of the `applicationAwareConfig` object in the HyperConverged resource's spec. The 
 `applicationAwareConfig` object contains several fields:
@@ -1154,6 +1147,7 @@ Pods that set `.spec.nodeName` are not allowed to use in any namespace that AAQ 
 ### Example
 ```yaml
 spec:
+  enableApplicationAwareQuota: true
   applicationAwareConfig:
     vmiCalcConfigName: "VmiPodUsage"
     namespaceSelector:
@@ -1166,6 +1160,7 @@ spec:
 It is also possible to target every namespace by defining an empty (non-nil) namespaceSelector as follows:
 ```yaml
 spec:
+  enableApplicationAwareQuota: true
   applicationAwareConfig:
     namespaceSelector: {}
 ```

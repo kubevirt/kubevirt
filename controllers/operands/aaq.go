@@ -28,7 +28,7 @@ func newAAQHandler(Client client.Client, Scheme *runtime.Scheme) Operand {
 			hooks:  &aaqHooks{},
 		},
 		shouldDeploy: func(hc *hcov1beta1.HyperConverged) bool {
-			return hc.Spec.FeatureGates.EnableApplicationAwareQuota != nil && *hc.Spec.FeatureGates.EnableApplicationAwareQuota
+			return hc.Spec.EnableApplicationAwareQuota != nil && *hc.Spec.EnableApplicationAwareQuota
 		},
 		getCRWithName: func(hc *hcov1beta1.HyperConverged) client.Object {
 			return NewAAQWithNameOnly(hc)

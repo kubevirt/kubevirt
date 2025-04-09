@@ -213,7 +213,7 @@ var _ = Describe("AAQ tests", func() {
 		})
 
 		It("should create AAQ if the enableApplicationAwareQuota FG is true", func() {
-			hco.Spec.FeatureGates.EnableApplicationAwareQuota = ptr.To(true)
+			hco.Spec.EnableApplicationAwareQuota = ptr.To(true)
 			cl = commontestutils.InitClient([]client.Object{hco})
 
 			handler := newAAQHandler(cl, commontestutils.GetScheme())
@@ -241,7 +241,7 @@ var _ = Describe("AAQ tests", func() {
 
 		It("should update AAQ fields, if not matched to the requirements", func() {
 			hco.Spec.ApplicationAwareConfig = &v1beta1.ApplicationAwareConfigurations{}
-			hco.Spec.FeatureGates.EnableApplicationAwareQuota = ptr.To(true)
+			hco.Spec.EnableApplicationAwareQuota = ptr.To(true)
 			aaq := NewAAQWithNameOnly(hco)
 			aaq.Spec.Infra = testNodePlacement
 			aaq.Spec.PriorityClass = ptr.To[aaqv1alpha1.AAQPriorityClass]("wrongPC")
@@ -292,7 +292,7 @@ var _ = Describe("AAQ tests", func() {
 			const userLabelKey = "userLabelKey"
 			const userLabelValue = "userLabelValue"
 			hco.Spec.ApplicationAwareConfig = &v1beta1.ApplicationAwareConfigurations{}
-			hco.Spec.FeatureGates.EnableApplicationAwareQuota = ptr.To(true)
+			hco.Spec.EnableApplicationAwareQuota = ptr.To(true)
 			outdatedResource := NewAAQWithNameOnly(hco)
 			expectedLabels := maps.Clone(outdatedResource.Labels)
 			for k, v := range expectedLabels {
@@ -325,7 +325,7 @@ var _ = Describe("AAQ tests", func() {
 			const userLabelKey = "userLabelKey"
 			const userLabelValue = "userLabelValue"
 			hco.Spec.ApplicationAwareConfig = &v1beta1.ApplicationAwareConfigurations{}
-			hco.Spec.FeatureGates.EnableApplicationAwareQuota = ptr.To(true)
+			hco.Spec.EnableApplicationAwareQuota = ptr.To(true)
 			outdatedResource := NewAAQWithNameOnly(hco)
 			expectedLabels := maps.Clone(outdatedResource.Labels)
 			outdatedResource.Labels[userLabelKey] = userLabelValue
@@ -356,7 +356,7 @@ var _ = Describe("AAQ tests", func() {
 
 	Context("check cache", func() {
 		It("should create new cache if it empty", func() {
-			hco.Spec.FeatureGates.EnableApplicationAwareQuota = ptr.To(true)
+			hco.Spec.EnableApplicationAwareQuota = ptr.To(true)
 			handler := newAAQHandler(cl, commontestutils.GetScheme())
 			op, ok := handler.(*conditionalHandler)
 			Expect(ok).To(BeTrue())
