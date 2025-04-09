@@ -58,7 +58,8 @@ const (
 	FailedUpdateVirtualMachineReason     = "FailedUpdate"
 	SuccessfulUpdateVirtualMachineReason = "SuccessfulUpdate"
 
-	defaultAddDelay = 1 * time.Second
+	defaultAddDelay   = 1 * time.Second
+	defaultRetryDelay = 3 * time.Second
 )
 
 const (
@@ -853,7 +854,7 @@ func (c *Controller) getUnavailableVMICount(vms []*virtv1.VirtualMachine) (int, 
 			obj = vmi
 		}
 		vmi := obj.(*virtv1.VirtualMachineInstance)
-		if vmi.DeletionTimestamp != nil || vmi.Status.Phase == virtv1.Failed || vmi.Status.Phase == virtv1.Unknown {
+		if vmi.DeletionTimestamp != nil || vmi.Status.Phase != virtv1.Running {
 			unavailableCount++
 			continue
 		}
@@ -984,25 +985,22 @@ func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedL
 	}
 
 	for i := range vmUpdatedList {
-		timeout := time.After(2 * time.Minute)
-	waitLoop:
-		for {
-			select {
-			case <-timeout:
-				return fmt.Errorf("timeout occurred while waiting for the VMI to become healthy")
-			default:
-				time.Sleep(1 * time.Second)
-				unavailableCount, err := c.getUnavailableVMICount(vmUpdatedList)
-				if err != nil {
-					return err
-				}
-				if unavailableCount < maxUnavailableInt {
-					break waitLoop
-				}
-			}
+		unavailableCount, err := c.getUnavailableVMICount(vmUpdatedList)
+		if err != nil {
+			return err
 		}
-		vm := vmUpdatedList[i]
 
+		if unavailableCount >= maxUnavailableInt {
+			log.Log.V(4).Infof("Delaying proactive update for pool %s/%s - max unavailable (%d) reached", pool.Namespace, pool.Name, maxUnavailableInt)
+			key, err := controller.KeyFunc(pool)
+			if err != nil {
+				return err
+			}
+			c.queue.AddAfter(key, defaultRetryDelay)
+			return nil
+		}
+
+		vm := vmUpdatedList[i]
 		vmiKey := controller.NamespacedKey(vm.Namespace, vm.Name)
 		obj, exists, _ := c.vmiStore.GetByKey(vmiKey)
 		if !exists {
@@ -1018,7 +1016,7 @@ func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedL
 			return err
 		}
 		if updateType == proactiveUpdateTypeNone {
-			return nil
+			continue
 		}
 
 		if err := c.handleResourceUpdate(pool, vm, vmi, updateType); err != nil {
