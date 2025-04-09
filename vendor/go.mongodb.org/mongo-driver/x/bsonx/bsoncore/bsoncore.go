@@ -4,25 +4,6 @@
 // not use this file except in compliance with the License. You may obtain
 // a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
 
-// Package bsoncore contains functions that can be used to encode and decode BSON
-// elements and values to or from a slice of bytes. These functions are aimed at
-// allowing low level manipulation of BSON and can be used to build a higher
-// level BSON library.
-//
-// The Read* functions within this package return the values of the element and
-// a boolean indicating if the values are valid. A boolean was used instead of
-// an error because any error that would be returned would be the same: not
-// enough bytes. This library attempts to do no validation, it will only return
-// false if there are not enough bytes for an item to be read. For example, the
-// ReadDocument function checks the length, if that length is larger than the
-// number of bytes availble, it will return false, if there are enough bytes, it
-// will return those bytes and true. It is the consumers responsibility to
-// validate those bytes.
-//
-// The Append* functions within this package will append the type value to the
-// given dst slice. If the slice has enough capacity, it will not grow the
-// slice. The Append*Element functions within this package operate in the same
-// way, but additionally append the BSON type and the key before the value.
 package bsoncore // import "go.mongodb.org/mongo-driver/x/bsonx/bsoncore"
 
 import (
@@ -65,11 +46,10 @@ func AppendHeader(dst []byte, t bsontype.Type, key string) []byte {
 	// return append(AppendType(dst, t), key+string(0x00)...)
 }
 
-// TODO(skriptble): All of the Read* functions should return src resliced to start just after what
-// was read.
+// TODO(skriptble): All of the Read* functions should return src resliced to start just after what was read.
 
 // ReadType will return the first byte of the provided []byte as a type. If
-// there is no availble byte, false is returned.
+// there is no available byte, false is returned.
 func ReadType(src []byte) (bsontype.Type, []byte, bool) {
 	if len(src) < 1 {
 		return 0, src, false
@@ -197,12 +177,13 @@ func ReadString(src []byte) (string, []byte, bool) {
 
 // AppendDocumentStart reserves a document's length and returns the index where the length begins.
 // This index can later be used to write the length of the document.
-//
-// TODO(skriptble): We really need AppendDocumentStart and AppendDocumentEnd.
-// AppendDocumentStart would handle calling ReserveLength and providing the index of the start of
-// the document. AppendDocumentEnd would handle taking that start index, adding the null byte,
-// calculating the length, and filling in the length at the start of the document.
-func AppendDocumentStart(dst []byte) (index int32, b []byte) { return ReserveLength(dst) }
+func AppendDocumentStart(dst []byte) (index int32, b []byte) {
+	// TODO(skriptble): We really need AppendDocumentStart and AppendDocumentEnd.  AppendDocumentStart would handle calling
+	// TODO ReserveLength and providing the index of the start of the document. AppendDocumentEnd would handle taking that
+	// TODO start index, adding the null byte, calculating the length, and filling in the length at the start of the
+	// TODO document.
+	return ReserveLength(dst)
+}
 
 // AppendDocumentStartInline functions the same as AppendDocumentStart but takes a pointer to the
 // index int32 which allows this function to be used inline.
@@ -231,7 +212,7 @@ func AppendDocumentEnd(dst []byte, index int32) ([]byte, error) {
 // AppendDocument will append doc to dst and return the extended buffer.
 func AppendDocument(dst []byte, doc []byte) []byte { return append(dst, doc...) }
 
-// AppendDocumentElement will append a BSON embeded document element using key
+// AppendDocumentElement will append a BSON embedded document element using key
 // and doc to dst and return the extended buffer.
 func AppendDocumentElement(dst []byte, key string, doc []byte) []byte {
 	return AppendDocument(AppendHeader(dst, bsontype.EmbeddedDocument, key), doc)
@@ -254,7 +235,7 @@ func BuildDocumentValue(elems ...[]byte) Value {
 	return Value{Type: bsontype.EmbeddedDocument, Data: BuildDocument(nil, elems...)}
 }
 
-// BuildDocumentElement will append a BSON embedded document elemnt using key and the provided
+// BuildDocumentElement will append a BSON embedded document element using key and the provided
 // elements and return the extended buffer.
 func BuildDocumentElement(dst []byte, key string, elems ...[]byte) []byte {
 	return BuildDocument(AppendHeader(dst, bsontype.EmbeddedDocument, key), elems...)
@@ -842,6 +823,9 @@ func readstring(src []byte) (string, []byte, bool) {
 func readLengthBytes(src []byte) ([]byte, []byte, bool) {
 	l, _, ok := ReadLength(src)
 	if !ok {
+		return nil, src, false
+	}
+	if l < 4 {
 		return nil, src, false
 	}
 	if len(src) < int(l) {

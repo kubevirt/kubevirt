@@ -19,8 +19,6 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
-	instancetypev1alpha1 "kubevirt.io/api/instancetype/v1alpha1"
-	instancetypev1alpha2 "kubevirt.io/api/instancetype/v1alpha2"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -111,77 +109,90 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 	})
 
-	Context("VM with invalid InstancetypeMatcher", func() {
-		var vmi *virtv1.VirtualMachineInstance
-
-		BeforeEach(func() {
-			vmi = libvmifact.NewGuestless()
-		})
-
-		It("[test_id:CNV-9086] should fail to create VM with non-existing cluster instancetype", func() {
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithClusterInstancetype("non-existing-cluster-instancetype"))
-			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).To(HaveOccurred())
-
-			var apiStatus errors.APIStatus
-			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
-			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
-			cause := apiStatus.Status().Details.Causes[0]
-			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
-			Expect(cause.Message).To(HavePrefix("Failure to find instancetype"))
-			Expect(cause.Field).To(Equal("spec.instancetype"))
-		})
-
-		It("[test_id:CNV-9089] should fail to create VM with non-existing namespaced instancetype", func() {
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithInstancetype("non-existing-instancetype"))
-			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).To(HaveOccurred())
-
-			var apiStatus errors.APIStatus
-			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
-			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
-			cause := apiStatus.Status().Details.Causes[0]
-			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
-			Expect(cause.Message).To(HavePrefix("Failure to find instancetype"))
-			Expect(cause.Field).To(Equal("spec.instancetype"))
-		})
+	Context("A VirtualMachine", func() {
+		const (
+			resourceName               = "nonexistent"
+			failureCondition           = "Failure"
+			instancetypeNotFoundReason = "FailedFindInstancetype"
+			preferenceNotFoundReason   = "FailedFindPreference"
+		)
+		DescribeTable("referencing a non-existent", func(vmOptionFunc func(*virtv1.VirtualMachine), expectedReason string, createResourceFunc func(string) error) {
+			By("Creating the VM and asserting that it doesn't start and has the expected condition in place")
+			vm := libvmi.NewVirtualMachine(
+				libvmifact.NewGuestless(),
+				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
+				vmOptionFunc,
+			)
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm), time.Minute, time.Second).Should(matcher.HaveConditionTrueWithReason(failureCondition, expectedReason))
+			Eventually(matcher.ThisVM(vm), time.Minute, time.Second).Should(matcher.HavePrintableStatus(virtv1.VirtualMachineStatusStopped))
+			By("Creating the missing resource and asserting that the condition is removed and the VM starts")
+			Expect(createResourceFunc(vm.Namespace)).To(Succeed())
+			Eventually(matcher.ThisVM(vm), time.Minute, time.Second).ShouldNot(matcher.HaveConditionTrueWithReason(failureCondition, expectedReason))
+			Eventually(matcher.ThisVM(vm), time.Minute, time.Second).Should(matcher.BeReady())
+		},
+			Entry("[test_id:CNV-9086] cluster instance type should still be created and eventually start when missing resource created",
+				libvmi.WithClusterInstancetype(resourceName),
+				instancetypeNotFoundReason,
+				func(_ string) error {
+					instancetype := builder.NewClusterInstancetype(
+						builder.WithCPUs(1),
+						builder.WithMemory("128Mi"),
+					)
+					// FIXME(lyarwood): builder should provide WithName()
+					instancetype.GenerateName = ""
+					instancetype.Name = resourceName
+					_, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), instancetype, metav1.CreateOptions{})
+					return err
+				},
+			),
+			Entry("[test_id:CNV-9089] instance type should still be created and eventually start when missing resource created",
+				libvmi.WithInstancetype(resourceName),
+				instancetypeNotFoundReason,
+				func(namespace string) error {
+					instancetype := builder.NewInstancetype(
+						builder.WithCPUs(1),
+						builder.WithMemory("128Mi"),
+					)
+					// FIXME(lyarwood): builder should provide WithName()
+					instancetype.GenerateName = ""
+					instancetype.Name = resourceName
+					_, err := virtClient.VirtualMachineInstancetype(namespace).Create(context.Background(), instancetype, metav1.CreateOptions{})
+					return err
+				},
+			),
+			Entry("[test_id:CNV-9091] cluster preference should still be created and eventually start when missing resource created",
+				libvmi.WithClusterPreference(resourceName),
+				preferenceNotFoundReason,
+				func(_ string) error {
+					preference := builder.NewClusterPreference(
+						builder.WithPreferredCPUTopology(instancetypev1beta1.Cores),
+					)
+					// FIXME(lyarwood): builder should provide WithName()
+					preference.GenerateName = ""
+					preference.Name = resourceName
+					_, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), preference, metav1.CreateOptions{})
+					return err
+				},
+			),
+			Entry("[test_id:CNV-9090] preference should still be created and eventually start when missing resource created",
+				libvmi.WithPreference(resourceName),
+				preferenceNotFoundReason,
+				func(namespace string) error {
+					preference := builder.NewPreference(
+						builder.WithPreferredCPUTopology(instancetypev1beta1.Cores),
+					)
+					// FIXME(lyarwood): builder should provide WithName()
+					preference.GenerateName = ""
+					preference.Name = resourceName
+					_, err := virtClient.VirtualMachinePreference(namespace).Create(context.Background(), preference, metav1.CreateOptions{})
+					return err
+				},
+			),
+		)
 	})
 
-	Context("VM with invalid PreferenceMatcher", func() {
-		var vmi *virtv1.VirtualMachineInstance
-
-		BeforeEach(func() {
-			vmi = libvmifact.NewGuestless()
-		})
-
-		It("[test_id:CNV-9091] should fail to create VM with non-existing cluster preference", func() {
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithClusterPreference("non-existing-cluster-preference"))
-			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).To(HaveOccurred())
-
-			var apiStatus errors.APIStatus
-			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
-			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
-			cause := apiStatus.Status().Details.Causes[0]
-			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
-			Expect(cause.Message).To(HavePrefix("Failure to find preference"))
-			Expect(cause.Field).To(Equal("spec.preference"))
-		})
-
-		It("[test_id:CNV-9090] should fail to create VM with non-existing namespaced preference", func() {
-			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithPreference("non-existing-preference"))
-			_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).To(HaveOccurred())
-
-			var apiStatus errors.APIStatus
-			Expect(goerrors.As(err, &apiStatus)).To(BeTrue(), "error should be type APIStatus")
-			Expect(apiStatus.Status().Details.Causes).To(HaveLen(1))
-			cause := apiStatus.Status().Details.Causes[0]
-			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
-			Expect(cause.Message).To(HavePrefix("Failure to find preference"))
-			Expect(cause.Field).To(Equal("spec.preference"))
-		})
-	})
 	Context("with cluster memory overcommit being applied", Serial, func() {
 		BeforeEach(func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
@@ -1037,360 +1048,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(vm.Spec.Template.Spec.Domain.CPU).To(BeNil())
 			Expect(vmi.Spec.Domain.CPU.DedicatedCPUPlacement).To(BeTrue())
 		})
-	})
-
-	Context("instancetype.kubevirt.io apiVersion compatibility", func() {
-		fetchVirtualMachineInstancetypev1alpha1 := func(objName string) {
-			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineInstancetypes(testsuite.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		fetchVirtualMachineInstancetypev1alpha2 := func(objName string) {
-			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineInstancetypes(testsuite.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		fetchVirtualMachineInstancetypev1beta1 := func(objName string) {
-			_, err := virtClient.VirtualMachineInstancetype(testsuite.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		fetchVirtualMachineClusterInstancetypev1alpha1 := func(objName string) {
-			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineClusterInstancetypes().Get(context.Background(), objName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		fetchVirtualMachineClusterInstancetypev1alpha2 := func(objName string) {
-			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineClusterInstancetypes().Get(context.Background(), objName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		fetchVirtualMachineClusterInstancetypev1beta1 := func(objName string) {
-			_, err := virtClient.VirtualMachineClusterInstancetype().Get(context.Background(), objName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		fetchVirtualMachinePreferencev1alpha1 := func(objName string) {
-			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachinePreferences(testsuite.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		fetchVirtualMachinePreferencev1alpha2 := func(objName string) {
-			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachinePreferences(testsuite.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		fetchVirtualMachinePreferencev1beta1 := func(objName string) {
-			_, err := virtClient.VirtualMachinePreference(testsuite.NamespaceTestDefault).Get(context.Background(), objName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		fetchVirtualMachineClusterPreferencev1alpha1 := func(objName string) {
-			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineClusterPreferences().Get(context.Background(), objName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		fetchVirtualMachineClusterPreferencev1alpha2 := func(objName string) {
-			_, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineClusterPreferences().Get(context.Background(), objName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		fetchVirtualMachineClusterPreferencev1beta1 := func(objName string) {
-			_, err := virtClient.VirtualMachineClusterPreference().Get(context.Background(), objName, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		DescribeTable("should create", func(createFunc func() string, v1alpha1FetchFunc, v1alpha2FetchFunc, v1beta1FetchFunc func(string)) {
-			// Create the object and then fetch it using the currently supported versions
-			objName := createFunc()
-			v1alpha1FetchFunc(objName)
-			v1alpha2FetchFunc(objName)
-			v1beta1FetchFunc(objName)
-		},
-			Entry("VirtualMachineInstancetype v1alpha1 and fetch using v1alpha1, v1alpha2 and v1beta1",
-				func() string {
-					createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineInstancetypes(testsuite.NamespaceTestDefault).Create(context.Background(), &instancetypev1alpha1.VirtualMachineInstancetype{
-						TypeMeta: metav1.TypeMeta{
-							APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
-							Kind:       "VirtualMachineInstancetype",
-						},
-						ObjectMeta: metav1.ObjectMeta{
-							GenerateName: "instancetype",
-						},
-						Spec: instancetypev1alpha1.VirtualMachineInstancetypeSpec{
-							CPU: instancetypev1alpha1.CPUInstancetype{
-								Guest: 1,
-							},
-							Memory: instancetypev1alpha1.MemoryInstancetype{
-								Guest: resource.MustParse("128Mi"),
-							},
-						},
-					}, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return createdObj.Name
-				},
-				fetchVirtualMachineInstancetypev1alpha1,
-				fetchVirtualMachineInstancetypev1alpha2,
-				fetchVirtualMachineInstancetypev1beta1,
-			),
-			Entry("VirtualMachineInstancetype v1alpha2 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
-				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineInstancetypes(testsuite.NamespaceTestDefault).Create(context.Background(), &instancetypev1alpha2.VirtualMachineInstancetype{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachineInstancetype",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "instancetype",
-					},
-					Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-						CPU: instancetypev1alpha2.CPUInstancetype{
-							Guest: 1,
-						},
-						Memory: instancetypev1alpha2.MemoryInstancetype{
-							Guest: resource.MustParse("128Mi"),
-						},
-					},
-				}, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return createdObj.Name
-			},
-				fetchVirtualMachineInstancetypev1alpha1,
-				fetchVirtualMachineInstancetypev1alpha2,
-				fetchVirtualMachineInstancetypev1beta1,
-			),
-			Entry("VirtualMachineInstancetype v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
-				createdObj, err := virtClient.VirtualMachineInstancetype(testsuite.NamespaceTestDefault).Create(context.Background(), &instancetypev1beta1.VirtualMachineInstancetype{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachineInstancetype",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "instancetype",
-					},
-					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-						CPU: instancetypev1beta1.CPUInstancetype{
-							Guest: 1,
-						},
-						Memory: instancetypev1beta1.MemoryInstancetype{
-							Guest: resource.MustParse("128Mi"),
-						},
-					},
-				}, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return createdObj.Name
-			},
-				fetchVirtualMachineInstancetypev1alpha1,
-				fetchVirtualMachineInstancetypev1alpha2,
-				fetchVirtualMachineInstancetypev1beta1,
-			),
-			Entry("VirtualMachineClusterInstancetype v1alpha1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
-				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineClusterInstancetypes().Create(context.Background(), &instancetypev1alpha1.VirtualMachineClusterInstancetype{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachineClusterInstancetype",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "instancetype",
-					},
-					Spec: instancetypev1alpha1.VirtualMachineInstancetypeSpec{
-						CPU: instancetypev1alpha1.CPUInstancetype{
-							Guest: 1,
-						},
-						Memory: instancetypev1alpha1.MemoryInstancetype{
-							Guest: resource.MustParse("128Mi"),
-						},
-					},
-				}, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return createdObj.Name
-			},
-				fetchVirtualMachineClusterInstancetypev1alpha1,
-				fetchVirtualMachineClusterInstancetypev1alpha2,
-				fetchVirtualMachineClusterInstancetypev1beta1,
-			),
-			Entry("VirtualMachineClusterInstancetype v1alpha2 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
-				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineClusterInstancetypes().Create(context.Background(), &instancetypev1alpha2.VirtualMachineClusterInstancetype{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachineClusterInstancetype",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "instancetype",
-					},
-					Spec: instancetypev1alpha2.VirtualMachineInstancetypeSpec{
-						CPU: instancetypev1alpha2.CPUInstancetype{
-							Guest: 1,
-						},
-						Memory: instancetypev1alpha2.MemoryInstancetype{
-							Guest: resource.MustParse("128Mi"),
-						},
-					},
-				}, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return createdObj.Name
-			},
-				fetchVirtualMachineClusterInstancetypev1alpha1,
-				fetchVirtualMachineClusterInstancetypev1alpha2,
-				fetchVirtualMachineClusterInstancetypev1beta1,
-			),
-			Entry("VirtualMachineClusterInstancetype v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
-				createdObj, err := virtClient.VirtualMachineClusterInstancetype().Create(context.Background(), &instancetypev1beta1.VirtualMachineClusterInstancetype{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachineClusterInstancetype",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "instancetype",
-					},
-					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-						CPU: instancetypev1beta1.CPUInstancetype{
-							Guest: 1,
-						},
-						Memory: instancetypev1beta1.MemoryInstancetype{
-							Guest: resource.MustParse("128Mi"),
-						},
-					},
-				}, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return createdObj.Name
-			},
-				fetchVirtualMachineClusterInstancetypev1alpha1,
-				fetchVirtualMachineClusterInstancetypev1alpha2,
-				fetchVirtualMachineClusterInstancetypev1beta1,
-			),
-			Entry("VirtualMachinePreference v1alpha1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
-				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachinePreferences(testsuite.NamespaceTestDefault).Create(context.Background(), &instancetypev1alpha1.VirtualMachinePreference{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachinePreference",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "preference",
-					},
-					Spec: instancetypev1alpha1.VirtualMachinePreferenceSpec{
-						CPU: &instancetypev1alpha1.CPUPreferences{
-							PreferredCPUTopology: instancetypev1alpha1.PreferCores,
-						},
-					},
-				}, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return createdObj.Name
-			},
-				fetchVirtualMachinePreferencev1alpha1,
-				fetchVirtualMachinePreferencev1alpha2,
-				fetchVirtualMachinePreferencev1beta1,
-			),
-			Entry("VirtualMachinePreference v1alpha2 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
-				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachinePreferences(testsuite.NamespaceTestDefault).Create(context.Background(), &instancetypev1alpha2.VirtualMachinePreference{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachinePreference",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "preference",
-					},
-					Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
-						CPU: &instancetypev1alpha2.CPUPreferences{
-							PreferredCPUTopology: instancetypev1alpha2.PreferCores,
-						},
-					},
-				}, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return createdObj.Name
-			},
-				fetchVirtualMachinePreferencev1alpha1,
-				fetchVirtualMachinePreferencev1alpha2,
-				fetchVirtualMachinePreferencev1beta1,
-			),
-			Entry("VirtualMachinePreference v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
-				createdObj, err := virtClient.VirtualMachinePreference(testsuite.NamespaceTestDefault).Create(context.Background(), &instancetypev1beta1.VirtualMachinePreference{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachinePreference",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "preference",
-					},
-					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-						CPU: &instancetypev1beta1.CPUPreferences{
-							PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
-						},
-					},
-				}, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return createdObj.Name
-			},
-				fetchVirtualMachinePreferencev1alpha1,
-				fetchVirtualMachinePreferencev1alpha2,
-				fetchVirtualMachinePreferencev1beta1,
-			),
-			Entry("VirtualMachineClusterPreference v1alpha1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
-				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha1().VirtualMachineClusterPreferences().Create(context.Background(), &instancetypev1alpha1.VirtualMachineClusterPreference{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: instancetypev1alpha1.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachineClusterPreference",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "preference",
-					},
-					Spec: instancetypev1alpha1.VirtualMachinePreferenceSpec{
-						CPU: &instancetypev1alpha1.CPUPreferences{
-							PreferredCPUTopology: instancetypev1alpha1.PreferCores,
-						},
-					},
-				}, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return createdObj.Name
-			},
-				fetchVirtualMachineClusterPreferencev1alpha1,
-				fetchVirtualMachineClusterPreferencev1alpha2,
-				fetchVirtualMachineClusterPreferencev1beta1,
-			),
-			Entry("VirtualMachineClusterPreference v1alpha2 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
-				createdObj, err := virtClient.GeneratedKubeVirtClient().InstancetypeV1alpha2().VirtualMachineClusterPreferences().Create(context.Background(), &instancetypev1alpha2.VirtualMachineClusterPreference{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: instancetypev1alpha2.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachineClusterPreference",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "preference",
-					},
-					Spec: instancetypev1alpha2.VirtualMachinePreferenceSpec{
-						CPU: &instancetypev1alpha2.CPUPreferences{
-							PreferredCPUTopology: instancetypev1alpha2.PreferCores,
-						},
-					},
-				}, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return createdObj.Name
-			},
-				fetchVirtualMachineClusterPreferencev1alpha1,
-				fetchVirtualMachineClusterPreferencev1alpha2,
-				fetchVirtualMachineClusterPreferencev1beta1,
-			),
-			Entry("VirtualMachineClusterPreference v1beta1 and fetch using v1alpha1, v1alpha2 and v1beta1", func() string {
-				createdObj, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), &instancetypev1beta1.VirtualMachineClusterPreference{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachineClusterPreference",
-					},
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: "preference",
-					},
-					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-						CPU: &instancetypev1beta1.CPUPreferences{
-							PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
-						},
-					},
-				}, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return createdObj.Name
-			},
-				fetchVirtualMachineClusterPreferencev1alpha1,
-				fetchVirtualMachineClusterPreferencev1alpha2,
-				fetchVirtualMachineClusterPreferencev1beta1,
-			),
-		)
 	})
 
 	Context("VirtualMachine using preference resource requirements", func() {

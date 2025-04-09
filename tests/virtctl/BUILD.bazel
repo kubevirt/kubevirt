@@ -11,6 +11,7 @@ go_library(
         "memorydump.go",
         "scp.go",
         "ssh.go",
+        "usbredir.go",
         "vnc.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/virtctl",
@@ -59,5 +60,43 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/util/rand:go_default_library",
         "//vendor/k8s.io/client-go/tools/remotecommand:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
-    ],
+    ] + select({
+        "@io_bazel_rules_go//go/platform:386": [
+            "//tests/libvmops:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:amd64": [
+            "//tests/libvmops:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:arm": [
+            "//tests/libvmops:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:arm64": [
+            "//tests/libvmops:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:mips": [
+            "//tests/libvmops:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:mips64": [
+            "//tests/libvmops:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:mips64le": [
+            "//tests/libvmops:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:mipsle": [
+            "//tests/libvmops:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:ppc64": [
+            "//tests/libvmops:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:ppc64le": [
+            "//tests/libvmops:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:riscv64": [
+            "//tests/libvmops:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:wasm": [
+            "//tests/libvmops:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
 )

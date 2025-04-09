@@ -30,7 +30,7 @@ const (
 	NUMAFeatureGate        = "NUMA"
 	GPUGate                = "GPU"
 	// VMLiveUpdateFeaturesGate allows updating certain VM fields, such as CPU sockets to enable hot-plug functionality.
-	// GA:    v1.4.0
+	// GA:    v1.5.0
 	VMLiveUpdateFeaturesGate = "VMLiveUpdateFeatures"
 
 	// CommonInstancetypesDeploymentGate enables the deployment of common-instancetypes by virt-operator
@@ -84,6 +84,17 @@ const (
 	DisableCustomSELinuxPolicy = "DisableCustomSELinuxPolicy"
 
 	ClusterProfiler = "ClusterProfiler"
+
+	VMPersistentState = "VMPersistentState"
+
+	// Owner: @lyarwood
+	// Alpha: v1.4.0
+	// Beta: v1.5.0
+	// GA: v1.6.0
+	//
+	// InstancetypeReferencePolicy allows a cluster admin to control how a VirtualMachine references instance types and preferences
+	// through the kv.spec.configuration.instancetype.referencePolicy configurable.
+	InstancetypeReferencePolicy = "InstancetypeReferencePolicy"
 )
 
 func init() {
@@ -105,6 +116,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: DisableCustomSELinuxPolicy, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: AutoResourceLimitsGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: ClusterProfiler, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: VMPersistentState, State: GA})
 
 	RegisterFeatureGate(FeatureGate{Name: DockerSELinuxMCSWorkaround, State: Deprecated, Message: fmt.Sprintf(
 		"DockerSELinuxMCSWorkaround has been deprecated since v1.4.")})
@@ -112,4 +124,6 @@ func init() {
 
 	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Discontinued, Message: PasstDiscontinueMessage, VmiSpecUsed: passtApiUsed})
 	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})
+
+	RegisterFeatureGate(FeatureGate{Name: InstancetypeReferencePolicy, State: GA})
 }

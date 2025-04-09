@@ -27,6 +27,7 @@ const (
 	prVolumeName    = "pr-helper-socket-vol"
 	devDirVol       = "dev-dir"
 	SidecarShimName = "sidecar-shim"
+	etcMultipath    = "etc-multipath"
 )
 
 func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.Container {
@@ -49,6 +50,11 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 				Name:             devDirVol,
 				MountPath:        "/dev",
 				MountPropagation: pointer.P(corev1.MountPropagationHostToContainer),
+			},
+			{
+				Name:             etcMultipath,
+				MountPath:        "/etc/multipath",
+				MountPropagation: &bidi,
 			},
 		},
 		SecurityContext: &corev1.SecurityContext{
@@ -356,8 +362,14 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 				HostPath: &corev1.HostPathVolumeSource{
 					Path: "/dev",
 				},
-			},
-		})
+			}}, corev1.Volume{
+			Name: etcMultipath,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "/etc/multipath",
+					Type: pointer.P(corev1.HostPathDirectoryOrCreate),
+				},
+			}})
 		pod.Containers = append(pod.Containers, RenderPrHelperContainer(prHelperImage, pullPolicy))
 	}
 	return daemonset

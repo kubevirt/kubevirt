@@ -36,7 +36,7 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
+	"kubevirt.io/kubevirt/pkg/instancetype/webhooks"
 	"kubevirt.io/kubevirt/pkg/virtctl/create"
 	. "kubevirt.io/kubevirt/pkg/virtctl/create/instancetype"
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
@@ -244,5 +244,5 @@ func getInstancetypeSpec(bytes []byte) *instancetypev1beta1.VirtualMachineInstan
 }
 
 func validateInstancetypeSpec(spec *instancetypev1beta1.VirtualMachineInstancetypeSpec) []k8sv1.StatusCause {
-	return admitters.ValidateInstanceTypeSpec(field.NewPath("spec"), spec)
+	return webhooks.ValidateInstanceTypeSpec(field.NewPath("spec"), spec)
 }

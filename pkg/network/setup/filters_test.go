@@ -60,6 +60,22 @@ var _ = Describe("Network setup filters", func() {
 
 		multusAndDomainInfoSource := vmispec.NewInfoSource(vmispec.InfoSourceMultusStatus, vmispec.InfoSourceDomain)
 
+		It("Should return an empty list when the VMI has no networks", func() {
+			vmi := libvmi.New(libvmi.WithAutoAttachPodInterface(false))
+			Expect(network.FilterNetsForLiveUpdate(vmi)).To(BeEmpty())
+		})
+
+		It("Should return an empty list when interface status is not reported", func() {
+			vmi := libvmi.New(
+				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(net1Name)),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNetwork(libvmi.MultusNetwork(net1Name, nad1Name)),
+			)
+
+			Expect(network.FilterNetsForLiveUpdate(vmi)).To(BeEmpty())
+		})
+
 		It("Should return an empty list when there are no networks to hot plug/unplug", func() {
 			vmi := libvmi.New(
 				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),

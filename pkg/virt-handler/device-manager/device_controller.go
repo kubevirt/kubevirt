@@ -321,8 +321,8 @@ func (c *DeviceController) refreshMediatedDeviceTypes() bool {
 
 func (c *DeviceController) refreshPermittedDevices() {
 	logger := log.DefaultLogger()
-	debugDevAdded := []string{}
-	debugDevRemoved := []string{}
+	var debugDevAdded []string
+	var debugDevRemoved []string
 
 	// This function can be called multiple times in parallel, either because of multiple
 	//   informer callbacks for the same event, or because the configmap was quickly updated

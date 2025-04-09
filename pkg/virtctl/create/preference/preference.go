@@ -27,7 +27,7 @@ import (
 
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/instancetype"
+	"kubevirt.io/kubevirt/pkg/instancetype/preference/validation"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/create/params"
 )
@@ -113,7 +113,7 @@ func (c *createPreference) withMachineType(preferenceSpec *instancetypev1beta1.V
 
 func (c *createPreference) withCPUTopology(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
 	preferredCPUTopology := instancetypev1beta1.PreferredCPUTopology(c.cpuTopology)
-	if !instancetype.IsPreferredTopologySupported(preferredCPUTopology) {
+	if !validation.IsPreferredTopologySupported(preferredCPUTopology) {
 		return params.FlagErr(CPUTopologyFlag, "CPU topology must have a value of sockets, cores, threads or spread")
 	}
 	preferenceSpec.CPU = &instancetypev1beta1.CPUPreferences{

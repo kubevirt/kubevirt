@@ -54,10 +54,15 @@ if [ -z $TARGET ]; then
 fi
 
 export KUBEVIRT_DEPLOY_CDI=true
+if [[ ! $TARGET =~ .*kind.* ]]; then
+  export FEATURE_GATES="NodeRestriction"
+  export KUBEVIRT_PSA="true"
+fi
 if [[ $TARGET =~ windows.* ]]; then
   echo "picking the default provider for windows tests"
 elif [[ $TARGET =~ sig-network ]]; then
   export KUBEVIRT_WITH_MULTUS_V3="${KUBEVIRT_WITH_MULTUS_V3:-true}"
+  export KUBEVIRT_NUM_NODES=3
   export KUBEVIRT_WITH_CNAO=true
   export KUBEVIRT_DEPLOY_NET_BINDING_CNI=true
   export KUBEVIRT_DEPLOY_CDI=false
@@ -67,12 +72,16 @@ elif [[ $TARGET =~ sig-storage ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
   export KUBEVIRT_STORAGE="rook-ceph-default"
   export KUBEVIRT_DEPLOY_NFS_CSI=true
+  export KUBEVIRT_WITH_ETC_CAPACITY="1G"
 elif [[ $TARGET =~ sig-compute-realtime ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-realtime/}
   export KUBEVIRT_HUGEPAGES_2M=512
   export KUBEVIRT_REALTIME_SCHEDULER=true
 elif [[ $TARGET =~ sig-compute-migrations ]]; then
   export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-migrations/}
+  export KUBEVIRT_E2E_PARALLEL_NODES=3
+  export KUBEVIRT_NUM_NODES=3
+  export KUBEVIRT_STORAGE="rook-ceph-default"
   export KUBEVIRT_WITH_CNAO=true
   export KUBEVIRT_NUM_SECONDARY_NICS=1
   export KUBEVIRT_DEPLOY_NFS_CSI=true
@@ -131,6 +140,7 @@ export WINDOWS_NFS_DIR=${WINDOWS_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/
 export WINDOWS_LOCK_PATH=${WINDOWS_LOCK_PATH:-/var/lib/stdci/shared/download_windows_image.lock}
 export WINDOWS_SYSPREP_NFS_DIR=${WINDOWS_SYSPREP_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/windows2012_syspreped}
 export WINDOWS_SYSPREP_LOCK_PATH=${WINDOWS_SYSPREP_LOCK_PATH:-/var/lib/stdci/shared/download_windows_syspreped_image.lock}
+export KUBEVIRT_NFS_DIR=${KUBEVIRT_NFS_DIR:-/var/lib/containers/nfs-data}
 
 wait_for_download_lock() {
   local max_lock_attempts=60
@@ -351,7 +361,7 @@ if [[ $TARGET =~ .*kind.* ]] || [[ $TARGET =~ .*k3d.* ]] || [[ $TARGET =~ wg-arm
   export KUBEVIRT_E2E_PARALLEL=false
 fi
 
-ginko_params="--no-color --seed=42"
+ginko_params="--no-color"
 
 # Prepare PV for Windows testing
 if [[ $TARGET =~ windows.* ]]; then

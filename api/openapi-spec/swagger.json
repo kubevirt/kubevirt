@@ -13561,7 +13561,7 @@
       "$ref": "#/definitions/v1.DiskIOThreads"
      },
      "ioThreadsPolicy": {
-      "description": "Controls whether or not disks will share IOThreads. Omitting IOThreadsPolicy disables use of IOThreads. One of: shared, auto",
+      "description": "Controls whether or not disks will share IOThreads. Omitting IOThreadsPolicy disables use of IOThreads. One of: shared, auto, supplementalPool",
       "type": "string"
      },
      "launchSecurity": {
@@ -16155,6 +16155,10 @@
    "v1.TPMDevice": {
     "type": "object",
     "properties": {
+     "enabled": {
+      "description": "Enabled allows a user to explictly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine Defaults to True",
+      "type": "boolean"
+     },
      "persistent": {
       "description": "Persistent indicates the state of the TPM device should be kept accross reboots Defaults to false",
       "type": "boolean"

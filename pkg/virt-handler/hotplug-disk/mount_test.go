@@ -262,7 +262,7 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).ToNot(HaveOccurred())
 			vmi = api.NewMinimalVMI("fake-vmi")
 			vmi.UID = "1234"
-			activePods := make(map[types.UID]string, 0)
+			activePods := make(map[types.UID]string)
 			activePods["abcd"] = "host"
 			vmi.Status.ActivePods = activePods
 
@@ -527,7 +527,7 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).ToNot(HaveOccurred())
 			vmi = api.NewMinimalVMI("fake-vmi")
 			vmi.UID = "1234"
-			activePods := make(map[types.UID]string, 0)
+			activePods := make(map[types.UID]string)
 			activePods["abcd"] = "host"
 			vmi.Status.ActivePods = activePods
 
@@ -715,7 +715,7 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(err).ToNot(HaveOccurred())
 			vmi = api.NewMinimalVMI("fake-vmi")
 			vmi.UID = "1234"
-			activePods := make(map[types.UID]string, 0)
+			activePods := make(map[types.UID]string)
 			activePods["abcd"] = "host"
 			vmi.Status.ActivePods = activePods
 

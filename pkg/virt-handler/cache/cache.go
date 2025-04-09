@@ -52,7 +52,7 @@ func (icp *iterableCheckpointManager) ListKeys() []string {
 		return []string{}
 	}
 
-	keys := []string{}
+	var keys []string
 	for _, entry := range entries {
 		keys = append(keys, entry.Name())
 	}

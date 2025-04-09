@@ -745,13 +745,11 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.namespaceStore,
 		vca.persistentVolumeClaimInformer,
 		vca.controllerRevisionInformer,
-		vca.kvPodInformer,
 		recorder,
 		vca.clientSet,
 		vca.clusterConfig,
 		netcontrollers.NewVMController(
 			vca.clientSet.GeneratedKubeVirtClient(),
-			controller.NewPodCacheStore(vca.kvPodInformer.GetIndexer()),
 		),
 		instancetypecontroller.New(
 			vca.instancetypeInformer.GetStore(),

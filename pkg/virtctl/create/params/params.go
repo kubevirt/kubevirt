@@ -13,7 +13,8 @@ import (
 )
 
 const (
-	paramTag = "param"
+	paramTag            = "param"
+	paramSeparatorCount = 2
 )
 
 type NotFoundError struct {
@@ -124,8 +125,8 @@ func split(paramsStr string) (map[string]string, error) {
 
 	paramsMap := map[string]string{}
 	for _, param := range strings.Split(paramsStr, ",") {
-		sParam := strings.SplitN(param, ":", 2)
-		if len(sParam) != 2 {
+		sParam := strings.SplitN(param, ":", paramSeparatorCount)
+		if len(sParam) != paramSeparatorCount {
 			return nil, fmt.Errorf("params need to have at least one colon: %s", param)
 		}
 		paramsMap[sParam[0]] = sParam[1]
@@ -189,15 +190,16 @@ func apply(paramsMap map[string]string, obj interface{}) error {
 }
 
 // SplitPrefixedName splits prefixedName with "/" as a separator
-func SplitPrefixedName(prefixedName string) (string, string, error) {
-	name := ""
-	prefix := ""
-
+func SplitPrefixedName(prefixedName string) (
+	prefix string,
+	name string,
+	err error,
+) {
 	s := strings.Split(prefixedName, "/")
 	switch l := len(s); l {
 	case 1:
 		name = s[0]
-	case 2:
+	case paramSeparatorCount:
 		prefix = s[0]
 		name = s[1]
 	default:

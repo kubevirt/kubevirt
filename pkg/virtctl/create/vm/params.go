@@ -63,7 +63,7 @@ type dataVolumeSourceGcs struct {
 	BootOrder *uint              `param:"bootorder"`
 }
 
-type dataVolumeSourceHttp struct {
+type dataVolumeSourceHTTP struct {
 	CertConfigMap      string             `param:"certconfigmap"`
 	ExtraHeaders       []string           `param:"extraheaders"`
 	SecretExtraHeaders []string           `param:"secretextraheaders"`
@@ -77,7 +77,7 @@ type dataVolumeSourceHttp struct {
 
 type dataVolumeSourceImageIO struct {
 	CertConfigMap string             `param:"certconfigmap"`
-	DiskId        string             `param:"diskid"`
+	DiskID        string             `param:"diskid"`
 	SecretRef     string             `param:"secretref"`
 	URL           string             `param:"url"`
 	Size          *resource.Quantity `param:"size"`
@@ -110,7 +110,7 @@ type dataVolumeSourceS3 struct {
 
 type dataVolumeSourceVDDK struct {
 	BackingFile  string             `param:"backingfile"`
-	InitImageUrl string             `param:"initimageurl"`
+	InitImageURL string             `param:"initimageurl"`
 	SecretRef    string             `param:"secretref"`
 	ThumbPrint   string             `param:"thumbprint"`
 	URL          string             `param:"url"`

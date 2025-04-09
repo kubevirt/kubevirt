@@ -3,10 +3,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
-        "bindata.go",
         "cache.go",
         "contact_info.go",
         "debug.go",
+        "embed.go",
         "errors.go",
         "expander.go",
         "external_docs.go",
@@ -32,8 +32,13 @@ go_library(
         "spec.go",
         "swagger.go",
         "tag.go",
+        "url_go19.go",
         "validations.go",
         "xml_object.go",
+    ],
+    embedsrcs = [
+        "schemas/jsonschema-draft-04.json",
+        "schemas/v2/schema.json",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/go-openapi/spec",
     importpath = "github.com/go-openapi/spec",

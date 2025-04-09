@@ -3305,6 +3305,61 @@ var _ = Describe("Converter", func() {
 			Entry("disabled when not set", false),
 		)
 	})
+
+	Context("TPM", func() {
+		DescribeTable("should", func(vmiTPM *v1.TPMDevice, matcher types.GomegaMatcher) {
+			vmi := libvmi.New()
+			vmi.Spec.Domain.Devices.TPM = vmiTPM
+			domain := vmiToDomain(
+				vmi,
+				&ConverterContext{
+					Architecture:   archconverter.NewConverter(runtime.GOARCH),
+					AllowEmulation: true,
+				},
+			)
+			Expect(domain.Spec.Devices.TPMs).To(matcher)
+		},
+			Entry("be enabled within domain when empty device provided in VMI",
+				&v1.TPMDevice{},
+				ContainElement(api.TPM{
+					Model: "tpm-tis",
+					Backend: api.TPMBackend{
+						Type:    "emulator",
+						Version: "2.0",
+					},
+				}),
+			),
+			Entry("be enabled within domain when device provided and explicitly enabled in VMI",
+				&v1.TPMDevice{Enabled: pointer.P(true)},
+				ContainElement(api.TPM{
+					Model: "tpm-tis",
+					Backend: api.TPMBackend{
+						Type:    "emulator",
+						Version: "2.0",
+					},
+				}),
+			),
+			Entry("be enabled within domain when device provided in VMI with persistent=true",
+				&v1.TPMDevice{Persistent: pointer.P(true)},
+				ContainElement(api.TPM{
+					Model: "tpm-crb",
+					Backend: api.TPMBackend{
+						Type:            "emulator",
+						Version:         "2.0",
+						PersistentState: "yes",
+					},
+				}),
+			),
+			Entry("not be present within domain when nil in VMI",
+				nil,
+				BeEmpty(),
+			),
+			Entry("not be present within domain when explicitly disabled in VMI",
+				&v1.TPMDevice{Enabled: pointer.P(false), Persistent: pointer.P(true)},
+				BeEmpty(),
+			),
+		)
+	})
 })
 
 var _ = Describe("disk device naming", func() {

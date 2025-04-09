@@ -8,11 +8,13 @@ genrule(
     name = "alpine-img",
     srcs = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": ["@alpine_image_aarch64//file"],
+        "@io_bazel_rules_go//go/platform:linux_s390x": ["@alpine_image_s390x//file"],
         "//conditions:default": ["@alpine_image//file"],
     }),
     outs = ["images/alpine/disk.img"],
     cmd = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "mkdir -p images/alpine && cat $(location @alpine_image_aarch64//file) > $@",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "mkdir -p images/alpine && cat $(location @alpine_image_s390x//file) > $@",
         "//conditions:default": "mkdir -p images/alpine && cat $(location @alpine_image//file) > $@",
     }),
 )

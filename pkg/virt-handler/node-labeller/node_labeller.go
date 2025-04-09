@@ -100,7 +100,7 @@ func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.
 		domCapabilitiesFileName: "virsh_domcapabilities.xml",
 		cpuCounter:              cpuCounter,
 		guestCaps:               guestCaps,
-		hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool, 0)},
+		hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool)},
 		arch:                    newArchLabeller(runtime.GOARCH),
 	}
 

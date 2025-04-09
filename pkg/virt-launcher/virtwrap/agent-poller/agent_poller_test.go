@@ -22,16 +22,24 @@ package agentpoller
 import (
 	"time"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"libvirt.org/go/libvirt"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 )
 
 var _ = Describe("Qemu agent poller", func() {
 	var fakeInterfaces []api.InterfaceStatus
 	var fakeFSFreezeStatus api.FSFreeze
 	var fakeInfo api.GuestOSInfo
+	var agentStore AsyncAgentStore
+	var ctrl *gomock.Controller
+	var mockConnection *cli.MockConnection
+	var mockDomain *cli.MockVirDomain
 
 	BeforeEach(func() {
 		fakeInterfaces = []api.InterfaceStatus{
@@ -39,11 +47,9 @@ var _ = Describe("Qemu agent poller", func() {
 				Mac: "00:00:00:00:00:01",
 			},
 		}
-
 		fakeFSFreezeStatus = api.FSFreeze{
 			Status: "frozen",
 		}
-
 		fakeInfo = api.GuestOSInfo{
 			Name:          "TestGuestOSName",
 			KernelRelease: "1.1.0-Generic",
@@ -54,21 +60,64 @@ var _ = Describe("Qemu agent poller", func() {
 			Machine:       "x86_64",
 			Id:            "testguestos",
 		}
+		agentStore = NewAsyncAgentStore()
+		ctrl = gomock.NewController(GinkgoT())
+		mockConnection = cli.NewMockConnection(ctrl)
+		mockDomain = cli.NewMockVirDomain(ctrl)
+		mockConnection.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil).AnyTimes()
 	})
-	Context("with AsyncAgentStore", func() {
 
+	Context("with libvirt API", func() {
+		It("should store the retrieved guest info when requested", func() {
+			guestInfo := &libvirt.DomainGuestInfo{
+				Interfaces: []libvirt.DomainGuestInfoInterface{{Name: "net0"}},
+				OS:         &libvirt.DomainGuestInfoOS{Name: "fedora"},
+				Hostname:   "test-host",
+				TimeZone:   &libvirt.DomainGuestInfoTimeZone{Name: "EST"},
+				Users:      []libvirt.DomainGuestInfoUser{{Name: "admin"}},
+			}
+			agentPoller := &AgentPoller{
+				Connection: mockConnection,
+				domainName: "fake",
+				agentStore: &agentStore,
+			}
+			libvirtTypes := libvirt.DOMAIN_GUEST_INFO_INTERFACES |
+				libvirt.DOMAIN_GUEST_INFO_OS |
+				libvirt.DOMAIN_GUEST_INFO_HOSTNAME |
+				libvirt.DOMAIN_GUEST_INFO_TIMEZONE |
+				libvirt.DOMAIN_GUEST_INFO_USERS
+
+			mockDomain.EXPECT().Free()
+			mockDomain.EXPECT().GetGuestInfo(libvirtTypes, uint32(0)).Return(guestInfo, nil)
+
+			fetchAndStoreGuestInfo(libvirtTypes, agentPoller)
+
+			interfacesStatus := agentStore.GetInterfaceStatus()
+			Expect(interfacesStatus[0].InterfaceName).To(Equal("net0"))
+
+			osInfo := agentStore.GetGuestOSInfo()
+			Expect(osInfo.Name).To(Equal("fedora"))
+
+			sysInfo := agentStore.GetSysInfo()
+			Expect(sysInfo.Hostname).To(Equal("test-host"))
+			Expect(sysInfo.Timezone.Zone).To(Equal("EST"))
+
+			users := agentStore.GetUsers(1)
+			Expect(users[0].Name).To(Equal("admin"))
+		})
+	})
+
+	Context("with AsyncAgentStore", func() {
 		It("should store and load the data", func() {
-			var agentStore = NewAsyncAgentStore()
 			agentVersion := AgentInfo{Version: "4.1"}
-			agentStore.Store(GET_AGENT, agentVersion)
+			agentStore.Store(GetAgent, agentVersion)
 			agent := agentStore.GetGA()
 
 			Expect(agent).To(Equal(agentVersion))
 		})
 
 		It("should fire an event for new fsfreezestatus", func() {
-			var agentStore = NewAsyncAgentStore()
-			agentStore.Store(GET_FSFREEZE_STATUS, fakeFSFreezeStatus)
+			agentStore.Store(GetFSFreezeStatus, fakeFSFreezeStatus)
 
 			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
 				DomainInfo: api.DomainGuestInfo{
@@ -80,8 +129,7 @@ var _ = Describe("Qemu agent poller", func() {
 		})
 
 		It("should not fire an event for the same fsfreezestatus", func() {
-			var agentStore = NewAsyncAgentStore()
-			agentStore.Store(GET_FSFREEZE_STATUS, fakeFSFreezeStatus)
+			agentStore.Store(GetFSFreezeStatus, fakeFSFreezeStatus)
 
 			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
 				DomainInfo: api.DomainGuestInfo{
@@ -91,39 +139,36 @@ var _ = Describe("Qemu agent poller", func() {
 				},
 			})))
 
-			agentStore.Store(GET_FSFREEZE_STATUS, fakeFSFreezeStatus)
+			agentStore.Store(GetFSFreezeStatus, fakeFSFreezeStatus)
 			Expect(agentStore.AgentUpdated).ToNot(Receive())
 		})
 
 		It("should fire an event for new sysinfo data", func() {
-			var agentStore = NewAsyncAgentStore()
-			agentStore.Store(GET_OSINFO, fakeInfo)
+			agentStore.Store(libvirt.DOMAIN_GUEST_INFO_OS, fakeInfo)
 			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
 				DomainInfo: api.DomainGuestInfo{OSInfo: &fakeInfo},
 			})))
 		})
 
 		It("should not fire an event for the same sysinfo data", func() {
-			var agentStore = NewAsyncAgentStore()
-			agentStore.Store(GET_OSINFO, fakeInfo)
+			agentStore.Store(libvirt.DOMAIN_GUEST_INFO_OS, fakeInfo)
 			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
 				DomainInfo: api.DomainGuestInfo{OSInfo: &fakeInfo},
 			})))
 
-			agentStore.Store(GET_OSINFO, fakeInfo)
+			agentStore.Store(libvirt.DOMAIN_GUEST_INFO_OS, fakeInfo)
 			Expect(agentStore.AgentUpdated).ToNot(Receive())
 		})
 
 		It("should fire an event with new updated key and old non updated keys", func() {
-			var agentStore = NewAsyncAgentStore()
-			agentStore.Store(GET_INTERFACES, fakeInterfaces)
+			agentStore.Store(libvirt.DOMAIN_GUEST_INFO_INTERFACES, fakeInterfaces)
 			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
 				DomainInfo: api.DomainGuestInfo{
 					Interfaces: fakeInterfaces,
 				},
 			})))
 
-			agentStore.Store(GET_FSFREEZE_STATUS, fakeFSFreezeStatus)
+			agentStore.Store(GetFSFreezeStatus, fakeFSFreezeStatus)
 			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
 				DomainInfo: api.DomainGuestInfo{
 					Interfaces:     fakeInterfaces,
@@ -131,7 +176,7 @@ var _ = Describe("Qemu agent poller", func() {
 				},
 			})))
 
-			agentStore.Store(GET_OSINFO, fakeInfo)
+			agentStore.Store(libvirt.DOMAIN_GUEST_INFO_OS, fakeInfo)
 			Expect(agentStore.AgentUpdated).To(Receive(Equal(AgentUpdatedEvent{
 				DomainInfo: api.DomainGuestInfo{
 					Interfaces:     fakeInterfaces,
@@ -142,30 +187,26 @@ var _ = Describe("Qemu agent poller", func() {
 		})
 
 		It("should report nil slice when no interfaces exists", func() {
-			var agentStore = NewAsyncAgentStore()
 			interfacesStatus := agentStore.GetInterfaceStatus()
 
 			Expect(interfacesStatus).To(BeNil())
 		})
 
 		It("should report interfaces info when interfaces exists", func() {
-			var agentStore = NewAsyncAgentStore()
-			agentStore.Store(GET_INTERFACES, fakeInterfaces)
+			agentStore.Store(libvirt.DOMAIN_GUEST_INFO_INTERFACES, fakeInterfaces)
 			interfacesStatus := agentStore.GetInterfaceStatus()
 
 			Expect(interfacesStatus).To(Equal(fakeInterfaces))
 		})
 
 		It("should report nil when no osInfo exists", func() {
-			var agentStore = NewAsyncAgentStore()
 			osInfo := agentStore.GetGuestOSInfo()
 
 			Expect(osInfo).To(BeNil())
 		})
 
 		It("should report osInfo when osInfo exists", func() {
-			var agentStore = NewAsyncAgentStore()
-			agentStore.Store(GET_OSINFO, fakeInfo)
+			agentStore.Store(libvirt.DOMAIN_GUEST_INFO_OS, fakeInfo)
 			osInfo := agentStore.GetGuestOSInfo()
 
 			Expect(*osInfo).To(Equal(fakeInfo))
@@ -212,7 +253,7 @@ var _ = Describe("Qemu agent poller", func() {
 // The operation is limited by the provided or self calculated timeout and the expected executions.
 // The timeout needs to be large enough to allow the expected executions to occur and to accommodate the
 // inaccuracy of the go-routine execution.
-func runPollAndCountCommandExecution(interval, expectedExecutions int, timeout time.Duration, initialInterval time.Duration) int {
+func runPollAndCountCommandExecution(interval, expectedExecutions int, timeout, initialInterval time.Duration) int {
 	const fakeAgentCommandName = "foo"
 	w := PollerWorker{
 		CallTick:      time.Duration(interval),
@@ -224,7 +265,7 @@ func runPollAndCountCommandExecution(interval, expectedExecutions int, timeout t
 	defer close(c)
 	done := make(chan struct{})
 
-	go w.Poll(func(commands []AgentCommand) { done <- struct{}{} }, c, initialInterval)
+	go w.Poll(func() { done <- struct{}{} }, c, initialInterval)
 
 	if timeout == 0 {
 		// Calculate the time needed for the poll to execute the commands.

@@ -1,4 +1,12 @@
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+)
+load("@io_bazel_rules_docker//contrib:group.bzl", "group_entry", "group_file")
+load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//vendor/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
 
 go_library(
     name = "go_default_library",
@@ -35,12 +43,12 @@ go_library(
         "//pkg/virt-handler/seccomp:go_default_library",
         "//pkg/virt-handler/selinux:go_default_library",
         "//pkg/virt-handler/vsock:go_default_library",
-        "//staging/src/github.com/golang/glog:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/util:go_default_library",
         "//vendor/github.com/emicklei/go-restful/v3:go_default_library",
+        "//vendor/github.com/golang/glog:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
@@ -55,22 +63,12 @@ go_library(
     ],
 )
 
-load("//vendor/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
-
 go_binary(
     name = "virt-handler",
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
     x_defs = version_x_defs(),
 )
-
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_image",
-)
-load("@io_bazel_rules_docker//contrib:group.bzl", "group_entry", "group_file")
-load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 passwd_entry(
     name = "root-user",

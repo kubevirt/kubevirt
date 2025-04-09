@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["filewatcher.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-handler/filewatcher",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "filewatcher_suite_test.go",
+        "filewatcher_test.go",
+    ],
+    deps = [
+        ":go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
+)

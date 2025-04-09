@@ -1,5 +1,13 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 load("@bazeldnf//:deps.bzl", "xattrs")
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+)
+load("@io_bazel_rules_docker//contrib:group.bzl", "group_entry", "group_file")
+load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//vendor/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
 
 go_library(
     name = "go_default_library",
@@ -37,22 +45,12 @@ go_library(
     ],
 )
 
-load("//vendor/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
-
 go_binary(
     name = "virt-launcher",
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
     x_defs = version_x_defs(),
 )
-
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_image",
-)
-load("@io_bazel_rules_docker//contrib:group.bzl", "group_entry", "group_file")
-load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 pkg_tar(
     name = "virt-launcher-tar",

@@ -32,6 +32,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
@@ -796,11 +797,7 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 				updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, source.LockMsg()))
 			}
 
-			indications, err := updateVMSnapshotIndications(source)
-			if err != nil {
-				return vmSnapshot, err
-			}
-			vmSnapshotCpy.Status.Indications = indications
+			updateSnapshotIndications(vmSnapshotCpy, source)
 		} else {
 			updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Source does not exist"))
 		}
@@ -831,19 +828,23 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 	return vmSnapshot, nil
 }
 
-func updateVMSnapshotIndications(source snapshotSource) ([]snapshotv1.Indication, error) {
-	var indications []snapshotv1.Indication
-
+func updateSnapshotIndications(snapshot *snapshotv1.VirtualMachineSnapshot, source snapshotSource) {
 	if source.Online() {
-		indications = append(indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
+		indications := sets.New(snapshot.Status.Indications...)
+		indications = sets.Insert(indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
 
 		if source.GuestAgent() {
-			indications = append(indications, snapshotv1.VMSnapshotGuestAgentIndication)
+			indications = sets.Insert(indications, snapshotv1.VMSnapshotGuestAgentIndication)
+			snapErr := snapshot.Status.Error
+			if snapErr != nil && snapErr.Message != nil &&
+				strings.Contains(*snapErr.Message, failedFreezeMsg) {
+				indications = sets.Insert(indications, snapshotv1.VMSnapshotQuiesceFailedIndication)
+			}
 		} else {
-			indications = append(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
+			indications = sets.Insert(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
 		}
+		snapshot.Status.Indications = sets.List(indications)
 	}
-	return indications, nil
 }
 
 func (ctrl *VMSnapshotController) updateSnapshotSnapshotableVolumes(snapshot *snapshotv1.VirtualMachineSnapshot, content *snapshotv1.VirtualMachineSnapshotContent) error {
@@ -905,14 +906,6 @@ func (ctrl *VMSnapshotController) updateVolumeSnapshotStatuses(vm *kubevirtv1.Vi
 }
 
 func (ctrl *VMSnapshotController) getVolumeSnapshotStatus(vm *kubevirtv1.VirtualMachine, volume *kubevirtv1.Volume) kubevirtv1.VolumeSnapshotStatus {
-	if volume == nil {
-		return kubevirtv1.VolumeSnapshotStatus{
-			Name:    volume.Name,
-			Enabled: false,
-			Reason:  fmt.Sprintf("Volume is nil [%s]", volume.Name),
-		}
-	}
-
 	snapshottable := ctrl.isVolumeSnapshottable(volume)
 	if !snapshottable {
 		return kubevirtv1.VolumeSnapshotStatus{

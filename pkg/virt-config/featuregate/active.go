@@ -26,10 +26,18 @@ const (
 	HypervStrictCheckGate = "HypervStrictCheck"
 	SidecarGate           = "Sidecar"
 	HostDevicesGate       = "HostDevices"
-	SnapshotGate          = "Snapshot"
-	VMExportGate          = "VMExport"
-	HotplugVolumesGate    = "HotplugVolumes"
-	HostDiskGate          = "HostDisk"
+
+	// Owner: sig-storage
+	// Alpha: v0.30.0
+	// Beta: v1.3.0
+	SnapshotGate = "Snapshot"
+
+	// Owner: sig-storage
+	// Alpha: v0.55.0
+	// Beta: v1.3.0
+	VMExportGate       = "VMExport"
+	HotplugVolumesGate = "HotplugVolumes"
+	HostDiskGate       = "HostDisk"
 
 	DownwardMetricsFeatureGate = "DownwardMetrics"
 	Root                       = "Root"
@@ -44,7 +52,6 @@ const (
 	// PersistentReservation enables the use of the SCSI persistent reservation with the pr-helper daemon
 	PersistentReservation = "PersistentReservation"
 	// VMPersistentState enables persisting backend state files of VMs, such as the contents of the vTPM
-	VMPersistentState = "VMPersistentState"
 	MultiArchitecture = "MultiArchitecture"
 
 	// AlignCPUsGate allows emulator thread to assign two extra CPUs if needed to complete even parity.
@@ -57,13 +64,6 @@ const (
 	// This feature requires following Kubernetes feature gate "ServiceAccountTokenPodNodeInfo". The feature gate is available
 	// in Kubernetes 1.30 as Beta.
 	NodeRestrictionGate = "NodeRestriction"
-	// Owner: @lyarwood
-	// Alpha: v1.4.0
-	// Beta: v1.5.0
-	//
-	// InstancetypeReferencePolicy allows a cluster admin to control how a VirtualMachine references instance types and preferences
-	// through the kv.spec.configuration.instancetype.referencePolicy configurable.
-	InstancetypeReferencePolicy = "InstancetypeReferencePolicy"
 
 	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
 	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
@@ -76,8 +76,8 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: HypervStrictCheckGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: SidecarGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: HostDevicesGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: SnapshotGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: VMExportGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: SnapshotGate, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: VMExportGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: HotplugVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: HostDiskGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DownwardMetricsFeatureGate, State: Alpha})
@@ -87,11 +87,9 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: KubevirtSeccompProfile, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DisableMediatedDevicesHandling, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PersistentReservation, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: VMPersistentState, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MultiArchitecture, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: AlignCPUsGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: NodeRestrictionGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: InstancetypeReferencePolicy, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
 }

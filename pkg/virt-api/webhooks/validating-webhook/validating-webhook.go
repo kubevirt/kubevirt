@@ -24,6 +24,8 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
+	preferencewebhooks "kubevirt.io/kubevirt/pkg/instancetype/preference/webhooks"
+	instancetypewebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks"
 	storageAdmitters "kubevirt.io/kubevirt/pkg/storage/admitters"
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -93,19 +95,19 @@ func ServeVMExports(resp http.ResponseWriter, req *http.Request, clusterConfig *
 }
 
 func ServeVmInstancetypes(resp http.ResponseWriter, req *http.Request) {
-	validating_webhooks.Serve(resp, req, &admitters.InstancetypeAdmitter{})
+	validating_webhooks.Serve(resp, req, &instancetypewebhooks.InstancetypeAdmitter{})
 }
 
 func ServeVmClusterInstancetypes(resp http.ResponseWriter, req *http.Request) {
-	validating_webhooks.Serve(resp, req, &admitters.ClusterInstancetypeAdmitter{})
+	validating_webhooks.Serve(resp, req, &instancetypewebhooks.ClusterInstancetypeAdmitter{})
 }
 
 func ServeVmPreferences(resp http.ResponseWriter, req *http.Request) {
-	validating_webhooks.Serve(resp, req, &admitters.PreferenceAdmitter{})
+	validating_webhooks.Serve(resp, req, &preferencewebhooks.PreferenceAdmitter{})
 }
 
 func ServeVmClusterPreferences(resp http.ResponseWriter, req *http.Request) {
-	validating_webhooks.Serve(resp, req, &admitters.ClusterPreferenceAdmitter{})
+	validating_webhooks.Serve(resp, req, &preferencewebhooks.ClusterPreferenceAdmitter{})
 }
 
 func ServeStatusValidation(resp http.ResponseWriter,

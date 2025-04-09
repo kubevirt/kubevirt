@@ -99,7 +99,7 @@ var (
 				"interface associated with the VMI in the 'address' label, and about the type of address, such as " +
 				"internal IP, in the 'type' label.",
 		},
-		[]string{"node", "namespace", "name", "network_name", "address", "type"},
+		[]string{"node", "namespace", "name", "vnic_name", "interface_name", "address", "type"},
 	)
 
 	vmiMigrationStartTime = operatormetrics.NewGaugeVec(
@@ -356,15 +356,22 @@ func collectVMIInterfacesInfo(vmi *k6tv1.VirtualMachineInstance) []operatormetri
 }
 
 func collectVMIInterfaceInfo(vmi *k6tv1.VirtualMachineInstance, iface k6tv1.VirtualMachineInstanceNetworkInterface) *operatormetrics.CollectorResult {
-	if iface.IP == "" && iface.Name == "" {
-		return nil
+	interfaceType := "ExternalInterface"
+
+	if iface.IP == "" {
+		if iface.Name == "" && iface.InterfaceName == "" {
+			// Avoid duplicate metric labels error
+			return nil
+		}
+
+		interfaceType = "SystemInterface"
 	}
 
 	return &operatormetrics.CollectorResult{
 		Metric: vmiAddresses,
 		Labels: []string{
 			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
-			iface.Name, iface.IP, "InternalIP",
+			iface.Name, iface.InterfaceName, iface.IP, interfaceType,
 		},
 		Value: 1.0,
 	}
