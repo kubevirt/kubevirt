@@ -130,7 +130,7 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 			By("Checking that the VMI is consistently non-ready")
-			Consistently(matcher.ThisVMI(vmi), 30*time.Second, 100*time.Millisecond).
+			Consistently(matcher.ThisVMI(vmi)).
 				WithTimeout(30 * time.Second).
 				WithPolling(100 * time.Millisecond).
 				Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceReady))
