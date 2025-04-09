@@ -217,6 +217,8 @@ export KUBEVIRT_DEPLOY_NFS_CSI=true
 export KUBEVIRT_DEPLOY_PROMETHEUS=true
 export KUBEVIRT_DEPLOY_NET_BINDING_CNI=true
 
+export KUBEVIRT_NFS_DIR=${KUBEVIRT_NFS_DIR:-/var/lib/containers/nfs-data}
+
 export KUBEVIRT_PROVIDER="${TEST_LANE}"
 
 # add_to_label_filter appends the given label and separator to
