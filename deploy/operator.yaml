@@ -65,7 +65,7 @@ spec:
         - name: SSP_VERSION
           value: v0.22.3
         - name: HPPO_VERSION
-          value: v0.21.0
+          value: v0.22.0
         - name: AAQ_VERSION
           value: v1.4.0
         - name: KV_CONSOLE_PLUGIN_IMAGE
@@ -714,6 +714,8 @@ spec:
   strategy: {}
   template:
     metadata:
+      annotations:
+        openshift.io/required-scc: restricted-v2
       labels:
         app.kubernetes.io/component: storage
         app.kubernetes.io/part-of: hyperconverged-cluster
@@ -745,7 +747,7 @@ spec:
         - name: OPERATOR_NAME
           value: hostpath-provisioner-operator
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/hostpath-provisioner-operator@sha256:66c55f5ffa4b44f2e58990baa7c672ec9776612a5f1c57fee5a5ab1c080f17bb
+          value: quay.io/kubevirt/hostpath-provisioner-operator@sha256:ac0c005304acb52033f3c4ad4af2aab81361346d5327c92ec6bcbd98097ae88b
         - name: PROVISIONER_IMAGE
           value: quay.io/kubevirt/hostpath-provisioner@sha256:156ae46a03e2ff5550967773100122f9abc82e25bd7acaa55dbdec22238dd2ca
         - name: CSI_PROVISIONER_IMAGE
@@ -763,7 +765,7 @@ spec:
         - name: MONITORING_NAMESPACE
         - name: PRIORITY_CLASS
           value: kubevirt-cluster-critical
-        image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:66c55f5ffa4b44f2e58990baa7c672ec9776612a5f1c57fee5a5ab1c080f17bb
+        image: quay.io/kubevirt/hostpath-provisioner-operator@sha256:ac0c005304acb52033f3c4ad4af2aab81361346d5327c92ec6bcbd98097ae88b
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 1

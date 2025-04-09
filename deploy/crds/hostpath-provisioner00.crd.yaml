@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.16.5
   name: hostpathprovisioners.hostpathprovisioner.kubevirt.io
 spec:
   group: hostpathprovisioner.kubevirt.io
@@ -263,7 +263,7 @@ spec:
                             set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                             exists.
                             More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                            (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.
+                            (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                           type: string
                         volumeMode:
                           description: |-
@@ -574,7 +574,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                         Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -589,7 +589,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                         Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -756,7 +756,7 @@ spec:
                                     pod labels will be ignored. The default value is empty.
                                     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                     Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                    This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                   items:
                                     type: string
                                   type: array
@@ -771,7 +771,7 @@ spec:
                                     pod labels will be ignored. The default value is empty.
                                     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                    This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                   items:
                                     type: string
                                   type: array
@@ -936,7 +936,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                         Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -951,7 +951,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                         Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -1118,7 +1118,7 @@ spec:
                                     pod labels will be ignored. The default value is empty.
                                     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                     Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                    This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                   items:
                                     type: string
                                   type: array
@@ -1133,7 +1133,7 @@ spec:
                                     pod labels will be ignored. The default value is empty.
                                     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                    This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                   items:
                                     type: string
                                   type: array
@@ -1351,7 +1351,7 @@ spec:
                                   names such as \"example.com/my-custom-resource\"\nApart
                                   from above values - keys that are unprefixed or
                                   have kubernetes.io prefix are considered\nreserved
-                                  and hence may not be used.\n\n\nClaimResourceStatus
+                                  and hence may not be used.\n\nClaimResourceStatus
                                   can be in any of following states:\n\t- ControllerResizeInProgress:\n\t\tState
                                   set when resize controller starts resizing the volume
                                   in control-plane.\n\t- ControllerResizeFailed:\n\t\tState
@@ -1372,14 +1372,14 @@ spec:
                                   = \"NodeResizeInProgress\"\n     - pvc.status.allocatedResourceStatus['storage']
                                   = \"NodeResizeFailed\"\nWhen this field is not set,
                                   it means that no resize operation is in progress
-                                  for the given PVC.\n\n\nA controller that receives
+                                  for the given PVC.\n\nA controller that receives
                                   PVC update with previously unknown resourceName
                                   or ClaimResourceStatus\nshould ignore the update
                                   for the purpose it was designed. For example - a
                                   controller that\nonly is responsible for resizing
                                   capacity of the volume, should ignore PVC updates
                                   that change other valid\nresources associated with
-                                  PVC.\n\n\nThis is an alpha field and requires enabling
+                                  PVC.\n\nThis is an alpha field and requires enabling
                                   RecoverVolumeExpansionFailure feature."
                                 type: object
                                 x-kubernetes-map-type: granular
@@ -1399,7 +1399,7 @@ spec:
                                   names such as \"example.com/my-custom-resource\"\nApart
                                   from above values - keys that are unprefixed or
                                   have kubernetes.io prefix are considered\nreserved
-                                  and hence may not be used.\n\n\nCapacity reported
+                                  and hence may not be used.\n\nCapacity reported
                                   here may be larger than the actual capacity when
                                   a volume expansion operation\nis requested.\nFor
                                   storage quota, the larger value from allocatedResources
@@ -1409,13 +1409,13 @@ spec:
                                   request is lowered, allocatedResources is only\nlowered
                                   if there are no expansion operations in progress
                                   and if the actual volume capacity\nis equal or lower
-                                  than the requested capacity.\n\n\nA controller that
+                                  than the requested capacity.\n\nA controller that
                                   receives PVC update with previously unknown resourceName\nshould
                                   ignore the update for the purpose it was designed.
                                   For example - a controller that\nonly is responsible
                                   for resizing capacity of the volume, should ignore
                                   PVC updates that change other valid\nresources associated
-                                  with PVC.\n\n\nThis is an alpha field and requires
+                                  with PVC.\n\nThis is an alpha field and requires
                                   enabling RecoverVolumeExpansionFailure feature."
                                 type: object
                               capacity:
@@ -1460,8 +1460,16 @@ spec:
                                     status:
                                       type: string
                                     type:
-                                      description: PersistentVolumeClaimConditionType
-                                        is a valid value of PersistentVolumeClaimCondition.Type
+                                      description: |-
+                                        PersistentVolumeClaimConditionType defines the condition of PV claim.
+                                        Valid values are:
+                                          - "Resizing", "FileSystemResizePending"
+
+                                        If RecoverVolumeExpansionFailure feature gate is enabled, then following additional values can be expected:
+                                          - "ControllerResizeError", "NodeResizeError"
+
+                                        If VolumeAttributesClass feature gate is enabled, then following additional values can be expected:
+                                          - "ModifyVolumeError", "ModifyingVolume"
                                       type: string
                                   required:
                                   - status
@@ -1475,13 +1483,13 @@ spec:
                                 description: |-
                                   currentVolumeAttributesClassName is the current name of the VolumeAttributesClass the PVC is using.
                                   When unset, there is no VolumeAttributeClass applied to this PersistentVolumeClaim
-                                  This is an alpha field and requires enabling VolumeAttributesClass feature.
+                                  This is a beta field and requires enabling VolumeAttributesClass feature (off by default).
                                 type: string
                               modifyVolumeStatus:
                                 description: |-
                                   ModifyVolumeStatus represents the status object of ControllerModifyVolume operation.
                                   When this is unset, there is no ModifyVolume operation being attempted.
-                                  This is an alpha field and requires enabling VolumeAttributesClass feature.
+                                  This is a beta field and requires enabling VolumeAttributesClass feature (off by default).
                                 properties:
                                   status:
                                     description: "status is the status of the ControllerModifyVolume
