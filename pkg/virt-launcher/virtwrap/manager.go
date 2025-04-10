@@ -1721,7 +1721,7 @@ func (l *LibvirtDomainManager) cancelSafetyUnfreeze() {
 }
 
 func (l *LibvirtDomainManager) getParsedFSStatus(domainName string) (string, error) {
-	cmdResult, err := l.virConn.QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, domainName)
+	cmdResult, err := l.virConn.QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, domainName)
 	if err != nil {
 		return "", err
 	}

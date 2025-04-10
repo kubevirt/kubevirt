@@ -373,6 +373,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp":                                           schema_kubevirtio_api_core_v1_DeprecatedInterfaceSlirp(ref),
 		"kubevirt.io/api/core/v1.DeveloperConfiguration":                                             schema_kubevirtio_api_core_v1_DeveloperConfiguration(ref),
 		"kubevirt.io/api/core/v1.Devices":                                                            schema_kubevirtio_api_core_v1_Devices(ref),
+		"kubevirt.io/api/core/v1.Diag288Watchdog":                                                    schema_kubevirtio_api_core_v1_Diag288Watchdog(ref),
 		"kubevirt.io/api/core/v1.DisableFreePageReporting":                                           schema_kubevirtio_api_core_v1_DisableFreePageReporting(ref),
 		"kubevirt.io/api/core/v1.DisableSerialConsoleLog":                                            schema_kubevirtio_api_core_v1_DisableSerialConsoleLog(ref),
 		"kubevirt.io/api/core/v1.Disk":                                                               schema_kubevirtio_api_core_v1_Disk(ref),
@@ -19158,6 +19159,26 @@ func schema_kubevirtio_api_core_v1_Devices(ref common.ReferenceCallback) common.
 	}
 }
 
+func schema_kubevirtio_api_core_v1_Diag288Watchdog(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "diag288 watchdog device.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"action": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The action to take. Valid values are poweroff, reset, shutdown. Defaults to reset.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_DisableFreePageReporting(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -19486,7 +19507,7 @@ func schema_kubevirtio_api_core_v1_DomainSpec(ref common.ReferenceCallback) comm
 					},
 					"ioThreadsPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Controls whether or not disks will share IOThreads. Omitting IOThreadsPolicy disables use of IOThreads. One of: shared, auto",
+							Description: "Controls whether or not disks will share IOThreads. Omitting IOThreadsPolicy disables use of IOThreads. One of: shared, auto, supplementalPool",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -27813,12 +27834,18 @@ func schema_kubevirtio_api_core_v1_Watchdog(ref common.ReferenceCallback) common
 							Ref:         ref("kubevirt.io/api/core/v1.I6300ESBWatchdog"),
 						},
 					},
+					"diag288": {
+						SchemaProps: spec.SchemaProps{
+							Description: "diag288 watchdog device (specific to s390x architecture).",
+							Ref:         ref("kubevirt.io/api/core/v1.Diag288Watchdog"),
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.I6300ESBWatchdog"},
+			"kubevirt.io/api/core/v1.Diag288Watchdog", "kubevirt.io/api/core/v1.I6300ESBWatchdog"},
 	}
 }
 
@@ -27835,11 +27862,17 @@ func schema_kubevirtio_api_core_v1_WatchdogDevice(ref common.ReferenceCallback) 
 							Ref:         ref("kubevirt.io/api/core/v1.I6300ESBWatchdog"),
 						},
 					},
+					"diag288": {
+						SchemaProps: spec.SchemaProps{
+							Description: "diag288 watchdog device (specific to s390x architecture).",
+							Ref:         ref("kubevirt.io/api/core/v1.Diag288Watchdog"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.I6300ESBWatchdog"},
+			"kubevirt.io/api/core/v1.Diag288Watchdog", "kubevirt.io/api/core/v1.I6300ESBWatchdog"},
 	}
 }
 

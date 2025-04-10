@@ -20,6 +20,7 @@
 package vnc
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -89,7 +90,10 @@ func NewCommand() *cobra.Command {
 type VNC struct{}
 
 func (o *VNC) Run(cmd *cobra.Command, args []string) error {
-	virtCli, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	ctx, cancel := context.WithCancel(cmd.Context())
+	defer cancel()
+
+	virtCli, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(ctx)
 	if err != nil {
 		return err
 	}
@@ -99,7 +103,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	// setup connection with VM
 	vnc, err := virtCli.VirtualMachineInstance(namespace).VNC(vmi)
 	if err != nil {
-		return fmt.Errorf("Can't access VMI %s: %s", vmi, err.Error())
+		return fmt.Errorf("can't access VMI %s: %s", vmi, err.Error())
 	}
 	// Format the listening address to account for the port (ex: 127.0.0.0:5900)
 	// Set listenAddress to localhost if proxy-only flag is not set
@@ -110,13 +114,13 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	listenAddressFmt = listenAddress + ":%d"
 	lnAddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf(listenAddressFmt, customPort))
 	if err != nil {
-		return fmt.Errorf("Can't resolve the address: %s", err.Error())
+		return fmt.Errorf("can't resolve the address: %s", err.Error())
 	}
 
 	// The local tcp server is used to proxy the podExec websock connection to vnc client
 	ln, err := net.ListenTCP("tcp", lnAddr)
 	if err != nil {
-		return fmt.Errorf("Can't listen on unix socket: %s", err.Error())
+		return fmt.Errorf("can't listen on unix socket: %s", err.Error())
 	}
 	// End of pre-flight checks. Everything looks good, we can start
 	// the goroutines and let the data flow
@@ -126,18 +130,14 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	//                                       <- pipeOutReader <- pipeOutWriter
 	pipeInReader, pipeInWriter := io.Pipe()
 	pipeOutReader, pipeOutWriter := io.Pipe()
+	defer pipeInWriter.Close()
+	defer pipeOutWriter.Close()
 
-	k8ResChan := make(chan error)
-	listenResChan := make(chan error)
-	viewResChan := make(chan error)
-	stopChan := make(chan struct{}, 1)
-	doneChan := make(chan struct{}, 1)
-	writeStop := make(chan error)
-	readStop := make(chan error)
+	errChan := make(chan error, 5)
 
 	go func() {
 		// transfer data from/to the VM
-		k8ResChan <- vnc.Stream(kvcorev1.StreamOptions{
+		errChan <- vnc.Stream(kvcorev1.StreamOptions{
 			In:  pipeInReader,
 			Out: pipeOutWriter,
 		})
@@ -155,70 +155,63 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		fd, err := ln.Accept()
 		if err != nil {
 			log.Log.V(2).Infof("Failed to accept unix sock connection. %s", err.Error())
-			listenResChan <- err
+			errChan <- err
+			return
 		}
 		defer fd.Close()
 
-		log.Log.V(2).Infof("VNC Client connected in %v", time.Now().Sub(start))
+		log.Log.V(2).Infof("VNC Client connected in %v", time.Since(start))
 		templates.PrintWarningForPausedVMI(virtCli, vmi, namespace)
 
 		// write to FD <- pipeOutReader
 		go func() {
 			_, err := io.Copy(fd, pipeOutReader)
-			readStop <- err
+			errChan <- err
 		}()
 
 		// read from FD -> pipeInWriter
 		go func() {
 			_, err := io.Copy(pipeInWriter, fd)
-			writeStop <- err
+			errChan <- err
 		}()
 
 		// don't terminate until vnc client is done
-		<-doneChan
-		listenResChan <- err
+		<-ctx.Done()
 	}()
 
 	port := ln.Addr().(*net.TCPAddr).Port
 
 	if proxyOnly {
-		defer close(doneChan)
 		optionString, err := json.Marshal(struct {
 			Port int `json:"port"`
 		}{port})
 		if err != nil {
-			return fmt.Errorf("Error encountered: %s", err.Error())
+			return fmt.Errorf("error encountered: %s", err.Error())
 		}
 		fmt.Fprintln(cmd.OutOrStdout(), string(optionString))
 	} else {
 		// execute VNC Viewer
-		go checkAndRunVNCViewer(doneChan, viewResChan, port)
+		go checkAndRunVNCViewer(ctx, errChan, port)
 	}
 
-	go func() {
-		defer close(stopChan)
-		interrupt := make(chan os.Signal, 1)
-		signal.Notify(interrupt, os.Interrupt)
-		<-interrupt
-	}()
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
+	defer signal.Stop(interrupt)
 
 	select {
-	case <-stopChan:
-	case err = <-readStop:
-	case err = <-writeStop:
-	case err = <-k8ResChan:
-	case err = <-viewResChan:
-	case err = <-listenResChan:
+	case err = <-errChan:
+	case <-interrupt:
+		cancel()
+	case <-ctx.Done():
 	}
 
-	if err != nil {
-		return fmt.Errorf("Error encountered: %s", err.Error())
+	if err != nil && !errors.Is(err, context.Canceled) {
+		return fmt.Errorf("error encountered: %s", err.Error())
 	}
 	return nil
 }
 
-func checkAndRunVNCViewer(doneChan chan struct{}, viewResChan chan error, port int) {
-	defer close(doneChan)
+func checkAndRunVNCViewer(ctx context.Context, errChan chan error, port int) {
 	var err error
 	args := []string{}
 
@@ -231,26 +224,26 @@ func checkAndRunVNCViewer(doneChan chan struct{}, viewResChan chan error, port i
 			vncBin = matches[len(matches)-1]
 			args = tigerVncArgs(port)
 		} else if err == filepath.ErrBadPattern {
-			viewResChan <- err
+			errChan <- err
 			return
 		} else if _, err := os.Stat(MACOS_CHICKEN_VNC); err == nil {
 			vncBin = MACOS_CHICKEN_VNC
 			args = chickenVncArgs(port)
 		} else if !errors.Is(err, os.ErrNotExist) {
-			viewResChan <- err
+			errChan <- err
 			return
 		} else if _, err := os.Stat(MACOS_REAL_VNC); err == nil {
 			vncBin = MACOS_REAL_VNC
 			args = realVncArgs(port)
 		} else if !errors.Is(err, os.ErrNotExist) {
-			viewResChan <- err
+			errChan <- err
 			return
 		} else if _, err := exec.LookPath(REMOTE_VIEWER); err == nil {
 			// fall back to user supplied script/binary in path
 			vncBin = REMOTE_VIEWER
 			args = remoteViewerArgs(port)
 		} else if !errors.Is(err, os.ErrNotExist) {
-			viewResChan <- err
+			errChan <- err
 			return
 		}
 	case "linux", "windows":
@@ -261,23 +254,23 @@ func checkAndRunVNCViewer(doneChan chan struct{}, viewResChan chan error, port i
 			vncBin = TIGER_VNC
 			args = tigerVncArgs(port)
 		} else {
-			viewResChan <- fmt.Errorf("could not find %s or %s binary in $PATH",
+			errChan <- fmt.Errorf("could not find %s or %s binary in $PATH",
 				REMOTE_VIEWER, TIGER_VNC)
-			viewResChan <- err
+			errChan <- err
 			return
 		}
 	default:
-		viewResChan <- fmt.Errorf("virtctl does not support VNC on %v", osType)
+		errChan <- fmt.Errorf("virtctl does not support VNC on %v", osType)
 		return
 	}
 
 	if vncBin == "" {
 		log.Log.Errorf("No supported VNC app found in %s", osType)
-		err = fmt.Errorf("No supported VNC app found in %s", osType)
+		err = fmt.Errorf("no supported VNC app found in %s", osType)
 	} else {
 		log.Log.V(4).Infof("Executing commandline: '%s %v'", vncBin, args)
 		// #nosec No risk for attacker injection. vncBin and args include predefined strings
-		cmnd := exec.Command(vncBin, args...)
+		cmnd := exec.CommandContext(ctx, vncBin, args...)
 		output, err := cmnd.CombinedOutput()
 		if err != nil {
 			log.Log.Errorf("%s execution failed: %v, output: %v", vncBin, err, string(output))
@@ -285,7 +278,7 @@ func checkAndRunVNCViewer(doneChan chan struct{}, viewResChan chan error, port i
 			log.Log.V(2).Infof("%v output: %v", vncBin, string(output))
 		}
 	}
-	viewResChan <- err
+	errChan <- err
 }
 
 func tigerVncArgs(port int) (args []string) {

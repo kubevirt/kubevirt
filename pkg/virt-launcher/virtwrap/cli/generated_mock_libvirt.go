@@ -523,6 +523,17 @@ func (_mr *_MockVirDomainRecorder) GetJobInfo() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetJobInfo")
 }
 
+func (_m *MockVirDomain) GetGuestInfo(types libvirt.DomainGuestInfoTypes, flags uint32) (*libvirt.DomainGuestInfo, error) {
+	ret := _m.ctrl.Call(_m, "GetGuestInfo", types, flags)
+	ret0, _ := ret[0].(*libvirt.DomainGuestInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirDomainRecorder) GetGuestInfo(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetGuestInfo", arg0, arg1)
+}
+
 func (_m *MockVirDomain) GetDiskErrors(flags uint32) ([]libvirt.DomainDiskError, error) {
 	ret := _m.ctrl.Call(_m, "GetDiskErrors", flags)
 	ret0, _ := ret[0].([]libvirt.DomainDiskError)

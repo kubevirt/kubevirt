@@ -16,7 +16,7 @@ var _ = Describe("Live Migration for the source", func() {
 		It("should classify shared volumes to migrated when they are part of the migrated volumes set", func() {
 			const vol = "vol"
 			vmi := libvmi.New(
-				libvmi.WithHostDiskAndCapacity(vol, "/disk.img", v1.HostDiskExistsOrCreate, "1G"), libvmistatus.WithStatus(
+				libvmi.WithHostDiskAndCapacity(vol, "/disk.img", v1.HostDiskExistsOrCreate, "1G", libvmi.WithSharedHostDisk(true)), libvmistatus.WithStatus(
 					libvmistatus.New(
 						libvmistatus.WithMigratedVolume(v1.StorageMigratedVolumeInfo{
 							VolumeName: vol,

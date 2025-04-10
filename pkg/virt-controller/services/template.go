@@ -143,8 +143,6 @@ type TemplateService interface {
 	RenderExporterManifest(vmExport *exportv1.VirtualMachineExport, namePrefix string) *k8sv1.Pod
 	GetLauncherImage() string
 	IsPPC64() bool
-	IsARM64() bool
-	IsS390X() bool
 }
 
 type templateService struct {
@@ -319,14 +317,6 @@ func (t *templateService) IsPPC64() bool {
 	return t.clusterConfig.GetClusterCPUArch() == "ppc64le"
 }
 
-func (t *templateService) IsARM64() bool {
-	return t.clusterConfig.GetClusterCPUArch() == "arm64"
-}
-
-func (t *templateService) IsS390X() bool {
-	return t.clusterConfig.GetClusterCPUArch() == "s390x"
-}
-
 func generateQemuTimeoutWithJitter(qemuTimeoutBaseSeconds int) string {
 	timeout := rand.Intn(qemuTimeoutJitterRange) + qemuTimeoutBaseSeconds
 
@@ -404,8 +394,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	var command []string
-	var qemuTimeout = generateQemuTimeoutWithJitter(t.launcherQemuTimeout)
-
 	if tempPod {
 		logger := log.DefaultLogger()
 		logger.Infof("RUNNING doppleganger pod for %s", vmi.Name)
@@ -414,7 +402,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			"echo", "bound PVCs"}
 	} else {
 		command = []string{"/usr/bin/virt-launcher-monitor",
-			"--qemu-timeout", qemuTimeout,
+			"--qemu-timeout", generateQemuTimeoutWithJitter(t.launcherQemuTimeout),
 			"--name", domain,
 			"--uid", string(vmi.UID),
 			"--namespace", namespace,
@@ -511,11 +499,6 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		containers = append(containers, virtiofsContainers...)
 	}
 
-	sconsolelogContainer := generateSerialConsoleLogContainer(vmi, t.launcherImage, t.clusterConfig, virtLauncherLogVerbosity, qemuTimeout)
-	if sconsolelogContainer != nil {
-		containers = append(containers, *sconsolelogContainer)
-	}
-
 	var sidecarVolumes []k8sv1.Volume
 	for i, requestedHookSidecar := range requestedHookSidecarList {
 		sidecarContainer := newSidecarContainerRenderer(
@@ -570,6 +553,11 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	var initContainers []k8sv1.Container
+
+	sconsolelogContainer := generateSerialConsoleLogContainer(vmi, t.launcherImage, t.clusterConfig, virtLauncherLogVerbosity)
+	if sconsolelogContainer != nil {
+		initContainers = append(initContainers, *sconsolelogContainer)
+	}
 
 	if HaveContainerDiskVolume(vmi.Spec.Volumes) || util.HasKernelBootContainerImage(vmi) {
 		initContainerCommand := []string{"/usr/bin/cp",

@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	ginkgo_reporters "github.com/onsi/ginkgo/v2/reporters"
 
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -104,8 +105,27 @@ var _ = SynchronizedBeforeSuite(testsuite.SynchronizedBeforeTestSetup, testsuite
 var _ = SynchronizedAfterSuite(testsuite.AfterTestSuiteCleanup, testsuite.SynchronizedAfterTestSuiteCleanup)
 
 var _ = AfterEach(func() {
-	testCleanup()
+	if !hasOncePerOrderedCleanupLabel() {
+		testCleanup()
+	}
 })
+
+var _ = AfterEach(OncePerOrdered, func() {
+	if hasOncePerOrderedCleanupLabel() {
+		testCleanup()
+	}
+})
+
+func hasOncePerOrderedCleanupLabel() bool {
+	oncePerOrderedCleanupText := decorators.OncePerOrderedCleanup[0]
+	oncePerOrderedCleanup, err := CurrentSpecReport().MatchesLabelFilter(oncePerOrderedCleanupText)
+	if err != nil {
+		fmt.Printf("Failed to parse labels %q\n", err)
+		return false
+	}
+
+	return oncePerOrderedCleanup
+}
 
 func getMaxFailsFromEnv() int {
 	maxFailsEnv := os.Getenv("REPORTER_MAX_FAILS")

@@ -134,18 +134,26 @@ func WithPersistentVolumeClaimLun(diskName, pvcName string, reservation bool) Op
 	}
 }
 
-func WithHostDisk(diskName, path string, diskType v1.HostDiskType) Option {
+func WithHostDisk(diskName, path string, diskType v1.HostDiskType, opts ...HostDiskOption) Option {
 	var capacity string
 	if diskType == v1.HostDiskExistsOrCreate {
 		capacity = defaultDiskSize
 	}
-	return WithHostDiskAndCapacity(diskName, path, diskType, capacity)
+	return WithHostDiskAndCapacity(diskName, path, diskType, capacity, opts...)
 }
 
-func WithHostDiskAndCapacity(diskName, path string, diskType v1.HostDiskType, capacity string) Option {
+func WithHostDiskAndCapacity(diskName, path string, diskType v1.HostDiskType, capacity string, opts ...HostDiskOption) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDisk(vmi, newDisk(diskName, v1.DiskBusVirtio))
-		addVolume(vmi, newHostDisk(diskName, path, diskType, capacity))
+		addVolume(vmi, newHostDisk(diskName, path, diskType, capacity, opts...))
+	}
+}
+
+type HostDiskOption func(v *v1.Volume)
+
+func WithSharedHostDisk(shared bool) HostDiskOption {
+	return func(v *v1.Volume) {
+		v.HostDisk.Shared = pointer.P(shared)
 	}
 }
 
@@ -339,7 +347,7 @@ func newEmptyDisk(name string, capacity resource.Quantity) v1.Volume {
 	}
 }
 
-func newHostDisk(name, path string, diskType v1.HostDiskType, capacity string) v1.Volume {
+func newHostDisk(name, path string, diskType v1.HostDiskType, capacity string, opts ...HostDiskOption) v1.Volume {
 	hostDisk := v1.HostDisk{
 		Path: path,
 		Type: diskType,
@@ -350,10 +358,16 @@ func newHostDisk(name, path string, diskType v1.HostDiskType, capacity string) v
 		hostDisk.Capacity = resource.MustParse(capacity)
 	}
 
-	return v1.Volume{
+	v := v1.Volume{
 		Name: name,
 		VolumeSource: v1.VolumeSource{
 			HostDisk: &hostDisk,
 		},
 	}
+
+	for _, f := range opts {
+		f(&v)
+	}
+
+	return v
 }

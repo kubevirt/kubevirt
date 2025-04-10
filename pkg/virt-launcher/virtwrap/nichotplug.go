@@ -226,6 +226,8 @@ func withNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.
 		return dom, nil
 	}
 
+	defer dom.Free()
+
 	domainSpecWithoutIfacePlaceholders, err := util.GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_INACTIVE)
 	if err != nil {
 		return nil, err
