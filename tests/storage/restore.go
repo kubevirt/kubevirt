@@ -64,6 +64,9 @@ const (
 	stoppingVM                = "Stopping VM"
 	creatingSnapshot          = "creating snapshot"
 
+	// tpm2_nvread output doesn't always end with a carriage return. This command adds it while preserving the return code
+	tpmNVReadFormat = "sudo tpm2_nvread -s %d -C o 1 ; ret=$? ; echo ; (exit $ret)\n"
+
 	macAddressCloningPatchPattern   = `{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "%s"}`
 	firmwareUUIDCloningPatchPattern = `{"op": "replace", "path": "/spec/template/spec/domain/firmware/uuid", "value": "%s"}`
 
@@ -849,7 +852,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 
-							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvread -s %d -C o 1\n", len(string(vm.UID)))},
+							&expect.BSnd{S: fmt.Sprintf(tpmNVReadFormat, len(string(vm.UID)))},
 							&expect.BExp{R: string(vm.UID)},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
@@ -908,7 +911,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 					if tpm {
 						batch = append(batch, []expect.Batcher{
-							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvread -s %d -C o 1\n", len(string(vm.UID)))},
+							&expect.BSnd{S: fmt.Sprintf(tpmNVReadFormat, len(string(vm.UID)))},
 							&expect.BExp{R: string(vm.UID)},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
@@ -964,7 +967,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 					if tpm {
 						batch = append(batch, []expect.Batcher{
-							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvread -s %d -C o 1\n", len(string(vm.UID)))},
+							&expect.BSnd{S: fmt.Sprintf(tpmNVReadFormat, len(string(vm.UID)))},
 							&expect.BExp{R: string(vm.UID)},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
