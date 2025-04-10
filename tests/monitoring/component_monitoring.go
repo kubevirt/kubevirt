@@ -21,6 +21,7 @@ package monitoring
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,6 +30,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -40,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
+	"kubevirt.io/kubevirt/tests/libregistry"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -51,6 +54,7 @@ type alerts struct {
 	restErrorsBurtsAlert string
 	restErrorsHighAlert  string
 	lowCountAlert        string
+	lowReadyAlert        string
 }
 
 var (
@@ -68,6 +72,7 @@ var (
 		restErrorsBurtsAlert: "VirtControllerRESTErrorsBurst",
 		restErrorsHighAlert:  "VirtControllerRESTErrorsHigh",
 		lowCountAlert:        "LowVirtControllersCount",
+		lowReadyAlert:        "LowReadyVirtControllersCount",
 	}
 	virtHandler = alerts{
 		deploymentName:       "virt-handler",
@@ -151,6 +156,44 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, decorators.SigM
 		It("LowVirtAPICount should be triggered when virt-api count is low", decorators.RequiresTwoSchedulableNodes, func() {
 			scales.UpdateScale(virtApi.deploymentName, int32(0))
 			libmonitoring.VerifyAlertExist(virtClient, virtApi.lowCountAlert)
+		})
+	})
+
+	Context("Low ready alerts", decorators.RequiresTwoSchedulableNodes, func() {
+		var virtClient kubecli.KubevirtClient
+
+		BeforeEach(func() {
+			virtClient = kubevirt.Client()
+
+			scales = libmonitoring.NewScaling(virtClient, []string{virtOperator.deploymentName, virtController.deploymentName, virtApi.deploymentName})
+			scales.UpdateScale(virtOperator.deploymentName, int32(0))
+
+			libmonitoring.ReduceAlertPendingTime(virtClient)
+		})
+
+		AfterEach(func() {
+			scales.RestoreAllScales()
+			waitUntilComponentsAlertsDoNotExist(virtClient)
+		})
+
+		It("LowReadyVirtControllersCount should be triggered when virt-controller pods exist but are not ready", func() {
+			virtControllerDeployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), virtController.deploymentName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			container := &virtControllerDeployment.Spec.Template.Spec.Containers[0]
+			container.Image = libregistry.GetUtilityImageFromRegistry("vm-killer")
+			container.Command = []string{"tail", "-f", "/dev/null"}
+			container.Args = []string{}
+			container.ReadinessProbe = nil
+			container.LivenessProbe = nil
+
+			patch, err := json.Marshal(virtControllerDeployment)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch(context.Background(), virtControllerDeployment.Name, types.MergePatchType, patch, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			libmonitoring.VerifyAlertExist(virtClient, virtController.lowReadyAlert)
 		})
 	})
 
@@ -255,6 +298,7 @@ func waitUntilComponentsAlertsDoNotExist(virtClient kubecli.KubevirtClient) {
 		// virt-controller
 		virtController.downAlert, virtController.noReadyAlert,
 		virtController.restErrorsBurtsAlert, virtController.lowCountAlert,
+		virtController.lowReadyAlert,
 
 		// virt-api
 		virtApi.downAlert, virtApi.noReadyAlert,
