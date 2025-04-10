@@ -51,6 +51,7 @@ KUBEVIRT_RELEASE=${KUBEVIRT_RELEASE:-false}
 OPERATOR_MANIFEST_PATH=$MANIFESTS_OUT_DIR/release/kubevirt-operator.yaml
 TESTING_MANIFEST_PATH=$MANIFESTS_OUT_DIR/testing
 KUBEVIRT_CRI="$(determine_cri_bin)"
+PULLER_TIMEOUT=${PULLER_TIMEOUT:-600}
 
 function build_func_tests_image() {
     local bin_name=tests
