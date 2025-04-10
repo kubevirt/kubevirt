@@ -41,8 +41,8 @@ import (
 var _ = Describe("[sig-compute]Watchdog", decorators.SigCompute, func() {
 
 	Context("A VirtualMachineInstance with a watchdog device", func() {
-
-		It("[test_id:4641]should be shut down when the watchdog expires", decorators.Conformance, func() {
+		// watchdog devices is not support by the qemu-kvm in the arm64 version virt-launcher.
+		It("[test_id:4641]should be shut down when the watchdog expires", decorators.Conformance, decorators.WgArm64Invalid, func() {
 			vmi := libvmops.RunVMIAndExpectLaunch(
 				libvmifact.NewAlpine(libvmi.WithWatchdog(v1.WatchdogActionPoweroff)), 360)
 

@@ -394,7 +394,8 @@ var _ = Describe(SIG("Storage", func() {
 				})
 
 				// The following case is mostly similar to the alpine PVC test above, except using different VirtualMachineInstance.
-				It("[test_id:3136]started with Ephemeral PVC", decorators.Conformance, func() {
+				// WithEphemeralPersistentVolumeClaim use SATA bus which is not supported by qemu-kvm in the arm64 version virt-launcher.
+				It("[test_id:3136]started with Ephemeral PVC", decorators.Conformance, decorators.WgArm64Invalid, func() {
 					pvName = diskAlpineHostPath
 
 					vmi = libvmi.New(

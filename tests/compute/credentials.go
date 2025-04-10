@@ -102,6 +102,8 @@ var _ = Describe(SIG("Guest Access Credentials", func() {
 					Users: []string{"fedora"},
 				},
 			}),
+			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		),
 		Entry("[test_id:6224] using configdrive", decorators.Conformance, false,
 			libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveUserData(userData)),
