@@ -8,6 +8,7 @@ go_library(
         "eviction.go",
         "framework.go",
         "guest_agent.go",
+        "pcihole64.go",
         "vm_lifecycle.go",
         "vmidefaults.go",
     ],
