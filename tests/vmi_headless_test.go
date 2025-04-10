@@ -58,6 +58,7 @@ var _ = Describe("[rfe_id:609][sig-compute]VMIheadless", decorators.SigCompute, 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
+		fmt.Println("Test")
 		vmi = tests.NewRandomVMIWithEphemeralDisk(cd.ContainerDiskFor(cd.ContainerDiskAlpine))
 	})
 
