@@ -154,7 +154,7 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 
 			if isExecProbe(livenessProbe) {
 				By(specifyingVMLivenessProbe)
-				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivelinessProbe(livenessProbe))
+				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivenessProbe(livenessProbe))
 				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Waiting for agent to connect")
@@ -185,7 +185,7 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 
 		Context("guest agent ping", func() {
 			BeforeEach(func() {
-				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivelinessProbe(createGuestAgentPingProbe(period, initialSeconds)))
+				vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivenessProbe(createGuestAgentPingProbe(period, initialSeconds)))
 				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Waiting for agent to connect")
@@ -209,7 +209,7 @@ var _ = Describe(SIG("[ref_id:1182]Probes", func() {
 
 		DescribeTable("should fail the VMI", func(livenessProbe *v1.Probe, vmiFactory func(opts ...libvmi.Option) *v1.VirtualMachineInstance) {
 			By("Specifying a VMI with a livenessProbe probe")
-			vmi = vmiFactory(withLivelinessProbe(livenessProbe))
+			vmi = vmiFactory(withLivenessProbe(livenessProbe))
 			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 			By("Checking that the VMI is in a final state after a while")
@@ -256,7 +256,7 @@ func createReadyAlpineVMIWithReadinessProbe(probe *v1.Probe) *v1.VirtualMachineI
 }
 
 func createReadyAlpineVMIWithLivenessProbe(probe *v1.Probe) *v1.VirtualMachineInstance {
-	vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(), withLivelinessProbe(probe))
+	vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(), withLivenessProbe(probe))
 
 	return libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 }
@@ -295,7 +295,7 @@ func withReadinessProbe(probe *v1.Probe) libvmi.Option {
 	}
 }
 
-func withLivelinessProbe(probe *v1.Probe) libvmi.Option {
+func withLivenessProbe(probe *v1.Probe) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.LivenessProbe = probe
 	}
