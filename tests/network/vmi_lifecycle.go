@@ -56,7 +56,7 @@ var _ = Describe(SIG("[crit:high][vendor:cnv-qe@redhat.com][level:component]", d
 
 	Describe("[crit:high][vendor:cnv-qe@redhat.com][level:component]Creating a VirtualMachineInstance", func() {
 		Context("when virt-handler is responsive", func() {
-			DescribeTable("VMIs shouldn't fail after the kubelet restarts", func(bridgeNetworking bool) {
+			DescribeTable("VMIs shouldn't fail after the kubelet restarts", decorators.Disruptive, func(bridgeNetworking bool) {
 				var vmiOptions []libvmi.Option
 
 				if bridgeNetworking {
