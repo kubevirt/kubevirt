@@ -1623,7 +1623,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					// check VMI, confirm migration state
 					vmi = libmigration.ConfirmVMIPostMigrationFailed(vmi, migrationUID)
 					Expect(vmi.Status.MigrationState.FailureReason).To(ContainSubstring("Failed migration to satisfy functional test condition"))
-					Eventually(matcher.ThisPodWith(vmi.Namespace, vmi.Status.MigrationState.TargetPod)).WithPolling(time.Second).WithTimeout(10*time.Second).
+					Eventually(matcher.ThisPodWith(vmi.Namespace, vmi.Status.MigrationState.TargetPod)).WithPolling(time.Second).WithTimeout(15*time.Second).
 						Should(
 							Or(
 								matcher.BeInPhase(k8sv1.PodFailed),
@@ -1655,7 +1655,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				// check VMI, confirm migration state
 				vmi = libmigration.ConfirmVMIPostMigrationFailed(vmi, migrationUID)
 				Expect(vmi.Status.MigrationState.FailureReason).To(ContainSubstring("Failed migration to satisfy functional test condition"))
-				Eventually(matcher.ThisPodWith(vmi.Namespace, vmi.Status.MigrationState.TargetPod)).WithPolling(time.Second).WithTimeout(10*time.Second).
+				Eventually(matcher.ThisPodWith(vmi.Namespace, vmi.Status.MigrationState.TargetPod)).WithPolling(time.Second).WithTimeout(15*time.Second).
 					Should(Or(matcher.BeInPhase(k8sv1.PodFailed), matcher.BeInPhase(k8sv1.PodSucceeded)), "Target pod should exit quickly after migration fails.")
 			})
 
