@@ -28,6 +28,7 @@ import (
 	"github.com/onsi/gomega/types"
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -149,6 +150,18 @@ var _ = Describe("Pool", func() {
 			mockQueue = testutils.NewMockWorkQueue(controller.queue)
 			controller.queue = mockQueue
 
+			stop := make(chan struct{})
+			go vmiInformer.Run(stop)
+			go vmInformer.Run(stop)
+			go poolInformer.Run(stop)
+			go crInformer.Run(stop)
+			Expect(cache.WaitForCacheSync(stop,
+				vmiInformer.HasSynced,
+				vmInformer.HasSynced,
+				poolInformer.HasSynced,
+				crInformer.HasSynced,
+			)).To(BeTrue())
+
 			fakeVirtClient = kubevirtfake.NewSimpleClientset()
 
 			// Set up mock client
@@ -157,7 +170,25 @@ var _ = Describe("Pool", func() {
 
 			virtClient.EXPECT().VirtualMachinePool(testNamespace).Return(fakeVirtClient.PoolV1alpha1().VirtualMachinePools(testNamespace)).AnyTimes()
 
+			// Add VMI Get reactor to handle VMI Get requests
+			fakeVirtClient.Fake.PrependReactor("get", "virtualmachineinstances", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+				getAction := action.(k8stesting.GetAction)
+				// Check if the VMI exists in the store
+				storeObj, exists, err := controller.vmiStore.GetByKey(fmt.Sprintf("%s/%s", getAction.GetNamespace(), getAction.GetName()))
+				if err != nil || !exists {
+					return true, nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), getAction.GetName())
+				}
+				if vmi, ok := storeObj.(*v1.VirtualMachineInstance); ok {
+					return true, vmi, nil
+				}
+				return true, nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), getAction.GetName())
+			})
+
 			fakeVirtClient.Fake.PrependReactor("*", "*", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
+				// Ignore VMI Get actions as they are handled by the specific reactor
+				if action.GetVerb() == "get" && action.GetResource().Resource == "virtualmachineinstances" {
+					return false, nil, nil
+				}
 				Expect(action).To(BeNil())
 				return true, nil, nil
 			})
@@ -967,6 +998,7 @@ func createReadyVMI(vm *v1.VirtualMachine, poolRevision *appsv1.ControllerRevisi
 		Controller:         pointer.P(true),
 		BlockOwnerDeletion: pointer.P(true),
 	}}
+	vmi.Status.Phase = v1.Running
 	vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 		{
 			Type:   v1.VirtualMachineInstanceReady,

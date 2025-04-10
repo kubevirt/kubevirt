@@ -638,22 +638,22 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			})
 			Expect(err).ToNot(HaveOccurred())
 
+			unavailableCount := 0
+			for _, vmi := range vmis.Items {
+				if vmi.DeletionTimestamp != nil || vmi.Status.Phase != v1.Running {
+					unavailableCount++
+				}
+			}
+
+			Expect(unavailableCount).To(BeNumerically("<=", 1),
+				fmt.Sprintf("Too many unavailable VMIs: %d (max allowed: 1)", unavailableCount))
+
 			updatedCount := 0
 			for _, vmi := range vmis.Items {
 				if _, ok := vmi.Labels[newLabelKey]; ok {
 					updatedCount++
 				}
 			}
-
-			deletingCount := 0
-			for _, vmi := range vmis.Items {
-				if vmi.DeletionTimestamp != nil {
-					deletingCount++
-				}
-			}
-
-			Expect(deletingCount+updatedCount).To(BeNumerically("<=", 1),
-				fmt.Sprintf("Too many VMIs being updated simultaneously. Deleting: %d, Updated: %d", deletingCount, updatedCount))
 
 			Expect(updatedCount).To(Equal(3),
 				fmt.Sprintf("Not all VMIs updated yet. Updated: %d/3", updatedCount))

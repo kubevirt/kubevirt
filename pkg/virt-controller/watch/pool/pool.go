@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -838,28 +839,26 @@ func (c *Controller) scale(pool *poolv1.VirtualMachinePool, vms []*virtv1.Virtua
 	return nil, false
 }
 
+func isVMIReady(vmi *virtv1.VirtualMachineInstance) bool {
+	if vmi.DeletionTimestamp != nil || vmi.Status.Phase != virtv1.Running {
+		return false
+	}
+	readyCondition := controller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi, virtv1.VirtualMachineInstanceReady)
+	return readyCondition != nil && readyCondition.Status == k8score.ConditionTrue
+}
+
 func (c *Controller) getUnavailableVMICount(vms []*virtv1.VirtualMachine) (int, error) {
 	unavailableCount := 0
 	for _, vm := range vms {
-		vmiKey := controller.NamespacedKey(vm.Namespace, vm.Name)
-		obj, exists, err := c.vmiStore.GetByKey(vmiKey)
+		vmi, err := c.clientset.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		if err != nil {
+			if errors.IsNotFound(err) {
+				unavailableCount++
+				continue
+			}
 			return 0, err
 		}
-		if !exists {
-			vmi, err := c.clientset.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			if err != nil {
-				return 0, err
-			}
-			obj = vmi
-		}
-		vmi := obj.(*virtv1.VirtualMachineInstance)
-		if vmi.DeletionTimestamp != nil || vmi.Status.Phase != virtv1.Running {
-			unavailableCount++
-			continue
-		}
-		readyCondition := controller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi, virtv1.VirtualMachineInstanceReady)
-		if readyCondition == nil || readyCondition.Status != k8score.ConditionTrue {
+		if !isVMIReady(vmi) {
 			unavailableCount++
 		}
 	}
@@ -1007,9 +1006,6 @@ func (c *Controller) proactiveUpdate(pool *poolv1.VirtualMachinePool, vmUpdatedL
 			return nil
 		}
 		vmi := obj.(*virtv1.VirtualMachineInstance)
-		if vmi.DeletionTimestamp != nil {
-			return nil
-		}
 
 		updateType, err := c.isOutdatedVMI(vm, vmi)
 		if err != nil {
@@ -1420,16 +1416,15 @@ func (c *Controller) execute(key string) error {
 
 func (c *Controller) handleResourceUpdate(pool *poolv1.VirtualMachinePool, vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, updateType proactiveUpdateType) error {
 	var err error
-	var successMessage string
 
 	switch updateType {
 	case proactiveUpdateTypeRestart:
 		err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
-		successMessage = "Proactive update of VM %s/%s by deleting outdated VMI"
+		log.Log.Object(pool).Infof("Proactive update of VM %s/%s by deleting outdated VMI", vm.Namespace, vm.Name)
 	case proactiveUpdateTypeVMDelete:
 		foreGround := metav1.DeletePropagationForeground
 		err = c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Delete(context.Background(), vm.ObjectMeta.Name, metav1.DeleteOptions{PropagationPolicy: pointer.P(foreGround)})
-		successMessage = "Proactive update of VM %s/%s by deleting VM due to data volume changes"
+		log.Log.Object(pool).Infof("Proactive update of VM %s/%s by deleting VM due to data volume changes", vm.Namespace, vm.Name)
 	case proactiveUpdateTypePatchRevisionLabel:
 		patch := []map[string]interface{}{
 			{
@@ -1448,7 +1443,7 @@ func (c *Controller) handleResourceUpdate(pool *poolv1.VirtualMachinePool, vm *v
 		if err != nil {
 			return fmt.Errorf("patching of vmi labels with new pool revision name: %v", err)
 		}
-		successMessage = "Proactive update of VM %s/%s in pool via label patch"
+		log.Log.Object(pool).Infof("Proactive update of VM %s/%s in pool via label patch", vm.Namespace, vm.Name)
 	}
 
 	if err != nil {
@@ -1456,7 +1451,6 @@ func (c *Controller) handleResourceUpdate(pool *poolv1.VirtualMachinePool, vm *v
 		return err
 	}
 
-	log.Log.Object(pool).Infof("Proactively updating vm %s/%s in pool", vm.Namespace, vm.Name)
-	c.recorder.Eventf(pool, k8score.EventTypeNormal, common.SuccessfulDeleteVirtualMachineReason, successMessage, vm.Namespace, vm.Name)
+	c.recorder.Eventf(pool, k8score.EventTypeNormal, common.SuccessfulDeleteVirtualMachineReason, "Successfully updated resource %s/%s", vm.Namespace, vm.Name)
 	return nil
 }
