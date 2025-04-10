@@ -257,6 +257,10 @@ type HyperConvergedSpec struct {
 	// +optional
 	InstancetypeConfig *v1.InstancetypeConfiguration `json:"instancetypeConfig,omitempty"`
 
+	// CommonInstancetypesDeployment holds the configuration of common-instancetypes deployment within KubeVirt.
+	// +optional
+	CommonInstancetypesDeployment *v1.CommonInstancetypesDeployment `json:"CommonInstancetypesDeployment,omitempty"`
+
 	// deploy VM console proxy resources in SSP operator
 	// +optional
 	// +kubebuilder:default=false

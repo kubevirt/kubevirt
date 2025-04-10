@@ -1510,7 +1510,7 @@ The configuration of [instance type and preference related features](https://kub
 
 The following example configures an [InstancetypeReferencePolicy](https://kubevirt.io/user-guide/user_workloads/instancetypes/#instancetypereferencepolicy) of `expand`:
 
-~~~yaml
+```yaml
 apiVersion: hco.kubevirt.io/v1beta1
 kind: HyperConverged
 metadata:
@@ -1518,4 +1518,20 @@ metadata:
 spec:
   instancetypeConfig:
     referencePolicy: expand
+```
+## KubeVirt Common Instance Types Deployment Configuration
+
+The configuration of [common instance types deployment](https://kubevirt.io/user-guide/user_workloads/deploy_common_instancetypes/) is held separately to the core instance type and preference functionality within the [KubeVirt CR](https://kubevirt.io/api-reference/main/definitions.html#_v1_commoninstancetypesdeployment). This is mirrored in the HCO CR through the `spec.commonInstancetypesDeployment` configurable.
+
+The following example disables the deployment of common instance types within the cluster:
+
+```yaml
+apiVersion: hco.kubevirt.io/v1beta1
+kind: HyperConverged
+metadata:
+  name: kubevirt-hyperconverged
+spec:
+  commonInstancetypesDeployment:
+    enabled: false
+
 ```

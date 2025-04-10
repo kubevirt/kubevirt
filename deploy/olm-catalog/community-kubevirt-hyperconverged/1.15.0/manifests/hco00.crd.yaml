@@ -79,6 +79,16 @@ spec:
                 disableSerialConsoleLog: false
             description: HyperConvergedSpec defines the desired state of HyperConverged
             properties:
+              CommonInstancetypesDeployment:
+                description: CommonInstancetypesDeployment holds the configuration
+                  of common-instancetypes deployment within KubeVirt.
+                properties:
+                  enabled:
+                    description: Enabled controls the deployment of common-instancetypes
+                      resources, defaults to True.
+                    nullable: true
+                    type: boolean
+                type: object
               applicationAwareConfig:
                 description: ApplicationAwareConfig set the AAQ configurations
                 properties:

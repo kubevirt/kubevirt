@@ -543,6 +543,11 @@ func (in *HyperConvergedSpec) DeepCopyInto(out *HyperConvergedSpec) {
 		*out = new(corev1.InstancetypeConfiguration)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.CommonInstancetypesDeployment != nil {
+		in, out := &in.CommonInstancetypesDeployment, &out.CommonInstancetypesDeployment
+		*out = new(corev1.CommonInstancetypesDeployment)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.DeployVMConsoleProxy != nil {
 		in, out := &in.DeployVMConsoleProxy, &out.DeployVMConsoleProxy
 		*out = new(bool)

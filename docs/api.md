@@ -234,6 +234,7 @@ HyperConvergedSpec defines the desired state of HyperConverged
 | higherWorkloadDensity | HigherWorkloadDensity holds configurataion aimed to increase virtual machine density | *[HigherWorkloadDensityConfiguration](#higherworkloaddensityconfiguration) | {"memoryOvercommitPercentage": 100} | false |
 | enableCommonBootImageImport | Opt-in to automatic delivery/updates of the common data import cron templates. There are two sources for the data import cron templates: hard coded list of common templates, and custom (user defined) templates that can be added to the dataImportCronTemplates field. This field only controls the common templates. It is possible to use custom templates by adding them to the dataImportCronTemplates field. | *bool | true | false |
 | instancetypeConfig | InstancetypeConfig holds the configuration of instance type related functionality within KubeVirt. | *v1.InstancetypeConfiguration |  | false |
+| CommonInstancetypesDeployment | CommonInstancetypesDeployment holds the configuration of common-instancetypes deployment within KubeVirt. | *v1.CommonInstancetypesDeployment |  | false |
 | deployVmConsoleProxy | deploy VM console proxy resources in SSP operator | *bool | false | false |
 | deployKubeSecondaryDNS | Deploy KubeSecondaryDNS by CNAO | *bool | false | false |
 | enableApplicationAwareQuota | EnableApplicationAwareQuota if true, enables the Application Aware Quota feature | *bool | false | false |
