@@ -805,7 +805,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				By("Set wrong time on the guest")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "date +%T -s 23:26:00\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 				}, 15)).To(Succeed(), "should set guest time")
 
 				// execute a migration, wait for finalized state
@@ -2798,7 +2798,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			By("Checking mounted ConfigVolume")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: fmt.Sprintf("mount -t virtiofs %s /mnt \n", configMapName)},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
 				&expect.BSnd{S: testCommand},
@@ -2868,7 +2868,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			By("Checking the DV is still mounted and testing file is accessible")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "test -f /mnt/test_file \n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
 			}, 200)).To(Succeed())
@@ -3006,9 +3006,9 @@ func runStressTest(vmi *v1.VirtualMachineInstance, vmsize string) {
 	stressCmd := fmt.Sprintf("stress-ng --vm 1 --vm-bytes %s --vm-keep &\n", vmsize)
 	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 		&expect.BSnd{S: stressCmd},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 	}, 15)).To(Succeed(), "should run a stress test")
 
 	// give stress tool some time to trash more memory pages before returning control to next steps

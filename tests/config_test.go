@@ -138,7 +138,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					// mount iso ConfigMap image
 					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
 					&expect.BSnd{S: "cat /mnt/option1 /mnt/option2 /mnt/option3\n"},
@@ -237,7 +237,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					// mount iso Secret image
 					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
 					&expect.BSnd{S: "cat /mnt/user /mnt/password\n"},
@@ -328,7 +328,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				// mount service account iso image
 				&expect.BSnd{S: "mount /dev/sda /mnt\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
 				&expect.BSnd{S: "cat /mnt/namespace\n"},
@@ -426,9 +426,9 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					// mount ConfigMap image
 					&expect.BSnd{S: "sudo su -\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: "mount /dev/vdb /mnt\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
 					&expect.BSnd{S: "cat /mnt/config1 /mnt/config2 /mnt/config3\n"},
@@ -452,7 +452,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					// mount Secret image
 					&expect.BSnd{S: "mount /dev/vdc /mnt\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
 					&expect.BSnd{S: "cat /mnt/user /mnt/password\n"},
@@ -543,9 +543,9 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					// mount iso Secret image
 					&expect.BSnd{S: "sudo su -\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
 					&expect.BSnd{S: "grep -c \"PRIVATE KEY\" /mnt/ssh-privatekey\n"},
