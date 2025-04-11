@@ -57,7 +57,7 @@ var _ = Describe("LiveUpdate Memory", func() {
 					libvmi.WithGuestMemory("1Gi"),
 				),
 				Entry("launchSecurity is configured", "4Gi",
-					libvmi.WithSEV(true),
+					libvmi.WithSEV(true, false),
 					libvmi.WithGuestMemory("1Gi")),
 				Entry("guest mapping passthrough is configured", "4Gi",
 					libvmi.WithNUMAGuestMappingPassthrough(),
