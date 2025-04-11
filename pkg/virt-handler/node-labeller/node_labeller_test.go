@@ -48,7 +48,7 @@ var _ = Describe("Node-labeller ", func() {
 	var nlController *NodeLabeller
 	var kubeClient *fake.Clientset
 	var cpuCounter *libvirtxml.CapsHostCPUCounter
-	var guestsCaps []libvirtxml.CapsGuest
+	var supportedMachines []libvirtxml.CapsGuestMachine
 
 	initNodeLabeller := func(kubevirt *v1.KubeVirt) {
 		config, _, _ := testutils.NewFakeClusterConfigUsingKV(kubevirt)
@@ -56,7 +56,7 @@ var _ = Describe("Node-labeller ", func() {
 		recorder.IncludeObject = true
 
 		var err error
-		nlController, err = newNodeLabeller(config, kubeClient.CoreV1().Nodes(), nodeName, "testdata", recorder, cpuCounter, guestsCaps)
+		nlController, err = newNodeLabeller(config, kubeClient.CoreV1().Nodes(), nodeName, "testdata", recorder, cpuCounter, supportedMachines)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -67,16 +67,7 @@ var _ = Describe("Node-labeller ", func() {
 			Scaling:   "no",
 		}
 
-		guestsCaps = []libvirtxml.CapsGuest{
-			{
-				OSType: "test",
-				Arch: libvirtxml.CapsGuestArch{
-					Machines: []libvirtxml.CapsGuestMachine{
-						{Name: "testmachine"},
-					},
-				},
-			},
-		}
+		supportedMachines = []libvirtxml.CapsGuestMachine{{Name: "testmachine"}}
 
 		node := newNode(nodeName)
 		kubeClient = fake.NewSimpleClientset(node)
