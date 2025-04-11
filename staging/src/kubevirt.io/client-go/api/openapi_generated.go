@@ -18837,13 +18837,29 @@ func schema_kubevirtio_api_core_v1_DeveloperConfiguration(ref common.ReferenceCa
 				Properties: map[string]spec.Schema{
 					"featureGates": {
 						SchemaProps: spec.SchemaProps{
-							Description: "FeatureGates is the list of experimental features to enable. Defaults to none",
+							Description: "FeatureGates is the list of experimental features to enable. It is recommended to use the new FeatureGatesMap field instead, which allows better control.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: "",
 										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"featureGatesMap": {
+						SchemaProps: spec.SchemaProps{
+							Description: "FeatureGatesMap is a map of experimental features to either enable or disable. If a feature is being defined in both FeatureGates and FeatureGatesMap, the feature in FeatureGatesMap will take precedence.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: false,
+										Type:    []string{"boolean"},
 										Format:  "",
 									},
 								},

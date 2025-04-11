@@ -135,7 +135,7 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 	if ar.Request.Operation == admissionv1.Create {
 		clusterCfg := admitter.ClusterConfig.GetConfig()
 		if devCfg := clusterCfg.DeveloperConfiguration; devCfg != nil {
-			if causes = featuregate.ValidateFeatureGates(devCfg.FeatureGates, &vm.Spec.Template.Spec); len(causes) > 0 {
+			if causes = featuregate.ValidateFeatureGates(virtconfig.GetEnabledFeatureGates(devCfg), &vm.Spec.Template.Spec); len(causes) > 0 {
 				return webhookutils.ToAdmissionResponse(causes)
 			}
 		}
