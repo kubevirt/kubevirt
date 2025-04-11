@@ -7,7 +7,6 @@ import (
 
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
-	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -54,7 +53,7 @@ const (
 	dictAnnotationPathTemplate = annotationPathTemplate + "/cdi.kubevirt.io~1storage.bind.immediate.requested"
 )
 
-func (hcm *HyperConvergedMutator) mutateHyperConverged(ctx context.Context, req admission.Request) admission.Response {
+func (hcm *HyperConvergedMutator) mutateHyperConverged(_ context.Context, req admission.Request) admission.Response {
 	hc := &hcov1beta1.HyperConverged{}
 	err := hcm.decoder.Decode(req, hc)
 	if err != nil {
@@ -79,7 +78,7 @@ func (hcm *HyperConvergedMutator) mutateHyperConverged(ctx context.Context, req 
 		}
 	}
 
-	patches = mutateEvictionStrategy(ctx, hcm.cli, hc, patches)
+	patches = mutateEvictionStrategy(hc, patches)
 
 	if hc.Spec.MediatedDevicesConfiguration != nil {
 		if len(hc.Spec.MediatedDevicesConfiguration.MediatedDevicesTypes) > 0 && len(hc.Spec.MediatedDevicesConfiguration.MediatedDeviceTypes) == 0 { //nolint SA1019
@@ -107,36 +106,20 @@ func (hcm *HyperConvergedMutator) mutateHyperConverged(ctx context.Context, req 
 	return admission.Allowed("")
 }
 
-func mutateEvictionStrategy(ctx context.Context, cli client.Client, hc *hcov1beta1.HyperConverged, patches []jsonpatch.JsonPatchOperation) []jsonpatch.JsonPatchOperation {
+func mutateEvictionStrategy(hc *hcov1beta1.HyperConverged, patches []jsonpatch.JsonPatchOperation) []jsonpatch.JsonPatchOperation {
 	if hc.Status.InfrastructureHighlyAvailable == nil || hc.Spec.EvictionStrategy != nil { // New HyperConverged CR
 		return patches
 	}
 
-	workerNodes := &corev1.NodeList{}
-	err := cli.List(ctx, workerNodes, client.MatchingLabels{"node-role.kubernetes.io/worker": ""})
-	if err != nil {
-		hcMutatorLogger.Error(err, "Failed to list worker nodes")
-		return patches
-	}
-
-	allArm64 := true
-	for _, node := range workerNodes.Items {
-		arch, found := node.Labels["kubernetes.io/arch"]
-		if !found || arch != "arm64" {
-			allArm64 = false
-			break
-		}
-	}
-
-	evictionStrategy := kubevirtcorev1.EvictionStrategyNone
-	if !allArm64 && hc.Status.InfrastructureHighlyAvailable != nil && *hc.Status.InfrastructureHighlyAvailable {
-		evictionStrategy = kubevirtcorev1.EvictionStrategyLiveMigrate
+	var value = kubevirtcorev1.EvictionStrategyNone
+	if *hc.Status.InfrastructureHighlyAvailable {
+		value = kubevirtcorev1.EvictionStrategyLiveMigrate
 	}
 
 	patches = append(patches, jsonpatch.JsonPatchOperation{
 		Operation: "replace",
 		Path:      "/spec/evictionStrategy",
-		Value:     evictionStrategy,
+		Value:     value,
 	})
 
 	return patches
