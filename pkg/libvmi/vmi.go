@@ -39,7 +39,6 @@ type Option func(vmi *v1.VirtualMachineInstance)
 func New(opts ...Option) *v1.VirtualMachineInstance {
 	vmi := baseVmi(randName())
 
-	WithTerminationGracePeriod(0)(vmi)
 	for _, f := range opts {
 		f(vmi)
 	}
@@ -79,12 +78,14 @@ func WithAnnotation(key, value string) Option {
 	}
 }
 
+// WithName sets the name of the VMI
 func WithName(name string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Name = name
 	}
 }
 
+// WithNamespace sets the namespace of the VMI
 func WithNamespace(namespace string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Namespace = namespace
@@ -299,11 +300,15 @@ func WithUID(uid types.UID) Option {
 }
 
 func baseVmi(name string) *v1.VirtualMachineInstance {
-	vmi := v1.NewVMIReferenceFromNameWithNS("", name)
-	vmi.Spec = v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}
-	vmi.TypeMeta = k8smetav1.TypeMeta{
-		APIVersion: v1.GroupVersion.String(),
-		Kind:       "VirtualMachineInstance",
+	vmi := &v1.VirtualMachineInstance{
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name: name,
+		},
+		TypeMeta: k8smetav1.TypeMeta{
+			APIVersion: v1.GroupVersion.String(),
+			Kind:       "VirtualMachineInstance",
+		},
+		Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}},
 	}
 
 	for _, opt := range defaultOptions {
