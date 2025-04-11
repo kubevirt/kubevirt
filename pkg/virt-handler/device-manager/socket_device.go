@@ -160,9 +160,9 @@ func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int,
 			Health: pluginapi.Healthy,
 		})
 	}
-	if err := dpi.setSocketDirectoryPermissions(); err != nil {
-		return nil, err
-	}
+	//	if err := dpi.setSocketDirectoryPermissions(); err != nil {
+	//		return nil, err
+	//	}
 	if err := dpi.setSocketPermissions(); err != nil {
 		return nil, err
 	}
