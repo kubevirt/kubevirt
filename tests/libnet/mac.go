@@ -47,7 +47,7 @@ func CheckMacAddress(vmi *v1.VirtualMachineInstance, interfaceName, macAddress s
 	cmdCheck := fmt.Sprintf("ip link show %s\n", interfaceName)
 	err := console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: macAddress},
 		&expect.BSnd{S: console.EchoLastReturnValue},

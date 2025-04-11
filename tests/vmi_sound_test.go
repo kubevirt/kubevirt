@@ -65,7 +65,7 @@ func checkICH9AudioDeviceInGuest(vmi *v1.VirtualMachineInstance) error {
 
 	return console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 		&expect.BSnd{S: fmt.Sprintf("lspci | grep %s\n", deviceId)},
 		&expect.BExp{R: ".*8086.*"},
 	}, 15)

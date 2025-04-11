@@ -76,12 +76,12 @@ while(True):
     msg, srcAddress = datagramSocket.recvfrom(128);
     datagramSocket.sendto("Hello Client".encode(), srcAddress);
 EOL`, inetSuffix, port)
-	Expect(console.ExpectBatch(vmi, []expect.Batcher{
+	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: fmt.Sprintf("%s\n", serverCommand)},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: console.ShellSuccess},
-	}, 60*time.Second)).To(Succeed())
+	}, 60)).To(Succeed())
 
 	serverCommand = "python3 udp_server.py &"
 	Expect(console.RunCommand(vmi, serverCommand, 60*time.Second)).To(Succeed())

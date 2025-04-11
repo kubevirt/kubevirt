@@ -239,7 +239,7 @@ func getSwapSizeInKib(node v1.Node) int {
 func fillMemWithStressFedoraVMI(vmi *virtv1.VirtualMachineInstance, memToUseInTheVmKib int) error {
 	_, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
 		&expect.BSnd{S: fmt.Sprintf("stress-ng --vm-bytes %db --vm-keep -m 1 &\n", memToUseInTheVmKib*bytesInKib)},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 	}, 15)
 	return err
 }

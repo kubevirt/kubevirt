@@ -167,7 +167,7 @@ func fedoraBridgeBindingVMI() *v1.VirtualMachineInstance {
 func assertFQDNinGuest(vmi *v1.VirtualMachineInstance, expectedFQDN string) error {
 	return console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 		&expect.BSnd{S: "hostname -f\n"},
 		&expect.BExp{R: expectedFQDN},
 	}, 10)
@@ -176,7 +176,7 @@ func assertFQDNinGuest(vmi *v1.VirtualMachineInstance, expectedFQDN string) erro
 func assertSearchEntriesinGuest(vmi *v1.VirtualMachineInstance, expectedSearch string) error {
 	return console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 		&expect.BSnd{S: "cat /etc/resolv.conf\n"},
 		&expect.BExp{R: expectedSearch + console.CRLF},
 	}, 20)

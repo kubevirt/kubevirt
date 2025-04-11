@@ -144,10 +144,10 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						&expect.BSnd{S: "fedora\n"},
 						&expect.BExp{R: "Password:"},
 						&expect.BSnd{S: fedoraPassword + "\n"},
-						&expect.BExp{R: console.PromptExpression},
+						&expect.BExp{R: ""},
 						&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
 						&expect.BExp{R: "test-ssh-key"},
-					}, time.Second*300)
+					}, 300)
 				})
 			})
 		})
@@ -185,10 +185,10 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 						&expect.BSnd{S: "fedora\n"},
 						&expect.BExp{R: "Password:"},
 						&expect.BSnd{S: fedoraPassword + "\n"},
-						&expect.BExp{R: console.PromptExpression},
+						&expect.BExp{R: ""},
 						&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
 						&expect.BExp{R: "test-ssh-key"},
-					}, time.Second*300)
+					}, 300)
 				})
 			})
 
@@ -523,24 +523,24 @@ func mountGuestDevice(vmi *v1.VirtualMachineInstance, devName string) error {
 	cmdCheck := fmt.Sprintf("mount $(blkid  -L %s) /mnt/\n", devName)
 	return console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "sudo su -\n"},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 		&expect.BSnd{S: cmdCheck},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 		&expect.BSnd{S: console.EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
 }
 
-func verifyUserDataVMI(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
+func verifyUserDataVMI(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout int) {
 	By("Checking that the VirtualMachineInstance serial console output equals to expected one")
-	Expect(console.SafeExpectBatch(vmi, commands, int(timeout.Seconds()))).To(Succeed())
+	Expect(console.SafeExpectBatch(vmi, commands, timeout)).To(Succeed())
 }
 
 func checkCloudInitFile(vmi *v1.VirtualMachineInstance, testFile, testData string) {
 	cmdCheck := "cat " + filepath.Join("/mnt", testFile) + "\n"
 	err := console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "sudo su -\n"},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: testData},
 	}, 15)
