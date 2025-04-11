@@ -100,6 +100,7 @@ func defaultCopyPolicyFunc(policyName string, dir string) (err error) {
 	return nil
 }
 
+//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 type SELinux interface {
 	Mode() string
 	IsPermissive() bool
