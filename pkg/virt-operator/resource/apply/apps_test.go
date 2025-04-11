@@ -327,27 +327,15 @@ var _ = Describe("Apply Apps", func() {
 				Registry:        Registry,
 				KubeVirtVersion: Version,
 			}
-			daemonSet = components.NewHandlerDaemonSet(
-				Namespace,
-				virtHandlerConfig.GetImageRegistry(),
-				virtHandlerConfig.GetImagePrefix(),
-				virtHandlerConfig.GetHandlerVersion(),
-				"",
-				"",
-				"",
-				"",
-				virtHandlerConfig.GetLauncherVersion(),
-				virtHandlerConfig.GetPrHelperVersion(),
-				virtHandlerConfig.VirtHandlerImage,
-				virtHandlerConfig.VirtLauncherImage,
-				virtHandlerConfig.PrHelperImage,
-				virtHandlerConfig.SidecarShimImage,
-				virtHandlerConfig.GetImagePullPolicy(),
-				virtHandlerConfig.GetImagePullSecrets(),
-				nil,
-				virtHandlerConfig.GetVerbosity(),
-				virtHandlerConfig.GetExtraEnv(),
-				false)
+
+			virtHandlerConfig.Namespace = Namespace
+			virtHandlerConfig.AdditionalProperties[util.ProductVersionKey] = ""
+			virtHandlerConfig.AdditionalProperties[util.ProductNameKey] = ""
+			virtHandlerConfig.AdditionalProperties[util.ProductComponentKey] = ""
+			virtHandlerConfig.PassthroughEnvVars = nil
+
+			virtHandlerConfig.GetSidecarShimVersion()
+			daemonSet = components.NewHandlerDaemonSet(virtHandlerConfig)
 			markHandlerReady(daemonSet)
 			daemonSet.UID = "random-id"
 		})
