@@ -31,6 +31,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
@@ -163,6 +164,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	DescribeTable("should apply defaults on VM create", func(arch string, result string) {
 		vmSpec, _ := getVMSpecMetaFromResponse(arch)
 		Expect(vmSpec.Template.Spec.Domain.Machine.Type).To(Equal(result))
+		Expect(vmSpec.Template.Spec.Domain.Firmware.UUID).ToNot(BeNil())
 	},
 		Entry("ppc64le", "ppc64le", "pseries"),
 		Entry("arm64", "arm64", "virt"),
@@ -676,6 +678,47 @@ var _ = Describe("VirtualMachine Mutator", func() {
 				resp := getResponseFromVMUpdate(oldVM, newVM)
 				Expect(resp.Allowed).To(BeFalse())
 			})
+		})
+
+		It("should assign new UUID when VM template spec lacks one on update", func() {
+			oldVM.Spec.Template.Spec.Domain.Firmware = nil
+			newVM.Spec.Template.Spec.Domain.Firmware = nil
+
+			resp := getResponseFromVMUpdate(oldVM, newVM)
+			Expect(resp.Allowed).To(BeTrue())
+
+			vmSpec := &v1.VirtualMachineSpec{}
+			vmMeta := &k8smetav1.ObjectMeta{}
+			patchOps := []patch.PatchOperation{
+				{Value: vmSpec},
+				{Value: vmMeta},
+			}
+			err := json.Unmarshal(resp.Patch, &patchOps)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(patchOps).NotTo(BeEmpty())
+			Expect(vmSpec.Template.Spec.Domain.Firmware).ToNot(BeNil())
+			Expect(vmSpec.Template.Spec.Domain.Firmware.UUID).ToNot(BeEmpty())
+		})
+
+		It("should preserve existing UUID when VM template spec has one", func() {
+			testUUID := types.UID("existing-test-uid")
+			newUUID := types.UID("new-test-uid")
+			oldVM.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{UUID: testUUID}
+			newVM.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{UUID: newUUID}
+
+			resp := getResponseFromVMUpdate(oldVM, newVM)
+			Expect(resp.Allowed).To(BeTrue())
+
+			vmSpec := &v1.VirtualMachineSpec{}
+			vmMeta := &k8smetav1.ObjectMeta{}
+			patchOps := []patch.PatchOperation{
+				{Value: vmSpec},
+				{Value: vmMeta},
+			}
+			err := json.Unmarshal(resp.Patch, &patchOps)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmSpec.Template.Spec.Domain.Firmware).ToNot(BeNil())
+			Expect(vmSpec.Template.Spec.Domain.Firmware.UUID).To(Equal(newUUID))
 		})
 	})
 

@@ -170,6 +170,7 @@ var _ = Describe("Application", func() {
 			nil,
 			instancetypecontroller.NewMockController(),
 		)
+		app.firmwareController, _ = vm.NewFirmwareController(vmInformer, virtClient, recorder)
 		app.migrationController, _ = migration.NewController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			vmiInformer,
 			podInformer,
