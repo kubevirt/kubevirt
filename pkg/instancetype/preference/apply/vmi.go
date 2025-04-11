@@ -50,3 +50,14 @@ func (a *vmiApplier) Apply(
 	applyTerminationGracePeriodSeconds(preferenceSpec, vmiSpec)
 	applyPreferenceAnnotations(preferenceSpec.Annotations, vmiMetadata)
 }
+
+type InterfaceApplier struct{}
+
+func (i *InterfaceApplier) Apply(
+	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+	spec *virtv1.VirtualMachineInstanceSpec,
+) *virtv1.VirtualMachineInstanceSpec {
+	specCopy := spec.DeepCopy()
+	applyInterfacePreferences(preferenceSpec, specCopy)
+	return specCopy
+}
