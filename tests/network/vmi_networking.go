@@ -684,7 +684,13 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			configureIpv6 := func(vmi *v1.VirtualMachineInstance) error {
 				networkCIDR := api.DefaultVMIpv6CIDR
 
-				err := console.RunCommand(vmi, "dhclient -6 eth0", 30*time.Second)
+				err := console.RunCommand(
+					vmi,
+					"nmcli con modify \"$(nmcli -g NAME con show)\" ipv6.method dhcp", 5*time.Second)
+				if err != nil {
+					return err
+				}
+				err = console.RunCommand(vmi, "nmcli con up \"$(nmcli -g NAME con show)\"", 30*time.Second)
 				if err != nil {
 					return err
 				}
@@ -707,8 +713,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				networkData, err := cloudinit.NewNetworkData(
 					cloudinit.WithEthernet("eth0",
 						cloudinit.WithDHCP4Enabled(),
-						cloudinit.WithDHCP6Enabled(),
-						cloudinit.WithAddresses(""), // This is a workaround o make fedora client to configure local IPv6
+						cloudinit.WithDHCP6Disabled(),
 					),
 				)
 				Expect(err).ToNot(HaveOccurred())
