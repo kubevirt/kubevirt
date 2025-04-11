@@ -36,7 +36,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
 
 	"github.com/emicklei/go-restful/v3"
-	"github.com/golang/glog"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -210,7 +209,8 @@ func (app *virtHandlerApp) Run() {
 
 	app.namespace, err = clientutil.GetNamespace()
 	if err != nil {
-		glog.Fatalf("Error searching for namespace: %v", err)
+		logger.Criticalf("Error searching for namespace: %v", err)
+		os.Exit(2)
 	}
 
 	go func() {
@@ -256,7 +256,8 @@ func (app *virtHandlerApp) Run() {
 	containerdisk.SetKubeletPodsDirectory(app.KubeletPodsDir)
 
 	if err := app.prepareCertManager(); err != nil {
-		glog.Fatalf("Error preparing the certificate manager: %v", err)
+		logger.Criticalf("Error preparing the certificate manager: %v", err)
+		os.Exit(2)
 	}
 
 	podIsolationDetector := isolation.NewSocketBasedIsolationDetector(app.VirtShareDir)
@@ -270,7 +271,8 @@ func (app *virtHandlerApp) Run() {
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldInstallKubevirtSeccompProfile)
 
 	if err := app.setupTLS(factory); err != nil {
-		glog.Fatalf("Error constructing migration tls config: %v", err)
+		logger.Criticalf("Error constructing migration tls config: %v", err)
+		os.Exit(2)
 	}
 	vsockMgr := vsock.NewVSOCKHypervisorService(1, app.caManager)
 
