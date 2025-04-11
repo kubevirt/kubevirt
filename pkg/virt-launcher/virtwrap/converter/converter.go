@@ -1445,8 +1445,13 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		return err
 	}
 
-	// Set SEV launch security parameters: https://libvirt.org/formatdomain.html#launch-security
 	if c.UseLaunchSecurity {
+		controllerDriver = &api.ControllerDriver{
+			IOMMU: "on",
+		}
+	}
+	// Set SEV launch security parameters: https://libvirt.org/formatdomain.html#launch-security
+	if util.IsSEVVMI(vmi) {
 		sevPolicyBits := launchsecurity.SEVPolicyToBits(vmi.Spec.Domain.LaunchSecurity.SEV.Policy)
 		// Cbitpos and ReducedPhysBits will be filled automatically by libvirt from the domain capabilities
 		domain.Spec.LaunchSecurity = &api.LaunchSecurity{
@@ -1455,8 +1460,9 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			DHCert:  vmi.Spec.Domain.LaunchSecurity.SEV.DHCert,
 			Session: vmi.Spec.Domain.LaunchSecurity.SEV.Session,
 		}
-		controllerDriver = &api.ControllerDriver{
-			IOMMU: "on",
+	} else if util.IsSecureExecutionVMI(vmi) {
+		domain.Spec.LaunchSecurity = &api.LaunchSecurity{
+			Type: "s390-pv",
 		}
 	}
 	if c.SMBios != nil {

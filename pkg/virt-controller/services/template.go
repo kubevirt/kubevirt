@@ -791,7 +791,7 @@ func (t *templateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 		computeContainerOpts = append(computeContainerOpts, WithNonRoot(userId))
 		computeContainerOpts = append(computeContainerOpts, WithDropALLCapabilities())
 	}
-	if t.IsPPC64() {
+	if t.IsPPC64() || util.IsSecureExecutionVMI(vmi) {
 		computeContainerOpts = append(computeContainerOpts, WithPrivileged())
 	}
 	if vmi.Spec.ReadinessProbe != nil {
