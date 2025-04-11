@@ -1243,6 +1243,31 @@ var _ = Describe("VirtualMachineInstance", func() {
 				controller.hotplugVolumeMounter = mockHotplugVolumeMounter
 			})
 
+			It("should not sync if hotplug disks not ready", func() {
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.Phase = v1.Scheduled
+				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+					Name: "test",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name:         "test",
+							Hotpluggable: true,
+						},
+					},
+				})
+				vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, v1.VolumeStatus{
+					Name:          "test",
+					HotplugVolume: &v1.HotplugVolumeStatus{},
+				})
+				addVMI(vmi)
+				createVMI(vmi)
+				mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
+				mockHotplugVolumeMounter.EXPECT().IsMounted(vmi, "test", gomock.Any()).Return(false, nil)
+
+				controller.Execute()
+			})
+
 			It("should call mount if VMI is scheduled to run", func() {
 				vmi := api2.NewMinimalVMI("testvmi")
 				vmi.UID = vmiTestUUID
