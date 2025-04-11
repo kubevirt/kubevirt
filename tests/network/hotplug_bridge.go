@@ -163,16 +163,22 @@ var _ = Describe(SIG("bridge nic-hotplug", func() {
 				},
 			}
 
+			networkData, err := cloudinit.NewNetworkData(
+				cloudinit.WithEthernet("eth1",
+					cloudinit.WithAddresses(ip2+subnetMask),
+				),
+			)
+			Expect(err).NotTo(HaveOccurred())
+
 			anotherVmi := libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(iface),
 				libvmi.WithNetwork(&net),
-				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(
-					cloudinit.CreateNetworkDataWithStaticIPsByIface("eth1", ip2+subnetMask),
-				)),
-				libvmi.WithNodeAffinityFor(hotPluggedVMI.Status.NodeName))
-			anotherVmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(anotherVmi)).Create(context.Background(), anotherVmi, metav1.CreateOptions{})
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
+				libvmi.WithNodeAffinityFor(hotPluggedVMI.Status.NodeName),
+			)
+			anotherVmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(anotherVmi)).Create(context.Background(), anotherVmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(matcher.ThisVMI(anotherVmi)).WithTimeout(6 * time.Minute).WithPolling(3 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			Expect(console.LoginToFedora(anotherVmi)).To(Succeed())
