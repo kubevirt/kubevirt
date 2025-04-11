@@ -38,13 +38,13 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
-	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	"kubevirt.io/client-go/testing"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	testutils "kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
@@ -276,10 +276,11 @@ var _ = Describe("Pool", func() {
 
 			vm = injectPoolRevisionLabelsIntoVM(vm, poolRevision.Name)
 
-			vmi := api.NewMinimalVMI(vm.Name)
+			vmi := libvmi.New(
+				libvmi.WithName(vm.Name),
+				libvmi.WithNamespace(vm.Namespace),
+			)
 			vmi.Spec = vm.Spec.Template.Spec
-			vmi.Name = vm.Name
-			vmi.Namespace = vm.Namespace
 			vmi.Labels = vm.Spec.Template.ObjectMeta.Labels
 			vmi.OwnerReferences = []metav1.OwnerReference{{
 				APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
@@ -324,23 +325,20 @@ var _ = Describe("Pool", func() {
 			pool, vm := DefaultPool(1)
 			pool.Status.Replicas = 1
 			pool.Status.ReadyReplicas = 1
-
 			oldPoolRevision := createPoolRevision(pool)
-
 			pool.Generation = 123
-
-			pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels = map[string]string{}
-			pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels["newkey"] = "newval"
+			pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels = map[string]string{
+				"newkey": "newval",
+			}
 			newPoolRevision := createPoolRevision(pool)
-
-			vm = injectPoolRevisionLabelsIntoVM(vm, newPoolRevision.Name)
 			vm.Name = fmt.Sprintf("%s-0", pool.Name)
+			vm = injectPoolRevisionLabelsIntoVM(vm, newPoolRevision.Name)
 			markVmAsReady(vm)
-
-			vmi := api.NewMinimalVMI(vm.Name)
+			vmi := libvmi.New(
+				libvmi.WithName(vm.Name),
+				libvmi.WithNamespace(vm.Namespace),
+			)
 			vmi.Spec = vm.Spec.Template.Spec
-			vmi.Name = vm.Name
-			vmi.Namespace = vm.Namespace
 			vmi.Labels = maps.Clone(vm.Spec.Template.ObjectMeta.Labels)
 			vmi.OwnerReferences = []metav1.OwnerReference{{
 				APIVersion:         v1.VirtualMachineGroupVersionKind.GroupVersion().String(),
@@ -800,7 +798,9 @@ func PoolFromVM(name string, vm *v1.VirtualMachine, replicas int32) *poolv1.Virt
 }
 
 func DefaultPool(replicas int32) (*poolv1.VirtualMachinePool, *v1.VirtualMachine) {
-	vmi := api.NewMinimalVMI("testvmi")
+	vmi := libvmi.New(
+		libvmi.WithName("testvmi"),
+	)
 	vmi.Labels = map[string]string{}
 	vm := watchtesting.VirtualMachineFromVMI(vmi.Name, vmi, true)
 	vm.Labels = map[string]string{}
