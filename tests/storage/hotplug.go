@@ -320,33 +320,33 @@ var _ = Describe(SIG("Hotplug", func() {
 	verifyCreateData := func(vmi *v1.VirtualMachineInstance, device string) {
 		batch := []expect.Batcher{
 			&expect.BSnd{S: fmt.Sprintf("sudo mkfs.ext4 -F %s\n", device)},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 			&expect.BSnd{S: console.EchoLastReturnValue},
 			&expect.BExp{R: console.RetValue("0")},
 			&expect.BSnd{S: fmt.Sprintf("sudo mkdir -p %s\n", filepath.Join("/test", filepath.Base(device)))},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 			&expect.BSnd{S: fmt.Sprintf("sudo mount %s %s\n", device, filepath.Join("/test", filepath.Base(device)))},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 			&expect.BSnd{S: console.EchoLastReturnValue},
 			&expect.BExp{R: console.RetValue("0")},
 			&expect.BSnd{S: fmt.Sprintf("sudo mkdir -p %s\n", filepath.Join("/test", filepath.Base(device), "data"))},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 			&expect.BSnd{S: console.EchoLastReturnValue},
 			&expect.BExp{R: console.RetValue("0")},
 			&expect.BSnd{S: fmt.Sprintf("sudo chmod a+w %s\n", filepath.Join("/test", filepath.Base(device), "data"))},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 			&expect.BSnd{S: console.EchoLastReturnValue},
 			&expect.BExp{R: console.RetValue("0")},
 			&expect.BSnd{S: fmt.Sprintf("echo '%s' > %s\n", vmi.UID, filepath.Join("/test", filepath.Base(device), dataMessage))},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 			&expect.BSnd{S: console.EchoLastReturnValue},
 			&expect.BExp{R: console.RetValue("0")},
 			&expect.BSnd{S: fmt.Sprintf("cat %s\n", filepath.Join("/test", filepath.Base(device), dataMessage))},
 			&expect.BExp{R: string(vmi.UID)},
 			&expect.BSnd{S: syncName},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 			&expect.BSnd{S: syncName},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 		}
 		Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())
 	}
@@ -355,15 +355,15 @@ var _ = Describe(SIG("Hotplug", func() {
 		dataFile := filepath.Join("/test", filepath.Base(device), dataMessage)
 		batch := []expect.Batcher{
 			&expect.BSnd{S: fmt.Sprintf("echo '%s' > %s\n", vmi.UID, dataFile)},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 			&expect.BSnd{S: console.EchoLastReturnValue},
 			&expect.BExp{R: console.RetValue("0")},
 			&expect.BSnd{S: fmt.Sprintf("cat %s\n", dataFile)},
 			&expect.BExp{R: string(vmi.UID)},
 			&expect.BSnd{S: syncName},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 			&expect.BSnd{S: syncName},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 		}
 		Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())
 	}

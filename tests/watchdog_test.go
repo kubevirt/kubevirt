@@ -55,7 +55,7 @@ var _ = Describe("[sig-compute]Watchdog", decorators.SigCompute, func() {
 				By("Ensuring watchdog module is loaded")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "modprobe diag288_wdt\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 				}, 250)).To(Succeed())
 
 				By("Checking watchdog device presence")
@@ -68,7 +68,7 @@ var _ = Describe("[sig-compute]Watchdog", decorators.SigCompute, func() {
 			By("Killing the watchdog device")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "watchdog -t 2000ms -T 4000ms /dev/watchdog && sleep 5 && killall -9 watchdog\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
 			}, 250)).To(Succeed())

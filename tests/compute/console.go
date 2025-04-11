@@ -46,10 +46,10 @@ var _ = Describe(SIG("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@r
 
 	expectConsoleOutput := func(vmi *v1.VirtualMachineInstance, expected string) {
 		By("Checking that the console output equals to expected one")
-		ExpectWithOffset(1, console.SafeExpectBatch(vmi, []expect.Batcher{
+		ExpectWithOffset(1, console.ExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
 			&expect.BExp{R: expected},
-		}, 120)).To(Succeed())
+		}, 2*time.Minute)).To(Succeed())
 	}
 
 	Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {

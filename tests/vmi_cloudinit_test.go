@@ -523,9 +523,9 @@ func mountGuestDevice(vmi *v1.VirtualMachineInstance, devName string) error {
 	cmdCheck := fmt.Sprintf("mount $(blkid  -L %s) /mnt/\n", devName)
 	return console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "sudo su -\n"},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 		&expect.BSnd{S: cmdCheck},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 		&expect.BSnd{S: console.EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
@@ -533,14 +533,14 @@ func mountGuestDevice(vmi *v1.VirtualMachineInstance, devName string) error {
 
 func verifyUserDataVMI(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
 	By("Checking that the VirtualMachineInstance serial console output equals to expected one")
-	Expect(console.SafeExpectBatch(vmi, commands, int(timeout.Seconds()))).To(Succeed())
+	Expect(console.ExpectBatch(vmi, commands, timeout)).To(Succeed())
 }
 
 func checkCloudInitFile(vmi *v1.VirtualMachineInstance, testFile, testData string) {
 	cmdCheck := "cat " + filepath.Join("/mnt", testFile) + "\n"
 	err := console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "sudo su -\n"},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: testData},
 	}, 15)

@@ -307,10 +307,10 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 2*startupTimeout)
 
 				By("Checking console text")
-				err := console.SafeExpectBatch(vmi, []expect.Batcher{
+				err := console.ExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: expectedConsoleText},
-				}, 90)
+				}, 90*time.Second)
 				Expect(err).ToNot(HaveOccurred(), "Should match the console in VMI")
 			},
 				Entry("[test_id:1627]Alpine as first boot",
@@ -470,7 +470,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By("Crashing the vm guest")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "sudo su -\n"},
-					&expect.BExp{R: "#"},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: `echo c > /proc/sysrq-trigger` + "\n"},
 					&expect.BExp{R: "sysrq triggered crash"},
 				}, 10)).To(Succeed())

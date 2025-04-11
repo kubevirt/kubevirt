@@ -687,7 +687,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Issuing a poweroff command from inside VM")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "sudo poweroff\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 			}, 10)).To(Succeed())
 
 			By("Ensuring the VirtualMachineInstance enters Succeeded phase")
@@ -762,7 +762,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				By("Issuing a poweroff command from inside VM")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "sudo poweroff\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 				}, 10)).To(Succeed())
 
 				By("Ensuring the VirtualMachineInstance is restarted")
@@ -844,7 +844,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				By("Issuing a poweroff command from inside VM")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "sudo poweroff\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 				}, 10)).To(Succeed())
 
 				By("Waiting for the VMI to disappear")

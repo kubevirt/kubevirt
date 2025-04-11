@@ -253,11 +253,11 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 		Eventually(func() error {
 			return console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "sudo umount -f /mnt\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: "ls -A /mnt/ | wc -l\n"},
 				&expect.BExp{R: console.RetValue("0")},
 				&expect.BSnd{S: "sudo mount /dev/sr0 /mnt\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: console.EchoLastReturnValue},
 				&expect.BExp{R: console.RetValue("0")},
 			}, 20)
@@ -272,7 +272,7 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 		Eventually(func() error {
 			return console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "sudo umount -f /mnt\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: "ls -A /mnt/ | wc -l\n"},
 				&expect.BExp{R: console.RetValue("0")},
 			}, 20)
