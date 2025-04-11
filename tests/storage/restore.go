@@ -825,7 +825,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 						&expect.BSnd{S: console.EchoLastReturnValue},
 						&expect.BExp{R: console.RetValue("0")},
 						&expect.BSnd{S: catTestDataMessageCmd},
-						&expect.BExp{R: string(vm.UID)},
+						&expect.BExp{R: string(vm.UID) + console.CRLF + ".*" + console.PromptExpression},
 						&expect.BSnd{S: syncName},
 						&expect.BExp{R: console.PromptExpression},
 						&expect.BSnd{S: syncName},
@@ -850,7 +850,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 							&expect.BExp{R: console.RetValue("0")},
 
 							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvread -s %d -C o 1\n", len(string(vm.UID)))},
-							&expect.BExp{R: string(vm.UID)},
+							&expect.BExp{R: string(vm.UID) + ".*" + console.PromptExpression},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 							&expect.BSnd{S: syncName},
@@ -893,13 +893,13 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 						&expect.BSnd{S: console.EchoLastReturnValue},
 						&expect.BExp{R: console.RetValue("0")},
 						&expect.BSnd{S: catTestDataMessageCmd},
-						&expect.BExp{R: string(vm.UID)},
+						&expect.BExp{R: string(vm.UID) + console.CRLF + ".*" + console.PromptExpression},
 						&expect.BSnd{S: fmt.Sprintf("echo '%s' > /test/data/message\n", snapshot.UID)},
 						&expect.BExp{R: console.PromptExpression},
 						&expect.BSnd{S: console.EchoLastReturnValue},
 						&expect.BExp{R: console.RetValue("0")},
 						&expect.BSnd{S: catTestDataMessageCmd},
-						&expect.BExp{R: string(snapshot.UID)},
+						&expect.BExp{R: string(snapshot.UID) + console.CRLF + ".*" + console.PromptExpression},
 						&expect.BSnd{S: syncName},
 						&expect.BExp{R: console.PromptExpression},
 						&expect.BSnd{S: syncName},
@@ -909,7 +909,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					if tpm {
 						batch = append(batch, []expect.Batcher{
 							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvread -s %d -C o 1\n", len(string(vm.UID)))},
-							&expect.BExp{R: string(vm.UID)},
+							&expect.BExp{R: string(vm.UID) + ".*" + console.PromptExpression},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvwrite -C o -i /test/data/message 1\n")},
@@ -957,7 +957,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 						&expect.BSnd{S: console.EchoLastReturnValue},
 						&expect.BExp{R: console.RetValue("0")},
 						&expect.BSnd{S: catTestDataMessageCmd},
-						&expect.BExp{R: string(vm.UID)},
+						&expect.BExp{R: string(vm.UID) + console.CRLF + ".*" + console.PromptExpression},
 						&expect.BSnd{S: console.EchoLastReturnValue},
 						&expect.BExp{R: console.RetValue("0")},
 					}...)
@@ -965,7 +965,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					if tpm {
 						batch = append(batch, []expect.Batcher{
 							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvread -s %d -C o 1\n", len(string(vm.UID)))},
-							&expect.BExp{R: string(vm.UID)},
+							&expect.BExp{R: string(vm.UID) + ".*" + console.PromptExpression},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 							&expect.BSnd{S: syncName},
