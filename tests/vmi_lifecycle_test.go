@@ -468,12 +468,12 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				defer cancel()
 
 				By("Crashing the vm guest")
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				Expect(console.ExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "sudo su -\n"},
-					&expect.BExp{R: ""},
+					&expect.BExp{R: "#"},
 					&expect.BSnd{S: `echo c > /proc/sysrq-trigger` + "\n"},
 					&expect.BExp{R: "sysrq triggered crash"},
-				}, 10)).To(Succeed())
+				}, 10*time.Second)).To(Succeed())
 
 				By("Waiting for the vm to be stopped")
 				event := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(15*time.Second).WaitFor(ctx, watcher.WarningEvent, v1.Stopped)
