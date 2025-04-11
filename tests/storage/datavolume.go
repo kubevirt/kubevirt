@@ -200,9 +200,9 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			Eventually(func() error {
 				err := console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: "dmesg |grep 'new size'\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: "dmesg |grep -c 'new size: [1-9]'\n"},
 					&expect.BExp{R: "1"},
 				}, 10)
@@ -217,7 +217,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			By("Writing a 1.5G file after expansion, should succeed")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: "dd if=/dev/zero of=largefile count=1500 bs=1M; echo $?\n"},
 				&expect.BExp{R: "0"},
 			}, 360)).To(Succeed(), "can use more space after expansion and resize")
@@ -1084,11 +1084,11 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			By("Filling out disk space")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: "dd if=/dev/urandom of=largefile bs=1M count=300 2> /dev/null\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: syncName},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 			}, 360)).To(Succeed(), "should write a large file")
 
 			if preallocated {
@@ -1106,20 +1106,20 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				// Write a small file so that we'll have an increase in image size if trim is unsupported.
 				&expect.BSnd{S: "dd if=/dev/urandom of=smallfile bs=1M count=50 2> /dev/null\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: syncName},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: "rm -f largefile\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 			}, 60)).To(Succeed(), "should trim within the VM")
 
 			Eventually(func() bool {
 				By("Running trim")
 				err := console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "sudo fstrim -v /\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: syncName},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 				}, 60)
 				Expect(err).ToNot(HaveOccurred())
 

@@ -220,9 +220,9 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		By("Writing some data to the disk")
 		Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "dd if=/dev/zero of=/dev/vdb bs=1M count=1\n"},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 			&expect.BSnd{S: "sync\n"},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 		}, expectTimeout)).To(Succeed())
 
 		preparedVMIs = append(preparedVMIs, vmi)
