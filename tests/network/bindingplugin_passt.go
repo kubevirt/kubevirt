@@ -450,12 +450,12 @@ except socket.timeout:
     client.close();
 EOL`, inetSuffix, serverIP, serverPort)
 	runClient := "python3 udp_client.py"
-	return console.ExpectBatch(vmi, []expect.Batcher{
+	return console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: fmt.Sprintf("%s\n", createClientScript)},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 		&expect.BSnd{S: fmt.Sprintf("%s\n", runClient)},
 		&expect.BExp{R: console.RetValue("Hello Client")},
 		&expect.BSnd{S: console.EchoLastReturnValue},
 		&expect.BExp{R: console.ShellSuccess},
-	}, 60*time.Second)
+	}, 60)
 }

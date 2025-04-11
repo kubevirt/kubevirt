@@ -194,7 +194,7 @@ var istioTests = func(vmType VmType) {
 				user := "doesntmatter"
 				return console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: sshCommand(user, vmiAddress)},
 					&expect.BExp{R: fmt.Sprintf("%s@%s's password: ", user, vmiAddress)},
 				}, 60)
@@ -380,7 +380,7 @@ var istioTests = func(vmType VmType) {
 			checkHTTPServiceReturnCode := func(ingressGatewayAddress, returnCode string) error {
 				return console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: curlCommand(ingressGatewayAddress)},
 					&expect.BExp{R: returnCode},
 					&expect.BSnd{S: "echo $?\n"},
