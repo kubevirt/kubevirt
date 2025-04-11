@@ -20,7 +20,9 @@
 package libvmi
 
 import (
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -50,5 +52,25 @@ func WithMaxGuest(memory string) Option {
 		}
 		quantity := resource.MustParse(memory)
 		vmi.Spec.Domain.Memory.MaxGuest = &quantity
+	}
+}
+
+// WithResourceMemory specifies the vmi memory resource.
+func WithResourceMemory(value string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Resources.Requests == nil {
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
+		}
+		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse(value)
+	}
+}
+
+// WithLimitMemory specifies the VMI memory limit.
+func WithLimitMemory(value string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Resources.Limits == nil {
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{}
+		}
+		vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] = resource.MustParse(value)
 	}
 }
