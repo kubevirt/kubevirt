@@ -151,7 +151,7 @@ func aggregateDataVolumesConditions(vmiCopy *v1.VirtualMachineInstance, dvs []*c
 		Status:  k8sv1.ConditionTrue,
 		Type:    v1.VirtualMachineInstanceDataVolumesReady,
 		Reason:  v1.VirtualMachineInstanceReasonAllDVsReady,
-		Message: "All of the VMI's DVs are bound and not running",
+		Message: "All of the VMI's DVs are bound and ready",
 	}
 
 	for _, dv := range dvs {
