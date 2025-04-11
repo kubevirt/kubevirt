@@ -1267,7 +1267,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				}
 
 				var err error
-				url := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)
+				url := cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)
 
 				storageClass, foundSC := libstorage.GetRWOFileSystemStorageClass()
 				if !foundSC {
