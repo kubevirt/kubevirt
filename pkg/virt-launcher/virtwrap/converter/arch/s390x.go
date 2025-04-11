@@ -105,3 +105,7 @@ func (converterS390X) ConvertWatchdog(source *v1.Watchdog, watchdog *api.Watchdo
 	}
 	return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", source.Name)
 }
+
+func (converterS390X) SupportPCIHole64Disabling() bool {
+	return false
+}

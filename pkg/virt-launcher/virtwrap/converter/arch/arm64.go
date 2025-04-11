@@ -115,3 +115,7 @@ func hasTabletDevice(vmi *v1.VirtualMachineInstance) bool {
 func (converterARM64) ConvertWatchdog(source *v1.Watchdog, watchdog *api.Watchdog) error {
 	return fmt.Errorf("watchdog is not supported on architecture ARM64")
 }
+
+func (converterARM64) SupportPCIHole64Disabling() bool {
+	return false
+}
