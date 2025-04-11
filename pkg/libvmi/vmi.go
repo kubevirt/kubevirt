@@ -105,6 +105,12 @@ func WithRng() Option {
 	}
 }
 
+func WithUID(uid string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.UID = types.UID(uid)
+	}
+}
+
 // WithWatchdog adds a watchdog to the vmi devices.
 func WithWatchdog(action v1.WatchdogAction, arch string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
