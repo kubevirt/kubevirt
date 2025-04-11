@@ -42,7 +42,3 @@ func HasDownwardMetricDisk(vmi *v1.VirtualMachineInstance) bool {
 func HasDevice(spec *v1.VirtualMachineInstanceSpec) bool {
 	return spec.Domain.Devices.DownwardMetrics != nil
 }
-
-func ChannelSocketPathOnHost(pid int) string {
-	return filepath.Join("/proc", strconv.Itoa(pid), "root", DownwardMetricsChannelSocket)
-}
