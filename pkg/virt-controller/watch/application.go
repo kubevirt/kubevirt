@@ -78,6 +78,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
+	draadmitter "kubevirt.io/kubevirt/pkg/dra/admitter"
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 
 	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
@@ -669,7 +670,10 @@ func (vca *VirtControllerApp) initCommon() {
 		netAnnotationsGenerator,
 		netcontrollers.UpdateVMIStatus,
 		func(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
-			return netadmitter.ValidateCreation(field, vmiSpec, clusterCfg)
+			statuses := netadmitter.ValidateCreation(field, vmiSpec, clusterCfg)
+			statuses = append(statuses, draadmitter.ValidateCreation(field, vmiSpec, clusterCfg)...)
+
+			return statuses
 		},
 	)
 	if err != nil {
