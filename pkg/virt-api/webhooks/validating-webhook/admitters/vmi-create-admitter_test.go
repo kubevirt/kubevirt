@@ -628,8 +628,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				Name: "testdisk",
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{},
-					CDRom: &v1.CDRomTarget{
-						Bus: v1.DiskBusSATA,
+					LUN: &v1.LunTarget{
+						Bus: v1.DiskBusSCSI,
 					},
 				},
 			})
@@ -1920,6 +1920,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					ContainerDisk: &v1.ContainerDiskSource{Image: "fake"},
 				},
 			})
+
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should allow cdrom without a volume", func() {
+			vmi := newBaseVmi(libvmi.WithEmptyCDRom(v1.DiskBusSCSI, "testdisk"))
 
 			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
 			Expect(causes).To(BeEmpty())

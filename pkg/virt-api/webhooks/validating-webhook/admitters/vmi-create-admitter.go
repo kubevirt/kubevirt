@@ -598,7 +598,7 @@ func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec
 
 		matchingVolume, volumeExists := volumeNameMap[disk.Name]
 
-		if !volumeExists {
+		if !volumeExists && disk.CDRom == nil {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf(nameOfTypeNotFoundMessagePattern, field.Child("domain", "devices", "disks").Index(idx).Child("Name").String(), disk.Name),
