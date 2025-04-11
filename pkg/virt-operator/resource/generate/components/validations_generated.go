@@ -13318,7 +13318,6 @@ var CRDsValidation map[string]string = map[string]string{
                 type: string
               lastTransitionTime:
                 format: date-time
-                nullable: true
                 type: string
               message:
                 type: string
