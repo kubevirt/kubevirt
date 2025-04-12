@@ -12,6 +12,9 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=dnses,scope=Cluster
 // +kubebuilder:subresource:status
+// +kubebuilder:subresource:status
+// +openshift:api-approved.openshift.io=https://github.com/openshift/api/pull/475
+// +openshift:file-pattern=cvoRunLevel=0000_70,operatorName=dns,operatorOrdering=00
 
 // DNS manages the CoreDNS component to provide a name resolution service
 // for pods and services in the cluster.
@@ -223,7 +226,7 @@ type DNSOverTLSConfig struct {
 	//
 	// + ---
 	// + Inspired by the DNS1123 patterns in Kubernetes: https://github.com/kubernetes/kubernetes/blob/7c46f40bdf89a437ecdbc01df45e235b5f6d9745/staging/src/k8s.io/apimachinery/pkg/util/validation/validation.go#L178-L218
-	// +kubebuilder:validation:Required
+	// +required
 	// +kubebuilder:validation:MaxLength=253
 	// +kubebuilder:validation:Pattern=`^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])(\.([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]))*$`
 	ServerName string `json:"serverName"`
@@ -290,6 +293,24 @@ type ForwardPlugin struct {
 	//
 	// +optional
 	TransportConfig DNSTransportConfig `json:"transportConfig,omitempty"`
+
+	// protocolStrategy specifies the protocol to use for upstream DNS
+	// requests.
+	// Valid values for protocolStrategy are "TCP" and omitted.
+	// When omitted, this means no opinion and the platform is left to choose
+	// a reasonable default, which is subject to change over time.
+	// The current default is to use the protocol of the original client request.
+	// "TCP" specifies that the platform should use TCP for all upstream DNS requests,
+	// even if the client request uses UDP.
+	// "TCP" is useful for UDP-specific issues such as those created by
+	// non-compliant upstream resolvers, but may consume more bandwidth or
+	// increase DNS response time. Note that protocolStrategy only affects
+	// the protocol of DNS requests that CoreDNS makes to upstream resolvers.
+	// It does not affect the protocol of DNS requests between clients and
+	// CoreDNS.
+	//
+	// +optional
+	ProtocolStrategy ProtocolStrategy `json:"protocolStrategy"`
 }
 
 // UpstreamResolvers defines a schema for configuring the CoreDNS forward plugin in the
@@ -298,7 +319,7 @@ type ForwardPlugin struct {
 // * At least one upstream should be specified.
 // * the default policy is Sequential
 type UpstreamResolvers struct {
-	// Upstreams is a list of resolvers to forward name queries for the "." domain.
+	// upstreams is a list of resolvers to forward name queries for the "." domain.
 	// Each instance of CoreDNS performs health checking of Upstreams. When a healthy upstream
 	// returns an error during the exchange, another resolver is tried from Upstreams. The
 	// Upstreams are selected in the order specified in Policy.
@@ -311,7 +332,7 @@ type UpstreamResolvers struct {
 	// +kubebuilder:default={{"type":"SystemResolvConf"}}
 	Upstreams []Upstream `json:"upstreams"`
 
-	// Policy is used to determine the order in which upstream servers are selected for querying.
+	// policy is used to determine the order in which upstream servers are selected for querying.
 	// Any one of the following values may be specified:
 	//
 	// * "Random" picks a random upstream server for each query.
@@ -332,41 +353,56 @@ type UpstreamResolvers struct {
 	//
 	// +optional
 	TransportConfig DNSTransportConfig `json:"transportConfig,omitempty"`
+
+	// protocolStrategy specifies the protocol to use for upstream DNS
+	// requests.
+	// Valid values for protocolStrategy are "TCP" and omitted.
+	// When omitted, this means no opinion and the platform is left to choose
+	// a reasonable default, which is subject to change over time.
+	// The current default is to use the protocol of the original client request.
+	// "TCP" specifies that the platform should use TCP for all upstream DNS requests,
+	// even if the client request uses UDP.
+	// "TCP" is useful for UDP-specific issues such as those created by
+	// non-compliant upstream resolvers, but may consume more bandwidth or
+	// increase DNS response time. Note that protocolStrategy only affects
+	// the protocol of DNS requests that CoreDNS makes to upstream resolvers.
+	// It does not affect the protocol of DNS requests between clients and
+	// CoreDNS.
+	//
+	// +optional
+	ProtocolStrategy ProtocolStrategy `json:"protocolStrategy"`
 }
 
 // Upstream can either be of type SystemResolvConf, or of type Network.
 //
-// * For an Upstream of type SystemResolvConf, no further fields are necessary:
-//   The upstream will be configured to use /etc/resolv.conf.
-// * For an Upstream of type Network, a NetworkResolver field needs to be defined
-//   with an IP address or IP:port if the upstream listens on a port other than 53.
+//   - For an Upstream of type SystemResolvConf, no further fields are necessary:
+//     The upstream will be configured to use /etc/resolv.conf.
+//   - For an Upstream of type Network, a NetworkResolver field needs to be defined
+//     with an IP address or IP:port if the upstream listens on a port other than 53.
 type Upstream struct {
 
-	// Type defines whether this upstream contains an IP/IP:port resolver or the local /etc/resolv.conf.
+	// type defines whether this upstream contains an IP/IP:port resolver or the local /etc/resolv.conf.
 	// Type accepts 2 possible values: SystemResolvConf or Network.
 	//
 	// * When SystemResolvConf is used, the Upstream structure does not require any further fields to be defined:
 	//   /etc/resolv.conf will be used
 	// * When Network is used, the Upstream structure must contain at least an Address
 	//
-	// +kubebuilder:validation:Required
 	// +required
 	Type UpstreamType `json:"type"`
 
-	// Address must be defined when Type is set to Network. It will be ignored otherwise.
+	// address must be defined when Type is set to Network. It will be ignored otherwise.
 	// It must be a valid ipv4 or ipv6 address.
 	//
 	// +optional
-	// +kubebuilder:validation:Optional
 	Address string `json:"address,omitempty"`
 
-	// Port may be defined when Type is set to Network. It will be ignored otherwise.
+	// port may be defined when Type is set to Network. It will be ignored otherwise.
 	// Port must be between 65535
 	//
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=65535
-	// +kubebuilder:validation:Optional
 	// +kubebuilder:default=53
 	Port uint32 `json:"port,omitempty"`
 }
@@ -377,6 +413,23 @@ type UpstreamType string
 const (
 	SystemResolveConfType UpstreamType = "SystemResolvConf"
 	NetworkResolverType   UpstreamType = "Network"
+)
+
+// ProtocolStrategy is a preference for the protocol to use for DNS queries.
+// + ---
+// + When consumers observe an unknown value, they should use the default strategy.
+// +kubebuilder:validation:Enum:=TCP;""
+type ProtocolStrategy string
+
+var (
+	// ProtocolStrategyDefault specifies no opinion for DNS protocol.
+	// If empty, the default behavior of CoreDNS is used. Currently, this means that CoreDNS uses the protocol of the
+	// originating client request as the upstream protocol.
+	// Note that the default behavior of CoreDNS is subject to change.
+	ProtocolStrategyDefault ProtocolStrategy = ""
+
+	// ProtocolStrategyTCP instructs CoreDNS to always use TCP, regardless of the originating client's request protocol.
+	ProtocolStrategyTCP ProtocolStrategy = "TCP"
 )
 
 // DNSNodePlacement describes the node scheduling configuration for DNS pods.
@@ -427,7 +480,6 @@ type DNSStatus struct {
 	//
 	// More info: https://kubernetes.io/docs/concepts/services-networking/service/#virtual-ips-and-service-proxies
 	//
-	// +kubebuilder:validation:Required
 	// +required
 	ClusterIP string `json:"clusterIP"`
 
@@ -438,7 +490,6 @@ type DNSStatus struct {
 	//
 	// More info: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service
 	//
-	// +kubebuilder:validation:Required
 	// +required
 	ClusterDomain string `json:"clusterDomain"`
 
@@ -458,7 +509,6 @@ type DNSStatus struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +kubebuilder:object:root=true
 
 // DNSList contains a list of DNS
 //

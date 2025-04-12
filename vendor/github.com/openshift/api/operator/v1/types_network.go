@@ -7,6 +7,11 @@ import (
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:path=networks,scope=Cluster
+// +kubebuilder:subresource:status
+// +openshift:api-approved.openshift.io=https://github.com/openshift/api/pull/475
+// +openshift:file-pattern=cvoRunLevel=0000_70,operatorName=network,operatorOrdering=01
 
 // Network describes the cluster's desired network configuration. It is
 // consumed by the cluster-network-operator.
@@ -48,17 +53,21 @@ type NetworkList struct {
 }
 
 // NetworkSpec is the top-level network configuration object.
+// +kubebuilder:validation:XValidation:rule="!has(self.defaultNetwork) || !has(self.defaultNetwork.ovnKubernetesConfig) || !has(self.defaultNetwork.ovnKubernetesConfig.gatewayConfig) || !has(self.defaultNetwork.ovnKubernetesConfig.gatewayConfig.ipForwarding) || self.defaultNetwork.ovnKubernetesConfig.gatewayConfig.ipForwarding == oldSelf.defaultNetwork.ovnKubernetesConfig.gatewayConfig.ipForwarding || self.defaultNetwork.ovnKubernetesConfig.gatewayConfig.ipForwarding == 'Restricted' || self.defaultNetwork.ovnKubernetesConfig.gatewayConfig.ipForwarding == 'Global'",message="invalid value for IPForwarding, valid values are 'Restricted' or 'Global'"
+// +openshift:validation:FeatureGateAwareXValidation:featureGate=RouteAdvertisements,rule="(has(self.additionalRoutingCapabilities) && ('FRR' in self.additionalRoutingCapabilities.providers)) || !has(self.defaultNetwork) || !has(self.defaultNetwork.ovnKubernetesConfig) || !has(self.defaultNetwork.ovnKubernetesConfig.routeAdvertisements) || self.defaultNetwork.ovnKubernetesConfig.routeAdvertisements != 'Enabled'",message="Route advertisements cannot be Enabled if 'FRR' routing capability provider is not available"
 type NetworkSpec struct {
 	OperatorSpec `json:",inline"`
 
 	// clusterNetwork is the IP address pool to use for pod IPs.
-	// Some network providers, e.g. OpenShift SDN, support multiple ClusterNetworks.
+	// Some network providers support multiple ClusterNetworks.
 	// Others only support one. This is equivalent to the cluster-cidr.
+	// +listType=atomic
 	ClusterNetwork []ClusterNetworkEntry `json:"clusterNetwork"`
 
 	// serviceNetwork is the ip address pool to use for Service IPs
 	// Currently, all existing network providers only support a single value
 	// here, but this is an array to allow for growth.
+	// +listType=atomic
 	ServiceNetwork []string `json:"serviceNetwork"`
 
 	// defaultNetwork is the "default" network that all pods will receive
@@ -66,11 +75,14 @@ type NetworkSpec struct {
 
 	// additionalNetworks is a list of extra networks to make available to pods
 	// when multiple networks are enabled.
+	// +listType=map
+	// +listMapKey=name
 	AdditionalNetworks []AdditionalNetworkDefinition `json:"additionalNetworks,omitempty"`
 
-	// disableMultiNetwork specifies whether or not multiple pod network
-	// support should be disabled. If unset, this property defaults to
-	// 'false' and multiple network support is enabled.
+	// disableMultiNetwork defaults to 'false' and this setting enables the pod multi-networking capability.
+	// disableMultiNetwork when set to 'true' at cluster install time does not install the components, typically the Multus CNI and the network-attachment-definition CRD,
+	// that enable the pod multi-networking capability. Setting the parameter to 'true' might be useful when you need install third-party CNI plugins,
+	// but these plugins are not supported by Red Hat. Changing the parameter value as a postinstallation cluster task has no effect.
 	DisableMultiNetwork *bool `json:"disableMultiNetwork,omitempty"`
 
 	// useMultiNetworkPolicy enables a controller which allows for
@@ -86,8 +98,8 @@ type NetworkSpec struct {
 	// deployKubeProxy specifies whether or not a standalone kube-proxy should
 	// be deployed by the operator. Some network providers include kube-proxy
 	// or similar functionality. If unset, the plugin will attempt to select
-	// the correct value, which is false when OpenShift SDN and ovn-kubernetes are
-	// used and true otherwise.
+	// the correct value, which is false when ovn-kubernetes is used and true
+	// otherwise.
 	// +optional
 	DeployKubeProxy *bool `json:"deployKubeProxy,omitempty"`
 
@@ -99,9 +111,9 @@ type NetworkSpec struct {
 	// +kubebuilder:default:=false
 	DisableNetworkDiagnostics bool `json:"disableNetworkDiagnostics"`
 
-	// kubeProxyConfig lets us configure desired proxy configuration.
-	// If not specified, sensible defaults will be chosen by OpenShift directly.
-	// Not consumed by all network providers - currently only openshift-sdn.
+	// kubeProxyConfig lets us configure desired proxy configuration, if
+	// deployKubeProxy is true. If not specified, sensible defaults will be chosen by
+	// OpenShift directly.
 	KubeProxyConfig *ProxyConfig `json:"kubeProxyConfig,omitempty"`
 
 	// exportNetworkFlows enables and configures the export of network flow metadata from the pod network
@@ -110,57 +122,91 @@ type NetworkSpec struct {
 	// +optional
 	ExportNetworkFlows *ExportNetworkFlows `json:"exportNetworkFlows,omitempty"`
 
-	// migration enables and configures the cluster network migration. The
-	// migration procedure allows to change the network type and the MTU.
+	// migration enables and configures cluster network migration, for network changes
+	// that cannot be made instantly.
 	// +optional
 	Migration *NetworkMigration `json:"migration,omitempty"`
+
+	// additionalRoutingCapabilities describes components and relevant
+	// configuration providing additional routing capabilities. When set, it
+	// enables such components and the usage of the routing capabilities they
+	// provide for the machine network. Upstream operators, like MetalLB
+	// operator, requiring these capabilities may rely on, or automatically set
+	// this attribute. Network plugins may leverage advanced routing
+	// capabilities acquired through the enablement of these components but may
+	// require specific configuration on their side to do so; refer to their
+	// respective documentation and configuration options.
+	// +openshift:enable:FeatureGate=AdditionalRoutingCapabilities
+	// +optional
+	AdditionalRoutingCapabilities *AdditionalRoutingCapabilities `json:"additionalRoutingCapabilities,omitempty"`
 }
 
-// NetworkMigration represents the cluster network configuration.
-type NetworkMigration struct {
-	// networkType is the target type of network migration. Set this to the
-	// target network type to allow changing the default network. If unset, the
-	// operation of changing cluster default network plugin will be rejected.
-	// The supported values are OpenShiftSDN, OVNKubernetes
-	// +optional
-	NetworkType string `json:"networkType,omitempty"`
+// NetworkMigrationMode is an enumeration of the possible mode of the network migration
+// Valid values are "Live", "Offline" and omitted.
+// DEPRECATED: network type migration is no longer supported.
+// +kubebuilder:validation:Enum:=Live;Offline;""
+type NetworkMigrationMode string
 
+const (
+	// A "Live" migration operation will not cause service interruption by migrating the CNI of each node one by one. The cluster network will work as normal during the network migration.
+	// DEPRECATED: network type migration is no longer supported.
+	LiveNetworkMigrationMode NetworkMigrationMode = "Live"
+	// An "Offline" migration operation will cause service interruption. During an "Offline" migration, two rounds of node reboots are required. The cluster network will be malfunctioning during the network migration.
+	// DEPRECATED: network type migration is no longer supported.
+	OfflineNetworkMigrationMode NetworkMigrationMode = "Offline"
+)
+
+// NetworkMigration represents the cluster network migration configuration.
+// +openshift:validation:FeatureGateAwareXValidation:featureGate=NetworkLiveMigration,rule="!has(self.mtu) || !has(self.networkType) || self.networkType == \"\" || has(self.mode) && self.mode == 'Live'",message="networkType migration in mode other than 'Live' may not be configured at the same time as mtu migration"
+type NetworkMigration struct {
 	// mtu contains the MTU migration configuration. Set this to allow changing
 	// the MTU values for the default network. If unset, the operation of
 	// changing the MTU for the default network will be rejected.
 	// +optional
 	MTU *MTUMigration `json:"mtu,omitempty"`
 
-	// features contains the features migration configuration. Set this to migrate
-	// feature configuration when changing the cluster default network provider.
-	// if unset, the default operation is to migrate all the configuration of
-	// supported features.
+	// networkType was previously used when changing the default network type.
+	// DEPRECATED: network type migration is no longer supported, and setting
+	// this to a non-empty value will result in the network operator rejecting
+	// the configuration.
+	// +optional
+	NetworkType string `json:"networkType,omitempty"`
+
+	// features was previously used to configure which network plugin features
+	// would be migrated in a network type migration.
+	// DEPRECATED: network type migration is no longer supported, and setting
+	// this to a non-empty value will result in the network operator rejecting
+	// the configuration.
 	// +optional
 	Features *FeaturesMigration `json:"features,omitempty"`
+
+	// mode indicates the mode of network type migration.
+	// DEPRECATED: network type migration is no longer supported, and setting
+	// this to a non-empty value will result in the network operator rejecting
+	// the configuration.
+	// +optional
+	Mode NetworkMigrationMode `json:"mode,omitempty"`
 }
 
 type FeaturesMigration struct {
-	// egressIP specifies whether or not the Egress IP configuration is migrated
-	// automatically when changing the cluster default network provider.
-	// If unset, this property defaults to 'true' and Egress IP configure is migrated.
+	// egressIP specified whether or not the Egress IP configuration was migrated.
+	// DEPRECATED: network type migration is no longer supported.
 	// +optional
 	// +kubebuilder:default:=true
 	EgressIP bool `json:"egressIP,omitempty"`
-	// egressFirewall specifies whether or not the Egress Firewall configuration is migrated
-	// automatically when changing the cluster default network provider.
-	// If unset, this property defaults to 'true' and Egress Firewall configure is migrated.
+	// egressFirewall specified whether or not the Egress Firewall configuration was migrated.
+	// DEPRECATED: network type migration is no longer supported.
 	// +optional
 	// +kubebuilder:default:=true
 	EgressFirewall bool `json:"egressFirewall,omitempty"`
-	// multicast specifies whether or not the multicast configuration is migrated
-	// automatically when changing the cluster default network provider.
-	// If unset, this property defaults to 'true' and multicast configure is migrated.
+	// multicast specified whether or not the multicast configuration was migrated.
+	// DEPRECATED: network type migration is no longer supported.
 	// +optional
 	// +kubebuilder:default:=true
 	Multicast bool `json:"multicast,omitempty"`
 }
 
-// MTUMigration MTU contains infomation about MTU migration.
+// MTUMigration contains infomation about MTU migration.
 type MTUMigration struct {
 	// network contains information about MTU migration for the default network.
 	// Migrations are only allowed to MTU values lower than the machine's uplink
@@ -205,17 +251,14 @@ type DefaultNetworkDefinition struct {
 	// All NetworkTypes are supported except for NetworkTypeRaw
 	Type NetworkType `json:"type"`
 
-	// openShiftSDNConfig configures the openshift-sdn plugin
+	// openshiftSDNConfig was previously used to configure the openshift-sdn plugin.
+	// DEPRECATED: OpenShift SDN is no longer supported.
 	// +optional
 	OpenShiftSDNConfig *OpenShiftSDNConfig `json:"openshiftSDNConfig,omitempty"`
 
 	// ovnKubernetesConfig configures the ovn-kubernetes plugin.
 	// +optional
 	OVNKubernetesConfig *OVNKubernetesConfig `json:"ovnKubernetesConfig,omitempty"`
-
-	// KuryrConfig configures the kuryr plugin
-	// +optional
-	KuryrConfig *KuryrConfig `json:"kuryrConfig,omitempty"`
 }
 
 // SimpleMacvlanConfig contains configurations for macvlan interface.
@@ -225,7 +268,7 @@ type SimpleMacvlanConfig struct {
 	// +optional
 	Master string `json:"master,omitempty"`
 
-	// IPAMConfig configures IPAM module will be used for IP Address Management (IPAM).
+	// ipamConfig configures IPAM module will be used for IP Address Management (IPAM).
 	// +optional
 	IPAMConfig *IPAMConfig `json:"ipamConfig,omitempty"`
 
@@ -242,19 +285,19 @@ type SimpleMacvlanConfig struct {
 
 // StaticIPAMAddresses provides IP address and Gateway for static IPAM addresses
 type StaticIPAMAddresses struct {
-	// Address is the IP address in CIDR format
+	// address is the IP address in CIDR format
 	// +optional
 	Address string `json:"address"`
-	// Gateway is IP inside of subnet to designate as the gateway
+	// gateway is IP inside of subnet to designate as the gateway
 	// +optional
 	Gateway string `json:"gateway,omitempty"`
 }
 
 // StaticIPAMRoutes provides Destination/Gateway pairs for static IPAM routes
 type StaticIPAMRoutes struct {
-	// Destination points the IP route destination
+	// destination points the IP route destination
 	Destination string `json:"destination"`
-	// Gateway is the route's next-hop IP address
+	// gateway is the route's next-hop IP address
 	// If unset, a default gateway is assumed (as determined by the CNI plugin).
 	// +optional
 	Gateway string `json:"gateway,omitempty"`
@@ -262,37 +305,41 @@ type StaticIPAMRoutes struct {
 
 // StaticIPAMDNS provides DNS related information for static IPAM
 type StaticIPAMDNS struct {
-	// Nameservers points DNS servers for IP lookup
+	// nameservers points DNS servers for IP lookup
 	// +optional
+	// +listType=atomic
 	Nameservers []string `json:"nameservers,omitempty"`
-	// Domain configures the domainname the local domain used for short hostname lookups
+	// domain configures the domainname the local domain used for short hostname lookups
 	// +optional
 	Domain string `json:"domain,omitempty"`
-	// Search configures priority ordered search domains for short hostname lookups
+	// search configures priority ordered search domains for short hostname lookups
 	// +optional
+	// +listType=atomic
 	Search []string `json:"search,omitempty"`
 }
 
 // StaticIPAMConfig contains configurations for static IPAM (IP Address Management)
 type StaticIPAMConfig struct {
-	// Addresses configures IP address for the interface
+	// addresses configures IP address for the interface
 	// +optional
+	// +listType=atomic
 	Addresses []StaticIPAMAddresses `json:"addresses,omitempty"`
-	// Routes configures IP routes for the interface
+	// routes configures IP routes for the interface
 	// +optional
+	// +listType=atomic
 	Routes []StaticIPAMRoutes `json:"routes,omitempty"`
-	// DNS configures DNS for the interface
+	// dns configures DNS for the interface
 	// +optional
 	DNS *StaticIPAMDNS `json:"dns,omitempty"`
 }
 
 // IPAMConfig contains configurations for IPAM (IP Address Management)
 type IPAMConfig struct {
-	// Type is the type of IPAM module will be used for IP Address Management(IPAM).
+	// type is the type of IPAM module will be used for IP Address Management(IPAM).
 	// The supported values are IPAMTypeDHCP, IPAMTypeStatic
 	Type IPAMType `json:"type"`
 
-	// StaticIPAMConfig configures the static IP address in case of type:IPAMTypeStatic
+	// staticIPAMConfig configures the static IP address in case of type:IPAMTypeStatic
 	// +optional
 	StaticIPAMConfig *StaticIPAMConfig `json:"staticIPAMConfig,omitempty"`
 }
@@ -307,6 +354,7 @@ type AdditionalNetworkDefinition struct {
 
 	// name is the name of the network. This will be populated in the resulting CRD
 	// This must be unique.
+	// +required
 	Name string `json:"name"`
 
 	// namespace is the namespace of the network. This will be populated in the resulting CRD
@@ -317,12 +365,12 @@ type AdditionalNetworkDefinition struct {
 	// NetworkAttachmentDefinition CRD
 	RawCNIConfig string `json:"rawCNIConfig,omitempty"`
 
-	// SimpleMacvlanConfig configures the macvlan interface in case of type:NetworkTypeSimpleMacvlan
+	// simpleMacvlanConfig configures the macvlan interface in case of type:NetworkTypeSimpleMacvlan
 	// +optional
 	SimpleMacvlanConfig *SimpleMacvlanConfig `json:"simpleMacvlanConfig,omitempty"`
 }
 
-// OpenShiftSDNConfig configures the three openshift-sdn plugins
+// OpenShiftSDNConfig was used to configure the OpenShift SDN plugin. It is no longer used.
 type OpenShiftSDNConfig struct {
 	// mode is one of "Multitenant", "Subnet", or "NetworkPolicy"
 	Mode SDNMode `json:"mode"`
@@ -341,81 +389,12 @@ type OpenShiftSDNConfig struct {
 	// useExternalOpenvswitch used to control whether the operator would deploy an OVS
 	// DaemonSet itself or expect someone else to start OVS. As of 4.6, OVS is always
 	// run as a system service, and this flag is ignored.
-	// DEPRECATED: non-functional as of 4.6
 	// +optional
 	UseExternalOpenvswitch *bool `json:"useExternalOpenvswitch,omitempty"`
 
 	// enableUnidling controls whether or not the service proxy will support idling
 	// and unidling of services. By default, unidling is enabled.
 	EnableUnidling *bool `json:"enableUnidling,omitempty"`
-}
-
-// KuryrConfig configures the Kuryr-Kubernetes SDN
-type KuryrConfig struct {
-	// The port kuryr-daemon will listen for readiness and liveness requests.
-	// +kubebuilder:validation:Minimum=0
-	// +optional
-	DaemonProbesPort *uint32 `json:"daemonProbesPort,omitempty"`
-
-	// The port kuryr-controller will listen for readiness and liveness requests.
-	// +kubebuilder:validation:Minimum=0
-	// +optional
-	ControllerProbesPort *uint32 `json:"controllerProbesPort,omitempty"`
-
-	// openStackServiceNetwork contains the CIDR of network from which to allocate IPs for
-	// OpenStack Octavia's Amphora VMs. Please note that with Amphora driver Octavia uses
-	// two IPs from that network for each loadbalancer - one given by OpenShift and second
-	// for VRRP connections. As the first one is managed by OpenShift's and second by Neutron's
-	// IPAMs, those need to come from different pools. Therefore `openStackServiceNetwork`
-	// needs to be at least twice the size of `serviceNetwork`, and whole `serviceNetwork`
-	// must be overlapping with `openStackServiceNetwork`. cluster-network-operator will then
-	// make sure VRRP IPs are taken from the ranges inside `openStackServiceNetwork` that
-	// are not overlapping with `serviceNetwork`, effectivly preventing conflicts. If not set
-	// cluster-network-operator will use `serviceNetwork` expanded by decrementing the prefix
-	// size by 1.
-	// +optional
-	OpenStackServiceNetwork string `json:"openStackServiceNetwork,omitempty"`
-
-	// enablePortPoolsPrepopulation when true will make Kuryr prepopulate each newly created port
-	// pool with a minimum number of ports. Kuryr uses Neutron port pooling to fight the fact
-	// that it takes a significant amount of time to create one. It creates a number of ports when
-	// the first pod that is configured to use the dedicated network for pods is created in a namespace,
-	// and keeps them ready to be attached to pods. Port prepopulation is disabled by default.
-	// +optional
-	EnablePortPoolsPrepopulation bool `json:"enablePortPoolsPrepopulation,omitempty"`
-
-	// poolMaxPorts sets a maximum number of free ports that are being kept in a port pool.
-	// If the number of ports exceeds this setting, free ports will get deleted. Setting 0
-	// will disable this upper bound, effectively preventing pools from shrinking and this
-	// is the default value. For more information about port pools see
-	// enablePortPoolsPrepopulation setting.
-	// +kubebuilder:validation:Minimum=0
-	// +optional
-	PoolMaxPorts uint `json:"poolMaxPorts,omitempty"`
-
-	// poolMinPorts sets a minimum number of free ports that should be kept in a port pool.
-	// If the number of ports is lower than this setting, new ports will get created and
-	// added to pool. The default is 1. For more information about port pools see
-	// enablePortPoolsPrepopulation setting.
-	// +kubebuilder:validation:Minimum=1
-	// +optional
-	PoolMinPorts uint `json:"poolMinPorts,omitempty"`
-
-	// poolBatchPorts sets a number of ports that should be created in a single batch request
-	// to extend the port pool. The default is 3. For more information about port pools see
-	// enablePortPoolsPrepopulation setting.
-	// +kubebuilder:validation:Minimum=0
-	// +optional
-	PoolBatchPorts *uint `json:"poolBatchPorts,omitempty"`
-
-	// mtu is the MTU that Kuryr should use when creating pod networks in Neutron.
-	// The value has to be lower or equal to the MTU of the nodes network and Neutron has
-	// to allow creation of tenant networks with such MTU. If unset Pod networks will be
-	// created with the same MTU as the nodes network has. This also affects the services
-	// network created by cluster-network-operator.
-	// +kubebuilder:validation:Minimum=0
-	// +optional
-	MTU *uint32 `json:"mtu,omitempty"`
 }
 
 // ovnKubernetesConfig contains the configuration parameters for networks
@@ -432,13 +411,15 @@ type OVNKubernetesConfig struct {
 	// +kubebuilder:validation:Minimum=1
 	// +optional
 	GenevePort *uint32 `json:"genevePort,omitempty"`
-	// HybridOverlayConfig configures an additional overlay network for peers that are
+	// hybridOverlayConfig configures an additional overlay network for peers that are
 	// not using OVN.
 	// +optional
 	HybridOverlayConfig *HybridOverlayConfig `json:"hybridOverlayConfig,omitempty"`
 	// ipsecConfig enables and configures IPsec for pods on the pod network within the
 	// cluster.
 	// +optional
+	// +kubebuilder:default={"mode": "Disabled"}
+	// +default={"mode": "Disabled"}
 	IPsecConfig *IPsecConfig `json:"ipsecConfig,omitempty"`
 	// policyAuditConfig is the configuration for network policy audit events. If unset,
 	// reported defaults are used.
@@ -460,35 +441,236 @@ type OVNKubernetesConfig struct {
 	// any other subnet being used by OpenShift or by the node network. The size of the
 	// subnet must be larger than the number of nodes. The value cannot be changed
 	// after installation.
-	// Default is fd98::/48
+	// Default is fd98::/64
 	// +optional
 	V6InternalSubnet string `json:"v6InternalSubnet,omitempty"`
 	// egressIPConfig holds the configuration for EgressIP options.
 	// +optional
 	EgressIPConfig EgressIPConfig `json:"egressIPConfig,omitempty"`
+	// ipv4 allows users to configure IP settings for IPv4 connections. When ommitted,
+	// this means no opinions and the default configuration is used. Check individual
+	// fields within ipv4 for details of default values.
+	// +optional
+	IPv4 *IPv4OVNKubernetesConfig `json:"ipv4,omitempty"`
+	// ipv6 allows users to configure IP settings for IPv6 connections. When ommitted,
+	// this means no opinions and the default configuration is used. Check individual
+	// fields within ipv4 for details of default values.
+	// +optional
+	IPv6 *IPv6OVNKubernetesConfig `json:"ipv6,omitempty"`
+
+	// routeAdvertisements determines if the functionality to advertise cluster
+	// network routes through a dynamic routing protocol, such as BGP, is
+	// enabled or not. This functionality is configured through the
+	// ovn-kubernetes RouteAdvertisements CRD. Requires the 'FRR' routing
+	// capability provider to be enabled as an additional routing capability.
+	// Allowed values are "Enabled", "Disabled" and ommited. When omitted, this
+	// means the user has no opinion and the platform is left to choose
+	// reasonable defaults. These defaults are subject to change over time. The
+	// current default is "Disabled".
+	// +openshift:enable:FeatureGate=RouteAdvertisements
+	// +optional
+	RouteAdvertisements RouteAdvertisementsEnablement `json:"routeAdvertisements,omitempty"`
+}
+
+type IPv4OVNKubernetesConfig struct {
+	// internalTransitSwitchSubnet is a v4 subnet in IPV4 CIDR format used internally
+	// by OVN-Kubernetes for the distributed transit switch in the OVN Interconnect
+	// architecture that connects the cluster routers on each node together to enable
+	// east west traffic. The subnet chosen should not overlap with other networks
+	// specified for OVN-Kubernetes as well as other networks used on the host.
+	// The value cannot be changed after installation.
+	// When ommitted, this means no opinion and the platform is left to choose a reasonable
+	// default which is subject to change over time.
+	// The current default subnet is 100.88.0.0/16
+	// The subnet must be large enough to accomadate one IP per node in your cluster
+	// The value must be in proper IPV4 CIDR format
+	// +kubebuilder:validation:MaxLength=18
+	// +kubebuilder:validation:XValidation:rule="isCIDR(self) && cidr(self).ip().family() == 4",message="Subnet must be in valid IPV4 CIDR format"
+	// +kubebuilder:validation:XValidation:rule="isCIDR(self) && cidr(self).prefixLength() <= 30",message="subnet must be in the range /0 to /30 inclusive"
+	// +kubebuilder:validation:XValidation:rule="isCIDR(self) && int(self.split('.')[0]) > 0",message="first IP address octet must not be 0"
+	// +optional
+	InternalTransitSwitchSubnet string `json:"internalTransitSwitchSubnet,omitempty"`
+	// internalJoinSubnet is a v4 subnet used internally by ovn-kubernetes in case the
+	// default one is being already used by something else. It must not overlap with
+	// any other subnet being used by OpenShift or by the node network. The size of the
+	// subnet must be larger than the number of nodes. The value cannot be changed
+	// after installation.
+	// The current default value is 100.64.0.0/16
+	// The subnet must be large enough to accomadate one IP per node in your cluster
+	// The value must be in proper IPV4 CIDR format
+	// +kubebuilder:validation:MaxLength=18
+	// +kubebuilder:validation:XValidation:rule="isCIDR(self) && cidr(self).ip().family() == 4",message="Subnet must be in valid IPV4 CIDR format"
+	// +kubebuilder:validation:XValidation:rule="isCIDR(self) && cidr(self).prefixLength() <= 30",message="subnet must be in the range /0 to /30 inclusive"
+	// +kubebuilder:validation:XValidation:rule="isCIDR(self) && int(self.split('.')[0]) > 0",message="first IP address octet must not be 0"
+	// +optional
+	InternalJoinSubnet string `json:"internalJoinSubnet,omitempty"`
+}
+
+type IPv6OVNKubernetesConfig struct {
+	// internalTransitSwitchSubnet is a v4 subnet in IPV4 CIDR format used internally
+	// by OVN-Kubernetes for the distributed transit switch in the OVN Interconnect
+	// architecture that connects the cluster routers on each node together to enable
+	// east west traffic. The subnet chosen should not overlap with other networks
+	// specified for OVN-Kubernetes as well as other networks used on the host.
+	// The value cannot be changed after installation.
+	// When ommitted, this means no opinion and the platform is left to choose a reasonable
+	// default which is subject to change over time.
+	// The subnet must be large enough to accomadate one IP per node in your cluster
+	// The current default subnet is fd97::/64
+	// The value must be in proper IPV6 CIDR format
+	// Note that IPV6 dual addresses are not permitted
+	// +kubebuilder:validation:MaxLength=48
+	// +kubebuilder:validation:XValidation:rule="isCIDR(self) && cidr(self).ip().family() == 6",message="Subnet must be in valid IPV6 CIDR format"
+	// +kubebuilder:validation:XValidation:rule="isCIDR(self) && cidr(self).prefixLength() <= 125",message="subnet must be in the range /0 to /125 inclusive"
+	// +optional
+	InternalTransitSwitchSubnet string `json:"internalTransitSwitchSubnet,omitempty"`
+	// internalJoinSubnet is a v6 subnet used internally by ovn-kubernetes in case the
+	// default one is being already used by something else. It must not overlap with
+	// any other subnet being used by OpenShift or by the node network. The size of the
+	// subnet must be larger than the number of nodes. The value cannot be changed
+	// after installation.
+	// The subnet must be large enough to accomadate one IP per node in your cluster
+	// The current default value is fd98::/64
+	// The value must be in proper IPV6 CIDR format
+	// Note that IPV6 dual addresses are not permitted
+	// +kubebuilder:validation:MaxLength=48
+	// +kubebuilder:validation:XValidation:rule="isCIDR(self) && cidr(self).ip().family() == 6",message="Subnet must be in valid IPV6 CIDR format"
+	// +kubebuilder:validation:XValidation:rule="isCIDR(self) && cidr(self).prefixLength() <= 125",message="subnet must be in the range /0 to /125 inclusive"
+	// +optional
+	InternalJoinSubnet string `json:"internalJoinSubnet,omitempty"`
 }
 
 type HybridOverlayConfig struct {
-	// HybridClusterNetwork defines a network space given to nodes on an additional overlay network.
+	// hybridClusterNetwork defines a network space given to nodes on an additional overlay network.
+	// +listType=atomic
 	HybridClusterNetwork []ClusterNetworkEntry `json:"hybridClusterNetwork"`
-	// HybridOverlayVXLANPort defines the VXLAN port number to be used by the additional overlay network.
+	// hybridOverlayVXLANPort defines the VXLAN port number to be used by the additional overlay network.
 	// Default is 4789
 	// +optional
 	HybridOverlayVXLANPort *uint32 `json:"hybridOverlayVXLANPort,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="self == oldSelf || has(self.mode)",message="ipsecConfig.mode is required"
+// +kubebuilder:validation:XValidation:rule="has(self.mode) && self.mode == 'Full' ?  true : !has(self.full)",message="full is forbidden when mode is not Full"
+// +union
 type IPsecConfig struct {
+	// mode defines the behaviour of the ipsec configuration within the platform.
+	// Valid values are `Disabled`, `External` and `Full`.
+	// When 'Disabled', ipsec will not be enabled at the node level.
+	// When 'External', ipsec is enabled on the node level but requires the user to configure the secure communication parameters.
+	// This mode is for external secure communications and the configuration can be done using the k8s-nmstate operator.
+	// When 'Full', ipsec is configured on the node level and inter-pod secure communication within the cluster is configured.
+	// Note with `Full`, if ipsec is desired for communication with external (to the cluster) entities (such as storage arrays),
+	// this is left to the user to configure.
+	// +kubebuilder:validation:Enum=Disabled;External;Full
+	// +optional
+	// +unionDiscriminator
+	Mode IPsecMode `json:"mode,omitempty"`
+
+	// full defines configuration parameters for the IPsec `Full` mode.
+	// This is permitted only when mode is configured with `Full`,
+	// and forbidden otherwise.
+	// +unionMember,optional
+	// +optional
+	Full *IPsecFullModeConfig `json:"full,omitempty"`
 }
+
+type Encapsulation string
+
+const (
+	// EncapsulationAlways always enable UDP encapsulation regardless of whether NAT is detected.
+	EncapsulationAlways = "Always"
+	// EncapsulationAuto enable UDP encapsulation based on the detection of NAT.
+	EncapsulationAuto = "Auto"
+)
+
+// IPsecFullModeConfig defines configuration parameters for the IPsec `Full` mode.
+// +kubebuilder:validation:MinProperties:=1
+type IPsecFullModeConfig struct {
+	// encapsulation option to configure libreswan on how inter-pod traffic across nodes
+	// are encapsulated to handle NAT traversal. When configured it uses UDP port 4500
+	// for the encapsulation.
+	// Valid values are Always, Auto and omitted.
+	// Always means enable UDP encapsulation regardless of whether NAT is detected.
+	// Auto means enable UDP encapsulation based on the detection of NAT.
+	// When omitted, this means no opinion and the platform is left to choose a reasonable
+	// default, which is subject to change over time. The current default is Auto.
+	// +kubebuilder:validation:Enum:=Always;Auto
+	// +optional
+	Encapsulation Encapsulation `json:"encapsulation,omitempty"`
+}
+
+type IPForwardingMode string
+
+const (
+	// IPForwardingRestricted limits the IP forwarding on OVN-Kube managed interfaces (br-ex, br-ex1) to only required
+	// service and other k8s related traffic
+	IPForwardingRestricted IPForwardingMode = "Restricted"
+
+	// IPForwardingGlobal allows all IP traffic to be forwarded across OVN-Kube managed interfaces
+	IPForwardingGlobal IPForwardingMode = "Global"
+)
 
 // GatewayConfig holds node gateway-related parsed config file parameters and command-line overrides
 type GatewayConfig struct {
-	// RoutingViaHost allows pod egress traffic to exit via the ovn-k8s-mp0 management port
+	// routingViaHost allows pod egress traffic to exit via the ovn-k8s-mp0 management port
 	// into the host before sending it out. If this is not set, traffic will always egress directly
 	// from OVN to outside without touching the host stack. Setting this to true means hardware
 	// offload will not be supported. Default is false if GatewayConfig is specified.
 	// +kubebuilder:default:=false
 	// +optional
 	RoutingViaHost bool `json:"routingViaHost,omitempty"`
+	// ipForwarding controls IP forwarding for all traffic on OVN-Kubernetes managed interfaces (such as br-ex).
+	// By default this is set to Restricted, and Kubernetes related traffic is still forwarded appropriately, but other
+	// IP traffic will not be routed by the OCP node. If there is a desire to allow the host to forward traffic across
+	// OVN-Kubernetes managed interfaces, then set this field to "Global".
+	// The supported values are "Restricted" and "Global".
+	// +optional
+	IPForwarding IPForwardingMode `json:"ipForwarding,omitempty"`
+	// ipv4 allows users to configure IP settings for IPv4 connections. When omitted, this means no opinion and the default
+	// configuration is used. Check individual members fields within ipv4 for details of default values.
+	// +optional
+	IPv4 IPv4GatewayConfig `json:"ipv4,omitempty"`
+	// ipv6 allows users to configure IP settings for IPv6 connections. When omitted, this means no opinion and the default
+	// configuration is used. Check individual members fields within ipv6 for details of default values.
+	// +optional
+	IPv6 IPv6GatewayConfig `json:"ipv6,omitempty"`
+}
+
+// IPV4GatewayConfig holds the configuration paramaters for IPV4 connections in the GatewayConfig for OVN-Kubernetes
+type IPv4GatewayConfig struct {
+	// internalMasqueradeSubnet contains the masquerade addresses in IPV4 CIDR format used internally by
+	// ovn-kubernetes to enable host to service traffic. Each host in the cluster is configured with these
+	// addresses, as well as the shared gateway bridge interface. The values can be changed after
+	// installation. The subnet chosen should not overlap with other networks specified for
+	// OVN-Kubernetes as well as other networks used on the host. Additionally the subnet must
+	// be large enough to accommodate 6 IPs (maximum prefix length /29).
+	// When omitted, this means no opinion and the platform is left to choose a reasonable default which is subject to change over time.
+	// The current default subnet is 169.254.169.0/29
+	// The value must be in proper IPV4 CIDR format
+	// +kubebuilder:validation:MaxLength=18
+	// +kubebuilder:validation:XValidation:rule="isCIDR(self) && cidr(self).ip().family() == 4",message="Subnet must be in valid IPV4 CIDR format"
+	// +kubebuilder:validation:XValidation:rule="isCIDR(self) && cidr(self).prefixLength() <= 29",message="subnet must be in the range /0 to /29 inclusive"
+	// +kubebuilder:validation:XValidation:rule="isCIDR(self) && int(self.split('.')[0]) > 0",message="first IP address octet must not be 0"
+	// +optional
+	InternalMasqueradeSubnet string `json:"internalMasqueradeSubnet,omitempty"`
+}
+
+// IPV6GatewayConfig holds the configuration paramaters for IPV6 connections in the GatewayConfig for OVN-Kubernetes
+type IPv6GatewayConfig struct {
+	// internalMasqueradeSubnet contains the masquerade addresses in IPV6 CIDR format used internally by
+	// ovn-kubernetes to enable host to service traffic. Each host in the cluster is configured with these
+	// addresses, as well as the shared gateway bridge interface. The values can be changed after
+	// installation. The subnet chosen should not overlap with other networks specified for
+	// OVN-Kubernetes as well as other networks used on the host. Additionally the subnet must
+	// be large enough to accommodate 6 IPs (maximum prefix length /125).
+	// When omitted, this means no opinion and the platform is left to choose a reasonable default which is subject to change over time.
+	// The current default subnet is fd69::/125
+	// Note that IPV6 dual addresses are not permitted
+	// +kubebuilder:validation:XValidation:rule="isCIDR(self) && cidr(self).ip().family() == 6",message="Subnet must be in valid IPV6 CIDR format"
+	// +kubebuilder:validation:XValidation:rule="isCIDR(self) && cidr(self).prefixLength() <= 125",message="subnet must be in the range /0 to /125 inclusive"
+	// +optional
+	InternalMasqueradeSubnet string `json:"internalMasqueradeSubnet,omitempty"`
 }
 
 type ExportNetworkFlows struct {
@@ -508,6 +690,7 @@ type NetFlowConfig struct {
 	// It is a list of strings formatted as ip:port with a maximum of ten items
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=10
+	// +listType=atomic
 	Collectors []IPPort `json:"collectors,omitempty"`
 }
 
@@ -515,6 +698,7 @@ type SFlowConfig struct {
 	// sFlowCollectors is list of strings formatted as ip:port with a maximum of ten items
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=10
+	// +listType=atomic
 	Collectors []IPPort `json:"collectors,omitempty"`
 }
 
@@ -522,6 +706,7 @@ type IPFIXConfig struct {
 	// ipfixCollectors is list of strings formatted as ip:port with a maximum of ten items
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=10
+	// +listType=atomic
 	Collectors []IPPort `json:"collectors,omitempty"`
 }
 
@@ -542,6 +727,12 @@ type PolicyAuditConfig struct {
 	// +kubebuilder:validation:Minimum=1
 	// +optional
 	MaxFileSize *uint32 `json:"maxFileSize,omitempty"`
+
+	// maxLogFiles specifies the maximum number of ACL_audit log files that can be present.
+	// +kubebuilder:default=5
+	// +kubebuilder:validation:Minimum=1
+	// +optional
+	MaxLogFiles *int32 `json:"maxLogFiles,omitempty"`
 
 	// destination is the location for policy log messages.
 	// Regardless of this config, persistent logs will always be dumped to the host
@@ -569,6 +760,7 @@ type PolicyAuditConfig struct {
 type NetworkType string
 
 // ProxyArgumentList is a list of arguments to pass to the kubeproxy process
+// +listType=atomic
 type ProxyArgumentList []string
 
 // ProxyConfig defines the configuration knobs for kubeproxy
@@ -604,15 +796,12 @@ type EgressIPConfig struct {
 }
 
 const (
-	// NetworkTypeOpenShiftSDN means the openshift-sdn plugin will be configured
+	// NetworkTypeOpenShiftSDN means the openshift-sdn plugin will be configured.
+	// DEPRECATED: OpenShift SDN is no longer supported
 	NetworkTypeOpenShiftSDN NetworkType = "OpenShiftSDN"
 
-	// NetworkTypeOVNKubernetes means the ovn-kubernetes project will be configured.
-	// This is currently not implemented.
+	// NetworkTypeOVNKubernetes means the ovn-kubernetes plugin will be configured.
 	NetworkTypeOVNKubernetes NetworkType = "OVNKubernetes"
-
-	// NetworkTypeKuryr means the kuryr-kubernetes project will be configured.
-	NetworkTypeKuryr NetworkType = "Kuryr"
 
 	// NetworkTypeRaw
 	NetworkTypeRaw NetworkType = "Raw"
@@ -621,19 +810,23 @@ const (
 	NetworkTypeSimpleMacvlan NetworkType = "SimpleMacvlan"
 )
 
-// SDNMode is the Mode the openshift-sdn plugin is in
+// SDNMode is the Mode the openshift-sdn plugin is in.
+// DEPRECATED: OpenShift SDN is no longer supported
 type SDNMode string
 
 const (
 	// SDNModeSubnet is a simple mode that offers no isolation between pods
+	// DEPRECATED: OpenShift SDN is no longer supported
 	SDNModeSubnet SDNMode = "Subnet"
 
 	// SDNModeMultitenant is a special "multitenant" mode that offers limited
 	// isolation configuration between namespaces
+	// DEPRECATED: OpenShift SDN is no longer supported
 	SDNModeMultitenant SDNMode = "Multitenant"
 
 	// SDNModeNetworkPolicy is a full NetworkPolicy implementation that allows
 	// for sophisticated network isolation and segmenting. This is the default.
+	// DEPRECATED: OpenShift SDN is no longer supported
 	SDNModeNetworkPolicy SDNMode = "NetworkPolicy"
 )
 
@@ -662,3 +855,52 @@ const (
 	// IPAMTypeStatic uses static IP
 	IPAMTypeStatic IPAMType = "Static"
 )
+
+// IPsecMode enumerates the modes for IPsec configuration
+type IPsecMode string
+
+const (
+	// IPsecModeDisabled disables IPsec altogether
+	IPsecModeDisabled IPsecMode = "Disabled"
+	// IPsecModeExternal enables IPsec on the node level, but expects the user to configure it using k8s-nmstate or
+	// other means - it is most useful for secure communication from the cluster to external endpoints
+	IPsecModeExternal IPsecMode = "External"
+	// IPsecModeFull enables IPsec on the node level (the same as IPsecModeExternal), and configures it to secure communication
+	// between pods on the cluster network.
+	IPsecModeFull IPsecMode = "Full"
+)
+
+// +kubebuilder:validation:Enum:="";"Enabled";"Disabled"
+type RouteAdvertisementsEnablement string
+
+var (
+	// RouteAdvertisementsEnabled enables route advertisements for ovn-kubernetes
+	RouteAdvertisementsEnabled RouteAdvertisementsEnablement = "Enabled"
+	// RouteAdvertisementsDisabled disables route advertisements for ovn-kubernetes
+	RouteAdvertisementsDisabled RouteAdvertisementsEnablement = "Disabled"
+)
+
+// RoutingCapabilitiesProvider is a component providing routing capabilities.
+// +kubebuilder:validation:Enum=FRR
+type RoutingCapabilitiesProvider string
+
+const (
+	// RoutingCapabilitiesProviderFRR determines FRR is providing advanced
+	// routing capabilities.
+	RoutingCapabilitiesProviderFRR RoutingCapabilitiesProvider = "FRR"
+)
+
+// AdditionalRoutingCapabilities describes components and relevant configuration providing
+// advanced routing capabilities.
+type AdditionalRoutingCapabilities struct {
+	// providers is a set of enabled components that provide additional routing
+	// capabilities. Entries on this list must be unique. The  only valid value
+	// is currrently "FRR" which provides FRR routing capabilities through the
+	// deployment of FRR.
+	// +listType=atomic
+	// +required
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=1
+	// +kubebuilder:validation:XValidation:rule="self.all(x, self.exists_one(y, x == y))"
+	Providers []RoutingCapabilitiesProvider `json:"providers"`
+}

@@ -9,6 +9,18 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 // ConsoleLink is an extension for customizing OpenShift web console links.
 //
 // Compatibility level 2: Stable within a major release for a minimum of 9 months or 3 minor releases (whichever is longer).
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:path=consolelinks,scope=Cluster
+// +kubebuilder:subresource:status
+// +openshift:api-approved.openshift.io=https://github.com/openshift/api/pull/481
+// +openshift:file-pattern=operatorOrdering=00
+// +openshift:capability=Console
+// +kubebuilder:metadata:annotations="description=Extension for customizing OpenShift web console links"
+// +kubebuilder:metadata:annotations="displayName=ConsoleLinks"
+// +kubebuilder:printcolumn:name=Text,JSONPath=.spec.text,type=string
+// +kubebuilder:printcolumn:name=URL,JSONPath=.spec.href,type=string
+// +kubebuilder:printcolumn:name=Menu,JSONPath=.spec.menu,type=string
+// +kubebuilder:printcolumn:name=Age,JSONPath=.metadata.creationTimestamp,type=date
 // +openshift:compatibility-gen:level=2
 type ConsoleLink struct {
 	metav1.TypeMeta `json:",inline"`
@@ -44,7 +56,7 @@ type ApplicationMenuSpec struct {
 	// This can be any text that will appear as a subheading in the application menu dropdown.
 	// A new section will be created if the text does not match text of an existing section.
 	Section string `json:"section"`
-	// imageUrl is the URL for the icon used in front of the link in the application menu.
+	// imageURL is the URL for the icon used in front of the link in the application menu.
 	// The URL must be an HTTPS URL or a Data URI. The image should be square and will be shown at 24x24 pixels.
 	// +optional
 	ImageURL string `json:"imageURL,omitempty"`

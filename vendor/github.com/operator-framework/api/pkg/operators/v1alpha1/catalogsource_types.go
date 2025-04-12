@@ -134,7 +134,7 @@ type GrpcPodConfig struct {
 	// specified. Specifying a value other than `legacy` or `restricted` result in a validation error. When using older
 	// catalog images, which can not run in `restricted` mode, the SecurityContextConfig should be set to `legacy`.
 	//
-	// More information about PSA can be found here: https://kubernetes.io/docs/concepts/security/pod-security-admission/'
+	// More information about PSA can be found here: https://kubernetes.io/docs/concepts/security/pod-security-admission/
 	// +optional
 	// +kubebuilder:validation:Enum=legacy;restricted
 	SecurityContextConfig SecurityConfig `json:"securityContextConfig,omitempty"`

@@ -91,7 +91,7 @@ func (ConsoleExternalLogLinkSpec) SwaggerDoc() map[string]string {
 var map_ApplicationMenuSpec = map[string]string{
 	"":         "ApplicationMenuSpec is the specification of the desired section and icon used for the link in the application menu.",
 	"section":  "section is the section of the application menu in which the link should appear. This can be any text that will appear as a subheading in the application menu dropdown. A new section will be created if the text does not match text of an existing section.",
-	"imageURL": "imageUrl is the URL for the icon used in front of the link in the application menu. The URL must be an HTTPS URL or a Data URI. The image should be square and will be shown at 24x24 pixels.",
+	"imageURL": "imageURL is the URL for the icon used in front of the link in the application menu. The URL must be an HTTPS URL or a Data URI. The image should be square and will be shown at 24x24 pixels.",
 }
 
 func (ApplicationMenuSpec) SwaggerDoc() map[string]string {
@@ -171,6 +171,7 @@ func (ConsoleNotificationSpec) SwaggerDoc() map[string]string {
 var map_ConsolePlugin = map[string]string{
 	"":         "ConsolePlugin is an extension for customizing OpenShift web console by dynamically loading code from another service running on the cluster.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
 	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec contains the desired configuration for the console plugin.",
 }
 
 func (ConsolePlugin) SwaggerDoc() map[string]string {
@@ -185,6 +186,16 @@ var map_ConsolePluginBackend = map[string]string{
 
 func (ConsolePluginBackend) SwaggerDoc() map[string]string {
 	return map_ConsolePluginBackend
+}
+
+var map_ConsolePluginCSP = map[string]string{
+	"":          "ConsolePluginCSP holds configuration for a specific CSP directive",
+	"directive": "directive specifies which Content-Security-Policy directive to configure. Available directive types are DefaultSrc, ScriptSrc, StyleSrc, ImgSrc, FontSrc and ConnectSrc. DefaultSrc directive serves as a fallback for the other CSP fetch directives. For more information about the DefaultSrc directive, see: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/default-src ScriptSrc directive specifies valid sources for JavaScript. For more information about the ScriptSrc directive, see: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/script-src StyleSrc directive specifies valid sources for stylesheets. For more information about the StyleSrc directive, see: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/style-src ImgSrc directive specifies a valid sources of images and favicons. For more information about the ImgSrc directive, see: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/img-src FontSrc directive specifies valid sources for fonts loaded using @font-face. For more information about the FontSrc directive, see: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/font-src ConnectSrc directive restricts the URLs which can be loaded using script interfaces. For more information about the ConnectSrc directive, see: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/connect-src",
+	"values":    "values defines an array of values to append to the console defaults for this directive. Each ConsolePlugin may define their own directives with their values. These will be set by the OpenShift web console's backend, as part of its Content-Security-Policy header. The array can contain at most 16 values. Each directive value must have a maximum length of 1024 characters and must not contain whitespace, commas (,), semicolons (;) or single quotes ('). The value '*' is not permitted. Each value in the array must be unique.",
+}
+
+func (ConsolePluginCSP) SwaggerDoc() map[string]string {
+	return map_ConsolePluginCSP
 }
 
 var map_ConsolePluginI18n = map[string]string{
@@ -251,11 +262,12 @@ func (ConsolePluginService) SwaggerDoc() map[string]string {
 }
 
 var map_ConsolePluginSpec = map[string]string{
-	"":            "ConsolePluginSpec is the desired plugin configuration.",
-	"displayName": "displayName is the display name of the plugin. The dispalyName should be between 1 and 128 characters.",
-	"backend":     "backend holds the configuration of backend which is serving console's plugin .",
-	"proxy":       "proxy is a list of proxies that describe various service type to which the plugin needs to connect to.",
-	"i18n":        "i18n is the configuration of plugin's localization resources.",
+	"":                      "ConsolePluginSpec is the desired plugin configuration.",
+	"displayName":           "displayName is the display name of the plugin. The dispalyName should be between 1 and 128 characters.",
+	"backend":               "backend holds the configuration of backend which is serving console's plugin .",
+	"proxy":                 "proxy is a list of proxies that describe various service type to which the plugin needs to connect to.",
+	"i18n":                  "i18n is the configuration of plugin's localization resources.",
+	"contentSecurityPolicy": "contentSecurityPolicy is a list of Content-Security-Policy (CSP) directives for the plugin. Each directive specifies a list of values, appropriate for the given directive type, for example a list of remote endpoints for fetch directives such as ScriptSrc. Console web application uses CSP to detect and mitigate certain types of attacks, such as cross-site scripting (XSS) and data injection attacks. Dynamic plugins should specify this field if need to load assets from outside the cluster or if violation reports are observed. Dynamic plugins should always prefer loading their assets from within the cluster, either by vendoring them, or fetching from a cluster service. CSP violation reports can be viewed in the browser's console logs during development and testing of the plugin in the OpenShift web console. Available directive types are DefaultSrc, ScriptSrc, StyleSrc, ImgSrc, FontSrc and ConnectSrc. Each of the available directives may be defined only once in the list. The value 'self' is automatically included in all fetch directives by the OpenShift web console's backend. For more information about the CSP directives, see: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy\n\nThe OpenShift web console server aggregates the CSP directives and values across its own default values and all enabled ConsolePlugin CRs, merging them into a single policy string that is sent to the browser via `Content-Security-Policy` HTTP response header.\n\nExample:\n  ConsolePlugin A directives:\n    script-src: https://script1.com/, https://script2.com/\n    font-src: https://font1.com/\n\n  ConsolePlugin B directives:\n    script-src: https://script2.com/, https://script3.com/\n    font-src: https://font2.com/\n    img-src: https://img1.com/\n\n  Unified set of CSP directives, passed to the OpenShift web console server:\n    script-src: https://script1.com/, https://script2.com/, https://script3.com/\n    font-src: https://font1.com/, https://font2.com/\n    img-src: https://img1.com/\n\n  OpenShift web console server CSP response header:\n    Content-Security-Policy: default-src 'self'; base-uri 'self'; script-src 'self' https://script1.com/ https://script2.com/ https://script3.com/; font-src 'self' https://font1.com/ https://font2.com/; img-src 'self' https://img1.com/; style-src 'self'; frame-src 'none'; object-src 'none'",
 }
 
 func (ConsolePluginSpec) SwaggerDoc() map[string]string {
@@ -329,6 +341,101 @@ var map_ConsoleQuickStartTaskSummary = map[string]string{
 
 func (ConsoleQuickStartTaskSummary) SwaggerDoc() map[string]string {
 	return map_ConsoleQuickStartTaskSummary
+}
+
+var map_ConsoleSample = map[string]string{
+	"":         "ConsoleSample is an extension to customizing OpenShift web console by adding samples.\n\nCompatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+	"spec":     "spec contains configuration for a console sample.",
+}
+
+func (ConsoleSample) SwaggerDoc() map[string]string {
+	return map_ConsoleSample
+}
+
+var map_ConsoleSampleContainerImportSource = map[string]string{
+	"":        "ConsoleSampleContainerImportSource let the user import a container image.",
+	"image":   "reference to a container image that provides a HTTP service. The service must be exposed on the default port (8080) unless otherwise configured with the port field.\n\nSupported formats:\n  - <repository-name>/<image-name>\n  - docker.io/<repository-name>/<image-name>\n  - quay.io/<repository-name>/<image-name>\n  - quay.io/<repository-name>/<image-name>@sha256:<image hash>\n  - quay.io/<repository-name>/<image-name>:<tag>",
+	"service": "service contains configuration for the Service resource created for this sample.",
+}
+
+func (ConsoleSampleContainerImportSource) SwaggerDoc() map[string]string {
+	return map_ConsoleSampleContainerImportSource
+}
+
+var map_ConsoleSampleContainerImportSourceService = map[string]string{
+	"":           "ConsoleSampleContainerImportSourceService let the samples author define defaults for the Service created for this sample.",
+	"targetPort": "targetPort is the port that the service listens on for HTTP requests. This port will be used for Service and Route created for this sample. Port must be in the range 1 to 65535. Default port is 8080.",
+}
+
+func (ConsoleSampleContainerImportSourceService) SwaggerDoc() map[string]string {
+	return map_ConsoleSampleContainerImportSourceService
+}
+
+var map_ConsoleSampleGitImportSource = map[string]string{
+	"":           "ConsoleSampleGitImportSource let the user import code from a public Git repository.",
+	"repository": "repository contains the reference to the actual Git repository.",
+	"service":    "service contains configuration for the Service resource created for this sample.",
+}
+
+func (ConsoleSampleGitImportSource) SwaggerDoc() map[string]string {
+	return map_ConsoleSampleGitImportSource
+}
+
+var map_ConsoleSampleGitImportSourceRepository = map[string]string{
+	"":           "ConsoleSampleGitImportSourceRepository let the user import code from a public git repository.",
+	"url":        "url of the Git repository that contains a HTTP service. The HTTP service must be exposed on the default port (8080) unless otherwise configured with the port field.\n\nOnly public repositories on GitHub, GitLab and Bitbucket are currently supported:\n\n  - https://github.com/<org>/<repository>\n  - https://gitlab.com/<org>/<repository>\n  - https://bitbucket.org/<org>/<repository>\n\nThe url must have a maximum length of 256 characters.",
+	"revision":   "revision is the git revision at which to clone the git repository Can be used to clone a specific branch, tag or commit SHA. Must be at most 256 characters in length. When omitted the repository's default branch is used.",
+	"contextDir": "contextDir is used to specify a directory within the repository to build the component. Must start with `/` and have a maximum length of 256 characters. When omitted, the default value is to build from the root of the repository.",
+}
+
+func (ConsoleSampleGitImportSourceRepository) SwaggerDoc() map[string]string {
+	return map_ConsoleSampleGitImportSourceRepository
+}
+
+var map_ConsoleSampleGitImportSourceService = map[string]string{
+	"":           "ConsoleSampleGitImportSourceService let the samples author define defaults for the Service created for this sample.",
+	"targetPort": "targetPort is the port that the service listens on for HTTP requests. This port will be used for Service created for this sample. Port must be in the range 1 to 65535. Default port is 8080.",
+}
+
+func (ConsoleSampleGitImportSourceService) SwaggerDoc() map[string]string {
+	return map_ConsoleSampleGitImportSourceService
+}
+
+var map_ConsoleSampleList = map[string]string{
+	"":         "Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).",
+	"metadata": "metadata is the standard list's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata",
+}
+
+func (ConsoleSampleList) SwaggerDoc() map[string]string {
+	return map_ConsoleSampleList
+}
+
+var map_ConsoleSampleSource = map[string]string{
+	"":                "ConsoleSampleSource is the actual sample definition and can hold different sample types. Unsupported sample types will be ignored in the web console.",
+	"type":            "type of the sample, currently supported: \"GitImport\";\"ContainerImport\"",
+	"gitImport":       "gitImport allows the user to import code from a git repository.",
+	"containerImport": "containerImport allows the user import a container image.",
+}
+
+func (ConsoleSampleSource) SwaggerDoc() map[string]string {
+	return map_ConsoleSampleSource
+}
+
+var map_ConsoleSampleSpec = map[string]string{
+	"":            "ConsoleSampleSpec is the desired sample for the web console. Samples will appear with their title, descriptions and a badge in a samples catalog.",
+	"title":       "title is the display name of the sample.\n\nIt is required and must be no more than 50 characters in length.",
+	"abstract":    "abstract is a short introduction to the sample.\n\nIt is required and must be no more than 100 characters in length.\n\nThe abstract is shown on the sample card tile below the title and provider and is limited to three lines of content.",
+	"description": "description is a long form explanation of the sample.\n\nIt is required and can have a maximum length of **4096** characters.\n\nIt is a README.md-like content for additional information, links, pre-conditions, and other instructions. It will be rendered as Markdown so that it can contain line breaks, links, and other simple formatting.",
+	"icon":        "icon is an optional base64 encoded image and shown beside the sample title.\n\nThe format must follow the data: URL format and can have a maximum size of **10 KB**.\n\n  data:[<mediatype>][;base64],<base64 encoded image>\n\nFor example:\n\n  data:image;base64,             plus the base64 encoded image.\n\nVector images can also be used. SVG icons must start with:\n\n  data:image/svg+xml;base64,     plus the base64 encoded SVG image.\n\nAll sample catalog icons will be shown on a white background (also when the dark theme is used). The web console ensures that different aspect ratios work correctly. Currently, the surface of the icon is at most 40x100px.\n\nFor more information on the data URL format, please visit https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URLs.",
+	"type":        "type is an optional label to group multiple samples.\n\nIt is optional and must be no more than 20 characters in length.\n\nRecommendation is a singular term like \"Builder Image\", \"Devfile\" or \"Serverless Function\".\n\nCurrently, the type is shown a badge on the sample card tile in the top right corner.",
+	"provider":    "provider is an optional label to honor who provides the sample.\n\nIt is optional and must be no more than 50 characters in length.\n\nA provider can be a company like \"Red Hat\" or an organization like \"CNCF\" or \"Knative\".\n\nCurrently, the provider is only shown on the sample card tile below the title with the prefix \"Provided by \"",
+	"tags":        "tags are optional string values that can be used to find samples in the samples catalog.\n\nExamples of common tags may be \"Java\", \"Quarkus\", etc.\n\nThey will be displayed on the samples details page.",
+	"source":      "source defines where to deploy the sample service from. The sample may be sourced from an external git repository or container image.",
+}
+
+func (ConsoleSampleSpec) SwaggerDoc() map[string]string {
+	return map_ConsoleSampleSpec
 }
 
 var map_ConsoleYAMLSample = map[string]string{

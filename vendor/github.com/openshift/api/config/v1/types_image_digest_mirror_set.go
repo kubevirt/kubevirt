@@ -11,6 +11,12 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 //
 // Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
 // +openshift:compatibility-gen:level=1
+// +openshift:api-approved.openshift.io=https://github.com/openshift/api/pull/1126
+// +openshift:file-pattern=cvoRunLevel=0000_10,operatorName=config-operator,operatorOrdering=01
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:path=imagedigestmirrorsets,scope=Cluster,shortName=idms
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:annotations=release.openshift.io/bootstrap-required=true
 type ImageDigestMirrorSet struct {
 	metav1.TypeMeta `json:",inline"`
 
@@ -19,7 +25,6 @@ type ImageDigestMirrorSet struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// spec holds user settable values for configuration
-	// +kubebuilder:validation:Required
 	// +required
 	Spec ImageDigestMirrorSetSpec `json:"spec"`
 	// status contains the observed state of the resource.
@@ -104,7 +109,6 @@ type ImageDigestMirrors struct {
 	// for more information about the format, see the document about the location field:
 	// https://github.com/containers/image/blob/main/docs/containers-registries.conf.5.md#choosing-a-registry-toml-table
 	// +required
-	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^\*(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))+$|^((?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))+)?(?::[0-9]+)?)(?:(?:/[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?)+)?$`
 	Source string `json:"source"`
 	// mirrors is zero or more locations that may also contain the same images. No mirror will be configured if not specified.

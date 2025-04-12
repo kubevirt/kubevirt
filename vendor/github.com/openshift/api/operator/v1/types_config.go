@@ -7,6 +7,11 @@ import (
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:path=configs,scope=Cluster,categories=coreoperators
+// +kubebuilder:subresource:status
+// +openshift:api-approved.openshift.io=https://github.com/openshift/api/pull/612
+// +openshift:file-pattern=cvoRunLevel=0000_10,operatorName=config-operator,operatorOrdering=01
 
 // Config specifies the behavior of the config operator which is responsible for creating the initial configuration of other components
 // on the cluster.  The operator also handles installation, migration or synchronization of cloud configurations for AWS and Azure cloud based clusters
@@ -21,7 +26,6 @@ type Config struct {
 	metav1.ObjectMeta `json:"metadata"`
 
 	// spec is the specification of the desired behavior of the Config Operator.
-	// +kubebuilder:validation:Required
 	// +required
 	Spec ConfigSpec `json:"spec"`
 
@@ -51,6 +55,6 @@ type ConfigList struct {
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ListMeta `json:"metadata"`
 
-	// Items contains the items
+	// items contains the items
 	Items []Config `json:"items"`
 }

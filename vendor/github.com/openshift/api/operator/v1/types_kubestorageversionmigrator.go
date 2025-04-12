@@ -7,6 +7,11 @@ import (
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:path=kubestorageversionmigrators,scope=Cluster
+// +kubebuilder:subresource:status
+// +openshift:api-approved.openshift.io=https://github.com/openshift/api/pull/503
+// +openshift:file-pattern=cvoRunLevel=0000_40,operatorName=kube-storage-version-migrator,operatorOrdering=00
 
 // KubeStorageVersionMigrator provides information to configure an operator to manage kube-storage-version-migrator.
 //
@@ -19,7 +24,6 @@ type KubeStorageVersionMigrator struct {
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ObjectMeta `json:"metadata"`
 
-	// +kubebuilder:validation:Required
 	// +required
 	Spec KubeStorageVersionMigratorSpec `json:"spec"`
 	// +optional
@@ -47,6 +51,6 @@ type KubeStorageVersionMigratorList struct {
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ListMeta `json:"metadata"`
 
-	// Items contains the items
+	// items contains the items
 	Items []KubeStorageVersionMigrator `json:"items"`
 }

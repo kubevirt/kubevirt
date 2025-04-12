@@ -704,6 +704,8 @@ func hcTLSSecurityProfileToKv(profile *openshiftconfigv1.TLSSecurityProfile) *ku
 	if profile.Custom != nil {
 		profileCiphers = profile.Custom.Ciphers
 		profileMinVersion = profile.Custom.MinTLSVersion
+	} else if profile.Modern != nil {
+		profileMinVersion = openshiftconfigv1.TLSProfiles[profile.Type].MinTLSVersion
 	} else {
 		profileCiphers = openshiftconfigv1.TLSProfiles[profile.Type].Ciphers
 		profileMinVersion = openshiftconfigv1.TLSProfiles[profile.Type].MinTLSVersion

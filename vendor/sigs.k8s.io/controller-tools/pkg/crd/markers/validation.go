@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	apiext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
 	"sigs.k8s.io/controller-tools/pkg/markers"
 )
 
@@ -313,7 +312,11 @@ type XIntOrString struct{}
 type Schemaless struct{}
 
 func hasNumericType(schema *apiext.JSONSchemaProps) bool {
-	return schema.Type == "integer" || schema.Type == "number"
+	return schema.Type == string(Integer) || schema.Type == string(Number)
+}
+
+func hasTextualType(schema *apiext.JSONSchemaProps) bool {
+	return schema.Type == "string" || schema.XIntOrString
 }
 
 func isIntegral(value float64) bool {
@@ -332,6 +335,7 @@ type XValidation struct {
 	MessageExpression string `marker:"messageExpression,optional"`
 	Reason            string `marker:"reason,optional"`
 	FieldPath         string `marker:"fieldPath,optional"`
+	OptionalOldSelf   *bool  `marker:"optionalOldSelf,optional"`
 }
 
 func (m Maximum) ApplyToSchema(schema *apiext.JSONSchemaProps) error {
@@ -339,7 +343,7 @@ func (m Maximum) ApplyToSchema(schema *apiext.JSONSchemaProps) error {
 		return fmt.Errorf("must apply maximum to a numeric value, found %s", schema.Type)
 	}
 
-	if schema.Type == "integer" && !isIntegral(m.Value()) {
+	if schema.Type == string(Integer) && !isIntegral(m.Value()) {
 		return fmt.Errorf("cannot apply non-integral maximum validation (%v) to integer value", m.Value())
 	}
 
@@ -394,8 +398,8 @@ func (m MultipleOf) ApplyToSchema(schema *apiext.JSONSchemaProps) error {
 }
 
 func (m MaxLength) ApplyToSchema(schema *apiext.JSONSchemaProps) error {
-	if schema.Type != "string" {
-		return fmt.Errorf("must apply maxlength to a string")
+	if !hasTextualType(schema) {
+		return fmt.Errorf("must apply maxlength to a textual value, found type %q", schema.Type)
 	}
 	val := int64(m)
 	schema.MaxLength = &val
@@ -403,8 +407,8 @@ func (m MaxLength) ApplyToSchema(schema *apiext.JSONSchemaProps) error {
 }
 
 func (m MinLength) ApplyToSchema(schema *apiext.JSONSchemaProps) error {
-	if schema.Type != "string" {
-		return fmt.Errorf("must apply minlength to a string")
+	if !hasTextualType(schema) {
+		return fmt.Errorf("must apply minlength to a textual value, found type %q", schema.Type)
 	}
 	val := int64(m)
 	schema.MinLength = &val
@@ -412,18 +416,15 @@ func (m MinLength) ApplyToSchema(schema *apiext.JSONSchemaProps) error {
 }
 
 func (m Pattern) ApplyToSchema(schema *apiext.JSONSchemaProps) error {
-	// Allow string types or IntOrStrings. An IntOrString will still
-	// apply the pattern validation when a string is detected, the pattern
-	// will not apply to ints though.
-	if schema.Type != "string" && !schema.XIntOrString {
-		return fmt.Errorf("must apply pattern to a `string` or `IntOrString`")
+	if !hasTextualType(schema) {
+		return fmt.Errorf("must apply pattern to a textual value, found type %q", schema.Type)
 	}
 	schema.Pattern = string(m)
 	return nil
 }
 
 func (m MaxItems) ApplyToSchema(schema *apiext.JSONSchemaProps) error {
-	if schema.Type != "array" {
+	if schema.Type != string(Array) {
 		return fmt.Errorf("must apply maxitem to an array")
 	}
 	val := int64(m)
@@ -432,7 +433,7 @@ func (m MaxItems) ApplyToSchema(schema *apiext.JSONSchemaProps) error {
 }
 
 func (m MinItems) ApplyToSchema(schema *apiext.JSONSchemaProps) error {
-	if schema.Type != "array" {
+	if schema.Type != string(Array) {
 		return fmt.Errorf("must apply minitems to an array")
 	}
 	val := int64(m)
@@ -603,6 +604,7 @@ func (m XValidation) ApplyToSchema(schema *apiext.JSONSchemaProps) error {
 		MessageExpression: m.MessageExpression,
 		Reason:            reason,
 		FieldPath:         m.FieldPath,
+		OptionalOldSelf:   m.OptionalOldSelf,
 	})
 	return nil
 }

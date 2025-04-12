@@ -20,6 +20,9 @@
 
 set -ex
 
+KUBECTL_BINARY=oc
+INSTALLED_NAMESPACE=kubevirt-hyperconverged
+
 clean_nmap_output () {
   sed -i '/^$/d' "$1"
   sed -i '/^Starting Nmap.*$/d' "$1"

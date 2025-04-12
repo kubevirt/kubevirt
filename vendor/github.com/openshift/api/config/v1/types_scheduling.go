@@ -11,6 +11,12 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 //
 // Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
 // +openshift:compatibility-gen:level=1
+// +openshift:api-approved.openshift.io=https://github.com/openshift/api/pull/470
+// +openshift:file-pattern=cvoRunLevel=0000_10,operatorName=config-operator,operatorOrdering=01
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:path=schedulers,scope=Cluster
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:annotations=release.openshift.io/bootstrap-required=true
 type Scheduler struct {
 	metav1.TypeMeta `json:",inline"`
 
@@ -19,7 +25,6 @@ type Scheduler struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// spec holds user settable values for configuration
-	// +kubebuilder:validation:Required
 	// +required
 	Spec SchedulerSpec `json:"spec"`
 	// status holds observed values from the cluster. They may not be overridden.
@@ -42,6 +47,10 @@ type SchedulerSpec struct {
 	// Defaults to "LowNodeUtilization"
 	// +optional
 	Profile SchedulerProfile `json:"profile,omitempty"`
+	// profileCustomizations contains configuration for modifying the default behavior of existing scheduler profiles.
+	// +openshift:enable:FeatureGate=DynamicResourceAllocation
+	// +optional
+	ProfileCustomizations ProfileCustomizations `json:"profileCustomizations"`
 	// defaultNodeSelector helps set the cluster-wide default node selector to
 	// restrict pod placement to specific nodes. This is applied to the pods
 	// created in all namespaces and creates an intersection with any existing
@@ -64,7 +73,7 @@ type SchedulerSpec struct {
 	// would not be applied.
 	// +optional
 	DefaultNodeSelector string `json:"defaultNodeSelector,omitempty"`
-	// MastersSchedulable allows masters nodes to be schedulable. When this flag is
+	// mastersSchedulable allows masters nodes to be schedulable. When this flag is
 	// turned on, all the master nodes in the cluster will be made schedulable,
 	// so that workload pods can run on them. The default value for this field is false,
 	// meaning none of the master nodes are schedulable.
@@ -91,6 +100,30 @@ var (
 	// NoScoring defines a scheduling profile which tries to provide lower-latency scheduling
 	// at the expense of potentially less optimal pod placement decisions.
 	NoScoring SchedulerProfile = "NoScoring"
+)
+
+// ProfileCustomizations contains various parameters for modifying the default behavior of certain profiles
+type ProfileCustomizations struct {
+	// dynamicResourceAllocation allows to enable or disable dynamic resource allocation within the scheduler.
+	// Dynamic resource allocation is an API for requesting and sharing resources between pods and containers inside a pod.
+	// Third-party resource drivers are responsible for tracking and allocating resources.
+	// Different kinds of resources support arbitrary parameters for defining requirements and initialization.
+	// Valid values are Enabled, Disabled and omitted.
+	// When omitted, this means no opinion and the platform is left to choose a reasonable default,
+	// which is subject to change over time.
+	// The current default is Disabled.
+	// +optional
+	DynamicResourceAllocation DRAEnablement `json:"dynamicResourceAllocation"`
+}
+
+// +kubebuilder:validation:Enum:="";"Enabled";"Disabled"
+type DRAEnablement string
+
+var (
+	// DRAEnablementEnabled enables dynamic resource allocation feature
+	DRAEnablementEnabled DRAEnablement = "Enabled"
+	// DRAEnablementDisabled disables dynamic resource allocation feature
+	DRAEnablementDisabled DRAEnablement = "Disabled"
 )
 
 type SchedulerStatus struct {

@@ -2,7 +2,7 @@
 set -ex
 
 K8S_VER=$(grep "k8s.io/api => k8s.io/api" go.mod | xargs | cut -d" " -f4)
-KUBEOPENAPI_VER="v0.0.0-20240827152857-f7e401e7b4c2"
+KUBEOPENAPI_VER="$(grep "k8s.io/kube-openapi => k8s.io/kube-openapi" go.mod | xargs | cut -d" " -f4)"
 PROJECT_ROOT="$(readlink -e "$(dirname "${BASH_SOURCE[0]}")"/../)"
 
 PACKAGE=github.com/kubevirt/hyperconverged-cluster-operator

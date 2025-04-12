@@ -7,6 +7,11 @@ import (
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:path=openshiftcontrollermanagers,scope=Cluster,categories=coreoperators
+// +kubebuilder:subresource:status
+// +openshift:api-approved.openshift.io=https://github.com/openshift/api/pull/475
+// +openshift:file-pattern=cvoRunLevel=0000_50,operatorName=openshift-controller-manager,operatorOrdering=02
 
 // OpenShiftControllerManager provides information to configure an operator to manage openshift-controller-manager.
 //
@@ -19,7 +24,6 @@ type OpenShiftControllerManager struct {
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ObjectMeta `json:"metadata"`
 
-	// +kubebuilder:validation:Required
 	// +required
 	Spec OpenShiftControllerManagerSpec `json:"spec"`
 	// +optional
@@ -47,6 +51,6 @@ type OpenShiftControllerManagerList struct {
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	metav1.ListMeta `json:"metadata"`
 
-	// Items contains the items
+	// items contains the items
 	Items []OpenShiftControllerManager `json:"items"`
 }

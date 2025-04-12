@@ -10,6 +10,12 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 //
 // Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
 // +openshift:compatibility-gen:level=1
+// +openshift:api-approved.openshift.io=https://github.com/openshift/api/pull/470
+// +openshift:file-pattern=cvoRunLevel=0000_10,operatorName=config-operator,operatorOrdering=01
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:path=dnses,scope=Cluster
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:annotations=release.openshift.io/bootstrap-required=true
 type DNS struct {
 	metav1.TypeMeta `json:",inline"`
 
@@ -18,7 +24,6 @@ type DNS struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// spec holds user settable values for configuration
-	// +kubebuilder:validation:Required
 	// +required
 	Spec DNSSpec `json:"spec"`
 	// status holds observed values from the cluster. They may not be overridden.
@@ -53,6 +58,12 @@ type DNSSpec struct {
 	//
 	// +optional
 	PrivateZone *DNSZone `json:"privateZone,omitempty"`
+	// platform holds configuration specific to the underlying
+	// infrastructure provider for DNS.
+	// When omitted, this means the user has no opinion and the platform is left
+	// to choose reasonable defaults. These defaults are subject to change over time.
+	// +optional
+	Platform DNSPlatformSpec `json:"platform,omitempty"`
 }
 
 // DNSZone is used to define a DNS hosted zone.
@@ -95,4 +106,35 @@ type DNSList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []DNS `json:"items"`
+}
+
+// DNSPlatformSpec holds cloud-provider-specific configuration
+// for DNS administration.
+// +union
+// +kubebuilder:validation:XValidation:rule="has(self.type) && self.type == 'AWS' ?  has(self.aws) : !has(self.aws)",message="aws configuration is required when platform is AWS, and forbidden otherwise"
+type DNSPlatformSpec struct {
+	// type is the underlying infrastructure provider for the cluster.
+	// Allowed values: "", "AWS".
+	//
+	// Individual components may not support all platforms,
+	// and must handle unrecognized platforms with best-effort defaults.
+	//
+	// +unionDiscriminator
+	// +required
+	// +kubebuilder:validation:XValidation:rule="self in ['','AWS']",message="allowed values are '' and 'AWS'"
+	Type PlatformType `json:"type"`
+
+	// aws contains DNS configuration specific to the Amazon Web Services cloud provider.
+	// +optional
+	AWS *AWSDNSSpec `json:"aws"`
+}
+
+// AWSDNSSpec contains DNS configuration specific to the Amazon Web Services cloud provider.
+type AWSDNSSpec struct {
+	// privateZoneIAMRole contains the ARN of an IAM role that should be assumed when performing
+	// operations on the cluster's private hosted zone specified in the cluster DNS config.
+	// When left empty, no role should be assumed.
+	// +kubebuilder:validation:Pattern:=`^arn:(aws|aws-cn|aws-us-gov):iam::[0-9]{12}:role\/.*$`
+	// +optional
+	PrivateZoneIAMRole string `json:"privateZoneIAMRole"`
 }

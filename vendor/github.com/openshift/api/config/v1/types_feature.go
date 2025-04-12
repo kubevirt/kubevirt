@@ -1,8 +1,6 @@
 package v1
 
 import (
-	"fmt"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -14,6 +12,12 @@ import (
 //
 // Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
 // +openshift:compatibility-gen:level=1
+// +openshift:api-approved.openshift.io=https://github.com/openshift/api/pull/470
+// +openshift:file-pattern=cvoRunLevel=0000_10,operatorName=config-operator,operatorOrdering=01
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:path=featuregates,scope=Cluster
+// +kubebuilder:subresource:status
+// +kubebuilder:metadata:annotations=release.openshift.io/bootstrap-required=true
 type FeatureGate struct {
 	metav1.TypeMeta `json:",inline"`
 
@@ -22,8 +26,8 @@ type FeatureGate struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// spec holds user settable values for configuration
-	// +kubebuilder:validation:Required
 	// +required
+	// +kubebuilder:validation:XValidation:rule="has(oldSelf.featureSet) ? has(self.featureSet) : true",message=".spec.featureSet cannot be removed"
 	Spec FeatureGateSpec `json:"spec"`
 	// status holds observed values from the cluster. They may not be overridden.
 	// +optional
@@ -40,13 +44,17 @@ var (
 	// this feature set on CANNOT BE UNDONE and PREVENTS UPGRADES.
 	TechPreviewNoUpgrade FeatureSet = "TechPreviewNoUpgrade"
 
+	// DevPreviewNoUpgrade turns on dev preview features that are not part of the normal supported platform. Turning
+	// this feature set on CANNOT BE UNDONE and PREVENTS UPGRADES.
+	DevPreviewNoUpgrade FeatureSet = "DevPreviewNoUpgrade"
+
 	// CustomNoUpgrade allows the enabling or disabling of any feature. Turning this feature set on IS NOT SUPPORTED, CANNOT BE UNDONE, and PREVENTS UPGRADES.
 	// Because of its nature, this setting cannot be validated.  If you have any typos or accidentally apply invalid combinations
 	// your cluster may fail in an unrecoverable way.
 	CustomNoUpgrade FeatureSet = "CustomNoUpgrade"
 
-	// TopologyManager enables ToplogyManager support. Upgrades are enabled with this feature.
-	LatencySensitive FeatureSet = "LatencySensitive"
+	// AllFixedFeatureSets are the featuresets that have known featuregates.  Custom doesn't for instance.  LatencySensitive is dead
+	AllFixedFeatureSets = []FeatureSet{Default, TechPreviewNoUpgrade, DevPreviewNoUpgrade}
 )
 
 type FeatureGateSpec struct {
@@ -59,6 +67,10 @@ type FeatureGateSelection struct {
 	// Turning on or off features may cause irreversible changes in your cluster which cannot be undone.
 	// +unionDiscriminator
 	// +optional
+	// +kubebuilder:validation:Enum=CustomNoUpgrade;DevPreviewNoUpgrade;TechPreviewNoUpgrade;""
+	// +kubebuilder:validation:XValidation:rule="oldSelf == 'CustomNoUpgrade' ? self == 'CustomNoUpgrade' : true",message="CustomNoUpgrade may not be changed"
+	// +kubebuilder:validation:XValidation:rule="oldSelf == 'TechPreviewNoUpgrade' ? self == 'TechPreviewNoUpgrade' : true",message="TechPreviewNoUpgrade may not be changed"
+	// +kubebuilder:validation:XValidation:rule="oldSelf == 'DevPreviewNoUpgrade' ? self == 'DevPreviewNoUpgrade' : true",message="DevPreviewNoUpgrade may not be changed"
 	FeatureSet FeatureSet `json:"featureSet,omitempty"`
 
 	// customNoUpgrade allows the enabling or disabling of any feature. Turning this feature set on IS NOT SUPPORTED, CANNOT BE UNDONE, and PREVENTS UPGRADES.
@@ -87,6 +99,7 @@ type FeatureGateStatus struct {
 	// Known .status.conditions.type are: "DeterminationDegraded"
 	// +listType=map
 	// +listMapKey=type
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
 	// featureGates contains a list of enabled and disabled featureGates that are keyed by payloadVersion.
@@ -104,7 +117,6 @@ type FeatureGateStatus struct {
 
 type FeatureGateDetails struct {
 	// version matches the version provided by the ClusterVersion and in the ClusterOperator.Status.Versions field.
-	// +kubebuilder:validation:Required
 	// +required
 	Version string `json:"version"`
 	// enabled is a list of all feature gates that are enabled in the cluster for the named version.
@@ -117,7 +129,7 @@ type FeatureGateDetails struct {
 
 type FeatureGateAttributes struct {
 	// name is the name of the FeatureGate.
-	// +kubebuilder:validation:Required
+	// +required
 	Name FeatureGateName `json:"name"`
 
 	// possible (probable?) future additions include
@@ -137,147 +149,4 @@ type FeatureGateList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []FeatureGate `json:"items"`
-}
-
-type FeatureGateEnabledDisabled struct {
-	Enabled  []FeatureGateDescription
-	Disabled []FeatureGateDescription
-}
-
-// FeatureSets Contains a map of Feature names to Enabled/Disabled Feature.
-//
-// NOTE: The caller needs to make sure to check for the existence of the value
-// using golang's existence field. A possible scenario is an upgrade where new
-// FeatureSets are added and a controller has not been upgraded with a newer
-// version of this file. In this upgrade scenario the map could return nil.
-//
-// example:
-//
-//	if featureSet, ok := FeatureSets["SomeNewFeature"]; ok { }
-//
-// If you put an item in either of these lists, put your area and name on it so we can find owners.
-var FeatureSets = map[FeatureSet]*FeatureGateEnabledDisabled{
-	Default: defaultFeatures,
-	CustomNoUpgrade: {
-		Enabled:  []FeatureGateDescription{},
-		Disabled: []FeatureGateDescription{},
-	},
-	TechPreviewNoUpgrade: newDefaultFeatures().
-		with(externalCloudProvider).
-		with(externalCloudProviderAzure).
-		with(externalCloudProviderGCP).
-		with(csiDriverSharedResource).
-		with(buildCSIVolumes).
-		with(nodeSwap).
-		with(machineAPIProviderOpenStack).
-		with(insightsConfigAPI).
-		with(matchLabelKeysInPodTopologySpread).
-		with(retroactiveDefaultStorageClass).
-		with(pdbUnhealthyPodEvictionPolicy).
-		with(dynamicResourceAllocation).
-		with(admissionWebhookMatchConditions).
-		with(azureWorkloadIdentity).
-		with(gateGatewayAPI).
-		toFeatures(defaultFeatures),
-	LatencySensitive: newDefaultFeatures().
-		toFeatures(defaultFeatures),
-}
-
-var defaultFeatures = &FeatureGateEnabledDisabled{
-	Enabled: []FeatureGateDescription{
-		openShiftPodSecurityAdmission,
-	},
-	Disabled: []FeatureGateDescription{
-		retroactiveDefaultStorageClass,
-	},
-}
-
-type featureSetBuilder struct {
-	forceOn  []FeatureGateDescription
-	forceOff []FeatureGateDescription
-}
-
-func newDefaultFeatures() *featureSetBuilder {
-	return &featureSetBuilder{}
-}
-
-func (f *featureSetBuilder) with(forceOn FeatureGateDescription) *featureSetBuilder {
-	for _, curr := range f.forceOn {
-		if curr.FeatureGateAttributes.Name == forceOn.FeatureGateAttributes.Name {
-			panic(fmt.Errorf("coding error: %q enabled twice", forceOn.FeatureGateAttributes.Name))
-		}
-	}
-	f.forceOn = append(f.forceOn, forceOn)
-	return f
-}
-
-func (f *featureSetBuilder) without(forceOff FeatureGateDescription) *featureSetBuilder {
-	for _, curr := range f.forceOff {
-		if curr.FeatureGateAttributes.Name == forceOff.FeatureGateAttributes.Name {
-			panic(fmt.Errorf("coding error: %q disabled twice", forceOff.FeatureGateAttributes.Name))
-		}
-	}
-	f.forceOff = append(f.forceOff, forceOff)
-	return f
-}
-
-func (f *featureSetBuilder) isForcedOff(needle FeatureGateDescription) bool {
-	for _, forcedOff := range f.forceOff {
-		if needle.FeatureGateAttributes.Name == forcedOff.FeatureGateAttributes.Name {
-			return true
-		}
-	}
-	return false
-}
-
-func (f *featureSetBuilder) isForcedOn(needle FeatureGateDescription) bool {
-	for _, forceOn := range f.forceOn {
-		if needle.FeatureGateAttributes.Name == forceOn.FeatureGateAttributes.Name {
-			return true
-		}
-	}
-	return false
-}
-
-func (f *featureSetBuilder) toFeatures(defaultFeatures *FeatureGateEnabledDisabled) *FeatureGateEnabledDisabled {
-	finalOn := []FeatureGateDescription{}
-	finalOff := []FeatureGateDescription{}
-
-	// only add the default enabled features if they haven't been explicitly set off
-	for _, defaultOn := range defaultFeatures.Enabled {
-		if !f.isForcedOff(defaultOn) {
-			finalOn = append(finalOn, defaultOn)
-		}
-	}
-	for _, currOn := range f.forceOn {
-		if f.isForcedOff(currOn) {
-			panic("coding error, you can't have features both on and off")
-		}
-		found := false
-		for _, alreadyOn := range finalOn {
-			if alreadyOn.FeatureGateAttributes.Name == currOn.FeatureGateAttributes.Name {
-				found = true
-			}
-		}
-		if found {
-			continue
-		}
-
-		finalOn = append(finalOn, currOn)
-	}
-
-	// only add the default disabled features if they haven't been explicitly set on
-	for _, defaultOff := range defaultFeatures.Disabled {
-		if !f.isForcedOn(defaultOff) {
-			finalOff = append(finalOff, defaultOff)
-		}
-	}
-	for _, currOff := range f.forceOff {
-		finalOff = append(finalOff, currOff)
-	}
-
-	return &FeatureGateEnabledDisabled{
-		Enabled:  finalOn,
-		Disabled: finalOff,
-	}
 }

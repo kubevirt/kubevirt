@@ -15,6 +15,17 @@ import (
 //
 // Compatibility level 1: Stable within a major release for a minimum of 12 months or 3 minor releases (whichever is longer).
 // +openshift:compatibility-gen:level=1
+// +openshift:api-approved.openshift.io=https://github.com/openshift/api/pull/497
+// +openshift:file-pattern=cvoRunLevel=0000_00,operatorName=cluster-version-operator,operatorOrdering=01
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:path=clusteroperators,scope=Cluster,shortName=co
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name=Version,JSONPath=.status.versions[?(@.name=="operator")].version,type=string,description=The version the operator is at.
+// +kubebuilder:printcolumn:name=Available,JSONPath=.status.conditions[?(@.type=="Available")].status,type=string,description=Whether the operator is running and stable.
+// +kubebuilder:printcolumn:name=Progressing,JSONPath=.status.conditions[?(@.type=="Progressing")].status,type=string,description=Whether the operator is processing changes.
+// +kubebuilder:printcolumn:name=Degraded,JSONPath=.status.conditions[?(@.type=="Degraded")].status,type=string,description=Whether the operator is degraded.
+// +kubebuilder:printcolumn:name=Since,JSONPath=.status.conditions[?(@.type=="Available")].lastTransitionTime,type=date,description=The time the operator's Available status last changed.
+// +kubebuilder:metadata:annotations=include.release.openshift.io/self-managed-high-availability=true
 type ClusterOperator struct {
 	metav1.TypeMeta `json:",inline"`
 
@@ -23,7 +34,6 @@ type ClusterOperator struct {
 	metav1.ObjectMeta `json:"metadata"`
 
 	// spec holds configuration that could apply to any operator.
-	// +kubebuilder:validation:Required
 	// +required
 	Spec ClusterOperatorSpec `json:"spec"`
 
@@ -43,6 +53,8 @@ type ClusterOperatorStatus struct {
 	// conditions describes the state of the operator's managed and monitored components.
 	// +patchMergeKey=type
 	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
 	// +optional
 	Conditions []ClusterOperatorStatusCondition `json:"conditions,omitempty"  patchStrategy:"merge" patchMergeKey:"type"`
 
@@ -69,14 +81,12 @@ type ClusterOperatorStatus struct {
 
 type OperandVersion struct {
 	// name is the name of the particular operand this version is for.  It usually matches container images, not operators.
-	// +kubebuilder:validation:Required
 	// +required
 	Name string `json:"name"`
 
 	// version indicates which version of a particular operand is currently being managed.  It must always match the Available
 	// operand.  If 1.0.0 is Available, then this must indicate 1.0.0 even if the operator is trying to rollout
 	// 1.1.0
-	// +kubebuilder:validation:Required
 	// +required
 	Version string `json:"version"`
 }
@@ -84,18 +94,15 @@ type OperandVersion struct {
 // ObjectReference contains enough information to let you inspect or modify the referred object.
 type ObjectReference struct {
 	// group of the referent.
-	// +kubebuilder:validation:Required
 	// +required
 	Group string `json:"group"`
 	// resource of the referent.
-	// +kubebuilder:validation:Required
 	// +required
 	Resource string `json:"resource"`
 	// namespace of the referent.
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
 	// name of the referent.
-	// +kubebuilder:validation:Required
 	// +required
 	Name string `json:"name"`
 }
@@ -117,17 +124,14 @@ const (
 // +k8s:deepcopy-gen=true
 type ClusterOperatorStatusCondition struct {
 	// type specifies the aspect reported by this condition.
-	// +kubebuilder:validation:Required
 	// +required
 	Type ClusterStatusConditionType `json:"type"`
 
 	// status of the condition, one of True, False, Unknown.
-	// +kubebuilder:validation:Required
 	// +required
 	Status ConditionStatus `json:"status"`
 
 	// lastTransitionTime is the time of the last update to the current status property.
-	// +kubebuilder:validation:Required
 	// +required
 	LastTransitionTime metav1.Time `json:"lastTransitionTime"`
 
