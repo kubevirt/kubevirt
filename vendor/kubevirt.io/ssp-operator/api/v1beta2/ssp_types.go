@@ -160,10 +160,11 @@ type SSPStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
+// SSP is the Schema for the ssps API
+//
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
-// SSP is the Schema for the ssps API
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
 type SSP struct {
 	metav1.TypeMeta   `json:",inline"`

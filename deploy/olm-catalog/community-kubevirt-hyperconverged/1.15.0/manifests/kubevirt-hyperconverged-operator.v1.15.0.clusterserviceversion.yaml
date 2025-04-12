@@ -9,7 +9,7 @@ metadata:
     certified: "false"
     console.openshift.io/disable-operand-delete: "true"
     containerImage: quay.io/kubevirt/hyperconverged-cluster-operator:1.15.0-unstable
-    createdAt: "2025-04-10 05:05:15"
+    createdAt: "2025-04-12 06:41:23"
     description: A unified operator deploying and controlling KubeVirt and its supporting
       operators with opinionated defaults
     features.operators.openshift.io/cnf: "false"
@@ -1967,7 +1967,19 @@ spec:
         - apiGroups:
           - ""
           resources:
+          - configmaps
+          verbs:
+          - create
+          - delete
+          - list
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
           - endpoints
+          - persistentvolumeclaims/status
+          - persistentvolumes
           - pods
           verbs:
           - get
@@ -1976,6 +1988,7 @@ spec:
         - apiGroups:
           - ""
           resources:
+          - namespaces
           - services
           verbs:
           - create
@@ -1985,8 +1998,29 @@ spec:
           - update
           - watch
         - apiGroups:
+          - ""
+          resources:
+          - persistentvolumeclaims
+          - serviceaccounts
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - serviceaccounts/token
+          verbs:
+          - create
+        - apiGroups:
           - admissionregistration.k8s.io
           resources:
+          - validatingadmissionpolicies
+          - validatingadmissionpolicybindings
           - validatingwebhookconfigurations
           verbs:
           - create
@@ -2040,29 +2074,7 @@ spec:
           - cdi.kubevirt.io
           resources:
           - dataimportcrons
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - cdi.kubevirt.io
-          resources:
           - datasources
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - cdi.kubevirt.io
-          resources:
           - datavolumes
           verbs:
           - create
@@ -2086,153 +2098,14 @@ spec:
           verbs:
           - get
         - apiGroups:
-          - ""
-          resources:
-          - configmaps
-          verbs:
-          - create
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - configmaps
-          - serviceaccounts
-          verbs:
-          - create
-          - delete
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - namespaces
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - persistentvolumeclaims
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - persistentvolumeclaims/status
-          verbs:
-          - get
-          - list
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - persistentvolumes
-          verbs:
-          - get
-          - list
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - pods
-          verbs:
-          - create
-          - get
-          - list
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - secrets
-          verbs:
-          - create
-          - get
-          - list
-          - patch
-        - apiGroups:
-          - ""
-          resources:
-          - serviceaccounts
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - serviceaccounts/token
-          verbs:
-          - create
-        - apiGroups:
-          - ""
-          resources:
-          - services
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - instancetype.kubevirt.io
-          resources:
-          - virtualmachineclusterinstancetypes
-          verbs:
-          - delete
-          - list
-          - watch
-        - apiGroups:
-          - instancetype.kubevirt.io
-          resources:
-          - virtualmachineclusterpreferences
-          verbs:
-          - delete
-          - list
-          - watch
-        - apiGroups:
           - kubevirt.io
           resources:
           - virtualmachineinstances
           - virtualmachines
           verbs:
-          - create
-          - delete
-          - get
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - kubevirt.io
-          resources:
-          - virtualmachines
-          verbs:
           - get
           - list
           - watch
-        - apiGroups:
-          - kubevirt.io
-          resources:
-          - virtualmachines/finalizers
-          verbs:
-          - get
         - apiGroups:
           - monitoring.coreos.com
           resources:
@@ -2248,39 +2121,6 @@ spec:
           resources:
           - clusterrolebindings
           - clusterroles
-          verbs:
-          - create
-          - delete
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - rbac.authorization.k8s.io
-          resources:
-          - clusterrolebindings
-          - clusterroles
-          - rolebindings
-          verbs:
-          - create
-          - delete
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - rbac.authorization.k8s.io
-          resources:
-          - clusterroles
-          - rolebindings
-          verbs:
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - rbac.authorization.k8s.io
-          resources:
-          - clusterroles
-          - rolebindings
-          - roles
           verbs:
           - create
           - delete
@@ -2320,11 +2160,6 @@ spec:
           - ssp.kubevirt.io
           resources:
           - ssps/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - ssp.kubevirt.io
-          resources:
           - ssps/status
           verbs:
           - update
@@ -2334,37 +2169,6 @@ spec:
           - virtualmachineinstances/vnc
           verbs:
           - get
-        - apiGroups:
-          - subresources.kubevirt.io
-          resources:
-          - virtualmachines/restart
-          - virtualmachines/start
-          - virtualmachines/stop
-          verbs:
-          - update
-        - apiGroups:
-          - tekton.dev
-          resources:
-          - pipelines
-          verbs:
-          - create
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - tekton.dev
-          resources:
-          - tasks
-          verbs:
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - template.openshift.io
-          resources:
-          - processedtemplates
-          verbs:
-          - create
         - apiGroups:
           - template.openshift.io
           resources:
@@ -3260,7 +3064,7 @@ spec:
                 - name: NETWORK_ADDONS_VERSION
                   value: v0.98.2
                 - name: SSP_VERSION
-                  value: v0.22.3
+                  value: v0.23.0
                 - name: HPPO_VERSION
                   value: v0.22.0
                 - name: AAQ_VERSION
@@ -3719,15 +3523,15 @@ spec:
                 - /manager
                 env:
                 - name: VALIDATOR_IMAGE
-                  value: quay.io/kubevirt/kubevirt-template-validator@sha256:a1c4c966ea781d667aa7dc79078d90c8ca4f8b8bf911ce145e6e769072ee26cf
+                  value: quay.io/kubevirt/kubevirt-template-validator@sha256:b49fd20be4f149c6c6848bc87684d683d04f8f630336820b7f0ff246792f560e
                 - name: OPERATOR_VERSION
-                  value: v0.22.3
+                  value: v0.23.0
                 - name: VM_CONSOLE_PROXY_IMAGE
                 - name: POD_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.namespace
-                image: quay.io/kubevirt/ssp-operator@sha256:f851623dc8034e9efea514e360c9972143078d58ae552a8b126da2178b15c496
+                image: quay.io/kubevirt/ssp-operator@sha256:e78660a3056b41b11ad522f8a0be3fb0aa7bb40801cbb16cbf9ffe6b6b5b1722
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -3757,6 +3561,7 @@ spec:
                   capabilities:
                     drop:
                     - ALL
+                terminationMessagePolicy: FallbackToLogsOnError
               priorityClassName: system-cluster-critical
               securityContext:
                 runAsNonRoot: true
@@ -4811,7 +4616,7 @@ spec:
     name: kubevirt-apiserver-proxy
   - image: quay.io/kubevirt-ui/kubevirt-plugin@sha256:9656716bf6aca3ae2b81d28de6d228c1797d3f81934ccd862854be62a895cc2a
     name: kubevirt-plugin
-  - image: quay.io/kubevirt/kubevirt-template-validator@sha256:a1c4c966ea781d667aa7dc79078d90c8ca4f8b8bf911ce145e6e769072ee26cf
+  - image: quay.io/kubevirt/kubevirt-template-validator@sha256:b49fd20be4f149c6c6848bc87684d683d04f8f630336820b7f0ff246792f560e
     name: kubevirt-template-validator
   - image: quay.io/kubevirt/libguestfs-tools@sha256:360ae79853f55195e9dd1571d8903b6d78a4f5612d6a85d42d8d59d852dc12eb
     name: libguestfs-tools
@@ -4831,7 +4636,7 @@ spec:
     name: pr-helper
   - image: quay.io/kubevirt/sidecar-shim@sha256:3741dc9c9619be64313c5d0f0d6bd4f1453871ed0910165e209ef9aaa3f273f6
     name: sidecar-shim
-  - image: quay.io/kubevirt/ssp-operator@sha256:f851623dc8034e9efea514e360c9972143078d58ae552a8b126da2178b15c496
+  - image: quay.io/kubevirt/ssp-operator@sha256:e78660a3056b41b11ad522f8a0be3fb0aa7bb40801cbb16cbf9ffe6b6b5b1722
     name: ssp-operator
   - image: quay.io/kubevirt/virt-api@sha256:f9dd496df05456d47815f0b5861c6764b10c23657a48db886d8219acf5b44e86
     name: virt-api
