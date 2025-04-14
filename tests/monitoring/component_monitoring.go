@@ -50,7 +50,6 @@ type alerts struct {
 	downAlert            string
 	noReadyAlert         string
 	restErrorsBurtsAlert string
-	restErrorsHighAlert  string
 	lowCountAlert        string
 }
 
@@ -59,7 +58,6 @@ var (
 		deploymentName:       "virt-api",
 		downAlert:            "VirtAPIDown",
 		restErrorsBurtsAlert: "VirtApiRESTErrorsBurst",
-		restErrorsHighAlert:  "VirtApiRESTErrorsHigh",
 		lowCountAlert:        "LowVirtAPICount",
 	}
 	virtController = alerts{
@@ -67,20 +65,17 @@ var (
 		downAlert:            "VirtControllerDown",
 		noReadyAlert:         "NoReadyVirtController",
 		restErrorsBurtsAlert: "VirtControllerRESTErrorsBurst",
-		restErrorsHighAlert:  "VirtControllerRESTErrorsHigh",
 		lowCountAlert:        "LowVirtControllersCount",
 	}
 	virtHandler = alerts{
 		deploymentName:       "virt-handler",
 		restErrorsBurtsAlert: "VirtHandlerRESTErrorsBurst",
-		restErrorsHighAlert:  "VirtHandlerRESTErrorsHigh",
 	}
 	virtOperator = alerts{
 		deploymentName:       "virt-operator",
 		downAlert:            "VirtOperatorDown",
 		noReadyAlert:         "NoReadyVirtOperator",
 		restErrorsBurtsAlert: "VirtOperatorRESTErrorsBurst",
-		restErrorsHighAlert:  "VirtOperatorRESTErrorsHigh",
 		lowCountAlert:        "LowVirtOperatorCount",
 	}
 )
@@ -232,15 +227,6 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
-		It("VirtApiRESTErrorsHigh should be triggered when requests to virt-api are failing", func() {
-			By("Creating VNC connections to the virt-api")
-			Eventually(func(g Gomega) {
-				_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).VNC(rand.String(6))
-				g.Expect(err).To(MatchError(ContainSubstring("not found")))
-				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtApi.restErrorsHighAlert)).To(BeTrue())
-			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
-		})
-
 		It("VirtOperatorRESTErrorsBurst should be triggered when requests to virt-operator are failing", func() {
 			By("Restoring the operator")
 			scales.RestoreScale(virtOperator.deploymentName)
@@ -256,24 +242,6 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			By("Waiting for the alert to exist")
 			Eventually(func(g Gomega) {
 				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtOperator.restErrorsBurtsAlert)).To(BeTrue())
-			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
-		})
-
-		It("VirtOperatorRESTErrorsHigh should be triggered when requests to virt-operator are failing", func() {
-			By("Restoring the operator")
-			scales.RestoreScale(virtOperator.deploymentName)
-
-			By("Deleting the operator cluster role binding")
-			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), crb.Name, metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Deleting the operator role binding")
-			err = virtClient.RbacV1().RoleBindings(flags.KubeVirtInstallNamespace).Delete(context.Background(), operatorRoleBindingName, metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Waiting for the alert to exist")
-			Eventually(func(g Gomega) {
-				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtOperator.restErrorsHighAlert)).To(BeTrue())
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
@@ -293,22 +261,6 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 
-		It("VirtControllerRESTErrorsHigh should be triggered when requests to virt-controller are failing", func() {
-			By("Deleting the controller cluster role binding")
-			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-controller", metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			vmi := libvmifact.NewGuestless()
-
-			By("Trying to create a guestless vmi until the alert exists")
-			Eventually(func(g Gomega) {
-				_, _ = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
-				_ = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
-
-				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtController.restErrorsHighAlert)).To(BeTrue())
-			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
-		})
-
 		It("VirtHandlerRESTErrorsBurst should be triggered when requests to virt-handler are failing", func() {
 			By("Deleting the handler cluster role binding")
 			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-handler", metav1.DeleteOptions{})
@@ -322,22 +274,6 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 				_ = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 
 				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtHandler.restErrorsBurtsAlert)).To(BeTrue())
-			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
-		})
-
-		It("VirtHandlerRESTErrorsHigh should be triggered when requests to virt-handler are failing", func() {
-			By("Deleting the handler cluster role binding")
-			err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), "kubevirt-handler", metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			vmi := libvmifact.NewGuestless()
-
-			By("Trying to create a guestless vmi until the alert exists")
-			Eventually(func(g Gomega) {
-				_, _ = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
-				_ = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
-
-				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtHandler.restErrorsHighAlert)).To(BeTrue())
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
 	})
