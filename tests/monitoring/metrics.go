@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright The Kubevirt Authors
+ * Copyright The KubeVirt Authors
  *
  */
 
@@ -78,6 +78,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			"kubevirt_vmi_migration_phase_transition_time_from_creation_seconds": true,
 			"kubevirt_vmi_migrations_in_pending_phase":                           true,
 			"kubevirt_vmi_migrations_in_scheduling_phase":                        true,
+			"kubevirt_vmi_migrations_in_unset_phase":                             true,
 			"kubevirt_vmi_migrations_in_running_phase":                           true,
 			"kubevirt_vmi_migration_succeeded":                                   true,
 			"kubevirt_vmi_migration_failed":                                      true,

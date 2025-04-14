@@ -29,7 +29,6 @@ go_library(
         "//staging/src/kubevirt.io/api/snapshot/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
-        "//vendor/github.com/golang/glog:go_default_library",
         "//vendor/github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1:go_default_library",
         "//vendor/github.com/openshift/api/route/v1:go_default_library",
         "//vendor/github.com/openshift/api/security/v1:go_default_library",
@@ -76,9 +75,9 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
+        "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/api:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",

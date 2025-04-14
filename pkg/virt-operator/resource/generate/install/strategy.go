@@ -29,7 +29,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/golang/glog"
 	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -503,7 +502,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		}
 		strategy.prometheusRules = append(strategy.prometheusRules, prometheusRule)
 	} else {
-		glog.Warningf("failed to create ServiceMonitor resources because couldn't find ServiceAccount %v in any monitoring namespaces : %v", monitorServiceAccount, strings.Join(config.GetPotentialMonitorNamespaces(), ", "))
+		log.Log.Warningf("failed to create ServiceMonitor resources because couldn't find ServiceAccount %v in any monitoring namespaces : %v", monitorServiceAccount, strings.Join(config.GetPotentialMonitorNamespaces(), ", "))
 	}
 
 	for _, entry := range rbaclist {

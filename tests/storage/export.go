@@ -297,6 +297,7 @@ var _ = Describe(SIG("Export", func() {
 
 		pod, err := createSourcePodChecker(pvc)
 		Expect(err).ToNot(HaveOccurred())
+		Eventually(ThisPod(pod), 30*time.Second, 1*time.Second).Should(HaveConditionTrue(k8sv1.PodReady))
 
 		fileName := filepath.Join(dataPath, diskImage)
 		if volumeMode == k8sv1.PersistentVolumeBlock {

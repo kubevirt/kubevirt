@@ -313,6 +313,9 @@
               "name": "nameValue",
               "i6300esb": {
                 "action": "actionValue"
+              },
+              "diag288": {
+                "action": "actionValue"
               }
             },
             "interfaces": [

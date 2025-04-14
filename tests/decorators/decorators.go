@@ -109,9 +109,15 @@ var (
 	// FlakeCheck decorates tests that are dedicated to the check-tests-for-flakes test lane.
 	FlakeCheck = Label("flake-check")
 
-	/* Potentially disruptive tests */
+	// Disruptive indicates that the test may cause a disruption to the cluster's normal operation
+	Disruptive = Label("disruptive")
 
 	// LargeStoragePoolRequired indicates that the test may fail in a cluster with a low storage pool capacity.
 	// This decorator can be used to skip the test as the failure might not indicate a functional problem.
 	LargeStoragePoolRequired = Label("large-storage-pool-required")
+
+	// OncePerOrderedCleanup decorates Ordered tests to only cleanup after the last
+	// test in an Ordered container.
+	// Currently, in pilot mode, restricted to SIG-Network and virtctl only.
+	OncePerOrderedCleanup = Label("OncePerOrderedCleanup")
 )

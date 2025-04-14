@@ -74,6 +74,7 @@ var _ = Describe("Migration Stats Collector", func() {
 		Entry("Running migration", k6tv1.MigrationRunning, runningMigrations),
 		Entry("Scheduling migration", k6tv1.MigrationScheduling, schedulingMigrations),
 		Entry("Succeeded migration", k6tv1.MigrationSucceeded, succeededMigration),
+		Entry("Undefined migration", k6tv1.MigrationPhaseUnset, unsetMigration),
 	)
 
 	It("should set succeeded and pending to 1 and others to 0 with 1 successful and 1 pending", func() {
