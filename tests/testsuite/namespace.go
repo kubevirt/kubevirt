@@ -33,10 +33,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -68,7 +68,7 @@ type IgnoreDeprecationWarningsLogger struct{}
 
 func (IgnoreDeprecationWarningsLogger) HandleWarningHeader(code int, agent string, message string) {
 	if !strings.Contains(message, "VirtualMachineInstancePresets is now deprecated and will be removed in v2") {
-		klog.Warning(message)
+		log.Log.Warning(message)
 	}
 }
 
