@@ -3,10 +3,8 @@ package cgroup
 import (
 	"errors"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
 	runc_fs "github.com/opencontainers/runc/libcontainer/cgroups/fs2"
@@ -73,17 +71,7 @@ func (v *v2Manager) Set(r *runc_configs.Resources) error {
 		log.Log.V(5).Infof("cgroupsv2 device allowlist: rule after appending current+new: type: %d permissions: %s allow: %t major: %d minor: %d", rule.Type, rule.Permissions, rule.Allow, rule.Major, rule.Minor)
 	}
 
-	subsystemPaths := map[string]string{
-		"target": v.dirPath,
-	}
-	if targetDir, parentPath := filepath.Base(v.dirPath), path.Dir(v.dirPath); targetDir == "container" && strings.HasSuffix(parentPath, ".scope") {
-		// This is needed for crun based installations for a brief period of time
-		// crun will eventually stop configuring both cgroups
-		subsystemPaths["parent"] = parentPath
-	}
-	log.Log.V(5).Infof("cgroupsv2 device allowlist: paths passed to virt-chroot: %s", subsystemPaths)
-
-	return v.execVirtChroot(&resourcesToSet, subsystemPaths, v.isRootless, v.GetCgroupVersion())
+	return v.execVirtChroot(&resourcesToSet, map[string]string{"": v.dirPath}, v.isRootless, v.GetCgroupVersion())
 }
 
 func (v *v2Manager) GetCgroupVersion() CgroupVersion {

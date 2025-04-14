@@ -84,18 +84,15 @@ func setCgroupResourcesV1(paths map[string]string, resources *runc_configs.Resou
 }
 
 func setCgroupResourcesV2(paths map[string]string, resources *runc_configs.Resources, config *runc_configs.Cgroup) error {
-	for _, path := range paths {
-		mgr, err := runc_fs2.NewManager(config, path)
-		if err != nil {
-			return fmt.Errorf("cannot create cgroups v2 manager. err: %v", err)
-		}
-		err = mgr.Set(resources)
-		if err != nil {
-			return err
-		}
+	cgroupDirPath := paths[""]
+
+	cgroupManager, err := runc_fs2.NewManager(config, cgroupDirPath)
+	if err != nil {
+		return fmt.Errorf("cannot create cgroups v2 manager. err: %v", err)
 	}
 
-	return nil
+	err = cgroupManager.Set(resources)
+	return err
 }
 
 // RunWithChroot changes the root directory (via "chroot") into newPath, then
