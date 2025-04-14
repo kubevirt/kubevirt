@@ -77,25 +77,24 @@ var _ = Describe("PSI Metrics Collector", func() {
 			labels := result.Labels
 			Expect(labels[0]).To(Equal("testns"))
 			Expect(labels[1]).To(Equal("testvmi"))
-			Expect(labels[2]).To(Equal("test-pod-uid"))
 
 			switch {
-			case result.Metric.GetOpts().Name == "kubevirt_vmi_memory_pressure_seconds" && labels[3] == "some":
+			case result.Metric.GetOpts().Name == "kubevirt_vmi_memory_pressure_seconds" && labels[2] == "some":
 				memSomeFound = true
 				Expect(result.Value).To(BeZero())
-			case result.Metric.GetOpts().Name == "kubevirt_vmi_memory_pressure_seconds" && labels[3] == "full":
+			case result.Metric.GetOpts().Name == "kubevirt_vmi_memory_pressure_seconds" && labels[2] == "full":
 				memFullFound = true
 				Expect(result.Value).To(BeZero())
-			case result.Metric.GetOpts().Name == "kubevirt_vmi_cpu_pressure_seconds" && labels[3] == "some":
+			case result.Metric.GetOpts().Name == "kubevirt_vmi_cpu_pressure_seconds" && labels[2] == "some":
 				cpuSomeFound = true
 				Expect(result.Value).To(Equal(1.0))
-			case result.Metric.GetOpts().Name == "kubevirt_vmi_cpu_pressure_seconds" && labels[3] == "full":
+			case result.Metric.GetOpts().Name == "kubevirt_vmi_cpu_pressure_seconds" && labels[2] == "full":
 				cpuFullFound = true
 				Expect(result.Value).To(Equal(0.5))
-			case result.Metric.GetOpts().Name == "kubevirt_vmi_io_pressure_seconds" && labels[3] == "some":
+			case result.Metric.GetOpts().Name == "kubevirt_vmi_io_pressure_seconds" && labels[2] == "some":
 				ioSomeFound = true
 				Expect(result.Value).To(Equal(2.0))
-			case result.Metric.GetOpts().Name == "kubevirt_vmi_io_pressure_seconds" && labels[3] == "full":
+			case result.Metric.GetOpts().Name == "kubevirt_vmi_io_pressure_seconds" && labels[2] == "full":
 				ioFullFound = true
 				Expect(result.Value).To(Equal(1.5))
 			}

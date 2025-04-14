@@ -44,7 +44,7 @@ var (
 			Help: "Time tasks were delayed due to lack of memory resources. " +
 				"Type can be some or full (some is the walltime for some (one or more) tasks while full is the walltime for all tasks).",
 		},
-		[]string{"namespace", "name", "pod_uuid", "type"},
+		[]string{"namespace", "name", "type"},
 	)
 
 	psiCpuPressureMetric = operatormetrics.NewCounterVec(
@@ -53,7 +53,7 @@ var (
 			Help: "Time tasks were delayed due to lack of CPU resources. " +
 				"Type can be some or full (some is the walltime for some (one or more) tasks while full is the walltime for all tasks).",
 		},
-		[]string{"namespace", "name", "pod_uuid", "type"},
+		[]string{"namespace", "name", "type"},
 	)
 
 	psiIoPressureMetric = operatormetrics.NewCounterVec(
@@ -62,7 +62,7 @@ var (
 			Help: "Time tasks were delayed due to lack of IO resources. " +
 				"Type can be some or full (some is the walltime for some (one or more) tasks while full is the walltime for all tasks).",
 		},
-		[]string{"namespace", "name", "pod_uuid", "type"},
+		[]string{"namespace", "name", "type"},
 	)
 )
 
@@ -130,12 +130,12 @@ func (p *PSIMetrics) collectPSIMetricsFromPod(vmi *k6tv1.VirtualMachineInstance,
 	} else {
 		results = append(results, operatormetrics.CollectorResult{
 			Metric: psiMemoryPressureMetric,
-			Labels: []string{vmi.Namespace, vmi.Name, podUid, "some"},
+			Labels: []string{vmi.Namespace, vmi.Name, "some"},
 			Value:  microSecondsToSeconds(psiMemoryPressureValue.Some.Total),
 		})
 		results = append(results, operatormetrics.CollectorResult{
 			Metric: psiMemoryPressureMetric,
-			Labels: []string{vmi.Namespace, vmi.Name, podUid, "full"},
+			Labels: []string{vmi.Namespace, vmi.Name, "full"},
 			Value:  microSecondsToSeconds(psiMemoryPressureValue.Full.Total),
 		})
 	}
@@ -148,12 +148,12 @@ func (p *PSIMetrics) collectPSIMetricsFromPod(vmi *k6tv1.VirtualMachineInstance,
 	} else {
 		results = append(results, operatormetrics.CollectorResult{
 			Metric: psiCpuPressureMetric,
-			Labels: []string{vmi.Namespace, vmi.Name, podUid, "some"},
+			Labels: []string{vmi.Namespace, vmi.Name, "some"},
 			Value:  microSecondsToSeconds(psiCpuPressureValue.Some.Total),
 		})
 		results = append(results, operatormetrics.CollectorResult{
 			Metric: psiCpuPressureMetric,
-			Labels: []string{vmi.Namespace, vmi.Name, podUid, "full"},
+			Labels: []string{vmi.Namespace, vmi.Name, "full"},
 			Value:  microSecondsToSeconds(psiCpuPressureValue.Full.Total),
 		})
 	}
@@ -166,12 +166,12 @@ func (p *PSIMetrics) collectPSIMetricsFromPod(vmi *k6tv1.VirtualMachineInstance,
 	} else {
 		results = append(results, operatormetrics.CollectorResult{
 			Metric: psiIoPressureMetric,
-			Labels: []string{vmi.Namespace, vmi.Name, podUid, "some"},
+			Labels: []string{vmi.Namespace, vmi.Name, "some"},
 			Value:  microSecondsToSeconds(psiIoPressureValue.Some.Total),
 		})
 		results = append(results, operatormetrics.CollectorResult{
 			Metric: psiIoPressureMetric,
-			Labels: []string{vmi.Namespace, vmi.Name, podUid, "full"},
+			Labels: []string{vmi.Namespace, vmi.Name, "full"},
 			Value:  microSecondsToSeconds(psiIoPressureValue.Full.Total),
 		})
 	}
