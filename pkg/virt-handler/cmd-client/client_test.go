@@ -32,11 +32,11 @@ import (
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/types"
 
-	"kubevirt.io/client-go/api"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 )
 
 var _ = Describe("Virt remote commands", func() {
@@ -52,13 +52,15 @@ var _ = Describe("Virt remote commands", func() {
 	podUID := "poduid123"
 
 	BeforeEach(func() {
-		vmi = api.NewMinimalVMI("testvmi")
-		vmi.UID = "1234"
-		vmi.Status = v1.VirtualMachineInstanceStatus{
-			ActivePods: map[types.UID]string{
-				types.UID(podUID): host,
-			},
-		}
+		vmi = libvmi.New(
+			libvmi.WithName("testvmi"),
+			libvmi.WithUID("1234"),
+			libvmistatus.WithStatus(
+				libvmistatus.New(
+					libvmistatus.WithActivePod(types.UID(podUID), host),
+				),
+			),
+		)
 
 		var err error
 		shareDir, err = os.MkdirTemp("", "kubevirt-share")

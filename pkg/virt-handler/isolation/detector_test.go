@@ -29,12 +29,10 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/types"
 
-	"kubevirt.io/client-go/api"
-
 	"github.com/mitchellh/go-ps"
 
-	v1 "kubevirt.io/api/core/v1"
-
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
@@ -49,13 +47,16 @@ var _ = Describe("Isolation Detector", func() {
 		var finished chan struct{} = nil
 
 		podUID = "pid-uid-1234"
-		vm := api.NewMinimalVMIWithNS("default", "testvm")
-		vm.UID = "1234"
-		vm.Status = v1.VirtualMachineInstanceStatus{
-			ActivePods: map[types.UID]string{
-				types.UID(podUID): "myhost",
-			},
-		}
+		vm := libvmi.New(
+			libvmi.WithNamespace("default"),
+			libvmi.WithName("testvm"),
+			libvmi.WithUID("1234"),
+			libvmistatus.WithStatus(
+				libvmistatus.New(
+					libvmistatus.WithActivePod(types.UID(podUID), "myhost"),
+				),
+			),
+		)
 		vm.Status.NodeName = "myhost"
 
 		BeforeEach(func() {
