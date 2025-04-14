@@ -16,7 +16,7 @@ type ClusterOperator struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 
-	// spec hold the intent of how this operator should behave.
+	// spec holds configuration that could apply to any operator.
 	// +kubebuilder:validation:Required
 	// +required
 	Spec ClusterOperatorSpec `json:"spec"`
@@ -130,7 +130,8 @@ type ClusterOperatorStatusCondition struct {
 	Reason string `json:"reason,omitempty"`
 
 	// message provides additional information about the current condition.
-	// This is only to be consumed by humans.
+	// This is only to be consumed by humans.  It may contain Line Feed
+	// characters (U+000A), which should be rendered as new lines.
 	// +optional
 	Message string `json:"message,omitempty"`
 }
@@ -149,11 +150,7 @@ const (
 	// a previously known state.
 	OperatorProgressing ClusterStatusConditionType = "Progressing"
 
-	// Degraded indicates that the operand is not functioning completely. An example of a degraded state
-	// would be if there should be 5 copies of the operand running but only 4 are running. It may still be available,
-	// but it is degraded
-
-	// Degraded indicated that the operator's current state does not match its
+	// Degraded indicates that the operator's current state does not match its
 	// desired state over a period of time resulting in a lower quality of service.
 	// The period of time may vary by component, but a Degraded state represents
 	// persistent observation of a condition.  As a result, a component should not

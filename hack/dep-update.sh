@@ -39,4 +39,4 @@ done
 )
 
 go mod tidy
-go mod vendor
+go work vendor

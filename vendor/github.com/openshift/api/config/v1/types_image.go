@@ -9,7 +9,7 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 // Image governs policies related to imagestream imports and runtime configuration
 // for external registries. It allows cluster admins to configure which registries
 // OpenShift is allowed to import images from, extra CA trust bundles for external
-// registries, and policies to blacklist/whitelist registry hostnames.
+// registries, and policies to block or allow registry hostnames.
 // When exposing OpenShift's image registry to the public, this also lets cluster
 // admins specify the external hostname.
 type Image struct {
@@ -102,14 +102,22 @@ type RegistrySources struct {
 	// insecureRegistries are registries which do not have a valid TLS certificates or only support HTTP connections.
 	// +optional
 	InsecureRegistries []string `json:"insecureRegistries,omitempty"`
-	// blockedRegistries are blacklisted from image pull/push. All other registries are allowed.
+	// blockedRegistries cannot be used for image pull and push actions. All other registries are permitted.
 	//
 	// Only one of BlockedRegistries or AllowedRegistries may be set.
 	// +optional
 	BlockedRegistries []string `json:"blockedRegistries,omitempty"`
-	// allowedRegistries are whitelisted for image pull/push. All other registries are blocked.
+	// allowedRegistries are the only registries permitted for image pull and push actions. All other registries are denied.
 	//
 	// Only one of BlockedRegistries or AllowedRegistries may be set.
 	// +optional
 	AllowedRegistries []string `json:"allowedRegistries,omitempty"`
+	// containerRuntimeSearchRegistries are registries that will be searched when pulling images that do not have fully qualified
+	// domains in their pull specs. Registries will be searched in the order provided in the list.
+	// Note: this search list only works with the container runtime, i.e CRI-O. Will NOT work with builds or imagestream imports.
+	// +optional
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:Format=hostname
+	// +listType=set
+	ContainerRuntimeSearchRegistries []string `json:"containerRuntimeSearchRegistries,omitempty"`
 }
