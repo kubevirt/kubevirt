@@ -32,7 +32,7 @@ HCO_WH_DEPLOYMENT_NAME=hco-webhook
 HCO_NAMESPACE="kubevirt-hyperconverged"
 HCO_KIND="hyperconvergeds"
 HCO_RESOURCE_NAME="kubevirt-hyperconverged"
-MID_VERSION=1.15.0
+MID_VERSION=1.16.0
 TARGET_VERSION=100.0.0
 VMS_NAMESPACE=vmsns
 

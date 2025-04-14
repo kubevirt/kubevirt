@@ -4,4 +4,4 @@ GenerateMinorChannels: true
 DefaultChannelTypePreference: minor
 Candidate:
   Bundles:
-    - Image: quay.io/kubevirt/hyperconverged-cluster-bundle:1.15.0
+    - Image: quay.io/kubevirt/hyperconverged-cluster-bundle:1.16.0

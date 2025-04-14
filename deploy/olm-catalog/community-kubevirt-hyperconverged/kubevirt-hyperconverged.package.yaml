@@ -1,5 +1,7 @@
 packageName: community-kubevirt-hyperconverged
 channels:
+- name: "1.15.0"
+  currentCSV: kubevirt-hyperconverged-operator.v1.15.0
 - name: "1.14.0"
   currentCSV: kubevirt-hyperconverged-operator.v1.14.0
 - name: "1.13.0"
@@ -36,4 +38,4 @@ channels:
   currentCSV: kubevirt-hyperconverged-operator.v0.0.2
 - name: "0.0.1"
   currentCSV: kubevirt-hyperconverged-operator.v0.0.1
-defaultChannel: "1.14.0"
+defaultChannel: "1.15.0"
