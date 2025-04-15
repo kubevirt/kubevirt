@@ -190,6 +190,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 
 			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_pending_phase", 0)
 			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_scheduling_phase", 0)
+			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_unset_phase", 0)
 			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_running_phase", 0)
 
 			labels := map[string]string{
@@ -224,6 +225,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 			Eventually(matcher.ThisMigration(migration)).WithTimeout(2*time.Minute).WithPolling(5*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed), "migration creation should fail")
 
 			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_scheduling_phase", 0)
+			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_unset_phase", 0)
 			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_failed", 1, labels, 1)
 
 			By("Deleting the VMI")
