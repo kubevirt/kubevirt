@@ -73,31 +73,59 @@ tests:
 
   - interval: 1m
     input_series:
-      - series: 'node_network_up{instance="n1.cnv.redhat.com", device="eno0"}'
-        values: "1+0x10 0+0x10"
-      - series: 'node_network_up{instance="n2.cnv.redhat.com", device="eno0"}'
-        values: "1+0x10 0+0x10"
-      - series: 'node_network_up{instance="n2.cnv.redhat.com", device="eno1"}'
-        values: "0+0x20"
+      # Test case 1: IFF_UP is set and IFF_RUNNING is NOT set (should alert)
+      # Flag value = 1 (IFF_UP=1, IFF_RUNNING=0)
+      - series: 'node_network_flags{instance="n1.cnv.redhat.com",device="eth0"}'
+        values: "1+0x30"
+
+      # Test case 2: IFF_UP is set and IFF_RUNNING is set (should NOT alert)
+      # Flag value = 65 (IFF_UP=1, IFF_RUNNING=64)
+      - series: 'node_network_flags{instance="n1.cnv.redhat.com",device="eth1"}'
+        values: "65+0x30"
+
+      # Test case 3: IFF_UP is NOT set and IFF_RUNNING is NOT set (should NOT alert)
+      # Flag value = 0 (IFF_UP=0, IFF_RUNNING=0)
+      - series: 'node_network_flags{instance="n1.cnv.redhat.com",device="eth2"}'
+        values: "0+0x30"
+
+      # Test case 4: IFF_UP is set and IFF_RUNNING is NOT set but device is in ignored list (should NOT alert)
+      # Flag value = 1 (IFF_UP=1, IFF_RUNNING=0)
+      - series: 'node_network_flags{instance="n1.cnv.redhat.com",device="lo"}'
+        values: "1+0x30"
+
+      # Test case 5: Multiple interfaces with different states on same instance
+      # Two interfaces with IFF_UP=1, IFF_RUNNING=0 (should alert with count=2)
+      - series: 'node_network_flags{instance="n2.cnv.redhat.com",device="eth0"}'
+        values: "1+0x30"
+      - series: 'node_network_flags{instance="n2.cnv.redhat.com",device="eth3"}'
+        values: "1+0x30"
+      # One interface with IFF_UP=1, IFF_RUNNING=64 (should NOT alert)
+      - series: 'node_network_flags{instance="n2.cnv.redhat.com",device="eth1"}'
+        values: "65+0x30"
+      # One ignored interface with IFF_UP=1, IFF_RUNNING=0 (should NOT alert)
+      - series: 'node_network_flags{instance="n2.cnv.redhat.com",device="veth123"}'
+        values: "1+0x30"
 
     alert_rule_test:
-      - eval_time: 8m
+      # Test at 3m - alert should not fire yet (not enough time elapsed)
+      - eval_time: 3m
+        alertname: NodeNetworkInterfaceDown
+        exp_alerts: [ ]
+
+      # Test at 10m - alert should fire for both instances
+      - eval_time: 10m
         alertname: NodeNetworkInterfaceDown
         exp_alerts:
           - exp_annotations:
               summary: "Network interfaces are down"
-              description: "1 network devices have been down on instance n2.cnv.redhat.com for more than 5 minutes."
+              description: "1 network devices have been down on instance n1.cnv.redhat.com for more than 5 minutes."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/NodeNetworkInterfaceDown"
             exp_labels:
-              instance: "n2.cnv.redhat.com"
+              instance: "n1.cnv.redhat.com"
               severity: "warning"
               operator_health_impact: "none"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "cnv-observability"
-
-      - eval_time: 18m
-        alertname: NodeNetworkInterfaceDown
-        exp_alerts:
           - exp_annotations:
               summary: "Network interfaces are down"
               description: "2 network devices have been down on instance n2.cnv.redhat.com for more than 5 minutes."
@@ -109,13 +137,87 @@ tests:
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "cnv-observability"
 
+  - interval: 1m
+    input_series:
+      # Test case 6: Interface transitioning between states
+      # Flag values:
+      # - 0 minutes to 5 minutes: 65 (IFF_UP=1, IFF_RUNNING=64) - healthy
+      # - 5 minutes to 15 minutes: 1 (IFF_UP=1, IFF_RUNNING=0) - should alert after 5 minutes in this state
+      # - After 15 minutes: 65 (IFF_UP=1, IFF_RUNNING=64) - becomes healthy again
+      - series: 'node_network_flags{instance="n3.cnv.redhat.com",device="eth0"}'
+        values: "65+0x5 1+0x10 65+0x15"
+
+      # Test case 7: Interface with complex flag changes
+      # Flag transitions:
+      # - 0 to 8 minutes: 0 (IFF_UP=0, IFF_RUNNING=0) - down but shouldn't alert due to no IFF_UP
+      # - 8 to 25 minutes: 1 (IFF_UP=1, IFF_RUNNING=0) - should alert after 5 minutes in this state
+      - series: 'node_network_flags{instance="n3.cnv.redhat.com",device="eth1"}'
+        values: "0+0x8 1+0x17"
+
+      # Test case 8: Multiple ignored interfaces with same instance
+      # Flag value = 1 (IFF_UP=1, IFF_RUNNING=0) - would alert if not ignored
+      - series: 'node_network_flags{instance="n4.cnv.redhat.com",device="lo"}'
+        values: "1+0x30"
+      - series: 'node_network_flags{instance="n4.cnv.redhat.com",device="br-int"}'
+        values: "1+0x30"
+      - series: 'node_network_flags{instance="n4.cnv.redhat.com",device="vethXYZ"}'
+        values: "1+0x30"
+      # One non-ignored interface that's healthy (IFF_UP=1, IFF_RUNNING=64)
+      - series: 'node_network_flags{instance="n4.cnv.redhat.com",device="eth0"}'
+        values: "65+0x30"
+
+    alert_rule_test:
+      # At 8 minutes, no alert should fire (eth0 on n3 has only been down for 3 minutes)
+      - eval_time: 8m
+        alertname: NodeNetworkInterfaceDown
+        exp_alerts: [ ]
+
+      # At 12m, alert should fire for n3 with two devices down
+      - eval_time: 12m
+        alertname: NodeNetworkInterfaceDown
+        exp_alerts:
           - exp_annotations:
               summary: "Network interfaces are down"
-              description: "1 network devices have been down on instance n1.cnv.redhat.com for more than 5 minutes."
+              description: "2 network devices have been down on instance n3.cnv.redhat.com for more than 5 minutes."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/NodeNetworkInterfaceDown"
             exp_labels:
-              instance: "n1.cnv.redhat.com"
+              instance: "n3.cnv.redhat.com"
               severity: "warning"
               operator_health_impact: "none"
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "cnv-observability"
+
+      # At 18m, eth1 should be alerting with one device down
+      - eval_time: 18m
+        alertname: NodeNetworkInterfaceDown
+        exp_alerts:
+          - exp_annotations:
+              summary: "Network interfaces are down"
+              description: "1 network devices have been down on instance n3.cnv.redhat.com for more than 5 minutes."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/NodeNetworkInterfaceDown"
+            exp_labels:
+              instance: "n3.cnv.redhat.com"
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "cnv-observability"
+
+      # At 22m, eth0 has recovered but eth1 is still down
+      - eval_time: 22m
+        alertname: NodeNetworkInterfaceDown
+        exp_alerts:
+          - exp_annotations:
+              summary: "Network interfaces are down"
+              description: "1 network devices have been down on instance n3.cnv.redhat.com for more than 5 minutes."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/NodeNetworkInterfaceDown"
+            exp_labels:
+              instance: "n3.cnv.redhat.com"
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "cnv-observability"
+
+      # No alert should fire for n4 as all down interfaces are in the ignored list
+      - eval_time: 10m
+        alertname: NodeNetworkInterfaceDown
+        exp_alerts: [ ]
