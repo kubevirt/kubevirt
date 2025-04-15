@@ -361,7 +361,7 @@ type NUMAGuestMappingPassthrough struct {
 type NUMA struct {
 	// GuestMappingPassthrough will create an efficient guest topology based on host CPUs exclusively assigned to a pod.
 	// The created topology ensures that memory and CPUs on the virtual numa nodes never cross boundaries of host numa nodes.
-	// +opitonal
+	// +optional
 	GuestMappingPassthrough *NUMAGuestMappingPassthrough `json:"guestMappingPassthrough,omitempty"`
 }
 
@@ -722,7 +722,7 @@ type SEV struct {
 	// Note: due to security reasons it is not allowed to enable guest debugging. Therefore NoDebug flag is not exposed to users and is always true.
 	Policy *SEVPolicy `json:"policy,omitempty"`
 	// If specified, run the attestation process for a vmi.
-	// +opitonal
+	// +optional
 	Attestation *SEVAttestation `json:"attestation,omitempty"`
 	// Base64 encoded session blob.
 	Session string `json:"session,omitempty"`
