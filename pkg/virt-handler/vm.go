@@ -3008,7 +3008,10 @@ func (c *VirtualMachineController) handleRunningVMI(vmi *v1.VirtualMachineInstan
 	}
 
 	if err := c.hotplugVolumeMounter.Mount(vmi, cgroupManager); err != nil {
-		return err
+		if !goerror.Is(err, os.ErrNotExist) {
+			return err
+		}
+		c.recorder.Event(vmi, k8sv1.EventTypeWarning, "HotplugFailed", err.Error())
 	}
 
 	if err := c.getMemoryDump(vmi); err != nil {
@@ -3055,7 +3058,10 @@ func (c *VirtualMachineController) handleStartingVMI(
 	}
 
 	if err := c.hotplugVolumeMounter.Mount(vmi, cgroupManager); err != nil {
-		return false, err
+		if !goerror.Is(err, os.ErrNotExist) {
+			return false, err
+		}
+		c.recorder.Event(vmi, k8sv1.EventTypeWarning, "HotplugFailed", err.Error())
 	}
 
 	isolationRes, err := c.podIsolationDetector.Detect(vmi)
