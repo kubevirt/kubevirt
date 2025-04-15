@@ -48,7 +48,7 @@ func SetupMetrics(virtShareDir, nodeName string, MaxRequestsInFlight int, vmiInf
 		return err
 	}
 
-	return operatormetrics.RegisterCollector(domainstats.Collector, migrationdomainstats.MigrationStatsCollector)
+	return operatormetrics.RegisterCollector(domainstats.Collector, domainstats.DomainDirtyRateStatsCollector, migrationdomainstats.MigrationStatsCollector)
 }
 
 func ListMetrics() []operatormetrics.Metric {

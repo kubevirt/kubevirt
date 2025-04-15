@@ -32,7 +32,7 @@ const (
 )
 
 var (
-	rms = []resourceMetrics{
+	domainStatsResourceMetrics = []resourceMetrics{
 		memoryMetrics{},
 		cpuMetrics{},
 		vcpuMetrics{},
@@ -40,12 +40,16 @@ var (
 		networkMetrics{},
 		cpuAffinityMetrics{},
 		filesystemMetrics{},
-		dirtyRateMetrics{},
 	}
 
 	Collector = operatormetrics.Collector{
-		Metrics:         domainStatsMetrics(rms...),
+		Metrics:         domainStatsMetrics(domainStatsResourceMetrics...),
 		CollectCallback: domainStatsCollectorCallback,
+	}
+
+	DomainDirtyRateStatsCollector = operatormetrics.Collector{
+		Metrics:         domainStatsMetrics(dirtyRateMetrics{}),
+		CollectCallback: domainDirtyRateStatsCollectorCallback,
 	}
 
 	settings *collectorSettings
@@ -96,19 +100,50 @@ func domainStatsCollectorCallback() []operatormetrics.CollectorResult {
 	}
 
 	concCollector := collector.NewConcurrentCollector(settings.maxRequestsInFlight)
-	return execCollector(concCollector, vmis)
+	return execDomainStatsCollector(concCollector, vmis)
 }
 
-func execCollector(concCollector collector.Collector, vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
+func execDomainStatsCollector(concCollector collector.Collector, vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
 	scraper := NewDomainstatsScraper(len(vmis))
 	go concCollector.Collect(vmis, scraper, PrometheusCollectionTimeout)
 
 	var crs []operatormetrics.CollectorResult
 
 	for vmiReport := range scraper.ch {
-		for _, rm := range rms {
+		for _, rm := range domainStatsResourceMetrics {
 			crs = append(crs, rm.Collect(vmiReport)...)
 		}
+	}
+
+	return crs
+}
+
+func domainDirtyRateStatsCollectorCallback() []operatormetrics.CollectorResult {
+	cachedObjs := settings.vmiInformer.GetStore().List()
+	if len(cachedObjs) == 0 {
+		log.Log.V(4).Infof("No VMIs detected")
+		return []operatormetrics.CollectorResult{}
+	}
+
+	vmis := make([]*k6tv1.VirtualMachineInstance, len(cachedObjs))
+
+	for i, obj := range cachedObjs {
+		vmis[i] = obj.(*k6tv1.VirtualMachineInstance)
+	}
+
+	concCollector := collector.NewConcurrentCollector(settings.maxRequestsInFlight)
+	return execDomainDirtyRateStatsCollector(concCollector, vmis)
+}
+
+func execDomainDirtyRateStatsCollector(concCollector collector.Collector, vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
+	scraper := NewDomainsDirtyRateStatsScraper(len(vmis))
+	go concCollector.Collect(vmis, scraper, PrometheusCollectionTimeout)
+
+	var crs []operatormetrics.CollectorResult
+
+	dirtyRateResourceMetric := dirtyRateMetrics{}
+	for vmiReport := range scraper.ch {
+		crs = append(crs, dirtyRateResourceMetric.Collect(vmiReport)...)
 	}
 
 	return crs
