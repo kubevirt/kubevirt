@@ -176,6 +176,12 @@ load(
     "git_repository",
 )
 
+go_repository(
+    name = "org_golang_x_sys_unix",
+    commit = "2964e1e4b1dbd55a8ac69a4c9e3004a8038515b6",
+    importpath = "golang.org/x/sys/unix",
+)
+
 # Winrmcli dependencies
 go_repository(
     name = "com_github_masterzen_winrmcli",
