@@ -21,16 +21,14 @@ package virtctl
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"golang.org/x/crypto/ssh"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kubevirt.io/client-go/kubecli"
+	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
@@ -44,10 +42,11 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("[sig-compute]SSH", decorators.SigCompute, func() {
-	var pub ssh.PublicKey
-	var keyFile string
-	var virtClient kubecli.KubevirtClient
+var _ = Describe(SIG("[sig-compute]SSH", decorators.SigCompute, Ordered, decorators.OncePerOrderedCleanup, func() {
+	var (
+		keyFile string
+		vmi     *v1.VirtualMachineInstance
+	)
 
 	cmdNative := func(vmiName string) {
 		Expect(newRepeatableVirtctlCommand(
@@ -88,27 +87,11 @@ var _ = Describe(SIG("[sig-compute]SSH", decorators.SigCompute, func() {
 		}
 	}
 
-	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-		libssh.DisableSSHAgent()
-		keyFile = filepath.Join(GinkgoT().TempDir(), "id_rsa")
-		var err error
-		var priv *ecdsa.PrivateKey
-		priv, pub, err = libssh.NewKeyPair()
-		Expect(err).ToNot(HaveOccurred())
-		Expect(libssh.DumpPrivateKey(priv, keyFile)).To(Succeed())
+	BeforeAll(func() {
+		vmi, keyFile = createVMWithPublicKey()
 	})
 
 	DescribeTable("[test_id:11661]should succeed to execute a command on the VM", func(cmdFn func(string)) {
-		By("injecting a SSH public key into a VMI")
-		vmi := libvmifact.NewAlpineWithTestTooling(
-			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(libssh.RenderUserDataWithKey(pub))),
-		)
-		vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-
 		By("ssh into the VM")
 		cmdFn(vmi.Name)
 	},
@@ -127,3 +110,22 @@ var _ = Describe(SIG("[sig-compute]SSH", decorators.SigCompute, func() {
 		Expect(string(out)).To(Equal("unknown flag: --local-ssh\n"))
 	})
 }))
+
+func createVMWithPublicKey() (vmi *v1.VirtualMachineInstance, keyFile string) {
+	libssh.DisableSSHAgent()
+	keyFile = filepath.Join(GinkgoT().TempDir(), "id_rsa")
+
+	priv, pub, err := libssh.NewKeyPair()
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, libssh.DumpPrivateKey(priv, keyFile)).To(Succeed())
+
+	By("injecting a SSH public key into a VMI")
+	vmi = libvmifact.NewAlpineWithTestTooling(
+		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData(libssh.RenderUserDataWithKey(pub))),
+	)
+	vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).
+		Create(context.Background(), vmi, metav1.CreateOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	return libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine), keyFile
+}
