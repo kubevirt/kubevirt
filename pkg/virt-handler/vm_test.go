@@ -2146,14 +2146,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
 			pastTime := metav1.NewTime(metav1.Now().Add(time.Duration(-10) * time.Second))
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				TargetNode:                     host,
-				TargetNodeAddress:              "127.0.0.1:12345",
-				SourceNode:                     "othernode",
-				MigrationUID:                   "123",
-				TargetNodeDomainDetected:       true,
-				TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
-				StartTimestamp:                 &pastTime,
-				EndTimestamp:                   pointer.P(metav1.Now()),
+				TargetNode:               host,
+				TargetNodeAddress:        "127.0.0.1:12345",
+				SourceNode:               "othernode",
+				MigrationUID:             "123",
+				TargetNodeDomainDetected: true,
+				StartTimestamp:           &pastTime,
+				EndTimestamp:             pointer.P(metav1.Now()),
 			}
 			cpuTopology := &v1.CPU{
 				Sockets: 1,

@@ -2041,12 +2041,10 @@ func (c *VirtualMachineController) defaultExecute(key string,
 		syncErr = c.processVmCleanup(vmi)
 	case shouldUpdate:
 		log.Log.Object(vmi).V(3).Info("Processing vmi update")
-		log.Log.Object(vmi).Error("Processing vmi update")
 		syncErr = c.processVmUpdate(vmi, domain)
 	default:
 		log.Log.Object(vmi).V(3).Info("No update processing required")
 	}
-
 	if syncErr != nil && !vmi.IsFinal() {
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.SyncFailed.String(), syncErr.Error())
 
@@ -2996,13 +2994,12 @@ func (c *VirtualMachineController) configureHousekeepingCgroup(vmi *v1.VirtualMa
 	return nil
 }
 
-func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMachineInstance, domainExists bool) error {
-	client, err := c.getLauncherClient(origVMI)
+func (c *VirtualMachineController) vmUpdateHelperDefault(vmi *v1.VirtualMachineInstance, domainExists bool) error {
+	client, err := c.getLauncherClient(vmi)
 	if err != nil {
 		return fmt.Errorf(unableCreateVirtLauncherConnectionFmt, err)
 	}
 
-	vmi := origVMI.DeepCopy()
 	// Find preallocated volumes
 	var preallocatedVolumes []string
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
@@ -3428,23 +3425,19 @@ func (c *VirtualMachineController) updateDomainFunc(old, new interface{}) {
 
 func (c *VirtualMachineController) finalizeMigration(vmi *v1.VirtualMachineInstance) error {
 	const errorMessage = "failed to finalize migration"
-
 	client, err := c.getVerifiedLauncherClient(vmi)
 	if err != nil {
 		return fmt.Errorf("%s: %v", errorMessage, err)
 	}
-
 	if err := c.hotplugCPU(vmi, client); err != nil {
 		log.Log.Object(vmi).Reason(err).Error(errorMessage)
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "failed to change vCPUs")
 	}
-
 	if err := c.hotplugMemory(vmi, client); err != nil {
 		log.Log.Object(vmi).Reason(err).Error(errorMessage)
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "failed to update guest memory")
 	}
 	removeMigratedVolumes(vmi)
-
 	options := &cmdv1.VirtualMachineOptions{}
 	options.InterfaceMigration = domainspec.BindingMigrationByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
 	if err := client.FinalizeVirtualMachineMigration(vmi, options); err != nil {
