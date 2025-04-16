@@ -307,7 +307,9 @@ var _ = Describe(SIG("Export", func() {
 		Eventually(func() error {
 			out, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, md5Command(fileName))
 			return err
-		}, 15*time.Second, 1*time.Second).Should(BeNil(), "md5sum command should succeed; out: %s stderr: %s", out, stderr)
+		}, 15*time.Second, 1*time.Second).Should(Succeed(), func() string {
+			return fmt.Sprintf("md5sum command should succeed; out: %s stderr: %s", out, stderr)
+		})
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(HaveLen(32))
 
