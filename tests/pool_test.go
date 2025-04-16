@@ -163,9 +163,9 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	DescribeTable("pool should scale", func(startScale int, stopScale int) {
 		newPool := newVirtualMachinePool()
-		doScale(newPool.ObjectMeta.Name, int32(startScale))
-		doScale(newPool.ObjectMeta.Name, int32(stopScale))
-		doScale(newPool.ObjectMeta.Name, int32(0))
+		doScale(newPool.Name, int32(startScale))
+		doScale(newPool.Name, int32(stopScale))
+		doScale(newPool.Name, int32(0))
 	},
 		Entry("to three, to two and then to zero replicas", 3, 2),
 		Entry("to five, to six and then to zero replicas", 5, 6),
@@ -204,7 +204,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 	It("should remove VMs once they are marked for deletion", func() {
 		newPool := newVirtualMachinePool()
 		// Create a pool with two replicas
-		doScale(newPool.ObjectMeta.Name, 2)
+		doScale(newPool.Name, 2)
 		// Delete it
 		By("Deleting the VirtualMachinePool")
 		Expect(virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Delete(context.Background(), newPool.ObjectMeta.Name, metav1.DeleteOptions{})).To(Succeed())
@@ -311,7 +311,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	It("should replace deleted VM and get replacement", func() {
 		newPool := newVirtualMachinePool()
-		doScale(newPool.ObjectMeta.Name, 3)
+		doScale(newPool.Name, 3)
 
 		var err error
 		var vms *v1.VirtualMachineList
@@ -362,7 +362,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	It("should roll out VM template changes without impacting VMI", func() {
 		newPool := newVirtualMachinePool()
-		doScale(newPool.ObjectMeta.Name, 1)
+		doScale(newPool.Name, 1)
 		waitForVMIs(newPool.Namespace, newPool.Spec.Selector, 1)
 
 		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{
@@ -420,7 +420,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	It("should roll out VMI template changes and proactively roll out new VMIs", func() {
 		newPool := newVirtualMachinePool()
-		doScale(newPool.ObjectMeta.Name, 1)
+		doScale(newPool.Name, 1)
 		waitForVMIs(newPool.Namespace, newPool.Spec.Selector, 1)
 
 		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{
@@ -484,7 +484,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	It("should remove owner references on the VirtualMachine if it is orphan deleted", func() {
 		newPool := newOfflineVirtualMachinePool()
-		doScale(newPool.ObjectMeta.Name, 2)
+		doScale(newPool.Name, 2)
 
 		// Check for owner reference
 		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{
@@ -614,7 +614,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	It("should respect maxUnavailable strategy during updates", func() {
 		newPool := newVirtualMachinePool()
-		doScale(newPool.ObjectMeta.Name, 3)
+		doScale(newPool.Name, 3)
 		waitForVMIs(newPool.Namespace, newPool.Spec.Selector, 3)
 
 		By("Setting maxUnavailable to 1")
@@ -632,7 +632,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Verifying maxUnavailable strategy")
-		Eventually(func() {
+		Consistently(func() {
 			vmis, err := virtClient.VirtualMachineInstance(newPool.Namespace).List(context.Background(), metav1.ListOptions{
 				LabelSelector: labelSelectorToString(newPool.Spec.Selector),
 			})
@@ -657,7 +657,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 			Expect(updatedCount).To(Equal(3),
 				fmt.Sprintf("Not all VMIs updated yet. Updated: %d/3", updatedCount))
-		}, 180*time.Second, 1*time.Second).Should(Succeed())
+		}, 5*time.Second, 1*time.Second).Should(Succeed())
 
 		By("Verifying all VMIs are running with new label")
 		vmis, err := virtClient.VirtualMachineInstance(newPool.Namespace).List(context.Background(), metav1.ListOptions{
