@@ -40,3 +40,4 @@ done
 
 go mod tidy
 go work vendor
+go work sync
