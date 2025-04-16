@@ -319,6 +319,7 @@ func (c *VirtLauncherClient) genericSendVMICmd(cmdName string,
 	err = handleError(err, cmdName, response)
 	return err
 }
+
 func IsUnimplemented(err error) bool {
 	if grpcStatus, ok := status.FromError(err); ok {
 		if grpcStatus.Code() == codes.Unimplemented {
