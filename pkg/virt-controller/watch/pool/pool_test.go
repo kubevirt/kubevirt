@@ -961,7 +961,6 @@ func DefaultPool(replicas int32) (*poolv1.VirtualMachinePool, *v1.VirtualMachine
 	vmi := libvmi.New(
 		libvmi.WithNamespace(k8sv1.NamespaceDefault),
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
 	vm := libvmi.NewVirtualMachine(vmi)
 	vm.Labels = map[string]string{}

@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 
 	virtv1 "kubevirt.io/api/core/v1"
