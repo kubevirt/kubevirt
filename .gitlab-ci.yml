@@ -3,6 +3,10 @@
 stages:
   - test
 
+default:
+  tags:
+    - deckhouse
+
 variables:
   GO_VERSION: "1.22.7"
   GINKGO_VERSION: "v2.22.0"
