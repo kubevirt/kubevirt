@@ -27,7 +27,6 @@ kvtest:
     - go get golang.org/x/crypto@v0.31.0
     - go mod vendor
     - go install github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}
-    - cd ./kubevirt
     - ginkgo -succinct pkg/virt-controller/...
 
   only:
