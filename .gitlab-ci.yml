@@ -16,13 +16,6 @@ kvtest:
   stage: test
   image: golang:${GO_VERSION}
   script:
-    - apt-get update && apt-get install -y git
-    - git clone --depth 1 --branch v"${KUBEVIRT_VERSION}" https://github.com/kubevirt/kubevirt.git ./kubevirt
-    - cd ./kubevirt
-    - for p in ../images/virt-artifact/patches/*.patch; do
-        echo -n "Apply ${p} ... ";
-        git apply --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL; exit 1)
-      done
     - go mod edit -go=${GO_VERSION}
     - go mod download
     - go get github.com/opencontainers/runc@v1.1.14
