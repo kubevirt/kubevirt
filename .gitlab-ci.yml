@@ -1,0 +1,37 @@
+# .gitlab-ci.yml
+
+stages:
+  - test
+
+variables:
+  GO_VERSION: "1.22.7"
+  GINKGO_VERSION: "v2.22.0"
+  KUBEVIRT_VERSION: "1.3.1"
+
+kvtest:
+  stage: test
+  image: golang:${GO_VERSION}
+  script:
+    - apt-get update && apt-get install -y git
+    - git clone --depth 1 --branch v"${KUBEVIRT_VERSION}" https://github.com/kubevirt/kubevirt.git ./kubevirt
+    - cd ./kubevirt
+    - for p in ../images/virt-artifact/patches/*.patch; do
+        echo -n "Apply ${p} ... ";
+        git apply --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL; exit 1)
+      done
+    - go mod edit -go=${GO_VERSION}
+    - go mod download
+    - go get github.com/opencontainers/runc@v1.1.14
+    - go get github.com/containers/common@v0.60.4
+    - go get github.com/go-openapi/strfmt@v0.23.0
+    - go get github.com/onsi/gomega/matchers/support/goraph/bipartitegraph@v1.34.1
+    - go get github.com/cilium/ebpf/btf@v0.11.0
+    - go get github.com/cilium/ebpf/internal@v0.11.0
+    - go get golang.org/x/crypto@v0.31.0
+    - go mod vendor
+    - go install github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}
+    - cd ./kubevirt
+    - ginkgo -succinct pkg/virt-controller/...
+
+  only:
+    - v12n-patches
