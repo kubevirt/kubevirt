@@ -108,8 +108,6 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 	serverSock := SocketPath(strings.Replace(resourceName, "/", "-", -1))
 	iommuToPCIMap := make(map[string]string)
 
-	initHandler()
-
 	devs := constructDPIdevices(pciDevices, iommuToPCIMap)
 
 	dpi := &PCIDevicePlugin{
@@ -256,21 +254,19 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 }
 
 func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) map[string][]*PCIDevice {
-	initHandler()
-
 	pciDevicesMap := make(map[string][]*PCIDevice)
 	err := filepath.Walk(pciBasePath, func(path string, info os.FileInfo, err error) error {
 		if info.IsDir() {
 			return nil
 		}
-		pciID, err := Handler.GetDevicePCIID(pciBasePath, info.Name())
+		pciID, err := handler.GetDevicePCIID(pciBasePath, info.Name())
 		if err != nil {
 			log.DefaultLogger().Reason(err).Errorf("failed get vendor:device ID for device: %s", info.Name())
 			return nil
 		}
 		if resourceName, supported := supportedPCIDeviceMap[pciID]; supported {
 			// check device driver
-			driver, err := Handler.GetDeviceDriver(pciBasePath, info.Name())
+			driver, err := handler.GetDeviceDriver(pciBasePath, info.Name())
 			if err != nil || driver != "vfio-pci" {
 				return nil
 			}
@@ -279,13 +275,13 @@ func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) ma
 				pciID:      pciID,
 				pciAddress: info.Name(),
 			}
-			iommuGroup, err := Handler.GetDeviceIOMMUGroup(pciBasePath, info.Name())
+			iommuGroup, err := handler.GetDeviceIOMMUGroup(pciBasePath, info.Name())
 			if err != nil {
 				return nil
 			}
 			pcidev.iommuGroup = iommuGroup
 			pcidev.driver = driver
-			pcidev.numaNode = Handler.GetDeviceNumaNode(pciBasePath, info.Name())
+			pcidev.numaNode = handler.GetDeviceNumaNode(pciBasePath, info.Name())
 			pciDevicesMap[resourceName] = append(pciDevicesMap[resourceName], pcidev)
 		}
 		return nil

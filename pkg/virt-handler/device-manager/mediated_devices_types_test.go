@@ -136,7 +136,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		clientTest = fake.NewSimpleClientset()
 		mockMDEV = NewMockDeviceHandler(ctrl)
-		Handler = mockMDEV
+		handler = mockMDEV
 		configuredMdevTypesOnCards = make(map[string]map[string]struct{})
 
 		mockMDEV.EXPECT().CreateMDEVType(gomock.Any(), gomock.Any()).DoAndReturn(func(mdevType string, parentID string) error {

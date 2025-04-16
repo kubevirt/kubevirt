@@ -41,7 +41,6 @@ type MDEVTypesManager struct {
 }
 
 func NewMDEVTypesManager() *MDEVTypesManager {
-	initHandler()
 	return &MDEVTypesManager{
 		availableMdevTypesMap: make(map[string][]string),
 	}
@@ -228,14 +227,14 @@ func (m *MDEVTypesManager) configureDesiredMDEVTypes() {
 }
 
 func createMdevTypes(mdevType string, parentID string) error {
-	instances, err := Handler.ReadMDEVAvailableInstances(mdevType, parentID)
+	instances, err := handler.ReadMDEVAvailableInstances(mdevType, parentID)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to create mdevs of type %s, failed to obtain number of instances", mdevType)
 		return err
 	}
 	// create mdevs for all available instances
 	for i := 0; i < instances; i++ {
-		err := Handler.CreateMDEVType(mdevType, parentID)
+		err := handler.CreateMDEVType(mdevType, parentID)
 		if err != nil {
 			log.Log.Reason(err).Errorf("failed to create mdevs of type %s", mdevType)
 			return err
@@ -281,7 +280,7 @@ func removeUndesiredMDEVs(desiredTypesMap map[string]struct{}) {
 	}
 	for _, file := range files {
 		if shouldRemoveMDEV(file.Name(), desiredTypesMap) {
-			err = Handler.RemoveMDEVType(file.Name())
+			err = handler.RemoveMDEVType(file.Name())
 			log.Log.Reason(err).Warningf("failed to remove mdev type: %s", file.Name())
 		}
 	}
