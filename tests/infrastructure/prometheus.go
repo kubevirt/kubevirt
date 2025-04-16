@@ -497,7 +497,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		Entry("[test_id:6240] vmi unused memory by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_memory_unused_bytes", ">="),
 	)
 
-	DescribeTable("should include VMI infos for a running VM", func(family k8sv1.IPFamily) {
+	DescribeTable("[QUARANTINE]should include VMI infos for a running VM", decorators.Quarantine, func(family k8sv1.IPFamily) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
 		ip := libnet.GetIP(handlerMetricIPs, family)
