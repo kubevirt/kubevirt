@@ -1150,6 +1150,9 @@ const (
 	// SecureExecutionLabel marks the node as capable of running workloads with IBM Secure Execution
 	SecureExecutionLabel string = "kubevirt.io/s390-pv"
 
+	// TDXLabel marks the node as capable of running workloads with Intel TDX
+	TDXLabel string = "kubevirt.io/tdx"
+
 	// KSMEnabledLabel marks the node as KSM-handling enabled
 	KSMEnabledLabel string = "kubevirt.io/ksm-enabled"
 

@@ -186,6 +186,14 @@ var _ = Describe("Node-labeller ", func() {
 		Expect(node.Labels).To(HaveKey(v1.SecureExecutionLabel))
 	})
 
+	It("should add TDX label", func() {
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKey(v1.TDXLabel))
+	})
+
 	It("should add usable cpu model labels for the host cpu model", func() {
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
