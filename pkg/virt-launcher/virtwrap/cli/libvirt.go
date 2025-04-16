@@ -370,29 +370,53 @@ func (l *LibvirtConnection) GetDomainDirtyRate(calculationDuration time.Duration
 	}
 
 	// Wait for the dirty rate calculation to finish
-	const extraSleepTime = 300 * time.Millisecond
-	time.Sleep(calculationDuration + extraSleepTime)
+	time.Sleep(calculationDuration)
 
 	var dirtyRateStats []*stats.DomainStatsDirtyRate
-	for _, domStat := range domStats {
-		dirtyRateInfo := domStat.DirtyRate
+	getDomainStats := func() ([]*stats.DomainStatsDirtyRate, error) {
+		var dirtyRateStats []*stats.DomainStatsDirtyRate
+		for _, domStat := range domStats {
+			dirtyRateInfo := domStat.DirtyRate
 
-		// warn if dirty rate calc is not set or not finished
-		if !dirtyRateInfo.CalcStatusSet {
-			return nil, fmt.Errorf("dirty rate stats calculation status is not set")
-		} else if dirtyRateInfo.CalcStatus != int(libvirt.DOMAIN_DIRTYRATE_MEASURED) {
-			var status string
-			switch dirtyRateInfo.CalcStatus {
-			case int(libvirt.DOMAIN_DIRTYRATE_UNSTARTED):
-				status = "DOMAIN_DIRTYRATE_UNSTARTED"
-			case int(libvirt.DOMAIN_DIRTYRATE_MEASURING):
-				status = "DOMAIN_DIRTYRATE_MEASURING"
+			// warn if dirty rate calc is not set or not finished
+			if !dirtyRateInfo.CalcStatusSet {
+				return nil, fmt.Errorf("dirty rate stats calculation status is not set")
+			} else if dirtyRateInfo.CalcStatus != int(libvirt.DOMAIN_DIRTYRATE_MEASURED) {
+				var status string
+				switch dirtyRateInfo.CalcStatus {
+				case int(libvirt.DOMAIN_DIRTYRATE_UNSTARTED):
+					status = "DOMAIN_DIRTYRATE_UNSTARTED"
+				case int(libvirt.DOMAIN_DIRTYRATE_MEASURING):
+					status = "DOMAIN_DIRTYRATE_MEASURING"
+				}
+
+				log.Log.Infof("trying to get dirty rate stats, but dirty rate calc status is not finished: %s", status)
+				return nil, fmt.Errorf("dirty calc status is %s", status)
+			} else {
+				dirtyRateStat := statsconv.Convert_libvirt_DomainStatsDirtyRate_To_stats_DomainStatsDirtyRate(dirtyRateInfo)
+				dirtyRateStats = append(dirtyRateStats, dirtyRateStat)
 			}
-			return nil, fmt.Errorf("dirty calc status is %s", status)
-		} else {
-			dirtyRateStat := statsconv.Convert_libvirt_DomainStatsDirtyRate_To_stats_DomainStatsDirtyRate(dirtyRateInfo)
-			dirtyRateStats = append(dirtyRateStats, dirtyRateStat)
 		}
+		return dirtyRateStats, nil
+	}
+	retryTicker := time.NewTicker(200 * time.Millisecond)
+	retryTimeout := time.After(1 * time.Second)
+
+retryLoop:
+	for {
+		select {
+		case <-retryTicker.C:
+			dirtyRateStats, err = getDomainStats()
+			if err == nil {
+				break retryLoop
+			}
+		case <-retryTimeout:
+			break retryLoop
+		}
+	}
+
+	if err != nil || dirtyRateStats == nil {
+		return nil, fmt.Errorf("failed to get dirty rate stats: %w", err)
 	}
 
 	return dirtyRateStats, nil
