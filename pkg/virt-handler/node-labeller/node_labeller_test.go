@@ -194,6 +194,26 @@ var _ = Describe("Node-labeller ", func() {
 		Expect(node.Labels).To(Not(HaveKey(v1.SEVSNPLabel)))
 	})
 
+	It("should not add TDX label", func() {
+		// virsh_domcapabilities.xml in which tdx is disabled
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(Not(HaveKey(v1.TDXLabel)))
+	})
+
+	It("should add TDX label with value set to true", func() {
+		nlController.domCapabilitiesFileName = "domcapabilities_tdx.xml"
+		Expect(nlController.loadAll()).Should(Succeed())
+
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKeyWithValue(v1.TDXLabel, "true"))
+	})
+
 	It("should add usable cpu model labels for the host cpu model", func() {
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
