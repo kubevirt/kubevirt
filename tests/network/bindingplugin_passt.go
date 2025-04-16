@@ -57,7 +57,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 
 	var err error
 
-	BeforeEach(func() {
+	BeforeEach(OncePerOrdered, func() {
 		const passtBindingName = "passt"
 
 		passtComputeMemoryOverheadWhenAllPortsAreForwarded := resource.MustParse("500Mi")
@@ -77,7 +77,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	BeforeEach(func() {
+	BeforeEach(OncePerOrdered, func() {
 		netAttachDef := libnet.NewPasstNetAttachDef(passtNetAttDefName)
 		_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(nil), netAttachDef)
 		Expect(err).NotTo(HaveOccurred())
@@ -109,13 +109,13 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 		Expect(console.RunCommand(vmi, cmd, time.Second*5)).To(Succeed())
 	})
 
-	Context("TCP without port specification", func() {
+	Context("TCP without port specification", Ordered, decorators.OncePerOrderedCleanup, func() {
 		var clientVMI *v1.VirtualMachineInstance
 		var serverVMI *v1.VirtualMachineInstance
 
 		const highTCPPort = 8080
 
-		BeforeEach(func() {
+		BeforeAll(func() {
 			clientVMI = libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithPasstInterfaceWithPort(),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -146,13 +146,13 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 		)
 	})
 
-	Context("TCP with port specification", func() {
+	Context("TCP with port specification", Ordered, decorators.OncePerOrderedCleanup, func() {
 		var clientVMI *v1.VirtualMachineInstance
 		var serverVMI *v1.VirtualMachineInstance
 
 		const highTCPPort = 8080
 
-		BeforeEach(func() {
+		BeforeAll(func() {
 			clientVMI = libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithPasstInterfaceWithPort(),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -192,13 +192,13 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 		)
 	})
 
-	Context("TCP with low port specification", func() {
+	Context("TCP with low port specification", Ordered, decorators.OncePerOrderedCleanup, func() {
 		var clientVMI *v1.VirtualMachineInstance
 		var serverVMI *v1.VirtualMachineInstance
 
 		const lowTCPPort = 80
 
-		BeforeEach(func() {
+		BeforeAll(func() {
 			clientVMI = libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithPasstInterfaceWithPort(),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -238,14 +238,18 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 		)
 	})
 
-	Context("UDP", func() {
+	Context("UDP", Ordered, decorators.OncePerOrderedCleanup, func() {
 		var clientVMI *v1.VirtualMachineInstance
 		var serverVMI *v1.VirtualMachineInstance
 
-		const udpPort = 1700
+		const udpPortForIPv4 = 1700
+		const udpPortForIPv6 = 1701
 
-		BeforeEach(func() {
-			var ports = []v1.Port{{Port: udpPort, Protocol: "UDP"}}
+		BeforeAll(func() {
+			var ports = []v1.Port{
+				{Port: udpPortForIPv4, Protocol: "UDP"},
+				{Port: udpPortForIPv6, Protocol: "UDP"},
+			}
 
 			By("Starting server VMI")
 			serverVMI = libvmifact.NewAlpineWithTestTooling(
@@ -265,7 +269,8 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 
 			waitUntilVMIsReady(console.LoginToAlpine, serverVMI, clientVMI)
 		})
-		DescribeTable("connectivity", func(ipFamily k8sv1.IPFamily) {
+
+		DescribeTable("connectivity", func(udpPort int, ipFamily k8sv1.IPFamily) {
 			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
 			By("Starting a UDP server")
@@ -281,15 +286,15 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 			serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
 			Expect(startAndVerifyUDPClient(clientVMI, serverIP, udpPort, ipFamily)).To(Succeed())
 		},
-			Entry("[IPv4]", k8sv1.IPv4Protocol),
-			Entry("[IPv6]", k8sv1.IPv6Protocol),
+			Entry("[IPv4]", udpPortForIPv4, k8sv1.IPv4Protocol),
+			Entry("[IPv6]", udpPortForIPv6, k8sv1.IPv6Protocol),
 		)
 	})
 
-	Context("egress connectivity", func() {
+	Context("egress connectivity", Ordered, decorators.OncePerOrderedCleanup, func() {
 		var vmi *v1.VirtualMachineInstance
 
-		BeforeEach(func() {
+		BeforeAll(func() {
 			vmi = libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithPasstInterfaceWithPort(),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -331,11 +336,11 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 		})
 	})
 
-	Context("migration", func() {
+	Context("migration", Ordered, decorators.OncePerOrderedCleanup, func() {
 		var migrateVMI *v1.VirtualMachineInstance
 		var anotherVMI *v1.VirtualMachineInstance
 
-		BeforeEach(func() {
+		BeforeAll(func() {
 			By("Starting a VMI")
 			migrateVMI = startPasstVMI()
 
