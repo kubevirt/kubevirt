@@ -4,14 +4,12 @@ metadata:
   name: cluster
   namespace: openshift-kube-descheduler-operator
 spec:
-  deschedulingIntervalSeconds: 1800
   managementState: Managed
+  deschedulingIntervalSeconds: 30
+  mode: "Automatic"
   profiles:
-  - AffinityAndTaints
-  - LifecycleAndUtilization
+    - DevKubeVirtRelieveAndMigrate
   profileCustomizations:
-    podLifetime: 5m
-    namespaces:
-      included:
-      - ns1
-      - nsi2
+    devEnableSoftTainter: true
+    devDeviationThresholds: AsymmetricLow
+    devActualUtilizationProfile: PrometheusCPUCombined

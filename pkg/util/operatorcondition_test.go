@@ -2,8 +2,6 @@ package util
 
 import (
 	"context"
-	"os"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -79,28 +77,6 @@ var _ = Describe("OperatorCondition", func() {
 		Expect(cond.Message).To(Equal("my message"))
 	})
 })
-
-func TestOperatorCondition(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Util Suite")
-}
-
-var (
-	origIsVarSet bool
-	origVar      string
-
-	_ = BeforeSuite(func() {
-		origVar, origIsVarSet = os.LookupEnv(OperatorConditionNameEnvVar)
-	})
-
-	_ = AfterSuite(func() {
-		if origIsVarSet {
-			os.Setenv(OperatorConditionNameEnvVar, origVar)
-		} else {
-			os.Unsetenv(OperatorConditionNameEnvVar)
-		}
-	})
-)
 
 type OpCondFactoryMock struct {
 	Client client.Client

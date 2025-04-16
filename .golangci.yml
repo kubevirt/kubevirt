@@ -61,6 +61,10 @@ linters:
         - name: var-declaration
         - name: var-naming
           disabled: true
+    staticcheck:
+      dot-import-whitelist:
+        - github.com/onsi/ginkgo/v2
+        - github.com/onsi/gomega
   exclusions:
     generated: lax
     presets:
@@ -79,3 +83,5 @@ formatters:
       - third_party$
       - builtin$
       - examples$
+run:
+  tests: true

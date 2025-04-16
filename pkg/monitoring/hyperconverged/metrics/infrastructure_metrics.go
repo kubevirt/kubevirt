@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"github.com/machadovilaca/operator-observability/pkg/operatormetrics"
+	ioprometheusclient "github.com/prometheus/client_model/go"
 )
 
 const (
@@ -42,4 +43,14 @@ func SetHCOMetricMisconfiguredDescheduler(misconfigured bool) {
 	} else {
 		misconfiguredDescheduler.Set(misconfiguredDeschedulerFalse)
 	}
+}
+
+func GetHCOMetrictMisconfiguredDescheduler() (bool, error) {
+	dto := &ioprometheusclient.Metric{}
+	err := misconfiguredDescheduler.Write(dto)
+	if err != nil {
+		return false, err
+	}
+
+	return dto.Gauge.GetValue() == misconfiguredDeschedulerTrue, nil
 }

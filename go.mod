@@ -17,7 +17,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
 	github.com/openshift/api v3.9.1-0.20190517100836-d5b34b957e91+incompatible
-	github.com/openshift/cluster-kube-descheduler-operator v0.0.0-20240916113608-1a30f3be33fa
+	github.com/openshift/cluster-kube-descheduler-operator v0.0.0-20250410114548-481d56a6c34e
 	github.com/openshift/custom-resource-status v1.1.2
 	github.com/openshift/library-go v0.0.0-20250402180609-ce2ba53fb2a4
 	github.com/operator-framework/api v0.30.0

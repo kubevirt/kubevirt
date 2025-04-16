@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"os"
 
-	operatorv1 "github.com/openshift/api/operator/v1"
-	deschedulerv1 "github.com/openshift/cluster-kube-descheduler-operator/pkg/apis/descheduler/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	operatorv1 "github.com/openshift/api/operator/v1"
+	deschedulerv1 "github.com/openshift/cluster-kube-descheduler-operator/pkg/apis/descheduler/v1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -21,6 +20,18 @@ import (
 )
 
 var _ = Describe("test clusterInfo", func() {
+	BeforeEach(func() {
+		origVar, origIsVarSet := os.LookupEnv(OperatorConditionNameEnvVar)
+
+		DeferCleanup(func() {
+			if origIsVarSet {
+				Expect(os.Setenv(OperatorConditionNameEnvVar, origVar)).To(Succeed())
+			} else {
+				Expect(os.Unsetenv(OperatorConditionNameEnvVar)).To(Succeed())
+			}
+		})
+	})
+
 	const baseDomain = "basedomain"
 	var (
 		clusterVersion = &openshiftconfigv1.ClusterVersion{
@@ -131,14 +142,6 @@ var _ = Describe("test clusterInfo", func() {
 				},
 			},
 		}
-
-		deschedulerCR = &deschedulerv1.KubeDescheduler{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      DeschedulerCRName,
-				Namespace: DeschedulerNamespace,
-			},
-			Spec: deschedulerv1.KubeDeschedulerSpec{},
-		}
 	)
 
 	testScheme := scheme.Scheme
@@ -149,7 +152,7 @@ var _ = Describe("test clusterInfo", func() {
 	logger := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)).WithName("clusterInfo_test")
 
 	It("check Init on kubernetes, without OLM", func() {
-		os.Unsetenv(OperatorConditionNameEnvVar)
+		Expect(os.Unsetenv(OperatorConditionNameEnvVar)).To(Succeed())
 		cl := fake.NewClientBuilder().
 			WithScheme(testScheme).
 			Build()
@@ -160,7 +163,7 @@ var _ = Describe("test clusterInfo", func() {
 	})
 
 	It("check Init on kubernetes, with OLM", func() {
-		os.Setenv(OperatorConditionNameEnvVar, "aValue")
+		Expect(os.Setenv(OperatorConditionNameEnvVar, "aValue")).To(Succeed())
 		cl := fake.NewClientBuilder().
 			WithScheme(testScheme).
 			Build()
@@ -181,21 +184,19 @@ var _ = Describe("test clusterInfo", func() {
 		Expect(GetClusterInfo().IsOpenshift()).To(BeFalse(), "should return false for IsOpenshift()")
 		Expect(GetClusterInfo().IsDeschedulerAvailable()).To(BeTrue(), "should return true for IsDeschedulerAvailable()")
 		Expect(GetClusterInfo().IsDeschedulerCRDDeployed(context.TODO(), cl)).To(BeTrue(), "should return true for IsDeschedulerCRDDeployed(...)")
-		Expect(GetClusterInfo().IsDeschedulerMisconfigured()).To(BeFalse(), "should return false for IsDeschedulerMisconfigured()")
 	})
 
 	It("check Init on kubernetes, with KubeDescheduler CRD with a CR for it with default values", func() {
 		cl := fake.NewClientBuilder().
 			WithScheme(testScheme).
-			WithObjects(deschedulerCRD, deschedulerNamespace, deschedulerCR).
-			WithStatusSubresource(deschedulerCRD, deschedulerNamespace, deschedulerCR).
+			WithObjects(deschedulerCRD, deschedulerNamespace).
+			WithStatusSubresource(deschedulerCRD, deschedulerNamespace).
 			Build()
 		Expect(GetClusterInfo().Init(context.TODO(), cl, logger)).To(Succeed())
 
 		Expect(GetClusterInfo().IsOpenshift()).To(BeFalse(), "should return false for IsOpenshift()")
 		Expect(GetClusterInfo().IsDeschedulerAvailable()).To(BeTrue(), "should return true for IsDeschedulerAvailable()")
 		Expect(GetClusterInfo().IsDeschedulerCRDDeployed(context.TODO(), cl)).To(BeTrue(), "should return true for IsDeschedulerCRDDeployed(...)")
-		Expect(GetClusterInfo().IsDeschedulerMisconfigured()).To(BeTrue(), "should return true for IsDeschedulerMisconfigured()")
 	})
 
 	It("check Init on openshift, with KubeDescheduler CRD without any CR for it", func() {
@@ -209,7 +210,6 @@ var _ = Describe("test clusterInfo", func() {
 		Expect(GetClusterInfo().IsOpenshift()).To(BeTrue(), "should return true for IsOpenshift()")
 		Expect(GetClusterInfo().IsDeschedulerAvailable()).To(BeTrue(), "should return true for IsDeschedulerAvailable()")
 		Expect(GetClusterInfo().IsDeschedulerCRDDeployed(context.TODO(), cl)).To(BeTrue(), "should return true for IsDeschedulerCRDDeployed(...)")
-		Expect(GetClusterInfo().IsDeschedulerMisconfigured()).To(BeFalse(), "should return false for IsDeschedulerMisconfigured()")
 	})
 
 	DescribeTable(
@@ -225,7 +225,6 @@ var _ = Describe("test clusterInfo", func() {
 			Expect(GetClusterInfo().IsOpenshift()).To(BeTrue(), "should return true for IsOpenshift()")
 			Expect(GetClusterInfo().IsDeschedulerAvailable()).To(BeTrue(), "should return true for IsDeschedulerAvailable()")
 			Expect(GetClusterInfo().IsDeschedulerCRDDeployed(context.TODO(), cl)).To(BeTrue(), "should return true for IsDeschedulerCRDDeployed(...)")
-			Expect(GetClusterInfo().IsDeschedulerMisconfigured()).To(Equal(expectedIsDeschedulerMisconfigured))
 		},
 		Entry(
 			"with default configuration",
@@ -239,19 +238,42 @@ var _ = Describe("test clusterInfo", func() {
 			true,
 		),
 		Entry(
-			"with configuration tuned for KubeVirt",
+			"with KubeVirt specific profile",
 			&deschedulerv1.KubeDescheduler{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      DeschedulerCRName,
 					Namespace: DeschedulerNamespace,
 				},
 				Spec: deschedulerv1.KubeDeschedulerSpec{
+					Profiles: []deschedulerv1.DeschedulerProfile{
+						deschedulerv1.RelieveAndMigrate,
+					},
+					ProfileCustomizations: &deschedulerv1.ProfileCustomizations{
+						DevDeviationThresholds:      &deschedulerv1.AsymmetricLowDeviationThreshold,
+						DevEnableSoftTainter:        true,
+						DevActualUtilizationProfile: deschedulerv1.PrometheusCPUCombinedProfile,
+					},
+				},
+			},
+			false,
+		),
+		Entry(
+			"with obsolete configuration",
+			&deschedulerv1.KubeDescheduler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      DeschedulerCRName,
+					Namespace: DeschedulerNamespace,
+				},
+				Spec: deschedulerv1.KubeDeschedulerSpec{
+					Profiles: []deschedulerv1.DeschedulerProfile{
+						deschedulerv1.LifecycleAndUtilization,
+					},
 					ProfileCustomizations: &deschedulerv1.ProfileCustomizations{
 						DevEnableEvictionsInBackground: true,
 					},
 				},
 			},
-			false,
+			true,
 		),
 		Entry(
 			"with wrong configuration 1",
@@ -337,7 +359,7 @@ var _ = Describe("test clusterInfo", func() {
 	)
 
 	It("check Init on openshift, with OLM", func() {
-		os.Setenv(OperatorConditionNameEnvVar, "aValue")
+		Expect(os.Setenv(OperatorConditionNameEnvVar, "aValue")).To(Succeed())
 		cl := fake.NewClientBuilder().
 			WithScheme(testScheme).
 			WithObjects(clusterVersion, infrastructure, ingress, apiServer, dns, ipv4network).
@@ -354,7 +376,7 @@ var _ = Describe("test clusterInfo", func() {
 	})
 
 	It("check Init on openshift, without OLM", func() {
-		os.Unsetenv(OperatorConditionNameEnvVar)
+		Expect(os.Unsetenv(OperatorConditionNameEnvVar)).To(Succeed())
 
 		cl := fake.NewClientBuilder().
 			WithScheme(testScheme).
@@ -431,7 +453,7 @@ var _ = Describe("test clusterInfo", func() {
 				nodesArray = append(nodesArray, workerNode)
 			}
 
-			os.Setenv(OperatorConditionNameEnvVar, "aValue")
+			Expect(os.Setenv(OperatorConditionNameEnvVar, "aValue")).To(Succeed())
 			cl := fake.NewClientBuilder().
 				WithScheme(testScheme).
 				WithObjects(clusterVersion, testInfrastructure, ingress, apiServer, dns, ipv4network).
@@ -510,7 +532,7 @@ var _ = Describe("test clusterInfo", func() {
 				}
 				nodesArray = append(nodesArray, workerNode)
 			}
-			os.Unsetenv(OperatorConditionNameEnvVar)
+			Expect(os.Unsetenv(OperatorConditionNameEnvVar)).To(Succeed())
 			cl := fake.NewClientBuilder().
 				WithScheme(testScheme).
 				WithObjects(nodesArray...).
@@ -574,7 +596,7 @@ var _ = Describe("test clusterInfo", func() {
 					WithRuntimeObjects().
 					Build()
 				if isOnOpenshift {
-					os.Setenv(OperatorConditionNameEnvVar, "aValue")
+					Expect(os.Setenv(OperatorConditionNameEnvVar, "aValue")).To(Succeed())
 					cl = fake.NewClientBuilder().
 						WithScheme(testScheme).
 						WithRuntimeObjects(clusterVersion, infrastructure, ingress, testAPIServer, dns, ipv4network).
@@ -726,7 +748,7 @@ var _ = Describe("test clusterInfo", func() {
 		)
 
 		It("should refresh ApiServer on changes", func() {
-			os.Setenv(OperatorConditionNameEnvVar, "aValue")
+			Expect(os.Setenv(OperatorConditionNameEnvVar, "aValue")).To(Succeed())
 
 			initialTLSSecurityProfile := &openshiftconfigv1.TLSSecurityProfile{
 				Type:         openshiftconfigv1.TLSProfileIntermediateType,
@@ -764,11 +786,10 @@ var _ = Describe("test clusterInfo", func() {
 			Expect(GetClusterInfo().RefreshAPIServerCR(context.TODO(), cl)).To(Succeed())
 
 			Expect(GetClusterInfo().GetTLSSecurityProfile(nil)).To(Equal(updatedTLSSecurityProfile), "should return the updated value")
-
 		})
 
 		It("should detect that KubeDescheduler CRD got deployed if initially unavailable", func() {
-			os.Setenv(OperatorConditionNameEnvVar, "aValue")
+			Expect(os.Setenv(OperatorConditionNameEnvVar, "aValue")).To(Succeed())
 
 			testAPIServer := &openshiftconfigv1.APIServer{
 				ObjectMeta: metav1.ObjectMeta{
@@ -787,7 +808,6 @@ var _ = Describe("test clusterInfo", func() {
 			Expect(GetClusterInfo().IsManagedByOLM()).To(BeTrue(), "should return true for IsManagedByOLM()")
 			Expect(GetClusterInfo().IsDeschedulerAvailable()).To(BeFalse(), "should initially return false for IsDeschedulerAvailable()")
 			Expect(GetClusterInfo().IsDeschedulerCRDDeployed(context.TODO(), cl)).To(BeFalse(), "should initially return false for IsDeschedulerCRDDeployed(...)")
-			Expect(GetClusterInfo().IsDeschedulerMisconfigured()).To(BeFalse(), "should initially return false for IsDeschedulerMisconfigured()")
 
 			deschedulerCRD = &apiextensionsv1.CustomResourceDefinition{
 				ObjectMeta: metav1.ObjectMeta{
@@ -798,9 +818,6 @@ var _ = Describe("test clusterInfo", func() {
 			Expect(cl.Create(context.TODO(), deschedulerCRD)).To(Succeed())
 			Expect(GetClusterInfo().IsDeschedulerAvailable()).To(BeFalse(), "should still return false for IsDeschedulerAvailable() (until the operator will restart)")
 			Expect(GetClusterInfo().IsDeschedulerCRDDeployed(context.TODO(), cl)).To(BeTrue(), "should now return true for IsDeschedulerCRDDeployed(...)")
-
 		})
-
 	})
-
 })

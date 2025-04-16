@@ -2,9 +2,11 @@ package descheduler
 
 import (
 	"context"
+	"slices"
 
 	deschedulerv1 "github.com/openshift/cluster-kube-descheduler-operator/pkg/apis/descheduler/v1"
 	operatorhandler "github.com/operator-framework/operator-lib/handler"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -15,6 +17,11 @@ import (
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/monitoring/hyperconverged/metrics"
 	hcoutil "github.com/kubevirt/hyperconverged-cluster-operator/pkg/util"
+)
+
+const (
+	deschedulerCRName    = "cluster"
+	deschedulerNamespace = "openshift-kube-descheduler-operator"
 )
 
 var (
@@ -67,13 +74,42 @@ type ReconcileDescheduler struct {
 
 // Reconcile refreshes KubeDesheduler view on ClusterInfo singleton
 func (r *ReconcileDescheduler) Reconcile(ctx context.Context, _ reconcile.Request) (reconcile.Result, error) {
-
 	log.Info("Triggered by Descheduler CR, refreshing it")
-	err := hcoutil.GetClusterInfo().RefreshDeschedulerCR(ctx, r.client)
+	refreshDeschedulerCR, err := r.isDeschedulerMisconfigured(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	metrics.SetHCOMetricMisconfiguredDescheduler(hcoutil.GetClusterInfo().IsDeschedulerMisconfigured())
+
+	metrics.SetHCOMetricMisconfiguredDescheduler(refreshDeschedulerCR)
 
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileDescheduler) isDeschedulerMisconfigured(ctx context.Context) (bool, error) {
+	if !hcoutil.GetClusterInfo().IsDeschedulerAvailable() {
+		return false, nil
+	}
+
+	instance := &deschedulerv1.KubeDescheduler{}
+
+	key := client.ObjectKey{Namespace: deschedulerNamespace, Name: deschedulerCRName}
+	err := r.client.Get(ctx, key, instance)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	// TODO: modify this once deschedulerv1.RelieveAndMigrate will graduate, loosing
+	// the "Dev" prefix, and will be "KubeVirtRelieveAndMigrate", then we will need
+	// to change it to:
+	// misconfiguredDescheduler = slices.Contains(instance.Spec.Profiles, deschedulerv1.RelieveAndMigrate)
+	return !slices.ContainsFunc(instance.Spec.Profiles, func(profile deschedulerv1.DeschedulerProfile) bool {
+		switch profile {
+		case deschedulerv1.RelieveAndMigrate, "KubeVirtRelieveAndMigrate":
+			return true
+		}
+		return false
+	}), nil
 }

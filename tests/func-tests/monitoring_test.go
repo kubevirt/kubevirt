@@ -216,8 +216,8 @@ var _ = Describe("[crit:high][vendor:cnv-qe@redhat.com][level:system]Monitoring"
 
 			const (
 				query                 = `kubevirt_hco_misconfigured_descheduler`
-				jsonPatchMisconfigure = `[{"op": "replace", "path": "/spec", "value": {"managementState": "Managed"}}]`
-				jsonPatchConfigure    = `[{"op": "replace", "path": "/spec", "value": {"managementState": "Managed", "profileCustomizations": {"devEnableEvictionsInBackground": true }}}]`
+				jsonPatchMisconfigure = `[{"op": "replace", "path": "/spec", "value": {"managementState": "Managed", "profiles": ["AffinityAndTaints"]}}]`
+				jsonPatchConfigure    = `[{"op": "replace", "path": "/spec", "value": {"managementState": "Managed", "profiles": ["DevKubeVirtRelieveAndMigrate"]}}]`
 			)
 
 			By(fmt.Sprintf("Reading the `%s` metric from HCO prometheus endpoint", query))

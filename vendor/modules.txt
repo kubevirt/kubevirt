@@ -197,8 +197,8 @@ github.com/openshift/api/image/v1
 github.com/openshift/api/operator/v1
 github.com/openshift/api/quota/v1
 github.com/openshift/api/route/v1
-# github.com/openshift/cluster-kube-descheduler-operator v0.0.0-20240916113608-1a30f3be33fa
-## explicit; go 1.22.5
+# github.com/openshift/cluster-kube-descheduler-operator v0.0.0-20250410114548-481d56a6c34e
+## explicit; go 1.23.3
 github.com/openshift/cluster-kube-descheduler-operator/pkg/apis/descheduler/v1
 # github.com/openshift/custom-resource-status v1.1.2
 ## explicit; go 1.12

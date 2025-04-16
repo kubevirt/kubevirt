@@ -71,9 +71,14 @@ type ProfileCustomizations struct {
 	// the default exclusion of all openshift-*, kube-system and hypershift namespaces
 	Namespaces Namespaces `json:"namespaces"`
 
-	// LowNodeUtilizationThresholds enumerates predefined experimental thresholds
+	// DevLowNodeUtilizationThresholds enumerates predefined experimental thresholds
 	// +kubebuilder:validation:Enum=Low;Medium;High;""
 	DevLowNodeUtilizationThresholds *LowNodeUtilizationThresholdsType `json:"devLowNodeUtilizationThresholds"`
+
+	// DevEnableSoftTainter enables SoftTainter alpha feature.
+	// The EnableSoftTainter alpha feature is a subject to change.
+	// Currently provided as an experimental feature.
+	DevEnableSoftTainter bool `json:"devEnableSoftTainter"`
 
 	// DevEnableEvictionsInBackground enables descheduler's EvictionsInBackground alpha feature.
 	// The EvictionsInBackground alpha feature is a subject to change.
@@ -85,6 +90,15 @@ type ProfileCustomizations struct {
 	// Currently provided as an experimental feature.
 	// +kubebuilder:validation:Enum=Minimal;Modest;Moderate;""
 	DevHighNodeUtilizationThresholds *HighNodeUtilizationThresholdsType `json:"devHighNodeUtilizationThresholds"`
+
+	// devActualUtilizationProfile enables integration with metrics.
+	// LowNodeUtilization plugin can consume the metrics for now.
+	// Currently provided as an experimental feature.
+	DevActualUtilizationProfile ActualUtilizationProfile `json:"devActualUtilizationProfile,omitempty"`
+
+	// devDeviationThresholds enables dynamic thresholds based on average resource utilization
+	// +kubebuilder:validation:Enum=Low;Medium;High;AsymmetricLow;AsymmetricMedium;AsymmetricHigh;""
+	DevDeviationThresholds *DeviationThresholdsType `json:"devDeviationThresholds,omitempty"`
 }
 
 type LowNodeUtilizationThresholdsType string
@@ -116,6 +130,58 @@ var (
 	CompactModerateThreshold HighNodeUtilizationThresholdsType = "Moderate"
 )
 
+type DeviationThresholdsType string
+
+var (
+	// LowDeviationThreshold sets thresholds to 10%:10% ratio.
+	// The threshold value is subject to change.
+	LowDeviationThreshold DeviationThresholdsType = "Low"
+
+	// MediumDeviationThreshold sets thresholds to 20%:20% ratio.
+	// The threshold value is subject to change.
+	MediumDeviationThreshold DeviationThresholdsType = "Medium"
+
+	// HighDeviationThreshold sets thresholds to 30%:30% ratio.
+	// The threshold value is subject to change.
+	HighDeviationThreshold DeviationThresholdsType = "High"
+
+	// AsymmetricLowDeviationThreshold sets thresholds to 0%:10% ratio.
+	// An AsymmetricDeviationThreshold will force all nodes below the average
+	// to be considered as underutilized to help rebalancing overutilized outliers.
+	// The threshold value is subject to change.
+	AsymmetricLowDeviationThreshold DeviationThresholdsType = "AsymmetricLow"
+
+	// AsymmetricMediumDeviationThreshold sets thresholds to 0%:20% ratio.
+	// An AsymmetricDeviationThreshold will force all nodes below the average
+	// to be considered as underutilized to help rebalancing overutilized outliers.
+	// The threshold value is subject to change.
+	AsymmetricMediumDeviationThreshold DeviationThresholdsType = "AsymmetricMedium"
+
+	// AsymmetricHighDeviationThreshold sets thresholds to 0%:30% ratio.
+	// An AsymmetricDeviationThreshold will force all nodes below the average
+	// to be considered as underutilized to help rebalancing overutilized outliers.
+	// The threshold value is subject to change.
+	AsymmetricHighDeviationThreshold DeviationThresholdsType = "AsymmetricHigh"
+)
+
+// ActualUtilizationProfile sets predefined Prometheus PromQL query
+type ActualUtilizationProfile string
+
+const (
+	// PrometheusCPUUsageProfile sets instance:node_cpu:rate:sum query
+	PrometheusCPUUsageProfile ActualUtilizationProfile = "PrometheusCPUUsage"
+	// PrometheusCPUPSIPressureProfile sets rate(node_pressure_cpu_waiting_seconds_total[1m]) query
+	PrometheusCPUPSIPressureProfile ActualUtilizationProfile = "PrometheusCPUPSIPressure"
+	// PrometheusCPUPSIPressureUtilizationProfile sets a query based on a combination of PSI CPU pressure and average CPU utilization
+	PrometheusCPUPSIPressureByUtilizationProfile ActualUtilizationProfile = "PrometheusCPUPSIPressureByUtilization"
+	// PrometheusMemoryPSIPressureProfile sets rate(node_pressure_memory_waiting_seconds_total[1m]) query
+	PrometheusMemoryPSIPressureProfile ActualUtilizationProfile = "PrometheusMemoryPSIPressure"
+	// PrometheusIOPSIPressureProfile sets rate(node_pressure_io_waiting_seconds_total[1m]) query
+	PrometheusIOPSIPressureProfile ActualUtilizationProfile = "PrometheusIOPSIPressure"
+	// PrometheusCPUCombinedProfile uses a combination of CPU utilization and CPU pressure based on a recording rule
+	PrometheusCPUCombinedProfile ActualUtilizationProfile = "PrometheusCPUCombined"
+)
+
 // Namespaces overrides included and excluded namespaces while keeping
 // the default exclusion of all openshift-*, kube-system and hypershift namespaces
 type Namespaces struct {
@@ -125,7 +191,7 @@ type Namespaces struct {
 
 // DeschedulerProfile allows configuring the enabled strategy profiles for the descheduler
 // it allows multiple profiles to be enabled at once, which will have cumulative effects on the cluster.
-// +kubebuilder:validation:Enum=AffinityAndTaints;TopologyAndDuplicates;LifecycleAndUtilization;DevPreviewLongLifecycle;LongLifecycle;SoftTopologyAndDuplicates;EvictPodsWithLocalStorage;EvictPodsWithPVC;CompactAndScale
+// +kubebuilder:validation:Enum=AffinityAndTaints;TopologyAndDuplicates;LifecycleAndUtilization;DevPreviewLongLifecycle;LongLifecycle;SoftTopologyAndDuplicates;EvictPodsWithLocalStorage;EvictPodsWithPVC;CompactAndScale;DevKubeVirtRelieveAndMigrate
 type DeschedulerProfile string
 
 var (
@@ -159,6 +225,9 @@ var (
 
 	// CompactAndScale seeks to evict pods to enable the same workload to run on a smaller set of nodes.
 	CompactAndScale DeschedulerProfile = "CompactAndScale"
+
+	// RelieveAndMigrate seeks to evict pods from high-cost nodes to relieve overall expenses while considering workload migration.
+	RelieveAndMigrate DeschedulerProfile = "DevKubeVirtRelieveAndMigrate"
 )
 
 // DeschedulerProfile allows configuring the enabled strategy profiles for the descheduler

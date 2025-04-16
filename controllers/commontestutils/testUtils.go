@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	. "github.com/onsi/ginkgo/v2" //nolint dot-imports
-	. "github.com/onsi/gomega"    //nolint dot-imports
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
 	gomegatypes "github.com/onsi/gomega/types"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
@@ -318,9 +318,6 @@ func (c ClusterInfoMock) IsDeschedulerAvailable() bool {
 func (c ClusterInfoMock) IsDeschedulerCRDDeployed(_ context.Context, _ client.Client) bool {
 	return true
 }
-func (c ClusterInfoMock) IsDeschedulerMisconfigured() bool {
-	return false
-}
 func (c ClusterInfoMock) IsSingleStackIPv6() bool {
 	return true
 }
@@ -342,9 +339,6 @@ func (ClusterInfoMock) GetTLSSecurityProfile(_ *openshiftconfigv1.TLSSecurityPro
 	}
 }
 func (ClusterInfoMock) RefreshAPIServerCR(_ context.Context, _ client.Client) error {
-	return nil
-}
-func (ClusterInfoMock) RefreshDeschedulerCR(_ context.Context, _ client.Client) error {
 	return nil
 }
 
@@ -398,9 +392,6 @@ func (ClusterInfoSNOMock) GetTLSSecurityProfile(_ *openshiftconfigv1.TLSSecurity
 func (ClusterInfoSNOMock) RefreshAPIServerCR(_ context.Context, _ client.Client) error {
 	return nil
 }
-func (ClusterInfoSNOMock) RefreshDeschedulerCR(_ context.Context, _ client.Client) error {
-	return nil
-}
 func (ClusterInfoSNOMock) IsConsolePluginImageProvided() bool {
 	return true
 }
@@ -412,9 +403,6 @@ func (c ClusterInfoSNOMock) IsDeschedulerAvailable() bool {
 }
 func (c ClusterInfoSNOMock) IsDeschedulerCRDDeployed(_ context.Context, _ client.Client) bool {
 	return true
-}
-func (c ClusterInfoSNOMock) IsDeschedulerMisconfigured() bool {
-	return false
 }
 func (c ClusterInfoSNOMock) IsSingleStackIPv6() bool {
 	return true
@@ -473,9 +461,6 @@ func (ClusterInfoSRCPHAIMock) IsDeschedulerAvailable() bool {
 func (ClusterInfoSRCPHAIMock) IsDeschedulerCRDDeployed(_ context.Context, _ client.Client) bool {
 	return true
 }
-func (ClusterInfoSRCPHAIMock) IsDeschedulerMisconfigured() bool {
-	return false
-}
 func (ClusterInfoSRCPHAIMock) IsSingleStackIPv6() bool {
 	return true
 }
@@ -486,9 +471,6 @@ func (ClusterInfoSRCPHAIMock) GetTLSSecurityProfile(_ *openshiftconfigv1.TLSSecu
 	}
 }
 func (ClusterInfoSRCPHAIMock) RefreshAPIServerCR(_ context.Context, _ client.Client) error {
-	return nil
-}
-func (ClusterInfoSRCPHAIMock) RefreshDeschedulerCR(_ context.Context, _ client.Client) error {
 	return nil
 }
 

@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-logr/logr"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
-	deschedulerv1 "github.com/openshift/cluster-kube-descheduler-operator/pkg/apis/descheduler/v1"
 	csvv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -37,12 +36,10 @@ type ClusterInfo interface {
 	IsConsolePluginImageProvided() bool
 	IsMonitoringAvailable() bool
 	IsDeschedulerAvailable() bool
-	IsDeschedulerMisconfigured() bool
 	IsDeschedulerCRDDeployed(ctx context.Context, cl client.Client) bool
 	IsSingleStackIPv6() bool
 	GetTLSSecurityProfile(hcoTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile) *openshiftconfigv1.TLSSecurityProfile
 	RefreshAPIServerCR(ctx context.Context, c client.Client) error
-	RefreshDeschedulerCR(ctx context.Context, c client.Client) error
 	GetPod() *corev1.Pod
 	GetDeployment() *appsv1.Deployment
 	GetCSV() *csvv1alpha1.ClusterServiceVersion
@@ -67,7 +64,6 @@ type ClusterInfoImp struct {
 var clusterInfo ClusterInfo
 
 var validatedAPIServerTLSSecurityProfile *openshiftconfigv1.TLSSecurityProfile
-var misconfiguredDescheduler bool
 
 var GetClusterInfo = func() ClusterInfo {
 	return clusterInfo
@@ -110,11 +106,6 @@ func (c *ClusterInfoImp) Init(ctx context.Context, cl client.Client, logger logr
 	)
 
 	err = c.RefreshAPIServerCR(ctx, cl)
-	if err != nil {
-		return err
-	}
-
-	err = c.RefreshDeschedulerCR(ctx, cl)
 	if err != nil {
 		return err
 	}
@@ -319,10 +310,6 @@ func (c *ClusterInfoImp) GetTLSSecurityProfile(hcoTLSSecurityProfile *openshiftc
 	}
 }
 
-func (c *ClusterInfoImp) IsDeschedulerMisconfigured() bool {
-	return misconfiguredDescheduler
-}
-
 func (c *ClusterInfoImp) RefreshAPIServerCR(ctx context.Context, cl client.Client) error {
 	if c.IsOpenshift() {
 		instance := &openshiftconfigv1.APIServer{}
@@ -337,30 +324,6 @@ func (c *ClusterInfoImp) RefreshAPIServerCR(ctx context.Context, cl client.Clien
 	}
 	validatedAPIServerTLSSecurityProfile = nil
 
-	return nil
-}
-
-func (c *ClusterInfoImp) RefreshDeschedulerCR(ctx context.Context, cl client.Client) error {
-	if c.IsDeschedulerAvailable() {
-		instance := &deschedulerv1.KubeDescheduler{}
-
-		key := client.ObjectKey{Namespace: DeschedulerNamespace, Name: DeschedulerCRName}
-		err := cl.Get(ctx, key, instance)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				misconfiguredDescheduler = false
-				return nil
-			}
-			return err
-		}
-		if instance.Spec.ProfileCustomizations == nil {
-			misconfiguredDescheduler = true
-		} else {
-			misconfiguredDescheduler = !instance.Spec.ProfileCustomizations.DevEnableEvictionsInBackground
-		}
-		return nil
-	}
-	misconfiguredDescheduler = false
 	return nil
 }
 
