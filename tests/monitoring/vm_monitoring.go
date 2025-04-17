@@ -396,7 +396,8 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 	})
 })
 
-var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func() {
+// These tests are suited to run in parallel, but are set to run in Serial because the monitoring tests are flaky.
+var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitoring, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
