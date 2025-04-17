@@ -70,7 +70,16 @@ func setupCPUHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMac
 	}
 
 	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
+		// Each machine type will have different maximum for vcpus,
+		// lets choose 512 as upper bound
+		const maxVCPUs = 512
+
 		vmi.Spec.Domain.CPU.MaxSockets = vmi.Spec.Domain.CPU.Sockets * clusterConfig.GetMaxHotplugRatio()
+		totalVCPUs := vmi.Spec.Domain.CPU.MaxSockets * vmi.Spec.Domain.CPU.Cores * vmi.Spec.Domain.CPU.Threads
+		if totalVCPUs > maxVCPUs {
+			adjustedSockets := maxVCPUs / (vmi.Spec.Domain.CPU.Cores * vmi.Spec.Domain.CPU.Threads)
+			vmi.Spec.Domain.CPU.MaxSockets = max(adjustedSockets, vmi.Spec.Domain.CPU.Sockets)
+		}
 	}
 }
 
