@@ -307,6 +307,9 @@ var _ = Describe("test configuration", func() {
 		Entry("contains disableFreePageReporting, IsFreePageReportingDisabled should return true",
 			&v1.VirtualMachineOptions{DisableFreePageReporting: &v1.DisableFreePageReporting{}}, true,
 		),
+		Entry("contains disableFreePageReporting as nil, IsFreePageReportingDisabled should return false",
+			&v1.VirtualMachineOptions{DisableFreePageReporting: (*v1.DisableFreePageReporting)(nil)}, false,
+		),
 	)
 
 	DescribeTable("when vmRolloutStrategy", func(vmRolloutStrategy *v1.VMRolloutStrategy, expected bool) {

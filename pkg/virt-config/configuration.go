@@ -170,6 +170,7 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 	nodeSelectorsDefault, _ := parseNodeSelectors(DefaultNodeSelectors)
 	defaultNetworkInterface := DefaultNetworkInterface
 	defaultMemBalloonStatsPeriod := DefaultMemBalloonStatsPeriod
+	var defaultFreePageReportingDisabled *v1.DisableFreePageReporting
 	SmbiosDefaultConfig := &v1.SMBiosConfiguration{
 		Family:       SmbiosConfigDefaultFamily,
 		Manufacturer: SmbiosConfigDefaultManufacturer,
@@ -180,6 +181,10 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 		MemoryLimit: resource.NewScaledQuantity(DefaultDiskVerificationMemoryLimitMBytes, resource.Mega),
 	}
 	defaultEvictionStrategy := v1.EvictionStrategyNone
+
+	if cpuArch == "s390x" {
+		defaultFreePageReportingDisabled = &v1.DisableFreePageReporting{}
+	}
 
 	return &v1.KubeVirtConfiguration{
 		ImagePullPolicy: DefaultImagePullPolicy,
@@ -238,6 +243,9 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 				QPS:   DefaultVirtHandlerQPS,
 				Burst: DefaultVirtHandlerBurst,
 			}}},
+		},
+		VirtualMachineOptions: &v1.VirtualMachineOptions{
+			DisableFreePageReporting: defaultFreePageReportingDisabled,
 		},
 		WebhookConfiguration: &v1.ReloadableComponentConfiguration{
 			RestClient: &v1.RESTClientConfiguration{RateLimiter: &v1.RateLimiter{TokenBucketRateLimiter: &v1.TokenBucketRateLimiter{
