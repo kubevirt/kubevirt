@@ -24,6 +24,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -117,7 +118,7 @@ var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:com
 					assertIPsNotEmptyForVMI(clientVMI)
 				})
 
-				It("[Conformance][test_id:1513] should succeed pinging between two VMI/s in the same namespace", func() {
+				It("[test_id:1513] should succeed pinging between two VMI/s in the same namespace", decorators.Conformance, func() {
 					assertPingSucceed(clientVMI, serverVMI)
 				})
 			})
@@ -132,7 +133,7 @@ var _ = SIGDescribe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:com
 					assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
 				})
 
-				It("[Conformance][test_id:1514] should fail pinging between two VMI/s each on different namespaces", func() {
+				It("[test_id:1514] should fail pinging between two VMI/s each on different namespaces", decorators.Conformance, func() {
 					assertPingFail(clientVMIAlternativeNamespace, serverVMI)
 				})
 			})
