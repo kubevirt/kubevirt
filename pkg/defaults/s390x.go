@@ -54,8 +54,20 @@ func setS390xDefaultFeatures(spec *v1.VirtualMachineInstanceSpec) {
 // SetS390xDefaults is mutating function for mutating-webhook
 func SetS390xDefaults(spec *v1.VirtualMachineInstanceSpec) {
 	setDefaultS390xDisksBus(spec)
+	SetS390xWatchdog(spec)
 }
 
 func IsS390X(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
 	return vmiSpec.Architecture == "s390x"
+}
+
+func SetS390xWatchdog(spec *v1.VirtualMachineInstanceSpec) {
+	if spec.Domain.Devices.Watchdog != nil {
+		if spec.Domain.Devices.Watchdog.Diag288 == nil {
+			spec.Domain.Devices.Watchdog.Diag288 = &v1.Diag288Watchdog{}
+		}
+		if spec.Domain.Devices.Watchdog.Diag288.Action == "" {
+			spec.Domain.Devices.Watchdog.Diag288.Action = v1.WatchdogActionReset
+		}
+	}
 }

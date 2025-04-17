@@ -657,12 +657,20 @@ func (WatchdogDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "Hardware watchdog device.\nExactly one of its members must be set.",
 		"i6300esb": "i6300esb watchdog device.\n+optional",
+		"diag288":  "diag288 watchdog device (specific to s390x architecture).\n+optional",
 	}
 }
 
 func (I6300ESBWatchdog) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":       "i6300esb watchdog device.",
+		"action": "The action to take. Valid values are poweroff, reset, shutdown.\nDefaults to reset.",
+	}
+}
+
+func (Diag288Watchdog) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "diag288 watchdog device.",
 		"action": "The action to take. Valid values are poweroff, reset, shutdown.\nDefaults to reset.",
 	}
 }

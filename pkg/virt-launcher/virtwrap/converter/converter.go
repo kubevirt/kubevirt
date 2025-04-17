@@ -856,16 +856,6 @@ func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, disk *api.D
 	return nil
 }
 
-func Convert_v1_Watchdog_To_api_Watchdog(source *v1.Watchdog, watchdog *api.Watchdog, _ *ConverterContext) error {
-	watchdog.Alias = api.NewUserDefinedAlias(source.Name)
-	if source.I6300ESB != nil {
-		watchdog.Model = "i6300esb"
-		watchdog.Action = string(source.I6300ESB.Action)
-		return nil
-	}
-	return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", source.Name)
-}
-
 func Convert_v1_Rng_To_api_Rng(_ *v1.Rng, rng *api.Rng, c *ConverterContext) error {
 
 	// default rng model for KVM/QEMU virtualization
@@ -1636,7 +1626,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	if vmi.Spec.Domain.Devices.Watchdog != nil {
 		newWatchdog := &api.Watchdog{}
-		err := Convert_v1_Watchdog_To_api_Watchdog(vmi.Spec.Domain.Devices.Watchdog, newWatchdog, c)
+		err := c.Architecture.ConvertWatchdog(vmi.Spec.Domain.Devices.Watchdog, newWatchdog)
 		if err != nil {
 			return err
 		}

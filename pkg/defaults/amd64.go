@@ -43,4 +43,16 @@ func setDefaultAmd64DisksBus(spec *v1.VirtualMachineInstanceSpec) {
 // SetAmd64Defaults is mutating function for mutating-webhook
 func SetAmd64Defaults(spec *v1.VirtualMachineInstanceSpec) {
 	setDefaultAmd64DisksBus(spec)
+	SetAmd64Watchdog(spec)
+}
+
+func SetAmd64Watchdog(spec *v1.VirtualMachineInstanceSpec) {
+	if spec.Domain.Devices.Watchdog != nil {
+		if spec.Domain.Devices.Watchdog.I6300ESB == nil {
+			spec.Domain.Devices.Watchdog.I6300ESB = &v1.I6300ESBWatchdog{}
+		}
+		if spec.Domain.Devices.Watchdog.I6300ESB.Action == "" {
+			spec.Domain.Devices.Watchdog.I6300ESB.Action = v1.WatchdogActionReset
+		}
+	}
 }

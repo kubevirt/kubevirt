@@ -44,7 +44,7 @@
     </graphics>
     <memballoon model="virtio-non-transitional" freePageReporting="on">
       <stats period="10"></stats>
-      <address type="pci" domain="0x0000" bus="0x00" slot="0x0a" function="0x0"></address>
+      <address type="pci" domain="0x0000" bus="0x00" slot="0x09" function="0x0"></address>
     </memballoon>
     <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
@@ -145,13 +145,9 @@
     <console type="pty">
       <target type="serial" port="0"></target>
     </console>
-    <watchdog model="i6300esb" action="poweroff">
-      <alias name="ua-mywatchdog"></alias>
-      <address type="pci" domain="0x0000" bus="0x00" slot="0x08" function="0x0"></address>
-    </watchdog>
     <rng model="virtio-non-transitional">
       <backend model="random">/dev/urandom</backend>
-      <address type="pci" domain="0x0000" bus="0x00" slot="0x09" function="0x0"></address>
+      <address type="pci" domain="0x0000" bus="0x00" slot="0x08" function="0x0"></address>
     </rng>
   </devices>
   <clock offset="utc" adjustment="reset">

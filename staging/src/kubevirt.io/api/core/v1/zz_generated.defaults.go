@@ -143,12 +143,6 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 				}
 			}
 		}
-		if in.Spec.Template.Spec.Domain.Devices.Watchdog != nil {
-			SetDefaults_Watchdog(in.Spec.Template.Spec.Domain.Devices.Watchdog)
-			if in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB != nil {
-				SetDefaults_I6300ESBWatchdog(in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
-			}
-		}
 		for i := range in.Spec.Template.Spec.Domain.Devices.GPUs {
 			a := &in.Spec.Template.Spec.Domain.Devices.GPUs[i]
 			if a.VirtualGPUOptions != nil {
@@ -279,12 +273,6 @@ func SetObjectDefaults_VirtualMachineInstance(in *VirtualMachineInstance) {
 			}
 		}
 	}
-	if in.Spec.Domain.Devices.Watchdog != nil {
-		SetDefaults_Watchdog(in.Spec.Domain.Devices.Watchdog)
-		if in.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB != nil {
-			SetDefaults_I6300ESBWatchdog(in.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
-		}
-	}
 	for i := range in.Spec.Domain.Devices.GPUs {
 		a := &in.Spec.Domain.Devices.GPUs[i]
 		if a.VirtualGPUOptions != nil {
@@ -405,12 +393,6 @@ func SetObjectDefaults_VirtualMachineInstancePreset(in *VirtualMachineInstancePr
 				}
 			}
 		}
-		if in.Spec.Domain.Devices.Watchdog != nil {
-			SetDefaults_Watchdog(in.Spec.Domain.Devices.Watchdog)
-			if in.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB != nil {
-				SetDefaults_I6300ESBWatchdog(in.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
-			}
-		}
 		for i := range in.Spec.Domain.Devices.GPUs {
 			a := &in.Spec.Domain.Devices.GPUs[i]
 			if a.VirtualGPUOptions != nil {
@@ -524,12 +506,6 @@ func SetObjectDefaults_VirtualMachineInstanceReplicaSet(in *VirtualMachineInstan
 				if a.BlockSize.MatchVolume != nil {
 					SetDefaults_FeatureState(a.BlockSize.MatchVolume)
 				}
-			}
-		}
-		if in.Spec.Template.Spec.Domain.Devices.Watchdog != nil {
-			SetDefaults_Watchdog(in.Spec.Template.Spec.Domain.Devices.Watchdog)
-			if in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB != nil {
-				SetDefaults_I6300ESBWatchdog(in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
 			}
 		}
 		for i := range in.Spec.Template.Spec.Domain.Devices.GPUs {
