@@ -439,7 +439,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			}
 		}
 
-		Context("[Conformance][test_id:1780][label:masquerade_binding_connectivity]should allow regular network connection", func() {
+		Context("[test_id:1780][label:masquerade_binding_connectivity]should allow regular network connection", decorators.Conformance, func() {
 			// This CIDR tests backwards compatibility of the "vmNetworkCIDR" field.
 			// The leading zero is intentional.
 			// For more details please see: https://github.com/kubevirt/kubevirt/issues/6498
@@ -593,7 +593,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				return pod, nil
 			}
 
-			DescribeTable("[Conformance] preserves connectivity - IPv4", func(ports []v1.Port) {
+			DescribeTable("preserves connectivity - IPv4", decorators.Conformance, func(ports []v1.Port) {
 				libnet.SkipWhenClusterNotSupportIpv4()
 
 				var err error
@@ -632,7 +632,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Entry("with explicit ports used by live migration", portsUsedByLiveMigration()),
 			)
 
-			It("[Conformance] should preserve connectivity - IPv6", func() {
+			It("should preserve connectivity - IPv6", decorators.Conformance, func() {
 				libnet.SkipWhenClusterNotSupportIpv6()
 
 				var err error
