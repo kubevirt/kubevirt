@@ -35,6 +35,7 @@ import (
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -175,7 +176,7 @@ var _ = SIGDescribe("Primary Pod Network", func() {
 					)
 				})
 
-				It("[Conformance] should report PodIP as its own on interface status", func() { AssertReportedIP(vmi) })
+				It("should report PodIP as its own on interface status", decorators.Conformance, func() { AssertReportedIP(vmi) })
 			})
 		})
 	})
