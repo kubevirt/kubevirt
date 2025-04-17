@@ -25,9 +25,9 @@ import (
 	"os"
 	"path/filepath"
 
-	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	gomock "go.uber.org/mock/gomock"
 
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/types"

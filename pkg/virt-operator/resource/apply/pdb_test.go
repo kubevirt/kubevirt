@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 	v12 "k8s.io/api/apps/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	_ "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"

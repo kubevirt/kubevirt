@@ -4,8 +4,8 @@ import (
 	"errors"
 	goflag "flag"
 
-	"github.com/golang/mock/gomock"
 	"github.com/spf13/pflag"
+	"go.uber.org/mock/gomock"
 
 	"kubevirt.io/client-go/log"
 
