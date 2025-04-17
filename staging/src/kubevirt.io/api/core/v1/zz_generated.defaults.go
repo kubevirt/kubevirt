@@ -153,6 +153,9 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 				}
 			}
 		}
+		if in.Spec.Template.Spec.StartupProbe != nil {
+			SetDefaults_Probe(in.Spec.Template.Spec.StartupProbe)
+		}
 		if in.Spec.Template.Spec.LivenessProbe != nil {
 			SetDefaults_Probe(in.Spec.Template.Spec.LivenessProbe)
 		}
@@ -282,6 +285,9 @@ func SetObjectDefaults_VirtualMachineInstance(in *VirtualMachineInstance) {
 				}
 			}
 		}
+	}
+	if in.Spec.StartupProbe != nil {
+		SetDefaults_Probe(in.Spec.StartupProbe)
 	}
 	if in.Spec.LivenessProbe != nil {
 		SetDefaults_Probe(in.Spec.LivenessProbe)
@@ -517,6 +523,9 @@ func SetObjectDefaults_VirtualMachineInstanceReplicaSet(in *VirtualMachineInstan
 					}
 				}
 			}
+		}
+		if in.Spec.Template.Spec.StartupProbe != nil {
+			SetDefaults_Probe(in.Spec.Template.Spec.StartupProbe)
 		}
 		if in.Spec.Template.Spec.LivenessProbe != nil {
 			SetDefaults_Probe(in.Spec.Template.Spec.LivenessProbe)
