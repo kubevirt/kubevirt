@@ -1126,6 +1126,10 @@ const (
 	// ImmediateDataVolumeCreation indicates that the data volumes should be created immediately
 	// Even if the VM is halted
 	ImmediateDataVolumeCreation string = "kubevirt.io/immediate-data-volume-creation"
+
+	// DisablePCIHole64 indicates that the 64-Bit PCI hole should be disabled on a VirtualMachineInstance.
+	// This annotation might be deprecated in the future if we decided to add a struct for it.
+	DisablePCIHole64 string = "kubevirt.io/disablePCIHole64"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
