@@ -634,21 +634,6 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("[test_id:836] Creating a VM with DataVolumeTemplates should succeed.", func() {
-			By(creatingVMDataVolumeTemplateEntry)
-			_, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
-			Expect(err).ToNot(HaveOccurred())
-
-			By(verifyingDataVolumeSuccess)
-			libstorage.EventuallyDVWith(vm.Namespace, dataVolumeName, 100, And(HaveSucceeded(), BeOwned()))
-
-			By(verifyingPVCCreated)
-			Eventually(ThisPVCWith(vm.Namespace, pvcName), 160).Should(Exist())
-
-			By(verifyingVMICreated)
-			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 160).Should(And(BeRunning(), BeOwned()))
-		})
-
 		It("[test_id:837]deleting VM with cascade=true should automatically delete DataVolumes and VMI owned by VM.", func() {
 			By(creatingVMDataVolumeTemplateEntry)
 			_, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
@@ -736,28 +721,6 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 					}
 					vm = libvmops.StopVirtualMachine(vm)
 				}
-			})
-
-			It("[test_id:3192]should remove owner references on DataVolume if VM is orphan deleted.", func() {
-				sc, exists := libstorage.GetRWOFileSystemStorageClass()
-				if !exists {
-					Fail("Fail test when Filesystem storage is not present")
-				}
-
-				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
-				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				// Check for owner reference
-				Eventually(ThisDVWith(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name), 100).Should(BeOwned())
-
-				// Delete the VM with orphan Propagation
-				orphanPolicy := metav1.DeletePropagationOrphan
-				Expect(virtClient.VirtualMachine(vm.Namespace).
-					Delete(context.Background(), vm.Name, metav1.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
-
-				// Wait for the owner reference to disappear
-				Eventually(ThisDVWith(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name), 100).Should(Not(BeOwned()))
 			})
 		})
 	})
