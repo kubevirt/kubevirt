@@ -89,7 +89,7 @@ RUN set -x && \
 RUN set -x && \
     source /etc/profile.d/gimme.sh && \
     go install -v github.com/mattn/goveralls@21feffdfd && \
-    go install -v github.com/rmohr/mock/mockgen@v0.0.0-20170327080805-5980f5d9a70d && \
+    go install -v go.uber.org/mock/mockgen@v0.5.1 && \
     go install -v github.com/rmohr/go-swagger-utils/swagger-doc@v0.0.0-20181110145135-878f7deb1d17 && \
     go clean -cache -modcache
 
