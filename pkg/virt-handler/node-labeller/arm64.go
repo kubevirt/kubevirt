@@ -29,3 +29,7 @@ type archLabellerARM64 struct {
 func (archLabellerARM64) arch() string {
 	return arm64
 }
+
+func (archLabellerARM64) shouldLabelNodes() bool {
+	return true
+}
