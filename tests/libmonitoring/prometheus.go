@@ -20,6 +20,7 @@ import (
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 
+	ocpv1 "github.com/openshift/api/route/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -32,7 +33,7 @@ import (
 	execute "kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/testsuite"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 )
 
 type AlertRequestResult struct {
@@ -212,19 +213,14 @@ func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte
 }
 
 func getPrometheusURLForOpenShift() string {
-	var host string
-
+	var route *ocpv1.Route
 	Eventually(func() error {
-		var stderr string
 		var err error
-		host, stderr, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), clientcmd.GetK8sCmdClient(), "-n", "openshift-monitoring", "get", "route", "prometheus-k8s", "--template", "{{.spec.host}}")
-		if err != nil {
-			return fmt.Errorf("error while getting route. err:'%v', stderr:'%v'", err, stderr)
-		}
-		return nil
-	}, 10*time.Second, time.Second).Should(BeTrue())
+		route, err = kubevirt.Client().RouteClient().Routes("openshift-monitoring").Get(context.Background(), "prometheus-k8s", metav1.GetOptions{})
+		return err
+	}, 10*time.Second, time.Second).Should(Succeed())
 
-	return fmt.Sprintf("https://%s", host)
+	return fmt.Sprintf("https://%s", route.Spec.Host)
 }
 
 func doHttpRequest(url string, endpoint string, token string) *http.Response {
