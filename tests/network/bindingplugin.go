@@ -219,7 +219,7 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 			Expect(libnet.PingFromVMConsole(clientVMI, serverIPAddr)).To(Succeed())
 		})
 
-		It("can run a virtual machine with one primary managed-tap interface", func() {
+		It("managed-tap interface is reported in VMI status", func() {
 			Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
 			Expect(serverVMI.Status.Interfaces[0].Name).To(Equal(networkName))
 		})
