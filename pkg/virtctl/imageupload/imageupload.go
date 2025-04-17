@@ -48,7 +48,6 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	uploadcdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1"
 
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -67,8 +66,8 @@ const (
 	forceImmediateBindingAnnotation = "cdi.kubevirt.io/storage.bind.immediate.requested"
 	contentTypeAnnotation           = "cdi.kubevirt.io/storage.contentType"
 	deleteAfterCompletionAnnotation = "cdi.kubevirt.io/storage.deleteAfterCompletion"
-	UsePopulatorAnnotation          = "cdi.kubevirt.io/storage.usePopulator"
-	PVCPrimeNameAnnotation          = "cdi.kubevirt.io/storage.populator.pvcPrime"
+	usePopulatorAnnotation          = "cdi.kubevirt.io/storage.usePopulator"
+	pvcPrimeNameAnnotation          = "cdi.kubevirt.io/storage.populator.pvcPrime"
 
 	uploadReadyWaitInterval = 2 * time.Second
 
@@ -637,54 +636,6 @@ func (c *command) setDefaultInstancetypeLabels(target metav1.Object) {
 	}
 }
 
-func (c *command) createUploadDataVolume() (*cdiv1.DataVolume, error) {
-	pvcSpec, err := c.createStorageSpec()
-	if err != nil {
-		return nil, err
-	}
-
-	// We check if the user-defined storageClass exists before attempting to create the dataVolume
-	if c.storageClass != "" {
-		_, err = c.client.StorageV1().StorageClasses().Get(context.Background(), c.storageClass, metav1.GetOptions{})
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	annotations := map[string]string{}
-	if c.forceBind {
-		annotations[forceImmediateBindingAnnotation] = ""
-	}
-
-	contentType := cdiv1.DataVolumeKubeVirt
-	if c.archiveUpload {
-		contentType = cdiv1.DataVolumeArchive
-	}
-
-	dv := &cdiv1.DataVolume{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        c.name,
-			Namespace:   c.namespace,
-			Annotations: annotations,
-		},
-		Spec: cdiv1.DataVolumeSpec{
-			Source: &cdiv1.DataVolumeSource{
-				Upload: &cdiv1.DataVolumeSourceUpload{},
-			},
-			ContentType: contentType,
-			Storage:     pvcSpec,
-		},
-	}
-	c.setDefaultInstancetypeLabels(&dv.ObjectMeta)
-
-	dv, err = c.client.CdiClient().CdiV1beta1().DataVolumes(c.namespace).Create(context.Background(), dv, metav1.CreateOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	return dv, nil
-}
-
 func (c *command) createStorageSpec() (*cdiv1.StorageSpec, error) {
 	quantity, err := resource.ParseQuantity(c.size)
 	if err != nil {
@@ -830,42 +781,6 @@ func (c *command) getAndValidateUploadPVC() (*v1.PersistentVolumeClaim, error) {
 	return pvc, nil
 }
 
-func (c *command) validateUploadDataVolume(pvc *v1.PersistentVolumeClaim) (*v1.PersistentVolumeClaim, error) {
-	dv, err := c.client.CdiClient().CdiV1beta1().DataVolumes(pvc.Namespace).Get(context.Background(), c.name, metav1.GetOptions{})
-	if err != nil {
-		// When the PVC exists but the DV doesn't, there are two possible outcomes:
-		if k8serrors.IsNotFound(err) {
-			// 1. The DV was already garbage-collected. The PVC was created and populated by CDI as expected.
-			if dvGarbageCollected := pvc.Annotations[deleteAfterCompletionAnnotation] == "true" &&
-				pvc.Annotations[PodPhaseAnnotation] == string(v1.PodSucceeded); dvGarbageCollected {
-				return nil, fmt.Errorf("DataVolume already garbage-collected: Assuming PVC %s/%s is successfully populated", pvc.Namespace, c.name)
-			}
-			// 2. The PVC was created independently of a DV.
-			return nil, fmt.Errorf("No DataVolume is associated with the existing PVC %s/%s", pvc.Namespace, c.name)
-		}
-		return nil, err
-	}
-
-	// When using populators, the upload happens on the PVC Prime. We need to check it instead.
-	if dv.Annotations[UsePopulatorAnnotation] == "true" {
-		// We can assume the PVC is populated once it's bound
-		if pvc.Status.Phase == v1.ClaimBound {
-			return nil, fmt.Errorf("PVC %s already successfully populated", c.name)
-		}
-		// Get the PVC Prime since the upload is happening there
-		pvcPrimeName, ok := pvc.Annotations[PVCPrimeNameAnnotation]
-		if !ok {
-			return nil, fmt.Errorf("Unable to get PVC Prime name from PVC %s/%s", pvc.Namespace, c.name)
-		}
-		pvc, err = c.client.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), pvcPrimeName, metav1.GetOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("Unable to get PVC Prime %s/%s", dv.Namespace, c.name)
-		}
-	}
-
-	return pvc, nil
-}
-
 func (c *command) getUploadProxyURL() (string, error) {
 	cdiConfig, err := c.client.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), configName, metav1.GetOptions{})
 	if err != nil {
@@ -929,4 +844,3 @@ func (c *command) handleEventErrors(pvcName, dvName string) error {
 
 	return nil
 }
-
