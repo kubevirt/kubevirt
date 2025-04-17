@@ -218,6 +218,10 @@ var _ = Describe(SIG("Export", func() {
 			pod.Spec.SecurityContext = &k8sv1.PodSecurityContext{}
 		}
 		pod.Spec.SecurityContext.FSGroup = &qemuGid
+		// Drop this when we stop testing "local"
+		// The in tree driver for local PVs skips chown/chmod if two pods using the volume overlap
+		// https://github.com/kubernetes/kubernetes/blob/0d9dccfc6bc22f2370650cf5b8ad99cbba74ea23/pkg/volume/local/local.go#L611
+		pod.Spec.SecurityContext.RunAsUser = &qemuGid
 
 		volumeMode := pvc.Spec.VolumeMode
 		if volumeMode != nil && *volumeMode == k8sv1.PersistentVolumeBlock {
@@ -308,7 +312,9 @@ var _ = Describe(SIG("Export", func() {
 			out, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, md5Command(fileName))
 			return err
 		}, 15*time.Second, 1*time.Second).Should(Succeed(), func() string {
-			return fmt.Sprintf("md5sum command should succeed; out: %s stderr: %s", out, stderr)
+			permissionsCmd := []string{"ls", "-laZ", fileName}
+			lsout, lserr, _ := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, permissionsCmd)
+			return fmt.Sprintf("md5sum command should succeed; out: %s stderr: %s\npermissions ATM lsout: %s lserr: %s", out, stderr, lsout, lserr)
 		})
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(HaveLen(32))
