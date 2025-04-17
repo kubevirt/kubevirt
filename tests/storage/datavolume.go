@@ -24,8 +24,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -61,7 +59,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/exec"
@@ -606,51 +603,57 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 		})
 	})
 
-	Describe("[rfe_id:896][crit:high][vendor:cnv-qe@redhat.com][level:system] with oc/kubectl", func() {
-		var vm *v1.VirtualMachine
-		var err error
-		var vmJson string
-		var dataVolumeName string
-		var pvcName string
-
-		k8sClient := clientcmd.GetK8sCmdClient()
+	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachine with a DataVolume using Alpine http import", func() {
+		var sc string
 
 		BeforeEach(func() {
-			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			var exists bool
+			sc, exists = libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
 				Fail("Fail test when Filesystem storage is not present")
 			}
-
-			vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
-			vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
-
-			dataVolumeName = vm.Spec.DataVolumeTemplates[0].Name
-			pvcName = dataVolumeName
-
-			data, err := json.Marshal(vm)
-			Expect(err).ToNot(HaveOccurred())
-			vmJson = filepath.Join(GinkgoT().TempDir(), fmt.Sprintf("%s.json", vm.Name))
-			Expect(os.WriteFile(vmJson, data, 0644)).To(Succeed())
-			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("[test_id:837]deleting VM with cascade=true should automatically delete DataVolumes and VMI owned by VM.", func() {
-			By(creatingVMDataVolumeTemplateEntry)
-			_, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
+		It("[test_id:3191]should be successfully started and stopped multiple times", func() {
+			vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
+			num := 2
+			By("Starting and stopping the VirtualMachine number of times")
+			for i := 0; i < num; i++ {
+				By(fmt.Sprintf("Doing run: %d", i))
+				vm = libvmops.StartVirtualMachine(vm)
+				// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
+				// after being restarted multiple times
+				if i == num {
+					By(checkingVMInstanceConsoleExpectedOut)
+					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(console.LoginToAlpine(vmi)).To(Succeed())
+				}
+				vm = libvmops.StopVirtualMachine(vm)
+			}
+		})
+
+		It("[test_id:837]deleting VM with background propagation policy should automatically delete DataVolumes and VMI owned by VM.", func() {
+			vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vm = libvmops.StartVirtualMachine(vm)
 
 			By(verifyingDataVolumeSuccess)
-			libstorage.EventuallyDVWith(vm.Namespace, dataVolumeName, 100, And(HaveSucceeded(), BeOwned()))
+			libstorage.EventuallyDVWith(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name, 100, And(HaveSucceeded(), BeOwned()))
 
 			By(verifyingPVCCreated)
-			Eventually(ThisPVCWith(vm.Namespace, pvcName), 160).Should(Exist())
+			Eventually(ThisPVCWith(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name), 160).Should(Exist())
 
 			By(verifyingVMICreated)
 			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 160).Should(And(BeRunning(), BeOwned()))
 
-			By("Deleting VM with cascade=true")
-			_, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), "kubectl", "delete", "vm", vm.Name, "--cascade=true")
-			Expect(err).ToNot(HaveOccurred())
+			By("Deleting VM with background propagation policy")
+			Expect(virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{
+				PropagationPolicy: pointer.P(metav1.DeletePropagationBackground),
+			})).To(Succeed())
 
 			By("Waiting for the VM to be deleted")
 			Eventually(ThisVM(vm), 100).Should(BeGone())
@@ -659,69 +662,34 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 100).Should(BeGone())
 
 			By("Waiting for the DataVolume to be deleted")
-			Eventually(ThisDVWith(vm.Namespace, dataVolumeName), 100).Should(BeGone())
+			Eventually(ThisDVWith(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name), 100).Should(BeGone())
 
 			By("Waiting for the PVC to be deleted")
-			Eventually(ThisPVCWith(vm.Namespace, pvcName), 100).Should(BeGone())
+			Eventually(ThisPVCWith(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name), 100).Should(BeGone())
 		})
 
-		It("[test_id:838]deleting VM with cascade=false should orphan DataVolumes and VMI owned by VM.", func() {
-			_, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "create", "-f", vmJson)
-			By(creatingVMDataVolumeTemplateEntry)
+		It("[test_id:3192]should remove owner references on DataVolume if VM is orphan deleted.", func() {
+			vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
+			vm = libvmops.StartVirtualMachine(vm)
 
-			By(verifyingDataVolumeSuccess)
-			libstorage.EventuallyDVWith(vm.Namespace, dataVolumeName, 100, And(HaveSucceeded(), BeOwned()))
+			// Check for owner reference
+			Eventually(ThisDVWith(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name), 100).Should(BeOwned())
 
-			By(verifyingPVCCreated)
-			Eventually(ThisPVCWith(vm.Namespace, pvcName), 160).Should(Exist())
+			// Delete the VM with orphan Propagation
+			Expect(virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{
+				PropagationPolicy: pointer.P(metav1.DeletePropagationOrphan),
+			})).To(Succeed())
 
-			By(verifyingVMICreated)
-			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 160).Should(And(BeRunning(), BeOwned()))
-
-			By("Deleting VM with cascade=false")
-			_, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), "kubectl", "delete", "vm", vm.Name, "--cascade=false")
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Waiting for the VM to be deleted")
+			// Wait for the VM to be deleted
 			Eventually(ThisVM(vm), 100).Should(BeGone())
 
-			By("Verifying DataVolume still exists with owner references removed")
-			libstorage.EventuallyDVWith(vm.Namespace, dataVolumeName, 100, And(HaveSucceeded(), Not(BeOwned())))
+			// Wait for the owner reference to disappear
+			libstorage.EventuallyDVWith(vm.Namespace, vm.Spec.DataVolumeTemplates[0].Name, 100, And(HaveSucceeded(), Not(BeOwned())))
 
-			By("Verifying VMI still exists with owner references removed")
+			// Verify VMI still exists with owner references removed
 			Consistently(ThisVMIWith(vm.Namespace, vm.Name), 60, 1).Should(And(BeRunning(), Not(BeOwned())))
-		})
-
-	})
-
-	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachine with a DataVolume", func() {
-		Context("using Alpine http import", func() {
-			It("[test_id:3191]should be successfully started and stopped multiple times", func() {
-				sc, exists := libstorage.GetRWOFileSystemStorageClass()
-				if !exists {
-					Fail("Fail test when Filesystem storage is not present")
-				}
-
-				vm := renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, sc)
-				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				num := 2
-				By("Starting and stopping the VirtualMachine number of times")
-				for i := 0; i < num; i++ {
-					By(fmt.Sprintf("Doing run: %d", i))
-					vm = libvmops.StartVirtualMachine(vm)
-					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
-					// after being restarted multiple times
-					if i == num {
-						By(checkingVMInstanceConsoleExpectedOut)
-						vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-						Expect(err).ToNot(HaveOccurred())
-						Expect(console.LoginToAlpine(vmi)).To(Succeed())
-					}
-					vm = libvmops.StopVirtualMachine(vm)
-				}
-			})
 		})
 	})
 
