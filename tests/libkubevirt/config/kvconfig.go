@@ -79,6 +79,7 @@ func patchKV(namespace, name string, patchSet *patch.PatchSet) error {
 func UpdateKubeVirtConfigValueAndWait(kvConfig v1.KubeVirtConfiguration) *v1.KubeVirt {
 	kv := testsuite.UpdateKubeVirtConfigValue(kvConfig)
 
+	testsuite.EnsureKubevirtReady()
 	waitForConfigToBePropagated(kv.ResourceVersion)
 	log.DefaultLogger().Infof("system is in sync with kubevirt config resource version %s", kv.ResourceVersion)
 
