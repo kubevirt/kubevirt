@@ -220,6 +220,7 @@ format:
 fmt: format
 
 lint:
+	hack/dockerized "hack/lint-test-cleanup-label.sh"
 	hack/dockerized "hack/golangci-lint.sh"
 	hack/dockerized "monitoringlinter ./pkg/..."
 
