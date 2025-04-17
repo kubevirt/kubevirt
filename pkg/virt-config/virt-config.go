@@ -26,6 +26,7 @@ package virtconfig
 import (
 	"strings"
 
+	"runtime"
 	"kubevirt.io/client-go/log"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -427,7 +428,14 @@ func (c *ClusterConfig) GetVMStateStorageClass() string {
 }
 
 func (c *ClusterConfig) IsFreePageReportingDisabled() bool {
-	return c.GetConfig().VirtualMachineOptions != nil && c.GetConfig().VirtualMachineOptions.DisableFreePageReporting != nil
+	cfg := c.GetConfig()
+	if cfg.VirtualMachineOptions == nil {
+		return runtime.GOARCH == "s390x"
+	}
+	if cfg.VirtualMachineOptions.DisableFreePageReporting == nil {
+		return runtime.GOARCH == "s390x"
+	}
+	return true
 }
 
 func (c *ClusterConfig) IsSerialConsoleLogDisabled() bool {

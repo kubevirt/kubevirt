@@ -281,8 +281,8 @@ var _ = Describe("test configuration", func() {
 		Entry("when empty, GetEmulatedMachines should return the defaults with s390x", "s390x", []string{}, []string{}, []string{}, nil, strings.Split(virtconfig.DefaultS390XEmulatedMachines, ",")),
 	)
 
-	DescribeTable("when virtualMachineOptions", func(virtualMachineOptions *v1.VirtualMachineOptions, expected bool) {
-		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(&v1.KubeVirt{
+	DescribeTable("when virtualMachineOptions", func(cpuArch string, virtualMachineOptions *v1.VirtualMachineOptions, expected bool) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVWithCPUArch(&v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
 				Namespace: "kubevirt",
@@ -295,17 +295,44 @@ var _ = Describe("test configuration", func() {
 			Status: v1.KubeVirtStatus{
 				Phase: "Deployed",
 			},
-		})
+		}, cpuArch)
 		Expect(clusterConfig.IsFreePageReportingDisabled()).To(BeEquivalentTo(expected))
 	},
-		Entry("is nil, IsFreePageReportingDisabled should return false",
-			nil, false,
+		Entry("is nil, IsFreePageReportingDisabled should return false for amd64",
+			"amd64", nil, false,
 		),
-		Entry("is an empty struct, IsFreePageReportingDisabled should return false",
-			&v1.VirtualMachineOptions{}, false,
+		Entry("is an empty struct, IsFreePageReportingDisabled should return false for amd64",
+			"amd64", &v1.VirtualMachineOptions{}, false,
+		),
+		Entry("contains disableFreePageReporting as nil, IsFreePageReportingDisabled should return false for amd64",
+			"amd64", &v1.VirtualMachineOptions{DisableFreePageReporting: (*v1.DisableFreePageReporting)(nil)}, false,
+		),
+		Entry("contains disableFreePageReporting, IsFreePageReportingDisabled should return true for amd64",
+			"amd64", &v1.VirtualMachineOptions{DisableFreePageReporting: &v1.DisableFreePageReporting{}}, true,
+		),
+		Entry("is nil, IsFreePageReportingDisabled should return false for arm64",
+			"arm64", nil, false,
+		),
+		Entry("is an empty struct, IsFreePageReportingDisabled should return false for arm64",
+			"arm64", &v1.VirtualMachineOptions{}, false,
+		),
+		Entry("contains disableFreePageReporting as nil, IsFreePageReportingDisabled should return false for arm64",
+			"arm64", &v1.VirtualMachineOptions{DisableFreePageReporting: (*v1.DisableFreePageReporting)(nil)}, false,
+		),
+		Entry("contains disableFreePageReporting, IsFreePageReportingDisabled should return true for arm64",
+			"arm64", &v1.VirtualMachineOptions{DisableFreePageReporting: &v1.DisableFreePageReporting{}}, true,
+		),
+		Entry("is nil, IsFreePageReportingDisabled should return true for s390x",
+			"s390x", nil, true,
+		),
+		Entry("is an empty struct, IsFreePageReportingDisabled should return true for s390x",
+			"s390x", &v1.VirtualMachineOptions{}, true,
+		),
+		Entry("contains disableFreePageReporting as nil, IsFreePageReportingDisabled should return false for s390x",
+			"s390x", &v1.VirtualMachineOptions{DisableFreePageReporting: (nil)}, false,
 		),
 		Entry("contains disableFreePageReporting, IsFreePageReportingDisabled should return true",
-			&v1.VirtualMachineOptions{DisableFreePageReporting: &v1.DisableFreePageReporting{}}, true,
+			"s390x", &v1.VirtualMachineOptions{DisableFreePageReporting: &v1.DisableFreePageReporting{}}, true,
 		),
 	)
 
@@ -747,6 +774,56 @@ var _ = Describe("test configuration", func() {
 				return c.NetworkConfiguration
 			},
 			`{"defaultNetworkInterface":"bridge","permitSlirpInterface":true,"permitBridgeInterfaceOnPodNetwork":false}`),
+	)
+
+	DescribeTable("when kubevirt CR holds cpuArch and config", func(cpuArch string, value v1.KubeVirtConfiguration, getPart func(*v1.KubeVirtConfiguration) interface{}, result string) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVWithCPUArch(&v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				ResourceVersion: rand.String(10),
+				Name:            "kubevirt",
+				Namespace:       "kubevirt",
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: value,
+			},
+			Status: v1.KubeVirtStatus{
+				Phase: v1.KubeVirtPhaseDeploying,
+			},
+		}, cpuArch)
+
+		kubevirtConfig := clusterConfig.GetConfig()
+		partJson, err := json.Marshal(getPart(kubevirtConfig))
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(string(partJson)).To(BeEquivalentTo(result))
+	},
+		Entry("when DisableFreePageReporting is not set, should not set DisableFreePageReporting for amd64",
+			"amd64",
+			v1.KubeVirtConfiguration{
+				VirtualMachineOptions: &v1.VirtualMachineOptions{},
+			},
+			func(c *v1.KubeVirtConfiguration) interface{} {
+				return c.VirtualMachineOptions
+			},
+			`{}`),
+		Entry("when DisableFreePageReporting is not set, should not set DisableFreePageReporting for arm64",
+			"arm64",
+			v1.KubeVirtConfiguration{
+				VirtualMachineOptions: &v1.VirtualMachineOptions{},
+			},
+			func(c *v1.KubeVirtConfiguration) interface{} {
+				return c.VirtualMachineOptions
+			},
+			`{}`),
+		Entry("when DisableFreePageReporting is not set, should set DisableFreePageReporting to empty struct for s390x",
+			"s390x",
+			v1.KubeVirtConfiguration{
+				VirtualMachineOptions: &v1.VirtualMachineOptions{},
+			},
+			func(c *v1.KubeVirtConfiguration) interface{} {
+				return c.VirtualMachineOptions
+			},
+			`{"disableFreePageReporting":{}}`),
 	)
 
 	DescribeTable("when ClusterProfiler feature-gate", func(openFeatureGates []string, isEnabled bool) {
