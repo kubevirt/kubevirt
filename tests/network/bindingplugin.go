@@ -140,34 +140,16 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 		})
 	})
 
-	Context("with domain attachment managedTap type", func() {
+	Context("with domain attachment managedTap type", Ordered, decorators.OncePerOrderedCleanup, func() {
 		const (
 			bindingName = "managed-tap"
-			networkName = "default"
+			networkName = "mynet1"
 		)
+		var serverVMI *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
 			err := config.WithNetBindingPlugin(bindingName, v1.InterfaceBindingPlugin{DomainAttachmentType: v1.ManagedTap})
 			Expect(err).NotTo(HaveOccurred())
-		})
-
-		It("can run a virtual machine with one primary managed-tap interface", func() {
-			var vmi *v1.VirtualMachineInstance
-
-			primaryIface := libvmi.InterfaceWithBindingPlugin(
-				networkName, v1.PluginBinding{Name: bindingName},
-			)
-			vmi = libvmifact.NewAlpineWithTestTooling(
-				libvmi.WithInterface(primaryIface),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			)
-
-			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine, libwait.WithTimeout(30))
-
-			Expect(vmi.Status.Interfaces).To(HaveLen(1))
-			Expect(vmi.Status.Interfaces[0].Name).To(Equal(primaryIface.Name))
 		})
 
 		It("can establish communication between two VMs", func() {
@@ -195,10 +177,10 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 			Expect(err).ToNot(HaveOccurred())
 
 			primaryIface := libvmi.InterfaceWithBindingPlugin(
-				"mynet1", v1.PluginBinding{Name: bindingName},
+				networkName, v1.PluginBinding{Name: bindingName},
 			)
 			primaryNetwork := v1.Network{
-				Name: "mynet1",
+				Name: networkName,
 				NetworkSource: v1.NetworkSource{
 					Multus: &v1.MultusNetwork{
 						NetworkName: fmt.Sprintf("%s/%s", namespace, linuxBridgeNADName),
@@ -212,7 +194,7 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 				libvmi.WithNetwork(&primaryNetwork),
 				libvmi.WithNodeAffinityFor(nodeName),
 			}
-			serverVMI := libvmifact.NewAlpineWithTestTooling(opts...)
+			serverVMI = libvmifact.NewAlpineWithTestTooling(opts...)
 
 			primaryIface.MacAddress = "de:ad:00:00:be:aa"
 			opts = []libvmi.Option{
@@ -236,5 +218,11 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 
 			Expect(libnet.PingFromVMConsole(clientVMI, serverIPAddr)).To(Succeed())
 		})
+
+		It("can run a virtual machine with one primary managed-tap interface", func() {
+			Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
+			Expect(serverVMI.Status.Interfaces[0].Name).To(Equal(networkName))
+		})
+
 	})
 }))
