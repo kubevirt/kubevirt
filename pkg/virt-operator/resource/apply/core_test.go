@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/client-go/kubecli"

@@ -6,9 +6,11 @@ go_library(
         "call.go",
         "callset.go",
         "controller.go",
+        "doc.go",
         "matchers.go",
+        "string.go",
     ],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/golang/mock/gomock",
-    importpath = "github.com/golang/mock/gomock",
+    importmap = "kubevirt.io/kubevirt/vendor/go.uber.org/mock/gomock",
+    importpath = "go.uber.org/mock/gomock",
     visibility = ["//visibility:public"],
 )
