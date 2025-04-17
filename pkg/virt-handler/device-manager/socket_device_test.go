@@ -6,31 +6,41 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/grpc"
 
 	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
+	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 )
 
 var _ = Describe("Socket device", func() {
 	var workDir string
-	var err error
 	var dpi *SocketDevicePlugin
 	var stop chan struct{}
-	var sockPath string
+	var sockDevPath string
+	const socket = "fake-test.sock"
 
 	BeforeEach(func() {
-		workDir, err = os.MkdirTemp("", "kubevirt-test")
+		var err error
+		workDir = GinkgoT().TempDir()
 		Expect(err).ToNot(HaveOccurred())
+		sockDevPath = path.Join(workDir, socket)
+		createFile(sockDevPath)
 
-		sockPath = path.Join(workDir, "fake-test.sock")
-		fileObj, err := os.Create(sockPath)
+		ctrl := gomock.NewController(GinkgoT())
+		mockExec := selinux.NewMockExecutor(ctrl)
+		mockPermManager := NewMockPermissionManager(ctrl)
+		mockSelinux := selinux.NewMockSELinux(ctrl)
+		mockExec.EXPECT().NewSELinux().Return(mockSelinux, true, nil).AnyTimes()
+		mockSelinux.EXPECT().IsPermissive().Return(true).AnyTimes()
+		mockPermManager.EXPECT().ChownAtNoFollow(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		dpi, err = NewSocketDevicePlugin("test", workDir, socket, 1, mockExec, mockPermManager)
 		Expect(err).ToNot(HaveOccurred())
-		fileObj.Close()
-		dpi = NewSocketDevicePlugin("test", workDir, "fake-test.sock", 1)
 		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
 		dpi.socketPath = filepath.Join(workDir, "kubevirt-test.sock")
+		createFile(dpi.socketPath)
 		dpi.done = make(chan struct{})
 		stop = make(chan struct{})
 		dpi.stop = stop
@@ -38,11 +48,9 @@ var _ = Describe("Socket device", func() {
 
 	AfterEach(func() {
 		close(stop)
-		os.RemoveAll(workDir)
 	})
 
 	It("Should stop if the device plugin socket file is deleted", func() {
-		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
 		errChan := make(chan error, 1)
 		go func(errChan chan error) {
 			errChan <- dpi.healthCheck()
@@ -56,13 +64,11 @@ var _ = Describe("Socket device", func() {
 	})
 
 	It("Should monitor health of device node", func() {
-		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
-
 		go dpi.healthCheck()
 		Expect(dpi.devs[0].Health).To(Equal(pluginapi.Healthy))
 
 		By("Removing a (fake) device node")
-		os.Remove(sockPath)
+		os.Remove(sockDevPath)
 
 		By("waiting for healthcheck to send Unhealthy message")
 		Eventually(func() string {
@@ -70,9 +76,7 @@ var _ = Describe("Socket device", func() {
 		}, 5*time.Second).Should(Equal(pluginapi.Unhealthy))
 
 		By("Creating a new (fake) device node")
-		fileObj, err := os.Create(sockPath)
-		Expect(err).ToNot(HaveOccurred())
-		fileObj.Close()
+		createFile(sockDevPath)
 
 		By("waiting for healthcheck to send Healthy message")
 		Eventually(func() string {
@@ -80,3 +84,9 @@ var _ = Describe("Socket device", func() {
 		}, 5*time.Second).Should(Equal(pluginapi.Healthy))
 	})
 })
+
+func createFile(path string) {
+	fileObj, err := os.Create(path)
+	Expect(err).ToNot(HaveOccurred())
+	fileObj.Close()
+}

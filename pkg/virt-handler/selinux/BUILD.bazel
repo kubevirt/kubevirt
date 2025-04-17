@@ -6,6 +6,7 @@ go_library(
         "context_executor.go",
         "executor.go",
         "generated_mock_executor.go",
+        "generated_mock_labels.go",
         "labels.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/selinux",

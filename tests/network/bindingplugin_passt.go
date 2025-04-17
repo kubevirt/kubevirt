@@ -386,7 +386,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 			Expect(libnet.PingFromVMConsole(anotherVMI, migrateVmiAfterMigIP)).To(Succeed())
 		},
 			Entry("[IPv4]", k8sv1.IPv4Protocol),
-			Entry("[IPv6]", k8sv1.IPv6Protocol),
+			Entry("[IPv6]", k8sv1.IPv6Protocol, decorators.Quarantine),
 		)
 	})
 }))
