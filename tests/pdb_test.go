@@ -26,7 +26,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	expect "github.com/google/goexpect"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -67,10 +66,7 @@ var _ = Describe("[sig-compute]Pod Disruption Budget (PDB)", decorators.SigCompu
 		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
 		By("Issuing a poweroff command from inside VM")
-		Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-			&expect.BSnd{S: "sudo poweroff\n"},
-			&expect.BExp{R: console.PromptExpression},
-		}, 10)).To(Succeed())
+		powerOff(vmi)
 
 		By("Ensuring the VirtualMachineInstance enters Succeeded phase")
 		Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(HaveSucceeded())
