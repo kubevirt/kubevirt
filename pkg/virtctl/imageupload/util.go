@@ -142,11 +142,11 @@ func (c *command) handleEventErrors(pvcName, dvName string) error {
 		if objectUID == pvcUID || objectUID == dvUID {
 			if objectKind == "PersistentVolumeClaim" && event.Reason == provisioningFailed &&
 				!strings.Contains(event.Message, optimisticLockErrorMsg) {
-				return fmt.Errorf("Provisioning failed: %s", event.Message)
+				return fmt.Errorf("provisioning failed: %s", event.Message)
 			}
 
 			if objectKind == "DataVolume" && event.Reason == errClaimNotValid {
-				return fmt.Errorf("Claim not valid: %s", event.Message)
+				return fmt.Errorf("claim not valid: %s", event.Message)
 			}
 		}
 	}
