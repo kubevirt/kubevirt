@@ -606,6 +606,11 @@ spec:
             policy:
               encryptedState: true
             session: sessionValue
+          tdx:
+            policy: 0x10000000,
+            mrConfigId: mrConfigIdValue,
+            mrOwner: mrOwnerValue,
+            mrOwnerConfig: mrOwnerConfigValue
         machine:
           type: typeValue
         memory:
