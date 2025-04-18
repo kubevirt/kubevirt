@@ -438,6 +438,12 @@
               "attestation": {},
               "session": "sessionValue",
               "dhCert": "dhCertValue"
+            },
+            "tdx": {
+              "policy": 0x10000000,
+              "mrConfigId": "mrConfigIdValue",
+              "mrOwner": "mrOwnerValue",
+              "mrOwnerConfig": "mrOwnerConfigValue"
             }
           }
         },

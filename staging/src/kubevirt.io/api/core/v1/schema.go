@@ -732,6 +732,8 @@ type DiskTarget struct {
 type LaunchSecurity struct {
 	// AMD Secure Encrypted Virtualization (SEV).
 	SEV *SEV `json:"sev,omitempty"`
+	// Intel Trust Domain Extensions (TDX).
+	TDX *TDX `json:"tdx,omitempty"`
 }
 
 type SEV struct {
@@ -755,6 +757,21 @@ type SEVPolicy struct {
 }
 
 type SEVAttestation struct {
+}
+
+type TDX struct {
+	// Guest TD attributes matching the definition of TD_PARAMS.ATTRIBUTES in Intel TDX Module Spec
+	// +optional
+	Policy uint64 `json:"policy,omitempty"`
+	// Base64 encoded ID for non-owner-defined configuration of the guest TD
+	// +optional
+	MrConfigId string `json:"mrConfigId,omitempty"`
+	// Base64 encoded ID for the guest TD's owner
+	// +optional
+	MrOwner string `json:"mrOwner,omitempty"`
+	// Base64 encoded owner-defined configuration of the guest TD
+	// +optional
+	MrOwnerConfig string `json:"mrOwnerConfig,omitempty"`
 }
 
 type LunTarget struct {
