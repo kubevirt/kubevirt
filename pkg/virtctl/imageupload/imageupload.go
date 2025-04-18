@@ -39,10 +39,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 
-	instancetypeapi "kubevirt.io/api/instancetype"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	uploadcdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1"
@@ -81,13 +78,13 @@ const (
 	configName = "config"
 
 	// ProvisioningFailed stores the 'ProvisioningFailed' event condition used for PVC error handling
-	ProvisioningFailed = "ProvisioningFailed"
+	provisioningFailed = "ProvisioningFailed"
 	// ErrClaimNotValid stores the 'ErrClaimNotValid' event condition used for DV error handling
-	ErrClaimNotValid = "ErrClaimNotValid"
+	errClaimNotValid = "ErrClaimNotValid"
 
 	// OptimisticLockErrorMsg is returned by kube-apiserver when trying to update an old version of a resource
 	// https://github.com/kubernetes/kubernetes/blob/b89f564539fad77cd22de1b155d84638daf8c83f/staging/src/k8s.io/apiserver/pkg/registry/generic/registry/store.go#L240
-	OptimisticLockErrorMsg = "the object has been modified; please apply your changes to the latest version and try again"
+	optimisticLockErrorMsg = "the object has been modified; please apply your changes to the latest version and try again"
 )
 
 // UploadProcessingCompleteFunc the function called while determining if post transfer processing is complete.
@@ -193,69 +190,6 @@ type command struct {
 	forceBind               bool
 	dataSource              bool
 	archiveUpload           bool
-}
-
-func (c *command) parseArgs(args []string) error {
-	if len(c.size) > 0 && len(c.pvcSize) > 0 && c.size != c.pvcSize {
-		return fmt.Errorf("--pvc-size and --size can not be specified at the same time")
-	}
-
-	if len(c.pvcSize) > 0 {
-		c.size = c.pvcSize
-	}
-
-	// check deprecated invocation
-	if c.name != "" {
-		if len(args) != 0 {
-			return fmt.Errorf("cannot use --pvc-name and args")
-		}
-
-		c.createPVC = true
-
-		return nil
-	}
-
-	// check deprecated blockVolume flag
-	if c.blockVolume {
-		if c.volumeMode == "" {
-			c.volumeMode = "block"
-		} else if c.volumeMode != "block" {
-			return fmt.Errorf("incompatible --volume-mode '%s' and --block-volume", c.volumeMode)
-		}
-	}
-	if c.volumeMode != "block" && c.volumeMode != "filesystem" && c.volumeMode != "" {
-		return fmt.Errorf("Invalid volume mode '%s'. Valid values are 'block' and 'filesystem'.", c.volumeMode)
-	}
-
-	c.archiveUpload = false
-	if c.imagePath == "" && c.archivePath == "" {
-		return fmt.Errorf("either image-path or archive-path must be provided")
-	} else if c.imagePath != "" && c.archivePath != "" {
-		return fmt.Errorf("cannot handle both image-path and archive-path, provide only one")
-	} else if c.archivePath != "" {
-		c.archiveUpload = true
-		c.imagePath = c.archivePath
-		if c.volumeMode == "block" {
-			return fmt.Errorf("In archive upload the volume mode should always be filesystem")
-		}
-	}
-
-	if len(args) != 2 {
-		return fmt.Errorf("expecting two args")
-	}
-
-	switch strings.ToLower(args[0]) {
-	case "dv":
-		c.createPVC = false
-	case "pvc":
-		c.createPVC = true
-	default:
-		return fmt.Errorf("invalid resource type %s", args[0])
-	}
-
-	c.name = args[1]
-
-	return nil
 }
 
 func (c *command) validateDefaultInstancetypeArgs() error {
@@ -514,62 +448,6 @@ func (c *command) getUploadToken() (string, error) {
 	return response.Status.Token, nil
 }
 
-func (c *command) setDefaultInstancetypeLabels(target metav1.Object) {
-	if target.GetLabels() == nil {
-		target.SetLabels(make(map[string]string))
-	}
-
-	if c.defaultInstancetype != "" {
-		target.GetLabels()[instancetypeapi.DefaultInstancetypeLabel] = c.defaultInstancetype
-	}
-	if c.defaultInstancetypeKind != "" {
-		target.GetLabels()[instancetypeapi.DefaultInstancetypeKindLabel] = c.defaultInstancetypeKind
-	}
-	if c.defaultPreference != "" {
-		target.GetLabels()[instancetypeapi.DefaultPreferenceLabel] = c.defaultPreference
-	}
-	if c.defaultPreferenceKind != "" {
-		target.GetLabels()[instancetypeapi.DefaultPreferenceKindLabel] = c.defaultPreferenceKind
-	}
-}
-
-func (c *command) createStorageSpec() (*cdiv1.StorageSpec, error) {
-	quantity, err := resource.ParseQuantity(c.size)
-	if err != nil {
-		return nil, fmt.Errorf("validation failed for size=%s: %s", c.size, err)
-	}
-
-	spec := &cdiv1.StorageSpec{
-		Resources: v1.VolumeResourceRequirements{
-			Requests: v1.ResourceList{
-				v1.ResourceStorage: quantity,
-			},
-		},
-	}
-
-	if c.storageClass != "" {
-		spec.StorageClassName = &c.storageClass
-	}
-
-	if c.accessMode != "" {
-		if c.accessMode == string(v1.ReadOnlyMany) {
-			return nil, fmt.Errorf("cannot upload to a readonly volume, use either ReadWriteOnce or ReadWriteMany if supported")
-		}
-		spec.AccessModes = []v1.PersistentVolumeAccessMode{v1.PersistentVolumeAccessMode(c.accessMode)}
-	}
-
-	switch c.volumeMode {
-	case "block":
-		volMode := v1.PersistentVolumeBlock
-		spec.VolumeMode = &volMode
-	case "filesystem":
-		volMode := v1.PersistentVolumeFilesystem
-		spec.VolumeMode = &volMode
-	}
-
-	return spec, nil
-}
-
 func (c *command) createUploadPVC() (*v1.PersistentVolumeClaim, error) {
 	if c.accessMode == string(v1.ReadOnlyMany) {
 		return nil, fmt.Errorf("cannot upload to a readonly volume, use either ReadWriteOnce or ReadWriteMany if supported")
@@ -690,54 +568,4 @@ func (c *command) getUploadProxyURL() (string, error) {
 		return *cdiConfig.Status.UploadProxyURL, nil
 	}
 	return "", nil
-}
-
-// handleEventErrors checks PVC and DV-related events and, when encountered, returns appropriate errors
-func (c *command) handleEventErrors(pvcName, dvName string) error {
-	var pvcUID types.UID
-	var dvUID types.UID
-
-	eventList, err := c.client.CoreV1().Events(c.namespace).List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-
-	if pvcName != "" {
-		pvc, err := c.client.CoreV1().PersistentVolumeClaims(c.namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
-		if !k8serrors.IsNotFound(err) {
-			if err != nil {
-				return err
-			}
-			pvcUID = pvc.GetUID()
-		}
-	}
-
-	if dvName != "" {
-		dv, err := c.client.CdiClient().CdiV1beta1().DataVolumes(c.namespace).Get(context.Background(), dvName, metav1.GetOptions{})
-		if !k8serrors.IsNotFound(err) {
-			if err != nil {
-				return err
-			}
-			dvUID = dv.GetUID()
-		}
-	}
-
-	// TODO: Currently, we only check 'ProvisioningFailed' and 'ErrClaimNotValid' events.
-	// If necessary, support more relevant errors
-	for _, event := range eventList.Items {
-		if event.InvolvedObject.Kind == "PersistentVolumeClaim" && event.InvolvedObject.UID == pvcUID {
-			if event.Reason == ProvisioningFailed {
-				if !strings.Contains(event.Message, OptimisticLockErrorMsg) {
-					return fmt.Errorf("Provisioning failed: %s", event.Message)
-				}
-			}
-		}
-		if event.InvolvedObject.Kind == "DataVolume" && event.InvolvedObject.UID == dvUID {
-			if event.Reason == ErrClaimNotValid {
-				return fmt.Errorf("Claim not valid: %s", event.Message)
-			}
-		}
-	}
-
-	return nil
 }
