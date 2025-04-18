@@ -30,7 +30,6 @@ import (
 	"os"
 	"path"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
@@ -48,7 +47,6 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	uploadcdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/upload/v1beta1"
 
-	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
@@ -92,10 +90,8 @@ const (
 	OptimisticLockErrorMsg = "the object has been modified; please apply your changes to the latest version and try again"
 )
 
-type processingCompleteFunc func(kubernetes.Interface, *cobra.Command, string, string, time.Duration, time.Duration) error
-
 // UploadProcessingCompleteFunc the function called while determining if post transfer processing is complete.
-var UploadProcessingCompleteFunc processingCompleteFunc = waitUploadProcessingComplete
+var UploadProcessingCompleteFunc = waitUploadProcessingComplete
 
 // GetHTTPClientFn allows overriding the default http client (useful for unit testing)
 var GetHTTPClientFn = GetHTTPClient
@@ -516,105 +512,6 @@ func (c *command) getUploadToken() (string, error) {
 	}
 
 	return response.Status.Token, nil
-}
-
-func (c *command) waitDvUploadScheduled() error {
-	loggedStatus := false
-	//
-	err := virtwait.PollImmediately(uploadReadyWaitInterval, time.Duration(c.uploadPodWaitSecs)*time.Second, func(ctx context.Context) (bool, error) {
-		dv, err := c.client.CdiClient().CdiV1beta1().DataVolumes(c.namespace).Get(ctx, c.name, metav1.GetOptions{})
-		if err != nil {
-			// DataVolume controller may not have created the DV yet ? TODO:
-			if k8serrors.IsNotFound(err) {
-				c.cmd.Printf("DV %s not found... \n", c.name)
-				return false, nil
-			}
-
-			return false, err
-		}
-
-		if (dv.Status.Phase == cdiv1.WaitForFirstConsumer || dv.Status.Phase == cdiv1.PendingPopulation) && !c.forceBind {
-			return false, fmt.Errorf("cannot upload to DataVolume in %s phase, make sure the PVC is Bound, or use force-bind flag", string(dv.Status.Phase))
-		}
-
-		done := dv.Status.Phase == cdiv1.UploadReady
-		if !done {
-			// We check events to provide user with pertinent error messages
-			if err := c.handleEventErrors(dv.Status.ClaimName, c.name); err != nil {
-				return false, err
-			}
-			if !loggedStatus {
-				c.cmd.Printf("Waiting for PVC %s upload pod to be ready...\n", c.name)
-				loggedStatus = true
-			}
-		}
-
-		if done && loggedStatus {
-			c.cmd.Printf("Pod now ready\n")
-		}
-
-		return done, nil
-	})
-
-	return err
-}
-
-func (c *command) waitUploadServerReady() error {
-	loggedStatus := false
-
-	err := virtwait.PollImmediately(uploadReadyWaitInterval, time.Duration(c.uploadPodWaitSecs)*time.Second, func(ctx context.Context) (bool, error) {
-		pvc, err := c.client.CoreV1().PersistentVolumeClaims(c.namespace).Get(ctx, c.name, metav1.GetOptions{})
-		if err != nil {
-			// DataVolume controller may not have created the PVC yet
-			if k8serrors.IsNotFound(err) {
-				return false, nil
-			}
-			return false, err
-		}
-
-		// upload controller sets this to true when uploadserver pod is ready to receive data
-		podReady := pvc.Annotations[PodReadyAnnotation]
-		done, _ := strconv.ParseBool(podReady)
-
-		if !done {
-			// We check events to provide user with pertinent error messages
-			if err := c.handleEventErrors(c.name, c.name); err != nil {
-				return false, err
-			}
-			if !loggedStatus {
-				c.cmd.Printf("Waiting for PVC %s upload pod to be ready...\n", c.name)
-				loggedStatus = true
-			}
-		}
-
-		if done && loggedStatus {
-			c.cmd.Printf("Pod now ready\n")
-		}
-
-		return done, nil
-	})
-
-	return err
-}
-
-func waitUploadProcessingComplete(client kubernetes.Interface, cmd *cobra.Command, namespace, name string, interval, timeout time.Duration) error {
-	err := virtwait.PollImmediately(interval, timeout, func(ctx context.Context) (bool, error) {
-		pvc, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, name, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-
-		// upload controller sets this to true when uploadserver pod is ready to receive data
-		podPhase := pvc.Annotations[PodPhaseAnnotation]
-
-		if podPhase == string(v1.PodSucceeded) {
-			cmd.Printf("Processing completed successfully\n")
-		}
-
-		return podPhase == string(v1.PodSucceeded), nil
-	})
-
-	return err
 }
 
 func (c *command) setDefaultInstancetypeLabels(target metav1.Object) {
