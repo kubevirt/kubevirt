@@ -25,7 +25,7 @@ kvtest:
     - go get github.com/cilium/ebpf/btf@v0.11.0
     - go get github.com/cilium/ebpf/internal@v0.11.0
     - go get golang.org/x/crypto@v0.31.0
-    - go mod vendor
+    # - go mod vendor
     - go install github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}
     - ginkgo -succinct pkg/virt-controller/...
 
