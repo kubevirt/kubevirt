@@ -27,6 +27,8 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 // ValidateVirtualMachineInstanceAmd64Setting is a validation function for validating-webhook on Amd64
@@ -71,4 +73,77 @@ func validateWatchdogAmd64(field *k8sfield.Path, spec *v1.VirtualMachineInstance
 
 func isOnlyI6300ESBWatchdog(watchdog *v1.Watchdog) bool {
 	return watchdog.WatchdogDevice.I6300ESB != nil && watchdog.WatchdogDevice.Diag288 == nil
+}
+
+func ValidateLaunchSecurityAmd64(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	launchSecurity := spec.Domain.LaunchSecurity
+
+	fg := ""
+	secType := ""
+	secTypeCount := 0
+	if launchSecurity.SEV != nil {
+		secType = "SEV"
+		secTypeCount++
+		fg = featuregate.WorkloadEncryptionSEV
+	}
+	if launchSecurity.TDX != nil {
+		secType = "TDX"
+		secTypeCount++
+		fg = featuregate.WorkloadEncryptionTDX
+	}
+	if secTypeCount != 1 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "One and only one launchSecurity type should be set",
+			Field:   field.Child("launchSecurity").String(),
+		})
+	}
+
+	if (launchSecurity.SEV != nil && !config.WorkloadEncryptionSEVEnabled()) || (launchSecurity.TDX != nil && !config.WorkloadEncryptionTDXEnabled()) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", fg),
+			Field:   field.Child("launchSecurity").String(),
+		})
+	}
+
+	if launchSecurity.SEV != nil || launchSecurity.TDX != nil {
+		firmware := spec.Domain.Firmware
+		if firmware == nil || firmware.Bootloader == nil || firmware.Bootloader.EFI == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s requires OVMF (UEFI)", secType),
+				Field:   field.Child("launchSecurity").String(),
+			})
+		}
+
+		if launchSecurity.SEV != nil && (firmware.Bootloader.EFI.SecureBoot == nil || *firmware.Bootloader.EFI.SecureBoot) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s does not work along with SecureBoot", secType),
+				Field:   field.Child("launchSecurity").String(),
+			})
+		}
+
+		startStrategy := spec.StartStrategy
+		if launchSecurity.SEV != nil && launchSecurity.SEV.Attestation != nil && (startStrategy == nil || *startStrategy != v1.StartStrategyPaused) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("SEV attestation requires VMI StartStrategy '%s'", v1.StartStrategyPaused),
+				Field:   field.Child("launchSecurity").String(),
+			})
+		}
+
+		for _, iface := range spec.Domain.Devices.Interfaces {
+			if iface.BootOrder != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s does not work with bootable NICs: %s", secType, iface.Name),
+					Field:   field.Child("launchSecurity").String(),
+				})
+			}
+		}
+	}
+	return causes
 }

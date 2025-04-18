@@ -562,54 +562,21 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 	if launchSecurity == nil {
 		return causes
 	}
-	if !config.SecureExecutionEnabled() && webhooks.IsS390X(spec) {
+
+	arch := spec.Architecture
+	switch arch {
+	case "amd64":
+		causes = append(causes, webhooks.ValidateLaunchSecurityAmd64(field, spec, config)...)
+	case "s390x":
+		causes = append(causes, webhooks.ValidateLaunchSecurityS390x(field, spec, config)...)
+	default:
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.SecureExecution),
-			Field:   field.Child("launchSecurity").String(),
+			Message: fmt.Sprintf("No launchSecurity support for architecture: %s", arch),
+			Field:   field.Child("architecture").String(),
 		})
 	}
-	if !config.WorkloadEncryptionSEVEnabled() && launchSecurity.SEV != nil {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.WorkloadEncryptionSEV),
-			Field:   field.Child("launchSecurity").String(),
-		})
-	} else if launchSecurity.SEV != nil {
-		firmware := spec.Domain.Firmware
-		if !efiBootEnabled(firmware) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "SEV requires OVMF (UEFI)",
-				Field:   field.Child("launchSecurity").String(),
-			})
-		} else if secureBootEnabled(firmware) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "SEV does not work along with SecureBoot",
-				Field:   field.Child("launchSecurity").String(),
-			})
-		}
 
-		startStrategy := spec.StartStrategy
-		if launchSecurity.SEV.Attestation != nil && (startStrategy == nil || *startStrategy != v1.StartStrategyPaused) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("SEV attestation requires VMI StartStrategy '%s'", v1.StartStrategyPaused),
-				Field:   field.Child("launchSecurity").String(),
-			})
-		}
-
-		for _, iface := range spec.Domain.Devices.Interfaces {
-			if iface.BootOrder != nil {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("SEV does not work with bootable NICs: %s", iface.Name),
-					Field:   field.Child("launchSecurity").String(),
-				})
-			}
-		}
-	}
 	return causes
 }
 
