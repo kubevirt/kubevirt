@@ -51,4 +51,28 @@ var _ = Describe("Network info", func() {
 
 		Expect(downwardapi.CreateNetworkInfoAnnotationValue(networkDeviceInfoMap)).To(Equal("{}"))
 	})
+	It("should produce a deterministic and ordered output regardless of the map key order", func() {
+		deviceInfo1 := &networkv1.DeviceInfo{Type: "type1"}
+		deviceInfo2 := &networkv1.DeviceInfo{Type: "type2"}
+		map1 := map[string]*networkv1.DeviceInfo{
+			"netB": deviceInfo1,
+			"netA": deviceInfo2,
+		}
+		map2 := map[string]*networkv1.DeviceInfo{
+			"netA": deviceInfo2,
+			"netB": deviceInfo1,
+		}
+
+		annotation1 := downwardapi.CreateNetworkInfoAnnotationValue(map1)
+		annotation2 := downwardapi.CreateNetworkInfoAnnotationValue(map2)
+
+		Expect(annotation1).To(Equal(annotation2))
+
+		var networkInfo downwardapi.NetworkInfo
+		err := json.Unmarshal([]byte(annotation1), &networkInfo)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(networkInfo.Interfaces).To(HaveLen(2))
+		Expect(networkInfo.Interfaces[0].Network).To(Equal("netA"))
+		Expect(networkInfo.Interfaces[1].Network).To(Equal("netB"))
+	})
 })
