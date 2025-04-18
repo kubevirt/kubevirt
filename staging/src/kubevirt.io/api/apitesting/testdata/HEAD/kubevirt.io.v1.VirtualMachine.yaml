@@ -618,6 +618,7 @@ spec:
               encryptedState: true
             session: sessionValue
           snp: {}
+          tdx: {}
         machine:
           type: typeValue
         memory:
