@@ -244,7 +244,9 @@ func (StringSourceSpec) SwaggerDoc() map[string]string {
 }
 
 var map_APIServer = map[string]string{
-	"": "APIServer holds configuration (like serving certificates, client CA and CORS domains) shared by all API servers in the system, among them especially kube-apiserver and openshift-apiserver. The canonical name of an instance is 'cluster'.",
+	"":       "APIServer holds configuration (like serving certificates, client CA and CORS domains) shared by all API servers in the system, among them especially kube-apiserver and openshift-apiserver. The canonical name of an instance is 'cluster'.",
+	"spec":   "spec holds user settable values for configuration",
+	"status": "status holds observed values from the cluster. They may not be overridden.",
 }
 
 func (APIServer) SwaggerDoc() map[string]string {
@@ -283,10 +285,19 @@ var map_APIServerSpec = map[string]string{
 	"additionalCORSAllowedOrigins": "additionalCORSAllowedOrigins lists additional, user-defined regular expressions describing hosts for which the API server allows access using the CORS headers. This may be needed to access the API and the integrated OAuth server from JavaScript applications. The values are regular expressions that correspond to the Golang regular expression language.",
 	"encryption":                   "encryption allows the configuration of encryption of resources at the datastore layer.",
 	"tlsSecurityProfile":           "tlsSecurityProfile specifies settings for TLS connections for externally exposed servers.\n\nIf unset, a default (which may change between releases) is chosen. Note that only Old and Intermediate profiles are currently supported, and the maximum available MinTLSVersions is VersionTLS12.",
+	"audit":                        "audit specifies the settings for audit configuration to be applied to all OpenShift-provided API servers in the cluster.",
 }
 
 func (APIServerSpec) SwaggerDoc() map[string]string {
 	return map_APIServerSpec
+}
+
+var map_Audit = map[string]string{
+	"profile": "profile specifies the name of the desired audit policy configuration to be deployed to all OpenShift-provided API servers in the cluster.\n\nThe following profiles are provided: - Default: the existing default policy. - WriteRequestBodies: like 'Default', but logs request and response HTTP payloads for write requests (create, update, patch). - AllRequestBodies: like 'WriteRequestBodies', but also logs request and response HTTP payloads for read requests (get, list).\n\nIf unset, the 'Default' profile is used as the default.",
+}
+
+func (Audit) SwaggerDoc() map[string]string {
+	return map_Audit
 }
 
 var map_Authentication = map[string]string{
@@ -302,7 +313,9 @@ func (Authentication) SwaggerDoc() map[string]string {
 var map_AuthenticationSpec = map[string]string{
 	"type":                       "type identifies the cluster managed, user facing authentication mode in use. Specifically, it manages the component that responds to login attempts. The default is IntegratedOAuth.",
 	"oauthMetadata":              "oauthMetadata contains the discovery endpoint data for OAuth 2.0 Authorization Server Metadata for an external OAuth server. This discovery document can be viewed from its served location: oc get --raw '/.well-known/oauth-authorization-server' For further details, see the IETF Draft: https://tools.ietf.org/html/draft-ietf-oauth-discovery-04#section-2 If oauthMetadata.name is non-empty, this value has precedence over any metadata reference stored in status. The key \"oauthMetadata\" is used to locate the data. If specified and the config map or expected key is not found, no metadata is served. If the specified metadata is not valid, no metadata is served. The namespace for this config map is openshift-config.",
-	"webhookTokenAuthenticators": "webhookTokenAuthenticators configures remote token reviewers. These remote authentication webhooks can be used to verify bearer tokens via the tokenreviews.authentication.k8s.io REST API.  This is required to honor bearer tokens that are provisioned by an external authentication service. The namespace for these secrets is openshift-config.",
+	"webhookTokenAuthenticators": "webhookTokenAuthenticators is DEPRECATED, setting it has no effect.",
+	"webhookTokenAuthenticator":  "webhookTokenAuthenticator configures a remote token reviewer. These remote authentication webhooks can be used to verify bearer tokens via the tokenreviews.authentication.k8s.io REST API. This is required to honor bearer tokens that are provisioned by an external authentication service.",
+	"serviceAccountIssuer":       "serviceAccountIssuer is the identifier of the bound service account token issuer. The default is https://kubernetes.default.svc WARNING: Updating this field will result in the invalidation of all bound tokens with the previous issuer value. Unless the holder of a bound token has explicit support for a change in issuer, they will not request a new bound token until pod restart or until their existing token exceeds 80% of its duration.",
 }
 
 func (AuthenticationSpec) SwaggerDoc() map[string]string {
@@ -317,9 +330,18 @@ func (AuthenticationStatus) SwaggerDoc() map[string]string {
 	return map_AuthenticationStatus
 }
 
+var map_DeprecatedWebhookTokenAuthenticator = map[string]string{
+	"":           "deprecatedWebhookTokenAuthenticator holds the necessary configuration options for a remote token authenticator. It's the same as WebhookTokenAuthenticator but it's missing the 'required' validation on KubeConfig field.",
+	"kubeConfig": "kubeConfig contains kube config file data which describes how to access the remote webhook service. For further details, see: https://kubernetes.io/docs/reference/access-authn-authz/authentication/#webhook-token-authentication The key \"kubeConfig\" is used to locate the data. If the secret or expected key is not found, the webhook is not honored. If the specified kube config data is not valid, the webhook is not honored. The namespace for this secret is determined by the point of use.",
+}
+
+func (DeprecatedWebhookTokenAuthenticator) SwaggerDoc() map[string]string {
+	return map_DeprecatedWebhookTokenAuthenticator
+}
+
 var map_WebhookTokenAuthenticator = map[string]string{
 	"":           "webhookTokenAuthenticator holds the necessary configuration options for a remote token authenticator",
-	"kubeConfig": "kubeConfig contains kube config file data which describes how to access the remote webhook service. For further details, see: https://kubernetes.io/docs/reference/access-authn-authz/authentication/#webhook-token-authentication The key \"kubeConfig\" is used to locate the data. If the secret or expected key is not found, the webhook is not honored. If the specified kube config data is not valid, the webhook is not honored. The namespace for this secret is determined by the point of use.",
+	"kubeConfig": "kubeConfig references a secret that contains kube config file data which describes how to access the remote webhook service. The namespace for the referenced secret is openshift-config.\n\nFor further details, see:\n\nhttps://kubernetes.io/docs/reference/access-authn-authz/authentication/#webhook-token-authentication\n\nThe key \"kubeConfig\" is used to locate the data. If the secret or expected key is not found, the webhook is not honored. If the specified kube config data is not valid, the webhook is not honored.",
 }
 
 func (WebhookTokenAuthenticator) SwaggerDoc() map[string]string {
@@ -351,6 +373,7 @@ var map_BuildOverrides = map[string]string{
 	"imageLabels":  "ImageLabels is a list of docker labels that are applied to the resulting image. If user provided a label in their Build/BuildConfig with the same name as one in this list, the user's label will be overwritten.",
 	"nodeSelector": "NodeSelector is a selector which must be true for the build pod to fit on a node",
 	"tolerations":  "Tolerations is a list of Tolerations that will override any existing tolerations set on a build pod.",
+	"forcePull":    "ForcePull overrides, if set, the equivalent value in the builds, i.e. false disables force pull for all builds, true enables force pull for all builds, independently of what each build specifies itself",
 }
 
 func (BuildOverrides) SwaggerDoc() map[string]string {
@@ -378,7 +401,7 @@ func (ImageLabel) SwaggerDoc() map[string]string {
 
 var map_ClusterOperator = map[string]string{
 	"":       "ClusterOperator is the Custom Resource object which holds the current state of an operator. This object is used by operators to convey their state to the rest of the cluster.",
-	"spec":   "spec hold the intent of how this operator should behave.",
+	"spec":   "spec holds configuration that could apply to any operator.",
 	"status": "status holds the information about the state of an operator.  It is consistent with status information across the Kubernetes ecosystem.",
 }
 
@@ -420,7 +443,7 @@ var map_ClusterOperatorStatusCondition = map[string]string{
 	"status":             "status of the condition, one of True, False, Unknown.",
 	"lastTransitionTime": "lastTransitionTime is the time of the last update to the current status property.",
 	"reason":             "reason is the CamelCase reason for the condition's current status.",
-	"message":            "message provides additional information about the current condition. This is only to be consumed by humans.",
+	"message":            "message provides additional information about the current condition. This is only to be consumed by humans.  It may contain Line Feed characters (U+000A), which should be rendered as new lines.",
 }
 
 func (ClusterOperatorStatusCondition) SwaggerDoc() map[string]string {
@@ -506,8 +529,20 @@ func (ComponentOverride) SwaggerDoc() map[string]string {
 	return map_ComponentOverride
 }
 
+var map_Release = map[string]string{
+	"":         "Release represents an OpenShift release image and associated metadata.",
+	"version":  "version is a semantic versioning identifying the update version. When this field is part of spec, version is optional if image is specified.",
+	"image":    "image is a container image location that contains the update. When this field is part of spec, image is optional if version is specified and the availableUpdates field contains a matching version.",
+	"url":      "url contains information about this release. This URL is set by the 'url' metadata property on a release or the metadata returned by the update API and should be displayed as a link in user interfaces. The URL field may not be set for test or nightly releases.",
+	"channels": "channels is the set of Cincinnati channels to which the release currently belongs.",
+}
+
+func (Release) SwaggerDoc() map[string]string {
+	return map_Release
+}
+
 var map_Update = map[string]string{
-	"":        "Update represents a release of the ClusterVersionOperator, referenced by the Image member.",
+	"":        "Update represents an administrator update request.",
 	"version": "version is a semantic versioning identifying the update version. When this field is part of spec, version is optional if image is specified.",
 	"image":   "image is a container image location that contains the update. When this field is part of spec, image is optional if version is specified and the availableUpdates field contains a matching version.",
 	"force":   "force allows an administrator to update to an image that has failed verification, does not appear in the availableUpdates list, or otherwise would be blocked by normal protections on update. This option should only be used when the authenticity of the provided image has been verified out of band because the provided image will run with full administrative access to the cluster. Do not use this flag with images that comes from unknown or potentially malicious sources.\n\nThis flag does not override other forms of consistency checking that are required before a new update is deployed.",
@@ -626,7 +661,7 @@ func (FeatureGateSelection) SwaggerDoc() map[string]string {
 }
 
 var map_Image = map[string]string{
-	"":       "Image governs policies related to imagestream imports and runtime configuration for external registries. It allows cluster admins to configure which registries OpenShift is allowed to import images from, extra CA trust bundles for external registries, and policies to blacklist/whitelist registry hostnames. When exposing OpenShift's image registry to the public, this also lets cluster admins specify the external hostname.",
+	"":       "Image governs policies related to imagestream imports and runtime configuration for external registries. It allows cluster admins to configure which registries OpenShift is allowed to import images from, extra CA trust bundles for external registries, and policies to block or allow registry hostnames. When exposing OpenShift's image registry to the public, this also lets cluster admins specify the external hostname.",
 	"spec":   "spec holds user settable values for configuration",
 	"status": "status holds observed values from the cluster. They may not be overridden.",
 }
@@ -666,33 +701,71 @@ func (RegistryLocation) SwaggerDoc() map[string]string {
 }
 
 var map_RegistrySources = map[string]string{
-	"":                   "RegistrySources holds cluster-wide information about how to handle the registries config.",
-	"insecureRegistries": "insecureRegistries are registries which do not have a valid TLS certificates or only support HTTP connections.",
-	"blockedRegistries":  "blockedRegistries are blacklisted from image pull/push. All other registries are allowed.\n\nOnly one of BlockedRegistries or AllowedRegistries may be set.",
-	"allowedRegistries":  "allowedRegistries are whitelisted for image pull/push. All other registries are blocked.\n\nOnly one of BlockedRegistries or AllowedRegistries may be set.",
+	"":                                 "RegistrySources holds cluster-wide information about how to handle the registries config.",
+	"insecureRegistries":               "insecureRegistries are registries which do not have a valid TLS certificates or only support HTTP connections.",
+	"blockedRegistries":                "blockedRegistries cannot be used for image pull and push actions. All other registries are permitted.\n\nOnly one of BlockedRegistries or AllowedRegistries may be set.",
+	"allowedRegistries":                "allowedRegistries are the only registries permitted for image pull and push actions. All other registries are denied.\n\nOnly one of BlockedRegistries or AllowedRegistries may be set.",
+	"containerRuntimeSearchRegistries": "containerRuntimeSearchRegistries are registries that will be searched when pulling images that do not have fully qualified domains in their pull specs. Registries will be searched in the order provided in the list. Note: this search list only works with the container runtime, i.e CRI-O. Will NOT work with builds or imagestream imports.",
 }
 
 func (RegistrySources) SwaggerDoc() map[string]string {
 	return map_RegistrySources
 }
 
+var map_AWSPlatformSpec = map[string]string{
+	"":                 "AWSPlatformSpec holds the desired state of the Amazon Web Services infrastructure provider. This only includes fields that can be modified in the cluster.",
+	"serviceEndpoints": "serviceEndpoints list contains custom endpoints which will override default service endpoint of AWS Services. There must be only one ServiceEndpoint for a service.",
+}
+
+func (AWSPlatformSpec) SwaggerDoc() map[string]string {
+	return map_AWSPlatformSpec
+}
+
 var map_AWSPlatformStatus = map[string]string{
-	"":       "AWSPlatformStatus holds the current status of the Amazon Web Services infrastructure provider.",
-	"region": "region holds the default AWS region for new AWS resources created by the cluster.",
+	"":                 "AWSPlatformStatus holds the current status of the Amazon Web Services infrastructure provider.",
+	"region":           "region holds the default AWS region for new AWS resources created by the cluster.",
+	"serviceEndpoints": "ServiceEndpoints list contains custom endpoints which will override default service endpoint of AWS Services. There must be only one ServiceEndpoint for a service.",
 }
 
 func (AWSPlatformStatus) SwaggerDoc() map[string]string {
 	return map_AWSPlatformStatus
 }
 
+var map_AWSServiceEndpoint = map[string]string{
+	"":     "AWSServiceEndpoint store the configuration of a custom url to override existing defaults of AWS Services.",
+	"name": "name is the name of the AWS service. The list of all the service names can be found at https://docs.aws.amazon.com/general/latest/gr/aws-service-information.html This must be provided and cannot be empty.",
+	"url":  "url is fully qualified URI with scheme https, that overrides the default generated endpoint for a client. This must be provided and cannot be empty.",
+}
+
+func (AWSServiceEndpoint) SwaggerDoc() map[string]string {
+	return map_AWSServiceEndpoint
+}
+
+var map_AzurePlatformSpec = map[string]string{
+	"": "AzurePlatformSpec holds the desired state of the Azure infrastructure provider. This only includes fields that can be modified in the cluster.",
+}
+
+func (AzurePlatformSpec) SwaggerDoc() map[string]string {
+	return map_AzurePlatformSpec
+}
+
 var map_AzurePlatformStatus = map[string]string{
 	"":                         "AzurePlatformStatus holds the current status of the Azure infrastructure provider.",
 	"resourceGroupName":        "resourceGroupName is the Resource Group for new Azure resources created for the cluster.",
 	"networkResourceGroupName": "networkResourceGroupName is the Resource Group for network resources like the Virtual Network and Subnets used by the cluster. If empty, the value is same as ResourceGroupName.",
+	"cloudName":                "cloudName is the name of the Azure cloud environment which can be used to configure the Azure SDK with the appropriate Azure API endpoints. If empty, the value is equal to `AzurePublicCloud`.",
 }
 
 func (AzurePlatformStatus) SwaggerDoc() map[string]string {
 	return map_AzurePlatformStatus
+}
+
+var map_BareMetalPlatformSpec = map[string]string{
+	"": "BareMetalPlatformSpec holds the desired state of the BareMetal infrastructure provider. This only includes fields that can be modified in the cluster.",
+}
+
+func (BareMetalPlatformSpec) SwaggerDoc() map[string]string {
+	return map_BareMetalPlatformSpec
 }
 
 var map_BareMetalPlatformStatus = map[string]string{
@@ -706,6 +779,14 @@ func (BareMetalPlatformStatus) SwaggerDoc() map[string]string {
 	return map_BareMetalPlatformStatus
 }
 
+var map_GCPPlatformSpec = map[string]string{
+	"": "GCPPlatformSpec holds the desired state of the Google Cloud Platform infrastructure provider. This only includes fields that can be modified in the cluster.",
+}
+
+func (GCPPlatformSpec) SwaggerDoc() map[string]string {
+	return map_GCPPlatformSpec
+}
+
 var map_GCPPlatformStatus = map[string]string{
 	"":          "GCPPlatformStatus holds the current status of the Google Cloud Platform infrastructure provider.",
 	"projectID": "resourceGroupName is the Project ID for new GCP resources created for the cluster.",
@@ -714,6 +795,25 @@ var map_GCPPlatformStatus = map[string]string{
 
 func (GCPPlatformStatus) SwaggerDoc() map[string]string {
 	return map_GCPPlatformStatus
+}
+
+var map_IBMCloudPlatformSpec = map[string]string{
+	"": "IBMCloudPlatformSpec holds the desired state of the IBMCloud infrastructure provider. This only includes fields that can be modified in the cluster.",
+}
+
+func (IBMCloudPlatformSpec) SwaggerDoc() map[string]string {
+	return map_IBMCloudPlatformSpec
+}
+
+var map_IBMCloudPlatformStatus = map[string]string{
+	"":                  "IBMCloudPlatformStatus holds the current status of the IBMCloud infrastructure provider.",
+	"location":          "Location is where the cluster has been deployed",
+	"resourceGroupName": "ResourceGroupName is the Resource Group for new IBMCloud resources created for the cluster.",
+	"providerType":      "ProviderType indicates the type of cluster that was created",
+}
+
+func (IBMCloudPlatformStatus) SwaggerDoc() map[string]string {
+	return map_IBMCloudPlatformStatus
 }
 
 var map_Infrastructure = map[string]string{
@@ -735,8 +835,9 @@ func (InfrastructureList) SwaggerDoc() map[string]string {
 }
 
 var map_InfrastructureSpec = map[string]string{
-	"":            "InfrastructureSpec contains settings that apply to the cluster infrastructure.",
-	"cloudConfig": "cloudConfig is a reference to a ConfigMap containing the cloud provider configuration file. This configuration file is used to configure the Kubernetes cloud provider integration when using the built-in cloud provider integration or the external cloud controller manager. The namespace for this config map is openshift-config.",
+	"":             "InfrastructureSpec contains settings that apply to the cluster infrastructure.",
+	"cloudConfig":  "cloudConfig is a reference to a ConfigMap containing the cloud provider configuration file. This configuration file is used to configure the Kubernetes cloud provider integration when using the built-in cloud provider integration or the external cloud controller manager. The namespace for this config map is openshift-config.\n\ncloudConfig should only be consumed by the kube_cloud_config controller. The controller is responsible for using the user configuration in the spec for various platforms and combining that with the user provided ConfigMap in this field to create a stitched kube cloud config. The controller generates a ConfigMap `kube-cloud-config` in `openshift-config-managed` namespace with the kube cloud config is stored in `cloud.conf` key. All the clients are expected to use the generated ConfigMap only.",
+	"platformSpec": "platformSpec holds desired information specific to the underlying infrastructure provider.",
 }
 
 func (InfrastructureSpec) SwaggerDoc() map[string]string {
@@ -748,13 +849,39 @@ var map_InfrastructureStatus = map[string]string{
 	"infrastructureName":   "infrastructureName uniquely identifies a cluster with a human friendly name. Once set it should not be changed. Must be of max length 27 and must have only alphanumeric or hyphen characters.",
 	"platform":             "platform is the underlying infrastructure provider for the cluster.\n\nDeprecated: Use platformStatus.type instead.",
 	"platformStatus":       "platformStatus holds status information specific to the underlying infrastructure provider.",
-	"etcdDiscoveryDomain":  "etcdDiscoveryDomain is the domain used to fetch the SRV records for discovering etcd servers and clients. For more info: https://github.com/etcd-io/etcd/blob/329be66e8b3f9e2e6af83c123ff89297e49ebd15/Documentation/op-guide/clustering.md#dns-discovery",
-	"apiServerURL":         "apiServerURL is a valid URI with scheme(http/https), address and port.  apiServerURL can be used by components like the web console to tell users where to find the Kubernetes API.",
-	"apiServerInternalURI": "apiServerInternalURL is a valid URI with scheme(http/https), address and port.  apiServerInternalURL can be used by components like kubelets, to contact the Kubernetes API server using the infrastructure provider rather than Kubernetes networking.",
+	"etcdDiscoveryDomain":  "etcdDiscoveryDomain is the domain used to fetch the SRV records for discovering etcd servers and clients. For more info: https://github.com/etcd-io/etcd/blob/329be66e8b3f9e2e6af83c123ff89297e49ebd15/Documentation/op-guide/clustering.md#dns-discovery deprecated: as of 4.7, this field is no longer set or honored.  It will be removed in a future release.",
+	"apiServerURL":         "apiServerURL is a valid URI with scheme 'https', address and optionally a port (defaulting to 443).  apiServerURL can be used by components like the web console to tell users where to find the Kubernetes API.",
+	"apiServerInternalURI": "apiServerInternalURL is a valid URI with scheme 'https', address and optionally a port (defaulting to 443).  apiServerInternalURL can be used by components like kubelets, to contact the Kubernetes API server using the infrastructure provider rather than Kubernetes networking.",
 }
 
 func (InfrastructureStatus) SwaggerDoc() map[string]string {
 	return map_InfrastructureStatus
+}
+
+var map_KubevirtPlatformSpec = map[string]string{
+	"": "KubevirtPlatformSpec holds the desired state of the kubevirt infrastructure provider. This only includes fields that can be modified in the cluster.",
+}
+
+func (KubevirtPlatformSpec) SwaggerDoc() map[string]string {
+	return map_KubevirtPlatformSpec
+}
+
+var map_KubevirtPlatformStatus = map[string]string{
+	"":                    "KubevirtPlatformStatus holds the current status of the kubevirt infrastructure provider.",
+	"apiServerInternalIP": "apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers.",
+	"ingressIP":           "ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names.",
+}
+
+func (KubevirtPlatformStatus) SwaggerDoc() map[string]string {
+	return map_KubevirtPlatformStatus
+}
+
+var map_OpenStackPlatformSpec = map[string]string{
+	"": "OpenStackPlatformSpec holds the desired state of the OpenStack infrastructure provider. This only includes fields that can be modified in the cluster.",
+}
+
+func (OpenStackPlatformSpec) SwaggerDoc() map[string]string {
+	return map_OpenStackPlatformSpec
 }
 
 var map_OpenStackPlatformStatus = map[string]string{
@@ -769,30 +896,78 @@ func (OpenStackPlatformStatus) SwaggerDoc() map[string]string {
 	return map_OpenStackPlatformStatus
 }
 
+var map_OvirtPlatformSpec = map[string]string{
+	"": "OvirtPlatformSpec holds the desired state of the oVirt infrastructure provider. This only includes fields that can be modified in the cluster.",
+}
+
+func (OvirtPlatformSpec) SwaggerDoc() map[string]string {
+	return map_OvirtPlatformSpec
+}
+
 var map_OvirtPlatformStatus = map[string]string{
 	"":                    "OvirtPlatformStatus holds the current status of the  oVirt infrastructure provider.",
 	"apiServerInternalIP": "apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers.",
 	"ingressIP":           "ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names.",
-	"nodeDNSIP":           "nodeDNSIP is the IP address for the internal DNS used by the nodes. Unlike the one managed by the DNS operator, `NodeDNSIP` provides name resolution for the nodes themselves. There is no DNS-as-a-service for oVirt deployments. In order to minimize necessary changes to the datacenter DNS, a DNS service is hosted as a static pod to serve those hostnames to the nodes in the cluster.",
+	"nodeDNSIP":           "deprecated: as of 4.6, this field is no longer set or honored.  It will be removed in a future release.",
 }
 
 func (OvirtPlatformStatus) SwaggerDoc() map[string]string {
 	return map_OvirtPlatformStatus
 }
 
-var map_PlatformStatus = map[string]string{
-	"":          "PlatformStatus holds the current status specific to the underlying infrastructure provider of the current cluster. Since these are used at status-level for the underlying cluster, it is supposed that only one of the status structs is set.",
-	"type":      "type is the underlying infrastructure provider for the cluster. This value controls whether infrastructure automation such as service load balancers, dynamic volume provisioning, machine creation and deletion, and other integrations are enabled. If None, no infrastructure automation is enabled. Allowed values are \"AWS\", \"Azure\", \"BareMetal\", \"GCP\", \"Libvirt\", \"OpenStack\", \"VSphere\", \"oVirt\", and \"None\". Individual components may not support all platforms, and must handle unrecognized platforms as None if they do not support that platform.",
+var map_PlatformSpec = map[string]string{
+	"":          "PlatformSpec holds the desired state specific to the underlying infrastructure provider of the current cluster. Since these are used at spec-level for the underlying cluster, it is supposed that only one of the spec structs is set.",
+	"type":      "type is the underlying infrastructure provider for the cluster. This value controls whether infrastructure automation such as service load balancers, dynamic volume provisioning, machine creation and deletion, and other integrations are enabled. If None, no infrastructure automation is enabled. Allowed values are \"AWS\", \"Azure\", \"BareMetal\", \"GCP\", \"Libvirt\", \"OpenStack\", \"VSphere\", \"oVirt\", \"KubeVirt\" and \"None\". Individual components may not support all platforms, and must handle unrecognized platforms as None if they do not support that platform.",
 	"aws":       "AWS contains settings specific to the Amazon Web Services infrastructure provider.",
 	"azure":     "Azure contains settings specific to the Azure infrastructure provider.",
 	"gcp":       "GCP contains settings specific to the Google Cloud Platform infrastructure provider.",
 	"baremetal": "BareMetal contains settings specific to the BareMetal platform.",
 	"openstack": "OpenStack contains settings specific to the OpenStack infrastructure provider.",
 	"ovirt":     "Ovirt contains settings specific to the oVirt infrastructure provider.",
+	"vsphere":   "VSphere contains settings specific to the VSphere infrastructure provider.",
+	"ibmcloud":  "IBMCloud contains settings specific to the IBMCloud infrastructure provider.",
+	"kubevirt":  "Kubevirt contains settings specific to the kubevirt infrastructure provider.",
+}
+
+func (PlatformSpec) SwaggerDoc() map[string]string {
+	return map_PlatformSpec
+}
+
+var map_PlatformStatus = map[string]string{
+	"":          "PlatformStatus holds the current status specific to the underlying infrastructure provider of the current cluster. Since these are used at status-level for the underlying cluster, it is supposed that only one of the status structs is set.",
+	"type":      "type is the underlying infrastructure provider for the cluster. This value controls whether infrastructure automation such as service load balancers, dynamic volume provisioning, machine creation and deletion, and other integrations are enabled. If None, no infrastructure automation is enabled. Allowed values are \"AWS\", \"Azure\", \"BareMetal\", \"GCP\", \"Libvirt\", \"OpenStack\", \"VSphere\", \"oVirt\", and \"None\". Individual components may not support all platforms, and must handle unrecognized platforms as None if they do not support that platform.\n\nThis value will be synced with to the `status.platform` and `status.platformStatus.type`. Currently this value cannot be changed once set.",
+	"aws":       "AWS contains settings specific to the Amazon Web Services infrastructure provider.",
+	"azure":     "Azure contains settings specific to the Azure infrastructure provider.",
+	"gcp":       "GCP contains settings specific to the Google Cloud Platform infrastructure provider.",
+	"baremetal": "BareMetal contains settings specific to the BareMetal platform.",
+	"openstack": "OpenStack contains settings specific to the OpenStack infrastructure provider.",
+	"ovirt":     "Ovirt contains settings specific to the oVirt infrastructure provider.",
+	"vsphere":   "VSphere contains settings specific to the VSphere infrastructure provider.",
+	"ibmcloud":  "IBMCloud contains settings specific to the IBMCloud infrastructure provider.",
+	"kubevirt":  "Kubevirt contains settings specific to the kubevirt infrastructure provider.",
 }
 
 func (PlatformStatus) SwaggerDoc() map[string]string {
 	return map_PlatformStatus
+}
+
+var map_VSpherePlatformSpec = map[string]string{
+	"": "VSpherePlatformSpec holds the desired state of the vSphere infrastructure provider. This only includes fields that can be modified in the cluster.",
+}
+
+func (VSpherePlatformSpec) SwaggerDoc() map[string]string {
+	return map_VSpherePlatformSpec
+}
+
+var map_VSpherePlatformStatus = map[string]string{
+	"":                    "VSpherePlatformStatus holds the current status of the vSphere infrastructure provider.",
+	"apiServerInternalIP": "apiServerInternalIP is an IP address to contact the Kubernetes API server that can be used by components inside the cluster, like kubelets using the infrastructure rather than Kubernetes networking. It is the IP that the Infrastructure.status.apiServerInternalURI points to. It is the IP for a self-hosted load balancer in front of the API servers.",
+	"ingressIP":           "ingressIP is an external IP which routes to the default ingress controller. The IP is a suitable target of a wildcard DNS record used to resolve default route host names.",
+	"nodeDNSIP":           "nodeDNSIP is the IP address for the internal DNS used by the nodes. Unlike the one managed by the DNS operator, `NodeDNSIP` provides name resolution for the nodes themselves. There is no DNS-as-a-service for vSphere deployments. In order to minimize necessary changes to the datacenter DNS, a DNS service is hosted as a static pod to serve those hostnames to the nodes in the cluster.",
+}
+
+func (VSpherePlatformStatus) SwaggerDoc() map[string]string {
+	return map_VSpherePlatformStatus
 }
 
 var map_Ingress = map[string]string{
@@ -806,7 +981,8 @@ func (Ingress) SwaggerDoc() map[string]string {
 }
 
 var map_IngressSpec = map[string]string{
-	"domain": "domain is used to generate a default host name for a route when the route's host name is empty. The generated host name will follow this pattern: \"<route-name>.<route-namespace>.<domain>\".\n\nIt is also used as the default wildcard domain suffix for ingress. The default ingresscontroller domain will follow this pattern: \"*.<domain>\".\n\nOnce set, changing domain is not currently supported.",
+	"domain":     "domain is used to generate a default host name for a route when the route's host name is empty. The generated host name will follow this pattern: \"<route-name>.<route-namespace>.<domain>\".\n\nIt is also used as the default wildcard domain suffix for ingress. The default ingresscontroller domain will follow this pattern: \"*.<domain>\".\n\nOnce set, changing domain is not currently supported.",
+	"appsDomain": "appsDomain is an optional domain to use instead of the one specified in the domain field when a Route is created without specifying an explicit host. If appsDomain is nonempty, this value is used to generate default host values for Route. Unlike domain, appsDomain may be modified after installation. This assumes a new ingresscontroller has been setup with a wildcard certificate.",
 }
 
 func (IngressSpec) SwaggerDoc() map[string]string {
@@ -816,7 +992,7 @@ func (IngressSpec) SwaggerDoc() map[string]string {
 var map_ClusterNetworkEntry = map[string]string{
 	"":           "ClusterNetworkEntry is a contiguous block of IP addresses from which pod IPs are allocated.",
 	"cidr":       "The complete block for pod IPs.",
-	"hostPrefix": "The size (prefix) of block to allocate to each node.",
+	"hostPrefix": "The size (prefix) of block to allocate to each node. If this field is not used by the plugin, it can be left unset.",
 }
 
 func (ClusterNetworkEntry) SwaggerDoc() map[string]string {
@@ -854,11 +1030,12 @@ func (Network) SwaggerDoc() map[string]string {
 }
 
 var map_NetworkSpec = map[string]string{
-	"":               "NetworkSpec is the desired network configuration. As a general rule, this SHOULD NOT be read directly. Instead, you should consume the NetworkStatus, as it indicates the currently deployed configuration. Currently, most spec fields are immutable after installation. Please view the individual ones for further details on each.",
-	"clusterNetwork": "IP address pool to use for pod IPs. This field is immutable after installation.",
-	"serviceNetwork": "IP address pool for services. Currently, we only support a single entry here. This field is immutable after installation.",
-	"networkType":    "NetworkType is the plugin that is to be deployed (e.g. OpenShiftSDN). This should match a value that the cluster-network-operator understands, or else no networking will be installed. Currently supported values are: - OpenShiftSDN This field is immutable after installation.",
-	"externalIP":     "externalIP defines configuration for controllers that affect Service.ExternalIP. If nil, then ExternalIP is not allowed to be set.",
+	"":                     "NetworkSpec is the desired network configuration. As a general rule, this SHOULD NOT be read directly. Instead, you should consume the NetworkStatus, as it indicates the currently deployed configuration. Currently, most spec fields are immutable after installation. Please view the individual ones for further details on each.",
+	"clusterNetwork":       "IP address pool to use for pod IPs. This field is immutable after installation.",
+	"serviceNetwork":       "IP address pool for services. Currently, we only support a single entry here. This field is immutable after installation.",
+	"networkType":          "NetworkType is the plugin that is to be deployed (e.g. OpenShiftSDN). This should match a value that the cluster-network-operator understands, or else no networking will be installed. Currently supported values are: - OpenShiftSDN This field is immutable after installation.",
+	"externalIP":           "externalIP defines configuration for controllers that affect Service.ExternalIP. If nil, then ExternalIP is not allowed to be set.",
+	"serviceNodePortRange": "The port range allowed for Services of type NodePort. If not specified, the default of 30000-32767 will be used. Such Services without a NodePort specified will have one automatically allocated from this range. This parameter can be updated after the cluster is installed.",
 }
 
 func (NetworkSpec) SwaggerDoc() map[string]string {
@@ -995,7 +1172,9 @@ func (LDAPIdentityProvider) SwaggerDoc() map[string]string {
 }
 
 var map_OAuth = map[string]string{
-	"": "OAuth holds cluster-wide information about OAuth.  The canonical name is `cluster`. It is used to configure the integrated OAuth server. This configuration is only honored when the top level Authentication config has type set to IntegratedOAuth.",
+	"":       "OAuth holds cluster-wide information about OAuth.  The canonical name is `cluster`. It is used to configure the integrated OAuth server. This configuration is only honored when the top level Authentication config has type set to IntegratedOAuth.",
+	"spec":   "spec holds user settable values for configuration",
+	"status": "status holds observed values from the cluster. They may not be overridden.",
 }
 
 func (OAuth) SwaggerDoc() map[string]string {
@@ -1089,7 +1268,8 @@ func (RequestHeaderIdentityProvider) SwaggerDoc() map[string]string {
 var map_TokenConfig = map[string]string{
 	"":                                    "TokenConfig holds the necessary configuration options for authorization and access tokens",
 	"accessTokenMaxAgeSeconds":            "accessTokenMaxAgeSeconds defines the maximum age of access tokens",
-	"accessTokenInactivityTimeoutSeconds": "accessTokenInactivityTimeoutSeconds defines the default token inactivity timeout for tokens granted by any client. The value represents the maximum amount of time that can occur between consecutive uses of the token. Tokens become invalid if they are not used within this temporal window. The user will need to acquire a new token to regain access once a token times out. Valid values are integer values:\n  x < 0  Tokens time out is enabled but tokens never timeout unless configured per client (e.g. `-1`)\n  x = 0  Tokens time out is disabled (default)\n  x > 0  Tokens time out if there is no activity for x seconds\nThe current minimum allowed value for X is 300 (5 minutes)",
+	"accessTokenInactivityTimeoutSeconds": "accessTokenInactivityTimeoutSeconds - DEPRECATED: setting this field has no effect.",
+	"accessTokenInactivityTimeout":        "accessTokenInactivityTimeout defines the token inactivity timeout for tokens granted by any client. The value represents the maximum amount of time that can occur between consecutive uses of the token. Tokens become invalid if they are not used within this temporal window. The user will need to acquire a new token to regain access once a token times out. Takes valid time duration string such as \"5m\", \"1.5h\" or \"2h45m\". The minimum allowed value for duration is 300s (5 minutes). If the timeout is configured per client, then that value takes precedence. If the timeout value is not specified and the client does not override the value, then tokens are valid until their lifetime.",
 }
 
 func (TokenConfig) SwaggerDoc() map[string]string {
@@ -1196,7 +1376,7 @@ var map_ProxySpec = map[string]string{
 	"httpsProxy":         "httpsProxy is the URL of the proxy for HTTPS requests.  Empty means unset and will not result in an env var.",
 	"noProxy":            "noProxy is a comma-separated list of hostnames and/or CIDRs for which the proxy should not be used. Empty means unset and will not result in an env var.",
 	"readinessEndpoints": "readinessEndpoints is a list of endpoints used to verify readiness of the proxy.",
-	"trustedCA":          "trustedCA is a reference to a ConfigMap containing a CA certificate bundle used for client egress HTTPS connections. The certificate bundle must be from the CA that signed the proxy's certificate and be signed for everything. The trustedCA field should only be consumed by a proxy validator. The validator is responsible for reading the certificate bundle from required key \"ca-bundle.crt\" and copying it to a ConfigMap named \"trusted-ca-bundle\" in the \"openshift-config-managed\" namespace. The namespace for the ConfigMap referenced by trustedCA is \"openshift-config\". Here is an example ConfigMap (in yaml):\n\napiVersion: v1 kind: ConfigMap metadata:\n name: user-ca-bundle\n namespace: openshift-config\n data:\n   ca-bundle.crt: |",
+	"trustedCA":          "trustedCA is a reference to a ConfigMap containing a CA certificate bundle. The trustedCA field should only be consumed by a proxy validator. The validator is responsible for reading the certificate bundle from the required key \"ca-bundle.crt\", merging it with the system default trust bundle, and writing the merged trust bundle to a ConfigMap named \"trusted-ca-bundle\" in the \"openshift-config-managed\" namespace. Clients that expect to make proxy connections must use the trusted-ca-bundle for all HTTPS requests to the proxy, and may use the trusted-ca-bundle for non-proxy HTTPS requests as well.\n\nThe namespace for the ConfigMap referenced by trustedCA is \"openshift-config\". Here is an example ConfigMap (in yaml):\n\napiVersion: v1 kind: ConfigMap metadata:\n name: user-ca-bundle\n namespace: openshift-config\n data:\n   ca-bundle.crt: |",
 }
 
 func (ProxySpec) SwaggerDoc() map[string]string {
@@ -1225,8 +1405,9 @@ func (Scheduler) SwaggerDoc() map[string]string {
 }
 
 var map_SchedulerSpec = map[string]string{
-	"policy":              "policy is a reference to a ConfigMap containing scheduler policy which has user specified predicates and priorities. If this ConfigMap is not available scheduler will default to use DefaultAlgorithmProvider. The namespace for this configmap is openshift-config.",
-	"defaultNodeSelector": "defaultNodeSelector helps set the cluster-wide default node selector to restrict pod placement to specific nodes. This is applied to the pods created in all namespaces without a specified nodeSelector value. For example, defaultNodeSelector: \"type=user-node,region=east\" would set nodeSelector field in pod spec to \"type=user-node,region=east\" to all pods created in all namespaces. Namespaces having project-wide node selectors won't be impacted even if this field is set. This adds an annotation section to the namespace. For example, if a new namespace is created with node-selector='type=user-node,region=east', the annotation openshift.io/node-selector: type=user-node,region=east gets added to the project. When the openshift.io/node-selector annotation is set on the project the value is used in preference to the value we are setting for defaultNodeSelector field. For instance, openshift.io/node-selector: \"type=user-node,region=west\" means that the default of \"type=user-node,region=east\" set in defaultNodeSelector would not be applied.",
+	"policy":              "DEPRECATED: the scheduler Policy API has been deprecated and will be removed in a future release. policy is a reference to a ConfigMap containing scheduler policy which has user specified predicates and priorities. If this ConfigMap is not available scheduler will default to use DefaultAlgorithmProvider. The namespace for this configmap is openshift-config.",
+	"profile":             "profile sets which scheduling profile should be set in order to configure scheduling decisions for new pods.\n\nValid values are \"LowNodeUtilization\", \"HighNodeUtilization\", \"NoScoring\" Defaults to \"LowNodeUtilization\"",
+	"defaultNodeSelector": "defaultNodeSelector helps set the cluster-wide default node selector to restrict pod placement to specific nodes. This is applied to the pods created in all namespaces and creates an intersection with any existing nodeSelectors already set on a pod, additionally constraining that pod's selector. For example, defaultNodeSelector: \"type=user-node,region=east\" would set nodeSelector field in pod spec to \"type=user-node,region=east\" to all pods created in all namespaces. Namespaces having project-wide node selectors won't be impacted even if this field is set. This adds an annotation section to the namespace. For example, if a new namespace is created with node-selector='type=user-node,region=east', the annotation openshift.io/node-selector: type=user-node,region=east gets added to the project. When the openshift.io/node-selector annotation is set on the project the value is used in preference to the value we are setting for defaultNodeSelector field. For instance, openshift.io/node-selector: \"type=user-node,region=west\" means that the default of \"type=user-node,region=east\" set in defaultNodeSelector would not be applied.",
 	"mastersSchedulable":  "MastersSchedulable allows masters nodes to be schedulable. When this flag is turned on, all the master nodes in the cluster will be made schedulable, so that workload pods can run on them. The default value for this field is false, meaning none of the master nodes are schedulable. Important Note: Once the workload pods start running on the master nodes, extreme care must be taken to ensure that cluster-critical control plane components are not impacted. Please turn on this field after doing due diligence.",
 }
 

@@ -136,13 +136,13 @@ cluster-patch:
 	hack/cluster-patch.sh
 
 deps-update-patch:
-	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh -- -u=patch && ./hack/dep-prune.sh && ./hack/bazel-generate.sh"
+	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh -- -u=patch && ./hack/bazel-generate.sh"
 
 deps-update:
-	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh && ./hack/dep-prune.sh && ./hack/bazel-generate.sh"
+	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh && ./hack/bazel-generate.sh"
 
 deps-sync:
-	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh --sync-only && ./hack/dep-prune.sh && ./hack/bazel-generate.sh"
+	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh --sync-only && ./hack/bazel-generate.sh"
 
 rpm-deps:
 	SYNC_VENDOR=true hack/dockerized "CUSTOM_REPO=${CUSTOM_REPO} SINGLE_ARCH=${SINGLE_ARCH} BASESYSTEM=${BASESYSTEM} LIBVIRT_VERSION=${LIBVIRT_VERSION} QEMU_VERSION=${QEMU_VERSION} SEABIOS_VERSION=${SEABIOS_VERSION} EDK2_VERSION=${EDK2_VERSION} LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION} GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION} PASST_VERSION=${PASST_VERSION} VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION} SWTPM_VERSION=${SWTPM_VERSION} ./hack/rpm-deps.sh"

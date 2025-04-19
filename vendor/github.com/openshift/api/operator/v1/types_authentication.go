@@ -25,7 +25,24 @@ type AuthenticationSpec struct {
 }
 
 type AuthenticationStatus struct {
+	// ManagingOAuthAPIServer indicates whether this operator is managing OAuth related APIs. Setting this field to true will cause OAS-O to step down.
+	// Note that this field will be removed in the future releases, once https://github.com/openshift/enhancements/blob/master/enhancements/authentication/separate-oauth-resources.md is fully implemented
+	// +optional
+	ManagingOAuthAPIServer bool `json:"managingOAuthAPIServer,omitempty"`
+
+	// OAuthAPIServer holds status specific only to oauth-apiserver
+	// +optional
+	OAuthAPIServer OAuthAPIServerStatus `json:"oauthAPIServer,omitempty"`
+
 	OperatorStatus `json:",inline"`
+}
+
+type OAuthAPIServerStatus struct {
+	// LatestAvailableRevision is the latest revision used as suffix of revisioned
+	// secrets like encryption-config. A new revision causes a new deployment of pods.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	LatestAvailableRevision int32 `json:"latestAvailableRevision,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
