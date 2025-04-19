@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -50,20 +52,9 @@ func Has2MiHugepages(node *k8sv1.Node) bool {
 
 func HasFeature(feature string) bool {
 	virtClient := kubevirt.Client()
-
-	var featureGates []string
 	kv := libkubevirt.GetCurrentKv(virtClient)
-	if kv.Spec.Configuration.DeveloperConfiguration != nil {
-		featureGates = kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
-	}
 
-	for _, fg := range featureGates {
-		if fg == feature {
-			return true
-		}
-	}
-
-	return false
+	return virtconfig.IsFeatureGateEnabled(feature, kv.Spec.Configuration.DeveloperConfiguration)
 }
 
 func IsSEVCapable(node *k8sv1.Node, sevLabel string) bool {

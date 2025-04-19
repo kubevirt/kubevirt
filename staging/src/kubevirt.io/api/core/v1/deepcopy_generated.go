@@ -926,6 +926,13 @@ func (in *DeveloperConfiguration) DeepCopyInto(out *DeveloperConfiguration) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.FeatureGatesMap != nil {
+		in, out := &in.FeatureGatesMap, &out.FeatureGatesMap
+		*out = make(map[string]bool, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.NodeSelectors != nil {
 		in, out := &in.NodeSelectors, &out.NodeSelectors
 		*out = make(map[string]string, len(*in))

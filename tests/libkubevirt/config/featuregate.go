@@ -28,7 +28,15 @@ import (
 )
 
 func DisableFeatureGate(feature string) {
-	if !checks.HasFeature(feature) {
+	setFeatureGateState(feature, false)
+}
+
+func EnableFeatureGate(feature string) {
+	setFeatureGateState(feature, true)
+}
+
+func setFeatureGateState(feature string, toEnable bool) {
+	if toEnable == checks.HasFeature(feature) {
 		return
 	}
 	virtClient := kubevirt.Client()
@@ -36,40 +44,13 @@ func DisableFeatureGate(feature string) {
 	kv := libkubevirt.GetCurrentKv(virtClient)
 	if kv.Spec.Configuration.DeveloperConfiguration == nil {
 		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-			FeatureGates: []string{},
+			FeatureGatesMap: map[string]bool{},
 		}
 	}
-
-	var newArray []string
-	featureGates := kv.Spec.Configuration.DeveloperConfiguration.FeatureGates
-	for _, fg := range featureGates {
-		if fg == feature {
-			continue
-		}
-
-		newArray = append(newArray, fg)
+	if kv.Spec.Configuration.DeveloperConfiguration.FeatureGatesMap == nil {
+		kv.Spec.Configuration.DeveloperConfiguration.FeatureGatesMap = map[string]bool{}
 	}
 
-	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = newArray
-
+	kv.Spec.Configuration.DeveloperConfiguration.FeatureGatesMap[feature] = toEnable
 	UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
-}
-
-func EnableFeatureGate(feature string) *v1.KubeVirt {
-	virtClient := kubevirt.Client()
-
-	kv := libkubevirt.GetCurrentKv(virtClient)
-	if checks.HasFeature(feature) {
-		return kv
-	}
-
-	if kv.Spec.Configuration.DeveloperConfiguration == nil {
-		kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-			FeatureGates: []string{},
-		}
-	}
-
-	kv.Spec.Configuration.DeveloperConfiguration.FeatureGates = append(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates, feature)
-
-	return UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 }
