@@ -192,15 +192,8 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		})
 	})
 
-	DescribeTable("should apply defaults on VMI create", func(arch string, cpuModel string, machineType string) {
+	DescribeTable("should apply defaults on VMI create when arch is known", func(arch string, cpuModel string, machineType string) {
 		// no limits wanted on this test, to not copy the limit to requests
-
-		if machineType == "" {
-			machineType = mutator.ClusterConfig.GetMachineType(rt.GOARCH)
-		}
-		if arch == "" && rt.GOARCH == "arm64" {
-			cpuModel = v1.CPUModeHostPassthrough
-		}
 
 		_, vmiSpec, _ := getMetaSpecStatusFromAdmit(arch)
 
@@ -213,7 +206,24 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Entry("when architecture is arm64", "arm64", v1.CPUModeHostPassthrough, "virt"),
 		Entry("when architecture is ppc64le", "ppc64le", v1.DefaultCPUModel, "pseries"),
 		Entry("when architecture is s390x", "s390x", v1.DefaultCPUModel, "s390-ccw-virtio"),
-		Entry("when architecture is not specified", "", v1.DefaultCPUModel, ""),
+	)
+
+	DescribeTable("should apply defaults on VMI create when arch is unknown", func(arch string, cpuModel string, machineType string) {
+		// no limits wanted on this test, to not copy the limit to requests
+
+		mutator.ClusterConfig.GetConfig().ArchitectureConfiguration.DefaultArchitecture = arch
+
+		_, vmiSpec, _ := getMetaSpecStatusFromAdmit("")
+
+		Expect(vmiSpec.Domain.Machine.Type).To(Equal(machineType))
+		Expect(vmiSpec.Domain.CPU.Model).To(Equal(cpuModel))
+		Expect(vmiSpec.Domain.Resources.Requests.Cpu().IsZero()).To(BeTrue())
+		Expect(vmiSpec.Domain.Resources.Requests.Memory().Value()).To(Equal(int64(0)))
+	},
+		Entry("when architecture is amd64", "amd64", v1.DefaultCPUModel, "q35"),
+		Entry("when architecture is arm64", "arm64", v1.CPUModeHostPassthrough, "virt"),
+		Entry("when architecture is ppc64le", "ppc64le", v1.DefaultCPUModel, "pseries"),
+		Entry("when architecture is s390x", "s390x", v1.DefaultCPUModel, "s390-ccw-virtio"),
 	)
 
 	DescribeTable("should apply configurable defaults on VMI create", func(arch string, cpuModel string) {
