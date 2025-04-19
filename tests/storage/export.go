@@ -308,7 +308,9 @@ var _ = Describe(SIG("Export", func() {
 			out, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, md5Command(fileName))
 			return err
 		}, 15*time.Second, 1*time.Second).Should(Succeed(), func() string {
-			return fmt.Sprintf("md5sum command should succeed; out: %s stderr: %s", out, stderr)
+			permissionsCmd := []string{"ls", "-laZ", fileName}
+			out1, stderr1, _ := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, permissionsCmd)
+			return fmt.Sprintf("md5sum command should succeed; out: %s stderr: %s\npermissions ATM out1: %s stderr1: %s", out, stderr, out1, stderr1)
 		})
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(HaveLen(32))
@@ -496,7 +498,7 @@ var _ = Describe(SIG("Export", func() {
 		expectedFormat exportv1.ExportVolumeFormat, urlTemplate string, volumeMode k8sv1.PersistentVolumeMode) {
 		sc, exists := storageClassFunction()
 		if !exists {
-			Fail("Fail test when right storage is not present")
+			Fail("Fail test when right storage is not available")
 		}
 		pvc, comparison := populateFunction(sc, volumeMode)
 		By("Creating the export token, we can export volumes using this token")

@@ -52,6 +52,12 @@ function _ensure_cdi_deployment() {
     host_port=$(${KUBEVIRT_PATH}kubevirtci/cluster-up/cli.sh ports uploadproxy | xargs)
     override="https://127.0.0.1:$host_port"
     _kubectl patch cdi ${cdi_namespace} --type merge -p '{"spec": {"config": {"uploadProxyURLOverride": "'"$override"'"}}}'
+
+    for i in $(seq 1 ${KUBEVIRT_NUM_NODES}); do
+        # increase kubelet verbosity for debugging fsgroup ownership changes
+      ./kubevirtci/cluster-up/ssh.sh "node$(printf "%02d" ${i})" "sudo sed -i 's/verbosity:.*/verbosity: 8/g' /var/lib/kubelet/config.yaml"
+      ./kubevirtci/cluster-up/ssh.sh "node$(printf "%02d" ${i})" "sudo systemctl daemon-reload && sudo systemctl restart kubelet"
+    done
 }
 
 function configure_prometheus() {
