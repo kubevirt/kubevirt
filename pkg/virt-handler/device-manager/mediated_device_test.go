@@ -105,7 +105,7 @@ var _ = Describe("Mediated Device", func() {
 			By("mocking PCI and MDEV functions to simulate an mdev an its parent PCI device")
 			ctrl = gomock.NewController(GinkgoT())
 			mockPCI = NewMockDeviceHandler(ctrl)
-			Handler = mockPCI
+			handler = mockPCI
 			// Force pre-defined returned values and ensure the function only get called exacly once each on 0000:00:00.0
 			mockPCI.EXPECT().GetMdevParentPCIAddr(fakeMdevUUID).Return(fakeAddress, nil).Times(1)
 			mockPCI.EXPECT().GetDeviceIOMMUGroup(mdevBasePath, fakeMdevUUID).Return(fakeIommuGroup, nil).Times(1)

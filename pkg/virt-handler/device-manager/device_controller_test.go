@@ -76,7 +76,7 @@ var _ = Describe("Device Controller", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockPCI = NewMockDeviceHandler(ctrl)
 		mockPCI.EXPECT().GetDevicePCIID(gomock.Any(), gomock.Any()).Return("1234:5678", nil).AnyTimes()
-		Handler = mockPCI
+		handler = mockPCI
 
 		fakeConfigMap, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 			PermittedHostDevices: &v1.PermittedHostDevices{
@@ -109,6 +109,7 @@ var _ = Describe("Device Controller", func() {
 		defer os.RemoveAll(workDir)
 		// Ensure the deviceController is stopped after each test to avoid leaking resources
 		stop <- struct{}{}
+		handler = &DeviceUtilsHandler{}
 	})
 
 	Context("Basic Tests", func() {

@@ -256,7 +256,6 @@ func removeSelectorSpaces(selectorName string) string {
 	typeNameStr := strings.Replace(string(selectorName), " ", "_", -1)
 	typeNameStr = strings.TrimSpace(typeNameStr)
 	return typeNameStr
-
 }
 
 func (c *DeviceController) splitPermittedDevices(devices []Device) (map[string]Device, map[string]struct{}) {
