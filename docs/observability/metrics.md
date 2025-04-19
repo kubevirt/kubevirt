@@ -117,6 +117,9 @@ Virtual Machine last transition timestamp to starting status. Type: Counter.
 ### kubevirt_vm_vnic_info
 Details of Virtual Machine (VM) vNIC interfaces, such as vNIC name, binding type, network name, and binding name for each vNIC defined in the VM's configuration. Type: Gauge.
 
+### kubevirt_vmi_cpu_pressure_seconds
+Time tasks were delayed due to lack of CPU resources. Type can be some or full (some is the walltime for some (one or more) tasks while full is the walltime for all tasks). Type: Counter.
+
 ### kubevirt_vmi_cpu_system_usage_seconds_total
 Total CPU time spent in system mode. Type: Counter.
 
@@ -134,6 +137,9 @@ Used VM filesystem capacity in bytes. Type: Gauge.
 
 ### kubevirt_vmi_info
 Information about VirtualMachineInstances. Type: Gauge.
+
+### kubevirt_vmi_io_pressure_seconds
+Time tasks were delayed due to lack of IO resources. Type can be some or full (some is the walltime for some (one or more) tasks while full is the walltime for all tasks). Type: Counter.
 
 ### kubevirt_vmi_last_api_connection_timestamp_seconds
 Virtual Machine Instance last API connection timestamp. Including VNC, console, portforward, SSH and usbredir connections. Type: Gauge.
@@ -158,6 +164,9 @@ The number of page faults when disk IO was required. Page faults occur when a pr
 
 ### kubevirt_vmi_memory_pgminfault_total
 The number of other page faults, when disk IO was not required. Page faults occur when a process makes a valid access to virtual memory that is not available. When servicing the page fault, if disk IO is NOT required, it is considered as minor fault. Type: Counter.
+
+### kubevirt_vmi_memory_pressure_seconds
+Time tasks were delayed due to lack of memory resources. Type can be some or full (some is the walltime for some (one or more) tasks while full is the walltime for all tasks). Type: Counter.
 
 ### kubevirt_vmi_memory_resident_bytes
 Resident set size of the process running the domain. Type: Gauge.
