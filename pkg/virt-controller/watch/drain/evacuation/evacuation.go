@@ -359,7 +359,7 @@ func (c *EvacuationController) execute(key string) error {
 func getMarkedForEvictionVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
 	var evictionCandidates []*virtv1.VirtualMachineInstance
 	for _, vmi := range vmis {
-		if vmi.IsMarkedForEviction() && !hasMigratedOnEviction(vmi) && !migrationutils.IsMigrating(vmi) {
+		if vmi.IsMarkedForEviction() && !hasMigratedOnEviction(vmi) && !vmi.IsMigrating() {
 			evictionCandidates = append(evictionCandidates, vmi)
 		}
 	}

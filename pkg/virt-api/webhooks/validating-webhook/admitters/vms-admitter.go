@@ -43,7 +43,6 @@ import (
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-api"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	storageAdmitters "kubevirt.io/kubevirt/pkg/storage/admitters"
-	migrationutil "kubevirt.io/kubevirt/pkg/util/migrations"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -430,7 +429,7 @@ func (admitter *VMsAdmitter) validateVolumeRequests(ctx context.Context, vm *v1.
 			return causes, nil
 		}
 
-		if migrationutil.IsMigrating(vmi) {
+		if vmi.IsMigrating() {
 			return []metav1.StatusCause{{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
 				Message: fmt.Sprintf("Cannot handle volume requests while VMI migration is in progress"),
