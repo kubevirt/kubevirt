@@ -33,7 +33,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 
-	"kubevirt.io/kubevirt/pkg/network/driver/netlink"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
@@ -73,7 +72,7 @@ func NewPasstNetworkConfigurator(ifaces []vmschema.Interface, networks []vmschem
 		return nil, fmt.Errorf("interface %q is not set with Passt network binding plugin", network.Name)
 	}
 	if linkFinder == nil {
-		linkFinder = &netlink.NetLink{}
+		return nil, fmt.Errorf("missing linkFinder interface")
 	}
 
 	return &PasstNetworkConfigurator{
