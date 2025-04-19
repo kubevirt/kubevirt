@@ -19,7 +19,7 @@ function deploy_kwok() {
 function copy_istio_cni_conf_files() {
     if [ "$KUBEVIRT_DEPLOY_ISTIO" == "true" ] && [ "$KUBEVIRT_WITH_CNAO" == "true" ]; then
         for nodeNum in $(seq -f "%02g" 1 $KUBEVIRT_NUM_NODES); do
-            $ssh node${nodeNum} -- "until ls /etc/cni/multus > /dev/null 2>&1; do sleep 1; done"
+            $ssh node${nodeNum} -- "until ls /etc/cni/multus/net.d/*istio*.conf > /dev/null 2>&1; do sleep 1; done"
             $ssh node${nodeNum} -- sudo cp -uv /etc/cni/multus/net.d/*istio*.conf /etc/cni/net.d/
         done
     fi
