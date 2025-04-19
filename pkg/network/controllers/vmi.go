@@ -22,15 +22,19 @@ package controllers
 import (
 	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	k8scorev1 "k8s.io/api/core/v1"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/namescheme"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	"kubevirt.io/kubevirt/pkg/util/migrations"
 )
 
 func UpdateVMIStatus(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) error {
@@ -51,6 +55,30 @@ func UpdateVMIStatus(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) error {
 	interfaceStatuses = append(interfaceStatuses, filterUnspecifiedSpecIfaces(vmi.Status.Interfaces, vmi.Spec.Networks)...)
 
 	vmi.Status.Interfaces = interfaceStatuses
+
+	if migrations.IsMigrating(vmi) {
+		return nil
+	}
+
+	cm := controller.NewVirtualMachineInstanceConditionManager()
+	hasCondition := cm.HasCondition(vmi, v1.VirtualMachineInstanceVNICChange)
+	shouldHave := shouldBeMarkedForAutoMigration(vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, vmi.Status.Interfaces)
+
+	switch {
+	case shouldHave && !hasCondition:
+		now := metav1.Now()
+		cm.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+			Type:               v1.VirtualMachineInstanceVNICChange,
+			Status:             k8scorev1.ConditionTrue,
+			LastProbeTime:      now,
+			LastTransitionTime: now,
+		})
+	case !shouldHave && hasCondition:
+		cm.RemoveCondition(vmi, v1.VirtualMachineInstanceVNICChange)
+	default:
+		// noop
+	}
+
 	return nil
 }
 
@@ -134,4 +162,29 @@ func filterUnspecifiedSpecIfaces(
 	}
 
 	return unspecifiedIfaceStatuses
+}
+
+func shouldBeMarkedForAutoMigration(
+	ifaces []v1.Interface,
+	nets []v1.Network,
+	ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface,
+) bool {
+	secondaryIfaces := vmispec.FilterInterfacesByNetworks(ifaces, vmispec.FilterMultusNonDefaultNetworks(nets))
+	ifaceStatusesByName := vmispec.IndexInterfaceStatusByName(ifaceStatuses, nil)
+
+	for _, iface := range secondaryIfaces {
+		ifaceStatus, ifaceStatusExists := ifaceStatusesByName[iface.Name]
+		if iface.State != v1.InterfaceStateAbsent && !ifaceStatusExists {
+			return true
+		}
+
+		if iface.State == v1.InterfaceStateAbsent &&
+			ifaceStatusExists &&
+			vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceMultusStatus) &&
+			!vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceDomain) {
+			return true
+		}
+	}
+
+	return false
 }
