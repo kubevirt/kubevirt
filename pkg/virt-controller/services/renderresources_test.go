@@ -292,7 +292,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			rr = NewResourceRenderer(
 				nil,
 				nil,
-				WithHostDevices([]v1.HostDevice{}),
+				WithHostDevicesDevicePlugin([]v1.HostDevice{}),
 			)
 			Expect(rr.Limits()).To(BeEmpty())
 			Expect(rr.Requests()).To(BeEmpty())
@@ -308,7 +308,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			rr = NewResourceRenderer(
 				nil,
 				nil,
-				WithHostDevices(hostDevices),
+				WithHostDevicesDevicePlugin(hostDevices),
 			)
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceName("discombobulator2000"), *resource.NewScaledQuantity(1, 0)))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceName("discombobulator2000"), *resource.NewScaledQuantity(1, 0)))
@@ -318,7 +318,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 			rr = NewResourceRenderer(
 				nil,
 				nil,
-				WithGPUs([]v1.GPU{}),
+				WithGPUsDevicePlugin([]v1.GPU{}),
 			)
 			Expect(rr.Limits()).To(BeEmpty())
 			Expect(rr.Requests()).To(BeEmpty())
@@ -334,9 +334,190 @@ var _ = Describe("Resource pod spec renderer", func() {
 			rr = NewResourceRenderer(
 				nil,
 				nil,
-				WithGPUs(requestedGPUs))
+				WithGPUsDevicePlugin(requestedGPUs))
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceName("discombobulator2000"), *resource.NewScaledQuantity(1, 0)))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceName("discombobulator2000"), *resource.NewScaledQuantity(1, 0)))
+		})
+
+		It("WithHostDevicesDevicePlugin should only request device resources", func() {
+			devicePluginHostDev := v1.HostDevice{
+				Name:       "device-plugin-host",
+				DeviceName: "pci-device",
+			}
+			draHostDev := v1.HostDevice{
+				Name: "dra-host",
+				ClaimRequest: &v1.ClaimRequest{
+					ClaimName:   pointer.P("dra-claim"),
+					RequestName: pointer.P("dra-request"),
+				},
+			}
+			hostDevices := []v1.HostDevice{devicePluginHostDev, draHostDev}
+
+			rr = NewResourceRenderer(nil, nil, WithHostDevicesDevicePlugin(hostDevices))
+
+			// Should only add the device plugin resource
+			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceName("pci-device"), *resource.NewQuantity(1, resource.DecimalSI)))
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceName("pci-device"), *resource.NewQuantity(1, resource.DecimalSI)))
+
+			// Should not add any resource claims
+			Expect(rr.Claims()).To(BeEmpty())
+		})
+
+		It("WithHostDevicesDRA should only add resource claims", func() {
+			devicePluginHostDev := v1.HostDevice{
+				Name:       "device-plugin-host",
+				DeviceName: "pci-device",
+			}
+			draHostDev := v1.HostDevice{
+				Name: "dra-host",
+				ClaimRequest: &v1.ClaimRequest{
+					ClaimName:   pointer.P("dra-claim"),
+					RequestName: pointer.P("dra-request"),
+				},
+			}
+			hostDevices := []v1.HostDevice{devicePluginHostDev, draHostDev}
+
+			rr = NewResourceRenderer(nil, nil, WithHostDevicesDRA(hostDevices))
+
+			// Should not add any device resources
+			Expect(rr.Limits()).To(BeEmpty())
+			Expect(rr.Requests()).To(BeEmpty())
+
+			// Should add the resource claim
+			claims := rr.Claims()
+			Expect(claims).To(HaveLen(1))
+			Expect(claims[0].Name).To(Equal("dra-claim"))
+			Expect(claims[0].Request).To(Equal("dra-request"))
+		})
+
+		It("WithGPUsDevicePlugin should only request device resources", func() {
+			devicePluginGPU := v1.GPU{
+				Name:       "device-plugin-gpu",
+				DeviceName: "nvidia-gpu",
+			}
+			draGPU := v1.GPU{
+				Name: "dra-gpu",
+				ClaimRequest: &v1.ClaimRequest{
+					ClaimName:   pointer.P("gpu-claim"),
+					RequestName: pointer.P("gpu-request"),
+				},
+			}
+			gpus := []v1.GPU{devicePluginGPU, draGPU}
+
+			rr = NewResourceRenderer(nil, nil, WithGPUsDevicePlugin(gpus))
+
+			// Should only add the device plugin resource
+			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceName("nvidia-gpu"), *resource.NewQuantity(1, resource.DecimalSI)))
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceName("nvidia-gpu"), *resource.NewQuantity(1, resource.DecimalSI)))
+
+			// Should not add any resource claims
+			Expect(rr.Claims()).To(BeEmpty())
+		})
+
+		It("WithGPUsDRA should only add resource claims", func() {
+			devicePluginGPU := v1.GPU{
+				Name:       "device-plugin-gpu",
+				DeviceName: "nvidia-gpu",
+			}
+			draGPU := v1.GPU{
+				Name: "dra-gpu",
+				ClaimRequest: &v1.ClaimRequest{
+					ClaimName:   pointer.P("gpu-claim"),
+					RequestName: pointer.P("gpu-request"),
+				},
+			}
+			gpus := []v1.GPU{devicePluginGPU, draGPU}
+
+			rr = NewResourceRenderer(nil, nil, WithGPUsDRA(gpus))
+
+			// Should not add any device resources
+			Expect(rr.Limits()).To(BeEmpty())
+			Expect(rr.Requests()).To(BeEmpty())
+
+			// Should add the resource claim
+			claims := rr.Claims()
+			Expect(claims).To(HaveLen(1))
+			Expect(claims[0].Name).To(Equal("gpu-claim"))
+			Expect(claims[0].Request).To(Equal("gpu-request"))
+		})
+
+		It("WithGPUsDRA should not interfere with other renderer options", func() {
+			// Create a renderer with some existing CPU and memory requests/limits
+			cpuRequest := resource.MustParse("100m")
+			memoryRequest := resource.MustParse("128Mi")
+			cpuLimit := resource.MustParse("200m")
+			memoryLimit := resource.MustParse("256Mi")
+
+			requests := kubev1.ResourceList{
+				kubev1.ResourceCPU:    cpuRequest,
+				kubev1.ResourceMemory: memoryRequest,
+			}
+			limits := kubev1.ResourceList{
+				kubev1.ResourceCPU:    cpuLimit,
+				kubev1.ResourceMemory: memoryLimit,
+			}
+
+			// GPU with DRA
+			gpus := []v1.GPU{
+				{
+					Name: "dra-gpu",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("gpu-claim"),
+						RequestName: pointer.P("gpu-request"),
+					},
+				},
+			}
+
+			// Create a renderer with both existing requests/limits and WithGPUsDRA
+			rr = NewResourceRenderer(limits, requests, WithGPUsDRA(gpus))
+
+			// Should preserve existing resource requests and limits
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, cpuRequest))
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceMemory, memoryRequest))
+			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceCPU, cpuLimit))
+			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceMemory, memoryLimit))
+
+			// Should still add the resource claim
+			claims := rr.Claims()
+			Expect(claims).To(HaveLen(1))
+			Expect(claims[0].Name).To(Equal("gpu-claim"))
+			Expect(claims[0].Request).To(Equal("gpu-request"))
+
+			// Test with multiple renderer options
+			hostDevices := []v1.HostDevice{
+				{
+					Name: "host-dev",
+					ClaimRequest: &v1.ClaimRequest{
+						ClaimName:   pointer.P("hostdev-claim"),
+						RequestName: pointer.P("hostdev-request"),
+					},
+				},
+			}
+
+			// Create a renderer with both GPU and host device DRA options
+			rr = NewResourceRenderer(limits, requests,
+				WithGPUsDRA(gpus),
+				WithHostDevicesDRA(hostDevices),
+			)
+
+			// Should preserve existing resource requests and limits
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, cpuRequest))
+			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceMemory, memoryRequest))
+			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceCPU, cpuLimit))
+			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceMemory, memoryLimit))
+
+			// Should add both resource claims
+			claims = rr.Claims()
+			Expect(claims).To(HaveLen(2))
+
+			// Verify both claims are present
+			claimNames := make(map[string]string)
+			for _, claim := range claims {
+				claimNames[claim.Name] = claim.Request
+			}
+
+			Expect(claimNames).To(HaveKeyWithValue("gpu-claim", "gpu-request"))
+			Expect(claimNames).To(HaveKeyWithValue("hostdev-claim", "hostdev-request"))
 		})
 	})
 
