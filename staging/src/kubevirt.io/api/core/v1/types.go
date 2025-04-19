@@ -1561,6 +1561,7 @@ type UpdateVolumesStrategy string
 const (
 	UpdateVolumesStrategyMigration   UpdateVolumesStrategy = "Migration"
 	UpdateVolumesStrategyReplacement UpdateVolumesStrategy = "Replacement"
+	UpdateVolumesStrategyHotplug     UpdateVolumesStrategy = "Hotplug"
 )
 
 // VirtualMachineSpec describes how the proper VirtualMachine

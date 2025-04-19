@@ -282,6 +282,14 @@ func validateLiveUpdateFeatures(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 		}
 	}
 
+	if spec.UpdateVolumesStrategy != nil && *spec.UpdateVolumesStrategy == v1.UpdateVolumesStrategyHotplug && !config.DeclarativeVolumeHotplugEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.DeclarativeHotplugVolumeGate),
+			Field:   "updateVolumesStrategy",
+		})
+	}
+
 	return causes
 }
 
