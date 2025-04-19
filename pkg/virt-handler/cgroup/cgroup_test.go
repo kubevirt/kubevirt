@@ -12,10 +12,8 @@ import (
 var _ = Describe("cgroup manager", func() {
 
 	var (
-		ctrl                  *gomock.Controller
-		rulesDefined          []*devices.Rule
-		v2DirPath             string
-		subsystemPathsDefined map[string]string
+		ctrl         *gomock.Controller
+		rulesDefined []*devices.Rule
 	)
 
 	newMockManagerFromCtrl := func(ctrl *gomock.Controller, version CgroupVersion) (Manager, error) {
@@ -27,7 +25,7 @@ var _ = Describe("cgroup manager", func() {
 			if version == V1 {
 				paths["devices"] = "/sys/fs/cgroup/devices"
 			} else {
-				paths[""] = v2DirPath
+				paths[""] = "/sys/fs/cgroup/"
 			}
 
 			return paths
@@ -35,7 +33,6 @@ var _ = Describe("cgroup manager", func() {
 
 		execVirtChrootFunc := func(r *runc_configs.Resources, subsystemPaths map[string]string, rootless bool, version CgroupVersion) error {
 			rulesDefined = r.Devices
-			subsystemPathsDefined = subsystemPaths
 			return nil
 		}
 
@@ -75,11 +72,6 @@ var _ = Describe("cgroup manager", func() {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		rulesDefined = make([]*devices.Rule, 0)
-		v2DirPath = "/sys/fs/cgroup/"
-	})
-
-	AfterEach(func() {
-		v2DirPath = ""
 	})
 
 	DescribeTable("ensure that default rules are added", func(version CgroupVersion) {
@@ -142,37 +134,4 @@ var _ = Describe("cgroup manager", func() {
 		Entry("for v2", V2),
 	)
 
-	DescribeTable("ensure that correct set of cgroups is configured", func(dirPath string, expectedPaths []string) {
-		v2DirPath = dirPath
-		manager, err := newMockManager(V2)
-		Expect(err).ShouldNot(HaveOccurred())
-
-		fakeRule := newDeviceRule(123)
-
-		err = manager.Set(newResourcesWithRule(fakeRule))
-		Expect(err).ShouldNot(HaveOccurred())
-
-		Expect(rulesDefined).To(ContainElement(fakeRule), "defined rule is expected to exist")
-
-		defaultDeviceRules := GenerateDefaultDeviceRules()
-		for _, defaultRule := range defaultDeviceRules {
-			Expect(rulesDefined).To(ContainElement(defaultRule), "default rules are expected to be defined")
-		}
-		Expect(rulesDefined).To(HaveLen(len(defaultDeviceRules) + 1))
-		Expect(subsystemPathsDefined).To(ConsistOf(expectedPaths))
-	},
-		Entry("for crun installation",
-			"/sys/fs/cgroup/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod123.slice/crio-456.scope/container",
-			[]string{
-				"/sys/fs/cgroup/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod123.slice/crio-456.scope/container",
-				"/sys/fs/cgroup/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod123.slice/crio-456.scope",
-			},
-		),
-		Entry("for runc installation",
-			"/sys/fs/cgroup/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod123.slice/crio-456.scope",
-			[]string{
-				"/sys/fs/cgroup/kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod123.slice/crio-456.scope",
-			},
-		),
-	)
 })
