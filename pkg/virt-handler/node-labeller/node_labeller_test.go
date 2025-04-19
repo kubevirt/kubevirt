@@ -294,7 +294,7 @@ var _ = Describe("Node-labeller ", func() {
 		Expect(nlController.ShouldLabelNodes()).To(Equal(shouldLabel))
 	},
 		Entry(amd64, amd64, true),
-		Entry(arm64, arm64, false),
+		Entry(arm64, arm64, true),
 		Entry(s390x, s390x, true),
 		Entry("unknown", "unknown", false),
 	)
