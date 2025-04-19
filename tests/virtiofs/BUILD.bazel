@@ -26,6 +26,7 @@ go_library(
         "//tests/libconfigmap:go_default_library",
         "//tests/libkubevirt:go_default_library",
         "//tests/libkubevirt/config:go_default_library",
+        "//tests/libnode:go_default_library",
         "//tests/libpod:go_default_library",
         "//tests/libsecret:go_default_library",
         "//tests/libstorage:go_default_library",
