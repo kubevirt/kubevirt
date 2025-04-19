@@ -47,8 +47,12 @@ import (
 )
 
 const (
-	PVCPrefix = "persistent-state-for"
-	PVCSize   = "10Mi"
+	// MinimumSupportedPVCSize is an annotation used to specify the minimum supported PVC size
+	// for a given storage class.
+	MinimumSupportedPVCSize = "storage.kubevirt.io/minimum-supported-pvc-size"
+
+	PVCPrefix      = "persistent-state-for"
+	DefaultPVCSize = "10Mi"
 )
 
 func basePVC(vmi *corev1.VirtualMachineInstance) string {
@@ -413,6 +417,33 @@ func (bs *BackendStorage) getStorageClass() (string, error) {
 	}
 }
 
+func (bs *BackendStorage) getBackendPVCSize(storageClassName string) (*resource.Quantity, error) {
+	// Default size is 10Mi if the annotation is not set
+	defaultQuantity := resource.MustParse(DefaultPVCSize)
+
+	obj, exists, err := bs.scStore.GetByKey(storageClassName)
+	if err != nil {
+		return &defaultQuantity, err
+	}
+	if !exists {
+		log.Log.Infof("no %s storage class found, using default size %s", storageClassName, DefaultPVCSize)
+		return &defaultQuantity, nil
+	}
+
+	sc := obj.(*storagev1.StorageClass)
+	if val, ok := sc.Annotations[MinimumSupportedPVCSize]; ok {
+		if parsedSize, err := resource.ParseQuantity(val); err == nil {
+			// If the parsed size is greater than or equal to the default size, use it instead
+			if parsedSize.Cmp(defaultQuantity) >= 0 {
+				return &parsedSize, nil
+			}
+		} else {
+			log.Log.V(1).Infof("invalid PVC size in annotation %s: %v, using default size instead", MinimumSupportedPVCSize, err)
+		}
+	}
+	return &defaultQuantity, nil
+}
+
 func (bs *BackendStorage) getAccessMode(storageClass string, mode v1.PersistentVolumeMode) v1.PersistentVolumeAccessMode {
 	// The default access mode should be RWX if the storage class was manually specified.
 	// However, if we're using the cluster default storage class, default to access mode RWO.
@@ -499,6 +530,12 @@ func (bs *BackendStorage) createPVC(vmi *corev1.VirtualMachineInstance, labels m
 			*metav1.NewControllerRef(vmi, corev1.VirtualMachineInstanceGroupVersionKind),
 		}
 	}
+
+	size, err := bs.getBackendPVCSize(storageClass)
+	if err != nil {
+		return nil, err
+	}
+
 	pvc := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName:    basePVC(vmi) + "-",
@@ -508,7 +545,7 @@ func (bs *BackendStorage) createPVC(vmi *corev1.VirtualMachineInstance, labels m
 		Spec: v1.PersistentVolumeClaimSpec{
 			AccessModes: []v1.PersistentVolumeAccessMode{accessMode},
 			Resources: v1.VolumeResourceRequirements{
-				Requests: v1.ResourceList{v1.ResourceStorage: resource.MustParse(PVCSize)},
+				Requests: v1.ResourceList{v1.ResourceStorage: *size},
 			},
 			StorageClassName: &storageClass,
 			VolumeMode:       &mode,
