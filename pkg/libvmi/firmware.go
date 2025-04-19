@@ -17,6 +17,8 @@ limitations under the License.
 package libvmi
 
 import (
+	"k8s.io/apimachinery/pkg/types"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -57,5 +59,14 @@ func WithKernelBootContainer(imageName string) Option {
 				},
 			},
 		}
+	}
+}
+
+func WithFirmwareUUID(uid types.UID) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Firmware == nil {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{}
+		}
+		vmi.Spec.Domain.Firmware.UUID = uid
 	}
 }
