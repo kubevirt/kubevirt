@@ -16,7 +16,7 @@ func NewCommand() *cobra.Command {
 		Use:   ADM,
 		Short: "Administrate KubeVirt configuration.",
 		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Printf(cmd.UsageString())
+			cmd.Println(cmd.UsageString())
 		},
 	}
 	cmd.AddCommand(logverbosity.NewCommand())
