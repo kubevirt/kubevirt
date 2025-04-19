@@ -80,6 +80,7 @@ func (converterS390X) TransitionalModelType(_ bool) string {
 }
 
 func (converterS390X) IsROMTuningSupported() bool {
+	// s390x does not support setting ROM tuning, as it is for PCI Devices only
 	return false
 }
 
@@ -104,4 +105,10 @@ func (converterS390X) ConvertWatchdog(source *v1.Watchdog, watchdog *api.Watchdo
 		return nil
 	}
 	return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", source.Name)
+}
+
+func (converterS390X) LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
+	// We would want to set launchsecurity with type "s390-pv" here, but this does not work in privileged pod.
+	// Ensure VM runs with iommu on all devices instead.
+	return nil
 }

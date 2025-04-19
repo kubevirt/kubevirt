@@ -6858,6 +6858,10 @@ var CRDsValidation map[string]string = map[string]string{
                     launchSecurity:
                       description: Launch Security setting of the vmi.
                       properties:
+                        secureExecution:
+                          description: IBM Secure Execution (Protected Virtualization
+                            on s390)
+                          type: object
                         sev:
                           description: AMD Secure Encrypted Virtualization (SEV).
                           properties:
@@ -8937,6 +8941,9 @@ var CRDsValidation map[string]string = map[string]string{
         launchSecurity:
           description: Optionally defines the LaunchSecurity to be used by the instancetype.
           properties:
+            secureExecution:
+              description: IBM Secure Execution (Protected Virtualization on s390)
+              type: object
             sev:
               description: AMD Secure Encrypted Virtualization (SEV).
               properties:
@@ -12152,6 +12159,9 @@ var CRDsValidation map[string]string = map[string]string{
             launchSecurity:
               description: Launch Security setting of the vmi.
               properties:
+                secureExecution:
+                  description: IBM Secure Execution (Protected Virtualization on s390)
+                  type: object
                 sev:
                   description: AMD Secure Encrypted Virtualization (SEV).
                   properties:
@@ -15381,6 +15391,9 @@ var CRDsValidation map[string]string = map[string]string{
             launchSecurity:
               description: Launch Security setting of the vmi.
               properties:
+                secureExecution:
+                  description: IBM Secure Execution (Protected Virtualization on s390)
+                  type: object
                 sev:
                   description: AMD Secure Encrypted Virtualization (SEV).
                   properties:
@@ -17821,6 +17834,10 @@ var CRDsValidation map[string]string = map[string]string{
                     launchSecurity:
                       description: Launch Security setting of the vmi.
                       properties:
+                        secureExecution:
+                          description: IBM Secure Execution (Protected Virtualization
+                            on s390)
+                          type: object
                         sev:
                           description: AMD Secure Encrypted Virtualization (SEV).
                           properties:
@@ -19180,6 +19197,9 @@ var CRDsValidation map[string]string = map[string]string{
         launchSecurity:
           description: Optionally defines the LaunchSecurity to be used by the instancetype.
           properties:
+            secureExecution:
+              description: IBM Secure Execution (Protected Virtualization on s390)
+              type: object
             sev:
               description: AMD Secure Encrypted Virtualization (SEV).
               properties:
@@ -22341,6 +22361,10 @@ var CRDsValidation map[string]string = map[string]string{
                             launchSecurity:
                               description: Launch Security setting of the vmi.
                               properties:
+                                secureExecution:
+                                  description: IBM Secure Execution (Protected Virtualization
+                                    on s390)
+                                  type: object
                                 sev:
                                   description: AMD Secure Encrypted Virtualization
                                     (SEV).
@@ -27553,6 +27577,10 @@ var CRDsValidation map[string]string = map[string]string{
                                 launchSecurity:
                                   description: Launch Security setting of the vmi.
                                   properties:
+                                    secureExecution:
+                                      description: IBM Secure Execution (Protected
+                                        Virtualization on s390)
+                                      type: object
                                     sev:
                                       description: AMD Secure Encrypted Virtualization
                                         (SEV).

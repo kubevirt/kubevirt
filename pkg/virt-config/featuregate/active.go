@@ -67,6 +67,9 @@ const (
 
 	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
 	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
+
+	// IBM SecureExecution
+	SecureExecution = "SecureExecution"
 )
 
 func init() {

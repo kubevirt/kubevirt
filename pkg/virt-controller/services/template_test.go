@@ -4625,6 +4625,30 @@ var _ = Describe("Template", func() {
 		})
 	})
 
+	Context("Secure Execution LaunchSecurity", func() {
+		It("should not run privileged with Secure Execution", func() {
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "namespace",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						LaunchSecurity: &v1.LaunchSecurity{
+							SecureExecution: &v1.SecureExecution{},
+						},
+					},
+				},
+			}
+			pod, err := svc.RenderLaunchManifest(&vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pod.Spec.Containers).To(HaveLen(1))
+			Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(BeFalse())
+		})
+	})
+
 	Context("with VSOCK enabled", func() {
 		It("should add VSOCK device to resources", func() {
 			vmi := api.NewMinimalVMI("fake-vmi")

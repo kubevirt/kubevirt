@@ -46,6 +46,7 @@ type Converter interface {
 	RequiresMPXCPUValidation() bool
 	ShouldVerboseLogsBeEnabled() bool
 	ConvertWatchdog(source *v1.Watchdog, watchdog *api.Watchdog) error
+	LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity
 }
 
 func NewConverter(arch string) Converter {

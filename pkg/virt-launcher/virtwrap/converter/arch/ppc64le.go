@@ -91,3 +91,7 @@ func (converterPPC64) HasVMPort() bool {
 func (converterPPC64) ConvertWatchdog(source *v1.Watchdog, watchdog *api.Watchdog) error {
 	return fmt.Errorf("watchdog is not supported on architecture PPC64")
 }
+
+func (converterPPC64) LaunchSecurity(_ *v1.VirtualMachineInstance) *api.LaunchSecurity {
+	return nil
+}
