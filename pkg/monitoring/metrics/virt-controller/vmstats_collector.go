@@ -623,11 +623,10 @@ func getSizeFromDataVolumeTemplates(vm *k6tv1.VirtualMachine, dataVolumeName str
 		if dvTemplate.Name == dataVolumeName {
 			if dvTemplate.Spec.PVC != nil {
 				return dvTemplate.Spec.PVC.Resources.Requests.Storage()
+			} else if dvTemplate.Spec.Storage != nil {
+				return dvTemplate.Spec.Storage.Resources.Requests.Storage()
 			}
-
-			break
 		}
 	}
-
 	return nil
 }
