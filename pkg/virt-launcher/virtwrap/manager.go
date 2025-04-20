@@ -1762,8 +1762,15 @@ func (l *LibvirtDomainManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreez
 			return err
 		}
 	}
-	_, err = l.virConn.QemuAgentCommand(`{"execute":"guest-fsfreeze-freeze"}`, domainName)
+
+	domain, err := l.virConn.LookupDomainByName(domainName)
 	if err != nil {
+		log.Log.Errorf("Domain lookup failed: %v", err)
+		return err
+	}
+	defer domain.Free()
+
+	if err := domain.FSFreeze(nil, 0); err != nil {
 		log.Log.Errorf("Failed to freeze vmi, %s", err.Error())
 		return err
 	}
@@ -1785,9 +1792,15 @@ func (l *LibvirtDomainManager) UnfreezeVMI(vmi *v1.VirtualMachineInstance) error
 			return nil
 		}
 	}
-	// even if failed we should still try to unfreeze the fs
-	_, err = l.virConn.QemuAgentCommand(`{"execute":"guest-fsfreeze-thaw"}`, domainName)
+
+	domain, err := l.virConn.LookupDomainByName(domainName)
 	if err != nil {
+		log.Log.Errorf("Domain lookup failed: %v", err)
+		return err
+	}
+	defer domain.Free()
+
+	if err := domain.FSThaw(nil, 0); err != nil {
 		log.Log.Errorf("Failed to unfreeze vmi, %s", err.Error())
 		return err
 	}
