@@ -10,6 +10,7 @@
     "workloads": {},
     "featureGates": {
       "downwardMetrics": false,
+      "deployKubeSecondaryDNS": false,
       "disableMDevConfiguration": false,
       "persistentReservation": false,
       "alignCPUs": false
@@ -49,7 +50,6 @@
     },
     "enableCommonBootImageImport": true,
     "deployVmConsoleProxy": false,
-    "deployKubeSecondaryDNS": false,
     "enableApplicationAwareQuota": false
   },
   "status": {}

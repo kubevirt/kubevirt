@@ -67,6 +67,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 	Context("feature gate defaults", func() {
 		defaultFeatureGates := v1beta1.HyperConvergedFeatureGates{
 			DownwardMetrics:          ptr.To(false),
+			DeployKubeSecondaryDNS:   ptr.To(false),
 			DisableMDevConfiguration: ptr.To(false),
 			PersistentReservation:    ptr.To(false),
 			AlignCPUs:                ptr.To(false),
@@ -84,6 +85,7 @@ var _ = Describe("Check Default values", Label("defaults"), Serial, func() {
 			}).WithTimeout(2 * time.Second).WithPolling(100 * time.Millisecond).WithContext(ctx).Should(Succeed())
 		},
 			Entry("when removing /spec/featureGates/downwardMetrics", "/spec/featureGates/downwardMetrics"),
+			Entry("when removing /spec/featureGates/deployKubeSecondaryDNS", "/spec/featureGates/deployKubeSecondaryDNS"),
 			Entry("when removing /spec/featureGates/persistentReservation", "/spec/featureGates/persistentReservation"),
 			Entry("when removing /spec/featureGates/alignCPUs", "/spec/featureGates/alignCPUs"),
 			Entry("when removing /spec/featureGates", "/spec/featureGates"),

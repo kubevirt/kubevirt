@@ -44,6 +44,10 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 		var ptrVar1 bool = false
 		in.Spec.FeatureGates.DownwardMetrics = &ptrVar1
 	}
+	if in.Spec.FeatureGates.DeployKubeSecondaryDNS == nil {
+		var ptrVar1 bool = false
+		in.Spec.FeatureGates.DeployKubeSecondaryDNS = &ptrVar1
+	}
 	if in.Spec.FeatureGates.DisableMDevConfiguration == nil {
 		var ptrVar1 bool = false
 		in.Spec.FeatureGates.DisableMDevConfiguration = &ptrVar1
@@ -155,10 +159,6 @@ func SetObjectDefaults_HyperConverged(in *HyperConverged) {
 	if in.Spec.DeployVMConsoleProxy == nil {
 		var ptrVar1 bool = false
 		in.Spec.DeployVMConsoleProxy = &ptrVar1
-	}
-	if in.Spec.DeployKubeSecondaryDNS == nil {
-		var ptrVar1 bool = false
-		in.Spec.DeployKubeSecondaryDNS = &ptrVar1
 	}
 	if in.Spec.EnableApplicationAwareQuota == nil {
 		var ptrVar1 bool = false

@@ -120,7 +120,7 @@ HyperConverged is the Schema for the hyperconvergeds API
 | Field | Description | Scheme | Default | Required |
 | ----- | ----------- | ------ | -------- |-------- |
 | metadata |  | [metav1.ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#objectmeta-v1-meta) |  | false |
-| spec |  | [HyperConvergedSpec](#hyperconvergedspec) | {"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"downwardMetrics": false, "disableMDevConfiguration": false, "persistentReservation": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 150, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist", "virtualMachineOptions": {"disableFreePageReporting": false, "disableSerialConsoleLog": false}, "enableApplicationAwareQuota": false, "enableCommonBootImageImport": true, "deployVmConsoleProxy": false, "deployKubeSecondaryDNS": false} | false |
+| spec |  | [HyperConvergedSpec](#hyperconvergedspec) | {"certConfig": {"ca": {"duration": "48h0m0s", "renewBefore": "24h0m0s"}, "server": {"duration": "24h0m0s", "renewBefore": "12h0m0s"}},"featureGates": {"downwardMetrics": false, "deployKubeSecondaryDNS": false, "disableMDevConfiguration": false, "persistentReservation": false}, "liveMigrationConfig": {"completionTimeoutPerGiB": 150, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false}, "resourceRequirements": {"vmiCPUAllocationRatio": 10}, "uninstallStrategy": "BlockUninstallIfWorkloadsExist", "virtualMachineOptions": {"disableFreePageReporting": false, "disableSerialConsoleLog": false}, "enableApplicationAwareQuota": false, "enableCommonBootImageImport": true, "deployVmConsoleProxy": false} | false |
 | status |  | [HyperConvergedStatus](#hyperconvergedstatus) |  | false |
 
 [Back to TOC](#table-of-contents)
@@ -157,7 +157,7 @@ HyperConvergedFeatureGates is a set of optional feature gates to enable or disab
 | enableCommonBootImageImport | Deprecated: This field is ignored. Use spec.enableCommonBootImageImport instead | *bool |  | false |
 | deployTektonTaskResources | Deprecated: This field is ignored and will be removed on the next version of the API. | *bool |  | false |
 | deployVmConsoleProxy | Deprecated: This field is ignored and will be removed on the next version of the API. Use spec.deployVmConsoleProxy instead | *bool |  | false |
-| deployKubeSecondaryDNS | Deprecated: This field is ignored and will be removed on the next version of the API. Use spec.deployKubeSecondaryDNS instead | *bool |  | false |
+| deployKubeSecondaryDNS | Deploy KubeSecondaryDNS by CNAO | *bool | false | false |
 | deployKubevirtIpamController | Deprecated: this field is ignored and will be removed in the next version of the API. | *bool |  | false |
 | nonRoot | Deprecated: // Deprecated: This field is ignored and will be removed on the next version of the API. | *bool |  | false |
 | disableMDevConfiguration | Disable mediated devices handling on KubeVirt | *bool | false | false |
@@ -202,7 +202,7 @@ HyperConvergedSpec defines the desired state of HyperConverged
 | tuningPolicy | TuningPolicy allows to configure the mode in which the RateLimits of kubevirt are set. If TuningPolicy is not present the default kubevirt values are used. It can be set to `annotation` for fine-tuning the kubevirt queryPerSeconds (qps) and burst values. Qps and burst values are taken from the annotation hco.kubevirt.io/tuningPolicy | HyperConvergedTuningPolicy |  | false |
 | infra | infra HyperConvergedConfig influences the pod configuration (currently only placement) for all the infra components needed on the virtualization enabled cluster but not necessarily directly on each node running VMs/VMIs. | [HyperConvergedConfig](#hyperconvergedconfig) |  | false |
 | workloads | workloads HyperConvergedConfig influences the pod configuration (currently only placement) of components which need to be running on a node where virtualization workloads should be able to run. Changes to Workloads HyperConvergedConfig can be applied only without existing workload. | [HyperConvergedConfig](#hyperconvergedconfig) |  | false |
-| featureGates | featureGates is a map of feature gate flags. Setting a flag to `true` will enable the feature. Setting `false` or removing the feature gate, disables the feature. | [HyperConvergedFeatureGates](#hyperconvergedfeaturegates) | {"downwardMetrics": false, "disableMDevConfiguration": false, "persistentReservation": false} | false |
+| featureGates | featureGates is a map of feature gate flags. Setting a flag to `true` will enable the feature. Setting `false` or removing the feature gate, disables the feature. | [HyperConvergedFeatureGates](#hyperconvergedfeaturegates) | {"downwardMetrics": false, "deployKubeSecondaryDNS": false, "disableMDevConfiguration": false, "persistentReservation": false} | false |
 | liveMigrationConfig | Live migration limits and timeouts are applied so that migration processes do not overwhelm the cluster. | [LiveMigrationConfigurations](#livemigrationconfigurations) | {"completionTimeoutPerGiB": 150, "parallelMigrationsPerCluster": 5, "parallelOutboundMigrationsPerNode": 2, "progressTimeout": 150, "allowAutoConverge": false, "allowPostCopy": false} | false |
 | permittedHostDevices | PermittedHostDevices holds information about devices allowed for passthrough | *[PermittedHostDevices](#permittedhostdevices) |  | false |
 | mediatedDevicesConfiguration | MediatedDevicesConfiguration holds information about MDEV types to be defined on nodes, if available | *[MediatedDevicesConfiguration](#mediateddevicesconfiguration) |  | false |
@@ -236,7 +236,6 @@ HyperConvergedSpec defines the desired state of HyperConverged
 | instancetypeConfig | InstancetypeConfig holds the configuration of instance type related functionality within KubeVirt. | *v1.InstancetypeConfiguration |  | false |
 | CommonInstancetypesDeployment | CommonInstancetypesDeployment holds the configuration of common-instancetypes deployment within KubeVirt. | *v1.CommonInstancetypesDeployment |  | false |
 | deployVmConsoleProxy | deploy VM console proxy resources in SSP operator | *bool | false | false |
-| deployKubeSecondaryDNS | Deploy KubeSecondaryDNS by CNAO | *bool | false | false |
 | enableApplicationAwareQuota | EnableApplicationAwareQuota if true, enables the Application Aware Quota feature | *bool | false | false |
 
 [Back to TOC](#table-of-contents)

@@ -133,24 +133,6 @@
       "semverRange": "<1.15.0",
       "jsonPatch": [
         {
-          "op": "test",
-          "path": "/spec/featureGates/deployKubeSecondaryDNS",
-          "value": true
-        },
-        {
-          "op": "move",
-          "from": "/spec/featureGates/deployKubeSecondaryDNS",
-          "path": "/spec/deployKubeSecondaryDNS"
-        }
-      ],
-      "jsonPatchApplyOptions": {
-        "allowMissingPathOnRemove": true
-      }
-    },
-    {
-      "semverRange": "<1.15.0",
-      "jsonPatch": [
-        {
           "op": "remove",
           "path": "/spec/featureGates/enableCommonBootImageImport"
         },
@@ -161,10 +143,6 @@
         {
           "op": "remove",
           "path": "/spec/featureGates/enableApplicationAwareQuota"
-        },
-        {
-          "op": "remove",
-          "path": "/spec/featureGates/deployKubeSecondaryDNS"
         }
       ],
       "jsonPatchApplyOptions": {

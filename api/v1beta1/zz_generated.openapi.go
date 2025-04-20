@@ -269,7 +269,8 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedF
 					},
 					"deployKubeSecondaryDNS": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Deprecated: This field is ignored and will be removed on the next version of the API. Use spec.deployKubeSecondaryDNS instead",
+							Description: "Deploy KubeSecondaryDNS by CNAO",
+							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -665,14 +666,6 @@ func schema_kubevirt_hyperconverged_cluster_operator_api_v1beta1_HyperConvergedS
 					"deployVmConsoleProxy": {
 						SchemaProps: spec.SchemaProps{
 							Description: "deploy VM console proxy resources in SSP operator",
-							Default:     false,
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"deployKubeSecondaryDNS": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Deploy KubeSecondaryDNS by CNAO",
 							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",

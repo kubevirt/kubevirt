@@ -517,7 +517,7 @@ var _ = Describe("webhooks validator", func() {
 						EnableManagedTenantQuota:    ptr.To(false),
 						DeployVMConsoleProxy:        ptr.To(false),
 						DeployKubeSecondaryDNS:      ptr.To(false),
-					}, "enableManagedTenantQuota", "nonRoot", "enableApplicationAwareQuota", "enableCommonBootImageImport", "deployVmConsoleProxy", "deployKubeSecondaryDNS"),
+					}, "enableManagedTenantQuota", "nonRoot", "enableApplicationAwareQuota", "enableCommonBootImageImport", "deployVmConsoleProxy"),
 			)
 		})
 	})
@@ -1298,27 +1298,6 @@ var _ = Describe("webhooks validator", func() {
 				Entry("should not trigger warning if deployVmConsoleProxy (false) disappeared", ptr.To(false), nil),
 				Entry("should not trigger warning if deployVmConsoleProxy (true) wasn't changed", ptr.To(true), ptr.To(true)),
 				Entry("should not trigger warning if deployVmConsoleProxy (false) wasn't changed", ptr.To(false), ptr.To(false)),
-			)
-
-			//nolint:staticcheck
-			DescribeTable("should return warning for deployKubeSecondaryDNS on update", func(newFG, oldFG *bool) {
-				newHCO := hco.DeepCopy()
-				hco.Spec.FeatureGates.DeployKubeSecondaryDNS = newFG
-				newHCO.Spec.FeatureGates.DeployKubeSecondaryDNS = oldFG
-
-				err := wh.ValidateUpdate(ctx, dryRun, newHCO, hco)
-
-				Expect(err).To(HaveOccurred())
-				expected := &ValidationWarning{}
-				Expect(errors.As(err, &expected)).To(BeTrue())
-
-				Expect(expected.warnings).To(HaveLen(1))
-				Expect(expected.warnings).To(ContainElements(ContainSubstring("deployKubeSecondaryDNS")))
-			},
-				Entry("should trigger warning if deployKubeSecondaryDNS appeared as true", nil, ptr.To(true)),
-				Entry("should trigger warning if deployKubeSecondaryDNS appeared as false", nil, ptr.To(false)),
-				Entry("should trigger warning if deployKubeSecondaryDNS has changed from true to false", ptr.To(true), ptr.To(false)),
-				Entry("should trigger warning if deployKubeSecondaryDNS has changed from false to true", ptr.To(false), ptr.To(true)),
 			)
 
 			//nolint:staticcheck

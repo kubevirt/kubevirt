@@ -11,12 +11,12 @@ spec:
     server:
       duration: 24h0m0s
       renewBefore: 12h0m0s
-  deployKubeSecondaryDNS: false
   deployVmConsoleProxy: false
   enableApplicationAwareQuota: false
   enableCommonBootImageImport: true
   featureGates:
     alignCPUs: false
+    deployKubeSecondaryDNS: false
     disableMDevConfiguration: false
     downwardMetrics: false
     persistentReservation: false
