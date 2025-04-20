@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright The KubeVirt Authors
+ * Copyright The KubeVirt Authors.
  *
  */
 package testing

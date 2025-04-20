@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2024 Red Hat, Inc.
+# Copyright The KubeVirt Authors.
 #
 
 export OVNK_COMMIT=c77ee8c38c6a6d9e55131a1272db5fad5b606e44
