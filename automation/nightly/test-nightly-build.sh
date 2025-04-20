@@ -106,22 +106,21 @@ sdk_url=$(curl https://api.github.com/repos/operator-framework/operator-sdk/rele
 wget $sdk_url -O operator-sdk
 chmod +x operator-sdk
 
+OLM_VERSION=$(curl https://api.github.com/repos/operator-framework/operator-lifecycle-manager/releases/latest | jq -r .name)
+
 # start K8s cluster
-export KUBEVIRT_PROVIDER=k8s-1.31
+export KUBEVIRT_PROVIDER=k8s-1.32
 export KUBEVIRT_MEMORY_SIZE=12G
 export KUBEVIRT_NUM_NODES=4
+# auto updated by hack/bump-kubevirtci.sh
+export KUBEVIRTCI_TAG=${KUBEVIRTCI_TAG:-"2504171552-a558e3fe"}
 make cluster-up
 
 export KUBECONFIG=$(_kubevirtci/cluster-up/kubeconfig.sh)
-
-# export KUBEVIRTCI_TAG=$(curl -L -Ss https://storage.googleapis.com/kubevirt-prow/release/kubevirt/kubevirtci/latest)
-export KUBEVIRTCI_TAG=2412041602-733e595f
 export KUBECTL=$(pwd)/_kubevirtci/cluster-up/kubectl.sh
 
 # install OLM on the cluster
-# latest OLM, v0.29.0 is broken. Forcing a working OLM version
-# TODO: drop the --version command line parameter when https://github.com/operator-framework/operator-lifecycle-manager/issues/3419 is resolved.
-./operator-sdk olm install --version=v0.28.0
+./operator-sdk olm install --version "${OLM_VERSION}"
 
 # Deploy cert-manager for webhooks
 $KUBECTL apply -f deploy/cert-manager.yaml

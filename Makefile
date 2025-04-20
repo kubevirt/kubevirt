@@ -222,7 +222,6 @@ dump-state:
 	./hack/dump-state.sh 
 
 bump-kubevirtci:
-	rm -rf _kubevirtci
 	./hack/bump-kubevirtci.sh
 
 gogenerate:
@@ -337,6 +336,7 @@ bump-hco:
 		sanity \
 		goimport \
 		bump-hco \
+		bump-kubevirtci \
 		build-push-multi-arch-operator-image \
 		build-push-multi-arch-webhook-image \
 		build-push-multi-arch-functest-image \
