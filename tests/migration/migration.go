@@ -2234,9 +2234,8 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				Expect(scheduledCond.Status).To(BeEquivalentTo(k8sv1.ConditionFalse), "PodScheduled status should be False")
 				Expect(scheduledCond.Reason).To(BeEquivalentTo(k8sv1.PodReasonUnschedulable), "PodScheduled reason should be Unschedulable")
-				Expect(scheduledCond.Message).To(ContainSubstring("node(s) didn't match Pod's node affinity/selector."), "PodScheduled message mismatch")
+				Expect(scheduledCond.Message).To(ContainSubstring("node(s) didn't match Pod's node affinity/selector"), "PodScheduled message mismatch")
 			})
-
 		})
 	})
 
