@@ -724,6 +724,11 @@ func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		opts = append(opts, WithSecureExecutionSelector())
 	}
 
+	if util.IsTDXVMI(vmi) {
+		log.Log.V(4).Info("Add TDX node label selector")
+		opts = append(opts, WithTDXSelector())
+	}
+
 	return NewNodeSelectorRenderer(
 		vmi.Spec.NodeSelector,
 		t.clusterConfig.GetNodeSelectors(),
