@@ -13428,7 +13428,7 @@
       "format": "int32"
      },
      "cache": {
-      "description": "Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.",
+      "description": "Cache specifies which kvm disk cache mode should be used. Supported values are: none, writethrough.",
       "type": "string"
      },
      "cdrom": {

@@ -6046,7 +6046,7 @@ var CRDsValidation map[string]string = map[string]string{
                               cache:
                                 description: |-
                                   Cache specifies which kvm disk cache mode should be used.
-                                  Supported values are: CacheNone, CacheWriteThrough.
+                                  Supported values are: none, writethrough.
                                 type: string
                               cdrom:
                                 description: Attach a volume as a cdrom to the vmi.
@@ -8275,7 +8275,7 @@ var CRDsValidation map[string]string = map[string]string{
                       cache:
                         description: |-
                           Cache specifies which kvm disk cache mode should be used.
-                          Supported values are: CacheNone, CacheWriteThrough.
+                          Supported values are: none, writethrough.
                         type: string
                       cdrom:
                         description: Attach a volume as a cdrom to the vmi.
@@ -11351,7 +11351,7 @@ var CRDsValidation map[string]string = map[string]string{
                       cache:
                         description: |-
                           Cache specifies which kvm disk cache mode should be used.
-                          Supported values are: CacheNone, CacheWriteThrough.
+                          Supported values are: none, writethrough.
                         type: string
                       cdrom:
                         description: Attach a volume as a cdrom to the vmi.
@@ -14580,7 +14580,7 @@ var CRDsValidation map[string]string = map[string]string{
                       cache:
                         description: |-
                           Cache specifies which kvm disk cache mode should be used.
-                          Supported values are: CacheNone, CacheWriteThrough.
+                          Supported values are: none, writethrough.
                         type: string
                       cdrom:
                         description: Attach a volume as a cdrom to the vmi.
@@ -17009,7 +17009,7 @@ var CRDsValidation map[string]string = map[string]string{
                               cache:
                                 description: |-
                                   Cache specifies which kvm disk cache mode should be used.
-                                  Supported values are: CacheNone, CacheWriteThrough.
+                                  Supported values are: none, writethrough.
                                 type: string
                               cdrom:
                                 description: Attach a volume as a cdrom to the vmi.
@@ -21508,7 +21508,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       cache:
                                         description: |-
                                           Cache specifies which kvm disk cache mode should be used.
-                                          Supported values are: CacheNone, CacheWriteThrough.
+                                          Supported values are: none, writethrough.
                                         type: string
                                       cdrom:
                                         description: Attach a volume as a cdrom to
@@ -26711,7 +26711,7 @@ var CRDsValidation map[string]string = map[string]string{
                                           cache:
                                             description: |-
                                               Cache specifies which kvm disk cache mode should be used.
-                                              Supported values are: CacheNone, CacheWriteThrough.
+                                              Supported values are: none, writethrough.
                                             type: string
                                           cdrom:
                                             description: Attach a volume as a cdrom
@@ -29007,7 +29007,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   cache:
                                     description: |-
                                       Cache specifies which kvm disk cache mode should be used.
-                                      Supported values are: CacheNone, CacheWriteThrough.
+                                      Supported values are: none, writethrough.
                                     type: string
                                   cdrom:
                                     description: Attach a volume as a cdrom to the

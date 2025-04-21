@@ -19254,7 +19254,7 @@ func schema_kubevirtio_api_core_v1_Disk(ref common.ReferenceCallback) common.Ope
 					},
 					"cache": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.",
+							Description: "Cache specifies which kvm disk cache mode should be used. Supported values are: none, writethrough.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
