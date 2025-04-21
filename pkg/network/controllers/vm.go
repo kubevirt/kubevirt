@@ -79,14 +79,14 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool { return true },
 	)
 
-	ifaces, networks := ClearDetachedInterfaces(
+	ifaces, networks := clearDetachedInterfaces(
 		vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces,
 		vmCopy.Spec.Template.Spec.Networks, indexedStatusIfaces,
 	)
 	vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces = ifaces
 	vmCopy.Spec.Template.Spec.Networks = networks
 
-	ifaces, networks = ClearDetachedInterfaces(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
+	ifaces, networks = clearDetachedInterfaces(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
 	vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
 	vmiCopy.Spec.Networks = networks
 
@@ -156,4 +156,20 @@ func applyDynamicIfaceRequestOnVMI(
 		}
 	}
 	return vmiSpecCopy
+}
+
+func clearDetachedInterfaces(
+	specIfaces []v1.Interface,
+	specNets []v1.Network,
+	statusIfaces map[string]v1.VirtualMachineInstanceNetworkInterface,
+) ([]v1.Interface, []v1.Network) {
+	var ifaces []v1.Interface
+	for _, iface := range specIfaces {
+		if _, existInStatus := statusIfaces[iface.Name]; (existInStatus && iface.State == v1.InterfaceStateAbsent) ||
+			iface.State != v1.InterfaceStateAbsent {
+			ifaces = append(ifaces, iface)
+		}
+	}
+
+	return ifaces, vmispec.FilterNetworksByInterfaces(specNets, ifaces)
 }
