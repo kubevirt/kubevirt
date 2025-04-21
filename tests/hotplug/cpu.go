@@ -293,9 +293,9 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 			))
 
 			By("Ensuring the libvirt domain has 4 enabled cores")
-			Eventually(func() cpuCount {
+			Eventually(func(g Gomega) cpuCount {
 				domSpec, err = libdomain.GetRunningVMIDomainSpec(vmi)
-				Expect(err).NotTo(HaveOccurred())
+				g.Expect(err).NotTo(HaveOccurred())
 				return countDomCPUs(domSpec)
 			}).WithTimeout(20 * time.Second).WithPolling(time.Second).Should(Equal(cpuCount{
 				enabled:  4,
