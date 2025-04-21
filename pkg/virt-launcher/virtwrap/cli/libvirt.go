@@ -528,6 +528,7 @@ type VirDomain interface {
 	GetGuestInfo(types libvirt.DomainGuestInfoTypes, flags uint32) (*libvirt.DomainGuestInfo, error)
 	GetDiskErrors(flags uint32) ([]libvirt.DomainDiskError, error)
 	SetTime(secs int64, nsecs uint, flags libvirt.DomainSetTimeFlags) error
+	SetUserPassword(user string, password string, flags libvirt.DomainSetUserPasswordFlags) error
 	AuthorizedSSHKeysSet(user string, keys []string, flags libvirt.DomainAuthorizedSSHKeysFlags) error
 	AbortJob() error
 	Free() error

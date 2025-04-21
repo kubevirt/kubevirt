@@ -100,13 +100,13 @@ var _ = Describe("AccessCredentials", func() {
 	})
 
 	It("should handle dynamically updating user/password with qemu agent", func() {
-
 		domName := "some-domain"
-		password := "1234"
 		user := "myuser"
-		base64Str := base64.StdEncoding.EncodeToString([]byte(password))
-		cmdSetPassword := fmt.Sprintf(`{"execute":"guest-set-user-password", "arguments": {"username":"%s", "password": "%s", "crypted": false }}`, user, base64Str)
-		mockConn.EXPECT().QemuAgentCommand(cmdSetPassword, domName).Return("", nil)
+		password := "1234"
+
+		mockConn.EXPECT().LookupDomainByName(domName).Return(mockDomain, nil).Times(1)
+		mockDomain.EXPECT().Free()
+		mockDomain.EXPECT().SetUserPassword(user, password, libvirt.DomainSetUserPasswordFlags(0)).Times(1)
 
 		Expect(manager.agentSetUserPassword(domName, user, password)).To(Succeed())
 	})
@@ -317,10 +317,6 @@ var _ = Describe("AccessCredentials", func() {
 		// Write the file
 		Expect(os.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0644)).To(Succeed())
 
-		// set the expected command
-		base64Str := base64.StdEncoding.EncodeToString([]byte(password))
-		cmdSetPassword := fmt.Sprintf(`{"execute":"guest-set-user-password", "arguments": {"username":"%s", "password": "%s", "crypted": false }}`, user, base64Str)
-
 		cmdPing := `{"execute":"guest-ping"}`
 		mockConn.EXPECT().QemuAgentCommand(cmdPing, domName).AnyTimes().Return("", nil)
 
@@ -342,13 +338,7 @@ var _ = Describe("AccessCredentials", func() {
 			return mockDomain, nil
 		})
 
-		matched := false
-		mockConn.EXPECT().QemuAgentCommand(cmdSetPassword, domName).MinTimes(1).DoAndReturn(func(funcCmd string, funcDomName string) (string, error) {
-			if funcCmd == cmdSetPassword {
-				matched = true
-			}
-			return "", nil
-		})
+		mockDomain.EXPECT().SetUserPassword(user, password, libvirt.DomainSetUserPasswordFlags(0)).MinTimes(1)
 
 		// and wait
 		go func() {
@@ -360,17 +350,14 @@ var _ = Describe("AccessCredentials", func() {
 
 		// TODO: Rewrite test to not call private functions.
 		manager.watchSecrets(vmi)
-		Expect(matched).To(BeTrue())
 
 		// And wait again after modifying file
 		// Another execute command should occur with the updated password
-		matched = false
 		manager.stopCh = make(chan struct{})
 		password = password + "morefake"
 		Expect(os.WriteFile(filepath.Join(secretDirs[0], user), []byte(password), 0644)).To(Succeed())
-		base64Str = base64.StdEncoding.EncodeToString([]byte(password))
-		cmdSetPassword = fmt.Sprintf(`{"execute":"guest-set-user-password", "arguments": {"username":"%s", "password": "%s", "crypted": false }}`, user, base64Str)
-		mockConn.EXPECT().QemuAgentCommand(cmdSetPassword, domName).MinTimes(1).Return("", nil)
+
+		mockDomain.EXPECT().SetUserPassword(user, password, libvirt.DomainSetUserPasswordFlags(0)).MinTimes(1).Return(nil)
 
 		go func() {
 			watchTimeout := time.NewTicker(2 * time.Second)
@@ -381,5 +368,4 @@ var _ = Describe("AccessCredentials", func() {
 
 		manager.watchSecrets(vmi)
 	})
-
 })
