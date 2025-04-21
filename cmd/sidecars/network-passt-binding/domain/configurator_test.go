@@ -40,6 +40,8 @@ func (nl defaultNetLinkStub) LinkByName(name string) (vishnetlink.Link, error) {
 
 type netLinkStub struct{}
 
+const ifaceTypeVhostUser = "vhostuser"
+
 func (nl netLinkStub) LinkByName(name string) (vishnetlink.Link, error) {
 	return &vishnetlink.Veth{LinkAttrs: vishnetlink.LinkAttrs{Name: name}}, nil
 }
@@ -98,7 +100,7 @@ var _ = Describe("pod network configurator", func() {
 				&vmschema.Interface{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"}},
 				&domainschema.Interface{
 					Alias:       domainschema.NewUserDefinedAlias("default"),
-					Type:        "user",
+					Type:        ifaceTypeVhostUser,
 					Source:      domainschema.InterfaceSource{Device: "eth0"},
 					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
@@ -110,7 +112,7 @@ var _ = Describe("pod network configurator", func() {
 					PciAddress: "0000:02:02.0"},
 				&domainschema.Interface{
 					Alias:       domainschema.NewUserDefinedAlias("default"),
-					Type:        "user",
+					Type:        ifaceTypeVhostUser,
 					Source:      domainschema.InterfaceSource{Device: "eth0"},
 					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
@@ -123,7 +125,7 @@ var _ = Describe("pod network configurator", func() {
 					MacAddress: "02:02:02:02:02:02"},
 				&domainschema.Interface{
 					Alias:       domainschema.NewUserDefinedAlias("default"),
-					Type:        "user",
+					Type:        ifaceTypeVhostUser,
 					Source:      domainschema.InterfaceSource{Device: "eth0"},
 					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
@@ -136,7 +138,7 @@ var _ = Describe("pod network configurator", func() {
 					ACPIIndex: 2},
 				&domainschema.Interface{
 					Alias:       domainschema.NewUserDefinedAlias("default"),
-					Type:        "user",
+					Type:        ifaceTypeVhostUser,
 					Source:      domainschema.InterfaceSource{Device: "eth0"},
 					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
@@ -150,7 +152,7 @@ var _ = Describe("pod network configurator", func() {
 				},
 				&domainschema.Interface{
 					Alias:       domainschema.NewUserDefinedAlias("default"),
-					Type:        "user",
+					Type:        ifaceTypeVhostUser,
 					Source:      domainschema.InterfaceSource{Device: "eth0"},
 					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
@@ -163,7 +165,7 @@ var _ = Describe("pod network configurator", func() {
 				},
 				&domainschema.Interface{
 					Alias:   domainschema.NewUserDefinedAlias("default"),
-					Type:    "user",
+					Type:    ifaceTypeVhostUser,
 					Source:  domainschema.InterfaceSource{Device: "eth0"},
 					Backend: &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 					Model:   &domainschema.Model{Type: "virtio-non-transitional"},
@@ -183,7 +185,7 @@ var _ = Describe("pod network configurator", func() {
 				},
 				&domainschema.Interface{
 					Alias:   domainschema.NewUserDefinedAlias("default"),
-					Type:    "user",
+					Type:    ifaceTypeVhostUser,
 					Source:  domainschema.InterfaceSource{Device: "eth0"},
 					Backend: &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 					Model:   &domainschema.Model{Type: "virtio-non-transitional"},
@@ -203,7 +205,7 @@ var _ = Describe("pod network configurator", func() {
 				},
 				&domainschema.Interface{
 					Alias:   domainschema.NewUserDefinedAlias("default"),
-					Type:    "user",
+					Type:    ifaceTypeVhostUser,
 					Source:  domainschema.InterfaceSource{Device: "eth0"},
 					Backend: &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 					Model:   &domainschema.Model{Type: "virtio-non-transitional"},
@@ -241,7 +243,7 @@ var _ = Describe("pod network configurator", func() {
 				&domain.NetworkConfiguratorOptions{UseVirtioTransitional: true},
 				&domainschema.Interface{
 					Alias:       domainschema.NewUserDefinedAlias("default"),
-					Type:        "user",
+					Type:        ifaceTypeVhostUser,
 					Source:      domainschema.InterfaceSource{Device: "eth0"},
 					Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 					PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
@@ -252,7 +254,7 @@ var _ = Describe("pod network configurator", func() {
 				&domain.NetworkConfiguratorOptions{IstioProxyInjectionEnabled: true},
 				&domainschema.Interface{
 					Alias:   domainschema.NewUserDefinedAlias("default"),
-					Type:    "user",
+					Type:    ifaceTypeVhostUser,
 					Source:  domainschema.InterfaceSource{Device: "eth0"},
 					Backend: &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 					Model:   &domainschema.Model{Type: "virtio-non-transitional"},
@@ -280,7 +282,7 @@ var _ = Describe("pod network configurator", func() {
 
 			expectedDomainIface := &domainschema.Interface{
 				Alias:       domainschema.NewUserDefinedAlias("default"),
-				Type:        "user",
+				Type:        ifaceTypeVhostUser,
 				Source:      domainschema.InterfaceSource{Device: "eth0"},
 				Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 				PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
@@ -306,7 +308,7 @@ var _ = Describe("pod network configurator", func() {
 
 			expectedDomainIface := &domainschema.Interface{
 				Alias:       domainschema.NewUserDefinedAlias("default"),
-				Type:        "user",
+				Type:        ifaceTypeVhostUser,
 				Source:      domainschema.InterfaceSource{Device: "eth0"},
 				Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 				PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
@@ -330,7 +332,7 @@ var _ = Describe("pod network configurator", func() {
 
 			expectedDomainIface := &domainschema.Interface{
 				Alias:       domainschema.NewUserDefinedAlias("default"),
-				Type:        "user",
+				Type:        ifaceTypeVhostUser,
 				Source:      domainschema.InterfaceSource{Device: "ovn-udn1"},
 				Backend:     &domainschema.InterfaceBackend{Type: "passt", LogFile: domain.PasstLogFilePath},
 				PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
@@ -347,6 +349,52 @@ var _ = Describe("pod network configurator", func() {
 
 			Expect(testMutator.Mutate(mutatedDomSpec)).To(Equal(mutatedDomSpec))
 		})
+	})
+	Context("should define memoryBacking for vhost-user", func() {
+		var testMutator *domain.PasstNetworkConfigurator
+		BeforeEach(func() {
+			networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
+			ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"}}}
 
+			var err error
+			testMutator, err = domain.NewPasstNetworkConfigurator(ifaces, networks, domain.NetworkConfiguratorOptions{}, &netLinkStub{})
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should set shared memfd when clean domain", func() {
+			expectedMemoryBacking := &domainschema.MemoryBacking{
+				Access: &domainschema.MemoryBackingAccess{
+					Mode: "shared",
+				},
+				Source: &domainschema.MemoryBackingSource{
+					Type: "memfd",
+				},
+			}
+			mutatedDomSpec, err := testMutator.Mutate(&domainschema.DomainSpec{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(mutatedDomSpec.MemoryBacking).To(Equal(expectedMemoryBacking))
+		})
+
+		It("should fail when private memory is predefined", func() {
+			domainWithPrivateMem := &domainschema.DomainSpec{
+				MemoryBacking: &domainschema.MemoryBacking{
+					Access: &domainschema.MemoryBackingAccess{Mode: "private"},
+				},
+			}
+			_, err := testMutator.Mutate(domainWithPrivateMem)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should use other configs of backing memory as long as they are shared", func() {
+			domainWithOtherSharedMem := &domainschema.DomainSpec{
+				MemoryBacking: &domainschema.MemoryBacking{
+					Access: &domainschema.MemoryBackingAccess{Mode: "shared"},
+					Source: &domainschema.MemoryBackingSource{Type: "file"},
+				},
+			}
+			mutatedDomSpec, err := testMutator.Mutate(domainWithOtherSharedMem)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(mutatedDomSpec.MemoryBacking).To(Equal(domainWithOtherSharedMem.MemoryBacking))
+		})
 	})
 })

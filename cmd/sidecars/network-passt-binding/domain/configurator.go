@@ -84,6 +84,16 @@ func NewPasstNetworkConfigurator(ifaces []vmschema.Interface, networks []vmschem
 }
 
 func (p PasstNetworkConfigurator) Mutate(domainSpec *domainschema.DomainSpec) (*domainschema.DomainSpec, error) {
+	const (
+		sharedMemoryBackingAccessMode = "shared"
+		memfdMemoryBackingSourceType  = "memfd"
+	)
+
+	if domainSpec.MemoryBacking != nil && domainSpec.MemoryBacking.Access != nil && domainSpec.MemoryBacking.Access.Mode != sharedMemoryBackingAccessMode {
+		return nil, fmt.Errorf("memory backing access mode must be 'shared'; cannot override existing mode: %q",
+			domainSpec.MemoryBacking.Access.Mode)
+	}
+
 	generatedIface, err := p.generateInterface()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate domain interface spec: %v", err)
@@ -96,6 +106,16 @@ func (p PasstNetworkConfigurator) Mutate(domainSpec *domainschema.DomainSpec) (*
 		domainSpecCopy.Devices.Interfaces = append(domainSpecCopy.Devices.Interfaces, *generatedIface)
 	}
 
+	if domainSpecCopy.MemoryBacking == nil {
+		domainSpecCopy.MemoryBacking = &domainschema.MemoryBacking{
+			Access: &domainschema.MemoryBackingAccess{
+				Mode: sharedMemoryBackingAccessMode,
+			},
+			Source: &domainschema.MemoryBackingSource{
+				Type: memfdMemoryBackingSourceType,
+			},
+		}
+	}
 	log.Log.Infof("passt interface is added to domain spec successfully: %+v", generatedIface)
 
 	return domainSpecCopy, nil
@@ -156,8 +176,8 @@ func (p PasstNetworkConfigurator) generateInterface() (*domainschema.Interface, 
 	}
 
 	const (
-		ifaceTypeUser     = "user"
-		ifaceBackendPasst = "passt"
+		ifaceTypeVhostUser = "vhostuser"
+		ifaceBackendPasst  = "passt"
 	)
 	return &domainschema.Interface{
 		Alias:       domainschema.NewUserDefinedAlias(p.vmiSpecIface.Name),
@@ -165,7 +185,7 @@ func (p PasstNetworkConfigurator) generateInterface() (*domainschema.Interface, 
 		Address:     pciAddress,
 		MAC:         mac,
 		ACPI:        acpi,
-		Type:        ifaceTypeUser,
+		Type:        ifaceTypeVhostUser,
 		Source:      domainschema.InterfaceSource{Device: sourceLinkName},
 		Backend:     &domainschema.InterfaceBackend{Type: ifaceBackendPasst, LogFile: PasstLogFilePath},
 		PortForward: p.generatePortForward(),
