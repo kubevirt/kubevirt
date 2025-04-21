@@ -16,7 +16,6 @@
 # Copyright The KubeVirt Authors.
 #
 
-
 source common.sh
 
 set -e

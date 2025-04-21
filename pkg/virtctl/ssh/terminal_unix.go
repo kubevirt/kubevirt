@@ -1,3 +1,5 @@
+//go:build !windows && !excludenative
+
 /*
  * This file is part of the KubeVirt project
  *
@@ -15,8 +17,6 @@
  *
  * Copyright The KubeVirt Authors.
  */
-
-//go:build !windows && !excludenative
 
 package ssh
 

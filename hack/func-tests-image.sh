@@ -16,7 +16,6 @@
 # Copyright The KubeVirt Authors.
 #
 
-
 set -e
 
 source hack/common.sh

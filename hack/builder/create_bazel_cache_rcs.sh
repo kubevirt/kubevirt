@@ -16,7 +16,6 @@
 # Copyright The KubeVirt Authors.
 #
 
-
 # heavily borrowed from https://raw.githubusercontent.com/kubernetes/test-infra/5489305c550e250f7d9053528c725656d5b5ff20/images/bootstrap/create_bazel_cache_rcs.sh
 
 CACHE_HOST="${CACHE_HOST:-bazel-cache.default.svc.cluster.local.}"

@@ -16,7 +16,6 @@
 # Copyright The KubeVirt Authors.
 #
 
-
 # gen-swagger-docs.sh $API_VERSION $OUTPUT_FORMAT
 # API_VERSION=v1
 # OUTPUT_FORMAT=html|markdown

@@ -16,7 +16,6 @@
 # Copyright The KubeVirt Authors.
 #
 
-
 set -ex -o pipefail
 
 source hack/common.sh

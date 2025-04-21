@@ -16,7 +16,6 @@
 # Copyright The KubeVirt Authors.
 #
 
-
 main() {
     skip="SRIOV|GPU|\\[sig-operator\\]|\\[sig-network\\]|\\[sig-storage\\]|\\[sig-compute\\]|\\[sig-compute-migrations\\]|\\[sig-performance\\]|\\[sig-compute-realtime\\]|\\[sig-monitoring\\]"
     result=$(FUNC_TEST_ARGS="--dry-run --no-color -skip=${skip}" make functest)

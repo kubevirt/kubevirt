@@ -16,7 +16,6 @@
 # Copyright The KubeVirt Authors.
 #
 
-
 source $(dirname "$0")/../common.sh
 
 set -o errexit

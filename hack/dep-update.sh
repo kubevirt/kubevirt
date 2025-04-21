@@ -16,7 +16,6 @@
 # Copyright The KubeVirt Authors.
 #
 
-
 set -ex
 
 export GO111MODULE=on

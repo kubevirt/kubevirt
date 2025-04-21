@@ -16,7 +16,6 @@
 # Copyright The KubeVirt Authors.
 #
 
-
 set -e
 
 function report_dirty_build() {

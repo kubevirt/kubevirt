@@ -16,7 +16,6 @@
 # Copyright The KubeVirt Authors.
 #
 
-
 source hack/common.sh
 source kubevirtci/cluster-up/cluster/$KUBEVIRT_PROVIDER/provider.sh
 

@@ -1,3 +1,5 @@
+//go:build (linux && amd64) || (linux && arm64) || (linux && s390x)
+
 /*
  * This file is part of the KubeVirt project
  *
@@ -15,8 +17,6 @@
  *
  * Copyright The KubeVirt Authors.
  */
-
-//go:build (linux && amd64) || (linux && arm64) || (linux && s390x)
 
 package virthandler
 

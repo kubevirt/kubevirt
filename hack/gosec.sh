@@ -16,7 +16,6 @@
 # Copyright The KubeVirt Authors.
 #
 
-
 source hack/common.sh
 
 mkdir -p $ARTIFACTS

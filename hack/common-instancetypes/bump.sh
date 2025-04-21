@@ -16,7 +16,6 @@
 # Copyright The KubeVirt Authors.
 #
 
-
 set -ex
 
 TARGET_BRANCH=${1:-"main"}

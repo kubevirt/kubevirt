@@ -16,7 +16,6 @@
 # Copyright The KubeVirt Authors.
 #
 
-
 determine_cri_bin() {
     if [ "${KUBEVIRT_CRI}" = "podman" ]; then
         echo podman

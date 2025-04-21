@@ -16,7 +16,6 @@
 # Copyright The KubeVirt Authors.
 #
 
-
 set -exo pipefail
 
 GITHUB_FQDN=github.com

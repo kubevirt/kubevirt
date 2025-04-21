@@ -16,7 +16,6 @@
 # Copyright The KubeVirt Authors.
 #
 
-
 function timestamps::time_wrapper() {
     while IFS= read -r line; do
         printf "%(%T)T: %s\n" "-1" "$line"
