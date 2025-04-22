@@ -655,3 +655,23 @@ func (_m *MockVirDomain) SetLaunchSecurityState(params *libvirt.DomainLaunchSecu
 func (_mr *_MockVirDomainRecorder) SetLaunchSecurityState(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetLaunchSecurityState", arg0, arg1)
 }
+
+func (_m *MockVirDomain) FSFreeze(mounts []string, flags uint32) error {
+	ret := _m.ctrl.Call(_m, "FSFreeze", mounts, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) FSFreeze(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "FSFreeze", arg0, arg1)
+}
+
+func (_m *MockVirDomain) FSThaw(mounts []string, flags uint32) error {
+	ret := _m.ctrl.Call(_m, "FSThaw", mounts, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) FSThaw(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "FSThaw", arg0, arg1)
+}
