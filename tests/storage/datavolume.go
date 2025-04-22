@@ -603,7 +603,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 		})
 	})
 
-	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachine with a DataVolume using Alpine http import", func() {
+	Describe("[rfe_id:3188][crit:high][vendor:cnv-qe@redhat.com][level:system] Starting a VirtualMachine with a DataVolume using http import", func() {
 		var sc string
 
 		BeforeEach(func() {
