@@ -3,28 +3,35 @@ package components
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 var _ = Describe("CRDs", func() {
-
-	DescribeTable("Should patch validation", func(crdFunc func() (*extv1.CustomResourceDefinition, error)) {
+	DescribeTable("Schema should be present on CRD", func(crdFunc func() (*extv1.CustomResourceDefinition, error)) {
 		crd, err := crdFunc()
-		Expect(err).NotTo(HaveOccurred())
-		for i := range crd.Spec.Versions {
-			patchValidation(crd, &crd.Spec.Versions[i])
-			Expect(crd.Spec.Versions[i].Schema).NotTo(BeNil())
+		Expect(err).ToNot(HaveOccurred())
+		for _, version := range crd.Spec.Versions {
+			Expect(version.Schema).ToNot(BeNil())
 		}
 	},
-		Entry("for VM", NewVirtualMachineCrd),
-		Entry("for VMI", NewVirtualMachineInstanceCrd),
-		Entry("for VMIPRESET", NewPresetCrd),
-		Entry("for VMIRS", NewReplicaSetCrd),
-		Entry("for VMIM", NewVirtualMachineInstanceMigrationCrd),
-		Entry("for KV", NewKubeVirtCrd),
-		Entry("for VMSNAPSHOT", NewVirtualMachineSnapshotCrd),
-		Entry("for VMSNAPSHOTCONTENT", NewVirtualMachineSnapshotContentCrd),
-		Entry("for VMPOOL", NewVirtualMachinePoolCrd),
+		Entry("for VirtualMachineInstance", NewVirtualMachineInstanceCrd),
+		Entry("for VirtualMachine", NewVirtualMachineCrd),
+		Entry("for VirtualMachineIPreset", NewPresetCrd),
+		Entry("for VirtualMachineIReplicaSet", NewReplicaSetCrd),
+		Entry("for VirtualMachineInstanceMigration", NewVirtualMachineInstanceMigrationCrd),
+		Entry("for KubeVirt", NewKubeVirtCrd),
+		Entry("for VirtualMachinePool", NewVirtualMachinePoolCrd),
+		Entry("for VirtualMachineSnapshot", NewVirtualMachineSnapshotCrd),
+		Entry("for VirtualMachineSnapshotContent", NewVirtualMachineSnapshotContentCrd),
+		Entry("for VirtualMachineRestore", NewVirtualMachineRestoreCrd),
+		Entry("for VirtualMachineExport", NewVirtualMachineExportCrd),
+		Entry("for VirtualMachineInstancetype", NewVirtualMachineInstancetypeCrd),
+		Entry("for VirtualMachineClusterInstancetype", NewVirtualMachineClusterInstancetypeCrd),
+		Entry("for VirtualMachinePreference", NewVirtualMachinePreferenceCrd),
+		Entry("for VirtualMachineClusterPreference", NewVirtualMachineClusterPreferenceCrd),
+		Entry("for VirtualMachineClone", NewVirtualMachineCloneCrd),
+		Entry("for MigrationPolicy", NewMigrationPolicyCrd),
 	)
 
 	It("DataVolumeTemplates should have nullable a XPreserveUnknownFields on metadata", func() {
