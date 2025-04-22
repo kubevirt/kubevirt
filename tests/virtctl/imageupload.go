@@ -77,7 +77,7 @@ var _ = Describe(SIG("[sig-storage]ImageUpload", decorators.SigStorage, Serial, 
 		if config.Status.UploadProxyURL == nil {
 			By("Setting up port forwarding")
 			_, kubectlCmd, err = clientcmd.CreateCommandWithNS(
-				flags.ContainerizedDataImporterNamespace, "kubectl", "port-forward", "svc/cdi-uploadproxy", "18443:443",
+				flags.ContainerizedDataImporterNamespace, clientcmd.GetK8sCmdClient(), "port-forward", "svc/cdi-uploadproxy", "18443:443",
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kubectlCmd.Start()).To(Succeed())
