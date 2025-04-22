@@ -126,3 +126,7 @@ func (converterAMD64) ConvertWatchdog(source *v1.Watchdog, watchdog *api.Watchdo
 	}
 	return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", source.Name)
 }
+
+func (converterAMD64) SupportPCIHole64Disabling() bool {
+	return true
+}

@@ -635,12 +635,13 @@ type HostDeviceSource struct {
 
 // Controller represens libvirt controller element https://libvirt.org/formatdomain.html#elementsControllers
 type Controller struct {
-	Type    string            `xml:"type,attr"`
-	Index   string            `xml:"index,attr"`
-	Model   string            `xml:"model,attr,omitempty"`
-	Driver  *ControllerDriver `xml:"driver,omitempty"`
-	Alias   *Alias            `xml:"alias,omitempty"`
-	Address *Address          `xml:"address,omitempty"`
+	Type      string            `xml:"type,attr"`
+	Index     string            `xml:"index,attr"`
+	Model     string            `xml:"model,attr,omitempty"`
+	Driver    *ControllerDriver `xml:"driver,omitempty"`
+	Alias     *Alias            `xml:"alias,omitempty"`
+	Address   *Address          `xml:"address,omitempty"`
+	PCIHole64 *PCIHole64        `xml:"pcihole64,omitempty"`
 }
 
 // END Controller -----------------------------
@@ -653,6 +654,14 @@ type ControllerDriver struct {
 }
 
 // END ControllerDriver
+
+// BEGIN PCIHole64
+type PCIHole64 struct {
+	Value uint   `xml:",chardata"`
+	Unit  string `xml:"unit,attr,omitempty"`
+}
+
+// END PCIHole64
 
 // BEGIN Disk -----------------------------
 

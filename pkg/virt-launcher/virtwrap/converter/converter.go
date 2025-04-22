@@ -1678,6 +1678,20 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, scsiController)
 	}
 
+	if c.Architecture.SupportPCIHole64Disabling() && shouldDisablePCIHole64(vmi) {
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers,
+			api.Controller{
+				Type:  "pci",
+				Index: "0",
+				Model: "pcie-root",
+				PCIHole64: &api.PCIHole64{
+					Value: 0,
+					Unit:  "KiB",
+				},
+			},
+		)
+	}
+
 	if vmi.Spec.Domain.Clock != nil {
 		clock := vmi.Spec.Domain.Clock
 		newClock := &api.Clock{}
@@ -1943,6 +1957,13 @@ func needsSCSIController(vmi *v1.VirtualMachineInstance) bool {
 		}
 	}
 	return !vmi.Spec.Domain.Devices.DisableHotplug
+}
+
+func shouldDisablePCIHole64(vmi *v1.VirtualMachineInstance) bool {
+	if val, ok := vmi.Annotations[v1.DisablePCIHole64]; ok {
+		return strings.EqualFold(val, "true")
+	}
+	return false
 }
 
 func getBusFromDisk(disk v1.Disk) v1.DiskBus {
