@@ -317,7 +317,8 @@ http {
 	keepalive_timeout  65;
 	add_header X-Content-Type-Options nosniff;
 		server {
-			listen              %d ssl;
+			listen              %[1]d ssl;
+			listen              [::]:%[1]d ssl;
 			ssl_certificate     /var/serving-cert/tls.crt;
 			ssl_certificate_key /var/serving-cert/tls.key;
 			root                /usr/share/nginx/html;
