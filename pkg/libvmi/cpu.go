@@ -111,3 +111,12 @@ func WithLimitCPU(value string) Option {
 		vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = resource.MustParse(value)
 	}
 }
+
+func WithIsolateEmulatorThread() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.CPU == nil {
+			vmi.Spec.Domain.CPU = &v1.CPU{}
+		}
+		vmi.Spec.Domain.CPU.IsolateEmulatorThread = true
+	}
+}
