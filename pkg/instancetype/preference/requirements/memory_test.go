@@ -104,5 +104,37 @@ var _ = Describe("Preferences - Requirement - Memory", func() {
 			conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "memory")},
 			fmt.Sprintf(requirements.InsufficientVMMemoryResourcesErrorFmt, "1Gi", "2Gi"),
 		),
+		Entry("by a VM without Memory - bug #14551",
+			nil,
+			&v1beta1.VirtualMachinePreferenceSpec{
+				Requirements: &v1beta1.PreferenceRequirements{
+					Memory: &v1beta1.MemoryPreferenceRequirement{
+						Guest: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			&v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{},
+			},
+			conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "memory")},
+			fmt.Sprintf(requirements.InsufficientVMMemoryResourcesErrorFmt, "0", "2Gi"),
+		),
+		Entry("by a VM with Memory but without a Guest value provided - bug #14551",
+			nil,
+			&v1beta1.VirtualMachinePreferenceSpec{
+				Requirements: &v1beta1.PreferenceRequirements{
+					Memory: &v1beta1.MemoryPreferenceRequirement{
+						Guest: resource.MustParse("2Gi"),
+					},
+				},
+			},
+			&v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{
+					Memory: &v1.Memory{},
+				},
+			},
+			conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "memory")},
+			fmt.Sprintf(requirements.InsufficientVMMemoryResourcesErrorFmt, "0", "2Gi"),
+		),
 	)
 })

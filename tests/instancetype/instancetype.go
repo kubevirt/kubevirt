@@ -1656,7 +1656,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 				"insufficient CPU resources",
 			),
-			Entry("VirtualMachine meets Memory requirements",
+			Entry("VirtualMachine does not meet Memory requirements",
 				nil,
 				&instancetypev1beta1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1686,6 +1686,38 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 										Guest: &guestMemory1GB,
 									},
 								},
+							},
+						},
+					},
+				},
+				"insufficient Memory resources",
+			),
+			Entry("VirtualMachine does not meet Memory requirements or provide any guest visible memory - bug #14551",
+				nil,
+				&instancetypev1beta1.VirtualMachinePreference{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "preference-",
+					},
+					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+						Requirements: &instancetypev1beta1.PreferenceRequirements{
+							Memory: &instancetypev1beta1.MemoryPreferenceRequirement{
+								Guest: resource.MustParse("2Gi"),
+							},
+						},
+					},
+				},
+				&virtv1.VirtualMachine{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: "vm-",
+					},
+					Spec: virtv1.VirtualMachineSpec{
+						RunStrategy: pointer.P(virtv1.RunStrategyHalted),
+						Preference: &virtv1.PreferenceMatcher{
+							Kind: "VirtualMachinePreference",
+						},
+						Template: &virtv1.VirtualMachineInstanceTemplateSpec{
+							Spec: virtv1.VirtualMachineInstanceSpec{
+								Domain: virtv1.DomainSpec{},
 							},
 						},
 					},
