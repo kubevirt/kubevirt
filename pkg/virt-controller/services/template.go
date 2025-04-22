@@ -1491,8 +1491,8 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 	return VMIResourcePredicates{
 		vmi: vmi,
 		resourceRules: []VMIResourceRule{
-			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi.Spec.Domain.CPU, vmi.Annotations, additionalCPUs)),
-			NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi.Spec.Domain.CPU, t.clusterConfig.GetCPUAllocationRatio(), withCPULimits)),
+			NewVMIResourceRule(doesVMIRequireDedicatedCPU, WithCPUPinning(vmi, vmi.Annotations, additionalCPUs)),
+			NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi, t.clusterConfig.GetCPUAllocationRatio(), withCPULimits)),
 			NewVMIResourceRule(hasHugePages, WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead)),
 			NewVMIResourceRule(not(hasHugePages), WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead)),
 			NewVMIResourceRule(t.doesVMIRequireAutoMemoryLimits, WithAutoMemoryLimits(vmi.Namespace, t.namespaceStore)),
@@ -1503,7 +1503,6 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 			NewVMIResourceRule(util.IsHostDevVMI, WithHostDevices(vmi.Spec.Domain.Devices.HostDevices)),
 			NewVMIResourceRule(util.IsSEVVMI, WithSEV()),
 			NewVMIResourceRule(reservation.HasVMIPersistentReservation, WithPersistentReservation()),
-			NewVMIResourceRule(doesVMIRequireCPUForIOThreads, WithIOThreads(vmi.Spec.Domain.IOThreads)),
 		},
 	}
 }
