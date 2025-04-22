@@ -178,3 +178,40 @@ func LookupDeviceVCPUAffinity(pciAddress string, domainSpec *api.DomainSpec) ([]
 	}
 	return alignedVCPUList, nil
 }
+
+func LookupDeviceVCPUNumaNode(pciAddress *api.Address, domainSpec *api.DomainSpec) (numaNode *uint32) {
+	if pciAddress == nil || domainSpec == nil ||
+		domainSpec.CPU.NUMA == nil {
+		return
+	}
+
+	// get vcpus by device pci address
+	vCPUList, err := LookupDeviceVCPUAffinity(
+		fmt.Sprintf("%s:%s:%s.%s",
+			pciAddress.Domain[2:], pciAddress.Bus[2:],
+			pciAddress.Slot[2:], pciAddress.Function[2:]),
+		domainSpec,
+	)
+	if err != nil || len(vCPUList) == 0 {
+		return
+	}
+
+	// get guest os numa node by vcpu
+	for i, cell := range domainSpec.CPU.NUMA.Cells {
+		vcpusInCell, err := ParseCPUSetLine(cell.CPUs, 5000)
+		if err != nil {
+			continue
+		}
+
+		for _, vcpu := range vcpusInCell {
+			if vcpu == int(vCPUList[0]) {
+				id, err := strconv.Atoi(domainSpec.CPU.NUMA.Cells[i].ID)
+				if err == nil {
+					cellID := uint32(id)
+					numaNode = &cellID
+				}
+			}
+		}
+	}
+	return
+}

@@ -63,6 +63,7 @@ func virtualMachineOptions(
 			FreePageReportingDisabled: clusterConfig.IsFreePageReportingDisabled(),
 			BochsDisplayForEFIGuests:  bochsDisplay,
 			SerialConsoleLogDisabled:  clusterConfig.IsSerialConsoleLogDisabled(),
+			GPUDeviceNUMAEnabled:      clusterConfig.GPUDeviceNUMAEnabled(),
 		}
 	}
 
