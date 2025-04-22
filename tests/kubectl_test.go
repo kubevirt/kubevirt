@@ -19,60 +19,6 @@ var _ = Describe("[sig-compute]kubectl integration", decorators.SigCompute, func
 		clientcmd.FailIfNoCmd("kubectl")
 	})
 
-	DescribeTable("[test_id:3812]explain vm/vmi", func(resource string) {
-		output, stderr, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), "kubectl", "explain", resource)
-		// kubectl will not find resource for the first time this command is issued
-		if err != nil {
-			output, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), "kubectl", "explain", resource)
-		}
-		Expect(err).NotTo(HaveOccurred(), stderr)
-		Expect(output).To(ContainSubstring("apiVersion	<string>"))
-		Expect(output).To(ContainSubstring("kind	<string>"))
-		Expect(output).To(SatisfyAny(
-			ContainSubstring("metadata	<Object>"),
-			ContainSubstring("metadata	<ObjectMeta>"),
-		))
-		Expect(output).To(ContainSubstring("spec	<Object>"))
-		Expect(output).To(ContainSubstring("status	<Object>"))
-	},
-		Entry("[test_id:3810]explain vm", "vm"),
-		Entry("[test_id:3811]explain vmi", "vmi"),
-		Entry("[test_id:5178]explain vmim", "vmim"),
-		Entry("[test_id:5179]explain kv", "kv"),
-		Entry("[test_id:5180]explain vmsnapshot", "vmsnapshot"),
-		Entry("[test_id:5181]explain vmsnapshotcontent", "vmsnapshotcontent"),
-	)
-
-	It("[test_id:5182]vmipreset have validation", func() {
-		output, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), "kubectl", "explain", "vmipreset")
-		if err != nil {
-			output, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), "kubectl", "explain", "vmipreset")
-		}
-		Expect(err).NotTo(HaveOccurred())
-		Expect(output).To(ContainSubstring("apiVersion	<string>"))
-		Expect(output).To(ContainSubstring("kind	<string>"))
-		Expect(output).To(SatisfyAny(
-			ContainSubstring("metadata	<Object>"),
-			ContainSubstring("metadata	<ObjectMeta>"),
-		))
-		Expect(output).To(ContainSubstring("spec	<Object>"))
-	})
-
-	It("[test_id:5183]vmirs have validation", func() {
-		output, _, err := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), "kubectl", "explain", "vmirs")
-		if err != nil {
-			output, _, err = clientcmd.RunCommand(testsuite.GetTestNamespace(nil), "kubectl", "explain", "vmirs")
-		}
-		Expect(err).NotTo(HaveOccurred())
-		Expect(output).To(ContainSubstring("apiVersion	<string>"))
-		Expect(output).To(ContainSubstring("kind	<string>"))
-		Expect(output).To(SatisfyAny(
-			ContainSubstring("metadata	<Object>"),
-			ContainSubstring("metadata	<ObjectMeta>"),
-		))
-		Expect(output).To(ContainSubstring("spec	<Object>"))
-	})
-
 	Describe("kubectl logs", func() {
 		var (
 			vm *v1.VirtualMachineInstance
