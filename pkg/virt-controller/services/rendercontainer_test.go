@@ -24,6 +24,7 @@ var _ = Describe("Container spec renderer", func() {
 		containerName = "exampleContainer"
 		img           = "megaimage2000"
 		pullPolicy    = k8sv1.PullAlways
+		nonRootUser   = 207
 	)
 
 	Context("without any options", func() {
@@ -45,8 +46,6 @@ var _ = Describe("Container spec renderer", func() {
 	})
 
 	Context("with non root user option", func() {
-		const nonRootUser = 207
-
 		BeforeEach(func() {
 			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithNonRoot(nonRootUser))
 		})
@@ -81,6 +80,11 @@ var _ = Describe("Container spec renderer", func() {
 			Expect(specRenderer.Render(exampleCommand).SecurityContext).Should(
 				Equal(privilegedRootUserSecurityContext()),
 			)
+		})
+
+		It("should set allowPrivilegeEscalation to true when non root", func() {
+			specRenderer = NewContainerSpecRenderer(containerName, img, pullPolicy, WithPrivileged(), WithNonRoot(nonRootUser))
+			Expect(*specRenderer.Render(exampleCommand).SecurityContext.AllowPrivilegeEscalation).Should(BeTrue())
 		})
 	})
 
@@ -118,7 +122,7 @@ var _ = Describe("Container spec renderer", func() {
 
 		Context("a VMI belonging to a non root user", func() {
 			BeforeEach(func() {
-				const nonRootUser = 207
+
 				specRenderer = NewContainerSpecRenderer(
 					containerName,
 					img,

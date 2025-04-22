@@ -434,7 +434,8 @@
               "attestation": {},
               "session": "sessionValue",
               "dhCert": "dhCertValue"
-            }
+            },
+            "secureExecution": {}
           }
         },
         "nodeSelector": {

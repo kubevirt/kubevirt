@@ -14885,6 +14885,10 @@
    "v1.LaunchSecurity": {
     "type": "object",
     "properties": {
+     "secureExecution": {
+      "description": "IBM Secure Execution (Protected Virtualization on s390)",
+      "$ref": "#/definitions/v1.SecureExecution"
+     },
      "sev": {
       "description": "AMD Secure Encrypted Virtualization (SEV).",
       "$ref": "#/definitions/v1.SEV"
@@ -15995,6 +15999,9 @@
       "type": "string"
      }
     }
+   },
+   "v1.SecureExecution": {
+    "type": "object"
    },
    "v1.ServiceAccountVolumeSource": {
     "description": "ServiceAccountVolumeSource adapts a ServiceAccount into a volume.",

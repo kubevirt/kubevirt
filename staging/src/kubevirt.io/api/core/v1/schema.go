@@ -715,6 +715,8 @@ type DiskTarget struct {
 type LaunchSecurity struct {
 	// AMD Secure Encrypted Virtualization (SEV).
 	SEV *SEV `json:"sev,omitempty"`
+	// IBM Secure Execution (Protected Virtualization on s390)
+	SecureExecution *SecureExecution `json:"secureExecution,omitempty"`
 }
 
 type SEV struct {
@@ -729,6 +731,8 @@ type SEV struct {
 	// Base64 encoded guest owner's Diffie-Hellman key.
 	DHCert string `json:"dhCert,omitempty"`
 }
+
+type SecureExecution struct{}
 
 type SEVPolicy struct {
 	// SEV-ES is required.
