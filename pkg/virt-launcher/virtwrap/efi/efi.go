@@ -33,6 +33,8 @@ const (
 	EFIVarsSecureBoot = "OVMF_VARS.secboot.fd"
 	EFICodeSEV        = "OVMF_CODE.cc.fd"
 	EFIVarsSEV        = EFIVars
+	EFICodeTDX        = "OVMF.inteltdx.fd"
+	EFICodeTDXSB      = "OVMF.inteltdx.secboot.fd"
 )
 
 type EFIEnvironment struct {
@@ -42,33 +44,42 @@ type EFIEnvironment struct {
 	varsSecureBoot string
 	codeSEV        string
 	varsSEV        string
+	codeTDX        string
+	codeTDXSB      string
 }
 
-func (e *EFIEnvironment) Bootable(secureBoot, sev bool) bool {
+func (e *EFIEnvironment) Bootable(secureBoot, sev bool, tdx bool) bool {
 	if secureBoot {
 		return e.varsSecureBoot != "" && e.codeSecureBoot != ""
 	} else if sev {
 		return e.varsSEV != "" && e.codeSEV != ""
+	} else if tdx {
+		return e.codeTDX != ""
 	} else {
 		return e.vars != "" && e.code != ""
 	}
 }
 
-func (e *EFIEnvironment) EFICode(secureBoot, sev bool) string {
+func (e *EFIEnvironment) EFICode(secureBoot, sev bool, tdx bool) string {
 	if secureBoot {
 		return e.codeSecureBoot
 	} else if sev {
 		return e.codeSEV
+	} else if tdx {
+		return e.codeTDX
 	} else {
 		return e.code
 	}
 }
 
-func (e *EFIEnvironment) EFIVars(secureBoot, sev bool) string {
+func (e *EFIEnvironment) EFIVars(secureBoot, sev bool, tdx bool) string {
 	if secureBoot {
 		return e.varsSecureBoot
 	} else if sev {
 		return e.varsSEV
+	} else if tdx {
+		// Use stateless firmware for TDX VMs
+		return ""
 	} else {
 		return e.vars
 	}
@@ -102,6 +113,10 @@ func DetectEFIEnvironment(arch, ovmfPath string) *EFIEnvironment {
 	codeWithSEV := getEFIBinaryIfExists(ovmfPath, EFICodeSEV)
 	varsWithSEV := getEFIBinaryIfExists(ovmfPath, EFIVarsSEV)
 
+	// detect EFI with TDX
+	codeWithTDX := getEFIBinaryIfExists(ovmfPath, EFICodeTDX)
+	codeWithTDXSB := getEFIBinaryIfExists(ovmfPath, EFICodeTDXSB)
+
 	return &EFIEnvironment{
 		codeSecureBoot: codeWithSB,
 		varsSecureBoot: varsWithSB,
@@ -109,6 +124,8 @@ func DetectEFIEnvironment(arch, ovmfPath string) *EFIEnvironment {
 		vars:           vars,
 		codeSEV:        codeWithSEV,
 		varsSEV:        varsWithSEV,
+		codeTDX:        codeWithTDX,
+		codeTDXSB:      codeWithTDXSB,
 	}
 }
 

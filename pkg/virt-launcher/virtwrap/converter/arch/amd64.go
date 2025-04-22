@@ -145,6 +145,17 @@ func (converterAMD64) LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.Launch
 			DHCert:  vmi.Spec.Domain.LaunchSecurity.SEV.DHCert,
 			Session: vmi.Spec.Domain.LaunchSecurity.SEV.Session,
 		}
+	} else if util.IsTDXVMI(vmi) {
+		// TDX policy is required by libvirt
+		tdxPolicyBits := launchsecurity.TDXPolicyToBits(vmi.Spec.Domain.LaunchSecurity.TDX.Policy)
+		return &api.LaunchSecurity{
+			Type:          "tdx",
+			Policy:        "0x" + strconv.FormatUint(tdxPolicyBits, 16),
+			MrConfigId:    vmi.Spec.Domain.LaunchSecurity.TDX.MrConfigId,
+			MrOwner:       vmi.Spec.Domain.LaunchSecurity.TDX.MrOwner,
+			MrOwnerConfig: vmi.Spec.Domain.LaunchSecurity.TDX.MrOwnerConfig,
+		}
 	}
+
 	return nil
 }
