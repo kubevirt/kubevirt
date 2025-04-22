@@ -108,7 +108,9 @@ type ConverterContext struct {
 	VolumesDiscardIgnore            []string
 	Topology                        *cmdv1.Topology
 	ExpandDisksEnabled              bool
-	UseLaunchSecurity               bool
+	UseLaunchSecuritySEV            bool
+	UseLaunchSecurityTDX            bool
+	UseLaunchSecurityPV             bool
 	FreePageReporting               bool
 	BochsForEFIGuests               bool
 	SerialConsoleLog                bool
@@ -208,7 +210,7 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 	if diskDevice.BootOrder != nil {
 		disk.BootOrder = &api.BootOrder{Order: *diskDevice.BootOrder}
 	}
-	if c.UseLaunchSecurity && disk.Target.Bus == v1.DiskBusVirtio {
+	if (c.UseLaunchSecuritySEV || c.UseLaunchSecurityPV) && disk.Target.Bus == v1.DiskBusVirtio {
 		disk.Driver.IOMMU = "on"
 	}
 
@@ -878,7 +880,7 @@ func Convert_v1_Rng_To_api_Rng(_ *v1.Rng, rng *api.Rng, c *ConverterContext) err
 	// the default source for rng is dev urandom
 	rng.Backend.Source = "/dev/urandom"
 
-	if c.UseLaunchSecurity {
+	if c.UseLaunchSecuritySEV || c.UseLaunchSecurityPV {
 		rng.Driver = &api.RngDriver{
 			IOMMU: "on",
 		}
@@ -1064,6 +1066,12 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *api.Feat
 		}
 	}
 
+	if c.UseLaunchSecurityTDX {
+		features.PMU = &api.FeatureState{
+			State: "off",
+		}
+	}
+
 	return nil
 }
 
@@ -1122,7 +1130,7 @@ func ConvertV1ToAPIBalloning(source *v1.Devices, ballooning *api.MemBalloon, c *
 		if c.MemBalloonStatsPeriod != 0 {
 			ballooning.Stats = &api.Stats{Period: c.MemBalloonStatsPeriod}
 		}
-		if c.UseLaunchSecurity {
+		if c.UseLaunchSecuritySEV || c.UseLaunchSecurityPV {
 			ballooning.Driver = &api.MemBalloonDriver{
 				IOMMU: "on",
 			}
@@ -1188,16 +1196,27 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 	}
 
 	if vmi.IsBootloaderEFI() {
-		domain.Spec.OS.BootLoader = &api.Loader{
-			Path:     c.EFIConfiguration.EFICode,
-			ReadOnly: "yes",
-			Secure:   boolToYesNo(&c.EFIConfiguration.SecureLoader, false),
-			Type:     "pflash",
-		}
+		if c.UseLaunchSecurityTDX {
+			// Use stateless firmware for the TDX VMs
+			domain.Spec.OS.BootLoader = &api.Loader{
+				Path:     c.EFIConfiguration.EFICode,
+				ReadOnly: "yes",
+				Secure:   boolToYesNo(&c.EFIConfiguration.SecureLoader, false),
+				Type:     "rom",
+			}
+			domain.Spec.OS.NVRam = nil
+		} else {
+			domain.Spec.OS.BootLoader = &api.Loader{
+				Path:     c.EFIConfiguration.EFICode,
+				ReadOnly: "yes",
+				Secure:   boolToYesNo(&c.EFIConfiguration.SecureLoader, false),
+				Type:     "pflash",
+			}
 
-		domain.Spec.OS.NVRam = &api.NVRam{
-			Template: c.EFIConfiguration.EFIVars,
-			NVRam:    filepath.Join(services.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+			domain.Spec.OS.NVRam = &api.NVRam{
+				Template: c.EFIConfiguration.EFIVars,
+				NVRam:    filepath.Join(services.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+			}
 		}
 	}
 
@@ -1491,12 +1510,12 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		return err
 	}
 
-	if c.UseLaunchSecurity {
+	if c.UseLaunchSecuritySEV || c.UseLaunchSecurityPV {
 		controllerDriver = &api.ControllerDriver{
 			IOMMU: "on",
 		}
-		domain.Spec.LaunchSecurity = c.Architecture.LaunchSecurity(vmi)
 	}
+	domain.Spec.LaunchSecurity = c.Architecture.LaunchSecurity(vmi)
 
 	if c.SMBios != nil {
 		domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System,

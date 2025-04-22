@@ -25,52 +25,88 @@ import (
 )
 
 const (
-	EFICode           = "OVMF_CODE.fd"
-	EFIVars           = "OVMF_VARS.fd"
-	EFICodeAARCH64    = "AAVMF_CODE.fd"
-	EFIVarsAARCH64    = "AAVMF_VARS.fd"
-	EFICodeSecureBoot = "OVMF_CODE.secboot.fd"
-	EFIVarsSecureBoot = "OVMF_VARS.secboot.fd"
-	EFICodeSEV        = "OVMF_CODE.cc.fd"
-	EFIVarsSEV        = EFIVars
+	EFICode              = "OVMF_CODE.fd"
+	EFIVars              = "OVMF_VARS.fd"
+	EFICodeAARCH64       = "AAVMF_CODE.fd"
+	EFIVarsAARCH64       = "AAVMF_VARS.fd"
+	EFICodeSecureBoot    = "OVMF_CODE.secboot.fd"
+	EFIVarsSecureBoot    = "OVMF_VARS.secboot.fd"
+	EFICodeSEV           = "OVMF_CODE.cc.fd"
+	EFIVarsSEV           = EFIVars
+	EFICodeTDX           = "OVMF.inteltdx.fd"
+	EFICodeTDXSecureBoot = "OVMF.inteltdx.secboot.fd"
 )
 
 type EFIEnvironment struct {
-	code           string
-	vars           string
-	codeSecureBoot string
-	varsSecureBoot string
-	codeSEV        string
-	varsSEV        string
+	code              string
+	vars              string
+	codeSecureBoot    string
+	varsSecureBoot    string
+	codeSEV           string
+	varsSEV           string
+	codeTDX           string
+	codeTDXSecureBoot string
 }
 
-func (e *EFIEnvironment) Bootable(secureBoot, sev bool) bool {
-	if secureBoot {
-		return e.varsSecureBoot != "" && e.codeSecureBoot != ""
-	} else if sev {
+type VmType int
+
+const (
+	STD VmType = iota // Standard VM
+	SEV               // AMD SEV/SEV-ES VM
+	SNP               // AMD SEV-SNP VM
+	TDX               // Intel TDX VM
+)
+
+func (e *EFIEnvironment) Bootable(secureBoot bool, vmType VmType) bool {
+	switch vmType {
+	case SEV:
 		return e.varsSEV != "" && e.codeSEV != ""
-	} else {
-		return e.vars != "" && e.code != ""
+	case TDX:
+		if secureBoot {
+			return e.codeTDXSecureBoot != ""
+		} else {
+			return e.codeTDX != ""
+		}
+	default:
+		if secureBoot {
+			return e.varsSecureBoot != "" && e.codeSecureBoot != ""
+		} else {
+			return e.vars != "" && e.code != ""
+		}
 	}
 }
 
-func (e *EFIEnvironment) EFICode(secureBoot, sev bool) string {
-	if secureBoot {
-		return e.codeSecureBoot
-	} else if sev {
+func (e *EFIEnvironment) EFICode(secureBoot bool, vmType VmType) string {
+	switch vmType {
+	case SEV:
 		return e.codeSEV
-	} else {
-		return e.code
+	case TDX:
+		if secureBoot {
+			return e.codeTDXSecureBoot
+		} else {
+			return e.codeTDX
+		}
+	default:
+		if secureBoot {
+			return e.codeSecureBoot
+		} else {
+			return e.code
+		}
 	}
 }
 
-func (e *EFIEnvironment) EFIVars(secureBoot, sev bool) string {
-	if secureBoot {
-		return e.varsSecureBoot
-	} else if sev {
+func (e *EFIEnvironment) EFIVars(secureBoot bool, vmType VmType) string {
+	switch vmType {
+	case SEV:
 		return e.varsSEV
-	} else {
-		return e.vars
+	case TDX:
+		return ""
+	default:
+		if secureBoot {
+			return e.varsSecureBoot
+		} else {
+			return e.vars
+		}
 	}
 }
 
@@ -102,13 +138,19 @@ func DetectEFIEnvironment(arch, ovmfPath string) *EFIEnvironment {
 	codeWithSEV := getEFIBinaryIfExists(ovmfPath, EFICodeSEV)
 	varsWithSEV := getEFIBinaryIfExists(ovmfPath, EFIVarsSEV)
 
+	// detect EFI with TDX
+	codeWithTDX := getEFIBinaryIfExists(ovmfPath, EFICodeTDX)
+	codeWithTDXSB := getEFIBinaryIfExists(ovmfPath, EFICodeTDXSecureBoot)
+
 	return &EFIEnvironment{
-		codeSecureBoot: codeWithSB,
-		varsSecureBoot: varsWithSB,
-		code:           code,
-		vars:           vars,
-		codeSEV:        codeWithSEV,
-		varsSEV:        varsWithSEV,
+		codeSecureBoot:    codeWithSB,
+		varsSecureBoot:    varsWithSB,
+		code:              code,
+		vars:              vars,
+		codeSEV:           codeWithSEV,
+		varsSEV:           varsWithSEV,
+		codeTDX:           codeWithTDX,
+		codeTDXSecureBoot: codeWithTDXSB,
 	}
 }
 
