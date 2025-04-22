@@ -87,4 +87,36 @@ var _ = Describe("CRDs", func() {
 			Expect(*metadata.XPreserveUnknownFields).To(BeTrue())
 		}
 	})
+
+	DescribeTable("Expected additional printer columns should be present on CRD", func(crdFunc func() (*extv1.CustomResourceDefinition, error), expected ...string) {
+		crd, err := crdFunc()
+		Expect(err).ToNot(HaveOccurred())
+		for _, version := range crd.Spec.Versions {
+			Expect(version.AdditionalPrinterColumns).To(WithTransform(func(definitions []extv1.CustomResourceColumnDefinition) []string {
+				names := make([]string, 0)
+				for _, definition := range definitions {
+					names = append(names, definition.Name)
+				}
+				return names
+			}, Equal(expected)))
+		}
+	},
+		Entry("for VirtualMachineInstance", NewVirtualMachineInstanceCrd, "Age", "Phase", "IP", "NodeName", "Ready", "Live-Migratable", "Paused"),
+		Entry("for VirtualMachine", NewVirtualMachineCrd, "Age", "Status", "Ready"),
+		Entry("for VirtualMachineIPreset", NewPresetCrd),
+		Entry("for VirtualMachineIReplicaSet", NewReplicaSetCrd, "Desired", "Current", "Ready", "Age"),
+		Entry("for VirtualMachineInstanceMigration", NewVirtualMachineInstanceMigrationCrd, "Phase", "VMI"),
+		Entry("for KubeVirt", NewKubeVirtCrd, "Age", "Phase"),
+		Entry("for VirtualMachinePool", NewVirtualMachinePoolCrd, "Desired", "Current", "Ready", "Age"),
+		Entry("for VirtualMachineSnapshot", NewVirtualMachineSnapshotCrd, "SourceKind", "SourceName", "Phase", "ReadyToUse", "CreationTime", "Error"),
+		Entry("for VirtualMachineSnapshotContent", NewVirtualMachineSnapshotContentCrd, "ReadyToUse", "CreationTime", "Error"),
+		Entry("for VirtualMachineRestore", NewVirtualMachineRestoreCrd, "TargetKind", "TargetName", "Complete", "RestoreTime", "Error"),
+		Entry("for VirtualMachineExport", NewVirtualMachineExportCrd, "SourceKind", "SourceName", "Phase"),
+		Entry("for VirtualMachineInstancetype", NewVirtualMachineInstancetypeCrd),
+		Entry("for VirtualMachineClusterInstancetype", NewVirtualMachineClusterInstancetypeCrd),
+		Entry("for VirtualMachinePreference", NewVirtualMachinePreferenceCrd),
+		Entry("for VirtualMachineClusterPreference", NewVirtualMachineClusterPreferenceCrd),
+		Entry("for VirtualMachineClone", NewVirtualMachineCloneCrd, "Phase", "SourceVirtualMachine", "TargetVirtualMachine"),
+		Entry("for MigrationPolicy", NewMigrationPolicyCrd),
+	)
 })
