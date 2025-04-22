@@ -46,33 +46,45 @@ var _ = Describe("Network info", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(networkInfo.Interfaces).To(ConsistOf(expectedInterfaces))
 	})
+
 	It("should create an empty network info annotation value when there are no networks", func() {
 		networkDeviceInfoMap := map[string]*networkv1.DeviceInfo{}
 
 		Expect(downwardapi.CreateNetworkInfoAnnotationValue(networkDeviceInfoMap)).To(Equal("{}"))
 	})
-	It("should produce a deterministic and ordered output regardless of the map key order", func() {
+
+	It("should produce a deterministic and output sorted by network name regardless of the map key order", func() {
 		deviceInfo1 := &networkv1.DeviceInfo{Type: "type1"}
 		deviceInfo2 := &networkv1.DeviceInfo{Type: "type2"}
-		map1 := map[string]*networkv1.DeviceInfo{
-			"netB": deviceInfo1,
-			"netA": deviceInfo2,
+		deviceInfo3 := &networkv1.DeviceInfo{Type: "type3"}
+
+		deviceInfoByNetName1 := map[string]*networkv1.DeviceInfo{
+			"netA": deviceInfo1,
+			"netB": deviceInfo2,
+			"netC": deviceInfo3,
 		}
-		map2 := map[string]*networkv1.DeviceInfo{
-			"netA": deviceInfo2,
-			"netB": deviceInfo1,
+
+		deviceInfoByNetName2 := map[string]*networkv1.DeviceInfo{
+			"netC": deviceInfo3,
+			"netB": deviceInfo2,
+			"netA": deviceInfo1,
 		}
 
-		annotation1 := downwardapi.CreateNetworkInfoAnnotationValue(map1)
-		annotation2 := downwardapi.CreateNetworkInfoAnnotationValue(map2)
+		annotationValue1 := downwardapi.CreateNetworkInfoAnnotationValue(deviceInfoByNetName1)
+		annotationValue2 := downwardapi.CreateNetworkInfoAnnotationValue(deviceInfoByNetName2)
+		Expect(annotationValue1).To(Equal(annotationValue2))
 
-		Expect(annotation1).To(Equal(annotation2))
+		var actualNetworkInfo downwardapi.NetworkInfo
+		Expect(json.Unmarshal([]byte(annotationValue2), &actualNetworkInfo)).To(Succeed())
 
-		var networkInfo downwardapi.NetworkInfo
-		err := json.Unmarshal([]byte(annotation1), &networkInfo)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(networkInfo.Interfaces).To(HaveLen(2))
-		Expect(networkInfo.Interfaces[0].Network).To(Equal("netA"))
-		Expect(networkInfo.Interfaces[1].Network).To(Equal("netB"))
+		expectedNetworkInfo := downwardapi.NetworkInfo{
+			Interfaces: []downwardapi.Interface{
+				{Network: "netA", DeviceInfo: &networkv1.DeviceInfo{Type: "type1"}},
+				{Network: "netB", DeviceInfo: &networkv1.DeviceInfo{Type: "type2"}},
+				{Network: "netC", DeviceInfo: &networkv1.DeviceInfo{Type: "type3"}},
+			},
+		}
+
+		Expect(actualNetworkInfo).To(Equal(expectedNetworkInfo))
 	})
 })
