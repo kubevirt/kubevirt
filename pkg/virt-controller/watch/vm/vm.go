@@ -2891,7 +2891,7 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 	lastSeenVM := &virtv1.VirtualMachine{
 		// We need the namespace to be populated here for the lookup and application of instance types to work below
 		ObjectMeta: currentVM.DeepCopy().ObjectMeta,
-		Spec:       *lastSeenVMSpec,
+		Spec:       *lastSeenVMSpec.DeepCopy(),
 	}
 	if err := c.instancetypeController.ApplyToVM(lastSeenVM); err != nil {
 		return false
