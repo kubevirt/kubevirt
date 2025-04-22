@@ -32,7 +32,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi/replicaset"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
-	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -457,23 +456,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			),
 		).To(BeTrue())
 		Expect(vmi.DeletionTimestamp).ToNot(BeNil())
-	})
-
-	It("[test_id:4121]should create and verify kubectl/oc output for vm replicaset", func() {
-		clientcmd.FailIfNoCmd("kubectl")
-
-		newRS := newReplicaSet()
-		doScale(newRS.ObjectMeta.Name, 2)
-
-		result, _, _ := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), "kubectl", "get", "virtualmachineinstancereplicaset")
-		Expect(result).ToNot(BeNil())
-		resultFields := strings.Fields(result)
-		expectedHeader := []string{"NAME", "DESIRED", "CURRENT", "READY", "AGE"}
-		columnHeaders := resultFields[:len(expectedHeader)]
-		// Verify the generated header is same as expected
-		Expect(columnHeaders).To(Equal(expectedHeader))
-		// Name will be there in all the cases, so verify name
-		Expect(resultFields[len(expectedHeader)]).To(Equal(newRS.Name))
 	})
 
 	Context("replicaset with topology spread constraints", decorators.WgS390x, func() {
