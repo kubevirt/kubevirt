@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -59,26 +60,30 @@ var _ = Describe("Resource pod spec renderer", func() {
 	})
 
 	Context("Default CPU configuration", func() {
-		cpu := &v1.CPU{Cores: 5}
+		const numCPUs = 5
+		var vmi *v1.VirtualMachineInstance
+		BeforeEach(func() {
+			vmi = libvmi.New(libvmi.WithCPUCount(numCPUs, 0, 0))
+		})
 		It("Requests one CPU per core, when CPU allocation ratio is 1", func() {
-			rr = NewResourceRenderer(nil, nil, WithoutDedicatedCPU(cpu, 1, false))
+			rr = NewResourceRenderer(nil, nil, WithoutDedicatedCPU(vmi, 1, false))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, resource.MustParse("5")))
 			Expect(rr.Limits()).To(BeEmpty())
 		})
 
 		It("Requests 100m per core, when CPU allocation ratio is 10", func() {
-			rr = NewResourceRenderer(nil, nil, WithoutDedicatedCPU(cpu, 10, false))
+			rr = NewResourceRenderer(nil, nil, WithoutDedicatedCPU(vmi, 10, false))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, resource.MustParse("500m")))
 			Expect(rr.Limits()).To(BeEmpty())
 		})
 		It("Limits to one CPU per core, when CPU allocation ratio is 1 and CPU limits are enabled", func() {
-			rr = NewResourceRenderer(nil, nil, WithoutDedicatedCPU(cpu, 1, true))
+			rr = NewResourceRenderer(nil, nil, WithoutDedicatedCPU(vmi, 1, true))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, resource.MustParse("5")))
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceCPU, resource.MustParse("5")))
 		})
 
 		It("Limits to one CPU per core, when CPU allocation ratio is 10 and CPU limits are enabled", func() {
-			rr = NewResourceRenderer(nil, nil, WithoutDedicatedCPU(cpu, 10, true))
+			rr = NewResourceRenderer(nil, nil, WithoutDedicatedCPU(vmi, 10, true))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, resource.MustParse("500m")))
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceCPU, resource.MustParse("5")))
 		})
@@ -175,17 +180,20 @@ var _ = Describe("Resource pod spec renderer", func() {
 		userSpecifiedCPU := kubev1.ResourceList{kubev1.ResourceCPU: userCPURequest}
 
 		It("the user requested CPU configs are *not* overriden", func() {
-			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(&v1.CPU{Cores: 5}, map[string]string{}, 0))
+			vmi := libvmi.New(libvmi.WithCPUCount(5, 0, 0))
+			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(vmi, map[string]string{}, 0))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, userCPURequest))
 		})
 
 		It("carries over the CPU limits as requests when no CPUs are requested", func() {
-			rr = NewResourceRenderer(userSpecifiedCPU, nil, WithCPUPinning(&v1.CPU{}, map[string]string{}, 0))
+			vmi := libvmi.New(libvmi.WithCPUCount(0, 0, 0))
+			rr = NewResourceRenderer(userSpecifiedCPU, nil, WithCPUPinning(vmi, map[string]string{}, 0))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, userCPURequest))
 		})
 
 		It("carries over the CPU requests as limits when no CPUs are requested", func() {
-			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(&v1.CPU{}, map[string]string{}, 0))
+			vmi := libvmi.New(libvmi.WithCPUCount(0, 0, 0))
+			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(vmi, map[string]string{}, 0))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, userCPURequest))
 		})
 
@@ -195,7 +203,8 @@ var _ = Describe("Resource pod spec renderer", func() {
 				kubev1.ResourceCPU:    userCPURequest,
 				kubev1.ResourceMemory: memoryRequest,
 			}
-			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(&v1.CPU{Cores: 5}, map[string]string{}, 0))
+			vmi := libvmi.New(libvmi.WithCPUCount(5, 0, 0))
+			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(vmi, map[string]string{}, 0))
 			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, resource.MustParse("200m")))
 			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceMemory, memoryRequest))
 		})
@@ -211,15 +220,14 @@ var _ = Describe("Resource pod spec renderer", func() {
 					if defineUserSpecifiedCPULimit {
 						userSpecifiedCPULimit = kubev1.ResourceList{kubev1.ResourceCPU: userCPURequest}
 					}
-
+					vmi := libvmi.New(
+						libvmi.WithCPUCount(cores, 0, 0),
+						libvmi.WithIsolateEmulatorThread(),
+					)
 					rr = NewResourceRenderer(
 						userSpecifiedCPULimit,
 						userSpecifiedCPURequest,
-						WithCPUPinning(&v1.CPU{
-							Cores:                 cores,
-							IsolateEmulatorThread: true,
-						},
-							vmiAnnotations, 0),
+						WithCPUPinning(vmi, vmiAnnotations, 0),
 					)
 					Expect(rr.Limits()).To(HaveKeyWithValue(
 						kubev1.ResourceCPU,
@@ -242,14 +250,16 @@ var _ = Describe("Resource pod spec renderer", func() {
 				cores := uint32(2)
 				iothreads := uint32(4)
 
+				vmi := libvmi.New(
+					libvmi.WithCPUCount(cores, 0, 0),
+					libvmi.WithIsolateEmulatorThread(),
+					libvmi.WithDedicatedCPUPlacement(),
+					libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicySupplementalPool),
+					libvmi.WithSupplementalPoolThreadCount(iothreads),
+				)
 				rr = NewResourceRenderer(
 					nil, nil,
-					WithCPUPinning(&v1.CPU{
-						Cores:                 cores,
-						IsolateEmulatorThread: true,
-						DedicatedCPUPlacement: true,
-					}, nil, 0),
-					WithIOThreads(&v1.DiskIOThreads{SupplementalPoolThreadCount: pointer.P(iothreads)}),
+					WithCPUPinning(vmi, nil, 0),
 				)
 				Expect(rr.Limits()).Should(HaveKeyWithValue(
 					kubev1.ResourceCPU,
