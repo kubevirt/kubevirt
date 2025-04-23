@@ -21,6 +21,8 @@
 package webhooks
 
 import (
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -63,10 +65,10 @@ func validateBootOptions(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSp
 }
 
 func validateCPUModel(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, statusCauses *[]metav1.StatusCause) {
-	if spec.Domain.CPU != nil && (&spec.Domain.CPU.Model != nil) && spec.Domain.CPU.Model == "host-model" {
+	if spec.Domain.CPU != nil && (&spec.Domain.CPU.Model != nil) && spec.Domain.CPU.Model != "" && spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
 		*statusCauses = append(*statusCauses, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueNotSupported,
-			Message: "Arm64 not support CPU host-model",
+			Message: fmt.Sprintf("currently, %v is the only model supported on Arm64", v1.CPUModeHostPassthrough),
 			Field:   field.Child("domain", "cpu", "model").String(),
 		})
 	}
