@@ -21,8 +21,7 @@ package downwardapi
 
 import (
 	"encoding/json"
-	"maps"
-	"slices"
+	"sort"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
@@ -51,11 +50,23 @@ func generateNetworkInfo(networkDeviceInfoMap map[string]*networkv1.DeviceInfo) 
 	var downwardAPIInterfaces []Interface
 
 	// Sort keys of the map with to get deterministic order
-	sortedNetNames := slices.Sorted(maps.Keys(networkDeviceInfoMap))
-	for _, networkName := range sortedNetNames {
+	netNames := mapKeys(networkDeviceInfoMap)
+	sort.Strings(netNames)
+
+	for _, networkName := range netNames {
 		deviceInfo := networkDeviceInfoMap[networkName]
 		downwardAPIInterfaces = append(downwardAPIInterfaces, Interface{Network: networkName, DeviceInfo: deviceInfo})
 	}
 	networkInfo := NetworkInfo{Interfaces: downwardAPIInterfaces}
 	return networkInfo
+}
+
+func mapKeys(m map[string]*networkv1.DeviceInfo) []string {
+	keys := make([]string, 0, len(m))
+
+	for k := range m {
+		keys = append(keys, k)
+	}
+
+	return keys
 }
