@@ -59,6 +59,8 @@ Try our quickstart at [kubevirt.io](https://kubevirt.io/get_kubevirt/).
 See our user documentation at [kubevirt.io/docs](https://kubevirt.io/user-guide).
 
 Once you have the basics, you can learn more about how to run KubeVirt and its newest features by taking a look at:
+### 🎉 Contribution Note
+Hello world! This is Sapthagiri777’s first contribution to KubeVirt.
 
  * [KubeVirt blog](https://kubevirt.io/blogs/)
  * [KubeVirt Youtube channel](https://www.youtube.com/channel/UC2FH36TbZizw25pVT1P3C3g)
@@ -145,3 +147,5 @@ KubeVirt is distributed under the
 ## FOSSA Status
 
 [![FOSSA Status](https://app.fossa.com/api/projects/custom%2B13072%2Fgit%40github.com%3Akubevirt%2Fkubevirt.git.svg?type=large)](https://app.fossa.com/projects/custom%2B13072%2Fgit%40github.com%3Akubevirt%2Fkubevirt.git?ref=badge_large)
+### 🎉 Contribution Note
+Hello world! This is Sapthagiri777’s first contribution to KubeVirt.
