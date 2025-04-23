@@ -175,97 +175,65 @@ var _ = Describe("Resource pod spec renderer", func() {
 		})
 	})
 
-	Context("WithCPUPinning option", func() {
-		userCPURequest := resource.MustParse("200m")
-		userSpecifiedCPU := kubev1.ResourceList{kubev1.ResourceCPU: userCPURequest}
-
-		It("the user requested CPU configs are *not* overriden", func() {
-			vmi := libvmi.New(libvmi.WithCPUCount(5, 0, 0))
-			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(vmi, map[string]string{}, 0))
-			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, userCPURequest))
-		})
-
-		It("carries over the CPU limits as requests when no CPUs are requested", func() {
-			vmi := libvmi.New(libvmi.WithCPUCount(0, 0, 0))
-			rr = NewResourceRenderer(userSpecifiedCPU, nil, WithCPUPinning(vmi, map[string]string{}, 0))
-			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, userCPURequest))
-		})
-
-		It("carries over the CPU requests as limits when no CPUs are requested", func() {
-			vmi := libvmi.New(libvmi.WithCPUCount(0, 0, 0))
-			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(vmi, map[string]string{}, 0))
-			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, userCPURequest))
-		})
-
-		It("carries over the requested memory as a *limit*", func() {
-			memoryRequest := resource.MustParse("128M")
-			userSpecifiedCPU := kubev1.ResourceList{
-				kubev1.ResourceCPU:    userCPURequest,
-				kubev1.ResourceMemory: memoryRequest,
-			}
-			vmi := libvmi.New(libvmi.WithCPUCount(5, 0, 0))
-			rr = NewResourceRenderer(nil, userSpecifiedCPU, WithCPUPinning(vmi, map[string]string{}, 0))
-			Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, resource.MustParse("200m")))
-			Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceMemory, memoryRequest))
-		})
-
-		When("an isolated emulator thread is requested", func() {
-			userSpecifiedCPURequest := kubev1.ResourceList{kubev1.ResourceCPU: userCPURequest}
-
-			DescribeTable("requires additional EmulatorThread CPUs overhead, and additional CPUs added to the limits",
-				func(vmiAnnotations map[string]string, defineUserSpecifiedCPULimit bool, cores uint32, expectedCPUOverhead string) {
-					cpuIsolatedEmulatorThreadOverhead := resource.MustParse(expectedCPUOverhead)
-					var userSpecifiedCPULimit kubev1.ResourceList
-
-					if defineUserSpecifiedCPULimit {
-						userSpecifiedCPULimit = kubev1.ResourceList{kubev1.ResourceCPU: userCPURequest}
-					}
-					vmi := libvmi.New(
-						libvmi.WithCPUCount(cores, 0, 0),
-						libvmi.WithIsolateEmulatorThread(),
-					)
-					rr = NewResourceRenderer(
-						userSpecifiedCPULimit,
-						userSpecifiedCPURequest,
-						WithCPUPinning(vmi, vmiAnnotations, 0),
-					)
-					Expect(rr.Limits()).To(HaveKeyWithValue(
-						kubev1.ResourceCPU,
-						*resource.NewQuantity(cpuIsolatedEmulatorThreadOverhead.Value()+int64(cores), resource.BinarySI),
-					))
-					Expect(rr.Requests()).To(HaveKeyWithValue(
-						kubev1.ResourceCPU,
-						addResources(userCPURequest, cpuIsolatedEmulatorThreadOverhead),
-					))
-				},
-				Entry("EmulatorThreadCompleteToEvenParity mode is disabled, only CPU requests set by the user", map[string]string{}, false, uint32(5), "1000m"),
-				Entry("EmulatorThreadCompleteToEvenParity mode is disabled, request and limits set by the user", map[string]string{}, true, uint32(5), "1000m"),
-				Entry("EmulatorThreadCompleteToEvenParity mode is enabled, only CPU requests set by the user, odd amount of cores is requested", map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, false, uint32(5), "1000m"),
-				Entry("EmulatorThreadCompleteToEvenParity mode is enabled, only CPU requests set by the user, even amount of cores is requested", map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, false, uint32(6), "2000m"),
-				Entry("EmulatorThreadCompleteToEvenParity mode is enabled, request and limits set by the user, odd amount of cores is requested", map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, true, uint32(5), "1000m"),
-				Entry("EmulatorThreadCompleteToEvenParity mode is enabled, request and limits set by the user, even amount of cores is requested", map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, true, uint32(6), "2000m"),
-			)
-
-			It("requires additional EmulatorThread CPUs overhead, and additional CPUs added to the limits and the IOThreads", func() {
-				cores := uint32(2)
-				iothreads := uint32(4)
-
+	When("an isolated emulator thread is requested", func() {
+		DescribeTable("sets limits and requests to vCPUs + iothreads + emulatorThreadCPUs when vCPUs != 0",
+			func(vcpus uint32, ioThreads uint32, userSpecifiedCPULimit, userSpecifiedCPURequest *resource.Quantity, annotations map[string]string, expectedCPUs int64) {
 				vmi := libvmi.New(
-					libvmi.WithCPUCount(cores, 0, 0),
-					libvmi.WithIsolateEmulatorThread(),
-					libvmi.WithDedicatedCPUPlacement(),
+					libvmi.WithCPUCount(vcpus, 0, 0),
 					libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicySupplementalPool),
-					libvmi.WithSupplementalPoolThreadCount(iothreads),
+					libvmi.WithSupplementalPoolThreadCount(ioThreads),
+					libvmi.WithIsolateEmulatorThread(),
 				)
-				rr = NewResourceRenderer(
-					nil, nil,
-					WithCPUPinning(vmi, nil, 0),
+
+				vmLimits := kubev1.ResourceList{}
+				vmRequests := kubev1.ResourceList{}
+				if userSpecifiedCPULimit != nil && userSpecifiedCPURequest != nil {
+					vmLimits[kubev1.ResourceCPU] = *userSpecifiedCPULimit
+					vmRequests[kubev1.ResourceCPU] = *userSpecifiedCPURequest
+				}
+
+				rr := NewResourceRenderer(
+					vmLimits,
+					vmRequests,
+					WithCPUPinning(vmi, annotations, 0),
 				)
-				Expect(rr.Limits()).Should(HaveKeyWithValue(
-					kubev1.ResourceCPU,
-					*resource.NewQuantity(int64(cores)+int64(iothreads)+1, resource.BinarySI),
-				), "should have the limits")
-			})
+
+				expectedQuantity := resource.NewQuantity(expectedCPUs, resource.BinarySI)
+
+				Expect(rr.Limits()).To(HaveKeyWithValue(kubev1.ResourceCPU, *expectedQuantity))
+				Expect(rr.Requests()).To(HaveKeyWithValue(kubev1.ResourceCPU, *expectedQuantity))
+			},
+			Entry("vCPUs specified, IO threads present",
+				uint32(5), uint32(2), nil, nil, nil, int64(8)),
+			Entry("vCPUs specified, IO threads present, EmulatorThreadCompleteToEvenParity enabled, odd total",
+				uint32(5), uint32(2), nil, nil, map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, int64(8)),
+			Entry("vCPUs specified, IO threads present, EmulatorThreadCompleteToEvenParity enabled, even total",
+				uint32(6), uint32(2), nil, nil, map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, int64(10)),
+			Entry("No vCPUs, no IO threads, user-specified reqs/limits CPU",
+				uint32(0), uint32(0), resource.NewQuantity(3, resource.BinarySI), resource.NewQuantity(3, resource.BinarySI), nil, int64(4)),
+			Entry("No vCPUs, IO threads, user-specified reqs/limits CPU, EmulatorThreadCompleteToEvenParity enabled",
+				uint32(0), uint32(2), resource.NewQuantity(5, resource.BinarySI), resource.NewQuantity(5, resource.BinarySI), map[string]string{v1.EmulatorThreadCompleteToEvenParity: ""}, int64(8)),
+		)
+
+		It("requires additional EmulatorThread CPUs overhead, and additional CPUs added to the limits and the IOThreads", func() {
+			cores := uint32(2)
+			iothreads := uint32(4)
+
+			vmi := libvmi.New(
+				libvmi.WithCPUCount(cores, 0, 0),
+				libvmi.WithIsolateEmulatorThread(),
+				libvmi.WithDedicatedCPUPlacement(),
+				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicySupplementalPool),
+				libvmi.WithSupplementalPoolThreadCount(iothreads),
+			)
+			rr = NewResourceRenderer(
+				nil, nil,
+				WithCPUPinning(vmi, nil, 0),
+			)
+			Expect(rr.Limits()).Should(HaveKeyWithValue(
+				kubev1.ResourceCPU,
+				*resource.NewQuantity(int64(cores)+int64(iothreads)+1, resource.BinarySI),
+			), "should have the limits")
 		})
 	})
 
