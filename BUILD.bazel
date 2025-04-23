@@ -218,6 +218,7 @@ build_other_images_aarch64_x86_64 = dicts.add(
         "$(container_prefix)/$(image_prefix)example-hook-sidecar:$(container_tag)": "//cmd/sidecars/smbios:example-hook-sidecar-image",
         "$(container_prefix)/$(image_prefix)example-disk-mutation-hook-sidecar:$(container_tag)": "//cmd/sidecars/disk-mutation:example-disk-mutation-hook-sidecar-image",
         "$(container_prefix)/$(image_prefix)example-cloudinit-hook-sidecar:$(container_tag)": "//cmd/sidecars/cloudinit:example-cloudinit-hook-sidecar-image",
+        "$(container_prefix)/$(image_prefix)eks-iamrsa-sidecar:$(container_tag)": "//cmd/sidecars/eks-irsa-support:eks-irsa-sidecar-image",
         "$(container_prefix)/$(image_prefix)network-slirp-binding:$(container_tag)": "//cmd/sidecars/network-slirp-binding:network-slirp-binding-image",
         "$(container_prefix)/$(image_prefix)network-passt-binding:$(container_tag)": "//cmd/sidecars/network-passt-binding:network-passt-binding-image",
         "$(container_prefix)/$(image_prefix)pr-helper:$(container_tag)": "//cmd/pr-helper:pr-helper",
@@ -407,6 +408,15 @@ container_push(
     image = "//cmd/sidecars/cloudinit:example-cloudinit-hook-sidecar-image",
     registry = "$(container_prefix)",
     repository = "$(image_prefix)example-cloudinit-hook-sidecar",
+    tag = "$(container_tag)",
+)
+
+container_push(
+    name = "push-eks-irsa-sidecar",
+    format = "Docker",
+    image = "//cmd/sidecars/eks-irsa-support:eks-irsa-sidecar-image",
+    registry = "$(container_prefix)",
+    repository = "$(image_prefix)eks-irsa-sidecar",
     tag = "$(container_tag)",
 )
 
