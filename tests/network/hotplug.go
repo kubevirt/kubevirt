@@ -411,6 +411,12 @@ var _ = SIGDescribe("nic-hotunplug", func() {
 			var err error
 			vm, err = kubevirt.Client().VirtualMachine(util.NamespaceTestDefault).Create(context.Background(), vm)
 			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(func() v1.VirtualMachinePrintableStatus {
+				virtualMachine, err := kubevirt.Client().VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				return virtualMachine.Status.PrintableStatus
+			}, 10*time.Second, 1*time.Second).Should(Equal(v1.VirtualMachineStatusStopped))
 		})
 
 		It("cannot be subject to **hot** unplug, but will mutate the template.Spec on behalf of the user", func() {
