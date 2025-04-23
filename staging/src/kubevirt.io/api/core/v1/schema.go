@@ -646,7 +646,7 @@ type Disk struct {
 	// +optional
 	DedicatedIOThread *bool `json:"dedicatedIOThread,omitempty"`
 	// Cache specifies which kvm disk cache mode should be used.
-	// Supported values are: none, writethrough.
+	// Supported values are: none, writethrough, writeback.
 	// +optional
 	Cache DriverCache `json:"cache,omitempty"`
 	// IO specifies which QEMU disk IO mode should be used.
