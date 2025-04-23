@@ -630,6 +630,8 @@ const (
 	VirtualMachineInstanceReasonSEVNotMigratable = "SEVNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses IBM Secure Execution
 	VirtualMachineInstanceReasonSecureExecutionNotMigratable = "SecureExecutionNotLiveMigratable"
+	// Reason means that VMI is not live migratable because it uses Intel Trust Domain Extensions (TDX)
+	VirtualMachineInstanceReasonTDXNotMigratable = "TDXNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses HyperV Reenlightenment while TSC Frequency is not available
 	VirtualMachineInstanceReasonNoTSCFrequencyMigratable = "NoTSCFrequencyNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses HyperV Reenlightenment while TSC Frequency is not available
