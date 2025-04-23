@@ -2911,15 +2911,22 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				}, 1, "Volume of unsupported type"),
 		)
 
-		It("should reject setting cpu model to host-model", func() {
+		DescribeTable("validating cpu model with", func(model string, expectedLen int) {
 			vmi := api.NewMinimalVMI("testvmi")
-			vmi.Spec.Domain.CPU = &v1.CPU{Model: "host-model"}
+			vmi.Spec.Domain.CPU = &v1.CPU{Model: model}
 
 			causes := webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("fake"), &vmi.Spec)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.cpu.model"))
-			Expect(causes[0].Message).To(Equal("Arm64 not support CPU host-model"))
-		})
+			Expect(causes).To(HaveLen(expectedLen))
+			if expectedLen != 0 {
+				Expect(causes[0].Field).To(Equal("fake.domain.cpu.model"))
+				Expect(causes[0].Message).To(Equal(fmt.Sprintf("currently, %v is the only model supported on Arm64", v1.CPUModeHostPassthrough)))
+			}
+		},
+			Entry("host-model should get rejected with arm64", "host-model", 1),
+			Entry("named model should get rejected with arm64", "Cooperlake", 1),
+			Entry("host-passthrough should be accepted with arm64", "host-passthrough", 0),
+			Entry("empty model should be accepted with arm64", "", 0),
+		)
 
 		It("should reject setting watchdog device", func() {
 			vmi := api.NewMinimalVMI("testvmi")
