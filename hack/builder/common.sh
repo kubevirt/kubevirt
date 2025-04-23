@@ -3,4 +3,4 @@ DOCKER_IMAGE=${DOCKER_IMAGE:-"builder"}
 DOCKER_CROSS_IMAGE=${DOCKER_CROSS_IMAGE:-"builder-cross"}
 
 # TODO: reenable ppc64le when new builds are available
-ARCHITECTURES="amd64 arm64 s390x"
+ARCHITECTURES=${ARCHITECTURES:-"amd64 arm64 s390x"}
