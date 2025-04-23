@@ -415,6 +415,13 @@ http_file(
 
 # some repos which are not part of go_rules anymore
 go_repository(
+    name = "org_golang_x_sys",
+    importpath = "golang.org/x/sys",
+    sum = "h1:CM0HF96J0hcLAwsHPJZjfdNzs0gftsLfgKt57wWHJ0o=",
+    version = "v0.12.0",
+)
+
+go_repository(
     name = "com_github_golang_glog",
     importpath = "github.com/golang/glog",
     sum = "h1:VKtxabqXZkF25pY9ekfRL6a582T4P37/31XEstQ5p58=",
