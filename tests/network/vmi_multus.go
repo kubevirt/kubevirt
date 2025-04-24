@@ -164,7 +164,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 		return err
 	}
 
-	BeforeEach(func() {
+	BeforeEach(OncePerOrdered, func() {
 		virtClient = kubevirt.Client()
 
 		nodes = libnode.GetAllSchedulableNodes(virtClient)
@@ -193,6 +193,73 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 
 	Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance using different types of interfaces.", func() {
 		const ptpGateway = ptpSubnetIP1
+
+		Context("VirtualMachineInstance with cni ptp plugin interfaces", Ordered, decorators.OncePerOrderedCleanup, func() {
+			var (
+				networkData string
+				detachedVMI *v1.VirtualMachineInstance
+			)
+			const (
+				multiIfaceSubnet1       = "10.80.0.0/24"
+				multiIfaceNetName1      = "mult-ptp-1"
+				multiIfaceNetGatewayIP1 = "10.80.0.1"
+
+				multiIfaceSubnet2       = "10.90.0.0/24"
+				multiIfaceNetName2      = "mult-ptp-2"
+				multiIfaceNetGatewayIP2 = "10.90.0.1"
+				multiIfaceNetIP2        = "10.90.0.2/24"
+			)
+
+			BeforeAll(func() {
+				libnet.SkipWhenClusterNotSupportIpv4()
+				Expect(createPtpNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), multiIfaceNetName1, multiIfaceSubnet1)).To(Succeed())
+				Expect(createPtpNetworkAttachmentDefinition(testsuite.NamespaceTestAlternative, multiIfaceNetName2, multiIfaceSubnet2)).To(Succeed())
+			})
+
+			BeforeAll(func() {
+				networkData, err = cloudinit.NewNetworkData(
+					cloudinit.WithEthernet("eth0",
+						cloudinit.WithDHCP4Enabled(),
+						cloudinit.WithNameserverFromCluster(),
+					),
+					cloudinit.WithEthernet("eth1",
+						cloudinit.WithAddresses(multiIfaceNetIP2),
+					),
+				)
+				Expect(err).NotTo(HaveOccurred())
+				detachedVMI = libvmifact.NewAlpineWithTestTooling(
+					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
+				)
+				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{
+					{Name: "ptp1", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+					{Name: "ptp2", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+				}
+
+				detachedVMI.Spec.Networks = []v1.Network{
+					{Name: "ptp1", NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{NetworkName: multiIfaceNetName1},
+					}},
+					{Name: "ptp2", NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{NetworkName: fmt.Sprintf("%s/%s", testsuite.NamespaceTestAlternative, multiIfaceNetName2)},
+					}},
+				}
+
+				detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), detachedVMI, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				libwait.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
+			})
+
+			It("[test_id:1751]should create a virtual machine with one interface", func() {
+				By("checking virtual machine instance can ping using ptp cni plugin")
+				Expect(libnet.PingFromVMConsole(detachedVMI, multiIfaceNetGatewayIP1)).To(Succeed())
+			})
+
+			It("[test_id:1752]should create a virtual machine with one interface with network definition from different namespace", func() {
+				By("checking virtual machine instance can ping using ptp cni plugin")
+				Expect(libnet.PingFromVMConsole(detachedVMI, multiIfaceNetGatewayIP2)).To(Succeed())
+			})
+		})
+
 		Context("multus VMIs", func() {
 			BeforeEach(func() {
 				const vlanID100 = 100
@@ -201,58 +268,6 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 
 				Expect(createPtpNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), ptpConf1, ptpSubnet)).To(Succeed())
 				Expect(createPtpNetworkAttachmentDefinition(testsuite.NamespaceTestAlternative, ptpConf2, ptpSubnet)).To(Succeed())
-			})
-
-			Context("VirtualMachineInstance with cni ptp plugin interfaces", func() {
-				var networkData string
-				BeforeEach(func() {
-					libnet.SkipWhenClusterNotSupportIpv4()
-					networkData, err = cloudinit.NewNetworkData(
-						cloudinit.WithEthernet("eth0",
-							cloudinit.WithDHCP4Enabled(),
-							cloudinit.WithNameserverFromCluster(),
-						),
-					)
-					Expect(err).NotTo(HaveOccurred())
-				})
-
-				It("[test_id:1751]should create a virtual machine with one interface", func() {
-					By("checking virtual machine instance can ping using ptp cni plugin")
-					detachedVMI := libvmifact.NewAlpineWithTestTooling(
-						libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
-					)
-					detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
-					detachedVMI.Spec.Networks = []v1.Network{
-						{Name: "ptp", NetworkSource: v1.NetworkSource{
-							Multus: &v1.MultusNetwork{NetworkName: ptpConf1},
-						}},
-					}
-
-					detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), detachedVMI, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					libwait.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
-
-					Expect(libnet.PingFromVMConsole(detachedVMI, ptpGateway)).To(Succeed())
-				})
-
-				It("[test_id:1752]should create a virtual machine with one interface with network definition from different namespace", func() {
-					By("checking virtual machine instance can ping using ptp cni plugin")
-					detachedVMI := libvmifact.NewAlpineWithTestTooling(
-						libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
-					)
-					detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
-					detachedVMI.Spec.Networks = []v1.Network{
-						{Name: "ptp", NetworkSource: v1.NetworkSource{
-							Multus: &v1.MultusNetwork{NetworkName: fmt.Sprintf("%s/%s", testsuite.NamespaceTestAlternative, ptpConf2)},
-						}},
-					}
-
-					detachedVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), detachedVMI, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					libwait.WaitUntilVMIReady(detachedVMI, console.LoginToAlpine)
-
-					Expect(libnet.PingFromVMConsole(detachedVMI, ptpGateway)).To(Succeed())
-				})
 			})
 
 			It("[test_id:1753]should create a virtual machine with two interfaces", func() {
