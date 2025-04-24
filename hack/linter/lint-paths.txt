@@ -43,4 +43,3 @@ tests/numa
 tests/usb
 tests/virtctl
 pkg/virtctl/adm
-pkg/virtctl/adm
