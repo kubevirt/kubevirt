@@ -13365,8 +13365,9 @@ var CRDsValidation map[string]string = map[string]string{
           type: string
         fsFreezeStatus:
           description: |-
-            FSFreezeStatus is the state of the fs of the guest
-            it can be either frozen or thawed
+            FSFreezeStatus indicates whether a freeze operation was requested for the guest filesystem.
+            It will be set to "frozen" if the request was made, or unset otherwise.
+            This does not reflect the actual state of the guest filesystem.
           type: string
         guestOSInfo:
           description: Guest OS Information
