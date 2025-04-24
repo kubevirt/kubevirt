@@ -359,7 +359,3 @@ func (n *NodeLabeller) getSupportedMachines() []libvirtxml.CapsGuestMachine {
 	}
 	return supportedMachines
 }
-
-func (n *NodeLabeller) ShouldLabelNodes() bool {
-	return n.arch.shouldLabelNodes()
-}
