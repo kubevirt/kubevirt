@@ -26,6 +26,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -46,6 +47,7 @@ type VirtualMachineExpansion interface {
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
 	MemoryDump(ctx context.Context, name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error
 	RemoveMemoryDump(ctx context.Context, name string) error
+	EvacuateCancel(ctx context.Context, name string, evacuateCancelOptions *v1.EvacuateCancelOptions) error
 }
 
 func (c *virtualMachines) GetWithExpandedSpec(ctx context.Context, name string) (*v1.VirtualMachine, error) {
@@ -194,6 +196,23 @@ func (c *virtualMachines) RemoveMemoryDump(ctx context.Context, name string) err
 		Resource("virtualmachines").
 		Name(name).
 		SubResource("removememorydump").
+		Do(ctx).
+		Error()
+}
+
+func (c *virtualMachines) EvacuateCancel(ctx context.Context, name string, evacuateCancelOptions *v1.EvacuateCancelOptions) error {
+	body, err := json.Marshal(evacuateCancelOptions)
+	if err != nil {
+		return err
+	}
+
+	return c.GetClient().Put().
+		AbsPath(fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion)).
+		Namespace(c.GetNamespace()).
+		Resource("virtualmachines").
+		Name(name).
+		SubResource("evacuatecancel").
+		Body(body).
 		Do(ctx).
 		Error()
 }
