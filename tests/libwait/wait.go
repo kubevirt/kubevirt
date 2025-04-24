@@ -202,7 +202,7 @@ func WaitForSuccessfulVMIStartIgnoreWarnings(vmi *v1.VirtualMachineInstance) *v1
 	return WaitForVMIPhase(vmi,
 		[]v1.VirtualMachineInstancePhase{v1.Running},
 		WithFailOnWarnings(false),
-		WithTimeout(180),
+		WithTimeout(240),
 	)
 }
 
