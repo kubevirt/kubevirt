@@ -13,19 +13,19 @@ import (
 //
 // The only two differences are the addition of mapLock in defaultQueueMetrics and converging retryMetrics into queueMetrics.
 
-type queueMetrics[T comparable] interface {
-	add(item T)
-	get(item T)
-	done(item T)
+type queueMetrics interface {
+	add(item interface{})
+	get(item interface{})
+	done(item interface{})
 	updateUnfinishedWork()
 	retry()
 }
 
-func newQueueMetrics[T comparable](mp workqueue.MetricsProvider, name string, clock clock.Clock) queueMetrics[T] {
+func newQueueMetrics(mp workqueue.MetricsProvider, name string, clock clock.Clock) queueMetrics {
 	if len(name) == 0 {
-		return noMetrics[T]{}
+		return noMetrics{}
 	}
-	return &defaultQueueMetrics[T]{
+	return &defaultQueueMetrics{
 		clock:                   clock,
 		depth:                   mp.NewDepthMetric(name),
 		adds:                    mp.NewAddsMetric(name),
@@ -33,14 +33,14 @@ func newQueueMetrics[T comparable](mp workqueue.MetricsProvider, name string, cl
 		workDuration:            mp.NewWorkDurationMetric(name),
 		unfinishedWorkSeconds:   mp.NewUnfinishedWorkSecondsMetric(name),
 		longestRunningProcessor: mp.NewLongestRunningProcessorSecondsMetric(name),
-		addTimes:                map[T]time.Time{},
-		processingStartTimes:    map[T]time.Time{},
+		addTimes:                map[interface{}]time.Time{},
+		processingStartTimes:    map[interface{}]time.Time{},
 		retries:                 mp.NewRetriesMetric(name),
 	}
 }
 
 // defaultQueueMetrics expects the caller to lock before setting any metrics.
-type defaultQueueMetrics[T comparable] struct {
+type defaultQueueMetrics struct {
 	clock clock.Clock
 
 	// current depth of a workqueue
@@ -53,8 +53,8 @@ type defaultQueueMetrics[T comparable] struct {
 	workDuration workqueue.HistogramMetric
 
 	mapLock              sync.RWMutex
-	addTimes             map[T]time.Time
-	processingStartTimes map[T]time.Time
+	addTimes             map[interface{}]time.Time
+	processingStartTimes map[interface{}]time.Time
 
 	// how long have current threads been working?
 	unfinishedWorkSeconds   workqueue.SettableGaugeMetric
@@ -64,7 +64,7 @@ type defaultQueueMetrics[T comparable] struct {
 }
 
 // add is called for ready items only
-func (m *defaultQueueMetrics[T]) add(item T) {
+func (m *defaultQueueMetrics) add(item interface{}) {
 	if m == nil {
 		return
 	}
@@ -80,7 +80,7 @@ func (m *defaultQueueMetrics[T]) add(item T) {
 	}
 }
 
-func (m *defaultQueueMetrics[T]) get(item T) {
+func (m *defaultQueueMetrics) get(item interface{}) {
 	if m == nil {
 		return
 	}
@@ -97,7 +97,7 @@ func (m *defaultQueueMetrics[T]) get(item T) {
 	}
 }
 
-func (m *defaultQueueMetrics[T]) done(item T) {
+func (m *defaultQueueMetrics) done(item interface{}) {
 	if m == nil {
 		return
 	}
@@ -110,7 +110,7 @@ func (m *defaultQueueMetrics[T]) done(item T) {
 	}
 }
 
-func (m *defaultQueueMetrics[T]) updateUnfinishedWork() {
+func (m *defaultQueueMetrics) updateUnfinishedWork() {
 	m.mapLock.RLock()
 	defer m.mapLock.RUnlock()
 	// Note that a summary metric would be better for this, but prometheus
@@ -129,18 +129,18 @@ func (m *defaultQueueMetrics[T]) updateUnfinishedWork() {
 }
 
 // Gets the time since the specified start in seconds.
-func (m *defaultQueueMetrics[T]) sinceInSeconds(start time.Time) float64 {
+func (m *defaultQueueMetrics) sinceInSeconds(start time.Time) float64 {
 	return m.clock.Since(start).Seconds()
 }
 
-func (m *defaultQueueMetrics[T]) retry() {
+func (m *defaultQueueMetrics) retry() {
 	m.retries.Inc()
 }
 
-type noMetrics[T any] struct{}
+type noMetrics struct{}
 
-func (noMetrics[T]) add(item T)            {}
-func (noMetrics[T]) get(item T)            {}
-func (noMetrics[T]) done(item T)           {}
-func (noMetrics[T]) updateUnfinishedWork() {}
-func (noMetrics[T]) retry()                {}
+func (noMetrics) add(item interface{})  {}
+func (noMetrics) get(item interface{})  {}
+func (noMetrics) done(item interface{}) {}
+func (noMetrics) updateUnfinishedWork() {}
+func (noMetrics) retry()                {}
