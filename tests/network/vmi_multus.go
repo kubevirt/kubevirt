@@ -208,12 +208,17 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 				multiIfaceNetName2      = "mult-ptp-2"
 				multiIfaceNetGatewayIP2 = "10.90.0.1"
 				multiIfaceNetIP2        = "10.90.0.2/24"
+
+				customMacAddress   = "50:00:00:00:90:0d"
+				multiIfaceSubnet3  = "10.100.0.0/24"
+				multiIfaceNetName3 = "mult-ptp-3"
 			)
 
 			BeforeAll(func() {
 				libnet.SkipWhenClusterNotSupportIpv4()
 				Expect(createPtpNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), multiIfaceNetName1, multiIfaceSubnet1)).To(Succeed())
 				Expect(createPtpNetworkAttachmentDefinition(testsuite.NamespaceTestAlternative, multiIfaceNetName2, multiIfaceSubnet2)).To(Succeed())
+				Expect(createPtpNetworkAttachmentDefinition(testsuite.GetTestNamespace(nil), multiIfaceNetName3, multiIfaceSubnet3)).To(Succeed())
 			})
 
 			BeforeAll(func() {
@@ -225,6 +230,9 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					cloudinit.WithEthernet("eth1",
 						cloudinit.WithAddresses(multiIfaceNetIP2),
 					),
+					cloudinit.WithEthernet("eth2",
+						cloudinit.WithAddresses(multiIfaceNetIP2),
+					),
 				)
 				Expect(err).NotTo(HaveOccurred())
 				detachedVMI = libvmifact.NewAlpineWithTestTooling(
@@ -233,6 +241,8 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					{Name: "ptp1", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
 					{Name: "ptp2", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+					{Name: "ptp3", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}},
+						MacAddress: customMacAddress},
 				}
 
 				detachedVMI.Spec.Networks = []v1.Network{
@@ -241,6 +251,9 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					}},
 					{Name: "ptp2", NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: fmt.Sprintf("%s/%s", testsuite.NamespaceTestAlternative, multiIfaceNetName2)},
+					}},
+					{Name: "ptp3", NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{NetworkName: multiIfaceNetName3},
 					}},
 				}
 
@@ -257,6 +270,30 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 			It("[test_id:1752]should create a virtual machine with one interface with network definition from different namespace", func() {
 				By("checking virtual machine instance can ping using ptp cni plugin")
 				Expect(libnet.PingFromVMConsole(detachedVMI, multiIfaceNetGatewayIP2)).To(Succeed())
+			})
+
+			It("VirtualMachineInstance with cni ptp plugin interface with custom MAC address", func() {
+				By("Verifying the desired custom MAC is the one that was actually configured on the interface.")
+				ipLinkShow := fmt.Sprintf("ip link show eth2 | grep -i \"%s\" | wc -l\n", customMacAddress)
+				err = console.SafeExpectBatch(detachedVMI, []expect.Batcher{
+					&expect.BSnd{S: ipLinkShow},
+					&expect.BExp{R: "1"},
+				}, 15)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Verifying the desired custom MAC is not configured inside the pod namespace.")
+				vmiPod, err := libpod.GetPodByVirtualMachineInstance(detachedVMI, detachedVMI.Namespace)
+				Expect(err).NotTo(HaveOccurred())
+
+				//echo -n "ptp3" | sha256sum | cut -c1-11
+				podInterfaceName := "608567a58e2-nic"
+				out, err := exec.ExecuteCommandOnPod(
+					vmiPod,
+					"compute",
+					[]string{"sh", "-c", fmt.Sprintf("ip a show %s", podInterfaceName)},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(strings.Contains(out, customMacAddress)).To(BeFalse())
 			})
 		})
 
@@ -347,59 +384,6 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					// lo0, eth0-nic, k6t-eth0, vnet0
 					output := libpod.RunCommandOnVmiPod(detachedVMI, []string{"/bin/bash", "-c", "/usr/sbin/ip link show|grep -c UP"})
 					ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("4"))
-				})
-			})
-
-			Context("VirtualMachineInstance with cni ptp plugin interface with custom MAC address", func() {
-				It("[test_id:1705]should configure valid custom MAC address on ptp interface when using tuning plugin", func() {
-					customMacAddress := "50:00:00:00:90:0d"
-					ptpInterface := v1.Interface{
-						Name: "ptp",
-						InterfaceBindingMethod: v1.InterfaceBindingMethod{
-							Bridge: &v1.InterfaceBridge{},
-						},
-					}
-					ptpNetwork := v1.Network{
-						Name: "ptp",
-						NetworkSource: v1.NetworkSource{
-							Multus: &v1.MultusNetwork{
-								NetworkName: ptpConf1,
-							},
-						},
-					}
-
-					interfaces := []v1.Interface{ptpInterface}
-					networks := []v1.Network{ptpNetwork}
-
-					By("Creating a VM with custom MAC address on its ptp interface.")
-					interfaces[0].MacAddress = customMacAddress
-
-					vmiOne := createVMIOnNode(interfaces, networks)
-					libwait.WaitUntilVMIReady(vmiOne, console.LoginToAlpine)
-
-					By("Configuring static IP address to ptp interface.")
-					Expect(libnet.AddIPAddress(vmiOne, "eth0", ptpSubnetIP1+ptpSubnetMask)).To(Succeed())
-
-					By("Verifying the desired custom MAC is the one that was actually configured on the interface.")
-					ipLinkShow := fmt.Sprintf("ip link show eth0 | grep -i \"%s\" | wc -l\n", customMacAddress)
-					err = console.SafeExpectBatch(vmiOne, []expect.Batcher{
-						&expect.BSnd{S: ipLinkShow},
-						&expect.BExp{R: "1"},
-					}, 15)
-					Expect(err).ToNot(HaveOccurred())
-
-					By("Verifying the desired custom MAC is not configured inside the pod namespace.")
-					vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmiOne, vmiOne.Namespace)
-					Expect(err).NotTo(HaveOccurred())
-
-					podInterfaceName := "e31d7ce2712-nic"
-					out, err := exec.ExecuteCommandOnPod(
-						vmiPod,
-						"compute",
-						[]string{"sh", "-c", fmt.Sprintf("ip a show %s", podInterfaceName)},
-					)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(strings.Contains(out, customMacAddress)).To(BeFalse())
 				})
 			})
 
