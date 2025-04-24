@@ -26,10 +26,6 @@ var _ = archLabeller(&archLabellerS390X{})
 
 type archLabellerS390X struct{}
 
-func (archLabellerS390X) shouldLabelNodes() bool {
-	return true
-}
-
 func (archLabellerS390X) defaultVendor() string {
 	// On s390x the xml does not include a CPU Vendor, however there is only one company selling them anyway.
 	return "IBM"
@@ -45,6 +41,10 @@ func (archLabellerS390X) hasHostSupportedFeatures() bool {
 }
 
 func (archLabellerS390X) supportsHostModel() bool {
+	return true
+}
+
+func (archLabellerS390X) supportsNamedModels() bool {
 	return true
 }
 

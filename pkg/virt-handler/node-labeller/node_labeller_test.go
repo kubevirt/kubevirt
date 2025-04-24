@@ -290,16 +290,6 @@ var _ = Describe("Node-labeller ", func() {
 		// Added in BeforeEach
 		Expect(node.Labels).To(HaveKey("INeedToBeHere"))
 	})
-
-	DescribeTable("should only label arches that support it", func(arch string, shouldLabel bool) {
-		nlController.arch = newArchLabeller(arch)
-		Expect(nlController.ShouldLabelNodes()).To(Equal(shouldLabel))
-	},
-		Entry(amd64, amd64, true),
-		Entry(arm64, arm64, false),
-		Entry(s390x, s390x, true),
-		Entry("unknown", "unknown", false),
-	)
 })
 
 func newNode(name string) *k8sv1.Node {
