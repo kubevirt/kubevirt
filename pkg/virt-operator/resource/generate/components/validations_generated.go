@@ -6500,6 +6500,11 @@ var CRDsValidation map[string]string = map[string]string{
                         tpm:
                           description: Whether to emulate a TPM device.
                           properties:
+                            enabled:
+                              description: |-
+                                Enabled allows a user to explictly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
+                                Defaults to True
+                              type: boolean
                             persistent:
                               description: |-
                                 Persistent indicates the state of the TPM device should be kept accross reboots
@@ -9287,6 +9292,11 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredTPM optionally defines the preferred TPM device
                 to be used.
               properties:
+                enabled:
+                  description: |-
+                    Enabled allows a user to explictly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
+                    Defaults to True
+                  type: boolean
                 persistent:
                   description: |-
                     Persistent indicates the state of the TPM device should be kept accross reboots
@@ -11706,6 +11716,11 @@ var CRDsValidation map[string]string = map[string]string{
                 tpm:
                   description: Whether to emulate a TPM device.
                   properties:
+                    enabled:
+                      description: |-
+                        Enabled allows a user to explictly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
+                        Defaults to True
+                      type: boolean
                     persistent:
                       description: |-
                         Persistent indicates the state of the TPM device should be kept accross reboots
@@ -14880,6 +14895,11 @@ var CRDsValidation map[string]string = map[string]string{
                 tpm:
                   description: Whether to emulate a TPM device.
                   properties:
+                    enabled:
+                      description: |-
+                        Enabled allows a user to explictly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
+                        Defaults to True
+                      type: boolean
                     persistent:
                       description: |-
                         Persistent indicates the state of the TPM device should be kept accross reboots
@@ -17287,6 +17307,11 @@ var CRDsValidation map[string]string = map[string]string{
                         tpm:
                           description: Whether to emulate a TPM device.
                           properties:
+                            enabled:
+                              description: |-
+                                Enabled allows a user to explictly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
+                                Defaults to True
+                              type: boolean
                             persistent:
                               description: |-
                                 Persistent indicates the state of the TPM device should be kept accross reboots
@@ -21799,6 +21824,11 @@ var CRDsValidation map[string]string = map[string]string{
                                 tpm:
                                   description: Whether to emulate a TPM device.
                                   properties:
+                                    enabled:
+                                      description: |-
+                                        Enabled allows a user to explictly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
+                                        Defaults to True
+                                      type: boolean
                                     persistent:
                                       description: |-
                                         Persistent indicates the state of the TPM device should be kept accross reboots
@@ -23698,6 +23728,11 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredTPM optionally defines the preferred TPM device
                 to be used.
               properties:
+                enabled:
+                  description: |-
+                    Enabled allows a user to explictly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
+                    Defaults to True
+                  type: boolean
                 persistent:
                   description: |-
                     Persistent indicates the state of the TPM device should be kept accross reboots
@@ -26999,6 +27034,11 @@ var CRDsValidation map[string]string = map[string]string{
                                     tpm:
                                       description: Whether to emulate a TPM device.
                                       properties:
+                                        enabled:
+                                          description: |-
+                                            Enabled allows a user to explictly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
+                                            Defaults to True
+                                          type: boolean
                                         persistent:
                                           description: |-
                                             Persistent indicates the state of the TPM device should be kept accross reboots

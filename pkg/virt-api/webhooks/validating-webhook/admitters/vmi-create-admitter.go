@@ -31,6 +31,7 @@ import (
 	"strings"
 
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
+	"kubevirt.io/kubevirt/pkg/tpm"
 
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 
@@ -2291,7 +2292,7 @@ func validatePersistentState(field *k8sfield.Path, spec *v1.VirtualMachineInstan
 	}
 
 	if !config.VMPersistentStateEnabled() {
-		if backendstorage.HasPersistentTPMDevice(spec) {
+		if tpm.HasPersistentDevice(spec) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", virtconfig.VMPersistentState),
