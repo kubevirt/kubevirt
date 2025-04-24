@@ -2689,21 +2689,37 @@ spec:
 		}
 
 		defaultDeployment := func() {
-			kv := libkubevirt.GetCurrentKv(virtClient)
+			kv := util2.GetCurrentKv(virtClient)
+			kv.Spec.Configuration.DeveloperConfiguration = nil
 			kv.Spec.Configuration.CommonInstancetypesDeployment = nil
 			updateConfigAndWait(kv.Spec.Configuration)
 		}
 
 		enableDeployment := func() {
-			kv := libkubevirt.GetCurrentKv(virtClient)
+			kv := util2.GetCurrentKv(virtClient)
+			kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+				FeatureGates: []string{virtconfig.CommonInstancetypesDeploymentGate},
+			}
 			kv.Spec.Configuration.CommonInstancetypesDeployment = &v1.CommonInstancetypesDeployment{
 				Enabled: pointer.Bool(true),
 			}
 			updateConfigAndWait(kv.Spec.Configuration)
 		}
 
-		disableDeployment := func() {
-			kv := libkubevirt.GetCurrentKv(virtClient)
+		disableDeploymentUsingFG := func() {
+			kv := util2.GetCurrentKv(virtClient)
+			kv.Spec.Configuration.DeveloperConfiguration = nil
+			kv.Spec.Configuration.CommonInstancetypesDeployment = &v1.CommonInstancetypesDeployment{
+				Enabled: pointer.Bool(true),
+			}
+			updateConfigAndWait(kv.Spec.Configuration)
+		}
+
+		disableDeploymentUsingConfig := func() {
+			kv := util2.GetCurrentKv(virtClient)
+			kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+				FeatureGates: []string{virtconfig.CommonInstancetypesDeploymentGate},
+			}
 			kv.Spec.Configuration.CommonInstancetypesDeployment = &v1.CommonInstancetypesDeployment{
 				Enabled: pointer.Bool(false),
 			}
@@ -2711,7 +2727,7 @@ spec:
 		}
 
 		BeforeEach(func() {
-			kv := libkubevirt.GetCurrentKv(virtClient)
+			kv := util2.GetCurrentKv(virtClient)
 			originalConfig = kv.Spec.Configuration.CommonInstancetypesDeployment.DeepCopy()
 
 			// Do nothing if the deployment is already default
@@ -2728,7 +2744,7 @@ spec:
 
 		AfterEach(func() {
 			// Do nothing if the current config already matches the original
-			kv := libkubevirt.GetCurrentKv(virtClient)
+			kv := util2.GetCurrentKv(virtClient)
 			if reflect.DeepEqual(originalConfig, kv.Spec.Configuration.CommonInstancetypesDeployment) {
 				return
 			}
@@ -2758,16 +2774,19 @@ spec:
 		}
 
 		It("Should deploy common-instancetypes according to KubeVirt configurable", func() {
-			// Default is to deploy the resources
-			expectResourcesToExist()
-
-			disableDeployment()
+			// Default is to not deploy the resources
 			expectResourcesToNotExist()
 
 			enableDeployment()
 			expectResourcesToExist()
 
-			disableDeployment()
+			disableDeploymentUsingFG()
+			expectResourcesToNotExist()
+
+			enableDeployment()
+			expectResourcesToExist()
+
+			disableDeploymentUsingConfig()
 			expectResourcesToNotExist()
 		})
 
@@ -2779,7 +2798,7 @@ spec:
 
 			It("of instancetypes and preferences", func() {
 				By("Ensuring deployment is disabled")
-				disableDeployment()
+				disableDeploymentUsingFG()
 
 				By("Getting instancetypes to be deployed by virt-operator")
 				instancetypes, err := components.NewClusterInstancetypes()
@@ -2890,6 +2909,10 @@ spec:
 			var preferredTopology = v1beta1.PreferThreads
 
 			It("to instancetypes and preferences", func() {
+				By("Enabling deployment")
+				enableDeployment()
+				expectResourcesToExist()
+
 				By("Getting the deployed instancetypes")
 				instancetypes, err := virtClient.VirtualMachineClusterInstancetype().List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 				Expect(err).ToNot(HaveOccurred())
