@@ -21,10 +21,13 @@ package requirements
 import (
 	"fmt"
 
-	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/instancetype/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -37,17 +40,23 @@ func checkMemory(
 	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 ) (conflict.Conflicts, error) {
-	if instancetypeSpec != nil && instancetypeSpec.Memory.Guest.Cmp(preferenceSpec.Requirements.Memory.Guest) < 0 {
-		instancetypeMemory := instancetypeSpec.Memory.Guest.String()
-		preferenceMemory := preferenceSpec.Requirements.Memory.Guest.String()
-		return conflict.Conflicts{conflict.New("spec", "instancetype")},
-			fmt.Errorf(InsufficientInstanceTypeMemoryResourcesErrorFmt, instancetypeMemory, preferenceMemory)
+	errFmt := InsufficientVMMemoryResourcesErrorFmt
+	errConflict := conflict.New("spec", "template", "spec", "domain", "memory")
+	providedMemory := pointer.P(resource.MustParse("0Mi"))
+
+	if instancetypeSpec != nil {
+		errConflict = conflict.New("spec", "instancetype")
+		errFmt = InsufficientInstanceTypeMemoryResourcesErrorFmt
+		providedMemory = &instancetypeSpec.Memory.Guest
 	}
 
-	vmiMemory := vmiSpec.Domain.Memory
-	if instancetypeSpec == nil && vmiMemory != nil && vmiMemory.Guest.Cmp(preferenceSpec.Requirements.Memory.Guest) < 0 {
-		return conflict.Conflicts{conflict.New("spec", "template", "spec", "domain", "memory")},
-			fmt.Errorf(InsufficientVMMemoryResourcesErrorFmt, vmiMemory.Guest.String(), preferenceSpec.Requirements.Memory.Guest.String())
+	if vmiSpec != nil && vmiSpec.Domain.Memory != nil && vmiSpec.Domain.Memory.Guest != nil {
+		providedMemory = vmiSpec.Domain.Memory.Guest
 	}
+
+	if providedMemory.Cmp(preferenceSpec.Requirements.Memory.Guest) < 0 {
+		return conflict.Conflicts{errConflict}, fmt.Errorf(errFmt, providedMemory.String(), preferenceSpec.Requirements.Memory.Guest.String())
+	}
+
 	return nil, nil
 }
