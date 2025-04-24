@@ -2142,7 +2142,7 @@ func (c *VirtualMachineController) execute(key string) error {
 		// the local environment for the migration, but does not
 		// start the VMI
 		return c.migrationTargetExecute(vmi, vmiExists, domain)
-	} else if vmiExists && c.isOrphanedMigrationSource(vmi) {
+	} else if vmiExists && c.isOrphanedMigrationSource(vmi) && c.isMigrationTarget(vmi) {
 		// 3. POST-MIGRATION SOURCE CLEANUP
 		//
 		// After a migration, the migrated domain still exists in the old
@@ -2472,6 +2472,19 @@ func (c *VirtualMachineController) isPreMigrationTarget(vmi *v1.VirtualMachineIn
 	if ok &&
 		migrationTargetNodeName != "" &&
 		migrationTargetNodeName != vmi.Status.NodeName &&
+		migrationTargetNodeName == c.host {
+		return true
+	}
+
+	return false
+}
+
+func (c *VirtualMachineController) isMigrationTarget(vmi *v1.VirtualMachineInstance) bool {
+
+	migrationTargetNodeName, ok := vmi.Labels[v1.MigrationTargetNodeNameLabel]
+
+	if ok &&
+		migrationTargetNodeName != "" &&
 		migrationTargetNodeName == c.host {
 		return true
 	}
