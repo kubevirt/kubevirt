@@ -159,3 +159,10 @@ func (c *FakeVirtualMachineInstances) SEVInjectLaunchSecret(ctx context.Context,
 
 	return err
 }
+
+func (c *FakeVirtualMachineInstances) EvacuateCancel(ctx context.Context, name string, evacuateCancelOptions *v1.EvacuateCancelOptions) error {
+	_, err := c.Fake.
+		Invokes(fake2.NewPutSubresourceAction(virtualmachineinstancesResource, c.ns, "evacuatecancel", name, evacuateCancelOptions), nil)
+
+	return err
+}

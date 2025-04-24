@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"k8s.io/client-go/tools/clientcmd"
-
 	"kubevirt.io/client-go/kubecli"
 )
 
