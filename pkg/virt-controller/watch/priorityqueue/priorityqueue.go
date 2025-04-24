@@ -24,74 +24,74 @@ type AddOpts struct {
 // internally de-duplicates all items that are added to
 // it. It will use the max of the passed priorities and the
 // min of possible durations.
-type PriorityQueue[T comparable] interface {
-	workqueue.TypedRateLimitingInterface[T]
-	AddWithOpts(o AddOpts, Items ...T)
-	GetWithPriority() (item T, priority int, shutdown bool)
+type PriorityQueue interface {
+	workqueue.RateLimitingInterface
+	AddWithOpts(o AddOpts, Items ...interface{})
+	GetWithPriority() (item interface{}, priority int, shutdown bool)
 }
 
 // Opts contains the options for a PriorityQueue.
-type Opts[T comparable] struct {
+type Opts struct {
 	// Ratelimiter is being used when AddRateLimited is called. Defaults to a per-item exponential backoff
 	// limiter with an initial delay of five milliseconds and a max delay of 1000 seconds.
-	RateLimiter    workqueue.TypedRateLimiter[T]
+	RateLimiter    workqueue.RateLimiter
 	MetricProvider workqueue.MetricsProvider
 	Log            logr.Logger
 }
 
 // Opt allows to configure a PriorityQueue.
-type Opt[T comparable] func(*Opts[T])
+type Opt func(*Opts)
 
 // New constructs a new PriorityQueue.
-func New[T comparable](name string, o ...Opt[T]) PriorityQueue[T] {
-	opts := &Opts[T]{}
+func New(name string, o ...Opt) PriorityQueue {
+	opts := &Opts{}
 	for _, f := range o {
 		f(opts)
 	}
 
 	if opts.RateLimiter == nil {
-		opts.RateLimiter = workqueue.NewTypedItemExponentialFailureRateLimiter[T](5*time.Millisecond, 1000*time.Second)
+		opts.RateLimiter = workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, 1000*time.Second)
 	}
 
 	if opts.MetricProvider == nil {
 		opts.MetricProvider = workqueueMetricsProvider{}
 	}
 
-	pq := &priorityqueue[T]{
+	pq := &priorityqueue{
 		log:         opts.Log,
-		items:       map[T]*item[T]{},
-		queue:       btree.NewG(32, less[T]),
-		becameReady: sets.Set[T]{},
-		metrics:     newQueueMetrics[T](opts.MetricProvider, name, clock.RealClock{}),
+		items:       map[interface{}]*item{},
+		queue:       btree.NewG(32, less),
+		becameReady: sets.Set[interface{}]{},
+		metrics:     newQueueMetrics(opts.MetricProvider, name, clock.RealClock{}),
 		// itemOrWaiterAdded indicates that an item or
 		// waiter was added. It must be buffered, because
 		// if we currently process items we can't tell
 		// if that included the new item/waiter.
 		itemOrWaiterAdded: make(chan struct{}, 1),
 		rateLimiter:       opts.RateLimiter,
-		locked:            sets.Set[T]{},
+		locked:            sets.Set[interface{}]{},
 		done:              make(chan struct{}),
-		get:               make(chan item[T]),
+		get:               make(chan item),
 		now:               time.Now,
 		tick:              time.Tick,
 	}
 
 	go pq.spin()
 	go pq.logState()
-	if _, ok := pq.metrics.(noMetrics[T]); !ok {
+	if _, ok := pq.metrics.(noMetrics); !ok {
 		go pq.updateUnfinishedWorkLoop()
 	}
 
 	return pq
 }
 
-type priorityqueue[T comparable] struct {
+type priorityqueue struct {
 	log logr.Logger
 	// lock has to be acquired for any access any of items, queue, addedCounter
 	// or becameReady
 	lock  sync.Mutex
-	items map[T]*item[T]
-	queue bTree[*item[T]]
+	items map[interface{}]*item
+	queue bTree[*item]
 
 	// addedCounter is a counter of elements added, we need it
 	// because unixNano is not guaranteed to be unique.
@@ -100,22 +100,22 @@ type priorityqueue[T comparable] struct {
 	// becameReady holds items that are in the queue, were added
 	// with non-zero after and became ready. We need it to call the
 	// metrics add exactly once for them.
-	becameReady sets.Set[T]
-	metrics     queueMetrics[T]
+	becameReady sets.Set[interface{}]
+	metrics     queueMetrics
 
 	itemOrWaiterAdded chan struct{}
 
-	rateLimiter workqueue.TypedRateLimiter[T]
+	rateLimiter workqueue.RateLimiter
 
 	// locked contains the keys we handed out through Get() and that haven't
 	// yet been returned through Done().
-	locked     sets.Set[T]
+	locked     sets.Set[interface{}]
 	lockedLock sync.RWMutex
 
 	shutdown atomic.Bool
 	done     chan struct{}
 
-	get chan item[T]
+	get chan item
 
 	// waiters is the number of routines blocked in Get, we use it to determine
 	// if we can push items.
@@ -126,11 +126,12 @@ type priorityqueue[T comparable] struct {
 	tick func(time.Duration) <-chan time.Time
 }
 
-func (w *priorityqueue[T]) AddWithOpts(o AddOpts, items ...T) {
+func (w *priorityqueue) AddWithOpts(o AddOpts, items ...interface{}) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
-	for _, key := range items {
+	for _, keyObj := range items {
+		key := keyObj.(string)
 		after := o.After
 		if o.RateLimited {
 			rlAfter := w.rateLimiter.When(key)
@@ -145,7 +146,7 @@ func (w *priorityqueue[T]) AddWithOpts(o AddOpts, items ...T) {
 			w.metrics.retry()
 		}
 		if _, ok := w.items[key]; !ok {
-			item := &item[T]{
+			item := &item{
 				Key:          key,
 				AddedCounter: w.addedCounter,
 				Priority:     o.Priority,
@@ -182,14 +183,14 @@ func (w *priorityqueue[T]) AddWithOpts(o AddOpts, items ...T) {
 	}
 }
 
-func (w *priorityqueue[T]) notifyItemOrWaiterAdded() {
+func (w *priorityqueue) notifyItemOrWaiterAdded() {
 	select {
 	case w.itemOrWaiterAdded <- struct{}{}:
 	default:
 	}
 }
 
-func (w *priorityqueue[T]) spin() {
+func (w *priorityqueue) spin() {
 	blockForever := make(chan time.Time)
 	var nextReady <-chan time.Time
 	nextReady = blockForever
@@ -213,8 +214,8 @@ func (w *priorityqueue[T]) spin() {
 
 			// manipulating the tree from within Ascend might lead to panics, so
 			// track what we want to delete and do it after we are done ascending.
-			var toDelete []*item[T]
-			w.queue.Ascend(func(item *item[T]) bool {
+			var toDelete []*item
+			w.queue.Ascend(func(item *item) bool {
 				if item.ReadyAt != nil {
 					if readyAt := item.ReadyAt.Sub(w.now()); readyAt > 0 {
 						nextReady = w.tick(readyAt)
@@ -255,19 +256,19 @@ func (w *priorityqueue[T]) spin() {
 	}
 }
 
-func (w *priorityqueue[T]) Add(item T) {
+func (w *priorityqueue) Add(item interface{}) {
 	w.AddWithOpts(AddOpts{}, item)
 }
 
-func (w *priorityqueue[T]) AddAfter(item T, after time.Duration) {
+func (w *priorityqueue) AddAfter(item interface{}, after time.Duration) {
 	w.AddWithOpts(AddOpts{After: after}, item)
 }
 
-func (w *priorityqueue[T]) AddRateLimited(item T) {
+func (w *priorityqueue) AddRateLimited(item interface{}) {
 	w.AddWithOpts(AddOpts{RateLimited: true}, item)
 }
 
-func (w *priorityqueue[T]) GetWithPriority() (_ T, priority int, shutdown bool) {
+func (w *priorityqueue) GetWithPriority() (_ interface{}, priority int, shutdown bool) {
 	w.waiters.Add(1)
 
 	w.notifyItemOrWaiterAdded()
@@ -276,24 +277,24 @@ func (w *priorityqueue[T]) GetWithPriority() (_ T, priority int, shutdown bool) 
 	return item.Key, item.Priority, w.shutdown.Load()
 }
 
-func (w *priorityqueue[T]) Get() (item T, shutdown bool) {
+func (w *priorityqueue) Get() (item interface{}, shutdown bool) {
 	key, _, shutdown := w.GetWithPriority()
 	return key, shutdown
 }
 
-func (w *priorityqueue[T]) Forget(item T) {
+func (w *priorityqueue) Forget(item interface{}) {
 	w.rateLimiter.Forget(item)
 }
 
-func (w *priorityqueue[T]) NumRequeues(item T) int {
+func (w *priorityqueue) NumRequeues(item interface{}) int {
 	return w.rateLimiter.NumRequeues(item)
 }
 
-func (w *priorityqueue[T]) ShuttingDown() bool {
+func (w *priorityqueue) ShuttingDown() bool {
 	return w.shutdown.Load()
 }
 
-func (w *priorityqueue[T]) Done(item T) {
+func (w *priorityqueue) Done(item interface{}) {
 	w.lockedLock.Lock()
 	defer w.lockedLock.Unlock()
 	w.locked.Delete(item)
@@ -301,26 +302,26 @@ func (w *priorityqueue[T]) Done(item T) {
 	w.notifyItemOrWaiterAdded()
 }
 
-func (w *priorityqueue[T]) ShutDown() {
+func (w *priorityqueue) ShutDown() {
 	w.shutdown.Store(true)
 	close(w.done)
 }
 
 // ShutDownWithDrain just calls ShutDown, as the draining
 // functionality is not used by controller-runtime.
-func (w *priorityqueue[T]) ShutDownWithDrain() {
+func (w *priorityqueue) ShutDownWithDrain() {
 	w.ShutDown()
 }
 
 // Len returns the number of items that are ready to be
 // picked up. It does not include items that are not yet
 // ready.
-func (w *priorityqueue[T]) Len() int {
+func (w *priorityqueue) Len() int {
 	w.lock.Lock()
 	defer w.lock.Unlock()
 
 	var result int
-	w.queue.Ascend(func(item *item[T]) bool {
+	w.queue.Ascend(func(item *item) bool {
 		if item.ReadyAt == nil || item.ReadyAt.Compare(w.now()) <= 0 {
 			result++
 			return true
@@ -331,7 +332,7 @@ func (w *priorityqueue[T]) Len() int {
 	return result
 }
 
-func (w *priorityqueue[T]) logState() {
+func (w *priorityqueue) logState() {
 	t := time.Tick(10 * time.Second)
 	for {
 		select {
@@ -347,8 +348,8 @@ func (w *priorityqueue[T]) logState() {
 			continue
 		}
 		w.lock.Lock()
-		items := make([]*item[T], 0, len(w.items))
-		w.queue.Ascend(func(item *item[T]) bool {
+		items := make([]*item, 0, len(w.items))
+		w.queue.Ascend(func(item *item) bool {
 			items = append(items, item)
 			return true
 		})
@@ -358,7 +359,7 @@ func (w *priorityqueue[T]) logState() {
 	}
 }
 
-func less[T comparable](a, b *item[T]) bool {
+func less(a, b *item) bool {
 	if a.ReadyAt == nil && b.ReadyAt != nil {
 		return true
 	}
@@ -375,14 +376,14 @@ func less[T comparable](a, b *item[T]) bool {
 	return a.AddedCounter < b.AddedCounter
 }
 
-type item[T comparable] struct {
-	Key          T          `json:"key"`
-	AddedCounter uint64     `json:"addedCounter"`
-	Priority     int        `json:"priority"`
-	ReadyAt      *time.Time `json:"readyAt,omitempty"`
+type item struct {
+	Key          interface{} `json:"key"`
+	AddedCounter uint64      `json:"addedCounter"`
+	Priority     int         `json:"priority"`
+	ReadyAt      *time.Time  `json:"readyAt,omitempty"`
 }
 
-func (w *priorityqueue[T]) updateUnfinishedWorkLoop() {
+func (w *priorityqueue) updateUnfinishedWorkLoop() {
 	t := time.Tick(500 * time.Millisecond) // borrowed from workqueue: https://github.com/kubernetes/kubernetes/blob/67a807bf142c7a2a5ecfdb2a5d24b4cdea4cc79c/staging/src/k8s.io/client-go/util/workqueue/queue.go#L182
 	for {
 		select {
