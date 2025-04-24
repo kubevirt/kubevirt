@@ -75,7 +75,7 @@ var _ = Describe("Migration watcher", func() {
 	var stop chan struct{}
 	var controller *MigrationController
 	var recorder *record.FakeRecorder
-	var mockQueue *testutils.MockWorkQueue
+	var mockQueue *testutils.MockPriorityQueue
 	var virtClient *kubecli.MockKubevirtClient
 	var virtClientset *kubevirtfake.Clientset
 	var kubeClient *fake.Clientset
@@ -275,9 +275,8 @@ var _ = Describe("Migration watcher", func() {
 			config,
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
-		// TODO: mock priority queues
-		//mockQueue = testutils.NewMockWorkQueue(controller.Queue)
-		//controller.Queue = mockQueue
+		mockQueue = testutils.NewMockPriorityQueue(controller.Queue)
+		controller.Queue = mockQueue
 	}
 
 	BeforeEach(func() {
