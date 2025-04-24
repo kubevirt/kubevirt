@@ -32,6 +32,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
@@ -812,11 +813,9 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 				updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Source not locked"))
 			}
 
-			indications, err := updateVMSnapshotIndications(source)
-			if err != nil {
+			if err := updateSnapshotIndications(vmSnapshotCpy, source); err != nil {
 				return vmSnapshot, err
 			}
-			vmSnapshotCpy.Status.Indications = indications
 		} else {
 			updateSnapshotCondition(vmSnapshotCpy, newProgressingCondition(corev1.ConditionFalse, "Source does not exist"))
 		}
@@ -847,28 +846,32 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 	return vmSnapshot, nil
 }
 
-func updateVMSnapshotIndications(source snapshotSource) ([]snapshotv1.Indication, error) {
-	var indications []snapshotv1.Indication
+func updateSnapshotIndications(snapshot *snapshotv1.VirtualMachineSnapshot, source snapshotSource) error {
 	online, err := source.Online()
+	if err != nil || !online {
+		return err
+	}
+
+	indications := sets.New(snapshot.Status.Indications...)
+	indications = sets.Insert(indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
+
+	ga, err := source.GuestAgent()
 	if err != nil {
-		return indications, err
+		return err
 	}
 
-	if online {
-		indications = append(indications, snapshotv1.VMSnapshotOnlineSnapshotIndication)
-
-		ga, err := source.GuestAgent()
-		if err != nil {
-			return indications, err
+	if ga {
+		indications = sets.Insert(indications, snapshotv1.VMSnapshotGuestAgentIndication)
+		snapErr := snapshot.Status.Error
+		if snapErr != nil && snapErr.Message != nil &&
+			strings.Contains(*snapErr.Message, failedFreezeMsg) {
+			indications = sets.Insert(indications, snapshotv1.VMSnapshotQuiesceFailedIndication)
 		}
-
-		if ga {
-			indications = append(indications, snapshotv1.VMSnapshotGuestAgentIndication)
-		} else {
-			indications = append(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
-		}
+	} else {
+		indications = sets.Insert(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
 	}
-	return indications, nil
+	snapshot.Status.Indications = sets.List(indications)
+	return nil
 }
 
 func (ctrl *VMSnapshotController) updateSnapshotSnapshotableVolumes(snapshot *snapshotv1.VirtualMachineSnapshot, content *snapshotv1.VirtualMachineSnapshotContent) error {
