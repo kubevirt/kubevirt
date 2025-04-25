@@ -6457,7 +6457,7 @@ var CRDsValidation map[string]string = map[string]string{
                           properties:
                             enabled:
                               description: |-
-                                Enabled allows a user to explictly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
+                                Enabled allows a user to explicitly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
                                 Defaults to True
                               type: boolean
                             persistent:
@@ -9324,7 +9324,7 @@ var CRDsValidation map[string]string = map[string]string{
               properties:
                 enabled:
                   description: |-
-                    Enabled allows a user to explictly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
+                    Enabled allows a user to explicitly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
                     Defaults to True
                   type: boolean
                 persistent:
@@ -11757,7 +11757,7 @@ var CRDsValidation map[string]string = map[string]string{
                   properties:
                     enabled:
                       description: |-
-                        Enabled allows a user to explictly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
+                        Enabled allows a user to explicitly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
                         Defaults to True
                       type: boolean
                     persistent:
@@ -14987,7 +14987,7 @@ var CRDsValidation map[string]string = map[string]string{
                   properties:
                     enabled:
                       description: |-
-                        Enabled allows a user to explictly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
+                        Enabled allows a user to explicitly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
                         Defaults to True
                       type: boolean
                     persistent:
@@ -17421,7 +17421,7 @@ var CRDsValidation map[string]string = map[string]string{
                           properties:
                             enabled:
                               description: |-
-                                Enabled allows a user to explictly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
+                                Enabled allows a user to explicitly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
                                 Defaults to True
                               type: boolean
                             persistent:
@@ -21936,7 +21936,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   properties:
                                     enabled:
                                       description: |-
-                                        Enabled allows a user to explictly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
+                                        Enabled allows a user to explicitly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
                                         Defaults to True
                                       type: boolean
                                     persistent:
@@ -23859,7 +23859,7 @@ var CRDsValidation map[string]string = map[string]string{
               properties:
                 enabled:
                   description: |-
-                    Enabled allows a user to explictly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
+                    Enabled allows a user to explicitly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
                     Defaults to True
                   type: boolean
                 persistent:
@@ -27147,7 +27147,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       properties:
                                         enabled:
                                           description: |-
-                                            Enabled allows a user to explictly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
+                                            Enabled allows a user to explicitly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
                                             Defaults to True
                                           type: boolean
                                         persistent:
