@@ -134,10 +134,7 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 	_, isKubeVirtServiceAccount := admitter.KubeVirtServiceAccounts[ar.Request.UserInfo.Username]
 	causes = append(causes, ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("metadata"), &vmi.ObjectMeta, admitter.ClusterConfig, isKubeVirtServiceAccount)...)
 	causes = append(causes, webhooks.ValidateVirtualMachineInstanceHyperv(k8sfield.NewPath("spec").Child("domain").Child("features").Child("hyperv"), &vmi.Spec)...)
-	if webhooks.IsARM64(&vmi.Spec) {
-		// Check if there is any unsupported setting if the arch is Arm64
-		causes = append(causes, webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("spec"), &vmi.Spec)...)
-	}
+	causes = append(causes, ValidateVirtualMachineInstancePerArch(k8sfield.NewPath("spec"), &vmi.Spec)...)
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -159,6 +156,28 @@ func warnDeprecatedAPIs(spec *v1.VirtualMachineInstanceSpec, config *virtconfig.
 		}
 	}
 	return warnings
+}
+
+func ValidateVirtualMachineInstancePerArch(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	arch := spec.Architecture
+
+	switch arch {
+	case "amd64":
+		causes = append(causes, webhooks.ValidateVirtualMachineInstanceAmd64Setting(field, spec)...)
+	case "s390x":
+		causes = append(causes, webhooks.ValidateVirtualMachineInstanceS390XSetting(field, spec)...)
+	case "arm64":
+		causes = append(causes, webhooks.ValidateVirtualMachineInstanceArm64Setting(field, spec)...)
+	default:
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("unsupported architecture: %s", arch),
+			Field:   field.Child("architecture").String(),
+		})
+	}
+
+	return causes
 }
 
 func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
