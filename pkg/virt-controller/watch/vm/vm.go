@@ -3149,7 +3149,9 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		if err != nil {
 			return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered when trying to update vm according to add volume and/or memory dump requests: %v", err), failedUpdateErrorReason), nil
 		}
-		vm = updatedVm
+		// The above update call drops Status from the returned object so only copy over the updated spec and objectmeta into the vm
+		vm.Spec = updatedVm.Spec
+		vm.ObjectMeta = updatedVm.ObjectMeta
 	} else {
 		vm = vmCopy
 	}
