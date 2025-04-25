@@ -495,6 +495,11 @@ func (v *VirtualMachineInstance) IsCPUDedicated() bool {
 	return v.Spec.Domain.CPU != nil && v.Spec.Domain.CPU.DedicatedCPUPlacement
 }
 
+func (v *VirtualMachineInstance) IsSMTRequired() bool {
+	cpu := v.Spec.Domain.CPU
+	return cpu != nil && cpu.DedicatedCPUPlacement && cpu.Threads > 1
+}
+
 func (v *VirtualMachineInstance) IsBootloaderEFI() bool {
 	return v.Spec.Domain.Firmware != nil && v.Spec.Domain.Firmware.Bootloader != nil &&
 		v.Spec.Domain.Firmware.Bootloader.EFI != nil
@@ -992,6 +997,8 @@ const (
 	CPUModelVendorLabel = "cpu-vendor.node.kubevirt.io/"
 	// This label represents supported machine type on the node
 	SupportedMachineTypeLabel = "machine-type.node.kubevirt.io/"
+	// This label represents cpu supports smt
+	SMTCPULabel = "cpu.node.kubevirt.io/smt"
 
 	VirtIO = "virtio"
 

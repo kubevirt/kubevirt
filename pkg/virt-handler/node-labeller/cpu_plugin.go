@@ -27,6 +27,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+	"libvirt.org/go/libvirtxml"
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
@@ -65,6 +66,24 @@ func (n *NodeLabeller) getSupportedCpuFeatures() cpuFeatures {
 	}
 
 	return supportedCpuFeatures
+}
+
+func (n *NodeLabeller) SetSMTEnabled(numaCells []libvirtxml.CapsHostNUMACell) {
+	for _, cells := range numaCells {
+		if cells.CPUS == nil {
+			return
+		}
+
+		for _, cpu := range cells.CPUS.CPUs {
+			// if siblings is just a single char (e.g. "1"), that means
+			// the smt is not active. If siblings attribute is e.g. "0,8"
+			// that means the smt is active
+			if len(cpu.Siblings) > 2 {
+				n.smtEnabled = true
+				return
+			}
+		}
+	}
 }
 
 func (n *NodeLabeller) GetHostCpuModel() hostCPUModel {
