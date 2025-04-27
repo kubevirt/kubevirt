@@ -29,6 +29,7 @@ import (
 
 const HookSidecarListAnnotationName = "hooks.kubevirt.io/hookSidecars"
 const HookSocketsSharedDirectory = "/var/run/kubevirt-hooks"
+const VhostUserSharedDirectory = "/var/run/vhostuser"
 
 type HookSidecarList []HookSidecar
 
@@ -52,6 +53,7 @@ type HookSidecar struct {
 	ConfigMap       *ConfigMap                       `json:"configMap,omitempty"`
 	PVC             *PVC                             `json:"pvc,omitempty"`
 	DownwardAPI     v1.NetworkBindingDownwardAPIType `json:"-"`
+	NetworkPlugin   bool                             `json:"-"`
 }
 
 func UnmarshalHookSidecarList(vmiObject *v1.VirtualMachineInstance) (HookSidecarList, error) {

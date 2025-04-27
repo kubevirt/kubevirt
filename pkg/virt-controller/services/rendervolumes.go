@@ -440,6 +440,22 @@ func withBackendStorage(vmi *v1.VirtualMachineInstance, backendStoragePVCName st
 	}
 }
 
+func withVhostUserVolume(hookSidecars hooks.HookSidecarList) VolumeRendererOption {
+	return func(renderer *VolumeRenderer) error {
+		for _, sidecar := range hookSidecars {
+			if sidecar.NetworkPlugin {
+				renderer.podVolumes = append(renderer.podVolumes, emptyDirVolume(vhostUserSocks))
+				renderer.podVolumeMounts = append(renderer.podVolumeMounts, k8sv1.VolumeMount{
+					Name:      vhostUserSocks,
+					MountPath: hooks.VhostUserSharedDirectory,
+				})
+				return nil
+			}
+		}
+		return nil
+	}
+}
+
 func withSidecarVolumes(hookSidecars hooks.HookSidecarList) VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
 		if len(hookSidecars) != 0 {

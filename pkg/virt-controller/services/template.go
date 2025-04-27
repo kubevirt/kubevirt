@@ -68,6 +68,7 @@ const (
 	containerDisks   = "container-disks"
 	hotplugDisks     = "hotplug-disks"
 	hookSidecarSocks = "hook-sidecar-sockets"
+	vhostUserSocks   = "vhostuser-sockets"
 	varRun           = "/var/run"
 	virtBinDir       = "virt-bin-share-dir"
 	hotplugDisk      = "hotplug-disk"
@@ -743,6 +744,9 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 	if requestedHookSidecar.PVC != nil {
 		mounts = append(mounts, pvcVolumeMount(*requestedHookSidecar.PVC))
 	}
+	if requestedHookSidecar.NetworkPlugin {
+		mounts = append(mounts, vhostUserVolumeMount())
+	}
 	sidecarOpts = append(sidecarOpts, WithVolumeMounts(mounts...))
 
 	if util.IsNonRootVMI(vmiSpec) {
@@ -817,6 +821,7 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 	}
 	if len(requestedHookSidecarList) != 0 {
 		volumeOpts = append(volumeOpts, withSidecarVolumes(requestedHookSidecarList))
+		volumeOpts = append(volumeOpts, withVhostUserVolume(requestedHookSidecarList))
 	}
 
 	if hasHugePages(vmi) {
@@ -872,6 +877,13 @@ func sidecarVolumeMount() k8sv1.VolumeMount {
 	return k8sv1.VolumeMount{
 		Name:      hookSidecarSocks,
 		MountPath: hooks.HookSocketsSharedDirectory,
+	}
+}
+
+func vhostUserVolumeMount() k8sv1.VolumeMount {
+	return k8sv1.VolumeMount{
+		Name:      vhostUserSocks,
+		MountPath: hooks.VhostUserSharedDirectory,
 	}
 }
 

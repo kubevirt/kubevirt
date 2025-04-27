@@ -63,6 +63,7 @@ func netBindingPluginSidecar(vmi *v1.VirtualMachineInstance, config *v1.KubeVirt
 				Image:           pluginInfo.SidecarImage,
 				ImagePullPolicy: config.ImagePullPolicy,
 				DownwardAPI:     pluginInfo.DownwardAPI,
+				NetworkPlugin:   true,
 			})
 		}
 	}
