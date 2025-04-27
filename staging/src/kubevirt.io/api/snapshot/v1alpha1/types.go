@@ -316,7 +316,7 @@ type VirtualMachineRestoreSpec struct {
 	// If the target for the restore does not exist, it will be created. Patches holds JSON patches that would be
 	// applied to the target manifest before it's created. Patches should fit the target's Kind.
 	//
-	// Example for a patch: {"op": "replace", "path": "/metadata/name", "value": "new-vm-name"}
+	// Example for a patch: {"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "00:00:5e:00:53:01"}
 	//
 	// +optional
 	// +listType=atomic
