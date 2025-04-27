@@ -75,7 +75,7 @@ var _ = Describe("domain stats collector", func() {
 				vmis:     vmis,
 				vmiStats: vmiStats,
 			}
-			crs := execCollector(concCollector, vmis)
+			crs := execDomainStatsCollector(concCollector, vmis)
 			Expect(crs).To(HaveLen(2))
 			Expect(crs).To(ContainElement(testing.GomegaContainsCollectorResultMatcher(memoryResident, kibibytesToBytes(1))))
 			Expect(crs).To(ContainElement(testing.GomegaContainsCollectorResultMatcher(memoryResident, kibibytesToBytes(2))))
@@ -117,5 +117,5 @@ func fakeCollect(scraper collector.MetricsScraper, wg *sync.WaitGroup, vmi *k6tv
 	defer wg.Done()
 
 	dScraper := scraper.(*DomainstatsScraper)
-	dScraper.report(vmi, vmiStats)
+	report(vmi, vmiStats, dScraper.ch)
 }
