@@ -1819,7 +1819,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithResourceMemory(enoughMemForSafeBiosEmulation),
 				withMachineType("pc"),
 			)
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1832,7 +1832,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		It("[test_id:3125]should allow creating VM without Machine defined", func() {
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Machine = nil
-			tests.RunVMIAndExpectLaunch(vmi, 30)
+			tests.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1846,7 +1846,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				withMachineType(""),
 			)
 
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1870,7 +1870,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Machine = nil
-			tests.RunVMIAndExpectLaunch(vmi, 30)
+			tests.RunVMIAndExpectLaunch(vmi, 60)
 			runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())

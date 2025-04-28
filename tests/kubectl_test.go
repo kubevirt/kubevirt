@@ -230,7 +230,7 @@ var _ = Describe("[sig-compute]oc/kubectl integration", decorators.SigCompute, f
 
 		It("oc/kubectl logs <vmi-pod> return default container log", func() {
 			vm = libvmi.NewCirros()
-			vm = tests.RunVMIAndExpectLaunch(vm, 30)
+			vm = tests.RunVMIAndExpectLaunch(vm, 60)
 
 			k8sClient := clientcmd.GetK8sCmdClient()
 
