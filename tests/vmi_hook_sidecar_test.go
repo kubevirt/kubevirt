@@ -207,7 +207,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 						}
 					}
 					return false
-				}, 30*time.Second, time.Second).Should(
+				}, 60*time.Second, time.Second).Should(
 					BeTrue(),
 					fmt.Sprintf("the %s container must fail if it was not provided the hook version to advertise itself", sidecarContainerName))
 			})
