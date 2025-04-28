@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+
+source ./hack/architecture.sh
+
 set -ex
 
 ##################################################################
@@ -23,8 +26,6 @@ BUNDLE_REGISTRY_IMAGE_NAME=${BUNDLE_REGISTRY_IMAGE_NAME:-hyperconverged-cluster-
 INDEX_REGISTRY_IMAGE_NAME=${INDEX_REGISTRY_IMAGE_NAME:-hyperconverged-cluster-index}
 OPM=${OPM:-opm}
 UNSTABLE=$2
-ARCHITECTURES="amd64 arm64 s390x"
-
 
 function create_index_image() {
   CURRENT_VERSION=$1

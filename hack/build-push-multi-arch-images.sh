@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-ARCHITECTURES="amd64 arm64 s390x"
+source ./hack/architecture.sh
 
 if [[ -z ${IMAGE_NAME} ]]; then
   echo "IMAGE_NAME must be defined"

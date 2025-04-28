@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-ARCHITECTURES="amd64 arm64 s390x"
+source ./hack/architecture.sh
 
 if [[ -z ${IMAGE_REPO} ]]; then
   echo "IMAGE_REPO must be defined"
@@ -19,15 +19,17 @@ if [[ -z ${NEW_TAG} ]]; then
   exit 1
 fi
 
+. ./hack/cri-bin.sh && export CRI_BIN=${CRI_BIN}
+
 if [[ "${MULTIARCH}" == "true" ]]; then
   for arch in ${ARCHITECTURES}; do
     NEW_IMAGE="${NEW_IMAGE_REPO}:${NEW_TAG}-${arch}"
-    . "hack/cri-bin.sh" && ${CRI_BIN} tag "${IMAGE_REPO}:${CURRENT_TAG}-${arch}" "${NEW_IMAGE}"
-    . "hack/cri-bin.sh" && ${CRI_BIN} push "${NEW_IMAGE}"
+    ${CRI_BIN} tag "${IMAGE_REPO}:${CURRENT_TAG}-${arch}" "${NEW_IMAGE}"
+    ./hack/retry.sh 3 10 "${CRI_BIN} push ${NEW_IMAGE}"
   done
 fi
 
 # retag the manifest
 NEW_IMAGE="${NEW_IMAGE_REPO}:${NEW_TAG}"
-. "hack/cri-bin.sh" && ${CRI_BIN} tag "${IMAGE_REPO}:${CURRENT_TAG}" "${NEW_IMAGE}"
-. "hack/cri-bin.sh" && ${CRI_BIN} push "${NEW_IMAGE}"
+${CRI_BIN} tag "${IMAGE_REPO}:${CURRENT_TAG}" "${NEW_IMAGE}"
+./hack/retry.sh 3 10 "${CRI_BIN} push ${NEW_IMAGE}"
