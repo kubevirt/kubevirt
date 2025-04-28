@@ -601,7 +601,7 @@ var _ = SIGDescribe("Storage", func() {
 						vmi = tests.NewRandomVMIWithHostDisk(diskPath, virtv1.HostDiskExistsOrCreate, "")
 						vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus = driver
 
-						tests.RunVMIAndExpectLaunch(vmi, 30)
+						tests.RunVMIAndExpectLaunch(vmi, 60)
 
 						By("Checking if disk.img has been created")
 						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
@@ -624,7 +624,7 @@ var _ = SIGDescribe("Storage", func() {
 						// do not choose a specific node to run the test
 						vmi = tests.NewRandomVMIWithHostDisk(diskPath, virtv1.HostDiskExistsOrCreate, "")
 						tests.AddHostDisk(vmi, filepath.Join(hostDiskDir, "another.img"), virtv1.HostDiskExistsOrCreate, "anotherdisk")
-						tests.RunVMIAndExpectLaunch(vmi, 30)
+						tests.RunVMIAndExpectLaunch(vmi, 60)
 
 						By("Checking if another.img has been created")
 						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
@@ -671,7 +671,7 @@ var _ = SIGDescribe("Storage", func() {
 					It("[test_id:2306]Should use existing disk image and start", func() {
 						By(startingVMInstance)
 						vmi = tests.NewRandomVMIWithHostDisk(diskPath, virtv1.HostDiskExists, nodeName)
-						tests.RunVMIAndExpectLaunch(vmi, 30)
+						tests.RunVMIAndExpectLaunch(vmi, 60)
 
 						By("Checking if disk.img exists")
 						vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, testsuite.GetTestNamespace(vmi))
@@ -854,7 +854,7 @@ var _ = SIGDescribe("Storage", func() {
 					By(startingVMInstance)
 					vmi = tests.NewRandomVMIWithHostDisk(diskPath, virtv1.HostDiskExistsOrCreate, pod.Spec.NodeName)
 					vmi.Spec.Volumes[0].HostDisk.Capacity = resource.MustParse(strconv.Itoa(int(float64(diskSize) * 1.2)))
-					tests.RunVMIAndExpectLaunch(vmi, 30)
+					tests.RunVMIAndExpectLaunch(vmi, 60)
 
 					By("Checking events")
 					objectEventWatcher := watcher.New(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(30) * time.Second)

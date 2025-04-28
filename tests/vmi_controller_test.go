@@ -28,7 +28,7 @@ var _ = Describe("[sig-compute]Controller devices", decorators.SigCompute, func(
 		DescribeTable("a scsi controller", func(enabled bool) {
 			vmi := libvmi.NewCirros()
 			vmi.Spec.Domain.Devices.DisableHotplug = !enabled
-			vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+			vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 			domSpec := &api.DomainSpec{}

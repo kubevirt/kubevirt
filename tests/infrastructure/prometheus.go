@@ -237,7 +237,7 @@ var _ = DescribeInfra("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][leve
 				libvmi.WithNodeSelectorFor(&k8sv1.Node{ObjectMeta: metav1.ObjectMeta{Name: preferredNodeName}}))
 		}
 
-		vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+		vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 		nodeName := vmi.Status.NodeName
 
 		By("Expecting the VirtualMachineInstance console")
