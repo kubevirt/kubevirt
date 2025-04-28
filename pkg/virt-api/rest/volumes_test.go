@@ -153,16 +153,16 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			vmClient.EXPECT().Get(context.Background(), vm.Name, metav1.GetOptions{}).Return(vm, nil).AnyTimes()
 
 			if addOpts != nil {
-				vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions) (interface{}, interface{}) {
+				vmClient.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions, _ ...string) (interface{}, interface{}) {
 						//check that dryRun option has been propagated to patch request
 						Expect(opts.DryRun).To(BeEquivalentTo(addOpts.DryRun))
 						return patchedVM, nil
 					}).AnyTimes()
 				app.VMAddVolumeRequestHandler(request, response)
 			} else {
-				vmClient.EXPECT().PatchStatus(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions) (interface{}, interface{}) {
+				vmClient.EXPECT().Patch(context.Background(), vm.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions, _ ...string) (interface{}, interface{}) {
 						//check that dryRun option has been propagated to patch request
 						Expect(opts.DryRun).To(BeEquivalentTo(removeOpts.DryRun))
 						return patchedVM, nil
@@ -296,7 +296,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			},
 		})
 
-		patch, err := generateVMIVolumeRequestPatch(vmi, volumeRequest)
+		patch, err := generateVolumeRequestPatchVMI(&vmi.Spec, volumeRequest)
 		Expect(err).ToNot(HaveOccurred())
 
 		patchBytes, err := expectedPatchSet.GeneratePayload()
@@ -356,28 +356,30 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 			)),
 	)
 
-	DescribeTable("Should generate expected vm patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, existingVolumeRequests []v1.VirtualMachineVolumeRequest, expectedPatchSet *patch.PatchSet, expectError bool) {
+	DescribeTable("Should generate expected vm patch", func(volumeRequest *v1.VirtualMachineVolumeRequest, expectedPatchSet *patch.PatchSet) {
 
-		vm := newMinimalVM(request.PathParameter("name"))
+		vm := libvmi.NewVirtualMachine(api.NewMinimalVMI(request.PathParameter("name")))
 		vm.Namespace = metav1.NamespaceDefault
+		vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: "existingvol",
+		})
+		vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+			Name: "existingvol",
+			VolumeSource: v1.VolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "testpvcdiskclaim",
+				}},
+			},
+		})
 
-		if len(existingVolumeRequests) > 0 {
-			vm.Status.VolumeRequests = existingVolumeRequests
-		}
-
-		generatedPatch, err := generateVMVolumeRequestPatch(vm, volumeRequest)
-		if expectError {
-			Expect(err).To(HaveOccurred())
-			Expect(generatedPatch).To(BeEmpty())
-			return
-		}
-
+		patch, err := generateVolumeRequestPatchVM(&vm.Spec.Template.Spec, volumeRequest)
 		Expect(err).ToNot(HaveOccurred())
-		expectedPatch, err := expectedPatchSet.GeneratePayload()
+
+		patchBytes, err := expectedPatchSet.GeneratePayload()
 		Expect(err).ToNot(HaveOccurred())
-		Expect(generatedPatch).To(Equal(expectedPatch))
+		Expect(patch).To(Equal(patchBytes))
 	},
-		Entry("add volume request with no existing volumes",
+		Entry("add volume request",
 			&v1.VirtualMachineVolumeRequest{
 				AddVolumeOptions: &v1.AddVolumeOptions{
 					Name:         "vol1",
@@ -385,125 +387,49 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 					VolumeSource: &v1.HotplugVolumeSource{},
 				},
 			},
-			nil,
 			patch.New(
-				patch.WithTest("/status/volumeRequests", nil),
-				patch.WithAdd("/status/volumeRequests", []v1.VirtualMachineVolumeRequest{{
-					AddVolumeOptions: &v1.AddVolumeOptions{
-						Name:         "vol1",
-						Disk:         &v1.Disk{},
-						VolumeSource: &v1.HotplugVolumeSource{},
+				patch.WithTest("/spec/template/spec/volumes", []v1.Volume{{
+					Name: "existingvol",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testpvcdiskclaim",
+						}},
 					},
 				}}),
-			),
-			false),
-		Entry("add volume request that already exists should fail",
-			&v1.VirtualMachineVolumeRequest{
-				AddVolumeOptions: &v1.AddVolumeOptions{
-					Name:         "vol1",
-					Disk:         &v1.Disk{},
-					VolumeSource: &v1.HotplugVolumeSource{},
-				},
-			},
-			[]v1.VirtualMachineVolumeRequest{{
-				AddVolumeOptions: &v1.AddVolumeOptions{
-					Name:         "vol1",
-					Disk:         &v1.Disk{},
-					VolumeSource: &v1.HotplugVolumeSource{},
-				},
-			}},
-			nil,
-			true),
-		Entry("add volume request when volume requests alread exist",
-			&v1.VirtualMachineVolumeRequest{AddVolumeOptions: &v1.AddVolumeOptions{
-				Name:         "vol1",
-				Disk:         &v1.Disk{},
-				VolumeSource: &v1.HotplugVolumeSource{},
-			}},
-			[]v1.VirtualMachineVolumeRequest{{
-				AddVolumeOptions: &v1.AddVolumeOptions{
-					Name:         "vol2",
-					Disk:         &v1.Disk{},
-					VolumeSource: &v1.HotplugVolumeSource{},
-				},
-			}},
-			patch.New(
-				patch.WithTest("/status/volumeRequests", []v1.VirtualMachineVolumeRequest{{
-					AddVolumeOptions: &v1.AddVolumeOptions{
-						Name:         "vol2",
-						Disk:         &v1.Disk{},
-						VolumeSource: &v1.HotplugVolumeSource{},
-					},
-				}}),
-				patch.WithReplace("/status/volumeRequests", []v1.VirtualMachineVolumeRequest{
+				patch.WithTest("/spec/template/spec/domain/devices/disks", []v1.Disk{{Name: "existingvol"}}),
+				patch.WithReplace("/spec/template/spec/volumes", []v1.Volume{
 					{
-						AddVolumeOptions: &v1.AddVolumeOptions{
-							Name:         "vol2",
-							Disk:         &v1.Disk{},
-							VolumeSource: &v1.HotplugVolumeSource{},
+						Name: "existingvol",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "testpvcdiskclaim",
+							}},
 						},
 					},
-					{
-						AddVolumeOptions: &v1.AddVolumeOptions{
-							Name:         "vol1",
-							Disk:         &v1.Disk{},
-							VolumeSource: &v1.HotplugVolumeSource{},
-						},
-					},
+					{Name: "vol1"},
 				}),
+				patch.WithReplace("/spec/template/spec/domain/devices/disks", []v1.Disk{{Name: "existingvol"}, {Name: "vol1"}}),
 			),
-			false),
-		Entry("remove volume request with no existing volume request", &v1.VirtualMachineVolumeRequest{
-			RemoveVolumeOptions: &v1.RemoveVolumeOptions{
-				Name: "vol1",
-			}},
-			nil,
-			patch.New(
-				patch.WithTest("/status/volumeRequests", nil),
-				patch.WithAdd("/status/volumeRequests", []v1.VirtualMachineVolumeRequest{
-					{RemoveVolumeOptions: &v1.RemoveVolumeOptions{Name: "vol1"}},
-				}),
-			),
-			false),
-		Entry("remove volume request should replace add volume request",
+		),
+		Entry("remove volume request",
 			&v1.VirtualMachineVolumeRequest{
 				RemoveVolumeOptions: &v1.RemoveVolumeOptions{
-					Name: "vol2",
+					Name: "existingvol",
 				},
 			},
-			[]v1.VirtualMachineVolumeRequest{{
-				AddVolumeOptions: &v1.AddVolumeOptions{
-					Name:         "vol2",
-					Disk:         &v1.Disk{},
-					VolumeSource: &v1.HotplugVolumeSource{},
-				},
-			}},
 			patch.New(
-				patch.WithTest("/status/volumeRequests", []v1.VirtualMachineVolumeRequest{{
-					AddVolumeOptions: &v1.AddVolumeOptions{
-						Name:         "vol2",
-						Disk:         &v1.Disk{},
-						VolumeSource: &v1.HotplugVolumeSource{},
+				patch.WithTest("/spec/template/spec/volumes", []v1.Volume{{
+					Name: "existingvol",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testpvcdiskclaim",
+						}},
 					},
 				}}),
-				patch.WithReplace("/status/volumeRequests", []v1.VirtualMachineVolumeRequest{
-					{RemoveVolumeOptions: &v1.RemoveVolumeOptions{Name: "vol2"}},
-				}),
-			),
-			false),
-		Entry("remove volume request that already exists should fail",
-			&v1.VirtualMachineVolumeRequest{
-				RemoveVolumeOptions: &v1.RemoveVolumeOptions{
-					Name: "vol2",
-				},
-			},
-			[]v1.VirtualMachineVolumeRequest{{
-				RemoveVolumeOptions: &v1.RemoveVolumeOptions{
-					Name: "vol2",
-				},
-			}},
-			nil,
-			true),
+				patch.WithTest("/spec/template/spec/domain/devices/disks", []v1.Disk{{Name: "existingvol"}}),
+				patch.WithReplace("/spec/template/spec/volumes", []v1.Volume{}),
+				patch.WithReplace("/spec/template/spec/domain/devices/disks", []v1.Disk{}),
+			)),
 	)
 
 	DescribeTable("Should verify volume option", func(volumeRequest *v1.VirtualMachineVolumeRequest, existingVolumes []v1.Volume, expectedError string) {
