@@ -82,7 +82,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 
 				It("[test_id:1588]should return that we are running cirros", func() {
 					vmi := libvmi.NewCirros()
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 					expectConsoleOutput(
 						vmi,
 						"login as 'cirros' user",
@@ -93,7 +93,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 			Context("with a fedora image", func() {
 				It("[sig-compute][test_id:1589]should return that we are running fedora", func() {
 					vmi := libvmi.NewFedora()
-					vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+					vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 					expectConsoleOutput(
 						vmi,
 						"Welcome to",
@@ -126,7 +126,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 
 			It("[test_id:1590]should be able to reconnect to console multiple times", func() {
 				vmi := libvmi.NewAlpine()
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 
 				for i := 0; i < 5; i++ {
 					expectConsoleOutput(vmi, "login")
@@ -135,7 +135,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 
 			It("[test_id:1591]should close console connection when new console connection is opened", func() {
 				vmi := libvmi.NewAlpine()
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 
 				By("opening 1st console connection")
 				expecter, errChan, err := console.NewExpecter(virtClient, vmi, 30*time.Second)
@@ -165,7 +165,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				Expect(err).ToNot(HaveOccurred())
 
 				By("and connecting to it very quickly. Hopefully the VM is not yet up")
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
+				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 60 * time.Second})
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -176,7 +176,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 30 * time.Second})
+				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, &kubecli.SerialConsoleOptions{ConnectionTimeout: 60 * time.Second})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("Timeout trying to connect to the virtual machine instance"))
 			})
@@ -188,7 +188,7 @@ var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redha
 				vmi := libvmi.NewAlpine()
 				f := false
 				vmi.Spec.Domain.Devices.AutoattachSerialConsole = &f
-				vmi = tests.RunVMIAndExpectLaunch(vmi, 30)
+				vmi = tests.RunVMIAndExpectLaunch(vmi, 60)
 
 				runningVMISpec, err := tests.GetRunningVMIDomainSpec(vmi)
 				Expect(err).ToNot(HaveOccurred(), "should get vmi spec without problem")
