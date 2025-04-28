@@ -2198,7 +2198,11 @@ func (c *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 		close(clientInfo.DomainPipeStopChan)
 	}
 
-	virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
+	err := virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
+	if err != nil {
+		return err
+	}
+
 	c.launcherClients.Delete(vmi.UID)
 	return nil
 }
