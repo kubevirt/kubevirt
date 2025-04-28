@@ -14,12 +14,13 @@ fi
 
 SHA=$(git describe --no-match  --always --abbrev=40 --dirty)
 
-IMAGES=
+. ./hack/cri-bin.sh && export CRI_BIN=${CRI_BIN}
+
+${CRI_BIN} manifest create -a "${IMAGE_NAME}"
 for arch in ${ARCHITECTURES}; do
-  . "hack/cri-bin.sh" && ${CRI_BIN} build  --platform=linux/${arch} -f ${DOCKER_FILE} -t "${IMAGE_NAME}-${arch}" --build-arg git_sha=${SHA} .
-  . "hack/cri-bin.sh" && ${CRI_BIN} push "${IMAGE_NAME}-${arch}"
-  IMAGES="${IMAGES} ${IMAGE_NAME}-${arch}"
+  ${CRI_BIN} build  --platform=linux/${arch} -f ${DOCKER_FILE} -t "${IMAGE_NAME}-${arch}" --build-arg git_sha=${SHA} .
+  ./hack/retry.sh 3 10 "${CRI_BIN} push ${IMAGE_NAME}-${arch}"
+  ${CRI_BIN} manifest add "${IMAGE_NAME}" "${IMAGE_NAME}-${arch}"
 done
 
-. "hack/cri-bin.sh" && ${CRI_BIN} manifest create "${IMAGE_NAME}" ${IMAGES}
-. "hack/cri-bin.sh" && ${CRI_BIN} manifest push "${IMAGE_NAME}"
+./hack/retry.sh 3 10 "${CRI_BIN} manifest push ${IMAGE_NAME}"
