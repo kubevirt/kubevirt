@@ -6472,6 +6472,16 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Watchdog describes a watchdog device which
                             can be added to the vmi.
                           properties:
+                            diag288:
+                              description: diag288 watchdog device (specific to s390x
+                                architecture).
+                              properties:
+                                action:
+                                  description: |-
+                                    The action to take. Valid values are poweroff, reset, shutdown.
+                                    Defaults to reset.
+                                  type: string
+                              type: object
                             i6300esb:
                               description: i6300esb watchdog device.
                               properties:
@@ -11762,6 +11772,15 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Watchdog describes a watchdog device which can be added
                     to the vmi.
                   properties:
+                    diag288:
+                      description: diag288 watchdog device (specific to s390x architecture).
+                      properties:
+                        action:
+                          description: |-
+                            The action to take. Valid values are poweroff, reset, shutdown.
+                            Defaults to reset.
+                          type: string
+                      type: object
                     i6300esb:
                       description: i6300esb watchdog device.
                       properties:
@@ -14971,6 +14990,15 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Watchdog describes a watchdog device which can be added
                     to the vmi.
                   properties:
+                    diag288:
+                      description: diag288 watchdog device (specific to s390x architecture).
+                      properties:
+                        action:
+                          description: |-
+                            The action to take. Valid values are poweroff, reset, shutdown.
+                            Defaults to reset.
+                          type: string
+                      type: object
                     i6300esb:
                       description: i6300esb watchdog device.
                       properties:
@@ -17396,6 +17424,16 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Watchdog describes a watchdog device which
                             can be added to the vmi.
                           properties:
+                            diag288:
+                              description: diag288 watchdog device (specific to s390x
+                                architecture).
+                              properties:
+                                action:
+                                  description: |-
+                                    The action to take. Valid values are poweroff, reset, shutdown.
+                                    Defaults to reset.
+                                  type: string
+                              type: object
                             i6300esb:
                               description: i6300esb watchdog device.
                               properties:
@@ -21901,6 +21939,16 @@ var CRDsValidation map[string]string = map[string]string{
                                   description: Watchdog describes a watchdog device
                                     which can be added to the vmi.
                                   properties:
+                                    diag288:
+                                      description: diag288 watchdog device (specific
+                                        to s390x architecture).
+                                      properties:
+                                        action:
+                                          description: |-
+                                            The action to take. Valid values are poweroff, reset, shutdown.
+                                            Defaults to reset.
+                                          type: string
+                                      type: object
                                     i6300esb:
                                       description: i6300esb watchdog device.
                                       properties:
@@ -27102,6 +27150,16 @@ var CRDsValidation map[string]string = map[string]string{
                                       description: Watchdog describes a watchdog device
                                         which can be added to the vmi.
                                       properties:
+                                        diag288:
+                                          description: diag288 watchdog device (specific
+                                            to s390x architecture).
+                                          properties:
+                                            action:
+                                              description: |-
+                                                The action to take. Valid values are poweroff, reset, shutdown.
+                                                Defaults to reset.
+                                              type: string
+                                          type: object
                                         i6300esb:
                                           description: i6300esb watchdog device.
                                           properties:
