@@ -23,6 +23,7 @@ type NodeSelectorRenderer struct {
 	realtimeEnabled  bool
 	sevEnabled       bool
 	sevESEnabled     bool
+	smtEnabled       bool
 }
 
 type NodeSelectorRendererOption func(renderer *NodeSelectorRenderer)
@@ -79,6 +80,9 @@ func (nsr *NodeSelectorRenderer) Render() map[string]string {
 	if nsr.sevESEnabled {
 		nsr.enableSelectorLabel(v1.SEVESLabel)
 	}
+	if nsr.smtEnabled {
+		nsr.enableSelectorLabel(v1.SMTCPULabel)
+	}
 
 	return nsr.podNodeSelectors
 }
@@ -104,6 +108,12 @@ func WithSEVSelector() NodeSelectorRendererOption {
 func WithSEVESSelector() NodeSelectorRendererOption {
 	return func(renderer *NodeSelectorRenderer) {
 		renderer.sevESEnabled = true
+	}
+}
+
+func WithSMTSelector() NodeSelectorRendererOption {
+	return func(renderer *NodeSelectorRenderer) {
+		renderer.smtEnabled = true
 	}
 }
 

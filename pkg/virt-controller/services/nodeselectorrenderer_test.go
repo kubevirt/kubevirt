@@ -141,6 +141,20 @@ var _ = Describe("Node Selector Renderer", func() {
 					}))
 			})
 		})
+
+		When("smt selector is present", func() {
+			BeforeEach(func() {
+				nsr = NewNodeSelectorRenderer(
+					emptySelectors(),
+					emptySelectors(),
+					"",
+					WithSMTSelector())
+			})
+
+			It("the VMI requires the smt node", func() {
+				Expect(nsr.Render()).To(HaveKey(v1.SMTCPULabel))
+			})
+		})
 	})
 })
 
