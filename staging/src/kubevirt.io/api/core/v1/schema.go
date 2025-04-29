@@ -646,7 +646,11 @@ type Disk struct {
 	// +optional
 	DedicatedIOThread *bool `json:"dedicatedIOThread,omitempty"`
 	// Cache specifies which kvm disk cache mode should be used.
-	// Supported values are: none, writethrough, writeback.
+	// Supported values are:
+	// none: Guest I/O not cached on the host, but may be kept in a disk cache.
+	// writethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees.
+	// writeback: Guest I/O cached on the host.
+	// Defaults to none if the storage supports O_DIRECT, otherwise writethrough.
 	// +optional
 	Cache DriverCache `json:"cache,omitempty"`
 	// IO specifies which QEMU disk IO mode should be used.
