@@ -64,6 +64,8 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
+
+	"sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue"
 )
 
 const (
@@ -90,12 +92,20 @@ const defaultFinalizedMigrationGarbageCollectionBuffer = 5
 // cause the migration to fail when it could have reasonably succeeded.
 const defaultCatchAllPendingTimeoutSeconds = int64(60 * 15)
 
+// This controller is driven by a priority queue, so that proper attention is
+// given to active migrations. When a pending migration gets re-enqueued for
+// capacity reasons, we need to ensure it doesn't get re-processed as long as
+// capacity hasn't freed up, or it will delay processing of active migrations.
+// Active migrations default to a priority of 0. -100 leaves plenty of room
+// for potential future "semi-low" priority values.
+const lowPriority = -100
+
 var migrationBackoffError = errors.New(controller.MigrationBackoffReason)
 
 type Controller struct {
 	templateService      services.TemplateService
 	clientset            kubecli.KubevirtClient
-	Queue                workqueue.TypedRateLimitingInterface[string]
+	Queue                priorityqueue.PriorityQueue[string]
 	vmiStore             cache.Store
 	podIndexer           cache.Indexer
 	migrationIndexer     cache.Indexer
@@ -140,10 +150,9 @@ func NewController(templateService services.TemplateService,
 
 	c := &Controller{
 		templateService: templateService,
-		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
-			workqueue.DefaultTypedControllerRateLimiter[string](),
-			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-migration"},
-		),
+		Queue: priorityqueue.New[string]("virt-controller-migration", func(o *priorityqueue.Opts[string]) {
+			o.RateLimiter = workqueue.DefaultTypedControllerRateLimiter[string]()
+		}),
 		vmiStore:             vmiInformer.GetStore(),
 		podIndexer:           podInformer.GetIndexer(),
 		migrationIndexer:     migrationInformer.GetIndexer(),
@@ -241,7 +250,7 @@ func (c *Controller) runWorker() {
 }
 
 func (c *Controller) Execute() bool {
-	key, quit := c.Queue.Get()
+	key, priority, quit := c.Queue.GetWithPriority()
 	if quit {
 		return false
 	}
@@ -250,7 +259,7 @@ func (c *Controller) Execute() bool {
 
 	if err != nil {
 		log.Log.Reason(err).Infof("reenqueuing Migration %v", key)
-		c.Queue.AddRateLimited(key)
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: priority, RateLimited: true}, key)
 	} else {
 		log.Log.V(4).Infof("processed Migration %v", key)
 		c.Queue.Forget(key)
@@ -1092,8 +1101,8 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 	// XXX: Make this configurable, think about limit per node, bandwidth per migration, and so on.
 	if len(runningMigrations) >= int(*c.clusterConfig.GetMigrationConfiguration().ParallelMigrationsPerCluster) {
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel migration count [%d] is currently at the global cluster limit.", vmi.Namespace, vmi.Name, len(runningMigrations))
-		// Let's wait until some migrations are done
-		c.Queue.AddAfter(key, time.Second*5)
+		// The controller is busy with active migrations, mark ourselves as low priority to give more cycles to those
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: lowPriority, After: 5 * time.Second}, key)
 		return nil
 	}
 
@@ -1107,7 +1116,8 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 		// Let's ensure that we only have two outbound migrations per node
 		// XXX: Make this configurable, thinkg about inbound migration limit, bandwidh per migration, and so on.
 		log.Log.Object(migration).Infof("Waiting to schedule target pod for vmi [%s/%s] migration because total running parallel outbound migrations on target node [%d] has hit outbound migrations per node limit.", vmi.Namespace, vmi.Name, outboundMigrations)
-		c.Queue.AddAfter(key, time.Second*5)
+		// The controller is busy with active migrations, mark ourselves as low priority to give more cycles to those
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: lowPriority, After: 5 * time.Second}, key)
 		return nil
 	}
 

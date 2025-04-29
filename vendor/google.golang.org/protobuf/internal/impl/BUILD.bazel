@@ -21,6 +21,7 @@ go_library(
         "decode.go",
         "encode.go",
         "enum.go",
+        "equal.go",
         "extension.go",
         "legacy_enum.go",
         "legacy_export.go",
