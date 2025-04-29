@@ -1367,17 +1367,15 @@ var _ = Describe("Restore controller", func() {
 					Expect(*updateStatusCalls).To(Equal(1))
 				})
 
-				Context("new VM does not exist, should create new VM", func() {
+				Context("target VM does not exist, should create new VM", func() {
 
 					const (
-						newVmName     = "new-vm"
 						newMacAddress = "00:00:5e:00:53:01"
 					)
 
 					var (
 						r *snapshotv1.VirtualMachineRestore
 
-						changeNamePatch       string
 						changeMacAddressPatch string
 					)
 
@@ -1406,33 +1404,13 @@ var _ = Describe("Restore controller", func() {
 							addPVC(&pvc)
 						}
 
-						changeNamePatch = fmt.Sprintf(`{"op": "replace", "path": "/metadata/name", "value": "%s"}`, newVmName)
 						changeMacAddressPatch = fmt.Sprintf(`{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "%s"}`, newMacAddress)
 					})
 
-					It("with changed name", func() {
-						r.Spec.Patches = []string{changeNamePatch}
+					It("with changed MAC address", func() {
+						r.Spec.Patches = []string{changeMacAddressPatch}
 
-						newVM := createVirtualMachine(testNamespace, newVmName)
-						newVM.UID = newVMUID
-						newVM.Spec.DataVolumeTemplates[0].Name = restoreDVName(r, r.Status.Restores[0].VolumeName)
-						newVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = restoreDVName(r, r.Status.Restores[0].VolumeName)
-						newVM.Annotations = map[string]string{lastRestoreAnnotation: "restore-uid"}
-
-						createVMCalls := expectVMCreate(kubevirtClient, newVM, newVMUID)
-
-						targetVM, err := controller.getTarget(r)
-						Expect(err).ShouldNot(HaveOccurred())
-						success, err := targetVM.Reconcile()
-						Expect(success).To(BeTrue())
-						Expect(err).ShouldNot(HaveOccurred())
-						Expect(*createVMCalls).To(Equal(1))
-					})
-
-					It("with changed name and MAC address", func() {
-						r.Spec.Patches = []string{changeNamePatch, changeMacAddressPatch}
-
-						newVM := createVirtualMachine(testNamespace, newVmName)
+						newVM := createVirtualMachine(testNamespace, r.Spec.Target.Name)
 						newVM.UID = newVMUID
 						newVM.Spec.DataVolumeTemplates[0].Name = restoreDVName(r, r.Status.Restores[0].VolumeName)
 						newVM.Spec.Template.Spec.Volumes[0].DataVolume.Name = restoreDVName(r, r.Status.Restores[0].VolumeName)
@@ -1448,7 +1426,6 @@ var _ = Describe("Restore controller", func() {
 						Expect(err).ShouldNot(HaveOccurred())
 						Expect(*createVMCalls).To(Equal(1))
 					})
-
 				})
 
 				It("should update condition if deleted and failed to restore", func() {

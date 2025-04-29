@@ -32752,7 +32752,7 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineRestoreSpec(ref commo
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "If the target for the restore does not exist, it will be created. Patches holds JSON patches that would be applied to the target manifest before it's created. Patches should fit the target's Kind.\n\nExample for a patch: {\"op\": \"replace\", \"path\": \"/metadata/name\", \"value\": \"new-vm-name\"}",
+							Description: "If the target for the restore does not exist, it will be created. Patches holds JSON patches that would be applied to the target manifest before it's created. Patches should fit the target's Kind.\n\nExample for a patch: {\"op\": \"replace\", \"path\": \"/spec/template/spec/domain/devices/interfaces/0/macAddress\", \"value\": \"00:00:5e:00:53:01\"}",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
