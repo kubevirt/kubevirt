@@ -47,8 +47,7 @@ const nodeName = "testNode"
 var _ = Describe("Node-labeller ", func() {
 	var nlController *NodeLabeller
 	var kubeClient *fake.Clientset
-	var cpuCounter *libvirtxml.CapsHostCPUCounter
-	var guestsCaps []libvirtxml.CapsGuest
+	var capabilities *libvirtxml.Caps
 
 	initNodeLabeller := func(kubevirt *v1.KubeVirt) {
 		config, _, _ := testutils.NewFakeClusterConfigUsingKV(kubevirt)
@@ -56,28 +55,49 @@ var _ = Describe("Node-labeller ", func() {
 		recorder.IncludeObject = true
 
 		var err error
-		nlController, err = newNodeLabeller(config, kubeClient.CoreV1().Nodes(), nodeName, "testdata", recorder, cpuCounter, guestsCaps)
+		nlController, err = newNodeLabeller(config, kubeClient.CoreV1().Nodes(), nodeName, "testdata", recorder, capabilities)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
 	BeforeEach(func() {
-		cpuCounter = &libvirtxml.CapsHostCPUCounter{
-			Name:      "tsc",
-			Frequency: 4008012000,
-			Scaling:   "no",
-		}
-
-		guestsCaps = []libvirtxml.CapsGuest{
-			{
-				OSType: "test",
-				Arch: libvirtxml.CapsGuestArch{
-					Machines: []libvirtxml.CapsGuestMachine{
-						{Name: "testmachine"},
+		capabilities = &libvirtxml.Caps{
+			Host: libvirtxml.CapsHost{
+				CPU: &libvirtxml.CapsHostCPU{
+					Counter: &libvirtxml.CapsHostCPUCounter{
+						Name:      "tsc",
+						Frequency: 4008012000,
+						Scaling:   "no",
+					},
+				},
+				NUMA: &libvirtxml.CapsHostNUMATopology{
+					Cells: &libvirtxml.CapsHostNUMACells{
+						Cells: []libvirtxml.CapsHostNUMACell{
+							{
+								CPUS: &libvirtxml.CapsHostNUMACPUs{
+									CPUs: []libvirtxml.CapsHostNUMACPU{
+										{
+											Siblings: "0,1",
+										}, {
+											Siblings: "0,1",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			Guests: []libvirtxml.CapsGuest{
+				{
+					OSType: "test",
+					Arch: libvirtxml.CapsGuestArch{
+						Machines: []libvirtxml.CapsGuestMachine{
+							{Name: "testmachine"},
+						},
 					},
 				},
 			},
 		}
-
 		node := newNode(nodeName)
 		kubeClient = fake.NewSimpleClientset(node)
 		initNodeLabeller(&v1.KubeVirt{
@@ -156,6 +176,14 @@ var _ = Describe("Node-labeller ", func() {
 		Expect(node.Labels).To(HaveKey(v1.SEVLabel))
 	})
 
+	It("should add smt label", func() {
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKey(v1.SMTCPULabel))
+	})
+
 	It("should add SEVES label", func() {
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
@@ -194,7 +222,7 @@ var _ = Describe("Node-labeller ", func() {
 
 		node := retrieveNode(kubeClient)
 		Expect(node.Labels).To(SatisfyAll(
-			HaveKeyWithValue(v1.CPUTimerLabel+"tsc-frequency", fmt.Sprintf("%d", cpuCounter.Frequency)),
+			HaveKeyWithValue(v1.CPUTimerLabel+"tsc-frequency", fmt.Sprintf("%d", nlController.cpuCounter.Frequency)),
 			HaveKeyWithValue(v1.CPUTimerLabel+"tsc-scalable", result),
 		))
 	},

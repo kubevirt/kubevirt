@@ -711,6 +711,11 @@ func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 		opts = append(opts, WithSEVESSelector())
 	}
 
+	if vmi.IsSMTRequired() {
+		log.Log.V(4).Info("Add SMT node label selector")
+		opts = append(opts, WithSMTSelector())
+	}
+
 	return NewNodeSelectorRenderer(
 		vmi.Spec.NodeSelector,
 		t.clusterConfig.GetNodeSelectors(),

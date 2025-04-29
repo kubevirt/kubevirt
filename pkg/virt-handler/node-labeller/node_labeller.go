@@ -58,6 +58,7 @@ var nodeLabellerLabels = []string{
 	kubevirtv1.HostModelRequiredFeaturesLabel,
 	kubevirtv1.NodeHostModelIsObsoleteLabel,
 	kubevirtv1.SupportedMachineTypeLabel,
+	kubevirtv1.SMTCPULabel,
 }
 
 // NodeLabeller struct holds information needed to run node-labeller
@@ -79,13 +80,14 @@ type NodeLabeller struct {
 	hostCPUModel            hostCPUModel
 	SEV                     SEVConfiguration
 	arch                    archLabeller
+	smtEnabled              bool
 }
 
-func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter, guestCaps []libvirtxml.CapsGuest) (*NodeLabeller, error) {
-	return newNodeLabeller(clusterConfig, nodeClient, host, NodeLabellerVolumePath, recorder, cpuCounter, guestCaps)
-
+func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host string, recorder record.EventRecorder, capabilities *libvirtxml.Caps) (*NodeLabeller, error) {
+	return newNodeLabeller(clusterConfig, nodeClient, host, NodeLabellerVolumePath, recorder, capabilities)
 }
-func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host, volumePath string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter, guestCaps []libvirtxml.CapsGuest) (*NodeLabeller, error) {
+func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host, volumePath string, recorder record.EventRecorder, capabilities *libvirtxml.Caps) (*NodeLabeller, error) {
+	capHost := capabilities.Host
 	n := &NodeLabeller{
 		recorder:      recorder,
 		nodeClient:    nodeClient,
@@ -98,13 +100,18 @@ func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.
 		),
 		volumePath:              volumePath,
 		domCapabilitiesFileName: "virsh_domcapabilities.xml",
-		cpuCounter:              cpuCounter,
-		guestCaps:               guestCaps,
+		cpuCounter:              capHost.CPU.Counter,
+		guestCaps:               capabilities.Guests,
 		hostCPUModel:            hostCPUModel{requiredFeatures: make(map[string]bool)},
 		arch:                    newArchLabeller(runtime.GOARCH),
 	}
 
-	err := n.loadAll()
+	var numaCells []libvirtxml.CapsHostNUMACell
+	if capHost.NUMA != nil && capHost.NUMA.Cells != nil {
+		numaCells = capHost.NUMA.Cells.Cells
+	}
+
+	err := n.loadAll(numaCells)
 	if err != nil {
 		return n, err
 	}
@@ -157,7 +164,7 @@ func (n *NodeLabeller) execute() bool {
 	return true
 }
 
-func (n *NodeLabeller) loadAll() error {
+func (n *NodeLabeller) loadAll(numaCells []libvirtxml.CapsHostNUMACell) error {
 	// host supported features is only available on AMD64 and S390X nodes.
 	// This is because hypervisor-cpu-baseline virsh command doesnt work for ARM64 architecture.
 	if n.arch.hasHostSupportedFeatures() {
@@ -175,6 +182,8 @@ func (n *NodeLabeller) loadAll() error {
 	}
 
 	n.loadHypervFeatures()
+
+	n.SetSMTEnabled(numaCells)
 
 	return nil
 }
@@ -244,6 +253,10 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node, cpuModels []string, cpuFeatu
 	for _, value := range cpuModels {
 		newLabels[kubevirtv1.CPUModelLabel+value] = "true"
 		newLabels[kubevirtv1.SupportedHostModelMigrationCPU+value] = "true"
+	}
+
+	if n.smtEnabled {
+		newLabels[kubevirtv1.SMTCPULabel] = "true"
 	}
 
 	// Add labels for supported machine types

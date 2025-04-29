@@ -33,6 +33,8 @@ import (
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"libvirt.org/go/libvirtxml"
+
 	"kubevirt.io/kubevirt/pkg/testutils"
 	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
@@ -202,6 +204,42 @@ var _ = Describe("Node-labeller config", func() {
 		)
 	})
 
+	Context("return correct host capabilities", func() {
+
+		DescribeTable("for smt",
+			func(numaCells []libvirtxml.CapsHostNUMACell, smtEnabled bool) {
+				nlController.SetSMTEnabled(numaCells)
+				Expect(nlController.smtEnabled).To(Equal(smtEnabled))
+			},
+			Entry("when smt is enabled", []libvirtxml.CapsHostNUMACell{
+				{
+					CPUS: &libvirtxml.CapsHostNUMACPUs{
+						CPUs: []libvirtxml.CapsHostNUMACPU{
+							{
+								Siblings: "0,1",
+							}, {
+								Siblings: "0,1",
+							},
+						},
+					},
+				},
+			}, true),
+			Entry("when smt is not enabled", []libvirtxml.CapsHostNUMACell{
+				{
+					CPUS: &libvirtxml.CapsHostNUMACPUs{
+						CPUs: []libvirtxml.CapsHostNUMACPU{
+							{
+								Siblings: "0",
+							}, {
+								Siblings: "1",
+							},
+						},
+					},
+				},
+			}, false),
+		)
+	})
+
 	It("Make sure proper labels are removed on removeLabellerLabels()", func() {
 		node := &k8sv1.Node{
 			ObjectMeta: metav1.ObjectMeta{
@@ -320,6 +358,7 @@ var nodeLabels = map[string]string{
 	"cpu-timer.node.kubevirt.io/tsc-frequency":                         "2111998000",
 	"cpu-timer.node.kubevirt.io/tsc-scalable":                          "false",
 	"cpu-vendor.node.kubevirt.io/Intel":                                "true",
+	"cpu.node.kubevirt.io/smt":                                         "true",
 	"cpumanager":                                                       "false",
 	"host-model-cpu.node.kubevirt.io/Skylake-Client-IBRS":              "true",
 	"host-model-required-features.node.kubevirt.io/amd-ssbd":           "true",

@@ -1905,6 +1905,46 @@ var _ = Describe("Template", func() {
 				Entry("empty string should be treated as host-model", ""),
 				Entry("nil should be treated as host-model", nil),
 			)
+
+			Context("CPU SMT", func() {
+				DescribeTable("SMT node selector", func(vmi *v1.VirtualMachineInstance, nodeSelectorPresent bool) {
+					pod, err := svc.RenderLaunchManifest(vmi)
+					Expect(err).ToNot(HaveOccurred())
+
+					if nodeSelectorPresent {
+						Expect(pod.Spec.NodeSelector).To(HaveKey(v1.SMTCPULabel))
+					} else {
+						Expect(pod.Spec.NodeSelector).ToNot(HaveKey(v1.SMTCPULabel))
+					}
+				},
+					Entry(
+						"should add the node selector when dedicated CPU placement is enabled and cpu threads > 1",
+						libvmi.New(
+							libvmi.WithNamespace("default"),
+							libvmi.WithDedicatedCPUPlacement(),
+							libvmi.WithCPUCount(0, 2, 0),
+						),
+						true,
+					),
+					Entry(
+						"should not add the node selector when dedicated CPU placement is not enabled and cpu threads > 1",
+						libvmi.New(
+							libvmi.WithNamespace("default"),
+							libvmi.WithCPUCount(0, 2, 0),
+						),
+						false,
+					),
+					Entry(
+						"should not add the node selector when dedicated CPU placement is  enabled and cpu threads == 1",
+						libvmi.New(
+							libvmi.WithNamespace("default"),
+							libvmi.WithDedicatedCPUPlacement(),
+							libvmi.WithCPUCount(0, 1, 0),
+						),
+						false,
+					),
+				)
+			})
 		})
 		Context("with cpu and memory constraints", func() {
 			DescribeTable("should add cpu and memory constraints to a template", func(arch string, requestMemory string, limitMemory string) {
