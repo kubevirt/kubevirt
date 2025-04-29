@@ -4931,6 +4931,7 @@ var _ = Describe("Template", func() {
 					expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
 					expectedMemory.Add(GetMemoryOverhead(&vmi, defaultArch, config.GetConfig().AdditionalGuestMemoryOverheadRatio))
 					expectedMemory.Add(guestMemory)
+					Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(BeEquivalentTo(expectedMemory.Value()))
 					Expect(pod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(BeEquivalentTo(expectedMemory.Value()))
 				},
 					Entry("if they are already set in the vmi", true, false),

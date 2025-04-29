@@ -380,3 +380,12 @@ func newHostDisk(name, path string, diskType v1.HostDiskType, capacity string, o
 
 	return v
 }
+
+func WithSupplementalPoolThreadCount(count uint32) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.IOThreads == nil {
+			vmi.Spec.Domain.IOThreads = &v1.DiskIOThreads{}
+		}
+		vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount = pointer.P(count)
+	}
+}
