@@ -35,11 +35,11 @@ const (
 var _ = archLabeller(&defaultArchLabeller{})
 
 type archLabeller interface {
-	shouldLabelNodes() bool
 	defaultVendor() string
 	requirePolicy(policy string) bool
 	hasHostSupportedFeatures() bool
 	supportsHostModel() bool
+	supportsNamedModels() bool
 	arch() string
 }
 
@@ -58,10 +58,6 @@ func newArchLabeller(arch string) archLabeller {
 
 type defaultArchLabeller struct{}
 
-func (defaultArchLabeller) shouldLabelNodes() bool {
-	return false
-}
-
 func (defaultArchLabeller) defaultVendor() string {
 	return ""
 }
@@ -75,6 +71,10 @@ func (defaultArchLabeller) hasHostSupportedFeatures() bool {
 }
 
 func (defaultArchLabeller) supportsHostModel() bool {
+	return false
+}
+
+func (defaultArchLabeller) supportsNamedModels() bool {
 	return false
 }
 

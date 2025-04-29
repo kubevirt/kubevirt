@@ -314,11 +314,9 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	if nodeLabellerController.ShouldLabelNodes() {
-		hostCpuModel = nodeLabellerController.GetHostCpuModel().Name
+	hostCpuModel = nodeLabellerController.GetHostCpuModel().Name
 
-		go nodeLabellerController.Run(10, stop)
-	}
+	go nodeLabellerController.Run(10, stop)
 
 	migrationIpAddress := app.PodIpAddress
 	migrationIpAddress, err = virthandler.FindMigrationIP(migrationIpAddress)

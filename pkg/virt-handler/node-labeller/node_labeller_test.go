@@ -289,15 +289,32 @@ var _ = Describe("Node-labeller ", func() {
 		Expect(node.Labels).To(HaveKey("INeedToBeHere"))
 	})
 
-	DescribeTable("should only label arches that support it", func(arch string, shouldLabel bool) {
+	DescribeTable("should add machine type labels", func(machines []libvirtxml.CapsGuestMachine, arch string) {
+		guestsCaps[0].Arch.Machines = machines
+
+		initNodeLabeller(&v1.KubeVirt{})
 		nlController.arch = newArchLabeller(arch)
-		Expect(nlController.ShouldLabelNodes()).To(Equal(shouldLabel))
+		mockQueue := testutils.NewMockWorkQueue(nlController.queue)
+		nlController.queue = mockQueue
+
+		mockQueue.ExpectAdds(1)
+		nlController.queue.Add(nodeName)
+		mockQueue.Wait()
+
+		res := nlController.execute()
+		Expect(res).To(BeTrue(), "labeller should complete successfully")
+
+		node := retrieveNode(kubeClient)
+
+		for _, machine := range machines {
+			expectedLabelKey := v1.SupportedMachineTypeLabel + machine.Name
+			Expect(node.Labels).To(HaveKey(expectedLabelKey), "expected machine type label %s to be present", expectedLabelKey)
+		}
 	},
-		Entry(amd64, amd64, true),
-		Entry(arm64, arm64, false),
-		Entry(s390x, s390x, true),
-		Entry("unknown", "unknown", false),
+		Entry("for amd64", []libvirtxml.CapsGuestMachine{{Name: "q35"}, {Name: "q35-rhel9.6.0"}}, amd64),
+		Entry("for arm64", []libvirtxml.CapsGuestMachine{{Name: "virt"}, {Name: "virt-rhel9.6.0"}}, arm64),
 	)
+
 })
 
 func newNode(name string) *k8sv1.Node {
