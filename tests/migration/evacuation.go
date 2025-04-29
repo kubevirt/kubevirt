@@ -26,6 +26,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	policyv1 "k8s.io/api/policy/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"kubevirt.io/client-go/kubecli"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
+	"kubevirt.io/kubevirt/tests/libwait"
 )
 
 var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.RequiresTwoSchedulableNodes, func() {
@@ -149,6 +153,79 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 				By("Checking that no backoff event occurred")
 				events.ExpectNoEvent(vmi, k8sv1.EventTypeWarning, controller.MigrationBackoffReason)
 			})
+		})
+	})
+
+	Context("Evacuation cancel behavior", func() {
+		var (
+			virtClient              kubecli.KubevirtClient
+			vmi                     *v1.VirtualMachineInstance
+			migrationBandwidthLimit resource.Quantity
+		)
+
+		BeforeEach(func() {
+			virtClient = kubevirt.Client()
+			migrationBandwidthLimit = resource.MustParse("1Ki")
+		})
+
+		It("should stop recreating migrations after evacuate-cancel", func() {
+			vmi = libvmifact.NewAlpine(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
+
+			By("Creating a migration policy that prevents migration")
+			CreateMigrationPolicy(virtClient, PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
+
+			By("Starting the VMI")
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+
+			By("Evicting VMI pod")
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+			eviction := &policyv1.Eviction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      vmiPod.Name,
+					Namespace: vmiPod.Namespace,
+				},
+			}
+			err = virtClient.CoreV1().Pods(vmiPod.Namespace).EvictV1(context.Background(), eviction)
+			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(ContainSubstring("Eviction triggered evacuation of VMI")))
+
+			for i := 0; i < 5; i++ {
+				By("Waiting for a migration to appear")
+				Eventually(func() ([]v1.VirtualMachineInstanceMigration, error) {
+					migs, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+					return migs.Items, err
+				}, 30*time.Second, 1*time.Second).Should(HaveLen(1))
+
+				By("Deleting the migration")
+				migs, _ := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+				lastMigration := &migs.Items[0]
+				Expect(virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Delete(context.Background(), lastMigration.Name, metav1.DeleteOptions{})).To(Succeed())
+
+				By("Waiting for migration to disappear")
+				libwait.WaitForMigrationToDisappearWithTimeout(lastMigration, 60)
+			}
+
+			By("Cancelling evacuation")
+			err = virtClient.VirtualMachineInstance(vmi.Namespace).EvacuateCancel(context.Background(), vmi.Name, &v1.EvacuateCancelOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Deleting the current migration one last time")
+			migs, _ := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			for _, mig := range migs.Items {
+				err = virtClient.VirtualMachineInstanceMigration(mig.Namespace).Delete(context.Background(), mig.Name, metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			By("Ensuring no new migration is created")
+			Consistently(func() int {
+				migs, _ := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+				return len(migs.Items)
+			}, 30*time.Second, 2*time.Second).Should(Equal(0))
 		})
 	})
 }))
