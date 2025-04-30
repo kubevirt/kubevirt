@@ -1221,43 +1221,59 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 	}
 
 	if firmware.ACPI != nil {
-		path, err := getSlicMountedPath(vmi.Spec.Volumes, firmware.ACPI.SlicNameRef)
-		if err != nil {
-			log.Log.Object(vmi).Warningf("Failed to get supported path for Volume: %s", firmware.ACPI.SlicNameRef)
-			return err
+		// If ACPI is set, we should have either SLIC or MSDM set.
+		if firmware.ACPI.SlicNameRef == "" && firmware.ACPI.MsdmNameRef == "" {
+			const errMsg = "No ACPI tables were set. Expecting at least one."
+			log.Log.Object(vmi).Warning(errMsg)
+			return fmt.Errorf(errMsg)
 		}
 
 		if domain.Spec.OS.ACPI == nil {
 			domain.Spec.OS.ACPI = &api.OSACPI{}
 		}
 
-		domain.Spec.OS.ACPI.Table = append(domain.Spec.OS.ACPI.Table,
-			api.ACPITable{
-				Type: "slic",
-				Path: path,
-			})
+		tables := map[string]string{
+			"slic": firmware.ACPI.SlicNameRef,
+			"msdm": firmware.ACPI.MsdmNameRef,
+		}
+		for key, value := range tables {
+			if value == "" {
+				continue
+			}
+
+			if path, err := getAcpiMountedPath(vmi.Spec.Volumes, key+".bin", value); err != nil {
+				log.Log.Object(vmi).Warningf("Failed to get supported path for Volume: %s, %s", value, key)
+				return err
+			} else {
+				domain.Spec.OS.ACPI.Table = append(domain.Spec.OS.ACPI.Table,
+					api.ACPITable{
+						Type: key,
+						Path: path,
+					})
+			}
+		}
 	}
 
 	return nil
 }
 
-func getSlicMountedPath(volumes []v1.Volume, name string) (string, error) {
+func getAcpiMountedPath(volumes []v1.Volume, sourceName, volumeName string) (string, error) {
 	// We need to know the the volume type referred by @name
 	for _, volume := range volumes {
-		if volume.Name != name {
+		if volume.Name != volumeName {
 			continue
 		}
 
 		if volume.Secret == nil {
-			return "", fmt.Errorf("Firmware's slic volume type is unsupported")
+			return "", fmt.Errorf("Firmware's volume type is unsupported")
 		}
 
 		// Return path to slic binary data
-		sourcePath := config.GetSecretSourcePath(name)
-		return filepath.Join(sourcePath, "slic.bin"), nil
+		sourcePath := config.GetSecretSourcePath(volumeName)
+		return filepath.Join(sourcePath, sourceName), nil
 	}
 
-	return "", fmt.Errorf("Firmware's slic volume type not found")
+	return "", fmt.Errorf("Firmware's volume type not found")
 }
 
 func hasIOThreads(vmi *v1.VirtualMachineInstance) bool {
