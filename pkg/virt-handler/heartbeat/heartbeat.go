@@ -78,7 +78,7 @@ func (h *HeartBeat) heartBeat(heartBeatInterval time.Duration, stopCh chan struc
 }
 
 func (h *HeartBeat) labelNodeUnschedulable() {
-	retry.OnError(retry.DefaultBackoff, func(err error) bool { return err != nil }, func() error {
+	err := retry.OnError(retry.DefaultBackoff, func(err error) bool { return err != nil }, func() error {
 		now, err := json.Marshal(metav1.Now())
 		if err != nil {
 			log.DefaultLogger().Reason(err).Errorf("Can't determine date")
@@ -98,6 +98,10 @@ func (h *HeartBeat) labelNodeUnschedulable() {
 		}
 		return nil
 	})
+
+	if err != nil {
+		log.Log.Warningf("Failed to set node %s unschedulable", h.host)
+	}
 }
 
 // waitForDevicePlugins gives the device plugins additional time to successfully connect to the kubelet.

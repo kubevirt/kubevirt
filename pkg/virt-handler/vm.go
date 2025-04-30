@@ -746,7 +746,11 @@ func (c *VirtualMachineController) migrationTargetUpdateVMIStatus(vmi *v1.Virtua
 		log.Log.Object(vmi).Info("The target node received the running migrated domain")
 		now := metav1.Now()
 		vmiCopy.Status.MigrationState.TargetNodeDomainReadyTimestamp = &now
-		c.finalizeMigration(vmiCopy)
+
+		err := c.finalizeMigration(vmiCopy)
+		if err != nil {
+			return err
+		}
 	}
 
 	if !migrations.IsMigrating(vmi) {
@@ -2194,7 +2198,11 @@ func (c *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 		close(clientInfo.DomainPipeStopChan)
 	}
 
-	virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
+	err := virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
+	if err != nil {
+		return err
+	}
+
 	c.launcherClients.Delete(vmi.UID)
 	return nil
 }
