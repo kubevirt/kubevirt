@@ -2899,7 +2899,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 		},
 			Entry("Not set is ok", nil, []v1.Volume{}, 0, ""),
-			Entry("ACPI with Volume match is ok",
+			Entry("ACPI SLIC with Volume match is ok",
 				&v1.ACPI{SlicNameRef: "slic"},
 				[]v1.Volume{
 					{
@@ -2909,10 +2909,23 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 						},
 					},
 				}, 0, ""),
-			Entry("ACPI without Volume match should fail",
+			Entry("ACPI MSDM with Volume match is ok",
+				&v1.ACPI{SlicNameRef: "msdm"},
+				[]v1.Volume{
+					{
+						Name: "msdm",
+						VolumeSource: v1.VolumeSource{
+							Secret: &v1.SecretVolumeSource{SecretName: "secret-msdm"},
+						},
+					},
+				}, 0, ""),
+			Entry("ACPI SLIC without Volume match should fail",
 				&v1.ACPI{SlicNameRef: "slic"},
 				[]v1.Volume{}, 1, "does not have a matching Volume"),
-			Entry("ACPI with wrong Volume type should fail",
+			Entry("ACPI MSDM without Volume match should fail",
+				&v1.ACPI{MsdmNameRef: "msdm"},
+				[]v1.Volume{}, 1, "does not have a matching Volume"),
+			Entry("ACPI SLIC with wrong Volume type should fail",
 				&v1.ACPI{SlicNameRef: "slic"},
 				[]v1.Volume{
 					{
@@ -2920,6 +2933,18 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 						VolumeSource: v1.VolumeSource{
 							ConfigMap: &v1.ConfigMapVolumeSource{
 								LocalObjectReference: k8sv1.LocalObjectReference{Name: "configmap-slic"},
+							},
+						},
+					},
+				}, 1, "Volume of unsupported type"),
+			Entry("ACPI MSDM with wrong Volume type should fail",
+				&v1.ACPI{MsdmNameRef: "msdm"},
+				[]v1.Volume{
+					{
+						Name: "msdm",
+						VolumeSource: v1.VolumeSource{
+							ConfigMap: &v1.ConfigMapVolumeSource{
+								LocalObjectReference: k8sv1.LocalObjectReference{Name: "configmap-msdm"},
 							},
 						},
 					},
