@@ -17574,6 +17574,13 @@ func schema_kubevirtio_api_core_v1_ACPI(ref common.ReferenceCallback) common.Ope
 							Format:      "",
 						},
 					},
+					"msdmNameRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Similar to SlicNameRef, another ACPI entry that is used in more recent Windows versions. The above points to the spec of MSDM too.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
