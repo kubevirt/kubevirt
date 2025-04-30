@@ -21,6 +21,7 @@ set -ex
 
 export TIMESTAMP=${TIMESTAMP:-1}
 
+export KUBEVIRT_WITH_ETC_IN_MEMORY="true"
 export WORKSPACE="${WORKSPACE:-$PWD}"
 readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="gs://kubevirt-vm-images"
