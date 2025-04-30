@@ -34,7 +34,7 @@ const (
 	ContainerDiskAlpineTestTooling    ContainerDisk = "alpine-with-test-tooling"
 	ContainerDiskFedoraTestTooling    ContainerDisk = "fedora-with-test-tooling"
 	ContainerDiskVirtio               ContainerDisk = "virtio-container-disk"
-	ContainerDiskEmpty                ContainerDisk = "empty"
+	ContainerDiskEmptys               ContainerDisk = "empty"
 	ContainerDiskFedoraRealtime       ContainerDisk = "fedora-realtime"
 )
 
