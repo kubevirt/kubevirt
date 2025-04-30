@@ -22,6 +22,7 @@ package vmi
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -827,6 +828,45 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			sanityExecute()
 
 			expectPodAnnotations(pod, Not(HaveKeyWithValue(key1, value1)), Not(HaveKeyWithValue(key2, value2)))
+		})
+	})
+
+	Context("VMI patch", func() {
+		var (
+			oldVMI *virtv1.VirtualMachineInstance
+			newVMI *virtv1.VirtualMachineInstance
+		)
+		BeforeEach(func() {
+			oldVMI = newPendingVirtualMachine("oldvmi")
+			newVMI = newPendingVirtualMachine("newvmi")
+
+			oldVMI.Status.Interfaces = []virtv1.VirtualMachineInstanceNetworkInterface{
+				{Name: "stubNetStatusUpdate1"},
+				{Name: "stubNetStatusUpdate2"},
+			}
+		})
+		It("should create empty status network interfaces patch, regardless of interfaces order", func() {
+
+			// Reverse the order of interfaces in the new VMI
+			newVMI.Status.Interfaces = slices.Clone(oldVMI.Status.Interfaces)
+			slices.Reverse(newVMI.Status.Interfaces)
+
+			patch := prepareVMIPatch(oldVMI, newVMI)
+
+			Expect(patch).ToNot(BeNil(), "Patch should not be nil")
+			Expect(patch.IsEmpty()).To(BeTrue(), "Patch should be empty")
+		})
+		It("should create non empty status network interfaces patch", func() {
+
+			// Add a new interface to the new VMI
+			newVMI.Status.Interfaces = append(oldVMI.Status.Interfaces,
+				virtv1.VirtualMachineInstanceNetworkInterface{Name: "stubNetStatusUpdate3"},
+			)
+
+			patch := prepareVMIPatch(oldVMI, newVMI)
+
+			Expect(patch).ToNot(BeNil(), "Patch should not be nil")
+			Expect(patch.IsEmpty()).To(BeFalse(), "Patch should not be empty")
 		})
 	})
 
