@@ -39,7 +39,7 @@ export IMAGE_PREFIX=''
 export IMAGE_PREFIX_ALT=''
 source hack/config-default.sh
 
-CANNIER_IMAGE="${CANNIER_IMAGE-quay.io/kubevirtci/cannier:v20250328-a1ef64e}"
+CANNIER_IMAGE="${CANNIER_IMAGE-quay.io/kubevirtci/cannier:v20250428-dc1823e}"
 
 export TIMESTAMP=${TIMESTAMP:-1}
 
