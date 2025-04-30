@@ -27,7 +27,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"runtime"
 	"syscall"
 	"time"
 
@@ -311,12 +310,9 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	// Node labelling is only relevant on x86_64 and s390x arches.
-	if virtconfig.IsAMD64(runtime.GOARCH) || virtconfig.IsS390X(runtime.GOARCH) {
-		hostCpuModel = nodeLabellerController.GetHostCpuModel().Name
+	hostCpuModel = nodeLabellerController.GetHostCpuModel().Name
 
-		go nodeLabellerController.Run(10, stop)
-	}
+	go nodeLabellerController.Run(10, stop)
 
 	migrationIpAddress := app.PodIpAddress
 	migrationIpAddress, err = virthandler.FindMigrationIP(migrationIpAddress)
