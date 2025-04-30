@@ -1238,12 +1238,15 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 			return err
 		}
 
-		domain.Spec.OS.ACPI = &api.OSACPI{
-			Table: api.ACPITable{
+		if domain.Spec.OS.ACPI == nil {
+			domain.Spec.OS.ACPI = &api.OSACPI{}
+		}
+
+		domain.Spec.OS.ACPI.Table = append(domain.Spec.OS.ACPI.Table,
+			api.ACPITable{
 				Type: "slic",
 				Path: path,
-			},
-		}
+			})
 	}
 
 	return nil

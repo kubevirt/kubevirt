@@ -543,7 +543,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		Context("with ACPI SLIC table", func() {
-			It("Should configure guest APCI SLIC with Secret file", func() {
+			It("Should configure guest ACPI SLIC with Secret file", func() {
 				const (
 					volumeSlicSecretName = "volume-slic-secret"
 					secretWithSlicName   = "secret-with-slic-data"
