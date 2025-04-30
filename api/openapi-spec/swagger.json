@@ -13428,7 +13428,7 @@
       "format": "int32"
      },
      "cache": {
-      "description": "Cache specifies which kvm disk cache mode should be used. Supported values are: CacheNone, CacheWriteThrough.",
+      "description": "Cache specifies which kvm disk cache mode should be used. Supported values are: none: Guest I/O not cached on the host, but may be kept in a disk cache. writethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees. writeback: Guest I/O cached on the host. Defaults to none if the storage supports O_DIRECT, otherwise writethrough.",
       "type": "string"
      },
      "cdrom": {
