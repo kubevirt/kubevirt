@@ -241,6 +241,7 @@ func (Firmware) SwaggerDoc() map[string]string {
 func (ACPI) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"slicNameRef": "SlicNameRef should match the volume name of a secret object. The data in the secret should\nbe a binary blob that follows the ACPI SLIC standard, see:\nhttps://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653305(v=vs.85)",
+		"msdmNameRef": "Similar to SlicNameRef, another ACPI entry that is used in more recent Windows versions.\nThe above points to the spec of MSDM too.",
 	}
 }
 
