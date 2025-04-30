@@ -23,6 +23,16 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["virt_handler_suite_test.go"],
-    deps = ["//staging/src/kubevirt.io/client-go/testutils:go_default_library"],
+    srcs = [
+        "machine_type_test.go",
+        "virt_handler_suite_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/machadovilaca/operator-observability/pkg/operatormetrics:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/libvirt.org/go/libvirtxml:go_default_library",
+    ],
 )
