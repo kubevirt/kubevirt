@@ -13,7 +13,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/util/cluster"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -107,17 +106,6 @@ func IsOpenShift() bool {
 	}
 
 	return isOpenShift
-}
-
-func RequireFeatureGateVirtHandlerRestart(feature string) bool {
-	// List of feature gates that requires virt-handler to be redeployed
-	fgs := []string{featuregate.PersistentReservation}
-	for _, f := range fgs {
-		if feature == f {
-			return true
-		}
-	}
-	return false
 }
 
 func IsRunningOnKindInfra() bool {
