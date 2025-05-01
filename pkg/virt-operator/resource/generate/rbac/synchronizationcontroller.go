@@ -87,7 +87,7 @@ func newSynchronizationControllerClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstancemigrations",
 				},
 				Verbs: []string{
-					"get", "list", "watch",
+					"get", "list", "watch", "patch", "delete",
 				},
 			},
 			{

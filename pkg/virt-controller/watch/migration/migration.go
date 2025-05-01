@@ -520,6 +520,9 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 		}
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedMigrationReason, "Migration failed because target pod shutdown during migration")
 		log.Log.Object(migration).Errorf("target pod %s/%s shutdown during migration", pod.Namespace, pod.Name)
+		if err := c.handlePostHandoffMigrationCancel(migration, vmi); err != nil {
+			return err
+		}
 	} else if migration.TargetIsCreated() && !podExists && migration.IsLocalOrDecentralizedTarget() {
 		err := c.interruptMigration(migrationCopy, vmi)
 		if err != nil {
@@ -1232,6 +1235,26 @@ func (c *Controller) handleTargetPodCreation(key string, migration *virtv1.Virtu
 		return c.createTargetPod(migration, vmi, sourcePod)
 	}
 	log.Log.Object(vmi).V(5).Info("target pod not created because vmi is not running and migration is not decentralized target migration")
+	return nil
+}
+
+func (c *Controller) handlePostHandoffMigrationCancel(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
+	if !vmi.IsDecentralizedMigration() {
+		// Do not delete the pod if it is not a decentralized migration
+		return nil
+	}
+	pod, err := controller.CurrentVMIPod(vmi, c.podIndexer)
+	if err != nil {
+		return err
+	}
+	c.podExpectations.ExpectDeletions(controller.MigrationKey(migration), []string{controller.PodKey(pod)})
+	if err := c.clientset.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, v1.DeleteOptions{}); err != nil {
+		c.podExpectations.DeletionObserved(controller.MigrationKey(migration), controller.PodKey(pod))
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Error deleting canceled migration target pod: %v", err)
+		return err
+	}
+	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, controller.SuccessfulDeletePodReason, "Deleted canceled target pod %s for migration %s", pod.Name, migration.Name)
+	log.Log.Object(vmi).Infof("Deleted canceled target pod %s for migration %s", pod.Name, migration.Name)
 	return nil
 }
 
