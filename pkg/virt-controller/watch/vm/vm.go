@@ -33,6 +33,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -80,6 +81,7 @@ const (
 	fetchingRunStrategyErrFmt = "Error fetching RunStrategy: %v"
 	fetchingVMKeyErrFmt       = "Error fetching vmKey: %v"
 	startingVMIFailureFmt     = "Failure while starting VMI: %v"
+	nonReceiverVMI            = "Found non receiver VMI while VM is receiver"
 )
 
 type CloneAuthFunc func(dv *cdiv1.DataVolume, requestNamespace, requestName string, proxy cdiv1.AuthorizationHelperProxy, saNamespace, saName string) (bool, string, error)
@@ -88,6 +90,7 @@ type CloneAuthFunc func(dv *cdiv1.DataVolume, requestNamespace, requestName stri
 const (
 	stoppingVmMsg                             = "Stopping VM"
 	startingVmMsg                             = "Starting VM"
+	startingVmReceiverMsg                     = "Starting VM as receiver"
 	failedExtractVmkeyFromVmErrMsg            = "Failed to extract vmKey from VirtualMachine."
 	failedCreateCRforVmErrMsg                 = "Failed to create controller revision for VirtualMachine."
 	failedProcessDeleteNotificationErrMsg     = "Failed to process delete notification"
@@ -1107,6 +1110,26 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 		}
 
 		return vm, nil
+	case virtv1.RunStrategyWaitAsReceiver:
+		// Create a VMI in receiver mode, this prevents someone from accidentally starting the VM.
+		if vmi != nil {
+			// Check if this is a receiver VMI
+			if vmi.Annotations == nil {
+				// found VMI without receiver annotations
+				return vm, common.NewSyncError(fmt.Errorf(nonReceiverVMI), failedCreateReason)
+			}
+			if val, ok := vmi.Annotations[virtv1.CreateMigrationTarget]; !ok || val != "true" {
+				return vm, common.NewSyncError(fmt.Errorf(nonReceiverVMI), failedCreateReason)
+			}
+		} else {
+			log.Log.Object(vm).Infof("%s due to runStrategy: %s", startingVmReceiverMsg, runStrategy)
+
+			vm, err = c.startVMI(vm)
+			if err != nil {
+				return vm, common.NewSyncError(fmt.Errorf(startingVMIFailureFmt, err), failedCreateReason)
+			}
+		}
+		return vm, nil
 	default:
 		return vm, common.NewSyncError(fmt.Errorf("unknown runstrategy: %s", runStrategy), failedCreateReason)
 	}
@@ -1228,6 +1251,11 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 	vmi.Status.VirtualMachineRevisionName = vmRevisionName
 
 	setGenerationAnnotationOnVmi(vm.Generation, vmi)
+
+	if vm.Spec.RunStrategy != nil && *vm.Spec.RunStrategy == virtv1.RunStrategyWaitAsReceiver {
+		log.Log.Infof("Setting up receiver VMI %s/%s", vmi.Namespace, vmi.Name)
+		vmi.Annotations[virtv1.CreateMigrationTarget] = "true"
+	}
 
 	// add a finalizer to ensure the VM controller has a chance to see
 	// the VMI before it is deleted
@@ -2465,8 +2493,8 @@ func (c *Controller) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1
 			return err
 		}
 	}
-
-	if vmi != nil && vmi.IsFinal() && len(vmi.Finalizers) > 0 {
+	syncVMIDeleted := vmi != nil && vmi.IsWaitingForSync() && vmi.DeletionTimestamp != nil
+	if vmi != nil && (vmi.IsFinal() || syncVMIDeleted) && len(vmi.Finalizers) > 0 {
 		// Remove our finalizer off of a finalized VMI now that we've been able
 		// to record any status info from the VMI onto the VM object.
 		err := c.removeVMIFinalizer(vmi)
@@ -2507,6 +2535,7 @@ func (c *Controller) setPrintableStatus(vm *virtv1.VirtualMachine, vmi *virtv1.V
 		{virtv1.VirtualMachineStatusStarting, c.isVirtualMachineStatusStarting},
 		{virtv1.VirtualMachineStatusCrashLoopBackOff, c.isVirtualMachineStatusCrashLoopBackOff},
 		{virtv1.VirtualMachineStatusStopped, c.isVirtualMachineStatusStopped},
+		{virtv1.VirtualMachineStatusWaitingForReceiver, c.isVirtualMachineWaitingReceiver},
 	}
 
 	for _, status := range statuses {
@@ -2650,6 +2679,20 @@ func (c *Controller) isVirtualMachineStatusDataVolumeError(vm *virtv1.VirtualMac
 		return true
 	}
 	return false
+}
+
+// isVirtualMachineWaitingReceiver determines whether the VM status field should be set to "WaitingForReceiver"
+func (c *Controller) isVirtualMachineWaitingReceiver(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+	runStrategy, err := vm.RunStrategy()
+	if err != nil {
+		log.Log.Object(vm).Errorf(fetchingRunStrategyErrFmt, err)
+		return false
+	}
+	vmiWaitingSync := true
+	if vmi != nil {
+		vmiWaitingSync = vmi.IsWaitingForSync()
+	}
+	return vmiWaitingSync && runStrategy == virtv1.RunStrategyWaitAsReceiver
 }
 
 func syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
@@ -3148,6 +3191,12 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	vm, syncErr = c.syncRunStrategy(vm, vmi, runStrategy)
 	if syncErr != nil {
 		return vm, vmi, syncErr, nil
+	}
+	if vm.Spec.RunStrategy != nil && *vm.Spec.RunStrategy == virtv1.RunStrategyWaitAsReceiver {
+		// Restore the original run strategy
+		if val, ok := vm.Annotations[virtv1.RestoreRunStrategy]; ok {
+			vm.Spec.RunStrategy = pointer.P(virtv1.VirtualMachineRunStrategy(val))
+		}
 	}
 
 	restartRequired := c.addRestartRequiredIfNeeded(startVMSpec, vm, vmi)
