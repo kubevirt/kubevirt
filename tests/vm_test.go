@@ -519,7 +519,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			),
 		)
 
-		It("[test_id:6869][QUARANTINE]should report an error status when image pull error occurs", decorators.Conformance, decorators.Quarantine, func() {
+		It("[test_id:6869]should report an error status when image pull error occurs", decorators.Conformance, decorators.Quarantine, func() {
 			vmi := libvmi.New(
 				libvmi.WithContainerDisk("disk0", "no-such-image"),
 				libvmi.WithResourceMemory("128Mi"),
@@ -528,11 +528,16 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vm := createRunningVM(virtClient, vmi)
 
 			By("Verifying that the status toggles between ErrImagePull and ImagePullBackOff")
-			const times = 2
-			for i := 0; i < times; i++ {
-				Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusErrImagePull))
-				Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusImagePullBackOff))
+			maxImgPullRetries := 2 // max number of image pull (re)tries
+			expectedStates := []v1.VirtualMachinePrintableStatus{}
+			for range maxImgPullRetries {
+				// each image pull (re)try should take the VM
+				// from status ErrImagePull to ImagePullBackOff
+				expectedStates = append(expectedStates, v1.VirtualMachineStatusErrImagePull)
+				expectedStates = append(expectedStates, v1.VirtualMachineStatusImagePullBackOff)
 			}
+
+			waitForVMStateTransition(virtClient, vm, expectedStates, 600*time.Second)
 		})
 
 		It("[test_id:7679]should report an error status when data volume error occurs", func() {
@@ -1266,4 +1271,41 @@ func createRunningVM(virtClient kubecli.KubevirtClient, template *v1.VirtualMach
 	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return vm
+}
+
+func waitForVMStateTransition(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, expectedStates []v1.VirtualMachinePrintableStatus, timeoutDuration time.Duration) {
+	// Setting up a watch on the VM resource
+	watch, err := virtClient.VirtualMachine(vm.Namespace).Watch(context.Background(), metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("metadata.name=%s", vm.Name),
+	})
+	Expect(err).ToNot(HaveOccurred())
+	defer watch.Stop()
+
+	timeout := time.After(timeoutDuration)
+	nextExpectedStateIdx := 0
+	var lastSeenState v1.VirtualMachinePrintableStatus
+	for nextExpectedStateIdx < len(expectedStates) {
+		nextExpectedState := expectedStates[nextExpectedStateIdx]
+		select {
+		case <-timeout:
+			Fail(fmt.Sprintf("Test timed out waiting for VM status to be %s", nextExpectedState))
+		case event, ok := <-watch.ResultChan():
+			if !ok {
+				Fail("Watch channel closed unexpectedly")
+			}
+			updatedVM, ok := event.Object.(*v1.VirtualMachine)
+			if !ok {
+				Fail("Received unexpected object type")
+			}
+			currentState := updatedVM.Status.PrintableStatus
+			if currentState == nextExpectedState {
+				// Advance the state transition check
+				nextExpectedStateIdx += 1
+			} else if currentState != lastSeenState {
+				// Reset the state transition check to the beginning
+				nextExpectedStateIdx = 0
+			} // If currentState == lastSeenState, ignore.
+			lastSeenState = currentState
+		}
+	}
 }
