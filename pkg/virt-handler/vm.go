@@ -2126,7 +2126,12 @@ func (c *VirtualMachineController) execute(key string) error {
 	// Take different execution paths depending on the state of the migration and the
 	// node this is executed on.
 
-	if vmiExists && c.isPreMigrationTarget(vmi) {
+	if vmiExists && vmi.IsMigrationTarget() && !vmi.IsMigrationTargetNodeLabelSet() {
+		log.Log.Info("Which path: Do nothing")
+		// Do nothing, not fully synchronized so not ready to move to preMigrationTarget
+		return nil
+	} else if vmiExists && c.isPreMigrationTarget(vmi) {
+		log.Log.Info("Which path: pre migration")
 		// 1. PRE-MIGRATION TARGET PREPARATION PATH
 		//
 		// If this node is the target of the vmi's migration, take
@@ -2135,6 +2140,7 @@ func (c *VirtualMachineController) execute(key string) error {
 		// start the VMI
 		return c.migrationTargetExecute(vmi, vmiExists, domain)
 	} else if vmiExists && c.isOrphanedMigrationSource(vmi) {
+		log.Log.Info("Which path: orphaned source")
 		// 3. POST-MIGRATION SOURCE CLEANUP
 		//
 		// After a migration, the migrated domain still exists in the old
@@ -2142,6 +2148,7 @@ func (c *VirtualMachineController) execute(key string) error {
 		// the target or owner of the VMI handles deleting the domain locally.
 		return c.migrationOrphanedSourceNodeExecute(vmi, domainExists)
 	}
+	log.Log.Info("Which path: default")
 	return c.defaultExecute(key,
 		vmi,
 		vmiExists,

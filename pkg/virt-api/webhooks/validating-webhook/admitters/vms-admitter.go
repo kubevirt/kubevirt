@@ -221,13 +221,13 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec, config)...)
 
 	causes = append(causes, storageAdmitters.ValidateDataVolumeTemplate(field, spec)...)
-	causes = append(causes, validateRunStrategy(field, spec)...)
+	causes = append(causes, validateRunStrategy(field, spec, config)...)
 	causes = append(causes, validateLiveUpdateFeatures(field, spec, config)...)
 
 	return causes
 }
 
-func validateRunStrategy(field *k8sfield.Path, spec *v1.VirtualMachineSpec) (causes []metav1.StatusCause) {
+func validateRunStrategy(field *k8sfield.Path, spec *v1.VirtualMachineSpec, config *virtconfig.ClusterConfig) (causes []metav1.StatusCause) {
 	if spec.Running != nil && spec.RunStrategy != nil {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -245,19 +245,38 @@ func validateRunStrategy(field *k8sfield.Path, spec *v1.VirtualMachineSpec) (cau
 	}
 
 	if spec.RunStrategy != nil {
-		validRunStrategy := false
-		for _, strategy := range validRunStrategies {
-			if *spec.RunStrategy == strategy {
-				validRunStrategy = true
-				break
+		foundDecentralizedFg := false
+		for _, fgName := range config.GetConfig().DeveloperConfiguration.FeatureGates {
+			fg := featuregate.FeatureGateInfo(fgName)
+			if fg != nil && fg.Name == featuregate.DecentralizedLiveMigration {
+				foundDecentralizedFg = true
 			}
 		}
-		if !validRunStrategy {
+		if *spec.RunStrategy == v1.RunStrategyWaitAsReceiver {
+			if foundDecentralizedFg {
+				// Only allow wait as receiver if feature gate is set.
+				return
+			}
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("Invalid RunStrategy (%s)", *spec.RunStrategy),
+				Message: fmt.Sprintf("Invalid RunStrategy (%s), %s feature gate is not enabled in kubevirt resource", *spec.RunStrategy, featuregate.DecentralizedLiveMigration),
 				Field:   field.Child("runStrategy").String(),
 			})
+		} else {
+			validRunStrategy := false
+			for _, strategy := range validRunStrategies {
+				if *spec.RunStrategy == strategy {
+					validRunStrategy = true
+					break
+				}
+			}
+			if !validRunStrategy {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("Invalid RunStrategy (%s)", *spec.RunStrategy),
+					Field:   field.Child("runStrategy").String(),
+				})
+			}
 		}
 	}
 	return causes

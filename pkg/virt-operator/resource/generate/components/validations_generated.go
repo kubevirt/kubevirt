@@ -925,6 +925,8 @@ var CRDsValidation map[string]string = map[string]string{
                       description: NodeVerbosity represents a map of nodes with a
                         specific verbosity level
                       type: object
+                    synchronizationController:
+                      type: integer
                     virtAPI:
                       type: integer
                     virtController:
