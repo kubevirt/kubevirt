@@ -713,7 +713,9 @@ func (m *VirtualMachineInstanceMigration) IsRunning() bool {
 // The migration phase indicates that the target pod should have already been created
 func (m *VirtualMachineInstanceMigration) TargetIsCreated() bool {
 	return m.Status.Phase != MigrationPhaseUnset &&
-		m.Status.Phase != MigrationPending
+		m.Status.Phase != MigrationPending &&
+		m.Status.Phase != MigrationWaitingForSync &&
+		m.Status.Phase != MigrationSynchronizing
 }
 
 // The migration phase indicates that job has been handed off to the VMI controllers to complete.
@@ -721,7 +723,9 @@ func (m *VirtualMachineInstanceMigration) TargetIsHandedOff() bool {
 	return m.Status.Phase != MigrationPhaseUnset &&
 		m.Status.Phase != MigrationPending &&
 		m.Status.Phase != MigrationScheduling &&
-		m.Status.Phase != MigrationScheduled
+		m.Status.Phase != MigrationScheduled &&
+		m.Status.Phase != MigrationWaitingForSync &&
+		m.Status.Phase != MigrationSynchronizing
 }
 
 type VirtualMachineInstanceNetworkInterface struct {
@@ -954,6 +958,8 @@ const (
 	Succeeded VirtualMachineInstancePhase = "Succeeded"
 	// Failed means that the vmi crashed, disappeared unexpectedly or got deleted from the cluster before it was ever started.
 	Failed VirtualMachineInstancePhase = "Failed"
+	// WaitingForSync means that the vmi is waiting for synchronization from another VMI
+	WaitingForSync VirtualMachineInstancePhase = "WaitingForSync"
 	// Unknown means that for some reason the state of the VirtualMachineInstance could not be obtained, typically due
 	// to an error in communicating with the host of the VirtualMachineInstance.
 	Unknown VirtualMachineInstancePhase = "Unknown"
@@ -1108,13 +1114,14 @@ const (
 	MemfdMemoryBackend         string = "kubevirt.io/memfd"
 
 	MigrationSelectorLabel = "kubevirt.io/vmi-name"
+	// RestoreRunStrategy is how to restore the run strategy of the VMI
+	RestoreRunStrategy = "kubevirt.io/restore-run-strategy"
 
 	// This annotation represents vmi running nonroot implementation
 	DeprecatedNonRootVMIAnnotation = "kubevirt.io/nonroot"
 
 	// This annotation is used to mark a VMI as a migration target, and to start a receiver pod.
 	CreateMigrationTarget = "kubevirt.io/create-migration-target"
-
 	// This annotation is to keep virt launcher container alive when an VMI encounters a failure for debugging purpose
 	KeepLauncherAfterFailureAnnotation string = "kubevirt.io/keep-launcher-alive-after-failure"
 
@@ -1568,20 +1575,18 @@ const (
 	MigrationSucceeded VirtualMachineInstanceMigrationPhase = "Succeeded"
 	// The migration failed
 	MigrationFailed VirtualMachineInstanceMigrationPhase = "Failed"
-	// WaitingForSync means that the vmi is waiting for synchronization from another VMI
-	WaitingForSync VirtualMachineInstancePhase = "WaitingForSync"
+	// The migration is waiting for the VMI to synchronize
+	MigrationWaitingForSync VirtualMachineInstanceMigrationPhase = "WaitingForSync"
+	// The migration is actively synchronizing the VMI with the target
+	MigrationSynchronizing VirtualMachineInstanceMigrationPhase = "Synchronizing"
 )
 
 func (m *VirtualMachineInstanceMigration) IsSource() bool {
-	return (m.Spec.SendTo == nil && m.Spec.Receive == nil) ||
-		(m.Spec.SendTo != nil && m.Spec.Receive != nil) ||
-		(m.Spec.SendTo != nil && m.Spec.Receive == nil)
+	return !m.IsDecentralized() || m.Spec.SendTo != nil
 }
 
 func (m *VirtualMachineInstanceMigration) IsTarget() bool {
-	return (m.Spec.SendTo == nil && m.Spec.Receive == nil) ||
-		(m.Spec.SendTo != nil && m.Spec.Receive != nil) ||
-		(m.Spec.SendTo == nil && m.Spec.Receive != nil)
+	return !m.IsDecentralized() || m.Spec.Receive != nil
 }
 
 func (m *VirtualMachineInstanceMigration) IsDecentralized() bool {
@@ -1703,6 +1708,9 @@ const (
 	// VMI will run once and not be restarted upon completion regardless
 	// if the completion is of phase Failure or Success
 	RunStrategyOnce VirtualMachineRunStrategy = "Once"
+	// Receiver pod will be created waiting for an incoming migration. Switch after to expected
+	// RunStrategy.
+	RunStrategyWaitAsReceiver VirtualMachineRunStrategy = "WaitAsReceiver"
 )
 
 type UpdateVolumesStrategy string
@@ -1796,6 +1804,9 @@ const (
 	// VirtualMachineStatusWaitingForVolumeBinding indicates that some PersistentVolumeClaims backing
 	// the virtual machine volume are still not bound.
 	VirtualMachineStatusWaitingForVolumeBinding VirtualMachinePrintableStatus = "WaitingForVolumeBinding"
+	// VirtualMachineStatusWaitingForReceiver indicates that this virtual machine is a receiver VM and
+	// migration should start next.
+	VirtualMachineStatusWaitingForReceiver VirtualMachinePrintableStatus = "WaitingForReceiver"
 )
 
 // VirtualMachineStartFailure tracks VMIs which failed to transition successfully
