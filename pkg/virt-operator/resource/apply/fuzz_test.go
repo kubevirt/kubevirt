@@ -32,7 +32,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	marshalutil "kubevirt.io/kubevirt/tools/util"
 
-	gfh "github.com/AdaLogics/go-fuzz-headers"
+	//gfh "github.com/AdaLogics/go-fuzz-headers"
+	fuzz "github.com/google/gofuzz"
 )
 
 var (
@@ -101,8 +102,9 @@ func loadTargetStrategyForFuzzing(resources []byte, config *util.KubeVirtDeploym
 // 2: Creates the Reconciler and the types it needs.
 // 3: Invokes the target API. 
 func FuzzReconciler(f *testing.F) {
-	f.Fuzz(func(t *testing.T, data []byte, callType int) {
-		fdp := gfh.NewConsumer(data)
+	f.Fuzz(func(t *testing.T, data []byte, callType uint8) {
+		fdp := fuzz.NewFromGoFuzz(data)
+		//fdp := gfh.NewConsumer(data)
 		deployment := &appsv1.Deployment{}
 		cachedDeployment := &appsv1.Deployment{}
 		daemonSet := &appsv1.DaemonSet{}
@@ -128,7 +130,7 @@ func FuzzReconciler(f *testing.F) {
 		// early whether it has random resources that it
 		// can use to call the target API later. If it does
 		// not, then it should fail fast and try again.
-		switch callType % 9 {
+		switch int(callType) % 9 {
 		case 0:
 			// prepare for testing syncPodDisruptionBudgetForDeployment
 			// The preparations are:
@@ -136,16 +138,18 @@ func FuzzReconciler(f *testing.F) {
 			// - Randomize `deployment` which the fuzzer passes to syncPodDisruptionBudgetForDeployment
 			for _ = range 2 {
 				requiredPDB := &policyv1.PodDisruptionBudget{}
-				err := fdp.GenerateStruct(requiredPDB)
+				fdp.Fuzz(requiredPDB)
+				/*err := fdp.GenerateStruct(requiredPDB)
 				if err != nil {
 					return
-				}
+				}*/
 				stores.PodDisruptionBudgetCache.Add(requiredPDB)
 			}
-			err := fdp.GenerateStruct(deployment)
+			fdp.Fuzz(deployment)
+			/*err := fdp.GenerateStruct(deployment)
 			if err != nil {
 				return
-			}
+			}*/
 		case 1:
 			// prepare for testing syncDaemonSet
 			// The preparations are:
@@ -153,29 +157,33 @@ func FuzzReconciler(f *testing.F) {
 			// - Randomize `daemonSet` which the fuzzer passes to syncDaemonSet
 			for _ = range 2 {
 				ds := &appsv1.DaemonSet{}
-				err := fdp.GenerateStruct(ds)
+				fdp.Fuzz(ds)
+				/*err := fdp.GenerateStruct(ds)
 				if err != nil {
 					return
-				}
+				}*/
 				stores.DaemonSetCache.Add(ds)
 			}
-			err := fdp.GenerateStruct(daemonSet)
+			fdp.Fuzz(daemonSet)
+			/*err := fdp.GenerateStruct(daemonSet)
 			if err != nil {
 				return
-			}
+			}*/
 		case 2:
 			// prepare for testing syncDeployment
 			// The preparations are:
 			// - Randomize `deployment`
 			// - Randomize `cachedDeployment`
-			err := fdp.GenerateStruct(deployment)
+			fdp.Fuzz(deployment)
+			/*err := fdp.GenerateStruct(deployment)
 			if err != nil {
 				return
-			}
-			err = fdp.GenerateStruct(cachedDeployment)
+			}*/
+			fdp.Fuzz(cachedDeployment)
+			/*err = fdp.GenerateStruct(cachedDeployment)
 			if err != nil {
 				return
-			}
+			}*/
 		case 3:
 			// prepare for testing createOrUpdateCrds
 			// The preparations are:
@@ -187,14 +195,16 @@ func FuzzReconciler(f *testing.F) {
 			// the first priority is to get
 			// the crds, so we want to fail
 			// fast if we fail to generate them.
-			err := fdp.GenerateStruct(crd1)
+			fdp.Fuzz(crd1)
+			fdp.Fuzz(crd2)
+			/*err := fdp.GenerateStruct(crd1)
 			if err != nil {
 				return
 			}
 			err = fdp.GenerateStruct(crd2)
 			if err != nil {
 				return
-			}
+			}*/
 			var b bytes.Buffer
 			writer := bufio.NewWriter(&b)
 			marshalutil.MarshallObject(crd1, writer)
@@ -219,38 +229,43 @@ func FuzzReconciler(f *testing.F) {
 			stores.ClusterRoleBindingCache = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 			// Add random resources to the cache
 			for _ = range 3 {
-				resourceType, err := fdp.GetInt()
+				var resourceType int
+				fdp.Fuzz(&resourceType)
+				/*resourceType, err := fdp.Fuzz(&rndInt)
 				if err != nil {
 					return
-				}
+				}*/
 				switch resourceType % 4 {
 				case 0:
 					resource := &rbacv1.ClusterRole{}
-					err = fdp.GenerateStruct(resource)
+					fdp.Fuzz(resource)
+					/*err = fdp.GenerateStruct(resource)
 					if err != nil {
 						return
-					}
+					}*/
 					stores.ClusterRoleCache.Add(resource)
 				case 1:
 					resource := &rbacv1.ClusterRoleBinding{}
-					err = fdp.GenerateStruct(resource)
+					fdp.Fuzz(resource)
+					/*err = fdp.GenerateStruct(resource)
 					if err != nil {
 						return
-					}
+					}*/
 					stores.ClusterRoleBindingCache.Add(resource)
 				case 2:
 					resource := &rbacv1.Role{}
-					err = fdp.GenerateStruct(resource)
+					fdp.Fuzz(resource)
+					/*err = fdp.GenerateStruct(resource)
 					if err != nil {
 						return
-					}
+					}*/
 					stores.RoleCache.Add(resource)
 				case 3:
 					resource := &rbacv1.RoleBinding{}
-					err = fdp.GenerateStruct(resource)
+					/*err = fdp.GenerateStruct(resource)
 					if err != nil {
 						return
-					}
+					}*/
 					stores.RoleBindingCache.Add(resource)
 				}
 			}
@@ -264,20 +279,22 @@ func FuzzReconciler(f *testing.F) {
 			writer := bufio.NewWriter(&b)
 			for _ = range 2 {
 				sm1 := &promv1.ServiceMonitor{}
-				err := fdp.GenerateStruct(sm1)
+				fdp.Fuzz(sm1)
+				/*err := fdp.GenerateStruct(sm1)
 				if err != nil {
 					return
-				}
+				}*/
 
 				marshalutil.MarshallObject(sm1, writer)
 				// Split the resources in the manifest
 				writer.WriteString("---")
 
 				sm2 := &promv1.ServiceMonitor{}
-				err = fdp.GenerateStruct(sm2)
+				fdp.Fuzz(sm2)
+				/*err = fdp.GenerateStruct(sm2)
 				if err != nil {
 					return
-				}
+				}*/
 				stores.ServiceMonitorCache.Add(sm2)
 			}
 			writer.Flush()
@@ -296,20 +313,22 @@ func FuzzReconciler(f *testing.F) {
 			for _ = range 2 {
 				// Create a random instance type for the manifest.
 				instancetype1 := &instancetypev1beta1.VirtualMachineClusterInstancetype{}
-				err := fdp.GenerateStruct(instancetype1)
+				fdp.Fuzz(instancetype1)
+				/*err := fdp.GenerateStruct(instancetype1)
 				if err != nil {
 					return
-				}
+				}*/
 				marshalutil.MarshallObject(instancetype1, writer)
 				// Split the resources in the manifest
 				writer.WriteString("---")
 
 				// Create a random instance type and add it to the cache.
 				instancetype2 := &instancetypev1beta1.VirtualMachineClusterInstancetype{}
-				err = fdp.GenerateStruct(instancetype2)
+				fdp.Fuzz(instancetype2)
+				/*err = fdp.GenerateStruct(instancetype2)
 				if err != nil {
 					return
-				}
+				}*/
 				stores.ClusterInstancetype.Add(instancetype2)
 			}
 			writer.Flush()
@@ -329,10 +348,11 @@ func FuzzReconciler(f *testing.F) {
 				// Create a random SecurityContextConstraints
 				// for the manifest.
 				scc1 := &secv1.SecurityContextConstraints{}
-				err := fdp.GenerateStruct(scc1)
+				fdp.Fuzz(scc1)
+				/*err := fdp.GenerateStruct(scc1)
 				if err != nil {
 					return
-				}
+				}*/
 				marshalutil.MarshallObject(scc1, writer)
 				// Split the resources in the manifest
 				writer.WriteString("---")
@@ -340,10 +360,11 @@ func FuzzReconciler(f *testing.F) {
 				// Create a random SecurityContextConstraints
 				// and add it to the cache.
 				scc2 := &secv1.SecurityContextConstraints{}
-				err = fdp.GenerateStruct(scc2)
+				fdp.Fuzz(scc2)
+				/*err = fdp.GenerateStruct(scc2)
 				if err != nil {
 					return
-				}
+				}*/
 				stores.SCCCache.Add(scc2)
 			}
 			writer.Flush()
@@ -362,10 +383,11 @@ func FuzzReconciler(f *testing.F) {
 				// Create a random ValidatingAdmissionPolicyBinding
 				// for the manifest
 				validatingAdmissionPolicyBinding1 := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{}
-				err := fdp.GenerateStruct(validatingAdmissionPolicyBinding1)
+				fdp.Fuzz(validatingAdmissionPolicyBinding1)
+				/*err := fdp.GenerateStruct(validatingAdmissionPolicyBinding1)
 				if err != nil {
 					return
-				}
+				}*/
 				marshalutil.MarshallObject(validatingAdmissionPolicyBinding1, writer)
 				// Split the resources in the manifest
 				writer.WriteString("---")
@@ -373,10 +395,11 @@ func FuzzReconciler(f *testing.F) {
 				// Create a random ValidatingAdmissionPolicyBinding
 				// and add it to the cache.
 				validatingAdmissionPolicyBinding2 := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{}
-				err = fdp.GenerateStruct(validatingAdmissionPolicyBinding2)
+				fdp.Fuzz(validatingAdmissionPolicyBinding2)
+				/*err = fdp.GenerateStruct(validatingAdmissionPolicyBinding2)
 				if err != nil {
 					return
-				}
+				}*/
 				stores.ValidationWebhookCache.Add(validatingAdmissionPolicyBinding2)
 			}
 			writer.Flush()
@@ -502,190 +525,214 @@ func FuzzReconciler(f *testing.F) {
 }
 
 // Creates a manifest of 3 random resources.
-func createResourcesBytes(fdp *gfh.ConsumeFuzzer) ([]byte, error) {
+func createResourcesBytes(fdp *fuzz.Fuzzer) ([]byte, error) {
 	var b bytes.Buffer
 	writer := bufio.NewWriter(&b)
 	for _ = range 3 {
-		objKindIndex, err := fdp.GetInt()
+		var objKindIndex uint8
+		fdp.Fuzz(&objKindIndex)
+		/*objKindIndex, err := fdp.GetInt()
 		if err != nil {
 			return b.Bytes(), err
-		}
+		}*/
 
-		switch objKinds[objKindIndex%len(objKinds)] {
+		switch objKinds[int(objKindIndex)%len(objKinds)] {
 		case "ValidatingWebhookConfiguration":
 			webhook := &admissionregistrationv1.ValidatingWebhookConfiguration{}
-			err := fdp.GenerateStruct(webhook)
+			fdp.Fuzz(webhook)
+			/*err := fdp.GenerateStruct(webhook)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(webhook, writer)
 			writer.WriteString("---")
 		case "MutatingWebhookConfiguration":
 			webhook := &admissionregistrationv1.MutatingWebhookConfiguration{}
-			err := fdp.GenerateStruct(webhook)
+			fdp.Fuzz(webhook)
+			/*err := fdp.GenerateStruct(webhook)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(webhook, writer)
 			writer.WriteString("---")
 		case "ValidatingAdmissionPolicyBinding":
 			validatingAdmissionPolicyBinding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{}
-			err := fdp.GenerateStruct(validatingAdmissionPolicyBinding)
+			fdp.Fuzz(validatingAdmissionPolicyBinding)
+			/*err := fdp.GenerateStruct(validatingAdmissionPolicyBinding)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(validatingAdmissionPolicyBinding, writer)
 			writer.WriteString("---")
 		case "ValidatingAdmissionPolicy":
 			validatingAdmissionPolicy := &admissionregistrationv1.ValidatingAdmissionPolicy{}
-			err := fdp.GenerateStruct(validatingAdmissionPolicy)
+			fdp.Fuzz(validatingAdmissionPolicy)
+			/*err := fdp.GenerateStruct(validatingAdmissionPolicy)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(validatingAdmissionPolicy, writer)
 			writer.WriteString("---")
 		case "APIService":
 			apiService := &apiregv1.APIService{}
-			err := fdp.GenerateStruct(apiService)
+			fdp.Fuzz(apiService)
+			/*err := fdp.GenerateStruct(apiService)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(apiService, writer)
 			writer.WriteString("---")
 		case "Secret":
 			secret := &corev1.Secret{}
-			err := fdp.GenerateStruct(secret)
+			fdp.Fuzz(secret)
+			/*err := fdp.GenerateStruct(secret)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(secret, writer)
 			writer.WriteString("---")
 		case "ServiceAccount":
 			sa := &corev1.ServiceAccount{}
-			err := fdp.GenerateStruct(sa)
+			fdp.Fuzz(sa)
+			/*err := fdp.GenerateStruct(sa)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(sa, writer)
 			writer.WriteString("---")
 		case "ClusterRole":
 			cr := &rbacv1.ClusterRole{}
-			err := fdp.GenerateStruct(cr)
+			fdp.Fuzz(cr)
+			/*err := fdp.GenerateStruct(cr)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(cr, writer)
 			writer.WriteString("---")
 		case "ClusterRoleBinding":
 			crb := &rbacv1.ClusterRoleBinding{}
-			err := fdp.GenerateStruct(crb)
+			fdp.Fuzz(crb)
+			/*err := fdp.GenerateStruct(crb)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(crb, writer)
 			writer.WriteString("---")
 		case "Role":
 			r := &rbacv1.Role{}
-			err := fdp.GenerateStruct(r)
+			fdp.Fuzz(r)
+			/*err := fdp.GenerateStruct(r)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(r, writer)
 			writer.WriteString("---")
 		case "RoleBinding":
 			rb := &rbacv1.RoleBinding{}
-			err := fdp.GenerateStruct(rb)
+			fdp.Fuzz(rb)
+			/*err := fdp.GenerateStruct(rb)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(rb, writer)
 			writer.WriteString("---")
 		case "Service":
 			s := &corev1.Service{}
-			err := fdp.GenerateStruct(s)
+			fdp.Fuzz(s)
+			/*err := fdp.GenerateStruct(s)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(s, writer)
 			writer.WriteString("---")
 		case "Deployment":
 			d := &appsv1.Deployment{}
-			err := fdp.GenerateStruct(d)
+			fdp.Fuzz(d)
+			/*err := fdp.GenerateStruct(d)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(d, writer)
 			writer.WriteString("---")
 		case "DaemonSet":
 			d := &appsv1.DaemonSet{}
-			err := fdp.GenerateStruct(d)
+			fdp.Fuzz(d)
+			/*err := fdp.GenerateStruct(d)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(d, writer)
 			writer.WriteString("---")
 		case "CustomResourceDefinition":
 			crdv1 := &extv1.CustomResourceDefinition{}
-			err := fdp.GenerateStruct(crdv1)
+			fdp.Fuzz(crdv1)
+			/*err := fdp.GenerateStruct(crdv1)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(crdv1, writer)
 			writer.WriteString("---")
 		case "SecurityContextConstraints":
 			s := &secv1.SecurityContextConstraints{}
-			err := fdp.GenerateStruct(s)
+			fdp.Fuzz(s)
+			/*err := fdp.GenerateStruct(s)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(s, writer)
 			writer.WriteString("---")
 		case "ServiceMonitor":
 			sm := &promv1.ServiceMonitor{}
-			err := fdp.GenerateStruct(sm)
+			fdp.Fuzz(sm)
+			/*err := fdp.GenerateStruct(sm)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(sm, writer)
 			writer.WriteString("---")
 		case "PrometheusRule":
 			pr := &promv1.PrometheusRule{}
-			err := fdp.GenerateStruct(pr)
+			fdp.Fuzz(pr)
+			/*err := fdp.GenerateStruct(pr)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(pr, writer)
 			writer.WriteString("---")
 		case "ConfigMap":
 			configMap := &corev1.ConfigMap{}
-			err := fdp.GenerateStruct(configMap)
+			fdp.Fuzz(configMap)
+			/*err := fdp.GenerateStruct(configMap)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(configMap, writer)
 			writer.WriteString("---")
 		case "Route":
 			route := &routev1.Route{}
-			err := fdp.GenerateStruct(route)
+			fdp.Fuzz(route)
+			/*err := fdp.GenerateStruct(route)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(route, writer)
 			writer.WriteString("---")
 		case "VirtualMachineClusterInstancetype":
 			instancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{}
-			err := fdp.GenerateStruct(instancetype)
+			fdp.Fuzz(instancetype)
+			/*err := fdp.GenerateStruct(instancetype)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(instancetype, writer)
 			writer.WriteString("---")
 		case "VirtualMachineClusterPreference":
 			preference := &instancetypev1beta1.VirtualMachineClusterPreference{}
-			err := fdp.GenerateStruct(preference)
+			fdp.Fuzz(preference)
+			/*err := fdp.GenerateStruct(preference)
 			if err != nil {
 				return b.Bytes(), err
-			}
+			}*/
 			marshalutil.MarshallObject(preference, writer)
 			writer.WriteString("---")
 		default:
