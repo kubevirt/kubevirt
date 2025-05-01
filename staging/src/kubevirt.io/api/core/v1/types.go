@@ -536,6 +536,35 @@ func (v *VirtualMachineInstance) IsHighPerformanceVMI() bool {
 	return false
 }
 
+func (v *VirtualMachineInstance) IsMigrationTarget() bool {
+	targetMigration := false
+	if value, ok := v.GetAnnotations()[CreateMigrationTarget]; ok && value == "true" {
+		targetMigration = true
+	}
+	return targetMigration
+}
+
+func (v *VirtualMachineInstance) IsWaitingForSync() bool {
+	return v.Status.Phase == WaitingForSync
+}
+
+// Is set to true after the VMI is fully synced
+func (v *VirtualMachineInstance) IsMigrationTargetNodeLabelSet() bool {
+	_, ok := v.Labels[MigrationTargetNodeNameLabel]
+	return ok
+}
+
+func (v *VirtualMachineInstance) IsMigrationSynchronized(decentralized bool) bool {
+	if decentralized {
+		return v.Status.MigrationState != nil && v.Status.MigrationState.SourceState != nil &&
+			v.Status.MigrationState.TargetState != nil &&
+			v.Status.MigrationState.SourceState.MigrationUID != "" &&
+			v.Status.MigrationState.TargetState.MigrationUID != ""
+	} else {
+		return v.Status.MigrationState != nil
+	}
+}
+
 type VirtualMachineInstanceConditionType string
 
 // These are valid conditions of VMIs.
@@ -1075,6 +1104,9 @@ const (
 	// This annotation represents vmi running nonroot implementation
 	DeprecatedNonRootVMIAnnotation = "kubevirt.io/nonroot"
 
+	// This annotation is used to mark a VMI as a migration target, and to start a receiver pod.
+	CreateMigrationTarget = "kubevirt.io/create-migration-target"
+
 	// This annotation is to keep virt launcher container alive when an VMI encounters a failure for debugging purpose
 	KeepLauncherAfterFailureAnnotation string = "kubevirt.io/keep-launcher-alive-after-failure"
 
@@ -1525,7 +1557,26 @@ const (
 	MigrationSucceeded VirtualMachineInstanceMigrationPhase = "Succeeded"
 	// The migration failed
 	MigrationFailed VirtualMachineInstanceMigrationPhase = "Failed"
+	// WaitingForSync means that the vmi is waiting for synchronization from another VMI
+	WaitingForSync VirtualMachineInstancePhase = "WaitingForSync"
 )
+
+func (m *VirtualMachineInstanceMigration) IsSource() bool {
+	return (m.Spec.SendTo == nil && m.Spec.Receive == nil) ||
+		(m.Spec.SendTo != nil && m.Spec.Receive != nil) ||
+		(m.Spec.SendTo != nil && m.Spec.Receive == nil)
+}
+
+func (m *VirtualMachineInstanceMigration) IsTarget() bool {
+	return (m.Spec.SendTo == nil && m.Spec.Receive == nil) ||
+		(m.Spec.SendTo != nil && m.Spec.Receive != nil) ||
+		(m.Spec.SendTo == nil && m.Spec.Receive != nil)
+}
+
+func (m *VirtualMachineInstanceMigration) IsDecentralized() bool {
+	return (m.Spec.SendTo != nil && m.Spec.Receive == nil) ||
+		(m.Spec.SendTo == nil && m.Spec.Receive != nil)
+}
 
 // Deprecated for removal in v2, please use VirtualMachineInstanceType and VirtualMachinePreference instead.
 //
@@ -2160,6 +2211,9 @@ type KubeVirtSpec struct {
 	// Useful if KubeVirt is included as part of a product.
 	// If ProductComponent is not specified, the component label default value is kubevirt.
 	ProductComponent string `json:"productComponent,omitempty"`
+
+	// Specify the port to listen on for VMI status synchronization traffic. Default is 9185
+	SynchronizationPort string `json:"synchronizationPort,omitempty"`
 
 	// holds kubevirt configurations.
 	// same as the virt-configMap
@@ -2940,11 +2994,12 @@ type DeveloperConfiguration struct {
 
 // LogVerbosity sets log verbosity level of  various components
 type LogVerbosity struct {
-	VirtAPI        uint `json:"virtAPI,omitempty"`
-	VirtController uint `json:"virtController,omitempty"`
-	VirtHandler    uint `json:"virtHandler,omitempty"`
-	VirtLauncher   uint `json:"virtLauncher,omitempty"`
-	VirtOperator   uint `json:"virtOperator,omitempty"`
+	VirtAPI                       uint `json:"virtAPI,omitempty"`
+	VirtController                uint `json:"virtController,omitempty"`
+	VirtHandler                   uint `json:"virtHandler,omitempty"`
+	VirtLauncher                  uint `json:"virtLauncher,omitempty"`
+	VirtOperator                  uint `json:"virtOperator,omitempty"`
+	VirtSynchronizationController uint `json:"virtSynchronizationController,omitempty"`
 	// NodeVerbosity represents a map of nodes with a specific verbosity level
 	NodeVerbosity map[string]uint `json:"nodeVerbosity,omitempty"`
 }

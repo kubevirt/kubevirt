@@ -47,6 +47,7 @@ func main() {
 	launcherSha := flag.String("launcherSha", "", "virt-launcher image sha. "+shaEnvDeprecationMsg)
 	exportProxySha := flag.String("exportProxySha", "", "virt-exportproxy image sha. "+shaEnvDeprecationMsg)
 	exportServerSha := flag.String("exportServerSha", "", "virt-exportserver image sha. "+shaEnvDeprecationMsg)
+	synchronizationControllerSha := flag.String("synchronizationControllerSha", "", "virt-synchronization-controller image sha. "+shaEnvDeprecationMsg)
 	gsSha := flag.String("gsSha", "", "libguestfs-tools image sha")
 	prHelperSha := flag.String("prHelperSha", "", "pr-helper image sha")
 	sidecarShimSha := flag.String("sidecarShimSha", "", "sidecar-shim image sha")
@@ -63,6 +64,7 @@ func main() {
 	virtLauncherImage := flag.String("virt-launcher-image", "", "custom image for virt-launcher. "+customImageExample)
 	virtExportProxyImage := flag.String("virt-export-proxy-image", "", "custom image for virt-export-proxy. "+customImageExample)
 	virtExportServerImage := flag.String("virt-export-server-image", "", "custom image for virt-export-server. "+customImageExample)
+	virtSynchronizationControllerImage := flag.String("virt-synchronization-controller-image", "", "custom image for virt-synchronization-controller. "+customImageExample)
 	gsImage := flag.String("gs-image", "", "custom image for gs. "+customImageExample)
 	prHelperImage := flag.String("pr-helper-image", "", "custom image for pr-helper. "+customImageExample)
 	sidecarShimImage := flag.String("sidecar-shim-image", "", "custom image for sidecar-shim. "+customImageExample)
@@ -70,38 +72,40 @@ func main() {
 	flag.Parse()
 
 	csvData := csv.NewClusterServiceVersionData{
-		Namespace:             *namespace,
-		KubeVirtVersion:       *kubeVirtVersion,
-		OperatorImageVersion:  *operatorImageVersion,
-		DockerPrefix:          *dockerPrefix,
-		ImagePrefix:           *imagePrefix,
-		ImagePullPolicy:       *pullPolicy,
-		Verbosity:             *verbosity,
-		CsvVersion:            *csvVersion,
-		VirtApiSha:            *apiSha,
-		VirtControllerSha:     *controllerSha,
-		VirtHandlerSha:        *handlerSha,
-		VirtLauncherSha:       *launcherSha,
-		VirtExportProxySha:    *exportProxySha,
-		VirtExportServerSha:   *exportServerSha,
-		GsSha:                 *gsSha,
-		PrHelperSha:           *prHelperSha,
-		SidecarShimSha:        *sidecarShimSha,
-		RunbookURLTemplate:    *runbookURLTemplate,
-		ReplacesCsvVersion:    *replacesCsvVersion,
-		IconBase64:            *kubeVirtLogo,
-		Replicas:              2,
-		CreatedAtTimestamp:    *csvCreatedAtTimestamp,
-		VirtOperatorImage:     *virtOperatorImage,
-		VirtApiImage:          *virtApiImage,
-		VirtControllerImage:   *virtControllerImage,
-		VirtHandlerImage:      *virtHandlerImage,
-		VirtLauncherImage:     *virtLauncherImage,
-		VirtExportProxyImage:  *virtExportProxyImage,
-		VirtExportServerImage: *virtExportServerImage,
-		GsImage:               *gsImage,
-		PrHelperImage:         *prHelperImage,
-		SidecarShimImage:      *sidecarShimImage,
+		Namespace:                          *namespace,
+		KubeVirtVersion:                    *kubeVirtVersion,
+		OperatorImageVersion:               *operatorImageVersion,
+		DockerPrefix:                       *dockerPrefix,
+		ImagePrefix:                        *imagePrefix,
+		ImagePullPolicy:                    *pullPolicy,
+		Verbosity:                          *verbosity,
+		CsvVersion:                         *csvVersion,
+		VirtApiSha:                         *apiSha,
+		VirtControllerSha:                  *controllerSha,
+		VirtHandlerSha:                     *handlerSha,
+		VirtLauncherSha:                    *launcherSha,
+		VirtExportProxySha:                 *exportProxySha,
+		VirtExportServerSha:                *exportServerSha,
+		VirtSynchronizationControllerSha:   *synchronizationControllerSha,
+		GsSha:                              *gsSha,
+		PrHelperSha:                        *prHelperSha,
+		SidecarShimSha:                     *sidecarShimSha,
+		RunbookURLTemplate:                 *runbookURLTemplate,
+		ReplacesCsvVersion:                 *replacesCsvVersion,
+		IconBase64:                         *kubeVirtLogo,
+		Replicas:                           2,
+		CreatedAtTimestamp:                 *csvCreatedAtTimestamp,
+		VirtOperatorImage:                  *virtOperatorImage,
+		VirtApiImage:                       *virtApiImage,
+		VirtControllerImage:                *virtControllerImage,
+		VirtHandlerImage:                   *virtHandlerImage,
+		VirtLauncherImage:                  *virtLauncherImage,
+		VirtExportProxyImage:               *virtExportProxyImage,
+		VirtExportServerImage:              *virtExportServerImage,
+		VirtSynchronizationControllerImage: *virtSynchronizationControllerImage,
+		GsImage:                            *gsImage,
+		PrHelperImage:                      *prHelperImage,
+		SidecarShimImage:                   *sidecarShimImage,
 	}
 
 	operatorCsv, err := csv.NewClusterServiceVersion(&csvData)

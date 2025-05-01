@@ -364,6 +364,18 @@ func haveExportProxyDeploymentsRolledOver(targetStrategy install.StrategyInterfa
 	return true
 }
 
+func haveSynchronizationControllerDeploymentsRolledOver(targetStrategy install.StrategyInterface, kv *v1.KubeVirt, stores util.Stores) bool {
+	for _, deployment := range targetStrategy.SynchronizationControllerDeployments() {
+		if !util.DeploymentIsReady(kv, deployment, stores) {
+			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
+			// not rolled out yet
+			return false
+		}
+	}
+
+	return true
+}
+
 func haveDaemonSetsRolledOver(targetStrategy install.StrategyInterface, kv *v1.KubeVirt, stores util.Stores) bool {
 	for _, daemonSet := range targetStrategy.DaemonSets() {
 		if !util.DaemonsetIsReady(kv, daemonSet, stores) {
@@ -545,12 +557,13 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 
 	exportProxyEnabled := r.exportProxyEnabled()
 	exportProxyDeploymentsRolledOver := !exportProxyEnabled || haveExportProxyDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
+	synchronizationControllerEnabled := r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration)
+	synchronizationControllerDeploymentRolledOver := !synchronizationControllerEnabled || haveSynchronizationControllerDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 
 	daemonSetsRolledOver := haveDaemonSetsRolledOver(r.targetStrategy, r.kv, r.stores)
 
 	infrastructureRolledOver := false
-	if apiDeploymentsRolledOver && controllerDeploymentsRolledOver && exportProxyDeploymentsRolledOver && daemonSetsRolledOver {
-
+	if apiDeploymentsRolledOver && controllerDeploymentsRolledOver && exportProxyDeploymentsRolledOver && daemonSetsRolledOver && synchronizationControllerDeploymentRolledOver {
 		// infrastructure has rolled over and is available
 		infrastructureRolledOver = true
 	} else if (targetVersion == observedVersion) && (targetImageRegistry == observedImageRegistry) {
@@ -742,6 +755,22 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 	// create/update ExportProxy Deployments
 	for _, deployment := range r.targetStrategy.ExportProxyDeployments() {
 		if r.exportProxyEnabled() {
+			deployment, err := r.syncDeployment(deployment)
+			if err != nil {
+				return false, err
+			}
+			err = r.syncPodDisruptionBudgetForDeployment(deployment)
+			if err != nil {
+				return false, err
+			}
+		} else if err := r.deleteDeployment(deployment); err != nil {
+			return false, err
+		}
+	}
+
+	// create/update Synchronization controller Deployments
+	for _, deployment := range r.targetStrategy.SynchronizationControllerDeployments() {
+		if r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
 			deployment, err := r.syncDeployment(deployment)
 			if err != nil {
 				return false, err
