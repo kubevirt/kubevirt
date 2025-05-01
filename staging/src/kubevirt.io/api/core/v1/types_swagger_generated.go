@@ -601,6 +601,7 @@ func (KubeVirtSpec) SwaggerDoc() map[string]string {
 		"productVersion":          "Designate the apps.kubevirt.io/version label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductVersion is not specified, KubeVirt's version will be used.",
 		"productName":             "Designate the apps.kubevirt.io/part-of label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductName is not specified, the part-of label will be omitted.",
 		"productComponent":        "Designate the apps.kubevirt.io/component label for KubeVirt components.\nUseful if KubeVirt is included as part of a product.\nIf ProductComponent is not specified, the component label default value is kubevirt.",
+		"synchronizationPort":     "Specify the port to listen on for VMI status synchronization traffic. Default is 9185",
 		"configuration":           "holds kubevirt configurations.\nsame as the virt-configMap",
 		"infra":                   "selectors and tolerations that should apply to KubeVirt infrastructure components\n+optional",
 		"workloads":               "selectors and tolerations that should apply to KubeVirt workloads\n+optional",

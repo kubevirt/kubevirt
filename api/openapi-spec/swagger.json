@@ -14780,6 +14780,10 @@
       "description": "The namespace the service monitor will be deployed\n When ServiceMonitorNamespace is set, then we'll install the service monitor object in that namespace\notherwise we will use the monitoring namespace.",
       "type": "string"
      },
+     "synchronizationPort": {
+      "description": "Specify the port to listen on for VMI status synchronization traffic. Default is 9185",
+      "type": "string"
+     },
      "uninstallStrategy": {
       "description": "Specifies if kubevirt can be deleted if workloads are still present. This is mainly a precaution to avoid accidental data loss",
       "type": "string"
@@ -14940,6 +14944,10 @@
       "format": "int32"
      },
      "virtOperator": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "virtSynchronizationController": {
       "type": "integer",
       "format": "int32"
      }

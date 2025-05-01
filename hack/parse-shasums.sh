@@ -40,6 +40,7 @@ VIRT_HANDLER_SHA=$(cat ${DIGESTS_DIR}/${ARCHITECTURE}/bazel-bin/push-virt-handle
 VIRT_LAUNCHER_SHA=$(cat ${DIGESTS_DIR}/${ARCHITECTURE}/bazel-bin/push-virt-launcher.digest)
 VIRT_EXPORTPROXY_SHA=$(cat ${DIGESTS_DIR}/${ARCHITECTURE}/bazel-bin/push-virt-exportproxy.digest)
 VIRT_EXPORTSERVER_SHA=$(cat ${DIGESTS_DIR}/${ARCHITECTURE}/bazel-bin/push-virt-exportserver.digest)
+VIRT_SYNCHRONIZATIONCONTROLLER_SHA=$(cat ${DIGESTS_DIR}/${ARCHITECTURE}/bazel-bin/push-virt-synchronization-controller.digest)
 GS_SHA=$(cat ${DIGESTS_DIR}/${ARCHITECTURE}/bazel-bin/push-libguestfs-tools.digest)
 PR_HELPER_SHA=$(cat ${DIGESTS_DIR}/${ARCHITECTURE}/bazel-bin/push-pr-helper.digest)
 SIDECAR_SHIM_SHA=$(cat ${DIGESTS_DIR}/${ARCHITECTURE}/bazel-bin/push-sidecar-shim.digest)

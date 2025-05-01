@@ -1,0 +1,64 @@
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+)
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("//staging/src/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["synchronization-controller.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/synchronization-controller",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/certificates/bootstrap:go_default_library",
+        "//pkg/controller:go_default_library",
+        "//pkg/healthz:go_default_library",
+        "//pkg/service:go_default_library",
+        "//pkg/synchronization-controller:go_default_library",
+        "//pkg/util/ratelimiter:go_default_library",
+        "//pkg/util/tls:go_default_library",
+        "//pkg/virt-config:go_default_library",
+        "//pkg/virt-controller/leaderelectionconfig:go_default_library",
+        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+        "//staging/src/kubevirt.io/client-go/kubevirt/scheme:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//staging/src/kubevirt.io/client-go/util:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes/typed/core/v1:go_default_library",
+        "//vendor/k8s.io/client-go/tools/cache:go_default_library",
+        "//vendor/k8s.io/client-go/tools/leaderelection:go_default_library",
+        "//vendor/k8s.io/client-go/tools/leaderelection/resourcelock:go_default_library",
+        "//vendor/k8s.io/client-go/tools/record:go_default_library",
+        "//vendor/k8s.io/client-go/util/certificate:go_default_library",
+        "//vendor/k8s.io/client-go/util/flowcontrol:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "virt-synchronization-controller",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
+
+container_image(
+    name = "version-container",
+    base = "//:passwd-image",
+    directory = "/",
+    files = ["//:get-version"],
+)
+
+container_image(
+    name = "synchronization-controller-image",
+    architecture = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "s390x",
+        "//conditions:default": "amd64",
+    }),
+    base = ":version-container",
+    directory = "/usr/bin/",
+    entrypoint = ["/usr/bin/synchronization-controller"],
+    files = [":virt-synchronization-controller"],
+    user = "1001",
+    visibility = ["//visibility:public"],
+)
