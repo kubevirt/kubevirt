@@ -962,7 +962,40 @@
       ],
       "targetNodeTopology": "targetNodeTopologyValue",
       "sourcePersistentStatePVCName": "sourcePersistentStatePVCNameValue",
-      "targetPersistentStatePVCName": "targetPersistentStatePVCNameValue"
+      "targetPersistentStatePVCName": "targetPersistentStatePVCNameValue",
+      "sourceState": {
+        "node": "nodeValue",
+        "pod": "podValue",
+        "migrationUID": "migrationUIDValue",
+        "persistentStatePVCName": "persistentStatePVCNameValue",
+        "nodeSelectors": {
+          "nodeSelectorsKey": "nodeSelectorsValue"
+        },
+        "domainName": "domainNameValue",
+        "domainNamespace": "domainNamespaceValue",
+        "synchronizationConnectionURL": "synchronizationConnectionURLValue"
+      },
+      "targetState": {
+        "nodeDomainReadyTimestamp": "1976-01-01T01:01:01Z",
+        "nodeDomainDetected": true,
+        "nodeAddress": "nodeAddressValue",
+        "directMigrationNodePorts": {
+          "directMigrationNodePortsKey": -24
+        },
+        "node": "nodeValue",
+        "pod": "podValue",
+        "attachmentPodUID": "attachmentPodUIDValue",
+        "migrationUID": "migrationUIDValue",
+        "cpuSet": [
+          -6
+        ],
+        "nodeTopology": "nodeTopologyValue",
+        "persistentStatePVCName": "persistentStatePVCNameValue",
+        "domainName": "domainNameValue",
+        "domainNamespace": "domainNamespaceValue",
+        "syncAddress": "syncAddressValue"
+      },
+      "migrationNetworkType": "migrationNetworkTypeValue"
     },
     "migrationMethod": "migrationMethodValue",
     "migrationTransport": "migrationTransportValue",

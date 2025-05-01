@@ -728,6 +728,78 @@ type VirtualMachineInstanceGuestOSInfo struct {
 	ID string `json:"id,omitempty"`
 }
 
+// +k8s:openapi-gen=true
+type MigrationNetworkType string
+
+// +k8s:openapi-gen=true
+const (
+	// PodNetworkMigration indicates the migration will happen over the pod network
+	Pod MigrationNetworkType = "Pod"
+	// MigrationNetworkMigration indicates the migration will happen over a dedicated migration network
+	Migration MigrationNetworkType = "Migration"
+)
+
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationSourceState struct {
+	// The source node that the VMI originated on
+	Node string `json:"node,omitempty"`
+	Pod  string `json:"pod,omitempty"`
+	// The Source VirtualMachineInstanceMigration object associated with this migration
+	MigrationUID types.UID `json:"migrationUID,omitempty"`
+	// If the VMI being migrated uses persistent features (backend-storage), its source PVC name is saved here
+	PersistentStatePVCName string `json:"persistentStatePVCName,omitempty"`
+
+	// Node selectors needed by the target to start the receiving pod.
+	NodeSelectors map[string]string `json:"nodeSelectors,omitempty"`
+
+	// The name of the domain on the source libvirt domain
+	DomainName *string `json:"domainName,omitempty"`
+
+	// Namespace used in the name of the source libvirt domain. Can be used to find and modify paths in the domain
+	DomainNamespace *string `json:"domainNamespace,omitempty"`
+
+	// The URL the synchronization controller can connect to synchronize the VMI migration state
+	SynchronizationConnectionURL *string `json:"synchronizationConnectionURL,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationTargetState struct {
+	// The timestamp at which the target node detects the domain is active
+	NodeDomainReadyTimestamp *metav1.Time `json:"nodeDomainReadyTimestamp,omitempty"`
+	// The Target Node has seen the Domain Start Event
+	NodeDomainDetected bool `json:"nodeDomainDetected,omitempty"`
+	// The address of the target node to use for the migration
+	NodeAddress string `json:"nodeAddress,omitempty"`
+	// The list of ports opened for live migration on the destination node
+	DirectMigrationNodePorts map[string]int `json:"directMigrationNodePorts,omitempty"`
+	// The target node that the VMI is moving to
+	Node string `json:"node,omitempty"`
+	// The target pod that the VMI is moving to
+	Pod string `json:"pod,omitempty"`
+	// The UID of the target attachment pod for hotplug volumes
+	AttachmentPodUID types.UID `json:"attachmentPodUID,omitempty"`
+	// The Target VirtualMachineInstanceMigration object associated with this migration
+	MigrationUID types.UID `json:"migrationUID,omitempty"`
+
+	// If the VMI requires dedicated CPUs, this field will
+	// hold the dedicated CPU set on the target node
+	// +listType=atomic
+	CPUSet []int `json:"cpuSet,omitempty"`
+	// If the VMI requires dedicated CPUs, this field will
+	// hold the numa topology on the target node
+	NodeTopology string `json:"nodeTopology,omitempty"`
+	// If the VMI being migrated uses persistent features (backend-storage), its target PVC name is saved here
+	PersistentStatePVCName string `json:"persistentStatePVCName,omitempty"`
+
+	// The name of the domain on the target libvirt domain
+	DomainName *string `json:"domainName,omitempty"`
+	// Namespace used in the name of the target libvirt domain.
+	DomainNamespace *string `json:"domainNamespace,omitempty"`
+
+	// The url to use to synchronize the VMI with the target
+	SyncAddress string `json:"syncAddress,omitempty"`
+}
+
 // MigrationConfigSource indicates the source of migration configuration.
 //
 // +k8s:openapi-gen=true
@@ -791,6 +863,12 @@ type VirtualMachineInstanceMigrationState struct {
 	SourcePersistentStatePVCName string `json:"sourcePersistentStatePVCName,omitempty"`
 	// If the VMI being migrated uses persistent features (backend-storage), its target PVC name is saved here
 	TargetPersistentStatePVCName string `json:"targetPersistentStatePVCName,omitempty"`
+	// SourceState contains migration state managed by the source virt handler
+	SourceState *VirtualMachineInstanceMigrationSourceState `json:"sourceState,omitempty"`
+	// TargetState contains migration state managed by the target virt handler
+	TargetState *VirtualMachineInstanceMigrationTargetState `json:"targetState,omitempty"`
+	// The type of migration network, either 'pod' or 'migration'
+	MigrationNetworkType MigrationNetworkType `json:"migrationNetworkType,omitempty"`
 }
 
 type MigrationAbortStatus string
@@ -1399,6 +1477,23 @@ type VirtualMachineInstanceMigrationSpec struct {
 	// can only restrict but not bypass constraints already set on the VM object.
 	// +optional
 	AddedNodeSelector map[string]string `json:"addedNodeSelector,omitempty"`
+
+	// If sendTo is specified, this VirtualMachineInstanceMigration will be considered the source
+	SendTo *VirtualMachineInstanceMigrationSource `json:"sendTo,omitempty"`
+	// If receieve is specified, this VirtualMachineInstanceMigration will be considered the target
+	Receive *VirtualMachineInstanceMigrationTarget `json:"receive,omitempty"`
+}
+
+type VirtualMachineInstanceMigrationSource struct {
+	// A unique identifier to identify this migration.
+	MigrationID string `json:"migrationID"`
+	// The synchronization controller URL to connect to.
+	ConnectURL string `json:"connectURL"`
+}
+
+type VirtualMachineInstanceMigrationTarget struct {
+	// A unique identifier to identify this migration.
+	MigrationID string `json:"migrationID"`
 }
 
 // VirtualMachineInstanceMigrationPhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vmi

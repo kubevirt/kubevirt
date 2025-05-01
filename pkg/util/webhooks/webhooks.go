@@ -245,3 +245,26 @@ func GetPreferenceSpecFromAdmissionRequest(request *admissionv1.AdmissionRequest
 
 	return &preferenceObj.Spec, nil, nil
 }
+
+func GetVMIMFromAdmissionRequest(ar *admissionv1.AdmissionReview) (new *v12.VirtualMachineInstanceMigration, old *v12.VirtualMachineInstanceMigration, err error) {
+	raw := ar.Request.Object.Raw
+	migrationObj := v12.VirtualMachineInstanceMigration{}
+
+	err = json.Unmarshal(raw, &migrationObj)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if ar.Request.Operation == admissionv1.Update {
+		raw := ar.Request.OldObject.Raw
+		oldMigrationObj := v12.VirtualMachineInstanceMigration{}
+
+		err = json.Unmarshal(raw, &oldMigrationObj)
+		if err != nil {
+			return nil, nil, err
+		}
+		return &migrationObj, &oldMigrationObj, nil
+	}
+
+	return &migrationObj, nil, nil
+}

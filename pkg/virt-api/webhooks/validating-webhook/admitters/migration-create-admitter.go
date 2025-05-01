@@ -36,15 +36,19 @@ import (
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 type MigrationCreateAdmitter struct {
-	virtClient kubevirt.Interface
+	virtClient    kubevirt.Interface
+	ClusterConfig *virtconfig.ClusterConfig
 }
 
-func NewMigrationCreateAdmitter(virtClient kubevirt.Interface) *MigrationCreateAdmitter {
+func NewMigrationCreateAdmitter(virtClient kubevirt.Interface, clusterConfig *virtconfig.ClusterConfig) *MigrationCreateAdmitter {
 	return &MigrationCreateAdmitter{
-		virtClient: virtClient,
+		virtClient:    virtClient,
+		ClusterConfig: clusterConfig,
 	}
 }
 
@@ -120,6 +124,24 @@ func (admitter *MigrationCreateAdmitter) Admit(ctx context.Context, ar *admissio
 	err = ensureNoMigrationConflict(ctx, admitter.virtClient, migration.Spec.VMIName, migration.Namespace)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
+	}
+
+	if migration.Spec.SendTo != nil || migration.Spec.Receive != nil {
+		clusterCfg := admitter.ClusterConfig.GetConfig()
+		// Ensure the feature gate is enabled before allowing.
+		found := false
+		for _, fgName := range clusterCfg.DeveloperConfiguration.FeatureGates {
+			fg := featuregate.FeatureGateInfo(fgName)
+			if fg.Name == featuregate.DecentralizedLiveMigration {
+				found = true
+			}
+		}
+		if !found {
+			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt resource", featuregate.DecentralizedLiveMigration),
+			}})
+		}
 	}
 
 	reviewResponse := admissionv1.AdmissionResponse{}
