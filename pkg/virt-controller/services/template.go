@@ -409,6 +409,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	compute := t.newContainerSpecRenderer(vmi, volumeRenderer, resources, userId).Render(command)
 
+	compute.Env = append(compute.Env, k8sv1.EnvVar{Name: "GOTRACEBACK", Value: "all"})
 	for networkName, resourceName := range networkToResourceMap {
 		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", networkName)
 		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: varName, Value: resourceName})
