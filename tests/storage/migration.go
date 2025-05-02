@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"time"
 
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -304,35 +305,81 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			destPVC = "dest-" + rand.String(5)
 
 		})
-
-		DescribeTable("should migrate the source volume from a source DV to a destination PVC", func(mode string) {
-			volName := "disk0"
-			vm := createVMWithDV(createDV(), volName)
-			// Create dest PVC
-			switch mode {
-			case fsPVC:
-				// Add some overhead to the target PVC for filesystem.
-				libstorage.CreateFSPVC(destPVC, ns, sizeWithOverhead, nil)
-			case blockPVC:
-				libstorage.CreateBlockPVC(destPVC, ns, size)
-			default:
-				Fail("Unrecognized mode")
-			}
-			By("Update volumes")
-			updateVMWithPVC(vm, volName, destPVC)
-			Eventually(func() bool {
-				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name,
-					metav1.GetOptions{})
+		Context(" destination PVC expansion", decorators.StorageReq, decorators.RequiresVolumeExpansion, func() {
+			DescribeTable("should migrate the source volume from a source DV to a destination PVC", func(mode string) {
+				volName := "disk0"
+				dv := createDV()
+				vmi := libvmi.New(
+					libvmi.WithNamespace(ns),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+					libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
+					libvmi.WithResourceMemory("128Mi"),
+					libvmi.WithDataVolume(volName, dv.Name),
+					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
+				)
+				vm := libvmi.NewVirtualMachine(vmi,
+					libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
+					libvmi.WithDataVolumeTemplate(dv),
+				)
+				vm, err := virtClient.VirtualMachine(ns).Create(context.Background(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				claim := storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
-				return claim == destPVC
-			}, 120*time.Second, time.Second).Should(BeTrue())
-			waitForMigrationToSucceed(virtClient, vm.Name, ns)
-		},
-			Entry("to a filesystem volume", fsPVC),
-			Entry("to a block volume", decorators.RequiresBlockStorage, blockPVC),
-		)
+				Eventually(matcher.ThisVM(vm), 360*time.Second, 1*time.Second).Should(matcher.BeReady())
+				libwait.WaitForSuccessfulVMIStart(vmi)
 
+				// Create dest PVC
+				var dstPVC *k8sv1.PersistentVolumeClaim
+				switch mode {
+				case fsPVC:
+					// Add some overhead to the target PVC for filesystem.
+					dstPVC = libstorage.CreateFSPVC(destPVC, ns, sizeWithOverhead, nil)
+				case blockPVC:
+					dstPVC = libstorage.CreateBlockPVC(destPVC, ns, size)
+				default:
+					Fail("Unrecognized mode")
+				}
+				Expect(dstPVC.Spec.StorageClassName).ToNot(BeNil())
+				if !volumeExpansionAllowed(*dstPVC.Spec.StorageClassName) {
+					Fail("Fail when volume expansion storage class not available")
+				}
+
+				By("Update volumes")
+				updateVMWithPVC(vm, volName, destPVC)
+				Eventually(func() bool {
+					vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name,
+						metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					claim := storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
+					return claim == destPVC
+				}, 120*time.Second, time.Second).Should(BeTrue())
+				waitForMigrationToSucceed(virtClient, vm.Name, ns)
+
+				By("Expanding the destination PVC")
+				p, err := patch.New(
+					patch.WithAdd("/spec/resources/requests/storage", resource.MustParse("4Gi")),
+				).GeneratePayload()
+				Expect(err).ToNot(HaveOccurred())
+				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Patch(context.Background(),
+					destPVC, types.JSONPatchType, p, metav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Expecting the VirtualMachineInstance console")
+				Expect(console.LoginToCirros(vmi)).To(Succeed())
+
+				By("Waiting for notification about size change")
+				Eventually(func() error {
+					err := console.SafeExpectBatch(vmi, []expect.Batcher{
+						&expect.BSnd{S: "\n"},
+						&expect.BExp{R: console.PromptExpression},
+						&expect.BSnd{S: "[ $(lsblk /dev/vda -o SIZE -n |sed -e \"s/ //g\") == \"4G\" ] && true\n"},
+						&expect.BExp{R: "0"},
+					}, 10)
+					return err
+				}, 120).Should(BeNil())
+			},
+				Entry("to a filesystem volume", fsPVC),
+				Entry("to a block volume", decorators.RequiresBlockStorage, blockPVC),
+			)
+		})
 		It("should migrate the source volume from a source DV to a destination DV", func() {
 			volName := "disk0"
 			srcDV := createDV()
