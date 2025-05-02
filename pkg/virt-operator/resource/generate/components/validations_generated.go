@@ -8671,6 +8671,14 @@ var CRDsValidation map[string]string = map[string]string{
             NewSMBiosSerial manually sets that target's SMbios serial. If this field is not specified, a new serial will
             be generated automatically.
           type: string
+        patches:
+          description: |-
+            Patches holds JSON patches to apply to target. Patches should fit the target's Kind.
+            Example: '{"op": "add", "path": "/spec/template/metadata/labels/example", "value": "new-label"}'
+          items:
+            type: string
+          type: array
+          x-kubernetes-list-type: atomic
         source:
           description: |-
             Source is the object that would be cloned. Currently supported source types are:

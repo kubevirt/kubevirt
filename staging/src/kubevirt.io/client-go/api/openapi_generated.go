@@ -17373,6 +17373,26 @@ func schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneSpec(ref common.Refe
 							Format:      "",
 						},
 					},
+					"patches": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Patches holds JSON patches to apply to target. Patches should fit the target's Kind. Example: '{\"op\": \"add\", \"path\": \"/spec/template/metadata/labels/example\", \"value\": \"new-label\"}'",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"source"},
 			},
