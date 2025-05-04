@@ -1150,6 +1150,7 @@ func setupDomainMemory(vmi *v1.VirtualMachineInstance, domain *api.Domain) error
 	}
 
 	domain.Spec.Memory = currentMemory
+	domain.Spec.CurrentMemory = &currentMemory
 
 	return nil
 }
