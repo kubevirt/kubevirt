@@ -7,6 +7,10 @@ metadata:
   name: vmi-multus-ptp
 spec:
   domain:
+    cpu:
+      cores: 1
+      sockets: 1
+      threads: 1
     devices:
       disks:
       - disk:
@@ -19,6 +23,8 @@ spec:
       - bridge: {}
         name: ptp
       rng: {}
+    memory:
+      guest: 128Mi
     resources:
       requests:
         memory: 1024M

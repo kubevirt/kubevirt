@@ -7,6 +7,10 @@ metadata:
   name: vmi-nocloud
 spec:
   domain:
+    cpu:
+      cores: 1
+      sockets: 1
+      threads: 1
     devices:
       disks:
       - disk:
@@ -18,6 +22,8 @@ spec:
       - disk:
           bus: virtio
         name: emptydisk
+    memory:
+      guest: 128Mi
     resources:
       requests:
         memory: 128Mi

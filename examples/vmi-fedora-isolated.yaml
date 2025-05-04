@@ -20,6 +20,8 @@ spec:
           bus: virtio
         name: cloudinitdisk
       rng: {}
+    memory:
+      guest: 128Mi
     resources:
       requests:
         memory: 1024M

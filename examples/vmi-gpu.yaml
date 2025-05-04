@@ -7,6 +7,10 @@ metadata:
   name: vmi-gpu
 spec:
   domain:
+    cpu:
+      cores: 1
+      sockets: 1
+      threads: 1
     devices:
       disks:
       - disk:
@@ -19,6 +23,8 @@ spec:
       - deviceName: nvidia.com/GP102GL_Tesla_P40
         name: gpu1
       rng: {}
+    memory:
+      guest: 128Mi
     resources:
       requests:
         memory: 1024M

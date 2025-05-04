@@ -22,11 +22,17 @@ spec:
             kubevirt.io/vmpool: vm-pool-cirros
         spec:
           domain:
+            cpu:
+              cores: 1
+              sockets: 1
+              threads: 1
             devices:
               disks:
               - disk:
                   bus: virtio
                 name: containerdisk
+            memory:
+              guest: 128Mi
             resources:
               requests:
                 memory: 128Mi

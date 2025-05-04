@@ -13,6 +13,10 @@ spec:
         kubevirt.io/vm: vm-alpine-multipvc
     spec:
       domain:
+        cpu:
+          cores: 1
+          sockets: 1
+          threads: 1
         devices:
           disks:
           - disk:
@@ -21,6 +25,8 @@ spec:
           - disk:
               bus: virtio
             name: pvcdisk2
+        memory:
+          guest: 128Mi
         resources:
           requests:
             memory: 128Mi
