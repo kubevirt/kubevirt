@@ -3163,6 +3163,10 @@ var _ = Describe("Converter", func() {
 				Expect(domain.Spec.Memory).ToNot(BeNil())
 				Expect(domain.Spec.Memory.Unit).To(Equal("b"))
 				Expect(domain.Spec.Memory.Value).To(Equal(uint64(guestMemory.Value())))
+
+				Expect(domain.Spec.CurrentMemory).ToNot(BeNil())
+				Expect(domain.Spec.CurrentMemory.Unit).To(Equal("b"))
+				Expect(domain.Spec.CurrentMemory.Value).To(Equal(uint64(guestMemory.Value())))
 			})
 		})
 	})
