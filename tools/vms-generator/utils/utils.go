@@ -147,14 +147,23 @@ var DockerPrefix = "registry:5000/kubevirt"
 var DockerTag = "devel"
 
 var gracePeriod = int64(0)
+var memory = resource.MustParse("128Mi")
 
 func getBaseVMISpec() *v1.VirtualMachineInstanceSpec {
 	return &v1.VirtualMachineInstanceSpec{
 		TerminationGracePeriodSeconds: &gracePeriod,
 		Domain: v1.DomainSpec{
+			CPU: &v1.CPU{
+				Cores:   1,
+				Threads: 1,
+				Sockets: 1,
+			},
+			Memory: &v1.Memory{
+				Guest: &memory,
+			},
 			Resources: v1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
-					k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+					k8sv1.ResourceMemory: memory,
 				},
 			},
 		},
