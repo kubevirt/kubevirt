@@ -252,10 +252,10 @@ func getIntParam(node *v1.Node, param string, defaultValue, lowerBound, upperBou
 // will set the outcome value to the n.KSM struct
 // If the node labels match the selector terms, the ksm will be enabled.
 // Empty Selector will enable ksm for every node
-func handleKSM(nodeName string, client k8sv1.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig) (ksmLabelValue, ksmEnabledByUs bool) {
+func handleKSM(nodeName string, client k8sv1.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig) (ksmLabelValue, ksmEnabledByUs, needsUpdate bool) {
 	available, enabled := loadKSM()
 	if !available {
-		return false, false
+		return
 	}
 
 	nodeCache, err := cache.NewOneShotCache(func() (*v1.Node, error) {
@@ -268,22 +268,23 @@ func handleKSM(nodeName string, client k8sv1.CoreV1Interface, clusterConfig *vir
 
 	if err != nil {
 		log.Log.Reason(err).Errorf("An error occurred while creating the node cache")
-		return false, false
+		return
 	}
 
 	ksmConfig := clusterConfig.GetKSMConfiguration()
 	if ksmConfig == nil {
 		if enabled {
 			disableKSM(nodeCache)
+			needsUpdate = true
 		}
 
-		return false, false
+		return
 	}
 
 	selector, err := metav1.LabelSelectorAsSelector(ksmConfig.NodeLabelSelector)
 	if err != nil {
 		log.DefaultLogger().Errorf("An error occurred while converting the ksm selector: %s", err)
-		return false, false
+		return
 	}
 
 	node, err := nodeCache.Get()
@@ -294,26 +295,30 @@ func handleKSM(nodeName string, client k8sv1.CoreV1Interface, clusterConfig *vir
 	if !selector.Matches(labels.Set(node.Labels)) {
 		if enabled {
 			disableKSM(nodeCache)
+			needsUpdate = true
 		}
 
-		return false, false
+		return
 	}
 
 	ksmLabelValue = true
+	needsUpdate = true
 
 	ksm, err := calculateNewRunSleepAndPages(node, enabled)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("An error occurred while calculating the new KSM values")
-		return true, false
+		return
 	}
 
 	err = writeKsmValuesToFiles(ksm)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("An error occurred while writing the new KSM values")
-		return true, false
+		return
 	}
 
-	return true, ksm.running
+	ksmEnabledByUs = ksm.running
+
+	return
 }
 
 func disableKSM(nodeCache *cache.OneShotCache[*v1.Node]) {
