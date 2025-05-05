@@ -212,36 +212,35 @@ func (VirtualMachineInstanceGuestOSInfo) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachineInstanceCommonMigrationState) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"node":                   "The source node that the VMI originated on",
+		"pod":                    "The source pod that the VMI is originated on",
+		"migrationUID":           "The Source VirtualMachineInstanceMigration object associated with this migration",
+		"domainName":             "The name of the domain on the source libvirt domain",
+		"domainNamespace":        "Namespace used in the name of the source libvirt domain. Can be used to find and modify paths in the domain",
+		"syncAddress":            "The ip address/fqdn:port combination to use to synchronize the VMI with the target.",
+		"persistentStatePVCName": "If the VMI being migrated uses persistent features (backend-storage), its source PVC name is saved here",
+	}
+}
+
 func (VirtualMachineInstanceMigrationSourceState) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                             "+k8s:openapi-gen=true",
-		"node":                         "The source node that the VMI originated on",
-		"migrationUID":                 "The Source VirtualMachineInstanceMigration object associated with this migration",
-		"persistentStatePVCName":       "If the VMI being migrated uses persistent features (backend-storage), its source PVC name is saved here",
-		"nodeSelectors":                "Node selectors needed by the target to start the receiving pod.",
-		"domainName":                   "The name of the domain on the source libvirt domain",
-		"domainNamespace":              "Namespace used in the name of the source libvirt domain. Can be used to find and modify paths in the domain",
-		"synchronizationConnectionURL": "The URL the synchronization controller can connect to synchronize the VMI migration state",
+		"":              "+k8s:openapi-gen=true",
+		"nodeSelectors": "Node selectors needed by the target to start the receiving pod.",
 	}
 }
 
 func (VirtualMachineInstanceMigrationTargetState) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                         "+k8s:openapi-gen=true",
-		"nodeDomainReadyTimestamp": "The timestamp at which the target node detects the domain is active",
-		"nodeDomainDetected":       "The Target Node has seen the Domain Start Event",
+		"domainReadyTimestamp":     "The timestamp at which the target node detects the domain is active",
+		"domainDetected":           "The Target Node has seen the Domain Start Event",
 		"nodeAddress":              "The address of the target node to use for the migration",
 		"directMigrationNodePorts": "The list of ports opened for live migration on the destination node",
-		"node":                     "The target node that the VMI is moving to",
-		"pod":                      "The target pod that the VMI is moving to",
 		"attachmentPodUID":         "The UID of the target attachment pod for hotplug volumes",
-		"migrationUID":             "The Target VirtualMachineInstanceMigration object associated with this migration",
 		"cpuSet":                   "If the VMI requires dedicated CPUs, this field will\nhold the dedicated CPU set on the target node\n+listType=atomic",
 		"nodeTopology":             "If the VMI requires dedicated CPUs, this field will\nhold the numa topology on the target node",
-		"persistentStatePVCName":   "If the VMI being migrated uses persistent features (backend-storage), its target PVC name is saved here",
-		"domainName":               "The name of the domain on the target libvirt domain",
-		"domainNamespace":          "Namespace used in the name of the target libvirt domain.",
-		"syncAddress":              "The url to use to synchronize the VMI with the target",
 	}
 }
 

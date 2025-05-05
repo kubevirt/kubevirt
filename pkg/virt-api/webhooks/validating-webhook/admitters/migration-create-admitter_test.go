@@ -219,91 +219,61 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	})
 
 	Context("feature gate", func() {
-		It("should reject vmim with sendTo if featuregate is disabled", func() {
+		DescribeTable("should handle migration correctly based on featuregate", func(modifyMigration func(*v1.VirtualMachineInstanceMigration), featureGateEnabled bool) {
 			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 			vmi.Status.Phase = v1.Running
 			virtClient := kubevirtfake.NewSimpleClientset(vmi)
 			migration := createMigration(vmi.Namespace, testMigrationName, vmi.Name)
-			migration.Spec.SendTo = &v1.VirtualMachineInstanceMigrationSource{
-				MigrationID: "migrationID",
-				ConnectURL:  "1.1.1.1:12345",
-			}
+			modifyMigration(migration)
 			ar, err := newAdmissionReviewForVMIMCreation(migration)
 			Expect(err).ToNot(HaveOccurred())
+			if featureGateEnabled {
+				enableFeatureGate(featuregate.DecentralizedLiveMigration)
+			}
 			admitter := admitters.NewMigrationCreateAdmitter(virtClient, config)
 			resp := admitter.Admit(context.Background(), ar)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).To(ContainSubstring("DecentralizedLiveMigration feature gate is not enabled in kubevirt resource"))
-		})
-
-		It("should reject vmim with receive if featuregate is disabled", func() {
-			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
-			vmi.Status.Phase = v1.Running
-			virtClient := kubevirtfake.NewSimpleClientset(vmi)
-			migration := createMigration(vmi.Namespace, testMigrationName, vmi.Name)
-			migration.Spec.Receive = &v1.VirtualMachineInstanceMigrationTarget{
-				MigrationID: "migrationID",
+			Expect(resp.Allowed).To(Equal(featureGateEnabled))
+			if !featureGateEnabled {
+				Expect(resp.Result.Message).To(ContainSubstring("DecentralizedLiveMigration feature gate is not enabled in kubevirt resource"))
 			}
-			ar, err := newAdmissionReviewForVMIMCreation(migration)
-			Expect(err).ToNot(HaveOccurred())
-			admitter := admitters.NewMigrationCreateAdmitter(virtClient, config)
-			resp := admitter.Admit(context.Background(), ar)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).To(ContainSubstring("DecentralizedLiveMigration feature gate is not enabled in kubevirt resource"))
-		})
-
-		It("should allow vmim with sendTo if featuregate is enabled", func() {
-			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
-			vmi.Status.Phase = v1.Running
-			virtClient := kubevirtfake.NewSimpleClientset(vmi)
-			migration := createMigration(vmi.Namespace, testMigrationName, vmi.Name)
-			migration.Spec.SendTo = &v1.VirtualMachineInstanceMigrationSource{
-				MigrationID: "migrationID",
-				ConnectURL:  "1.1.1.1:12345",
-			}
-			ar, err := newAdmissionReviewForVMIMCreation(migration)
-			Expect(err).ToNot(HaveOccurred())
-			enableFeatureGate(featuregate.DecentralizedLiveMigration)
-			admitter := admitters.NewMigrationCreateAdmitter(virtClient, config)
-			resp := admitter.Admit(context.Background(), ar)
-			Expect(resp.Allowed).To(BeTrue())
-		})
-
-		It("should allow vmim with receive if featuregate is enabled", func() {
-			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
-			vmi.Status.Phase = v1.Running
-			virtClient := kubevirtfake.NewSimpleClientset(vmi)
-			migration := createMigration(vmi.Namespace, testMigrationName, vmi.Name)
-			migration.Spec.Receive = &v1.VirtualMachineInstanceMigrationTarget{
-				MigrationID: "migrationID",
-			}
-			ar, err := newAdmissionReviewForVMIMCreation(migration)
-			Expect(err).ToNot(HaveOccurred())
-			enableFeatureGate(featuregate.DecentralizedLiveMigration)
-			admitter := admitters.NewMigrationCreateAdmitter(virtClient, config)
-			resp := admitter.Admit(context.Background(), ar)
-			Expect(resp.Allowed).To(BeTrue())
-		})
-
-		It("should allow vmim with sendTo and receiver if featuregate is enabled", func() {
-			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
-			vmi.Status.Phase = v1.Running
-			virtClient := kubevirtfake.NewSimpleClientset(vmi)
-			migration := createMigration(vmi.Namespace, testMigrationName, vmi.Name)
-			migration.Spec.SendTo = &v1.VirtualMachineInstanceMigrationSource{
-				MigrationID: "migrationID",
-				ConnectURL:  "1.1.1.1:12345",
-			}
-			migration.Spec.Receive = &v1.VirtualMachineInstanceMigrationTarget{
-				MigrationID: "migrationID",
-			}
-			ar, err := newAdmissionReviewForVMIMCreation(migration)
-			Expect(err).ToNot(HaveOccurred())
-			enableFeatureGate(featuregate.DecentralizedLiveMigration)
-			admitter := admitters.NewMigrationCreateAdmitter(virtClient, config)
-			resp := admitter.Admit(context.Background(), ar)
-			Expect(resp.Allowed).To(BeTrue())
-		})
+		},
+			Entry("reject vmim with sendTo if featuregate is disabled",
+				func(migration *v1.VirtualMachineInstanceMigration) {
+					migration.Spec.SendTo = &v1.VirtualMachineInstanceMigrationSource{
+						MigrationID: "migrationID",
+						ConnectURL:  "1.1.1.1:12345",
+					}
+				}, false),
+			Entry("reject vmim with receive if featuregate is disabled",
+				func(migration *v1.VirtualMachineInstanceMigration) {
+					migration.Spec.Receive = &v1.VirtualMachineInstanceMigrationTarget{
+						MigrationID: "migrationID",
+					}
+				}, false),
+			Entry("allow vmim with sendTo if featuregate is enabled",
+				func(migration *v1.VirtualMachineInstanceMigration) {
+					migration.Spec.SendTo = &v1.VirtualMachineInstanceMigrationSource{
+						MigrationID: "migrationID",
+						ConnectURL:  "1.1.1.1:12345",
+					}
+				}, true),
+			Entry("allow vmim with receive if featuregate is enabled",
+				func(migration *v1.VirtualMachineInstanceMigration) {
+					migration.Spec.Receive = &v1.VirtualMachineInstanceMigrationTarget{
+						MigrationID: "migrationID",
+					}
+				}, true),
+			Entry("allow vmim with sendTo and receiver if featuregate is enabled",
+				func(migration *v1.VirtualMachineInstanceMigration) {
+					migration.Spec.SendTo = &v1.VirtualMachineInstanceMigrationSource{
+						MigrationID: "migrationID",
+						ConnectURL:  "1.1.1.1:12345",
+					}
+					migration.Spec.Receive = &v1.VirtualMachineInstanceMigrationTarget{
+						MigrationID: "migrationID",
+					}
+				}, true),
+		)
 	})
 })
 

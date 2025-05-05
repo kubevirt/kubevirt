@@ -691,7 +691,7 @@ status:
         nodeSelectorsKey: nodeSelectorsValue
       persistentStatePVCName: persistentStatePVCNameValue
       pod: podValue
-      synchronizationConnectionURL: synchronizationConnectionURLValue
+      syncAddress: syncAddressValue
     startTimestamp: "1986-01-01T01:01:01Z"
     targetAttachmentPodUID: targetAttachmentPodUIDValue
     targetCPUSet:
@@ -711,13 +711,13 @@ status:
       - -6
       directMigrationNodePorts:
         directMigrationNodePortsKey: -24
+      domainDetected: true
       domainName: domainNameValue
       domainNamespace: domainNamespaceValue
+      domainReadyTimestamp: "1980-01-01T01:01:01Z"
       migrationUID: migrationUIDValue
       node: nodeValue
       nodeAddress: nodeAddressValue
-      nodeDomainDetected: true
-      nodeDomainReadyTimestamp: "1976-01-01T01:01:01Z"
       nodeTopology: nodeTopologyValue
       persistentStatePVCName: persistentStatePVCNameValue
       pod: podValue

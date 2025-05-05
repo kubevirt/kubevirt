@@ -42,13 +42,13 @@ import (
 
 type MigrationCreateAdmitter struct {
 	virtClient    kubevirt.Interface
-	ClusterConfig *virtconfig.ClusterConfig
+	clusterConfig *virtconfig.ClusterConfig
 }
 
 func NewMigrationCreateAdmitter(virtClient kubevirt.Interface, clusterConfig *virtconfig.ClusterConfig) *MigrationCreateAdmitter {
 	return &MigrationCreateAdmitter{
 		virtClient:    virtClient,
-		ClusterConfig: clusterConfig,
+		clusterConfig: clusterConfig,
 	}
 }
 
@@ -127,7 +127,7 @@ func (admitter *MigrationCreateAdmitter) Admit(ctx context.Context, ar *admissio
 	}
 
 	if migration.Spec.SendTo != nil || migration.Spec.Receive != nil {
-		clusterCfg := admitter.ClusterConfig.GetConfig()
+		clusterCfg := admitter.clusterConfig.GetConfig()
 		// Ensure the feature gate is enabled before allowing.
 		found := false
 		for _, fgName := range clusterCfg.DeveloperConfiguration.FeatureGates {
