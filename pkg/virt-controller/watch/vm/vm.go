@@ -35,7 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
@@ -1217,7 +1217,7 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 
 	autoAttachInputDevice(vmi)
 
-	err = vmispec.SetDefaultNetworkInterface(c.clusterConfig, &vmi.Spec)
+	err = netvmispec.SetDefaultNetworkInterface(c.clusterConfig, &vmi.Spec)
 	if err != nil {
 		return vm, err
 	}
