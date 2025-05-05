@@ -1034,6 +1034,8 @@ const (
 	proactiveUpdateTypePatchRevisionLabel proactiveUpdateType = "label-patch"
 	// VMI does not need an update
 	proactiveUpdateTypeNone proactiveUpdateType = "no-update"
+	// VM needs to be deleted due to data volume changes
+	proactiveUpdateTypeVMDelete proactiveUpdateType = "vm-delete"
 )
 
 func (c *Controller) isOutdatedVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (proactiveUpdateType, error) {
@@ -1056,6 +1058,7 @@ func (c *Controller) isOutdatedVMI(vm *virtv1.VirtualMachine, vmi *virtv1.Virtua
 	//    proactive restart is required.
 	// 4. If the expected VMI template specs from the revisions are not identical in name, but
 	//    are identical in DeepEquals, patch the VMI with the new revision name used on the vm.
+	// 5. If only the DataVolumeTemplates differ, the VM needs to be deleted to ensure proper data volume handling.
 
 	vmRevisionName, exists := vm.Labels[virtv1.VirtualMachinePoolRevisionName]
 	if !exists {
@@ -1088,6 +1091,7 @@ func (c *Controller) isOutdatedVMI(vm *virtv1.VirtualMachine, vmi *virtv1.Virtua
 		return proactiveUpdateTypeNone, nil
 	}
 	expectedVMITemplate := poolSpecRevisionForVM.VirtualMachineTemplate.Spec.Template
+	expectedDataVolumeTemplates := poolSpecRevisionForVM.VirtualMachineTemplate.Spec.DataVolumeTemplates
 
 	// Get the pool revision used to create the VMI
 	poolSpecRevisionForVMI, exists, err := c.getControllerRevision(vm.Namespace, vmiRevisionName)
@@ -1100,6 +1104,13 @@ func (c *Controller) isOutdatedVMI(vm *virtv1.VirtualMachine, vmi *virtv1.Virtua
 		return proactiveUpdateTypeRestart, nil
 	}
 	currentVMITemplate := poolSpecRevisionForVMI.VirtualMachineTemplate.Spec.Template
+	currentDataVolumeTemplates := poolSpecRevisionForVMI.VirtualMachineTemplate.Spec.DataVolumeTemplates
+
+	// If DataVolumeTemplates differ, we need to delete the VM to ensure proper data volume handling
+	if !equality.Semantic.DeepEqual(currentDataVolumeTemplates, expectedDataVolumeTemplates) {
+		log.Log.Infof("Marking vm %s/%s for deletion due to data volume changes", vm.Namespace, vm.Name)
+		return proactiveUpdateTypeVMDelete, nil
+	}
 
 	// If the VMI templates differ between the revision used to create
 	// the VM and the revision used to create the VMI, then the VMI
@@ -1413,6 +1424,9 @@ func (c *Controller) handleResourceUpdate(pool *poolv1.VirtualMachinePool, vm *v
 	case proactiveUpdateTypeRestart:
 		err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 		log.Log.Object(pool).Infof("Proactive update of VM %s/%s by deleting outdated VMI", vm.Namespace, vm.Name)
+	case proactiveUpdateTypeVMDelete:
+		err = c.clientset.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{PropagationPolicy: pointer.P(metav1.DeletePropagationForeground)})
+		log.Log.Object(pool).Infof("Proactive update of VM %s/%s by deleting VM due to data volume changes", vm.Namespace, vm.Name)
 	case proactiveUpdateTypePatchRevisionLabel:
 		patchSet := patch.New()
 		vmiCopy := vmi.DeepCopy()
