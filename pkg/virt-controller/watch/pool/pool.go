@@ -1429,22 +1429,22 @@ func (c *Controller) handleResourceUpdate(pool *poolv1.VirtualMachinePool, vm *v
 		log.Log.Object(pool).Infof("Proactive update of VM %s/%s by deleting VM due to data volume changes", vm.Namespace, vm.Name)
 	case proactiveUpdateTypePatchRevisionLabel:
 		patchSet := patch.New()
-		vmiCopy := vmi.DeepCopy()
-		if vmiCopy.Labels == nil {
-			vmiCopy.Labels = make(map[string]string)
+		vmiLabels := maps.Clone(vmi.Labels)
+		if vmiLabels == nil {
+			vmiLabels = make(map[string]string)
 		}
 		revisionName, exists := vm.Labels[virtv1.VirtualMachinePoolRevisionName]
 		if !exists {
 			return nil
 		}
-		vmiCopy.Labels[virtv1.VirtualMachinePoolRevisionName] = revisionName
+		vmiLabels[virtv1.VirtualMachinePoolRevisionName] = revisionName
 
 		if vmi.Labels == nil {
-			patchSet.AddOption(patch.WithAdd("/metadata/labels", vmi.Labels))
+			patchSet.AddOption(patch.WithAdd("/metadata/labels", vmiLabels))
 		} else {
 			patchSet.AddOption(
-				patch.WithTest("/metadata/labels", vmiCopy.Labels),
-				patch.WithReplace("/metadata/labels", vmi.Labels),
+				patch.WithTest("/metadata/labels", vmi.Labels),
+				patch.WithReplace("/metadata/labels", vmiLabels),
 			)
 		}
 
