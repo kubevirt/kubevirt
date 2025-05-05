@@ -13801,10 +13801,11 @@ var CRDsValidation map[string]string = map[string]string{
                     (backend-storage), its source PVC name is saved here
                   type: string
                 pod:
+                  description: The source pod that the VMI is originated on
                   type: string
-                synchronizationConnectionURL:
-                  description: The URL the synchronization controller can connect
-                    to synchronize the VMI migration state
+                syncAddress:
+                  description: The ip address/fqdn:port combination to use to synchronize
+                    the VMI with the target.
                   type: string
               type: object
             startTimestamp:
@@ -13876,29 +13877,30 @@ var CRDsValidation map[string]string = map[string]string{
                   description: The list of ports opened for live migration on the
                     destination node
                   type: object
-                domainName:
-                  description: The name of the domain on the target libvirt domain
-                  type: string
-                domainNamespace:
-                  description: Namespace used in the name of the target libvirt domain.
-                  type: string
-                migrationUID:
-                  description: The Target VirtualMachineInstanceMigration object associated
-                    with this migration
-                  type: string
-                node:
-                  description: The target node that the VMI is moving to
-                  type: string
-                nodeAddress:
-                  description: The address of the target node to use for the migration
-                  type: string
-                nodeDomainDetected:
+                domainDetected:
                   description: The Target Node has seen the Domain Start Event
                   type: boolean
-                nodeDomainReadyTimestamp:
+                domainName:
+                  description: The name of the domain on the source libvirt domain
+                  type: string
+                domainNamespace:
+                  description: Namespace used in the name of the source libvirt domain.
+                    Can be used to find and modify paths in the domain
+                  type: string
+                domainReadyTimestamp:
                   description: The timestamp at which the target node detects the
                     domain is active
                   format: date-time
+                  type: string
+                migrationUID:
+                  description: The Source VirtualMachineInstanceMigration object associated
+                    with this migration
+                  type: string
+                node:
+                  description: The source node that the VMI originated on
+                  type: string
+                nodeAddress:
+                  description: The address of the target node to use for the migration
                   type: string
                 nodeTopology:
                   description: |-
@@ -13907,13 +13909,14 @@ var CRDsValidation map[string]string = map[string]string{
                   type: string
                 persistentStatePVCName:
                   description: If the VMI being migrated uses persistent features
-                    (backend-storage), its target PVC name is saved here
+                    (backend-storage), its source PVC name is saved here
                   type: string
                 pod:
-                  description: The target pod that the VMI is moving to
+                  description: The source pod that the VMI is originated on
                   type: string
                 syncAddress:
-                  description: The url to use to synchronize the VMI with the target
+                  description: The ip address/fqdn:port combination to use to synchronize
+                    the VMI with the target.
                   type: string
               type: object
           type: object
@@ -14364,10 +14367,11 @@ var CRDsValidation map[string]string = map[string]string{
                     (backend-storage), its source PVC name is saved here
                   type: string
                 pod:
+                  description: The source pod that the VMI is originated on
                   type: string
-                synchronizationConnectionURL:
-                  description: The URL the synchronization controller can connect
-                    to synchronize the VMI migration state
+                syncAddress:
+                  description: The ip address/fqdn:port combination to use to synchronize
+                    the VMI with the target.
                   type: string
               type: object
             startTimestamp:
@@ -14439,29 +14443,30 @@ var CRDsValidation map[string]string = map[string]string{
                   description: The list of ports opened for live migration on the
                     destination node
                   type: object
-                domainName:
-                  description: The name of the domain on the target libvirt domain
-                  type: string
-                domainNamespace:
-                  description: Namespace used in the name of the target libvirt domain.
-                  type: string
-                migrationUID:
-                  description: The Target VirtualMachineInstanceMigration object associated
-                    with this migration
-                  type: string
-                node:
-                  description: The target node that the VMI is moving to
-                  type: string
-                nodeAddress:
-                  description: The address of the target node to use for the migration
-                  type: string
-                nodeDomainDetected:
+                domainDetected:
                   description: The Target Node has seen the Domain Start Event
                   type: boolean
-                nodeDomainReadyTimestamp:
+                domainName:
+                  description: The name of the domain on the source libvirt domain
+                  type: string
+                domainNamespace:
+                  description: Namespace used in the name of the source libvirt domain.
+                    Can be used to find and modify paths in the domain
+                  type: string
+                domainReadyTimestamp:
                   description: The timestamp at which the target node detects the
                     domain is active
                   format: date-time
+                  type: string
+                migrationUID:
+                  description: The Source VirtualMachineInstanceMigration object associated
+                    with this migration
+                  type: string
+                node:
+                  description: The source node that the VMI originated on
+                  type: string
+                nodeAddress:
+                  description: The address of the target node to use for the migration
                   type: string
                 nodeTopology:
                   description: |-
@@ -14470,13 +14475,14 @@ var CRDsValidation map[string]string = map[string]string{
                   type: string
                 persistentStatePVCName:
                   description: If the VMI being migrated uses persistent features
-                    (backend-storage), its target PVC name is saved here
+                    (backend-storage), its source PVC name is saved here
                   type: string
                 pod:
-                  description: The target pod that the VMI is moving to
+                  description: The source pod that the VMI is originated on
                   type: string
                 syncAddress:
-                  description: The url to use to synchronize the VMI with the target
+                  description: The ip address/fqdn:port combination to use to synchronize
+                    the VMI with the target.
                   type: string
               type: object
           type: object

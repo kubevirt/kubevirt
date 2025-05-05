@@ -529,6 +529,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VirtualMachine":                                                     schema_kubevirtio_api_core_v1_VirtualMachine(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineCondition":                                            schema_kubevirtio_api_core_v1_VirtualMachineCondition(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstance":                                             schema_kubevirtio_api_core_v1_VirtualMachineInstance(ref),
+		"kubevirt.io/api/core/v1.VirtualMachineInstanceCommonMigrationState":                         schema_kubevirtio_api_core_v1_VirtualMachineInstanceCommonMigrationState(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceCondition":                                    schema_kubevirtio_api_core_v1_VirtualMachineInstanceCondition(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceFileSystem":                                   schema_kubevirtio_api_core_v1_VirtualMachineInstanceFileSystem(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceFileSystemDisk":                               schema_kubevirtio_api_core_v1_VirtualMachineInstanceFileSystemDisk(ref),
@@ -25002,6 +25003,67 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstance(ref common.ReferenceCa
 	}
 }
 
+func schema_kubevirtio_api_core_v1_VirtualMachineInstanceCommonMigrationState(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"node": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The source node that the VMI originated on",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"pod": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The source pod that the VMI is originated on",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"migrationUID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The Source VirtualMachineInstanceMigration object associated with this migration",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"domainName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The name of the domain on the source libvirt domain",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"domainNamespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Namespace used in the name of the source libvirt domain. Can be used to find and modify paths in the domain",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"syncAddress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The ip address/fqdn:port combination to use to synchronize the VMI with the target.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"persistentStatePVCName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If the VMI being migrated uses persistent features (backend-storage), its source PVC name is saved here",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_VirtualMachineInstanceCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -25745,13 +25807,35 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationSourceState(re
 					},
 					"pod": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "The source pod that the VMI is originated on",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"migrationUID": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The Source VirtualMachineInstanceMigration object associated with this migration",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"domainName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The name of the domain on the source libvirt domain",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"domainNamespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Namespace used in the name of the source libvirt domain. Can be used to find and modify paths in the domain",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"syncAddress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The ip address/fqdn:port combination to use to synchronize the VMI with the target.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -25777,27 +25861,6 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationSourceState(re
 									},
 								},
 							},
-						},
-					},
-					"domainName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The name of the domain on the source libvirt domain",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"domainNamespace": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Namespace used in the name of the source libvirt domain. Can be used to find and modify paths in the domain",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"synchronizationConnectionURL": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The URL the synchronization controller can connect to synchronize the VMI migration state",
-							Type:        []string{"string"},
-							Format:      "",
 						},
 					},
 				},
@@ -26159,13 +26222,62 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationTargetState(re
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"nodeDomainReadyTimestamp": {
+					"node": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The source node that the VMI originated on",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"pod": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The source pod that the VMI is originated on",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"migrationUID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The Source VirtualMachineInstanceMigration object associated with this migration",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"domainName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The name of the domain on the source libvirt domain",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"domainNamespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Namespace used in the name of the source libvirt domain. Can be used to find and modify paths in the domain",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"syncAddress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The ip address/fqdn:port combination to use to synchronize the VMI with the target.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"persistentStatePVCName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If the VMI being migrated uses persistent features (backend-storage), its source PVC name is saved here",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"domainReadyTimestamp": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The timestamp at which the target node detects the domain is active",
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
-					"nodeDomainDetected": {
+					"domainDetected": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The Target Node has seen the Domain Start Event",
 							Type:        []string{"boolean"},
@@ -26195,30 +26307,9 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationTargetState(re
 							},
 						},
 					},
-					"node": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The target node that the VMI is moving to",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"pod": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The target pod that the VMI is moving to",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"attachmentPodUID": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The UID of the target attachment pod for hotplug volumes",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"migrationUID": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The Target VirtualMachineInstanceMigration object associated with this migration",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -26246,34 +26337,6 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationTargetState(re
 					"nodeTopology": {
 						SchemaProps: spec.SchemaProps{
 							Description: "If the VMI requires dedicated CPUs, this field will hold the numa topology on the target node",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"persistentStatePVCName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "If the VMI being migrated uses persistent features (backend-storage), its target PVC name is saved here",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"domainName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The name of the domain on the target libvirt domain",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"domainNamespace": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Namespace used in the name of the target libvirt domain.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"syncAddress": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The url to use to synchronize the VMI with the target",
 							Type:        []string{"string"},
 							Format:      "",
 						},
