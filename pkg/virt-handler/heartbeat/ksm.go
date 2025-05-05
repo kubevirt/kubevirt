@@ -250,10 +250,10 @@ func getIntParam(node *v1.Node, param string, defaultValue, lowerBound, upperBou
 // will set the outcome value to the n.KSM struct
 // If the node labels match the selector terms, the ksm will be enabled.
 // Empty Selector will enable ksm for every node
-func handleKSM(nodeName string, client k8sv1.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig) (ksmLabelValue, ksmEnabledByUs bool) {
+func handleKSM(nodeName string, client k8sv1.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig) (ksmLabelValue, ksmEnabledByUs, needsUpdate bool) {
 	available, enabled := loadKSM()
 	if !available {
-		return false, false
+		return
 	}
 
 	var node *v1.Node
@@ -275,15 +275,16 @@ func handleKSM(nodeName string, client k8sv1.CoreV1Interface, clusterConfig *vir
 	if ksmConfig == nil {
 		if enabled {
 			disableKSM(getNode)
+			needsUpdate = true
 		}
 
-		return false, false
+		return
 	}
 
 	selector, err := metav1.LabelSelectorAsSelector(ksmConfig.NodeLabelSelector)
 	if err != nil {
 		log.DefaultLogger().Errorf("An error occurred while converting the ksm selector: %s", err)
-		return false, false
+		return
 	}
 
 	node, err = getNode()
@@ -294,26 +295,30 @@ func handleKSM(nodeName string, client k8sv1.CoreV1Interface, clusterConfig *vir
 	if !selector.Matches(labels.Set(node.Labels)) {
 		if enabled {
 			disableKSM(getNode)
+			needsUpdate = true
 		}
 
-		return false, false
+		return
 	}
 
 	ksmLabelValue = true
+	needsUpdate = true
 
 	ksm, err := calculateNewRunSleepAndPages(node, enabled)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("An error occurred while calculating the new KSM values")
-		return true, false
+		return
 	}
 
 	err = writeKsmValuesToFiles(ksm)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("An error occurred while writing the new KSM values")
-		return true, false
+		return
 	}
 
-	return true, ksm.running
+	ksmEnabledByUs = ksm.running
+
+	return
 }
 
 func disableKSM(getNode func() (*v1.Node, error)) {
