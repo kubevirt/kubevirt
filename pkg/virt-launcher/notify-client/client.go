@@ -440,6 +440,9 @@ func (n *Notifier) StartDomainNotifier(
 				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect, domain %s", domainName)))
 
 			case <-metadataCache.Listen():
+				if domainCache == nil {
+					continue
+				}
 				domainCache = util.NewDomainFromName(
 					util.DomainFromNamespaceName(domainCache.ObjectMeta.Namespace, domainCache.ObjectMeta.Name),
 					vmi.UID,
