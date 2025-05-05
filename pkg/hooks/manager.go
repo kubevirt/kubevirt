@@ -109,29 +109,30 @@ func (m *hookManager) collectSideCarSockets(numberOfRequestedHookSidecars uint, 
 		}
 
 		for _, socket := range sockets {
-			select {
-			case <-timeoutCh:
-				return nil, fmt.Errorf("Failed to collect all expected sidecar hook sockets within given timeout")
-			default:
-				if _, processed := processedSockets[socket.Name()]; processed {
-					continue
-				}
-
-				callBackClient, notReady, err := processSideCarSocket(filepath.Join(m.hookSocketSharedDirectory, socket.Name()))
-				if notReady {
-					log.Log.Info("Sidecar server might not be ready yet, retrying in the next iteration")
-					continue
-				} else if err != nil {
-					log.Log.Reason(err).Infof("Failed to process sidecar socket: %s", socket.Name())
-					return nil, err
-				}
-
-				for _, subscribedHookPoint := range callBackClient.subscribedHookPoints {
-					callbacksPerHookPoint[subscribedHookPoint.GetName()] = append(callbacksPerHookPoint[subscribedHookPoint.GetName()], callBackClient)
-				}
-
-				processedSockets[socket.Name()] = true
+			if _, processed := processedSockets[socket.Name()]; processed {
+				continue
 			}
+
+			callBackClient, notReady, err := processSideCarSocket(filepath.Join(m.hookSocketSharedDirectory, socket.Name()))
+			if notReady {
+				log.Log.Info("Sidecar server might not be ready yet, retrying in the next iteration")
+				continue
+			} else if err != nil {
+				log.Log.Reason(err).Infof("Failed to process sidecar socket: %s", socket.Name())
+				return nil, err
+			}
+
+			for _, subscribedHookPoint := range callBackClient.subscribedHookPoints {
+				callbacksPerHookPoint[subscribedHookPoint.GetName()] = append(callbacksPerHookPoint[subscribedHookPoint.GetName()], callBackClient)
+			}
+
+			processedSockets[socket.Name()] = true
+		}
+
+		select {
+		case <-timeoutCh:
+			return nil, fmt.Errorf("Failed to collect all expected sidecar hook sockets within given timeout")
+		default:
 		}
 
 		time.Sleep(time.Second)
