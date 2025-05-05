@@ -14,7 +14,10 @@ import (
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 )
 
-const uninstallErrorMsg = "Rejecting the uninstall request, since there are still %s present. Either delete all KubeVirt related workloads or change the uninstall strategy before uninstalling KubeVirt."
+const (
+	uninstallErrorMsg                  = "Rejecting the uninstall request, since there are still %s present. Either delete all KubeVirt related workloads or change the uninstall strategy before uninstalling KubeVirt."
+	featureGateSliceDeprecationWarning = "kv.Spec.Configuration.DeveloperConfiguration.FeatureGates is deprecated. Please use kv.Spec.Configuration.DeveloperConfiguration.FeatureGatesMap instead"
+)
 
 var KubeVirtGroupVersionResource = metav1.GroupVersionResource{
 	Group:    v1.VirtualMachineInstanceGroupVersionKind.Group,
