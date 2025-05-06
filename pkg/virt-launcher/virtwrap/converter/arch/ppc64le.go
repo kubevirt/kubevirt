@@ -34,16 +34,31 @@ func (converterPPC64) GetArchitecture() string {
 	return ppc64le
 }
 
-func (converterPPC64) AddGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
-	domain.Spec.Devices.Video = []api.Video{
-		{
+func (converterPPC64) AddGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
+	vt := getVideoType(vmi)
+	var video api.Video
+
+	switch {
+	case vt != "":
+		video = api.Video{
+			Model: api.VideoModel{
+				Type:  vt,
+				Heads: pointer.P(graphicsDeviceDefaultHeads),
+				VRam:  pointer.P(graphicsDeviceDefaultVRAM),
+			},
+		}
+
+	default:
+		video = api.Video{
 			Model: api.VideoModel{
 				Type:  "vga",
 				Heads: pointer.P(graphicsDeviceDefaultHeads),
 				VRam:  pointer.P(graphicsDeviceDefaultVRAM),
 			},
-		},
+		}
 	}
+
+	domain.Spec.Devices.Video = []api.Video{video}
 }
 
 func (converterPPC64) ScsiController(model string, driver *api.ControllerDriver) api.Controller {

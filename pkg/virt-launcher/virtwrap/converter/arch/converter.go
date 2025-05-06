@@ -80,3 +80,10 @@ func defaultTransitionalModelType(useVirtioTransitional bool) string {
 	}
 	return "virtio-non-transitional"
 }
+
+func getVideoType(vmi *v1.VirtualMachineInstance) string {
+	if vmi.Spec.Domain.Devices.Video != nil && vmi.Spec.Domain.Devices.Video.Type != "" {
+		return vmi.Spec.Domain.Devices.Video.Type
+	}
+	return ""
+}
