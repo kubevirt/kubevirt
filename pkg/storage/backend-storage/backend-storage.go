@@ -22,7 +22,6 @@ package backendstorage
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
@@ -51,7 +50,7 @@ const (
 	PVCSize   = "10Mi"
 )
 
-func basePVC(vmi *corev1.VirtualMachineInstance) string {
+func BasePVC(vmi *corev1.VirtualMachineInstance) string {
 	return PVCPrefix + "-" + vmi.Name
 }
 
@@ -71,7 +70,7 @@ func PVCForVMI(pvcStore cache.Store, vmi *corev1.VirtualMachineInstance) *v1.Per
 		if found && vmName == vmi.Name {
 			return pvc
 		}
-		if pvc.Name == basePVC(vmi) {
+		if pvc.Name == BasePVC(vmi) {
 			legacyPVC = pvc
 		}
 	}
@@ -260,8 +259,8 @@ func (bs *BackendStorage) labelLegacyPVC(pvc *v1.PersistentVolumeClaim, name str
 
 func CurrentPVCName(vmi *corev1.VirtualMachineInstance) string {
 	for _, volume := range vmi.Status.VolumeStatus {
-		if strings.HasPrefix(volume.Name, basePVC(vmi)) {
-			return volume.Name
+		if volume.Name == BasePVC(vmi) {
+			return volume.PersistentVolumeClaimInfo.ClaimName
 		}
 	}
 
@@ -464,17 +463,23 @@ func (bs *BackendStorage) UpdateVolumeStatus(vmi *corev1.VirtualMachineInstance,
 		vmi.Status.VolumeStatus = []corev1.VolumeStatus{}
 	}
 	for i := range vmi.Status.VolumeStatus {
-		if vmi.Status.VolumeStatus[i].Name == pvc.Name {
+		if vmi.Status.VolumeStatus[i].Name == BasePVC(vmi) || vmi.Status.VolumeStatus[i].Name == pvc.Name {
 			if vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo == nil {
 				vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo = &corev1.PersistentVolumeClaimInfo{}
 			}
 			vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo.ClaimName = pvc.Name
 			vmi.Status.VolumeStatus[i].PersistentVolumeClaimInfo.AccessModes = pvc.Spec.AccessModes
+			// Update the volume name to the expected base PVC name for compatibility with older VMs
+			// that used the previous behavior. This ensures the volume can still be correctly
+			// referenced even if the PVC name has changed.
+			vmi.Status.VolumeStatus[i].Name = BasePVC(vmi)
 			return
 		}
 	}
 	vmi.Status.VolumeStatus = append(vmi.Status.VolumeStatus, corev1.VolumeStatus{
-		Name: pvc.Name,
+		// Using hardcoded backend storage PVC name here to
+		// facilitate volume fetching if PVC name changes.
+		Name: BasePVC(vmi),
 		PersistentVolumeClaimInfo: &corev1.PersistentVolumeClaimInfo{
 			ClaimName:   pvc.Name,
 			AccessModes: pvc.Spec.AccessModes,
@@ -499,9 +504,10 @@ func (bs *BackendStorage) createPVC(vmi *corev1.VirtualMachineInstance, labels m
 			*metav1.NewControllerRef(vmi, corev1.VirtualMachineInstanceGroupVersionKind),
 		}
 	}
+
 	pvc := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName:    basePVC(vmi) + "-",
+			GenerateName:    BasePVC(vmi) + "-",
 			OwnerReferences: ownerReferences,
 			Labels:          labels,
 		},

@@ -152,7 +152,8 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 
 	backendStoragePVC := backendstorage.PVCForVMI(c.pvcIndexer, vmi)
 	if backendStoragePVC != nil {
-		if backendStorage, ok := oldStatusMap[backendStoragePVC.Name]; ok {
+		if backendStorage, ok := oldStatusMap[backendstorage.BasePVC(vmi)]; ok {
+			backendStorage.PersistentVolumeClaimInfo.ClaimName = backendStoragePVC.Name
 			newStatus = append(newStatus, backendStorage)
 		}
 	}
