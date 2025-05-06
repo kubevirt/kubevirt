@@ -1929,6 +1929,15 @@ var _ = Describe("Converter", func() {
 			MultiArchEntry("and not add the graphics and video device if it is set to false", pointer.P(false), 0),
 		)
 
+		DescribeTable("should check video device", func(arch string) {
+			const expectedVideoType = "test-video"
+			vmi := libvmi.New(libvmi.WithAutoattachGraphicsDevice(true), libvmi.WithVideo(expectedVideoType))
+			domain := vmiToDomain(vmi, &ConverterContext{AllowEmulation: true, Architecture: archconverter.NewConverter(arch)})
+			Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal(expectedVideoType))
+		},
+			MultiArchEntry("and use the explicitly set video device"),
+		)
+
 		DescribeTable("Should have one vnc", func(arch string) {
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
