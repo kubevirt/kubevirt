@@ -130,16 +130,9 @@ func TemporaryNodeDrain(nodeName string) {
 	// we can't really expect an error during node drain because vms with eviction strategy can be migrated by the
 	// time that we call it.
 	vmiSelector := v1.AppLabel + "=virt-launcher"
-	k8sClient := clientcmd.GetK8sCmdClient()
-	if k8sClient == "oc" {
-		_, _, err := clientcmd.RunCommand("", k8sClient, "adm", "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
-			"--ignore-daemonsets=true", "--force", "--timeout=180s")
-		Expect(err).ToNot(HaveOccurred())
-	} else {
-		_, _, err := clientcmd.RunCommand("", k8sClient, "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
-			"--ignore-daemonsets=true", "--force", "--timeout=180s")
-		Expect(err).ToNot(HaveOccurred())
-	}
+	_, _, err := clientcmd.RunCommand("", "kubectl", "drain", nodeName, "--delete-emptydir-data", "--pod-selector", vmiSelector,
+		"--ignore-daemonsets=true", "--force", "--timeout=180s")
+	Expect(err).ToNot(HaveOccurred())
 }
 
 type mapType string

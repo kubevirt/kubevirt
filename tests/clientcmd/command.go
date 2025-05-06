@@ -36,20 +36,9 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 )
 
-func GetK8sCmdClient() string {
-	// use oc if it exists, otherwise use kubectl
-	if flags.KubeVirtOcPath != "" {
-		return "oc"
-	}
-
-	return "kubectl"
-}
-
 func FailIfNoCmd(cmdName string) {
 	var cmdPath string
 	switch strings.ToLower(cmdName) {
-	case "oc":
-		cmdPath = flags.KubeVirtOcPath
 	case "kubectl":
 		cmdPath = flags.KubeVirtKubectlPath
 	case "virtctl":
@@ -102,8 +91,6 @@ func CreateCommandWithNS(namespace string, cmdName string, args ...string) (stri
 
 	cmdName = strings.ToLower(cmdName)
 	switch cmdName {
-	case "oc":
-		cmdPath = flags.KubeVirtOcPath
 	case "kubectl":
 		cmdPath = flags.KubeVirtKubectlPath
 	case "virtctl":

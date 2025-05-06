@@ -460,13 +460,12 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	It("[test_id:4121]should create and verify kubectl/oc output for vm replicaset", func() {
-		k8sClient := clientcmd.GetK8sCmdClient()
-		clientcmd.FailIfNoCmd(k8sClient)
+		clientcmd.FailIfNoCmd("kubectl")
 
 		newRS := newReplicaSet()
 		doScale(newRS.ObjectMeta.Name, 2)
 
-		result, _, _ := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), k8sClient, "get", "virtualmachineinstancereplicaset")
+		result, _, _ := clientcmd.RunCommand(testsuite.GetTestNamespace(nil), "kubectl", "get", "virtualmachineinstancereplicaset")
 		Expect(result).ToNot(BeNil())
 		resultFields := strings.Fields(result)
 		expectedHeader := []string{"NAME", "DESIRED", "CURRENT", "READY", "AGE"}
