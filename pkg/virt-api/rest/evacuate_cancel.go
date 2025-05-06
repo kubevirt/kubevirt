@@ -16,7 +16,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
 )
 
 func (app *SubresourceAPIApp) EvacuateCancelHandler(fetcher vmiFetcher) restful.RouteFunction {
@@ -30,13 +29,13 @@ func (app *SubresourceAPIApp) EvacuateCancelHandler(fetcher vmiFetcher) restful.
 			return
 		}
 
-		if vmi.Status.EvacuationNodeName == "" {
-			response.WriteHeader(http.StatusOK)
+		if statusErr = app.validateEvacuationNode(vmi); statusErr != nil {
+			writeError(statusErr, response)
 			return
 		}
 
-		if statusErr = app.validateEvacuationNode(vmi.Status.EvacuationNodeName); statusErr != nil {
-			writeError(statusErr, response)
+		if vmi.Status.EvacuationNodeName == "" {
+			response.WriteHeader(http.StatusOK)
 			return
 		}
 
@@ -53,7 +52,10 @@ func (app *SubresourceAPIApp) EvacuateCancelHandler(fetcher vmiFetcher) restful.
 			}
 		}
 
-		patchBytes, err := patch.GenerateTestReplacePatch("/status/evacuationNodeName", vmi.Status.EvacuationNodeName, "")
+		patchBytes, err := patch.New(
+			patch.WithTest("/status/evacuationNodeName", vmi.Status.EvacuationNodeName),
+			patch.WithRemove("/status/evacuationNodeName"),
+		).GeneratePayload()
 		if err != nil {
 			writeError(errors.NewInternalError(err), response)
 			return
@@ -70,7 +72,21 @@ func (app *SubresourceAPIApp) EvacuateCancelHandler(fetcher vmiFetcher) restful.
 	}
 }
 
-func (app *SubresourceAPIApp) validateEvacuationNode(evacuationNodeName string) *errors.StatusError {
+// validateEvacuationNode checks if the node hosting a VirtualMachineInstance (VMI) has a taint
+// defined by NodeDrainTaintKey. This is part of a legacy mechanism for triggering VMI evacuation,
+// which is now deprecated and should no longer be used. The recommended approach is to use node drain
+// with taint-based eviction via Kubernetes eviction API.
+//
+// If EvacuationNodeName is not set in the VMI (e.g., due to compatibility with older versions),
+// evacuation is not supported and an error will be returned. This function will eventually be removed.
+func (app *SubresourceAPIApp) validateEvacuationNode(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+	// Use EvacuationNodeName if available, fallback to current node if empty.
+	// Missing EvacuationNodeName indicates outdated VMI spec (pre-evacuation support).
+	evacuationNodeName := vmi.Status.EvacuationNodeName
+	if evacuationNodeName == "" {
+		evacuationNodeName = vmi.Status.NodeName
+	}
+
 	if taintKey := app.clusterConfig.GetMigrationConfiguration().NodeDrainTaintKey; taintKey != nil {
 		taint := &k8sv1.Taint{
 			Key:    *taintKey,
@@ -82,8 +98,13 @@ func (app *SubresourceAPIApp) validateEvacuationNode(evacuationNodeName string) 
 			return errors.NewInternalError(err)
 		}
 
-		if evacuation.NodeHasTaint(taint, node) {
-			return errors.NewBadRequest(fmt.Sprintf("Node %q has NodeDrainTaintKey %q", node.Name, taint.String()))
+		for _, t := range node.Spec.Taints {
+			if t.MatchTaint(taint) {
+				return errors.NewBadRequest(fmt.Sprintf(
+					"Node %q has NodeDrainTaintKey %q",
+					node.Name, taint.String(),
+				))
+			}
 		}
 	}
 	return nil

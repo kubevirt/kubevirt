@@ -7,11 +7,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	k8stesting "k8s.io/client-go/testing"
-
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/client-go/kubecli"
@@ -24,7 +21,7 @@ var _ = Describe("Evacuate cancel command", func() {
 		ctrl         *gomock.Controller
 		vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 		vmInterface  *kubecli.MockVirtualMachineInterface
-		kubeClient   *fake.Clientset
+		kubeClient   *k8sfake.Clientset
 		virtClient   *kubecli.MockKubevirtClient
 	)
 
@@ -43,7 +40,10 @@ var _ = Describe("Evacuate cancel command", func() {
 		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 
-		kubeClient = fake.NewClientset()
+		kubeClient = k8sfake.NewClientset(&corev1.Node{
+			TypeMeta:   k8smetav1.TypeMeta{Kind: "Node", APIVersion: "v1"},
+			ObjectMeta: k8smetav1.ObjectMeta{Name: node},
+		})
 
 		virtClient.EXPECT().VirtualMachine(gomock.Any()).Return(vmInterface).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(vmiInterface).AnyTimes()
@@ -55,21 +55,14 @@ var _ = Describe("Evacuate cancel command", func() {
 		cmd := testing.NewRepeatableVirtctlCommand("evacuate-cancel")
 		err := cmd()
 		Expect(err).To(HaveOccurred())
-		Expect(err).Should(MatchError("accepts 1 arg(s), received 0"))
-	})
-
-	It("should fail with invalid format (no slash)", func() {
-		cmd := testing.NewRepeatableVirtctlCommand("evacuate-cancel", "invalidformat")
-		err := cmd()
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("target must contain type and name"))
+		Expect(err).Should(MatchError("accepts 2 arg(s), received 0"))
 	})
 
 	It("should fail on unsupported kind", func() {
-		cmd := testing.NewRepeatableVirtctlCommand("evacuate-cancel", "pod/my-pod")
+		cmd := testing.NewRepeatableVirtctlCommand("evacuate-cancel", "pod", "my-pod")
 		err := cmd()
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("unsupported resource type"))
+		Expect(err).To(MatchError(`unsupported resource type "pod"`))
 	})
 
 	It("should cancel evacuation for VM", func() {
@@ -78,7 +71,7 @@ var _ = Describe("Evacuate cancel command", func() {
 			Return(nil).
 			Times(1)
 
-		cmd := testing.NewRepeatableVirtctlCommand("evacuate-cancel", "vm/"+vmName)
+		cmd := testing.NewRepeatableVirtctlCommand("evacuate-cancel", "vm", vmName)
 		err := cmd()
 		Expect(err).ToNot(HaveOccurred())
 	})
@@ -90,7 +83,7 @@ var _ = Describe("Evacuate cancel command", func() {
 			Return(expectedErr).
 			Times(1)
 
-		cmd := testing.NewRepeatableVirtctlCommand("evacuate-cancel", "vm/"+vmName)
+		cmd := testing.NewRepeatableVirtctlCommand("evacuate-cancel", "vm", vmName)
 		err := cmd()
 		Expect(err).To(HaveOccurred())
 		Expect(err).To(MatchError(expectedErr))
@@ -102,16 +95,12 @@ var _ = Describe("Evacuate cancel command", func() {
 			Return(nil).
 			Times(1)
 
-		cmd := testing.NewRepeatableVirtctlCommand("evacuate-cancel", "vmi/"+vmiName)
+		cmd := testing.NewRepeatableVirtctlCommand("evacuate-cancel", "vmi", vmiName)
 		err := cmd()
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("should cancel evacuation for VMIs on a node", func() {
-		nodeObj := &corev1.Node{
-			TypeMeta:   k8smetav1.TypeMeta{Kind: "Node", APIVersion: "v1"},
-			ObjectMeta: k8smetav1.ObjectMeta{Name: node},
-		}
 		vmiList := &v1.VirtualMachineInstanceList{
 			Items: []v1.VirtualMachineInstance{
 				{
@@ -127,14 +116,6 @@ var _ = Describe("Evacuate cancel command", func() {
 			},
 		}
 
-		kubeClient.Fake.PrependReactor("get", "nodes", func(action k8stesting.Action) (bool, runtime.Object, error) {
-			get, ok := action.(k8stesting.GetAction)
-			Expect(ok).To(BeTrue())
-			Expect(get.GetName()).To(Equal(node))
-
-			return true, nodeObj, nil
-		})
-
 		vmiInterface.EXPECT().
 			List(gomock.Any(), gomock.Any()).
 			Return(vmiList, nil).
@@ -145,13 +126,13 @@ var _ = Describe("Evacuate cancel command", func() {
 			Return(nil).
 			Times(1)
 
-		cmd := testing.NewRepeatableVirtctlCommand("evacuate-cancel", "node/"+node)
+		cmd := testing.NewRepeatableVirtctlCommand("evacuate-cancel", "node", node)
 		err := cmd()
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("should print dry-run message", func() {
-		cmd := testing.NewRepeatableVirtctlCommandWithOut("evacuate-cancel", "vmi/"+vmiName, "--dry-run")
+		cmd := testing.NewRepeatableVirtctlCommandWithOut("evacuate-cancel", "vmi", vmiName, "--dry-run")
 		vmiInterface.EXPECT().
 			EvacuateCancel(gomock.Any(), vmiName, &v1.EvacuateCancelOptions{
 				DryRun: []string{k8smetav1.DryRunAll},
