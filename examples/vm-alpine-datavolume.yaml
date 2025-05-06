@@ -28,11 +28,17 @@ spec:
         kubevirt.io/vm: vm-alpine-datavolume
     spec:
       domain:
+        cpu:
+          cores: 1
+          sockets: 1
+          threads: 1
         devices:
           disks:
           - disk:
               bus: virtio
             name: datavolumedisk1
+        memory:
+          guest: 128Mi
         resources:
           requests:
             memory: 128Mi

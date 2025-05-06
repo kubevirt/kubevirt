@@ -7,6 +7,10 @@ metadata:
   name: vmi-kernel-boot
 spec:
   domain:
+    cpu:
+      cores: 1
+      sockets: 1
+      threads: 1
     devices: {}
     firmware:
       kernelBoot:
@@ -15,6 +19,8 @@ spec:
           initrdPath: /boot/initramfs-virt
           kernelPath: /boot/vmlinuz-virt
         kernelArgs: console=ttyS0
+    memory:
+      guest: 128Mi
     resources:
       requests:
         memory: 1Gi
