@@ -64,9 +64,9 @@ require (
 	golang.org/x/time v0.7.0
 	golang.org/x/tools v0.28.0
 	google.golang.org/grpc v1.65.0
-	k8s.io/api v0.32.1
-	k8s.io/apiextensions-apiserver v0.32.1
-	k8s.io/apimachinery v0.32.1
+	k8s.io/api v0.33.0
+	k8s.io/apiextensions-apiserver v0.33.0
+	k8s.io/apimachinery v0.33.0
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-aggregator v0.26.4
@@ -156,7 +156,7 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiserver v0.32.1 // indirect
+	k8s.io/apiserver v0.33.0 // indirect
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90 // indirect
 	mvdan.cc/editorconfig v0.2.1-0.20231228180347-1925077f8eb2 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.3 // indirect
