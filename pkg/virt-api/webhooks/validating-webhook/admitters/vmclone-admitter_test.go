@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -414,6 +415,26 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		Entry("valid mac address", "00:00:00:00:00:00", true),
 		Entry("invalid mac address", "00:00:00:00:00", false),
 	)
+
+	Context("Custom patches", func() {
+		It("Should accept valid JSON patches", func() {
+			validPatch := patch.New(patch.WithReplace("/spec/template/spec/domain/devices/interfaces/0/macAddress", "DE-AD-00-FF-FF-FF"))
+			p, err := validPatch.GeneratePayload()
+			Expect(err).NotTo(HaveOccurred())
+
+			vmClone.Spec.Patches = []string{string(p)}
+
+			admitter.admitAndExpect(vmClone, true)
+		})
+
+		It("Should reject invalid JSON patches", func() {
+			vmClone.Spec.Patches = []string{ // Missing comma after "replace"
+				`{"op": "replace" "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "DE-AD-00-FF-FF-FF"}`,
+			}
+
+			admitter.admitAndExpect(vmClone, false)
+		})
+	})
 
 })
 

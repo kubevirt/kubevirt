@@ -1024,12 +1024,16 @@ var _ = Describe("Clone", func() {
 		})
 
 		It("Custom patches should be applied to the VM", func() {
-			// Test adding elements and replacing them, use string patches and not the "patch" package because
-			// this is what the user will use
-			vmClone.Spec.Patches = []string{
-				`{"op": "add", "path": "/spec/template/metadata/labels/example", "value": "extra-label"}`,
-				`{"op": "replace", "path": "/spec/template/spec/architecture", "value": "new-architecture"}`,
-				`{"op": "remove", "path": "/spec/template/metadata/labels/label-to-remove"}`,
+			patchSet := patch.New(
+				patch.WithAdd("/spec/template/metadata/labels/example", "extra-label"),
+				patch.WithReplace("/spec/template/spec/architecture", "new-architecture"),
+				patch.WithRemove("/spec/template/metadata/labels/label-to-remove"),
+			)
+
+			for _, operation := range patchSet.GetPatches() {
+				json, err := operation.MarshalJSON()
+				Expect(err).NotTo(HaveOccurred())
+				vmClone.Spec.Patches = append(vmClone.Spec.Patches, string(json))
 			}
 
 			// Extra label we want to remove from the spec labels
@@ -1077,9 +1081,15 @@ var _ = Describe("Clone", func() {
 			vmClone.Spec.NewMacAddresses = map[string]string{interfaceName: newMacAddress}
 
 			// Patches with higher precedence than any other in the VirtualMachineClone specs
-			vmClone.Spec.Patches = []string{
-				`{"op": "replace", "path": "/spec/template/spec/domain/firmware/serial", "value": "replaced-serial"}`,
-				`{"op": "replace", "path": "/spec/template/spec/domain/devices/interfaces/0/macAddress", "value": "DE-AD-00-FF-FF-FF"}`,
+			patchSet := patch.New(
+				patch.WithReplace("/spec/template/spec/domain/firmware/serial", "replaced-serial"),
+				patch.WithReplace("/spec/template/spec/domain/devices/interfaces/0/macAddress", "DE-AD-00-FF-FF-FF"),
+			)
+
+			for _, operation := range patchSet.GetPatches() {
+				json, err := operation.MarshalJSON()
+				Expect(err).NotTo(HaveOccurred())
+				vmClone.Spec.Patches = append(vmClone.Spec.Patches, string(json))
 			}
 
 			addVM(sourceVM)
