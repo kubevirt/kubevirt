@@ -3,7 +3,6 @@ package rest
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/emicklei/go-restful/v3"
@@ -11,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/yaml"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -42,20 +40,14 @@ func (app *SubresourceAPIApp) EvacuateCancelHandler(fetcher vmiFetcher) restful.
 		opts := &v1.EvacuateCancelOptions{}
 		if request.Request.Body != nil {
 			defer request.Request.Body.Close()
-			err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts)
-			switch err {
-			case io.EOF, nil:
-				break
-			default:
-				writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
+			if err := decodeBody(request, opts); err != nil {
+				writeError(err, response)
 				return
 			}
 		}
 
-		patchBytes, err := patch.New(
-			patch.WithTest("/status/evacuationNodeName", vmi.Status.EvacuationNodeName),
-			patch.WithRemove("/status/evacuationNodeName"),
-		).GeneratePayload()
+		const path = "/status/evacuationNodeName"
+		patchBytes, err := patch.New(patch.WithTest(path, vmi.Status.EvacuationNodeName), patch.WithRemove(path)).GeneratePayload()
 		if err != nil {
 			writeError(errors.NewInternalError(err), response)
 			return
