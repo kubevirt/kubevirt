@@ -310,6 +310,10 @@ kubectl get nodes
 
 ionice --class idle make cluster-sync
 
+if [[ $TARGET =~ sriov.* ]]; then
+  kubectl -n kubevirt patch kubevirt kubevirt --type=merge --patch '{"spec":{"configuration":{"virtualMachineOptions":{"disableSerialConsoleLog":{}}}}}'
+fi
+
 # OpenShift is running important containers under default namespace
 namespaces=(kubevirt default)
 if [[ $NAMESPACE != "kubevirt" ]]; then
