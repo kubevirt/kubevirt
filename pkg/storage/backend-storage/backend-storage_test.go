@@ -254,6 +254,43 @@ var _ = Describe("Backend Storage", func() {
 		})
 	})
 
+	Context("createPVC", func() {
+		var k8sClient *k8sfake.Clientset
+		const (
+			nsName  = "testns"
+			vmiName = "testvmi"
+			pvcName = "persistent-state-for-" + vmiName
+		)
+
+		BeforeEach(func() {
+			k8sClient = k8sfake.NewSimpleClientset()
+			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+		})
+
+		It("Should create a PVC with the correct labels", func() {
+			vmi := &virtv1.VirtualMachineInstance{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:      vmiName,
+					Namespace: nsName,
+				},
+			}
+
+			sc := storagev1.StorageClass{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:        "sc",
+					Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"},
+				},
+			}
+			err := storageClassStore.Add(&sc)
+			Expect(err).NotTo(HaveOccurred())
+
+			pvc, err := backendStorage.createPVC(vmi, map[string]string{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pvc).NotTo(BeNil())
+			Expect(pvc.Labels).To(HaveKeyWithValue(LabelApplyStorageProfile, "true"))
+		})
+	})
+
 	Context("Legacy PVCs", func() {
 		var k8sClient *k8sfake.Clientset
 
@@ -290,7 +327,7 @@ var _ = Describe("Backend Storage", func() {
 			Expect(pvc).NotTo(BeNil())
 			pvc, err = k8sClient.CoreV1().PersistentVolumeClaims(nsName).Get(context.TODO(), pvcName, k8smetav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(pvc.Labels).To(HaveKeyWithValue("persistent-state-for", vmiName))
+			Expect(pvc.Labels).To(HaveKeyWithValue(PVCPrefix, vmiName))
 		})
 	})
 	Context("IsBackendStorageNeeded", func() {
