@@ -281,7 +281,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 				Expect(libnet.CheckMacAddress(vmi, ifaceName, mac)).To(Succeed(), "SR-IOV VF is expected to exist in the guest")
 			})
 
-			It("[QUARANTINE]should be successful with a running VMI on the target", decorators.Quarantine, func() {
+			It("should be successful with a running VMI on the target", func() {
 				By("starting the migration")
 				migration := libmigration.New(vmi.Name, vmi.Namespace)
 				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
