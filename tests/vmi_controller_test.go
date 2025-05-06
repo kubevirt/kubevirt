@@ -6,15 +6,16 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libdomain"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = Describe("[sig-compute]Controller devices", decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]Controller devices", decorators.SigCompute, decorators.WgS390x, func() {
 
 	Context("with ephemeral disk", func() {
 		DescribeTable("a scsi controller", func(enabled bool) {
-			vmi := libvmifact.NewCirros()
+			vmi := libvmifact.NewAlpine()
 			vmi.Spec.Domain.Devices.DisableHotplug = !enabled
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 30)
 			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
@@ -24,7 +25,12 @@ var _ = Describe("[sig-compute]Controller devices", decorators.SigCompute, func(
 				if controller.Type == "scsi" {
 					found = true
 					Expect(controller.Index).To(Equal("0"))
-					Expect(controller.Model).To(Equal("virtio-non-transitional"))
+					if libnode.GetArch() == "s390x" {
+						Expect(controller.Model).To(Equal("virtio-scsi"))
+					} else {
+						Expect(controller.Model).To(Equal("virtio-non-transitional"))
+					}
+
 				}
 			}
 			Expect(found).To(Equal(enabled))

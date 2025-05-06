@@ -51,7 +51,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-compute]SecurityFeatures", decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]SecurityFeatures", decorators.SigCompute, decorators.WgS390x, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -76,7 +76,7 @@ var _ = Describe("[sig-compute]SecurityFeatures", decorators.SigCompute, func() 
 				config.SELinuxLauncherType = "container_t"
 				kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
 
-				vmi = libvmifact.NewCirros()
+				vmi = libvmifact.NewAlpine()
 			})
 
 			It("[test_id:2953][test_id:2895]Ensure virt-launcher pod securityContext type is correctly set and not privileged", func() {

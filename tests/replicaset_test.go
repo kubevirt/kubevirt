@@ -58,7 +58,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VirtualMachineInstanceReplicaSet", decorators.SigCompute, func() {
+var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]VirtualMachineInstanceReplicaSet", decorators.SigCompute, decorators.WgS390x, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
@@ -129,9 +129,10 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	newReplicaSet := func() *v1.VirtualMachineInstanceReplicaSet {
 		By("Create a new VirtualMachineInstance replica set")
-		template := libvmifact.NewCirros(
+		template := libvmifact.NewAlpine(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 		)
 		return newReplicaSetWithTemplate(template)
 	}
@@ -157,8 +158,8 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Entry("[test_id:1408]to five, to six and then to zero replicas", 5, 6),
 	)
 
-	DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale with the horizontal pod autoscaler", func(startScale int, stopScale int) {
-		template := libvmifact.NewCirros(
+	DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale with the horizontal pod autoscaler", decorators.WgS390x, func(startScale int, stopScale int) {
+		template := libvmifact.NewAlpine(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
@@ -404,9 +405,9 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Expect(vmis.Items).Should(HaveLen(2))
 	})
 
-	It("should replace a VMI immediately when a virt-launcher pod gets deleted", func() {
+	It("should replace a VMI immediately when a virt-launcher pod gets deleted", decorators.WgS390x, func() {
 		By("Creating new replica set")
-		template := libvmifact.NewCirros(
+		template := libvmifact.NewAlpine(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithTerminationGracePeriod(200),

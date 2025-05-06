@@ -34,6 +34,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdomain"
@@ -218,12 +219,12 @@ var _ = Describe(SIG("VMIDefaults", func() {
 
 	})
 
-	Context("Input defaults", func() {
+	Context("Input defaults", decorators.WgS390x, func() {
 
 		It("[test_id:TODO]Should be set in VirtualMachineInstance", func() {
 
 			By("Creating a VirtualMachineInstance with an input device without a bus or type set")
-			vmi = libvmifact.NewCirros()
+			vmi = libvmifact.NewAlpine()
 			vmi.Spec.Domain.Devices.Inputs = append(vmi.Spec.Domain.Devices.Inputs, v1.Input{
 				Name: "foo-1",
 			})
@@ -240,7 +241,7 @@ var _ = Describe(SIG("VMIDefaults", func() {
 
 		It("[test_id:TODO]Should be applied to a device added by AutoattachInputDevice", func() {
 			By("Creating a VirtualMachine with AutoattachInputDevice enabled")
-			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 			vm.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.P(true)
 			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
