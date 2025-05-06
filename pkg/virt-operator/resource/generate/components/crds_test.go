@@ -56,7 +56,7 @@ var _ = Describe("CRDs", func() {
 		crd, err := NewVirtualMachineCrd()
 		Expect(err).NotTo(HaveOccurred())
 		for i := range crd.Spec.Versions {
-			patchValidation(crd, &crd.Spec.Versions[i])
+			Expect(patchValidation(crd, &crd.Spec.Versions[i])).To(Succeed())
 			spec := crd.Spec.Versions[i].Schema.OpenAPIV3Schema.Properties["spec"]
 			dataVolumeTemplates := spec.Properties["dataVolumeTemplates"]
 			items := dataVolumeTemplates.Items
@@ -71,7 +71,7 @@ var _ = Describe("CRDs", func() {
 		crd, err := NewVirtualMachineCrd()
 		Expect(err).NotTo(HaveOccurred())
 		for i := range crd.Spec.Versions {
-			patchValidation(crd, &crd.Spec.Versions[i])
+			Expect(patchValidation(crd, &crd.Spec.Versions[i])).To(Succeed())
 			spec := crd.Spec.Versions[i].Schema.OpenAPIV3Schema.Properties["spec"]
 			template := spec.Properties["template"]
 			metadata := template.Properties["metadata"]
@@ -85,7 +85,7 @@ var _ = Describe("CRDs", func() {
 		crd, err := NewReplicaSetCrd()
 		Expect(err).NotTo(HaveOccurred())
 		for i := range crd.Spec.Versions {
-			patchValidation(crd, &crd.Spec.Versions[i])
+			Expect(patchValidation(crd, &crd.Spec.Versions[i])).To(Succeed())
 			spec := crd.Spec.Versions[i].Schema.OpenAPIV3Schema.Properties["spec"]
 			template := spec.Properties["template"]
 			metadata := template.Properties["metadata"]
@@ -99,7 +99,7 @@ var _ = Describe("CRDs", func() {
 		crd, err := NewVirtualMachineSnapshotContentCrd()
 		Expect(err).NotTo(HaveOccurred())
 		for i := range crd.Spec.Versions {
-			patchValidation(crd, &crd.Spec.Versions[i])
+			Expect(patchValidation(crd, &crd.Spec.Versions[i])).To(Succeed())
 			spec := crd.Spec.Versions[i].Schema.OpenAPIV3Schema.Properties["spec"]
 			source := spec.Properties["source"]
 			vm := source.Properties["virtualMachine"]
