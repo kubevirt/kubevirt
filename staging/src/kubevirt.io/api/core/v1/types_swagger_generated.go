@@ -754,6 +754,13 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 		"autoCPULimitNamespaceLabelSelector": "When set, AutoCPULimitNamespaceLabelSelector will set a CPU limit on virt-launcher for VMIs running inside\nnamespaces that match the label selector.\nThe CPU limit will equal the number of requested vCPUs.\nThis setting does not apply to VMIs with dedicated CPUs.",
 		"liveUpdateConfiguration":            "LiveUpdateConfiguration holds defaults for live update features",
 		"vmRolloutStrategy":                  "VMRolloutStrategy defines how changes to a VM object propagate to its VMI\n+nullable\n+kubebuilder:validation:Enum=Stage;LiveUpdate",
+		"commonInstancetypesDeployment":      "CommonInstancetypesDeployment controls the deployment of common-instancetypes resources\n+nullable",
+	}
+}
+
+func (CommonInstancetypesDeployment) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"enabled": "Enabled controls the deployment of common-instancetypes resources, defaults to True.\n+nullable",
 	}
 }
 
