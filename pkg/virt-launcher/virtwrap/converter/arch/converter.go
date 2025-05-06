@@ -47,6 +47,7 @@ type Converter interface {
 	ShouldVerboseLogsBeEnabled() bool
 	ConvertWatchdog(source *v1.Watchdog, watchdog *api.Watchdog) error
 	SupportPCIHole64Disabling() bool
+	GetVideoType(vmi *v1.VirtualMachineInstance, isEFI bool) string
 }
 
 func NewConverter(arch string) Converter {

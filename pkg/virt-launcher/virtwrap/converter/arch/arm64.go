@@ -34,18 +34,18 @@ func (converterARM64) GetArchitecture() string {
 	return arm64
 }
 
-func (converterARM64) AddGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
-	// For arm64, qemu-kvm only support virtio-gpu display device, so set it as default video device.
-	// tablet and keyboard devices are necessary for control the VM via vnc connection
+func (c converterARM64) AddGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, isEFI bool) {
+	videoType := c.GetVideoType(vmi, isEFI)
 	domain.Spec.Devices.Video = []api.Video{
 		{
 			Model: api.VideoModel{
-				Type:  v1.VirtIO,
+				Type:  videoType,
 				Heads: pointer.P(graphicsDeviceDefaultHeads),
 			},
 		},
 	}
 
+	// Tablet and keyboard devices are necessary for controlling the VM via VNC connection
 	if !hasTabletDevice(vmi) {
 		domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
 			api.Input{
@@ -118,4 +118,11 @@ func (converterARM64) ConvertWatchdog(source *v1.Watchdog, watchdog *api.Watchdo
 
 func (converterARM64) SupportPCIHole64Disabling() bool {
 	return false
+}
+
+func (converterARM64) GetVideoType(vmi *v1.VirtualMachineInstance, _ bool) string {
+	if vmi.Spec.Domain.Devices.Video != nil {
+		return vmi.Spec.Domain.Devices.Video.Type
+	}
+	return v1.VirtIO
 }
