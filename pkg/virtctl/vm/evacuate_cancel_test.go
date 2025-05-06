@@ -14,6 +14,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
+	virtctl "kubevirt.io/kubevirt/pkg/virtctl/vm"
 )
 
 var _ = Describe("Evacuate cancel command", func() {
@@ -140,7 +141,35 @@ var _ = Describe("Evacuate cancel command", func() {
 
 		bytes, err := cmd()
 		Expect(err).ToNot(HaveOccurred())
-		Expect(string(bytes)).To(ContainSubstring("Dry Run execution"))
 		Expect(string(bytes)).To(ContainSubstring(fmt.Sprintf("VMI %s/%s was canceled evacuation", k8smetav1.NamespaceDefault, vmiName)))
+	})
+
+	It("should cancel the vm migration", func() {
+		cmd := testing.NewRepeatableVirtctlCommandWithOut("evacuate-cancel", "vmi", vmiName, "--migrate-cancel")
+		vmiInterface.EXPECT().
+			EvacuateCancel(gomock.Any(), vmiName, &v1.EvacuateCancelOptions{}).
+			Return(nil).
+			Times(1)
+
+		vmiMigration := kubecli.NewMinimalMigration(fmt.Sprintf("%s-%s", vmiName, "migration"))
+		vmiMigration.Status.Phase = v1.MigrationRunning
+		migList := v1.VirtualMachineInstanceMigrationList{
+			Items: []v1.VirtualMachineInstanceMigration{
+				*vmiMigration,
+			},
+		}
+
+		migrationInterface := kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
+		kubecli.MockKubevirtClientInstance.EXPECT().
+			VirtualMachineInstanceMigration(k8smetav1.NamespaceDefault).
+			Return(migrationInterface).Times(2)
+
+		listOptions := k8smetav1.ListOptions{LabelSelector: fmt.Sprintf("%s==%s", v1.MigrationSelectorLabel, vmiName)}
+		migrationInterface.EXPECT().List(gomock.Any(), listOptions).Return(&migList, nil).Times(1)
+		migrationInterface.EXPECT().Delete(gomock.Any(), vmiMigration.Name, k8smetav1.DeleteOptions{}).Return(nil).Times(1)
+
+		bytes, err := cmd()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(bytes)).To(ContainSubstring("Invoking %q for VMI %s/%s\n", virtctl.COMMAND_MIGRATE_CANCEL, k8smetav1.NamespaceDefault, vmiName))
 	})
 })

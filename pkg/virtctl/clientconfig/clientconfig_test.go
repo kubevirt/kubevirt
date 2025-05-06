@@ -36,4 +36,31 @@ var _ = Describe("client", func() {
 		_, _, _, err := clientconfig.ClientAndNamespaceFromContext(context.Background())
 		Expect(err).To(MatchError("unable to get client config from context"))
 	})
+
+	It("WithOverriddenNamespace should override the namespace and preserve the original client config", func() {
+		By("setting up a base clientConfig")
+		clientConfig := kubecli.DefaultClientConfig(&pflag.FlagSet{})
+
+		By("creating a client from the base clientConfig")
+		client, err := kubecli.GetKubevirtClientFromClientConfig(clientConfig)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("storing the clientConfig in a context")
+		ctx := clientconfig.NewContext(context.Background(), clientConfig)
+
+		By("creating a new context with a namespace override")
+		newCtx, err := clientconfig.WithOverriddenNamespace(ctx, "test")
+		Expect(err).ToNot(HaveOccurred())
+
+		By("retrieving the client and namespace from the overridden context")
+		contextClient, namespace, overridden, err := clientconfig.ClientAndNamespaceFromContext(newCtx)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("verifying that the overridden namespace is returned")
+		Expect(namespace).To(Equal("test"))
+		Expect(overridden).To(BeTrue())
+
+		By("verifying that the underlying client config remains unchanged")
+		Expect(contextClient.Config()).To(Equal(client.Config()))
+	})
 })

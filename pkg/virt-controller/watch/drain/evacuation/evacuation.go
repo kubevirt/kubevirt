@@ -477,7 +477,7 @@ func hasMigratedOnEviction(vmi *virtv1.VirtualMachineInstance) bool {
 
 func vmisToMigrate(node *k8sv1.Node, vmisOnNode []*virtv1.VirtualMachineInstance, taint *k8sv1.Taint) []*virtv1.VirtualMachineInstance {
 	var vmisToMigrate []*virtv1.VirtualMachineInstance
-	if NodeHasTaint(taint, node) {
+	if nodeHasTaint(taint, node) {
 		vmisToMigrate = vmisOnNode
 	} else if evictedVMIs := getMarkedForEvictionVMIs(vmisOnNode); len(evictedVMIs) > 0 {
 		vmisToMigrate = evictedVMIs
@@ -543,7 +543,7 @@ func (c *EvacuationController) filterRunningNonMigratingVMIs(vmis []*virtv1.Virt
 
 // deprecated
 // This node evacuation method is deprecated. Use node drain to trigger evictions instead.
-func NodeHasTaint(taint *k8sv1.Taint, node *k8sv1.Node) bool {
+func nodeHasTaint(taint *k8sv1.Taint, node *k8sv1.Node) bool {
 	for _, t := range node.Spec.Taints {
 		if t.MatchTaint(taint) {
 			return true

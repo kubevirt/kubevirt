@@ -1,11 +1,11 @@
 package vm
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -20,20 +20,41 @@ func NewEvacuateCancelCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "evacuate-cancel (vm <vm-name> | vmi <vmi-name> | node <node-name>)",
 		Short:   "Cancel evacuation for a VM, VMI, or all VMIs on a node",
-		Example: usage("evacuate-cancel"),
+		Example: usageEvacuateCancel(),
 		Args:    cobra.ExactArgs(2),
 		RunE:    c.Run,
 	}
 
+	c.AddFlags(cmd.Flags())
 	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
 }
 
+func usageEvacuateCancel() string {
+	return `  # Cancel evacuation for a virtual machine
+  {{ProgramName}} evacuate-cancel vm my-vm
+
+  # Cancel evacuation for a virtual machine instance
+  {{ProgramName}} evacuate-cancel vmi my-vmi
+
+  # Cancel evacuation and also cancel an active migration for the VMI
+  {{ProgramName}} evacuate-cancel vmi my-vmi --migrate-cancel
+
+  # Cancel evacuation for all VMIs on a specific node
+  {{ProgramName}} evacuate-cancel node node01
+  `
+}
+
 type evacuateCancelCommand struct {
-	cmd        *cobra.Command
-	virtClient kubecli.KubevirtClient
+	MigrateCancel bool
+	cmd           *cobra.Command
+	virtClient    kubecli.KubevirtClient
+}
+
+func (c *evacuateCancelCommand) AddFlags(fs *pflag.FlagSet) {
+	fs.BoolVar(&c.MigrateCancel, "migrate-cancel", false, "Also cancel an active migration for the specified VMI")
 }
 
 func (c *evacuateCancelCommand) Run(cmd *cobra.Command, args []string) error {
@@ -52,10 +73,9 @@ func (c *evacuateCancelCommand) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	opts := &virtv1.EvacuateCancelOptions{}
-	if dryRun {
-		opts.DryRun = []string{metav1.DryRunAll}
-		c.cmd.Printf("Dry Run execution")
+	dryRunOption := setDryRunOption(dryRun)
+	opts := &virtv1.EvacuateCancelOptions{
+		DryRun: dryRunOption,
 	}
 
 	return handler(name, namespace, opts)
@@ -76,30 +96,30 @@ func (c *evacuateCancelCommand) getHandler(kind string) (evacuateCancelHandler, 
 }
 
 func (c *evacuateCancelCommand) handleVM(name, namespace string, opts *virtv1.EvacuateCancelOptions) error {
-	err := c.virtClient.VirtualMachine(namespace).EvacuateCancel(context.Background(), name, opts)
+	err := c.virtClient.VirtualMachine(namespace).EvacuateCancel(c.cmd.Context(), name, opts)
 	if err != nil {
 		return fmt.Errorf("error canceling evacuation for VM %s/%s: %w", namespace, name, err)
 	}
 	c.cmd.Printf("VM %s/%s was canceled evacuation\n", namespace, name)
-	return nil
+	return c.runMigrateCancel(name, namespace)
 }
 
 func (c *evacuateCancelCommand) handleVMI(name, namespace string, opts *virtv1.EvacuateCancelOptions) error {
-	err := c.virtClient.VirtualMachineInstance(namespace).EvacuateCancel(context.Background(), name, opts)
+	err := c.virtClient.VirtualMachineInstance(namespace).EvacuateCancel(c.cmd.Context(), name, opts)
 	if err != nil {
 		return fmt.Errorf("error canceling evacuation for VMI %s/%s: %w", namespace, name, err)
 	}
 	c.cmd.Printf("VMI %s/%s was canceled evacuation\n", namespace, name)
-	return nil
+	return c.runMigrateCancel(name, namespace)
 }
 
 func (c *evacuateCancelCommand) handleNode(name, _ string, opts *virtv1.EvacuateCancelOptions) error {
-	node, err := c.virtClient.CoreV1().Nodes().Get(context.Background(), name, metav1.GetOptions{})
+	node, err := c.virtClient.CoreV1().Nodes().Get(c.cmd.Context(), name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("error getting node %s: %w", name, err)
 	}
 
-	vmiList, err := c.virtClient.VirtualMachineInstance(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	vmiList, err := c.virtClient.VirtualMachineInstance(metav1.NamespaceAll).List(c.cmd.Context(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("error listing VMIs on node %s: %w", name, err)
 	}
@@ -114,4 +134,29 @@ func (c *evacuateCancelCommand) handleNode(name, _ string, opts *virtv1.Evacuate
 	}
 
 	return nil
+}
+
+func (c *evacuateCancelCommand) runMigrateCancel(vmiName, namespace string) error {
+	if !c.MigrateCancel {
+		return nil
+	}
+
+	cmd := NewMigrateCancelCommand()
+	cmd.SetOut(c.cmd.OutOrStdout())
+	cmd.SetErr(c.cmd.ErrOrStderr())
+
+	ctx, err := clientconfig.WithOverriddenNamespace(c.cmd.Context(), namespace)
+	if err != nil {
+		return err
+	}
+	cmd.SetContext(ctx)
+
+	args := []string{vmiName}
+	if dryRun {
+		args = append(args, dryRunArg)
+	}
+	cmd.SetArgs(args)
+
+	c.cmd.Printf("Invoking %q for VMI %s/%s\n", COMMAND_MIGRATE_CANCEL, namespace, vmiName)
+	return cmd.Execute()
 }
