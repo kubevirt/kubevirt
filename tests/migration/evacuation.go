@@ -170,11 +170,11 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 
 		It("should stop recreating migrations after evacuate-cancel", func() {
 			vmi = libvmifact.NewAlpine(
+				libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
+				libvmi.WithResourceMemory("512Mi"),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512Mi")
-
 			By("Creating a migration policy that prevents migration")
 			CreateMigrationPolicy(virtClient, PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
@@ -184,13 +184,12 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 			By("Evicting VMI pod")
 			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).NotTo(HaveOccurred())
-			eviction := &policyv1.Eviction{
+			err = virtClient.CoreV1().Pods(vmiPod.Namespace).EvictV1(context.Background(), &policyv1.Eviction{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      vmiPod.Name,
 					Namespace: vmiPod.Namespace,
 				},
-			}
-			err = virtClient.CoreV1().Pods(vmiPod.Namespace).EvictV1(context.Background(), eviction)
+			})
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(MatchError(ContainSubstring("Eviction triggered evacuation of VMI")))
 
@@ -215,11 +214,19 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Deleting the current migration one last time")
-			migs, _ := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
-			for _, mig := range migs.Items {
-				err = virtClient.VirtualMachineInstanceMigration(mig.Namespace).Delete(context.Background(), mig.Name, metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
-			}
+			Eventually(func() ([]v1.VirtualMachineInstanceMigration, error) {
+				migs, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+				if err != nil {
+					return nil, err
+				}
+				for _, mig := range migs.Items {
+					err = virtClient.VirtualMachineInstanceMigration(mig.Namespace).Delete(context.Background(), mig.Name, metav1.DeleteOptions{})
+					if err != nil {
+						return nil, err
+					}
+				}
+				return migs.Items, err
+			}, 30*time.Second, 1*time.Second).Should(HaveLen(0))
 
 			By("Ensuring no new migration is created")
 			Consistently(func() int {

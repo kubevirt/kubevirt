@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -18,33 +17,29 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	k8scorev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/testing"
-	"k8s.io/utils/ptr"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/kubevirt/fake"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
 var _ = Describe("EvacuateCancel Subresource API", func() {
 	const (
-		workerNode = "test-worker-01"
-		taintKey   = "test-node-drain-key"
+		workerNode          = "test-worker-01"
+		workerNodeWithTaint = "test-worker-02"
+		taintKey            = "test-node-drain-key"
 	)
-
 	var (
-		request    *restful.Request
-		response   *restful.Response
+		request  *restful.Request
+		response *restful.Response
+
 		virtClient *kubecli.MockKubevirtClient
-		vmClient   *kubecli.MockVirtualMachineInterface
-		vmiClient  *kubecli.MockVirtualMachineInstanceInterface
-		kubeClient *fake.Clientset
+		kubeClient *k8sfake.Clientset
 		app        *SubresourceAPIApp
 
 		kv = &v1.KubeVirt{
@@ -56,12 +51,12 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 				Configuration: v1.KubeVirtConfiguration{
 					DeveloperConfiguration: &v1.DeveloperConfiguration{},
 					MigrationConfiguration: &v1.MigrationConfiguration{
-						NodeDrainTaintKey: ptr.To(taintKey),
+						NodeDrainTaintKey: pointer.P(taintKey),
 					},
 				},
 			},
 			Status: v1.KubeVirtStatus{
-				Phase: v1.KubeVirtPhaseDeploying,
+				Phase: v1.KubeVirtPhaseDeployed,
 			},
 		}
 	)
@@ -82,14 +77,40 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 		ctrl := gomock.NewController(GinkgoT())
 
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		vmClient = kubecli.NewMockVirtualMachineInterface(ctrl)
-		vmiClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
-		kubeClient = fake.NewClientset()
+		kubeClient = k8sfake.NewClientset(
+			&k8scorev1.Node{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Node",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: workerNode,
+				},
+			},
+			&k8scorev1.Node{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Node",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: workerNodeWithTaint,
+				},
+				Spec: k8scorev1.NodeSpec{
+					Taints: []k8scorev1.Taint{
+						{
+							Key:    taintKey,
+							Effect: k8scorev1.TaintEffectNoSchedule,
+						},
+					},
+				},
+			},
+		)
 
-		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(vmClient).AnyTimes()
-		virtClient.EXPECT().VirtualMachine("").Return(vmClient).AnyTimes()
-		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiClient).AnyTimes()
-		virtClient.EXPECT().VirtualMachineInstance("").Return(vmiClient).AnyTimes()
+		fakeKubevirtClients := fake.NewSimpleClientset().KubevirtV1()
+		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(fakeKubevirtClients.VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
+		virtClient.EXPECT().VirtualMachine("").Return(fakeKubevirtClients.VirtualMachines("")).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(fakeKubevirtClients.VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstance("").Return(fakeKubevirtClients.VirtualMachineInstances("")).AnyTimes()
 
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 
@@ -101,148 +122,134 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 		return &readCloserWrapper{bytes.NewReader(optsJson)}
 	}
 
-	patchVMI := func(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
-		vmiCopy := vmi.DeepCopy()
-		vmiCopy.Status.EvacuationNodeName = ""
-		return vmi
+	newInvalidBody := func() io.ReadCloser {
+		return &readCloserWrapper{bytes.NewReader([]byte("invalid options"))}
 	}
 
-	newNode := func() *k8scorev1.Node {
-		return &k8scorev1.Node{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "Node",
-				APIVersion: "v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: workerNode,
-			},
-		}
-	}
-
-	It("Should fail because the node has taint [VMI]", func() {
+	newVMI := func(isEvacuated, withVM bool, node string) (*v1.VirtualMachineInstance, *v1.VirtualMachine) {
 		vmi := libvmi.New(
 			libvmi.WithName(testVMName),
 			libvmi.WithNamespace(metav1.NamespaceDefault),
 		)
-		vmi.Status.EvacuationNodeName = workerNode
+		vmi.Status.NodeName = node
+		if isEvacuated {
+			vmi.Status.EvacuationNodeName = node
+		}
 
-		vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, nil).AnyTimes()
+		var vm *v1.VirtualMachine = nil
+		if withVM {
+			vm = libvmi.NewVirtualMachine(vmi)
+			vm.Status.Created = true
+			vm.UID = "test-vm-uid"
+			vmi.OwnerReferences = append(vmi.OwnerReferences, metav1.OwnerReference{UID: "test-vm-uid"})
+		}
 
-		kubeClient.Fake.PrependReactor("get", "nodes", func(action testing.Action) (bool, runtime.Object, error) {
-			get, ok := action.(testing.GetAction)
-			Expect(ok).To(BeTrue())
-			Expect(get.GetName()).To(Equal(workerNode))
+		return vmi, vm
+	}
 
-			node := newNode()
-			node.Spec.Taints = append(node.Spec.Taints, k8scorev1.Taint{
-				Key:    taintKey,
-				Effect: k8scorev1.TaintEffectNoSchedule,
-			})
+	createVMI := func(isEvacuated, withVM bool, node string) (*v1.VirtualMachineInstance, *v1.VirtualMachine) {
+		var err error
+		vmi, vm := newVMI(isEvacuated, withVM, node)
+		if vm != nil {
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
+		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
 
-			return true, node, nil
+		return vmi, vm
+	}
+
+	When("Request to VirtualMachine", func() {
+		DescribeTable("Should succeed", func(isEvacuated, dryRun bool) {
+			vmi, _ := createVMI(isEvacuated, true, workerNode)
+
+			if dryRun {
+				request.Request.Body = newEvacuateCancelBody(&v1.EvacuateCancelOptions{DryRun: []string{metav1.DryRunAll}})
+			}
+
+			app.EvacuateCancelHandler(app.FetchVirtualMachineInstanceForVM)(request, response)
+			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+
+			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			if !dryRun {
+				Expect(vmi.Status.EvacuationNodeName).To(BeEmpty())
+			}
+		},
+			Entry("should succeed because the VM is evacuated", true, false),
+			Entry("should succeed because the VM is not evacuated", false, false),
+			Entry("should succeed because the VM is evacuated with dry-run", true, true),
+		)
+
+		DescribeTable("Should fail because not found resource", func(vmExists bool) {
+			if vmExists {
+				_, vm := newVMI(false, true, workerNode)
+				vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			app.EvacuateCancelHandler(app.FetchVirtualMachineInstanceForVM)(request, response)
+			Expect(response.StatusCode()).To(Equal(http.StatusNotFound))
+		},
+			Entry("should fail because vm is not found", false),
+			Entry("should fail because vmi is not found", true),
+		)
+
+		It("should fail because the node has taint", func() {
+			createVMI(true, true, workerNodeWithTaint)
+			app.EvacuateCancelHandler(app.FetchVirtualMachineInstanceForVM)(request, response)
+			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
 		})
 
-		app.EvacuateCancelHandler(app.FetchVirtualMachineInstance)(request, response)
-
-		Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+		It("Should fail because opts is invalid", func() {
+			createVMI(true, true, workerNode)
+			request.Request.Body = newInvalidBody()
+			app.EvacuateCancelHandler(app.FetchVirtualMachineInstanceForVM)(request, response)
+			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+		})
 	})
 
-	DescribeTable("Should succeed with the expected status code",
-		func(evacuateOpts *v1.EvacuateCancelOptions, isVM, isEvacuated bool, getVMErr, getVMIErr, patchVMIErr error, expectStatusCode int) {
-			vmi := libvmi.New(
-				libvmi.WithName(testVMName),
-				libvmi.WithNamespace(metav1.NamespaceDefault),
-			)
-			if isEvacuated {
-				vmi.Status.EvacuationNodeName = workerNode
-				kubeClient.Fake.PrependReactor("get", "nodes", func(action testing.Action) (bool, runtime.Object, error) {
-					get, ok := action.(testing.GetAction)
-					Expect(ok).To(BeTrue())
-					Expect(get.GetName()).To(Equal(workerNode))
+	When("Request to VirtualMachineInstance", func() {
+		DescribeTable("Should succeed with the expected status code", func(isEvacuated, dryRun bool) {
+			vmi, _ := createVMI(isEvacuated, false, workerNode)
 
-					return true, newNode(), nil
-				})
+			if dryRun {
+				request.Request.Body = newEvacuateCancelBody(&v1.EvacuateCancelOptions{DryRun: []string{metav1.DryRunAll}})
 			}
 
-			if evacuateOpts != nil {
-				request.Request.Body = newEvacuateCancelBody(evacuateOpts)
+			app.EvacuateCancelHandler(app.FetchVirtualMachineInstance)(request, response)
+			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+
+			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			if !dryRun {
+				Expect(vmi.Status.EvacuationNodeName).To(BeEmpty())
 			}
-
-			if isVM {
-				vm := libvmi.NewVirtualMachine(vmi)
-				vm.Status.Created = true
-				vm.UID = "test-vm-uid"
-
-				vmi.OwnerReferences = append(vmi.OwnerReferences, metav1.OwnerReference{UID: "test-vm-uid"})
-
-				vmClient.EXPECT().Get(context.Background(), vm.Name, metav1.GetOptions{}).Return(vm, getVMErr).AnyTimes()
-				vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, getVMIErr).AnyTimes()
-				vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions, _ ...string) (interface{}, interface{}) {
-						Expect(opts.DryRun).To(BeEquivalentTo(evacuateOpts.DryRun))
-						return patchVMI(vmi), patchVMIErr
-					}).AnyTimes()
-
-				app.EvacuateCancelHandler(app.FetchVirtualMachineInstanceForVM)(request, response)
-			} else {
-				vmiClient.EXPECT().Get(context.Background(), vmi.Name, metav1.GetOptions{}).Return(vmi, getVMIErr).AnyTimes()
-				vmiClient.EXPECT().Patch(context.Background(), vmi.Name, types.JSONPatchType, gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, name string, patchType types.PatchType, body interface{}, opts metav1.PatchOptions, _ ...string) (interface{}, interface{}) {
-						Expect(opts.DryRun).To(BeEquivalentTo(evacuateOpts.DryRun))
-						return patchVMI(vmi), patchVMIErr
-					}).AnyTimes()
-
-				app.EvacuateCancelHandler(app.FetchVirtualMachineInstance)(request, response)
-			}
-
-			Expect(response.StatusCode()).To(Equal(expectStatusCode))
 		},
-		Entry("should fail because the VMI is not found [VMI]",
-			&v1.EvacuateCancelOptions{}, false, false, nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), testVMName), nil, http.StatusNotFound,
-		),
-		Entry("should fail due to an internal server error [VMI]",
-			&v1.EvacuateCancelOptions{}, false, false, nil, fmt.Errorf("some internal error"), nil, http.StatusInternalServerError,
-		),
+			Entry("should succeed because the VMI is evacuated", true, false),
+			Entry("should succeed because the VMI is not evacuated", false, false),
+			Entry("should succeed because the VMI is evacuated with dry-run", true, true),
+		)
 
-		Entry("should fail because the VM is not found [VM]",
-			&v1.EvacuateCancelOptions{}, true, false, errors.NewNotFound(v1.Resource("virtualmachine"), testVMName), nil, nil, http.StatusNotFound,
-		),
-		Entry("should fail due to an internal server error [VM]",
-			&v1.EvacuateCancelOptions{}, true, false, fmt.Errorf("some internal error"), nil, nil, http.StatusInternalServerError,
-		),
-		Entry("should fail because the VM exists but the VMI is not found [VM]",
-			&v1.EvacuateCancelOptions{}, true, false, nil, errors.NewNotFound(v1.Resource("virtualmachineinstance"), testVMName), nil, http.StatusNotFound,
-		),
-		Entry("should fail because the VM exists but there is an internal server error [VM]",
-			&v1.EvacuateCancelOptions{}, true, false, nil, fmt.Errorf("some internal error"), nil, http.StatusInternalServerError,
-		),
+		It("should fail because vmi is not found", func() {
+			app.EvacuateCancelHandler(app.FetchVirtualMachineInstance)(request, response)
+			Expect(response.StatusCode()).To(Equal(http.StatusNotFound))
+		})
 
-		Entry("should fail because the patch operation failed [VMI]",
-			&v1.EvacuateCancelOptions{}, false, true, nil, nil, fmt.Errorf("patch failed"), http.StatusInternalServerError,
-		),
-		Entry("should fail because the patch operation failed [VM]",
-			&v1.EvacuateCancelOptions{}, true, true, nil, nil, fmt.Errorf("patch failed"), http.StatusInternalServerError,
-		),
+		It("should fail because the node has taint", func() {
+			createVMI(false, false, workerNodeWithTaint)
+			app.EvacuateCancelHandler(app.FetchVirtualMachineInstance)(request, response)
+			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+		})
 
-		Entry("should succeed because the VMI is not evacuated [VMI]",
-			&v1.EvacuateCancelOptions{}, false, false, nil, nil, nil, http.StatusOK,
-		),
-		Entry("should succeed because the VMI is evacuated [VMI]",
-			&v1.EvacuateCancelOptions{}, false, true, nil, nil, nil, http.StatusOK,
-		),
-
-		Entry("should succeed because the VM is not evacuated [VM]",
-			&v1.EvacuateCancelOptions{}, true, false, nil, nil, nil, http.StatusOK,
-		),
-		Entry("should succeed because the VM is evacuated [VM]",
-			&v1.EvacuateCancelOptions{}, true, true, nil, nil, nil, http.StatusOK,
-		),
-
-		Entry("should succeed because the VMI is evacuated with dry-run [VMI]",
-			&v1.EvacuateCancelOptions{DryRun: []string{metav1.DryRunAll}}, false, true, nil, nil, nil, http.StatusOK,
-		),
-		Entry("should succeed because the VM is evacuated with dry-run [VM]",
-			&v1.EvacuateCancelOptions{DryRun: []string{metav1.DryRunAll}}, true, true, nil, nil, nil, http.StatusOK,
-		),
-	)
+		It("Should fail because opts is invalid", func() {
+			createVMI(true, false, workerNode)
+			request.Request.Body = newInvalidBody()
+			app.EvacuateCancelHandler(app.FetchVirtualMachineInstance)(request, response)
+			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+		})
+	})
 })
