@@ -46,10 +46,10 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("[sig-compute]VNC", decorators.SigCompute, decorators.WgArm64, func() {
+var _ = Describe(SIG("[sig-compute]VNC", decorators.SigCompute, decorators.WgArm64, Ordered, decorators.OncePerOrderedCleanup, func() {
 	var vmi *v1.VirtualMachineInstance
 
-	BeforeEach(func() {
+	BeforeAll(func() {
 		var err error
 		vmi = libvmifact.NewGuestless(libvmi.WithAutoattachGraphicsDevice(true))
 		vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).
