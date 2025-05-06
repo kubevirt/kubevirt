@@ -23,7 +23,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -45,6 +44,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -419,10 +419,10 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 	Context("Custom patches", func() {
 		It("Should accept valid JSON patches", func() {
 			validPatch := patch.New(patch.WithReplace("/spec/template/spec/domain/devices/interfaces/0/macAddress", "DE-AD-00-FF-FF-FF"))
-			p, err := validPatch.GeneratePayload()
-			Expect(err).NotTo(HaveOccurred())
 
-			vmClone.Spec.Patches = []string{string(p)}
+			var err error
+			vmClone.Spec.Patches, err = validPatch.ToSlice()
+			Expect(err).NotTo(HaveOccurred())
 
 			admitter.admitAndExpect(vmClone, true)
 		})

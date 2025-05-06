@@ -71,6 +71,25 @@ var _ = Describe("PatchSet", func() {
 		)))
 	})
 
+	It("should convert to a slice of strings", func() {
+		patch := patch.New(patch.WithRemove("/abcd"),
+			patch.WithAdd("/abcd", "test"),
+			patch.WithReplace("/abcd", "test"),
+			patch.WithTest("/abcd", "test"))
+
+		slice, err := patch.ToSlice()
+		Expect(err).NotTo(HaveOccurred())
+
+		expectedSlice := []string{
+			`{"op":"remove","path":"/abcd"}`,
+			`{"op":"add","path":"/abcd","value":"test"}`,
+			`{"op":"replace","path":"/abcd","value":"test"}`,
+			`{"op":"test","path":"/abcd","value":"test"}`,
+		}
+
+		Expect(slice).To(Equal(expectedSlice))
+	})
+
 	It("should generate an empty set of patches", func() {
 		patches := patch.New()
 		Expect(patches.IsEmpty()).To(BeTrue())

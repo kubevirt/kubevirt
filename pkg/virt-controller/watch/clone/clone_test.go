@@ -1030,11 +1030,9 @@ var _ = Describe("Clone", func() {
 				patch.WithRemove("/spec/template/metadata/labels/label-to-remove"),
 			)
 
-			for _, operation := range patchSet.GetPatches() {
-				json, err := operation.MarshalJSON()
-				Expect(err).NotTo(HaveOccurred())
-				vmClone.Spec.Patches = append(vmClone.Spec.Patches, string(json))
-			}
+			var err error
+			vmClone.Spec.Patches, err = patchSet.ToSlice()
+			Expect(err).NotTo(HaveOccurred())
 
 			// Extra label we want to remove from the spec labels
 			sourceVM.Spec.Template.ObjectMeta.Labels = make(map[string]string)
@@ -1086,11 +1084,9 @@ var _ = Describe("Clone", func() {
 				patch.WithReplace("/spec/template/spec/domain/devices/interfaces/0/macAddress", "DE-AD-00-FF-FF-FF"),
 			)
 
-			for _, operation := range patchSet.GetPatches() {
-				json, err := operation.MarshalJSON()
-				Expect(err).NotTo(HaveOccurred())
-				vmClone.Spec.Patches = append(vmClone.Spec.Patches, string(json))
-			}
+			var err error
+			vmClone.Spec.Patches, err = patchSet.ToSlice()
+			Expect(err).NotTo(HaveOccurred())
 
 			addVM(sourceVM)
 			addClone(vmClone)
