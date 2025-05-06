@@ -34,11 +34,16 @@ func (converterPPC64) GetArchitecture() string {
 	return ppc64le
 }
 
-func (converterPPC64) AddGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
+func (converterPPC64) AddGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
+	videoType, ok := getVideoType(vmi)
+	if !ok {
+		videoType = "vga"
+	}
+
 	domain.Spec.Devices.Video = []api.Video{
 		{
 			Model: api.VideoModel{
-				Type:  "vga",
+				Type:  videoType,
 				Heads: pointer.P(graphicsDeviceDefaultHeads),
 				VRam:  pointer.P(graphicsDeviceDefaultVRAM),
 			},

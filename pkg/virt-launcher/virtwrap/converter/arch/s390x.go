@@ -34,11 +34,16 @@ func (converterS390X) GetArchitecture() string {
 	return s390x
 }
 
-func (converterS390X) AddGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
+func (converterS390X) AddGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
+	videoType, ok := getVideoType(vmi)
+	if !ok {
+		videoType = v1.VirtIO
+	}
+
 	domain.Spec.Devices.Video = []api.Video{
 		{
 			Model: api.VideoModel{
-				Type:  v1.VirtIO,
+				Type:  videoType,
 				Heads: pointer.P(graphicsDeviceDefaultHeads),
 			},
 		},
