@@ -115,16 +115,6 @@ var _ = Describe("Pool", func() {
 			key, err := virtcontroller.KeyFunc(vm)
 			Expect(err).To(Not(HaveOccurred()))
 			mockQueue.Add(key)
-			fakeVirtClient.Fake.PrependReactor("get", "virtualmachineinstances", func(action k8stesting.Action) (handled bool, obj runtime.Object, err error) {
-				getAction, ok := action.(k8stesting.GetAction)
-				if !ok {
-					return false, nil, nil
-				}
-				if getAction.GetNamespace() == vm.Namespace && getAction.GetName() == vm.Name {
-					return true, vm, nil
-				}
-				return false, nil, nil
-			})
 		}
 
 		BeforeEach(func() {
