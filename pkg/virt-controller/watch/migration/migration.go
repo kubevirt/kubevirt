@@ -1787,7 +1787,7 @@ func (c *Controller) addPVC(obj interface{}) {
 		return
 	}
 
-	if !strings.HasPrefix(pvc.Name, backendstorage.PVCPrefix) {
+	if !strings.Contains(pvc.Name, backendstorage.PVCPrefix) {
 		return
 	}
 	migrationName, exists := pvc.Labels[virtv1.MigrationNameLabel]
