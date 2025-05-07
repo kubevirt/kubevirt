@@ -32,23 +32,11 @@ import (
 	domainschema "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-type defaultNetLinkStub struct{}
-
-func (nl defaultNetLinkStub) LinkByName(name string) (vishnetlink.Link, error) {
-	return nil, vishnetlink.LinkNotFoundError{}
-}
-
-type netLinkStub struct{}
-
-func (nl netLinkStub) LinkByName(name string) (vishnetlink.Link, error) {
-	return &vishnetlink.Veth{LinkAttrs: vishnetlink.LinkAttrs{Name: name}}, nil
-}
-
 var _ = Describe("pod network configurator", func() {
 	Context("generate domain spec interface", func() {
 		DescribeTable("should fail to create configurator given",
 			func(ifaces []vmschema.Interface, networks []vmschema.Network) {
-				_, err := domain.NewPasstNetworkConfigurator(ifaces, networks, domain.NetworkConfiguratorOptions{}, &defaultNetLinkStub{})
+				_, err := domain.NewPasstNetworkConfigurator(ifaces, networks, domain.NetworkConfiguratorOptions{}, netlinkStubWithLinkNotFoundError)
 
 				Expect(err).To(HaveOccurred())
 			},
@@ -75,7 +63,7 @@ var _ = Describe("pod network configurator", func() {
 				PciAddress: "invalid-pci-address"}}
 			networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
 
-			testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, domain.NetworkConfiguratorOptions{}, &defaultNetLinkStub{})
+			testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, domain.NetworkConfiguratorOptions{}, netlinkStubWithLinkNotFoundError)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = testMutator.Mutate(&domainschema.DomainSpec{})
@@ -87,7 +75,7 @@ var _ = Describe("pod network configurator", func() {
 				ifaces := []vmschema.Interface{*iface}
 				networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
 
-				testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, domain.NetworkConfiguratorOptions{}, &defaultNetLinkStub{})
+				testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, domain.NetworkConfiguratorOptions{}, netlinkStubWithLinkNotFoundError)
 				Expect(err).ToNot(HaveOccurred())
 
 				mutatedDomSpec, err := testMutator.Mutate(&domainschema.DomainSpec{})
@@ -230,7 +218,7 @@ var _ = Describe("pod network configurator", func() {
 				ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"}}}
 				networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
 
-				testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, *opts, &defaultNetLinkStub{})
+				testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, *opts, netlinkStubWithLinkNotFoundError)
 				Expect(err).ToNot(HaveOccurred())
 
 				mutatedDomSpec, err := testMutator.Mutate(&domainschema.DomainSpec{})
@@ -287,7 +275,7 @@ var _ = Describe("pod network configurator", func() {
 				Model:       &domainschema.Model{Type: "virtio-non-transitional"},
 			}
 
-			testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, domain.NetworkConfiguratorOptions{}, &defaultNetLinkStub{})
+			testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, domain.NetworkConfiguratorOptions{}, netlinkStubWithLinkNotFoundError)
 			Expect(err).ToNot(HaveOccurred())
 
 			existingIface := &domainschema.Interface{Alias: domainschema.NewUserDefinedAlias("existing-iface")}
@@ -313,7 +301,7 @@ var _ = Describe("pod network configurator", func() {
 				Model:       &domainschema.Model{Type: "virtio-non-transitional"},
 			}
 
-			testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, domain.NetworkConfiguratorOptions{}, &defaultNetLinkStub{})
+			testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, domain.NetworkConfiguratorOptions{}, netlinkStubWithLinkNotFoundError)
 			Expect(err).ToNot(HaveOccurred())
 
 			testDomSpec := &domainschema.DomainSpec{}
@@ -324,6 +312,7 @@ var _ = Describe("pod network configurator", func() {
 
 			Expect(testMutator.Mutate(mutatedDomSpec)).To(Equal(mutatedDomSpec))
 		})
+
 		It("should set domain interface source link to the optional one if exists", func() {
 			networks := []vmschema.Network{*vmschema.DefaultPodNetwork()}
 			ifaces := []vmschema.Interface{{Name: "default", Binding: &vmschema.PluginBinding{Name: "passt"}}}
@@ -336,7 +325,7 @@ var _ = Describe("pod network configurator", func() {
 				PortForward: []domainschema.InterfacePortForward{{Proto: "tcp"}, {Proto: "udp"}},
 				Model:       &domainschema.Model{Type: "virtio-non-transitional"},
 			}
-			testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, domain.NetworkConfiguratorOptions{}, &netLinkStub{})
+			testMutator, err := domain.NewPasstNetworkConfigurator(ifaces, networks, domain.NetworkConfiguratorOptions{}, &netLinkStub{link: &vishnetlink.Veth{LinkAttrs: vishnetlink.LinkAttrs{Name: "ovn-udn1"}}})
 			Expect(err).ToNot(HaveOccurred())
 
 			testDomSpec := &domainschema.DomainSpec{}
@@ -350,3 +339,14 @@ var _ = Describe("pod network configurator", func() {
 
 	})
 })
+
+type netLinkStub struct {
+	link vishnetlink.Link
+	err  error
+}
+
+func (nl netLinkStub) LinkByName(name string) (vishnetlink.Link, error) {
+	return nl.link, nl.err
+}
+
+var netlinkStubWithLinkNotFoundError = &netLinkStub{err: vishnetlink.LinkNotFoundError{}}

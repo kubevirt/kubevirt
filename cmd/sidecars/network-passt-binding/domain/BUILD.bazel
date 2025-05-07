@@ -6,7 +6,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/cmd/sidecars/network-passt-binding/domain",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/network/driver/netlink:go_default_library",
         "//pkg/network/istio:go_default_library",
         "//pkg/network/namescheme:go_default_library",
         "//pkg/network/vmispec:go_default_library",
