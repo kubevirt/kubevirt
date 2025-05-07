@@ -18,6 +18,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
+	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -388,7 +389,7 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additiona
 
 	// Having a TPM device will spawn a swtpm process
 	// In `ps`, swtpm has VSZ of 53808 and RSS of 3496, so 53Mi should do
-	if vmi.Spec.Domain.Devices.TPM != nil {
+	if tpm.HasDevice(&vmi.Spec) {
 		overhead.Add(resource.MustParse("53Mi"))
 	}
 

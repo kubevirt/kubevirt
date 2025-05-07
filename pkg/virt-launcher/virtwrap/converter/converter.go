@@ -65,6 +65,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
+	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
@@ -1990,7 +1991,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	if vmi.Spec.Domain.Devices.TPM != nil {
+	if tpm.HasDevice(&vmi.Spec) {
 		domain.Spec.Devices.TPMs = []api.TPM{
 			{
 				Model: "tpm-tis",
@@ -2000,7 +2001,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				},
 			},
 		}
-		if vmi.Spec.Domain.Devices.TPM.Persistent != nil && *vmi.Spec.Domain.Devices.TPM.Persistent {
+		if tpm.HasPersistentDevice(&vmi.Spec) {
 			domain.Spec.Devices.TPMs[0].Backend.PersistentState = "yes"
 			// tpm-crb is not techincally required for persistence, but since there was a desire for both,
 			//   we decided to introduce them together. Ultimately, we should use tpm-crb for all cases,
