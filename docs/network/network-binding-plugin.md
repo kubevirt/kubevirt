@@ -505,3 +505,10 @@ derived from virtual machines using the plugin.
 For a network binding plugin to support compute resource overhead, the `computeResourceOverhead` field
 must be specified in the Kubevirt CR.
 See the user-guide network binding plugin [section](https://kubevirt.io/user-guide/network/network_binding_plugins/#register) on how to define it.
+
+## Network plugin custom sockets
+
+Some plugins may need to create custom sockets.
+In order to do so, please create a folder (i.e `userdata`) under container's `HookSocketsSharedDirectory` directory and put there the required sockets.
+Reason it should be in a folder, is that directly under `HookSocketsSharedDirectory` itself, only the gRPC socket should reside,
+because virt-launcher scans the root mount of each sidecar folder for it's gRPC socket.
