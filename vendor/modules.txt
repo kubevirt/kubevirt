@@ -66,6 +66,8 @@ github.com/evanphx/json-patch
 # github.com/fatih/color v1.15.0
 ## explicit; go 1.17
 github.com/fatih/color
+# github.com/frankban/quicktest v1.14.6
+## explicit; go 1.13
 # github.com/fsnotify/fsnotify v1.7.0
 ## explicit; go 1.17
 github.com/fsnotify/fsnotify
@@ -182,10 +184,6 @@ github.com/google/goterm/term
 # github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad
 ## explicit; go 1.22
 github.com/google/pprof/profile
-# github.com/google/renameio/v2 v2.0.0
-## explicit; go 1.13
-github.com/google/renameio/v2
-github.com/google/renameio/v2/maybe
 # github.com/google/uuid v1.6.0
 ## explicit
 github.com/google/uuid
@@ -404,14 +402,6 @@ github.com/pierrec/lz4/v4/internal/lz4block
 github.com/pierrec/lz4/v4/internal/lz4errors
 github.com/pierrec/lz4/v4/internal/lz4stream
 github.com/pierrec/lz4/v4/internal/xxh32
-# github.com/pkg/diff v0.0.0-20210226163009-20ebb0f2a09e
-## explicit; go 1.15
-github.com/pkg/diff
-github.com/pkg/diff/ctxt
-github.com/pkg/diff/edit
-github.com/pkg/diff/intern
-github.com/pkg/diff/myers
-github.com/pkg/diff/write
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
@@ -468,9 +458,6 @@ github.com/vishvananda/netlink/nl
 # github.com/vishvananda/netns v0.0.4
 ## explicit; go 1.17
 github.com/vishvananda/netns
-# github.com/wadey/gocovmerge v0.0.0-20160331181800-b5bfa59ec0ad
-## explicit
-github.com/wadey/gocovmerge
 # github.com/x448/float16 v0.8.4
 ## explicit; go 1.11
 github.com/x448/float16
@@ -1335,15 +1322,6 @@ libvirt.org/go/libvirt
 # libvirt.org/go/libvirtxml v1.11000.1
 ## explicit; go 1.11
 libvirt.org/go/libvirtxml
-# mvdan.cc/editorconfig v0.2.1-0.20231228180347-1925077f8eb2
-## explicit; go 1.20
-mvdan.cc/editorconfig
-# mvdan.cc/sh/v3 v3.8.0
-## explicit; go 1.21
-mvdan.cc/sh/v3/cmd/shfmt
-mvdan.cc/sh/v3/fileutil
-mvdan.cc/sh/v3/syntax
-mvdan.cc/sh/v3/syntax/typedjson
 # sigs.k8s.io/controller-runtime v0.20.2
 ## explicit; go 1.23.0
 sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue
