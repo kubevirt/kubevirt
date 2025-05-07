@@ -8,6 +8,5 @@ go_library(
     deps = [
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//tests/flags:go_default_library",
-        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
     ],
 )

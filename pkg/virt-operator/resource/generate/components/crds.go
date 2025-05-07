@@ -596,7 +596,6 @@ func NewVirtualMachineRestoreCrd() (*extv1.CustomResourceDefinition, error) {
 		{Name: "TargetName", Type: "string", JSONPath: ".spec.target.name"},
 		{Name: "Complete", Type: "boolean", JSONPath: ".status.complete"},
 		{Name: "RestoreTime", Type: "date", JSONPath: ".status.restoreTime"},
-		{Name: "Error", Type: "string", JSONPath: errorMessageJSONPath},
 	})
 	if err != nil {
 		return nil, err
