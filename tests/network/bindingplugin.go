@@ -141,33 +141,11 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 	})
 
 	Context("with domain attachment managedTap type", func() {
-		const (
-			bindingName = "managed-tap"
-			networkName = "default"
-		)
+		const bindingName = "managed-tap"
 
 		BeforeEach(func() {
 			err := config.WithNetBindingPlugin(bindingName, v1.InterfaceBindingPlugin{DomainAttachmentType: v1.ManagedTap})
 			Expect(err).NotTo(HaveOccurred())
-		})
-
-		It("can run a virtual machine with one primary managed-tap interface", func() {
-			var vmi *v1.VirtualMachineInstance
-
-			primaryIface := libvmi.InterfaceWithBindingPlugin(
-				networkName, v1.PluginBinding{Name: bindingName},
-			)
-			vmi = libvmifact.NewAlpineWithTestTooling(
-				libvmi.WithInterface(primaryIface),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			)
-
-			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine, libwait.WithTimeout(30))
-
-			Expect(vmi.Status.Interfaces).To(HaveLen(1))
-			Expect(vmi.Status.Interfaces[0].Name).To(Equal(primaryIface.Name))
 		})
 
 		It("can establish communication between two VMs", func() {
@@ -230,6 +208,8 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 
 			serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToAlpine)
 			clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToAlpine)
+			Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
+			Expect(serverVMI.Status.Interfaces[0].Name).To(Equal(primaryIface.Name))
 
 			Expect(libnet.AddIPAddress(serverVMI, guestIfaceName, serverCIDR)).To(Succeed())
 			Expect(libnet.AddIPAddress(clientVMI, guestIfaceName, clientCIDR)).To(Succeed())
