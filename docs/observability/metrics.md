@@ -297,6 +297,9 @@ Total number of written bytes. Type: Counter.
 ### kubevirt_vmi_vcpu_delay_seconds_total
 Amount of time spent by each vcpu waiting in the queue instead of running. Type: Counter.
 
+### kubevirt_vmi_vcpu_idle_seconds:5m
+Calculated idle seconds for vCPU over a 5-minute interval; derived as 300 minus the increase in kubevirt_vmi_vcpu_seconds_total over the interval. Type: Gauge.
+
 ### kubevirt_vmi_vcpu_seconds_total
 Total amount of time spent in each state by each vcpu (cpu_time excluding hypervisor time). Where `id` is the vcpu identifier and `state` can be one of the following: [`OFFLINE`, `RUNNING`, `BLOCKED`]. Type: Counter.
 

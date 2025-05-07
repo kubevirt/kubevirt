@@ -814,3 +814,21 @@ tests:
       - eval_time: 13m
         alertname: KubeVirtDeprecatedAPIRequested
         exp_alerts: []
+
+  # Test recording rule for kubevirt_vmi_vcpu_idle_seconds
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_vcpu_seconds_total{container="virt-handler", name="vm-example-1", namespace="default", node="node-1"}'
+        # time:  0m   1m   2m   3m   4m   5m   6m   7m   8m   9m   10m
+        values: "0    10   20   30   40   50   51   52   53   54   350"
+    promql_expr_test:
+      - expr: kubevirt_vmi_vcpu_idle_seconds:5m
+        eval_time: 5m
+        exp_samples:
+          - labels: 'kubevirt_vmi_vcpu_idle_seconds:5m{container="virt-handler", name="vm-example-1", namespace="default", node="node-1"}'
+            value: 250
+      - expr: kubevirt_vmi_vcpu_idle_seconds:5m
+        eval_time: 10m
+        exp_samples:
+          - labels: 'kubevirt_vmi_vcpu_idle_seconds:5m{container="virt-handler", name="vm-example-1", namespace="default", node="node-1"}'
+            value: 0
