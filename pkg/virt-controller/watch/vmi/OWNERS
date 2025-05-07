@@ -1,8 +1,19 @@
 # See the OWNERS docs at https://go.k8s.io/owners
-reviewers:
-  - sig-compute-reviewers
-approvers:
-  - sig-compute-approvers
-labels:
-  - area/controller
-  - sig/compute
+
+filters:
+  ".*":
+    reviewers:
+      - sig-compute-reviewers
+    approvers:
+      - sig-compute-approvers
+    labels:
+      - area/controller
+      - sig/compute
+  "storage.go|datavolumes.go":
+    approvers:
+      - sig-storage-approvers
+    reviewers:
+      - sig-storage-reviewers
+    labels:
+      - area/controller
+      - sig/storage
