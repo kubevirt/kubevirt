@@ -1123,7 +1123,7 @@ func (r *KubernetesReporter) dumpK8sEntityToFile(virtCli kubecli.KubevirtClient,
 }
 
 func (r *KubernetesReporter) logClusterOverview() {
-	stdout, stderr, err := clientcmd.RunCommand("", clientcmd.GetK8sCmdClient(), "get", "all", "--all-namespaces", "-o", "wide")
+	stdout, stderr, err := clientcmd.RunCommand("", "kubectl", "get", "all", "--all-namespaces", "-o", "wide")
 	if err != nil {
 		printError("failed to fetch cluster overview: %v, %s", err, stderr)
 		return

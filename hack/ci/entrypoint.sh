@@ -102,10 +102,9 @@ function run_tests() {
     # required to be set for test binary
     export ARTIFACTS=${ARTIFACT_DIR}
 
-    OC_PATH=$(get_path_or_empty_string_for_cmd oc)
     KUBECTL_PATH=$(get_path_or_empty_string_for_cmd kubectl)
 
-    tests.test -v=5 -kubeconfig=${KUBECONFIG} -container-tag=${DOCKER_TAG} -container-tag-alt= -container-prefix=${DOCKER_PREFIX} -image-prefix-alt=-kv -oc-path=${OC_PATH} -kubectl-path=${KUBECTL_PATH} -test.timeout 420m -ginkgo.noColor -ginkgo.succinct -ginkgo.slow-spec-threshold=60s ${KUBEVIRT_TESTS_FOCUS} -junit-output=${ARTIFACT_DIR}/junit.functest.xml -installed-namespace=kubevirt -previous-release-tag= -previous-release-registry=quay.io/kubevirt -deploy-testing-infra=false
+    tests.test -v=5 -kubeconfig=${KUBECONFIG} -container-tag=${DOCKER_TAG} -container-tag-alt= -container-prefix=${DOCKER_PREFIX} -image-prefix-alt=-kv -kubectl-path=${KUBECTL_PATH} -test.timeout 420m -ginkgo.noColor -ginkgo.succinct -ginkgo.slow-spec-threshold=60s ${KUBEVIRT_TESTS_FOCUS} -junit-output=${ARTIFACT_DIR}/junit.functest.xml -installed-namespace=kubevirt -previous-release-tag= -previous-release-registry=quay.io/kubevirt -deploy-testing-infra=false
 }
 
 export PATH="$BIN_DIR:$PATH"

@@ -34,7 +34,6 @@ var KubeVirtRepoPrefix = "quay.io/kubevirt"
 var ImagePrefixAlt = ""
 var ContainerizedDataImporterNamespace = "cdi"
 var KubeVirtKubectlPath = ""
-var KubeVirtOcPath = ""
 var KubeVirtVirtctlPath = ""
 var KubeVirtExampleGuestAgentPath = ""
 var KubeVirtInstallNamespace string
@@ -73,7 +72,6 @@ func init() {
 	flag.StringVar(&ImagePrefixAlt, "image-prefix-alt", "", "Optional prefix for virt-* image names for additional imagePrefix operator test")
 	flag.StringVar(&ContainerizedDataImporterNamespace, "cdi-namespace", "cdi", "Set the repository prefix for CDI components")
 	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
-	flag.StringVar(&KubeVirtOcPath, "oc-path", "", "Set path to oc binary")
 	flag.StringVar(&KubeVirtVirtctlPath, "virtctl-path", "", "Set path to virtctl binary")
 	flag.StringVar(&KubeVirtExampleGuestAgentPath, "example-guest-agent-path", "", "Set path to the example-guest-agent binary which is used for vsock testing")
 	flag.StringVar(&KubeVirtInstallNamespace, "installed-namespace", "", "Set the namespace KubeVirt is installed in")

@@ -146,7 +146,7 @@ var _ = Describe(SIG("Port-forward", func() {
 }))
 
 func portForwardCommand(pod *k8sv1.Pod, sourcePort, targetPort int) (*exec.Cmd, error) {
-	_, cmd, err := clientcmd.CreateCommandWithNS(pod.Namespace, clientcmd.GetK8sCmdClient(), "port-forward", pod.Name, fmt.Sprintf("%d:%d", sourcePort, targetPort))
+	_, cmd, err := clientcmd.CreateCommandWithNS(pod.Namespace, "kubectl", "port-forward", pod.Name, fmt.Sprintf("%d:%d", sourcePort, targetPort))
 
 	return cmd, err
 }

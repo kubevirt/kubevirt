@@ -187,7 +187,7 @@ func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte
 		sourcePort := 4321 + rand.Intn(6000)
 		targetPort := 9090
 		Eventually(func() error {
-			_, cmd, err := clientcmd.CreateCommandWithNS(monitoringNs, clientcmd.GetK8sCmdClient(),
+			_, cmd, err := clientcmd.CreateCommandWithNS(monitoringNs, "kubectl",
 				"port-forward", "service/prometheus-k8s", fmt.Sprintf("%d:%d", sourcePort, targetPort))
 			if err != nil {
 				return err
