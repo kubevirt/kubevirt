@@ -137,14 +137,10 @@ func (h *HeartBeat) do() {
 		cpuManagerEnabled = h.isCPUManagerEnabled(h.cpuManagerPaths)
 	}
 
-	ksmEnabled, ksmEnabledByUs, _ := handleKSM(h.host, h.clientset, h.clusterConfig)
-
-	data = []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s", "%s": "%t", "%s": "%t"}, "annotations": {"%s": %s, "%s": "%t"}}}`,
+	data = []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s", "%s": "%t"}, "annotations": {"%s": %s}}}`,
 		v1.NodeSchedulable, kubevirtSchedulable,
 		v1.CPUManager, cpuManagerEnabled,
-		v1.KSMEnabledLabel, ksmEnabled,
 		v1.VirtHandlerHeartbeat, string(now),
-		v1.KSMHandlerManagedAnnotation, ksmEnabledByUs,
 	))
 	_, err = h.clientset.Nodes().Patch(context.Background(), h.host, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 	if err != nil {

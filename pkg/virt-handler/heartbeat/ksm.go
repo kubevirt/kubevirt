@@ -23,6 +23,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
@@ -34,6 +35,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	k8sv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -319,6 +321,38 @@ func handleKSM(nodeName string, client k8sv1.CoreV1Interface, clusterConfig *vir
 	ksmEnabledByUs = ksm.running
 
 	return
+}
+
+func HandleKSMUpdate(nodeName string, client k8sv1.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig, forceUpdate bool) {
+	ksmEnabled, ksmEnabledByUs, needsUpdate := handleKSM(nodeName, client, clusterConfig)
+	if !forceUpdate && !needsUpdate {
+		return
+	}
+
+	// merge patch is being used here to handle the case in which the node has an empty/nil labels/annotations map,
+	// which would cause a JSON patch to fail.
+	patchPayload := struct {
+		Metadata metav1.ObjectMeta `json:"metadata"`
+	}{
+		Metadata: metav1.ObjectMeta{
+			Labels: map[string]string{
+				kubevirtv1.KSMEnabledLabel: fmt.Sprintf("%t", ksmEnabled),
+			},
+			Annotations: map[string]string{
+				kubevirtv1.KSMHandlerManagedAnnotation: fmt.Sprintf("%t", ksmEnabledByUs),
+			},
+		},
+	}
+
+	patchBytes, err := json.Marshal(patchPayload)
+	if err != nil {
+		log.DefaultLogger().Reason(err).Error("Can't parse json patch")
+	}
+
+	_, err = client.Nodes().Patch(context.Background(), nodeName, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", nodeName)
+	}
 }
 
 func disableKSM(nodeCache *cache.OneShotCache[*v1.Node]) {
