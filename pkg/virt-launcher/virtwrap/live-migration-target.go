@@ -147,6 +147,13 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 	options *cmdv1.VirtualMachineOptions,
 ) error {
 	logger := log.Log.Object(vmi)
+	if l.imageVolumeFeatureGateEnabled {
+		err := l.linkImageVolumeFilePaths(vmi)
+		if err != nil {
+			logger.Reason(err).Error("failed link ImageVolumeFilePaths")
+			return err
+		}
+	}
 
 	c, err := l.generateConverterContext(vmi, allowEmulation, options, true)
 	if err != nil {

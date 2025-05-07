@@ -71,6 +71,7 @@ go_test(
     embed = [":go_default_library"],
     deps = [
         "//pkg/config:go_default_library",
+        "//pkg/container-disk:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/network/istio:go_default_library",
@@ -104,5 +105,6 @@ go_test(
         "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
         "//vendor/k8s.io/client-go/testing:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
+        "//vendor/k8s.io/utils/ptr:go_default_library",
     ],
 )
