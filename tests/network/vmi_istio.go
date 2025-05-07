@@ -458,7 +458,7 @@ var istioTestsWithPasstBinding = func() {
 		err := config.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
 			SidecarImage:                passtSidecarImage,
 			NetworkAttachmentDefinition: passtNetAttDefName,
-			Migration:                   &v1.InterfaceBindingMigration{Method: v1.LinkRefresh},
+			Migration:                   &v1.InterfaceBindingMigration{},
 		})
 		Expect(err).NotTo(HaveOccurred())
 	})
