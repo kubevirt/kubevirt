@@ -446,7 +446,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 					Expect(scheduledCond.Status).To(BeEquivalentTo(k8sv1.ConditionFalse))
 					Expect(scheduledCond.Reason).To(BeEquivalentTo(k8sv1.PodReasonUnschedulable))
-					Expect(scheduledCond.Message).To(ContainSubstring("node(s) didn't match Pod's node affinity/selector."))
+					Expect(scheduledCond.Message).To(ContainSubstring("node(s) didn't match Pod's node affinity/selector"))
 				})
 			})
 		})
