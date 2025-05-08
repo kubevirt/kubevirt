@@ -195,6 +195,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			mockIsolationDetector,
 			migrationProxy,
 			nil, // capabilities
+			"/tmp/%d",
 		)
 
 		vmiTestUUID = uuid.NewUUID()
@@ -306,7 +307,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 					TargetNodeAddress: "othernode",
 					Completed:         false,
 				}))))
-			d.Spec.Metadata.KubeVirt.Migration.FailureReason = "some failure happend"
+			d.Spec.Metadata.KubeVirt.Migration.FailureReason = "some failure happened"
 
 			controller.setMigrationProgressStatus(vmi, d)
 

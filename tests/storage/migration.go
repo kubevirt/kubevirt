@@ -453,7 +453,6 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				srcDV, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(err).ToNot(HaveOccurred())
 			destDV := createBlankDV(virtClient, ns, size)
 			vm := createVMWithDV(srcDV, volName)
 			By("Update volumes")
@@ -686,7 +685,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			}).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(BeNil())
 		})
 
-		Context("should be able to recover from an interuppted volume migration", func() {
+		Context("should be able to recover from an interrupted volume migration", func() {
 			const volName = "volume0"
 
 			createMigpolicyWithLimitedBandwidth := func(vmi *virtv1.VirtualMachineInstance) {

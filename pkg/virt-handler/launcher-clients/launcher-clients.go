@@ -44,7 +44,7 @@ type LauncherClientsManager interface {
 	GetVerifiedLauncherClient(vmi *v1.VirtualMachineInstance) (client cmdclient.LauncherClient, err error)
 	GetLauncherClient(vmi *v1.VirtualMachineInstance) (cmdclient.LauncherClient, error)
 	GetLauncherClientInfo(vmi *v1.VirtualMachineInstance) *virtcache.LauncherClientInfo
-	CloseLauncherClient(vmi *v1.VirtualMachineInstance) error
+	CloseLauncherClient(vmi *v1.VirtualMachineInstance)
 	IsLauncherClientUnresponsive(vmi *v1.VirtualMachineInstance) (unresponsive bool, initialized bool, err error)
 }
 
@@ -131,11 +131,10 @@ func (l *launcherClientsManager) GetLauncherClientInfo(vmi *v1.VirtualMachineIns
 	return launcherInfo
 }
 
-func (l *launcherClientsManager) CloseLauncherClient(vmi *v1.VirtualMachineInstance) error {
-
+func (l *launcherClientsManager) CloseLauncherClient(vmi *v1.VirtualMachineInstance) {
 	// UID is required in order to close socket
 	if string(vmi.GetUID()) == "" {
-		return nil
+		return
 	}
 
 	clientInfo, exists := l.launcherClients.Load(vmi.UID)
@@ -146,7 +145,6 @@ func (l *launcherClientsManager) CloseLauncherClient(vmi *v1.VirtualMachineInsta
 
 	virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
 	l.launcherClients.Delete(vmi.UID)
-	return nil
 }
 
 // used by unit tests to add mock clients

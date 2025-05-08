@@ -82,6 +82,7 @@ func NewMigrationSourceController(
 	podIsolationDetector isolation.PodIsolationDetector,
 	migrationProxy migrationproxy.ProxyManager,
 	capabilities *libvirtxml.Caps,
+	virtLauncherFSRunDirPattern string,
 ) (*MigrationSourceController, error) {
 
 	baseCtrl, err := NewBaseController(
@@ -109,7 +110,7 @@ func NewMigrationSourceController(
 		migrationProxy:              migrationProxy,
 		podIsolationDetector:        podIsolationDetector,
 		recorder:                    recorder,
-		virtLauncherFSRunDirPattern: "/proc/%d/root/var/run",
+		virtLauncherFSRunDirPattern: virtLauncherFSRunDirPattern,
 		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 	}
 
