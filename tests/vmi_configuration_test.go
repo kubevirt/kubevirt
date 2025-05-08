@@ -1589,6 +1589,32 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(origVmiWithoutHeadroom.Spec.Domain.Memory).To(Equal(vmiWithoutHeadroom.Spec.Domain.Memory), "vmi guest memory is not expected to change")
 			})
 		})
+
+		Context("with video configuration", Serial, func() {
+
+			BeforeEach(func() {
+				kv := libkubevirt.GetCurrentKv(virtClient)
+				config := kv.Spec.Configuration
+				if config.DeveloperConfiguration == nil {
+					config.DeveloperConfiguration = &v1.DeveloperConfiguration{}
+				}
+				config.DeveloperConfiguration.FeatureGates = append(config.DeveloperConfiguration.FeatureGates, featuregate.VideoConfig)
+				kvconfig.UpdateKubeVirtConfigValueAndWait(config)
+			})
+
+			It("should start VMI with virtio video type", func() {
+				vmi := libvmifact.NewAlpine(libvmi.WithAutoattachGraphicsDevice(true), libvmi.WithVideo(v1.VirtIO))
+
+				By("Starting a VirtualMachineInstance")
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 180)
+
+				By("Checking domain XML for virtio video model")
+				domXml, err := libdomain.GetRunningVMIDomainSpec(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(domXml.Devices.Video).ToNot(BeEmpty(), "expected at least one video device in domain XML")
+				Expect(domXml.Devices.Video[0].Model.Type).To(Equal("virtio"))
+			})
+		})
 	})
 
 	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with CPU spec", func() {
