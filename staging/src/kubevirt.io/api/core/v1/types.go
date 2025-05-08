@@ -2701,8 +2701,9 @@ type SupportContainerResources struct {
 }
 
 type SupportPodTolerations struct {
-	Type        SupportContainerType `json:"type"`
-	Tolerations []k8sv1.Toleration   `json:"tolerations"`
+	Type SupportContainerType `json:"type"`
+	// +listType=atomic
+	Tolerations []k8sv1.Toleration `json:"tolerations"`
 }
 
 type TLSProtocolVersion string

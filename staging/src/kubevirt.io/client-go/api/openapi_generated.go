@@ -507,6 +507,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.StopOptions":                                                        schema_kubevirtio_api_core_v1_StopOptions(ref),
 		"kubevirt.io/api/core/v1.StorageMigratedVolumeInfo":                                          schema_kubevirtio_api_core_v1_StorageMigratedVolumeInfo(ref),
 		"kubevirt.io/api/core/v1.SupportContainerResources":                                          schema_kubevirtio_api_core_v1_SupportContainerResources(ref),
+		"kubevirt.io/api/core/v1.SupportPodTolerations":                                              schema_kubevirtio_api_core_v1_SupportPodTolerations(ref),
 		"kubevirt.io/api/core/v1.SyNICTimer":                                                         schema_kubevirtio_api_core_v1_SyNICTimer(ref),
 		"kubevirt.io/api/core/v1.SysprepSource":                                                      schema_kubevirtio_api_core_v1_SysprepSource(ref),
 		"kubevirt.io/api/core/v1.TLSConfiguration":                                                   schema_kubevirtio_api_core_v1_TLSConfiguration(ref),
@@ -21387,6 +21388,28 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 							},
 						},
 					},
+					"supportPodTolerations": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"type",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "SupportPodTolerations specifies the tolerations for various types of supporting containers such as hotplug attachment pods. If omitted a sensible default will be supplied.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/core/v1.SupportPodTolerations"),
+									},
+								},
+							},
+						},
+					},
 					"supportedGuestAgentVersions": {
 						SchemaProps: spec.SchemaProps{
 							Description: "deprecated",
@@ -21528,7 +21551,7 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/core/v1.ArchConfiguration", "kubevirt.io/api/core/v1.CommonInstancetypesDeployment", "kubevirt.io/api/core/v1.DeveloperConfiguration", "kubevirt.io/api/core/v1.InstancetypeConfiguration", "kubevirt.io/api/core/v1.KSMConfiguration", "kubevirt.io/api/core/v1.LiveUpdateConfiguration", "kubevirt.io/api/core/v1.MediatedDevicesConfiguration", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.NetworkConfiguration", "kubevirt.io/api/core/v1.PermittedHostDevices", "kubevirt.io/api/core/v1.ReloadableComponentConfiguration", "kubevirt.io/api/core/v1.SMBiosConfiguration", "kubevirt.io/api/core/v1.SeccompConfiguration", "kubevirt.io/api/core/v1.SupportContainerResources", "kubevirt.io/api/core/v1.TLSConfiguration", "kubevirt.io/api/core/v1.VirtualMachineOptions"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/core/v1.ArchConfiguration", "kubevirt.io/api/core/v1.CommonInstancetypesDeployment", "kubevirt.io/api/core/v1.DeveloperConfiguration", "kubevirt.io/api/core/v1.InstancetypeConfiguration", "kubevirt.io/api/core/v1.KSMConfiguration", "kubevirt.io/api/core/v1.LiveUpdateConfiguration", "kubevirt.io/api/core/v1.MediatedDevicesConfiguration", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.NetworkConfiguration", "kubevirt.io/api/core/v1.PermittedHostDevices", "kubevirt.io/api/core/v1.ReloadableComponentConfiguration", "kubevirt.io/api/core/v1.SMBiosConfiguration", "kubevirt.io/api/core/v1.SeccompConfiguration", "kubevirt.io/api/core/v1.SupportContainerResources", "kubevirt.io/api/core/v1.SupportPodTolerations", "kubevirt.io/api/core/v1.TLSConfiguration", "kubevirt.io/api/core/v1.VirtualMachineOptions"},
 	}
 }
 
@@ -24326,6 +24349,46 @@ func schema_kubevirtio_api_core_v1_SupportContainerResources(ref common.Referenc
 		},
 		Dependencies: []string{
 			"kubevirt.io/api/core/v1.ResourceRequirementsWithoutClaims"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_SupportPodTolerations(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"tolerations": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.Toleration"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"type", "tolerations"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.Toleration"},
 	}
 }
 
