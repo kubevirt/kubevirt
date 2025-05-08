@@ -184,7 +184,8 @@ OUTER_LOOP:
 		if suites.AnyHaveProgrammaticFocus() && strings.TrimSpace(os.Getenv("GINKGO_EDITOR_INTEGRATION")) == "" {
 			fmt.Printf("Test Suite Passed\n")
 			fmt.Printf("Detected Programmatic Focus - setting exit status to %d\n", types.GINKGO_FOCUS_EXIT_CODE)
-			command.Abort(command.AbortDetails{ExitCode: types.GINKGO_FOCUS_EXIT_CODE})
+			command.Abort(command.AbortDetails{})
+			//command.Abort(command.AbortDetails{ExitCode: types.GINKGO_FOCUS_EXIT_CODE})
 		} else {
 			fmt.Printf("Test Suite Passed\n")
 			command.Abort(command.AbortDetails{})

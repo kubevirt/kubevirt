@@ -350,6 +350,7 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 			}
 		}
 		if interfaceStatus != nil {
+			log.Log.Infof("Updating interfaces status: %+v", interfaceStatus)
 			domain.Status.Interfaces = interfaceStatus
 		}
 		if osInfo != nil {
