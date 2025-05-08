@@ -70,6 +70,7 @@ var _ = Describe("Template", func() {
 	var defaultArch = "amd64"
 
 	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+	nadCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 	var svc TemplateService
 
 	var ctrl *gomock.Controller
@@ -125,6 +126,7 @@ var _ = Describe("Template", func() {
 				v1.HotplugDiskDir,
 				"pull-secret-1",
 				pvcCache,
+				nadCache,
 				virtClient,
 				config,
 				qemuGid,
@@ -2850,6 +2852,7 @@ var _ = Describe("Template", func() {
 				v1.HotplugDiskDir,
 				"pull-secret-1",
 				pvcCache,
+				nadCache,
 				virtClient,
 				config,
 				qemuGid,
@@ -5178,6 +5181,7 @@ var _ = Describe("Template", func() {
 				v1.HotplugDiskDir,
 				"pull-secret-1",
 				pvcCache,
+				nadCache,
 				virtClient,
 				config,
 				qemuGid,
@@ -5248,6 +5252,7 @@ var _ = Describe("Template", func() {
 				v1.HotplugDiskDir,
 				"pull-secret-1",
 				pvcCache,
+				nadCache,
 				virtClient,
 				config,
 				qemuGid,
@@ -5277,6 +5282,7 @@ var _ = Describe("Template", func() {
 				v1.HotplugDiskDir,
 				"pull-secret-1",
 				pvcCache,
+				nadCache,
 				virtClient,
 				config,
 				qemuGid,
@@ -5337,6 +5343,7 @@ var _ = Describe("Template", func() {
 				v1.HotplugDiskDir,
 				"pull-secret-1",
 				pvcCache,
+				nadCache,
 				virtClient,
 				config,
 				qemuGid,
@@ -5378,6 +5385,7 @@ var _ = Describe("Template", func() {
 				v1.HotplugDiskDir,
 				"pull-secret-1",
 				pvcCache,
+				nadCache,
 				virtClient,
 				config,
 				qemuGid,
@@ -5416,6 +5424,7 @@ var _ = Describe("Template", func() {
 				v1.HotplugDiskDir,
 				"pull-secret-1",
 				pvcCache,
+				nadCache,
 				virtClient,
 				config,
 				qemuGid,

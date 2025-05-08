@@ -146,20 +146,21 @@ type TemplateService interface {
 }
 
 type templateService struct {
-	launcherImage              string
-	exporterImage              string
-	launcherQemuTimeout        int
-	virtShareDir               string
-	ephemeralDiskDir           string
-	containerDiskDir           string
-	hotplugDiskDir             string
-	imagePullSecret            string
-	persistentVolumeClaimStore cache.Store
-	virtClient                 kubecli.KubevirtClient
-	clusterConfig              *virtconfig.ClusterConfig
-	launcherSubGid             int64
-	resourceQuotaStore         cache.Store
-	namespaceStore             cache.Store
+	launcherImage                    string
+	exporterImage                    string
+	launcherQemuTimeout              int
+	virtShareDir                     string
+	ephemeralDiskDir                 string
+	containerDiskDir                 string
+	hotplugDiskDir                   string
+	imagePullSecret                  string
+	persistentVolumeClaimStore       cache.Store
+	networkAttachmentDefinitionStore cache.Store
+	virtClient                       kubecli.KubevirtClient
+	clusterConfig                    *virtconfig.ClusterConfig
+	launcherSubGid                   int64
+	resourceQuotaStore               cache.Store
+	namespaceStore                   cache.Store
 
 	sidecarCreators                  []SidecarCreatorFunc
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
@@ -372,7 +373,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	gracePeriodSeconds = gracePeriodSeconds + int64(15)
 	gracePeriodKillAfter := gracePeriodSeconds + int64(15)
 
-	networkToResourceMap, err := multus.NetworkToResource(t.virtClient, vmi)
+	networkToResourceMap, err := multus.NetworkToResource(t.virtClient, t.networkAttachmentDefinitionStore, vmi)
 	if err != nil {
 		return nil, err
 	}
@@ -1251,6 +1252,7 @@ func NewTemplateService(launcherImage string,
 	hotplugDiskDir string,
 	imagePullSecret string,
 	persistentVolumeClaimCache cache.Store,
+	networkAttachmentDefinitionCache cache.Store,
 	virtClient kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig,
 	launcherSubGid int64,
@@ -1263,20 +1265,21 @@ func NewTemplateService(launcherImage string,
 	precond.MustNotBeEmpty(launcherImage)
 	log.Log.V(1).Infof("Exporter Image: %s", exporterImage)
 	svc := templateService{
-		launcherImage:              launcherImage,
-		launcherQemuTimeout:        launcherQemuTimeout,
-		virtShareDir:               virtShareDir,
-		ephemeralDiskDir:           ephemeralDiskDir,
-		containerDiskDir:           containerDiskDir,
-		hotplugDiskDir:             hotplugDiskDir,
-		imagePullSecret:            imagePullSecret,
-		persistentVolumeClaimStore: persistentVolumeClaimCache,
-		virtClient:                 virtClient,
-		clusterConfig:              clusterConfig,
-		launcherSubGid:             launcherSubGid,
-		exporterImage:              exporterImage,
-		resourceQuotaStore:         resourceQuotaStore,
-		namespaceStore:             namespaceStore,
+		launcherImage:                    launcherImage,
+		launcherQemuTimeout:              launcherQemuTimeout,
+		virtShareDir:                     virtShareDir,
+		ephemeralDiskDir:                 ephemeralDiskDir,
+		containerDiskDir:                 containerDiskDir,
+		hotplugDiskDir:                   hotplugDiskDir,
+		imagePullSecret:                  imagePullSecret,
+		persistentVolumeClaimStore:       persistentVolumeClaimCache,
+		networkAttachmentDefinitionStore: networkAttachmentDefinitionCache,
+		virtClient:                       virtClient,
+		clusterConfig:                    clusterConfig,
+		launcherSubGid:                   launcherSubGid,
+		exporterImage:                    exporterImage,
+		resourceQuotaStore:               resourceQuotaStore,
+		namespaceStore:                   namespaceStore,
 	}
 
 	for _, opt := range opts {

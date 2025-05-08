@@ -36,6 +36,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
 
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -111,6 +112,7 @@ var _ = Describe("Export controller", func() {
 		controller                  *VMExportController
 		recorder                    *record.FakeRecorder
 		pvcInformer                 cache.SharedIndexInformer
+		nadInformer                 cache.SharedIndexInformer
 		podInformer                 cache.SharedIndexInformer
 		cmInformer                  cache.SharedIndexInformer
 		vmExportInformer            cache.SharedIndexInformer
@@ -147,6 +149,7 @@ var _ = Describe("Export controller", func() {
 	syncCaches := func(stop chan struct{}) {
 		go vmExportInformer.Run(stop)
 		go pvcInformer.Run(stop)
+		go nadInformer.Run(stop)
 		go podInformer.Run(stop)
 		go dvInformer.Run(stop)
 		go cmInformer.Run(stop)
@@ -201,6 +204,7 @@ var _ = Describe("Export controller", func() {
 		writeCertsToDir(certDir)
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		nadInformer, _ = testutils.NewFakeInformerFor(&networkv1.NetworkAttachmentDefinition{})
 		podInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		cmInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		serviceInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Service{})
@@ -247,7 +251,7 @@ var _ = Describe("Export controller", func() {
 			ServiceInformer:             serviceInformer,
 			DataVolumeInformer:          dvInformer,
 			KubevirtNamespace:           "kubevirt",
-			ManifestRenderer:            services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
+			ManifestRenderer:            services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), nadInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
 			caCertManager:               bootstrap.NewFileCertificateManager(certFilePath, keyFilePath),
 			RouteCache:                  routeCache,
 			IngressCache:                ingressCache,
