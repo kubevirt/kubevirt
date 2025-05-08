@@ -31,6 +31,7 @@ go_library(
         "//pkg/network/namescheme:go_default_library",
         "//pkg/network/netbinding:go_default_library",
         "//pkg/network/vmispec:go_default_library",
+        "//pkg/network/vmliveupdate:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/storage/backend-storage:go_default_library",
         "//pkg/storage/export/export:go_default_library",

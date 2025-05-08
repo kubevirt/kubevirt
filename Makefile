@@ -215,6 +215,7 @@ lint:
 	  pkg/network/namescheme/... \
 	  pkg/network/domainspec/... \
 	  pkg/network/deviceinfo/... \
+	  pkg/network/vmliveupdate/... \
 	  pkg/virtctl/credentials/... \
 	  tests/console/... \
 	  tests/instancetype/... \
