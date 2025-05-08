@@ -94,7 +94,7 @@ var _ = Describe("[sig-compute]Memory Hotplug", decorators.SigCompute, decorator
 
 			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
-			By("Limiting the bandwidth of migrations in the test namespace")
+			By("Limiting the bandwidth of migrations for the created VM")
 			migrationBandwidthLimit := resource.MustParse("1Ki")
 			migration.CreateMigrationPolicy(virtClient, migration.PreparePolicyAndVMIWithBandwidthLimitation(vmi, migrationBandwidthLimit))
 
