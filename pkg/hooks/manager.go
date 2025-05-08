@@ -103,25 +103,41 @@ func (m *hookManager) collectSideCarSockets(numberOfRequestedHookSidecars uint, 
 	timeoutCh := time.After(timeout)
 
 	for uint(len(processedSockets)) < numberOfRequestedHookSidecars {
-		sockets, err := os.ReadDir(m.hookSocketSharedDirectory)
+		entries, err := os.ReadDir(m.hookSocketSharedDirectory)
 		if err != nil {
 			return nil, err
 		}
 
-		for _, socket := range sockets {
-			if _, processed := processedSockets[socket.Name()]; processed {
+		for _, entry := range entries {
+			if !entry.IsDir() {
 				continue
 			}
 
-			notReady, err := handleSidecarSocket(filepath.Join(m.hookSocketSharedDirectory, socket.Name()), callbacksPerHookPoint)
+			subPath := filepath.Join(m.hookSocketSharedDirectory, entry.Name())
+			subEntries, err := os.ReadDir(subPath)
 			if err != nil {
 				return nil, err
 			}
-			if notReady {
-				continue
-			}
 
-			processedSockets[socket.Name()] = true
+			for _, subEntry := range subEntries {
+				if subEntry.IsDir() {
+					continue
+				}
+
+				if _, processed := processedSockets[subEntry.Name()]; processed {
+					continue
+				}
+
+				notReady, err := handleSidecarSocket(filepath.Join(subPath, subEntry.Name()), callbacksPerHookPoint)
+				if err != nil {
+					return nil, err
+				}
+				if notReady {
+					continue
+				}
+
+				processedSockets[subEntry.Name()] = true
+			}
 		}
 
 		select {
