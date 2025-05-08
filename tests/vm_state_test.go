@@ -75,7 +75,7 @@ var _ = Describe("[sig-compute]VM state", func() {
 		addDataToTPM := func(vmi *v1.VirtualMachineInstance) {
 			By("Storing a secret into the TPM")
 			// https://www.intel.com/content/www/us/en/developer/articles/code-sample/protecting-secret-data-and-keys-using-intel-platform-trust-technology.html
-			// Not sealing against a set of PCRs, out of scope here, but should work with a carefully selected set (at least PCR1 was seen changing accross reboots)
+			// Not sealing against a set of PCRs, out of scope here, but should work with a carefully selected set (at least PCR1 was seen changing across reboots)
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "tpm2_createprimary -Q --hierarchy=o --key-context=prim.ctx\n"},
 				&expect.BExp{R: console.PromptExpression},
