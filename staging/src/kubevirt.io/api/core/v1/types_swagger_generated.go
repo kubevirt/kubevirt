@@ -897,7 +897,7 @@ func (DiskVerification) SwaggerDoc() map[string]string {
 func (DeveloperConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                                "DeveloperConfiguration holds developer options",
-		"featureGates":                    "FeatureGates is the list of experimental features to enable. Defaults to none",
+		"featureGates":                    "FeatureGates is the list of experimental features to enable. Defaults to none.\nIn order to enable a feature gate, the feature gate name can either be added\nto the list, or a string with a format of \"<Feature-Gate>=true\" can be used.\nIn order to disable a feature gate, a string with a format of \"<Feature-Gate>=false\" can be used,\nwhich is mostly valuable for non-stable features that are enbaled by default, which is\ncommon with Beta features.\nIf both formats are being used, the explicit format takes precedence.",
 		"pvcTolerateLessSpaceUpToPercent": "LessPVCSpaceToleration determines how much smaller, in percentage, disk PVCs are\nallowed to be compared to the requested size (to account for various overheads).\nDefaults to 10",
 		"minimumReservePVCBytes":          "MinimumReservePVCBytes is the amount of space, in bytes, to leave unused on disks.\nDefaults to 131072 (128KiB)",
 		"memoryOvercommit":                "MemoryOvercommit is the percentage of memory we want to give VMIs compared to the amount\ngiven to its parent pod (virt-launcher). For example, a value of 102 means the VMI will\n\"see\" 2% more memory than its parent pod. Values under 100 are effectively \"undercommits\".\nOvercommits can lead to memory exhaustion, which in turn can lead to crashes. Use carefully.\nDefaults to 100",
