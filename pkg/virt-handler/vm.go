@@ -1514,9 +1514,7 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	c.sriovHotplugExecutorPool.Delete(vmi.UID)
 
 	// Watch dog file and command client must be the last things removed here
-	if err := c.launcherClients.CloseLauncherClient(vmi); err != nil {
-		return err
-	}
+	c.launcherClients.CloseLauncherClient(vmi)
 
 	// Remove the domain from cache in the event that we're performing
 	// a final cleanup and never received the "DELETE" event. This is
