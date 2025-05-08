@@ -453,7 +453,6 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				srcDV, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(err).ToNot(HaveOccurred())
 			destDV := createBlankDV(virtClient, ns, size)
 			vm := createVMWithDV(srcDV, volName)
 			By("Update volumes")

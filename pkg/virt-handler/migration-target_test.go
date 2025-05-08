@@ -32,7 +32,8 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -199,7 +200,6 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			recorder,
 			virtClient,
 			host,
-			shareDir,
 			privateDir,
 			podsDir,
 			"127.1.1.1", // migration ip address
@@ -211,6 +211,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			migrationProxy,
 			nil, // capabilities
 			&netConfStub{},
+			&netStatStub{},
 			networkBindingPluginMemoryCalculator,
 		)
 
@@ -242,7 +243,11 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		}
 		launcherClientManager.Client = client
 		launcherClientManager.ClientInfo = clientInfo
+	})
 
+	AfterEach(func() {
+		close(stop)
+		wg.Wait()
 	})
 
 	It("should prepare migration target", func() {
@@ -650,7 +655,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		Expect(updatedVMI.Status.MigrationState.Completed).To(BeTrue())
 	})
 
-	It("should signal target pod to early exit on failed migration and immediately re-enqueue the vmi", func() {
+	It("should signal target pod to early exit on failed migration", func() {
 		vmi := api2.NewMinimalVMI("testvmi")
 		vmi.UID = vmiTestUUID
 		vmi.ObjectMeta.ResourceVersion = "1"
@@ -663,6 +668,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			SourceNode:   "othernode",
 			MigrationUID: "123",
 			Failed:       true,
+			EndTimestamp: pointer.P(metav1.Now()),
 		}
 		vmi = addActivePods(vmi, podTestUUID, host)
 
@@ -670,8 +676,5 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		client.EXPECT().SignalTargetPodCleanup(vmi)
 		sanityExecute()
-		Expect(mockQueue.Len()).To(Equal(0))
-		Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
-		Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
 	})
 })

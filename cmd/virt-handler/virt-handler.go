@@ -344,6 +344,7 @@ func (app *virtHandlerApp) Run() {
 		podIsolationDetector,
 		migrationProxy,
 		&capabilities,
+		"/proc/%d/root/var/run",
 	)
 	if err != nil {
 		panic(err)
@@ -353,7 +354,6 @@ func (app *virtHandlerApp) Run() {
 		recorder,
 		app.virtCli,
 		app.HostOverride,
-		app.VirtShareDir,
 		app.VirtPrivateDir,
 		app.KubeletPodsDir,
 		migrationIpAddress,
@@ -365,6 +365,7 @@ func (app *virtHandlerApp) Run() {
 		migrationProxy,
 		&capabilities,
 		netConf,
+		netsetup.NewNetStat(),
 		netbinding.MemoryCalculator{},
 	)
 	if err != nil {
@@ -375,7 +376,6 @@ func (app *virtHandlerApp) Run() {
 		recorder,
 		app.virtCli,
 		app.HostOverride,
-		app.VirtShareDir,
 		app.VirtPrivateDir,
 		app.KubeletPodsDir,
 		launcherClientsManager,

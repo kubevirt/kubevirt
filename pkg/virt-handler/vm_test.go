@@ -179,7 +179,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			recorder,
 			virtClient,
 			host,
-			shareDir,
 			privateDir,
 			podsDir,
 			launcherClientManager,
