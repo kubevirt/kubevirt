@@ -678,7 +678,7 @@ func hotplugPodTolerations(config *virtconfig.ClusterConfig) []k8sv1.Toleration 
 			Effect:   unschedulableTolerationEffect,
 		},
 	}
-	if tol := config.GetSupportContainerToleration(v1.HotplugAttachment); tolerations != nil {
+	if tol := config.GetSupportPodTolerations(v1.HotplugAttachment); tolerations != nil {
 		tolerations = tol
 	}
 	return tolerations
