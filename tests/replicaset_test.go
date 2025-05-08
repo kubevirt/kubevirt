@@ -515,7 +515,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				return rs.Status.ReadyReplicas
 			}, 120*time.Second, 1*time.Second).Should(Equal(replicas))
 
-			By("Ensuring that VMI replicas are scheduled to seperate nodes")
+			By("Ensuring that VMI replicas are scheduled to separate nodes")
 			vmiSet, err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).List(context.Background(), metav1.ListOptions{
 				LabelSelector: fmt.Sprintf("%s=%s", vmLabelKey, vmLabelValue),
 			})

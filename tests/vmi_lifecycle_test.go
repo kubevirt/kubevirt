@@ -1137,7 +1137,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			It("[test_id:3204]the vmi with cpu.feature policy 'forbid' should not be scheduled on a node with that cpu feature label", func() {
 
 				// Add node affinity first to test later on that although there is node affinity to
-				// the specific node - the feature policy 'forbid' will deny shceduling on that node.
+				// the specific node - the feature policy 'forbid' will deny scheduling on that node.
 				vmi := libvmifact.NewCirros(libvmi.WithNodeAffinityFor(nodes.Items[0].Name))
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,

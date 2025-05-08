@@ -1381,7 +1381,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}
 				return false
 			}
-			It("[test_id:6843]should set a TSC fequency and have the CPU flag avaliable in the guest", decorators.Invtsc, decorators.TscFrequencies, func() {
+			It("[test_id:6843]should set a TSC frequency and have the CPU flag available in the guest", decorators.Invtsc, decorators.TscFrequencies, func() {
 				nodes := libnode.GetAllSchedulableNodes(virtClient)
 				Expect(featureSupportedInAtLeastOneNode(nodes, "invtsc")).To(BeTrue(), "To run this test at least one node should support invtsc feature")
 				vmi := libvmifact.NewCirros()

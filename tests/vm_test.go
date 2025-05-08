@@ -1007,7 +1007,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			maxExpectedFailCount := 3
 			Consistently(func() error {
 				// get the VM and verify the failure count is less than 4 over a minute,
-				// indicating that backoff is occuring
+				// indicating that backoff is occurring
 				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				if err != nil {
 					return err

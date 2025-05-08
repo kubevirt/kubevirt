@@ -378,7 +378,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 
 		runBashCmdRw := func(cmd string) error {
 			// On kind, virt-handler seems to have /sys mounted as read-only.
-			// This uses a privileged pod with /sys explitly mounted in read/write mode.
+			// This uses a privileged pod with /sys explicitly mounted in read/write mode.
 			testPod := libpod.RenderPrivilegedPod("test-rw-sysfs", []string{"bash", "-x", "-c"}, []string{cmd})
 			testPod.Spec.Volumes = append(testPod.Spec.Volumes, k8sv1.Volume{
 				Name: "sys",

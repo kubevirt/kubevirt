@@ -527,7 +527,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					},
 				)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(podOutput1).To(Equal(expectedPrivateKey), "Expected pod output of private key to match genereated one.")
+				Expect(podOutput1).To(Equal(expectedPrivateKey), "Expected pod output of private key to match generated one.")
 
 				podOutput2, err := exec.ExecuteCommandOnPod(
 					vmiPod,
@@ -537,7 +537,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					},
 				)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(podOutput2).To(Equal(expectedPublicKey), "Expected pod output of public key to match genereated one.")
+				Expect(podOutput2).To(Equal(expectedPublicKey), "Expected pod output of public key to match generated one.")
 
 				By("Checking mounted secrets sshkeys image")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{

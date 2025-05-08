@@ -47,7 +47,7 @@ and you might want to skip them.
 For that some additional flags are needed to be passed.
 In addition, if you'd like to test outside connectivity
 using different addresses than the default
-(`8.8.8.8`, `2001:db8:1::1` and `google.com`), you can achive that with the 
+(`8.8.8.8`, `2001:db8:1::1` and `google.com`), you can achieve that with the 
 designated flags as well.
 
 For each method detailed below, there is note about the needed flags
@@ -102,7 +102,7 @@ make functest
 ```
 # Create directory for data / results / kubectl binary
 mkdir -p /tmp/kubevirt-tests-data
-# Make sure that eveybody can write there
+# Make sure that everybody can write there
 setfacl -m d:o:rwx /tmp/kubevirt-tests-data
 setfacl -m o:rwx /tmp/kubevirt-tests-data
 

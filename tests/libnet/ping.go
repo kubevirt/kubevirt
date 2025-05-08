@@ -32,7 +32,7 @@ import (
 )
 
 // PingFromVMConsole performs a ping through the provided VMI console.
-// Optional arguments for the ping command may be provided, overwirting the default ones.
+// Optional arguments for the ping command may be provided, overwriting the default ones.
 // (default ping options: "-c 5, -w 10")
 // Note: The maximum overall command timeout is 20 seconds.
 func PingFromVMConsole(vmi *v1.VirtualMachineInstance, ipAddr string, args ...string) error {

@@ -57,7 +57,7 @@ const (
 
 const (
 	// This xml will be the contents of the Autounattend.xml and Unattend.xml files, which are the answer files that Windows uses
-	// when booting from a sealed image at diffrent stages, in particulare to answer the questions at the OOBE stage.
+	// when booting from a sealed image at different stages, in particulare to answer the questions at the OOBE stage.
 	answerFileTemplate = `
     <?xml version="1.0" encoding="utf-8"?>
     <unattend xmlns="urn:schemas-microsoft-com:unattend">

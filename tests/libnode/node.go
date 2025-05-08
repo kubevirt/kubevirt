@@ -462,7 +462,7 @@ func ExecuteCommandInVirtHandlerPod(nodeName string, args []string) (stdout stri
 	}
 	stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(virtHandlerPod, components.VirtHandlerName, args)
 	if err != nil {
-		return stdout, fmt.Errorf("failed excuting command=%v, error=%v, stdout=%s, stderr=%s", args, err, stdout, stderr)
+		return stdout, fmt.Errorf("failed executing command=%v, error=%v, stdout=%s, stderr=%s", args, err, stdout, stderr)
 	}
 	return stdout, nil
 }

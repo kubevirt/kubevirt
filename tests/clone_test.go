@@ -157,7 +157,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 				}
 			}
 
-			Expect(vm1Spec).To(Equal(vm2Spec), fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "spec not including mac adresses"))
+			Expect(vm1Spec).To(Equal(vm2Spec), fmt.Sprintf(cloneShouldEqualSourceMsgPattern, "spec not including mac addresses"))
 		}
 
 		generateCloneFromVM := func() *clone.VirtualMachineClone {

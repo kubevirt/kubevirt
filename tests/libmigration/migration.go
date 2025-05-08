@@ -99,9 +99,9 @@ func RunMigration(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachin
 func ConfirmMigrationDataIsStored(virtClient kubecli.KubevirtClient, migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance) {
 	By("Retrieving the VMI and the migration object")
 	vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred(), "should have been able to retrive the VMI instance")
+	Expect(err).ToNot(HaveOccurred(), "should have been able to retrieve the VMI instance")
 	migration, migerr := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
-	Expect(migerr).ToNot(HaveOccurred(), "should have been able to retrive the migration")
+	Expect(migerr).ToNot(HaveOccurred(), "should have been able to retrieve the migration")
 
 	By("Verifying the stored migration state")
 	Expect(migration.Status.MigrationState).ToNot(BeNil(), "should have been able to retrieve the migration `Status::MigrationState`")
@@ -116,7 +116,7 @@ func ConfirmMigrationDataIsStored(virtClient kubecli.KubevirtClient, migration *
 func ConfirmVMIPostMigration(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration) *v1.VirtualMachineInstance {
 	By("Retrieving the VMI post migration")
 	vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred(), "should have been able to retrive the VMI instance")
+	Expect(err).ToNot(HaveOccurred(), "should have been able to retrieve the VMI instance")
 
 	By("Verifying the VMI's migration state")
 	Expect(vmi.Status.MigrationState).ToNot(BeNil(), "should have been able to retrieve the VMIs `Status::MigrationState`")
