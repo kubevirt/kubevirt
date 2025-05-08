@@ -140,23 +140,6 @@ func (c *evacuateCancelCommand) runMigrateCancel(vmiName, namespace string) erro
 	if !c.MigrateCancel {
 		return nil
 	}
-
-	cmd := NewMigrateCancelCommand()
-	cmd.SetOut(c.cmd.OutOrStdout())
-	cmd.SetErr(c.cmd.ErrOrStderr())
-
-	ctx, err := clientconfig.WithOverriddenNamespace(c.cmd.Context(), namespace)
-	if err != nil {
-		return err
-	}
-	cmd.SetContext(ctx)
-
-	args := []string{vmiName}
-	if dryRun {
-		args = append(args, dryRunArg)
-	}
-	cmd.SetArgs(args)
-
 	c.cmd.Printf("Invoking %q for VMI %s/%s\n", COMMAND_MIGRATE_CANCEL, namespace, vmiName)
-	return cmd.Execute()
+	return migrateCancel(c.cmd.Context(), c.virtClient, vmiName, namespace)
 }

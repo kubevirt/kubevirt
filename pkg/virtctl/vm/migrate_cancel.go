@@ -20,11 +20,13 @@
 package vm
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -53,10 +55,19 @@ func migrateCancelRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	err = migrateCancel(cmd.Context(), virtClient, vmiName, namespace)
+	if err != nil {
+		return err
+	}
 
+	cmd.Printf("VM %s was scheduled to %s\n", vmiName, COMMAND_MIGRATE_CANCEL)
+	return nil
+}
+
+func migrateCancel(ctx context.Context, virtClient kubecli.KubevirtClient, vmiName string, namespace string) error {
 	// get a list of migrations for vmiName (use LabelSelector filter)
 	labelSelector := fmt.Sprintf("%s==%s", v1.MigrationSelectorLabel, vmiName)
-	migrations, err := virtClient.VirtualMachineInstanceMigration(namespace).List(cmd.Context(), metav1.ListOptions{
+	migrations, err := virtClient.VirtualMachineInstanceMigration(namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: labelSelector})
 	if err != nil {
 		return fmt.Errorf("Error fetching virtual machine instance migration list  %v", err)
@@ -70,24 +81,22 @@ func migrateCancelRun(cmd *cobra.Command, args []string) error {
 	// go over the migrations list and find the active one
 	done := false
 	for _, mig := range migrations.Items {
-		if !mig.IsFinal() {
-			migName := mig.ObjectMeta.Name
-
-			// Cancel the active migration by calling Delete
-			err = virtClient.VirtualMachineInstanceMigration(namespace).Delete(cmd.Context(), migName, deleteOpts)
-			if err != nil {
-				return fmt.Errorf("Error canceling migration %s of a VirtualMachine %s: %v", migName, vmiName, err)
-			}
-			done = true
-			break
+		if mig.IsFinal() {
+			continue
 		}
+		migName := mig.ObjectMeta.Name
+
+		// Cancel the active migration by calling Delete
+		err = virtClient.VirtualMachineInstanceMigration(namespace).Delete(ctx, migName, deleteOpts)
+		if err != nil {
+			return fmt.Errorf("Error canceling migration %s of a VirtualMachine %s: %v", migName, vmiName, err)
+		}
+		done = true
+		break
 	}
 
 	if !done {
 		return fmt.Errorf("Found no migration to cancel for %s", vmiName)
 	}
-
-	cmd.Printf("VM %s was scheduled to %s\n", vmiName, COMMAND_MIGRATE_CANCEL)
-
 	return nil
 }

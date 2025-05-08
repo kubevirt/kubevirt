@@ -4,10 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/clientcmd/api"
-
 	"kubevirt.io/client-go/kubecli"
 )
 
@@ -42,41 +39,4 @@ func ClientAndNamespaceFromContext(ctx context.Context) (virtClient kubecli.Kube
 		return nil, "", false, err
 	}
 	return virtClient, namespace, overridden, nil
-}
-
-// WithOverriddenNamespace returns a new context where the clientConfig has a namespace override.
-// Useful when a command acts on resources in a namespace different from the current one,
-// but needs to reuse the same clientConfig for kubevirtClient creation.
-func WithOverriddenNamespace(ctx context.Context, namespace string) (context.Context, error) {
-	clientConfig, ok := ctx.Value(clientConfigKey).(clientcmd.ClientConfig)
-	if !ok {
-		return nil, fmt.Errorf("unable to get client config from context 2")
-	}
-	newConf := &overrideNamespaceClientConfig{
-		clientConfig: clientConfig,
-		namespace:    namespace,
-	}
-
-	return context.WithValue(ctx, clientConfigKey, newConf), nil
-}
-
-type overrideNamespaceClientConfig struct {
-	clientConfig clientcmd.ClientConfig
-	namespace    string
-}
-
-func (c *overrideNamespaceClientConfig) RawConfig() (api.Config, error) {
-	return c.clientConfig.RawConfig()
-}
-
-func (c *overrideNamespaceClientConfig) ClientConfig() (*rest.Config, error) {
-	return c.clientConfig.ClientConfig()
-}
-
-func (c *overrideNamespaceClientConfig) ConfigAccess() clientcmd.ConfigAccess {
-	return c.clientConfig.ConfigAccess()
-}
-
-func (c *overrideNamespaceClientConfig) Namespace() (string, bool, error) {
-	return c.namespace, true, nil
 }
