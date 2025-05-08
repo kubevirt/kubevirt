@@ -3962,6 +3962,106 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("no watchdog configured", nil, "", false),
 		)
 	})
+
+	Context("with VideoConfig", func() {
+		var vmi *v1.VirtualMachineInstance
+		BeforeEach(func() {
+			enableFeatureGates(featuregate.VideoConfig)
+			vmi = libvmi.New(libvmi.WithArchitecture(runtime.GOARCH), libvmi.WithVideo(v1.VirtIO))
+		})
+
+		It("should accept video configuration with feature gate enabled", func() {
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty(), "should accept video configuration with valid setup")
+		})
+
+		It("should reject when the feature gate is disabled", func() {
+			disableFeatureGates()
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Message).To(Equal(fmt.Sprintf("Video configuration is specified but the %s feature gate is not enabled", featuregate.VideoConfig)))
+			Expect(causes[0].Field).To(Equal("fake.video"))
+		})
+
+		It("should reject when autoattachGraphicsDevice is set to false", func() {
+			vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.P(false)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Message).To(Equal("Video configuration is not allowed when autoattachGraphicsDevice is set to false"))
+			Expect(causes[0].Field).To(Equal("fake.video"))
+		})
+
+		It("should accept when autoattachGraphicsDevice is unset", func() {
+			vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = nil
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty(), "should accept video configuration when autoattachGraphicsDevice is unset")
+		})
+
+		DescribeTable("should accept supported video models per architecture", func(arch, videoType string) {
+			vmi.Spec.Domain.Devices.Video.Type = videoType
+			vmi.Spec.Architecture = arch
+			causes := ValidateVirtualMachineInstancePerArch(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(causes).To(BeEmpty(), fmt.Sprintf("expected video type %s to be valid on arch %s", videoType, arch))
+		},
+			Entry("amd64 allows vga", "amd64", "vga"),
+			Entry("amd64 allows cirrus", "amd64", "cirrus"),
+			Entry("amd64 allows virtio", "amd64", "virtio"),
+			Entry("amd64 allows ramfb", "amd64", "ramfb"),
+			Entry("amd64 allows bochs", "amd64", "bochs"),
+
+			Entry("arm64 allows virtio", "arm64", "virtio"),
+			Entry("arm64 allows bochs", "arm64", "ramfb"),
+
+			Entry("s390x allows virtio", "s390x", "virtio"),
+
+			Entry("ppc64le allows virtio", "ppc64le", "virtio"),
+			Entry("ppc64le allows bochs", "ppc64le", "bochs"),
+			Entry("ppc64le allows vga", "ppc64le", "vga"),
+			Entry("ppc64le allows cirrus", "ppc64le", "cirrus"),
+		)
+
+		DescribeTable("should reject unsupported video models per architecture", func(arch, videoType string) {
+			vmi.Spec.Domain.Devices.Video.Type = videoType
+			vmi.Spec.Architecture = arch
+			causes := ValidateVirtualMachineInstancePerArch(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(causes).ToNot(BeEmpty(), fmt.Sprintf("expected video type %s to be invalid on arch %s", videoType, arch))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.video.type"))
+		},
+			Entry("amd64 rejects qxl", "amd64", "qxl"),
+			Entry("amd64 rejects vmvga", "amd64", "vmvga"),
+			Entry("amd64 rejects xenfb", "amd64", "xenfb"),
+			Entry("amd64 rejects none", "amd64", "none"),
+			Entry("amd64 rejects invalid model", "amd64", "invalidmodel"),
+
+			Entry("arm64 rejects vga", "arm64", "vga"),
+			Entry("arm64 rejects cirrus", "arm64", "cirrus"),
+			Entry("arm64 rejects bochs", "arm64", "bochs"),
+			Entry("arm64 rejects qxl", "arm64", "qxl"),
+			Entry("arm64 rejects vmvga", "arm64", "vmvga"),
+			Entry("arm64 rejects xenfb", "arm64", "xenfb"),
+			Entry("arm64 rejects none", "arm64", "none"),
+			Entry("arm64 rejects invalid model", "arm64", "invalidmodel"),
+
+			Entry("s390x rejects vga", "s390x", "vga"),
+			Entry("s390x rejects cirrus", "s390x", "cirrus"),
+			Entry("s390x rejects bochs", "s390x", "bochs"),
+			Entry("s390x rejects ramfb", "s390x", "ramfb"),
+			Entry("s390x rejects qxl", "s390x", "qxl"),
+			Entry("s390x rejects vmvga", "s390x", "vmvga"),
+			Entry("s390x rejects xenfb", "s390x", "xenfb"),
+			Entry("s390x rejects none", "s390x", "none"),
+			Entry("s390x rejects invalid model", "s390x", "invalidmodel"),
+
+			Entry("ppc64le rejects ramfb", "ppc64le", "ramfb"),
+			Entry("ppc64le rejects qxl", "ppc64le", "qxl"),
+			Entry("ppc64le rejects vmvga", "ppc64le", "vmvga"),
+			Entry("ppc64le rejects xenfb", "ppc64le", "xenfb"),
+			Entry("ppc64le rejects none", "ppc64le", "none"),
+			Entry("ppc64le rejects invalid model", "ppc64le", "invalidmodel"),
+		)
+	})
 })
 
 var _ = Describe("additional tests", func() {
