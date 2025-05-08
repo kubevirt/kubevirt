@@ -51,8 +51,8 @@ func (m *MockLauncherClientManager) GetLauncherClientInfo(vmi *v1.VirtualMachine
 	return m.ClientInfo
 }
 
-func (m *MockLauncherClientManager) CloseLauncherClient(vmi *v1.VirtualMachineInstance) error {
-	return virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
+func (m *MockLauncherClientManager) CloseLauncherClient(vmi *v1.VirtualMachineInstance) {
+	virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
 }
 
 func (m *MockLauncherClientManager) IsLauncherClientUnresponsive(vmi *v1.VirtualMachineInstance) (unresponsive bool, initialized bool, err error) {

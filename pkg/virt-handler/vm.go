@@ -131,7 +131,6 @@ func NewVirtualMachineController(
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	host string,
-	virtShareDir string,
 	virtPrivateDir string,
 	kubeletPodsDir string,
 	launcherClients launcher_clients.LauncherClientsManager,
@@ -1514,9 +1513,7 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	c.sriovHotplugExecutorPool.Delete(vmi.UID)
 
 	// Watch dog file and command client must be the last things removed here
-	if err := c.launcherClients.CloseLauncherClient(vmi); err != nil {
-		return err
-	}
+	c.launcherClients.CloseLauncherClient(vmi)
 
 	// Remove the domain from cache in the event that we're performing
 	// a final cleanup and never received the "DELETE" event. This is
@@ -2323,7 +2320,14 @@ func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 				// if the domain migrated, we no longer know the phase.
 				return vmi.Status.Phase, nil
 			}
-		case api.Running, api.Paused, api.Blocked, api.PMSuspended:
+		case api.Paused:
+			switch domain.Status.Reason {
+			case api.ReasonPausedPostcopyFailed:
+				return v1.Failed, nil
+			default:
+				return v1.Running, nil
+			}
+		case api.Running, api.Blocked, api.PMSuspended:
 			return v1.Running, nil
 		}
 	}
