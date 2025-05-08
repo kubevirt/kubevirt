@@ -501,6 +501,12 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
 				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(k8sv1.PullPolicy("IfNotPresent")))
+				Expect(pod.Spec.Containers[1].VolumeMounts[0].SubPath).To(Equal("hook-sidecar-0"))
+				Expect(pod.Spec.Containers[1].Env).To(ContainElement(k8sv1.EnvVar{
+					Name:  hooks.ContainerNameEnvVar,
+					Value: "hook-sidecar-0",
+				}))
+
 				Expect(*pod.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))
 				Expect(pod.Spec.InitContainers).To(BeEmpty())
 				By("setting the right hostname")

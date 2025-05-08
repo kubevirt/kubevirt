@@ -6,6 +6,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -35,6 +36,7 @@ type ContainerSpecRenderer struct {
 	ports             []k8sv1.ContainerPort
 	capabilities      *k8sv1.Capabilities
 	args              []string
+	env               []k8sv1.EnvVar
 }
 
 type Option func(*ContainerSpecRenderer)
@@ -62,7 +64,7 @@ func (csr *ContainerSpecRenderer) Render(cmd []string) k8sv1.Container {
 		VolumeMounts:             csr.volumeMounts,
 		Resources:                csr.resources,
 		Ports:                    csr.ports,
-		Env:                      csr.envVars(),
+		Env:                      csr.envVars(csr.env),
 		LivenessProbe:            csr.liveninessProbe,
 		ReadinessProbe:           csr.readinessProbe,
 		Args:                     csr.args,
@@ -70,9 +72,7 @@ func (csr *ContainerSpecRenderer) Render(cmd []string) k8sv1.Container {
 	}
 }
 
-func (csr *ContainerSpecRenderer) envVars() []k8sv1.EnvVar {
-	var env []k8sv1.EnvVar
-
+func (csr *ContainerSpecRenderer) envVars(env []k8sv1.EnvVar) []k8sv1.EnvVar {
 	if csr.userID != 0 {
 		env = append(env, xdgEnvironmentVariables()...)
 	}
@@ -180,6 +180,15 @@ func WithReadinessProbe(vmi *v1.VirtualMachineInstance) Option {
 		v1.SetDefaults_Probe(vmi.Spec.ReadinessProbe)
 		renderer.readinessProbe = copyProbe(vmi.Spec.ReadinessProbe)
 		updateReadinessProbe(vmi, renderer.readinessProbe)
+	}
+}
+
+func WithContainerName(containerName string) Option {
+	return func(renderer *ContainerSpecRenderer) {
+		renderer.env = append(renderer.env, k8sv1.EnvVar{
+			Name:  hooks.ContainerNameEnvVar,
+			Value: containerName,
+		})
 	}
 }
 
