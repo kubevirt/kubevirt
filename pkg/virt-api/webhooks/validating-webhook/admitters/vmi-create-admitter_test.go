@@ -77,9 +77,9 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	vmiCreateAdmitter := &VMICreateAdmitter{ClusterConfig: config, KubeVirtServiceAccounts: kubeVirtServiceAccounts}
 
 	dnsConfigTestOption := "test"
-	enableFeatureGate := func(featureGate string) {
+	enableFeatureGate := func(featureGate ...string) {
 		kvConfig := kv.DeepCopy()
-		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featureGate}
+		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = featureGate
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 	}
 	disableFeatureGates := func() {
@@ -3902,6 +3902,67 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}, "Arm64 not support Watchdog device", true),
 
 			Entry("no watchdog configured", nil, "", false),
+		)
+	})
+
+	Context("with VideoConfig", func() {
+		var vmi *v1.VirtualMachineInstance
+		BeforeEach(func() {
+			enableFeatureGate(featuregate.VideoConfig)
+			vmi = libvmi.New(libvmi.WithArchitecture(runtime.GOARCH), libvmi.WithVideo(v1.VirtIO))
+		})
+
+		It("should accept video configuration with feature gate enabled", func() {
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty(), "should accept video configuration with valid setup")
+		})
+
+		It("should reject when the feature gate is disabled", func() {
+			disableFeatureGates()
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Message).To(Equal(fmt.Sprintf("Video configuration is specified but the %s feature gate is not enabled", featuregate.VideoConfig)))
+			Expect(causes[0].Field).To(Equal("fake.video"))
+		})
+
+		It("should reject when autoattachGraphicsDevice is set to false", func() {
+			vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.P(false)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Message).To(Equal("Video configuration is not allowed when autoattachGraphicsDevice is set to false"))
+			Expect(causes[0].Field).To(Equal("fake.video"))
+		})
+
+		It("should accept when autoattachGraphicsDevice is unset", func() {
+			vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = nil
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty(), "should accept video configuration when autoattachGraphicsDevice is unset")
+		})
+
+		DescribeTable("should accept supported video models per architecture", func(arch, videoType string) {
+			enableFeatureGate(featuregate.VideoConfig, featuregate.MultiArchitecture)
+			vmi.Spec.Domain.Devices.Video.Type = videoType
+			vmi.Spec.Architecture = arch
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty(), fmt.Sprintf("expected video type %s to be valid on arch %s", videoType, arch))
+		},
+			Entry("amd64 allows vga", "amd64", "vga"),
+			Entry("amd64 allows cirrus", "amd64", "cirrus"),
+			Entry("amd64 allows virtio", "amd64", "virtio"),
+			Entry("amd64 allows ramfb", "amd64", "ramfb"),
+			Entry("amd64 allows bochs", "amd64", "bochs"),
+
+			Entry("arm64 allows virtio", "arm64", "virtio"),
+			Entry("arm64 allows bochs", "arm64", "ramfb"),
+
+			Entry("s390x allows virtio", "s390x", "virtio"),
+
+			Entry("ppc64le allows virtio", "ppc64le", "virtio"),
+			Entry("ppc64le allows bochs", "ppc64le", "bochs"),
+			Entry("ppc64le allows vga", "ppc64le", "vga"),
+			Entry("ppc64le allows cirrus", "ppc64le", "cirrus"),
 		)
 	})
 })
