@@ -528,6 +528,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VGPUOptions":                                                        schema_kubevirtio_api_core_v1_VGPUOptions(ref),
 		"kubevirt.io/api/core/v1.VMISelector":                                                        schema_kubevirtio_api_core_v1_VMISelector(ref),
 		"kubevirt.io/api/core/v1.VSOCKOptions":                                                       schema_kubevirtio_api_core_v1_VSOCKOptions(ref),
+		"kubevirt.io/api/core/v1.VideoDevice":                                                        schema_kubevirtio_api_core_v1_VideoDevice(ref),
 		"kubevirt.io/api/core/v1.VirtualMachine":                                                     schema_kubevirtio_api_core_v1_VirtualMachine(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineCondition":                                            schema_kubevirtio_api_core_v1_VirtualMachineCondition(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstance":                                             schema_kubevirtio_api_core_v1_VirtualMachineInstance(ref),
@@ -19217,11 +19218,17 @@ func schema_kubevirtio_api_core_v1_Devices(ref common.ReferenceCallback) common.
 							Ref:         ref("kubevirt.io/api/core/v1.TPMDevice"),
 						},
 					},
+					"video": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Video describes the video device configuration for the vmi.",
+							Ref:         ref("kubevirt.io/api/core/v1.VideoDevice"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.ClientPassthroughDevices", "kubevirt.io/api/core/v1.Disk", "kubevirt.io/api/core/v1.DownwardMetrics", "kubevirt.io/api/core/v1.Filesystem", "kubevirt.io/api/core/v1.GPU", "kubevirt.io/api/core/v1.HostDevice", "kubevirt.io/api/core/v1.Input", "kubevirt.io/api/core/v1.Interface", "kubevirt.io/api/core/v1.Rng", "kubevirt.io/api/core/v1.SoundDevice", "kubevirt.io/api/core/v1.TPMDevice", "kubevirt.io/api/core/v1.Watchdog"},
+			"kubevirt.io/api/core/v1.ClientPassthroughDevices", "kubevirt.io/api/core/v1.Disk", "kubevirt.io/api/core/v1.DownwardMetrics", "kubevirt.io/api/core/v1.Filesystem", "kubevirt.io/api/core/v1.GPU", "kubevirt.io/api/core/v1.HostDevice", "kubevirt.io/api/core/v1.Input", "kubevirt.io/api/core/v1.Interface", "kubevirt.io/api/core/v1.Rng", "kubevirt.io/api/core/v1.SoundDevice", "kubevirt.io/api/core/v1.TPMDevice", "kubevirt.io/api/core/v1.VideoDevice", "kubevirt.io/api/core/v1.Watchdog"},
 	}
 }
 
@@ -25002,6 +25009,25 @@ func schema_kubevirtio_api_core_v1_VSOCKOptions(ref common.ReferenceCallback) co
 					},
 				},
 				Required: []string{"targetPort"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_VideoDevice(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type specifies the video device type (e.g., virtio, vga, bochs, ramfb). If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}

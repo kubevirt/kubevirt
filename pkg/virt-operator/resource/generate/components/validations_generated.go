@@ -6485,6 +6485,16 @@ var CRDsValidation map[string]string = map[string]string{
                             This is helpful for old machines like CentOS6 or RHEL6 which
                             do not understand virtio_non_transitional (virtio 1.0).
                           type: boolean
+                        video:
+                          description: Video describes the video device configuration
+                            for the vmi.
+                          properties:
+                            type:
+                              description: |-
+                                Type specifies the video device type (e.g., virtio, vga, bochs, ramfb).
+                                If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).
+                              type: string
+                          type: object
                         watchdog:
                           description: Watchdog describes a watchdog device which
                             can be added to the vmi.
@@ -11804,6 +11814,16 @@ var CRDsValidation map[string]string = map[string]string{
                     This is helpful for old machines like CentOS6 or RHEL6 which
                     do not understand virtio_non_transitional (virtio 1.0).
                   type: boolean
+                video:
+                  description: Video describes the video device configuration for
+                    the vmi.
+                  properties:
+                    type:
+                      description: |-
+                        Type specifies the video device type (e.g., virtio, vga, bochs, ramfb).
+                        If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).
+                      type: string
+                  type: object
                 watchdog:
                   description: Watchdog describes a watchdog device which can be added
                     to the vmi.
@@ -15266,6 +15286,16 @@ var CRDsValidation map[string]string = map[string]string{
                     This is helpful for old machines like CentOS6 or RHEL6 which
                     do not understand virtio_non_transitional (virtio 1.0).
                   type: boolean
+                video:
+                  description: Video describes the video device configuration for
+                    the vmi.
+                  properties:
+                    type:
+                      description: |-
+                        Type specifies the video device type (e.g., virtio, vga, bochs, ramfb).
+                        If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).
+                      type: string
+                  type: object
                 watchdog:
                   description: Watchdog describes a watchdog device which can be added
                     to the vmi.
@@ -17707,6 +17737,16 @@ var CRDsValidation map[string]string = map[string]string{
                             This is helpful for old machines like CentOS6 or RHEL6 which
                             do not understand virtio_non_transitional (virtio 1.0).
                           type: boolean
+                        video:
+                          description: Video describes the video device configuration
+                            for the vmi.
+                          properties:
+                            type:
+                              description: |-
+                                Type specifies the video device type (e.g., virtio, vga, bochs, ramfb).
+                                If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).
+                              type: string
+                          type: object
                         watchdog:
                           description: Watchdog describes a watchdog device which
                             can be added to the vmi.
@@ -22238,6 +22278,16 @@ var CRDsValidation map[string]string = map[string]string{
                                     This is helpful for old machines like CentOS6 or RHEL6 which
                                     do not understand virtio_non_transitional (virtio 1.0).
                                   type: boolean
+                                video:
+                                  description: Video describes the video device configuration
+                                    for the vmi.
+                                  properties:
+                                    type:
+                                      description: |-
+                                        Type specifies the video device type (e.g., virtio, vga, bochs, ramfb).
+                                        If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).
+                                      type: string
+                                  type: object
                                 watchdog:
                                   description: Watchdog describes a watchdog device
                                     which can be added to the vmi.
@@ -27457,6 +27507,16 @@ var CRDsValidation map[string]string = map[string]string{
                                         This is helpful for old machines like CentOS6 or RHEL6 which
                                         do not understand virtio_non_transitional (virtio 1.0).
                                       type: boolean
+                                    video:
+                                      description: Video describes the video device
+                                        configuration for the vmi.
+                                      properties:
+                                        type:
+                                          description: |-
+                                            Type specifies the video device type (e.g., virtio, vga, bochs, ramfb).
+                                            If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).
+                                          type: string
+                                      type: object
                                     watchdog:
                                       description: Watchdog describes a watchdog device
                                         which can be added to the vmi.
