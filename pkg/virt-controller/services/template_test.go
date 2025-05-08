@@ -1078,7 +1078,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
 				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(k8sv1.PullPolicy("IfNotPresent")))
 				Expect(pod.Spec.Containers[1].VolumeMounts[0].MountPath).To(Equal(hooks.HookSocketsSharedDirectory))
-
+				Expect(pod.Spec.Containers[1].VolumeMounts[0].SubPath).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Volumes[0].EmptyDir).ToNot(BeNil())
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).To(
