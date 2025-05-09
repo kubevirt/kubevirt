@@ -533,8 +533,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				v1.VirtualMachineStatusErrImagePull,
 				v1.VirtualMachineStatusImagePullBackOff,
 			}
-
-			waitForVMStateTransition(vm, expectedStates, 600*time.Second)
+			// Timeout is set to 360 seconds to allow for 1 max backoff grace period (5 mins), and 2 image pull attempts.
+			waitForVMStateTransition(vm, expectedStates, 360*time.Second)
 		})
 
 		It("[test_id:7679]should report an error status when data volume error occurs", func() {
