@@ -154,7 +154,7 @@ func ValidateVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachi
 				return err
 			}
 			if dv == nil {
-				return fmt.Errorf("the datavolume %s doesn't exist", v.VolumeSource.DataVolume.Name)
+				return storagetypes.NewDVNotFoundError(v.VolumeSource.DataVolume.Name)
 			}
 
 			// if the dv is in succeeded state then it is safe to use since it has already been populated.
@@ -166,7 +166,7 @@ func ValidateVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachi
 				return err
 			}
 			if pvc == nil {
-				return fmt.Errorf("the pvc %s doesn't exist", v.VolumeSource.DataVolume.Name)
+				return storagetypes.NewPVCNotFoundError(v.VolumeSource.DataVolume.Name)
 			}
 			// The dataSourceRef is set if the volume populators are supported
 			if pvc.Spec.DataSourceRef == nil {
@@ -409,4 +409,48 @@ func ValidateVolumesUpdateMigration(vmi *virtv1.VirtualMachineInstance, vm *virt
 	}
 
 	return nil
+}
+
+func patchConditions(clientset kubecli.KubevirtClient, vmi, vmiCopy *virtv1.VirtualMachineInstance) error {
+	if equality.Semantic.DeepEqual(vmi.Status.Conditions, vmiCopy.Status.Conditions) {
+		return nil
+	}
+	p, err := patch.New(
+		patch.WithTest("/status/conditions", vmi.Status.Conditions),
+		patch.WithReplace("/status/conditions", vmiCopy.Status.Conditions),
+	).GeneratePayload()
+	if err != nil {
+		return err
+	}
+	_, err = clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType,
+		p, metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("failed updating vmi condition: %v", err)
+	}
+	return nil
+}
+
+func DisableVolumeMigration(clientset kubecli.KubevirtClient, vmi *virtv1.VirtualMachineInstance, msg string) error {
+	if vmi == nil {
+		return fmt.Errorf("vmi is empty")
+	}
+	vmiCopy := vmi.DeepCopy()
+	controller.NewVirtualMachineInstanceConditionManager().UpdateCondition(vmiCopy, &virtv1.VirtualMachineInstanceCondition{
+		Type:               virtv1.VirtualMachineInstanceVolumesChange,
+		LastTransitionTime: metav1.Now(),
+		Status:             k8sv1.ConditionFalse,
+		Message:            msg,
+	})
+
+	return patchConditions(clientset, vmi, vmiCopy)
+}
+
+func RemoveVolumeMigrationCondition(clientset kubecli.KubevirtClient, vmi *virtv1.VirtualMachineInstance) error {
+	if vmi == nil {
+		return fmt.Errorf("vmi is empty")
+	}
+	vmiCopy := vmi.DeepCopy()
+	controller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmiCopy,
+		virtv1.VirtualMachineInstanceVolumesChange)
+	return patchConditions(clientset, vmi, vmiCopy)
 }

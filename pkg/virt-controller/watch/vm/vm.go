@@ -195,6 +195,13 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 		return nil, err
 	}
 
+	_, err = pvcInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: c.addPVC,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	return c, nil
 }
 
@@ -863,17 +870,29 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 	case *vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration:
 		// Validate if the update volumes can be migrated
 		if err := volumemig.ValidateVolumes(vmi, vm, c.dataVolumeStore, c.pvcStore); err != nil {
-			log.Log.Object(vm).Errorf("cannot migrate the VM. Volumes are invalid: %v", err)
+			if errors.Is(err, storagetypes.ErrPVCNotFound) || errors.Is(err, storagetypes.ErrDVNotFound) {
+				msg := fmt.Sprintf("One of the destination volumes doesn't exist: %v", err)
+				log.Log.Object(vm).Error(msg)
+				if err := volumemig.DisableVolumeMigration(c.clientset, vmi, msg); err != nil {
+					return err
+				}
+				return nil
+			}
 			setRestartRequired(vm, err.Error())
+			log.Log.Object(vm).Errorf("cannot migrate the VM. Volumes are invalid: %v", err)
 			return nil
+		} else if err := volumemig.RemoveVolumeMigrationCondition(c.clientset, vmi); err != nil {
+			return err
 		}
+
 		migVols, err := volumemig.GenerateMigratedVolumes(c.pvcStore, vmi, vm)
 		if err != nil {
 			log.Log.Object(vm).Errorf("failed to generate the migrating volumes for vm: %v", err)
 			return err
 		}
 		if err := volumemig.ValidateVolumesUpdateMigration(vmi, vm, migVols); err != nil {
-			log.Log.Object(vm).Errorf("cannot migrate the VMI: %v", err)
+			msg := fmt.Sprintf("cannot migrated the VMI: %v", err)
+			log.Log.Object(vm).Error(msg)
 			setRestartRequired(vm, err.Error())
 			return nil
 		}
@@ -2071,6 +2090,37 @@ func (c *Controller) deleteVirtualMachineInstance(obj interface{}) {
 	}
 	c.expectations.DeletionObserved(vmKey, controller.VirtualMachineInstanceKey(vmi))
 	c.enqueueVm(vm)
+}
+
+func (c *Controller) listVMsMatchingPVC(namespace, pvcName string) ([]*virtv1.VirtualMachine, error) {
+	vms := []*virtv1.VirtualMachine{}
+	for _, indexName := range []string{"dv", "pvc"} {
+		objs, err := c.vmIndexer.ByIndex(indexName, namespace+"/"+pvcName)
+		if err != nil {
+			return nil, err
+		}
+		for _, obj := range objs {
+			vm := obj.(*virtv1.VirtualMachine)
+			vms = append(vms, vm.DeepCopy())
+		}
+	}
+	return vms, nil
+}
+
+// addPVC handles the addition of a PVC, enqueuing affected VMIs.
+func (c *Controller) addPVC(obj interface{}) {
+	pvc := obj.(*k8score.PersistentVolumeClaim)
+	if pvc.DeletionTimestamp != nil {
+		return
+	}
+	vms, err := c.listVMsMatchingPVC(pvc.Namespace, pvc.Name)
+	if err != nil {
+		return
+	}
+	for _, vm := range vms {
+		log.Log.V(1).Object(pvc).Infof("PVC created for vm %s", vm.Name)
+		c.enqueueVm(vm)
+	}
 }
 
 func (c *Controller) addDataVolume(obj interface{}) {
