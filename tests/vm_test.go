@@ -519,7 +519,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			),
 		)
 
-		It("[test_id:6869]should report an error status when image pull error occurs", decorators.Conformance, decorators.Quarantine, func() {
+		It("[test_id:6869][QUARANTINE]should report an error status when image pull error occurs", decorators.Conformance, decorators.Quarantine, func() {
 			vmi := libvmi.New(
 				libvmi.WithContainerDisk("disk0", "no-such-image"),
 				libvmi.WithResourceMemory("128Mi"),
