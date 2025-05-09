@@ -36,6 +36,7 @@ import (
 var _ = Describe("Instance Type SpecFinder", func() {
 	const (
 		nonExistingResourceName = "non-existing-resource"
+		storedName              = "stored"
 	)
 
 	type instancetypeSpecFinder interface {
@@ -299,7 +300,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 		It("find returns only referenced object - bug #14595", func() {
 			// Make a slightly altered copy of the object already present in the client and store it in a CR
 			stored := clusterInstancetype.DeepCopy()
-			stored.ObjectMeta.Name = "stored"
+			stored.ObjectMeta.Name = storedName
 			stored.Spec.CPU.Guest = uint32(99)
 
 			controllerRevision, err := revision.CreateControllerRevision(vm, stored)
@@ -323,8 +324,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 
 			foundInstancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
-			// FIXME(lyarwood): This is bug #14595, should return clusterInstancetype.Spec
-			Expect(foundInstancetypeSpec).To(HaveValue(Equal(stored.Spec)))
+			Expect(foundInstancetypeSpec).To(HaveValue(Equal(clusterInstancetype.Spec)))
 		})
 	})
 
@@ -514,7 +514,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 		It("find returns only referenced object - bug #14595", func() {
 			// Make a slightly altered copy of the object already present in the client and store it in a CR
 			stored := fakeInstancetype.DeepCopy()
-			stored.ObjectMeta.Name = "stored"
+			stored.ObjectMeta.Name = storedName
 			stored.Spec.CPU.Guest = uint32(99)
 
 			controllerRevision, err := revision.CreateControllerRevision(vm, stored)
@@ -538,8 +538,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 
 			foundInstancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
-			// FIXME(lyarwood): This is bug #14595, should return fakeInstancetype.Spec
-			Expect(foundInstancetypeSpec).To(HaveValue(Equal(stored.Spec)))
+			Expect(foundInstancetypeSpec).To(HaveValue(Equal(fakeInstancetype.Spec)))
 		})
 	})
 })

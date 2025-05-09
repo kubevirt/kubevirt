@@ -32,6 +32,7 @@ import (
 var _ = Describe("Preference SpecFinder", func() {
 	const (
 		nonExistingResourceName = "non-existing-resource"
+		storedName              = "stored"
 	)
 
 	type preferenceSpecFinder interface {
@@ -239,7 +240,7 @@ var _ = Describe("Preference SpecFinder", func() {
 		It("find returns only referenced object - bug #14595", func() {
 			// Make a slightly altered copy of the object already present in the client and store it in a CR
 			stored := clusterPreference.DeepCopy()
-			stored.ObjectMeta.Name = "stored"
+			stored.ObjectMeta.Name = storedName
 			stored.Spec.CPU.PreferredCPUTopology = pointer.P(v1beta1.Threads)
 
 			controllerRevision, err := revision.CreateControllerRevision(vm, stored)
@@ -263,8 +264,7 @@ var _ = Describe("Preference SpecFinder", func() {
 
 			foundPreferenceSpec, err := finder.FindPreference(vm)
 			Expect(err).ToNot(HaveOccurred())
-			// FIXME(lyarwood): This is bug #14595, should return clusterPreference.Spec
-			Expect(foundPreferenceSpec).To(HaveValue(Equal(stored.Spec)))
+			Expect(foundPreferenceSpec).To(HaveValue(Equal(clusterPreference.Spec)))
 		})
 	})
 
@@ -408,7 +408,7 @@ var _ = Describe("Preference SpecFinder", func() {
 		It("find returns only referenced object - bug #14595", func() {
 			// Make a slightly altered copy of the object already present in the client and store it in a CR
 			stored := preference.DeepCopy()
-			stored.ObjectMeta.Name = "stored"
+			stored.ObjectMeta.Name = storedName
 			stored.Spec.CPU.PreferredCPUTopology = pointer.P(v1beta1.Threads)
 
 			controllerRevision, err := revision.CreateControllerRevision(vm, stored)
@@ -432,8 +432,7 @@ var _ = Describe("Preference SpecFinder", func() {
 
 			foundPreferenceSpec, err := finder.FindPreference(vm)
 			Expect(err).ToNot(HaveOccurred())
-			// FIXME(lyarwood): This is bug #14595, should return preference.Spec
-			Expect(foundPreferenceSpec).To(HaveValue(Equal(stored.Spec)))
+			Expect(foundPreferenceSpec).To(HaveValue(Equal(preference.Spec)))
 		})
 	})
 })
