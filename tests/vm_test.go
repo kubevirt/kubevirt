@@ -528,13 +528,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			vm := createRunningVM(virtClient, vmi)
 
 			By("Verifying that the status toggles between ErrImagePull and ImagePullBackOff")
-			maxImgPullRetries := 2 // max number of image pull (re)tries
-			expectedStates := []v1.VirtualMachinePrintableStatus{}
-			for range maxImgPullRetries {
-				// each image pull (re)try should take the VM
-				// from status ErrImagePull to ImagePullBackOff
-				expectedStates = append(expectedStates, v1.VirtualMachineStatusErrImagePull)
-				expectedStates = append(expectedStates, v1.VirtualMachineStatusImagePullBackOff)
+			expectedStates := []v1.VirtualMachinePrintableStatus{
+				// State transitions during 1st image pull attempt
+				v1.VirtualMachineStatusErrImagePull,
+				v1.VirtualMachineStatusImagePullBackOff,
+				// State transitions during 2nd image pull attempt
+				v1.VirtualMachineStatusErrImagePull,
+				v1.VirtualMachineStatusImagePullBackOff,
 			}
 
 			waitForVMStateTransition(virtClient, vm, expectedStates, 600*time.Second)
