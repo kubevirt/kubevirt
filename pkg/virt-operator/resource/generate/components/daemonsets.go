@@ -274,23 +274,26 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		path             string
 		mountPath        string
 		mountPropagation *corev1.MountPropagationMode
+		readOnly         bool
 	}
 	attachCertificateSecret(pod, VirtHandlerCertSecretName, "/etc/virt-handler/clientcertificates")
 	attachCertificateSecret(pod, VirtHandlerServerCertSecretName, "/etc/virt-handler/servercertificates")
 	attachProfileVolume(pod)
 
 	bidi := corev1.MountPropagationBidirectional
+	htc := corev1.MountPropagationHostToContainer
 	// NOTE: the 'kubelet-pods' volume mount exists because that path holds unix socket files.
 	// Socket files fail when their path is longer than 108 characters,
 	//   so that shortened volume path is to allow domain socket connections.
 	// It's ridiculous to have to account for that, but that's the situation we're in.
 	volumes := []volume{
-		{"libvirt-runtimes", runtimesPath, runtimesPath, nil},
-		{"virt-share-dir", util.VirtShareDir, util.VirtShareDir, &bidi},
-		{"virt-private-dir", util.VirtPrivateDir, util.VirtPrivateDir, nil},
-		{"kubelet-pods", kubeletPodsPath, "/pods", nil},
-		{"kubelet", util.KubeletRoot, util.KubeletRoot, &bidi},
-		{"node-labeller", nodeLabellerVolumePath, nodeLabellerVolumePath, nil},
+		{"libvirt-runtimes", runtimesPath, runtimesPath, nil, false},
+		{"virt-share-dir", util.VirtShareDir, util.VirtShareDir, &bidi, false},
+		{"virt-private-dir", util.VirtPrivateDir, util.VirtPrivateDir, nil, false},
+		{"kubelet-pods", kubeletPodsPath, "/pods", nil, false},
+		{"kubelet", util.KubeletRoot, util.KubeletRoot, &bidi, false},
+		{"node-labeller", nodeLabellerVolumePath, nodeLabellerVolumePath, nil, false},
+		{"sys-fs-cgroups", "/sys/fs/cgroup", "/node/sys/fs/cgroup", &htc, true},
 	}
 
 	for _, volume := range volumes {
@@ -298,6 +301,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 			Name:             volume.name,
 			MountPath:        volume.mountPath,
 			MountPropagation: volume.mountPropagation,
+			ReadOnly:         volume.readOnly,
 		})
 		pod.Volumes = append(pod.Volumes, corev1.Volume{
 			Name: volume.name,
