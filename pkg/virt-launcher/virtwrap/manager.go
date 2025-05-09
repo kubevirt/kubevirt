@@ -149,6 +149,7 @@ type DomainManager interface {
 	GetLaunchMeasurement(*v1.VirtualMachineInstance) (*v1.SEVMeasurementInfo, error)
 	InjectLaunchSecret(*v1.VirtualMachineInstance, *v1.SEVSecretOptions) error
 	UpdateGuestMemory(vmi *v1.VirtualMachineInstance) error
+	GetDomainDirtyRateStats(calculationDuration time.Duration) (*stats.DomainStatsDirtyRate, error)
 }
 
 type LibvirtDomainManager struct {
@@ -179,8 +180,9 @@ type LibvirtDomainManager struct {
 	migrateInfoStats         *stats.DomainJobInfo
 	diskMemoryLimitBytes     int64
 
-	metadataCache    *metadata.Cache
-	domainStatsCache *virtcache.TimeDefinedCache[*stats.DomainStats]
+	metadataCache             *metadata.Cache
+	domainStatsCache          *virtcache.TimeDefinedCache[*stats.DomainStats]
+	domainDirtyRateStatsCache *virtcache.TimeDefinedCache[*stats.DomainStatsDirtyRate]
 
 	cpuSetGetter                  func() ([]int, error)
 	imageVolumeFeatureGateEnabled bool
@@ -2040,11 +2042,57 @@ func (l *LibvirtDomainManager) GetDomainStats() (*stats.DomainStats, error) {
 	return l.domainStatsCache.Get()
 }
 
+func (l *LibvirtDomainManager) GetDomainDirtyRateStats(calculationDuration time.Duration) (*stats.DomainStatsDirtyRate, error) {
+	const minCalculationDuration = time.Second
+
+	if calculationDuration < minCalculationDuration {
+		calculationDuration = minCalculationDuration
+	}
+
+	generateRecalcFunc := func(calculationDuration time.Duration) func() (*stats.DomainStatsDirtyRate, error) {
+		return func() (*stats.DomainStatsDirtyRate, error) {
+			list, err := l.getDomainDirtyRateStats(calculationDuration)
+			if err != nil {
+				return nil, err
+			}
+
+			if len(list) == 0 {
+				return nil, nil
+			}
+
+			return list[0], nil
+		}
+	}
+
+	if l.domainDirtyRateStatsCache == nil {
+		var err error
+		l.domainDirtyRateStatsCache, err = virtcache.NewTimeDefinedCache(3*time.Second, true, generateRecalcFunc(calculationDuration))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create domain dirty rate stats cache: %v", err)
+		}
+	}
+
+	// If there's a cached dirty rate stat and the minRefreshDuration hadn't passed, the
+	// cache will not be refreshed and the recalc will kick in only during re-calculation.
+	l.domainDirtyRateStatsCache.SetReCalcFunc(generateRecalcFunc(calculationDuration))
+
+	dirtyRateStats, err := l.domainDirtyRateStatsCache.Get()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get domain dirty rate stats: %v", err)
+	}
+
+	return dirtyRateStats, nil
+}
+
 func (l *LibvirtDomainManager) getDomainStats() ([]*stats.DomainStats, error) {
 	statsTypes := libvirt.DOMAIN_STATS_BALLOON | libvirt.DOMAIN_STATS_CPU_TOTAL | libvirt.DOMAIN_STATS_VCPU | libvirt.DOMAIN_STATS_INTERFACE | libvirt.DOMAIN_STATS_BLOCK | libvirt.DOMAIN_STATS_DIRTYRATE
 	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED
 
 	return l.virConn.GetDomainStats(statsTypes, l.migrateInfoStats, flags)
+}
+
+func (l *LibvirtDomainManager) getDomainDirtyRateStats(calculationDuration time.Duration) ([]*stats.DomainStatsDirtyRate, error) {
+	return l.virConn.GetDomainDirtyRate(calculationDuration, libvirt.DOMAIN_DIRTYRATE_MODE_PAGE_SAMPLING)
 }
 
 func formatPCIAddressStr(address *api.Address) string {

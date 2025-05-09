@@ -112,6 +112,7 @@ type LauncherClient interface {
 	GetLaunchMeasurement(*v1.VirtualMachineInstance) (*v1.SEVMeasurementInfo, error)
 	InjectLaunchSecret(*v1.VirtualMachineInstance, *v1.SEVSecretOptions) error
 	SyncVirtualMachineMemory(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
+	GetDomainDirtyRateStats() (dirtyRateMbps int64, err error)
 }
 
 type VirtLauncherClient struct {
@@ -530,6 +531,24 @@ func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {
 		exists = true
 	}
 	return domain, exists, nil
+}
+
+func (c *VirtLauncherClient) GetDomainDirtyRateStats() (dirtyRateMbps int64, err error) {
+	request := &cmdv1.EmptyRequest{}
+	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
+	defer cancel()
+
+	domainDirtyRateStatsResponse, err := c.v1client.GetDomainDirtyRateStats(ctx, request)
+	var response *cmdv1.Response
+	if domainDirtyRateStatsResponse != nil {
+		response = domainDirtyRateStatsResponse.Response
+	}
+
+	if err = handleError(err, "GetDomainDirtyRateStats", response); err != nil || domainDirtyRateStatsResponse == nil {
+		return -1, err
+	}
+
+	return domainDirtyRateStatsResponse.DirtyRateMbs, nil
 }
 
 func (c *VirtLauncherClient) GetQemuVersion() (string, error) {

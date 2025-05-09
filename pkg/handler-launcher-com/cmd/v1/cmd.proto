@@ -35,6 +35,7 @@ service Cmd {
   rpc GetSEVInfo(EmptyRequest) returns (SEVInfoResponse) {}
   rpc GetLaunchMeasurement(VMIRequest) returns (LaunchMeasurementResponse) {}
   rpc InjectLaunchSecret(InjectLaunchSecretRequest) returns (Response) {}
+  rpc GetDomainDirtyRateStats(EmptyRequest) returns (DirtyRateStatsResponse) {}
 }
 
 message QemuVersionResponse {
@@ -205,4 +206,9 @@ message LaunchMeasurementResponse {
 message InjectLaunchSecretRequest {
     VMI vmi = 1;
     bytes options = 2;
+}
+
+message DirtyRateStatsResponse {
+  Response response = 1;
+  int64 dirtyRateMbs = 2;
 }

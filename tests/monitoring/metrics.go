@@ -89,6 +89,9 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			"kubevirt_vmi_migration_data_total_bytes":                            true,
 			"kubevirt_vmi_migration_start_time_seconds":                          true,
 			"kubevirt_vmi_migration_end_time_seconds":                            true,
+
+			// This metric is using a dedicated collector and is being tested separately
+			"kubevirt_vmi_dirty_rate_bytes_per_second": true,
 		}
 
 		It("should contain virt components metrics", func() {

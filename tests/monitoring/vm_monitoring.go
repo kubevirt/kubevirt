@@ -35,9 +35,11 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	"github.com/onsi/gomega/types"
 
+	expect "github.com/google/goexpect"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -390,6 +392,87 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 
 			By("waiting for VMCannotBeEvicted alert")
 			libmonitoring.VerifyAlertExist(virtClient, "VMCannotBeEvicted")
+		})
+	})
+})
+
+// These tests are suited to run in parallel, but are set to run in Serial because the monitoring tests are flaky.
+var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitoring, func() {
+	var virtClient kubecli.KubevirtClient
+
+	BeforeEach(func() {
+		virtClient = kubevirt.Client()
+	})
+
+	Context("VM dirty rate metrics", func() {
+		getDirtyRateMetricValue := func(vm *v1.VirtualMachine) float64 {
+			const dirtyRateMetric = "kubevirt_vmi_dirty_rate_bytes_per_second"
+			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
+
+			var metricValue float64
+			EventuallyWithOffset(1, func() (err error) {
+				metricValue, err = libmonitoring.GetMetricValueWithLabels(virtClient, dirtyRateMetric, metricLabels)
+				return err
+			}, 3*time.Minute, 20*time.Second).ShouldNot(HaveOccurred(), "error getting metric value")
+
+			return metricValue
+		}
+
+		It("should ensure a running VM has dirty rate metrics", func() {
+			By("Create a running VirtualMachine")
+			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(100 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+
+			By("Checking that the VM metrics are available")
+			getDirtyRateMetricValue(vm)
+		})
+
+		It("should ensure a stress VM has high dirty rate than a stale VM", func() {
+			createVM := func(vmName string) *v1.VirtualMachine {
+				By(fmt.Sprintf("Creating a VirtualMachine: %s", vmName))
+				vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(libvmi.WithName(vmName)), libvmi.WithRunStrategy(v1.RunStrategyOnce))
+				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for the VirtualMachine to be ready")
+				Eventually(matcher.ThisVM(vm)).WithTimeout(100 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+
+				return vm
+			}
+
+			staleVM := createVM("stale-vm-" + rand.String(5))
+			stressedVM := createVM("stressed-vm-" + rand.String(5))
+
+			By("Logging in the stressed VM's guest agent")
+			stressedVMI, err := virtClient.VirtualMachineInstance(stressedVM.Namespace).Get(context.Background(), stressedVM.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVMI(stressedVMI)).WithTimeout(3 * time.Minute).WithPolling(2 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			Expect(console.LoginToFedora(stressedVMI)).To(Succeed())
+
+			By("Stressing the VM")
+			const stressCmd = "stress-ng --vm 1 --vm-bytes 250M --vm-keep &\n"
+			Expect(console.SafeExpectBatch(stressedVMI, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: console.PromptExpression},
+				&expect.BSnd{S: stressCmd},
+				&expect.BExp{R: console.PromptExpression},
+			}, 15)).To(Succeed(), "should run a stress test")
+
+			By("Validating that the stressed VM's dirty rate is higher than the stale VM's dirty rate")
+			dirtyRateValidationFunc := func() error {
+				staleDirtyRate := getDirtyRateMetricValue(staleVM)
+				stressedDirtyRate := getDirtyRateMetricValue(stressedVM)
+
+				if stressedDirtyRate <= staleDirtyRate {
+					return fmt.Errorf("stressed VM dirty rate %f should be greater than stale VM dirty rate %f", stressedDirtyRate, staleDirtyRate)
+				}
+
+				return nil
+			}
+			Eventually(dirtyRateValidationFunc).WithTimeout(1 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+			Consistently(dirtyRateValidationFunc).WithTimeout(30 * time.Second).WithPolling(5 * time.Second).Should(Succeed())
 		})
 	})
 })

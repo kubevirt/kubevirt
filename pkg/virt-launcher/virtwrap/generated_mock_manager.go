@@ -4,6 +4,8 @@
 package virtwrap
 
 import (
+	time "time"
+
 	gomock "github.com/golang/mock/gomock"
 	v1 "kubevirt.io/api/core/v1"
 
@@ -357,4 +359,15 @@ func (_m *MockDomainManager) UpdateGuestMemory(vmi *v1.VirtualMachineInstance) e
 
 func (_mr *_MockDomainManagerRecorder) UpdateGuestMemory(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateGuestMemory", arg0)
+}
+
+func (_m *MockDomainManager) GetDomainDirtyRateStats(calculationDuration time.Duration) (*stats.DomainStatsDirtyRate, error) {
+	ret := _m.ctrl.Call(_m, "GetDomainDirtyRateStats", calculationDuration)
+	ret0, _ := ret[0].(*stats.DomainStatsDirtyRate)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockDomainManagerRecorder) GetDomainDirtyRateStats(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDomainDirtyRateStats", arg0)
 }

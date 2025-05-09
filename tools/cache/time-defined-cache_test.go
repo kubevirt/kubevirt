@@ -150,4 +150,23 @@ var _ = Describe("time defined cache", func() {
 		})
 	})
 
+	It("re-set a recalculation function", func() {
+		cache, err := virtcache.NewTimeDefinedCache(0, false, getMockCalcFunc())
+		Expect(err).ToNot(HaveOccurred())
+
+		value, err := cache.Get()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(value).To(Equal(1))
+
+		const magicNumber = 42
+		newFunc := func() (int, error) {
+			return magicNumber, nil
+		}
+		cache.SetReCalcFunc(newFunc)
+
+		value, err = cache.Get()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(value).To(Equal(magicNumber))
+	})
+
 })
