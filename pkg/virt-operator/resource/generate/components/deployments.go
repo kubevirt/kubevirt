@@ -170,9 +170,10 @@ func newPodTemplateSpec(podName, imageName, repository, version, productName, pr
 			Tolerations:       criticalAddonsToleration(),
 			Containers: []corev1.Container{
 				{
-					Name:            podName,
-					Image:           image,
-					ImagePullPolicy: pullPolicy,
+					Name:                     podName,
+					Image:                    image,
+					ImagePullPolicy:          pullPolicy,
+					TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 				},
 			},
 		},
@@ -609,6 +610,7 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 								},
 								SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 							},
+							TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 						},
 					},
 					SecurityContext: &corev1.PodSecurityContext{
