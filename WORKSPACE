@@ -1399,20 +1399,10 @@ rpm(
 )
 
 rpm(
-    name = "edk2-aarch64-0__20241117-2.el9.aarch64",
-    sha256 = "678e5bd57749f27d5a2b23e8f2f9127583a8233ddb9d4c060254e81e2a3c9eb1",
+    name = "edk2-aarch64-0__20241117-3.el9.aarch64",
+    sha256 = "5f4f2cf0a8c1271bf32d6534cacaa036d770953a797c82f4a3ab6aae14350a13",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/edk2-aarch64-20241117-2.el9.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/678e5bd57749f27d5a2b23e8f2f9127583a8233ddb9d4c060254e81e2a3c9eb1",
-    ],
-)
-
-rpm(
-    name = "edk2-ovmf-0__20241117-2.el9.s390x",
-    sha256 = "a64ed00fed189c823f533a013ce8f044a439066524fbb628b266fd898fe23172",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/CRB/s390x/os/Packages/edk2-ovmf-20241117-2.el9.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/a64ed00fed189c823f533a013ce8f044a439066524fbb628b266fd898fe23172",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/edk2-aarch64-20241117-3.el9.noarch.rpm",
     ],
 )
 
@@ -1422,6 +1412,22 @@ rpm(
     urls = [
         "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/edk2-ovmf-20241117-2.el9.noarch.rpm",
         "https://storage.googleapis.com/builddeps/a64ed00fed189c823f533a013ce8f044a439066524fbb628b266fd898fe23172",
+    ],
+)
+
+rpm(
+    name = "edk2-ovmf-0__20241117-3.el9.s390x",
+    sha256 = "312b99d64803997220502e652575eceae37bae23dfa42b92dfa393c018b60676",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/CRB/s390x/os/Packages/edk2-ovmf-20241117-3.el9.noarch.rpm",
+    ],
+)
+
+rpm(
+    name = "edk2-ovmf-0__20241117-3.el9.x86_64",
+    sha256 = "312b99d64803997220502e652575eceae37bae23dfa42b92dfa393c018b60676",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/edk2-ovmf-20241117-3.el9.noarch.rpm",
     ],
 )
 
@@ -2252,20 +2258,27 @@ rpm(
 )
 
 rpm(
-    name = "guestfs-tools-0__1.52.2-2.el9.s390x",
-    sha256 = "c3cafee3d66eda64a23e881f8bd0f209696d24fc5524a46f9e6b4ed691d72d22",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/guestfs-tools-1.52.2-2.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/c3cafee3d66eda64a23e881f8bd0f209696d24fc5524a46f9e6b4ed691d72d22",
-    ],
-)
-
-rpm(
     name = "guestfs-tools-0__1.52.2-2.el9.x86_64",
     sha256 = "2c3cfa7e3de1e97ff1a6465d2c776311bffded28d451d38983919c1a6cca8dd8",
     urls = [
         "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/guestfs-tools-1.52.2-2.el9.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/2c3cfa7e3de1e97ff1a6465d2c776311bffded28d451d38983919c1a6cca8dd8",
+    ],
+)
+
+rpm(
+    name = "guestfs-tools-0__1.52.2-4.el9.s390x",
+    sha256 = "abef582559a169317cf30f1aef4141ff0f7db7f2195b418196b74709b390f170",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/guestfs-tools-1.52.2-4.el9.s390x.rpm",
+    ],
+)
+
+rpm(
+    name = "guestfs-tools-0__1.52.2-4.el9.x86_64",
+    sha256 = "f3e8f86026ecc65fc0d67a984244712b7cfa77c8a63f741ad0153fec74d87ef7",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/guestfs-tools-1.52.2-4.el9.x86_64.rpm",
     ],
 )
 
@@ -3329,20 +3342,27 @@ rpm(
 )
 
 rpm(
-    name = "libguestfs-1__1.54.0-3.el9.s390x",
-    sha256 = "d4a408ae629195bbdd84f41506797bb03444873b38e01f9a40889d9c97313f86",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libguestfs-1.54.0-3.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/d4a408ae629195bbdd84f41506797bb03444873b38e01f9a40889d9c97313f86",
-    ],
-)
-
-rpm(
     name = "libguestfs-1__1.54.0-3.el9.x86_64",
     sha256 = "1a42f3efec4fba203e3dff85ef391d1ca3573d3d6896601afe9bd17fb15dbd86",
     urls = [
         "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libguestfs-1.54.0-3.el9.x86_64.rpm",
         "https://storage.googleapis.com/builddeps/1a42f3efec4fba203e3dff85ef391d1ca3573d3d6896601afe9bd17fb15dbd86",
+    ],
+)
+
+rpm(
+    name = "libguestfs-1__1.54.0-7.el9.s390x",
+    sha256 = "e25816c151c471bb857120c9f061c2e5066bd3add40ac92c4b3a25bf0026eed0",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libguestfs-1.54.0-7.el9.s390x.rpm",
+    ],
+)
+
+rpm(
+    name = "libguestfs-1__1.54.0-7.el9.x86_64",
+    sha256 = "1ae784f510b7cc73f45a4fa6d2fca87a80e4034fa588c47d2a13c642b20176a1",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libguestfs-1.54.0-7.el9.x86_64.rpm",
     ],
 )
 
@@ -4595,47 +4615,50 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-client-0__10.10.0-7.el9.aarch64",
-    sha256 = "7a20804c1795ea193337b1ec700dcabe7f1c87a25b5825961929750c7340fcaa",
+    name = "libvirt-client-0__10.10.0-10.el9.aarch64",
+    sha256 = "ed512a607e89dec00b18ed30b4e33f66034944c9bebbda9625c65e3c3ebd7638",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-client-10.10.0-7.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/7a20804c1795ea193337b1ec700dcabe7f1c87a25b5825961929750c7340fcaa",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-client-10.10.0-10.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-client-0__10.10.0-7.el9.s390x",
-    sha256 = "0d0c821573044491499893eb806b1c5eb66e31a6225a2051ca90a9f84ca34dfb",
+    name = "libvirt-client-0__10.10.0-10.el9.s390x",
+    sha256 = "a83a26f8b78bc4d11c5f6d8eef5eca5bd14ca70aee80b3ceca22ed41bac83cf0",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-client-10.10.0-7.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/0d0c821573044491499893eb806b1c5eb66e31a6225a2051ca90a9f84ca34dfb",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-client-10.10.0-10.el9.s390x.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-client-0__10.10.0-7.el9.x86_64",
-    sha256 = "78f45dc19efa18b4c189cae4e73f0334b5811051cba13a6e5776c799636f2115",
+    name = "libvirt-client-0__10.10.0-10.el9.x86_64",
+    sha256 = "8ea87d82194ba75289234f2a284801a5cd9f0a28c47365c790479ad7deeba5a7",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-client-10.10.0-7.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/78f45dc19efa18b4c189cae4e73f0334b5811051cba13a6e5776c799636f2115",
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-client-10.10.0-10.el9.x86_64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-daemon-common-0__10.10.0-7.el9.aarch64",
-    sha256 = "b641292ed8518e525a595495a05b96df8b31b3dcac99b7adeb503320626a9d40",
+    name = "libvirt-daemon-common-0__10.10.0-10.el9.aarch64",
+    sha256 = "1dc59d3cb037f12e4cb0eb584b41b5845ba78c97b3872630a6953adc6c20b71a",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-daemon-common-10.10.0-7.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/b641292ed8518e525a595495a05b96df8b31b3dcac99b7adeb503320626a9d40",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-daemon-common-10.10.0-10.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-daemon-common-0__10.10.0-7.el9.s390x",
-    sha256 = "f9e38458fe1e9d822535e737bf4ae09aa6c4679751ac147c937cc5110b595ad2",
+    name = "libvirt-daemon-common-0__10.10.0-10.el9.s390x",
+    sha256 = "947479f210c7832388b3e60e0852abc8182455dac4b56f362325d4a768a7f10c",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-daemon-common-10.10.0-7.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/f9e38458fe1e9d822535e737bf4ae09aa6c4679751ac147c937cc5110b595ad2",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-daemon-common-10.10.0-10.el9.s390x.rpm",
+    ],
+)
+
+rpm(
+    name = "libvirt-daemon-common-0__10.10.0-10.el9.x86_64",
+    sha256 = "9349a9c051c22934dafcc64cd1049dec5e12b580ee54fb7af34805b4af7f3270",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-common-10.10.0-10.el9.x86_64.rpm",
     ],
 )
 
@@ -4649,20 +4672,26 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-daemon-driver-qemu-0__10.10.0-7.el9.aarch64",
-    sha256 = "cbbd1399d7ca9bc223c84cde8eed4ee10a1f4316223b386e41e963fb3c8ca521",
+    name = "libvirt-daemon-driver-qemu-0__10.10.0-10.el9.aarch64",
+    sha256 = "90480599df663700c02e8ab474b9fc2a1dd12c3d2d3ddd13ca500af09cdc7a88",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-daemon-driver-qemu-10.10.0-7.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/cbbd1399d7ca9bc223c84cde8eed4ee10a1f4316223b386e41e963fb3c8ca521",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-daemon-driver-qemu-10.10.0-10.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-daemon-driver-qemu-0__10.10.0-7.el9.s390x",
-    sha256 = "38efe7e761c3ca7abc92c75cf53c684b20be09dd3e138d6c5ba869da0ddd0fad",
+    name = "libvirt-daemon-driver-qemu-0__10.10.0-10.el9.s390x",
+    sha256 = "5428c7dd9243da2da309a7c5bad8241616e8f9163fa047f12db998984a132b6f",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-daemon-driver-qemu-10.10.0-7.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/38efe7e761c3ca7abc92c75cf53c684b20be09dd3e138d6c5ba869da0ddd0fad",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-daemon-driver-qemu-10.10.0-10.el9.s390x.rpm",
+    ],
+)
+
+rpm(
+    name = "libvirt-daemon-driver-qemu-0__10.10.0-10.el9.x86_64",
+    sha256 = "48278fa9d78a68c4c4ff7a333b7415c6af6ce02b2ef52d01547db143ee9b0b7a",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-driver-qemu-10.10.0-10.el9.x86_64.rpm",
     ],
 )
 
@@ -4676,11 +4705,18 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-daemon-driver-secret-0__10.10.0-7.el9.s390x",
-    sha256 = "589ba5a42d9fb8e423a4765ae7bf78eb54d2c4d2b07a48b5b57d57a012796fd8",
+    name = "libvirt-daemon-driver-secret-0__10.10.0-10.el9.s390x",
+    sha256 = "1a0f7bcd03c92340d70b7f0c7290374e0121c07467e06383a5170946fe29d7fe",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-daemon-driver-secret-10.10.0-7.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/589ba5a42d9fb8e423a4765ae7bf78eb54d2c4d2b07a48b5b57d57a012796fd8",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-daemon-driver-secret-10.10.0-10.el9.s390x.rpm",
+    ],
+)
+
+rpm(
+    name = "libvirt-daemon-driver-secret-0__10.10.0-10.el9.x86_64",
+    sha256 = "a210ef686903931779070fed42b288e562f7c4e6ef7611d5bebff740baa9798f",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-driver-secret-10.10.0-10.el9.x86_64.rpm",
     ],
 )
 
@@ -4694,11 +4730,18 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-daemon-driver-storage-core-0__10.10.0-7.el9.s390x",
-    sha256 = "d18f8e7a3f29afd193578ac49a2a386353bb86c86ccd2a8dba9387d272d88195",
+    name = "libvirt-daemon-driver-storage-core-0__10.10.0-10.el9.s390x",
+    sha256 = "2ebe7647080420597cd34ff953a45d99cc2191ed8e2ce3fc44b048e836f0a3e7",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-daemon-driver-storage-core-10.10.0-7.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/d18f8e7a3f29afd193578ac49a2a386353bb86c86ccd2a8dba9387d272d88195",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-daemon-driver-storage-core-10.10.0-10.el9.s390x.rpm",
+    ],
+)
+
+rpm(
+    name = "libvirt-daemon-driver-storage-core-0__10.10.0-10.el9.x86_64",
+    sha256 = "86eb3790dca4bf39d30f7ce2507dcd80517c2cf72d0a8c79889471ab072e3ecb",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-driver-storage-core-10.10.0-10.el9.x86_64.rpm",
     ],
 )
 
@@ -4712,20 +4755,26 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-daemon-log-0__10.10.0-7.el9.aarch64",
-    sha256 = "50709f16424a61a9cd62982055b36fdea350adad91f35c8f5de17fa278dfa769",
+    name = "libvirt-daemon-log-0__10.10.0-10.el9.aarch64",
+    sha256 = "c37ae9fe180c9236a9b1686e4b47dd8d36123efca6e5dfb377c531f342b36ab8",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-daemon-log-10.10.0-7.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/50709f16424a61a9cd62982055b36fdea350adad91f35c8f5de17fa278dfa769",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-daemon-log-10.10.0-10.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-daemon-log-0__10.10.0-7.el9.s390x",
-    sha256 = "667efa45c8f663375ff378a0c151d76d8537d62d41f41fadbeb8c4680f91442b",
+    name = "libvirt-daemon-log-0__10.10.0-10.el9.s390x",
+    sha256 = "d0977e52c7229ed92c8f4802eebb09d8657be1c884f1e66cd740914252335321",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-daemon-log-10.10.0-7.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/667efa45c8f663375ff378a0c151d76d8537d62d41f41fadbeb8c4680f91442b",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-daemon-log-10.10.0-10.el9.s390x.rpm",
+    ],
+)
+
+rpm(
+    name = "libvirt-daemon-log-0__10.10.0-10.el9.x86_64",
+    sha256 = "46df3e500fac0d5f6d5778c59602c66160813ebeb422dfba4262fc976226a814",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-daemon-log-10.10.0-10.el9.x86_64.rpm",
     ],
 )
 
@@ -4739,47 +4788,50 @@ rpm(
 )
 
 rpm(
-    name = "libvirt-devel-0__10.10.0-7.el9.aarch64",
-    sha256 = "21e27e6bee158dbb684baf2c0dd55e482a25ab799d923c4c67b53cfdb5f6f8a4",
+    name = "libvirt-devel-0__10.10.0-10.el9.aarch64",
+    sha256 = "cb314a072a4f25a511bb4372483b8f7d7690a0fba3e0668577b5992b0e2619a9",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/CRB/aarch64/os/Packages/libvirt-devel-10.10.0-7.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/21e27e6bee158dbb684baf2c0dd55e482a25ab799d923c4c67b53cfdb5f6f8a4",
+        "http://mirror.stream.centos.org/9-stream/CRB/aarch64/os/Packages/libvirt-devel-10.10.0-10.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-devel-0__10.10.0-7.el9.s390x",
-    sha256 = "abb7e085273c8ff69f041c4fd37364516b36b5e6fadb206cf758f06f05b6d248",
+    name = "libvirt-devel-0__10.10.0-10.el9.s390x",
+    sha256 = "6addfefd8004e9cc8d49add384f52374f223b46673b058a6bf40a615146d483d",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/CRB/s390x/os/Packages/libvirt-devel-10.10.0-7.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/abb7e085273c8ff69f041c4fd37364516b36b5e6fadb206cf758f06f05b6d248",
+        "http://mirror.stream.centos.org/9-stream/CRB/s390x/os/Packages/libvirt-devel-10.10.0-10.el9.s390x.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-devel-0__10.10.0-7.el9.x86_64",
-    sha256 = "59cfe5dac303670f2d58c891bd0c4435baba732189d82019363063e636a233f6",
+    name = "libvirt-devel-0__10.10.0-10.el9.x86_64",
+    sha256 = "e1dff44741b08189211f31827afa14db535e96e32430957cb1f668cbc1c5abc8",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/CRB/x86_64/os/Packages/libvirt-devel-10.10.0-7.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/59cfe5dac303670f2d58c891bd0c4435baba732189d82019363063e636a233f6",
+        "http://mirror.stream.centos.org/9-stream/CRB/x86_64/os/Packages/libvirt-devel-10.10.0-10.el9.x86_64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-libs-0__10.10.0-7.el9.aarch64",
-    sha256 = "f60277a090bacf57f99515de9ae442019e802713526b08da8c465d9dfb25ef8c",
+    name = "libvirt-libs-0__10.10.0-10.el9.aarch64",
+    sha256 = "adfd77bb23c199e8790db9df4fc73d666dd16cc75a910dcb9f29646d9998d1d3",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-libs-10.10.0-7.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/f60277a090bacf57f99515de9ae442019e802713526b08da8c465d9dfb25ef8c",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/libvirt-libs-10.10.0-10.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "libvirt-libs-0__10.10.0-7.el9.s390x",
-    sha256 = "d10072a19b1e8a929564fa4b79b00399ea8d54a469df15916b05ea2cb4626ad0",
+    name = "libvirt-libs-0__10.10.0-10.el9.s390x",
+    sha256 = "0407a81d2f0213f4f03818b9d0740b4633e301fd2fdc0320c91eb0231cbf3932",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-libs-10.10.0-7.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/d10072a19b1e8a929564fa4b79b00399ea8d54a469df15916b05ea2cb4626ad0",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/libvirt-libs-10.10.0-10.el9.s390x.rpm",
+    ],
+)
+
+rpm(
+    name = "libvirt-libs-0__10.10.0-10.el9.x86_64",
+    sha256 = "671dfb0b9f53556ec10f33c7d0f7088e00731fcdfa55aba3daa816e819bddf34",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/libvirt-libs-10.10.0-10.el9.x86_64.rpm",
     ],
 )
 
@@ -5550,29 +5602,26 @@ rpm(
 )
 
 rpm(
-    name = "passt-0__0__caret__20250217.ga1e48a0-1.el9.aarch64",
-    sha256 = "8facbc418798186bddd160318460fe2ab67d40f084ed9033767fc8f86bcc51dc",
+    name = "passt-0__0__caret__20250320.g32f6212-1.el9.aarch64",
+    sha256 = "ff13a1c56d38a74edca051c32e257f12cd99a6c0f311268774ec37fc2324ecfb",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/passt-0%5E20250217.ga1e48a0-1.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/8facbc418798186bddd160318460fe2ab67d40f084ed9033767fc8f86bcc51dc",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/passt-0%5E20250320.g32f6212-1.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "passt-0__0__caret__20250217.ga1e48a0-1.el9.s390x",
-    sha256 = "ae072b4f51421362e5fd0f6fdd14008c3be398720686c3b62bc629d81a3832f9",
+    name = "passt-0__0__caret__20250320.g32f6212-1.el9.s390x",
+    sha256 = "22b89a20ad0aeb1375a71ac03f1dfada884cf5b0fc0f62981e6fc737dafe2be3",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/passt-0%5E20250217.ga1e48a0-1.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/ae072b4f51421362e5fd0f6fdd14008c3be398720686c3b62bc629d81a3832f9",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/passt-0%5E20250320.g32f6212-1.el9.s390x.rpm",
     ],
 )
 
 rpm(
-    name = "passt-0__0__caret__20250217.ga1e48a0-1.el9.x86_64",
-    sha256 = "b8dfec98aaa31a44b636bffe5e146d81465456ff92ab627b782453fe0b38a19a",
+    name = "passt-0__0__caret__20250320.g32f6212-1.el9.x86_64",
+    sha256 = "ddfe57e8fb8e7e289bc35233ba3f8977811c16821991d5b275fa6364e06043ab",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/passt-0%5E20250217.ga1e48a0-1.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/b8dfec98aaa31a44b636bffe5e146d81465456ff92ab627b782453fe0b38a19a",
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/passt-0%5E20250320.g32f6212-1.el9.x86_64.rpm",
     ],
 )
 
@@ -6357,24 +6406,6 @@ rpm(
 )
 
 rpm(
-    name = "qemu-img-17__9.1.0-15.el9.aarch64",
-    sha256 = "9d69a01218703883d64ddee2c7da941db014cac8c7c611ed80451a5f9898e8b2",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-img-9.1.0-15.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/9d69a01218703883d64ddee2c7da941db014cac8c7c611ed80451a5f9898e8b2",
-    ],
-)
-
-rpm(
-    name = "qemu-img-17__9.1.0-15.el9.s390x",
-    sha256 = "4d59746069e98a5d364fa9e45071931d48932ef0ea9585639b65bd64d188ac56",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/qemu-img-9.1.0-15.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/4d59746069e98a5d364fa9e45071931d48932ef0ea9585639b65bd64d188ac56",
-    ],
-)
-
-rpm(
     name = "qemu-img-17__9.1.0-15.el9.x86_64",
     sha256 = "6149224d6968142db7c12330dd4d9f6882af2ad73a97e591214a3869603b663f",
     urls = [
@@ -6384,20 +6415,26 @@ rpm(
 )
 
 rpm(
-    name = "qemu-kvm-common-17__9.1.0-15.el9.aarch64",
-    sha256 = "e8747456c6bd4ec56dcde896093865bf797cc88072e9d5123a801fcbd249c62b",
+    name = "qemu-img-17__9.1.0-19.el9.aarch64",
+    sha256 = "eecb36dd4c18c7d60b6a24b6583d31cc068aa9639f8a3a2860276794963dd0a9",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-common-9.1.0-15.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/e8747456c6bd4ec56dcde896093865bf797cc88072e9d5123a801fcbd249c62b",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-img-9.1.0-19.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "qemu-kvm-common-17__9.1.0-15.el9.s390x",
-    sha256 = "b38e6cb82e0148c40fac9e4f504c0b277b0335ba204b5433a310945055c4cddf",
+    name = "qemu-img-17__9.1.0-19.el9.s390x",
+    sha256 = "81d0d805a6e43207691e2bc6042706c00a997edcf63b40159fdf69c9b9450dd0",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/qemu-kvm-common-9.1.0-15.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/b38e6cb82e0148c40fac9e4f504c0b277b0335ba204b5433a310945055c4cddf",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/qemu-img-9.1.0-19.el9.s390x.rpm",
+    ],
+)
+
+rpm(
+    name = "qemu-img-17__9.1.0-19.el9.x86_64",
+    sha256 = "ce34587d1bd0d97788291595e8f768f287c91f173a40578d1ecf8b2f95d66db5",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-img-9.1.0-19.el9.x86_64.rpm",
     ],
 )
 
@@ -6411,20 +6448,26 @@ rpm(
 )
 
 rpm(
-    name = "qemu-kvm-core-17__9.1.0-15.el9.aarch64",
-    sha256 = "46dbf6341a68e808c9c5c95f885456c8e9c82c1f9d01ac68de822127063be3bd",
+    name = "qemu-kvm-common-17__9.1.0-19.el9.aarch64",
+    sha256 = "01554c96ea43856036e47fc6895787ec30cea6978a9d47d2d6c7e851f107e194",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-core-9.1.0-15.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/46dbf6341a68e808c9c5c95f885456c8e9c82c1f9d01ac68de822127063be3bd",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-common-9.1.0-19.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "qemu-kvm-core-17__9.1.0-15.el9.s390x",
-    sha256 = "d87c8faf8ce3c0ae88cf1a9311fdf7c3b7614000ab482d0c25f53a0ca28661e5",
+    name = "qemu-kvm-common-17__9.1.0-19.el9.s390x",
+    sha256 = "8e3500ea2aff72d73e11d8d7b49db73de3deb9dbd892320341697bd4adeaf7b1",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/qemu-kvm-core-9.1.0-15.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/d87c8faf8ce3c0ae88cf1a9311fdf7c3b7614000ab482d0c25f53a0ca28661e5",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/qemu-kvm-common-9.1.0-19.el9.s390x.rpm",
+    ],
+)
+
+rpm(
+    name = "qemu-kvm-common-17__9.1.0-19.el9.x86_64",
+    sha256 = "eaafbd7066d377311b2c82223e2571296e60052ef5ec5eaa07e2b916726406e4",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-common-9.1.0-19.el9.x86_64.rpm",
     ],
 )
 
@@ -6438,101 +6481,114 @@ rpm(
 )
 
 rpm(
-    name = "qemu-kvm-device-display-virtio-gpu-17__9.1.0-15.el9.aarch64",
-    sha256 = "89687f03b3fcb8382310516188ed0189dc6b9a578acb6ea101de7eced5b85dee",
+    name = "qemu-kvm-core-17__9.1.0-19.el9.aarch64",
+    sha256 = "89a8de4b8406bf95c77aaa1e48769af68a5e4646ac5958a35394395a66c44837",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-display-virtio-gpu-9.1.0-15.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/89687f03b3fcb8382310516188ed0189dc6b9a578acb6ea101de7eced5b85dee",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-core-9.1.0-19.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "qemu-kvm-device-display-virtio-gpu-17__9.1.0-15.el9.s390x",
-    sha256 = "eb000ae370d63b573d97c450b9d6d4d25d1d1f1bc84ddab42e42fcb4d1cf2d8b",
+    name = "qemu-kvm-core-17__9.1.0-19.el9.s390x",
+    sha256 = "b33497718f0a645d33e9cd0cb80d901cb92041a83dafe35315d81422a26e5845",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/qemu-kvm-device-display-virtio-gpu-9.1.0-15.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/eb000ae370d63b573d97c450b9d6d4d25d1d1f1bc84ddab42e42fcb4d1cf2d8b",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/qemu-kvm-core-9.1.0-19.el9.s390x.rpm",
     ],
 )
 
 rpm(
-    name = "qemu-kvm-device-display-virtio-gpu-17__9.1.0-15.el9.x86_64",
-    sha256 = "cbdf2f2775abde68c4dec5993e5f68c9a01c21f5069860a339d469f393bb70b8",
+    name = "qemu-kvm-core-17__9.1.0-19.el9.x86_64",
+    sha256 = "7853218eb84ee0b36055efd4043901af21cc9f18e3ee3960e96ff6594ba55a9c",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-device-display-virtio-gpu-9.1.0-15.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/cbdf2f2775abde68c4dec5993e5f68c9a01c21f5069860a339d469f393bb70b8",
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-core-9.1.0-19.el9.x86_64.rpm",
     ],
 )
 
 rpm(
-    name = "qemu-kvm-device-display-virtio-gpu-ccw-17__9.1.0-15.el9.s390x",
-    sha256 = "61f572e61c8b06be9a8b0d3ef0a33cb05043f90013e16e24eaa607512dc38714",
+    name = "qemu-kvm-device-display-virtio-gpu-17__9.1.0-19.el9.aarch64",
+    sha256 = "5621548934b7bf9e97815aeac73f2c91a3fcdea9c073d3cbd295ecd2de9289fb",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/qemu-kvm-device-display-virtio-gpu-ccw-9.1.0-15.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/61f572e61c8b06be9a8b0d3ef0a33cb05043f90013e16e24eaa607512dc38714",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-display-virtio-gpu-9.1.0-19.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "qemu-kvm-device-display-virtio-gpu-pci-17__9.1.0-15.el9.aarch64",
-    sha256 = "aa8155d493c960e829b2fd6983abbff9361785ee3e71bb2033f177b1ad1e90df",
+    name = "qemu-kvm-device-display-virtio-gpu-17__9.1.0-19.el9.s390x",
+    sha256 = "f70781a51889ac1e3a573de6050ce5cb009020f3e61769ec0476224835acd62c",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-display-virtio-gpu-pci-9.1.0-15.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/aa8155d493c960e829b2fd6983abbff9361785ee3e71bb2033f177b1ad1e90df",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/qemu-kvm-device-display-virtio-gpu-9.1.0-19.el9.s390x.rpm",
     ],
 )
 
 rpm(
-    name = "qemu-kvm-device-display-virtio-gpu-pci-17__9.1.0-15.el9.x86_64",
-    sha256 = "c58b4a224e3f03797bb0d297a1deffacf899ba2c5f43216f15e71683c4991beb",
+    name = "qemu-kvm-device-display-virtio-gpu-17__9.1.0-19.el9.x86_64",
+    sha256 = "28fb96790e97670f095ef18aca963ba3e78cfbf0566cc05d458c17d3d98d3d0c",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-device-display-virtio-gpu-pci-9.1.0-15.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/c58b4a224e3f03797bb0d297a1deffacf899ba2c5f43216f15e71683c4991beb",
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-device-display-virtio-gpu-9.1.0-19.el9.x86_64.rpm",
     ],
 )
 
 rpm(
-    name = "qemu-kvm-device-usb-host-17__9.1.0-15.el9.aarch64",
-    sha256 = "b1ba11dbb49e5152f53528afbcb01cbc8e3e1ee2f0c2c8d77a53badda9519a8e",
+    name = "qemu-kvm-device-display-virtio-gpu-ccw-17__9.1.0-19.el9.s390x",
+    sha256 = "a1febc5db65cbb730cfc93a793a618386272bf7a6f5eec608962ef6d16074e99",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-usb-host-9.1.0-15.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/b1ba11dbb49e5152f53528afbcb01cbc8e3e1ee2f0c2c8d77a53badda9519a8e",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/qemu-kvm-device-display-virtio-gpu-ccw-9.1.0-19.el9.s390x.rpm",
     ],
 )
 
 rpm(
-    name = "qemu-kvm-device-usb-host-17__9.1.0-15.el9.s390x",
-    sha256 = "9713c68b78e7ae07aa5fe054a3dea39bddcf0bb0fb2d538a8b32a8cb5a83ae37",
+    name = "qemu-kvm-device-display-virtio-gpu-pci-17__9.1.0-19.el9.aarch64",
+    sha256 = "346a927a8957dae8e28628e2b98f65e81db2ea80a1d79a5797ac50377be9be5a",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/qemu-kvm-device-usb-host-9.1.0-15.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/9713c68b78e7ae07aa5fe054a3dea39bddcf0bb0fb2d538a8b32a8cb5a83ae37",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-display-virtio-gpu-pci-9.1.0-19.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "qemu-kvm-device-usb-host-17__9.1.0-15.el9.x86_64",
-    sha256 = "a5c4294129a88a4d6ab772b6e0d20480a3c17c42a3493299d30a5c1e7377496d",
+    name = "qemu-kvm-device-display-virtio-gpu-pci-17__9.1.0-19.el9.x86_64",
+    sha256 = "9aa591852507c5a6d2f99802ca22b13952198b9704fb2e1c8d813140995afd6b",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-device-usb-host-9.1.0-15.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/a5c4294129a88a4d6ab772b6e0d20480a3c17c42a3493299d30a5c1e7377496d",
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-device-display-virtio-gpu-pci-9.1.0-19.el9.x86_64.rpm",
     ],
 )
 
 rpm(
-    name = "qemu-kvm-device-usb-redirect-17__9.1.0-15.el9.aarch64",
-    sha256 = "d8c1573d9e083cee5cc574d5d5a97af2a0f49f17f7291991eb924df93c497e3a",
+    name = "qemu-kvm-device-usb-host-17__9.1.0-19.el9.aarch64",
+    sha256 = "e4ca3610d6ac9511c93e84f300d23a4b14c3190c4b40573f4c2aa56694fd6e71",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-usb-redirect-9.1.0-15.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/d8c1573d9e083cee5cc574d5d5a97af2a0f49f17f7291991eb924df93c497e3a",
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-usb-host-9.1.0-19.el9.aarch64.rpm",
     ],
 )
 
 rpm(
-    name = "qemu-kvm-device-usb-redirect-17__9.1.0-15.el9.x86_64",
-    sha256 = "446238319d45a95449ee0c76ed6e121e1e4c8585ce839a9ed8bbecdfe65bbc3d",
+    name = "qemu-kvm-device-usb-host-17__9.1.0-19.el9.s390x",
+    sha256 = "415673ecafed2255b795bbf74404598f63ad4e83efe69e8f958a707c99d1baa5",
     urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-device-usb-redirect-9.1.0-15.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/446238319d45a95449ee0c76ed6e121e1e4c8585ce839a9ed8bbecdfe65bbc3d",
+        "http://mirror.stream.centos.org/9-stream/AppStream/s390x/os/Packages/qemu-kvm-device-usb-host-9.1.0-19.el9.s390x.rpm",
+    ],
+)
+
+rpm(
+    name = "qemu-kvm-device-usb-host-17__9.1.0-19.el9.x86_64",
+    sha256 = "cabaa65fcd35fd06ab6dec41b4da47ec57859cc7547bb7d817896e907fa70313",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-device-usb-host-9.1.0-19.el9.x86_64.rpm",
+    ],
+)
+
+rpm(
+    name = "qemu-kvm-device-usb-redirect-17__9.1.0-19.el9.aarch64",
+    sha256 = "21d2239d7e5696f812eaf9e7ffec858a81cb483aa1a55a3cb87b26861d367359",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-kvm-device-usb-redirect-9.1.0-19.el9.aarch64.rpm",
+    ],
+)
+
+rpm(
+    name = "qemu-kvm-device-usb-redirect-17__9.1.0-19.el9.x86_64",
+    sha256 = "d969c650d212338d4550b88cd451d321392b035256dca4859d11cf7cecce6786",
+    urls = [
+        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-kvm-device-usb-redirect-9.1.0-19.el9.x86_64.rpm",
     ],
 )
 
