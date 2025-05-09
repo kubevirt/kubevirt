@@ -36,9 +36,12 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
+	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	volumemigration "kubevirt.io/kubevirt/pkg/virt-controller/watch/volume-migration"
@@ -46,8 +49,51 @@ import (
 
 var _ = Describe("Volume Migration", func() {
 	Context("ValidateVolumes", func() {
+		var (
+			dataVolumeStore cache.Store
+			pvcStore        cache.Store
+
+			dvCSI    *cdiv1.DataVolume
+			dvNoSCSI *cdiv1.DataVolume
+		)
+		const (
+			noCSIDVName = "nocsi-dv"
+			csiDVName   = "csi-dv"
+			ns          = "test"
+			popAnn      = "cdi.kubevirt.io/storage.usePopulator"
+		)
+		BeforeEach(func() {
+			dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+			pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+
+			dataVolumeStore = dataVolumeInformer.GetStore()
+			pvcStore = pvcInformer.GetStore()
+
+			dvCSI = newDataVolume(csiDVName, ns, map[string]string{popAnn: "true"})
+			dvNoSCSI = newDataVolume(noCSIDVName, ns, map[string]string{popAnn: "true"})
+			pvcCSI := &k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      csiDVName,
+					Namespace: ns,
+				},
+				Spec: k8sv1.PersistentVolumeClaimSpec{
+					DataSourceRef: pointer.P(k8sv1.TypedObjectReference{}),
+				}}
+			pvcNOCSI := &k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      noCSIDVName,
+					Namespace: ns,
+				},
+			}
+
+			Expect(dataVolumeStore.Add(dvCSI)).To(Succeed())
+			Expect(dataVolumeStore.Add(dvNoSCSI)).To(Succeed())
+			Expect(pvcStore.Add(pvcCSI)).To(Succeed())
+			Expect(pvcStore.Add(pvcNOCSI)).To(Succeed())
+		})
+
 		DescribeTable("should validate the migrated volumes", func(vmi *v1.VirtualMachineInstance, vm *v1.VirtualMachine, expectError error) {
-			err := volumemigration.ValidateVolumes(vmi, vm)
+			err := volumemigration.ValidateVolumes(vmi, vm, dataVolumeStore, pvcStore)
 			if expectError != nil {
 				Expect(err).To(Equal(expectError))
 			} else {
@@ -86,7 +132,51 @@ var _ = Describe("Volume Migration", func() {
 			), libvmi.NewVirtualMachine(libvmi.New(
 				libvmi.WithPersistentVolumeClaim("disk0", "vol2"), withHotpluggedVolume("disk1", "vol4"),
 			)), nil),
+			Entry("with a DV with a csi storageclass", libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume("disk0", "vol0")),
+				libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume("disk0", csiDVName))), nil),
+			Entry("with a DV with a no-csi storageclass", libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume("disk0", "vol0")),
+				libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume("disk0", noCSIDVName))),
+				fmt.Errorf("invalid volumes to update with migration: DV storage class isn't a CSI or not using volume populators: [disk0]")),
 		)
+
+		It("should return an error if the DV doesn't exist", func() {
+			const dvName = "testdv"
+			vmi := libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume("disk0", "vol0"))
+			vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume("disk0", dvName)))
+			err := volumemigration.ValidateVolumes(vmi, vm, dataVolumeStore, pvcStore)
+			Expect(err).To(MatchError(fmt.Sprintf("the datavolume %s doesn't exist", dvName)))
+		})
+
+		It("should return an error if the PVC doesn't exist", func() {
+			const dvName = "testdv"
+			dv := newDataVolume(dvName, ns, nil)
+			Expect(dataVolumeStore.Add(dv)).To(Succeed())
+			vmi := libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume("disk0", "vol0"))
+			vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume("disk0", dvName)))
+			err := volumemigration.ValidateVolumes(vmi, vm, dataVolumeStore, pvcStore)
+			Expect(err).To(MatchError(fmt.Sprintf("the pvc %s doesn't exist", dvName)))
+		})
+
+		It("should validate the migrated volume with a DV in succeeded phase", func() {
+			const dvName = "testdv"
+			dv := newDataVolume(dvName, ns, nil)
+			dv.Status.Phase = cdiv1.Succeeded
+			pvc := &k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      dvName,
+					Namespace: ns,
+				},
+				Spec: k8sv1.PersistentVolumeClaimSpec{
+					DataSourceRef: pointer.P(k8sv1.TypedObjectReference{}),
+				},
+			}
+			Expect(dataVolumeStore.Add(dv)).To(Succeed())
+			Expect(pvcStore.Add(pvc)).To(Succeed())
+			vmi := libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume("disk0", "vol0"))
+			vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume("disk0", dvName)))
+			err := volumemigration.ValidateVolumes(vmi, vm, dataVolumeStore, pvcStore)
+			Expect(err).ToNot(HaveOccurred())
+		})
 	})
 
 	Context("VolumeMigrationCancel", func() {
@@ -540,4 +630,17 @@ func addVMIOptionsForVolumes(vols []string) []libvmi.Option {
 		ops = append(ops, libvmi.WithPersistentVolumeClaim(generateDiskNameFromIndex(i), v))
 	}
 	return ops
+}
+func newDataVolume(name, ns string, annotations map[string]string) *v1beta1.DataVolume {
+	return &v1beta1.DataVolume{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "cdi.kubevirt.io/v1beta1",
+			Kind:       "DataVolume",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			Namespace:   ns,
+			Annotations: annotations,
+		},
+	}
 }
