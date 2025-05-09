@@ -38,6 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
+	k8swatch "k8s.io/apimachinery/pkg/watch"
 	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -533,7 +534,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				v1.VirtualMachineStatusErrImagePull,
 				v1.VirtualMachineStatusImagePullBackOff,
 			}
-			// Timeout is set to 360 seconds to allow for 1 max backoff grace period (5 mins), and 2 image pull attempts.
+			// Timeout is set to 330 seconds to allow for
+			// 1 worst-case backoff grace period (5 mins), and 1 image pull attempt (30 secs).
 			waitForVMStateTransition(vm, expectedStates, 360*time.Second)
 		})
 
@@ -1279,31 +1281,15 @@ func waitForVMStateTransition(vm *v1.VirtualMachine, expectedStates []v1.Virtual
 	Expect(err).ToNot(HaveOccurred())
 	defer watch.Stop()
 
-	timeout := time.After(timeoutDuration)
-	nextExpectedStateIdx := 0
-	var lastSeenState v1.VirtualMachinePrintableStatus
-	for nextExpectedStateIdx < len(expectedStates) {
-		nextExpectedState := expectedStates[nextExpectedStateIdx]
-		select {
-		case <-timeout:
-			Fail(fmt.Sprintf("Test timed out waiting for VM status to be %s", nextExpectedState))
-		case event, ok := <-watch.ResultChan():
-			if !ok {
-				Fail("Watch channel closed unexpectedly")
-			}
-			updatedVM, ok := event.Object.(*v1.VirtualMachine)
-			if !ok {
-				Fail("Received unexpected object type")
-			}
-			currentState := updatedVM.Status.PrintableStatus
-			if currentState == nextExpectedState {
-				// Advance the state transition check
-				nextExpectedStateIdx += 1
-			} else if currentState != lastSeenState {
-				// Reset the state transition check to the beginning
-				nextExpectedStateIdx = 0
-			} // If currentState == lastSeenState, ignore.
-			lastSeenState = currentState
+	getPrintableStatus := func(e k8swatch.Event) v1.VirtualMachinePrintableStatus {
+		updatedVM, ok := e.Object.(*v1.VirtualMachine)
+		if !ok {
+			Fail("Received unexpected object type")
 		}
+		return updatedVM.Status.PrintableStatus
+	}
+
+	for i, expectedState := range expectedStates {
+		Eventually(watch.ResultChan()).WithPolling(1*time.Second).WithTimeout(timeoutDuration).Should(Receive(WithTransform(getPrintableStatus, Equal(expectedState))), fmt.Sprintf("Failed watching the vm status moving to %s in the iteration number %d", expectedState, i))
 	}
 }
