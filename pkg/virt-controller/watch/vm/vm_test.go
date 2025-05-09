@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
@@ -5401,6 +5402,265 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 					Expect(cond.Message).To(ContainSubstring("invalid volumes to update with migration:"))
 				})
+
+				Context("declarative volume hotplug", func() {
+					BeforeEach(func() {
+						testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+							Spec: v1.KubeVirtSpec{
+								Configuration: v1.KubeVirtConfiguration{
+									DeveloperConfiguration: &v1.DeveloperConfiguration{
+										FeatureGates: []string{
+											featuregate.HotplugVolumesGate,
+										},
+									},
+								},
+							},
+						})
+					})
+
+					addDisk := func(vmi *v1.VirtualMachineInstanceSpec, ordinals ...int) {
+						for _, ordinal := range ordinals {
+							vmi.Domain.Devices.Disks = append(vmi.Domain.Devices.Disks, v1.Disk{
+								Name: fmt.Sprintf("volume_%d", ordinal),
+								DiskDevice: v1.DiskDevice{
+									Disk: &v1.DiskTarget{},
+								},
+							})
+						}
+					}
+
+					addCDRom := func(vmi *v1.VirtualMachineInstanceSpec, ordinals ...int) {
+						for _, ordinal := range ordinals {
+							vmi.Domain.Devices.Disks = append(vmi.Domain.Devices.Disks, v1.Disk{
+								Name: fmt.Sprintf("volume_%d", ordinal),
+								DiskDevice: v1.DiskDevice{
+									CDRom: &v1.CDRomTarget{},
+								},
+							})
+						}
+					}
+
+					addVolume := func(vmi *v1.VirtualMachineInstanceSpec, hotplug bool, ordinals ...int) {
+						for _, ordinal := range ordinals {
+							vmi.Volumes = append(vmi.Volumes, v1.Volume{
+								Name: fmt.Sprintf("volume_%d", ordinal),
+								VolumeSource: v1.VolumeSource{
+									DataVolume: &v1.DataVolumeSource{
+										Name:         fmt.Sprintf("datavolume_%d", ordinal),
+										Hotpluggable: hotplug,
+									},
+								},
+							})
+						}
+					}
+
+					addPair := func(vmi *v1.VirtualMachineInstanceSpec, hotplug bool, ordinals ...int) {
+						addDisk(vmi, ordinals...)
+						addVolume(vmi, hotplug, ordinals...)
+					}
+
+					getDisk := func(vmi *v1.VirtualMachineInstanceSpec, ordinal int) *v1.Disk {
+						for i := range vmi.Domain.Devices.Disks {
+							if vmi.Domain.Devices.Disks[i].Name == fmt.Sprintf("volume_%d", ordinal) {
+								return &vmi.Domain.Devices.Disks[i]
+							}
+						}
+						return nil
+					}
+
+					getVolume := func(vmi *v1.VirtualMachineInstanceSpec, ordinal int) *v1.Volume {
+						for i := range vmi.Volumes {
+							if vmi.Volumes[i].Name == fmt.Sprintf("volume_%d", ordinal) {
+								return &vmi.Volumes[i]
+							}
+						}
+						return nil
+					}
+
+					validateOrdinal := func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, ordinal int) {
+						Expect(getDisk(&vm.Spec.Template.Spec, ordinal)).To(Equal(getDisk(&vmi.Spec, ordinal)))
+						Expect(getVolume(&vm.Spec.Template.Spec, ordinal)).To(Equal(getVolume(&vmi.Spec, ordinal)))
+					}
+
+					handle := func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
+						vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+						Expect(err).NotTo(HaveOccurred())
+
+						vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+						Expect(err).NotTo(HaveOccurred())
+
+						Expect(controller.handleDeclarativeVolumeHotplug(vm, vmi)).To(Succeed())
+
+						vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+
+						return vmi
+					}
+
+					createVM := func() (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
+						vm, vmi := watchtesting.DefaultVirtualMachine(true)
+						return vm, vmi
+					}
+
+					BeforeEach(func() {
+						testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+							Spec: v1.KubeVirtSpec{
+								Configuration: v1.KubeVirtConfiguration{
+									DeveloperConfiguration: &v1.DeveloperConfiguration{
+										FeatureGates: []string{featuregate.HotplugVolumesGate},
+									},
+								},
+							},
+						})
+					})
+
+					It("should add hotplug volume to VMI", func() {
+						vm, vmi := createVM()
+						addPair(&vm.Spec.Template.Spec, false, 1)
+						addPair(&vmi.Spec, false, 1)
+						addPair(&vm.Spec.Template.Spec, true, 2)
+
+						vmi = handle(vm, vmi)
+
+						Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(2))
+						Expect(vmi.Spec.Volumes).To(HaveLen(2))
+						validateOrdinal(vm, vmi, 1)
+						validateOrdinal(vm, vmi, 2)
+					})
+
+					It("should not add non hotplug volume to VMI", func() {
+						vm, vmi := createVM()
+						addPair(&vm.Spec.Template.Spec, false, 1)
+						addPair(&vmi.Spec, false, 1)
+						addPair(&vm.Spec.Template.Spec, false, 2)
+
+						vmi = handle(vm, vmi)
+
+						Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(1))
+						Expect(vmi.Spec.Volumes).To(HaveLen(1))
+						validateOrdinal(vm, vmi, 1)
+					})
+
+					It("should not remove non hotplug volume from VMI", func() {
+						vm, vmi := createVM()
+						addPair(&vm.Spec.Template.Spec, false, 1)
+						addPair(&vmi.Spec, false, 1)
+						addPair(&vmi.Spec, false, 2)
+
+						vmi = handle(vm, vmi)
+
+						Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(2))
+						Expect(vmi.Spec.Volumes).To(HaveLen(2))
+						validateOrdinal(vm, vmi, 1)
+					})
+
+					It("should remove hotplug volume from VMI", func() {
+						vm, vmi := createVM()
+						addPair(&vm.Spec.Template.Spec, false, 1)
+						addPair(&vmi.Spec, false, 1)
+						addPair(&vmi.Spec, true, 2)
+
+						vmi = handle(vm, vmi)
+
+						Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(1))
+						Expect(vmi.Spec.Volumes).To(HaveLen(1))
+						validateOrdinal(vm, vmi, 1)
+					})
+
+					It("should not add hotplug volume to VMI if vmi has status for the volume", func() {
+						vm, vmi := createVM()
+						addPair(&vm.Spec.Template.Spec, false, 1)
+						addPair(&vmi.Spec, false, 1)
+						addPair(&vm.Spec.Template.Spec, true, 2)
+
+						vmi.Status.VolumeStatus = []v1.VolumeStatus{
+							{
+								Name: "volume_2",
+							},
+						}
+
+						vmi = handle(vm, vmi)
+
+						Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(1))
+						Expect(vmi.Spec.Volumes).To(HaveLen(1))
+						validateOrdinal(vm, vmi, 1)
+					})
+
+					It("should remove volume when volume changes", func() {
+						vm, vmi := createVM()
+						addPair(&vm.Spec.Template.Spec, false, 1)
+						addPair(&vmi.Spec, false, 1)
+						addPair(&vm.Spec.Template.Spec, true, 2)
+						addPair(&vmi.Spec, true, 2)
+
+						vm.Spec.Template.Spec.Volumes[1].VolumeSource.DataVolume.Name = "changed"
+
+						vmi = handle(vm, vmi)
+
+						Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(1))
+						Expect(vmi.Spec.Volumes).To(HaveLen(1))
+						validateOrdinal(vm, vmi, 1)
+					})
+
+					It("should not add hotplug volume to VMI with migration updatestrategy", func() {
+						vm, vmi := watchtesting.DefaultVirtualMachine(true)
+						vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyMigration)
+						addPair(&vm.Spec.Template.Spec, false, 1)
+						addPair(&vmi.Spec, false, 1)
+						addPair(&vm.Spec.Template.Spec, true, 2)
+
+						vmi = handle(vm, vmi)
+
+						Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(1))
+						Expect(vmi.Spec.Volumes).To(HaveLen(1))
+						validateOrdinal(vm, vmi, 1)
+					})
+
+					It("should not remove perm volume when deleted from VM", func() {
+						vm, vmi := createVM()
+						addPair(&vmi.Spec, false, 1)
+						addPair(&vm.Spec.Template.Spec, true, 2)
+						addPair(&vmi.Spec, true, 2)
+
+						vmi = handle(vm, vmi)
+
+						Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(2))
+						Expect(vmi.Spec.Volumes).To(HaveLen(2))
+						validateOrdinal(vm, vmi, 2)
+					})
+
+					It("should inject CD-ROM", func() {
+						vm, vmi := createVM()
+						addPair(&vm.Spec.Template.Spec, false, 1)
+						addPair(&vmi.Spec, false, 1)
+						addCDRom(&vm.Spec.Template.Spec, 2)
+						addCDRom(&vmi.Spec, 2)
+						addVolume(&vm.Spec.Template.Spec, true, 2)
+
+						vmi = handle(vm, vmi)
+
+						Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(2))
+						Expect(vmi.Spec.Volumes).To(HaveLen(2))
+						validateOrdinal(vm, vmi, 1)
+						validateOrdinal(vm, vmi, 2)
+					})
+
+					It("should eject CD-ROM", func() {
+						vm, vmi := createVM()
+						addPair(&vm.Spec.Template.Spec, false, 1)
+						addPair(&vmi.Spec, false, 1)
+						addCDRom(&vm.Spec.Template.Spec, 2)
+						addCDRom(&vmi.Spec, 2)
+						addVolume(&vmi.Spec, true, 2)
+
+						vmi = handle(vm, vmi)
+
+						Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(2))
+						Expect(vmi.Spec.Volumes).To(HaveLen(1))
+						validateOrdinal(vm, vmi, 1)
+						Expect(getDisk(&vm.Spec.Template.Spec, 2)).To(Equal(getDisk(&vmi.Spec, 2)))
+					})
+				})
 			})
 
 			Context("Instance Types and Preferences", func() {
@@ -6123,7 +6383,6 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(vmiList.Items).To(BeEmpty())
 			})
 		})
-
 	})
 	Context("syncConditions", func() {
 		var vm *v1.VirtualMachine
@@ -6199,6 +6458,14 @@ var _ = Describe("VirtualMachine", func() {
 				Name: name,
 			}
 		}
+		createCDRom := func(name string) v1.Disk {
+			return v1.Disk{
+				Name: name,
+				DiskDevice: v1.DiskDevice{
+					CDRom: &v1.CDRomTarget{},
+				},
+			}
+		}
 		DescribeTable("should be validated for volume updates", func(oldVols, newVols []v1.Volume, expectValid bool) {
 			oldVm, _ := watchtesting.DefaultVirtualMachine(true)
 			newVm := oldVm.DeepCopy()
@@ -6248,6 +6515,10 @@ var _ = Describe("VirtualMachine", func() {
 				createPVCVol("vol2", "test2", false)}, []v1.Disk{createDisk("vol2")}, []v1.Disk{createDisk("vol1"), createDisk("vol2")}, true),
 			Entry("for a removed hotpluggable pvc", []v1.Volume{createPVCVol("vol1", "test1", true)}, []v1.Volume{},
 				[]v1.Disk{createDisk("vol1")}, []v1.Disk{}, true),
+			Entry("cd-rom eject", []v1.Volume{createPVCVol("vol1", "test1", false), createPVCVol("vol2", "test2", true)}, []v1.Volume{createPVCVol("vol1", "test1", false)},
+				[]v1.Disk{createDisk("vol1"), createCDRom("vol2")}, []v1.Disk{createDisk("vol1"), createCDRom("vol2")}, true),
+			Entry("cd-rom inject", []v1.Volume{createPVCVol("vol1", "test1", false)}, []v1.Volume{createPVCVol("vol1", "test1", false), createPVCVol("vol2", "test2", true)},
+				[]v1.Disk{createDisk("vol1"), createCDRom("vol2")}, []v1.Disk{createDisk("vol1"), createCDRom("vol2")}, true),
 		)
 	})
 

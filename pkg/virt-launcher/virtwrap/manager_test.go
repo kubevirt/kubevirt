@@ -1255,6 +1255,273 @@ var _ = Describe("Manager", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newspec).ToNot(BeNil())
 		})
+		It("should inject a cd-rom", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name: "permvolume1",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: v1.DiskBusVirtio,
+						},
+					},
+					Cache: "none",
+				},
+				{
+					Name: "cdrom-volume",
+					DiskDevice: v1.DiskDevice{
+						CDRom: &v1.CDRomTarget{
+							Bus: v1.DiskBusSATA,
+						},
+					},
+					Cache: "none",
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "permvolume1",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: "dv1",
+						},
+					},
+				},
+				{
+					Name: "cdrom-volume",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name:         "dv2",
+							Hotpluggable: true,
+						},
+					},
+				},
+			}
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{
+				{
+					Name:  "permvolume1",
+					Phase: v1.VolumeReady,
+				},
+				{
+					Name:  "cdrom-volume",
+					Phase: v1.VolumeReady,
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "testpod1",
+						AttachPodUID:  "abcd",
+					},
+				},
+			}
+			isBlockDeviceVolume = func(volumeName string) (bool, error) {
+				if volumeName == "dv1" {
+					return true, nil
+				}
+				return false, nil
+			}
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+			domainSpec := expectedDomainFor(vmi)
+			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).ToNot(HaveOccurred())
+			checkIfDiskReadyToUse = func(filename string) (bool, error) {
+				Expect(filename).To(Equal(filepath.Join(v1.HotplugDiskDir, "/cdrom-volume.img")))
+				return true, nil
+			}
+			domainSpec.Devices.Disks = []api.Disk{
+				{
+					Device: "disk",
+					Type:   "file",
+					Source: api.DiskSource{
+						File: "/var/run/kubevirt-private/vmi-disks/permvolume1/disk.img",
+					},
+					Target: api.DiskTarget{
+						Bus:    v1.DiskBusVirtio,
+						Device: "vda",
+					},
+					Driver: &api.DiskDriver{
+						Cache:       "none",
+						Name:        "qemu",
+						Type:        "raw",
+						ErrorPolicy: "stop",
+					},
+					Alias: api.NewUserDefinedAlias("permvolume1"),
+				},
+				{
+					Device: "cdrom",
+					Type:   "file",
+					Target: api.DiskTarget{
+						Bus:    v1.DiskBusSATA,
+						Device: "sda",
+					},
+					Driver: &api.DiskDriver{
+						Cache:       "none",
+						Name:        "qemu",
+						Type:        "raw",
+						ErrorPolicy: "stop",
+						Discard:     "unmap",
+					},
+					Alias: api.NewUserDefinedAlias("cdrom-volume"),
+				},
+			}
+			updateDisk := api.Disk{
+				Device: "cdrom",
+				Type:   "file",
+				Source: api.DiskSource{
+					File: filepath.Join(v1.HotplugDiskDir, "cdrom-volume.img"),
+				},
+				Target: api.DiskTarget{
+					Bus:    v1.DiskBusSATA,
+					Device: "sda",
+				},
+				Driver: &api.DiskDriver{
+					Cache:       "none",
+					Name:        "qemu",
+					Type:        "raw",
+					ErrorPolicy: "stop",
+					Discard:     "unmap",
+				},
+				Alias: api.NewUserDefinedAlias("cdrom-volume"),
+			}
+			xmlDomain2, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).ToNot(HaveOccurred())
+			updateBytes, err := xml.Marshal(updateDisk)
+			Expect(err).ToNot(HaveOccurred())
+			mockConn.EXPECT().DomainDefineXML(string(xmlDomain)).DoAndReturn(mockDomainWithFreeExpectation)
+			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
+			mockDomain.EXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
+			mockDomain.EXPECT().UpdateDeviceFlags(strings.ToLower(string(updateBytes)), affectDeviceLiveAndConfigLibvirtFlags)
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xmlDomain2), nil)
+			manager, _ := newLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, mockDirectIOChecker, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter)
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(newspec).ToNot(BeNil())
+		})
+		It("should eject a cd-rom", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name: "permvolume1",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: v1.DiskBusVirtio,
+						},
+					},
+					Cache: "none",
+				},
+				{
+					Name: "cdrom-volume",
+					DiskDevice: v1.DiskDevice{
+						CDRom: &v1.CDRomTarget{
+							Bus: v1.DiskBusSATA,
+						},
+					},
+					Cache: "none",
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "permvolume1",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: "dv1",
+						},
+					},
+				},
+			}
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{
+				{
+					Name:  "permvolume1",
+					Phase: v1.VolumeReady,
+				},
+				{
+					Name:  "cdrom-volume",
+					Phase: v1.VolumeReady,
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "testpod1",
+						AttachPodUID:  "abcd",
+					},
+				},
+			}
+			isBlockDeviceVolume = func(volumeName string) (bool, error) {
+				if volumeName == "dv1" {
+					return true, nil
+				}
+				return false, nil
+			}
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+			domainSpec := expectedDomainFor(vmi)
+			xmlDomain, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).ToNot(HaveOccurred())
+			checkIfDiskReadyToUse = func(filename string) (bool, error) {
+				Expect(filename).To(Equal(filepath.Join(v1.HotplugDiskDir, "/cdrom-volume.img")))
+				return true, nil
+			}
+			domainSpec.Devices.Disks = []api.Disk{
+				{
+					Device: "disk",
+					Type:   "file",
+					Source: api.DiskSource{
+						File: "/var/run/kubevirt-private/vmi-disks/permvolume1/disk.img",
+					},
+					Target: api.DiskTarget{
+						Bus:    v1.DiskBusVirtio,
+						Device: "vda",
+					},
+					Driver: &api.DiskDriver{
+						Cache:       "none",
+						Name:        "qemu",
+						Type:        "raw",
+						ErrorPolicy: "stop",
+					},
+					Alias: api.NewUserDefinedAlias("permvolume1"),
+				},
+				{
+					Device: "cdrom",
+					Type:   "file",
+					Source: api.DiskSource{
+						File: filepath.Join(v1.HotplugDiskDir, "cdrom-volume.img"),
+					},
+					Target: api.DiskTarget{
+						Bus:    v1.DiskBusSATA,
+						Device: "sda",
+					},
+					Driver: &api.DiskDriver{
+						Cache:       "none",
+						Name:        "qemu",
+						Type:        "raw",
+						ErrorPolicy: "stop",
+						Discard:     "unmap",
+					},
+					Alias: api.NewUserDefinedAlias("cdrom-volume"),
+				},
+			}
+			updateDisk := api.Disk{
+				Device: "cdrom",
+				Type:   "block",
+				Target: api.DiskTarget{
+					Bus:    v1.DiskBusSATA,
+					Device: "sda",
+				},
+				Driver: &api.DiskDriver{
+					Cache:       "none",
+					Name:        "qemu",
+					Type:        "raw",
+					ErrorPolicy: "stop",
+					Discard:     "unmap",
+				},
+				Alias: api.NewUserDefinedAlias("cdrom-volume"),
+			}
+			xmlDomain2, err := xml.MarshalIndent(domainSpec, "", "\t")
+			Expect(err).ToNot(HaveOccurred())
+			updateBytes, err := xml.Marshal(updateDisk)
+			Expect(err).ToNot(HaveOccurred())
+			mockConn.EXPECT().DomainDefineXML(string(xmlDomain)).DoAndReturn(mockDomainWithFreeExpectation)
+			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
+			mockDomain.EXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
+			mockDomain.EXPECT().UpdateDeviceFlags(strings.ToLower(string(updateBytes)), affectDeviceLiveAndConfigLibvirtFlags)
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).MaxTimes(2).Return(string(xmlDomain2), nil)
+			manager, _ := newLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, mockDirectIOChecker, metadataCache, nil, virtconfig.DefaultDiskVerificationMemoryLimitBytes, fakeCpuSetGetter)
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(newspec).ToNot(BeNil())
+		})
 		DescribeTable("should set freePageReporting", func(memory *v1.Memory, clusterFreePageReportingDisabled bool, cpu *v1.CPU, annotationValue, expectedFreePageReportingValue string) {
 			vmi := newVMI(testNamespace, testVmName)
 			if vmi.Annotations == nil {
@@ -2542,6 +2809,9 @@ var _ = Describe("getAttachedDisks", func() {
 		Entry("be empty with empty old and new being identical",
 			[]api.Disk{
 				{
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
 					Source: api.DiskSource{
 						Name: "test",
 						File: "file",
@@ -2550,6 +2820,9 @@ var _ = Describe("getAttachedDisks", func() {
 			},
 			[]api.Disk{
 				{
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
 					Source: api.DiskSource{
 						Name: "test",
 						File: "file",
@@ -2560,6 +2833,9 @@ var _ = Describe("getAttachedDisks", func() {
 		Entry("contain a new disk with empty having a new disk compared to old",
 			[]api.Disk{
 				{
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
 					Source: api.DiskSource{
 						Name: "test",
 						File: "file",
@@ -2568,12 +2844,18 @@ var _ = Describe("getAttachedDisks", func() {
 			},
 			[]api.Disk{
 				{
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
 					Source: api.DiskSource{
 						Name: "test",
 						File: "file",
 					},
 				},
 				{
+					Target: api.DiskTarget{
+						Device: "sdb",
+					},
 					Source: api.DiskSource{
 						Name: "test2",
 						File: filepath.Join(v1.HotplugDiskDir, "file2"),
@@ -2582,6 +2864,9 @@ var _ = Describe("getAttachedDisks", func() {
 			},
 			[]api.Disk{
 				{
+					Target: api.DiskTarget{
+						Device: "sdb",
+					},
 					Source: api.DiskSource{
 						Name: "test2",
 						File: filepath.Join(v1.HotplugDiskDir, "file2"),
@@ -2591,6 +2876,9 @@ var _ = Describe("getAttachedDisks", func() {
 		Entry("be empty if non-hotplug disk is added",
 			[]api.Disk{
 				{
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
 					Source: api.DiskSource{
 						Name: "test",
 						File: "file",
@@ -2599,12 +2887,18 @@ var _ = Describe("getAttachedDisks", func() {
 			},
 			[]api.Disk{
 				{
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
 					Source: api.DiskSource{
 						Name: "test",
 						File: "file",
 					},
 				},
 				{
+					Target: api.DiskTarget{
+						Device: "sdb",
+					},
 					Source: api.DiskSource{
 						Name: "test2",
 						File: "file2",
@@ -2627,6 +2921,9 @@ var _ = Describe("getDetachedDisks", func() {
 		Entry("be empty with empty old and new being identical",
 			[]api.Disk{
 				{
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
 					Source: api.DiskSource{
 						Name: "test",
 						File: "file",
@@ -2635,6 +2932,9 @@ var _ = Describe("getDetachedDisks", func() {
 			},
 			[]api.Disk{
 				{
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
 					Source: api.DiskSource{
 						Name: "test",
 						File: "file",
@@ -2645,12 +2945,18 @@ var _ = Describe("getDetachedDisks", func() {
 		Entry("contains something if new has less than old",
 			[]api.Disk{
 				{
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
 					Source: api.DiskSource{
 						Name: "test",
 						File: "file",
 					},
 				},
 				{
+					Target: api.DiskTarget{
+						Device: "sdb",
+					},
 					Source: api.DiskSource{
 						Name: "test2",
 						File: filepath.Join(v1.HotplugDiskDir, "file2"),
@@ -2659,6 +2965,9 @@ var _ = Describe("getDetachedDisks", func() {
 			},
 			[]api.Disk{
 				{
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
 					Source: api.DiskSource{
 						Name: "test",
 						File: "file",
@@ -2667,6 +2976,9 @@ var _ = Describe("getDetachedDisks", func() {
 			},
 			[]api.Disk{
 				{
+					Target: api.DiskTarget{
+						Device: "sdb",
+					},
 					Source: api.DiskSource{
 						Name: "test2",
 						File: filepath.Join(v1.HotplugDiskDir, "file2"),
@@ -2676,6 +2988,9 @@ var _ = Describe("getDetachedDisks", func() {
 		Entry("be empty if non-hotplug disk changed",
 			[]api.Disk{
 				{
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
 					Source: api.DiskSource{
 						Name: "test",
 						File: "file",
@@ -2684,6 +2999,9 @@ var _ = Describe("getDetachedDisks", func() {
 			},
 			[]api.Disk{
 				{
+					Target: api.DiskTarget{
+						Device: "sdb",
+					},
 					Source: api.DiskSource{
 						Name: "test",
 						File: "file-changed",
@@ -2693,6 +3011,321 @@ var _ = Describe("getDetachedDisks", func() {
 			[]api.Disk{}),
 	)
 })
+
+var _ = Describe("getUpdatedDisks", func() {
+	DescribeTable("should return the correct values", func(oldDisks, newDisks, expected []api.Disk) {
+		res := getUpdatedDisks(oldDisks, newDisks)
+		Expect(res).To(Equal(expected))
+	},
+		Entry("be empty with empty old and new",
+			[]api.Disk{},
+			[]api.Disk{},
+			nil),
+		Entry("be empty with empty old and new being identical",
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+					Source: api.DiskSource{
+						Name: "test",
+						File: filepath.Join(v1.HotplugDiskDir, "file1"),
+					},
+				},
+			},
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+					Source: api.DiskSource{
+						Name: "test",
+						File: filepath.Join(v1.HotplugDiskDir, "file1"),
+					},
+				},
+			},
+			nil),
+		Entry("be empty with new disk being added",
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+					Source: api.DiskSource{
+						Name: "test",
+						File: filepath.Join(v1.HotplugDiskDir, "file1"),
+					},
+				},
+			},
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+					Source: api.DiskSource{
+						Name: "test",
+						File: filepath.Join(v1.HotplugDiskDir, "file1"),
+					},
+				},
+				{
+					Device: "cdrom",
+					Target: api.DiskTarget{
+						Device: "sdb",
+					},
+					Source: api.DiskSource{
+						Name: "test2",
+						File: filepath.Join(v1.HotplugDiskDir, "file2"),
+					},
+				},
+			},
+			nil),
+		Entry("be empty if disk removed",
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+					Source: api.DiskSource{
+						Name: "test",
+						File: filepath.Join(v1.HotplugDiskDir, "file1"),
+					},
+				},
+				{
+					Device: "cdrom",
+					Target: api.DiskTarget{
+						Device: "sdb",
+					},
+					Source: api.DiskSource{
+						Name: "test2",
+						File: filepath.Join(v1.HotplugDiskDir, "file2"),
+					},
+				},
+			},
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+					Source: api.DiskSource{
+						Name: "test",
+						File: filepath.Join(v1.HotplugDiskDir, "file1"),
+					},
+				},
+			},
+			nil),
+		Entry("be empty not cd-roms",
+			[]api.Disk{
+				{
+					Device: "disk",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+					Source: api.DiskSource{
+						Name: "test",
+						File: filepath.Join(v1.HotplugDiskDir, "file1"),
+					},
+				},
+			},
+			[]api.Disk{
+				{
+					Device: "disk",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+					Source: api.DiskSource{
+						Name: "test2",
+						File: filepath.Join(v1.HotplugDiskDir, "file2"),
+					},
+				},
+			},
+			nil),
+		Entry("be empty if not hotplug",
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+					Source: api.DiskSource{
+						Name: "test",
+						File: "file1",
+					},
+				},
+			},
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+					Source: api.DiskSource{
+						Name: "test2",
+						File: "file2",
+					},
+				},
+			},
+			nil),
+		Entry("cd-rom inject",
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+				},
+			},
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+					Source: api.DiskSource{
+						Name: "test1",
+						File: filepath.Join(v1.HotplugDiskDir, "file1"),
+					},
+				},
+			},
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Type:   "file",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+					Driver: &api.DiskDriver{
+						Type: "raw",
+					},
+					Source: api.DiskSource{
+						Name: "test1",
+						File: filepath.Join(v1.HotplugDiskDir, "file1"),
+					},
+				},
+			}),
+		Entry("cd-rom eject",
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+					Source: api.DiskSource{
+						Name: "test1",
+						File: filepath.Join(v1.HotplugDiskDir, "file1"),
+					},
+				},
+			},
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+				},
+			},
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Type:   "block",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+					Driver: &api.DiskDriver{
+						Type: "raw",
+					},
+				},
+			}),
+		Entry("cd-rom swap",
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+					Source: api.DiskSource{
+						Name: "test1",
+						File: filepath.Join(v1.HotplugDiskDir, "file1"),
+					},
+				},
+			},
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+					Source: api.DiskSource{
+						Name: "test2",
+						File: filepath.Join(v1.HotplugDiskDir, "file2"),
+					},
+				},
+			},
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Type:   "file",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+					Driver: &api.DiskDriver{
+						Type: "raw",
+					},
+					Source: api.DiskSource{
+						Name: "test2",
+						File: filepath.Join(v1.HotplugDiskDir, "file2"),
+					},
+				},
+			}),
+		Entry("cd-rom swap block",
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+					Source: api.DiskSource{
+						Name: "test1",
+						File: filepath.Join(v1.HotplugDiskDir, "file1"),
+					},
+				},
+			},
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+					Source: api.DiskSource{
+						Name: "test2",
+						Dev:  filepath.Join(v1.HotplugDiskDir, "file2"),
+					},
+				},
+			},
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Type:   "block",
+					Target: api.DiskTarget{
+						Device: "sda",
+					},
+					Driver: &api.DiskDriver{
+						Type: "raw",
+					},
+					Source: api.DiskSource{
+						Name: "test2",
+						Dev:  filepath.Join(v1.HotplugDiskDir, "file2"),
+					},
+				},
+			}),
+	)
+})
+
 var _ = Describe("migratableDomXML", func() {
 	var ctrl *gomock.Controller
 	var mockDomain *cli.MockVirDomain

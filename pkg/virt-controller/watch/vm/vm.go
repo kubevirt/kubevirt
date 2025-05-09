@@ -806,6 +806,29 @@ func (c *Controller) handleVolumeRequests(vm *virtv1.VirtualMachine, vmi *virtv1
 	return nil
 }
 
+func (c *Controller) handleDeclarativeVolumeHotplug(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	if !c.clusterConfig.HotplugVolumesEnabled() {
+		return nil
+	}
+
+	// TEMP as to not conflict with subresource
+	if len(vm.Status.VolumeRequests) > 0 {
+		return nil
+	}
+
+	if vm.Spec.UpdateVolumesStrategy != nil && *vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration {
+		// Are there some cases we can proceed?
+		return nil
+	}
+
+	if err := c.patchHotplugVolumes(vm, vmi); err != nil {
+		log.Log.Object(vm).Errorf("failed to update hotplug volumes for vmi:%v", err)
+		return err
+	}
+
+	return nil
+}
+
 func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
 	if vmi == nil {
 		return nil
@@ -2841,26 +2864,26 @@ func validLiveUpdateDisks(oldVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.Virtu
 	vols := storagetypes.GetVolumesByName(&vm.Spec.Template.Spec)
 	// Evaluate if any disk has changed or has been added
 	for _, newDisk := range vm.Spec.Template.Spec.Domain.Devices.Disks {
-		v := vols[newDisk.Name]
-		oldDisk, okOld := oldDisks[newDisk.Name]
+		newVolume, okNewVolume := vols[newDisk.Name]
+		oldDisk, okOldDisk := oldDisks[newDisk.Name]
 		switch {
 		// Changes for disks associated to a hotpluggable volume are valid
-		case storagetypes.IsHotplugVolume(v):
-			delete(oldDisks, v.Name)
+		case okNewVolume && storagetypes.IsHotplugVolume(newVolume):
+			delete(oldDisks, newDisk.Name)
 		// The disk has been freshly added
-		case !okOld:
+		case !okOldDisk:
 			return false
 		// The disk has changed
 		case !equality.Semantic.DeepEqual(*oldDisk, newDisk):
 			return false
 		default:
-			delete(oldDisks, v.Name)
+			delete(oldDisks, newDisk.Name)
 		}
 	}
 	// Evaluate if any disks were removed and they were hotplugged volumes
 	for _, d := range oldDisks {
-		v := oldVols[d.Name]
-		if !storagetypes.IsHotplugVolume(v) {
+		v, ok := oldVols[d.Name]
+		if ok && !storagetypes.IsHotplugVolume(v) {
 			return false
 		}
 	}
@@ -3056,6 +3079,10 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 
 	if err := c.handleVolumeRequests(vmCopy, vmi); err != nil {
 		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling volume hotplug requests: %v", err), hotplugVolumeErrorReason), nil
+	}
+
+	if err := c.handleDeclarativeVolumeHotplug(vmCopy, vmi); err != nil {
+		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling declarative hotplug volumes: %v", err), hotplugVolumeErrorReason), nil
 	}
 
 	if err := memorydump.HandleRequest(c.clientset, vmCopy, vmi, c.pvcStore); err != nil {
@@ -3266,4 +3293,160 @@ func (c *Controller) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi *
 	log.Log.Object(vmi).Infof(logMsg)
 
 	return nil
+}
+
+func (c *Controller) patchHotplugVolumes(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	if vmi == nil || !vmi.IsRunning() {
+		return nil
+	}
+
+	newVmiVolumes := append(filterHotplugVMIVolumes(vm, vmi), getNewHotplugVMVolumes(vm, vmi)...)
+	newVmiDisks := append(filterHotplugVMIDisks(vm, vmi, newVmiVolumes), getNewHotplugVMDisks(vm, vmi, newVmiVolumes)...)
+
+	if equality.Semantic.DeepEqual(vmi.Spec.Volumes, newVmiVolumes) &&
+		equality.Semantic.DeepEqual(vmi.Spec.Domain.Devices.Disks, newVmiDisks) {
+		log.Log.Object(vm).V(3).Info("No hotplug volumes to patch")
+		return nil
+	}
+
+	patchSet := patch.New(
+		patch.WithTest("/spec/volumes", vmi.Spec.Volumes),
+		patch.WithTest("/spec/domain/devices/disks", vmi.Spec.Domain.Devices.Disks),
+	)
+
+	if len(vmi.Spec.Volumes) > 0 {
+		patchSet.AddOption(patch.WithReplace("/spec/volumes", newVmiVolumes))
+	} else {
+		patchSet.AddOption(patch.WithAdd("/spec/volumes", newVmiVolumes))
+	}
+
+	if len(vmi.Spec.Domain.Devices.Disks) > 0 {
+		patchSet.AddOption(patch.WithReplace("/spec/domain/devices/disks", newVmiDisks))
+	} else {
+		patchSet.AddOption(patch.WithAdd("/spec/domain/devices/disks", newVmiDisks))
+	}
+
+	patchBytes, err := patchSet.GeneratePayload()
+	if err != nil {
+		return err
+	}
+
+	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func filterHotplugVMIVolumes(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) []virtv1.Volume {
+	var volumes []virtv1.Volume
+	vmVolumesByName := storagetypes.GetVolumesByName(&vm.Spec.Template.Spec)
+
+	// remove any volumes missing/changed in the VM spec
+	for _, vmiVolume := range vmi.Spec.Volumes {
+		if storagetypes.IsHotplugVolume(&vmiVolume) {
+			vmVolume, exists := vmVolumesByName[vmiVolume.Name]
+			if !exists {
+				// volume not in VM spec, remove it
+				log.Log.Object(vm).Infof("Removing hotplug volume %s from VMI, no longer in VM", vmiVolume.Name)
+				continue
+			}
+
+			// volume changed in VM spec - remove it to be re-added with new values later
+			if storagetypes.IsHotplugVolume(vmVolume) && !equality.Semantic.DeepEqual(vmVolume, &vmiVolume) {
+				log.Log.Object(vm).Infof("Removing hotplug volume %s from VMI, volume changed", vmiVolume.Name)
+				continue
+			}
+		}
+
+		volumes = append(volumes, *vmiVolume.DeepCopy())
+	}
+
+	return volumes
+}
+
+func volumesByName(volumes []virtv1.Volume) map[string]*virtv1.Volume {
+	volumeMap := make(map[string]*virtv1.Volume)
+	for _, v := range volumes {
+		volumeMap[v.Name] = v.DeepCopy()
+	}
+	return volumeMap
+}
+
+func filterHotplugVMIDisks(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, vmiNewVolumes []virtv1.Volume) []virtv1.Disk {
+	var disks []virtv1.Disk
+	vmiNewVolumesByName := volumesByName(vmiNewVolumes)
+	vmDisksByName := storagetypes.GetDisksByName(&vm.Spec.Template.Spec)
+	vmVolumesByName := storagetypes.GetVolumesByName(&vm.Spec.Template.Spec)
+
+	for _, vmiDisk := range vmi.Spec.Domain.Devices.Disks {
+		_, vmiVolumeExists := vmiNewVolumesByName[vmiDisk.Name]
+
+		if !vmiVolumeExists {
+			vmDisk, vmDiskExists := vmDisksByName[vmiDisk.Name]
+			_, vmVolumeExists := vmVolumesByName[vmiDisk.Name]
+			vmiIsCDRom := vmiDisk.CDRom != nil
+			vmIsCDRom := vmDiskExists && vmDisk.CDRom != nil
+
+			// disk and volume are gone
+			if !vmDiskExists {
+				continue
+			}
+
+			// vomume changed, remove if not CD-ROM
+			if vmVolumeExists && (!vmIsCDRom || !vmiIsCDRom) {
+				continue
+			}
+		}
+
+		disks = append(disks, *vmiDisk.DeepCopy())
+	}
+
+	return disks
+}
+
+func getNewHotplugVMVolumes(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) []virtv1.Volume {
+	var volumes []virtv1.Volume
+	vmiVolumesByName := storagetypes.GetVolumesByName(&vmi.Spec)
+
+	var volumesWithStatus = make(map[string]struct{})
+	for _, vs := range vmi.Status.VolumeStatus {
+		volumesWithStatus[vs.Name] = struct{}{}
+	}
+
+	for _, vmVolume := range vm.Spec.Template.Spec.Volumes {
+		if storagetypes.IsHotplugVolume(&vmVolume) {
+			_, vmiVolumeExists := vmiVolumesByName[vmVolume.Name]
+
+			// vmi will report status on volume after removed from spec
+			// if in process of hot unplugging
+			_, vmiVolumeHasStatus := volumesWithStatus[vmVolume.Name]
+
+			if !vmiVolumeExists && !vmiVolumeHasStatus {
+				log.Log.Object(vm).Infof("Adding hotplug volume %s to VMI", vmVolume.Name)
+				volumes = append(volumes, *vmVolume.DeepCopy())
+			}
+		}
+	}
+
+	return volumes
+}
+
+func getNewHotplugVMDisks(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, vmiNewVolumes []virtv1.Volume) []virtv1.Disk {
+	var disks []virtv1.Disk
+	vmiNewVolumesByName := volumesByName(vmiNewVolumes)
+	vmiDisksByName := storagetypes.GetDisksByName(&vmi.Spec)
+
+	for _, vmDisk := range vm.Spec.Template.Spec.Domain.Devices.Disks {
+		vmVolume, vmVolumeExists := vmiNewVolumesByName[vmDisk.Name]
+		_, vmiDiskExists := vmiDisksByName[vmDisk.Name]
+
+		if vmVolumeExists && storagetypes.IsHotplugVolume(vmVolume) && !vmiDiskExists {
+			log.Log.Object(vm).Infof("Adding hotplug disk %s to VMI", vmDisk.Name)
+			disks = append(disks, *vmDisk.DeepCopy())
+		}
+	}
+
+	return disks
 }

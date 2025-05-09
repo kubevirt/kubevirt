@@ -176,3 +176,7 @@ func (config *ClusterConfig) ImageVolumeEnabled() bool {
 func (config *ClusterConfig) NodeRestrictionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.NodeRestrictionGate)
 }
+
+func (config *ClusterConfig) InjectEjectCDROMEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.InjectEjectCDROMGate)
+}
