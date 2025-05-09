@@ -529,10 +529,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			By("Verifying that the status toggles between ErrImagePull and ImagePullBackOff")
 			expectedStates := []v1.VirtualMachinePrintableStatus{
-				// State transitions during 1st image pull attempt
-				v1.VirtualMachineStatusErrImagePull,
-				v1.VirtualMachineStatusImagePullBackOff,
-				// State transitions during 2nd image pull attempt
+				// State transitions a single image pull attempt
 				v1.VirtualMachineStatusErrImagePull,
 				v1.VirtualMachineStatusImagePullBackOff,
 			}
