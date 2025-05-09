@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
+	instancetypeapi "kubevirt.io/api/instancetype"
 	"kubevirt.io/client-go/kubecli"
 )
 
@@ -47,10 +48,16 @@ func (f *revisionFinder) Find(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevi
 	}
 	ref := vm.Status.InstancetypeRef
 	if ref != nil && ref.ControllerRevisionRef != nil && ref.ControllerRevisionRef.Name != "" {
-		return f.controllerRevisionFinder.Find(types.NamespacedName{
+		cr, err := f.controllerRevisionFinder.Find(types.NamespacedName{
 			Namespace: vm.Namespace,
 			Name:      ref.ControllerRevisionRef.Name,
 		})
+		if err != nil {
+			return nil, err
+		}
+		if cr.Labels[instancetypeapi.ControllerRevisionObjectNameLabel] == vm.Spec.Instancetype.Name {
+			return cr, nil
+		}
 	}
 	return nil, nil
 }
