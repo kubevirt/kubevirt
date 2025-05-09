@@ -15,6 +15,7 @@ pkg/network/netmachinery
 pkg/network/netns
 pkg/network/pod/annotations
 pkg/network/vmispec
+pkg/network/vmliveupdate
 pkg/storage/pod/annotations
 pkg/virtctl/credentials
 tests/console
