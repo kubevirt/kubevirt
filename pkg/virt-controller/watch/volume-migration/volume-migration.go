@@ -154,7 +154,7 @@ func ValidateVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachi
 				return err
 			}
 			if dv == nil {
-				return fmt.Errorf("the datavolume %s doesn't exist", v.VolumeSource.DataVolume.Name)
+				return storagetypes.NewDVNotFoundError(v.VolumeSource.DataVolume.Name)
 			}
 
 			// if the dv is in succeeded state then it is safe to use since it has already been populated.
@@ -166,7 +166,7 @@ func ValidateVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachi
 				return err
 			}
 			if pvc == nil {
-				return fmt.Errorf("the pvc %s doesn't exist", v.VolumeSource.DataVolume.Name)
+				return storagetypes.NewPVCNotFoundError(v.VolumeSource.DataVolume.Name)
 			}
 			// The dataSourceRef is set if the volume populators are supported
 			if pvc.Spec.DataSourceRef == nil {
