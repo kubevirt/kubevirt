@@ -32,10 +32,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
-	gomock "github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	gomega_types "github.com/onsi/gomega/types"
+	gomock "go.uber.org/mock/gomock"
 
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 

@@ -3,9 +3,9 @@ package cluster
 import (
 	"strconv"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 
 	secv1 "github.com/openshift/api/security/v1"
 
