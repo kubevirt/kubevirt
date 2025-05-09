@@ -537,7 +537,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				v1.VirtualMachineStatusImagePullBackOff,
 			}
 
-			waitForVMStateTransition(virtClient, vm, expectedStates, 600*time.Second)
+			waitForVMStateTransition(vm, expectedStates, 600*time.Second)
 		})
 
 		It("[test_id:7679]should report an error status when data volume error occurs", func() {
@@ -1273,8 +1273,9 @@ func createRunningVM(virtClient kubecli.KubevirtClient, template *v1.VirtualMach
 	return vm
 }
 
-func waitForVMStateTransition(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, expectedStates []v1.VirtualMachinePrintableStatus, timeoutDuration time.Duration) {
+func waitForVMStateTransition(vm *v1.VirtualMachine, expectedStates []v1.VirtualMachinePrintableStatus, timeoutDuration time.Duration) {
 	// Setting up a watch on the VM resource
+	virtClient := kubevirt.Client()
 	watch, err := virtClient.VirtualMachine(vm.Namespace).Watch(context.Background(), metav1.ListOptions{
 		FieldSelector: fmt.Sprintf("metadata.name=%s", vm.Name),
 	})
