@@ -127,6 +127,21 @@ func (p *PatchSet) IsEmpty() bool {
 	return len(p.patches) < 1
 }
 
+func (p *PatchSet) ToSlice() ([]string, error) {
+	var result []string
+
+	for _, operation := range p.patches {
+		patch, err := operation.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, string(patch))
+	}
+
+	return result, nil
+}
+
 func GeneratePatchPayload(patches ...PatchOperation) ([]byte, error) {
 	if len(patches) == 0 {
 		return nil, fmt.Errorf("list of patches is empty")

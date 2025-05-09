@@ -88,6 +88,11 @@ type VirtualMachineCloneSpec struct {
 	// be generated automatically.
 	// +optional
 	NewSMBiosSerial *string `json:"newSMBiosSerial,omitempty"`
+	// Patches holds JSON patches to apply to target. Patches should fit the target's Kind.
+	// Example: '{"op": "add", "path": "/spec/template/metadata/labels/example", "value": "new-label"}'
+	// +optional
+	// +listType=atomic
+	Patches []string `json:"patches,omitempty"`
 }
 
 type VirtualMachineClonePhase string

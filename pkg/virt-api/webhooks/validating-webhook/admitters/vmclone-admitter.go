@@ -108,6 +108,10 @@ func (admitter *VirtualMachineCloneAdmitter) Admit(ctx context.Context, ar *admi
 		causes = append(causes, newCauses...)
 	}
 
+	if newCauses := validatePatches(vmClone); newCauses != nil {
+		causes = append(causes, newCauses...)
+	}
+
 	if len(causes) > 0 {
 		return webhookutils.ToAdmissionResponse(causes)
 	}
@@ -254,6 +258,22 @@ func validateNewMacAddresses(vmClone *clone.VirtualMachineClone) []metav1.Status
 					Field:   k8sfield.NewPath("spec").Child("newMacAddresses").Child(ifaceName).String(),
 				})
 			}
+		}
+	}
+
+	return causes
+}
+
+func validatePatches(vmClone *clone.VirtualMachineClone) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	for i, patch := range vmClone.Spec.Patches {
+		if !json.Valid([]byte(patch)) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("patch is not valid JSON (%s)", patch),
+				Field:   k8sfield.NewPath("spec").Child("patches").Index(i).String(),
+			})
 		}
 	}
 
