@@ -194,8 +194,8 @@ var PasswordRelatedGuestAgentCommands = []string{
 	"guest-set-user-password",
 }
 
-var getCgroupManager = func(vmi *v1.VirtualMachineInstance) (cgroup.Manager, error) {
-	return cgroup.NewManagerFromVM(vmi)
+var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string) (cgroup.Manager, error) {
+	return cgroup.NewManagerFromVM(vmi, host)
 }
 
 func NewController(
@@ -247,7 +247,7 @@ func NewController(
 		migrationProxy:                   migrationProxy,
 		podIsolationDetector:             podIsolationDetector,
 		containerDiskMounter:             container_disk.NewMounter(podIsolationDetector, containerDiskState, clusterConfig),
-		hotplugVolumeMounter:             hotplug_volume.NewVolumeMounter(hotplugState, kubeletPodsDir),
+		hotplugVolumeMounter:             hotplug_volume.NewVolumeMounter(hotplugState, kubeletPodsDir, host),
 		clusterConfig:                    clusterConfig,
 		virtLauncherFSRunDirPattern:      "/proc/%d/root/var/run",
 		capabilities:                     capabilities,
@@ -2275,7 +2275,7 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	// UnmountAll does the cleanup on the "best effort" basis: it is
 	// safe to pass a nil cgroupManager.
-	cgroupManager, _ := getCgroupManager(vmi)
+	cgroupManager, _ := getCgroupManager(vmi, d.host)
 	if err := d.hotplugVolumeMounter.UnmountAll(vmi, cgroupManager); err != nil {
 		return err
 	}
@@ -2898,7 +2898,7 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationTarget(origVMI *v1.Vir
 
 	// Mount hotplug disks
 	if attachmentPodUID := vmi.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != types.UID("") {
-		cgroupManager, err := getCgroupManager(vmi)
+		cgroupManager, err := getCgroupManager(vmi, d.host)
 		if err != nil {
 			return err
 		}
@@ -3100,7 +3100,7 @@ func (d *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 		return err
 	}
 
-	cgroupManager, err := getCgroupManager(vmi)
+	cgroupManager, err := getCgroupManager(vmi, d.host)
 	if err != nil {
 		return err
 	}
@@ -3591,7 +3591,7 @@ func (d *VirtualMachineController) claimDeviceOwnership(virtLauncherRootMount *s
 }
 
 func (d *VirtualMachineController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
-	cgroupManager, err := getCgroupManager(vmi)
+	cgroupManager, err := getCgroupManager(vmi, d.host)
 	if err != nil {
 		return err
 	}
