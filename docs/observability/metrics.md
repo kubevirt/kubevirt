@@ -36,6 +36,9 @@ Request latency in seconds. Broken down by verb and URL. Type: Histogram.
 ### kubevirt_rest_client_requests_total
 Number of HTTP requests, partitioned by status code, method, and host. Type: Counter.
 
+### kubevirt_supported_machine_types
+List of supported machine types. Type: Gauge.
+
 ### kubevirt_usbredir_active_connections
 Amount of active USB redirection connections, broken down by namespace and vmi name. Type: Gauge.
 
