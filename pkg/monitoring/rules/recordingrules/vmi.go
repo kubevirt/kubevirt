@@ -39,4 +39,12 @@ var vmiRecordingRules = []operatorrules.RecordingRule{
 		MetricType: operatormetrics.GaugeType,
 		Expr:       intstr.FromString("kubevirt_vmi_memory_available_bytes-kubevirt_vmi_memory_usable_bytes"),
 	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_vcpu_idle_seconds:5m",
+			Help: "Calculated idle seconds for vCPU over a 5-minute interval; derived as 300 minus the increase in kubevirt_vmi_vcpu_seconds_total over the interval.",
+		},
+		MetricType: operatormetrics.GaugeType,
+		Expr:       intstr.FromString("300 - increase(kubevirt_vmi_vcpu_seconds_total[5m])"),
+	},
 }
