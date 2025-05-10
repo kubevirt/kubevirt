@@ -558,30 +558,68 @@ func validateSoundDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	launchSecurity := spec.Domain.LaunchSecurity
-	if launchSecurity != nil && !config.WorkloadEncryptionSEVEnabled() {
+
+	if launchSecurity == nil {
+		return causes
+	}
+
+	if !config.WorkloadEncryptionSEVEnabled() && !config.WorkloadEncryptionTDXEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.WorkloadEncryptionSEV),
+			Message: fmt.Sprintf("Neither %s nor %s feature gate is enabled in kubevirt-config", featuregate.WorkloadEncryptionSEV, featuregate.WorkloadEncryptionTDX),
 			Field:   field.Child("launchSecurity").String(),
 		})
-	} else if launchSecurity != nil && launchSecurity.SEV != nil {
+	}
+
+	fg := ""
+	secType := ""
+	secTypeCount := 0
+	if launchSecurity.SEV != nil {
+		secType = "SEV"
+		secTypeCount++
+		fg = featuregate.WorkloadEncryptionSEV
+	}
+	if launchSecurity.TDX != nil {
+		secType = "TDX"
+		secTypeCount++
+		fg = featuregate.WorkloadEncryptionTDX
+	}
+	if secTypeCount != 1 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "More than one launchSecurity type is set",
+			Field:   field.Child("launchSecurity").String(),
+		})
+	}
+
+	if (launchSecurity.SEV != nil && !config.WorkloadEncryptionSEVEnabled()) || (launchSecurity.TDX != nil && !config.WorkloadEncryptionTDXEnabled()) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", fg),
+			Field:   field.Child("launchSecurity").String(),
+		})
+	}
+
+	if launchSecurity.SEV != nil || launchSecurity.TDX != nil {
 		firmware := spec.Domain.Firmware
 		if !efiBootEnabled(firmware) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "SEV requires OVMF (UEFI)",
+				Message: fmt.Sprintf("%s requires OVMF (UEFI)", secType),
 				Field:   field.Child("launchSecurity").String(),
 			})
-		} else if secureBootEnabled(firmware) {
+		}
+
+		if launchSecurity.SEV != nil && secureBootEnabled(firmware) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "SEV does not work along with SecureBoot",
+				Message: fmt.Sprintf("%s does not work along with SecureBoot", secType),
 				Field:   field.Child("launchSecurity").String(),
 			})
 		}
 
 		startStrategy := spec.StartStrategy
-		if launchSecurity.SEV.Attestation != nil && (startStrategy == nil || *startStrategy != v1.StartStrategyPaused) {
+		if launchSecurity.SEV != nil && launchSecurity.SEV.Attestation != nil && (startStrategy == nil || *startStrategy != v1.StartStrategyPaused) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("SEV attestation requires VMI StartStrategy '%s'", v1.StartStrategyPaused),
@@ -593,7 +631,7 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 			if iface.BootOrder != nil {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("SEV does not work with bootable NICs: %s", iface.Name),
+					Message: fmt.Sprintf("%s does not work with bootable NICs: %s", secType, iface.Name),
 					Field:   field.Child("launchSecurity").String(),
 				})
 			}
