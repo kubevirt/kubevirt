@@ -21,6 +21,7 @@ package hooks
 
 import (
 	"encoding/json"
+	"os"
 
 	k8sv1 "k8s.io/api/core/v1"
 
@@ -29,6 +30,8 @@ import (
 
 const HookSidecarListAnnotationName = "hooks.kubevirt.io/hookSidecars"
 const HookSocketsSharedDirectory = "/var/run/kubevirt-hooks"
+
+const ContainerNameEnvVar = "CONTAINER_NAME"
 
 type HookSidecarList []HookSidecar
 
@@ -64,4 +67,12 @@ func UnmarshalHookSidecarList(vmiObject *v1.VirtualMachineInstance) (HookSidecar
 	}
 
 	return hookSidecarList, nil
+}
+
+func GetSocketRootPath() string {
+	return HookSocketsSharedDirectory
+}
+
+func GetContainerName() string {
+	return os.Getenv(ContainerNameEnvVar)
 }

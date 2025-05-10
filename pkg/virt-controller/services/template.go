@@ -550,6 +550,11 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 					})
 			}
 		}
+		sidecarContainer.Env = []k8sv1.EnvVar{
+			k8sv1.EnvVar{
+				Name:  hooks.ContainerNameEnvVar,
+				Value: sidecarContainerName(i),
+			}}
 		containers = append(containers, sidecarContainer)
 	}
 
@@ -743,7 +748,7 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 	}
 
 	var mounts []k8sv1.VolumeMount
-	mounts = append(mounts, sidecarVolumeMount())
+	mounts = append(mounts, sidecarVolumeMount(sidecarName))
 	if requestedHookSidecar.DownwardAPI == v1.DeviceInfo {
 		mounts = append(mounts, mountPath(downwardapi.NetworkInfoVolumeName, downwardapi.MountPath))
 	}
@@ -883,10 +888,11 @@ func (t *templateService) newResourceRenderer(vmi *v1.VirtualMachineInstance, ne
 	return NewResourceRenderer(vmiResources.Limits, vmiResources.Requests, options...), nil
 }
 
-func sidecarVolumeMount() k8sv1.VolumeMount {
+func sidecarVolumeMount(containerName string) k8sv1.VolumeMount {
 	return k8sv1.VolumeMount{
 		Name:      hookSidecarSocks,
 		MountPath: hooks.HookSocketsSharedDirectory,
+		SubPath:   containerName,
 	}
 }
 
