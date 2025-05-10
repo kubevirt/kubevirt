@@ -23,12 +23,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
@@ -109,7 +112,7 @@ func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, p
 	if spec.VirtualMachineTemplate == nil {
 		return append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: fmt.Sprintf("missing virtual machine template."),
+			Message: "missing virtual machine template.",
 			Field:   field.Child("template").String(),
 		})
 	}
@@ -126,9 +129,44 @@ func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, p
 	} else if !selector.Matches(labels.Set(spec.VirtualMachineTemplate.ObjectMeta.Labels)) {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("selector does not match labels."),
+			Message: "selector does not match labels.",
 			Field:   field.Child("selector").String(),
 		})
+	}
+
+	if spec.MaxUnavailable != nil {
+		if spec.MaxUnavailable.Type == intstr.String {
+			if !strings.HasSuffix(spec.MaxUnavailable.StrVal, "%") {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "maxUnavailable percentage must end with %",
+					Field:   field.Child("maxUnavailable").String(),
+				})
+			} else {
+				percentage := strings.TrimSuffix(spec.MaxUnavailable.StrVal, "%")
+				if val, err := strconv.Atoi(percentage); err != nil {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("maxUnavailable percentage value %q is invalid: %v", percentage, err),
+						Field:   field.Child("maxUnavailable").String(),
+					})
+				} else if val <= 0 || val > 100 {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("maxUnavailable percentage value %d must be between 1 and 100", val),
+						Field:   field.Child("maxUnavailable").String(),
+					})
+				}
+			}
+		} else if spec.MaxUnavailable.Type == intstr.Int {
+			if spec.MaxUnavailable.IntVal <= 0 {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "maxUnavailable must be greater than 0",
+					Field:   field.Child("maxUnavailable").String(),
+				})
+			}
+		}
 	}
 
 	if ar.Request.Operation == admissionv1.Update {
@@ -143,7 +181,7 @@ func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, p
 		if !equality.Semantic.DeepEqual(pool.Spec.Selector, oldPool.Spec.Selector) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("selector is immutable after creation."),
+				Message: "selector is immutable after creation.",
 				Field:   field.Child("selector").String(),
 			})
 		}

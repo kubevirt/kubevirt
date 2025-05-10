@@ -31,6 +31,7 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -162,9 +163,9 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	DescribeTable("pool should scale", func(startScale int, stopScale int) {
 		newPool := newVirtualMachinePool()
-		doScale(newPool.ObjectMeta.Name, int32(startScale))
-		doScale(newPool.ObjectMeta.Name, int32(stopScale))
-		doScale(newPool.ObjectMeta.Name, int32(0))
+		doScale(newPool.Name, int32(startScale))
+		doScale(newPool.Name, int32(stopScale))
+		doScale(newPool.Name, int32(0))
 	},
 		Entry("to three, to two and then to zero replicas", 3, 2),
 		Entry("to five, to six and then to zero replicas", 5, 6),
@@ -203,7 +204,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 	It("should remove VMs once they are marked for deletion", func() {
 		newPool := newVirtualMachinePool()
 		// Create a pool with two replicas
-		doScale(newPool.ObjectMeta.Name, 2)
+		doScale(newPool.Name, 2)
 		// Delete it
 		By("Deleting the VirtualMachinePool")
 		Expect(virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Delete(context.Background(), newPool.ObjectMeta.Name, metav1.DeleteOptions{})).To(Succeed())
@@ -310,7 +311,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	It("should replace deleted VM and get replacement", func() {
 		newPool := newVirtualMachinePool()
-		doScale(newPool.ObjectMeta.Name, 3)
+		doScale(newPool.Name, 3)
 
 		var err error
 		var vms *v1.VirtualMachineList
@@ -361,7 +362,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	It("should roll out VM template changes without impacting VMI", func() {
 		newPool := newVirtualMachinePool()
-		doScale(newPool.ObjectMeta.Name, 1)
+		doScale(newPool.Name, 1)
 		waitForVMIs(newPool.Namespace, newPool.Spec.Selector, 1)
 
 		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{
@@ -419,7 +420,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	It("should roll out VMI template changes and proactively roll out new VMIs", func() {
 		newPool := newVirtualMachinePool()
-		doScale(newPool.ObjectMeta.Name, 1)
+		doScale(newPool.Name, 1)
 		waitForVMIs(newPool.Namespace, newPool.Spec.Selector, 1)
 
 		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{
@@ -483,7 +484,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	It("should remove owner references on the VirtualMachine if it is orphan deleted", func() {
 		newPool := newOfflineVirtualMachinePool()
-		doScale(newPool.ObjectMeta.Name, 2)
+		doScale(newPool.Name, 2)
 
 		// Check for owner reference
 		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{
@@ -610,6 +611,68 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		Entry("do not append index if set to false", pointer.P(false)),
 		Entry("append index if set to true", pointer.P(true)),
 	)
+
+	It("should respect maxUnavailable strategy during updates", func() {
+		newPool := newVirtualMachinePool()
+
+		replicas := 4
+		maxUnavailable := 1
+
+		doScale(newPool.Name, int32(replicas))
+		waitForVMIs(newPool.Namespace, newPool.Spec.Selector, replicas)
+
+		By(fmt.Sprintf("Setting maxUnavailable to %d", maxUnavailable))
+		patchData, err := patch.New(patch.WithReplace("/spec/maxUnavailable", intstr.FromInt(maxUnavailable))).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+		_, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Patch(context.Background(), newPool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Making a VMI template change")
+		patchData, err = patch.New(patch.WithAdd(
+			fmt.Sprintf("/spec/virtualMachineTemplate/spec/template/metadata/labels/%s", newLabelKey), newLabelValue),
+		).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+		_, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Patch(context.Background(), newPool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Verifying maxUnavailable constraint throughout the update process")
+		Consistently(func() error {
+			vmis, err := virtClient.VirtualMachineInstance(newPool.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: labelSelectorToString(newPool.Spec.Selector),
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			unavailableCount := 0
+
+			for _, vmi := range vmis.Items {
+				if vmi.DeletionTimestamp != nil || vmi.Status.Phase != v1.Running {
+					unavailableCount++
+				}
+			}
+
+			if unavailableCount > maxUnavailable {
+				return fmt.Errorf("maxUnavailable constraint violated: %d unavailable VMIs (max allowed: %d)",
+					unavailableCount, maxUnavailable)
+			}
+			return nil
+		}, 120*time.Second, 1*time.Second).Should(Succeed(), "maxUnavailable constraint was violated during the update process")
+
+		By("Waiting for all VMIs to be updated")
+		vmis, err := virtClient.VirtualMachineInstance(newPool.Namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: labelSelectorToString(newPool.Spec.Selector),
+		})
+		Expect(err).ToNot(HaveOccurred())
+
+		updatedCount := 0
+		for _, vmi := range vmis.Items {
+			if _, ok := vmi.Labels[newLabelKey]; ok {
+				updatedCount++
+			}
+		}
+
+		fmt.Fprintf(GinkgoWriter, "Updated VMIs: %d/%d\n", updatedCount, replicas)
+		Expect(updatedCount).To(Equal(replicas))
+	})
 })
 
 func newPoolFromVMI(vmi *v1.VirtualMachineInstance) *poolv1.VirtualMachinePool {
