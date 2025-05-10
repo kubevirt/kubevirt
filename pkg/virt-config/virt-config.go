@@ -278,6 +278,15 @@ func (c *ClusterConfig) GetSupportContainerLimit(typeName v1.SupportContainerTyp
 	return nil
 }
 
+func (c *ClusterConfig) GetSupportPodTolerations(typeName v1.SupportContainerType) []k8sv1.Toleration {
+	for _, tolerations := range c.GetConfig().SupportPodTolerations {
+		if tolerations.Type == typeName {
+			return tolerations.Tolerations
+		}
+	}
+	return nil
+}
+
 func canSelectNode(nodeSelector map[string]string, node *k8sv1.Node) bool {
 	for key, val := range nodeSelector {
 		labelValue, exist := node.Labels[key]
