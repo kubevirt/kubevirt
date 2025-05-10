@@ -25,9 +25,9 @@ import (
 	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/types"
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
@@ -73,18 +73,20 @@ func VirtualMachineFromVMI(name string, vmi *v1.VirtualMachineInstance, started 
 }
 
 func NewRunningVirtualMachine(vmiName string, node *k8sv1.Node) *v1.VirtualMachineInstance {
-	vmi := api.NewMinimalVMI(vmiName)
+	vmi := libvmi.New(
+		libvmi.WithName(vmiName),
+		libvmi.WithLabel(v1.NodeNameLabel, node.Name),
+	)
 	vmi.UID = types.UID(uuid.NewString())
 	vmi.Status.Phase = v1.Running
 	vmi.Status.NodeName = node.Name
-	vmi.Labels = map[string]string{
-		v1.NodeNameLabel: node.Name,
-	}
 	return vmi
 }
 
 func DefaultVirtualMachineWithNames(started bool, vmName string, vmiName string) (*v1.VirtualMachine, *v1.VirtualMachineInstance) {
-	vmi := api.NewMinimalVMI(vmiName)
+	vmi := libvmi.New(
+		libvmi.WithName(vmiName),
+	)
 	vmi.GenerateName = "prettyrandom"
 	vmi.Status.Phase = v1.Running
 	vmi.Finalizers = append(vmi.Finalizers, v1.VirtualMachineControllerFinalizer)

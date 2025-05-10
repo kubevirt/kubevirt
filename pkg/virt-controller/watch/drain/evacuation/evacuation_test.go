@@ -19,12 +19,12 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
 
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
@@ -570,12 +570,18 @@ func newVirtualMachineMarkedForEviction(name string, nodeName string) *v1.Virtua
 }
 
 func newVirtualMachine(name string, nodeName string) *v1.VirtualMachineInstance {
-	vmi := api.NewMinimalVMI("testvm")
-	vmi.Name = name
+	vmi := libvmi.New(
+		libvmi.WithNamespace(k8sv1.NamespaceDefault),
+		libvmi.WithName(name),
+	)
 	vmi.Status.NodeName = nodeName
-	vmi.Namespace = k8sv1.NamespaceDefault
 	vmi.UID = "1234"
-	vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceIsMigratable, Status: k8sv1.ConditionTrue}}
+	vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+		{
+			Type:   v1.VirtualMachineInstanceIsMigratable,
+			Status: k8sv1.ConditionTrue,
+		},
+	}
 	return vmi
 }
 
