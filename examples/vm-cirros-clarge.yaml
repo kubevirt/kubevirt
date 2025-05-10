@@ -16,6 +16,10 @@ spec:
         kubevirt.io/vm: vm-cirros-clarge
     spec:
       domain:
+        cpu:
+          cores: 1
+          sockets: 1
+          threads: 1
         devices:
           disks:
           - disk: {}
@@ -23,6 +27,8 @@ spec:
           - disk:
               bus: virtio
             name: cloudinitdisk
+        memory:
+          guest: 128Mi
         resources: {}
       terminationGracePeriodSeconds: 0
       volumes:

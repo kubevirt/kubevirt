@@ -7,7 +7,13 @@ metadata:
   name: vmi-sata
 spec:
   domain:
+    cpu:
+      cores: 1
+      sockets: 1
+      threads: 1
     devices: {}
+    memory:
+      guest: 128Mi
     resources:
       requests:
         memory: 128Mi
