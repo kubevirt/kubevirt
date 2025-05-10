@@ -166,6 +166,8 @@ type VirtControllerApp struct {
 	persistentVolumeClaimCache    cache.Store
 	persistentVolumeClaimInformer cache.SharedIndexInformer
 
+	networkAttachmentDefinitionInformer cache.SharedIndexInformer
+
 	rsController *replicaset.Controller
 	rsInformer   cache.SharedIndexInformer
 
@@ -369,6 +371,8 @@ func Execute() {
 
 	app.persistentVolumeClaimInformer = app.informerFactory.PersistentVolumeClaim()
 	app.persistentVolumeClaimCache = app.persistentVolumeClaimInformer.GetStore()
+
+	app.networkAttachmentDefinitionInformer = app.informerFactory.NetworkAttachmentDefinition()
 
 	app.pdbInformer = app.informerFactory.K8SInformerFactory().Policy().V1().PodDisruptionBudgets().Informer()
 
@@ -633,6 +637,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.hotplugDiskDir,
 		vca.imagePullSecret,
 		vca.persistentVolumeClaimCache,
+		vca.networkAttachmentDefinitionInformer.GetStore(),
 		virtClient,
 		vca.clusterConfig,
 		vca.launcherSubGid,

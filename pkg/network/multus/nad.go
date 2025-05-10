@@ -24,8 +24,10 @@ import (
 	"fmt"
 	"strings"
 
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -49,7 +51,26 @@ func NetAttachDefNamespacedName(namespace, fullNetworkName string) types.Namespa
 	}
 }
 
-func NetworkToResource(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (map[string]string, error) {
+func getNetworkFromClient(virtClient kubecli.KubevirtClient, nadNamespacedName types.NamespacedName) (*networkv1.NetworkAttachmentDefinition, error) {
+	return virtClient.NetworkClient().
+		K8sCniCncfIoV1().
+		NetworkAttachmentDefinitions(nadNamespacedName.Namespace).
+		Get(context.Background(), nadNamespacedName.Name, metav1.GetOptions{})
+}
+
+func fetchNetWorkAttachmentDefinition(virtClient kubecli.KubevirtClient, cacheStore cache.Store, nadNamespacedName types.NamespacedName) (*networkv1.NetworkAttachmentDefinition, error) {
+	obj, exists, err := cacheStore.GetByKey(nadNamespacedName.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch network attachment definition from informer cache for %s: %w", nadNamespacedName.String(), err)
+	}
+	if exists {
+		return obj.(*networkv1.NetworkAttachmentDefinition), nil
+	}
+	fmt.Printf("Cache miss: fetching network attachment definition from API server for %s\n", nadNamespacedName.String())
+	return getNetworkFromClient(virtClient, nadNamespacedName)
+}
+
+func NetworkToResource(virtClient kubecli.KubevirtClient, networkAttachmentDefinitionCache cache.Store, vmi *v1.VirtualMachineInstance) (map[string]string, error) {
 	networkToResourceMap := map[string]string{}
 
 	for _, network := range vmi.Spec.Networks {
@@ -58,12 +79,9 @@ func NetworkToResource(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachine
 		}
 
 		nadNamespacedName := NetAttachDefNamespacedName(vmi.Namespace, network.Multus.NetworkName)
-		netAttachDef, err := virtClient.NetworkClient().
-			K8sCniCncfIoV1().
-			NetworkAttachmentDefinitions(nadNamespacedName.Namespace).
-			Get(context.Background(), nadNamespacedName.Name, metav1.GetOptions{})
+		netAttachDef, err := fetchNetWorkAttachmentDefinition(virtClient, networkAttachmentDefinitionCache, nadNamespacedName)
 		if err != nil {
-			return nil, fmt.Errorf("failed to locate network attachment definition %s", nadNamespacedName.String())
+			return nil, fmt.Errorf("failed to locate network attachment definition for %s: %w", nadNamespacedName.String(), err)
 		}
 
 		networkToResourceMap[network.Name] = netAttachDef.Annotations[ResourceNameAnnotation]
