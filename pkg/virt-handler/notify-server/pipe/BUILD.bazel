@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["pipe.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-handler/notify-server/pipe",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/ephemeral-disk-utils:go_default_library",
+        "//pkg/safepath:go_default_library",
+        "//pkg/virt-handler/isolation:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+    ],
+)
