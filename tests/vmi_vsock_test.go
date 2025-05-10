@@ -160,7 +160,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 
 	DescribeTable("communicating with VMI via VSOCK", func(useTLS bool) {
 		if flags.KubeVirtExampleGuestAgentPath == "" {
-			Skip("example guest agent path is not specified")
+			Fail(`"example-guest-agent-path" argument is not specified`)
 		}
 
 		vmi := libvmifact.NewFedora(

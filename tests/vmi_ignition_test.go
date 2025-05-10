@@ -41,7 +41,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 	BeforeEach(func() {
 		if !checks.HasFeature("ExperimentalIgnitionSupport") {
-			Skip("ExperimentalIgnitionSupport feature gate is not enabled in kubevirt-config")
+			Fail("ExperimentalIgnitionSupport feature gate is not enabled")
 		}
 	})
 
