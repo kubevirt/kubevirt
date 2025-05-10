@@ -141,6 +141,7 @@ var _ = Describe("VirtualMachine", func() {
 				virtClient,
 				config,
 				nil,
+				nil,
 				instancetypecontroller.NewMockController(),
 			)
 
