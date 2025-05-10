@@ -34,6 +34,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	instancetypenetcontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/network"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/network/controllers"
@@ -48,7 +49,10 @@ var _ = Describe("VM Network Controller", func() {
 		nadName          = "foonet-nad"
 	)
 	DescribeTable("sync does nothing when", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) {
-		c := controllers.NewVMController(fake.NewSimpleClientset())
+		c := controllers.NewVMController(
+			fake.NewSimpleClientset(),
+			instancetypenetcontroller.NewMockController(),
+		)
 		originalVM := vm.DeepCopy()
 		Expect(c.Sync(vm, vmi)).To(Equal(originalVM))
 	},
@@ -78,7 +82,10 @@ var _ = Describe("VM Network Controller", func() {
 
 	It("sync fails when VMI patch returns an error", func() {
 		clientset := fake.NewSimpleClientset()
-		c := controllers.NewVMController(clientset)
+		c := controllers.NewVMController(
+			clientset,
+			instancetypenetcontroller.NewMockController(),
+		)
 
 		// Setup `Patch` to fail.
 		injectedPatchError := errors.New("test patch error")
@@ -110,7 +117,10 @@ var _ = Describe("VM Network Controller", func() {
 
 	DescribeTable("sync succeeds to hotplug new interface", func(ifaceToPlug v1.Interface) {
 		clientset := fake.NewSimpleClientset()
-		c := controllers.NewVMController(clientset)
+		c := controllers.NewVMController(
+			clientset,
+			instancetypenetcontroller.NewMockController(),
+		)
 		vmi := libvmi.New(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -158,7 +168,10 @@ var _ = Describe("VM Network Controller", func() {
 
 	DescribeTable("sync succeeds to mark an existing interface for hotunplug", func(currentIfaceState v1.InterfaceState) {
 		clientset := fake.NewSimpleClientset()
-		c := controllers.NewVMController(clientset)
+		c := controllers.NewVMController(
+			clientset,
+			instancetypenetcontroller.NewMockController(),
+		)
 
 		multusAndDomainInfoSource := vmispec.NewInfoSource(vmispec.InfoSourceMultusStatus, vmispec.InfoSourceDomain)
 
@@ -215,7 +228,10 @@ var _ = Describe("VM Network Controller", func() {
 
 	It("sync does not hotplug a new interface when it uses binding other than bridge or SR-IOV", func() {
 		clientset := fake.NewSimpleClientset()
-		c := controllers.NewVMController(clientset)
+		c := controllers.NewVMController(
+			clientset,
+			instancetypenetcontroller.NewMockController(),
+		)
 
 		vmi := libvmi.New()
 		vm := libvmi.NewVirtualMachine(vmi.DeepCopy())
@@ -244,7 +260,10 @@ var _ = Describe("VM Network Controller", func() {
 
 	It("sync succeeds to clear hotunplug interfaces", func() {
 		clientset := fake.NewSimpleClientset()
-		c := controllers.NewVMController(clientset)
+		c := controllers.NewVMController(
+			clientset,
+			instancetypenetcontroller.NewMockController(),
+		)
 		unpluggedIface := libvmi.InterfaceDeviceWithBridgeBinding("foonet")
 		unpluggedIface.State = v1.InterfaceStateAbsent
 		vmi := libvmi.New(
@@ -280,7 +299,10 @@ var _ = Describe("VM Network Controller", func() {
 
 	It("sync does not hotunplug interfaces when nameing scheme is unknown", func() {
 		clientset := fake.NewSimpleClientset()
-		c := controllers.NewVMController(clientset)
+		c := controllers.NewVMController(
+			clientset,
+			instancetypenetcontroller.NewMockController(),
+		)
 		vmi := libvmi.New(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -324,7 +346,10 @@ var _ = Describe("VM Network Controller", func() {
 
 	DescribeTable("sync updates link state of an existing interface", func(fromState, toState v1.InterfaceState) {
 		clientset := fake.NewSimpleClientset()
-		c := controllers.NewVMController(clientset)
+		c := controllers.NewVMController(
+			clientset,
+			instancetypenetcontroller.NewMockController(),
+		)
 		const defaultNetName = "default"
 		vmi := libvmi.New(
 			libvmi.WithInterface(v1.Interface{
@@ -378,7 +403,10 @@ var _ = Describe("VM Network Controller", func() {
 
 	DescribeTable("sync doesn't update link state if hot-unplug is underway ", func(toState v1.InterfaceState) {
 		clientset := fake.NewSimpleClientset()
-		c := controllers.NewVMController(clientset)
+		c := controllers.NewVMController(
+			clientset,
+			instancetypenetcontroller.NewMockController(),
+		)
 		const defaultNetName = "default"
 		vmi := libvmi.New(
 			libvmi.WithInterface(v1.Interface{
@@ -424,7 +452,11 @@ var _ = Describe("VM Network Controller", func() {
 
 	It("sync does not hotunplug interfaces when legacy ordinal interface names are found", func() {
 		clientset := fake.NewSimpleClientset()
-		c := controllers.NewVMController(clientset)
+		c := controllers.NewVMController(
+			clientset,
+			instancetypenetcontroller.NewMockController(),
+		)
+
 		vmi := libvmi.New(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
