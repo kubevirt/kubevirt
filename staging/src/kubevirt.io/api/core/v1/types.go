@@ -576,6 +576,9 @@ const (
 	// Indicates that the VMI has an updates in its volume set
 	VirtualMachineInstanceVolumesChange VirtualMachineInstanceConditionType = "VolumesChange"
 
+	// Indicates that the VMI is in the process of vNIC Hot plug/unplug
+	VirtualMachineInstanceVNICChange VirtualMachineInstanceConditionType = "VNICChange"
+
 	// Summarizes that all the DataVolumes attached to the VMI are Ready or not
 	VirtualMachineInstanceDataVolumesReady VirtualMachineInstanceConditionType = "DataVolumesReady"
 
