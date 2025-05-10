@@ -45,6 +45,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -518,7 +519,7 @@ func (f *kubeInformerFactory) VirtualMachineInstanceMigration() cache.SharedInde
 }
 
 func (f *kubeInformerFactory) KubeVirtPod() cache.SharedIndexInformer {
-	return f.getInformer("kubeVirtPodInformer", func() cache.SharedIndexInformer {
+	informer := f.getInformer("kubeVirtPodInformer", func() cache.SharedIndexInformer {
 		// Watch all pods with the kubevirt app label
 		labelSelector, err := labels.Parse(kubev1.AppLabel)
 		if err != nil {
@@ -528,6 +529,8 @@ func (f *kubeInformerFactory) KubeVirtPod() cache.SharedIndexInformer {
 		lw := NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "pods", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
 		return cache.NewSharedIndexInformer(lw, &k8sv1.Pod{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
+	informer.SetTransform(trimManagedFields)
+	return informer
 }
 
 func (f *kubeInformerFactory) KubeVirtNode() cache.SharedIndexInformer {
@@ -1217,7 +1220,7 @@ func (f *kubeInformerFactory) OperatorInstallStrategyJob() cache.SharedIndexInfo
 }
 
 func (f *kubeInformerFactory) OperatorPod() cache.SharedIndexInformer {
-	return f.getInformer("operatorPodsInformer", func() cache.SharedIndexInformer {
+	informer := f.getInformer("operatorPodsInformer", func() cache.SharedIndexInformer {
 		// Watch all kubevirt infrastructure pods with the operator label
 		labelSelector, err := labels.Parse(OperatorLabel)
 		if err != nil {
@@ -1227,6 +1230,8 @@ func (f *kubeInformerFactory) OperatorPod() cache.SharedIndexInformer {
 		lw := NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "pods", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
 		return cache.NewSharedIndexInformer(lw, &k8sv1.Pod{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
+	informer.SetTransform(trimManagedFields)
+	return informer
 }
 
 func (f *kubeInformerFactory) OperatorValidationWebhook() cache.SharedIndexInformer {
@@ -1433,4 +1438,18 @@ func VolumeSnapshotClassInformer(clientSet kubecli.KubevirtClient, resyncPeriod 
 	restClient := clientSet.KubernetesSnapshotClient().SnapshotV1().RESTClient()
 	lw := cache.NewListWatchFromClient(restClient, "volumesnapshotclasses", k8sv1.NamespaceAll, fields.Everything())
 	return cache.NewSharedIndexInformer(lw, &vsv1.VolumeSnapshotClass{}, resyncPeriod, cache.Indexers{})
+}
+
+// Dropping `.metadata.managedFields` to improve memory usage.
+// This should be used with caution:
+// since this will transform the obj it will result in a discrepancy between api and cache object.
+// Using `Update` method starting from transformed and cached object will result in persisting the object
+// cleaned from the managed fields.
+func trimManagedFields(obj interface{}) (interface{}, error) {
+	if accessor, err := meta.Accessor(obj); err == nil {
+		if accessor.GetManagedFields() != nil {
+			accessor.SetManagedFields(nil)
+		}
+	}
+	return obj, nil
 }
