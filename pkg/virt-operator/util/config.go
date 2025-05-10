@@ -54,6 +54,7 @@ const (
 	PrHelperImageEnvName         = "PR_HELPER_IMAGE"
 	SidecarShimImageEnvName      = "SIDECAR_SHIM_IMAGE"
 	RunbookURLTemplate           = "RUNBOOK_URL_TEMPLATE"
+	DisableRbacAggrEnvName       = "DISABLE_RBAC_AGGREGATION"
 
 	// The below Shasum variables would be ignored if Image env vars are being used.
 	// Deprecated, use VirtApiImageEnvName instead
