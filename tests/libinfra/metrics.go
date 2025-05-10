@@ -30,6 +30,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	v1 "kubevirt.io/api/core/v1"
 
+	metricsutil "github.com/machadovilaca/operator-observability/pkg/testutil"
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
@@ -134,12 +135,15 @@ func GetKeysFromMetrics(metrics map[string]float64) []string {
 	return keys
 }
 
-func GetMetricKeyForVmiDisk(keys []string, vmiName string, diskName string) string {
-	for _, key := range keys {
-		if strings.Contains(key, "name=\""+vmiName+"\"") &&
-			strings.Contains(key, "drive=\""+diskName+"\"") {
-			return key
+func GetMetricResultForVmiDisk(metrics map[string][]metricsutil.MetricResult, vmiName, diskName string) (*metricsutil.MetricResult, bool) {
+	for _, metricList := range metrics {
+		for _, metric := range metricList {
+			if name, ok := metric.Labels["name"]; ok && name == vmiName {
+				if disk, ok := metric.Labels["drive"]; ok && disk == diskName {
+					return &metric, true
+				}
+			}
 		}
 	}
-	return ""
+	return nil, false
 }
