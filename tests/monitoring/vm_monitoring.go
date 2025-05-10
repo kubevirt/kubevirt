@@ -359,6 +359,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 
 		AfterEach(func() {
 			scales.RestoreAllScales()
+			waitUntilComponentsAlertsDoNotExist(virtClient)
 		})
 
 		It("[test_id:9260] should fire OrphanedVirtualMachineInstances alert", func() {
