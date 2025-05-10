@@ -4084,7 +4084,13 @@ var _ = Describe("Template", func() {
 			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, claimMap)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(pod.Spec.Tolerations).To(BeEquivalentTo(vmi.Spec.Tolerations))
+			unschedulableToleration := k8sv1.Toleration{
+				Key:      k8sv1.TaintNodeUnschedulable,
+				Operator: k8sv1.TolerationOpExists,
+				Effect:   k8sv1.TaintEffectNoSchedule,
+			}
+			expectedTolerations := append(vmi.Spec.Tolerations, unschedulableToleration)
+			Expect(pod.Spec.Tolerations).To(ConsistOf(expectedTolerations))
 		})
 
 		It("should compute the correct tolerations when rendering hotplug attachment trigger pods", func() {

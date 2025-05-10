@@ -20,12 +20,6 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-const (
-	unschedulableTolerationKey      = "node.kubernetes.io/unschedulable"
-	unschedulableTolerationOperator = "Exists"
-	unschedulableTolerationEffect   = "NoSchedule"
-)
-
 type ResourceRendererOption func(renderer *ResourceRenderer)
 
 type ResourceRenderer struct {
@@ -673,12 +667,12 @@ func hotplugContainerRequests(config *virtconfig.ClusterConfig) k8sv1.ResourceLi
 func hotplugPodTolerations(config *virtconfig.ClusterConfig) []k8sv1.Toleration {
 	tolerations := []k8sv1.Toleration{
 		{
-			Key:      unschedulableTolerationKey,
-			Operator: unschedulableTolerationOperator,
-			Effect:   unschedulableTolerationEffect,
+			Key:      k8sv1.TaintNodeUnschedulable,
+			Operator: k8sv1.TolerationOpExists,
+			Effect:   k8sv1.TaintEffectNoSchedule,
 		},
 	}
-	if tol := config.GetSupportPodTolerations(v1.HotplugAttachment); tolerations != nil {
+	if tol := config.GetSupportPodTolerations(v1.HotplugAttachment); tol != nil {
 		tolerations = tol
 	}
 	return tolerations
