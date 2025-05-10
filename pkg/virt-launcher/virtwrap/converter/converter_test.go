@@ -1858,7 +1858,7 @@ var _ = Describe("Converter", func() {
 
 	Context("graphics and video device", func() {
 
-		DescribeTable("should check autoAttachGraphicsDevices", func(arch string, autoAttach *bool, devices int) {
+		DescribeTable("should check autoAttachGraphicsDevices and video config", func(arch string, autoAttach *bool, devices int, video *v1.Video) {
 
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
@@ -1880,30 +1880,46 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Domain.Devices = v1.Devices{
 				AutoattachGraphicsDevice: autoAttach,
+				Video:                    video,
 			}
 			domain := vmiToDomain(&vmi, &ConverterContext{AllowEmulation: true, Architecture: archconverter.NewConverter(arch)})
 			Expect(domain.Spec.Devices.Video).To(HaveLen(devices))
 			Expect(domain.Spec.Devices.Graphics).To(HaveLen(devices))
 
 			if autoAttach == nil || *autoAttach {
+
 				switch arch {
 				case amd64, ppc64le:
-					Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal("vga"))
+					if video != nil {
+						Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal(video.Type))
+					} else {
+						Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal("vga"))
+					}
 					Expect(domain.Spec.Devices.Inputs).To(BeEmpty())
 				case arm64:
-					Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal(v1.VirtIO))
+					if video != nil {
+						Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal(video.Type))
+					} else {
+						Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal(v1.VirtIO))
+					}
 					Expect(domain.Spec.Devices.Inputs[0].Type).To(Equal(v1.InputTypeTablet))
 					Expect(domain.Spec.Devices.Inputs[1].Type).To(Equal(v1.InputTypeKeyboard))
 				case s390x:
-					Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal(v1.VirtIO))
+					if video != nil {
+						Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal(video.Type))
+					} else {
+						Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal(v1.VirtIO))
+					}
 					Expect(domain.Spec.Devices.Inputs[0].Type).To(Equal(v1.InputTypeKeyboard))
 					Expect(domain.Spec.Devices.Inputs[0].Bus).To(Equal(v1.InputBusVirtio))
 				}
 			}
 		},
-			MultiArchEntry("and add the graphics and video device if it is not set", nil, 1),
-			MultiArchEntry("and add the graphics and video device if it is set to true", pointer.P(true), 1),
-			MultiArchEntry("and not add the graphics and video device if it is set to false", pointer.P(false), 0),
+			MultiArchEntry("and add the graphics and video device if autoAttachGraphicsDevices is not set and no video config", nil, 1, nil),
+			MultiArchEntry("and add the graphics and video device if autoAttachGraphicsDevices is set to true and no video config", pointer.P(true), 1, nil),
+			MultiArchEntry("and not add the graphics and video device if autoAttachGraphicsDevices is set to false and no video config", pointer.P(false), 0, nil),
+			MultiArchEntry("and add the graphics and video device if autoAttachGraphicsDevices is not set and video config is set", nil, 1, &v1.Video{Type: v1.VirtIO}),
+			MultiArchEntry("and add the graphics and video device if autoAttachGraphicsDevices is set to true and video config is set", pointer.P(true), 1, &v1.Video{Type: v1.VirtIO}),
 		)
 
 		DescribeTable("Should have one vnc", func(arch string) {
