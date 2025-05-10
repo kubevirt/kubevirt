@@ -675,12 +675,23 @@ status:
       parallelOutboundMigrationsPerNode: 4294967263
       progressTimeout: -15
       unsafeMigrationOverride: true
+    migrationNetworkType: migrationNetworkTypeValue
     migrationPolicyName: migrationPolicyNameValue
     migrationUid: migrationUidValue
     mode: modeValue
     sourceNode: sourceNodeValue
     sourcePersistentStatePVCName: sourcePersistentStatePVCNameValue
     sourcePod: sourcePodValue
+    sourceState:
+      domainName: domainNameValue
+      domainNamespace: domainNamespaceValue
+      migrationUID: migrationUIDValue
+      node: nodeValue
+      nodeSelectors:
+        nodeSelectorsKey: nodeSelectorsValue
+      persistentStatePVCName: persistentStatePVCNameValue
+      pod: podValue
+      syncAddress: syncAddressValue
     startTimestamp: "1986-01-01T01:01:01Z"
     targetAttachmentPodUID: targetAttachmentPodUIDValue
     targetCPUSet:
@@ -694,6 +705,23 @@ status:
     targetNodeTopology: targetNodeTopologyValue
     targetPersistentStatePVCName: targetPersistentStatePVCNameValue
     targetPod: targetPodValue
+    targetState:
+      attachmentPodUID: attachmentPodUIDValue
+      cpuSet:
+      - -6
+      directMigrationNodePorts:
+        directMigrationNodePortsKey: -24
+      domainDetected: true
+      domainName: domainNameValue
+      domainNamespace: domainNamespaceValue
+      domainReadyTimestamp: "1980-01-01T01:01:01Z"
+      migrationUID: migrationUIDValue
+      node: nodeValue
+      nodeAddress: nodeAddressValue
+      nodeTopology: nodeTopologyValue
+      persistentStatePVCName: persistentStatePVCNameValue
+      pod: podValue
+      syncAddress: syncAddressValue
   migrationTransport: migrationTransportValue
   nodeName: nodeNameValue
   phase: phaseValue
