@@ -43,6 +43,7 @@ import (
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
+	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -51,6 +52,8 @@ import (
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 
 	gomegatypes "github.com/onsi/gomega/types"
+
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
@@ -76,6 +79,7 @@ var _ = Describe("VirtualMachine", func() {
 		var config *virtconfig.ClusterConfig
 		var kvStore cache.Store
 		var virtFakeClient *fake.Clientset
+		var dataVolumeInformer cache.SharedIndexInformer
 
 		BeforeEach(func() {
 			virtClient = kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
@@ -93,7 +97,7 @@ var _ = Describe("VirtualMachine", func() {
 			virtFakeClient.PrependReactor("patch", "virtualmachines",
 				PatchReactor(Handle, virtFakeClient.Tracker(), ModifyVM))
 
-			dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+			dataVolumeInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
 			vmiInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
 			vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
@@ -5337,6 +5341,12 @@ var _ = Describe("VirtualMachine", func() {
 			})
 
 			Context("Volumes", func() {
+				const (
+					diskName  = "disk0"
+					oldDVName = "oldDV"
+					newDVName = "newDV"
+					ns        = "test"
+				)
 				DescribeTable("should set the restart condition", func(strategy *v1.UpdateVolumesStrategy) {
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 						Spec: v1.KubeVirtSpec{
@@ -5400,6 +5410,44 @@ var _ = Describe("VirtualMachine", func() {
 					Expect(cond).ToNot(BeNil())
 					Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 					Expect(cond.Message).To(ContainSubstring("invalid volumes to update with migration:"))
+				})
+
+				It("should return an error when the destination PVC doesn't exist", func() {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: &liveUpdate,
+							},
+						},
+					})
+					dv := libdv.NewDataVolume(libdv.WithName(newDVName), libdv.WithNamespace(ns))
+					Expect(dataVolumeInformer.GetStore().Add(dv)).To(Succeed())
+					vmi := libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume(diskName, oldDVName))
+					vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns),
+						libvmi.WithDataVolume(diskName, newDVName)),
+						libvmi.WithUpdateVolumeStrategy(v1.UpdateVolumesStrategyMigration))
+					err := controller.handleVolumeUpdateRequest(vm, vmi)
+					Expect(err).To(MatchError(storagetypes.NewPVCNotFoundError(newDVName)))
+					Expect(virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm,
+						v1.VirtualMachineRestartRequired)).Should(BeNil())
+				})
+
+				It("should return an error when the destination DV doesn't exist", func() {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: &liveUpdate,
+							},
+						},
+					})
+					vmi := libvmi.New(libvmi.WithNamespace(ns), libvmi.WithDataVolume(diskName, oldDVName))
+					vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns),
+						libvmi.WithDataVolume(diskName, newDVName)),
+						libvmi.WithUpdateVolumeStrategy(v1.UpdateVolumesStrategyMigration))
+					err := controller.handleVolumeUpdateRequest(vm, vmi)
+					Expect(err).To(MatchError(storagetypes.NewDVNotFoundError(newDVName)))
+					Expect(virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm,
+						v1.VirtualMachineRestartRequired)).Should(BeNil())
 				})
 			})
 
