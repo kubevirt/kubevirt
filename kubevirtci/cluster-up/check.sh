@@ -53,6 +53,10 @@ if is_enabled "$KVM_NESTED"; then
 	echo "[ OK ] $KVM_ARCH nested virtualization enabled"
 else
 	echo "[ERR ] $KVM_ARCH nested virtualization not enabled"
+	if [ $KUBEVIRT_NESTED_VIRTUALIZATION_REQUIRED == "true" ]; then
+		echo "[ERR ] nested virtualization required, exiting..."
+		exit 1
+	fi
 fi
 
 if is_enabled "$KVM_HPAGE" && [ "$(uname -m)" = "s390x" ]; then

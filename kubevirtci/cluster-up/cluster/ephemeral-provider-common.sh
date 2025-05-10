@@ -202,6 +202,10 @@ function _add_common_params() {
         params=" --enable-cnao $params"
     fi
 
+    if [ "$KUBEVIRT_WITH_DYN_NET_CTRL" == "true" ]; then
+        params=" --deploy-dnc $params"
+    fi
+
     if [ "$KUBEVIRT_DEPLOY_CDI" == "true" ]; then
         params=" --deploy-cdi $params"
     fi
