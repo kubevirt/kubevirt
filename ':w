@@ -33,10 +33,6 @@ func applyMemory(
 	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 ) conflict.Conflicts {
-	if vmiSpec.Domain.Memory == nil {
-		vmiSpec.Domain.Memory = &virtv1.Memory{}
-	}
-
 	if vmiSpec.Domain.Memory.Guest != nil {
 		return conflict.Conflicts{baseConflict.NewChild("domain", "memory", "guest")}
 	}
@@ -65,7 +61,9 @@ func applyMemory(
 	}
 
 	instancetypeMemory := instancetypeSpec.Memory.Guest.DeepCopy()
-	vmiSpec.Domain.Memory.Guest = &instancetypeMemory
+	vmiSpec.Domain.Memory = &virtv1.Memory{
+		Guest: &instancetypeMemory,
+	}
 
 	// If memory overcommit has been requested, set the memory requests to be
 	// lower than the guest memory by the requested percent.
