@@ -59,6 +59,9 @@ var _ = Describe("GetVolumes", func() {
 				VolumeStatus: []v1.VolumeStatus{
 					{
 						Name: backendVolume + name,
+						PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+							ClaimName: backendVolume,
+						},
 					},
 				},
 			},
