@@ -1,0 +1,7 @@
+go 1.23.0
+
+use (
+	.
+	./staging/src/kubevirt.io/api
+	./staging/src/kubevirt.io/client-go
+)

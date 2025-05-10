@@ -31,6 +31,35 @@ type ConsoleSpec struct {
 	Customization ConsoleCustomization `json:"customization"`
 	// providers contains configuration for using specific service providers.
 	Providers ConsoleProviders `json:"providers"`
+	// route contains hostname and secret reference that contains the serving certificate.
+	// If a custom route is specified, a new route will be created with the
+	// provided hostname, under which console will be available.
+	// In case of custom hostname uses the default routing suffix of the cluster,
+	// the Secret specification for a serving certificate will not be needed.
+	// In case of custom hostname points to an arbitrary domain, manual DNS configurations steps are necessary.
+	// The default console route will be maintained to reserve the default hostname
+	// for console if the custom route is removed.
+	// If not specified, default route will be used.
+	// +optional
+	Route ConsoleConfigRoute `json:"route"`
+	// plugins defines a list of enabled console plugin names.
+	// +optional
+	Plugins []string `json:"plugins,omitempty"`
+}
+
+// ConsoleConfigRoute holds information on external route access to console.
+type ConsoleConfigRoute struct {
+	// hostname is the desired custom domain under which console will be available.
+	Hostname string `json:"hostname"`
+	// secret points to secret in the openshift-config namespace that contains custom
+	// certificate and key and needs to be created manually by the cluster admin.
+	// Referenced Secret is required to contain following key value pairs:
+	// - "tls.crt" - to specifies custom certificate
+	// - "tls.key" - to specifies private key of the custom certificate
+	// If the custom hostname uses the default routing suffix of the cluster,
+	// the Secret specification for a serving certificate will not be needed.
+	// +optional
+	Secret configv1.SecretNameReference `json:"secret"`
 }
 
 // ConsoleStatus defines the observed status of the Console.
@@ -80,6 +109,51 @@ type ConsoleCustomization struct {
 	// SVG format preferred
 	// +optional
 	CustomLogoFile configv1.ConfigMapFileReference `json:"customLogoFile,omitempty"`
+	// developerCatalog allows to configure the shown developer catalog categories.
+	// +kubebuilder:validation:Optional
+	// +optional
+	DeveloperCatalog DeveloperConsoleCatalogCustomization `json:"developerCatalog,omitempty"`
+}
+
+// DeveloperConsoleCatalogCustomization allow cluster admin to configure developer catalog.
+type DeveloperConsoleCatalogCustomization struct {
+	// categories which are shown in the developer catalog.
+	// +kubebuilder:validation:Optional
+	// +optional
+	Categories []DeveloperConsoleCatalogCategory `json:"categories,omitempty"`
+}
+
+// DeveloperConsoleCatalogCategoryMeta are the key identifiers of a developer catalog category.
+type DeveloperConsoleCatalogCategoryMeta struct {
+	// ID is an identifier used in the URL to enable deep linking in console.
+	// ID is required and must have 1-32 URL safe (A-Z, a-z, 0-9, - and _) characters.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=32
+	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9-_]+$`
+	// +required
+	ID string `json:"id"`
+	// label defines a category display label. It is required and must have 1-64 characters.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=64
+	// +required
+	Label string `json:"label"`
+	// tags is a list of strings that will match the category. A selected category
+	// show all items which has at least one overlapping tag between category and item.
+	// +kubebuilder:validation:Optional
+	// +optional
+	Tags []string `json:"tags,omitempty"`
+}
+
+// DeveloperConsoleCatalogCategory for the developer console catalog.
+type DeveloperConsoleCatalogCategory struct {
+	// defines top level category ID, label and filter tags.
+	DeveloperConsoleCatalogCategoryMeta `json:",inline"`
+	// subcategories defines a list of child categories.
+	// +kubebuilder:validation:Optional
+	// +optional
+	Subcategories []DeveloperConsoleCatalogCategoryMeta `json:"subcategories,omitempty"`
 }
 
 // Brand is a specific supported brand within the console.
