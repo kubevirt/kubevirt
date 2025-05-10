@@ -19,30 +19,21 @@
 
 package virtconfig
 
-import "kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+import (
+	"maps"
+	"slices"
+
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+)
 
 /*
  This module is intended for determining whether an optional feature is enabled or not at the cluster-level.
 */
 
-func (config *ClusterConfig) isFeatureGateDefined(featureGate string) bool {
-	for _, fg := range config.GetConfig().DeveloperConfiguration.FeatureGates {
-		if fg == featureGate {
-			return true
-		}
-	}
-	return false
-}
-
 func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
-	if fg := featuregate.FeatureGateInfo(featureGate); fg != nil && fg.State == featuregate.GA {
-		return true
-	}
-
-	if config.isFeatureGateDefined(featureGate) {
-		return true
-	}
-	return false
+	return IsFeatureGateEnabled(featureGate, config.GetConfig().DeveloperConfiguration)
 }
 
 func (config *ClusterConfig) ExpandDisksEnabled() bool {
@@ -175,4 +166,46 @@ func (config *ClusterConfig) ImageVolumeEnabled() bool {
 
 func (config *ClusterConfig) NodeRestrictionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.NodeRestrictionGate)
+}
+
+func GetEnabledFeatureGates(kubevirtDevConfig *v1.DeveloperConfiguration) []string {
+	if kubevirtDevConfig == nil || (kubevirtDevConfig.FeatureGates == nil && kubevirtDevConfig.FeatureGatesMap == nil) {
+		return nil
+	}
+
+	featureGateMap := maps.Clone(kubevirtDevConfig.FeatureGatesMap)
+	if featureGateMap == nil {
+		return slices.Clone(kubevirtDevConfig.FeatureGates)
+	}
+
+	for _, fgFromList := range kubevirtDevConfig.FeatureGates {
+		if _, existsInMap := featureGateMap[fgFromList]; !existsInMap {
+			featureGateMap[fgFromList] = true
+		}
+	}
+
+	enabledFeatureGates := make([]string, 0, len(featureGateMap))
+	for fg, enabled := range featureGateMap {
+		if enabled {
+			enabledFeatureGates = append(enabledFeatureGates, fg)
+		}
+	}
+
+	return enabledFeatureGates
+}
+
+func IsFeatureGateEnabled(featureGate string, kubevirtDevConfig *v1.DeveloperConfiguration) bool {
+	if kubevirtDevConfig == nil {
+		return false
+	}
+
+	if featuregate.FeatureGateInfo(featureGate).IsGA() {
+		return true
+	}
+
+	if isEnabled, exists := kubevirtDevConfig.FeatureGatesMap[featureGate]; exists {
+		return isEnabled
+	}
+
+	return slices.Contains(kubevirtDevConfig.FeatureGates, featureGate)
 }

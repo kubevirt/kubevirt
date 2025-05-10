@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
@@ -114,8 +115,12 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 	response := validating_webhooks.NewAdmissionResponse(results)
 
 	if featureGatesChanged(&currKV.Spec, &newKV.Spec) {
-		featureGates := newKV.Spec.Configuration.DeveloperConfiguration.FeatureGates
-		response.Warnings = append(response.Warnings, warnDeprecatedFeatureGates(featureGates)...)
+		kvDevConfig := newKV.Spec.Configuration.DeveloperConfiguration
+		response.Warnings = append(response.Warnings, warnDeprecatedFeatureGates(virtconfig.GetEnabledFeatureGates(kvDevConfig))...)
+
+		if len(currKV.Spec.Configuration.DeveloperConfiguration.FeatureGates) > len(newKV.Spec.Configuration.DeveloperConfiguration.FeatureGates) {
+			response.Warnings = append(response.Warnings, featureGateSliceDeprecationWarning)
+		}
 	}
 
 	const mdevWarningfmt = "%s is deprecated, use mediatedDeviceTypes"
@@ -436,15 +441,17 @@ func featureGatesChanged(currKVSpec, newKVSpec *v1.KubeVirtSpec) bool {
 	currDevConfig := currKVSpec.Configuration.DeveloperConfiguration
 	newDevConfig := newKVSpec.Configuration.DeveloperConfiguration
 
-	if (currDevConfig == nil && newDevConfig == nil) || (currDevConfig != nil && newDevConfig == nil) {
+	if newDevConfig == nil {
 		return false
 	}
 
-	if currDevConfig == nil && newDevConfig != nil {
-		return len(newDevConfig.FeatureGates) > 0
+	newFeatureGates := virtconfig.GetEnabledFeatureGates(newDevConfig)
+	if currDevConfig == nil {
+		return len(newFeatureGates) > 0
 	}
 
-	return !equality.Semantic.DeepEqual(currDevConfig.FeatureGates, newDevConfig.FeatureGates)
+	currFeatureGates := virtconfig.GetEnabledFeatureGates(currDevConfig)
+	return !slices.Equal(newFeatureGates, currFeatureGates)
 }
 
 func warnDeprecatedFeatureGates(featureGates []string) (warnings []string) {

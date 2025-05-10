@@ -58,6 +58,16 @@ func (k *kubeVirtCreateAdmitter) Admit(ctx context.Context, review *admissionv1.
 	}
 	//TODO: Do we want semantic validation
 
+	resp := webhookutils.NewPassingAdmissionResponse()
+	kv, _, err := getAdmissionReviewKubeVirt(review)
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	if len(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates) > 0 {
+		resp.Warnings = append(resp.Warnings, featureGateSliceDeprecationWarning)
+	}
+
 	// Best effort
 	list, err := k.client.KubeVirt(k8sv1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err != nil {
