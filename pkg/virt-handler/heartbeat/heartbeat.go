@@ -76,9 +76,27 @@ func (h *HeartBeat) heartBeat(heartBeatInterval time.Duration, stopCh chan struc
 	// So the amount of time between heartbeats randomly varies between 1min and 2min12sec + the heartbeat function execution time.
 	wait.JitterUntil(h.do, heartBeatInterval, 1.2, true, stopCh)
 
-	h.handleKSMForceUpdate()
-	h.clusterConfig.SetConfigModifiedCallback(func() { h.handleKSM() })
-	wait.JitterUntil(h.handleKSM, 10*time.Minute, 0.2, true, stopCh)
+	err := h.handleKSMForceUpdate()
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to force-set KSM labels on node %s", h.host)
+	}
+	h.clusterConfig.SetConfigModifiedCallback(func() {
+		err = h.handleKSM()
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to set KSM labels on node %s", h.host)
+		}
+	})
+	wait.JitterUntil(func() {
+		for err := h.handleKSM(); err != nil; err = h.handleKSM() {
+			select {
+			case <-stopCh:
+				return
+			default:
+				log.Log.Reason(err).Errorf("failed to set KSM label on node %s, trying again in 1 minute", h.host)
+				time.Sleep(1 * time.Minute)
+			}
+		}
+	}, 20*time.Minute, 0.2, true, stopCh)
 }
 
 func (h *HeartBeat) labelNodeUnschedulable() {
@@ -192,10 +210,13 @@ func (h *HeartBeat) isCPUManagerEnabled(cpuManagerPaths []string) bool {
 	}
 }
 
-func handleKSMhelper(nodeName string, client k8scli.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig, forceUpdate bool) {
-	ksmEnabled, ksmEnabledByUs, needsUpdate := handleKSM(nodeName, client, clusterConfig)
+func handleKSMhelper(nodeName string, client k8scli.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig, forceUpdate bool) error {
+	ksmEnabled, ksmEnabledByUs, needsUpdate, err := handleKSM(nodeName, client, clusterConfig)
+	if err != nil {
+		return err
+	}
 	if !forceUpdate && !needsUpdate {
-		return
+		return nil
 	}
 
 	// merge patch is being used here to handle the case in which the node has an empty/nil labels/annotations map,
@@ -215,21 +236,23 @@ func handleKSMhelper(nodeName string, client k8scli.CoreV1Interface, clusterConf
 
 	patchBytes, err := json.Marshal(patchPayload)
 	if err != nil {
-		log.DefaultLogger().Reason(err).Error("Can't parse json patch")
+		return fmt.Errorf("can't parse json patch: %v", err)
 	}
 
 	_, err = client.Nodes().Patch(context.Background(), nodeName, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", nodeName)
+		return fmt.Errorf("failed to patch node %s: %v", nodeName, err)
 	}
+
+	return nil
 }
 
-func (h *HeartBeat) handleKSM() {
-	handleKSMhelper(h.host, h.clientset, h.clusterConfig, false)
+func (h *HeartBeat) handleKSM() error {
+	return handleKSMhelper(h.host, h.clientset, h.clusterConfig, false)
 }
 
-func (h *HeartBeat) handleKSMForceUpdate() {
-	handleKSMhelper(h.host, h.clientset, h.clusterConfig, true)
+func (h *HeartBeat) handleKSMForceUpdate() error {
+	return handleKSMhelper(h.host, h.clientset, h.clusterConfig, true)
 }
 
 func detectCPUManagerFile(cpuManagerPaths []string) (string, error) {
