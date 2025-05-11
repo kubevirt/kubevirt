@@ -808,8 +808,12 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) *patch.Patch
 	cmpFunc := func(a, b virtv1.VirtualMachineInstanceNetworkInterface) int {
 		return strings.Compare(a.Name, b.Name)
 	}
-	newInterfaces := slices.SortedFunc(slices.Values(newVMI.Status.Interfaces), cmpFunc)
-	oldInterfaces := slices.SortedFunc(slices.Values(oldVMI.Status.Interfaces), cmpFunc)
+
+	newInterfaces := slices.Clone(newVMI.Status.Interfaces)
+	oldInterfaces := slices.Clone(oldVMI.Status.Interfaces)
+
+	slices.SortFunc(newInterfaces, cmpFunc)
+	slices.SortFunc(oldInterfaces, cmpFunc)
 
 	if !equality.Semantic.DeepEqual(newInterfaces, oldInterfaces) {
 		patchSet.AddOption(
