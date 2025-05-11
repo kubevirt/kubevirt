@@ -109,7 +109,7 @@ var _ = Describe("KSM", func() {
 
 	newHeartBeat := func(fakeClient *fake.Clientset, clusterConfig *virtconfig.ClusterConfig) *HeartBeat {
 		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), clusterConfig, testNodeName)
-		heartbeat.handleKSMForceUpdate()
+		Expect(heartbeat.handleKSMForceUpdate()).To(Succeed())
 
 		return heartbeat
 	}
@@ -146,7 +146,7 @@ var _ = Describe("KSM", func() {
 			err = os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte("1\n"), 0644)
 			Expect(err).ToNot(HaveOccurred())
 
-			heartbeat.handleKSM()
+			Expect(heartbeat.handleKSM()).To(Succeed())
 			node, err = fakeClient.CoreV1().Nodes().Get(context.TODO(), testNodeName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(node.Labels).To(HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "false"))
@@ -198,7 +198,7 @@ var _ = Describe("KSM", func() {
 			}
 			fakeClient := fake.NewSimpleClientset(node)
 			heartbeat := newHeartBeat(fakeClient, clusterConfig)
-			heartbeat.handleKSM()
+			Expect(heartbeat.handleKSM()).To(Succeed())
 
 			node, err := fakeClient.CoreV1().Nodes().Get(context.TODO(), testNodeName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -226,7 +226,7 @@ var _ = Describe("KSM", func() {
 			Expect(err).ToNot(HaveOccurred())
 			createCustomMemInfo(true)
 			heartbeat := newHeartBeat(fakeClient, clusterConfig)
-			heartbeat.handleKSM()
+			Expect(heartbeat.handleKSM()).To(Succeed())
 
 			node, err = fakeClient.CoreV1().Nodes().Get(context.TODO(), testNodeName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -277,40 +277,40 @@ var _ = Describe("KSM", func() {
 			heartbeat := newHeartBeat(fakeClient, clusterConfig)
 
 			By("running a first heartbeat and expecting no change")
-			heartbeat.handleKSM()
+			Expect(heartbeat.handleKSM()).To(Succeed())
 			expectKSMState(expected)
 
 			By("inducing memory pressure and expecting KSM to start running")
 			createCustomMemInfo(true)
-			heartbeat.handleKSM()
+			Expect(heartbeat.handleKSM()).To(Succeed())
 			expected.running = true
 			expectKSMState(expected)
 
 			By("expecting the number of pages to scan to increase every heartbeat up to max value")
-			heartbeat.handleKSM()
+			Expect(heartbeat.handleKSM()).To(Succeed())
 			expected.pages = nPagesInitDefault + pagesBoostDefault
 			expectKSMState(expected)
-			heartbeat.handleKSM()
-			heartbeat.handleKSM()
-			heartbeat.handleKSM()
+			for i := 0; i < 3; i++ {
+				Expect(heartbeat.handleKSM()).To(Succeed())
+			}
 			expected.pages = nPagesMaxDefault
 			expectKSMState(expected)
 
 			By("cancelling memory pressure and expecting more sleep and a decay of the number of pages to scan")
 			createCustomMemInfo(false)
-			heartbeat.handleKSM()
+			Expect(heartbeat.handleKSM()).To(Succeed())
 			expected.pages = nPagesMaxDefault + pagesDecayDefault
 			expected.sleep = sleepMsBaselineDefault * (16 * 1024 * 1024) / (memTotal - memAvailableNoPressure)
 			expectKSMState(expected)
 			for i := 0; i < 15; i++ {
-				heartbeat.handleKSM()
+				Expect(heartbeat.handleKSM()).To(Succeed())
 			}
 			expected.pages = nPagesMaxDefault + 16*pagesDecayDefault
 			expectKSMState(expected)
 
 			By("expecting KSM to stop running after enough time without memory pressure")
 			for i := 0; i < 30; i++ {
-				heartbeat.handleKSM()
+				Expect(heartbeat.handleKSM()).To(Succeed())
 			}
 			expected.running = false
 			expectKSMState(expected)
@@ -346,11 +346,11 @@ var _ = Describe("KSM", func() {
 			expectKSMState(expected)
 
 			By("expecting the number of pages to scan to increase every heartbeat up to max value")
-			heartbeat.handleKSM()
+			Expect(heartbeat.handleKSM()).To(Succeed())
 			expected.pages = 166 + 123
 			expectKSMState(expected)
 			for i := 0; i < 5; i++ {
-				heartbeat.handleKSM()
+				Expect(heartbeat.handleKSM()).To(Succeed())
 			}
 			expected.pages = 789
 			expectKSMState(expected)
@@ -359,11 +359,11 @@ var _ = Describe("KSM", func() {
 			data := []byte(fmt.Sprintf(`{"metadata": { "annotations": {"%s": "%s"}}}`, kubevirtv1.KSMFreePercentOverride, "0.1"))
 			_, err := fakeClient.CoreV1().Nodes().Patch(context.Background(), testNodeName, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			heartbeat.handleKSM()
+			Expect(heartbeat.handleKSM()).To(Succeed())
 			expected.pages = 789 - 50
 			expectKSMState(expected)
 			for i := 0; i < 16; i++ {
-				heartbeat.handleKSM()
+				Expect(heartbeat.handleKSM()).To(Succeed())
 			}
 			expected.running = false
 			expectKSMState(expected)

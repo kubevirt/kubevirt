@@ -252,7 +252,7 @@ func getIntParam(node *v1.Node, param string, defaultValue, lowerBound, upperBou
 // will set the outcome value to the n.KSM struct
 // If the node labels match the selector terms, the ksm will be enabled.
 // Empty Selector will enable ksm for every node
-func handleKSM(nodeName string, client k8sv1.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig) (ksmLabelValue, ksmEnabledByUs, needsUpdate bool) {
+func handleKSM(nodeName string, client k8sv1.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig) (ksmLabelValue, ksmEnabledByUs, needsUpdate bool, err error) {
 	available, enabled := loadKSM()
 	if !available {
 		return
@@ -261,7 +261,8 @@ func handleKSM(nodeName string, client k8sv1.CoreV1Interface, clusterConfig *vir
 	nodeCache, err := cache.NewOneShotCache(func() (*v1.Node, error) {
 		node, err := client.Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 		if err != nil {
-			log.Log.Reason(err).Errorf("Can't get node %s", nodeName)
+			err = fmt.Errorf("failed to get node %s: %w", nodeName, err)
+			node = nil
 		}
 		return node, err
 	})
@@ -283,7 +284,7 @@ func handleKSM(nodeName string, client k8sv1.CoreV1Interface, clusterConfig *vir
 
 	selector, err := metav1.LabelSelectorAsSelector(ksmConfig.NodeLabelSelector)
 	if err != nil {
-		log.DefaultLogger().Errorf("An error occurred while converting the ksm selector: %s", err)
+		err = fmt.Errorf("error occurred while converting the ksm selector: %v", err)
 		return
 	}
 
@@ -306,13 +307,13 @@ func handleKSM(nodeName string, client k8sv1.CoreV1Interface, clusterConfig *vir
 
 	ksm, err := calculateNewRunSleepAndPages(node, enabled)
 	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("An error occurred while calculating the new KSM values")
+		err = fmt.Errorf("error occurred while calculating the new KSM values: %v", err)
 		return
 	}
 
 	err = writeKsmValuesToFiles(ksm)
 	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("An error occurred while writing the new KSM values")
+		err = fmt.Errorf("error occurred while writing the new KSM values: %v", err)
 		return
 	}
 
@@ -321,16 +322,18 @@ func handleKSM(nodeName string, client k8sv1.CoreV1Interface, clusterConfig *vir
 	return
 }
 
-func disableKSM(nodeCache *cache.OneShotCache[*v1.Node]) {
+func disableKSM(nodeCache *cache.OneShotCache[*v1.Node]) error {
 	node, err := nodeCache.Get()
 	if err != nil {
-		return
+		return err
 	}
 
 	if value, found := node.GetAnnotations()[kubevirtv1.KSMHandlerManagedAnnotation]; found && value == "true" {
 		err := os.WriteFile(ksmRunPath, []byte("0\n"), 0644)
 		if err != nil {
-			log.DefaultLogger().Errorf("Unable to write ksm: %s", err.Error())
+			return fmt.Errorf("unable to write ksm: %v", err)
 		}
 	}
+
+	return nil
 }
