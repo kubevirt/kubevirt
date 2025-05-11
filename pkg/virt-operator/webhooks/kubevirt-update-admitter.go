@@ -114,8 +114,11 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 
 	response := validating_webhooks.NewAdmissionResponse(results)
 
-	if isChanged, newFeatureGates := featureGatesChanged(&currKV.Spec, &newKV.Spec); isChanged {
+	if isChanged, newFeatureGates, err := featureGatesChanged(&currKV.Spec, &newKV.Spec); isChanged {
 		response.Warnings = append(response.Warnings, warnDeprecatedFeatureGates(newFeatureGates)...)
+		if err != nil {
+			response.Warnings = append(response.Warnings, fmt.Sprintf("feature gates are wrongly defined: %v", err))
+		}
 	}
 
 	const mdevWarningfmt = "%s is deprecated, use mediatedDeviceTypes"
@@ -432,22 +435,22 @@ func validateInfraReplicas(replicas *uint8) []metav1.StatusCause {
 	return statuses
 }
 
-func featureGatesChanged(currKVSpec, newKVSpec *v1.KubeVirtSpec) (isChanged bool, newEnabledFgs []string) {
+func featureGatesChanged(currKVSpec, newKVSpec *v1.KubeVirtSpec) (isChanged bool, newEnabledFgs []string, err error) {
 	currDevConfig := currKVSpec.Configuration.DeveloperConfiguration
 	newDevConfig := newKVSpec.Configuration.DeveloperConfiguration
 
 	if (currDevConfig == nil && newDevConfig == nil) || (currDevConfig != nil && newDevConfig == nil) {
-		return false, nil
+		return false, nil, nil
 	}
 
 	if currDevConfig == nil && newDevConfig != nil {
-		return len(newDevConfig.FeatureGates) > 0, newDevConfig.FeatureGates
+		return len(newDevConfig.FeatureGates) > 0, newDevConfig.FeatureGates, nil
 	}
 
 	curEnabledFgs, _ := featuregate.ParseEnableFeatureGates(currDevConfig.FeatureGates)
-	newEnabledFgs, _ = featuregate.ParseEnableFeatureGates(newDevConfig.FeatureGates)
+	newEnabledFgs, err = featuregate.ParseEnableFeatureGates(newDevConfig.FeatureGates)
 
-	return !slices.Equal(curEnabledFgs, newEnabledFgs), newEnabledFgs
+	return !slices.Equal(curEnabledFgs, newEnabledFgs), newEnabledFgs, err
 }
 
 func warnDeprecatedFeatureGates(featureGates []string) (warnings []string) {
