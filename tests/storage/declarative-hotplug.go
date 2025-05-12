@@ -37,12 +37,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -54,13 +52,11 @@ const (
 	volumeSize      = "1Gi"
 )
 
-var _ = Describe(SIG("Declarative Hotplug", Serial, func() {
+var _ = Describe(SIG("Declarative Hotplug", func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		kvconfig.DisableFeatureGate(featuregate.HotplugVolumesGate)
-		kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
 	})
 
 	createVM := func(options ...libvmi.Option) *v1.VirtualMachine {
@@ -266,6 +262,8 @@ var _ = Describe(SIG("Declarative Hotplug", Serial, func() {
 				&expect.BSnd{S: "sudo umount /mnt\n"},
 				&expect.BExp{R: console.PromptExpression},
 				&expect.BSnd{S: console.EchoLastReturnValue},
+				&expect.BExp{R: console.RetValue("0")},
+				&expect.BSnd{S: "ls -A /mnt/ | wc -l\n"},
 				&expect.BExp{R: console.RetValue("0")},
 			}, 10)
 		}, 40*time.Second, 2*time.Second).Should(Succeed())
