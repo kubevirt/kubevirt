@@ -53,19 +53,20 @@ func NewContainerSpecRenderer(containerName string, launcherImg string, imgPullP
 
 func (csr *ContainerSpecRenderer) Render(cmd []string) k8sv1.Container {
 	return k8sv1.Container{
-		Name:            csr.name,
-		Image:           csr.launcherImg,
-		ImagePullPolicy: csr.imgPullPolicy,
-		SecurityContext: securityContext(csr.userID, csr.isPrivileged, csr.capabilities),
-		Command:         cmd,
-		VolumeDevices:   csr.volumeDevices,
-		VolumeMounts:    csr.volumeMounts,
-		Resources:       csr.resources,
-		Ports:           csr.ports,
-		Env:             csr.envVars(),
-		LivenessProbe:   csr.liveninessProbe,
-		ReadinessProbe:  csr.readinessProbe,
-		Args:            csr.args,
+		Name:                     csr.name,
+		Image:                    csr.launcherImg,
+		ImagePullPolicy:          csr.imgPullPolicy,
+		SecurityContext:          securityContext(csr.userID, csr.isPrivileged, csr.capabilities),
+		Command:                  cmd,
+		VolumeDevices:            csr.volumeDevices,
+		VolumeMounts:             csr.volumeMounts,
+		Resources:                csr.resources,
+		Ports:                    csr.ports,
+		Env:                      csr.envVars(),
+		LivenessProbe:            csr.liveninessProbe,
+		ReadinessProbe:           csr.readinessProbe,
+		Args:                     csr.args,
+		TerminationMessagePolicy: k8sv1.TerminationMessageFallbackToLogsOnError,
 	}
 }
 
