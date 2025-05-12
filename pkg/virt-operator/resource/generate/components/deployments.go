@@ -568,6 +568,20 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 									ContainerPort: 8444,
 								},
 							},
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Scheme: corev1.URISchemeHTTPS,
+										Port: intstr.IntOrString{
+											Type:   intstr.Int,
+											IntVal: 8443,
+										},
+										Path: "/metrics",
+									},
+								},
+								InitialDelaySeconds: 5,
+								TimeoutSeconds:      10,
+							},
 							ReadinessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
