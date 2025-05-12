@@ -30,7 +30,6 @@ go_library(
         "//pkg/pointer:go_default_library",
         "//pkg/storage/reservation:go_default_library",
         "//pkg/storage/types:go_default_library",
-        "//pkg/storage/velero:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-config/featuregate:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
