@@ -20,6 +20,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -29,9 +30,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const (
@@ -40,31 +40,34 @@ const (
 	freezeLimitReached  = "fsfreeze is limited"
 )
 
+type FreezerConfig struct {
+	Freeze                 bool
+	Unfreeze               bool
+	Name                   string
+	Namespace              string
+	UnfreezeTimeoutSeconds int32
+}
+
 func getGrpcClient() (cmdclient.LauncherClient, error) {
 	sockFile := "/run/kubevirt/sockets/launcher-sock"
 	client, err := cmdclient.NewClient(sockFile)
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to connect launcher")
-		os.Exit(1)
+		return nil, err
 	}
-
-	return client, err
+	return client, nil
 }
 
-func shouldFreezeVirtualMachine(client cmdclient.LauncherClient) bool {
+func shouldFreezeVirtualMachine(client cmdclient.LauncherClient) (bool, error) {
 	domain, exists, err := client.GetDomain()
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to get domain")
-		os.Exit(1)
+		return false, err
 	}
-
-	return exists && domain.Status.Status == api.Running
+	return exists && domain.Status.Status == api.Running, nil
 }
 
-func main() {
-	log.InitializeLogging("freezer")
-	log.Log.Info("Starting...")
-
+func parseFlags() (*FreezerConfig, error) {
 	freeze := pflag.Bool("freeze", false, "Freeze VM")
 	unfreeze := pflag.Bool("unfreeze", false, "Unfreeze VM")
 	name := pflag.String("name", "", "Name of the VirtualMachineInstance")
@@ -74,73 +77,98 @@ func main() {
 	pflag.Parse()
 
 	if !*freeze && !*unfreeze {
-		log.Log.Errorf("Use either --freeze or --unfreeze")
-		os.Exit(1)
+		return nil, fmt.Errorf("either --freeze or --unfreeze must be set")
 	}
-	if name == nil || namespace == nil {
-		log.Log.Errorf("Both name and namespace flags must be provided")
-		os.Exit(1)
+	if name == nil || namespace == nil || *name == "" || *namespace == "" {
+		return nil, fmt.Errorf("both --name and --namespace must be provided")
 	}
 
+	return &FreezerConfig{
+		Freeze:                 *freeze,
+		Unfreeze:               *unfreeze,
+		Name:                   *name,
+		Namespace:              *namespace,
+		UnfreezeTimeoutSeconds: *unfreezeTimeoutSeconds,
+	}, nil
+}
+
+func run(config *FreezerConfig, client cmdclient.LauncherClient) error {
 	vmi := &v1.VirtualMachineInstance{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      *name,
-			Namespace: *namespace,
+			Name:      config.Name,
+			Namespace: config.Namespace,
 		},
-	}
-
-	client, err := getGrpcClient()
-	if err != nil {
-		log.Log.Reason(err).Error("Failed to connect launcher")
-		os.Exit(1)
 	}
 
 	info, err := client.GetGuestInfo()
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to get guest info")
-		os.Exit(1)
+		return err
 	}
 
 	if info.GAVersion == "" {
 		log.Log.Info("No guest agent, exiting")
-		os.Exit(0)
+		return nil
 	}
 
 	log.Log.Infof("Guest agent version is %s", info.GAVersion)
 
-	if !shouldFreezeVirtualMachine(client) {
+	shouldFreeze, err := shouldFreezeVirtualMachine(client)
+	if err != nil {
+		return err
+	}
+	if !shouldFreeze {
 		log.Log.Info("VM domain not running, no need to freeze/unfreeze")
-		os.Exit(0)
+		return nil
 	}
 
-	if *freeze {
-		err = client.FreezeVirtualMachine(vmi, *unfreezeTimeoutSeconds)
+	if config.Freeze {
+		err = client.FreezeVirtualMachine(vmi, config.UnfreezeTimeoutSeconds)
 		if err != nil {
 			if strings.Contains(err.Error(), gaNotAvailableError) {
-				// make best effort of make sure fsstatus is not stuck on frozen
-				// due to bug https://issues.redhat.com/browse/RHEL-24046
 				client.UnfreezeVirtualMachine(vmi)
 				if strings.Contains(strings.ToLower(info.OS.Name), windowsOS) {
-					log.Log.Reason(err).Error("Freezeing VMI failed, please make sure guest agent and VSS are runnning and try again")
+					log.Log.Reason(err).Error("Freezing VMI failed, please make sure guest agent and VSS are running and try again")
 				} else {
-					log.Log.Reason(err).Error("Freezeing VMI failed, please make sure guest agent is runnning and try again")
+					log.Log.Reason(err).Error("Freezing VMI failed, please make sure guest agent is running and try again")
 				}
 			} else {
-				log.Log.Reason(err).Error("Freezeing VMI failed")
+				log.Log.Reason(err).Error("Freezing VMI failed")
 			}
-			os.Exit(1)
+			return err
 		}
 	} else {
 		err = client.UnfreezeVirtualMachine(vmi)
 		if err != nil {
 			if strings.Contains(err.Error(), freezeLimitReached) {
-				log.Log.Reason(err).Error("Unfreezeing VMI failed, please try again. If problem continues, stop the vm and backup while down")
+				log.Log.Reason(err).Error("Unfreezing VMI failed, please try again. If problem continues, stop the VM and backup while down")
 			} else {
-				log.Log.Reason(err).Error("Unfreezeing VMI failed")
+				log.Log.Reason(err).Error("Unfreezing VMI failed")
 			}
-			os.Exit(1)
+			return err
 		}
 	}
 
-	log.Log.Info("Exiting...")
+	log.Log.Info("Operation completed successfully")
+	return nil
+}
+
+func main() {
+	log.InitializeLogging("freezer")
+
+	config, err := parseFlags()
+	if err != nil {
+		log.Log.Reason(err).Error("Failed to parse flags")
+		os.Exit(1)
+	}
+
+	client, err := getGrpcClient()
+	if err != nil {
+		os.Exit(1)
+	}
+
+	err = run(config, client)
+	if err != nil {
+		os.Exit(1)
+	}
 }
