@@ -62,7 +62,7 @@ func (c *Controller) addPVC(obj interface{}) {
 	}
 }
 
-// updatePVC handles updates to a PVC, enqueuing affected VMIs if capacity changes.
+// updatePVC handles updates to a PVC, enqueuing affected VMIs if capacity or requested size changes.
 func (c *Controller) updatePVC(old, cur interface{}) {
 	curPVC := cur.(*k8sv1.PersistentVolumeClaim)
 	oldPVC := old.(*k8sv1.PersistentVolumeClaim)
@@ -75,8 +75,9 @@ func (c *Controller) updatePVC(old, cur interface{}) {
 	if curPVC.DeletionTimestamp != nil {
 		return
 	}
-	if equality.Semantic.DeepEqual(curPVC.Status.Capacity, oldPVC.Status.Capacity) {
-		// We only do something when the capacity changes
+	if equality.Semantic.DeepEqual(curPVC.Status.Capacity, oldPVC.Status.Capacity) &&
+		equality.Semantic.DeepEqual(curPVC.Spec.Resources.Requests, oldPVC.Spec.Resources.Requests) {
+		// We only do something when the capacity or the requested size changes.
 		return
 	}
 	vmis, err := c.listVMIsMatchingDV(curPVC.Namespace, curPVC.Name)
