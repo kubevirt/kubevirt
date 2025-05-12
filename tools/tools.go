@@ -1,3 +1,6 @@
+//go:build codegen
+// +build codegen
+
 package tools
 
 // Keep a reference to tool binaries in vendor, so that go mod keeps them
