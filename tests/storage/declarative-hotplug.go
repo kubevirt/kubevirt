@@ -37,12 +37,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
-	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -59,8 +57,6 @@ var _ = Describe(SIG("Declarative Hotplug", Serial, func() {
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		kvconfig.DisableFeatureGate(featuregate.HotplugVolumesGate)
-		kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
 	})
 
 	createVM := func(options ...libvmi.Option) *v1.VirtualMachine {
