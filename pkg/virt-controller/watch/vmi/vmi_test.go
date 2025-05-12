@@ -51,6 +51,8 @@ import (
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+
 	kvcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -3609,6 +3611,60 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			expectMatchingPodCreation(vmi)
 		})
 	})
+
+	Context("Event handling", func() {
+		indexVMI := func(vmi *virtv1.VirtualMachineInstance) {
+			Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+			_, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		pvcWith := func(requestSize, capacity, rv string) *k8sv1.PersistentVolumeClaim {
+			pvc := newPvc("default", "testpvc")
+			pvc.Spec.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceStorage: resource.MustParse(requestSize),
+			}
+			pvc.Status.Capacity = k8sv1.ResourceList{
+				k8sv1.ResourceStorage: resource.MustParse(capacity),
+			}
+			pvc.ObjectMeta.ResourceVersion = rv
+			return pvc
+		}
+
+		DescribeTable("updatePVC", func(newReq, newCap, newRV string, expectEnqueue bool) {
+			vmi := libvmi.New(
+				libvmi.WithName("testvmi"),
+				libvmi.WithNamespace("default"),
+				libvmi.WithDataVolume("myvolume", "testpvc"),
+			)
+			indexVMI(vmi)
+
+			oldPVC := pvcWith("50Gi", "50Gi", "1")
+			newPVC := pvcWith(newReq, newCap, newRV)
+
+			addDataVolumePVC(oldPVC)
+			controller.updatePVC(oldPVC, newPVC)
+
+			if expectEnqueue {
+				Eventually(func() int {
+					return mockQueue.Len()
+				}, time.Second, 100*time.Millisecond).Should(Equal(1))
+
+				item, _ := mockQueue.Get()
+				Expect(item).To(Equal("default/testvmi"))
+			} else {
+				Consistently(func() int {
+					return mockQueue.Len()
+				}, time.Second, 100*time.Millisecond).Should(Equal(0))
+			}
+		},
+			Entry("should enqueue when requested size changes", "100Gi", "50Gi", "2", true),
+			Entry("should enqueue when capacity changes", "50Gi", "100Gi", "2", true),
+			Entry("should not enqueue when nothing changed", "50Gi", "50Gi", "2", false),
+			Entry("should not enqueue when resource version is the same", "10Gi", "50Gi", "1", false),
+		)
+	})
+
 })
 
 func newDv(namespace string, name string, phase cdiv1.DataVolumePhase) *cdiv1.DataVolume {
