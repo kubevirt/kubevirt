@@ -51,7 +51,7 @@ func getGrpcClient() (cmdclient.LauncherClient, error) {
 	return client, err
 }
 
-func isVmRunning(client cmdclient.LauncherClient) bool {
+func shouldFreezeVirtualMachine(client cmdclient.LauncherClient) bool {
 	domain, exists, err := client.GetDomain()
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to get domain")
@@ -108,9 +108,9 @@ func main() {
 
 	log.Log.Infof("Guest agent version is %s", info.GAVersion)
 
-	if !isVmRunning(client) {
-		log.Log.Error("Paused VM, unable to freeze/unfreeze")
-		os.Exit(1)
+	if !shouldFreezeVirtualMachine(client) {
+		log.Log.Info("VM domain not running, no need to freeze/unfreeze")
+		os.Exit(0)
 	}
 
 	if *freeze {
