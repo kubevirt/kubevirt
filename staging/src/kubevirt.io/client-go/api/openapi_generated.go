@@ -345,6 +345,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.CPUFeature":                                                         schema_kubevirtio_api_core_v1_CPUFeature(ref),
 		"kubevirt.io/api/core/v1.CPUTopology":                                                        schema_kubevirtio_api_core_v1_CPUTopology(ref),
 		"kubevirt.io/api/core/v1.CertConfig":                                                         schema_kubevirtio_api_core_v1_CertConfig(ref),
+		"kubevirt.io/api/core/v1.ChangedBlockTrackingSelectors":                                      schema_kubevirtio_api_core_v1_ChangedBlockTrackingSelectors(ref),
 		"kubevirt.io/api/core/v1.Chassis":                                                            schema_kubevirtio_api_core_v1_Chassis(ref),
 		"kubevirt.io/api/core/v1.ClaimRequest":                                                       schema_kubevirtio_api_core_v1_ClaimRequest(ref),
 		"kubevirt.io/api/core/v1.ClientPassthroughDevices":                                           schema_kubevirtio_api_core_v1_ClientPassthroughDevices(ref),
@@ -18094,6 +18095,32 @@ func schema_kubevirtio_api_core_v1_CertConfig(ref common.ReferenceCallback) comm
 	}
 }
 
+func schema_kubevirtio_api_core_v1_ChangedBlockTrackingSelectors(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"namespaceLabelSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NamespaceSelector will enable changedBlockTracking on all VMs running inside namespaces that match the label selector.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
+					"virtualMachineLabelSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachineSelector will enable changedBlockTracking on all VMs that match the label selector.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_Chassis(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -21832,11 +21859,17 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 							Ref:         ref("kubevirt.io/api/core/v1.InstancetypeConfiguration"),
 						},
 					},
+					"changedBlockTrackingLabelSelectors": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ChangedBlockTrackingLabelSelectors defines label selectors. VMs matching these selectors will have changed block tracking enabled. Enabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.",
+							Ref:         ref("kubevirt.io/api/core/v1.ChangedBlockTrackingSelectors"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/core/v1.ArchConfiguration", "kubevirt.io/api/core/v1.CommonInstancetypesDeployment", "kubevirt.io/api/core/v1.DeveloperConfiguration", "kubevirt.io/api/core/v1.InstancetypeConfiguration", "kubevirt.io/api/core/v1.KSMConfiguration", "kubevirt.io/api/core/v1.LiveUpdateConfiguration", "kubevirt.io/api/core/v1.MediatedDevicesConfiguration", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.NetworkConfiguration", "kubevirt.io/api/core/v1.PermittedHostDevices", "kubevirt.io/api/core/v1.ReloadableComponentConfiguration", "kubevirt.io/api/core/v1.SMBiosConfiguration", "kubevirt.io/api/core/v1.SeccompConfiguration", "kubevirt.io/api/core/v1.SupportContainerResources", "kubevirt.io/api/core/v1.TLSConfiguration", "kubevirt.io/api/core/v1.VirtualMachineOptions"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/core/v1.ArchConfiguration", "kubevirt.io/api/core/v1.ChangedBlockTrackingSelectors", "kubevirt.io/api/core/v1.CommonInstancetypesDeployment", "kubevirt.io/api/core/v1.DeveloperConfiguration", "kubevirt.io/api/core/v1.InstancetypeConfiguration", "kubevirt.io/api/core/v1.KSMConfiguration", "kubevirt.io/api/core/v1.LiveUpdateConfiguration", "kubevirt.io/api/core/v1.MediatedDevicesConfiguration", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.NetworkConfiguration", "kubevirt.io/api/core/v1.PermittedHostDevices", "kubevirt.io/api/core/v1.ReloadableComponentConfiguration", "kubevirt.io/api/core/v1.SMBiosConfiguration", "kubevirt.io/api/core/v1.SeccompConfiguration", "kubevirt.io/api/core/v1.SupportContainerResources", "kubevirt.io/api/core/v1.TLSConfiguration", "kubevirt.io/api/core/v1.VirtualMachineOptions"},
 	}
 }
 
