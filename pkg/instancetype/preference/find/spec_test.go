@@ -25,6 +25,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -234,6 +235,37 @@ var _ = Describe("Preference SpecFinder", func() {
 			_, err := finder.FindPreference(vm)
 			Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
 		})
+
+		It("find returns only referenced object - bug #14595", func() {
+			// Make a slightly altered copy of the object already present in the client and store it in a CR
+			stored := clusterPreference.DeepCopy()
+			stored.ObjectMeta.Name = "stored"
+			stored.Spec.CPU.PreferredCPUTopology = pointer.P(v1beta1.Threads)
+
+			controllerRevision, err := revision.CreateControllerRevision(vm, stored)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+				context.Background(), controllerRevision, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			// Assert that the spec points to the original clusterInstancetype
+			Expect(vm.Spec.Preference.Name).To(Equal(clusterPreference.Name))
+
+			// Reference this stored version from the VM status
+			vm.Status.PreferenceRef = &v1.InstancetypeStatusRef{
+				Name: stored.Name,
+				Kind: stored.Kind,
+				ControllerRevisionRef: &v1.ControllerRevisionRef{
+					Name: controllerRevision.Name,
+				},
+			}
+
+			foundPreferenceSpec, err := finder.FindPreference(vm)
+			Expect(err).ToNot(HaveOccurred())
+			// FIXME(lyarwood): This is bug #14595, should return clusterPreference.Spec
+			Expect(foundPreferenceSpec).To(HaveValue(Equal(stored.Spec)))
+		})
 	})
 
 	Context("Using namespaced Preference", func() {
@@ -371,6 +403,37 @@ var _ = Describe("Preference SpecFinder", func() {
 			)
 			_, err := finder.FindPreference(vm)
 			Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
+		})
+
+		It("find returns only referenced object - bug #14595", func() {
+			// Make a slightly altered copy of the object already present in the client and store it in a CR
+			stored := preference.DeepCopy()
+			stored.ObjectMeta.Name = "stored"
+			stored.Spec.CPU.PreferredCPUTopology = pointer.P(v1beta1.Threads)
+
+			controllerRevision, err := revision.CreateControllerRevision(vm, stored)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+				context.Background(), controllerRevision, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			// Assert that the spec points to the original clusterInstancetype
+			Expect(vm.Spec.Preference.Name).To(Equal(preference.Name))
+
+			// Reference this stored version from the VM status
+			vm.Status.PreferenceRef = &v1.InstancetypeStatusRef{
+				Name: stored.Name,
+				Kind: stored.Kind,
+				ControllerRevisionRef: &v1.ControllerRevisionRef{
+					Name: controllerRevision.Name,
+				},
+			}
+
+			foundPreferenceSpec, err := finder.FindPreference(vm)
+			Expect(err).ToNot(HaveOccurred())
+			// FIXME(lyarwood): This is bug #14595, should return preference.Spec
+			Expect(foundPreferenceSpec).To(HaveValue(Equal(stored.Spec)))
 		})
 	})
 })
