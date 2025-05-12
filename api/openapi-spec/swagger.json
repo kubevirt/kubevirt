@@ -13025,6 +13025,19 @@
      }
     }
    },
+   "v1.ChangedBlockTrackingSelectors": {
+    "type": "object",
+    "properties": {
+     "namespaceLabelSelector": {
+      "description": "NamespaceSelector will enable changedBlockTracking on all VMs running inside namespaces that match the label selector.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+     },
+     "virtualMachineLabelSelector": {
+      "description": "VirtualMachineSelector will enable changedBlockTracking on all VMs that match the label selector.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+     }
+    }
+   },
    "v1.Chassis": {
     "description": "Chassis specifies the chassis info passed to the domain.",
     "type": "object",
@@ -14839,6 +14852,10 @@
      "autoCPULimitNamespaceLabelSelector": {
       "description": "When set, AutoCPULimitNamespaceLabelSelector will set a CPU limit on virt-launcher for VMIs running inside namespaces that match the label selector. The CPU limit will equal the number of requested vCPUs. This setting does not apply to VMIs with dedicated CPUs.",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+     },
+     "changedBlockTrackingLabelSelectors": {
+      "description": "ChangedBlockTrackingLabelSelectors defines label selectors. VMs matching these selectors will have changed block tracking enabled. Enabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.",
+      "$ref": "#/definitions/v1.ChangedBlockTrackingSelectors"
      },
      "commonInstancetypesDeployment": {
       "description": "CommonInstancetypesDeployment controls the deployment of common-instancetypes resources",

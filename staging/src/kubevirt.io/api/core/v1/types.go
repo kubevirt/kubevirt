@@ -2920,6 +2920,20 @@ type KubeVirtConfiguration struct {
 	// Instancetype configuration
 	// +nullable
 	Instancetype *InstancetypeConfiguration `json:"instancetype,omitempty"`
+
+	// ChangedBlockTrackingLabelSelectors defines label selectors. VMs matching these selectors will have changed block tracking enabled.
+	// Enabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.
+	// +nullable
+	ChangedBlockTrackingLabelSelectors *ChangedBlockTrackingSelectors `json:"changedBlockTrackingLabelSelectors,omitempty"`
+}
+
+type ChangedBlockTrackingSelectors struct {
+	// NamespaceSelector will enable changedBlockTracking on all VMs running inside namespaces that match the label selector.
+	//+optional
+	NamespaceLabelSelector *metav1.LabelSelector `json:"namespaceLabelSelector,omitempty"`
+	// VirtualMachineSelector will enable changedBlockTracking on all VMs that match the label selector.
+	//+optional
+	VirtualMachineLabelSelector *metav1.LabelSelector `json:"virtualMachineLabelSelector,omitempty"`
 }
 
 type InstancetypeConfiguration struct {
