@@ -366,16 +366,17 @@ func (HostDevice) SwaggerDoc() map[string]string {
 
 func (Disk) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"name":              "Name is the device name",
-		"bootOrder":         "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach disk or interface that has a boot order must have a unique value.\nDisks without a boot order are not tried if a disk with a boot order exists.\n+optional",
-		"serial":            "Serial provides the ability to specify a serial number for the disk device.\n+optional",
-		"dedicatedIOThread": "dedicatedIOThread indicates this disk should have an exclusive IO Thread.\nEnabling this implies useIOThreads = true.\nDefaults to false.\n+optional",
-		"cache":             "Cache specifies which kvm disk cache mode should be used.\nSupported values are:\nnone: Guest I/O not cached on the host, but may be kept in a disk cache.\nwritethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees.\nwriteback: Guest I/O cached on the host.\nDefaults to none if the storage supports O_DIRECT, otherwise writethrough.\n+optional",
-		"io":                "IO specifies which QEMU disk IO mode should be used.\nSupported values are: native, default, threads.\n+optional",
-		"tag":               "If specified, disk address and its tag will be provided to the guest via config drive metadata\n+optional",
-		"blockSize":         "If specified, the virtual disk will be presented with the given block sizes.\n+optional",
-		"shareable":         "If specified the disk is made sharable and multiple write from different VMs are permitted\n+optional",
-		"errorPolicy":       "If specified, it can change the default error policy (stop) for the disk\n+optional",
+		"name":                 "Name is the device name",
+		"bootOrder":            "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach disk or interface that has a boot order must have a unique value.\nDisks without a boot order are not tried if a disk with a boot order exists.\n+optional",
+		"serial":               "Serial provides the ability to specify a serial number for the disk device.\n+optional",
+		"dedicatedIOThread":    "dedicatedIOThread indicates this disk should have an exclusive IO Thread.\nEnabling this implies useIOThreads = true.\nDefaults to false.\n+optional",
+		"cache":                "Cache specifies which kvm disk cache mode should be used.\nSupported values are:\nnone: Guest I/O not cached on the host, but may be kept in a disk cache.\nwritethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees.\nwriteback: Guest I/O cached on the host.\nDefaults to none if the storage supports O_DIRECT, otherwise writethrough.\n+optional",
+		"io":                   "IO specifies which QEMU disk IO mode should be used.\nSupported values are: native, default, threads.\n+optional",
+		"tag":                  "If specified, disk address and its tag will be provided to the guest via config drive metadata\n+optional",
+		"blockSize":            "If specified, the virtual disk will be presented with the given block sizes.\n+optional",
+		"shareable":            "If specified the disk is made sharable and multiple write from different VMs are permitted\n+optional",
+		"errorPolicy":          "If specified, it can change the default error policy (stop) for the disk\n+optional",
+		"changedBlockTracking": "ChangedBlockTracking indicates this disk should have CBT option\nDefaults to false.\n+optional",
 	}
 }
 
