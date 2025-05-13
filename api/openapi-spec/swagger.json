@@ -13038,6 +13038,20 @@
      }
     }
    },
+   "v1.ChangedBlockTrackingStatus": {
+    "description": "ChangedBlockTrackingStatus represents the status of ChangedBlockTracking for a VM",
+    "type": "object",
+    "required": [
+     "state"
+    ],
+    "properties": {
+     "state": {
+      "description": "State represents the current CBT state",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
    "v1.Chassis": {
     "description": "Chassis specifies the chassis info passed to the domain.",
     "type": "object",
@@ -13758,6 +13772,10 @@
      "cdrom": {
       "description": "Attach a volume as a cdrom to the vmi.",
       "$ref": "#/definitions/v1.CDRomTarget"
+     },
+     "changedBlockTracking": {
+      "description": "ChangedBlockTracking indicates this disk should have CBT option Defaults to false.",
+      "type": "boolean"
      },
      "dedicatedIOThread": {
       "description": "dedicatedIOThread indicates this disk should have an exclusive IO Thread. Enabling this implies useIOThreads = true. Defaults to false.",
@@ -18124,6 +18142,10 @@
        "default": ""
       }
      },
+     "changedBlockTracking": {
+      "description": "ChangedBlockTracking represents the status of the changedBlockTracking",
+      "$ref": "#/definitions/v1.ChangedBlockTrackingStatus"
+     },
      "conditions": {
       "description": "Conditions are specific points in VirtualMachineInstance's pod runtime.",
       "type": "array",
@@ -18438,6 +18460,10 @@
     "type": "object",
     "nullable": true,
     "properties": {
+     "changedBlockTracking": {
+      "description": "ChangedBlockTracking represents the status of the changedBlockTracking",
+      "$ref": "#/definitions/v1.ChangedBlockTrackingStatus"
+     },
      "conditions": {
       "description": "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
       "type": "array",

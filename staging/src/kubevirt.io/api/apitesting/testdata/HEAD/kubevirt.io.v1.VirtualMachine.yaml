@@ -446,6 +446,7 @@ spec:
               bus: busValue
               readonly: true
               tray: trayValue
+            changedBlockTracking: true
             dedicatedIOThread: true
             disk:
               bus: busValue
@@ -788,6 +789,8 @@ spec:
             name: nameValue
   updateVolumesStrategy: updateVolumesStrategyValue
 status:
+  changedBlockTracking:
+    state: stateValue
   conditions:
   - lastProbeTime: "1987-01-01T01:01:01Z"
     lastTransitionTime: "1982-01-01T01:01:01Z"
@@ -849,6 +852,7 @@ status:
           bus: busValue
           readonly: true
           tray: trayValue
+        changedBlockTracking: true
         dedicatedIOThread: true
         disk:
           bus: busValue
