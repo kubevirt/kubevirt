@@ -1,5 +1,8 @@
 repositories:
 - arch: x86_64
+  baseurl: https://download.copr.fedorainfracloud.org/results/sbrivio/passt/centos-stream-9-x86_64/
+  name: centos/sbrivio
+- arch: x86_64
   baseurl: http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/
   name: centos/stream9-baseos-x86_64
   gpgkey: https://www.centos.org/keys/RPM-GPG-KEY-CentOS-Official

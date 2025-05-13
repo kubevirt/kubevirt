@@ -1,0 +1,4 @@
+repositories:
+- arch: x86_64
+  baseurl: https://download.copr.fedorainfracloud.org/results/sbrivio/passt/centos-stream-9-x86_64/
+  name: centos/sbrivio
