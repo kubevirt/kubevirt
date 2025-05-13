@@ -3,7 +3,8 @@
 set -e
 
 function detect_cri() {
-    if podman ps >/dev/null 2>&1; then echo podman; elif docker ps >/dev/null 2>&1; then echo docker; fi
+     # Kind checks Docker first by default, so we follow the same order for consistency.
+     if docker ps >/dev/null 2>&1; then echo docker; elif podman ps >/dev/null 2>&1; then echo podman; fi
 }
 
 export CRI_BIN=${CRI_BIN:-$(detect_cri)}
@@ -193,11 +194,9 @@ function _fix_node_labels() {
 }
 
 function setup_kind() {
-    $KIND --loglevel debug create cluster --retain --name=${CLUSTER_NAME} --config=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml --image=$KIND_NODE_IMAGE \
+    $KIND --loglevel debug create cluster --retain --name=${CLUSTER_NAME} --config=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml --image=$KIND_NODE_IMAGE --kubeconfig=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig \
         || ( $KIND --loglevel debug delete cluster --name=${CLUSTER_NAME} \
-        && $KIND --loglevel debug create cluster --retain --name=${CLUSTER_NAME} --config=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml --image=$KIND_NODE_IMAGE )
-
-    $KIND get kubeconfig --name=${CLUSTER_NAME} > ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig
+        && $KIND --loglevel debug create cluster --retain --name=${CLUSTER_NAME} --config=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml --image=$KIND_NODE_IMAGE --kubeconfig=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig )
 
     if ${CRI_BIN} exec ${CLUSTER_NAME}-control-plane ls /usr/bin/kubectl > /dev/null; then
         kubectl_path=/usr/bin/kubectl
