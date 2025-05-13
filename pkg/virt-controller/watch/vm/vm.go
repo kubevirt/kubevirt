@@ -65,6 +65,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/storage/backup"
 	storagehotplug "kubevirt.io/kubevirt/pkg/storage/hotplug"
 	"kubevirt.io/kubevirt/pkg/storage/memorydump"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
@@ -2505,6 +2506,7 @@ func (c *Controller) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1
 	syncVolumeMigration(vm, vmi)
 	syncConditions(vm, vmi, syncErr)
 	c.setPrintableStatus(vm, vmi)
+	backup.SyncVMChangedBlockTrackingState(vm, vmi, c.clusterConfig, c.namespaceStore)
 
 	// only update if necessary
 	if !equality.Semantic.DeepEqual(vm.Status, vmOrig.Status) {
