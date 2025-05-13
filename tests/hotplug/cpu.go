@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,6 +22,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -152,6 +154,12 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 			expCpu := resource.MustParse("200m")
 			Expect(reqCpu).To(Equal(expCpu.Value()))
 
+			By("Ensuring the guest has the expected number of vCPUs")
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+			guestCPUs, err := getGuestVirtualCpus(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(guestCPUs).To(Equal(2), "expected 2 vCPUs in the guest")
+
 			By("Ensuring the libvirt domain has 2 enabled cores and 2 hotpluggable cores")
 			var domSpec *api.DomainSpec
 			Eventually(func() error {
@@ -215,6 +223,18 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(ThisVM(vm), 4*time.Minute, 2*time.Second).Should(HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
 
+			By("Ensuring the guest has the expected number of vCPUs")
+			Eventually(func() error {
+				guestCPUs, err = getGuestVirtualCpus(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				if guestCPUs != 4 {
+					return fmt.Errorf("expected 4 vCPUs in the guest, got %d", guestCPUs)
+				}
+
+				return nil
+			}).WithPolling(2 * time.Second).WithTimeout(30 * time.Second).Should(Succeed())
+
 			By("Changing the number of CPU cores")
 			patchData, err = patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/cores", 2, 4)
 			Expect(err).NotTo(HaveOccurred())
@@ -259,6 +279,12 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 			reqCpu := compute.Resources.Requests.Cpu().Value()
 			expCpu := resource.MustParse("2")
 			Expect(reqCpu).To(Equal(expCpu.Value()))
+
+			By("Ensuring the guest has the expected number of vCPUs")
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+			guestCPUs, err := getGuestVirtualCpus(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(guestCPUs).To(Equal(2), "expected 2 vCPUs in the guest")
 
 			By("Ensuring the libvirt domain has 2 enabled cores and 4 disabled cores")
 			var domSpec *api.DomainSpec
@@ -313,6 +339,18 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 			reqCpu = compute.Resources.Requests.Cpu().Value()
 			expCpu = resource.MustParse("4")
 			Expect(reqCpu).To(Equal(expCpu.Value()))
+
+			By("Ensuring the guest has the expected number of vCPUs")
+			Eventually(func() error {
+				guestCPUs, err = getGuestVirtualCpus(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				if guestCPUs != 4 {
+					return fmt.Errorf("expected 4 vCPUs in the guest, got %d", guestCPUs)
+				}
+
+				return nil
+			}).WithPolling(2 * time.Second).WithTimeout(30 * time.Second).Should(Succeed())
 		})
 	})
 
@@ -407,4 +445,19 @@ func patchWorkloadUpdateMethodAndRolloutStrategy(kvName string, virtClient kubec
 		_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.Background(), kvName, types.JSONPatchType, data, k8smetav1.PatchOptions{})
 		return err
 	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+}
+
+// The VMI is assumed to be already logged-in.
+func getGuestVirtualCpus(vmi *v1.VirtualMachineInstance) (int, error) {
+	res, err := console.RunCommandAndStoreOutput(vmi, "nproc --all", time.Second*30)
+	if err != nil {
+		return -1, err
+	}
+
+	guestCPUs, err := strconv.Atoi(res)
+	if err != nil {
+		return -1, err
+	}
+
+	return guestCPUs, nil
 }
