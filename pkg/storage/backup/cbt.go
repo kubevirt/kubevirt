@@ -20,6 +20,8 @@
 package backup
 
 import (
+	"path/filepath"
+
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -27,6 +29,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -163,4 +166,32 @@ func disableChangedBlockTracking(vm *v1.VirtualMachine, vmi *v1.VirtualMachineIn
 		log.Log.Object(vm).Warning("invalid changedBlockTracking state, removing state")
 		vm.Status.ChangedBlockTracking = ""
 	}
+}
+
+func SetChangedBlockTrackingOnVMI(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig, nsStore cache.Store) {
+	vmMatchesSelector := vmMatchesChangedBlockTrackingSelectors(vm, clusterConfig, nsStore)
+	if vmMatchesSelector {
+		vmi.Status.ChangedBlockTracking = v1.ChangedBlockTrackingInitializing
+	} else if vm.Status.ChangedBlockTracking != "" {
+		vmi.Status.ChangedBlockTracking = v1.ChangedBlockTrackingDisabled
+	}
+}
+
+func HasCBTEnabled(cbtState v1.ChangedBlockTrackingState) bool {
+	return cbtState == v1.ChangedBlockTrackingInitializing ||
+		cbtState == v1.ChangedBlockTrackingEnabled
+}
+
+func PathForCBT(vmi *v1.VirtualMachineInstance) string {
+	cbtPath := "/var/lib/libvirt/qemu/cbt"
+	if util.IsNonRootVMI(vmi) {
+		cbtPath = filepath.Join(util.VirtPrivateDir, "libvirt", "qemu", "cbt")
+	}
+
+	return cbtPath
+}
+
+func GetQCOW2OverlayPath(vmi *v1.VirtualMachineInstance, volumeName string) string {
+	cbtPath := PathForCBT(vmi)
+	return filepath.Join(cbtPath, volumeName+".qcow2")
 }

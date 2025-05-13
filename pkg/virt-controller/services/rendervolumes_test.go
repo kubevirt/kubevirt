@@ -11,16 +11,19 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/storage/backup"
 )
 
 var _ = Describe("Container spec renderer", func() {
 	var vsr *VolumeRenderer
 
 	const (
-		containerDisk = "cdisk1"
-		ephemeralDisk = "disk1"
-		namespace     = "ns1"
-		virtShareDir  = "dir1"
+		containerDisk     = "cdisk1"
+		ephemeralDisk     = "disk1"
+		namespace         = "ns1"
+		virtShareDir      = "dir1"
+		backendStoragePVC = "vm-state-pvc"
 	)
 
 	Context("without any options", func() {
@@ -332,6 +335,56 @@ var _ = Describe("Container spec renderer", func() {
 
 		It("does *not* have any volume devices", func() {
 			Expect(vsr.VolumeDevices()).To(BeEmpty())
+		})
+	})
+	Context("With CBT", func() {
+		It("should not mount the CBT subpath when ChangedBlockTracking is not set", func() {
+			vmi := &v1.VirtualMachineInstance{}
+
+			var err error
+			vsr, err = NewVolumeRenderer(false, namespace, ephemeralDisk, containerDisk, virtShareDir, withBackendStorage(vmi, backendStoragePVC))
+			Expect(err).NotTo(HaveOccurred())
+
+			expectedMount := k8sv1.VolumeMount{
+				Name:      "vm-state",
+				ReadOnly:  false,
+				MountPath: backup.PathForCBT(vmi),
+				SubPath:   "cbt",
+			}
+
+			Expect(vsr.Mounts()).NotTo(ContainElement(expectedMount))
+		})
+
+		It("should mount the vm state volume and CBT subpath when ChangedBlockTracking is initializing in VMI status", func() {
+			vmi := &v1.VirtualMachineInstance{
+				Status: v1.VirtualMachineInstanceStatus{
+					ChangedBlockTracking: v1.ChangedBlockTrackingInitializing,
+				},
+			}
+
+			var err error
+			vsr, err = NewVolumeRenderer(false, namespace, ephemeralDisk, containerDisk, virtShareDir, withBackendStorage(vmi, backendStoragePVC))
+			Expect(err).NotTo(HaveOccurred())
+
+			expectedVolume := k8sv1.Volume{
+				Name: "vm-state",
+				VolumeSource: k8sv1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: backendStoragePVC,
+						ReadOnly:  false,
+					},
+				},
+			}
+			Expect(vsr.Volumes()).To(ContainElement(expectedVolume))
+
+			expectedMount := k8sv1.VolumeMount{
+				Name:      "vm-state",
+				ReadOnly:  false,
+				MountPath: backup.PathForCBT(vmi),
+				SubPath:   "cbt",
+			}
+
+			Expect(vsr.Mounts()).To(ContainElement(expectedMount))
 		})
 	})
 })
