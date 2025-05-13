@@ -13638,6 +13638,10 @@
       "description": "Attach a volume as a cdrom to the vmi.",
       "$ref": "#/definitions/v1.CDRomTarget"
      },
+     "changedBlockTracking": {
+      "description": "ChangedBlockTracking indicates this disk should have CBT option Defaults to false.",
+      "type": "boolean"
+     },
      "dedicatedIOThread": {
       "description": "dedicatedIOThread indicates this disk should have an exclusive IO Thread. Enabling this implies useIOThreads = true. Defaults to false.",
       "type": "boolean"
@@ -17889,6 +17893,10 @@
        "default": ""
       }
      },
+     "changedBlockTracking": {
+      "description": "ChangedBlockTracking indicates the state of the changedBlockTracking enablement",
+      "type": "string"
+     },
      "conditions": {
       "description": "Conditions are specific points in VirtualMachineInstance's pod runtime.",
       "type": "array",
@@ -18199,6 +18207,10 @@
     "type": "object",
     "nullable": true,
     "properties": {
+     "changedBlockTracking": {
+      "description": "ChangedBlockTracking indicates the state of the changedBlockTracking enablement",
+      "type": "string"
+     },
      "conditions": {
       "description": "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
       "type": "array",
