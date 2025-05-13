@@ -22,6 +22,7 @@ package virtwrap
 import (
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -409,8 +410,10 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(failed bool, completed b
 	return nil
 }
 
-func (l *LibvirtDomainManager) setMigrationResult(failed bool, reason string, abortStatus v1.MigrationAbortStatus) error {
-	return l.setMigrationResultHelper(failed, true, reason, abortStatus)
+func (l *LibvirtDomainManager) setMigrationResult(failed bool, reason string, abortStatus v1.MigrationAbortStatus) {
+	if err := l.setMigrationResultHelper(failed, true, reason, abortStatus); err != nil {
+		log.Log.Reason(err).Warning("failed to set migration result")
+	}
 }
 
 func (l *LibvirtDomainManager) setMigrationAbortStatus(abortStatus v1.MigrationAbortStatus) error {
@@ -472,41 +475,49 @@ func (m *migrationMonitor) isMigrationProgressing() bool {
 func (m *migrationMonitor) determineNonRunningMigrationStatus(dom cli.VirDomain) *libvirt.DomainJobInfo {
 	logger := log.Log.Object(m.vmi)
 	// check if an ongoing migration has been completed before we could capture the outcome
-	if m.lastProgressUpdate > m.start {
-		logger.Info("Migration job has probably completed before we could capture the status. Getting latest status.")
-		// at this point the migration is over, but we don't know the result.
-		// check if we were trying to cancel this job. In this case, finalize the migration.
-		migration, _ := m.l.metadataCache.Migration.Load()
-		if migration.AbortStatus == string(v1.MigrationAbortInProgress) {
-			logger.Info("Migration job was canceled")
-			return &libvirt.DomainJobInfo{
-				Type:             libvirt.DOMAIN_JOB_CANCELLED,
-				DataRemaining:    m.remainingData,
-				DataRemainingSet: true,
-			}
-		}
+	if !(m.lastProgressUpdate > m.start) {
+		logger.Info("Migration job didn't start yet")
+		return nil
+	}
 
-		// If the domain is active, it means that the migration has failed.
-		domainState, _, err := dom.GetState()
-		if err != nil {
-			logger.Reason(err).Error("failed to get domain state")
-			if libvirtError, ok := err.(libvirt.Error); ok &&
-				(libvirtError.Code == libvirt.ERR_NO_DOMAIN ||
-					libvirtError.Code == libvirt.ERR_OPERATION_INVALID) {
-				logger.Info("domain is not running on this node")
-				return nil
-			}
-		}
-		if domainState == libvirt.DOMAIN_RUNNING {
-			logger.Info("Migration job failed")
-			return &libvirt.DomainJobInfo{
-				Type:             libvirt.DOMAIN_JOB_FAILED,
-				DataRemaining:    m.remainingData,
-				DataRemainingSet: true,
-			}
+	logger.Info("Migration job has probably completed before we could capture the status. Getting latest status.")
+	// at this point the migration is over, but we don't know the result.
+	// check if we were trying to cancel this job. In this case, finalize the migration.
+	migration, _ := m.l.metadataCache.Migration.Load()
+	if migration.AbortStatus == string(v1.MigrationAbortInProgress) {
+		logger.Info("Migration job was canceled")
+		return &libvirt.DomainJobInfo{
+			Type:             libvirt.DOMAIN_JOB_CANCELLED,
+			DataRemaining:    m.remainingData,
+			DataRemainingSet: true,
 		}
 	}
-	logger.Info("Migration job didn't start yet")
+
+	// If the domain is active, it means that the migration has failed.
+	domainState, _, err := dom.GetState()
+	if err != nil {
+		var libvirtError libvirt.Error
+		if errors.As(err, &libvirtError) &&
+			(libvirtError.Is(libvirt.ERR_NO_DOMAIN) || libvirtError.Is(libvirt.ERR_OPERATION_INVALID)) {
+			logger.Info("Domain is not running on this node")
+			return &libvirt.DomainJobInfo{
+				Type:             libvirt.DOMAIN_JOB_COMPLETED,
+				DataRemaining:    m.remainingData,
+				DataRemainingSet: true,
+			}
+		}
+		logger.Reason(err).Error("Failed to get domain state")
+		return nil
+	}
+	if domainState == libvirt.DOMAIN_RUNNING {
+		logger.Info("Migration job failed")
+		return &libvirt.DomainJobInfo{
+			Type:             libvirt.DOMAIN_JOB_FAILED,
+			DataRemaining:    m.remainingData,
+			DataRemainingSet: true,
+		}
+	}
+
 	return nil
 }
 
@@ -650,22 +661,21 @@ func (m *migrationMonitor) startMonitor() {
 			return
 		}
 
-		stats := completedJobInfo
-		if stats == nil {
-			stats, err = dom.GetJobStats(0)
-			if err != nil {
-				logger.Reason(err).Warning("failed to get domain job info, will retry")
-				continue
-			}
+		jobStats := completedJobInfo
+		if jobStats == nil {
+			jobStats = m.getJobStats(dom, logger)
+		}
+		if jobStats == nil {
+			continue
 		}
 
-		if stats.DataRemainingSet {
-			m.remainingData = stats.DataRemaining
+		if jobStats.DataRemainingSet {
+			m.remainingData = jobStats.DataRemaining
 		}
 
-		switch stats.Type {
+		switch jobStats.Type {
 		case libvirt.DOMAIN_JOB_UNBOUNDED:
-			aborted := m.processInflightMigration(dom, stats)
+			aborted := m.processInflightMigration(dom, jobStats)
 			if aborted != nil {
 				logger.Errorf("Live migration abort detected with reason: %s", aborted.message)
 				m.l.setMigrationResult(true, aborted.message, aborted.abortStatus)
@@ -673,7 +683,7 @@ func (m *migrationMonitor) startMonitor() {
 			}
 			logInterval++
 			if logInterval%monitorLogInterval == 0 {
-				logMigrationInfo(logger, string(vmi.Status.MigrationState.MigrationUID), stats)
+				logMigrationInfo(logger, string(vmi.Status.MigrationState.MigrationUID), jobStats)
 			}
 		case libvirt.DOMAIN_JOB_NONE:
 			completedJobInfo = m.determineNonRunningMigrationStatus(dom)
@@ -691,6 +701,26 @@ func (m *migrationMonitor) startMonitor() {
 			return
 		}
 	}
+}
+
+func (m *migrationMonitor) getJobStats(dom cli.VirDomain, logger *log.FilteredLogger) *libvirt.DomainJobInfo {
+	jobStats, err := dom.GetJobStats(0)
+	if err == nil {
+		return jobStats
+	}
+	var libvirtError libvirt.Error
+	if errors.As(err, &libvirtError) {
+		if libvirtError.Is(libvirt.ERR_NO_DOMAIN) {
+			return m.determineNonRunningMigrationStatus(dom)
+		}
+		if libvirtError.Is(libvirt.ERR_OPERATION_INVALID) {
+			logger.V(6).Reason(err).Info("Failed to get domain job info, will retry")
+			return nil
+		}
+	}
+	logger.Reason(err).Warning("Failed to get domain job info, will retry")
+
+	return nil
 }
 
 // logMigrationInfo logs the same migration info as `virsh -r domjobinfo`
