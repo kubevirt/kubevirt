@@ -19347,6 +19347,13 @@ func schema_kubevirtio_api_core_v1_Disk(ref common.ReferenceCallback) common.Ope
 							Format:      "",
 						},
 					},
+					"changedBlockTracking": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ChangedBlockTracking indicates this disk should have CBT option Defaults to false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
@@ -27327,6 +27334,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref common.Refer
 							},
 						},
 					},
+					"changedBlockTracking": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ChangedBlockTracking indicates the state of the changedBlockTracking enablement",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -27787,6 +27801,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref common.ReferenceCall
 						SchemaProps: spec.SchemaProps{
 							Description: "VolumeUpdateState contains the information about the volumes set updates related to the volumeUpdateStrategy",
 							Ref:         ref("kubevirt.io/api/core/v1.VolumeUpdateState"),
+						},
+					},
+					"changedBlockTracking": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ChangedBlockTracking indicates the state of the changedBlockTracking enablement",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"instancetypeRef": {
