@@ -169,3 +169,8 @@ func disableChangedBlockTracking(vm *v1.VirtualMachine, vmi *v1.VirtualMachineIn
 		vm.Status.ChangedBlockTracking = v1.ChangedBlockTrackingUndefined
 	}
 }
+
+func HasCBTEnabled(cbtState v1.ChangedBlockTrackingState) bool {
+	return cbtState == v1.ChangedBlockTrackingInitializing ||
+		cbtState == v1.ChangedBlockTrackingEnabled
+}
