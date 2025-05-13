@@ -120,4 +120,7 @@ var (
 	// test in an Ordered container.
 	// Currently, in pilot mode, restricted to SIG-Network and virtctl only.
 	OncePerOrderedCleanup = Label("OncePerOrderedCleanup")
+
+	// Swap decorator is used in case a swap is required on a node.
+	Swap = Label("SwapTest")
 )

@@ -242,6 +242,19 @@ func GetRWXBlockStorageClass() (string, bool) {
 	return storageRWXBlock, storageRWXBlock != ""
 }
 
+// GetAvailableRWBlockStorageClass returns any RWX or RWO access mode block storage class available, i.e,
+// If the available block storage classes only support RWO access mode, it returns that SC or vice versa.
+// This method to get a block storage class is recommended when the access mode is not relevant for the purpose of
+// the test.
+func GetAvailableRWBlockStorageClass() (string, bool) {
+	sc, foundSC := GetRWXBlockStorageClass()
+	if !foundSC {
+		sc, foundSC = GetRWOBlockStorageClass()
+	}
+
+	return sc, foundSC
+}
+
 func GetVMStateStorageClass() (string, bool) {
 	storageVMState := Config.StorageVMState
 	return storageVMState, storageVMState != ""
