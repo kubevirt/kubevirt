@@ -1353,6 +1353,11 @@ func (in *Disk) DeepCopyInto(out *Disk) {
 		*out = new(DiskErrorPolicy)
 		**out = **in
 	}
+	if in.ChangedBlockTracking != nil {
+		in, out := &in.ChangedBlockTracking, &out.ChangedBlockTracking
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 
