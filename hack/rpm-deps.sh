@@ -6,13 +6,14 @@ source hack/common.sh
 source hack/bootstrap.sh
 source hack/config.sh
 
-LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:10.10.0-7.el9}
+LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:10.10.0-10.el9}
 QEMU_VERSION=${QEMU_VERSION:-17:9.1.0-15.el9}
 SEABIOS_VERSION=${SEABIOS_VERSION:-0:1.16.3-4.el9}
 EDK2_VERSION=${EDK2_VERSION:-0:20241117-2.el9}
 LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.54.0-3.el9}
 GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-0:1.52.2-2.el9}
 PASST_VERSION=${PASST_VERSION:-0:0^20250217.ga1e48a0-1.el9}
+PASST_VERSION_NEW=${PASST_VERSION_NEW:-0:0^20250512.g8ec1341-1.el9}
 VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-0:1.13.0-1.el9}
 SWTPM_VERSION=${SWTPM_VERSION:-0:0.8.0-2.el9}
 SINGLE_ARCH=${SINGLE_ARCH:-""}
@@ -89,7 +90,6 @@ sandboxroot_main="
 launcherbase_main="
   libvirt-client-${LIBVIRT_VERSION}
   libvirt-daemon-driver-qemu-${LIBVIRT_VERSION}
-  passt-${PASST_VERSION}
   qemu-kvm-core-${QEMU_VERSION}
   qemu-kvm-device-usb-host-${QEMU_VERSION}
   swtpm-tools-${SWTPM_VERSION}
@@ -126,7 +126,6 @@ launcherbase_extra="
 
 handlerbase_main="
   qemu-img-${QEMU_VERSION}
-  passt-${PASST_VERSION}
 "
 handlerbase_extra="
   findutils
@@ -226,7 +225,8 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $centos_extra \
         $launcherbase_main \
         $launcherbase_x86_64 \
-        $launcherbase_extra
+        $launcherbase_extra \
+        passt-${PASST_VERSION_NEW}
 
     # create a rpmtree for virt-handler
     bazel run \
@@ -240,7 +240,8 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $centos_main \
         $centos_extra \
         $handlerbase_main \
-        $handlerbase_extra
+        $handlerbase_extra \
+        passt-${PASST_VERSION_NEW}
 
     bazel run \
         //:bazeldnf -- rpmtree \
