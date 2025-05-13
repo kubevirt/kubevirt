@@ -114,7 +114,7 @@ func (c *Controller) handleBackendStorage(vmi *virtv1.VirtualMachineInstance) (s
 	if err != nil {
 		return "", common.NewSyncError(err, controller.FailedBackendStorageCreateReason)
 	}
-	if !backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
+	if !backendstorage.IsBackendStorageNeeded(vmi) {
 		return "", nil
 	}
 	pvc := backendstorage.PVCForVMI(c.pvcIndexer, vmi)

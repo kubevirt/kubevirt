@@ -218,7 +218,7 @@ func (admitter *VMRestoreAdmitter) validateTargetVM(ctx context.Context, field *
 			return nil, fmt.Errorf("unexpected snapshot source")
 		}
 
-		if backendstorage.IsBackendStorageNeededForVMI(&snapshotVM.Spec.Template.Spec) {
+		if backendstorage.IsBackendStorageNeeded(snapshotVM) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "Restore to a different VM is not supported when snapshotted VM has backend storage (persistent TPM or EFI)",

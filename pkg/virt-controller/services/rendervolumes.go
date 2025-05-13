@@ -395,7 +395,7 @@ func PathForNVram(vmi *v1.VirtualMachineInstance) string {
 
 func withBackendStorage(vmi *v1.VirtualMachineInstance, backendStoragePVCName string) VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
-		if !backendstorage.IsBackendStorageNeededForVMI(&vmi.Spec) {
+		if !backendstorage.IsBackendStorageNeeded(vmi) {
 			return nil
 		}
 
