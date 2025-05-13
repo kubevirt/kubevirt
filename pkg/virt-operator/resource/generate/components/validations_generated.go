@@ -6173,6 +6173,11 @@ var CRDsValidation map[string]string = map[string]string{
                                       Defaults to closed.
                                     type: string
                                 type: object
+                              changedBlockTracking:
+                                description: |-
+                                  ChangedBlockTracking indicates this disk should have CBT option
+                                  Defaults to false.
+                                type: boolean
                               dedicatedIOThread:
                                 description: |-
                                   dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -8129,6 +8134,11 @@ var CRDsValidation map[string]string = map[string]string{
         Status holds the current state of the controller and brief information
         about its associated VirtualMachineInstance
       properties:
+        changedBlockTracking:
+          description: ChangedBlockTracking indicates the state of the changedBlockTracking
+            enablement
+          nullable: true
+          type: string
         conditions:
           description: Hold the state information of the VirtualMachine and its VirtualMachineInstance
           items:
@@ -8406,6 +8416,11 @@ var CRDsValidation map[string]string = map[string]string{
                               Defaults to closed.
                             type: string
                         type: object
+                      changedBlockTracking:
+                        description: |-
+                          ChangedBlockTracking indicates this disk should have CBT option
+                          Defaults to false.
+                        type: boolean
                       dedicatedIOThread:
                         description: |-
                           dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -11494,6 +11509,11 @@ var CRDsValidation map[string]string = map[string]string{
                               Defaults to closed.
                             type: string
                         type: object
+                      changedBlockTracking:
+                        description: |-
+                          ChangedBlockTracking indicates this disk should have CBT option
+                          Defaults to false.
+                        type: boolean
                       dedicatedIOThread:
                         description: |-
                           dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -13428,6 +13448,11 @@ var CRDsValidation map[string]string = map[string]string{
             ActivePods is a mapping of pod UID to node name.
             It is possible for multiple pods to be running for a single VMI during migration.
           type: object
+        changedBlockTracking:
+          description: ChangedBlockTracking indicates the state of the changedBlockTracking
+            enablement
+          nullable: true
+          type: string
         conditions:
           description: Conditions are specific points in VirtualMachineInstance's
             pod runtime.
@@ -14956,6 +14981,11 @@ var CRDsValidation map[string]string = map[string]string{
                               Defaults to closed.
                             type: string
                         type: object
+                      changedBlockTracking:
+                        description: |-
+                          ChangedBlockTracking indicates this disk should have CBT option
+                          Defaults to false.
+                        type: boolean
                       dedicatedIOThread:
                         description: |-
                           dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -17389,6 +17419,11 @@ var CRDsValidation map[string]string = map[string]string{
                                       Defaults to closed.
                                     type: string
                                 type: object
+                              changedBlockTracking:
+                                description: |-
+                                  ChangedBlockTracking indicates this disk should have CBT option
+                                  Defaults to false.
+                                type: boolean
                               dedicatedIOThread:
                                 description: |-
                                   dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -21893,6 +21928,11 @@ var CRDsValidation map[string]string = map[string]string{
                                               Defaults to closed.
                                             type: string
                                         type: object
+                                      changedBlockTracking:
+                                        description: |-
+                                          ChangedBlockTracking indicates this disk should have CBT option
+                                          Defaults to false.
+                                        type: boolean
                                       dedicatedIOThread:
                                         description: |-
                                           dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -27100,6 +27140,11 @@ var CRDsValidation map[string]string = map[string]string{
                                                   Defaults to closed.
                                                 type: string
                                             type: object
+                                          changedBlockTracking:
+                                            description: |-
+                                              ChangedBlockTracking indicates this disk should have CBT option
+                                              Defaults to false.
+                                            type: boolean
                                           dedicatedIOThread:
                                             description: |-
                                               dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -29112,6 +29157,11 @@ var CRDsValidation map[string]string = map[string]string{
                     Status holds the current state of the controller and brief information
                     about its associated VirtualMachineInstance
                   properties:
+                    changedBlockTracking:
+                      description: ChangedBlockTracking indicates the state of the
+                        changedBlockTracking enablement
+                      nullable: true
+                      type: string
                     conditions:
                       description: Hold the state information of the VirtualMachine
                         and its VirtualMachineInstance
@@ -29400,6 +29450,11 @@ var CRDsValidation map[string]string = map[string]string{
                                           Defaults to closed.
                                         type: string
                                     type: object
+                                  changedBlockTracking:
+                                    description: |-
+                                      ChangedBlockTracking indicates this disk should have CBT option
+                                      Defaults to false.
+                                    type: boolean
                                   dedicatedIOThread:
                                     description: |-
                                       dedicatedIOThread indicates this disk should have an exclusive IO Thread.

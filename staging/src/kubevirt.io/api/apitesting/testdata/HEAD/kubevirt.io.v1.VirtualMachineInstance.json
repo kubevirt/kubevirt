@@ -246,7 +246,8 @@
               }
             },
             "shareable": true,
-            "errorPolicy": "errorPolicyValue"
+            "errorPolicy": "errorPolicyValue",
+            "changedBlockTracking": true
           }
         ],
         "watchdog": {
@@ -1106,6 +1107,7 @@
           "filesystemOverhead": "filesystemOverheadValue"
         }
       }
-    ]
+    ],
+    "changedBlockTracking": "changedBlockTrackingValue"
   }
 }
