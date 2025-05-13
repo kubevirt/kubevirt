@@ -19972,7 +19972,7 @@
     }
    },
    "v1beta1.VirtualMachineRestoreSpec": {
-    "description": "VirtualMachineRestoreSpec is the spec for a VirtualMachineRestoreresource",
+    "description": "VirtualMachineRestoreSpec is the spec for a VirtualMachineRestore resource",
     "type": "object",
     "required": [
      "target",
@@ -19999,11 +19999,20 @@
      "virtualMachineSnapshotName": {
       "type": "string",
       "default": ""
+     },
+     "volumeRestoreOverrides": {
+      "description": "VolumeRestoreOverrides gives the option to change properties of each restored volume For example, specifying the name of the restored volume, or adding labels/annotations to it",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1beta1.VolumeRestoreOverride"
+      },
+      "x-kubernetes-list-type": "atomic"
      }
     }
    },
    "v1beta1.VirtualMachineRestoreStatus": {
-    "description": "VirtualMachineRestoreStatus is the spec for a VirtualMachineRestoreresource",
+    "description": "VirtualMachineRestoreStatus is the status for a VirtualMachineRestore resource",
     "type": "object",
     "nullable": true,
     "properties": {
@@ -20296,7 +20305,7 @@
     }
    },
    "v1beta1.VolumeRestore": {
-    "description": "VolumeRestore contains the data neeed to restore a PVC",
+    "description": "VolumeRestore contains the data needed to restore a PVC",
     "type": "object",
     "required": [
      "volumeName",
@@ -20318,6 +20327,32 @@
      "volumeSnapshotName": {
       "type": "string",
       "default": ""
+     }
+    }
+   },
+   "v1beta1.VolumeRestoreOverride": {
+    "description": "VolumeRestoreOverride specifies how a volume should be restored from a VirtualMachineSnapshot",
+    "type": "object",
+    "properties": {
+     "annotations": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
+     "labels": {
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
+     "restoreName": {
+      "type": "string"
+     },
+     "volumeName": {
+      "type": "string"
      }
     }
    },

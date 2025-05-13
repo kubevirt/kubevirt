@@ -38,6 +38,8 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libinstancetype"
 
+	"k8s.io/utils/ptr"
+
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -1771,6 +1773,49 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Entry("[test_id:7425] to the same VM", false),
 				Entry("to a new VM", true),
 			)
+
+			It("should override VM during restore", func() {
+				// Create a VM and snapshot it
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskCirros, snapshotStorageClass))
+				By(creatingSnapshot)
+				snapshot = createSnapshot(vm)
+
+				const newDiskName = "new-disk"
+
+				// Create the restore definition of the VM, change the name of the restored volume
+				restoreDef := createRestoreDef(vm.Name, snapshot.Name)
+				restoreDef.Spec.TargetReadinessPolicy = ptr.To(snapshotv1.VirtualMachineRestoreStopTarget)
+				restoreDef.Spec.VolumeRestoreOverrides = []snapshotv1.VolumeRestoreOverride{
+					{
+						VolumeName:  "disk0",
+						RestoreName: newDiskName,
+						Labels:      map[string]string{"new-label": "value"},
+						Annotations: map[string]string{"new-annotation": "value"},
+					},
+				}
+
+				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restoreDef, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
+				Expect(restore.Status.Restores).To(HaveLen(1))
+
+				// Check the VM post-restore has
+				restoreVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(restoreVM.Spec.Template.Spec.Volumes).To(HaveLen(1))
+				Expect(restoreVM.Spec.Template.Spec.Volumes[0].Name).To(Equal("disk0"))
+				Expect(restoreVM.Spec.Template.Spec.Volumes[0].DataVolume.Name).To(Equal(newDiskName))
+
+				// Check the restored PVC has the info we want
+				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), newDiskName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pvc.Labels["new-label"]).To(Equal("value"))
+				Expect(pvc.Annotations["new-annotation"]).To(Equal("value"))
+
+				deleteRestore(restore)
+				restore = nil
+			})
 
 			Context("with memory dump", func() {
 				var memoryDumpPVC *corev1.PersistentVolumeClaim
