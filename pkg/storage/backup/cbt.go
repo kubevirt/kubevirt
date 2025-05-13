@@ -224,3 +224,8 @@ func resetInvalidState(vm *v1.VirtualMachine) {
 	log.Log.Object(vm).Warningf("invalid changedBlockTracking state %s, resetting to undefined", vm.Status.ChangedBlockTracking)
 	vm.Status.ChangedBlockTracking = v1.ChangedBlockTrackingUndefined
 }
+
+func HasCBTEnabled(cbtState v1.ChangedBlockTrackingState) bool {
+	return cbtState == v1.ChangedBlockTrackingInitializing ||
+		cbtState == v1.ChangedBlockTrackingEnabled
+}
