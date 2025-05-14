@@ -99,6 +99,14 @@ func (admitter *VMRestoreAdmitter) Admit(ctx context.Context, ar *admissionv1.Ad
 					if err != nil {
 						return webhookutils.ToAdmissionResponseError(err)
 					}
+
+					newCauses, err := admitter.validateVolumeOverrides(ctx, vmRestore)
+					if err != nil {
+						return webhookutils.ToAdmissionResponseError(err)
+					}
+					if newCauses != nil {
+						causes = append(causes, newCauses...)
+					}
 				default:
 					causes = []metav1.StatusCause{
 						{
@@ -250,4 +258,51 @@ func (admitter *VMRestoreAdmitter) validatePatches(patches []string, field *k8sf
 	}
 
 	return causes
+}
+
+func (admitter *VMRestoreAdmitter) validateVolumeOverrides(ctx context.Context, vmRestore *snapshotv1.VirtualMachineRestore) (causes []metav1.StatusCause, err error) {
+	// Cancel if there's no volume override
+	if vmRestore.Spec.VolumeRestoreOverrides == nil {
+		return nil, nil
+	}
+
+	// Check each individual override
+	for i, override := range vmRestore.Spec.VolumeRestoreOverrides {
+		namespace := vmRestore.Namespace
+		vmSnapshot, err := admitter.Client.VirtualMachineSnapshot(namespace).Get(ctx, vmRestore.Spec.VirtualMachineSnapshotName, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return nil, nil
+			}
+			return nil, err
+		}
+
+		contentName := vmSnapshot.Status.VirtualMachineSnapshotContentName
+		if contentName == nil {
+			return nil, fmt.Errorf("snapshot content name is nil in vmSnapshot status")
+		}
+
+		vmSnapshotContent, err := admitter.Client.VirtualMachineSnapshotContent(namespace).Get(ctx, *contentName, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		var found bool
+		for _, vol := range vmSnapshotContent.Spec.VolumeBackups {
+			if vol.VolumeName == override.VolumeName {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("volume name (%s) doesn't match any existing volumeBackup in VolumeSnapshotContent %s", override.VolumeName, vmSnapshotContent.Name),
+				Field:   k8sfield.NewPath("spec").Child("volumeRestoreOverrides").Index(i).String(),
+			})
+		}
+	}
+
+	return causes, nil
 }

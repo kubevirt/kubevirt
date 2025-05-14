@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -75,6 +76,8 @@ const (
 	restoreVMNotReadyEvent = "RestoreTargetNotReady"
 
 	restoreDataVolumeCreateErrorEvent = "RestoreDataVolumeCreateError"
+
+	defaultPvcRestorePrefix = "restore"
 )
 
 var (
@@ -114,7 +117,16 @@ var restoreAnnotationsToDelete = []string{
 }
 
 func restorePVCName(vmRestore *snapshotv1.VirtualMachineRestore, name string) string {
-	return fmt.Sprintf("restore-%s-%s", vmRestore.UID, name)
+	// Check if the user isn't overriding the restore name
+	for _, override := range vmRestore.Spec.VolumeRestoreOverrides {
+		// User has specified their own destination volume name, use it
+		if override.VolumeName == name && override.RestoreName != "" {
+			return override.RestoreName
+		}
+	}
+
+	// Auto-compute the name of the restored PVC from the VmRestore ID and from the original PVC name
+	return fmt.Sprintf("%s-%s-%s", defaultPvcRestorePrefix, vmRestore.UID, name)
 }
 
 func restoreDVName(vmRestore *snapshotv1.VirtualMachineRestore, name string) string {
@@ -1360,7 +1372,7 @@ func (ctrl *VMRestoreController) createRestorePVC(
 	if volumeRestore == nil {
 		return fmt.Errorf("missing volumeRestore")
 	}
-	pvc, err := CreateRestorePVCDefFromVMRestore(vmRestore.Name, volumeRestore.PersistentVolumeClaimName, volumeSnapshot, volumeBackup, sourceVmName, sourceVmNamespace)
+	pvc, err := CreateRestorePVCDefFromVMRestore(vmRestore, volumeRestore.PersistentVolumeClaimName, volumeSnapshot, volumeBackup, sourceVmName, sourceVmNamespace)
 	if err != nil {
 		return err
 	}
@@ -1457,7 +1469,7 @@ func getFilteredLabels(labels map[string]string) map[string]string {
 	return filteredLabels
 }
 
-func CreateRestorePVCDefFromVMRestore(vmRestoreName, restorePVCName string, volumeSnapshot *vsv1.VolumeSnapshot, volumeBackup *snapshotv1.VolumeBackup, sourceVmName, sourceVmNamespace string) (*corev1.PersistentVolumeClaim, error) {
+func CreateRestorePVCDefFromVMRestore(vmRestore *snapshotv1.VirtualMachineRestore, restorePVCName string, volumeSnapshot *vsv1.VolumeSnapshot, volumeBackup *snapshotv1.VolumeBackup, sourceVmName, sourceVmNamespace string) (*corev1.PersistentVolumeClaim, error) {
 	pvc, err := CreateRestorePVCDef(restorePVCName, volumeSnapshot, volumeBackup)
 	if err != nil {
 		return nil, err
@@ -1468,9 +1480,15 @@ func CreateRestorePVCDefFromVMRestore(vmRestoreName, restorePVCName string, volu
 	if pvc.Annotations == nil {
 		pvc.Annotations = make(map[string]string)
 	}
+
 	pvc.Labels[restoreSourceNameLabel] = sourceVmName
 	pvc.Labels[restoreSourceNamespaceLabel] = sourceVmNamespace
-	pvc.Annotations[RestoreNameAnnotation] = vmRestoreName
+	pvc.Annotations[RestoreNameAnnotation] = vmRestore.Name
+
+	if err := applyVolumeRestoreOverride(pvc, volumeBackup, vmRestore.Spec.VolumeRestoreOverrides); err != nil {
+		return nil, err
+	}
+
 	return pvc, nil
 }
 
@@ -1504,4 +1522,33 @@ func getRestoreVolumeBackup(volName string, content *snapshotv1.VirtualMachineSn
 		}
 	}
 	return &snapshotv1.VolumeBackup{}, fmt.Errorf("volume backup for volume %s not found", volName)
+}
+
+// Apply the VolumeRestoreOverride corresponding to a PVC, if it exists
+// This applies every override except changing the name, which has to be handled separately because it is used
+// to track if the VolumeRestore has happened correctly or not
+func applyVolumeRestoreOverride(restorePVC *corev1.PersistentVolumeClaim, volumeBackup *snapshotv1.VolumeBackup, overrides []snapshotv1.VolumeRestoreOverride) error {
+	if overrides == nil {
+		return nil
+	}
+
+	if restorePVC == nil {
+		return fmt.Errorf("missing PersistentVolumeClaim when applying VolumeRestoreOverride")
+	}
+
+	if volumeBackup == nil {
+		return fmt.Errorf("missing VolumeBackup when applying VolumeRestoreOverride")
+	}
+
+	for _, override := range overrides {
+		// The volume we're trying to restore has a matching override
+		if override.VolumeName == volumeBackup.VolumeName {
+			// Override labels/annotations
+			maps.Copy(restorePVC.Labels, override.Labels)
+			maps.Copy(restorePVC.Annotations, override.Annotations)
+			break
+		}
+	}
+
+	return nil
 }
