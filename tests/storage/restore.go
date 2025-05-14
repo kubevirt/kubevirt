@@ -316,37 +316,6 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 			})
 		})
 
-		Context("with run strategy and snapshot", func() {
-			var err error
-			var snapshot *snapshotv1.VirtualMachineSnapshot
-
-			AfterEach(func() {
-				deleteSnapshot(snapshot)
-			})
-
-			It("should successfully restore", func() {
-				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyRerunOnFailure)
-				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 360).Should(BeInPhase(v1.Running))
-				snapshot = createSnapshot(vm)
-
-				vm = libvmops.StopVirtualMachine(vm)
-				Expect(vm.Spec.RunStrategy).To(HaveValue(Equal(v1.RunStrategyRerunOnFailure)))
-				restore := createRestoreDef(vm.Name, snapshot.Name)
-
-				restore, err = virtClient.VirtualMachineRestore(vm.Namespace).Create(context.Background(), restore, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				restore = waitRestoreComplete(restore, vm.Name, &vm.UID)
-				Expect(restore.Status.Restores).To(BeEmpty())
-				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
-				restoredVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(restoredVM.Spec.RunStrategy).To(Equal(pointer.P(v1.RunStrategyRerunOnFailure)))
-			})
-		})
-
 		Context("and good snapshot exists", func() {
 			var err error
 			var snapshot *snapshotv1.VirtualMachineSnapshot
@@ -1541,7 +1510,7 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				}, 180*time.Second, 3*time.Second).Should(BeTrue())
 
 				err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
-				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("Cannot start VM until restore %q completes", restore.Name)))
+				Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("Cannot update VM runStrategy until restore %q completes", restore.Name)))
 
 				switch deleteFunc {
 				case "deleteWebhook":
@@ -1771,6 +1740,20 @@ var _ = SIGDescribe("VirtualMachineRestore Tests", func() {
 				Entry("[test_id:7425] to the same VM", false),
 				Entry("to a new VM", true),
 			)
+
+			It("with run strategy and snapshot should successfully restore", func() {
+				vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
+				libvmi.WithRunStrategy(v1.RunStrategyRerunOnFailure)(vm)
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+				vm = libvmops.StartVirtualMachine(vm)
+				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 360).Should(BeInPhase(v1.Running))
+				Expect(vm.Spec.RunStrategy).To(HaveValue(Equal(v1.RunStrategyRerunOnFailure)))
+				doRestoreNoVMStart("", console.LoginToFedora, onlineSnapshot, false, vm.Name)
+				Expect(restore.Status.Restores).To(HaveLen(1))
+				restoredVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(restoredVM.Spec.RunStrategy).To(Equal(pointer.P(v1.RunStrategyRerunOnFailure)))
+			})
 
 			Context("with memory dump", func() {
 				var memoryDumpPVC *corev1.PersistentVolumeClaim
