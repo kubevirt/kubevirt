@@ -114,6 +114,11 @@ var _ = SIGDescribe("interface state up/down", func() {
 
 		Expect(patchToggleVMInterfacesStates(vm)).To(Succeed())
 
+		Consistently(matcher.ThisVM(vm)).
+			WithTimeout(15 * time.Second).
+			WithPolling(1 * time.Second).
+			Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
+
 		expectedIfaceStatuses = []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: primaryLogicalNetName, LinkState: string(v1.InterfaceStateLinkDown)},
 			{Name: secondary2LogicalNetName, LinkState: string(v1.InterfaceStateLinkUp)},
