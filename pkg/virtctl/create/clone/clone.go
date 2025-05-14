@@ -252,7 +252,7 @@ func (c *createClone) run(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-func (c *createClone) typeToTypedLocalObjectReference(sourceOrTargetType, sourceOrTargetName string, isSource bool) (*v1.TypedLocalObjectReference, error) {
+func (c *createClone) typeToTypedLocalObjectReference(sourceOrTargetType, sourceOrTargetName string, isSource bool) (*v1.TypedObjectReference, error) {
 	var kind, apiGroup string
 
 	generateErr := func() error {
@@ -285,7 +285,7 @@ func (c *createClone) typeToTypedLocalObjectReference(sourceOrTargetType, source
 		return nil, generateErr()
 	}
 
-	return &v1.TypedLocalObjectReference{
+	return &v1.TypedObjectReference{
 		Name:     sourceOrTargetName,
 		Kind:     kind,
 		APIGroup: &apiGroup,

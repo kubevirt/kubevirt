@@ -189,7 +189,7 @@ var _ = Describe("Clone", func() {
 		sourceVM = libvmi.NewVirtualMachine(sourceVMI)
 
 		vmClone = kubecli.NewMinimalCloneWithNS("testclone", metav1.NamespaceDefault)
-		cloneSourceRef := &k8sv1.TypedLocalObjectReference{
+		cloneSourceRef := &k8sv1.TypedObjectReference{
 			APIGroup: pointer.P(vmAPIGroup),
 			Kind:     "VirtualMachine",
 			Name:     sourceVM.Name,
@@ -1134,7 +1134,7 @@ var _ = Describe("Clone", func() {
 			}
 
 			It("should generate target vm name if it is not provided", func() {
-				vmClone.Spec.Target = &k8sv1.TypedLocalObjectReference{
+				vmClone.Spec.Target = &k8sv1.TypedObjectReference{
 					APIGroup: pointer.P(vmAPIGroup),
 					Kind:     "VirtualMachine",
 				}
