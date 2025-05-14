@@ -44,11 +44,12 @@ func (a *Admitter) validateRestoreStatus() []metav1.StatusCause {
 	}
 
 	if !equality.Semantic.DeepEqual(oldVM.Spec, a.vm.Spec) {
-		strategy, _ := a.vm.RunStrategy()
-		if strategy != v1.RunStrategyHalted {
+		oldStrategy, _ := oldVM.RunStrategy()
+		newStrategy, _ := a.vm.RunStrategy()
+		if newStrategy != oldStrategy {
 			return []metav1.StatusCause{{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
-				Message: fmt.Sprintf("Cannot start VM until restore %q completes", *a.vm.Status.RestoreInProgress),
+				Message: fmt.Sprintf("Cannot update VM runStrategy until restore %q completes", *a.vm.Status.RestoreInProgress),
 				Field:   k8sfield.NewPath("spec").String(),
 			}}
 		}
