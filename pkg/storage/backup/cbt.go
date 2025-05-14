@@ -34,6 +34,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+var (
+	CBTKey   = "changedBlockTracking"
+	CBTLabel = map[string]string{"changedBlockTracking": "true"}
+)
+
 func vmMatchesChangedBlockTrackingSelectors(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig, nsStore cache.Store) bool {
 	labelSelectors := clusterConfig.GetConfig().ChangedBlockTrackingLabelSelectors
 	if labelSelectors == nil {
