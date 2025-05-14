@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/backup"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var (
@@ -338,6 +339,40 @@ var _ = Describe("CBT", func() {
 			vmi = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 			vm = libvmi.NewVirtualMachine(vmi)
 			backup.SetChangedBlockTrackingOnVMI(vm, vmi, config, nsStore)
+			Expect(vmi.Status.ChangedBlockTracking).To(BeEmpty())
+		})
+	})
+	Context("UpdateVMIChangedBlockTrackingFromDomain", func() {
+		It("domain has cbt enabled should update VMI state to Enabled", func() {
+			vmi = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+			domain := &api.Domain{
+				Spec: api.DomainSpec{
+					Devices: api.Devices{
+						Disks: []api.Disk{{
+							Source: api.DiskSource{
+								DataStore: &api.DataStore{
+									Type: "file",
+								},
+							},
+						}},
+					},
+				},
+			}
+			backup.UpdateVMIChangedBlockTrackingFromDomain(vmi, domain)
+			Expect(vmi.Status.ChangedBlockTracking).To(Equal(v1.ChangedBlockTrackingEnabled))
+		})
+		It("domain doesnt have cbt shouldnt update VMI state", func() {
+			vmi = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+			domain := &api.Domain{
+				Spec: api.DomainSpec{
+					Devices: api.Devices{
+						Disks: []api.Disk{{
+							Source: api.DiskSource{},
+						}},
+					},
+				},
+			}
+			backup.UpdateVMIChangedBlockTrackingFromDomain(vmi, domain)
 			Expect(vmi.Status.ChangedBlockTracking).To(BeEmpty())
 		})
 	})
