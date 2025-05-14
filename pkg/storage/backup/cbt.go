@@ -31,6 +31,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var (
@@ -184,6 +185,23 @@ func SetChangedBlockTrackingOnVMI(vm *v1.VirtualMachine, vmi *v1.VirtualMachineI
 		vmi.Status.ChangedBlockTracking = v1.ChangedBlockTrackingInitializing
 	} else if vm.Status.ChangedBlockTracking != "" {
 		vmi.Status.ChangedBlockTracking = v1.ChangedBlockTrackingDisabled
+	}
+}
+
+func UpdateVMIChangedBlockTrackingFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	if domain == nil {
+		return
+	}
+
+	cbtSet := false
+	for _, disk := range domain.Spec.Devices.Disks {
+		if disk.Source.DataStore != nil {
+			cbtSet = true
+			break
+		}
+	}
+	if cbtSet {
+		vmi.Status.ChangedBlockTracking = v1.ChangedBlockTrackingEnabled
 	}
 }
 
