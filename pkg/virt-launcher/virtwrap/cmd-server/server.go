@@ -404,6 +404,8 @@ func (l *Launcher) HotplugHostDevices(_ context.Context, request *cmdv1.VMIReque
 		return response, nil
 	}
 
+	log.Log.Object(vmi).Info("DBG at HotplugHostDevices")
+
 	if err := l.domainManager.HotplugHostDevices(vmi); err != nil {
 		log.Log.Object(vmi).Errorf(err.Error())
 		response.Success = false

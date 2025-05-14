@@ -1840,7 +1840,7 @@ func (c *VirtualMachineController) migrationTargetExecute(vmi *v1.VirtualMachine
 
 	} else if shouldUpdate {
 		log.Log.Object(vmi).Info("Processing vmi migration target update")
-
+		log.Log.Object(vmi).Info("DBG Processing vmi migration target update")
 		// prepare the POD for the migration
 		err := c.processVmUpdate(vmi, domain)
 		if err != nil {
@@ -2033,6 +2033,7 @@ func (c *VirtualMachineController) defaultExecute(key string,
 		log.Log.Object(vmi).V(3).Info("Processing local ephemeral data cleanup for shutdown domain.")
 		syncErr = c.processVmCleanup(vmi)
 	case shouldUpdate:
+		log.Log.Object(vmi).Info("DBG Processing vmi update")
 		log.Log.Object(vmi).V(3).Info("Processing vmi update")
 		syncErr = c.processVmUpdate(vmi, domain)
 	default:
@@ -2967,6 +2968,7 @@ func (c *VirtualMachineController) configureHousekeepingCgroup(vmi *v1.VirtualMa
 }
 
 func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMachineInstance, domainExists bool) error {
+	log.Log.Object(origVMI).Info("DBG at vmUpdateHelperDefault")
 	client, err := c.getLauncherClient(origVMI)
 	if err != nil {
 		return fmt.Errorf(unableCreateVirtLauncherConnectionFmt, err)
@@ -3012,6 +3014,7 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(origVMI *v1.VirtualMach
 
 // handleVMIState: Decides whether to call handleRunningVMI or handleStartingVMI based on the VMI's state.
 func (c *VirtualMachineController) handleVMIState(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, errorTolerantFeaturesError *[]error) (bool, error) {
+	log.Log.Object(vmi).Info("DBG at handleVMIState")
 	if vmi.IsRunning() {
 		return true, c.handleRunningVMI(vmi, cgroupManager, errorTolerantFeaturesError)
 	} else if !vmi.IsFinal() {
@@ -3022,6 +3025,7 @@ func (c *VirtualMachineController) handleVMIState(vmi *v1.VirtualMachineInstance
 
 // handleRunningVMI contains the logic specifically for running VMs (hotplugging in running state, metrics, network updates)
 func (c *VirtualMachineController) handleRunningVMI(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, errorTolerantFeaturesError *[]error) error {
+	log.Log.Object(vmi).Info("DBG at handleRunningVMI")
 	if err := c.hotplugSriovInterfaces(vmi); err != nil {
 		log.Log.Object(vmi).Error(err.Error())
 	}
@@ -3267,6 +3271,7 @@ func (c *VirtualMachineController) getPreallocatedVolumes(vmi *v1.VirtualMachine
 }
 
 func (c *VirtualMachineController) hotplugSriovInterfaces(vmi *v1.VirtualMachineInstance) error {
+	log.Log.Object(vmi).Info("DBG at hotplugSriovInterfaces")
 	sriovSpecInterfaces := netvmispec.FilterSRIOVInterfaces(vmi.Spec.Domain.Devices.Interfaces)
 
 	sriovSpecIfacesNames := netvmispec.IndexInterfaceSpecByName(sriovSpecInterfaces)
@@ -3282,10 +3287,12 @@ func (c *VirtualMachineController) hotplugSriovInterfaces(vmi *v1.VirtualMachine
 	})
 
 	if len(desiredSriovMultusPluggedIfaces) == len(attachedSriovStatusIfaces) {
+		log.Log.Object(vmi).Info("DBG! at hotplugSriovInterfaces, deleting executor")
 		c.sriovHotplugExecutorPool.Delete(vmi.UID)
 		return nil
 	}
 
+	log.Log.Object(vmi).Info("DBG at hotplugSriovInterfaces, just before hotplugSriovInterfacesCommand")
 	rateLimitedExecutor := c.sriovHotplugExecutorPool.LoadOrStore(vmi.UID)
 	return rateLimitedExecutor.Exec(func() error {
 		return c.hotplugSriovInterfacesCommand(vmi)
@@ -3305,6 +3312,7 @@ func (c *VirtualMachineController) hotplugSriovInterfacesCommand(vmi *v1.Virtual
 		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
 
+	log.Log.Object(vmi).Info("DBG sending hot-plug host-devices command")
 	log.Log.V(3).Object(vmi).Info("sending hot-plug host-devices command")
 	if err := client.HotplugHostDevices(vmi); err != nil {
 		return fmt.Errorf("%s: %v", errMsgPrefix, err)
