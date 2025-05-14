@@ -14550,6 +14550,18 @@
      "handlerConfiguration": {
       "$ref": "#/definitions/v1.ReloadableComponentConfiguration"
      },
+     "hotplugPodTolerations": {
+      "description": "HotplugPodTolerations specifies the tolerations for various types of supporting containers such as hotplug attachment pods. If omitted a sensible default will be supplied.",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/k8s.io.api.core.v1.Toleration"
+      },
+      "x-kubernetes-list-map-keys": [
+       "type"
+      ],
+      "x-kubernetes-list-type": "map"
+     },
      "imagePullPolicy": {
       "description": "Possible enum values:\n - `\"Always\"` means that kubelet always attempts to pull the latest image. Container will fail If the pull fails.\n - `\"IfNotPresent\"` means that kubelet pulls if the image isn't present on disk. Container will fail if the image isn't present and the pull fails.\n - `\"Never\"` means that kubelet never pulls an image, but only uses a local image. Container will fail if the image isn't present",
       "type": "string",
@@ -14620,18 +14632,6 @@
       "items": {
        "default": {},
        "$ref": "#/definitions/v1.SupportContainerResources"
-      },
-      "x-kubernetes-list-map-keys": [
-       "type"
-      ],
-      "x-kubernetes-list-type": "map"
-     },
-     "supportPodTolerations": {
-      "description": "SupportPodTolerations specifies the tolerations for various types of supporting containers such as hotplug attachment pods. If omitted a sensible default will be supplied.",
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1.SupportPodTolerations"
       },
       "x-kubernetes-list-map-keys": [
        "type"
@@ -16124,27 +16124,6 @@
      "resources": {
       "default": {},
       "$ref": "#/definitions/v1.ResourceRequirementsWithoutClaims"
-     },
-     "type": {
-      "type": "string",
-      "default": ""
-     }
-    }
-   },
-   "v1.SupportPodTolerations": {
-    "type": "object",
-    "required": [
-     "type",
-     "tolerations"
-    ],
-    "properties": {
-     "tolerations": {
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/k8s.io.api.core.v1.Toleration"
-      },
-      "x-kubernetes-list-type": "atomic"
      },
      "type": {
       "type": "string",

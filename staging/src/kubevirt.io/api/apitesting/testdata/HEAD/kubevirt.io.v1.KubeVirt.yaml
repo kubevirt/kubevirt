@@ -119,6 +119,12 @@ spec:
           tokenBucketRateLimiter:
             burst: -5
             qps: -3
+    hotplugPodTolerations:
+    - effect: effectValue
+      key: keyValue
+      operator: operatorValue
+      tolerationSeconds: 5
+      value: valueValue
     imagePullPolicy: imagePullPolicyValue
     instancetype:
       referencePolicy: referencePolicyValue
@@ -217,14 +223,6 @@ spec:
           limitsKey: "0"
         requests:
           requestsKey: "0"
-      type: typeValue
-    supportPodTolerations:
-    - tolerations:
-      - effect: effectValue
-        key: keyValue
-        operator: operatorValue
-        tolerationSeconds: 5
-        value: valueValue
       type: typeValue
     supportedGuestAgentVersions:
     - supportedGuestAgentVersionsValue

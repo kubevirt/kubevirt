@@ -785,7 +785,7 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 		"evictionStrategy":                   "EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be\nmigrated instead of shut-off in case of a node drain. If the VirtualMachineInstance specific\nfield is set it overrides the cluster level one.",
 		"additionalGuestMemoryOverheadRatio": "AdditionalGuestMemoryOverheadRatio can be used to increase the virtualization infrastructure\noverhead. This is useful, since the calculation of this overhead is not accurate and cannot\nbe entirely known in advance. The ratio that is being set determines by which factor to increase\nthe overhead calculated by Kubevirt. A higher ratio means that the VMs would be less compromised\nby node pressures, but would mean that fewer VMs could be scheduled to a node.\nIf not set, the default is 1.",
 		"supportContainerResources":          "+listType=map\n+listMapKey=type\nSupportContainerResources specifies the resource requirements for various types of supporting containers such as container disks/virtiofs/sidecars and hotplug attachment pods. If omitted a sensible default will be supplied.",
-		"supportPodTolerations":              "+listType=map\n+listMapKey=type\nSupportPodTolerations specifies the tolerations for various types of supporting containers such as hotplug attachment pods. If omitted a sensible default will be supplied.",
+		"hotplugPodTolerations":              "+listType=map\n+listMapKey=type\nHotplugPodTolerations specifies the tolerations for various types of supporting containers such as hotplug attachment pods. If omitted a sensible default will be supplied.",
 		"supportedGuestAgentVersions":        "deprecated",
 		"vmStateStorageClass":                "VMStateStorageClass is the name of the storage class to use for the PVCs created to preserve VM state, like TPM.",
 		"ksmConfiguration":                   "KSMConfiguration holds the information regarding the enabling the KSM in the nodes (if available).",
@@ -826,12 +826,6 @@ func (SMBiosConfiguration) SwaggerDoc() map[string]string {
 func (SupportContainerResources) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "SupportContainerResources are used to specify the cpu/memory request and limits for the containers that support various features of Virtual Machines. These containers are usually idle and don't require a lot of memory or cpu.",
-	}
-}
-
-func (SupportPodTolerations) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"tolerations": "+listType=atomic",
 	}
 }
 
