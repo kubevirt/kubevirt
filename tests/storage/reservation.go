@@ -38,7 +38,7 @@ import (
 
 // The SCSI persistent reservation tests require to run serially because of the
 // feature gate PersistentReservation. The enablement/disablement of this
-// feature gate redeploys virt-handler pod, and this might interfer with other
+// feature gate redeploys virt-handler pod, and this might interfere with other
 // tests.
 var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 	const randLen = 8
@@ -199,7 +199,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 		}
 	})
 
-	Context("Use LUN disk with presistent reservation", func() {
+	Context("Use LUN disk with persistent reservation", func() {
 		BeforeEach(func() {
 			var err error
 			naa = generateNaa()

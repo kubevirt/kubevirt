@@ -434,7 +434,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 							ClientConfig: admissionregistrationv1.WebhookClientConfig{
 								Service: &admissionregistrationv1.ServiceReference{
 									Namespace: testsuite.GetTestNamespace(nil),
-									Name:      "nonexistant",
+									Name:      "nonexistent",
 									Path:      &whPath,
 								},
 							},
@@ -1230,7 +1230,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				libvmops.StartVirtualMachine(vm)
 			})
 
-			// This test is relevant to provisioner which round up the recieved size of
+			// This test is relevant to provisioner which round up the received size of
 			// the PVC. Currently we only test vmsnapshot tests which ceph which has this
 			// behavior. In case of running this test with other provisioner or if ceph
 			// will change this behavior it will fail.
@@ -1504,7 +1504,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 							ClientConfig: admissionregistrationv1.WebhookClientConfig{
 								Service: &admissionregistrationv1.ServiceReference{
 									Namespace: testsuite.GetTestNamespace(nil),
-									Name:      "nonexistant",
+									Name:      "nonexistent",
 									Path:      &whPath,
 								},
 							},
