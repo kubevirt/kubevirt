@@ -94,6 +94,7 @@ type ConverterContext struct {
 	CPUSet                          []int
 	IsBlockPVC                      map[string]bool
 	IsBlockDV                       map[string]bool
+	ApplyCBT                        map[string]string
 	HotplugVolumes                  map[string]v1.VolumeStatus
 	PermanentVolumes                map[string]v1.VolumeStatus
 	MigratedVolumes                 map[string]string
@@ -562,7 +563,7 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *Convert
 	}
 
 	if source.HostDisk != nil {
-		return Convert_v1_HostDisk_To_api_Disk(source.Name, source.HostDisk.Path, disk)
+		return Convert_v1_HostDisk_To_api_Disk(source.Name, source.HostDisk.Path, disk, c)
 	}
 
 	if source.PersistentVolumeClaim != nil {
@@ -656,7 +657,13 @@ func GetHotplugBlockDeviceVolumePath(volumeName string) string {
 
 func Convert_v1_PersistentVolumeClaim_To_api_Disk(name string, disk *api.Disk, c *ConverterContext) error {
 	if c.IsBlockPVC[name] {
+		if cbtPath, ok := c.ApplyCBT[name]; ok {
+			return Convert_v1_BlockVolumeSource_WithCBT_To_api_Disk(name, cbtPath, disk, c.VolumesDiscardIgnore)
+		}
 		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
+	}
+	if cbtPath, ok := c.ApplyCBT[name]; ok {
+		return Convert_v1_FilesystemVolumeSource_WithCBT_To_api_Disk(name, cbtPath, disk, c.VolumesDiscardIgnore)
 	}
 	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
 }
@@ -671,7 +678,13 @@ func Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(name string, disk *api
 
 func Convert_v1_DataVolume_To_api_Disk(name string, disk *api.Disk, c *ConverterContext) error {
 	if c.IsBlockDV[name] {
+		if cbtPath, ok := c.ApplyCBT[name]; ok {
+			return Convert_v1_BlockVolumeSource_WithCBT_To_api_Disk(name, cbtPath, disk, c.VolumesDiscardIgnore)
+		}
 		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
+	}
+	if cbtPath, ok := c.ApplyCBT[name]; ok {
+		return Convert_v1_FilesystemVolumeSource_WithCBT_To_api_Disk(name, cbtPath, disk, c.VolumesDiscardIgnore)
 	}
 	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
 }
@@ -696,6 +709,26 @@ func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.
 	return nil
 }
 
+func Convert_v1_FilesystemVolumeSource_WithCBT_To_api_Disk(volumeName, cbtPath string, disk *api.Disk, volumesDiscardIgnore []string) error {
+	disk.Type = "file"
+	disk.Driver.Type = "qcow2"
+	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
+	if !slices.Contains(volumesDiscardIgnore, volumeName) {
+		disk.Driver.Discard = "unmap"
+	}
+	disk.Source.File = cbtPath
+	disk.Source.DataStore = &api.DataStore{
+		Type: "file",
+		Format: &api.DataStoreFormat{
+			Type: "raw",
+		},
+		Source: &api.DiskSource{
+			File: GetFilesystemVolumePath(volumeName),
+		},
+	}
+	return nil
+}
+
 // Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the KVM Disk representation
 func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
 	disk.Type = "file"
@@ -705,6 +738,27 @@ func Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(volumeName string, di
 		disk.Driver.Discard = "unmap"
 	}
 	disk.Source.File = GetHotplugFilesystemVolumePath(volumeName)
+	return nil
+}
+
+func Convert_v1_BlockVolumeSource_WithCBT_To_api_Disk(volumeName, cbtPath string, disk *api.Disk, volumesDiscardIgnore []string) error {
+	disk.Type = "file"
+	disk.Driver.Type = "qcow2"
+	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
+	if !slices.Contains(volumesDiscardIgnore, volumeName) {
+		disk.Driver.Discard = "unmap"
+	}
+	disk.Source.Name = volumeName
+	disk.Source.File = cbtPath
+	disk.Source.DataStore = &api.DataStore{
+		Type: "block",
+		Format: &api.DataStoreFormat{
+			Type: "raw",
+		},
+		Source: &api.DiskSource{
+			Dev: GetBlockDeviceVolumePath(volumeName),
+		},
+	}
 	return nil
 }
 
@@ -732,11 +786,25 @@ func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *a
 	return nil
 }
 
-func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.Disk) error {
+func Convert_v1_HostDisk_To_api_Disk(volumeName string, path string, disk *api.Disk, c *ConverterContext) error {
 	disk.Type = "file"
-	disk.Driver.Type = "raw"
+	if cbtPath, ok := c.ApplyCBT[volumeName]; ok {
+		disk.Driver.Type = "qcow2"
+		disk.Source.File = cbtPath
+		disk.Source.DataStore = &api.DataStore{
+			Type: "file",
+			Format: &api.DataStoreFormat{
+				Type: "raw",
+			},
+			Source: &api.DiskSource{
+				File: hostdisk.GetMountedHostDiskPath(volumeName, path),
+			},
+		}
+	} else {
+		disk.Driver.Type = "raw"
+		disk.Source.File = hostdisk.GetMountedHostDiskPath(volumeName, path)
+	}
 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
-	disk.Source.File = hostdisk.GetMountedHostDiskPath(volumeName, path)
 	return nil
 }
 
@@ -2020,11 +2088,15 @@ func newDeviceNamer(volumeStatuses []v1.VolumeStatus, disks []v1.Disk) map[strin
 	return prefixMap
 }
 
+func GetVolumeNameByDisk(disk api.Disk) string {
+	return disk.Alias.GetName()
+}
+
 // GetVolumeNameByTarget returns the volume name associated to the device target in the domain (e.g vda)
 func GetVolumeNameByTarget(domain *api.Domain, target string) string {
 	for _, d := range domain.Spec.Devices.Disks {
 		if d.Target.Device == target {
-			return d.Alias.GetName()
+			return GetVolumeNameByDisk(d)
 		}
 	}
 	return ""
