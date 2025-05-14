@@ -17296,13 +17296,13 @@ func schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneSpec(ref common.Refe
 					"source": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Source is the object that would be cloned. Currently supported source types are: VirtualMachine of kubevirt.io API group, VirtualMachineSnapshot of snapshot.kubevirt.io API group",
-							Ref:         ref("k8s.io/api/core/v1.TypedLocalObjectReference"),
+							Ref:         ref("k8s.io/api/core/v1.TypedObjectReference"),
 						},
 					},
 					"target": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Target is the outcome of the cloning process. Currently supported source types are: - VirtualMachine of kubevirt.io API group - Empty (nil). If the target is not provided, the target type would default to VirtualMachine and a random name would be generated for the target. The target's name can be viewed by inspecting status \"TargetName\" field below.",
-							Ref:         ref("k8s.io/api/core/v1.TypedLocalObjectReference"),
+							Ref:         ref("k8s.io/api/core/v1.TypedObjectReference"),
 						},
 					},
 					"annotationFilters": {
@@ -17400,7 +17400,7 @@ func schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneSpec(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.TypedLocalObjectReference", "kubevirt.io/api/clone/v1beta1.VirtualMachineCloneTemplateFilters"},
+			"k8s.io/api/core/v1.TypedObjectReference", "kubevirt.io/api/clone/v1beta1.VirtualMachineCloneTemplateFilters"},
 	}
 }
 

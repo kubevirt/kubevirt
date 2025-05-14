@@ -112,12 +112,12 @@ func (in *VirtualMachineCloneSpec) DeepCopyInto(out *VirtualMachineCloneSpec) {
 	*out = *in
 	if in.Source != nil {
 		in, out := &in.Source, &out.Source
-		*out = new(v1.TypedLocalObjectReference)
+		*out = new(v1.TypedObjectReference)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.Target != nil {
 		in, out := &in.Target, &out.Target
-		*out = new(v1.TypedLocalObjectReference)
+		*out = new(v1.TypedObjectReference)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.AnnotationFilters != nil {
