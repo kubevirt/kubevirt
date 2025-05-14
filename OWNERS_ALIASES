@@ -10,7 +10,6 @@ aliases:
     - enp0s3
     - xpivarc
     - vasiliy-ul
-    - acardace
     - alicefr
     - iholder101
   emeritus_approvers:
@@ -25,13 +24,13 @@ aliases:
     - zcahana
     - dhiller # 2024-03-15
     - AlonaKaplan
+    - acardace
   code-reviewers:
     - vladikr
     - enp0s3
     - jean-edouard
     - mhenriks
     - EdDev
-    - acardace
     - xpivarc
     - iholder101
     - alicefr
@@ -46,14 +45,12 @@ aliases:
   sig-test-reviewers:
     - enp0s3
     - xpivarc
-    - acardace
     - 0xFelix
   sig-test-approvers:
     - kbidarkar
     - phoracek
     - enp0s3
     - xpivarc
-    - acardace
     - dhiller
     - 0xFelix
   sig-test-emeritus_approvers:
@@ -164,11 +161,9 @@ aliases:
   # Owns the release process, including the schedule, and tools.
   #
   sig-release-approvers:
-    - acardace
     - fossedihelm
     - xpivarc
   sig-release-reviewers:
-    - acardace
     - fossedihelm
     - xpivarc
 
