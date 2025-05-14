@@ -1302,9 +1302,7 @@ func applyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *converter.Conv
 	for _, volume := range vmi.Spec.Volumes {
 		volumeName := volume.Name
 		logger.V(3).Infof("Creating QCOW2 overlay for %+v", volume)
-		if volume.VolumeSource.PersistentVolumeClaim == nil &&
-			volume.VolumeSource.DataVolume == nil &&
-			volume.VolumeSource.HostDisk == nil {
+		if !cbt.IsCBTEligibleVolume(&volume) {
 			logger.V(3).Infof("SKIP Creating QCOW2 overlay for %s", volume.Name)
 			continue
 		}

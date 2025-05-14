@@ -25,6 +25,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
@@ -37,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var (
@@ -340,5 +342,95 @@ var _ = Describe("CBT", func() {
 			cbt.SetChangedBlockTrackingOnVMI(vm, vmi, config, nsStore)
 			Expect(cbt.CBTState(vmi.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingUndefined))
 		})
+	})
+
+	Context("IsCBTEligibleVolume", func() {
+		DescribeTable("should return correct eligibility for volume types",
+			func(volumeSource v1.VolumeSource, expected bool) {
+				volume := &v1.Volume{Name: "test-volume", VolumeSource: volumeSource}
+				Expect(cbt.IsCBTEligibleVolume(volume)).To(Equal(expected))
+			},
+			Entry("PVC", v1.VolumeSource{PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test-pvc"}}}, true),
+			Entry("DataVolume", v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "test-dv"}}, true),
+			Entry("HostDisk", v1.VolumeSource{HostDisk: &v1.HostDisk{Path: "/tmp/disk.img"}}, true),
+			Entry("ContainerDisk", v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{Image: "test:latest"}}, false),
+			Entry("ConfigMap", v1.VolumeSource{ConfigMap: &v1.ConfigMapVolumeSource{LocalObjectReference: k8sv1.LocalObjectReference{Name: "test-config"}}}, false),
+			Entry("Secret", v1.VolumeSource{Secret: &v1.SecretVolumeSource{SecretName: "test-secret"}}, false),
+			Entry("EmptyDisk", v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{Capacity: resource.MustParse("1Gi")}}, false),
+			Entry("CloudInit", v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: "test"}}, false),
+		)
+	})
+
+	Context("SetChangedBlockTrackingOnVMIFromDomain", func() {
+		BeforeEach(func() {
+			vmi = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingInitializing)
+		})
+
+		pvcVolume := func(name, claimName string) v1.Volume {
+			return v1.Volume{
+				Name: name,
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: claimName},
+					},
+				},
+			}
+		}
+
+		diskWithDataStore := func(name string, hasDataStore bool) api.Disk {
+			disk := api.Disk{Alias: api.NewUserDefinedAlias(name), Source: api.DiskSource{}}
+			if hasDataStore {
+				disk.Source.DataStore = &api.DataStore{Type: "file"}
+			}
+			return disk
+		}
+
+		DescribeTable("should handle CBT enablement based on volume/disk configuration",
+			func(volumes []v1.Volume, disks []api.Disk, expectedState v1.ChangedBlockTrackingState) {
+				vmi.Spec.Volumes = volumes
+				domain := &api.Domain{Spec: api.DomainSpec{Devices: api.Devices{Disks: disks}}}
+				cbt.SetChangedBlockTrackingOnVMIFromDomain(vmi, domain)
+				Expect(cbt.CBTState(vmi.Status.ChangedBlockTracking)).To(Equal(expectedState))
+			},
+			Entry("all eligible volumes have DataStore",
+				[]v1.Volume{pvcVolume("pvc1", "test-pvc"), pvcVolume("pvc2", "test-pvc2")},
+				[]api.Disk{diskWithDataStore("pvc1", true), diskWithDataStore("pvc2", true)},
+				v1.ChangedBlockTrackingEnabled),
+			Entry("one eligible volume lacks DataStore",
+				[]v1.Volume{pvcVolume("pvc1", "test-pvc"), pvcVolume("pvc2", "test-pvc2")},
+				[]api.Disk{diskWithDataStore("pvc1", true), diskWithDataStore("pvc2", false)},
+				v1.ChangedBlockTrackingInitializing),
+			Entry("mixed volumes, only eligible ones checked",
+				[]v1.Volume{
+					{Name: "container-disk", VolumeSource: v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{Image: "test:latest"}}},
+					pvcVolume("pvc1", "test-pvc"),
+				},
+				[]api.Disk{diskWithDataStore("container-disk", false), diskWithDataStore("pvc1", true)},
+				v1.ChangedBlockTrackingEnabled),
+			Entry("only non-eligible volumes",
+				[]v1.Volume{{Name: "container-disk", VolumeSource: v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{Image: "test:latest"}}}},
+				[]api.Disk{diskWithDataStore("container-disk", false)},
+				v1.ChangedBlockTrackingEnabled),
+			Entry("eligible volume with no matching disk",
+				[]v1.Volume{pvcVolume("pvc1", "test-pvc")},
+				[]api.Disk{diskWithDataStore("different-disk", true)},
+				v1.ChangedBlockTrackingInitializing),
+		)
+
+		DescribeTable("should handle edge cases",
+			func(setupFunc func(), expectedState v1.ChangedBlockTrackingState) {
+				setupFunc()
+				Expect(cbt.CBTState(vmi.Status.ChangedBlockTracking)).To(Equal(expectedState))
+			},
+			Entry("domain is nil", func() {
+				cbt.SetChangedBlockTrackingOnVMIFromDomain(vmi, nil)
+			}, v1.ChangedBlockTrackingInitializing),
+			Entry("VMI CBT status is nil", func() {
+				vmi.Status.ChangedBlockTracking = nil
+				domain := &api.Domain{Spec: api.DomainSpec{Devices: api.Devices{Disks: []api.Disk{diskWithDataStore("pvc1", true)}}}}
+				cbt.SetChangedBlockTrackingOnVMIFromDomain(vmi, domain)
+			}, v1.ChangedBlockTrackingUndefined),
+		)
 	})
 })
