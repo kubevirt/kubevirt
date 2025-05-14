@@ -530,13 +530,15 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			By("Verifying that the status toggles between ErrImagePull and ImagePullBackOff")
 			expectedStates := []v1.VirtualMachinePrintableStatus{
-				// State transitions a single image pull attempt
+				// State transitions two toggles of the VM state b/w ErrImagePull and ImagePullBackOff
+				v1.VirtualMachineStatusErrImagePull,
+				v1.VirtualMachineStatusImagePullBackOff,
 				v1.VirtualMachineStatusErrImagePull,
 				v1.VirtualMachineStatusImagePullBackOff,
 			}
-			// Timeout is set to 330 seconds to allow for
-			// 1 worst-case backoff grace period (5 mins), and 1 image pull attempt (30 secs).
-			waitForVMStateTransition(vm, expectedStates, 360*time.Second)
+			// Timeout is set to 660 seconds to allow for states to toggle twice, i.e.,
+			// 2 worst-case backoff grace periods (5 mins each), and 2 image pull attempts (30 secs each).
+			waitForVMStateTransition(vm, expectedStates, 660*time.Second)
 		})
 
 		It("[test_id:7679]should report an error status when data volume error occurs", func() {
