@@ -1218,6 +1218,154 @@ var _ = Describe("Converter", func() {
 			}))
 		})
 
+		Context("with CBT volumes", func() {
+			DescribeTable("should create domain disk with datastore for filesystem volumes with CBT enabled",
+				func(volumeName string, createVolumeSource func(string) v1.VolumeSource) {
+					cbtPath := "/var/lib/libvirt/qemu/cbt/" + volumeName + ".qcow2"
+
+					v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+					vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
+						Name: volumeName,
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus: v1.DiskBusVirtio,
+							},
+						},
+					}}
+					vmi.Spec.Volumes = []v1.Volume{{
+						Name:         volumeName,
+						VolumeSource: createVolumeSource(volumeName),
+					}}
+
+					// Set up CBT context
+					c.ApplyCBT = map[string]string{volumeName: cbtPath}
+
+					dom := &api.Domain{}
+					Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
+
+					Expect(dom.Spec.Devices.Disks).To(HaveLen(1))
+					disk := dom.Spec.Devices.Disks[0]
+
+					// Verify CBT configuration
+					Expect(disk.Type).To(Equal("file"))
+					Expect(disk.Source.File).To(Equal(cbtPath))
+					Expect(disk.Driver.Type).To(Equal("qcow2"))
+					Expect(disk.Driver.ErrorPolicy).To(Equal(v1.DiskErrorPolicyStop))
+					Expect(disk.Driver.Discard).To(Equal("unmap"))
+
+					// Verify datastore configuration for filesystem volumes
+					Expect(disk.Source.DataStore).ToNot(BeNil())
+					Expect(disk.Source.DataStore.Type).To(Equal("file"))
+					Expect(disk.Source.DataStore.Format).ToNot(BeNil())
+					Expect(disk.Source.DataStore.Format.Type).To(Equal("raw"))
+					Expect(disk.Source.DataStore.Source).ToNot(BeNil())
+					Expect(disk.Source.DataStore.Source.File).ToNot(BeEmpty())
+				},
+				Entry("PVC", "test-pvc",
+					func(name string) v1.VolumeSource {
+						return v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: name,
+								},
+							},
+						}
+					},
+				),
+				Entry("DataVolume", "test-dv",
+					func(name string) v1.VolumeSource {
+						return v1.VolumeSource{
+							DataVolume: &v1.DataVolumeSource{
+								Name: name,
+							},
+						}
+					},
+				),
+				Entry("HostDisk", "test-hostdisk",
+					func(name string) v1.VolumeSource {
+						return v1.VolumeSource{
+							HostDisk: &v1.HostDisk{
+								Path: "/var/run/kubevirt-private/vmi-disks/" + name + "/disk.img",
+								Type: v1.HostDiskExistsOrCreate,
+							},
+						}
+					},
+				),
+			)
+
+			DescribeTable("should create domain disk with datastore for block volumes with CBT enabled",
+				func(volumeName string, createVolumeSource func(string) v1.VolumeSource, setupContext func(*ConverterContext, string)) {
+					cbtPath := "/var/lib/libvirt/qemu/cbt/" + volumeName + ".qcow2"
+
+					v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+					vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
+						Name: volumeName,
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus: v1.DiskBusVirtio,
+							},
+						},
+					}}
+					vmi.Spec.Volumes = []v1.Volume{{
+						Name:         volumeName,
+						VolumeSource: createVolumeSource(volumeName),
+					}}
+
+					// Set up CBT context
+					c.ApplyCBT = map[string]string{volumeName: cbtPath}
+					setupContext(c, volumeName)
+
+					dom := &api.Domain{}
+					Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
+
+					Expect(dom.Spec.Devices.Disks).To(HaveLen(1))
+					disk := dom.Spec.Devices.Disks[0]
+
+					// Verify CBT configuration
+					Expect(disk.Type).To(Equal("file"))
+					Expect(disk.Source.File).To(Equal(cbtPath))
+					Expect(disk.Source.Name).To(Equal(volumeName))
+					Expect(disk.Driver.Type).To(Equal("qcow2"))
+					Expect(disk.Driver.ErrorPolicy).To(Equal(v1.DiskErrorPolicyStop))
+					Expect(disk.Driver.Discard).To(Equal("unmap"))
+
+					// Verify datastore configuration for block volumes
+					Expect(disk.Source.DataStore).ToNot(BeNil())
+					Expect(disk.Source.DataStore.Type).To(Equal("block"))
+					Expect(disk.Source.DataStore.Format).ToNot(BeNil())
+					Expect(disk.Source.DataStore.Format.Type).To(Equal("raw"))
+					Expect(disk.Source.DataStore.Source).ToNot(BeNil())
+					Expect(disk.Source.DataStore.Source.Dev).To(Equal(GetBlockDeviceVolumePath(volumeName)))
+				},
+				Entry("PVC", "test-block-pvc",
+					func(name string) v1.VolumeSource {
+						return v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: name,
+								},
+							},
+						}
+					},
+					func(c *ConverterContext, name string) {
+						c.IsBlockPVC = map[string]bool{name: true}
+					},
+				),
+				Entry("DataVolume", "test-block-dv",
+					func(name string) v1.VolumeSource {
+						return v1.VolumeSource{
+							DataVolume: &v1.DataVolumeSource{
+								Name: name,
+							},
+						}
+					},
+					func(c *ConverterContext, name string) {
+						c.IsBlockDV = map[string]bool{name: true}
+					},
+				),
+			)
+		})
+
 		DescribeTable("should add a virtio-scsi controller if a scsci disk is present and iothreads set", func(arch, expectedModel string) {
 			c.Architecture = archconverter.NewConverter(arch)
 			one := uint(1)

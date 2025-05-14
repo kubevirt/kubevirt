@@ -26,6 +26,7 @@ package virtwrap
 */
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/xml"
@@ -73,6 +74,7 @@ import (
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
@@ -1141,6 +1143,10 @@ func isSerialConsoleLogEnabled(clusterSerialConsoleLogDisabled bool, vmi *v1.Vir
 	return (vmi.Spec.Domain.Devices.LogSerialConsole != nil && *vmi.Spec.Domain.Devices.LogSerialConsole) || (vmi.Spec.Domain.Devices.LogSerialConsole == nil && !clusterSerialConsoleLogDisabled)
 }
 
+func needToCreateQCOW2Overlay(vmi *v1.VirtualMachineInstance) bool {
+	return cbt.CompareCBTState(vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingInitializing)
+}
+
 func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmulation bool, options *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error) {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
@@ -1161,6 +1167,13 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	if err != nil {
 		logger.Reason(err).Error("failed to generate libvirt domain from VMI spec")
 		return nil, err
+	}
+
+	if cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
+		if err := applyChangedBlockTracking(vmi, c); err != nil {
+			logger.Reason(err).Error("failed to apply CBT")
+			return nil, err
+		}
 	}
 
 	if err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c); err != nil {
@@ -1217,6 +1230,110 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 
 	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
 	return oldSpec, nil
+}
+
+var createQCOW2Overlay = createQCOW2OverlayFunc
+
+func createQCOW2OverlayFunc(overlayPath, imagePath string, blockDev bool) error {
+	if _, err := os.Stat(overlayPath); err == nil {
+		log.Log.V(3).Infof("overlay %s already exists", overlayPath)
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		log.Log.Reason(err).Errorf("Error checking QCOW2 overlay %s existence", overlayPath)
+		return err
+	}
+
+	_, err := os.Create(overlayPath)
+	if err != nil {
+		log.Log.Reason(err).Errorf("Error creating file QCOW2 overlay %s", overlayPath)
+		return err
+	}
+
+	defer func(path string) {
+		if err != nil {
+			log.Log.Errorf("Deleting QCOW2 overlay %s due to failure %s", path, err)
+			os.Remove(path)
+		}
+	}(overlayPath)
+
+	info, err := osdisk.GetDiskInfo(imagePath)
+	if err != nil {
+		return fmt.Errorf("failed to get image info for image %q", imagePath)
+	}
+	overlaySize := info.VirtualSize
+
+	qmpCapabilities := `{"execute": "qmp_capabilities"}`
+	blockdevCreate := fmt.Sprintf(`{"execute": "blockdev-create", "arguments": {"job-id": "create", "options": {"driver": "qcow2", "file": "file", "data-file": "data-file", "data-file-raw": true, "size": %d}}}`, overlaySize)
+	jobDismiss := `{"execute": "job-dismiss", "arguments": {"id": "create"}}`
+	quit := `{"execute": "quit"}`
+	cmdInput := fmt.Sprintf("%s\n%s\n%s\n%s\n", qmpCapabilities, blockdevCreate, jobDismiss, quit)
+
+	args := append([]string{},
+		"--chardev", "stdio,id=stdio", "--monitor", "stdio",
+		"--blockdev", fmt.Sprintf("file,node-name=file,filename=%s", overlayPath))
+
+	if blockDev {
+		args = append(args, "--blockdev", fmt.Sprintf("host_device,node-name=data-file,filename=%s", imagePath))
+	} else {
+		args = append(args, "--blockdev", fmt.Sprintf("file,node-name=data-file,filename=%s", imagePath))
+	}
+
+	log.Log.V(3).Infof("QCOW2 overlay execute %v", args)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "qemu-storage-daemon", args...)
+	cmd.Stdin = bytes.NewBufferString(cmdInput)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to create QCOW2 overlay %s: %v, output: %s", overlayPath, err, output)
+	}
+
+	log.Log.Infof("QCOW2 overlay %s created successfully", overlayPath)
+	return nil
+}
+
+func applyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *converter.ConverterContext) error {
+	logger := log.Log.Object(vmi)
+	applyCBTMap := make(map[string]string)
+
+	// create overlay for every disk supporting changedBlockTracking
+	for _, volume := range vmi.Spec.Volumes {
+		volumeName := volume.Name
+		logger.V(3).Infof("Creating QCOW2 overlay for %+v", volume)
+		if volume.VolumeSource.PersistentVolumeClaim == nil &&
+			volume.VolumeSource.DataVolume == nil &&
+			volume.VolumeSource.HostDisk == nil {
+			logger.V(3).Infof("SKIP Creating QCOW2 overlay for %s", volume.Name)
+			continue
+		}
+
+		overlayPath := cbt.GetQCOW2OverlayPath(vmi, volumeName)
+		logger.V(3).Infof("QCOW2 overlay path is %s", overlayPath)
+		if !needToCreateQCOW2Overlay(vmi) {
+			applyCBTMap[volumeName] = overlayPath
+			continue
+		}
+
+		var imagePath string
+		blockDev := false
+		if c.IsBlockPVC[volumeName] || c.IsBlockDV[volumeName] {
+			imagePath = converter.GetBlockDeviceVolumePath(volumeName)
+			blockDev = true
+		} else {
+			imagePath = converter.GetFilesystemVolumePath(volumeName)
+		}
+
+		err := createQCOW2Overlay(overlayPath, imagePath, blockDev)
+		if err != nil {
+			return err
+		}
+		applyCBTMap[volumeName] = overlayPath
+	}
+
+	c.ApplyCBT = applyCBTMap
+	return nil
 }
 
 func (l *LibvirtDomainManager) syncDisks(
@@ -1436,8 +1553,12 @@ func (l *LibvirtDomainManager) allocateHotplugPorts(
 }
 
 func getSourceFile(disk api.Disk) string {
-	file := disk.Source.File
-	if disk.Source.File == "" {
+	source := disk.Source
+	if source.DataStore != nil {
+		source = *source.DataStore.Source
+	}
+	file := source.File
+	if source.File == "" {
 		file = disk.Source.Dev
 	}
 	return file
