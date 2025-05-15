@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/job"
@@ -157,7 +158,7 @@ var _ = SIGDescribe("Services", func() {
 		})
 
 		Context("with a service matching the vmi exposed", func() {
-			DescribeTable("[Conformance] should be able to reach the vmi based on labels specified on the vmi", func(ipFamily k8sv1.IPFamily) {
+			DescribeTable("should be able to reach the vmi based on labels specified on the vmi", decorators.Conformance, func(ipFamily k8sv1.IPFamily) {
 				var service *k8sv1.Service
 				serviceName := "myservice"
 

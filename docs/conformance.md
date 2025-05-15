@@ -5,7 +5,7 @@ defining Kubevirt core functionalities. The goal of the suite is to make sure th
 
 ## How are Conformance tests selected
 
-By default tests with a `[Conformance]` tag (and from release 0.59 also decorator) will be executed and tests with a
+By default tests with a `conformance` decorator will be executed and tests with a
 `[Disruptive]` tag will be skipped. These tests will not destroy or modify
 anything outside of the explicitly created test namespaces by the binary.
 
