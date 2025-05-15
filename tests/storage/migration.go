@@ -59,6 +59,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
@@ -351,7 +352,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 					claim := storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
 					return claim == destPVC
 				}, 120*time.Second, time.Second).Should(BeTrue())
-				waitForMigrationToSucceed(virtClient, vm.Name, ns)
+				waitForMigrationToSucceed(virtClient, vm.Name, ns, nil)
 
 				By("Expanding the destination PVC")
 				p, err := patch.New(
@@ -394,11 +395,11 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				claim := storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
 				return claim == destDV.Name
 			}, 120*time.Second, time.Second).Should(BeTrue())
-			waitForMigrationToSucceed(virtClient, vm.Name, ns)
+			waitForMigrationToSucceed(virtClient, vm.Name, ns, nil)
 
 			By("Rollback to the original volumes")
 			updateVMWithDV(vm, volName, srcDV.Name)
-			waitForMigrationToSucceed(virtClient, vm.Name, ns)
+			waitForMigrationToSucceed(virtClient, vm.Name, ns, nil)
 		})
 
 		It("should trigger the migration once the destination DV exists", func() {
@@ -450,7 +451,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				destDV, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			waitForMigrationToSucceed(virtClient, vm.Name, ns)
+			waitForMigrationToSucceed(virtClient, vm.Name, ns, nil)
 		})
 
 		It("should trigger the migration once the destination PVC exists", func() {
@@ -463,7 +464,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			By("Create the destination PVC")
 			libstorage.CreateFSPVC(destPVC, ns, "2Gi", nil)
 
-			waitForMigrationToSucceed(virtClient, vm.Name, ns)
+			waitForMigrationToSucceed(virtClient, vm.Name, ns, nil)
 		})
 
 		It("should migrate the source volume from a source and destination block RWX DVs", decorators.StorageCritical, decorators.RequiresRWXBlock, func() {
@@ -500,7 +501,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				claim := storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
 				return claim == destDV.Name
 			}, 120*time.Second, time.Second).Should(BeTrue())
-			waitForMigrationToSucceed(virtClient, vm.Name, ns)
+			waitForMigrationToSucceed(virtClient, vm.Name, ns, nil)
 		})
 
 		It("should migrate the source volume from a block source and filesystem destination DVs", decorators.RequiresBlockStorage, func() {
@@ -530,7 +531,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				claim := storagetypes.PVCNameFromVirtVolume(&vmi.Spec.Volumes[0])
 				return claim == destDV.Name
 			}, 120*time.Second, time.Second).Should(BeTrue())
-			waitForMigrationToSucceed(virtClient, vm.Name, ns)
+			waitForMigrationToSucceed(virtClient, vm.Name, ns, nil)
 		})
 
 		It("should migrate a PVC with a VM using a containerdisk", func() {
@@ -568,7 +569,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				}
 				return false
 			}, 120*time.Second, time.Second).Should(BeTrue())
-			waitForMigrationToSucceed(virtClient, vm.Name, ns)
+			waitForMigrationToSucceed(virtClient, vm.Name, ns, nil)
 		})
 
 		It("should cancel the migration by the reverting to the source volume", func() {
@@ -1060,7 +1061,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				Expect(err).ToNot(HaveOccurred())
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				waitForMigrationToSucceed(virtClient, vm.Name, vm.Namespace)
+				waitForMigrationToSucceed(virtClient, vm.Name, vm.Namespace, nil)
 				checkFileOnHotpluggedVol(vmi)
 			})
 
@@ -1072,8 +1073,8 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				var exist bool
 				var volumeMode k8sv1.PersistentVolumeMode
 				if srcBlock {
-					sc, exist = libstorage.GetRWOBlockStorageClass()
 					volumeMode = k8sv1.PersistentVolumeBlock
+					sc, exist = libstorage.GetRWOBlockStorageClass()
 				} else {
 					sc, exist = libstorage.GetRWOFileSystemStorageClass()
 					volumeMode = k8sv1.PersistentVolumeFilesystem
@@ -1163,7 +1164,23 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				By(fmt.Sprintf("Update root DV %s with %s and hotplug dv %s with %s", rootDV.Name, dvRootDst.Name, hpDV.Name, dvHpDst.Name))
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				waitForMigrationToSucceed(virtClient, vm.Name, vm.Namespace)
+				waitForMigrationToSucceed(virtClient, vm.Name, vm.Namespace, func() string {
+					Eventually(func(g Gomega) string {
+						vmi, err = virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name, metav1.GetOptions{})
+						g.Expect(err).ToNot(HaveOccurred())
+						if vmi.Status.MigrationState == nil {
+							return ""
+						}
+						return vmi.Status.MigrationState.TargetPod
+					}).WithTimeout(30 * time.Second).WithPolling(time.Second).ShouldNot(BeEmpty())
+					pod, err := virtClient.CoreV1().Pods(vm.Namespace).Get(context.Background(),
+						vmi.Status.MigrationState.TargetPod, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					permissionsCmd := []string{"/bin/sh", "-c",
+						"'for dir in $(find /var/run/kubevirt/hotplug-disks/ -maxdepth 1 -type d -print); do echo \"$dir\"; ls -laZ \"$dir\"; done'"}
+					lsout, lserr, _ := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, permissionsCmd)
+					return fmt.Sprintf("lsout: %s lserr: %s", lsout, lserr)
+				})
 				checkFileOnHotpluggedVol(vmi)
 			},
 				Entry("from filesystem to filesystem", false, false),
@@ -1284,7 +1301,7 @@ func waitMigrationToExist(virtClient kubecli.KubevirtClient, vmiName, ns string)
 	}, 120*time.Second, time.Second).Should(BeTrue())
 }
 
-func waitForMigrationToSucceed(virtClient kubecli.KubevirtClient, vmiName, ns string) {
+func waitForMigrationToSucceed(virtClient kubecli.KubevirtClient, vmiName, ns string, f func() string) {
 	waitMigrationToExist(virtClient, vmiName, ns)
 	Eventually(func() bool {
 		vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vmiName,
@@ -1296,8 +1313,7 @@ func waitForMigrationToSucceed(virtClient kubecli.KubevirtClient, vmiName, ns st
 		if !vmi.Status.MigrationState.Completed {
 			return false
 		}
-
-		Expect(vmi.Status.MigrationState.Failed).To(BeFalse())
+		Expect(vmi.Status.MigrationState.Failed).To(BeFalse(), f)
 		return true
 	}, 120*time.Second, time.Second).Should(BeTrue())
 }
