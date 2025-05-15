@@ -7,6 +7,7 @@ pkg/network/multus
 pkg/network/namescheme
 pkg/network/pod/annotations
 pkg/network/vmicontroller
+pkg/network/vmliveupdate
 pkg/storage/pod/annotations
 pkg/virtctl/credentials
 tests/console
