@@ -142,6 +142,13 @@ func (admitter *MigrationCreateAdmitter) Admit(ctx context.Context, ar *admissio
 				Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt resource", featuregate.DecentralizedLiveMigration),
 			}})
 		}
+		// Check to make sure if both sendTo and receive are set, that the migrationID matches in both.
+		if migration.Spec.SendTo != nil && migration.Spec.Receive != nil && migration.Spec.SendTo.MigrationID != migration.Spec.Receive.MigrationID {
+			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("sendTo migrationID %s does not match receive migrationID %s", migration.Spec.SendTo.MigrationID, migration.Spec.Receive.MigrationID),
+			}})
+		}
 	}
 
 	reviewResponse := admissionv1.AdmissionResponse{}

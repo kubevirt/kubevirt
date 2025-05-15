@@ -219,7 +219,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 	})
 
 	Context("feature gate", func() {
-		DescribeTable("should handle migration correctly based on featuregate", func(modifyMigration func(*v1.VirtualMachineInstanceMigration), featureGateEnabled bool) {
+		DescribeTable("should handle migration correctly based on featuregate", func(modifyMigration func(*v1.VirtualMachineInstanceMigration), featureGateEnabled, expectAllow bool) {
 			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 			vmi.Status.Phase = v1.Running
 			virtClient := kubevirtfake.NewSimpleClientset(vmi)
@@ -232,7 +232,7 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 			}
 			admitter := admitters.NewMigrationCreateAdmitter(virtClient, config)
 			resp := admitter.Admit(context.Background(), ar)
-			Expect(resp.Allowed).To(Equal(featureGateEnabled))
+			Expect(resp.Allowed).To(Equal(featureGateEnabled && expectAllow))
 			if !featureGateEnabled {
 				Expect(resp.Result.Message).To(ContainSubstring("DecentralizedLiveMigration feature gate is not enabled in kubevirt resource"))
 			}
@@ -243,26 +243,26 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 						MigrationID: "migrationID",
 						ConnectURL:  "1.1.1.1:12345",
 					}
-				}, false),
+				}, false, false),
 			Entry("reject vmim with receive if featuregate is disabled",
 				func(migration *v1.VirtualMachineInstanceMigration) {
 					migration.Spec.Receive = &v1.VirtualMachineInstanceMigrationTarget{
 						MigrationID: "migrationID",
 					}
-				}, false),
+				}, false, false),
 			Entry("allow vmim with sendTo if featuregate is enabled",
 				func(migration *v1.VirtualMachineInstanceMigration) {
 					migration.Spec.SendTo = &v1.VirtualMachineInstanceMigrationSource{
 						MigrationID: "migrationID",
 						ConnectURL:  "1.1.1.1:12345",
 					}
-				}, true),
+				}, true, true),
 			Entry("allow vmim with receive if featuregate is enabled",
 				func(migration *v1.VirtualMachineInstanceMigration) {
 					migration.Spec.Receive = &v1.VirtualMachineInstanceMigrationTarget{
 						MigrationID: "migrationID",
 					}
-				}, true),
+				}, true, true),
 			Entry("allow vmim with sendTo and receiver if featuregate is enabled",
 				func(migration *v1.VirtualMachineInstanceMigration) {
 					migration.Spec.SendTo = &v1.VirtualMachineInstanceMigrationSource{
@@ -272,7 +272,17 @@ var _ = Describe("Validating MigrationCreate Admitter", func() {
 					migration.Spec.Receive = &v1.VirtualMachineInstanceMigrationTarget{
 						MigrationID: "migrationID",
 					}
-				}, true),
+				}, true, true),
+			Entry("reject vmim with sendTo and receiver if migrationID does not match if featuregate is enabled",
+				func(migration *v1.VirtualMachineInstanceMigration) {
+					migration.Spec.SendTo = &v1.VirtualMachineInstanceMigrationSource{
+						MigrationID: "migrationID",
+						ConnectURL:  "1.1.1.1:12345",
+					}
+					migration.Spec.Receive = &v1.VirtualMachineInstanceMigrationTarget{
+						MigrationID: "migrationID2",
+					}
+				}, true, false),
 		)
 	})
 })
