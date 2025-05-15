@@ -1059,9 +1059,7 @@ var CRDsValidation map[string]string = map[string]string{
                     type: string
                 type: object
               type: array
-              x-kubernetes-list-map-keys:
-              - type
-              x-kubernetes-list-type: map
+              x-kubernetes-list-type: atomic
             imagePullPolicy:
               description: PullPolicy describes a policy for if/when to pull a container
                 image

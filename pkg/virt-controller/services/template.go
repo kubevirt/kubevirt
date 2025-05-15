@@ -925,6 +925,16 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 	tmpTolerations := hotplugPodTolerations(t.clusterConfig)
 	tmpTolerations = append(tmpTolerations, ownerPod.Spec.Tolerations...)
 
+	// Remove duplicates
+	tolerationsMap := make(map[k8sv1.Toleration]bool)
+	tolerations := []k8sv1.Toleration{}
+	for _, value := range tmpTolerations {
+		if !tolerationsMap[value] {
+			tolerationsMap[value] = true
+			tolerations = append(tolerations, value)
+		}
+	}
+
 	pod := &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "hp-volume-",
@@ -989,7 +999,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 					},
 				},
 			},
-			Tolerations:                   tmpTolerations,
+			Tolerations:                   tolerations,
 			Volumes:                       []k8sv1.Volume{emptyDirVolume(hotplugDisks)},
 			TerminationGracePeriodSeconds: &zero,
 		},
