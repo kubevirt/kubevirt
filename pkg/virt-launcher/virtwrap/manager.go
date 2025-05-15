@@ -1386,6 +1386,7 @@ func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 		if err := file.Close(); err != nil {
 			return false, fmt.Errorf("Unable to close file: %s", file.Name())
 		}
+		log.DefaultLogger().V(1).Infof("FILE OPENED SUCCESSFULLY %s", filename)
 		return true, nil
 	}
 	// Before attempting to attach, ensure we can open the file

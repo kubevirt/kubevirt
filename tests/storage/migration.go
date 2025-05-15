@@ -1111,8 +1111,8 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 					pod, err := virtClient.CoreV1().Pods(vm.Namespace).Get(context.Background(),
 						vmi.Status.MigrationState.TargetPod, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					permissionsCmd := []string{"sh", "-c",
-						"'for d in /var/run/kubevirt/hotplug-disks/*; do ls -laZ $d; done;'"}
+					permissionsCmd := []string{"bash", "-c",
+						`for dir in $(find /var/run/kubevirt/hotplug-disks/ -maxdepth 1 -type d -print); do echo "$dir"; ls -laZ "$dir"; dd if=/dev/zero of=/var/run/kubevirt/hotplug-disks/hp bs=1M count=1 oflag=direct; done`}
 					lsout, lserr, _ := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, permissionsCmd)
 					return fmt.Sprintf("lsout: %s lserr: %s", lsout, lserr)
 				})

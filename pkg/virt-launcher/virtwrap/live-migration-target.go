@@ -168,7 +168,6 @@ func checkMigratedHotpluggedVolumes(vmi *v1.VirtualMachineInstance) error {
 			if !ready {
 				return fmt.Errorf("the migrated hotplugged volume %s isn't ready in the destination", v.VolumeName)
 			}
-			fmt.Printf("DEBUG: the hp volume is ready: %s\n", v.VolumeName)
 		}
 	}
 
