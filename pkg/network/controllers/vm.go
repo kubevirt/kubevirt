@@ -68,14 +68,16 @@ func NewVMController(clientset kubevirt.Interface) *VMController {
 }
 
 func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) (*v1.VirtualMachine, error) {
+	vmCopy := vm.DeepCopy()
+
 	if vmi == nil || vmi.DeletionTimestamp != nil {
-		return vm, nil
+		filterVMInterfacesAndNetworks(vmCopy, map[string]v1.VirtualMachineInstanceNetworkInterface{})
+		return vmCopy, nil
 	}
 
 	indexedStatusIfaces := vmispec.IndexInterfaceStatusByName(vmi.Status.Interfaces,
 		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool { return true },
 	)
-	vmCopy := vm.DeepCopy()
 	filterVMInterfacesAndNetworks(vmCopy, indexedStatusIfaces)
 
 	if err := v.patchVMIWithUpdatedInterfaces(vmCopy, vmi, indexedStatusIfaces); err != nil {
