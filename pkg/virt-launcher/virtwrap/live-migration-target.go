@@ -27,12 +27,14 @@ import (
 	"strconv"
 	"time"
 
+	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
@@ -141,6 +143,38 @@ func canSourceMigrateOverUnixURI(vmi *v1.VirtualMachineInstance) bool {
 	return vmi.Status.MigrationTransport == v1.MigrationTransportUnix
 }
 
+func checkMigratedHotpluggedVolumes(vmi *v1.VirtualMachineInstance) error {
+	hotplugVols := make(map[string]struct{})
+	for _, v := range vmi.Spec.Volumes {
+		if storagetypes.IsHotplugVolume(&v) {
+			hotplugVols[v.Name] = struct{}{}
+		}
+	}
+	for _, v := range vmi.Status.MigratedVolumes {
+		if _, ok := hotplugVols[v.VolumeName]; ok {
+			var path string
+			if v.DestinationPVCInfo == nil {
+				continue
+			}
+			if v.DestinationPVCInfo.VolumeMode != nil && *v.DestinationPVCInfo.VolumeMode == k8sv1.PersistentVolumeBlock {
+				path = converter.GetHotplugBlockDeviceVolumePath(v.VolumeName)
+			} else {
+				path = converter.GetHotplugFilesystemVolumePath(v.VolumeName)
+			}
+			ready, err := checkIfDiskReadyToUse(path)
+			if err != nil {
+				return err
+			}
+			if !ready {
+				return fmt.Errorf("the migrated hotplugged volume %s isn't ready in the destination", v.VolumeName)
+			}
+			fmt.Printf("DEBUG: the hp volume is ready: %s\n", v.VolumeName)
+		}
+	}
+
+	return nil
+}
+
 func (l *LibvirtDomainManager) prepareMigrationTarget(
 	vmi *v1.VirtualMachineInstance,
 	allowEmulation bool,
@@ -174,6 +208,13 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 	l.metadataCache.GracePeriod.Set(
 		api.GracePeriodMetadata{DeletionGracePeriodSeconds: converter.GracePeriodSeconds(vmi)},
 	)
+
+	// The hotplugged volumes might be still not ready because the handler might require to adjust the cgroup allow list
+	// or because they haven't been mounted to the pod yet. For this reason, instead of failing the migration, we check
+	// if they are accessible during the target preparation.
+	if err := checkMigratedHotpluggedVolumes(vmi); err != nil {
+		return err
+	}
 
 	err = l.generateCloudInitEmptyISO(vmi, nil)
 	if err != nil {
