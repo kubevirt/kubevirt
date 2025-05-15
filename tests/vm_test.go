@@ -399,10 +399,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				By("Guest shutdown")
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "sudo poweroff\n"},
-					&expect.BExp{R: "The system is going down NOW!"},
-				}, 240)).To(Succeed())
+				powerOff(vmi)
 
 				By("waiting for the controller to replace the shut-down vmi with a new instance")
 				Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(BeRestarted(vmi.UID))
@@ -681,10 +678,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 			By("Issuing a poweroff command from inside VM")
-			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-				&expect.BSnd{S: "sudo poweroff\n"},
-				&expect.BExp{R: console.PromptExpression},
-			}, 10)).To(Succeed())
+			powerOff(vmi)
 
 			By("Ensuring the VirtualMachineInstance enters Succeeded phase")
 			Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(HaveSucceeded())
@@ -756,10 +750,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				By("Issuing a poweroff command from inside VM")
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "sudo poweroff\n"},
-					&expect.BExp{R: console.PromptExpression},
-				}, 10)).To(Succeed())
+				powerOff(vmi)
 
 				By("Ensuring the VirtualMachineInstance is restarted")
 				Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(BeRestarted(vmi.UID))
@@ -837,10 +828,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(console.LoginToCirros(vmi)).To(Succeed())
 
 				By("Issuing a poweroff command from inside VM")
-				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					&expect.BSnd{S: "sudo poweroff\n"},
-					&expect.BExp{R: console.PromptExpression},
-				}, 10)).To(Succeed())
+				powerOff(vmi)
 
 				By("Waiting for the VMI to disappear")
 				Eventually(func() error {
@@ -1267,4 +1255,12 @@ func createRunningVM(virtClient kubecli.KubevirtClient, template *v1.VirtualMach
 	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return vm
+}
+
+func powerOff(vmi *v1.VirtualMachineInstance) {
+	// Can't use SafeExpectBatch since we may not get a prompt after the command
+	ExpectWithOffset(1, console.ExpectBatch(vmi, []expect.Batcher{
+		&expect.BSnd{S: "sudo poweroff\n"},
+		&expect.BExp{R: "The system is going down NOW!"},
+	}, 20*time.Second)).To(Succeed())
 }
