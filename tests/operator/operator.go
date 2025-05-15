@@ -911,6 +911,21 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					return nil
 				}, 60*time.Second, 1*time.Second).Should(BeNil())
 
+				By(fmt.Sprintf("Verifying firmware UUID for vm %s", vmYaml.vmName))
+				Eventually(func(g Gomega) {
+					vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
+					g.Expect(err).ToNot(HaveOccurred())
+
+					vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vmYaml.vmName, metav1.GetOptions{})
+					g.Expect(err).ToNot(HaveOccurred())
+
+					vmFirmwareUUID := vm.Spec.Template.Spec.Domain.Firmware.UUID
+					vmiFirmwareUUID := vmi.Spec.Domain.Firmware.UUID
+
+					g.Expect(vmFirmwareUUID).ToNot(BeEmpty(), "expected firmware UUID in VM spec to be populated, but it's empty")
+					g.Expect(vmFirmwareUUID).To(Equal(vmiFirmwareUUID), "firmware UUID mismatch: VM spec UUID does not match VMI UUID")
+				}, 60*time.Second, 2*time.Second).Should(Succeed())
+
 				By("Stopping VM")
 				err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Stop(context.Background(), vmYaml.vmName, &v1.StopOptions{})
 				Expect(err).ToNot(HaveOccurred())
