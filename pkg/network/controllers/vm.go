@@ -72,36 +72,52 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 		return vm, nil
 	}
 
-	vmCopy := vm.DeepCopy()
-	vmiCopy := vmi.DeepCopy()
-
 	indexedStatusIfaces := vmispec.IndexInterfaceStatusByName(vmi.Status.Interfaces,
 		func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool { return true },
 	)
+	vmCopy := vm.DeepCopy()
+	filterVMInterfacesAndNetworks(vmCopy, indexedStatusIfaces)
 
+	if err := v.patchVMIWithUpdatedInterfaces(vmCopy, vmi, indexedStatusIfaces); err != nil {
+		return vm, err
+	}
+
+	return vmCopy, nil
+}
+
+func filterVMInterfacesAndNetworks(vm *v1.VirtualMachine, statusIfaces map[string]v1.VirtualMachineInstanceNetworkInterface) {
 	ifaces, networks := ClearDetachedInterfaces(
-		vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces,
-		vmCopy.Spec.Template.Spec.Networks, indexedStatusIfaces,
+		vm.Spec.Template.Spec.Domain.Devices.Interfaces,
+		vm.Spec.Template.Spec.Networks,
+		statusIfaces,
 	)
-	vmCopy.Spec.Template.Spec.Domain.Devices.Interfaces = ifaces
-	vmCopy.Spec.Template.Spec.Networks = networks
+	vm.Spec.Template.Spec.Domain.Devices.Interfaces = ifaces
+	vm.Spec.Template.Spec.Networks = networks
+}
 
-	ifaces, networks = ClearDetachedInterfaces(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
+func (v *VMController) patchVMIWithUpdatedInterfaces(
+	vm *v1.VirtualMachine,
+	vmi *v1.VirtualMachineInstance,
+	indexedStatusIfaces map[string]v1.VirtualMachineInstanceNetworkInterface,
+) error {
+	vmiCopy := vmi.DeepCopy()
+
+	ifaces, networks := ClearDetachedInterfaces(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
 	vmiCopy.Spec.Domain.Devices.Interfaces = ifaces
 	vmiCopy.Spec.Networks = networks
 
 	hasOrdinalIfaces := namescheme.HasOrdinalSecondaryIfaces(vmi.Spec.Networks, vmi.Status.Interfaces)
-	updatedVmiSpec := ApplyDynamicIfaceRequestOnVMI(vmCopy, vmiCopy, hasOrdinalIfaces)
+	updatedVmiSpec := ApplyDynamicIfaceRequestOnVMI(vm, vmiCopy, hasOrdinalIfaces)
 	vmiCopy.Spec = *updatedVmiSpec
 
 	if err := v.vmiInterfacesPatch(&vmiCopy.Spec, vmi); err != nil {
-		return vm, &syncError{
+		return &syncError{
 			fmt.Errorf("error encountered when trying to patch vmi: %v", err),
 			hotPlugNetworkInterfaceErrorReason,
 		}
 	}
 
-	return vmCopy, nil
+	return nil
 }
 
 func (v *VMController) vmiInterfacesPatch(newVmiSpec *v1.VirtualMachineInstanceSpec, vmi *v1.VirtualMachineInstance) error {
