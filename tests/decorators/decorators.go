@@ -4,7 +4,8 @@ import . "github.com/onsi/ginkgo/v2"
 
 var (
 	//
-	Quarantine = []interface{}{Label("QUARANTINE")}
+	Quarantine  = []interface{}{Label("QUARANTINE")}
+	Conformance = []interface{}{Label("conformance")}
 
 	// SIGs
 	SigCompute           = []interface{}{Label("sig-compute")}

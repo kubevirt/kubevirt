@@ -39,7 +39,7 @@ func execute() error {
 	if value, exists := os.LookupEnv("E2E_FOCUS"); exists {
 		args = append(args, "--ginkgo.focus", value)
 	} else {
-		args = append(args, "--ginkgo.focus", "\\[Conformance\\]")
+		args = append(args, "--ginkgo.label-filter", "(conformance)")
 	}
 	if value, exists := os.LookupEnv("CONTAINER_PREFIX"); exists {
 		args = append(args, "--container-prefix", value)
