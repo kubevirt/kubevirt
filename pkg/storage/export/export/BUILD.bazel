@@ -86,6 +86,7 @@ go_test(
         "//staging/src/kubevirt.io/client-go/kubevirt/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
+        "//vendor/github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1:go_default_library",
         "//vendor/github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",

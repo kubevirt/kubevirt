@@ -58,6 +58,7 @@ var _ = Describe("Container disk", func() {
 				v1.HotplugDiskDir,
 				"pull-secret-1",
 				cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil),
+				cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil),
 				kubecli.NewMockKubevirtClient(ctrl),
 				config,
 				107,
