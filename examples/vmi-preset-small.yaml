@@ -6,9 +6,9 @@ metadata:
 spec:
   domain:
     devices: {}
-    resources:
-      requests:
-        memory: 128Mi
+    memory:
+      guest: 128Mi
+    resources: {}
   selector:
     matchLabels:
       kubevirt.io/vmPreset: vmi-preset-small

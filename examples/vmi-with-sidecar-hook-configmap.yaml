@@ -19,9 +19,9 @@ spec:
           bus: virtio
         name: cloudinitdisk
       rng: {}
-    resources:
-      requests:
-        memory: 1024M
+    memory:
+      guest: 1024M
+    resources: {}
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:
