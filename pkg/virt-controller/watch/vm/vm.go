@@ -3053,12 +3053,15 @@ func (c *Controller) syncVMAnnotationsToVMI(vm *virtv1.VirtualMachine, vmi *virt
 		)
 	}
 
+	if patchSet.IsEmpty() {
+		return nil
+	}
 	generatedPatch, err := patchSet.GeneratePayload()
 	if err != nil {
-		return vmi, err
+		return err
 	}
 
-	if _, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, metav1.PatchOptions{}); err != nil {
+	if vmi, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, metav1.PatchOptions{}); err != nil {
 		log.Log.Object(vm).Errorf("failed to sync dynamic annotations to VMI: %v", err)
 		return vmi, err
 	}
