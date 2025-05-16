@@ -20,9 +20,9 @@ spec:
       bootloader:
         efi:
           secureBoot: true
-    resources:
-      requests:
-        memory: 1Gi
+    memory:
+      guest: 1Gi
+    resources: {}
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:

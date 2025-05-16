@@ -23,9 +23,9 @@ spec:
           port: 80
           protocol: TCP
       rng: {}
-    resources:
-      requests:
-        memory: 1024M
+    memory:
+      guest: 1024M
+    resources: {}
   networks:
   - name: testmasquerade
     pod: {}

@@ -11,6 +11,8 @@ spec:
       cores: 1
       dedicatedCpuPlacement: true
       isolateEmulatorThread: true
+      sockets: 1
+      threads: 1
     devices:
       disks:
       - disk:
@@ -20,6 +22,8 @@ spec:
           bus: virtio
         name: cloudinitdisk
       rng: {}
+    memory:
+      guest: 1024M
     resources:
       requests:
         memory: 1024M
