@@ -26,6 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -119,10 +121,26 @@ func WithPersistentVolumeClaimLun(diskName, pvcName string, reservation bool) Op
 	}
 }
 
-func WithHostDisk(diskName, path string, diskType v1.HostDiskType) Option {
+func WithHostDisk(diskName, path string, diskType v1.HostDiskType, opts ...HostDiskOption) Option {
+	var capacity string
+	if diskType == v1.HostDiskExistsOrCreate {
+		capacity = defaultDiskSize
+	}
+	return WithHostDiskAndCapacity(diskName, path, diskType, capacity, opts...)
+}
+
+func WithHostDiskAndCapacity(diskName, path string, diskType v1.HostDiskType, capacity string, opts ...HostDiskOption) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDisk(vmi, newDisk(diskName, v1.DiskBusVirtio))
-		addVolume(vmi, newHostDisk(diskName, path, diskType))
+		addVolume(vmi, newHostDisk(diskName, path, diskType, capacity, opts...))
+	}
+}
+
+type HostDiskOption func(v *v1.Volume)
+
+func WithSharedHostDisk(shared bool) HostDiskOption {
+	return func(v *v1.Volume) {
+		v.HostDisk.Shared = pointer.P(shared)
 	}
 }
 
@@ -293,7 +311,7 @@ func newEmptyDisk(name string, capacity resource.Quantity) v1.Volume {
 	}
 }
 
-func newHostDisk(name, path string, diskType v1.HostDiskType) v1.Volume {
+func newHostDisk(name, path string, diskType v1.HostDiskType, capacity string, opts ...HostDiskOption) v1.Volume {
 	hostDisk := v1.HostDisk{
 		Path: path,
 		Type: diskType,
@@ -302,10 +320,16 @@ func newHostDisk(name, path string, diskType v1.HostDiskType) v1.Volume {
 		hostDisk.Capacity = resource.MustParse(defaultDiskSize)
 	}
 
-	return v1.Volume{
+	v := v1.Volume{
 		Name: name,
 		VolumeSource: v1.VolumeSource{
 			HostDisk: &hostDisk,
 		},
 	}
+
+	for _, f := range opts {
+		f(&v)
+	}
+
+	return v
 }
