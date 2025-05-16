@@ -241,9 +241,10 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			return fmt.Errorf("error syncing paused condition to pod: %v", err)
 		}
 
-		if err := c.syncDynamicLabelsToPod(vmiCopy, pod); err != nil {
-			return fmt.Errorf("error syncing labels to pod: %v", err)
+		if pod, err = c.syncDynamicAnnotationsAndLabelsToPod(vmiCopy, pod); err != nil {
+			return fmt.Errorf("error syncing annotations and labels to pod: %v", err)
 		}
+
 	}
 
 	aggregateDataVolumesConditions(vmiCopy, dataVolumes)
@@ -571,54 +572,74 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) *patch.Patch
 	return patchSet
 }
 
-// These "dynamic" labels are Pod labels which may diverge from the VMI over time that we want to keep in sync.
-func (c *Controller) syncDynamicLabelsToPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+// These "dynamic" annotations/labels are Pod annotations/labels which may diverge from the VMI over time that we want to keep in sync.
+func (c *Controller) syncDynamicAnnotationsAndLabelsToPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) (*k8sv1.Pod, error) {
 	patchSet := patch.New()
-	dynamicLabels := []string{
-		virtv1.NodeNameLabel,
-		virtv1.OutdatedLauncherImageLabel,
-	}
-	podMeta := pod.ObjectMeta.DeepCopy()
-	if podMeta.Labels == nil {
-		podMeta.Labels = map[string]string{}
-	}
-	changed := false
-	for _, key := range dynamicLabels {
-		vmiVal, vmiLabelExists := vmi.Labels[key]
-		podVal, podLabelExists := podMeta.Labels[key]
-		if vmiLabelExists == podLabelExists && vmiVal == podVal {
-			continue
+	newPodAnnotations := maps.Clone(pod.Annotations)
+	newPodLabels := maps.Clone(pod.Labels)
+
+	syncMap := func(keys []string, vmiMap, podNewMap, podOrigMap map[string]string, subPath string) {
+		if podNewMap == nil {
+			podNewMap = map[string]string{}
 		}
-		changed = true
-		if !vmiLabelExists {
-			delete(podMeta.Labels, key)
+
+		changed := false
+		for _, key := range keys {
+			vmiVal, vmiExists := vmiMap[key]
+			podVal, podExists := podNewMap[key]
+			if vmiExists == podExists && vmiVal == podVal {
+				continue
+			}
+			changed = true
+			if !vmiExists {
+				delete(podNewMap, key)
+			} else {
+				podNewMap[key] = vmiVal
+			}
+		}
+
+		if !changed {
+			return
+		}
+
+		if podOrigMap == nil {
+			patchSet.AddOption(patch.WithAdd("/metadata/"+subPath, podNewMap))
 		} else {
-			podMeta.Labels[key] = vmiVal
+			patchSet.AddOption(
+				patch.WithTest("/metadata/"+subPath, podOrigMap),
+				patch.WithReplace("/metadata/"+subPath, podNewMap),
+			)
 		}
 	}
-	if !changed {
-		return nil
-	}
-	if pod.ObjectMeta.Labels == nil {
-		patchSet.AddOption(patch.WithAdd("/metadata/labels", podMeta.Labels))
-	} else {
-		patchSet.AddOption(
-			patch.WithTest("/metadata/labels", pod.ObjectMeta.Labels),
-			patch.WithReplace("/metadata/labels", podMeta.Labels),
-		)
-	}
+
+	syncMap(
+		[]string{virtv1.NodeNameLabel, virtv1.OutdatedLauncherImageLabel},
+		vmi.Labels, newPodLabels, pod.ObjectMeta.Labels, "labels",
+	)
+
+	syncMap(
+		[]string{descheduler.EvictPodAnnotationKeyAlpha, descheduler.EvictPodAnnotationKeyBeta},
+		vmi.Annotations, newPodAnnotations, pod.ObjectMeta.Annotations, "annotations",
+	)
+
 	if patchSet.IsEmpty() {
-		return nil
+		return pod, nil
 	}
+
 	patchBytes, err := patchSet.GeneratePayload()
 	if err != nil {
-		return err
+		return pod, err
 	}
-	if _, err := c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}); err != nil {
-		log.Log.Object(pod).Errorf("failed to sync dynamic pod labels during sync: %v", err)
-		return err
+
+	updatedPod, err := c.clientset.CoreV1().Pods(pod.Namespace).Patch(
+		context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{},
+	)
+	if err != nil {
+		log.Log.Object(pod).Errorf("failed to sync dynamic pod annotations and labels during sync: %v", err)
+		return pod, err
 	}
-	return nil
+
+	return updatedPod, nil
 }
 
 func (c *Controller) syncPodAnnotations(pod *k8sv1.Pod, newAnnotations map[string]string) (*k8sv1.Pod, error) {

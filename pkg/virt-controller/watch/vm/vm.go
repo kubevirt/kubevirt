@@ -72,6 +72,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	volumemig "kubevirt.io/kubevirt/pkg/virt-controller/watch/volume-migration"
 )
 
@@ -118,6 +119,7 @@ const (
 	hotplugMemoryErrorReason     = "HotPlugMemoryError"
 	volumesUpdateErrorReason     = "VolumesUpdateError"
 	tolerationsChangeErrorReason = "TolerationsChangeError"
+	annotationsChangeErrorReason = "AnnotationsChangeError"
 )
 
 const defaultMaxCrashLoopBackoffDelaySeconds = 300
@@ -3001,6 +3003,69 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 	return false
 }
 
+func (c *Controller) syncVMAnnotationsToVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachineInstance, error) {
+	if vm == nil || vmi == nil || vmi.DeletionTimestamp != nil {
+		return vmi, nil
+	}
+
+	patchSet := patch.New()
+
+	annotationsToSync := []string{
+		descheduler.EvictPodAnnotationKeyAlpha,
+		descheduler.EvictPodAnnotationKeyBeta,
+	}
+
+	newVMIAnnotations := map[string]string{}
+	for k, v := range vmi.Annotations {
+		newVMIAnnotations[k] = v
+	}
+
+	changed := false
+	for _, key := range annotationsToSync {
+		vmVal := ""
+		vmExists := false
+		if vm.Spec.Template != nil {
+			vmVal, vmExists = vm.Spec.Template.ObjectMeta.Annotations[key]
+		}
+		vmiVal, vmiExists := newVMIAnnotations[key]
+
+		if vmExists != vmiExists || vmVal != vmiVal {
+			changed = true
+			if vmExists {
+				newVMIAnnotations[key] = vmVal
+			} else {
+				delete(newVMIAnnotations, key)
+			}
+		}
+	}
+
+	if !changed {
+		return vmi, nil
+	}
+
+	if vmi.ObjectMeta.Annotations == nil {
+		patchSet.AddOption(patch.WithAdd("/metadata/annotations", newVMIAnnotations))
+	} else {
+		patchSet.AddOption(
+			patch.WithTest("/metadata/annotations", vmi.ObjectMeta.Annotations),
+			patch.WithReplace("/metadata/annotations", newVMIAnnotations),
+		)
+	}
+
+	generatedPatch, err := patchSet.GeneratePayload()
+	if err != nil {
+		return vmi, err
+	}
+
+	updatedVMI, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, generatedPatch, metav1.PatchOptions{})
+	if err != nil {
+		log.Log.Object(vm).Errorf("failed to sync dynamic annotations to VMI: %v", err)
+		return vmi, err
+	}
+
+	return updatedVMI, nil
+}
+
 func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, key string) (*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance, common.SyncError, error) {
 
 	defer virtControllerVMWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VM Name", Value: vm.Name})
@@ -3124,6 +3189,10 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 
 	if err := memorydump.HandleRequest(c.clientset, vmCopy, vmi, c.pvcStore); err != nil {
 		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling memory dump request: %v", err), memorydump.ErrorReason), nil
+	}
+
+	if vmi, err = c.syncVMAnnotationsToVMI(vmCopy, vmi); err != nil {
+		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling annotation sync request: %v", err), annotationsChangeErrorReason), nil
 	}
 
 	conditionManager := controller.NewVirtualMachineConditionManager()
