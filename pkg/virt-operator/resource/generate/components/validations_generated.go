@@ -854,6 +854,17 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
               type: object
               x-kubernetes-map-type: atomic
+            commonInstancetypesDeployment:
+              description: CommonInstancetypesDeployment controls the deployment of
+                common-instancetypes resources
+              nullable: true
+              properties:
+                enabled:
+                  description: Enabled controls the deployment of common-instancetypes
+                    resources, defaults to True.
+                  nullable: true
+                  type: boolean
+              type: object
             controllerConfiguration:
               description: |-
                 ReloadableComponentConfiguration holds all generic k8s configuration options which can
