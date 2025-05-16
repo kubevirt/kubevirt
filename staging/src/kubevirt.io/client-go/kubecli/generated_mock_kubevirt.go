@@ -1343,6 +1343,16 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) SEVInjectLaunchSecret(a
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SEVInjectLaunchSecret", arg0, arg1, arg2)
 }
 
+func (_m *MockVirtualMachineInstanceInterface) EvacuateCancel(ctx context.Context, name string, evacuateCancelOptions *v121.EvacuateCancelOptions) error {
+	ret := _m.ctrl.Call(_m, "EvacuateCancel", ctx, name, evacuateCancelOptions)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) EvacuateCancel(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "EvacuateCancel", arg0, arg1, arg2)
+}
+
 // Mock of ReplicaSetInterface interface
 type MockReplicaSetInterface struct {
 	ctrl     *gomock.Controller
@@ -1845,6 +1855,16 @@ func (_m *MockVirtualMachineInterface) RemoveMemoryDump(ctx context.Context, nam
 
 func (_mr *_MockVirtualMachineInterfaceRecorder) RemoveMemoryDump(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveMemoryDump", arg0, arg1)
+}
+
+func (_m *MockVirtualMachineInterface) EvacuateCancel(ctx context.Context, name string, evacuateCancelOptions *v121.EvacuateCancelOptions) error {
+	ret := _m.ctrl.Call(_m, "EvacuateCancel", ctx, name, evacuateCancelOptions)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) EvacuateCancel(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "EvacuateCancel", arg0, arg1, arg2)
 }
 
 // Mock of VirtualMachineInstanceMigrationInterface interface
