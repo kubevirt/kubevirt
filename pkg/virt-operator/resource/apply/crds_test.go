@@ -3,9 +3,9 @@ package apply
 import (
 	"encoding/json"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"

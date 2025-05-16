@@ -25,9 +25,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 	"libvirt.org/go/libvirt"
 
 	api2 "kubevirt.io/client-go/api"
