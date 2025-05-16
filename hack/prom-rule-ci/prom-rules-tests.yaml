@@ -605,11 +605,17 @@ tests:
   # VM eviction strategy is set but vm is not migratable
   - interval: 1m
     input_series:
+      - series: 'kubevirt_vmi_info{phase="running", node="node1", namespace="ns-test", name="vm-evict-nonmigratable"}'
+        values: "0 0 0 0 1 1 1 1"
       - series: 'kubevirt_vmi_non_evictable{node="node1", namespace="ns-test", name="vm-evict-nonmigratable"}'
         values: "1 1 1 1 1 1 1 1"
 
     alert_rule_test:
       - eval_time: 1m
+        alertname: VMCannotBeEvicted
+        exp_alerts: []
+
+      - eval_time: 5m
         alertname: VMCannotBeEvicted
         exp_alerts:
           - exp_annotations:
@@ -628,6 +634,8 @@ tests:
   # VM eviction strategy is set and vm is migratable
   - interval: 1m
     input_series:
+      - series: 'kubevirt_vmi_info{phase="running", node="node1", namespace="ns-test", name="vm-evict-migratable"}'
+        values: "1 1 1 1 1 1 1 1"
       - series: 'kubevirt_vmi_non_evictable{node="node1", namespace="ns-test", name="vm-evict-migratable"}'
         values: "0 0 0 0 0 0 0 0 "
 
