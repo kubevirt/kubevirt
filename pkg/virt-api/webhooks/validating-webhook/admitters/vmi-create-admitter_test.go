@@ -3904,6 +3904,40 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Entry("no watchdog configured", nil, "", false),
 		)
 	})
+
+	Context("with VideoConfig", func() {
+		var vmi *v1.VirtualMachineInstance
+		BeforeEach(func() {
+			enableFeatureGate(featuregate.VideoConfig)
+			vmi = libvmi.New(libvmi.WithVideo(v1.VirtIO))
+		})
+		It("should accept video configuration with feature gate enabled", func() {
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty(), "should accept video configuration with valid setup")
+		})
+
+		It("should reject when the feature gate is disabled", func() {
+			disableFeatureGates()
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Message).To(Equal(fmt.Sprintf("Video configuration is specified but the %s feature gate is not enabled", featuregate.VideoConfig)))
+		})
+
+		It("should reject when autoattachGraphicsDevice is set to false", func() {
+			vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = pointer.P(false)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Message).To(Equal("Video configuration is not allowed when autoattachGraphicsDevice is set to false"))
+		})
+
+		It("should accept when autoattachGraphicsDevice is unset", func() {
+			vmi.Spec.Domain.Devices.AutoattachGraphicsDevice = nil
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty(), "should accept video configuration when autoattachGraphicsDevice is unset")
+		})
+	})
 })
 
 var _ = Describe("additional tests", func() {
