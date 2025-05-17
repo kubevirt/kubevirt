@@ -399,6 +399,12 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			By("Rollback to the original volumes")
 			updateVMWithDV(vm, volName, srcDV.Name)
 			waitForMigrationToSucceed(virtClient, vm.Name, ns)
+
+			By("Expecting the VirtualMachineInstance console")
+			vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name,
+				metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(console.LoginToCirros(vmi)).To(Succeed())
 		})
 
 		It("should migrate the source volume from a source and destination block RWX DVs", decorators.StorageCritical, decorators.RequiresRWXBlock, func() {
@@ -436,6 +442,11 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				return claim == destDV.Name
 			}, 120*time.Second, time.Second).Should(BeTrue())
 			waitForMigrationToSucceed(virtClient, vm.Name, ns)
+			By("Expecting the VirtualMachineInstance console")
+			vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name,
+				metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(console.LoginToCirros(vmi)).To(Succeed())
 		})
 
 		It("should migrate the source volume from a block source and filesystem destination DVs", decorators.RequiresBlockStorage, func() {
@@ -466,6 +477,12 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				return claim == destDV.Name
 			}, 120*time.Second, time.Second).Should(BeTrue())
 			waitForMigrationToSucceed(virtClient, vm.Name, ns)
+
+			By("Expecting the VirtualMachineInstance console")
+			vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vm.Name,
+				metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(console.LoginToCirros(vmi)).To(Succeed())
 		})
 
 		It("should migrate a PVC with a VM using a containerdisk", func() {
@@ -504,6 +521,8 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				return false
 			}, 120*time.Second, time.Second).Should(BeTrue())
 			waitForMigrationToSucceed(virtClient, vm.Name, ns)
+			By("Expecting the VirtualMachineInstance console")
+			Expect(console.LoginToCirros(vmi)).To(Succeed())
 		})
 
 		It("should cancel the migration by the reverting to the source volume", func() {
