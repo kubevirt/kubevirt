@@ -1388,12 +1388,13 @@ var _ = Describe("Snapshot controlleer", func() {
 
 				updatedContent := vmSnapshotContent.DeepCopy()
 				updatedContent.ResourceVersion = "1"
-				errorMessage := "Failed freezing vm"
+				errorMessage := "Guest agent is not responding"
+				formatedErr := fmt.Sprintf("%s %s: %v", failedFreezeMsg, vm.Name, errorMessage)
 				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 					ReadyToUse: pointer.P(false),
 					Error: &snapshotv1.Error{
 						Time:    timeFunc(),
-						Message: &errorMessage,
+						Message: &formatedErr,
 					},
 				}
 
@@ -1407,7 +1408,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
-			It("should set QuiesceFailed indication if failed freeze vm", func() {
+			It("should set QuiesceFailed indication if error in content says failed freeze vm", func() {
 				vm := createLockedVM()
 				vmSource.Add(vm)
 				vmi := createVMI(vm)
@@ -1419,8 +1420,9 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
 				vmiSource.Add(vmi)
 
-				errorMessage := "Failed freezing vm"
-				vmSnapshotContent := createErrorVMSnapshotContent(errorMessage)
+				errorMessage := "Guest agent is not responding"
+				formatedErr := fmt.Sprintf("%s %s: %v", failedFreezeMsg, vm.Name, errorMessage)
+				vmSnapshotContent := createErrorVMSnapshotContent(formatedErr)
 				vmSnapshotContentSource.Add(vmSnapshotContent)
 
 				vmSnapshot := createVMSnapshotInProgress()
