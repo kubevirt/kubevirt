@@ -380,7 +380,13 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				Entry("to a block volume", decorators.RequiresBlockStorage, blockPVC),
 			)
 		})
-		It("should migrate the source volume from a source DV to a destination DV", func() {
+
+		DescribeTable("should migrate the source volume from a source DV to a destination DV", func(allowPostCopy bool) {
+
+			policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
+			migrationPolicy := kubecli.NewMinimalMigrationPolicy(policyName)
+			migrationPolicy.Spec.AllowPostCopy = pointer.P(allowPostCopy)
+
 			volName := "disk0"
 			srcDV := createDV()
 			vm := createVMWithDV(srcDV, volName)
@@ -399,7 +405,10 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			By("Rollback to the original volumes")
 			updateVMWithDV(vm, volName, srcDV.Name)
 			waitForMigrationToSucceed(virtClient, vm.Name, ns)
-		})
+		},
+			Entry("with pre-copy", false),
+			Entry("with post-copy", true),
+		)
 
 		It("should migrate the source volume from a source and destination block RWX DVs", decorators.StorageCritical, decorators.RequiresRWXBlock, func() {
 			volName := "disk0"
