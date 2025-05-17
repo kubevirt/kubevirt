@@ -24,6 +24,7 @@ package nodelabeller
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -39,7 +40,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
-	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
 const nodeName = "testNode"
@@ -47,18 +47,16 @@ const nodeName = "testNode"
 var _ = Describe("Node-labeller ", func() {
 	var nlController *NodeLabeller
 	var kubeClient *fake.Clientset
+	var supportedFeatures []string
 	var cpuCounter *libvirtxml.CapsHostCPUCounter
 	var guestsCaps []libvirtxml.CapsGuest
-
-	initNodeLabeller := func(kubevirt *v1.KubeVirt) {
-		config, _, _ := testutils.NewFakeClusterConfigUsingKV(kubevirt)
-		recorder := record.NewFakeRecorder(100)
-		recorder.IncludeObject = true
-
-		var err error
-		nlController, err = newNodeLabeller(config, kubeClient.CoreV1().Nodes(), nodeName, "testdata", recorder, cpuCounter, guestsCaps)
-		Expect(err).ToNot(HaveOccurred())
-	}
+	var hostCPUModel string
+	var cpuModelVendor string
+	var usableModels []string
+	var cpuRequiredFeatures []string
+	var sevSupported bool
+	var sevSupportedES bool
+	var hypervFeatures []string
 
 	BeforeEach(func() {
 		cpuCounter = &libvirtxml.CapsHostCPUCounter{
@@ -80,18 +78,53 @@ var _ = Describe("Node-labeller ", func() {
 
 		node := newNode(nodeName)
 		kubeClient = fake.NewSimpleClientset(node)
-		initNodeLabeller(&v1.KubeVirt{
+		kubevirt := &v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
 				Namespace: "kubevirt",
 			},
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
-					ObsoleteCPUModels: util.DefaultObsoleteCPUModels,
+					ObsoleteCPUModels: DefaultObsoleteCPUModels,
 					MinCPUModel:       "Penryn",
 				},
 			},
-		})
+		}
+		config, _, _ := testutils.NewFakeClusterConfigUsingKV(kubevirt)
+		recorder := record.NewFakeRecorder(100)
+		recorder.IncludeObject = true
+
+		supportedFeatures = []string{"test", "test"}
+		cpuCounter = &libvirtxml.CapsHostCPUCounter{
+			Name:      "tsc",
+			Frequency: 4008012000,
+			Scaling:   "no",
+		}
+		hostCPUModel = "Skylake-Client-IBRS"
+		cpuModelVendor = "test"
+		usableModels = []string{"Skylake-Client-IBRS", "Penryn", "Opteron_G2"}
+		cpuRequiredFeatures = []string{"test"}
+		sevSupported = true
+		sevSupportedES = true
+		hypervFeatures = []string{"test"}
+
+		nlController = NewNodeLabeller(
+			config,
+			kubeClient.CoreV1().Nodes(),
+			nodeName,
+			recorder,
+			supportedFeatures,
+			cpuCounter,
+			guestsCaps,
+			hostCPUModel,
+			cpuModelVendor,
+			usableModels,
+			cpuRequiredFeatures,
+			sevSupported,
+			sevSupportedES,
+			hypervFeatures,
+		)
+
 		mockQueue := testutils.NewMockWorkQueue(nlController.queue)
 		nlController.queue = mockQueue
 
@@ -140,6 +173,7 @@ var _ = Describe("Node-labeller ", func() {
 		node := retrieveNode(kubeClient)
 		Expect(node.Labels).To(HaveKey(v1.SupportedMachineTypeLabel + "testmachine"))
 	})
+
 	It("should add host cpu required features", func() {
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
@@ -187,6 +221,17 @@ var _ = Describe("Node-labeller ", func() {
 		))
 	})
 
+	It("should not add obsolete cpu model labels", func() {
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(SatisfyAll(
+			Not(HaveKey(v1.CPUModelLabel+"Opteron_G2")),
+			Not(HaveKey(v1.SupportedHostModelMigrationCPU+"Opteron_G2")),
+		))
+	})
+
 	DescribeTable("should add cpu tsc labels if tsc counter exists, its name is tsc and according to scaling value", func(scaling, result string) {
 		nlController.cpuCounter.Scaling = scaling
 		res := nlController.execute()
@@ -202,8 +247,8 @@ var _ = Describe("Node-labeller ", func() {
 		Entry("scaling is set to yes", "yes", "true"),
 	)
 
-	DescribeTable("should not add cpu tsc labels", func(counter *libvirtxml.CapsHostCPUCounter) {
-		nlController.cpuCounter = counter
+	It("should not add cpu tsc labels if counter name isn't tsc", func() {
+		nlController.cpuCounter.Name = ""
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
 
@@ -212,10 +257,8 @@ var _ = Describe("Node-labeller ", func() {
 			Not(HaveKey(v1.CPUTimerLabel+"tsc-frequency")),
 			Not(HaveKey(v1.CPUTimerLabel+"tsc-scalable")),
 		))
-	},
-		Entry("cpuCounter name is not tsc", &libvirtxml.CapsHostCPUCounter{}),
-		Entry("cpuCounter is nil", nil),
-	)
+
+	})
 
 	It("should remove not found cpu model and migration model", func() {
 		node := retrieveNode(kubeClient)
@@ -290,10 +333,12 @@ var _ = Describe("Node-labeller ", func() {
 	})
 
 	DescribeTable("should add machine type labels", func(machines []libvirtxml.CapsGuestMachine, arch string) {
-		guestsCaps[0].Arch.Machines = machines
-
-		initNodeLabeller(&v1.KubeVirt{})
-		nlController.arch = newArchLabeller(arch)
+		nlController.guestCaps = []libvirtxml.CapsGuest{{
+			Arch: libvirtxml.CapsGuestArch{
+				Name:     arch,
+				Machines: machines,
+			},
+		}}
 		mockQueue := testutils.NewMockWorkQueue(nlController.queue)
 		nlController.queue = mockQueue
 
@@ -311,10 +356,30 @@ var _ = Describe("Node-labeller ", func() {
 			Expect(node.Labels).To(HaveKey(expectedLabelKey), "expected machine type label %s to be present", expectedLabelKey)
 		}
 	},
-		Entry("for amd64", []libvirtxml.CapsGuestMachine{{Name: "q35"}, {Name: "q35-rhel9.6.0"}}, amd64),
-		Entry("for arm64", []libvirtxml.CapsGuestMachine{{Name: "virt"}, {Name: "virt-rhel9.6.0"}}, arm64),
+		Entry("for amd64", []libvirtxml.CapsGuestMachine{{Name: "q35"}, {Name: "q35-rhel9.6.0"}}, "amd64"),
+		Entry("for arm64", []libvirtxml.CapsGuestMachine{{Name: "virt"}, {Name: "virt-rhel9.6.0"}}, "arm64"),
 	)
 
+	It("should ensure that proper labels are removed on removeLabellerLabels()", func() {
+		node := &k8sv1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: nodeLabels,
+			},
+		}
+
+		nlController.removeLabellerLabels(node)
+
+		badKey := ""
+		for key := range node.Labels {
+			for _, labellerPrefix := range nodeLabellerLabels {
+				if strings.HasPrefix(key, labellerPrefix) {
+					badKey = key
+					break
+				}
+			}
+		}
+		Expect(badKey).To(BeEmpty())
+	})
 })
 
 func newNode(name string) *k8sv1.Node {
@@ -332,4 +397,148 @@ func retrieveNode(kubeClient *fake.Clientset) *k8sv1.Node {
 	node, err := kubeClient.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return node
+}
+
+var nodeLabels = map[string]string{
+	"beta.kubernetes.io/arch":                                          "amd64",
+	"beta.kubernetes.io/os":                                            "linux",
+	"cpu-feature.node.kubevirt.io/3dnowprefetch":                       "true",
+	"cpu-feature.node.kubevirt.io/abm":                                 "true",
+	"cpu-feature.node.kubevirt.io/adx":                                 "true",
+	"cpu-feature.node.kubevirt.io/aes":                                 "true",
+	"cpu-feature.node.kubevirt.io/amd-ssbd":                            "true",
+	"cpu-feature.node.kubevirt.io/amd-stibp":                           "true",
+	"cpu-feature.node.kubevirt.io/arat":                                "true",
+	"cpu-feature.node.kubevirt.io/arch-capabilities":                   "true",
+	"cpu-feature.node.kubevirt.io/avx":                                 "true",
+	"cpu-feature.node.kubevirt.io/avx2":                                "true",
+	"cpu-feature.node.kubevirt.io/bmi1":                                "true",
+	"cpu-feature.node.kubevirt.io/bmi2":                                "true",
+	"cpu-feature.node.kubevirt.io/clflushopt":                          "true",
+	"cpu-feature.node.kubevirt.io/erms":                                "true",
+	"cpu-feature.node.kubevirt.io/f16c":                                "true",
+	"cpu-feature.node.kubevirt.io/fma":                                 "true",
+	"cpu-feature.node.kubevirt.io/fsgsbase":                            "true",
+	"cpu-feature.node.kubevirt.io/hypervisor":                          "true",
+	"cpu-feature.node.kubevirt.io/ibpb":                                "true",
+	"cpu-feature.node.kubevirt.io/ibrs":                                "true",
+	"cpu-feature.node.kubevirt.io/ibrs-all":                            "true",
+	"cpu-feature.node.kubevirt.io/invpcid":                             "true",
+	"cpu-feature.node.kubevirt.io/invtsc":                              "true",
+	"cpu-feature.node.kubevirt.io/md-clear":                            "true",
+	"cpu-feature.node.kubevirt.io/mds-no":                              "true",
+	"cpu-feature.node.kubevirt.io/movbe":                               "true",
+	"cpu-feature.node.kubevirt.io/mpx":                                 "true",
+	"cpu-feature.node.kubevirt.io/pcid":                                "true",
+	"cpu-feature.node.kubevirt.io/pclmuldq":                            "true",
+	"cpu-feature.node.kubevirt.io/pdcm":                                "true",
+	"cpu-feature.node.kubevirt.io/pdpe1gb":                             "true",
+	"cpu-feature.node.kubevirt.io/popcnt":                              "true",
+	"cpu-feature.node.kubevirt.io/pschange-mc-no":                      "true",
+	"cpu-feature.node.kubevirt.io/rdctl-no":                            "true",
+	"cpu-feature.node.kubevirt.io/rdrand":                              "true",
+	"cpu-feature.node.kubevirt.io/rdseed":                              "true",
+	"cpu-feature.node.kubevirt.io/rdtscp":                              "true",
+	"cpu-feature.node.kubevirt.io/skip-l1dfl-vmentry":                  "true",
+	"cpu-feature.node.kubevirt.io/smap":                                "true",
+	"cpu-feature.node.kubevirt.io/smep":                                "true",
+	"cpu-feature.node.kubevirt.io/spec-ctrl":                           "true",
+	"cpu-feature.node.kubevirt.io/ss":                                  "true",
+	"cpu-feature.node.kubevirt.io/ssbd":                                "true",
+	"cpu-feature.node.kubevirt.io/sse4.2":                              "true",
+	"cpu-feature.node.kubevirt.io/stibp":                               "true",
+	"cpu-feature.node.kubevirt.io/tsc-deadline":                        "true",
+	"cpu-feature.node.kubevirt.io/tsc_adjust":                          "true",
+	"cpu-feature.node.kubevirt.io/tsx-ctrl":                            "true",
+	"cpu-feature.node.kubevirt.io/umip":                                "true",
+	"cpu-feature.node.kubevirt.io/vme":                                 "true",
+	"cpu-feature.node.kubevirt.io/vmx":                                 "true",
+	"cpu-feature.node.kubevirt.io/x2apic":                              "true",
+	"cpu-feature.node.kubevirt.io/xgetbv1":                             "true",
+	"cpu-feature.node.kubevirt.io/xsave":                               "true",
+	"cpu-feature.node.kubevirt.io/xsavec":                              "true",
+	"cpu-feature.node.kubevirt.io/xsaveopt":                            "true",
+	"cpu-feature.node.kubevirt.io/xsaves":                              "true",
+	"cpu-model-migration.node.kubevirt.io/Broadwell-noTSX":             "true",
+	"cpu-model-migration.node.kubevirt.io/Broadwell-noTSX-IBRS":        "true",
+	"cpu-model-migration.node.kubevirt.io/Haswell-noTSX":               "true",
+	"cpu-model-migration.node.kubevirt.io/Haswell-noTSX-IBRS":          "true",
+	"cpu-model-migration.node.kubevirt.io/IvyBridge":                   "true",
+	"cpu-model-migration.node.kubevirt.io/IvyBridge-IBRS":              "true",
+	"cpu-model-migration.node.kubevirt.io/Nehalem":                     "true",
+	"cpu-model-migration.node.kubevirt.io/Nehalem-IBRS":                "true",
+	"cpu-model-migration.node.kubevirt.io/Opteron_G1":                  "true",
+	"cpu-model-migration.node.kubevirt.io/Opteron_G2":                  "true",
+	"cpu-model-migration.node.kubevirt.io/Penryn":                      "true",
+	"cpu-model-migration.node.kubevirt.io/SandyBridge":                 "true",
+	"cpu-model-migration.node.kubevirt.io/SandyBridge-IBRS":            "true",
+	"cpu-model-migration.node.kubevirt.io/Skylake-Client-IBRS":         "true",
+	"cpu-model-migration.node.kubevirt.io/Skylake-Client-noTSX-IBRS":   "true",
+	"cpu-model-migration.node.kubevirt.io/Westmere":                    "true",
+	"cpu-model-migration.node.kubevirt.io/Westmere-IBRS":               "true",
+	"cpu-model.node.kubevirt.io/Broadwell-noTSX":                       "true",
+	"cpu-model.node.kubevirt.io/Broadwell-noTSX-IBRS":                  "true",
+	"cpu-model.node.kubevirt.io/Haswell-noTSX":                         "true",
+	"cpu-model.node.kubevirt.io/Haswell-noTSX-IBRS":                    "true",
+	"cpu-model.node.kubevirt.io/IvyBridge":                             "true",
+	"cpu-model.node.kubevirt.io/IvyBridge-IBRS":                        "true",
+	"cpu-model.node.kubevirt.io/Nehalem":                               "true",
+	"cpu-model.node.kubevirt.io/Nehalem-IBRS":                          "true",
+	"cpu-model.node.kubevirt.io/Opteron_G1":                            "true",
+	"cpu-model.node.kubevirt.io/Opteron_G2":                            "true",
+	"cpu-model.node.kubevirt.io/Penryn":                                "true",
+	"cpu-model.node.kubevirt.io/SandyBridge":                           "true",
+	"cpu-model.node.kubevirt.io/SandyBridge-IBRS":                      "true",
+	"cpu-model.node.kubevirt.io/Skylake-Client-noTSX-IBRS":             "true",
+	"cpu-model.node.kubevirt.io/Westmere":                              "true",
+	"cpu-model.node.kubevirt.io/Westmere-IBRS":                         "true",
+	"cpu-timer.node.kubevirt.io/tsc-frequency":                         "2111998000",
+	"cpu-timer.node.kubevirt.io/tsc-scalable":                          "false",
+	"cpu-vendor.node.kubevirt.io/Intel":                                "true",
+	"cpumanager":                                                       "false",
+	"host-model-cpu.node.kubevirt.io/Skylake-Client-IBRS":              "true",
+	"host-model-required-features.node.kubevirt.io/amd-ssbd":           "true",
+	"host-model-required-features.node.kubevirt.io/amd-stibp":          "true",
+	"host-model-required-features.node.kubevirt.io/arch-capabilities":  "true",
+	"host-model-required-features.node.kubevirt.io/clflushopt":         "true",
+	"host-model-required-features.node.kubevirt.io/hypervisor":         "true",
+	"host-model-required-features.node.kubevirt.io/ibpb":               "true",
+	"host-model-required-features.node.kubevirt.io/ibrs":               "true",
+	"host-model-required-features.node.kubevirt.io/ibrs-all":           "true",
+	"host-model-required-features.node.kubevirt.io/invtsc":             "true",
+	"host-model-required-features.node.kubevirt.io/md-clear":           "true",
+	"host-model-required-features.node.kubevirt.io/mds-no":             "true",
+	"host-model-required-features.node.kubevirt.io/pdcm":               "true",
+	"host-model-required-features.node.kubevirt.io/pdpe1gb":            "true",
+	"host-model-required-features.node.kubevirt.io/pschange-mc-no":     "true",
+	"host-model-required-features.node.kubevirt.io/rdctl-no":           "true",
+	"host-model-required-features.node.kubevirt.io/skip-l1dfl-vmentry": "true",
+	"host-model-required-features.node.kubevirt.io/ss":                 "true",
+	"host-model-required-features.node.kubevirt.io/ssbd":               "true",
+	"host-model-required-features.node.kubevirt.io/stibp":              "true",
+	"host-model-required-features.node.kubevirt.io/tsc_adjust":         "true",
+	"host-model-required-features.node.kubevirt.io/tsx-ctrl":           "true",
+	"host-model-required-features.node.kubevirt.io/umip":               "true",
+	"host-model-required-features.node.kubevirt.io/vmx":                "true",
+	"host-model-required-features.node.kubevirt.io/xsaves":             "true",
+	"hyperv.node.kubevirt.io/base":                                     "true",
+	"hyperv.node.kubevirt.io/frequencies":                              "true",
+	"hyperv.node.kubevirt.io/ipi":                                      "true",
+	"hyperv.node.kubevirt.io/reenlightenment":                          "true",
+	"hyperv.node.kubevirt.io/reset":                                    "true",
+	"hyperv.node.kubevirt.io/runtime":                                  "true",
+	"hyperv.node.kubevirt.io/synic":                                    "true",
+	"hyperv.node.kubevirt.io/synic2":                                   "true",
+	"hyperv.node.kubevirt.io/synictimer":                               "true",
+	"hyperv.node.kubevirt.io/time":                                     "true",
+	"hyperv.node.kubevirt.io/tlbflush":                                 "true",
+	"hyperv.node.kubevirt.io/vpindex":                                  "true",
+	"kubernetes.io/arch":                                               "amd64",
+	k8sv1.LabelHostname:                                                "node01",
+	"kubernetes.io/os":                                                 "linux",
+	"kubevirt.io/schedulable":                                          "true",
+	"node-role.kubernetes.io/control-plane":                            "",
+	"node-role.kubernetes.io/master":                                   "",
+	"node.kubernetes.io/exclude-from-external-load-balancers":          "",
+	"scheduling.node.kubevirt.io/tsc-frequency-2111998000":             "true",
 }
