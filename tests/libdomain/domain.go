@@ -37,6 +37,9 @@ import (
 	"kubevirt.io/kubevirt/tests/libpod"
 )
 
+// GetRunningVirtualMachineInstanceDomainXML should typically not be used by
+// end-to-end tests. Attempt to log into the guest to ensure that the requested
+// functionality is available there.
 func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
 	// get current vmi
 	freshVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -66,6 +69,7 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 	return stdout, err
 }
 
+// GetRunningVMIDomainSpec should typically not be used by end-to-end tests
 func GetRunningVMIDomainSpec(vmi *v1.VirtualMachineInstance) (*api.DomainSpec, error) {
 	runningVMISpec := api.DomainSpec{}
 	cli := kubevirt.Client()
