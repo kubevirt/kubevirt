@@ -44,6 +44,7 @@ go_test(
         "//pkg/network/driver/nmstate:go_default_library",
         "//pkg/network/driver/procsys:go_default_library",
         "//pkg/network/errors:go_default_library",
+        "//pkg/network/vmispec:go_default_library",
         "//pkg/os/fs:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",

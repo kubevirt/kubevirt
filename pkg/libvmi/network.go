@@ -139,3 +139,10 @@ func WithAutoAttachPodInterface(enabled bool) Option {
 		vmi.Spec.Domain.Devices.AutoattachPodInterface = &enabled
 	}
 }
+
+// WithNetworkInterfaceMultiQueue sets the networkInterfaceMultiQueue field.
+func WithNetworkInterfaceMultiQueue(enabled bool) Option {
+	return func(vmi *kvirtv1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = &enabled
+	}
+}

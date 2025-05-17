@@ -70,7 +70,7 @@ type NetPod struct {
 	vmiUID           string
 	podPID           int
 	ownerID          int
-	queuesCap        int
+	queuesCapByIface map[string]int
 
 	nmstateAdapter    nmstateAdapter
 	masqueradeAdapter masqueradeAdapter
@@ -92,7 +92,6 @@ func NewNetPod(vmiNetworks []v1.Network, vmiIfaces []v1.Interface, vmiUID string
 		vmiUID:        vmiUID,
 		podPID:        podPID,
 		ownerID:       ownerID,
-		queuesCap:     queuesCapacity,
 		state:         state,
 
 		nmstateAdapter:    nmstate.New(),
@@ -106,6 +105,9 @@ func NewNetPod(vmiNetworks []v1.Network, vmiIfaces []v1.Interface, vmiUID string
 	for _, opt := range opts {
 		opt(&n)
 	}
+
+	n.queuesCapByIface = calcQueuesCapByIface(queuesCapacity, n.vmiSpecIfaces, n.vmiIfaceStatuses)
+
 	return n
 }
 
@@ -408,9 +410,11 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 }
 
 func (n NetPod) networkQueues(vmiIfaceIndex int) int {
-	if ifaceModel := n.vmiSpecIfaces[vmiIfaceIndex].Model; ifaceModel == "" || ifaceModel == v1.VirtIO {
-		return n.queuesCap
+	iface := n.vmiSpecIfaces[vmiIfaceIndex]
+	if ifaceModel := iface.Model; ifaceModel == "" || ifaceModel == v1.VirtIO {
+		return n.queuesCapByIface[iface.Name]
 	}
+
 	return 0
 }
 
@@ -562,6 +566,33 @@ func (n NetPod) lookupMasquradeBridge(desiredIfacesSpec []nmstate.Interface) *nm
 		return bridgeIfaceSpec
 	}
 	return nil
+}
+
+func calcQueuesCapByIface(desiredQueueCount int,
+	ifaces []v1.Interface,
+	ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface) map[string]int {
+
+	hasDomainInfoSource := func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
+		return vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceDomain)
+	}
+
+	ifaceStatusesInDomainByName := vmispec.IndexInterfaceStatusByName(ifaceStatuses, hasDomainInfoSource)
+
+	queuesCapByIface := map[string]int{}
+	for _, iface := range ifaces {
+		if iface.SRIOV != nil {
+			continue
+		}
+
+		ifaceStatus, existsInDomain := ifaceStatusesInDomainByName[iface.Name]
+		if existsInDomain {
+			queuesCapByIface[iface.Name] = int(ifaceStatus.QueueCount)
+		} else {
+			queuesCapByIface[iface.Name] = desiredQueueCount
+		}
+	}
+
+	return queuesCapByIface
 }
 
 func ifaceStatusByName(interfaces []nmstate.Interface) map[string]nmstate.Interface {

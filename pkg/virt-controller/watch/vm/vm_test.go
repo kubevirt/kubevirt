@@ -4787,31 +4787,6 @@ var _ = Describe("VirtualMachine", func() {
 					expectedCpuLim.Add(*resourcesDelta)
 					Expect(vmi.Spec.Domain.Resources.Limits.Cpu().String()).To(Equal(expectedCpuLim.String()))
 				})
-
-				It("should set a restartRequired condition if NetworkInterfaceMultiQueue is enabled", func() {
-					vm, _ := watchtesting.DefaultVirtualMachine(true)
-					vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
-						Sockets: 2,
-					}
-					vm.Spec.Template.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.P(true)
-
-					vmi := api.NewMinimalVMI(vm.Name)
-					vmi.Spec.Domain.CPU = &v1.CPU{
-						Sockets:    1,
-						MaxSockets: 4,
-					}
-
-					Expect(controller.handleCPUChangeRequest(vm, vmi)).To(Succeed())
-
-					vmCondManager := virtcontroller.NewVirtualMachineConditionManager()
-					cond := vmCondManager.GetCondition(vm, v1.VirtualMachineRestartRequired)
-					Expect(cond).To(Not(BeNil()))
-					Expect(*cond).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Type":    Equal(v1.VirtualMachineRestartRequired),
-						"Message": ContainSubstring("when NetworkInterfaceMultiQueue is enabled"),
-						"Status":  Equal(k8sv1.ConditionTrue),
-					}))
-				})
 			})
 
 			Context("Memory", func() {

@@ -620,12 +620,6 @@ func (c *Controller) handleCPUChangeRequest(vm *virtv1.VirtualMachine, vmi *virt
 		return nil
 	}
 
-	networkInterfaceMultiQueue := vmCopyWithInstancetype.Spec.Template.Spec.Domain.Devices.NetworkInterfaceMultiQueue
-	if networkInterfaceMultiQueue != nil && *networkInterfaceMultiQueue {
-		setRestartRequired(vm, "Changes to CPU sockets require a restart when NetworkInterfaceMultiQueue is enabled")
-		return nil
-	}
-
 	if err := c.VMICPUsPatch(vmCopyWithInstancetype, vmi); err != nil {
 		log.Log.Object(vmi).Errorf("unable to patch vmi to add cpu topology status: %v", err)
 		return err
