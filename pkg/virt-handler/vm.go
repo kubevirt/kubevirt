@@ -25,8 +25,6 @@ import (
 	"encoding/json"
 	goerror "errors"
 	"fmt"
-	"io"
-	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -90,6 +88,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	multipath_monitor "kubevirt.io/kubevirt/pkg/virt-handler/multipath-monitor"
+	"kubevirt.io/kubevirt/pkg/virt-handler/notify-server/pipe"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
@@ -259,8 +258,6 @@ func NewController(
 
 	c.downwardMetricsManager = downwardMetricsManager
 
-	c.domainNotifyPipes = make(map[string]string)
-
 	permissions := "rw"
 	if cgroups.IsCgroup2UnifiedMode() {
 		// Need 'rwm' permissions otherwise ebpf filtering program attached by runc
@@ -316,7 +313,6 @@ type VirtualMachineController struct {
 	netStat                          netstat
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
 
-	domainNotifyPipes           map[string]string
 	virtLauncherFSRunDirPattern string
 	heartBeat                   *heartbeat.HeartBeat
 	capabilities                *libvirtxml.Caps
@@ -346,119 +342,20 @@ func formatIrrecoverableErrorMessage(domain *api.Domain) string {
 	return msg
 }
 
-func handleDomainNotifyPipe(domainPipeStopChan chan struct{}, ln net.Listener, virtShareDir string, vmi *v1.VirtualMachineInstance) {
-
-	fdChan := make(chan net.Conn, 100)
-
-	// Close listener and exit when stop encountered
-	go func() {
-		<-domainPipeStopChan
-		log.Log.Object(vmi).Infof("closing notify pipe listener for vmi")
-		if err := ln.Close(); err != nil {
-			log.Log.Object(vmi).Infof("failed closing notify pipe listener for vmi: %v", err)
-		}
-	}()
-
-	// Listen for new connections,
-	go func(vmi *v1.VirtualMachineInstance, ln net.Listener, domainPipeStopChan chan struct{}) {
-		for {
-			fd, err := ln.Accept()
-			if err != nil {
-				if goerror.Is(err, net.ErrClosed) {
-					// As Accept blocks, closing it is our mechanism to exit this loop
-					return
-				}
-				log.Log.Reason(err).Error("Domain pipe accept error encountered.")
-				// keep listening until stop invoked
-				time.Sleep(1 * time.Second)
-			} else {
-				fdChan <- fd
-			}
-		}
-	}(vmi, ln, domainPipeStopChan)
-
-	// Process new connections
-	// exit when stop encountered
-	go func(vmi *v1.VirtualMachineInstance, fdChan chan net.Conn, domainPipeStopChan chan struct{}) {
-		for {
-			select {
-			case <-domainPipeStopChan:
-				return
-			case fd := <-fdChan:
-				go func(vmi *v1.VirtualMachineInstance) {
-					defer fd.Close()
-
-					// pipe the VMI domain-notify.sock to the virt-handler domain-notify.sock
-					// so virt-handler receives notifications from the VMI
-					conn, err := net.Dial("unix", filepath.Join(virtShareDir, "domain-notify.sock"))
-					if err != nil {
-						log.Log.Reason(err).Error("error connecting to domain-notify.sock for proxy connection")
-						return
-					}
-					defer conn.Close()
-
-					log.Log.Object(vmi).Infof("Accepted new notify pipe connection for vmi")
-					copyErr := make(chan error, 2)
-					go func() {
-						_, err := io.Copy(fd, conn)
-						copyErr <- err
-					}()
-					go func() {
-						_, err := io.Copy(conn, fd)
-						copyErr <- err
-					}()
-
-					// wait until one of the copy routines exit then
-					// let the fd close
-					err = <-copyErr
-					if err != nil {
-						log.Log.Object(vmi).Infof("closing notify pipe connection for vmi with error: %v", err)
-					} else {
-						log.Log.Object(vmi).Infof("gracefully closed notify pipe connection for vmi")
-					}
-
-				}(vmi)
-			}
-		}
-	}(vmi, fdChan, domainPipeStopChan)
-}
-
-func (c *VirtualMachineController) startDomainNotifyPipe(domainPipeStopChan chan struct{}, vmi *v1.VirtualMachineInstance) error {
+func (c *VirtualMachineController) startDomainNotifyPipe(ctx context.Context, vmi *v1.VirtualMachineInstance) error {
 
 	res, err := c.podIsolationDetector.Detect(vmi)
 	if err != nil {
 		return fmt.Errorf("failed to detect isolation for launcher pod when setting up notify pipe: %v", err)
 	}
 
-	// inject the domain-notify.sock into the VMI pod.
-	root, err := res.MountRoot()
-	if err != nil {
-		return err
-	}
-	socketDir, err := root.AppendAndResolveWithRelativeRoot(c.virtShareDir)
+	logger := log.Log.Object(vmi)
+	fdChan, err := pipe.InjectNotify(ctx, logger, res, c.virtShareDir, util.IsNonRootVMI(vmi))
 	if err != nil {
 		return err
 	}
 
-	listener, err := safepath.ListenUnixNoFollow(socketDir, "domain-notify-pipe.sock")
-	if err != nil {
-		log.Log.Reason(err).Error("failed to create unix socket for proxy service")
-		return err
-	}
-	socketPath, err := safepath.JoinNoFollow(socketDir, "domain-notify-pipe.sock")
-	if err != nil {
-		return err
-	}
-
-	if util.IsNonRootVMI(vmi) {
-		err := diskutils.DefaultOwnershipManager.SetFileOwnership(socketPath)
-		if err != nil {
-			log.Log.Reason(err).Error("unable to change ownership for domain notify")
-			return err
-		}
-	}
-
-	handleDomainNotifyPipe(domainPipeStopChan, listener, c.virtShareDir, vmi)
+	go pipe.Proxy(ctx, logger, fdChan, c.virtShareDir, pipe.ConnectToNotify(c.virtShareDir))
 
 	return nil
 }
@@ -2201,7 +2098,7 @@ func (c *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 	clientInfo, exists := c.launcherClients.Load(vmi.UID)
 	if exists && clientInfo.Client != nil {
 		clientInfo.Client.Close()
-		close(clientInfo.DomainPipeStopChan)
+		clientInfo.DomainPipeCancelFunc()
 	}
 
 	err := virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
@@ -2291,21 +2188,21 @@ func (c *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInsta
 		return nil, err
 	}
 
-	domainPipeStopChan := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
 	//we pipe in the domain socket into the VMI's filesystem
-	err = c.startDomainNotifyPipe(domainPipeStopChan, vmi)
+	err = c.startDomainNotifyPipe(ctx, vmi)
 	if err != nil {
 		client.Close()
-		close(domainPipeStopChan)
+		cancel()
 		return nil, err
 	}
 
 	c.launcherClients.Store(vmi.UID, &virtcache.LauncherClientInfo{
-		Client:              client,
-		SocketFile:          socketFile,
-		DomainPipeStopChan:  domainPipeStopChan,
-		NotInitializedSince: time.Now(),
-		Ready:               true,
+		Client:               client,
+		SocketFile:           socketFile,
+		DomainPipeCancelFunc: cancel,
+		NotInitializedSince:  time.Now(),
+		Ready:                true,
 	})
 
 	return client, nil
