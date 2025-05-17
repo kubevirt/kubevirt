@@ -12,6 +12,9 @@ Indicates whether the Software Emulation is enabled in the configuration. Type: 
 ### kubevirt_console_active_connections
 Amount of active Console connections, broken down by namespace and vmi name. Type: Gauge.
 
+### kubevirt_deprecated_machine_types
+List of deprecated machine types. Type: Gauge.
+
 ### kubevirt_info
 Version information. Type: Gauge.
 
