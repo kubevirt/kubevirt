@@ -661,7 +661,7 @@ func (c *KubeVirtDeploymentConfig) GetNamespace() string {
 
 func (c *KubeVirtDeploymentConfig) GetVerbosity() string {
 	// not configurable yet
-	return "2"
+	return "3"
 }
 
 func (c *KubeVirtDeploymentConfig) GetProductComponent() string {
