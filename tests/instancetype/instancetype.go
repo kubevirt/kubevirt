@@ -913,7 +913,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry(", DataVolumeSourceRef and DataSource with labels",
 				func() []virtv1.DataVolumeTemplateSpec {
-					By("Createing a blank DV and PVC without labels")
+					By("Creating a blank DV and PVC without labels")
 					blankDV := libdv.NewDataVolume(
 						libdv.WithNamespace(namespace),
 						libdv.WithForceBindAnnotation(),

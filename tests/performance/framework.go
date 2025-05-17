@@ -37,7 +37,7 @@ var (
 )
 
 func init() {
-	flag.BoolVar(&RunPerfTests, "performance-test", false, "run performance tests. If false, all performance tests will be skiped.")
+	flag.BoolVar(&RunPerfTests, "performance-test", false, "run performance tests. If false, all performance tests will be skipped.")
 	if ptest, _ := strconv.ParseBool(os.Getenv("KUBEVIRT_E2E_PERF_TEST")); ptest {
 		RunPerfTests = true
 	}

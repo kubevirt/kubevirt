@@ -552,7 +552,7 @@ func (r *KubernetesReporter) logVirtLauncherCommands(virtCli kubecli.KubevirtCli
 		}
 
 		if !isContainerReady(pod.Status.ContainerStatuses, computeContainer) {
-			printError("could not find healty compute container for pod %s", pod.ObjectMeta.Name)
+			printError("could not find healthy compute container for pod %s", pod.ObjectMeta.Name)
 			continue
 		}
 

@@ -372,11 +372,11 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 
 			assertSourcePodContainersTerminate(labelSelector, fieldSelector, migrateVMI)
 
-			By("Verify the VMI new IP is propogated to the status")
+			By("Verify the VMI new IP is propagated to the status")
 			var migrateVmiAfterMigIP string
 			Eventually(func() string {
 				migrateVMI, err = kubevirt.Client().VirtualMachineInstance(migrateVMI.Namespace).Get(context.Background(), migrateVMI.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "should have been able to retrive the VMI instance")
+				Expect(err).ToNot(HaveOccurred(), "should have been able to retrieve the VMI instance")
 				migrateVmiAfterMigIP = libnet.GetVmiPrimaryIPByFamily(migrateVMI, ipFamily)
 				return migrateVmiAfterMigIP
 			}, 30*time.Second).ShouldNot(Equal(migrateVmiBeforeMigIP), "the VMI status should get a new IP after migration")

@@ -81,7 +81,7 @@ var _ = Describe(KWOK("Control Plane Performance Density Testing using kwok", fu
 
 	Describe("kwok density tests", func() {
 		Context("create a batch of fake VMIs", func() {
-			It("should sucessfully create all fake VMIs", func() {
+			It("should successfully create all fake VMIs", func() {
 				By(fmt.Sprintf("creating a batch of %d fake VMIs", vmCount))
 				createFakeVMIBatchWithKWOK(virtClient, vmCount)
 
@@ -97,7 +97,7 @@ var _ = Describe(KWOK("Control Plane Performance Density Testing using kwok", fu
 		})
 
 		Context("create a batch of fake VMs", func() {
-			It("should sucessfully create all fake VMs", func() {
+			It("should successfully create all fake VMs", func() {
 				By(fmt.Sprintf("creating a batch of %d fake VMs", vmCount))
 				createFakeBatchRunningVMWithKWOK(virtClient, vmCount)
 
