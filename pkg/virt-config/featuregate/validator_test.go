@@ -59,3 +59,51 @@ var _ = Describe("Validator", func() {
 		),
 	)
 })
+
+var _ = Describe("Feature gate enablement", func() {
+
+	Context("feature gate parsing", func() {
+		It("should return true for implicitly enabled feature gates", func() {
+			const fgName = "fg123"
+			enabledFgs, err := featuregate.ParseEnableFeatureGates([]string{fgName})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(enabledFgs).To(ContainElement(fgName))
+		})
+
+		It("should return true for explicitly enabled feature gates", func() {
+			const fgName = "fg123"
+			enabledFgs, err := featuregate.ParseEnableFeatureGates([]string{fgName + "=true"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(enabledFgs).To(ContainElement(fgName))
+		})
+
+		It("should return false for explicitly disabled feature gates", func() {
+			const fgName = "fg123"
+			enabledFgs, err := featuregate.ParseEnableFeatureGates([]string{fgName + "=false"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(enabledFgs).ToNot(ContainElement(fgName))
+		})
+
+		It("should give precedence to explicitly enabled feature gates", func() {
+			const fgName = "fg123"
+			enabledFgs, err := featuregate.ParseEnableFeatureGates([]string{fgName, fgName + "=false"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(enabledFgs).ToNot(ContainElement(fgName))
+		})
+
+		It("should raise an error when the same feature gate is explicitly both disabled and enabled", func() {
+			const fgName = "fg123"
+			enabledFgs, err := featuregate.ParseEnableFeatureGates([]string{fgName + "=false", fgName + "=true"})
+			Expect(err).To(HaveOccurred())
+			Expect(enabledFgs).ToNot(ContainElement(fgName))
+		})
+
+		It("should raise an error for a non-bool value", func() {
+			const fgName = "fg123"
+			enabledFgs, err := featuregate.ParseEnableFeatureGates([]string{fgName + "=notabool"})
+			Expect(err).To(HaveOccurred())
+			Expect(enabledFgs).ToNot(ContainElement(fgName))
+		})
+	})
+
+})

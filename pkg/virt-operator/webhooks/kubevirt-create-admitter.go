@@ -21,9 +21,12 @@ package webhooks
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -57,6 +60,18 @@ func (k *kubeVirtCreateAdmitter) Admit(ctx context.Context, review *admissionv1.
 		return resp
 	}
 	//TODO: Do we want semantic validation
+
+	resp := webhookutils.NewPassingAdmissionResponse()
+	kv := v1.KubeVirt{}
+
+	if err := json.Unmarshal(review.Request.Object.Raw, &kv); err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	if kv.Spec.Configuration.DeveloperConfiguration != nil && len(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates) > 0 {
+		_, err := featuregate.ParseEnableFeatureGates(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates)
+		resp.Warnings = append(resp.Warnings, fmt.Sprintf("feature gates are wrongly defined: %v", err))
+	}
 
 	// Best effort
 	list, err := k.client.KubeVirt(k8sv1.NamespaceAll).List(ctx, metav1.ListOptions{})

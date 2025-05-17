@@ -19,30 +19,20 @@
 
 package virtconfig
 
-import "kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+import (
+	"slices"
+
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+)
 
 /*
  This module is intended for determining whether an optional feature is enabled or not at the cluster-level.
 */
 
-func (config *ClusterConfig) isFeatureGateDefined(featureGate string) bool {
-	for _, fg := range config.GetConfig().DeveloperConfiguration.FeatureGates {
-		if fg == featureGate {
-			return true
-		}
-	}
-	return false
-}
-
 func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
-	if fg := featuregate.FeatureGateInfo(featureGate); fg != nil && fg.State == featuregate.GA {
-		return true
-	}
-
-	if config.isFeatureGateDefined(featureGate) {
-		return true
-	}
-	return false
+	return IsFeatureGateEnabled(featureGate, config.GetConfig().DeveloperConfiguration)
 }
 
 func (config *ClusterConfig) ExpandDisksEnabled() bool {
@@ -175,4 +165,17 @@ func (config *ClusterConfig) ImageVolumeEnabled() bool {
 
 func (config *ClusterConfig) NodeRestrictionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.NodeRestrictionGate)
+}
+
+func IsFeatureGateEnabled(featureGate string, kvDevConfigs *v1.DeveloperConfiguration) bool {
+	if featuregate.FeatureGateInfo(featureGate).IsGA() {
+		return true
+	}
+
+	if kvDevConfigs == nil {
+		return false
+	}
+
+	definedFeatureGates, _ := featuregate.ParseEnableFeatureGates(kvDevConfigs.FeatureGates)
+	return slices.Contains(definedFeatureGates, featureGate)
 }

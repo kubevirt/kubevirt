@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
@@ -113,9 +114,11 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 
 	response := validating_webhooks.NewAdmissionResponse(results)
 
-	if featureGatesChanged(&currKV.Spec, &newKV.Spec) {
-		featureGates := newKV.Spec.Configuration.DeveloperConfiguration.FeatureGates
-		response.Warnings = append(response.Warnings, warnDeprecatedFeatureGates(featureGates)...)
+	if isChanged, newFeatureGates, err := featureGatesChanged(&currKV.Spec, &newKV.Spec); isChanged {
+		response.Warnings = append(response.Warnings, warnDeprecatedFeatureGates(newFeatureGates)...)
+		if err != nil {
+			response.Warnings = append(response.Warnings, fmt.Sprintf("feature gates are wrongly defined: %v", err))
+		}
 	}
 
 	const mdevWarningfmt = "%s is deprecated, use mediatedDeviceTypes"
@@ -432,19 +435,22 @@ func validateInfraReplicas(replicas *uint8) []metav1.StatusCause {
 	return statuses
 }
 
-func featureGatesChanged(currKVSpec, newKVSpec *v1.KubeVirtSpec) bool {
+func featureGatesChanged(currKVSpec, newKVSpec *v1.KubeVirtSpec) (isChanged bool, newEnabledFgs []string, err error) {
 	currDevConfig := currKVSpec.Configuration.DeveloperConfiguration
 	newDevConfig := newKVSpec.Configuration.DeveloperConfiguration
 
 	if (currDevConfig == nil && newDevConfig == nil) || (currDevConfig != nil && newDevConfig == nil) {
-		return false
+		return false, nil, nil
 	}
 
 	if currDevConfig == nil && newDevConfig != nil {
-		return len(newDevConfig.FeatureGates) > 0
+		return len(newDevConfig.FeatureGates) > 0, newDevConfig.FeatureGates, nil
 	}
 
-	return !equality.Semantic.DeepEqual(currDevConfig.FeatureGates, newDevConfig.FeatureGates)
+	curEnabledFgs, _ := featuregate.ParseEnableFeatureGates(currDevConfig.FeatureGates)
+	newEnabledFgs, err = featuregate.ParseEnableFeatureGates(newDevConfig.FeatureGates)
+
+	return !slices.Equal(curEnabledFgs, newEnabledFgs), newEnabledFgs, err
 }
 
 func warnDeprecatedFeatureGates(featureGates []string) (warnings []string) {
