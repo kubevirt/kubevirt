@@ -54,7 +54,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -795,7 +794,7 @@ var _ = Describe("Converter", func() {
 			c.UseVirtioTransitional = true
 			vmi.Spec.Domain.Devices.UseVirtioTransitional = &c.UseVirtioTransitional
 			dom := vmiToDomain(vmi, c)
-			testutils.ExpectVirtioTransitionalOnly(&dom.Spec)
+			expectVirtioTransitionalOnly(&dom.Spec)
 		},
 			Entry("on amd64 with success", amd64),
 			Entry("on arm64 with success", arm64),
@@ -3754,3 +3753,50 @@ var _ = Describe("Defaults", func() {
 		Expect(vmi.Spec.Domain.Devices.Watchdog).To(BeNil())
 	})
 })
+
+func expectVirtioTransitionalOnly(dom *api.DomainSpec) {
+	const virtioTrans = "virtio-transitional"
+	hit := false
+	for _, disk := range dom.Devices.Disks {
+		if disk.Target.Bus == v1.DiskBusVirtio {
+			ExpectWithOffset(1, disk.Model).To(Equal(virtioTrans))
+			hit = true
+		}
+	}
+	ExpectWithOffset(1, hit).To(BeTrue())
+
+	hit = false
+	for _, ifc := range dom.Devices.Interfaces {
+		if strings.HasPrefix(ifc.Model.Type, v1.VirtIO) {
+			ExpectWithOffset(1, ifc.Model.Type).To(Equal(virtioTrans))
+			hit = true
+		}
+	}
+	ExpectWithOffset(1, hit).To(BeTrue())
+
+	hit = false
+	for _, input := range dom.Devices.Inputs {
+		if strings.HasPrefix(input.Model, v1.VirtIO) {
+			// All our input types only exist only as virtio 1.0 and only accept virtio
+			ExpectWithOffset(1, input.Model).To(Equal(v1.VirtIO))
+			hit = true
+		}
+	}
+	ExpectWithOffset(1, hit).To(BeTrue())
+
+	hitCount := 0
+	for _, controller := range dom.Devices.Controllers {
+		if controller.Type == "virtio-serial" {
+			ExpectWithOffset(1, controller.Model).To(Equal(virtioTrans))
+			hitCount++
+		}
+		if controller.Type == "scsi" {
+			ExpectWithOffset(1, controller.Model).To(Equal(virtioTrans))
+			hitCount++
+		}
+	}
+	ExpectWithOffset(1, hitCount).To(BeNumerically("==", 2))
+
+	ExpectWithOffset(1, dom.Devices.Rng.Model).To(Equal(virtioTrans))
+	ExpectWithOffset(1, dom.Devices.Ballooning.Model).To(Equal(virtioTrans))
+}
