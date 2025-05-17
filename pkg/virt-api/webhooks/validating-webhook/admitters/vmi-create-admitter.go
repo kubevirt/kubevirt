@@ -1440,28 +1440,40 @@ func validateFirmwareACPI(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 	}
 
 	acpi := spec.Domain.Firmware.ACPI
-	for _, volume := range spec.Volumes {
-		if acpi.SlicNameRef != volume.Name {
-			continue
-		}
+	causes = append(causes, validateACPIRef(field, acpi.SlicNameRef, spec.Volumes, "SlicNameRef")...)
+	causes = append(causes, validateACPIRef(field, acpi.MsdmNameRef, spec.Volumes, "MsdmNameRef")...)
+	return causes
+}
 
-		switch {
-		case volume.Secret != nil:
-		default:
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s refers to Volume of unsupported type.", field.String()),
-				Field:   field.Child("slicNameRef").String(),
-			})
-		}
+func validateACPIRef(field *k8sfield.Path, nameRef string, volumes []v1.Volume, fieldName string) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	if nameRef == "" {
 		return causes
 	}
 
-	causes = append(causes, metav1.StatusCause{
-		Type:    metav1.CauseTypeFieldValueInvalid,
-		Message: fmt.Sprintf("%s does not have a matching Volume.", field.String()),
-		Field:   field.String(),
-	})
+	found := false
+	for _, volume := range volumes {
+		if nameRef != volume.Name {
+			continue
+		}
+		found = true
+		if volume.Secret == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s refers to Volume of unsupported type.", field.String()),
+				Field:   field.Child(nameRef).String(),
+			})
+		}
+		break
+	}
+
+	if !found {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s does not have a matching Volume.", field.String()),
+			Field:   field.Child(fieldName).String(),
+		})
+	}
 
 	return causes
 }
