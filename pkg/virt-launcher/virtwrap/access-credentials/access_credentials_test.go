@@ -85,20 +85,6 @@ var _ = Describe("AccessCredentials", func() {
 		return &domain.Spec
 	}
 
-	It("should handle qemu agent exec", func() {
-		domName := "some-domain"
-		command := "some-command"
-		args := []string{"arg1", "arg2"}
-
-		expectedCmd := `{"execute": "guest-exec", "arguments": { "path": "some-command", "arg": [ "arg1", "arg2" ], "capture-output":true } }`
-		expectedStatusCmd := `{"execute": "guest-exec-status", "arguments": { "pid": 789 } }`
-
-		mockConn.EXPECT().QemuAgentCommand(expectedCmd, domName).Return(`{"return":{"pid":789}}`, nil)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(`{"return":{"exitcode":0,"out-data":"c3NoIHNvbWVrZXkxMjMgdGVzdC1rZXkK","exited":true}}`, nil)
-
-		Expect(manager.agentGuestExec(domName, command, args)).To(Equal("ssh somekey123 test-key\n"))
-	})
-
 	It("should handle dynamically updating user/password with qemu agent", func() {
 		domName := "some-domain"
 		user := "myuser"
@@ -124,88 +110,7 @@ var _ = Describe("AccessCredentials", func() {
 		Expect(manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)).To(Succeed())
 	})
 
-	It("should dynamically update ssh key with old qemu agent", func() {
-		domName := "some-domain"
-		user := "someowner"
-		filePath := "/home/someowner/.ssh"
-
-		authorizedKeys := []string{"ssh some injected key"}
-
-		mockConn.EXPECT().LookupDomainByName(domName).Return(mockDomain, nil).Times(1)
-		// The AuthorizedSSHKeysSet method fails so a backward compatible code will be used.
-		mockDomain.EXPECT().AuthorizedSSHKeysSet(user, authorizedKeys, gomock.Any()).Return(libvirt.ERR_INTERNAL_ERROR).Times(1)
-		mockDomain.EXPECT().Free().Times(1)
-
-		expectedOpenCmd := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s/authorized_keys", "mode":"r" } }`, filePath)
-		expectedWriteOpenCmd := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s/authorized_keys", "mode":"w" } }`, filePath)
-		expectedOpenCmdRes := `{"return":1000}`
-
-		existingKey := base64.StdEncoding.EncodeToString([]byte("ssh some existing key"))
-		expectedReadCmd := `{"execute": "guest-file-read", "arguments": { "handle": 1000 } }`
-		expectedReadCmdRes := fmt.Sprintf(`{"return":{"count":24,"buf-b64": "%s"}}`, existingKey)
-
-		mergedKeys := base64.StdEncoding.EncodeToString([]byte(strings.Join(authorizedKeys, "\n")))
-		expectedWriteCmd := fmt.Sprintf(`{"execute": "guest-file-write", "arguments": { "handle": 1000, "buf-b64": "%s" } }`, mergedKeys)
-
-		expectedCloseCmd := `{"execute": "guest-file-close", "arguments": { "handle": 1000 } }`
-
-		expectedExecReturn := `{"return":{"pid":789}}`
-		expectedStatusCmd := `{"execute": "guest-exec-status", "arguments": { "pid": 789 } }`
-
-		getentBase64Str := base64.StdEncoding.EncodeToString([]byte("someowner:x:1111:2222:Some Owner:/home/someowner:/bin/bash"))
-		expectedHomeDirCmd := `{"execute": "guest-exec", "arguments": { "path": "getent", "arg": [ "passwd", "someowner" ], "capture-output":true } }`
-		expectedHomeDirCmdRes := fmt.Sprintf(`{"return":{"exitcode":0,"out-data":"%s","exited":true}}`, getentBase64Str)
-
-		expectedMkdirCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "mkdir", "arg": [ "-p", "%s" ], "capture-output":true } }`, filePath)
-		expectedMkdirRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
-
-		expectedParentChownCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chown", "arg": [ "1111:2222", "%s" ], "capture-output":true } }`, filePath)
-		expectedParentChownRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
-
-		expectedParentChmodCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chmod", "arg": [ "700", "%s" ], "capture-output":true } }`, filePath)
-		expectedParentChmodRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
-
-		expectedFileChownCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chown", "arg": [ "1111:2222", "%s/authorized_keys" ], "capture-output":true } }`, filePath)
-		expectedFileChownRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
-
-		expectedFileChmodCmd := fmt.Sprintf(`{"execute": "guest-exec", "arguments": { "path": "chmod", "arg": [ "600", "%s/authorized_keys" ], "capture-output":true } }`, filePath)
-		expectedFileChmodRes := `{"return":{"exitcode":0,"out-data":"","exited":true}}`
-
-		// Detect user home dir
-		mockConn.EXPECT().QemuAgentCommand(expectedHomeDirCmd, domName).Return(expectedExecReturn, nil).Times(1)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedHomeDirCmdRes, nil).Times(1)
-
-		// Expected Read File
-		mockConn.EXPECT().QemuAgentCommand(expectedOpenCmd, domName).Return(expectedOpenCmdRes, nil).Times(1)
-		mockConn.EXPECT().QemuAgentCommand(expectedReadCmd, domName).Return(expectedReadCmdRes, nil).Times(1)
-		mockConn.EXPECT().QemuAgentCommand(expectedCloseCmd, domName).Return("", nil).Times(1)
-
-		// Expected prepare directory
-		mockConn.EXPECT().QemuAgentCommand(expectedMkdirCmd, domName).Return(expectedExecReturn, nil).Times(1)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedMkdirRes, nil).Times(1)
-
-		mockConn.EXPECT().QemuAgentCommand(expectedParentChownCmd, domName).Return(expectedExecReturn, nil).Times(1)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedParentChownRes, nil).Times(1)
-
-		mockConn.EXPECT().QemuAgentCommand(expectedParentChmodCmd, domName).Return(expectedExecReturn, nil).Times(1)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedParentChmodRes, nil).Times(1)
-
-		// Expected Write file
-		mockConn.EXPECT().QemuAgentCommand(expectedWriteOpenCmd, domName).Return(expectedOpenCmdRes, nil).Times(1)
-		mockConn.EXPECT().QemuAgentCommand(expectedWriteCmd, domName).Return("", nil).Times(1)
-		mockConn.EXPECT().QemuAgentCommand(expectedCloseCmd, domName).Return("", nil).Times(1)
-
-		// Expected set file permissions
-		mockConn.EXPECT().QemuAgentCommand(expectedFileChownCmd, domName).Return(expectedExecReturn, nil).Times(1)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedFileChownRes, nil).Times(1)
-
-		mockConn.EXPECT().QemuAgentCommand(expectedFileChmodCmd, domName).Return(expectedExecReturn, nil).Times(1)
-		mockConn.EXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedFileChmodRes, nil).Times(1)
-
-		Expect(manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)).To(Succeed())
-	})
-
-	It("should fail to update ssh key if both methods return error", func() {
+	It("should fail to update ssh key on error", func() {
 		domName := "some-domain"
 		user := "someowner"
 
@@ -215,12 +120,9 @@ var _ = Describe("AccessCredentials", func() {
 		// The AuthorizedSSHKeysSet method fails so a backward compatible code will be used.
 		mockDomain.EXPECT().AuthorizedSSHKeysSet(user, authorizedKeys, gomock.Any()).Return(libvirt.ERR_INTERNAL_ERROR).Times(1)
 		mockDomain.EXPECT().Free().Times(1)
-
-		// Detect user home dir
-		mockConn.EXPECT().QemuAgentCommand(gomock.Any(), gomock.Any()).Return("", libvirt.ERR_INTERNAL_ERROR).AnyTimes()
 
 		Expect(manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)).
-			To(MatchError(ContainSubstring("failed to set SSH keys")))
+			To(MatchError(ContainSubstring("failed to set SSH authorized keys")))
 	})
 
 	It("should support multiple ssh keys in one secret value", func() {

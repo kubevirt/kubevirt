@@ -21,7 +21,6 @@ package accesscredentials
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -35,23 +34,10 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
-
-type openReturn struct {
-	Return int `json:"return"`
-}
-
-type readReturnData struct {
-	Count  int    `json:"count"`
-	BufB64 string `json:"buf-b64"`
-}
-type readReturn struct {
-	Return readReturnData `json:"return"`
-}
 
 type AccessCredentialManager struct {
 	virConn cli.Connection
@@ -119,171 +105,6 @@ func getSecretBaseDir() string {
 
 }
 
-func (l *AccessCredentialManager) writeGuestFile(contents string, domName string, filePath string, owner string, fileExists bool) error {
-
-	// ensure the directory exists with the correct permissions
-	err := l.agentCreateDirectory(domName, filepath.Dir(filePath), "700", owner)
-	if err != nil {
-		return err
-	}
-
-	if fileExists {
-		// ensure the file has the correct permissions for writing
-		l.agentSetFilePermissions(domName, filePath, "600", owner)
-
-	}
-
-	// write the file
-	base64Str := base64.StdEncoding.EncodeToString([]byte(contents))
-	cmdOpenFile := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s", "mode":"w" } }`, filePath)
-	output, err := l.virConn.QemuAgentCommand(cmdOpenFile, domName)
-	if err != nil {
-		return err
-	}
-
-	openRes := &openReturn{}
-	err = json.Unmarshal([]byte(output), openRes)
-	if err != nil {
-		return err
-	}
-
-	cmdWriteFile := fmt.Sprintf(`{"execute": "guest-file-write", "arguments": { "handle": %d, "buf-b64": "%s" } }`, openRes.Return, base64Str)
-	_, err = l.virConn.QemuAgentCommand(cmdWriteFile, domName)
-	if err != nil {
-		return err
-	}
-
-	cmdCloseFile := fmt.Sprintf(`{"execute": "guest-file-close", "arguments": { "handle": %d } }`, openRes.Return)
-	_, err = l.virConn.QemuAgentCommand(cmdCloseFile, domName)
-	if err != nil {
-		return err
-	}
-
-	if !fileExists {
-		// ensure the file has the correct permissions and ownership after creating new file
-		l.agentSetFilePermissions(domName, filePath, "600", owner)
-	}
-
-	return nil
-}
-
-func (l *AccessCredentialManager) readGuestFile(domName string, filePath string) (string, error) {
-	contents := ""
-
-	cmdOpenFile := fmt.Sprintf(`{"execute": "guest-file-open", "arguments": { "path": "%s", "mode":"r" } }`, filePath)
-	output, err := l.virConn.QemuAgentCommand(cmdOpenFile, domName)
-	if err != nil {
-		return contents, err
-	}
-
-	openRes := &openReturn{}
-	err = json.Unmarshal([]byte(output), openRes)
-	if err != nil {
-		return contents, err
-	}
-
-	cmdReadFile := fmt.Sprintf(`{"execute": "guest-file-read", "arguments": { "handle": %d } }`, openRes.Return)
-	readOutput, err := l.virConn.QemuAgentCommand(cmdReadFile, domName)
-
-	if err != nil {
-		return contents, err
-	}
-
-	readRes := &readReturn{}
-	err = json.Unmarshal([]byte(readOutput), readRes)
-	if err != nil {
-		return contents, err
-	}
-
-	if readRes.Return.Count > 0 {
-		readBytes, err := base64.StdEncoding.DecodeString(readRes.Return.BufB64)
-		if err != nil {
-			return contents, err
-		}
-		contents = string(readBytes)
-	}
-
-	cmdCloseFile := fmt.Sprintf(`{"execute": "guest-file-close", "arguments": { "handle": %d } }`, openRes.Return)
-	_, err = l.virConn.QemuAgentCommand(cmdCloseFile, domName)
-	if err != nil {
-		return contents, err
-	}
-
-	return contents, nil
-}
-
-func (l *AccessCredentialManager) agentGuestExec(domName string, command string, args []string) (string, error) {
-	return agent.GuestExec(l.virConn, domName, command, args, 10)
-}
-
-// Requires usage of mkdir, chown, chmod
-func (l *AccessCredentialManager) agentCreateDirectory(domName string, dir string, permissions string, owner string) error {
-	// Ensure the directory exists
-	_, err := l.agentGuestExec(domName, "mkdir", []string{"-p", dir})
-	if err != nil {
-		return err
-	}
-
-	// set ownership/permissions of directory using parent directory owner
-	_, err = l.agentGuestExec(domName, "chown", []string{owner, dir})
-	if err != nil {
-		return err
-	}
-	_, err = l.agentGuestExec(domName, "chmod", []string{permissions, dir})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (l *AccessCredentialManager) agentGetUserInfo(domName string, user string) (string, string, string, error) {
-	passwdEntryStr, err := l.agentGuestExec(domName, "getent", []string{"passwd", user})
-	if err != nil {
-		return "", "", "", fmt.Errorf("Unable to detect home directory of user %s: %s", user, err.Error())
-	}
-	passwdEntryStr = strings.TrimSpace(passwdEntryStr)
-	entries := strings.Split(passwdEntryStr, ":")
-	if len(entries) < 6 {
-		return "", "", "", fmt.Errorf("Unable to detect home directory of user %s", user)
-	}
-
-	filePath := entries[5]
-	uid := entries[2]
-	gid := entries[3]
-	log.Log.Infof("Detected home directory %s for user %s", filePath, user)
-	return filePath, uid, gid, nil
-}
-
-func (l *AccessCredentialManager) agentGetFileOwnership(domName string, filePath string) (string, error) {
-	ownerStr, err := l.agentGuestExec(domName, "stat", []string{"-c", "%U:%G", filePath})
-	if err != nil {
-		return "", fmt.Errorf("Unable to detect ownership of access credential at %s: %s", filePath, err.Error())
-	}
-	ownerStr = strings.TrimSpace(ownerStr)
-	if ownerStr == "" {
-		return "", fmt.Errorf("Unable to detect ownership of access credential at %s", filePath)
-	}
-
-	log.Log.Infof("Detected owner %s for quest path %s", ownerStr, filePath)
-	return ownerStr, nil
-}
-
-// Requires usage of chown, chmod
-func (l *AccessCredentialManager) agentSetFilePermissions(domName string, filePath string, permissions string, owner string) error {
-	// set ownership/permissions of directory using parent directory owner
-	_, err := l.agentGuestExec(domName, "chown", []string{owner, filePath})
-	if err != nil {
-		return err
-	}
-	_, err = l.agentGuestExec(domName, "chmod", []string{permissions, filePath})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (l *AccessCredentialManager) agentSetUserPassword(domName string, user string, password string) error {
 	domain, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
@@ -300,69 +121,21 @@ func (l *AccessCredentialManager) pingAgent(domName string) error {
 	return err
 }
 
-func (l *AccessCredentialManager) agentSetAuthorizedKeys(domName string, user string, authorizedKeys []string) error {
-	err := func() error {
-		domain, err := l.virConn.LookupDomainByName(domName)
-		if err != nil {
-			return err
-		}
-		defer domain.Free()
-
-		// Zero flags argument means that the authorized_keys file is overwritten with the authorizedKeys
-		return domain.AuthorizedSSHKeysSet(user, authorizedKeys, 0)
-	}()
-	if err == nil {
-		return nil
-	}
-
-	log.Log.V(4).Infof("Could not set SSH key using guest-ssh-add-authorized-keys: %v", err)
-
-	// If AuthorizedSSHKeysSet method failed, use the old method
-	desiredAuthorizedKeys := strings.Join(authorizedKeys, "\n")
-	secondErr := l.agentWriteAuthorizedKeysFile(domName, user, desiredAuthorizedKeys)
-	if secondErr == nil {
-		return nil
-	}
-
-	return fmt.Errorf(
-		"failed to set SSH keys: error from guest-ssh-add-authorized-keys: %w; error from using guest-file-write: %w",
-		err,
-		secondErr,
-	)
-}
-
-func (l *AccessCredentialManager) agentWriteAuthorizedKeysFile(domName string, user string, desiredAuthorizedKeys string) (err error) {
-	curAuthorizedKeys := ""
-	fileExists := true
-
-	// ######
-	// Step 1. Get home directory for user.
-	// ######
-	homeDir, uid, gid, err := l.agentGetUserInfo(domName, user)
+func (l *AccessCredentialManager) agentSetAuthorizedKeys(domName string, user string, authorizedKeys []string) (err error) {
+	domain, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to lookup domain %s: %w", domName, err)
 	}
-
-	// ######
-	// Step 2. Read file on guest to determine if change is required
-	// ######
-	filePath := fmt.Sprintf("%s/.ssh/authorized_keys", homeDir)
-	curAuthorizedKeys, err = l.readGuestFile(domName, filePath)
-	if err != nil && strings.Contains(err.Error(), "No such file or directory") {
-		fileExists = false
-	} else if err != nil {
-		return err
-	}
-
-	// ######
-	// Step 3. Write authorized_keys file if changes exist
-	// ######
-	// only update if the updated string is not equal to the current contents on the guest.
-	if curAuthorizedKeys != desiredAuthorizedKeys {
-		err = l.writeGuestFile(desiredAuthorizedKeys, domName, filePath, fmt.Sprintf("%s:%s", uid, gid), fileExists)
-		if err != nil {
-			return err
+	defer func() {
+		if freeErr := domain.Free(); err == nil && freeErr != nil {
+			err = fmt.Errorf("failed to free domain %s: %w", domName, freeErr)
 		}
+	}()
+
+	// Zero flags argument means that the authorized_keys file is overwritten with the authorizedKeys
+	err = domain.AuthorizedSSHKeysSet(user, authorizedKeys, 0)
+	if err != nil {
+		return fmt.Errorf("failed to set SSH authorized keys: %w", err)
 	}
 
 	return nil
