@@ -28,7 +28,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	"kubevirt.io/client-go/api"
 	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
@@ -2729,14 +2728,15 @@ var _ = Describe("VirtualMachine", func() {
 		It("should ignore non-matching VMIs", func() {
 			vm, _ := watchtesting.DefaultVirtualMachine(true)
 
-			nonMatchingVMI := api.NewMinimalVMI("testvmi1")
-			nonMatchingVMI.ObjectMeta.Labels = map[string]string{"test": "test1"}
+			nonMatchingVMI := libvmi.New(
+				libvmi.WithName("testvmi1"),
+				libvmi.WithLabel("test", "test1"),
+			)
 
 			vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 			Expect(err).To(Succeed())
 			addVirtualMachine(vm)
 
-			// We still expect three calls to create VMIs, since VirtualMachineInstance does not meet the requirements
 			_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), nonMatchingVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			controller.vmiIndexer.Add(nonMatchingVMI)
@@ -4683,7 +4683,9 @@ var _ = Describe("VirtualMachine", func() {
 						Sockets: 2,
 					}
 
-					vmi := api.NewMinimalVMI(vm.Name)
+					vmi := libvmi.New(
+						libvmi.WithName(vm.Name),
+					)
 					vmi.Spec.Domain.CPU = &v1.CPU{
 						Sockets:    1,
 						MaxSockets: 4,
@@ -4749,7 +4751,9 @@ var _ = Describe("VirtualMachine", func() {
 						Sockets: 2,
 					}
 
-					vmi := api.NewMinimalVMI(vm.Name)
+					vmi := libvmi.New(
+						libvmi.WithName(vm.Name),
+					)
 					vmi.Spec.Domain.CPU = &v1.CPU{
 						Sockets:    1,
 						MaxSockets: 4,
@@ -4795,7 +4799,9 @@ var _ = Describe("VirtualMachine", func() {
 					}
 					vm.Spec.Template.Spec.Domain.Devices.NetworkInterfaceMultiQueue = pointer.P(true)
 
-					vmi := api.NewMinimalVMI(vm.Name)
+					vmi := libvmi.New(
+						libvmi.WithName(vm.Name),
+					)
 					vmi.Spec.Domain.CPU = &v1.CPU{
 						Sockets:    1,
 						MaxSockets: 4,
@@ -4856,7 +4862,9 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
 					vm.Spec.Template.Spec.Architecture = "amd64"
 
-					vmi := api.NewMinimalVMI(vm.Name)
+					vmi := libvmi.New(
+						libvmi.WithName(vm.Name),
+					)
 					guestMemory := resource.MustParse("1Gi")
 					vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory, MaxGuest: &maxGuestFromSpec}
 					vmi.Spec.Domain.Resources = resources
@@ -4911,7 +4919,9 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
 					vm.Spec.Template.Spec.Architecture = "amd64"
 
-					vmi := api.NewMinimalVMI(vm.Name)
+					vmi := libvmi.New(
+						libvmi.WithName(vm.Name),
+					)
 					guestMemory := resource.MustParse("1Gi")
 					vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory, MaxGuest: &maxGuestFromSpec}
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = guestMemory
@@ -4942,7 +4952,9 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
 					vm.Spec.Template.Spec.Architecture = "amd64"
 
-					vmi := api.NewMinimalVMI(vm.Name)
+					vmi := libvmi.New(
+						libvmi.WithName(vm.Name),
+					)
 					guestMemory := resource.MustParse("1Gi")
 					vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory, MaxGuest: &maxGuestFromSpec}
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = guestMemory
@@ -4972,7 +4984,9 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
 					vm.Spec.Template.Spec.Architecture = "amd64"
 
-					vmi := api.NewMinimalVMI(vm.Name)
+					vmi := libvmi.New(
+						libvmi.WithName(vm.Name),
+					)
 					vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory, MaxGuest: &maxGuestFromSpec}
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = guestMemory
 					vmi.Status.Memory = &v1.MemoryStatus{
@@ -4997,7 +5011,9 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
 					vm.Spec.Template.Spec.Architecture = "amd64"
 
-					vmi := api.NewMinimalVMI(vm.Name)
+					vmi := libvmi.New(
+						libvmi.WithName(vm.Name),
+					)
 					vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory, MaxGuest: &maxGuestFromSpec}
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = guestMemory
 					vmi.Status.Memory = &v1.MemoryStatus{
@@ -5025,7 +5041,9 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
 					vm.Spec.Template.Spec.Architecture = "risc-v"
 
-					vmi := api.NewMinimalVMI(vm.Name)
+					vmi := libvmi.New(
+						libvmi.WithName(vm.Name),
+					)
 					vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory, MaxGuest: &maxGuestFromSpec}
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = guestMemory
 					vmi.Status.Memory = &v1.MemoryStatus{
@@ -5069,7 +5087,9 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
 					vm.Spec.Template.Spec.Architecture = "amd64"
 
-					vmi := api.NewMinimalVMI(vm.Name)
+					vmi := libvmi.New(
+						libvmi.WithName(vm.Name),
+					)
 					vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory, MaxGuest: &maxGuestFromSpec}
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = guestMemory
 					vmi.Status.Memory = &v1.MemoryStatus{
@@ -5117,7 +5137,9 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
 					vm.Spec.Template.Spec.Architecture = "risc-v"
 
-					vmi := api.NewMinimalVMI(vm.Name)
+					vmi := libvmi.New(
+						libvmi.WithName(vm.Name),
+					)
 					vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory, MaxGuest: nil}
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = guestMemory
 					vmi.Status.Memory = &v1.MemoryStatus{
@@ -5160,7 +5182,9 @@ var _ = Describe("VirtualMachine", func() {
 					vm.Spec.Template.Spec.Domain.Memory = &v1.Memory{Guest: &newMemory}
 					vm.Spec.Template.Spec.Architecture = "amd64"
 
-					vmi := api.NewMinimalVMI(vm.Name)
+					vmi := libvmi.New(
+						libvmi.WithName(vm.Name),
+					)
 					vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory, MaxGuest: nil}
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = guestMemory
 					vmi.Status.Memory = &v1.MemoryStatus{
