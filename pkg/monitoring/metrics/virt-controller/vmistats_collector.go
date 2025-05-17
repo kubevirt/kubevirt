@@ -124,7 +124,7 @@ var (
 			Help: "Details of VirtualMachineInstance (VMI) vNIC interfaces, such as vNIC name, binding type, " +
 				"network name, and binding name for each vNIC of a running instance.",
 		},
-		[]string{"name", "namespace", "vnic_name", "binding_type", "network", "binding_name"},
+		[]string{"name", "namespace", "vnic_name", "binding_type", "network", "binding_name", "model"},
 	)
 )
 
@@ -445,6 +445,10 @@ func CollectVmisVnicInfo(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.Co
 	networks := vmi.Spec.Networks
 
 	for _, iface := range interfaces {
+		model := "<none>"
+		if iface.Model != "" {
+			model = iface.Model
+		}
 		bindingType, bindingName := getBinding(iface)
 		networkName, matchFound := getNetworkName(iface.Name, networks)
 
@@ -461,6 +465,7 @@ func CollectVmisVnicInfo(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.Co
 				bindingType,
 				networkName,
 				bindingName,
+				model,
 			},
 			Value: 1.0,
 		})
