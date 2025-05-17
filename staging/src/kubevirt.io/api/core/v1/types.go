@@ -2651,6 +2651,10 @@ type KubeVirtConfiguration struct {
 	// SupportContainerResources specifies the resource requirements for various types of supporting containers such as container disks/virtiofs/sidecars and hotplug attachment pods. If omitted a sensible default will be supplied.
 	SupportContainerResources []SupportContainerResources `json:"supportContainerResources,omitempty"`
 
+	// +listType=atomic
+	// HotplugPodTolerations specifies the tolerations for various types of supporting containers such as hotplug attachment pods. If omitted a sensible default will be supplied.
+	HotplugPodTolerations []k8sv1.Toleration `json:"hotplugPodTolerations,omitempty"`
+
 	// deprecated
 	SupportedGuestAgentVersions    []string                          `json:"supportedGuestAgentVersions,omitempty"`
 	MemBalloonStatsPeriod          *uint32                           `json:"memBalloonStatsPeriod,omitempty"`

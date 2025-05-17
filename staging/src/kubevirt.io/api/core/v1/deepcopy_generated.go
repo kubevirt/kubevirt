@@ -2647,6 +2647,13 @@ func (in *KubeVirtConfiguration) DeepCopyInto(out *KubeVirtConfiguration) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.HotplugPodTolerations != nil {
+		in, out := &in.HotplugPodTolerations, &out.HotplugPodTolerations
+		*out = make([]corev1.Toleration, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.SupportedGuestAgentVersions != nil {
 		in, out := &in.SupportedGuestAgentVersions, &out.SupportedGuestAgentVersions
 		*out = make([]string, len(*in))
