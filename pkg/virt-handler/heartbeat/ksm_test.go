@@ -27,20 +27,22 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "k8s.io/api/core/v1"
+	kubevirtv1 "kubevirt.io/api/core/v1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
-	kubevirtv1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	gomegatypes "github.com/onsi/gomega/types"
+
+	"kubevirt.io/kubevirt/pkg/testutils"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -48,6 +50,8 @@ const (
 	memTotal               = 65680332
 	memAvailablePressure   = 5183928
 	memAvailableNoPressure = 39207804
+
+	testNodeName = "test-node"
 )
 
 var _ = Describe("KSM", func() {
@@ -103,6 +107,13 @@ var _ = Describe("KSM", func() {
 		ExpectWithOffset(1, string(bytes.TrimSpace(running))).To(Equal(runningS), "bad running state")
 	}
 
+	newHeartBeat := func(fakeClient *fake.Clientset, clusterConfig *virtconfig.ClusterConfig) *HeartBeat {
+		heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), clusterConfig, testNodeName)
+		Expect(heartbeat.handleKSMForceUpdate()).To(Succeed())
+
+		return heartbeat
+	}
+
 	BeforeEach(func() {
 		createCustomKSMTree()
 		ksmBasePath = fakeSysKSMDir + "/"
@@ -119,30 +130,33 @@ var _ = Describe("KSM", func() {
 		It("should set KSM label value to false", func() {
 			node := &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "mynode",
+					Name:        testNodeName,
+					Labels:      nil,
+					Annotations: map[string]string{"unrelated-key": "unrelated-value"},
 				},
 			}
 			fakeClient := fake.NewSimpleClientset(node)
 			createCustomMemInfo(false)
-			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), config(featuregate.CPUManager), "mynode")
+			heartbeat := newHeartBeat(fakeClient, config(featuregate.CPUManager))
 
-			heartbeat.do()
-			node, err := fakeClient.CoreV1().Nodes().Get(context.TODO(), "mynode", metav1.GetOptions{})
+			node, err := fakeClient.CoreV1().Nodes().Get(context.TODO(), testNodeName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(node.Labels).To(HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "false"))
 
 			err = os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte("1\n"), 0644)
 			Expect(err).ToNot(HaveOccurred())
 
-			heartbeat.do()
-			node, err = fakeClient.CoreV1().Nodes().Get(context.TODO(), "mynode", metav1.GetOptions{})
+			Expect(heartbeat.handleKSM()).To(Succeed())
+			node, err = fakeClient.CoreV1().Nodes().Get(context.TODO(), testNodeName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(node.Labels).To(HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "false"))
+			Expect(node.Annotations).To(HaveKeyWithValue("unrelated-key", "unrelated-value"))
 		})
 	})
 
 	When("ksmConfiguration is provided,", func() {
 		var kv *kubevirtv1.KubeVirt
+		var clusterConfig *virtconfig.ClusterConfig
 
 		alternativeLabelSelector := &metav1.LabelSelector{
 			MatchExpressions: []metav1.LabelSelectorRequirement{
@@ -171,22 +185,22 @@ var _ = Describe("KSM", func() {
 					},
 				},
 			}
+
+			clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKV(kv)
 		})
 
 		DescribeTable("independently from node pressure", func(nodeLabels map[string]string, expectedLabelValue string) {
-			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
 			node := &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:   "mynode",
+					Name:   testNodeName,
 					Labels: nodeLabels,
 				},
 			}
 			fakeClient := fake.NewSimpleClientset(node)
-			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), clusterConfig, "mynode")
+			heartbeat := newHeartBeat(fakeClient, clusterConfig)
+			Expect(heartbeat.handleKSM()).To(Succeed())
 
-			heartbeat.do()
-
-			node, err := fakeClient.CoreV1().Nodes().Get(context.TODO(), "mynode", metav1.GetOptions{})
+			node, err := fakeClient.CoreV1().Nodes().Get(context.TODO(), testNodeName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(node.Labels).To(HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, expectedLabelValue))
 		},
@@ -200,10 +214,9 @@ var _ = Describe("KSM", func() {
 			if selectorOverride != nil {
 				kv.Spec.Configuration.KSMConfiguration.NodeLabelSelector = selectorOverride
 			}
-			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
 			node := &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "mynode",
+					Name:        testNodeName,
 					Labels:      nodeLabels,
 					Annotations: nodeAnnotations,
 				},
@@ -212,11 +225,10 @@ var _ = Describe("KSM", func() {
 			err := os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte(initialKsmValue), 0644)
 			Expect(err).ToNot(HaveOccurred())
 			createCustomMemInfo(true)
-			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), clusterConfig, "mynode")
+			heartbeat := newHeartBeat(fakeClient, clusterConfig)
+			Expect(heartbeat.handleKSM()).To(Succeed())
 
-			heartbeat.do()
-
-			node, err = fakeClient.CoreV1().Nodes().Get(context.TODO(), "mynode", metav1.GetOptions{})
+			node, err = fakeClient.CoreV1().Nodes().Get(context.TODO(), testNodeName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(node.Labels).To(labelsMatcher)
 			Expect(node.Annotations).To(annotationsMatcher)
@@ -248,12 +260,10 @@ var _ = Describe("KSM", func() {
 		)
 
 		It("should adapt to memory pressure", func() {
-			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
-
 			By("initializing with KSM enabled on the node and no memory pressure")
 			node := &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:   "mynode",
+					Name:   testNodeName,
 					Labels: map[string]string{"test_label": "true"},
 				},
 			}
@@ -264,55 +274,53 @@ var _ = Describe("KSM", func() {
 			}
 			fakeClient := fake.NewSimpleClientset(node)
 			createCustomMemInfo(false)
-			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), clusterConfig, "mynode")
+			heartbeat := newHeartBeat(fakeClient, clusterConfig)
 
 			By("running a first heartbeat and expecting no change")
-			heartbeat.do()
+			Expect(heartbeat.handleKSM()).To(Succeed())
 			expectKSMState(expected)
 
 			By("inducing memory pressure and expecting KSM to start running")
 			createCustomMemInfo(true)
-			heartbeat.do()
+			Expect(heartbeat.handleKSM()).To(Succeed())
 			expected.running = true
 			expectKSMState(expected)
 
 			By("expecting the number of pages to scan to increase every heartbeat up to max value")
-			heartbeat.do()
+			Expect(heartbeat.handleKSM()).To(Succeed())
 			expected.pages = nPagesInitDefault + pagesBoostDefault
 			expectKSMState(expected)
-			heartbeat.do()
-			heartbeat.do()
-			heartbeat.do()
+			for i := 0; i < 3; i++ {
+				Expect(heartbeat.handleKSM()).To(Succeed())
+			}
 			expected.pages = nPagesMaxDefault
 			expectKSMState(expected)
 
 			By("cancelling memory pressure and expecting more sleep and a decay of the number of pages to scan")
 			createCustomMemInfo(false)
-			heartbeat.do()
+			Expect(heartbeat.handleKSM()).To(Succeed())
 			expected.pages = nPagesMaxDefault + pagesDecayDefault
 			expected.sleep = sleepMsBaselineDefault * (16 * 1024 * 1024) / (memTotal - memAvailableNoPressure)
 			expectKSMState(expected)
 			for i := 0; i < 15; i++ {
-				heartbeat.do()
+				Expect(heartbeat.handleKSM()).To(Succeed())
 			}
 			expected.pages = nPagesMaxDefault + 16*pagesDecayDefault
 			expectKSMState(expected)
 
 			By("expecting KSM to stop running after enough time without memory pressure")
 			for i := 0; i < 30; i++ {
-				heartbeat.do()
+				Expect(heartbeat.handleKSM()).To(Succeed())
 			}
 			expected.running = false
 			expectKSMState(expected)
 		})
 
 		It("should use override values if provided", func() {
-			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
-
 			By("initializing with KSM enabled on the node and override annotations")
 			node := &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:   "mynode",
+					Name:   testNodeName,
 					Labels: map[string]string{"test_label": "true"},
 					Annotations: map[string]string{
 						kubevirtv1.KSMPagesBoostOverride:      "123",
@@ -332,31 +340,30 @@ var _ = Describe("KSM", func() {
 			}
 			fakeClient := fake.NewSimpleClientset(node)
 			createCustomMemInfo(false)
-			heartbeat := NewHeartBeat(fakeClient.CoreV1(), deviceController(true), clusterConfig, "mynode")
+			heartbeat := newHeartBeat(fakeClient, clusterConfig)
 
 			By("running a first heartbeat and expecting the right values")
-			heartbeat.do()
 			expectKSMState(expected)
 
 			By("expecting the number of pages to scan to increase every heartbeat up to max value")
-			heartbeat.do()
+			Expect(heartbeat.handleKSM()).To(Succeed())
 			expected.pages = 166 + 123
 			expectKSMState(expected)
 			for i := 0; i < 5; i++ {
-				heartbeat.do()
+				Expect(heartbeat.handleKSM()).To(Succeed())
 			}
 			expected.pages = 789
 			expectKSMState(expected)
 
 			By("cancelling memory pressure and expecting to decrease pages and stop running when reaching minimum")
 			data := []byte(fmt.Sprintf(`{"metadata": { "annotations": {"%s": "%s"}}}`, kubevirtv1.KSMFreePercentOverride, "0.1"))
-			_, err := fakeClient.CoreV1().Nodes().Patch(context.Background(), "mynode", types.StrategicMergePatchType, data, metav1.PatchOptions{})
+			_, err := fakeClient.CoreV1().Nodes().Patch(context.Background(), testNodeName, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			heartbeat.do()
+			Expect(heartbeat.handleKSM()).To(Succeed())
 			expected.pages = 789 - 50
 			expectKSMState(expected)
 			for i := 0; i < 16; i++ {
-				heartbeat.do()
+				Expect(heartbeat.handleKSM()).To(Succeed())
 			}
 			expected.running = false
 			expectKSMState(expected)
