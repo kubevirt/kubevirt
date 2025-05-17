@@ -55,7 +55,6 @@ import (
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -113,29 +112,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-	})
-
-	Context("with all devices on the root PCI bus", func() {
-		It("[test_id:4623]should start run the guest as usual", func() {
-			vmi := libvmifact.NewCirros(
-				libvmi.WithAnnotation(v1.PlacePCIDevicesOnRootComplex, "true"),
-				libvmi.WithRng(),
-				libvmi.WithWatchdog(v1.WatchdogActionPoweroff, libnode.GetArch()),
-				libvmi.WithTablet("tablet", "virtio"),
-				libvmi.WithTablet("tablet1", "usb"),
-			)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 60)
-			Expect(console.LoginToCirros(vmi)).To(Succeed())
-			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			rootPortController := []api.Controller{}
-			for _, c := range domSpec.Devices.Controllers {
-				if c.Model == "pcie-root-port" {
-					rootPortController = append(rootPortController, c)
-				}
-			}
-			Expect(rootPortController).To(BeEmpty(), "libvirt should not add additional buses to the root one")
-		})
 	})
 
 	Context("when requesting virtio-transitional models", func() {
